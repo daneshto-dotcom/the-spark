@@ -298,7 +298,25 @@ export type { NetSnapshot };
 // laser's beam damage were both DERIVED from GOBLIN_MELEE_HP, so S150 correctly refused to touch it
 // in isolation. S151 deletes those derivations (PRINCESS_SLAP_ATK / TURRET_BEAM_ATK are now stated
 // on the shared ladder at the same 3 and 6 they always were), which is what finally unblocked it.
-export const PROTOCOL_VERSION = 29 as const;
+// S151 P3 — bumped 29->30: THE GOBLIN TOWER (owner R70). One tower, six outputs — feed it a shape
+// and it makes the goblin that shape maps to. THREE distinct wire breaks:
+//   (a) FIVE NEW `CreatureType` LITERALS (goblinArcher/Shield/Hound/Bat/Suicide). `serializeCreature`
+//       emits `type` unconditionally and `getCreatureConfig` is a bare Record index with NO
+//       unknown-value guard, so a v29 peer receiving one of these does not degrade — it reads
+//       `undefined` and throws on the first field access. Same class as 'lightningDrone' at 13->14.
+//   (b) A NEW `GodlyId` LITERAL, 'goblinTower', which rides the wire on `Spawner.recipeId`. A stale
+//       peer holds a spawner whose recipe it cannot resolve.
+//   (c) A NEW CLIENT INTENT, `FEED_TOWER`, absent from a v29 host's allowlist — so a v30 joiner's
+//       feed would be SILENTLY DROPPED rather than refused, which is the failure mode the intent
+//       allowlist comment warns about explicitly.
+//
+// ⚠ AND THIS BUMP WAS AVOIDABLE — RECORDED SO THE MISTAKE IS NOT REPEATED. The S151 PDR planned
+// P2 and P3 to SHARE the 28->29 bump, which was correct: they are one feature. But P2 was committed
+// and DEPLOYED before P3 began, so v29 went live WITHOUT the goblin types. Adding them under the
+// same version number would have put two different wire surfaces both calling themselves v29 —
+// exactly the desync a version exists to prevent. The lesson is about SEQUENCING, not design: do
+// not deploy the first half of a two-part wire change.
+export const PROTOCOL_VERSION = 30 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -418,6 +436,10 @@ export interface HelloMsg {
    * hit points — its connectors do); `Bond.damageFifths` added + hashed; and GOBLIN_MELEE_HP 6->1,
    * which is the shared-constant rule below firing for the third time.)
    *
+   * S151 P3: 29->30 (THE GOBLIN TOWER — five new CreatureType literals, the 'goblinTower' GodlyId
+   * on `Spawner.recipeId`, and the FEED_TOWER client intent. Avoidable: P2 deployed before P3, so
+   * the planned shared bump could not be shared.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -450,7 +472,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 29;
+  readonly protoVersion: 30;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -767,6 +789,10 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // S144 P1 — BUILD_BLUEPRINT is also a CLIENT INTENT (see below). PROTOCOL_VERSION bumped 20->21;
   // an old peer cannot receive this, but its HELLO is already rejected at handshake.
   BUILD_BLUEPRINT: true,
+  // ⭐ S151 P3 — FEED_TOWER (owner R70): hand one shape to a goblin tower and it makes the goblin
+  // that shape maps to. A CLIENT INTENT (see the second allowlist below) so a 1v1 joiner can feed
+  // their own tower; the host re-checks ownership, recipe and affordability regardless.
+  FEED_TOWER: true,
   // S152 — FIX + SCRAP (R13/R19/R21). Both are also CLIENT INTENTs (see below).
   // PROTOCOL_VERSION bumped 26->27.
   REPAIR_STRUCTURE: true,
@@ -937,6 +963,11 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // `planBlueprintPayment` against its own bank/porch. A stale client view therefore no-ops instead of
   // building the wrong thing or paying with shapes it no longer owns.
   BUILD_BLUEPRINT: true,
+  // ⭐ S151 P3 — a joiner hands a shape from ITS OWN castle bank to ITS OWN goblin tower. The host
+  // re-resolves all four gates against its own world (the spawner exists AND is a goblinTower, the
+  // seat owns it, its anchor is still standing, and the bank really holds that shape), so a stale
+  // click no-ops instead of minting a goblin from a tower that has already collapsed.
+  FEED_TOWER: true,
   // S152 — a joiner clicks one of ITS OWN towers and presses FIX or SCRAP. The host re-resolves
   // every gate against its own world: `canBuildNow` (BUILD stage + the seat's own ground, R19),
   // per-member ownership, blueprint provenance, and — for FIX — `planPaymentForTypes` against its

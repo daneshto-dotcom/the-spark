@@ -1,0 +1,20 @@
+{
+  "cellW": 240,
+  "cellH": 240,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9958
+  },
+  "states": {
+    "idle": {
+      "row": 0,
+      "frames": 12,
+      "ticksPerFrame": 6
+    },
+    "attack": {
+      "row": 1,
+      "frames": 12,
+      "ticksPerFrame": 4
+    }
+  }
+}

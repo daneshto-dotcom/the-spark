@@ -21,11 +21,28 @@
  * because a render that branches on wall-clock is a desync waiting for a slow frame.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+
+/* ⭐ S151 P3 — the veo atlas built from the owner's own STINK TOWER design. Owner: *"the stink tower
+ * there is designed and actually looks good so make sure you make the stink tower look like that
+ * too"*. The procedural rig below is retained as the instant-first-paint and load-failure fallback,
+ * the same posture as HELGA and Voltkin — an emplacement that draws nothing is worse than one that
+ * draws a placeholder. */
+const STINK_ATLAS_BASE = '/godly/stink-tower/anim/stink-tower';
+interface StinkAtlasState { row: number; frames: number; ticksPerFrame: number; }
+interface StinkAtlasManifest {
+  cellW: number; cellH: number;
+  footAnchor: { x: number; y: number };
+  states: Record<string, StinkAtlasState>;
+}
 import type { World } from '../state/world.ts';
 import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
-import { STINK_AURA_RADIUS, STINK_TOWER_BAGS } from '../constants.ts';
+import {
+  STINK_AURA_RADIUS,
+  STINK_TOWER_BAGS,
+  STINK_TOWER_SPRITE_BASE_SCALE,
+} from '../constants.ts';
 
 // ── pencil palette (shared vocabulary with turretRenderer) ──
 const GRAPHITE = 0x2e2f36;
@@ -43,14 +60,51 @@ export class StinkTowerRenderer {
   /** Per-tower last-seen FSM state — used to fire the lob VFX on the entry edge, not every frame. */
   private readonly lastState: Map<DefenderId, string> = new Map();
 
+  private readonly spriteLayer: Container;
+  private readonly sprites: Map<DefenderId, Sprite> = new Map();
+  private atlas: { cells: Record<string, Texture[]>; manifest: StinkAtlasManifest } | null = null;
+  private atlasLoadStarted = false;
+
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
     parent.addChild(this.graphics);
+    this.spriteLayer = new Container();
+    parent.addChild(this.spriteLayer);
+  }
+
+  /** One-time lazy atlas load; the procedural tower keeps drawing until (or unless) it resolves. */
+  private ensureAtlas(): void {
+    if (this.atlasLoadStarted) return;
+    this.atlasLoadStarted = true;
+    void (async () => {
+      try {
+        const manifest =
+          (await (await fetch(`${STINK_ATLAS_BASE}-anim.json`)).json()) as StinkAtlasManifest;
+        const tex = (await Assets.load(`${STINK_ATLAS_BASE}-atlas.png`)) as Texture;
+        const cells: Record<string, Texture[]> = {};
+        for (const [name, st] of Object.entries(manifest.states)) {
+          const arr: Texture[] = [];
+          for (let i = 0; i < st.frames; i++) {
+            arr.push(new Texture({
+              source: tex.source,
+              frame: new Rectangle(
+                i * manifest.cellW, st.row * manifest.cellH, manifest.cellW, manifest.cellH,
+              ),
+            }));
+          }
+          cells[name] = arr;
+        }
+        this.atlas = { cells, manifest };
+      } catch {
+        this.atlas = null; // procedural fallback keeps the tower visible
+      }
+    })();
   }
 
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    this.ensureAtlas();
     const nowSec = performance.now() / 1000;
     const live = new Set<DefenderId>();
 
@@ -74,13 +128,45 @@ export class StinkTowerRenderer {
           .stroke({ color: STINK_DEEP, width: 1.2, alpha: 0.25 + pulse * 0.2 });
       }
 
-      this.drawTower(g, d.pos.x, d.pos.y, d.bagsRemaining, depleted, charge, nowSec);
+      if (this.atlas !== null) {
+        // ⚠ Frame index from the SYNCED `ticksInState`, never wall-clock — two peers watching the
+        // same tower must see the same frame, exactly as for HELGA and the goblins. The aura ring
+        // and the lob arc above/below stay procedural because they are STATE readouts, not art.
+        const name = firing ? 'attack' : 'idle';
+        const row = this.atlas.cells[name] ?? this.atlas.cells.idle;
+        const st = this.atlas.manifest.states[name] ?? this.atlas.manifest.states.idle;
+        if (row !== undefined && row.length > 0) {
+          const per = Math.max(1, st?.ticksPerFrame ?? 6);
+          const raw = Math.floor(d.ticksInState / per);
+          // The throw plays once and holds; the idle loops.
+          const i = firing ? Math.min(row.length - 1, raw) : raw % row.length;
+          let sp = this.sprites.get(d.id);
+          if (sp === undefined) {
+            sp = new Sprite();
+            sp.anchor.set(this.atlas.manifest.footAnchor.x, this.atlas.manifest.footAnchor.y);
+            this.spriteLayer.addChild(sp);
+            this.sprites.set(d.id, sp);
+          }
+          sp.texture = row[i]!;
+          sp.position.set(d.pos.x, d.pos.y);
+          sp.scale.set(STINK_TOWER_SPRITE_BASE_SCALE);
+          // A depleted tower visibly dims — the magazine state must stay readable at a glance now
+          // that the art no longer draws the bag count itself.
+          sp.alpha = depleted ? 0.72 : 1;
+        }
+      } else {
+        this.drawTower(g, d.pos.x, d.pos.y, d.bagsRemaining, depleted, charge, nowSec);
+      }
 
       if (firing && d.lastStrikePos !== null) {
         this.drawLob(g, d.pos.x, d.pos.y - BODY_H, d.lastStrikePos.x, d.lastStrikePos.y);
       }
     }
 
+    // A destroyed tower's sprite must go with it, or it stands there forever after the rubble.
+    for (const [id, sp] of [...this.sprites]) {
+      if (!live.has(id)) { sp.destroy(); this.sprites.delete(id); }
+    }
     if (this.lastState.size > live.size) {
       for (const id of [...this.lastState.keys()]) if (!live.has(id)) this.lastState.delete(id);
     }

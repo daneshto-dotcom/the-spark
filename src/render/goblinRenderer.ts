@@ -29,12 +29,47 @@
  * is used ONLY for cosmetic idle bob, which is allowed to differ per peer.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
+import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
-import { PLAYER_COLORS } from '../constants.ts';
+import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
+ *  the shitty goblin that we have now"*, and *"bring them to life ... just like helga"*.
+ * ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *
+ * Each animated goblin kind owns an atlas built by `scripts/build-sprite-atlas.mjs` from veo clips
+ * seeded IMAGE-TO-VIDEO off the owner's own character art, so idle, walk and attack are the same
+ * character rather than three drawings of one. The manifest format is Helga's exactly
+ * (`public/godly/helga/anim/helga-anim.json`), which is why this renderer can mirror
+ * `princessRenderer` instead of inventing a second scheme.
+ *
+ * ⚠ ONLY THE KINDS WITH ART APPEAR HERE. The owner scoped this session to the melee and archer
+ * goblins; the other four are next session. A kind absent from this map falls through to the
+ * procedural puppet, so it is still VISIBLE and playable — which matters, because the S139 sweep
+ * found that an unrendered creature simulates, walks, strikes, kills and dies with nothing drawn.
+ */
+const ATLASES: Partial<Record<CreatureType, string>> = {
+  goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
+  goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
+};
+
+/** Every goblin kind this renderer is responsible for, atlas-backed or procedural. */
+const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
+  'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
+]);
+
+interface AtlasState { row: number; frames: number; ticksPerFrame: number; }
+interface AtlasManifest {
+  cellW: number; cellH: number;
+  footAnchor: { x: number; y: number };
+  states: Record<string, AtlasState>;
+}
+interface LoadedAtlas { cells: Record<string, Texture[]>; manifest: AtlasManifest; }
 
 const OUTLINE = 0x2b2b2b;
 const SKIN = 0x7fae4e;
@@ -52,20 +87,112 @@ export class GoblinRenderer {
   private readonly lastSeenPos: Map<CreatureId, { x: number; y: number }> = new Map();
   private readonly facing: Map<CreatureId, 1 | -1> = new Map();
 
+  /** veo sprites live ABOVE the procedural layer so a fallback frame can never overdraw one. */
+  private readonly spriteLayer: Container;
+  private readonly sprites: Map<CreatureId, Sprite> = new Map();
+  private readonly atlases: Map<CreatureType, LoadedAtlas> = new Map();
+  private atlasLoadStarted = false;
+
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
     parent.addChild(this.graphics);
+    this.spriteLayer = new Container();
+    parent.addChild(this.spriteLayer);
     void app;
+  }
+
+  /**
+   * One-time lazy load of every kind's atlas + manifest. Until a load resolves — and permanently if
+   * it fails on some peer — that kind renders through the procedural puppet, so a goblin is never
+   * invisible. Mirrors `princessRenderer.ensureAtlas`.
+   */
+  private ensureAtlases(): void {
+    if (this.atlasLoadStarted) return;
+    this.atlasLoadStarted = true;
+    for (const [type, base] of Object.entries(ATLASES) as [CreatureType, string][]) {
+      void (async () => {
+        try {
+          const manifest = (await (await fetch(`${base}-anim.json`)).json()) as AtlasManifest;
+          const tex = (await Assets.load(`${base}-atlas.png`)) as Texture;
+          const cells: Record<string, Texture[]> = {};
+          for (const [name, st] of Object.entries(manifest.states)) {
+            const arr: Texture[] = [];
+            for (let i = 0; i < st.frames; i++) {
+              arr.push(new Texture({
+                source: tex.source,
+                frame: new Rectangle(
+                  i * manifest.cellW, st.row * manifest.cellH, manifest.cellW, manifest.cellH,
+                ),
+              }));
+            }
+            cells[name] = arr;
+          }
+          this.atlases.set(type, { cells, manifest });
+        } catch {
+          // Deliberately silent: the procedural puppet keeps this kind visible and playable.
+        }
+      })();
+    }
+  }
+
+  /**
+   * Place + frame one goblin's veo sprite from SYNCED state only.
+   *
+   * ⚠ THE FRAME INDEX MUST COME FROM `ticksInState`, NEVER FROM WALL-CLOCK. Two peers watching the
+   * same goblin have the same synced state and tick, so they show the same frame; a
+   * `performance.now()` index would drift them apart and make the swing land at visibly different
+   * moments on each screen. (Cosmetic idle bob in the puppet path is allowed to differ — it drives
+   * nothing.)
+   */
+  private syncSprite(
+    id: CreatureId, atlas: LoadedAtlas, state: string, ticksInState: number,
+    x: number, y: number, face: 1 | -1, alpha: number, tint: number,
+  ): void {
+    // FSM state → animation row. SEEKING is the only state a goblin actually travels in, so it is
+    // the walk; SPAWNING and DESPAWNING read as idle rather than getting their own art.
+    const name = state === 'ATTACKING' ? 'attack' : state === 'SEEKING' ? 'walk' : 'idle';
+    const row = atlas.cells[name] ?? atlas.cells.idle;
+    if (row === undefined || row.length === 0) return;
+    const st = atlas.manifest.states[name] ?? atlas.manifest.states.idle;
+    const per = Math.max(1, st?.ticksPerFrame ?? 6);
+    // Attack plays ONCE through and holds its last frame; idle and walk loop. A looping attack
+    // would re-swing during the recovery half of the cadence and read as two hits for one strike.
+    const raw = Math.floor(ticksInState / per);
+    const i = name === 'attack' ? Math.min(row.length - 1, raw) : raw % row.length;
+
+    let sp = this.sprites.get(id);
+    if (sp === undefined) {
+      sp = new Sprite();
+      sp.anchor.set(atlas.manifest.footAnchor.x, atlas.manifest.footAnchor.y);
+      this.spriteLayer.addChild(sp);
+      this.sprites.set(id, sp);
+    }
+    sp.texture = row[i]!;
+    sp.position.set(x, y);
+    // Negative X scale mirrors the sprite for facing — the source clips all walk to the right.
+    sp.scale.set(face * GOBLIN_SPRITE_BASE_SCALE, GOBLIN_SPRITE_BASE_SCALE);
+    sp.alpha = alpha;
+    // A faint owner tint so whose goblin this is stays readable at a glance, exactly as the
+    // procedural sash did. Kept subtle: the art is the character, the tint is only the flag.
+    sp.tint = tint;
+    void tint;
+  }
+
+  /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
+  private dropSprite(id: CreatureId): void {
+    const sp = this.sprites.get(id);
+    if (sp !== undefined) { sp.destroy(); this.sprites.delete(id); }
   }
 
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();
 
     for (const c of world.creatures.values()) {
-      if (c.type !== 'goblinMelee') continue;
+      if (!GOBLIN_KINDS.has(c.type)) continue;
       live.add(c.id);
 
       // Facing from actual movement, with a dead-zone so a jittering idle unit does not flip-flop.
@@ -88,8 +215,21 @@ export class GoblinRenderer {
       const alpha =
         c.state === 'SPAWNING' ? Math.min(1, c.ticksInState / Math.max(1, cfg.spawnTicks)) : 1;
 
-      this.drawGoblin(g, c.pos.x, c.pos.y, face, alpha, tint, this.swing(c.state, c.ticksInState), nowSec, c.id);
+      const atlas = this.atlases.get(c.type);
+      if (atlas !== undefined) {
+        this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y, face, alpha, tint);
+      } else {
+        // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and
+        // Voltkin precedent), and still the only art for the four kinds landing next session.
+        this.dropSprite(c.id);
+        this.drawGoblin(g, c.pos.x, c.pos.y, face, alpha, tint, this.swing(c.state, c.ticksInState), nowSec, c.id);
+      }
       this.drawHpPips(g, c.pos.x, c.pos.y, c.ehp, cfg.hp, cfg.def, alpha);
+    }
+
+    // Sprites for goblins that died this frame must go with them, or they freeze mid-swing forever.
+    for (const [id, sp] of [...this.sprites]) {
+      if (!live.has(id)) { sp.destroy(); this.sprites.delete(id); }
     }
 
     // Drop bookkeeping for goblins that died, so the Maps cannot grow without bound across a match.

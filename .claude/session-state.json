@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1986,
+ "tool_calls_session_total": 2085,
  "session_id": "S151",
  "session_kind": "PDCA batch — hazard archive + the stat system + the goblin tower",
  "session_start": "2026-08-22",
@@ -99,8 +99,14 @@
    "id": "P2",
    "title": "The stat system (R72 + R74 + R75 + R76)",
    "tier": "Full",
-   "status": "pending",
-   "scope": "Three stat families: units HP/DEF/ATK/PEN, towers ATK/PEN only, connectors HP/DEF. Delete FIVE accidental backbones (3x GOBLIN_MELEE_HP derivations + TURRET_DEFENDER_MAX_HP + PRINCESS_DEFENDER_MAX_HP). Exact-integer fifths. Connector durability = connectorCount + 4 fifths, component-scoped and DYNAMIC. New required hashed Bond damage field; Defender.hp leaves the wire. Explicit targeting matrix. Protocol 28->29."
+   "status": "completed",
+   "scope": "Three stat families: units HP/DEF/ATK/PEN, towers ATK/PEN only, connectors HP/DEF. Delete FIVE accidental backbones (3x GOBLIN_MELEE_HP derivations + TURRET_DEFENDER_MAX_HP + PRINCESS_DEFENDER_MAX_HP). Exact-integer fifths. Connector durability = connectorCount + 4 fifths, component-scoped and DYNAMIC. New required hashed Bond damage field; Defender.hp leaves the wire. Explicit targeting matrix. Protocol 28->29.",
+   "check_completed": true,
+   "checkpoint_commit": "f614084b4a266a1430bf00b0fc2833397e40d0f8",
+   "real_context_tokens_at_close": 626462,
+   "real_context_pct_at_close": 62.65,
+   "real_context_level_at_close": "YELLOW",
+   "check_method": "RALPH:PATROL + tsc-forced enumeration. (1) EVERY structural site was found by the COMPILER, not by grep: adding Bond.damageFifths surfaced 45 literal sites, and the codebase's own NoUncovered guard fired on stateHashFull to demand the hashed-union entry. (2) THE HASH NEEDED BOTH HALVES — the file warns its projection is a hand-written template with no executable link to the union, so I edited both and verified with a hash-flip test. (3) ⛔ SELF-CAUGHT LATENT BUG: my patch script wrote a hardcoded `damageFifths: 0` into applySnapshotCore (a PRODUCTION file). It compiles, passes every test, and silently heals every damaged connector on each snapshot apply and host migration — the same shape as the despawnAtTick 'detonation default' this very file documents. Caught by auditing the diff rather than trusting green tests. (4) ⛔ A SECOND SELF-CAUGHT CLASS: three single-line Bond literals got `damageFifths: 0,` inserted AFTER the closing brace; two parsed as a LABEL plus comma-expression — valid JS, silently wrong, invisible to tsc. Found by scanning for the shape, not by reading. (5) SCALE-CONVERSION AUDIT BY HAND, because tsc cannot see it: every call site passing an amount to a creature damage path was enumerated and converted to fifths (creatureAttack, world raid, defender fire, radial). A missed one compiles and deals 1/5 damage. (6) A.0 FINDING ACTED ON: applyRadialDamage broadcast ONE amount to three families on different scales — split into primitiveAmount + unitAmountFifths, which also fixed the stink bag dealing 150 to creatures while documented as the weakest single-target weapon. (7) PROTOCOL: all SIX bump sites edited; the chronological-order test caught my new entry inserted in the wrong slot. (8) GATES: tsc 0 · vitest 2892/2892 · e2e:gating 44 passed 0 failed EXIT=0 READ DIRECTLY · build 721.0 KiB under charter."
   },
   {
    "pdr_approved": true,
@@ -111,6 +117,17 @@
    "tier": "Full",
    "status": "pending",
    "scope": "Size-5 Circle-hub-degree-4 recipe (uniqueness proven by exhaustive test). Feed one shape -> one goblin. Six new CreatureType members + FEED_TOWER client intent. Stats from P2. Shares the 28->29 bump."
+  },
+  {
+   "pdr_approved": true,
+   "deliberation_completed": true,
+   "unlock_source": "user",
+   "id": "P4",
+   "title": "RAID — right-click 2-ATK strike + RAIDED cloud (R78)",
+   "tier": "Standard",
+   "status": "pending",
+   "scope": "Right-click raid dealing attackFifths(2,0) to units AND connectors; accrual 1 point per 2 towers or 5 hand-made connections; a RAIDED cloud in the RAIDER's colour for ~3s as an attribution channel. MUST resolve R64's open question: replace disruptionCharges or run beside it.",
+   "amendment": "SCOPE AMENDMENT (Rule 16) — added mid-session by owner R78, after the original three-priority batch was approved."
   }
  ],
  "reflexion_entries_to_archive": [
@@ -172,6 +189,23 @@
     "A carry-forward's PREDICTED CAUSE deserves the same distrust as any other unverified claim. CF-S150-b named the flyover cinematic; the instrument S150 itself added reports lockedByCinematic:FALSE in both failures. The prediction was recorded confidently and was wrong — so the archive records the EVIDENCE and marks the new hypothesis explicitly unconfirmed, rather than replacing one confident guess with another."
    ],
    "outcome": "Archive 26/26 byte-identical. Gating lane 52/1/0 -> 44/0/0 with zero coverage lost. No src/ change."
+  },
+  {
+   "session": "S151",
+   "priority": "P2",
+   "commit": "f614084",
+   "title": "The compiler found the structure; the compiler could NOT find the semantics",
+   "what_happened": "Deleted five accidental backbones and put units, towers and connectors on one shared stat ladder in exact-integer fifths. Protocol 28->29 for four simultaneous wire breaks. The owner supplied the full stat table mid-priority (R77), which RECLASSIFIED Helga from tower to unit and invalidated part of what I had just built.",
+   "lessons": [
+    "⭐ A TYPE CHANGE IS TSC-FORCED; A UNIT CHANGE IS NOT. Renaming Creature.hp -> ehp turned every unconverted site into a compile error. But the sites that PASS a number — attackFifths vs a raw 1 — compile clean and silently deal one fifth of the intended damage. Those had to be enumerated by hand. When a quantity's MEANING changes, rename it; the rename is the only mechanism that recruits the compiler.",
+    "⛔ MY OWN AUTOMATION WROTE THE WORST BUG OF THE PRIORITY. A patch script inserted a hardcoded `damageFifths: 0` into a PRODUCTION deserializer. It compiled, passed 2891 tests, and would have healed every damaged connector on every snapshot apply and host migration. Green tests did not see it because no fixture damages a bond. AUDIT THE DIFF OF ANYTHING A SCRIPT TOUCHED — the blast radius of a regex is not the set of files you intended.",
+    "⛔ A SYNTACTICALLY VALID INSERTION CAN BE SEMANTICALLY DEAD. `damageFifths: 0,` placed after a single-line literal's closing brace parses as a LABEL plus a comma-expression. Two files did this and tsc was silent. Verifying 'the script said clean' is not verifying; I re-ran tsc directly and found 12 more errors my own regex had missed.",
+    "⭐ THE OWNER'S ARITHMETIC WAS AN INDEPENDENT ORACLE. R77 said the chewer is '1x1.4 offence, and 1 def'. The fifths model, built days before that sentence, produces exactly 1.4 and 1.0. That agreement is worth more than any test I could write, because it was derived from the other end.",
+    "⭐ WHEN A RULING SUPERSEDES A TEST, THE TEST SHOULD RECORD THE SUPERSESSION. 'HELGA fells a goblin in two slaps' and 'a Voltkin takes three slaps' both became false via owner rulings. Deleting them would erase the reasoning; each was replaced with the NEW invariant plus the sentence that moved it. A test suite is also a ledger of decisions.",
+    "⭐ TWO RULINGS CAN BOTH HOLD IF THEY ACT ON DIFFERENT STATS. R70 said the goblin should be 'as weak as chewer'; R77 then gave it 2 DEF. Before a stat SYSTEM existed those would have been a contradiction — one number per unit. Now R70 set its HP and R77 set its DEF and both are true. That is the clearest argument for the whole priority.",
+    "⚠ FLAG INVERSIONS, DO NOT ABSORB THEM. R77's numbers make Helga out-hit the laser, reversing the property S148 built a whole test file to protect. It is defensible, it is the owner's call, and it is now stated in code, in the PDR and to the owner — rather than quietly encoded."
+   ],
+   "outcome": "tsc 0 · vitest 2892/2892 · e2e:gating 44/0 EXIT=0 · build 721.0 KiB. Protocol 28->29."
   }
  ],
  "totals": {
@@ -3034,6 +3068,21 @@
     "⚠ THE R71 SLAP LADDER MOVES. With Helga at 4 atk/4 pen (36 fifths) and voltkin at 8 hp/3 def (64 fifths), a voltkin now takes TWO slaps, not the three R71 set. R71 fixed VOLTKIN_HP=8 (unchanged); the count moved because Helga got much stronger. Owner-supplied numbers supersede.",
     "⚠ NEW MECHANICS NOT IN P2 SCOPE, flagged not silently absorbed: voltkin CHAIN LIGHTNING (multi-target, ~6), terrorist-goblin AoE, drone AoE sizing, destructible stink BAGS as entities with aggro + on-destroy damage, and the stink tree's per-second aura model."
    ]
+  },
+  "R78": {
+   "title": "RAID — a right-click 2-ATK strike that leaves a RAIDED cloud in the RAIDER's colour",
+   "owner": "we're going to have a lot more context window this session so make sure to add the RAID - right click function to this priority batch in the end of current priority atch (when you complete everything youve set out to do and are sure it all landed as it should have! i remembered i told you last session how it will work (either once you build 2 towers or make 5 connections you get one raid point). but now i will tell you that a raid point is basically a 2atk hit. you can use it on units and it will hit them (if they are in the >2defensive points range then they will dies leaving a \"RAIDED\" cloud where that unit used to stand and the clouds color is in the player that raided it, the cloud dissipates within 3 sec and also if you use raid on a structure/connector it will leave the RAIDED cloud with attacked color so that players wont be confused as in WHAT HAPPENED TO MY UNIT!? it just disappeared!? and they will know who attacked them adding heated exchanges!",
+   "spec": {
+    "trigger": "RIGHT-CLICK. ⚠ This SUPERSEDES R64, which said left-click.",
+    "accrual": "1 raid point per 2 TOWERS built, OR per 5 CONNECTIONS made by hand. ⚠ SUPERSEDES R64's '1 per 3 buildings'. The asymmetry is still the point: hand-building must outearn click-to-build.",
+    "effect": "A raid point IS a 2-ATK hit — not a bespoke rule. It goes through the same attackFifths(2, 0) = 10 fifths on the shared ladder, so 'it dies if its defensive points are low enough' falls out of the pool arithmetic and needs no threshold special case.",
+    "targets": "BOTH units and structures/connectors.",
+    "vfx": "A 'RAIDED' cloud where the target stood, in the RAIDING PLAYER'S COLOUR, dissipating in ~3s. ⚠ The owner wrote 'attacked color' for the structure case and 'the player that raided it' for the unit case; the stated PURPOSE disambiguates it — 'they will know who attacked them adding heated exchanges' — so it is the RAIDER's colour in both cases.",
+    "why": "Owner: players must not be left thinking 'WHAT HAPPENED TO MY UNIT!? it just disappeared!?'. The cloud is an attribution channel, not decoration."
+   },
+   "computed_against_R77": "A raid deals 10 fifths. One raid kills: chewer (5), melee goblin (7), ranged goblin (6), hound (5), flying goblin (10), terrorist goblin (10), drone (10). It does NOT one-shot: shield goblin (16, needs 2), HELGA (54, needs 6), voltkin (64, needs 7).",
+   "open_inherited_from_R64": "Whether RAID REPLACES the existing disruptionCharges/SEVER economy or is a second currency. R64 said to look at what ships before designing. The existing right-click RAID_CREATURE action and disruptionCharges both exist today, so P4 must resolve this rather than bolt a second system beside it.",
+   "sequencing": "Owner-directed as the LAST priority: 'add the RAID ... at the end of current priority batch (when you complete everything youve set out to do and are sure it all landed as it should have!)'. Scheduled as P4, after the goblin tower."
   }
  },
  "preflight_s151": {

@@ -31,7 +31,15 @@ import type { World } from '../world.ts';
 // non-cinematic — it dispatches REGISTER_DEFENDER, never GODLY_TRIGGER, never occupies
 // activeCinematicPlayerId, and is excluded from the per-type godlyFiredThisMatch gate.
 export type GodlyId =
-  | 'voltkin' | 'pentagram' | 'laserTurret' | 'helga' | 'lightningHub' | 'stinkTower';
+  | 'voltkin' | 'pentagram' | 'laserTurret' | 'helga' | 'lightningHub' | 'stinkTower'
+  /**
+   * ⭐ S151 P3 — THE GOBLIN TOWER (owner R70). One tower, six outputs: feed it a shape and it makes
+   * the goblin that shape maps to (`godlyRecipes/goblinTower.ts` `GOBLIN_FEED_MAP`).
+   *
+   * ⚠ SERIALIZED — `Spawner.recipeId` rides the wire, so a stale peer receiving this literal has a
+   * spawner it cannot resolve. That is part of what PROTOCOL_VERSION 29→30 pays for.
+   */
+  | 'goblinTower';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;

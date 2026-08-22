@@ -146,6 +146,7 @@ import {
   type DefenderTickAction,
 } from './defenders/defenderLifecycle.ts';
 import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
+import { applyFeedTower, type FeedTowerAction } from './goblinTowerFeed.ts';
 import {
   applyRepairStructure,
   applyScrapStructure,
@@ -329,6 +330,7 @@ export type GameAction =
   | PullFromBankAction
   // S144 P1 — click-to-build: stamps a recipe's real geometry from banked shapes.
   | BuildBlueprintAction
+  | FeedTowerAction
   // S152 (R13/R19/R21) — the attrition economy. FIX re-mints exactly the shapes a structure lost;
   // SCRAP tears it down and returns exactly the shapes still standing. Both are CLIENT INTENTs (a
   // joiner repairs and scraps its own towers), both are BUILD-stage-only through the shared
@@ -708,6 +710,11 @@ export function dispatch(world: World, action: GameAction): World {
     // joiner can raise it against a stale view of its own bank.
     case 'BUILD_BLUEPRINT':
       return applyBuildBlueprint(world, action);
+
+    // ⭐ S151 P3 — FEED_TOWER. Same posture as BUILD_BLUEPRINT: a client INTENT, host-authoritative,
+    // and every gate returns before the shape is debited (see the reducer's atomicity note).
+    case 'FEED_TOWER':
+      return applyFeedTower(world, action);
 
     // S152 — FIX / SCRAP. Same posture as BUILD_BLUEPRINT above: client INTENTs, host-authoritative,
     // no-op-never-throw. R19 (BUILD-stage only) is enforced inside, through the shared `canBuildNow`

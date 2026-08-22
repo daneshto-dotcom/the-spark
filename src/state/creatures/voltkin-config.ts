@@ -65,6 +65,28 @@ import {
   VOLTKIN_ATK,
   VOLTKIN_DEF,
   VOLTKIN_PEN,
+  GOBLIN_ARCHER_HP,
+  GOBLIN_ARCHER_DEF,
+  GOBLIN_ARCHER_ATK,
+  GOBLIN_ARCHER_PEN,
+  GOBLIN_ARCHER_RANGE,
+  GOBLIN_SHIELD_HP,
+  GOBLIN_SHIELD_DEF,
+  GOBLIN_SHIELD_ATK,
+  GOBLIN_SHIELD_PEN,
+  GOBLIN_HOUND_HP,
+  GOBLIN_HOUND_DEF,
+  GOBLIN_HOUND_ATK,
+  GOBLIN_HOUND_PEN,
+  GOBLIN_BAT_HP,
+  GOBLIN_BAT_DEF,
+  GOBLIN_BAT_ATK,
+  GOBLIN_BAT_PEN,
+  GOBLIN_SUICIDE_HP,
+  GOBLIN_SUICIDE_DEF,
+  GOBLIN_SUICIDE_ATK,
+  GOBLIN_SUICIDE_PEN,
+  GOBLIN_SUICIDE_BLAST_RADIUS,
 } from '../../constants.ts';
 
 /**
@@ -443,11 +465,155 @@ export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
  * `Readonly<Record<...>>` enforces compile-time exhaustiveness for new
  * creature types.
  */
+
+/**
+ * ARCHER (Line) — the ranged goblin. He is the only goblin that kills without closing, which is
+ * what his long attackRange buys; in exchange he is the flimsiest thing the tower makes.
+ * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
+ */
+export const GOBLIN_ARCHER_CONFIG: CreatureConfig = {
+  type: 'goblinArcher',
+  hp: GOBLIN_ARCHER_HP,
+  def: GOBLIN_ARCHER_DEF,
+  atk: GOBLIN_ARCHER_ATK,
+  pen: GOBLIN_ARCHER_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ARCHER_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 0.7,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: false,
+  targetsStructures: true,
+};
+
+/**
+ * SHIELD (Square) — the wall. Highest DEF in the game and almost no offence: he exists to be
+ * ATTACKED, which is why he is also the slowest thing on the board.
+ * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
+ */
+export const GOBLIN_SHIELD_CONFIG: CreatureConfig = {
+  type: 'goblinShield',
+  hp: GOBLIN_SHIELD_HP,
+  def: GOBLIN_SHIELD_DEF,
+  atk: GOBLIN_SHIELD_ATK,
+  pen: GOBLIN_SHIELD_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ATTACK_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 0.45,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: false,
+  targetsStructures: true,
+};
+
+/**
+ * HOUND (Circle) — the glass sprinter. Top goblin ATK with zero defence, so it trades perfectly
+ * evenly with anything that gets to swing back. Fastest hopSpeedMul of the six.
+ * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
+ */
+export const GOBLIN_HOUND_CONFIG: CreatureConfig = {
+  type: 'goblinHound',
+  hp: GOBLIN_HOUND_HP,
+  def: GOBLIN_HOUND_DEF,
+  atk: GOBLIN_HOUND_ATK,
+  pen: GOBLIN_HOUND_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ATTACK_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 1.15,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: false,
+  targetsStructures: true,
+};
+
+/**
+ * BAT RIDER (Spiral) — the owner's "flying goblin". Low ATK but the highest PEN on any goblin, so
+ * he is the answer to the shield goblin specifically: penetration is what beats defence.
+ * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
+ */
+export const GOBLIN_BAT_CONFIG: CreatureConfig = {
+  type: 'goblinBat',
+  hp: GOBLIN_BAT_HP,
+  def: GOBLIN_BAT_DEF,
+  atk: GOBLIN_BAT_ATK,
+  pen: GOBLIN_BAT_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ATTACK_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 0.95,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: false,
+  targetsStructures: true,
+};
+
+/**
+ * SUICIDE (Dot) — the owner's "terrorist goblin": one attack, 4 ATK, in an area of effect.
+ * ⚠ `selfExplode: true` routes it down the lightning drone's detonate-on-arrival path, so it DOES
+ * die on contact today. The AoE SHAPE of the blast is deferred with the drone's own — see
+ * GOBLIN_SUICIDE_BLAST_RADIUS, which is deliberately smaller than DRONE_EXPLODE_RADIUS per owner
+ * R77 (*"the area of effect on the drones is larger then terrorist goblin"*).
+ * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
+ */
+export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {
+  type: 'goblinSuicide',
+  hp: GOBLIN_SUICIDE_HP,
+  def: GOBLIN_SUICIDE_DEF,
+  atk: GOBLIN_SUICIDE_ATK,
+  pen: GOBLIN_SUICIDE_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_SUICIDE_BLAST_RADIUS,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 0.9,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: true,
+  targetsStructures: true,
+};
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
   lightningDrone: LIGHTNING_DRONE_CONFIG,
   goblinMelee: GOBLIN_MELEE_CONFIG,
+  goblinArcher: GOBLIN_ARCHER_CONFIG,
+  goblinShield: GOBLIN_SHIELD_CONFIG,
+  goblinHound: GOBLIN_HOUND_CONFIG,
+  goblinBat: GOBLIN_BAT_CONFIG,
+  goblinSuicide: GOBLIN_SUICIDE_CONFIG,
 };
 
 /**

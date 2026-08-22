@@ -262,6 +262,14 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   voltkin: BOTH,
   lightningDrone: BOTH,
   goblinMelee: BOTH,
+  // ⭐ Owner R72 is unambiguous and covers the whole family at once: *"goblins of all kinds can do
+  // both"*. Stated per-kind anyway rather than via a loop, because this Record is the FORCING
+  // FUNCTION — a future goblin must make the decision, not inherit it silently.
+  goblinArcher: BOTH,
+  goblinShield: BOTH,
+  goblinHound: BOTH,
+  goblinBat: BOTH,
+  goblinSuicide: BOTH,
 };
 
 /**
@@ -287,6 +295,15 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   lightningDrone: 'offence',
   // Summoned, powerful, and equally used to clear attackers or to break a line.
   voltkin: 'both',
+  // The archer kills from outside the melee band — pure offence, and helpless once reached.
+  goblinArcher: 'offence',
+  // ⭐ The one genuinely DEFENSIVE goblin. Owner R77 gave it 3 DEF, 1 ATK: it exists to be attacked
+  // rather than to attack, which is the definition of the role.
+  goblinShield: 'defence',
+  goblinHound: 'offence',
+  goblinBat: 'offence',
+  // One attack, and it dies delivering it. Nothing about that holds ground.
+  goblinSuicide: 'offence',
 };
 
 /** What each tower is FOR. Exhaustive — a new kind must declare one. */

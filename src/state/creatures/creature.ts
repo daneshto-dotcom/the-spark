@@ -157,7 +157,25 @@ export function cinematicMsToTicks(ms: number): number {
 // own-bond fallback, its phantom centre-repulse and its un-raidability all at once.
 // ⚠ This literal is SERIALIZED (`deserializeCreature` writes `type: s.type` with no whitelist), so
 // it forces a PROTOCOL_VERSION bump — the same class as 'lightningDrone', which bumped 13→14.
-export type CreatureType = 'voltkin' | 'chewer' | 'lightningDrone' | 'goblinMelee';
+export type CreatureType =
+  | 'voltkin'
+  | 'chewer'
+  | 'lightningDrone'
+  /* ── S151 P3 — THE SIX GOBLIN KINDS (owner R70 shape map, owner R77 stats) ────────────────────
+   * One tower, six outputs: feed it ONE shape and it spawns the goblin that shape maps to.
+   *   Dot → suicide · Line → archer · Triangle → melee · Square → shield · Circle → hound ·
+   *   Spiral → bat rider.
+   * `goblinMelee` predates the tower (it was the free starter unit) and IS the Triangle output, so
+   * only five members are new. Every one of them is a SERIALIZED literal, which is why P3 costs its
+   * own PROTOCOL_VERSION bump — see net/protocol.ts. */
+  | 'goblinMelee'
+  | 'goblinArcher'
+  | 'goblinShield'
+  | 'goblinHound'
+  | 'goblinBat'
+  /** Owner calls this "the terrorist goblin"; the project's own roadmap (Q1) named it `suicide`,
+   *  which is the vocabulary already used for the lightning drone, so that name is kept. */
+  | 'goblinSuicide';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING

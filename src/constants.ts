@@ -1340,6 +1340,68 @@ export const CHEWER_DEF = 0;
 export const GOBLIN_MELEE_ATK = 2;
 export const GOBLIN_MELEE_PEN = 1;
 export const GOBLIN_MELEE_DEF = 2;
+/* ── S151 P3 — THE OTHER FIVE GOBLIN KINDS (owner R77), each transcribed from the owner's line ──
+ * "ranged goblin 2atk, 2pierce, 1hp, 1 def. melee goblin - 2 atk, 1 pierce, 1hp 2 def. shield
+ *  goblin 1 atk, 0 pierce, 2hp, 3def. flying goblin 1 atk, 3 pierce, 2hp, 0 def. goblin hound -
+ *  3 atk 2 pierce, 1 hp, 0 def. and terrorist goblin - 2hp 0def, only one attack that deals 4atk
+ *  and 0 pierce in an area of effect."
+ * The melee goblin's numbers live above with GOBLIN_MELEE_HP — it predates the tower. */
+/** ARCHER (Line) — the ranged goblin. Trades toughness for reach and penetration. */
+export const GOBLIN_ARCHER_HP = 1;
+export const GOBLIN_ARCHER_DEF = 1;
+export const GOBLIN_ARCHER_ATK = 2;
+export const GOBLIN_ARCHER_PEN = 2;
+/**
+ * The archer's reach — the whole reason he exists. Well inside the laser turret's 420 so a turret
+ * still outranges him (an emplacement should), but far enough that he kills without ever entering
+ * the melee band the other five goblins fight in.
+ */
+export const GOBLIN_ARCHER_RANGE = 220;
+
+/* ── S151 P3 — THE GOBLIN TOWER (owner R70) ─────────────────────────────────────────────────────
+ * Owner: *"its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin
+ * of different kinds"*. Roadmap Q9/R24 settled the shape of it: ONE tower with SIX outputs, not six
+ * towers.
+ *
+ * ⛔ WHY A CIRCLE HUB OF DEGREE 4, AND WHY IT HAD TO BE CHECKED RATHER THAN CHOSEN. Sizes 4 AND 5
+ * are BOTH already occupied — stinkTower is size 4 (Square hub, degree 3) and pentagram is size 5
+ * (a ring of 5 Triangles, every node degree 2). So "a 4 or 5 shape tower" cannot be distinguished
+ * by size at all; it needs a free (hub type, hub degree) pair. Measured occupancy across the
+ * shipped six: Square@3, Triangle@2 (ring), Dot@>=5, Line@6, Triangle@6, and voltkin's 4+4 split.
+ * CIRCLE IS NEVER A HUB in any shipped recipe, and degree 4 is an unoccupied rung. Both facts are
+ * re-derived from the live registry by `goblinTower.test.ts` rather than trusted from this comment.
+ */
+export const GOBLIN_TOWER_HUB_DEGREE = 4;
+export const GOBLIN_TOWER_SIZE = GOBLIN_TOWER_HUB_DEGREE + 1; // 1 Circle hub + 4 leaves = 5
+/** SHIELD (Square) — the wall. Highest DEF in the game; barely hits anything. */
+export const GOBLIN_SHIELD_HP = 2;
+export const GOBLIN_SHIELD_DEF = 3;
+export const GOBLIN_SHIELD_ATK = 1;
+export const GOBLIN_SHIELD_PEN = 0;
+/** HOUND (Circle) — the glass sprinter. Top goblin ATK, no defence at all. */
+export const GOBLIN_HOUND_HP = 1;
+export const GOBLIN_HOUND_DEF = 0;
+export const GOBLIN_HOUND_ATK = 3;
+export const GOBLIN_HOUND_PEN = 2;
+/** BAT RIDER (Spiral) — the owner's "flying goblin". Low ATK, but the highest PEN on a goblin. */
+export const GOBLIN_BAT_HP = 2;
+export const GOBLIN_BAT_DEF = 0;
+export const GOBLIN_BAT_ATK = 1;
+export const GOBLIN_BAT_PEN = 3;
+/**
+ * SUICIDE (Dot) — the owner's "terrorist goblin": *"only one attack that deals 4atk and 0 pierce in
+ * an area of effect."*
+ * ⚠ THE AoE SHAPE IS NOT IMPLEMENTED IN P3 — it detonates on arrival like the lightning drone, and
+ * the drone's own AoE is likewise still a bond-sever rather than a stat-driven blast. Recorded as
+ * deferred scope so the number is here when the blast lands, not invented later.
+ */
+export const GOBLIN_SUICIDE_HP = 2;
+export const GOBLIN_SUICIDE_DEF = 0;
+export const GOBLIN_SUICIDE_ATK = 4;
+export const GOBLIN_SUICIDE_PEN = 0;
+/** Owner: the drone's blast radius is LARGER than the suicide goblin's. Held as a relationship. */
+export const GOBLIN_SUICIDE_BLAST_RADIUS = 70;
+
 /**
  * Electric drone — "5 damage(atk) and 1 pierce in an area of effect (suicide drones) … 2hp, 0 def".
  * ⚠ THE AoE SHAPE OF ITS ATTACK IS NOT IMPLEMENTED YET — today the drone detonates via DRONE_EXPLODE,
@@ -1675,6 +1737,19 @@ export const PRINCESS_HOME_EPSILON = 6; // within this of her hub anchor she is 
 // S112 — in-world render scale for HELGA's veo-atlas sprite (256px-tall cell → ~85px in-world, ~the
 // procedural puppet's height). Playtest DIAL (like VOLTKIN_SPRITE_BASE_SCALE 0.17) — left un-pinned.
 export const PRINCESS_SPRITE_BASE_SCALE = 0.34;
+
+/**
+ * ⭐ S151 P3 — GOBLIN SPRITE SCALE. Owner: *"their size is going to be about half the size of
+ * current helga"*, so this is PRINCESS_SPRITE_BASE_SCALE / 2 rather than an independently chosen
+ * number — expressed as the division so the relationship survives a retune of hers.
+ */
+export const GOBLIN_SPRITE_BASE_SCALE = PRINCESS_SPRITE_BASE_SCALE / 2;
+
+/**
+ * S151 P3 — the STINK TOWER's veo atlas scale. It is an emplacement rather than a unit, and its
+ * source art is a tall tree, so it does not follow the goblin relationship.
+ */
+export const STINK_TOWER_SPRITE_BASE_SCALE = 0.42;
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host

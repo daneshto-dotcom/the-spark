@@ -151,7 +151,13 @@ describe('CREATURE_CONFIGS lookup table', () => {
     const keys = Object.keys(CREATURE_CONFIGS).sort();
     // S139 P2 — 'goblinMelee' added. This assertion is the runtime half of the
     // Record<CreatureType,...> exhaustiveness guard and it fired exactly as designed.
-    expect(keys).toEqual(['chewer', 'goblinMelee', 'lightningDrone', 'voltkin']);
+    // ⭐ S151 P3 — and it fired exactly as designed AGAIN when the goblin tower's other five
+    // outputs landed. That is the whole value of pinning the literal list rather than deriving it.
+    expect(keys).toEqual([
+      'chewer',
+      'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
+      'lightningDrone', 'voltkin',
+    ]);
   });
 
   it('voltkin entry is === VOLTKIN_CONFIG (reference equality, not just deep-equal)', () => {

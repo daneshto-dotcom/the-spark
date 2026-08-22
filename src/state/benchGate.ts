@@ -94,6 +94,15 @@ export const BENCH_INTENT_POLICY = {
   // punish window, and allowing this would be strictly worse than allowing PULL_FROM_BANK (it skips
   // the porch step entirely). Nothing is lost — the shapes stay banked until the bench lifts.
   BUILD_BLUEPRINT: 'deny',
+  // ⭐ S151 P3 — FEED_TOWER takes BUILD_BLUEPRINT's ruling, and for the same reason rather than by
+  // analogy: it SPENDS A BANKED SHAPE and mints a unit. The bench exists to stop you converting
+  // stores into board presence during the punish window, and a goblin is board presence. Nothing is
+  // lost by denying it — the shape stays banked and the tower stays fed-able until the bench lifts.
+  //
+  // ⚠ It would be easy to argue the other way ("the tower does the work, not the benched player"),
+  // and that argument is wrong for the same reason it was wrong for PULL_FROM_BANK: what matters is
+  // whether the ACTION advances the seat while it is meant to be paying a price.
+  FEED_TOWER: 'deny',
   // S152 — FIX IS BUILDING, so it takes BUILD_BLUEPRINT's ruling verbatim: it spends banked shapes
   // and mints geometry, which is the whole of what the bench exists to stop. Nothing is lost — the
   // shapes stay banked and the tower stays broken until the bench lifts.

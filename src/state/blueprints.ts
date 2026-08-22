@@ -82,6 +82,8 @@ import {
   LIGHTNING_HUB_DEGREE,
   STINK_TOWER_HUB_DEGREE,
   STINK_TOWER_SIZE,
+  GOBLIN_TOWER_HUB_DEGREE,
+  GOBLIN_TOWER_SIZE,
 } from '../constants.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { Vec2 } from '../types.ts';
@@ -183,6 +185,16 @@ const BLUEPRINTS: Readonly<Record<GodlyId, Blueprint>> = {
     'STINK TOWER',
     SparkType.Square,
     times(SparkType.Circle, STINK_TOWER_HUB_DEGREE),
+  ),
+
+  // ⭐ S151 P3 — THE GOBLIN TOWER (owner R70): 1 Circle hub (deg 4) + 4 Circle leaves. The only
+  // ALL-ONE-TYPE recipe in the registry, which is deliberate — Circle is the one primitive with no
+  // competing hub role, so committing five of them costs the player nothing else.
+  goblinTower: star(
+    'goblinTower',
+    'GOBLIN TOWER',
+    SparkType.Circle,
+    times(SparkType.Circle, GOBLIN_TOWER_HUB_DEGREE),
   ),
 
   // 1 Dot hub (deg 5) + 5 Circle leaves → the suicide-drone emitter.
@@ -311,6 +323,7 @@ export function blueprintRadius(id: GodlyId): number {
  */
 export const EXPECTED_COMPONENT_SIZE: Readonly<Record<GodlyId, number>> = {
   stinkTower: STINK_TOWER_SIZE,
+  goblinTower: GOBLIN_TOWER_SIZE,
   pentagram: PENTAGRAM_RING,
   lightningHub: LIGHTNING_HUB_COMPONENT_SIZE,
   laserTurret: TURRET_LEAVES + 1,

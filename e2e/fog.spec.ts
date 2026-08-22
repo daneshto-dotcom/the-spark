@@ -194,18 +194,26 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Container', //   2 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
       '_Graphics',  //   3 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
       '_Graphics',  //   4 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //   5 — goblinRenderer               (S139 P2) ← the 15th child
-      '_Graphics',  //   6 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //   7 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //   8 — stinkTowerRenderer           (S141 P1) ← the 16th child
-      '_Graphics',  //   9 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  10 — gathererRenderer             (main.ts:506, V6-1.1/S135)
-      '_Graphics',  // 11 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  // 12 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  // 13 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', // 14 — rainbowFlyoverRenderer.char
-      '_Graphics',  // 15 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  // 16 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //   5 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
+      '_Container', //   6 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
+                    //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
+                    //       count cannot catch and this roll call can: the goblins keep their
+                    //       procedural puppet as the load-failure fallback, so the renderer owns
+                    //       BOTH a Graphics and a Container, and the atlas layer must sit ABOVE the
+                    //       puppet so a fallback frame can never overdraw a real sprite.
+      '_Graphics',  //   7 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //   8 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //   9 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
+                    //       procedural because they are STATE READOUTS, not character art.
+      '_Container', //  10 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
+      '_Graphics',  //  11 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  12 — gathererRenderer             (main.ts:506, V6-1.1/S135)
+      '_Graphics',  //  13 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  //  14 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  //  15 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', //  16 — rainbowFlyoverRenderer.char
+      '_Graphics',  //  17 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  //  18 — poopRenderer                 (main.ts:520, S77 P3)
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

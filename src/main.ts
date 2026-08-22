@@ -205,6 +205,12 @@ import './state/godlyRecipes/princessHelga.ts';
 // calls registerRecipe and the failure is SILENT in both directions: findDefenderMatches simply
 // never matches it, AND recipeStillSatisfied falls back to the weaker "anchor exists" rule.
 import './state/godlyRecipes/stinkTower.ts';
+// ⭐ S151 P3 — side-effect import registers the GOBLIN TOWER (owner R70): 1 Circle hub deg-4 + 4
+// Circle leaves, the one structure that decides what it produces at FEED time rather than at build
+// time. ⚠ The same silent double-failure as the line above applies — without this import the recipe
+// never registers, so it never matches AND `recipeStillSatisfied` degrades to "anchor exists",
+// meaning a tower that should have torn down when its star broke would linger forever.
+import './state/godlyRecipes/goblinTower.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
 // godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
 // Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
