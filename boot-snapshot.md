@@ -3,28 +3,46 @@ Generated: 2026-08-22 | Session: S150 | Branch: master | Commit: **10827c2** | P
 
 **S150 shipped SIX priorities, all deploy-verified 4/4. Then the owner asked for a landing audit,
 which found 11 defects — including a regression P3 had shipped — and 10 were fixed before close.
-Thirteen owner rulings (R57–R71) were recorded at the end; four implemented, the rest queued.**
+FIFTEEN owner rulings (R57–R72) were recorded at the end; four implemented, the rest queued —
+R72 defines a whole stat system and supersedes two earlier ones.**
 
 ⛔ READ FIRST: the ordered 13-entry `carry_forward_next_session[]` in `.claude/session-state.json`,
-and `owner_rulings_s150_late` in the same file — R57–R71 are the owner's own words plus what each
+and `owner_rulings_s150_late` in the same file — R57–R72 are the owner's own words plus what each
 means operationally. **The live carry-forward list is `carry_forward_next_session`**; the legacy
 `carry_forward` key is now a synced mirror (it used to be a frozen S147/S148 list that the review
 gate read, which is why the gate was showing closed items as open).
 
 ## Next Steps
 
-1. **THE GOBLIN TOWER + THE UNIT STAT PASS (CF-S150-d, priority 0).** The owner named this the
+1. **THE STAT SYSTEM (R72), THEN THE GOBLIN TOWER (CF-S150-d, priority 0).**
+   ⭐ **DESIGN THE STAT SYSTEM FIRST.** HP / STR / DEF / PENETRATION on ONE shared scale, with
+   defence+HP as the exact inverse of ATK+PEN. LADDERS (owner-confirmed): HP and ATK are INTEGER
+   points **1..12**; DEF and PEN are multiplier ladders **x1.2, x1.4, x1.6, x1.8, x2.0 … =
+   (1 + 0.2n)**, LINEAR — not 1.2^n. A 2 HP / 2 DEF defender rates 2 x 1.4 = 2.8, so a 3-ATK laser
+   one-shots it.
+   ⛔ **THE FIRST ACT IS A DELETION:** `PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2)`
+   must GO. Owner: *"a goblins power should not be the backbone for the whole stat system."* The S150
+   write-up called that derivation a constraint to work around — that was WRONG; it is the defect.
+   **TARGETING MATRIX**, as an explicit table rather than per-unit special cases: Helga = enemy UNITS
+   only · chewers = TOWERS only · all goblins, laserTurret, lightningDrones, voltkin = BOTH.
+   ⚠ **ONE QUESTION TO ASK BEFORE WRITING CODE:** is ATK a THRESHOLD or a DAMAGE POOL? *"destroyed
+   with one laser hit"* implies a threshold; *"attack = -1 hp point"* implies a pool. Under a threshold
+   a 2-ATK attacker could never kill a 3-HP target at all, and `damageCreature` is a pool today.
+   (The PEN-placement question is already dissolved: comparing ATK x (1+0.2 PEN) against
+   HP x (1+0.2 DEF) is algebraically identical to dividing the defender's rating by (1+0.2 PEN), so
+   either implementation is correct — prefer the multiply form.)
+   THEN **THE GOBLIN TOWER + THE UNIT STAT PASS.** The owner named this the
    headline: *"look again at the goblin tower that we have thought about but havnt built yet… maybe
    we should work on that and the goblin tower amongst other things first thing next session."*
    ALREADY SETTLED: one tower, six outputs (Q9/R24 — R24 supersedes R15). Feed ONE shape, get ONE
    goblin of that type. Shape→unit map (Q1): Dot=suicide · Line=archer · Triangle=swordsman ·
    Square=shield · Circle=hound · Spiral=bat rider. OPEN: every stat, plus the tower's own recipe
    ("like 4 or 5" shapes).
-   ⚠ **THE TRAP:** `GOBLIN_MELEE_HP` is not a free constant —
-   `PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2)`. The owner wants the goblin near
-   chewer-fragile (R70), and doing that naively **silently nerfs Helga against every creature**.
-   Break the derivation as an explicit decision first. Reference numbers: CHEWER_HP 1 ·
-   GOBLIN_MELEE_HP 6 · VOLTKIN_HP **8** (R71, shipped) · slap damage 3 · CREATURE_HIT_DAMAGE 1.
+   The goblin's own stats come OUT of the stat system above — do not tune it first. The owner wants it
+   near chewer-fragile (R70), and the reason that is safe under R72 is that the slap-damage derivation
+   is gone by then. Reference numbers as of S150: CHEWER_HP 1 · GOBLIN_MELEE_HP 6 ·
+   VOLTKIN_HP **8** (R71, shipped) · slap damage 3 (to be DELETED) · CREATURE_HIT_DAMAGE 1 ·
+   RAID_CREATURE_DAMAGE 1.
 2. **BOTS BUILD TOWERS (CF-S149-f) — now UNBLOCKED.** The last of the owner's five S149 playtest
    complaints. All five open rulings answered: R57 bots get the player's shortcut *including saving
    until affordable* (not travel-then-stamp) · R58/R59 loose-shape building stays, difficulty is a
@@ -55,7 +73,8 @@ gate read, which is why the gate was showing closed items as open).
 
 ## Blockers
 
-None blocking. R65's goblin half is deliberately unactioned pending the derivation decision above.
+None blocking. R72 needs ONE answer before any code is written — is ATK a THRESHOLD or a DAMAGE
+POOL? Everything else in the stat system is specified.
 
 ## Traps (still live)
 
@@ -77,6 +96,12 @@ None blocking. R65's goblin half is deliberately unactioned pending the derivati
 - **A dev-only optimisation can turn a constant into shared state.** `VOLTKIN_HP` 2→8 owed a protocol
   bump because `serializeCreature` omits `hp` when undamaged, so the peer rebuilds from its own
   constant. Additive-optional-whose-absence-means-your-default = a shared constant. Third instance.
+- **A REQUIRED hashed World field is TEN sites, and TWO are tsc-forced** (S150 recount, verified on
+  all three shipped fields). The long-quoted "nine / one" was traced on an OPTIONAL field, which needs
+  no `makeWorld` initializer — that literal is the tenth site, and it is tsc-forced because it is
+  annotated `const w: World`. `netSnapshot` is NOT an eleventh (it derives via `Omit`). An OPTIONAL
+  field really is nine. The durable copies of this are `LOCKED_DECISIONS.md` and `state/walls.ts`;
+  this file is rewritten every handoff, so never treat it as the source of truth.
 - Only 3 of 6 recipes are `kind:'defender'`; pentagram/lightningHub are spawners, voltkin cinematic.
   Owner R61 says all six still count as "towers" (a form with a function).
 - `placeOf` can never report worse than 26th — it ranks against stored rows and storage caps at 25.

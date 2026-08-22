@@ -2,7 +2,7 @@
 HANDOFF SUMMARY — SPARK
 Generated: 2026-08-22
 Session: S150 — truth-restoration batch (protocol drift, carry-forward rot, arcade trial, e2e
-revival, bomb.spec root-cause) + a Rule-22 landing audit + thirteen owner rulings
+revival, bomb.spec root-cause) + a Rule-22 landing audit + FIFTEEN owner rulings (R57–R72)
 ═══════════════════════════════════════════════════════════
 
 ## PROJECT
@@ -104,9 +104,14 @@ made that bump mechanical.
 ## OPEN ISSUES
 - **R68 is HALF DONE.** The arcade high-score fireworks ship. The WIN-SCREEN fireworks the owner
   remembers from an older version do not — no surviving code was found to "add back". Archaeology owed.
-- **R70 (goblin HP) deliberately unactioned.** `PRINCESS_SLAP_DAMAGE_VS_CREATURE` is DERIVED from
-  `GOBLIN_MELEE_HP`, so lowering the goblin silently nerfs Helga against every creature. Break the
-  derivation as an explicit decision. Filed as CF-S150-d.
+- **R65/R70 SUPERSEDED BY R72 — and my framing of both was WRONG.** I described
+  `PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2)` as a constraint to respect before
+  touching the goblin. The owner corrected that: it IS the defect — one unit's HP became the backbone
+  of the whole damage scale by accident. R72 replaces it with a real system: HP/STR/DEF/PEN on one
+  shared scale, HP and ATK as integer ladders 1..12, DEF and PEN as LINEAR multiplier ladders
+  (1 + 0.2n), plus an explicit targeting matrix (Helga=units only, chewers=towers only, goblins /
+  laserTurret / lightningDrones / voltkin = both). ONE question remains before code: is ATK a
+  THRESHOLD or a DAMAGE POOL? Filed as CF-S150-d at priority 0.
 - **P3/P5 checkpoint SHAs pin first-completion state, not final** — later commits corrected both.
   Disclosed in `checkpoint_drift_s150`; final state is simply HEAD.
 - **CF-S150-c** — G/C/M are valid initials AND live hotkeys; fixed for the arcade path, but

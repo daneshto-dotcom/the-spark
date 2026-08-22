@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1830,
+ "tool_calls_session_total": 1832,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -183,8 +183,9 @@
     },
     {
      "type": "file_contains",
-     "path": "boot-snapshot.md",
-     "needle": "A REQUIRED hashed World field is TEN sites, and TWO are tsc-forced"
+     "path": "LOCKED_DECISIONS.md",
+     "needle": "A REQUIRED hashed World field costs TEN sites, and TWO are tsc-forced",
+     "note": "RE-POINTED at the S150 close. This bound the ten-sites correction to boot-snapshot.md — a file whose documented contract is \"ephemeral, overwritten each handoff\". My own STEP 2.95 then rewrote it and the binding failed, which the Stop hook caught. No content was lost (the correction lives verbatim in LOCKED_DECISIONS.md and state/walls.ts, and reworded in the new snapshot) — the BINDING was the defect. RULE: never bind a durable claim to an ephemeral artifact."
     }
    ],
    "check_method": "P1 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 171 files / 2815 tests green (was 2808 - the +7 are the new gate's assertions; the 3 pre-existing tests in protocolVersionSync.test.ts still pass). (3) npm run build OK, 710.8 KiB / 900 KiB cap, and the entry hash is UNCHANGED at index-BkNNmZdm.js - correct, because every src/ edit in this priority is a comment. (4) THE GATE WAS PROVEN AGAINST THE DRIFTED FILE, not just the repaired one: `git show HEAD:src/net/protocol.ts` was restored over the working copy and the new describe block failed on exactly the three real drift classes - narrative chain missing [9, 21, 26, 27], HelloMsg out of chronological order, and the stale checklist count - then passed 10/10 once the repair was restored. A gate never seen to fail is not known to be a gate. (5) The first draft of the gate was WRONG and the failure taught the design: it asserted both carriers start at 2, and the HelloMsg one legitimately starts at 6->7 because that list was begun later. Fixed by MEASURING each carrier's floor and pinning the floors separately, so a deletion off the front still fails. (6) Line endings verified per file: protocol.ts and walls.ts stayed pure LF (0 CRLF); LOCKED_DECISIONS.md stayed pure CRLF (1693 CRLF, 0 bare LF) - appended with newline='' and explicit CRLF.",
@@ -193,7 +194,8 @@
     "The two long-invisible gaps are the whole argument for mechanising this. Every prior session that touched the drift read the same block and believed it complete, because a human verifies that the LAST entry matches the constant. Only a machine verifies every link.",
     "The S149-vs-S152 label split is NOT an error to correct. Thirteen files cite S152 because it is the roadmap SPEC id in SPARK_TD_SESSION_SPECS.md; the session was S149. Rewriting the labels would destroy spec traceability, so the mapping is stated once in protocol.ts and LOCKED_DECISIONS.md and pinned as checklist item 6 instead.",
     "The nine-site figure undercounts by one for every field it was ever used to size, and understates tsc coverage by one too. It was traced on rainbowSwitchTick (OPTIONAL, so no makeWorld initializer); matchPhase/phaseEndsAtTick/layout are REQUIRED and cost TEN, with TWO tsc-forced because makeWorld's literal is annotated `const w: World`. Corrected in walls.ts, boot-snapshot.md and LOCKED_DECISIONS.md; deliberately NOT rewritten in the reflexion log or archived handoffs, which are dated records of what those sessions believed.",
-    "CF-S147-b is CLOSED and both halves shipped: the enforcement test (my reframing) AND the LOCKED_DECISIONS.md promotion (the owner's literal ask). Both Council seats independently said do both rather than choose; they were right."
+    "CF-S147-b is CLOSED and both halves shipped: the enforcement test (my reframing) AND the LOCKED_DECISIONS.md promotion (the owner's literal ask). Both Council seats independently said do both rather than choose; they were right.",
+    "BINDING DEFECT, caught by the Stop hook after the handoff had already been written: P1 bound the ten-sites correction to boot-snapshot.md, which /handoff STEP 2.95 rewrites from scratch every session. The claim was true and is still true in two durable carriers; the binding pointed at a file guaranteed to lose it. Re-pointed at LOCKED_DECISIONS.md. The general rule now recorded: an MCV binding must target a DURABLE artifact — pinning one to a file whose own docblock says it is overwritten each handoff guarantees a false failure at the next close."
    ],
    "checkpoint_commit": "f085746",
    "deploy_verified": "4/4"
@@ -1963,9 +1965,9 @@
   {
    "id": "CF-S150-d",
    "priority": 0,
-   "title": "THE GOBLIN TOWER + the unit stat pass — owner's named headline for next session",
-   "state": "OWNER-DIRECTED, unstarted. Design partly settled, stats entirely open.",
-   "detail": "Owner R70: *\"look again at the goblin tower that we have thought about but havnt built yet. its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin of different kinds - we have predefined the types of goblins but not their stats. maybe we should work on that and the goblin tower amongst other things first thing next session.\"* ALREADY SETTLED: one tower, six outputs (roadmap Q9/R24 - R24 supersedes R15's 'several simple towers'). The shape->unit map is Q1: Dot=suicide, Line=archer, Triangle=swordsman, Square=shield, Circle=hound, Spiral=bat rider. Feed ONE shape, get ONE goblin of that type. OPEN: every stat, and the tower's own recipe (4 or 5 shapes - owner said 'like 4 or 5'). ⚠ THE TRAP TO AVOID: GOBLIN_MELEE_HP is not a free constant. PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2), so dropping the goblin toward chewer-fragility (owner R70) silently nerfs HELGA against EVERY creature unless the derivation is broken first. Do the derivation as an explicit decision, not as a side effect. Reference numbers as of S150: CHEWER_HP 1 - GOBLIN_MELEE_HP 6 - VOLTKIN_HP 8 (R71) - PRINCESS_SLAP_DAMAGE_VS_CREATURE 3 - CREATURE_HIT_DAMAGE 1 - RAID_CREATURE_DAMAGE 1."
+   "title": "THE STAT SYSTEM (R72) + THE GOBLIN TOWER — owner-directed headline for next session",
+   "state": "OWNER-DIRECTED, unstarted. R72 defines the model; three arithmetic questions need answering before code.",
+   "detail": "TWO joined pieces, in this order. (1) ⭐ DEFINE THE STAT SYSTEM FIRST (owner R72). HP / STR / DEF / PENETRATION on one shared scale, with defence+HP as the exact inverse of ATK+PEN. HP = 1 point; ATK = -1 HP point; DEF and PEN are LINEAR multipliers of +0.2 per point — pinned by the owner's own examples (2 HP + 1 DEF = 2.4; 2 HP + 2 DEF = 2 x 1.4 = 2.8, NOT 1.2 squared). A 3-ATK laser therefore one-shots a 2.8 defender. ⛔ THE FIRST ACT IS A DELETION: PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2) must GO. The owner's words: 'a goblins power should not be the backbone for the whole stat system'. My S150 write-up treated that derivation as a constraint to work around, which was wrong — it is the thing to remove. Also settle the TARGETING MATRIX as an explicit table: Helga = enemy UNITS only; chewers = TOWERS only; all goblins, laserTurret, lightningDrones and voltkin = both. LADDERS CONFIRMED by the owner: HP and ATK are INTEGER points 1..12; DEF and PEN are multiplier ladders x1.2, x1.4, x1.6, ... = (1 + 0.2 x n), linear. That also DISSOLVES the PEN-placement question: comparing ATK x (1+0.2 PEN) against HP x (1+0.2 DEF) is algebraically identical to dividing the defender's rating by (1+0.2 PEN), so either implementation is correct — prefer the multiply form (no division, no zero edge, exact in fifths). ⚠ ONE REAL QUESTION LEFT BEFORE CODE: (b) whether ATK is a THRESHOLD compared against the effective rating (which the 'destroyed with one laser hit' example implies) or a running damage pool. The 'one laser hit' example implies a THRESHOLD; 'attack = -1 hp point' implies a POOL; under a threshold a 2-ATK attacker could never kill a 3-HP target at all, and damageCreature is a pool today. THIS ONE MATTERS MOST. (c) whether the two existing HP scales collapse — creature hp is a HIT COUNT today while Primitive/defender hp is a damage pool, and constants.ts calls that out as 'the OTHER hp scale'. (2) THE GOBLIN TOWER. Settled by roadmap Q9/R24: ONE tower, SIX outputs — feed one shape, get one goblin of that type. Shape map (Q1): Dot=suicide, Line=archer, Triangle=swordsman, Square=shield, Circle=hound, Spiral=bat rider. Recipe size 'like 4 or 5' shapes. Its unit stats come from (1). Reference numbers as of S150: CHEWER_HP 1 · GOBLIN_MELEE_HP 6 · VOLTKIN_HP 8 (R71, shipped) · PRINCESS_SLAP_DAMAGE_VS_CREATURE 3 (to be deleted) · CREATURE_HIT_DAMAGE 1 · RAID_CREATURE_DAMAGE 1."
   },
   {
    "id": "CF-S149-f",
@@ -3448,7 +3450,7 @@
    "title": "UNIT HP / ATK / DEFENCE NEED A BALANCE PASS",
    "owner": "Unit HP and ATK/DEFENCE needs to be tweaked and worked on. Helga cant kill voltkin within two slaps but goblin within like 5....",
    "means": "⚠ RECORDED VERBATIM AND NOT ACTED ON - the intent is genuinely ambiguous and guessing a balance number is worse than asking. Needs the owner to confirm the direction before any constant moves. The measured current numbers should be put in front of them first.",
-   "status": "SUPERSEDED IN PART by R70 + R71. R71 settled the Voltkin half concretely (8, shipped). The rest of the unit stat pass is folded into R70 and deferred to next session, where it belongs - alongside the goblin tower that the goblin's stats are downstream of."
+   "status": "SUPERSEDED BY R72. R71 settled the Voltkin number concretely (8, shipped). The rest is absorbed into the stat system, which is the correct level to fix it at."
   },
   "R66": {
    "title": "THE FOOTER NUMBER IS THE SHAPE COUNT - CORRECT AS SHIPPED",
@@ -3476,13 +3478,49 @@
    "owner": "why is goblin 6 hp he should be as weak as chewer - look again at the goblin tower that we have thought about but havnt built yet. its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin of different kinds - we have predefined the types of goblins but not their stats. maybe we should work on that and the goblin tower amongst other things first thing next session.",
    "means": "TWO things. (1) GOBLIN_MELEE_HP = 6 is wrong - a goblin should be roughly as fragile as a chewer (CHEWER_HP = 1). ⚠ DO NOT just set it to 1 in isolation: HELGA's slap damage is DERIVED from it (PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2) = 3), so dropping the goblin also silently nerfs Helga against everything else. The two have to move together, which is why this is a balance PASS and not a constant edit. (2) The goblin's stats are downstream of a feature that does not exist yet - THE GOBLIN TOWER - so tuning the goblin before the tower exists is tuning the wrong end. NEXT SESSION'S HEADLINE.",
    "goblin_tower_spec_so_far": "A basic 4-5 shape tower. You FEED IT ONE SHAPE and it spawns a goblin of the type that shape maps to. The six types are already predefined (roadmap Q1): Dot -> suicide, Line -> archer, Triangle -> swordsman, Square -> shield goblin, Circle -> hound, Spiral -> bat rider. Their STATS are not defined - that is the open work. Roadmap Q9/R24 already settled the shape of it: ONE tower with six outputs, not six towers.",
-   "status": "NEXT SESSION - headline item, together with the unit stat pass"
+   "status": "SUPERSEDED BY R72 for the goblin-HP half. My framing of it was WRONG: I called the slap-damage-derived-from-goblin-HP a constraint to respect, and the owner correctly identifies it as the defect to delete. The goblin TOWER half stands and remains next session's headline."
   },
   "R71": {
    "title": "VOLTKIN_HP 2 -> 8",
    "owner": "Voltkin hp should be 8",
    "means": "SHIPPED THIS SESSION. At 2 hp a Voltkin died to ONE of HELGA's slaps (damage 3) while a plain goblin at 6 hp took two - the godly unit was strictly weaker than the grunt. 8 makes it three slaps and restores the ladder chewer(1) < goblin(6) < voltkin(8). ⚠ It cost a PROTOCOL BUMP 27->28, and the reason is worth remembering: serializeCreature emits creature hp ONLY when DAMAGED, so an undamaged creature carries no hp on the wire and the peer rebuilds it from its own compiled constant. An additive-optional field whose absence means 'use your own default' turns that default into a shared constant both peers compute from - the third time this has forced a bump (KEEP_RING_RADIUS 16->17, CASTLE_BANK_CAP 18->19).",
    "status": "SHIPPED"
+  },
+  "R72": {
+   "title": "A REAL STAT SYSTEM — and the goblin stops being the backbone of the damage scale",
+   "owner": "the unit balance ... is all very stupidly made. a goblins power should not be the backbone for the whole stat system - there should be a system in place that we define. we will have HP STR DEF PENETRATION and other stats we can think about and define their specs. then based on that we will decide for every tower and every unit what they have. for example Helga only attacks enemy units, chewers only attack towers, goblins of all kinds can do both, laser torretr does both, lightning drones can do both, voltkin can do both. and then the stats come into play. so for example voltkin with 1HP + 1DEF = 1 ATK + 1 PEN. literally for now we will consider defence and hp as the exact inverse stat for ATK and PEN. where hp = 1 point. attack = -1 hp point (so if you attack someone and you have 1 atk and he has 1 hp thenm it only takes one attack to kill him). and DEF and PEN are multiples so def = x1.2 and pen = /1.2 . so if an enemy has 2 hp and one def. his total defensive stat is 2.4 . if he has 2 hp and 2 stats he will then have 2x1.4 = 2.8 defensive stats and so if a laser tower has 3 attack, then he will be destroyed with one laser hit.... something like that! makes sense??",
+   "means": "⭐ THIS SUPERSEDES R65 AND R70 AND CORRECTS MY OWN FRAMING OF BOTH. I described PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2) as a CONSTRAINT to respect before touching the goblin. The owner is right that it is the DEFECT ITSELF: one unit's HP became the backbone of the whole damage scale by accident, so every other number is expressed relative to a grunt. The work is not 'retune the goblin carefully' — it is DELETE THE DERIVATION and give every unit and tower explicit stats from one shared system.",
+   "stat_model": {
+    "stats": "HP, STR (attack), DEF, PENETRATION — plus others still to be defined.",
+    "symmetry": "Defence and HP are the exact INVERSE of ATK and PEN, on ONE shared scale. The owner's example: a voltkin with 1 HP + 1 DEF is mirrored by 1 ATK + 1 PEN. So a unit's defensive rating and offensive rating are computed the same way and compared directly.",
+    "additive_terms": "HP = 1 point each. ATK = -1 HP point (1 ATK against 1 HP is a one-hit kill).",
+    "multiplier_terms": "DEF and PEN are MULTIPLIERS, and they stack LINEARLY, not compounding — this is pinned by the owner's own two examples: 2 HP + 1 DEF = 2 x 1.2 = 2.4, and 2 HP + 2 DEF = 2 x 1.4 = 2.8. Note 1.4, NOT 1.2^2 = 1.44. So the factor is (1 + 0.2 x DEF), i.e. +0.2 per point.",
+    "worked_example": "A defender with 2 HP and 2 DEF has an effective defensive rating of 2.8. A laser tower with 3 ATK exceeds it, so it dies to a single laser hit.",
+    "open_questions": [
+     "⚠ THE ONE REAL OPEN QUESTION: is ATK a THRESHOLD or a DAMAGE POOL? The owner's laser example ('destroyed with one laser hit') reads as a threshold — compare attack_eff to def_eff once, and the target either survives intact or dies. But 'attack = -1 hp point' reads as a pool, where hits accumulate. These differ enormously: under a threshold model a 2-ATK attacker can NEVER kill a 3-HP target no matter how many times it hits, and today's damageCreature is a pool. ASK.",
+     "Whether the two existing HP scales collapse into one. Creature hp is a HIT COUNT today while Primitive/defender hp is a damage pool — constants.ts names this 'the OTHER hp scale' explicitly. One shared stat system implies they merge, which is a wide change.",
+     "What the 'other stats we can think about' are. Range, attack interval and speed already exist as separate constants and may or may not join the ladder.",
+     "Whether the 1..12 ceiling is a HARD cap (validated/clamped) or just the intended design range."
+    ],
+    "ladders": {
+     "HP": "INTEGER POINTS, 1..12. A flat ladder with a stated ceiling of 12.",
+     "ATK": "INTEGER POINTS, 1..12 — 'same for attack', i.e. the same flat ladder as HP, which is what makes them directly comparable.",
+     "DEF": "MULTIPLIER LADDER: x1.2, x1.4, x1.6, x1.8, x2.0, x2.2, ... = (1 + 0.2 x DEF). LINEAR, confirmed twice over — by the owner's 2 DEF = x1.4 example and now by the explicit ladder. NOT 1.2^n.",
+     "PEN": "MULTIPLIER LADDER, same shape as DEF — 'same for ... pen'. Applied as the attacker's counterpart to DEF."
+    },
+    "resolved_formula": "⭐ THE LADDER RESOLVES THE PEN AMBIGUITY BY MAKING IT MOOT. The two candidate readings are ALGEBRAICALLY IDENTICAL: (A) compare attack_eff = ATK x (1 + 0.2 x PEN) against def_eff = HP x (1 + 0.2 x DEF); (B) reduce the defender first — def_eff = HP x (1 + 0.2 x DEF) / (1 + 0.2 x PEN) — and compare to ATK. Since ATK >= HP x (1+0.2D)/(1+0.2P) iff ATK x (1+0.2P) >= HP x (1+0.2D), both give the same outcome for every input. So the implementation can pick whichever reads better (A is cheaper — no division, no divide-by-zero edge, and exact in integers scaled by 5) without changing behaviour. Worked check against the owner's own example: a 2 HP / 2 DEF defender is 2 x 1.4 = 2.8; a 3 ATK / 0 PEN laser is 3.0; 3.0 >= 2.8, so it dies in one hit. Matches."
+   },
+   "targeting_matrix": {
+    "note": "WHO CAN ATTACK WHAT — stated by the owner and to be enforced as an explicit table, not per-unit special cases.",
+    "princessHelga": "ENEMY UNITS ONLY",
+    "chewers": "TOWERS ONLY",
+    "goblins_all_kinds": "both units and towers",
+    "laserTurret": "both",
+    "lightningDrones": "both",
+    "voltkin": "both"
+   },
+   "status": "NEXT SESSION — design first, then apply to every unit and tower. Supersedes R65 and R70.",
+   "owner_followup_ladder": "scaling will be for hp = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 for def = x1.2, x1.4, x1.6, x1.8, x2, x2.2, etc... and same for attack and pen...."
   }
  },
  "owner_rulings_s150_late_note": "Eleven rulings given at S150 close, in response to the \"NEEDING YOU\" summary. R57-R61 unblock BOTS BUILD TOWERS (the last of the five S149 playtest complaints) and OVERRIDE two things S150 proposed: no travel-then-stamp (R57) and no per-difficulty tower whitelist (R58/R59). R63 dissolves the quarry open-hub question without the wall arc S150 offered. R62, R64, R68 and R69 are NEW scope. R65 is recorded but deliberately NOT acted on - ambiguous intent.",
