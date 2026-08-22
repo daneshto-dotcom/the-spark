@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1784,
+ "tool_calls_session_total": 1787,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -8,7 +8,7 @@
  "phase": "DO",
  "tier": "Full",
  "plan_file": ".claude/plans/2026-08-21_PDR_S150_BATCH.md",
- "session_status": "auditing",
+ "session_status": "batch complete + Rule-22 audited",
  "pdr_approved": true,
  "deliberation_completed": true,
  "unlock_source": "user",
@@ -1929,6 +1929,13 @@
    "title": "rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
    "state": "LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing.",
    "detail": "rainbow.spec sets __TEST_RAINBOW_SPAWN_SPARKS__ = 2 (a rainbow almost immediately) and THEN calls placeFreeSparkAndConfirm. A rainbow spawn starts a flyover CINEMATIC, and Controls.onDown returns at controls.ts:537 while isInputLocked() is true — so every mouse-down during the flyover is silently discarded. It survives today only because it shrinks the flyover to 30 ticks via __TEST_FLYOVER_DURATION_TICKS__. ⚠ Its comment says the design is 'race-free by design' because the other two zone hazards are suppressed — the SAME false reasoning bomb.spec carried in its header for three sessions. Cheapest fix: build BEFORE enabling the rainbow cadence, or hold the build until activeCinematicPlayerId is null. The S150 diagnostic in placeFreeSparkAndConfirm will name the cause outright if it ever fires."
+  },
+  {
+   "id": "CF-S150-c",
+   "priority": 12,
+   "title": "chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials",
+   "state": "REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing.",
+   "detail": "G, C and M are all members of NAME_ALPHABET, so typing them as initials also triggers their global commands. chordBlocked (main.ts) gates only on INPUT/TEXTAREA focus, world.sudoku !== null, and an active cinematic - and an arcade run deliberately keeps world.sudoku null for its whole life, so none of the three clauses fire. The S150 audit-fix added a gameState guard to the arcade key listener, which stops arcade keys leaking into a MATCH, but does not stop game hotkeys leaking into the INITIALS screen. Fix: add an arcadeRun-is-entering-initials clause to chordBlocked."
   }
  ],
  "priorities_s149_archived": [
@@ -3231,6 +3238,33 @@
    "SELF-FOUND DURING THE AUDIT: P5's committed mechanism was wrong (picker priority vs the real input lock). Corrected in code and here.",
    "SELF-FOUND DURING THE AUDIT: rainbow.spec carries the same latent exposure — logged as CF-S150-b.",
    "SELF-FOUND: arcade key listener lacked the gameState guard the renderer has - fixed in ca4d308 follow-up."
+  ],
+  "result": "RAN as the owner asked. 5 independent auditors + 3 adversarial verifiers; the account spend limit killed 5 of 8 agents, so 3 audit reports landed (runtime-truth, p3-arcade, state-and-claims) and the verifier stage was lost. The 2 lost audit areas (p1-protocol, p4-p5-e2e) were substantially covered by runtime-truth, which independently re-ran tsc, the full vitest suite, the build, verify-deploy AND the whole 53-test Playwright lane, and replicated P1 chain enumeration by hand.",
+  "confirmed": [
+   "tsc exit 0; vitest 173 files / 2848 tests (exact match to the claim); entry bundle 717.4 KiB vs the 900 KiB cap; verify-deploy 4/4",
+   "e2e:gating INDEPENDENTLY RE-RUN by the auditor: 53 passed, 0 failed, 0 skipped",
+   "the P1 chain is genuinely unbroken - NARRATIVE 26 links spanning 2..27, HelloMsg 21 links spanning 7..27, both with missing:[]",
+   "no line-ending damage: every one of the 20 touched files is i/lf in the index",
+   "dev hooks stripped - forceBomb and forceNonet each 0 times across all 18 executable dist chunks",
+   "the arcade genuinely ships now: spark.arcade.nonet.scores present in dist (was tree-shaken out entirely)",
+   "the new gate is NOT vacuous - proven by mutation, though 4 assertions were fragile and are now hardened"
+  ],
+  "defects_found_and_fixed": [
+   "HIGH: P3 blank-name fix broke the board own-row highlight (write path normalised, read path did not). FIXED + regression test.",
+   "HIGH: the awk brace-depth hazard was LIVE in session-state.json - gate depth 2, not 0, so it read nothing below line 1298. FIXED, depth 0.",
+   "MEDIUM: 4 chain assertions were no-ops over an empty set, protected only non-locally. chainFrom now throws. FIXED.",
+   "MEDIUM: a test named swallows-no-pointers asserted nothing about eventMode. FIXED, all three phases asserted.",
+   "MEDIUM: P2 bindings self-referential - the CF floor was met by the frozen inherited copy alone. FIXED.",
+   "MEDIUM: P5 check_method carried the refuted mechanism AND its retraction unedited. FIXED.",
+   "LOW: placeOf docblock promised a 61st place the code cannot report (ceiling 26). FIXED.",
+   "LOW: a comment claimed forceNonet appears 0 times in dist/ - it appears 3, all in the .js.map. FIXED.",
+   "LOW: top-level e2e_gating_status stale at 42/42 since S149. FIXED to 53/53.",
+   "LOW: real_context_tokens_at_close regressed to null beside a live pct. FIXED.",
+   "RETRACTION: commit 099a7f2 claimed checkpoints were written proactively; they were backfilled in bulk. Recorded, not amended."
+  ],
+  "still_open": [
+   "MEDIUM (logged, not fixed): global hotkeys G/C/M are members of NAME_ALPHABET and fire while the player types initials - chordBlocked has no arcadeRun awareness. The key listener is now gameState-guarded so it cannot fire during a match, but on the TITLE screen typing G or C can still trip the codex chord. Cheap fix next session: teach chordBlocked about arcadeRun.",
+   "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
   ]
  },
  "real_context_level_at_close": "YELLOW",
