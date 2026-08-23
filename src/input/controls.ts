@@ -694,14 +694,32 @@ export class Controls {
       // creature FIRST (a chewer hopping on top of a bond should be the target, not the bond
       // under it); if one is under the cursor, raid it (host charge-gates + enemy-checks).
       // Otherwise fall back to the connector sever (the original raid).
+      // ⭐ S152 P1 (owner R78) — BOTH ARMS ARE NOW RAIDS, AND THE PRECEDENCE IS UNCHANGED.
+      // Creature first, bond second, for the reason S102 already wrote down: a chewer hopping on
+      // top of a bond should be the target, not the bond under it. R78 asked for exactly this
+      // order and it was already shipped, so nothing about the ordering moves.
+      //
+      // ⚠ WHAT CHANGED: the bond arm used to dispatch SEVER_BOND directly — a guaranteed cut
+      // for 2 disruption charges. Under R78 a right-click IS a 2-ATK hit, so the bond arm raids too
+      // and the sever becomes a CONSEQUENCE of damage reaching the connector's capacity (the
+      // reducer re-dispatches SEVER_BOND itself). A player can no longer buy a guaranteed cut, and
+      // against a component of 7+ connectors a raid cannot sever at all.
       const creatureId = this.pickCreature();
       if (creatureId !== null) {
-        this.dispatchFn({ type: 'RAID_CREATURE', creatureId, playerId: this.playerId });
+        this.dispatchFn({
+          type: 'RAID_TARGET',
+          target: { kind: 'creature', id: creatureId },
+          playerId: this.playerId,
+        });
         return;
       }
       const bondId = this.pickBond();
       if (bondId !== null) {
-        this.dispatchFn({ type: 'SEVER_BOND', bondId, playerId: this.playerId, cause: 'player' });
+        this.dispatchFn({
+          type: 'RAID_TARGET',
+          target: { kind: 'bond', id: bondId },
+          playerId: this.playerId,
+        });
       }
     }
   };

@@ -6,7 +6,12 @@
  * at compile time; the guard backstops dispatched-action payload errors.
  */
 
-import { BUILD_ACTIONS_PER_CHARGE, MAX_DISRUPTION_CHARGES } from '../constants.ts';
+import {
+  BUILD_ACTIONS_PER_CHARGE,
+  MAX_DISRUPTION_CHARGES,
+  MAX_RAID_POINTS,
+  RAID_PROGRESS_PER_POINT,
+} from '../constants.ts';
 import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 
 interface PlayerCommon {
@@ -20,6 +25,28 @@ interface PlayerCommon {
   energy: number;
   buildActions: number;
   disruptionCharges: number;
+  /**
+   * ⭐ S152 P1 (owner R78) — SPENDABLE RAID POINTS, A SEPARATE CURRENCY FROM `disruptionCharges`.
+   *
+   * Owner: *"either once you build 2 towers or make 5 connections you get one **raid point**"* — the
+   * owner's own noun, and the reason this is not a third sink on the existing pool.
+   *
+   * ⛔ WHY NOT REUSE `disruptionCharges`. It caps at `MAX_DISRUPTION_CHARGES = 2` and a defensive
+   * sever costs `DEFENSIVE_SEVER_CHARGE_COST = 2` — the WHOLE budget. Sharing the pool would mean
+   * one raid (cost 1) leaves a player unable to sever at all, so every offensive click would be a
+   * tax on defence. Both Council seats reached "separate currency" independently.
+   *
+   * ⚠ SERIALIZED BUT NOT HASHED, following `disruptionCharges` exactly (it is absent from
+   * `stateHashFull`). The hash covers the families a divergence check needs; currencies are
+   * host-authoritative and mirrored by snapshot.
+   */
+  raidPoints: number;
+  /**
+   * Accrual progress toward the next raid point, in TENTHS. See `RAID_PROGRESS_PER_POINT`.
+   * A tower is worth 5, a hand-made connection 2, and 10 tenths is a point — so "2 towers OR 5
+   * connections" both come out exact, and mixed building never strands a part-payment.
+   */
+  raidProgress: number;
   /**
    * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
    * cursor doubles as the single avatar (avatarRenderer.ts reads
@@ -98,6 +125,9 @@ export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { 
     energy: 0,
     buildActions: 0,
     disruptionCharges: 0,
+    // S152 P1 — a new seat starts with no raid points and no progress toward one.
+    raidPoints: 0,
+    raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     godlyCooldownEndsAtTick: null,
     territorialShrinkUntilTick: null,
@@ -122,6 +152,11 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
+    // ⛔ S152 P1 — PRESERVE ACROSS THE CARRY-FSM RECONSTRUCTION. `pickup`/`fsmDrop` rebuild the
+    // player object wholesale, so a field omitted here is silently RESET every time the seat picks
+    // up or drops a shape. That is the documented failure mode of this pair of literals.
+    raidPoints: player.raidPoints,
+    raidProgress: player.raidProgress,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
@@ -151,6 +186,11 @@ export function drop(player: Player): IdlePlayer {
     energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
+    // ⛔ S152 P1 — PRESERVE ACROSS THE CARRY-FSM RECONSTRUCTION. `pickup`/`fsmDrop` rebuild the
+    // player object wholesale, so a field omitted here is silently RESET every time the seat picks
+    // up or drops a shape. That is the documented failure mode of this pair of literals.
+    raidPoints: player.raidPoints,
+    raidProgress: player.raidProgress,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
@@ -175,6 +215,34 @@ export function tickBuildAction(player: Player): void {
   ) {
     player.buildActions -= BUILD_ACTIONS_PER_CHARGE;
     player.disruptionCharges++;
+  }
+}
+
+/**
+ * ⭐ S152 P1 (owner R78) — EARN RAID PROGRESS, AND CONVERT IT TO POINTS.
+ *
+ * Owner: *"either once you build 2 towers or make 5 connections you get one raid point"*.
+ *
+ * `tenths` is `RAID_PROGRESS_PER_TOWER` (5) for a tower or `RAID_PROGRESS_PER_CONNECTION` (2) for a
+ * hand-made connection. Deliberately shaped exactly like `tickBuildAction` above — a progress
+ * counter that drains into a capped currency — because it is the same kind of thing and the next
+ * reader should not have to work out whether it is.
+ *
+ * ⚠ AT THE CAP, PROGRESS STOPS ACCUMULATING RATHER THAN BANKING INVISIBLY. `tickBuildAction` has
+ * this same shape: its `while` cannot run at the cap, so `buildActions` keeps climbing and the
+ * moment a charge is spent it instantly refills from the backlog. For raids that would let a player
+ * bank an unbounded reserve behind a cap of 3 and then fire it all at once, which is not a cap at
+ * all — so this clamps the PROGRESS too, and the surplus is genuinely forfeited.
+ */
+export function grantRaidProgress(player: Player, tenths: number): void {
+  if (!Number.isInteger(tenths) || tenths <= 0) return;
+  player.raidProgress += tenths;
+  while (player.raidProgress >= RAID_PROGRESS_PER_POINT && player.raidPoints < MAX_RAID_POINTS) {
+    player.raidProgress -= RAID_PROGRESS_PER_POINT;
+    player.raidPoints++;
+  }
+  if (player.raidPoints >= MAX_RAID_POINTS && player.raidProgress >= RAID_PROGRESS_PER_POINT) {
+    player.raidProgress = RAID_PROGRESS_PER_POINT - 1; // hold just short; do not bank a backlog
   }
 }
 

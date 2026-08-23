@@ -157,6 +157,12 @@ export function severActor(action: SeverBondAction): PlayerId | undefined {
     case 'chewer':
     case 'drone':
     case 'bomb':
+    // ⭐ S152 P1 (owner R78) — 'raid' IS A REAL ACTOR, and attributing it is the entire point of the
+    // feature. The owner's stated purpose for the RAIDED cloud is *"they will know who attacked
+    // them"*, so a raid that severed a connector must name its raider in the sever toast too —
+    // anything else would tell the victim who hit them in one channel and shrug in the other.
+    // `world.ts`'s RAID_TARGET reducer dispatches with the raiding seat, verified at that site.
+    case 'raid':
       return action.playerId;
     default: {
       // Adding a member to SEVER_BOND's `cause` union breaks the BUILD here until someone decides

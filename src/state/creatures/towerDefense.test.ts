@@ -387,58 +387,138 @@ describe('Enemy-only targeting — chewer never eats its own structure', () => {
   });
 });
 
-describe('RAID_CREATURE — a player raid pops an enemy chewer (S102 #1)', () => {
+describe('RAID_TARGET \u2014 a raid is a 2-ATK hit on units (owner R78, S152 P1)', () => {
   const RAIDER = asPlayerId(0);
 
-  it('right-clicking an enemy chewer pops it (hp 1) and spends 1 charge', () => {
+  it('right-clicking an enemy chewer pops it and spends exactly 1 RAID POINT', () => {
     const world = makeWorld(2); // P0 raider, P1 owns the chewer
-    world.players.get(RAIDER)!.disruptionCharges = 2;
+    world.players.get(RAIDER)!.raidPoints = 2;
     spawnChewer(world, { x: 100, y: 100 }, 7, 1); // ownerPlayer 1 = enemy
     const id = asCreatureId(0);
     expect(world.creatures.has(id)).toBe(true);
-    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
-    expect(world.creatures.has(id)).toBe(false); // chewer hp 1 -> dead in one raid
-    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(1); // spent exactly 1
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(false); // chewer = 5 fifths, raid = 10 -> dead in one
+    expect(world.players.get(RAIDER)!.raidPoints).toBe(1);
   });
 
-  it('cannot raid your OWN chewer (enemy-only) — survives, no charge spent', () => {
+  it('\u2b50 SPENDS A RAID POINT AND NOT A DISRUPTION CHARGE \u2014 the two currencies are separate', () => {
+    const world = makeWorld(2);
+    const raider = world.players.get(RAIDER)!;
+    raider.raidPoints = 1;
+    raider.disruptionCharges = 2;
+    spawnChewer(world, { x: 100, y: 100 }, 7, 1);
+    dispatch(world, {
+      type: 'RAID_TARGET', target: { kind: 'creature', id: asCreatureId(0) }, playerId: RAIDER,
+    });
+    expect(raider.raidPoints).toBe(0);
+    expect(raider.disruptionCharges).toBe(2); // untouched \u2014 severing is still separately funded
+  });
+
+  it('cannot raid your OWN unit (enemy-only) \u2014 survives, no point spent', () => {
     const world = makeWorld(1);
-    world.players.get(RAIDER)!.disruptionCharges = 2;
+    world.players.get(RAIDER)!.raidPoints = 2;
     spawnChewer(world, { x: 100, y: 100 }, 7, 0); // ownerPlayer 0 = the raider
     const id = asCreatureId(0);
-    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
     expect(world.creatures.has(id)).toBe(true);
-    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(2);
+    expect(world.players.get(RAIDER)!.raidPoints).toBe(2);
   });
 
-  it('no disruption charge -> the raid is a no-op (chewer survives)', () => {
+  it('no raid point -> the raid is a no-op (the unit survives)', () => {
     const world = makeWorld(2);
-    world.players.get(RAIDER)!.disruptionCharges = 0;
+    world.players.get(RAIDER)!.raidPoints = 0;
     spawnChewer(world, { x: 100, y: 100 }, 7, 1);
     const id = asCreatureId(0);
-    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
     expect(world.creatures.has(id)).toBe(true);
   });
 
   it('orphaned chewer (spawner already destroyed) is still raid-killable', () => {
     const world = makeWorld(2);
-    world.players.get(RAIDER)!.disruptionCharges = 2;
-    spawnChewer(world, { x: 100, y: 100 }, 99, 1); // its spawner id 99 was never registered / is gone
+    world.players.get(RAIDER)!.raidPoints = 2;
+    spawnChewer(world, { x: 100, y: 100 }, 99, 1); // spawner id 99 was never registered / is gone
     const id = asCreatureId(0);
-    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
-    expect(world.creatures.has(id)).toBe(false); // persistent chewers live independent of the spawner
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(false);
   });
 
-  it('a Voltkin is NOT raidable this session (chewers only; Voltkin-raid ships next session)', () => {
+  it('\u2b50 THE CHEWERS-ONLY RESTRICTION IS GONE, BUT THE LADDER STILL PROTECTS A VOLTKIN', () => {
+    // S102 refused any non-chewer outright. Owner R78 says "units", so a voltkin IS a legal target
+    // now \u2014 and it survives anyway, because 8 hp / 3 def = 8 * (5+3) = 64 fifths against a raid's
+    // 10. The protection comes from the shared arithmetic, NOT from a special case. This test
+    // INVERTED at S152: it used to assert the raid was refused.
     const world = makeWorld(2);
-    world.players.get(RAIDER)!.disruptionCharges = 2;
+    world.players.get(RAIDER)!.raidPoints = 3;
     applySpawnCreature(world, {
       type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: asPlayerId(1),
       pos: { x: 100, y: 100 }, targetPos: { x: 100, y: 100 },
     });
     const id = asCreatureId(0);
-    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
-    expect(world.creatures.has(id)).toBe(true);
-    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(2); // no charge spent on a no-op
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(true);              // 10 < 64 \u2014 it holds
+    expect(world.players.get(RAIDER)!.raidPoints).toBe(2);   // but the point WAS spent
+  });
+
+  it('\u2b50 SEVEN RAIDS KILL A VOLTKIN \u2014 the R78 kill table, verified by accumulation', () => {
+    // 64 fifths / 10 per raid: six raids bank 60 and it lives; the seventh reaches 70 and it dies.
+    // This is the pool semantics owner R74 settled ("Damage pool"), not a threshold.
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.raidPoints = 7;
+    applySpawnCreature(world, {
+      type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: asPlayerId(1),
+      pos: { x: 100, y: 100 }, targetPos: { x: 100, y: 100 },
+    });
+    const id = asCreatureId(0);
+    for (let i = 0; i < 6; i++) {
+      dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
+      expect(world.creatures.has(id)).toBe(true);
+    }
+    dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id }, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(false);
+  });
+
+  it('\u2b50 LEAVES A RAIDED CLOUD IN THE RAIDER\u2019S COLOUR, AT THE VICTIM\u2019S POSITION', () => {
+    // Owner R78: the cloud exists so "they will know who attacked them". The colour must therefore
+    // be the RAIDER'S, and the position must be where the unit STOOD \u2014 which is only reachable if
+    // the reducer captured it BEFORE damageEntity removed the creature.
+    const world = makeWorld(2);
+    const raider = world.players.get(RAIDER)!;
+    raider.raidPoints = 1;
+    spawnChewer(world, { x: 123, y: 456 }, 7, 1);
+    world.effects.length = 0;
+    dispatch(world, {
+      type: 'RAID_TARGET', target: { kind: 'creature', id: asCreatureId(0) }, playerId: RAIDER,
+    });
+    const cloud = world.effects.find((e) => e.kind === 'RAIDED');
+    expect(cloud).toBeDefined();
+    expect(cloud!.kind === 'RAIDED' && cloud!.color).toBe(raider.color);
+    expect(cloud!.kind === 'RAIDED' && cloud!.pos.x).toBe(123);
+    expect(cloud!.kind === 'RAIDED' && cloud!.pos.y).toBe(456);
+    expect(cloud!.kind === 'RAIDED' && cloud!.killed).toBe(true);
+  });
+
+  it('a raid that only DAMAGES still emits a cloud, flagged killed:false', () => {
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.raidPoints = 1;
+    applySpawnCreature(world, {
+      type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: asPlayerId(1),
+      pos: { x: 10, y: 20 }, targetPos: { x: 10, y: 20 },
+    });
+    world.effects.length = 0;
+    dispatch(world, {
+      type: 'RAID_TARGET', target: { kind: 'creature', id: asCreatureId(0) }, playerId: RAIDER,
+    });
+    const cloud = world.effects.find((e) => e.kind === 'RAIDED');
+    expect(cloud).toBeDefined();
+    expect(cloud!.kind === 'RAIDED' && cloud!.killed).toBe(false);
+  });
+
+  it('a raid on a creature that no longer exists spends NOTHING', () => {
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.raidPoints = 2;
+    dispatch(world, {
+      type: 'RAID_TARGET', target: { kind: 'creature', id: asCreatureId(999) }, playerId: RAIDER,
+    });
+    expect(world.players.get(RAIDER)!.raidPoints).toBe(2);
   });
 });

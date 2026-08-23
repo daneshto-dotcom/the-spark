@@ -316,7 +316,28 @@ export type { NetSnapshot };
 // same version number would have put two different wire surfaces both calling themselves v29 —
 // exactly the desync a version exists to prevent. The lesson is about SEQUENCING, not design: do
 // not deploy the first half of a two-part wire change.
-export const PROTOCOL_VERSION = 30 as const;
+//
+// S152 P1 — bumped 30->31: RAID (owner R78). A right-click is now a 2-ATK hit on the shared fifths
+// ladder, against units AND connectors, paid with a new raid-point currency. TWO wire breaks:
+//   (a) THE `RAID_CREATURE` CLIENT INTENT IS RENAMED `RAID_TARGET`, and its payload reshaped from a
+//       bare `creatureId` to a discriminated `{ kind: 'creature' | 'bond', id }`. A v30 host has no
+//       `RAID_TARGET` entry in its allowlist, so a v31 joiner's raid would be SILENTLY DROPPED —
+//       the same failure mode the allowlist comment warns about, and the same class as FEED_TOWER
+//       at 29->30. The rename is not cosmetic: `RAID_CREATURE` became false the moment a raid could
+//       hit a bond, and a wire-visible action type that misdescribes itself is how the next author
+//       plans around a mechanism that does not exist (the `DefenderDeathCause` lesson).
+//   (b) A NEW SERIALIZED EFFECT KIND, `RAIDED`, and this is the sharper edge. Every previous effect
+//       change was a new OPTIONAL FIELD on an existing kind (`creatureId?` at S33, `actor?`/`victim?`
+//       at S131) and correctly took NO bump, because a stale peer just ignores an unknown field. A
+//       new KIND is a different animal: `deserializeEffect` is an exhaustive switch with NO default
+//       arm, so a v30 peer handed `kind: 'RAIDED'` falls off the end, returns `undefined`, and
+//       pushes that into `world.effects` for the renderer to dereference. It MUST be serialized —
+//       unlike SEVER_ERASE it exists to tell the VICTIM who hit them, and the victim is on another
+//       peer by definition, so a host-local cloud would be invisible to its only audience.
+//
+// `raidPoints`/`raidProgress` on `SerializedPlayer` also ride this bump, but they are emitted only
+// when non-zero and rehydrate `?? 0`, so on their own they would NOT have needed one.
+export const PROTOCOL_VERSION = 31 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -440,6 +461,17 @@ export interface HelloMsg {
    * on `Spawner.recipeId`, and the FEED_TOWER client intent. Avoidable: P2 deployed before P3, so
    * the planned shared bump could not be shared.)
    *
+   * S152 P1: 30->31 (RAID — owner R78. TWO breaks. (a) The `RAID_CREATURE` client intent is RENAMED
+   * `RAID_TARGET` and its payload reshaped from a bare `creatureId` to a DISCRIMINATED
+   * `{kind:'creature'|'bond', id}` — a v30 peer's allowlist has no `RAID_TARGET` entry, so it would
+   * DROP the intent silently, which the note above marks as the more dangerous failure. (b) A NEW
+   * SERIALIZED EFFECT KIND, `RAIDED` — and this is the sharper edge: `deserializeEffect` is an
+   * exhaustive switch with NO default arm, so a v30 peer handed `kind:'RAIDED'` falls off the end,
+   * returns `undefined`, and pushes it into `world.effects` for the renderer to trip over. Every
+   * previous effect change was a new OPTIONAL FIELD on an existing kind (`creatureId?`, `actor?`,
+   * `victim?`) and correctly took no bump; a new KIND is not that. Also `raidPoints`/`raidProgress`
+   * on `SerializedPlayer`, which ARE additive-optional and would not on their own have needed one.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -472,7 +504,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 30;
+  readonly protoVersion: 31;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -889,7 +921,7 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   REMOVE_SPAWNER: true,
   // S102 #1 — a player raids an enemy SPAWN (right-click a chewer). A genuine client
   // INTENT (also in CLIENT_INTENT_TYPES below); the host charge-gates + enemy-checks it.
-  RAID_CREATURE: true,
+  RAID_TARGET: true,
   // S103 P2 — generic defender lifecycle. ALL THREE are HOST-INTERNAL (host-authored on recipe
   // ignition / re-validation / per-tick FSM; NOT client INTENTs — defenders auto-build from
   // geometry). Listed here only because this Record must mirror GameAction['type'] exhaustively;
@@ -937,7 +969,7 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // S93 — NONET: a 1v1 client (joiner) submits its completed grid; host validates first-valid-wins.
   SUDOKU_SOLVED: true,
   // S102 #1 — a 1v1 client can raid an enemy chewer (right-click); host charge-gates + enemy-checks.
-  RAID_CREATURE: true,
+  RAID_TARGET: true,
   // V6-1.1 — a 1v1 joiner can buy a gatherer from their keep; the host affordability-gates it and
   // spends from that seat's own score pool (the reducer never trusts the client's view of the price).
   BUY_GATHERER: true,

@@ -1433,13 +1433,73 @@ export const VOLTKIN_PEN = 6;
 export const VOLTKIN_DEF = 3;
 /** Owner's suggested ceiling for the chain, held here so the future implementation has a number. */
 export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
-export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
+/**
+ * ⭐ S152 P1 (owner R78) — A RAID IS A 2-ATK / 0-PEN HIT, AND NOTHING MORE THAN THAT.
+ *
+ * Owner: *"a raid point is basically a 2atk hit. you can use it on units and it will hit them (if
+ * they are in the >2defensive points range then they will die)"*.
+ *
+ * ⛔ AUTHOR RAID DAMAGE ONLY VIA `attackFifths(RAID_ATK, RAID_PEN)`. These are ATK **POINTS**, not
+ * fifths. Passing `RAID_ATK` to a fifths parameter deals two FIFTHS — 4/5 of nothing — and it
+ * COMPILES CLEAN, because a unit change is not tsc-forced the way a type change is (the exact trap
+ * S151 P2 recorded: renaming `hp`→`ehp` caught every unconverted READ, while every site that merely
+ * PASSED a number stayed silently wrong).
+ *
+ * The whole R78 kill table falls out of `attackFifths(2,0) = 10` against `HP × (5 + DEF)`, with no
+ * bespoke threshold rule anywhere: it one-shots chewer(5), ranged goblin(6), melee goblin(7),
+ * hound(5), flying goblin(10), sapper(10) and drone(10); it does NOT one-shot shield goblin(16,
+ * needs 2), HELGA(54, needs 6) or voltkin(64, needs 7).
+ *
+ * ⚠ AGAINST CONNECTORS THIS IS DELIBERATELY WEAK AND THAT IS THE POINT. A connector's capacity is
+ * `connectorCapacityFifths(n) = n + 4`, so 10 fifths severs one only while the component has ≤6
+ * connectors. Complex geometry is raid-proof, which is exactly the incentive owner R76 asked for
+ * (*"this will make people want to build complex structures with as many connectors as possible"*).
+ */
+export const RAID_ATK = 2;
+export const RAID_PEN = 0;
+/**
+ * ⭐ RAID POINT ACCRUAL, IN TENTHS, AS ONE SHARED POOL.
+ *
+ * Owner R78: *"either once you build 2 towers or make 5 connections you get one raid point"*.
+ *
+ * Two towers and five connections must both come to exactly one point, so the least-common unit is
+ * a TENTH: a tower is worth 5 and a hand-made connection 2, and the threshold is 10.
+ * Check: 2 × 5 = 10 ✓ and 5 × 2 = 10 ✓.
+ *
+ * ⭐ WHY ONE POOL AND NOT TWO INDEPENDENT COUNTERS. Under two counters a player who builds one tower
+ * and three connections has 5 and 6 tenths of nothing and both part-payments are stranded; under one
+ * pool they have 11 tenths — a point, with change. "Either/or" describes two ways to EARN the same
+ * thing, so mixed play should never waste progress. The asymmetry the owner cares about survives
+ * intact: hand-connecting out-earns click-to-build per action (2 tenths for one connection vs 5 for a
+ * whole tower).
+ *
+ * ⚠ FIRST-PASS BALANCE, UNVALIDATED BY PLAY — the cap especially. Nothing has playtested whether 3
+ * banked raids is a threat or a nuisance.
+ */
+export const RAID_PROGRESS_PER_TOWER = 5;
+export const RAID_PROGRESS_PER_CONNECTION = 2;
+export const RAID_PROGRESS_PER_POINT = 10;
+export const MAX_RAID_POINTS = 3;
+/**
+ * ⭐ HOW LONG THE "RAIDED" CLOUD STANDS — 3 s at PHYSICS_HZ, as an INTEGER TICK COUNT.
+ *
+ * Owner R78: *"the cloud dissipates within 3 sec"*, and its purpose is attribution, not decoration:
+ * *"players wont be confused as in WHAT HAPPENED TO MY UNIT!? it just disappeared!? and they will
+ * know who attacked them"*.
+ *
+ * ⛔ TICKS, NEVER SECONDS OR `dt`. The renderer ages effects by `world.tick - effect.tick` at
+ * PHYSICS_HZ, so a float lifetime would be the one place a wall-clock number could leak into a
+ * comparison the `?worker=1` mirror also makes.
+ */
+export const RAIDED_CLOUD_TICKS = 3 * PHYSICS_HZ;
 // S103 #8 — single-target creature-vs-creature / defender-vs-creature hit. A Voltkin zap on a
 // chewer, a laser beam (P3), and HELGA's slap (P4) all deal this through the SAME `damageCreature`
 // path: 1 → a chewer (CHEWER_HP=1) dies in one; a Voltkin (VOLTKIN_HP=8, S150 R71) takes eight of
 // THESE, or three of HELGA's heavier slaps, before the lightning-cloud.
-// Same value as RAID_CREATURE_DAMAGE by design (one coherent damage scale, OC2); named separately
-// so the creature-combat call sites read intentionally and a future tuning of one needn't move both.
+// ⚠ S152 P1 — THIS NO LONGER MATCHES THE RAID. It used to read "same value as
+// RAID_CREATURE_DAMAGE by design (one coherent damage scale)", and owner R78 moved the raid to
+// 2 ATK (`RAID_ATK` above) while leaving creature-vs-creature alone. The two numbers are now
+// independent on purpose; do not re-couple them.
 export const CREATURE_HIT_DAMAGE = 1;
 export const REVALIDATE_INTERVAL_TICKS = 30; // 0.5 s — spawner shape re-validation throttle
 // Passive income term added to a spawner owner's complexity (scoring.computeComplexity). Kept

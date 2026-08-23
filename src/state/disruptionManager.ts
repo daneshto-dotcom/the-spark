@@ -85,7 +85,15 @@ export function canSeverBond(
     action.cause === 'chewer' ||
     // S113 Batch C — a lightning-drone's detonation sever is host-authoritative (the drone mint
     // requires a host-only SPAWN_CREATURE), so it bypasses charge + hostile-auth like 'creature'.
-    action.cause === 'drone'
+    action.cause === 'drone' ||
+    // ⭐ S152 P1 (owner R78) — 'raid' BYPASSES, AND THAT IS THE WHOLE POINT OF IT BEING ITS OWN
+    // CAUSE. The raid was already paid for with a RAID POINT, and the reducer only re-dispatches
+    // SEVER_BOND after `damageConnector` reports accumulated damage has reached the connector's
+    // capacity — so authorization happened upstream, exactly as it does for 'creature'.
+    // ⛔ REUSING 'player' HERE WAS A REAL BUG, CAUGHT BY raid.test.ts AND NOT BY REVIEW: the
+    // player branch below gates on `disruptionCharges`, so a fully-damaged connector silently
+    // REFUSED to break because the raider had none — a currency a raid does not and must not use.
+    action.cause === 'raid'
   ) return true;
 
   const player = world.players.get(action.playerId);

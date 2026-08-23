@@ -84,11 +84,14 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // something that rides along with an unrelated edit. If you are here because this went red:
     // update the const, the narrative history JSDoc, the `protoVersion` type literal, this number,
     // and e2e/smoke.spec.ts's LOCAL_PROTO_V.
-    expect(PROTOCOL_VERSION).toBe(30);
+    expect(PROTOCOL_VERSION).toBe(31);
   });
 
-  it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
-    expect(CLIENT_INTENT_TYPES.has('RAID_CREATURE')).toBe(true);
+  it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {
+    expect(CLIENT_INTENT_TYPES.has('RAID_TARGET')).toBe(true);
+    // ⛔ AND THE OLD NAME MUST BE GONE. Leaving it allowlisted would let a stale client keep
+    // sending the S102 payload shape, which the v31 reducer has no arm for.
+    expect(CLIENT_INTENT_TYPES.has('RAID_CREATURE' as never)).toBe(false);
   });
 
   it('accepts a HELLO with current protoVersion', () => {

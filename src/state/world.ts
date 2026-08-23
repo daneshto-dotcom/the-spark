@@ -22,7 +22,7 @@
  *         (applySeverBond) — dispatch() is now uniformly 1-line delegations.
  */
 
-import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_CREATURE_DAMAGE, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_PEN, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { attackFifths } from './stats.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isBenched } from './hunters/hunter.ts';
@@ -65,7 +65,7 @@ import {
   type DespawnCreatureAction,
   type SpawnCreatureAction,
 } from './creatures/creatureLifecycle.ts';
-import { damageEntity } from './damage.ts';
+import { damageConnector, damageEntity } from './damage.ts';
 import {
   applyCreatureAttack,
   type CreatureAttackAction,
@@ -211,7 +211,12 @@ export type GameAction =
       // bypasses charge + auth exactly like 'creature').
       // S113 Batch C — 'drone' added: a lightning-drone's detonation sever. Bypasses charge + auth
       // exactly like 'creature'/'chewer'/'bomb' (host-authoritative; the drone severs ENEMY bonds).
-      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone';
+      // ⭐ S152 P1 (owner R78) — 'raid' added: the sever a RAID causes once accumulated connector
+      // damage reaches capacity. Bypasses the disruption-charge gate because the raid was paid for
+      // with a RAID POINT — a separate currency. ⚠ THIS UNION IS NOT THE SAME UNION AS
+      // `GameEffect['BOND_SEVERED'].cause` (which also carries 'godly'); both had to be widened, and
+      // tsc caught only this one AFTER the tests were already green. Vitest does not typecheck.
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid';
     }
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
@@ -260,7 +265,19 @@ export type GameAction =
   // a bond sever) aimed at an enemy SPAWN instead of a connector. Right-clicking an enemy
   // pencil chewer pops it (1 charge → 1 damage → chewer hp 1 dies, green-goo splat). A
   // CLIENT_INTENT (a 1v1 joiner can raid); the host applies it authoritatively.
-  | { readonly type: 'RAID_CREATURE'; readonly creatureId: CreatureId; readonly playerId: PlayerId }
+  //
+  // ⭐ S152 P1 (owner R78) — RENAMED `RAID_CREATURE` → `RAID_TARGET` AND WIDENED TO CONNECTORS.
+  // The old name became a lie the moment a raid could hit a bond, and a wire-visible action type
+  // that misdescribes itself is the `DefenderDeathCause` mistake in a different costume — a name
+  // the next author plans around. The target is DISCRIMINATED for the same reason `DamageTarget`
+  // is: so a caller cannot hand a BondId to the creature arm.
+  | {
+      readonly type: 'RAID_TARGET';
+      readonly target:
+        | { readonly kind: 'creature'; readonly id: CreatureId }
+        | { readonly kind: 'bond'; readonly id: BondId };
+      readonly playerId: PlayerId;
+    }
   // S71 P1 — bomb hazard. SPAWN_BOMB + DISSIPATE_BOMB are host-internal (spawner
   // cadence / TTL poll); TRIGGER_BOMB is a client→host intent (drives the v4→5
   // PROTOCOL_VERSION bump). Reducers in bombLifecycle.ts.
@@ -580,30 +597,96 @@ export function dispatch(world: World, action: GameAction): World {
       return world;
     }
 
-    case 'RAID_CREATURE': {
-      // S102 #1 — a player raids an enemy SPAWN. Charge-gated exactly like a bond sever
-      // (1 disruption charge); enemy-only; targets a pencil CHEWER (sourceSpawnerId !== null)
-      // — Voltkin-raid + its lightning-cloud discombobulate ship next session. Host-authoritative
-      // (a client INTENT routes here on the host). The chewer's green-goo splat is render-driven.
+    case 'RAID_TARGET': {
+      /*
+       * ⭐ S152 P1 (owner R78) — A RAID IS A 2-ATK HIT, AND THAT IS THE ENTIRE RULE.
+       *
+       * Owner: *"a raid point is basically a 2atk hit. you can use it on units and it will hit them
+       * (if they are in the >2defensive points range then they will die) ... and also if you use
+       * raid on a structure/connector it will leave the RAIDED cloud"*.
+       *
+       * ⭐ THERE IS NO THRESHOLD SPECIAL CASE, AND THAT IS THE DESIGN. The owner's "if they are in
+       * the >2defensive points range then they will die" is not a rule to implement — it FALLS OUT
+       * of putting 10 fifths into the same pool arithmetic every other hit uses. Writing a
+       * defence-comparison here would duplicate the ladder and then drift from it.
+       *
+       * ⚠ WHAT CHANGED FROM S102's `RAID_CREATURE`, ALL OWNER-DIRECTED:
+       *   · 1 ATK → 2 ATK (`RAID_ATK`), so 5 fifths → 10;
+       *   · paid with a RAID POINT, not a disruption charge (a separate currency — R78 names it);
+       *   · the chewers-only restriction (`sourceSpawnerId !== null`) is GONE — R78 says "units";
+       *   · connectors are targetable, which S102 could not express at all.
+       */
       const raider = world.players.get(action.playerId);
       if (raider === undefined) return world;
-      if (raider.disruptionCharges < 1) return world;
-      const target = world.creatures.get(action.creatureId);
-      if (target === undefined) return world;
-      if (target.sourceSpawnerId === null) return world; // chewers only this session
-      if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
-      raider.disruptionCharges--;
-      // S139 P1 — through the dispatcher; source `'player'` distinguishes a raid from a creature
-      // zap or a defender strike for future threat/reward rules.
-      // S151 P2 — a raid is an ATK on the shared ladder like any other hit, so it goes through
-      // `attackFifths`. RAID_CREATURE_DAMAGE is now read as the raid's ATK POINTS (1), not as raw
-      // damage — passing it unconverted would deal one FIFTH of a point and effectively do nothing.
-      damageEntity(
-        world,
-        { kind: 'creature', id: action.creatureId },
-        attackFifths(RAID_CREATURE_DAMAGE, 0),
-        'player',
-      );
+      if (raider.raidPoints < 1) return world;
+
+      // ⛔ EVERY GATE RUNS BEFORE THE POINT IS SPENT. Same atomicity rule `applyFeedTower` and
+      // `applyBuildBlueprint` document: "paid but got nothing" must be unrepresentable, because
+      // carry-forward CF1 is a live bug of exactly that shape on the ?worker=1 path.
+      const damage = attackFifths(RAID_ATK, RAID_PEN);
+
+      if (action.target.kind === 'creature') {
+        const target = world.creatures.get(action.target.id);
+        if (target === undefined) return world;
+        if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
+        // ⚠ POSITION CAPTURED BEFORE THE HIT. `damageEntity` removes the creature when it dies, so
+        // reading `target.pos` afterwards reads a corpse that is already out of the map — and the
+        // cloud's whole job is marking WHERE THE UNIT STOOD.
+        const pos = { x: target.pos.x, y: target.pos.y };
+        raider.raidPoints--;
+        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player');
+        world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
+        return world;
+      }
+
+      // ── CONNECTOR ─────────────────────────────────────────────────────────────────────────────
+      const bond = world.bonds.get(action.target.id);
+      if (bond === undefined) return world;
+      // Enemy-only, on the same principle as the creature arm. A bond has no owner field, so
+      // ownership is read off the primitives it joins — `placerColor` is the placing seat's colour.
+      const aOwner = world.primitives.get(bond.aId)?.placedBy;
+      const bOwner = world.primitives.get(bond.bId)?.placedBy;
+      if (aOwner === action.playerId || bOwner === action.playerId) return world;
+      // Midpoint: a connector has no single position, and the cloud must land ON the thing that
+      // was hit rather than at one arbitrary endpoint.
+      const pos = {
+        x: (bond.a.pos.x + bond.b.pos.x) / 2,
+        y: (bond.a.pos.y + bond.b.pos.y) / 2,
+      };
+      raider.raidPoints--;
+      /*
+       * ⚠ `damageConnector` RETURNS "SHOULD SEVER" AND DOES NOT SEVER. Severance must run through
+       * the one `SEVER_BOND` path — it splits topology, emits SEVER_ERASE before the mutation and
+       * BOND_SEVERED after, and settles charges. Re-dispatching from inside a reducer is the
+       * established, Council-sanctioned exception here (`applyCreatureAttack` does exactly this,
+       * and `applyFeedTower` re-dispatches SPAWN_CREATURE), and JS being single-threaded makes the
+       * synchronous re-entry safe.
+       *
+       * ⭐ AND THIS IS WHY A RAID CANNOT ALWAYS CUT. Capacity is `connectorCount + 4` fifths, so 10
+       * fifths severs only while the component has ≤6 connectors. A big lattice absorbs raids —
+       * which is the incentive owner R76 asked for, not a bug to tune away.
+       */
+      const shouldSever = damageConnector(world, action.target.id, damage);
+      if (shouldSever) {
+        dispatch(world, {
+          type: 'SEVER_BOND',
+          bondId: action.target.id,
+          playerId: action.playerId,
+          // ⛔ 'raid', NOT 'player'. A 'player' sever is a PURCHASE gated on disruption charges;
+          // this one was already paid for with a raid point and is a CONSEQUENCE of damage
+          // reaching capacity. 'player' made a fully-damaged connector silently refuse to break
+          // for want of a currency the raider never needed — found by raid.test.ts, which is
+          // exactly why that test builds real topology instead of stubbing a bond.
+          cause: 'raid',
+        });
+      }
+      world.effects.push({
+        kind: 'RAIDED',
+        tick: world.tick,
+        pos,
+        color: raider.color,
+        killed: shouldSever,
+      });
       return world;
     }
 

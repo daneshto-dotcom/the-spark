@@ -23,6 +23,7 @@ import {
   FOOTER_TOP_Y,
   LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
+  MAX_RAID_POINTS,
   PHASE_1_WIN_SCORE,
   PHYSICS_HZ,
   PLAYER_COLORS,
@@ -235,6 +236,8 @@ const SCORE_ROW_HEIGHT = 16;
 const CHARGE_DOT_X = 260;
 const CHARGE_DOT_STEP = 12;
 const CHARGE_DOT_R = 4;
+// S152 P1 — breathing room between the round disruption pips and the diamond raid pips, so the
+// two currencies read as two groups rather than one row of five.
 const Q_HINT_X = 290;
 /**
  * ⛔ S150 P1 — WAS y=8, i.e. FOUR PIXELS ABOVE the row it annotates. Every other element in the
@@ -250,6 +253,12 @@ const Q_HINT_Y = 14;
 /** 6 chars of 11 px monospace ≈ 6.6 px/char, rounded up. Measured live at w=36. */
 const Q_HINT_W = 40;
 const Q_HINT_H = 12;
+// ⛔ AN EXPLICIT X, NOT `CHARGE_DOT_X + n*STEP + gap`, AND THAT IS THE POINT. Derived from the
+// charge column it landed at 294, which sits INSIDE the "Q=ZONE" hint (Q_HINT_X 290 → 330) —
+// measured on a real bots-match screenshot, where the diamonds drew straight through the text.
+// The pips now start CLEAR of the hint's right edge, and `hudSurfaces` registers them so
+// `hudLayout.test.ts` owns the invariant instead of the next reader's eyes.
+const RAID_PIP_X = Q_HINT_X + Q_HINT_W + 10;
 /** S150 P1 — the controls help line, owned by main.ts but pinned here so `hudSurfaces` can see it. */
 export const HELP_LINE_X = 10;
 export const HELP_LINE_Y = CANVAS_HEIGHT - 22;
@@ -443,6 +452,16 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
     const top = SCORE_ROW_TOP_Y + 8 - CHARGE_DOT_R;
     const bottom = SCORE_ROW_TOP_Y + 8 + (m.rows - 1) * SCORE_ROW_STEP + CHARGE_DOT_R;
     out.push({ name: 'charge-dots', rect: { x: left, y: top, w: right - left, h: bottom - top } });
+  }
+  if (m.rows > 0) {
+    // ⭐ S152 P1 — THE RAID PIPS ARE A REGISTERED SURFACE. One block for the whole diamond column,
+    // exactly as the charge dots are: they read as a single object to the player. Registering it is
+    // what turns "does it collide with the Q hint?" from a screenshot question into a test.
+    const rl = RAID_PIP_X - CHARGE_DOT_R;
+    const rr = RAID_PIP_X + (MAX_RAID_POINTS - 1) * CHARGE_DOT_STEP + CHARGE_DOT_R;
+    const rt = SCORE_ROW_TOP_Y + 8 - CHARGE_DOT_R;
+    const rb = SCORE_ROW_TOP_Y + 8 + (m.rows - 1) * SCORE_ROW_STEP + CHARGE_DOT_R;
+    out.push({ name: 'raid-pips', rect: { x: rl, y: rt, w: rr - rl, h: rb - rt } });
   }
   out.push({ name: 'q-hint', rect: { x: Q_HINT_X, y: Q_HINT_Y, w: Q_HINT_W, h: Q_HINT_H } });
   out.push({
@@ -1272,8 +1291,13 @@ export class HUD {
  * does not exist) stays DECLINED: a new interactive mechanic does not belong in the same slot as
  * a repair of a shipped-broken visual. It remains BACKLOG P7.
  */
-function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharges: number } | undefined, y: number): void {
+function drawPlayerCharges(
+  g: Graphics,
+  player: { color: number; disruptionCharges: number; raidPoints: number } | undefined,
+  y: number,
+): void {
   if (player === undefined) return;
+  drawPlayerRaidPoints(g, player, y);
   for (let i = 0; i < MAX_DISRUPTION_CHARGES; i++) {
     // S50 P3 (Sym E occlusion polish) — moved from x=210 to x=260 to fully
     // clear the "RED  50 / 50" score text. Council Battle Ledger C4 over
@@ -1288,6 +1312,36 @@ function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharg
       g.circle(cx, y, CHARGE_DOT_R).fill({ color: player.color, alpha: 0.9 });
     } else {
       g.circle(cx, y, CHARGE_DOT_R).stroke({ width: 1, color: player.color, alpha: 0.5 });
+    }
+  }
+}
+
+/**
+ * ⭐ S152 P1 (owner R78) — RAID POINTS, DRAWN AS DIAMONDS BESIDE THE ROUND DISRUPTION PIPS.
+ *
+ * ⛔ THE SHAPE IS THE POINT, NOT DECORATION. These are a SECOND currency with a different cap
+ * (`MAX_RAID_POINTS` = 3 vs `MAX_DISRUPTION_CHARGES` = 2) and different sinks. Drawn as more round
+ * dots in the same colour they would read as "you have five charges", which is exactly the confusion
+ * the separate-currency decision exists to avoid. Diamond = offence, circle = disruption.
+ *
+ * Positioned AFTER the disruption pips so the existing x-coordinate reasoning above (score text
+ * clearance, settled over four sessions of user feedback) is inherited rather than relitigated.
+ */
+function drawPlayerRaidPoints(
+  g: Graphics,
+  player: { color: number; raidPoints: number },
+  y: number,
+): void {
+  const x0 = RAID_PIP_X;
+  for (let i = 0; i < MAX_RAID_POINTS; i++) {
+    const cx = x0 + i * CHARGE_DOT_STEP;
+    const r = CHARGE_DOT_R;
+    // A diamond: same visual weight as the pips, unmistakably not a circle.
+    const pts = [cx, y - r, cx + r, y, cx, y + r, cx - r, y];
+    if (player.raidPoints > i) {
+      g.poly(pts).fill({ color: player.color, alpha: 0.9 });
+    } else {
+      g.poly(pts).stroke({ width: 1, color: player.color, alpha: 0.5 });
     }
   }
 }

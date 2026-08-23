@@ -1341,7 +1341,17 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
     if (effect.kind === 'BOND_FORMED') {
       // S51 P2.b — pass pos for spatial routing through PannerNode.
       void playClaveSFX(effect.pos);
-    } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'player') {
+    } else if (
+      effect.kind === 'BOND_SEVERED' &&
+      (effect.cause === 'player' ||
+        // ⭐ S152 P1 (owner R78) — 'raid' KEEPS THE PLAYER SFX, AND OMITTING IT WOULD HAVE BEEN A
+        // SILENT REGRESSION. Right-clicking a connector used to dispatch `cause: 'player'` and
+        // fart; under R78 the same gesture dispatches `cause: 'raid'`, so leaving this branch alone
+        // would have made the most common sever in the game mute. Nothing would have failed — no
+        // test asserts this SFX, and `severActor`'s `never` guard only forced the ATTRIBUTION
+        // decision, not the audio one. Found by asking what the gesture used to sound like.
+        effect.cause === 'raid')
+    ) {
       void playFartSFX(effect.pos);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'creature') {
       // S28 P0 — Voltkin lightning zap on creature-driven sever (Council scope-Q2

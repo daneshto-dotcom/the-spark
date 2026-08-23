@@ -143,7 +143,14 @@ export type GameEffect =
        */
       // S113 Batch C — 'drone' added for a lightning-drone's detonation sever (audio drain treats it
       // like the lightning 'creature' crackle — see audioManager; the ARC_FLASH carries the visual).
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone';
+      /**
+       * ⭐ S152 P1 — 'raid' ADDED. A raid's sever is NOT a 'player' sever: a player-cause sever is
+       * a PURCHASE gated on disruption charges, while a raid has already been paid for with a
+       * RAID POINT and severs only as the CONSEQUENCE of damage reaching the connector's
+       * capacity. Reusing 'player' made the sever silently refuse for want of a currency the
+       * raider never needed — caught by `raid.test.ts`, not by review.
+       */
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid';
       /**
        * V6-0.3 (S131) — SEVER ATTRIBUTION. Both fields are ADDITIVE-OPTIONAL, on the
        * `ARC_FLASH.creatureId?` precedent immediately above (save.ts:357): a named-field
@@ -253,6 +260,45 @@ export type GameEffect =
       readonly tick: number;
       readonly pos: Vec2;
       readonly creatureId: import('../types.ts').CreatureId;
+    }
+  | {
+      /**
+       * ⭐ S152 P1 (owner R78) — THE "RAIDED" CLOUD. An ATTRIBUTION CHANNEL, NOT DECORATION.
+       *
+       * Owner: *"it will leave the RAIDED cloud … so that players wont be confused as in WHAT
+       * HAPPENED TO MY UNIT!? it just disappeared!? and they will know who attacked them adding
+       * heated exchanges!"*
+       *
+       * ⛔ `color` IS THE **RAIDER'S** COLOUR, NOT THE VICTIM'S. The owner wrote "attacked color"
+       * once and "the player that raided it" once, and the stated PURPOSE disambiguates it: a cloud
+       * in your own colour tells you nothing about who hit you, which is the confusion this exists
+       * to remove.
+       *
+       * ⭐ WHY THIS IS AN EFFECT AND NOT NEW HASHED STATE. Both Council seats independently
+       * specified a new hashed `RaidCloud[]` / ephemeral-event array. The tree already has exactly
+       * that: `world.effects` is `'acknowledged'` in `stateHashFull` (its lifetime is shorter than a
+       * tick, so it is never hashed) AND it already crosses the wire as the additive-optional
+       * `NetSnapshot.effects?` (S31 P0-3). So the cloud needs no hashed field, no new snapshot
+       * array, and cannot desync the `?worker=1` mirror.
+       *
+       * ⚠ BUT IT DOES NEED THE WIRE HALF, WHICH IS WHY THE PROTOCOL BUMPS. Unlike SEVER_ERASE
+       * (host-local, `serializeEffect` returns null), the victim is by definition on ANOTHER PEER —
+       * a host-local cloud would be invisible to the one player it exists to inform. So this kind IS
+       * serialized, and a v30 peer receiving a kind its `deserializeEffect` has no arm for is why
+       * PROTOCOL_VERSION goes 30→31.
+       */
+      readonly kind: 'RAIDED';
+      readonly tick: number;
+      /** Where the target stood. Captured BEFORE the target is removed — see the reducer. */
+      readonly pos: Vec2;
+      /** The RAIDER's identity colour. */
+      readonly color: number;
+      /**
+       * Did the raid actually destroy the target, or only damage it? A kill leaves the cloud the
+       * owner described; a survived hit still needs feedback ("I hit it and it held"), and the
+       * renderer draws that smaller rather than emitting nothing.
+       */
+      readonly killed: boolean;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

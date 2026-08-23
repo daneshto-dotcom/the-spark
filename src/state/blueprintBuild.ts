@@ -61,7 +61,8 @@ import type { GodlyId } from './godlyRecipes/types.ts';
 import type { Spark } from '../game/spark.ts';
 import type { World } from './world.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
-import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, RAID_PROGRESS_PER_TOWER, type SparkType } from '../constants.ts';
+import { grantRaidProgress } from '../game/player.ts';
 
 export interface BuildBlueprintAction {
   readonly type: 'BUILD_BLUEPRINT';
@@ -331,6 +332,22 @@ export function applyBuildBlueprint(world: World, action: BuildBlueprintAction):
     // way to build.
     detectComboDiscoveries(world, firstNewBondId);
   }
+
+  // ⭐ S152 P1 (owner R78) — RAID PROGRESS FOR A TOWER BUILT FROM THE MENU.
+  //
+  // Owner: *"once you build 2 towers ... you get one raid point"* — so one stamp is worth
+  // `RAID_PROGRESS_PER_TOWER` (5 tenths) and two make a point exactly.
+  //
+  // ⚠ CREDITED ONLY HERE, AT THE TAIL, AFTER EVERY REFUSAL HAS ALREADY RETURNED. An unaffordable
+  // or illegally-placed stamp must earn nothing, and this function has four early `return world`
+  // guards above (unknown id, stamp refusal, unaffordable, missing player) — so the credit belongs
+  // past all of them, next to the effects that also only fire on success.
+  //
+  // ⚠ EVERY BLUEPRINT COUNTS AS "A TOWER", including a non-producing decorative structure. The
+  // owner said "towers" and the build menu builds blueprints; drawing a producing/non-producing
+  // distinction here would be inventing a rule they did not state. Flagged rather than silently
+  // decided — it is a balance question a playtest answers, not a correctness one.
+  grantRaidProgress(player, RAID_PROGRESS_PER_TOWER);
 
   return world;
 }

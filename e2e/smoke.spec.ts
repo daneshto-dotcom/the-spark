@@ -72,7 +72,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 30; // S151 P3 — 29 → 30 (THE GOBLIN TOWER: 5 new CreatureType literals, the 'goblinTower' GodlyId, the FEED_TOWER client intent)
+const LOCAL_PROTO_V = 31; // S152 P1 — 30 → 31 (RAID: RAID_CREATURE renamed RAID_TARGET with a discriminated creature|bond target, + the new serialized RAIDED effect kind)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

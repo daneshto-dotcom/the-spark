@@ -5,6 +5,7 @@
  */
 
 import {
+  RAIDED_CLOUD_TICKS,
   STRUCTURE_FLASH_TICKS,
   STRUCTURE_GROW_HOP_TICKS,
 } from '../../constants.ts';
@@ -52,6 +53,13 @@ export function effectLifetime(effect: GameEffect): number {
       // S100 P1 — graphite-dust bite burst (~0.4s @ 60Hz). Short so a chewer's
       // 1/sec bites read as discrete pops, not a smear. Layer 7 draws the visual.
       return CHEW_BITE_DURATION_TICKS;
+    case 'RAIDED':
+      // ⭐ S152 P1 (owner R78) — "the cloud dissipates within 3 sec". Owned by the shared constant
+      // rather than a local `const ... = 180` so the lifetime the RENDERER ages by and the number
+      // the DESIGN specifies can never drift apart. This is the longest-lived effect in the game by
+      // a wide margin, and deliberately so: it is an attribution message, and a message the victim
+      // blinks and misses has failed at its only job.
+      return RAIDED_CLOUD_TICKS;
     case 'BOND_FORMED':
     case 'BOND_SEVERED':
     case 'CREATURE_CHARGE':

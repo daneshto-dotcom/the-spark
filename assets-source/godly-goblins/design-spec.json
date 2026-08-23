@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "SPARK — S152 P3 character DESIGN seeds. RETAINED IN-TREE ON PURPOSE: S151 kept neither its specs",
+    "nor its veo clips, so the three atlases it shipped cannot be rebuilt or retuned. Anything that",
+    "regenerates art must be reproducible from the repo alone.",
+    "Species features (pointed ears, hooked nose, snaggle-toothed underbite, bandage-wrapped shins,",
+    "bare clawed feet, brown leather with brass buckles, grey riveted steel) are read off the owner's",
+    "own 1-goblin-swordsman-MELEE.png and 2-goblin-archer-RANGED.png so the roster is one species.",
+    "The stink tower is deliberately ABSENT: the owner supplied 3-stink-tower-DEFENCE.png and it is",
+    "used as the veo seed directly — there is nothing to generate."
+  ],
+  "outDir": "assets-source/godly-goblins",
+  "characters": [
+    {
+      "name": "4-goblin-shield-SQUARE",
+      "_stats": "SQUARE feed - 1 atk / 0 pen / 2 hp / 3 def - the tank; 16 fifths, the only goblin a raid cannot one-shot",
+      "prompt": "A stocky heavily-armoured goblin soldier braced defensively behind a large battered grey steel kite shield held forward and angled, a short stabbing sword low in his other hand. He wears a riveted steel helmet and steel shoulder plates over a brown leather jerkin with brass buckles. Large pointed ears, a big hooked nose, a snaggle-toothed underbite, wide determined eyes, bandage wraps on his shins, bare clawed feet. Heavy planted turtle-like defensive stance, weight low."
+    },
+    {
+      "name": "5-goblin-sapper-DOT",
+      "_stats": "DOT feed - 4 atk / 0 pen / 2 hp / 0 def - one area-of-effect attack, dies on contact",
+      "prompt": "A wild-eyed goblin sapper cackling as he charges forward hugging an oversized round black cartoon cannonball bomb against his chest with both arms, a short lit fuse sparkling at the top. He wears a battered brown leather cap with round goggles pushed up on it and a small leather satchel. Large pointed ears, a big hooked nose, a manic snaggle-toothed grin, bandage wraps on his shins, bare clawed feet. Comedic slapstick energy, mid-run, leaning forward."
+    },
+    {
+      "name": "6-goblin-batrider-SPIRAL",
+      "_stats": "SPIRAL feed - 1 atk / 3 pen / 2 hp / 0 def - the flyer; needs a per-type Y offset in the renderer",
+      "prompt": "A small goblin scout riding on the back of a large brown cartoon bat, clearly airborne and high off the ground. The bat has huge outstretched leathery wings spread wide, big pointed ears and small fangs. The goblin leans forward gripping a simple leather harness with one hand and brandishing a short crude spear overhead in the other. Large pointed ears, a big hooked nose, a gleeful snaggle-toothed grin, bandage-wrapped legs dangling free below him, bare clawed feet."
+    }
+  ]
+}

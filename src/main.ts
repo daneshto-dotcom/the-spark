@@ -1219,7 +1219,11 @@ async function bootstrap(): Promise<void> {
   });
 
   const hint = new Text({
-    text: 'LMB drag spark → place · RMB click on bond → sever · Q shrink territory · ~ stats · C cinematics',
+    // ⚠ S152 P1 — "RMB click on bond → sever" WAS NOW A LIE, and the help line is the one place a
+    // player learns the gesture. Under owner R78 a right-click is a RAID: a 2-ATK hit on a unit OR a
+    // connector, paid with a raid point, which severs only once accumulated damage reaches the
+    // connector's capacity. Stale help is worse than none — it teaches the wrong cost model.
+    text: 'LMB drag spark → place · RMB → RAID unit or connector · Q shrink territory · ~ stats · C cinematics',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(HELP_LINE_X, HELP_LINE_Y);

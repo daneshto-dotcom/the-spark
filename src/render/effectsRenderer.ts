@@ -34,6 +34,7 @@ import { drawBondCommit } from './effects/bondCommit.ts';
 import { drawArcFlash } from './effects/arcFlash.ts';
 import { drawBombExplode } from './effects/bombExplode.ts';
 import { drawChewBite } from './effects/chewBite.ts';
+import { drawRaided } from './effects/raided.ts';
 import { effectLifetime } from './effects/lifetime.ts';
 import { drawScoreTier } from './effects/scoreTier.ts';
 import { drawSeverErase } from './effects/severErase.ts';
@@ -125,6 +126,12 @@ export class EffectsRenderer {
         // bite ring + dust spray at the chewed bond midpoint, modeled on
         // drawBombExplode. Host-local-only (never serialized — §5.2).
         drawChewBite(g, effect, Math.min(1, age / lifetime));
+        return;
+      case 'RAIDED':
+        // ⭐ S152 P1 (owner R78) — the raid attribution cloud, in the RAIDER's colour. UNLIKE
+        // CHEW_BITE above this one IS serialized: the player it exists to inform is on another
+        // peer by definition, so a host-local cloud would be invisible to its only audience.
+        drawRaided(g, effect, Math.min(1, age / lifetime));
         return;
       case 'BOND_FORMED':
       case 'BOND_SEVERED':

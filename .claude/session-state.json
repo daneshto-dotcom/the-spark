@@ -1,23 +1,25 @@
 {
-  "tool_calls_session_total": 2122,
-  "session_id": "S151",
-  "session_kind": "PDCA batch — hazard archive + the stat system + the goblin tower",
-  "session_start": "2026-08-22",
-  "prior_session_note": "S150 closed at 7176295; protocol 28; e2e claimed 53/0/0 but measured 52/1/0 (pre-existing ~50% rainbow flake)",
-  "prior_session_archive": ".handoff-archive/HANDOFF_S150.md",
+  "tool_calls_session_total": 2147,
+  "session_id": "S152",
+  "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
+  "session_start": "2026-08-23",
+  "prior_session_note": "S151 closed at 85495f1; protocol 30; preflight re-measured GREEN this session: build 727.6/900 KiB, vitest 2940/2940, e2e:gating 44 exit 0, verify-deploy 4/4, CI 15/15 success",
+  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-22_S151.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-22_PDR_S151_BATCH.md",
+  "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 28,
+  "protocol_version": 30,
   "boot_preflight": {
-    "build": "PASS entry index-DMU7pb7t.js 689.1 KiB cap 900 KiB",
-    "vitest": "2506 passed / 162 files",
-    "e2e_gating": "45 passed",
-    "deploy_verify": "PASS 4/4 at 9100277",
+    "build": "PASS entry index-BijPc2IZ.js 727.6 KiB cap 900 KiB headroom 172.4",
+    "vitest": "2940 passed / 176 files",
+    "e2e_gating": "44 passed, e2e_exit=0 read from a redirect not a pipe",
+    "deploy_verify": "PASS 4/4 at 85495f1",
+    "ci_conclusions": "15/15 success, zero cancelled, zero open issues",
+    "art_pipeline_deps": "ffmpeg 8.1 + ffprobe 8.1 + numpy 2.4.4 + scipy 1.17.1 + Pillow 12.2.0 all present",
     "unpushed_commits": 0
   },
   "owner_rulings_inherited": {
@@ -77,221 +79,35 @@
   ],
   "priorities": [
     {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
       "id": "P1",
-      "title": "Archive the four hazard families (R73)",
-      "tier": "Standard",
-      "status": "completed",
-      "scope": "Copy bombs/potatoes/rainbows/seagulls+poops WHOLE into archive/hazards/ with a RESTORE.md; tag the five hazard e2e specs out of the gating lane. Live code stays dormant (owner-selected sequencing).",
-      "check_completed": true,
-      "checkpoint_commit": "4acd7395d8ea43de5af7b6b08362a7e4aaf4d1c7",
-      "real_context_tokens_at_close": 326315,
-      "real_context_pct_at_close": 32.63,
-      "real_context_level_at_close": "GREEN",
-      "check_method": "RALPH:PATROL + empirical verification, every claim measured rather than asserted. (1) ARCHIVE FIDELITY: all 26 files verified byte-identical to source with `cmp` in a loop over the enumerated set — not spot-checked. The set was built by FILENAME ENUMERATION (find -iname), which is what caught src/render/effects/bombExplode.ts: it does not sit beside the other bomb files and reading imports by eye would have missed it. This is the boot snapshot's 'enumerate a chain, do not read it' trap applied deliberately. (2) ARCHIVE INERTNESS PROVEN, NOT ASSUMED: tsconfig.json include=['src'] so tsc never sees the copies; vite.config.ts test.include=['src/**/*.test.ts'] so vitest never collects them; playwright.config.ts testDir='./e2e' so the archived specs cannot run twice. Three independent configs checked individually. (3) NO LIVE-CODE DRIFT: the built entry asset hash is IDENTICAL before and after (index-CPfPN4k_.js), which is positive evidence that nothing under src/ changed, stronger than `git status` alone. (4) COVERAGE ACCOUNTING BY DENOMINATOR (the S150 'a partial fix looks identical to no fix' trap): `playwright --list` counted 44 gating + 9 archived = 53 = the pre-change total exactly. No test was lost, 9 were retired to a runnable `e2e:archived` lane. (5) GATES: build PASS (720.1 KiB, 179.9 KiB headroom) - vitest 2855/2855 across 173 files - e2e:gating 44 passed 0 failed with EXIT=0 READ DIRECTLY. (6) LINE-ENDING DISCIPLINE: all five specs and package.json are CRLF; CR count verified unchanged before/after every edit (235/179/163/172/84), and package.json re-parsed as JSON after repair. (7) SELF-CAUGHT DEFECT: my first sed chain contained a stray exploratory expression that corrupted package.json line 17 to `XXX`. Caught immediately by reading the result back rather than trusting the command, and repaired via python with newline='' to preserve CRLF (the known LF->CRLF flip trap). (8) PREFLIGHT DELTA SURFACED NOT BURIED: the handoff's claimed 53/0/0 was measured as 52/1/0; flakiness quantified (2 failures in 4 observations) and non-regression PROVEN by `git diff --name-only 3bc8a7e..HEAD` showing no src/ or e2e/ file changed since the CF was written.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\archive\\hazards\\RESTORE.md",
-          "needle": "THE EXCISION CHECKLIST"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\archive\\hazards\\RESTORE.md",
-          "needle": "HAZARD_SPAWN_ENABLED"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\archive\\hazards\\src\\state\\bomb.ts",
-          "needle": "export"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\archive\\hazards\\src\\render\\effects\\bombExplode.ts",
-          "needle": "export"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\package.json",
-          "needle": "@archived-hazard"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\package.json",
-          "needle": "e2e:archived"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\rainbow.spec.ts",
-          "pattern": "@archived-hazard",
-          "op": ">=",
-          "value": 1
-        }
-      ]
-    },
-    {
+      "title": "RAID — right-click 2-ATK strike on units AND connectors + the RAIDED cloud (R78)",
+      "tier": "Full",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "scope": "RAID_CREATURE becomes RAID_TARGET with a discriminated creature|bond target; attackFifths(2,0)=10 fifths through the EXISTING damageCreature/damageConnector paths; new raidPoints + raidProgress Player fields (accrual: tower +5, hand connection +2, threshold 10, cap 3); a RAIDED GameEffect in the raider's colour for 180 ticks, serialized; HUD readout; PROTOCOL 30 to 31 following the SIX-site checklist at protocol.ts:463."
+    },
+    {
       "id": "P2",
-      "title": "The stat system (R72 + R74 + R75 + R76)",
-      "tier": "Full",
-      "status": "completed",
-      "scope": "Three stat families: units HP/DEF/ATK/PEN, towers ATK/PEN only, connectors HP/DEF. Delete FIVE accidental backbones (3x GOBLIN_MELEE_HP derivations + TURRET_DEFENDER_MAX_HP + PRINCESS_DEFENDER_MAX_HP). Exact-integer fifths. Connector durability = connectorCount + 4 fifths, component-scoped and DYNAMIC. New required hashed Bond damage field; Defender.hp leaves the wire. Explicit targeting matrix. Protocol 28->29.",
-      "check_completed": true,
-      "checkpoint_commit": "f614084b4a266a1430bf00b0fc2833397e40d0f8",
-      "real_context_tokens_at_close": 626462,
-      "real_context_pct_at_close": 62.65,
-      "real_context_level_at_close": "YELLOW",
-      "check_method": "RALPH:PATROL + tsc-forced enumeration. (1) EVERY structural site was found by the COMPILER, not by grep: adding Bond.damageFifths surfaced 45 literal sites, and the codebase's own NoUncovered guard fired on stateHashFull to demand the hashed-union entry. (2) THE HASH NEEDED BOTH HALVES — the file warns its projection is a hand-written template with no executable link to the union, so I edited both and verified with a hash-flip test. (3) ⛔ SELF-CAUGHT LATENT BUG: my patch script wrote a hardcoded `damageFifths: 0` into applySnapshotCore (a PRODUCTION file). It compiles, passes every test, and silently heals every damaged connector on each snapshot apply and host migration — the same shape as the despawnAtTick 'detonation default' this very file documents. Caught by auditing the diff rather than trusting green tests. (4) ⛔ A SECOND SELF-CAUGHT CLASS: three single-line Bond literals got `damageFifths: 0,` inserted AFTER the closing brace; two parsed as a LABEL plus comma-expression — valid JS, silently wrong, invisible to tsc. Found by scanning for the shape, not by reading. (5) SCALE-CONVERSION AUDIT BY HAND, because tsc cannot see it: every call site passing an amount to a creature damage path was enumerated and converted to fifths (creatureAttack, world raid, defender fire, radial). A missed one compiles and deals 1/5 damage. (6) A.0 FINDING ACTED ON: applyRadialDamage broadcast ONE amount to three families on different scales — split into primitiveAmount + unitAmountFifths, which also fixed the stink bag dealing 150 to creatures while documented as the weakest single-target weapon. (7) PROTOCOL: all SIX bump sites edited; the chronological-order test caught my new entry inserted in the wrong slot. (8) GATES: tsc 0 · vitest 2892/2892 · e2e:gating 44 passed 0 failed EXIT=0 READ DIRECTLY · build 721.0 KiB under charter.",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const PRINCESS_SLAP_DAMAGE_VS_CREATURE"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const TURRET_BEAM_DAMAGE_VS_CREATURE"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const TURRET_DEFENDER_MAX_HP"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const PRINCESS_DEFENDER_MAX_HP"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const CHEW_HITS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stats.ts",
-          "needle": "connectorCapacityFifths"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\physics\\bonds.ts",
-          "needle": "damageFifths"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
-          "pattern": "damageFifths",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "export function damageConnector"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "hp: d.hp"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "P3",
-      "title": "The goblin tower (R70)",
-      "tier": "Full",
-      "status": "completed",
-      "scope": "Size-5 Circle-hub-degree-4 recipe (uniqueness proven by exhaustive test). Feed one shape -> one goblin. Six new CreatureType members + FEED_TOWER client intent. Stats from P2. Shares the 28->29 bump.",
-      "check_completed": true,
-      "checkpoint_commit": "ed07b459",
-      "real_context_tokens_at_close": 852279,
-      "real_context_pct_at_close": 85.23,
-      "real_context_level_at_close": "ORANGE",
-      "check_method": "RALPH:PATROL + a DELIBERATE OPEN-PATHWAY AUDIT, which is what found the real defects — none of them had a failing test. (1) THE FORCING FUNCTIONS DID THE STRUCTURAL WORK: adding five CreatureType literals produced FIVE separate compile/test failures, each demanding a decision — CREATURE_CONFIGS, CREATURE_TARGETS, CREATURE_ROLES, the config roll-call and the bench policy. Owner R77's 'natural law' is now literally enforced by tsc. (2) ⛔ I COMMITTED THE S144 FORBIDDEN IMPORT VERBATIM despite it being documented in capitals in blueprints.ts: world.ts -> goblinTowerFeed.ts -> goblinTower.ts is a VALUE import and every recipe module calls registerRecipe at its tail. Symptom was a ?worker=1 bots match never leaving TITLE with 198 polls throwing — nothing pointing at the import. Fixed by extracting to a side-effect-free leaf, then VERIFIED with a scripted import-graph walk (world.ts reaches no recipe module by value except the two that pre-date this work). (3) ⚠ I OVERCLAIMED CAUSATION on one passing re-run and corrected it: re-verified 3/3 before letting the claim stand. (4) THE OPEN-PATHWAY AUDIT found THREE more, all green and invisible: the tower was IMMORTAL (recipeStillSatisfied had no case, so its default arm kept it alive off a lone Circle), UNBUILDABLE (ALL_BLUEPRINT_IDS is a hand-written array, not exhaustiveness-checked like the Record beside it), and its panel row had NO COPY (empty `power` fallback). (5) THE COUNCIL'S DEMAND WAS HONOURED: GROK refused the recipe design for arguing uniqueness in prose; goblinTower.test.ts re-derives hub-type/degree occupancy from the live registry instead. (6) ART VERIFIED VISUALLY, not just built: each atlas was composited on mid-grey and inspected, which is how the white-blob-between-the-legs matte defect and the leaked black letterbox bars were both caught and fixed IN the pipeline. (7) GATES: tsc 0 - vitest 2940/2940 - e2e:gating 44 passed 0 failed EXIT=0 READ DIRECTLY - build 727.6 KiB - worker-bots 3/3 - verify-deploy 4/4 on ed07b459.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
-          "needle": "GOBLIN_FEED_MAP"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
-          "needle": "export function isGoblinTowerComponent"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawnerLifecycle.ts",
-          "needle": "isGoblinTowerComponent"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts",
-          "needle": "'goblinTower', 'pentagram'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\codexPresentation.ts",
-          "needle": "GOBLIN TOWER"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
-          "needle": "from './godlyRecipes/goblinTower.ts'"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creature.ts",
-          "pattern": "goblin[A-Z]",
-          "op": ">=",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "PROTOCOL_VERSION = 30"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "FEED_TOWER"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-melee\\anim\\goblin-melee-anim.json",
-          "needle": "attack"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-archer\\anim\\goblin-archer-anim.json",
-          "needle": "walk"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-anim.json",
-          "needle": "idle"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "P4",
-      "title": "RAID — right-click 2-ATK strike + RAIDED cloud (R78)",
+      "title": "WIRE THE FEED GESTURE — six shape buttons on the FIX/SCRAP popover",
       "tier": "Standard",
-      "status": "deferred",
-      "scope": "Right-click raid dealing attackFifths(2,0) to units AND connectors; accrual 1 point per 2 towers or 5 hand-made connections; a RAIDED cloud in the RAIDER's colour for ~3s as an attribution channel. MUST resolve R64's open question: replace disruptionCharges or run beside it.",
-      "amendment": "SCOPE AMENDMENT (Rule 16) — added mid-session by owner R78, after the original three-priority batch was approved.",
-      "deferred_reason": "NOT STARTED. Owner-directed sequencing put RAID last ('at the end of current priority batch, when you complete everything youve set out to do'), and the session reached ORANGE context (85%) during P3's close-out. The full spec is recorded verbatim as R78 including the three things that SUPERSEDE R64 — right-click not left, 1 point per 2 towers (not 3 buildings), and a raid point IS a 2-ATK hit on the shared ladder rather than a bespoke rule. Nothing was half-built: there is no RAID code in the tree."
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "scope": "A FEED row on the live StructurePanel: glyphs via drawSparkGlyph, per-shape castle-bank counts modelled on castlePanel.ts:1088-1113, disabled when unaffordable, buttonAt widened to carry a shape payload, StructurePanelLike union widened in controls.ts, primitive-to-spawner resolution, FEED_TOWER dispatch. NO protocol bump — the wire and bench plumbing already shipped."
+    },
+    {
+      "id": "P3",
+      "title": "THREE GOBLINS + REBUILD THE STINK TOWER ART (owner-scoped this session)",
+      "tier": "Full",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "scope": "Design PNGs then veo image-to-video atlases for shield goblin, terrorist goblin and bat rider goblin in the established style (bold ink outline, olive skin, brown leather + grey steel, plain white ground, small drop shadow, NO white sticker halo — the owner's rejected variant is literally named 'sticker-halo'). REBUILD the stink tower from the owner's 3-stink-tower-DEFENCE.png. Per-type Y offset for the flying bat rider. RETAIN specs + clips in-tree this time. Hound and poop bags explicitly OUT.",
+      "owner_diagnosis": "Owner: 'the currently implemented stink tower is shit we need to use the one from the screenshot'. Measured causes: (1) veo re-drew the tower each frame instead of animating a fixed one, so branch count changes across idle f0/f4/f8 and it appears to melt; (2) the matte's enclosed-white-by-area rule mis-fired on veo smoke, leaving pale ellipse artifacts; (3) design drift lost the symmetric five-bag layout."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -3277,5 +3093,49 @@
     "harness_trap": "`npm run e2e:gating | tail` reports 'exited with code 0' even with 1 failed - the pipeline returns tail's status, not playwright's. Do not read exit code through a pipe."
   },
   "deploy_verified_s151_p1": "verify-deploy 3/4 immediately post-push: REMOTE PASS (4acd7395), RUN PASS (1 run, event=push), LIVE PASS (live entry asset == local build, content-hash equality), VERDICT pending on a QUEUED run. LIVE already matching is expected and is the meaningful signal: P1 changed no src/, so the bundle is byte-identical and the deploy is a content no-op. Run conclusion polled to completion separately — a `cancelled` conclusion is a SILENT death (no mail, no artifacts) and must be read explicitly, never inferred from absence of failure.",
-  "deploy_verified_s151_p3": "verify-deploy PASS 4/4 on ed07b459 — REMOTE, RUN, VERDICT (run 32584803207 concluded SUCCESS, read explicitly because a cancelled conclusion is a silent death) and LIVE (index-BijPc2IZ.js content-hash equality). PROTOCOL_VERSION 30 is live."
+  "deploy_verified_s151_p3": "verify-deploy PASS 4/4 on ed07b459 — REMOTE, RUN, VERDICT (run 32584803207 concluded SUCCESS, read explicitly because a cancelled conclusion is a silent death) and LIVE (index-BijPc2IZ.js content-hash equality). PROTOCOL_VERSION 30 is live.",
+  "unlock_evidence_s152": {
+    "owner_quote_batch": "i approve full session priority batch",
+    "owner_quote_raid": "also i dont think weve implemented the RAID mechanic from last session it was P4 but we didnt do it so we need to do it this session. i approve it too as dcesigned last session",
+    "owner_quote_p3_scope": "now we need this session shield goblin, terrorist goblin, and bat rider goblin, all in the same art style. the currently implemented stink tower is shit we need to use the one from the screenshot",
+    "owner_quote_def_confirm": "1 def = 1.2, 2 def = 1.4, 3 def = 1.6 ... a creature with 2 hp and 2 def will have 2x1.4 = 2.8 points which is actually 14 fifths",
+    "hook_artifact": ".claude/pdr-user-responded created_at 2026-08-23T10:01:35+02:00",
+    "provenance_note": "unlock_source was NOT invented by Claude this session (WS1 constitution A2: the model never self-authorizes). The value present in state is hook-minted; this block records the verbatim owner approval it corresponds to so the attribution is audit-reconstructable."
+  },
+  "council_s152": {
+    "seats": [
+      "CLAUDE (supervisor)",
+      "grok-4.20-0309-reasoning (GROK-PLAN)",
+      "gemini-3.1-pro-preview (GEMINI-AUDITOR)"
+    ],
+    "rounds": 1,
+    "adopted": {
+      "D1_currency": "SEPARATE raidPoints (unanimous) — the owner's own word is 'raid point'; and MAX_DISRUPTION_CHARGES=2 with DEFENSIVE_SEVER_CHARGE_COST=2 makes a shared pool punishing",
+      "D2_cloud": "NEW 'RAIDED' GameEffect — BOTH seats' proposals refuted by the tree: world.effects is 'acknowledged' (unhashed) and ALREADY rides the wire as additive-optional NetSnapshot.effects?",
+      "D3_action": "MUTATE RAID_CREATURE into RAID_TARGET with a discriminated creature|bond target; PROTOCOL 30 to 31",
+      "D4_precedence": "KEEP the existing order — controls.ts:697 already picks creature-first, bond-second, which IS R78's rule"
+    },
+    "challenges_adopted": [
+      "GEMINI C1 graph-split race — damageConnector re-reads capacity per call; pinned by a two-raids-one-component test",
+      "GEMINI C3 SEVER-vs-RAID overlap — resolved from the tree: RAID replaces the DIRECT PURCHASE of an instant cut; SEVER_BOND survives as the consequence of damage reaching capacity",
+      "GEMINI FM2 accrual remainder — ONE integer accumulator in tenths: tower +5, hand connection +2, threshold 10; mixed play never wastes progress",
+      "GEMINI FM3 float timers — cloud lifetime is 3 * PHYSICS_HZ = 180 INTEGER ticks",
+      "GROK texture census — render-heap TEXTURE_LIMIT=8 on growth; +3 atlases must be MEASURED, not assumed"
+    ],
+    "refuted_empirically": "GROK's 'new hashed RaidCloud[]' and GEMINI's FAILURE-MODE-1 'you must add a state-hashed damage pool to every connector' are both factually wrong about this tree: Bond.damageFifths (save.ts:393, stateHashFull.ts:239) and the unhashed-but-wired world.effects queue already exist. Ninth occurrence of the #empirical-refutes-plausible-criticals pattern."
+  },
+  "a0_state_discovery_s152": {
+    "probe_integrity": "4 of 6 A.0 subagents died on a mid-run individual spend limit; their areas were re-probed BY HAND and every recorded fact carries a file:line read directly. Two landed (P2 popover surface, P3 art pipeline).",
+    "deltas": [
+      "CRITICAL — P3 is NOT 'art only': NO design PNG exists for any P3 subject. SPARK_S137_starter_designs/ holds exactly the three characters already shipped. The blocking dependency is DESIGN art.",
+      "CRITICAL — NO spec JSON and NO veo source clip was retained for any shipped character; the three shipped atlases cannot be rebuilt or retuned. Spec schema must be reconstructed from build-sprite-atlas.mjs property reads.",
+      "CRITICAL — imagen_generate is permanently 404 on this endpoint (no imagen-* model exists; it is the Gemini Developer API, not Vertex). Verified working image path: gemini-*-image via REST. veo 3.1 IS available.",
+      "MAJOR — 'the S152 FIX/SCRAP popover' already SHIPPED, in real session S149 P6 (50a5c24). 'S152' is a ROADMAP label from SPARK_TD_SESSION_SPECS.md. P2 extends a live panel rather than building one.",
+      "MAJOR — Bond.damageFifths ALREADY SHIPPED in S151 P2 (serialized additive-optional save.ts:393, hashed stateHashFull.ts:239 + ':dmg' at :431, accumulated damage.ts:157). RAID-on-connector costs nothing on the wire.",
+      "MAJOR — right-click ALREADY picks creature-first then bond (controls.ts:697-710); the bond arm's own comment calls it 'the original raid'. R78 converts an instant-sever into a damage hit rather than adding a gesture.",
+      "MAJOR — world.effects is 'acknowledged' in stateHashFull (never hashed) and already crosses the wire as NetSnapshot.effects? (S31 P0-3); effects already carry a 'color' field.",
+      "MAJOR — terrorist goblin has NO animation state for detonation (CreatureState is only SPAWNING|SEEKING|ATTACKING|DESPAWNING; goblinRenderer.ts:153 is a fixed ternary). Bat rider has NO altitude support (footAnchor.y ~0.995 plants feet on c.pos.y; the builder's bottom-centre paste crops baked headroom away).",
+      "ZERO-COST — check-bundle-size.mjs measures the ENTRY JS ONLY; public/ is never counted, so additional atlases cannot fail the build gate."
+    ]
+  }
 }

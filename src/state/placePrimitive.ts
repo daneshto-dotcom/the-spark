@@ -25,12 +25,13 @@ import {
   MERGE_IMPULSE_MAGNITUDE,
   MERGE_REACH_RADIUS,
   MIN_BOND_LENGTH_FOR_IMPULSE,
+  RAID_PROGRESS_PER_CONNECTION,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   type StiffnessTier,
 } from '../constants.ts';
-import { CarryViolation, drop as fsmDrop, tickBuildAction } from '../game/player.ts';
+import { CarryViolation, drop as fsmDrop, grantRaidProgress, tickBuildAction } from '../game/player.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
@@ -569,6 +570,27 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
 
   // Build-action credit (§ XIV.13).
   tickBuildAction(world.players.get(player.id)!);
+
+  // ⭐ S152 P1 (owner R78) — RAID PROGRESS FOR HAND-MADE CONNECTIONS.
+  //
+  // Owner: *"either once you build 2 towers or make 5 connections you get one raid point"*.
+  //
+  // ⭐ THIS IS THE HAND PATH, AND THAT IS THE WHOLE POINT OF PUTTING IT HERE. Click-to-build goes
+  // through `applyBuildBlueprint` (blueprintBuild.ts), which credits its own, coarser rate. The
+  // owner's asymmetry — hand-building must out-earn the build menu — only survives if the two
+  // paths stay separately credited, and they are genuinely separate functions: `applyBuildBlueprint`
+  // does not call `tickBuildAction` at all. Crediting both from one shared helper would silently
+  // collapse the distinction the ruling exists to create.
+  //
+  // ⚠ COUNTS BONDS, NOT PLACEMENTS. One placement can close several bonds at once (a shape
+  // dropped between three neighbours), and the owner said "connections", not "shapes". An anchor
+  // placement forms zero bonds and correctly earns nothing.
+  if (bondsFormedCount > 0) {
+    grantRaidProgress(
+      world.players.get(player.id)!,
+      bondsFormedCount * RAID_PROGRESS_PER_CONNECTION,
+    );
+  }
 
   return world;
 }

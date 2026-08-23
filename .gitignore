@@ -39,3 +39,17 @@ test-results-protocol/
 /e2e-watch-*.log
 # S133 — transient pre-handoff review flag (created/cleared by pre-handoff-review.py)
 .claude/REVIEW-PENDING.flag
+
+# S152 P1 — transient capture logs from a verification run (never a tracked artifact).
+.claude/p1-*.txt
+.claude/p2-*.txt
+.claude/p3-*.txt
+.claude/pf-*.txt
+.claude/preflight-*.log
+
+# S152 P3 — gen-character-design.mjs intermediates. The design PNG and the spec ARE tracked
+# (S151 kept neither and its atlases became unrebuildable); the raw API request/response
+# payloads are not — a .resp carries the whole base64 image and would double the repo cost.
+assets-source/**/.req-*.json
+assets-source/**/.resp-*.json
+assets-source/**/*.raw

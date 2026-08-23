@@ -415,6 +415,13 @@ interface SerializedPlayer {
    */
   benchedUntilTick?: number;
   /**
+   * ⭐ S152 P1 (owner R78) — the raid wallet: spendable points, plus accrual progress in tenths.
+   * ADDITIVE-OPTIONAL: emitted only when non-zero, absent ⇒ 0, so a pre-S152 disk save loads with
+   * an empty wallet and a board where nobody has raided stays byte-identical on the wire.
+   */
+  raidPoints?: number;
+  raidProgress?: number;
+  /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
    * undefined (pre-S72-P3 byte-compat).
    */
@@ -449,6 +456,26 @@ interface SerializedPlayer {
  */
 type SerializedEffect =
   | {
+      /**
+       * ⭐ S152 P1 (owner R78) — the RAIDED cloud's wire form. See the GameEffect variant in
+       * `game/effects.ts` for why this one IS serialized when SEVER_ERASE is not: the player the
+       * cloud exists to inform is on another peer by definition.
+       *
+       * ⚠ NOT additive-optional, and that is the whole reason PROTOCOL_VERSION goes 30→31. Every
+       * prior effect-field addition (`creatureId?`, `actor?`, `victim?`) was a new OPTIONAL FIELD on
+       * an existing kind, which a stale peer simply ignores. This is a new KIND, and
+       * `deserializeEffect` is an exhaustive switch with no default arm — a v30 peer handed
+       * `kind: 'RAIDED'` falls off the end and returns `undefined`, which then gets pushed into
+       * `world.effects`. Peers of different versions are hard-rejected at HELLO, so the bump is what
+       * makes that unreachable.
+       */
+      readonly kind: 'RAIDED';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly color: number;
+      readonly killed: boolean;
+    }
+  | {
       readonly kind: 'ARC_FLASH';
       readonly tick: number;
       readonly start: Vec2;
@@ -473,7 +500,7 @@ type SerializedEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone'; // S102 #2 — chewer gnaw sever; S113 — 'drone' lightning detonation sever
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid'; // S102 #2 — chewer gnaw sever; S113 — 'drone' lightning detonation sever; S152 P1 — 'raid' (paid with a raid point, severs on damage reaching capacity)
       /**
        * V6-0.3 (S131) — sever attribution, additive-optional on the `creatureId?` precedent
        * above. NO `PROTOCOL_VERSION` bump and NO `schemaVersion` bump: `deserializeEffect`
@@ -1484,6 +1511,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       godlyCooldownEndsAtTick: null,
       // S49 P1 (Sym F) — rehydrate debuff tick; null for pre-S49 saves.
       territorialShrinkUntilTick: p.territorialShrinkUntilTick ?? null,
+      // ⛔ S152 P1 — READ FROM THE WIRE. The `?? 0` is the additive-optional rehydrate for a save
+      // or peer that predates the field — NOT a default. Writing a literal 0 here compiles clean
+      // and passes every test whose fixtures never raid, while silently REFUNDING every player's
+      // raid points on every snapshot apply, i.e. on every client frame and every host migration.
+      // Precisely the defect S151 P2 shipped into the bond deserializer and caught only by audit.
+      raidPoints: p.raidPoints ?? 0,
+      raidProgress: p.raidProgress ?? 0,
       // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
       benchedUntilTick: p.benchedUntilTick,
       // S72 P3 — rehydrate the carried potato slot; undefined for pre-S72-P3 saves.
@@ -1647,6 +1681,10 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.carriedPotatoId !== undefined
       ? { carriedPotatoId: p.carriedPotatoId }
       : {}),
+    // S152 P1 — emit the raid wallet only when non-zero, so a board where nobody has raided stays
+    // byte-identical to pre-S152 (the `damageFifths` / `carriedPotatoId` precedent above).
+    ...(p.raidPoints > 0 ? { raidPoints: p.raidPoints } : {}),
+    ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // S82 P1 — emit the cruiser-slow debuff fields only when set (byte-identical pre-S82).
     ...(p.poopedUntilTick !== undefined
       ? { poopedUntilTick: p.poopedUntilTick }
@@ -1881,6 +1919,17 @@ function deserializeDefender(s: SerializedDefender): Defender {
  */
 function serializeEffect(e: GameEffect): SerializedEffect | null {
   switch (e.kind) {
+    // ⭐ S152 P1 (owner R78) — the RAIDED cloud MUST cross the wire. Its entire purpose is telling
+    // the VICTIM who hit them, and the victim is on another peer; returning null here (the
+    // host-local club below) would make the feature invisible to exactly the player it is for.
+    case 'RAIDED':
+      return {
+        kind: 'RAIDED',
+        tick: e.tick,
+        pos: { x: e.pos.x, y: e.pos.y },
+        color: e.color,
+        killed: e.killed,
+      };
     case 'ARC_FLASH':
       return {
         kind: 'ARC_FLASH',
@@ -1949,6 +1998,17 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
  */
 function deserializeEffect(s: SerializedEffect): GameEffect {
   switch (s.kind) {
+    // S152 P1 — the fourth of the four sites the BOND_SEVERED docblock warns must be edited
+    // together (this type, the GameEffect variant, serializeEffect, deserializeEffect). Copied
+    // rather than aliased, matching every arm below.
+    case 'RAIDED':
+      return {
+        kind: 'RAIDED',
+        tick: s.tick,
+        pos: { x: s.pos.x, y: s.pos.y },
+        color: s.color,
+        killed: s.killed,
+      };
     case 'ARC_FLASH':
       return {
         kind: 'ARC_FLASH',
