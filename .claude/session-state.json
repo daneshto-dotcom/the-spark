@@ -690,7 +690,7 @@
           "needle": "_owner_direction_s153_v3"
         }
       ],
-      "checkpoint_commit": "pending-commit",
+      "checkpoint_commit": "b4f3a69",
       "check_method": "RALPH+GROK-ANALYST. build green, vitest 3003, e2e:gating 50/50. TEXTURE CENSUS MEASURED: 74->77, delta 3 against limit 8 (was 74->76). THE AUDITION EARNED ITS PLACE - a contact sheet over magenta found two opaque black pillarbox bars surviving the matte, localised to exactly ONE cell (walk frame 0: 144 bar-like columns of 336, nothing else in the atlas) because veo opened that clip with the seed letterboxed. Fixed by NOT SAMPLING the bad frame - a new per-state sampleStart mirroring sampleWindow - rather than by loosening the bar rule, which would put every character ink outline at risk (the S152 defect that deleted whole outlines). Absent means 0 means byte-identical, so no shipped atlas can regress. Side benefit: bars gone shrank the union bbox 1280x720 to 1062x662 and tightened the cell 336 to 303. The drop-shadow ellipse survives as opaque near-black at 9.48 percent of frame area, COMPARED against the shipped shield at 8.80 percent - house style, not a regression, measured before being called acceptable. RENDERED LIVE: three hounds in a running match draw from the atlas, not the green puppet. The rejected v1 was PRESERVED with its two paid clips as a zombie-castle asset per owner instruction."
     },
     {
@@ -823,7 +823,7 @@
   },
   "real_context_tokens_at_close": 478109,
   "real_context_pct_at_close": 47.81,
-  "checkpoint_commit": "883d1b2",
+  "checkpoint_commit": "b4f3a69",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
