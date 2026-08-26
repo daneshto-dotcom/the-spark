@@ -37,6 +37,7 @@ import type { BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../type
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
+import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
@@ -393,4 +394,96 @@ export function findNearestEnemyCreature(world: World, creature: Creature): Crea
     range * range,
     creature.id,
   );
+}
+
+
+/* ========================================================================== *
+ *   S153 P1 — owner R82/R83: unit-first navigation, arrival spread, castle march
+ * ========================================================================== */
+
+/**
+ * R83 — pick the enemy UNIT a structure-attacker should navigate toward, with hysteresis.
+ *
+ * ⭐ THE HYSTERESIS NEEDS NO NEW FIELD, AND THAT IS THE WHOLE REASON THIS SHAPE WAS CHOSEN.
+ * `held` is the value `creature.targetCreatureId` still carries from LAST tick — the field is
+ * already declared, already serialized, already hashed and already cleared on every FSM
+ * transition. Enumerating the chain for a genuinely new creature field first (the
+ * `targetPrimitiveId` precedent) measured FOURTEEN files and ~45 sites, plus a hashed-state
+ * question. Reusing the field that already persists costs zero of that.
+ *
+ * Returns the unit to chase, or `null` to fall through to the structure target.
+ */
+export function pickNavUnit(
+  world: World,
+  creature: Creature,
+  held: CreatureId | null,
+  acquireRadiusSq: number,
+  leashRadiusSq: number,
+): CreatureId | null {
+  // Hold an existing lock while the quarry stays inside the (wider) leash. This is the branch
+  // that kills the 60 Hz pirouette — see GOBLIN_UNIT_LEASH_RADIUS for why the radii differ.
+  if (held !== null) {
+    const quarry = world.creatures.get(held);
+    if (
+      quarry !== undefined &&
+      quarry.ownerPlayerId !== creature.ownerPlayerId &&
+      distSq(creature.pos, quarry.pos) <= leashRadiusSq
+    ) {
+      return held;
+    }
+  }
+  // No lock, or the quarry died / broke the leash → re-acquire inside the tighter radius.
+  return findNearestEnemyCreatureFrom(
+    world,
+    creature.pos,
+    creature.ownerPlayerId,
+    acquireRadiusSq,
+    creature.id,
+  );
+}
+
+/**
+ * R82 — a per-creature point on a small ring around `target`, so N goblins converging on one
+ * shape form a rough arc instead of a single pile.
+ *
+ * Deterministic by CONSTRUCTION: a pure function of the creature id and nothing else. No draw, no
+ * tick, no wall-clock — so it cannot move the RNG stream and cannot diverge between the host and
+ * the worker sim. The golden angle keeps successive ids well separated rather than clustering the
+ * way `id % k` buckets would.
+ */
+export function spreadTargetPos(target: Vec2, creatureId: CreatureId, radius: number): Vec2 {
+  const GOLDEN_ANGLE = 2.399963229728653; // π(3 − √5)
+  const angle = ((creatureId as unknown as number) + 1) * GOLDEN_ANGLE;
+  return { x: target.x + Math.cos(angle) * radius, y: target.y + Math.sin(angle) * radius };
+}
+
+/**
+ * R85 (the shipped half) — where a structure-attacker walks when the enemy has NO shapes left.
+ *
+ * ⛔ A0 F6: there is NO castle entity and no castle HP. `castleBanks` is an inventory Map, and the
+ * match is still won on VICTORY POINTS. So this deliberately returns a POSITION and nothing else —
+ * goblins march on the enemy keep and mill there menacingly instead of freezing mid-field, which is
+ * the half of the owner's point 7 that costs nothing. Making the castle DAMAGEABLE forces a
+ * decision about whether the game is still won on points at all, which is the owner's call and its
+ * own session (owner ruling D2).
+ *
+ * Returns `null` in the one case that has no answer: no live enemy seat.
+ */
+export function enemyCastleMarchPos(world: World, creature: Creature): Vec2 | null {
+  let best: Vec2 | null = null;
+  let bestDistSq = Infinity;
+  let bestSeat = Infinity;
+  for (const seat of world.players.keys()) {
+    if (seat === creature.ownerPlayerId) continue;
+    const anchor = castleAnchor(seat as unknown as number, world.layout);
+    const d = distSq(creature.pos, anchor);
+    const seatN = seat as unknown as number;
+    // Lowest-seat tie-break, matching the lowest-id convention every other selector here uses.
+    if (d < bestDistSq || (d === bestDistSq && seatN < bestSeat)) {
+      bestDistSq = d;
+      bestSeat = seatN;
+      best = anchor;
+    }
+  }
+  return best;
 }

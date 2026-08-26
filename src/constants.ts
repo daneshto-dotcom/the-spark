@@ -1866,3 +1866,51 @@ export const SPINDLE_MAX_TANGENTIAL_SPEED = 2.0; // px/tick HARD cap on swirl-di
 // completion moment (cinematicMs + sustainedEffectMs + CUTSCENE_FADE_MS — the exact S31 P0-1
 // spawn-delay math) without importing render/ into the worker chunk. Value unchanged since S31.
 export const CUTSCENE_FADE_MS = 300;
+
+/* ========================================================================== *
+ *   S153 P1 (owner R83) — UNIT-FIRST NAVIGATION for structure-attackers
+ * ========================================================================== */
+
+/**
+ * Owner R83: *"goblins should target not only structures but enemy creatures/soldiers first and
+ * only then structures."* This REVERSES Council ruling MF3, under which bonds/shapes drove
+ * navigation and a creature was only ever STRUCK when it had already wandered into attack range.
+ *
+ * ⭐ NOT THE LITERAL READING, AND BOTH COUNCIL SEATS INDEPENDENTLY DERIVED WHY. Taken literally,
+ * "units first" means nearest-unit-ANYWHERE, which hands the opponent a free kite: one fast hound
+ * drags an entire goblin army across the board while the base it was sent to break stands
+ * untouched. The acquisition radius is what makes "clear the threat in front of you, then resume
+ * the push" the actual behaviour.
+ */
+export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;
+
+/**
+ * The HYSTERESIS half, and it is load-bearing rather than polish.
+ *
+ * Goblin target selection re-runs EVERY tick with no stickiness (hostTick's structure-attacker
+ * branch says so in as many words). A shape does not move, so re-deriving "nearest" every tick is
+ * stable for structures — but a UNIT moves, so a single acquire radius makes a unit hovering near
+ * the boundary flip in and out of acquisition at 60 Hz, and the goblin pirouettes between it and a
+ * shape instead of walking at either. The leash is deliberately WIDER than the acquire radius: a
+ * unit must come within ACQUIRE to be picked up, and then get clear of LEASH to be dropped. The gap
+ * between the two is the dead-band, and no oscillation can live inside it.
+ */
+export const GOBLIN_UNIT_LEASH_RADIUS = 300;
+
+/**
+ * Owner point 4: *"when you build multiple goblins they just run like a stack ... it looks messy
+ * and not cool."*
+ *
+ * ⚠ THE SPEED LADDER (R82) DOES NOT FIX THIS ON ITS OWN, and it is worth being precise about why,
+ * because the owner's sentence attributes the clumping to equal speeds. A0 measured that per-type
+ * speeds ALREADY existed and already differed. Different speeds spread a column while it TRAVELS
+ * and then re-pile it the moment everyone arrives, because every goblin steers at the identical
+ * point — `arriveForce` damps them all onto one coordinate. There is no separation force anywhere
+ * in the sim (A0 F7).
+ *
+ * So the fix is a per-creature ARRIVAL OFFSET rather than a per-tick repulsion: each goblin aims at
+ * its own point on a small ring around the shared target. Chosen over a true boid separation force
+ * because that would have to run per-SUBSTEP over an O(n²) neighbour scan, whereas this is a pure
+ * function of the creature id — free, and deterministic by construction rather than by audit.
+ */
+export const GOBLIN_SPREAD_RADIUS = 26;

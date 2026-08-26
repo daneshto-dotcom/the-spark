@@ -429,10 +429,37 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       return distSq(creature.pos, prim.pos) <= config.attackRange * config.attackRange;
     })();
 
+  // ⛔ S153 P1 — THE RANGE TEST MOVED INTO THE PREDICATE, AND IT HAD TO.
+  //
+  // This arm used to read a bare `creature.targetCreatureId !== null`, and the comment above
+  // explains why that was safe: the field was *only ever* written by `findNearestEnemyCreature`,
+  // which range-gates to this creature's own `attackRange`. The range check therefore lived in the
+  // CALLER, as a convention.
+  //
+  // Owner R83 breaks that convention on purpose. A goblin now acquires a unit at
+  // GOBLIN_UNIT_ACQUIRE_RADIUS (220 px) so it can NAVIGATE toward it, which is an order of
+  // magnitude beyond any attackRange. Left as-is, this arm would have fired the instant a goblin
+  // noticed an enemy 220 px away: enter ATTACKING → step 6b re-validates against attackRange and
+  // clears the target → the wind-up aborts → back to SEEKING → re-acquire → repeat, every single
+  // tick. A goblin that never walks and never swings, and NOTHING would have gone red for it —
+  // the FSM is self-consistent, the determinism gates are self-comparing, and no test asserts
+  // "a goblin with a distant enemy keeps walking".
+  //
+  // So the invariant is restored where it cannot be broken by a caller again. For every shipped
+  // type this is BYTE-IDENTICAL: Voltkin/defenders still select within `attackRange`, so a target
+  // that was non-null was already in range and `unitInReach` is true exactly when the old test was.
+  const unitInReach =
+    creature.targetCreatureId !== null &&
+    (() => {
+      const victim = world.creatures.get(creature.targetCreatureId);
+      if (victim === undefined) return false;
+      return distSq(creature.pos, victim.pos) <= config.attackRange * config.attackRange;
+    })();
+
   if (
     creature.state === 'SEEKING' &&
     ((creature.targetBondId !== null && isWithinAttackRange(world, creature, creature.targetBondId)) ||
-      creature.targetCreatureId !== null ||
+      unitInReach ||
       structureInReach)
   ) {
     creature.state = 'ATTACKING';

@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 2341,
-  "session_id": "S152",
-  "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
-  "session_start": "2026-08-23",
+  "tool_calls_session_total": 2397,
+  "session_id": "S153",
+  "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
+  "session_start": "2026-08-26",
   "prior_session_note": "S151 closed at 85495f1; protocol 30; preflight re-measured GREEN this session: build 727.6/900 KiB, vitest 2940/2940, e2e:gating 44 exit 0, verify-deploy 4/4, CI 15/15 success",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-22_S151.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
-  "session_status": "closed",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -113,779 +113,99 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "RAID — right-click 2-ATK strike on units AND connectors + the RAIDED cloud (R78)",
+      "title": "Speeds re-tier + units-first targeting + separation + castle march",
       "tier": "Full",
-      "status": "completed",
+      "estimated_tokens": 24000,
+      "status": "in_progress",
+      "detail": "Re-tier the six hopSpeedMul values to the owner ladder - hound 1.15, bat 1.15, melee 0.85, suicide 0.85, archer 0.70, shield 0.45. Add unit-first NAVIGATION gated by an acquisition radius with a hysteresis margin on target switch. Wire creatureCanTarget as the authority - it has zero production callers today. Add a separation nudge so same-tier goblins stop overlapping. Fold in the cheap castle half - when no enemy towers remain goblins march on the castle. Gate with a behavioural ordering test asserting BOTH halves.",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "scope": "RAID_CREATURE becomes RAID_TARGET with a discriminated creature|bond target; attackFifths(2,0)=10 fifths through the EXISTING damageCreature/damageConnector paths; new raidPoints + raidProgress Player fields (accrual: tower +5, hand connection +2, threshold 10, cap 3); a RAIDED GameEffect in the raider's colour for 180 ticks, serialized; HUD readout; PROTOCOL 30 to 31 following the SIX-site checklist at protocol.ts:463.",
-      "check_completed": true,
-      "checkpoint_commit": "2078bb1",
-      "check_method": "RALPH:PATROL + a real browser. STATIC: tsc -b clean; vitest 2962 passed (177 files, +22 new raid assertions across src/state/raid.test.ts and a rewritten towerDefense raid block whose voltkin test INVERTED — S102 refused non-chewers, R78 makes a voltkin a legal target that survives on arithmetic alone). RUNTIME: e2e:gating 46 passed, exit code read from a redirect not a pipe; e2e/raid.spec.ts is the FIRST right-click anywhere in the suite (grep for \"button: 'right'\" returned nothing before it), so the raid gesture that has shipped since S102 had never been exercised in a browser. VISUAL: screenshotted the RAIDED cloud rendering in the raider's colour, and screenshotted the HUD pip row twice — the first shot CAUGHT my diamonds drawing through the Q=ZONE text. TWO BUGS FOUND AND FIXED: (1) the re-dispatched SEVER_BOND carried cause:'player', which is gated on disruption charges a raider does not have, so a fully-damaged connector silently refused to break — fixed with a distinct cause:'raid' bypass, and severBond's `never` guard then forced the attribution decision; (2) the HUD collision above, fixed with an explicit RAID_PIP_X AND registered as a hudSurfaces() 'raid-pips' surface so hudLayout.test.ts (21 passed) now owns the invariant. ONE SILENT REGRESSION AVOIDED: right-click sever used to fart via cause:'player'; under 'raid' that branch would have gone mute with nothing failing, since no test asserts that SFX. COUNCIL REFUTED EMPIRICALLY: both seats specified new hashed state (a RaidCloud[] array and a connector damage pool); Bond.damageFifths and the unhashed-but-wired world.effects queue already existed, so the cloud and the connector arm cost ZERO new wire surface.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const RAID_ATK = 2;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const RAID_PEN = 0;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const MAX_RAID_POINTS = 3;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const RAID_PROGRESS_PER_POINT = 10;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const RAIDED_CLOUD_TICKS = 3 * PHYSICS_HZ;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const RAID_CREATURE_DAMAGE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "readonly type: 'RAID_TARGET';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "case 'RAID_TARGET': {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "cause: 'raid',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "attackFifths(RAID_ATK, RAID_PEN)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "case 'RAID_CREATURE'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\player.ts",
-          "needle": "raidPoints: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\player.ts",
-          "needle": "raidProgress: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\player.ts",
-          "needle": "export function grantRaidProgress"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\player.ts",
-          "pattern": "raidPoints:\\s*player\\.raidPoints",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\placePrimitive.ts",
-          "needle": "RAID_PROGRESS_PER_CONNECTION"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
-          "needle": "grantRaidProgress(player, RAID_PROGRESS_PER_TOWER);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\effects.ts",
-          "needle": "readonly kind: 'RAIDED';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\effects.ts",
-          "needle": "| 'raid';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "kind: 'RAIDED',"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "pattern": "'RAIDED'",
-          "op": ">=",
-          "value": 3
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "raidPoints?: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "raidPoints: p.raidPoints ?? 0,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\effects\\lifetime.ts",
-          "needle": "return RAIDED_CLOUD_TICKS;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\effects\\raided.ts",
-          "needle": "export function drawRaided"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\effectsRenderer.ts",
-          "needle": "drawRaided(g, effect"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\disruptionManager.ts",
-          "needle": "action.cause === 'raid'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\severBond.ts",
-          "needle": "case 'raid':"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 31 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "readonly protoVersion: 31;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S152 P1 — bumped 30->31"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "pattern": "RAID_TARGET:\\s*true,",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(31);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 31;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\benchGate.ts",
-          "needle": "RAID_TARGET: 'deny',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\ui.ts",
-          "needle": "const RAID_PIP_X = Q_HINT_X + Q_HINT_W + 10;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\ui.ts",
-          "needle": "name: 'raid-pips'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\ui.ts",
-          "needle": "function drawPlayerRaidPoints"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "type: 'RAID_TARGET',"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "type: 'RAID_CREATURE'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "RMB → RAID unit or connector"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\audioManager.ts",
-          "needle": "effect.cause === 'raid'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\raid.test.ts",
-          "needle": "GEMINI-AUDITOR C1"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\raid.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 15
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "RAID_TARGET"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\raid.spec.ts",
-          "needle": "button: 'right'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-design.mjs",
-          "needle": "gemini-3-pro-image"
-        }
-      ],
-      "owner_flags": [
-        "CAPABILITY LOSS: a guaranteed bond cut is no longer purchasable. A raid severs only while the component has <=6 connectors (capacity = connectors + 4 vs 10 fifths), so complex geometry is raid-proof. That is owner R76's stated incentive, but it IS something the player could do yesterday and cannot today.",
-        "Raid pips show in vs-bots and 1v1, NOT pure solo — `ranked` is empty when !isNetworked, which has always been true of the disruption-charge pips too. Raiding is impossible in solo anyway (enemy-only), so this is a display consistency, not a functional gap.",
-        "MAX_RAID_POINTS=3 and the tower/connection rates are FIRST-PASS, unvalidated by play.",
-        "Accrual is ONE shared pool in tenths rather than two independent tracks — my reading of 'either/or', chosen so mixed building never strands partial progress. Correct me if you meant two separate counters."
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "WIRE THE FEED GESTURE — six shape buttons on the FIX/SCRAP popover",
+      "title": "Archer projectile VFX - plain arrow vs units, flaming vs structures",
       "tier": "Standard",
-      "status": "completed",
+      "estimated_tokens": 12000,
+      "status": "pending",
+      "detail": "New ARROW_SHOT effect kind on the existing UNHASHED effect channel, following the ARC_FLASH start-end precedent. Zero wire cost, no protocol bump. Discriminate the flaming variant on target class at the attack-fire site.",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "scope": "A FEED row on the live StructurePanel: glyphs via drawSparkGlyph, per-shape castle-bank counts modelled on castlePanel.ts:1088-1113, disabled when unaffordable, buttonAt widened to carry a shape payload, StructurePanelLike union widened in controls.ts, primitive-to-spawner resolution, FEED_TOWER dispatch. NO protocol bump — the wire and bench plumbing already shipped.",
-      "check_completed": true,
-      "checkpoint_commit": "f5809fb",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
-          "needle": "goblinTowerOwnerForAnchor, 'goblinTower');"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
-          "needle": "A REGISTERED RECIPE IS NOT A LIVE RECIPE"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
-          "pattern": "igniteOneSpawnerRecipe\\(world,",
-          "op": "==",
-          "value": 3
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "export type StructureActionKind = 'FIX' | 'SCRAP' | 'FEED';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "readonly sparkType?: SparkType;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "function goblinTowerAmong("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "if (sp.recipeId !== 'goblinTower') continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "isGoblinTowerComponent(world, sp.anchorPrimitiveId)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "const held = bankCountOf(world.castleBanks, seat, type);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "const GOBLIN_SHORT_NAME"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "goblinShield: 'SHIELD',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]]"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "buttonAt(x: number, y: number): StructureAction | null {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "feedSpawnerId(): SpawnerId | null {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "drawSparkGlyph(g, b.x + b.w / 2"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "const FEED_BTN = 44;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "from '../state/goblinKinds.ts';"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "from '../state/godlyRecipes/goblinTower.ts'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "const action = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "buttonAt(x: number, y: number): 'FIX' | 'SCRAP' | null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "type: 'FEED_TOWER',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "const spawnerId = structurePanel.feedSpawnerId();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
-          "needle": "the FEED row (owner R70 / S152 P2)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
-          "needle": "runSpawnerIgnition"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 15
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\feed-tower.spec.ts",
-          "needle": "expect(after.shields).toBe(before.shields + 1);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\feed-tower.spec.ts",
-          "needle": "expect(after.squares).toBe(before.squares - 1);"
-        }
-      ],
-      "check_method": "RALPH:PATROL + real clicks in a real browser. STATIC: tsc -b clean; vitest 2968 passed (177 files, +6 new FEED-row assertions on structureActionModel). RUNTIME: e2e:gating 47 passed, exit code read from a redirect not a pipe; e2e/feed-tower.spec.ts drives the ENTIRE chain with real clicks - tier chip -> tower card -> world click -> the live host sweep ignites it -> click the tower -> the FEED row -> a goblinShield appears AND the castle bank is debited by exactly 1. VISUAL: screenshotted the row (glyph + goblin name on all six buttons, FIX/SCRAP above, correct z-order, on-canvas). THE BIG FINDING WAS NOT THE MISSING BUTTON: the goblin tower NEVER IGNITED. runSpawnerIgnition names its recipes by hand and only ever named pentagram and lightningHub, while goblinTowerRecipe sat in a registry whose matcher findSpawnerMatch has ZERO production callers - so applyFeedTower's Gate 1 looked up a spawner that could not exist, and the S151 handoff's 'it builds, it ignites, it tears down' was two-of-three (teardown IS wired, via recipeStillSatisfied case 'goblinTower'). Proven empirically BEFORE fixing: my new panel test asserted 6 feed buttons and got [] after a real BUILD_BLUEPRINT + runSpawnerIgnition. Fixed with a third igniteOneSpawnerRecipe call; the recipe-module value import is safe there because world.ts does not import godlyMatcherCore (the S144 trap runs the other way). Also verified the panel counts what the REDUCER counts (bankCountOf, not the porch-inclusive availableShapeCounts) so no button can promise what Gate 4 refuses.",
-      "owner_flags": [
-        "The FEED row appears only on YOUR OWN live goblin tower, and only during BUILD (the popover itself is phase-gated by R19 - inherited behaviour, not new).",
-        "Captions name the GOBLIN, not the count, so you can learn Square -> SHIELD while holding no Squares. Say the word if you would rather see how many of each shape you hold.",
-        "Every blueprint counts as 'a tower' for P1's raid accrual, including this one - flagged there too."
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "THREE GOBLINS + REBUILD THE STINK TOWER ART (owner-scoped this session)",
-      "tier": "Full",
-      "status": "completed",
+      "title": "FEED during FIGHT",
+      "tier": "Standard",
+      "estimated_tokens": 10000,
+      "status": "pending",
+      "detail": "Give FEED its own reachability predicate instead of borrowing canBuildNow, which hard-returns false outside BUILD. R19 stays intact for FIX and SCRAP. Owner point 1.",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "scope": "Design PNGs then veo image-to-video atlases for shield goblin, terrorist goblin and bat rider goblin in the established style (bold ink outline, olive skin, brown leather + grey steel, plain white ground, small drop shadow, NO white sticker halo — the owner's rejected variant is literally named 'sticker-halo'). REBUILD the stink tower from the owner's 3-stink-tower-DEFENCE.png. Per-type Y offset for the flying bat rider. RETAIN specs + clips in-tree this time. Hound and poop bags explicitly OUT.",
-      "owner_diagnosis": "Owner: 'the currently implemented stink tower is shit we need to use the one from the screenshot'. Measured causes: (1) veo re-drew the tower each frame instead of animating a fixed one, so branch count changes across idle f0/f4/f8 and it appears to melt; (2) the matte's enclosed-white-by-area rule mis-fired on veo smoke, leaving pale ellipse artifacts; (3) design drift lost the symmetric five-bag layout.",
-      "check_completed": true,
-      "checkpoint_commit": "400b9df",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-atlas.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-anim.json",
-          "needle": "\"footAnchor\""
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-sapper\\anim\\goblin-sapper-atlas.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-sapper\\anim\\goblin-sapper-anim.json",
-          "needle": "\"footAnchor\""
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-atlas.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-anim.json",
-          "needle": "\"footAnchor\""
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-atlas.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-anim.json",
-          "needle": "\"footAnchor\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-anim.json",
-          "needle": "\"attack\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-anim.json",
-          "needle": "\"walk\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-anim.json",
-          "needle": "\"idle\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "goblinShield: '/godly/goblin-shield/anim/goblin-shield',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "goblinSuicide: '/godly/goblin-sapper/anim/goblin-sapper',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "goblinBat: '/godly/goblin-batrider/anim/goblin-batrider',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "const GOBLIN_LIFT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "goblinBat: 34,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "c.pos.y - lift"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "const SPAWN_ALPHA_FLOOR = 0.35;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "SPAWN_ALPHA_FLOOR +"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "function washTowardsWhite("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "sp.tint = washTowardsWhite(tint, TINT_WASH);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "    sp.tint = tint;\n    void tint;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "ONLY WHEN IT IS SHAPED LIKE A BAR"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "vertical = h >= 0.90 * H and w <= 0.15 * W"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "bg = bg | np.isin(dlab, list(dborder))"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "spec.get('enclosedWhiteLimitPct', 0.003)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "sampleWindow"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-design.mjs"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs",
-          "needle": "AN OPERATION NAME IS MONEY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs",
-          "needle": "const CONCURRENCY = 4;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clip-spec.json",
-          "needle": "staticSubject"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
-          "needle": "enclosedWhiteLimitPct"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\walk.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\attack.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\walk.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\attack.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\walk.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\attack.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\stink-tower\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\stink-tower\\attack.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\4-goblin-shield-SQUARE.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\5-goblin-sapper-DOT.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\6-goblin-batrider-SPIRAL.png"
-        }
-      ],
-      "check_method": "RALPH:PATROL + EYES ON EVERY FRAME. STATIC: tsc -b clean; vitest 2968 passed (177 files); build 731.5/900 KiB. RUNTIME: e2e:gating 47 passed, exit code read from a redirect not a pipe. TEXTURE CENSUS MEASURED, NOT ASSUMED (the Council's one surviving concern): render-heap reports 74->76 texture sources, growth of 2 against TEXTURE_LIMIT 8. VISUAL: every character auditioned as a contact sheet BEFORE wiring, then all three spawned through the real FEED gesture in a live match and photographed. FOUR BUGS FOUND BY LOOKING, THREE PRE-EXISTING: (1) the matte deleted whole characters' ink outlines whenever a silhouette touched the frame edge, because an outline is near-black and connected, so it joined the letterbox bar - now only BAR-SHAPED dark regions are removed; this masqueraded as veo drift for three fix attempts until I extracted the RAW clip frames and found them pristine. (2) the enclosed-white threshold was calibrated on one character and kept the bat rider's mid-sized background pockets as opaque white blobs - now a per-spec knob, default unchanged so shipped art cannot regress; measured pockets 446-14291px vs features <=24px. (3) a goblin fed during BUILD was COMPLETELY INVISIBLE - hostTick gates the creature loop on FIGHT so ticksInState stayed 0 and the spawn-in alpha was exactly 0, while FEED is only reachable in BUILD (R19); every test passed and it took a screenshot with nothing on it. (4) the owner tint is a MULTIPLY against saturated PLAYER_COLORS, so an olive goblin times crimson came out near-black - the comment promised 'faint', the code did the opposite; the colour is now washed 80% towards white, which also repairs the SHIPPED melee and archer goblins. Also fixed my OWN clip-generator defect: it threw on the first 429 and orphaned seven already-billed veo operations, so op names are now persisted the instant they exist and submission is batched.",
-      "owner_flags": [
-        "SCALE IS YOUR DIAL. GOBLIN_SPRITE_BASE_SCALE is 0.17 (= PRINCESS/2, your 'about half the size of current helga'). The new art carries much more detail than the procedural puppet did, and at this size it is hard to read in play. Say the word and it moves.",
-        "FEEDING DURING BUILD QUEUES AN INERT GOBLIN. Creatures only tick in FIGHT, and the FEED row only exists in BUILD (R19), so a fed goblin now stands ghosted until the fight starts. I made it VISIBLE rather than ruling on whether that should be allowed at all - your call.",
-        "The terrorist goblin's asset is named 'sapper' and the FEED button says SAPPER: veo refuses prompts that read as a suicide bomber, so he is a comedic bomb-hugger. The CreatureType is still goblinSuicide.",
-        "The bat rider is the weakest of the three - his seed (goblin + bat + wings + spear) is the most complex, so veo drifts off it fastest and his clips are sampled from a 16-frame window. Say if he needs another pass.",
-        "goblinHound is still on the procedural puppet - you scoped three goblins this session, and I did not infer the fourth."
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": "A1-A5",
-      "title": "SCOPE AMENDMENT — owner playtest corrections (5 items)",
-      "tier": "Full",
-      "status": "completed",
+      "id": "P4",
+      "title": "Spark above the HUD + finish the affordance pass",
+      "tier": "Standard",
+      "estimated_tokens": 20000,
+      "status": "pending",
+      "detail": "Reorder the display list so the spark draws above the HUD - layering is child-add order with no zIndex API. Add hover, press and sound to footer chips, castle tiles, gatherer upgrades and tier buttons. Closes CF-S152-c. Verify hit tests on screen, not in state.",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "amendment": "Rule 16 SCOPE AMENDMENT raised after the owner playtested the live build. Owner approved verbatim: 'fix it all autonomously - approved then i approve you to go straight into handoff'.",
-      "plan_file": ".claude/plans/2026-08-26_SCOPE_AMENDMENT_S152_PLAYTEST_IN-PROGRESS.md",
-      "scope": "A1 goblin tower passively emits chewers (my P2 regression — hostTick's else-default catches every non-lightningHub recipe). A2 goblinHound has no atlas (the green procedural puppet) + regenerate melee/archer at the new matte quality. A3 GOBLIN_SPRITE_BASE_SCALE x1.75 -> 0.2975. A4 modal overlays do not hide the title screen and its buttons stay live underneath, so a click lands on the wrong mode (pre-existing since S87). A5 no click affordance anywhere — hover/press/sound/disabled treatment across title + in-game surfaces.",
-      "check_completed": true,
-      "checkpoint_commit": "bf2b213",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "} else if (sp.recipeId === 'goblinTower') {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "THE GOBLIN TOWER EMITS NOTHING ON A CADENCE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerCadence.test.ts",
-          "needle": "runHostTick"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerCadence.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_SPRITE_BASE_SCALE = PRINCESS_SPRITE_BASE_SCALE / 2;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "const modalUp ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "const showTitle = world.gameState === 'TITLE' && !modalUp;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\modal-layering.spec.ts",
-          "needle": "must be hidden while a modal overlay is up"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\modal-layering.spec.ts",
-          "needle": "must return once the modal closes"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\audioManager.ts",
-          "needle": "export async function playUiClickSFX"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\audioManager.ts",
-          "needle": "export async function playUiRefusedSFX"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
-          "needle": "c.on('pointerdown', () => { c.scale.set(PRESS); });"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
-          "needle": "c.on('pointerupoutside'"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
-          "needle": "bg.tint = 0xddddee;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "isOverAnyButton(x: number, y: number): boolean {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "private updateHoverCursor(): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "void playUiRefusedSFX();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "void playUiClickSFX();"
-        }
-      ],
-      "check_method": "RALPH:PATROL + the LIVE deployed site. STATIC: tsc -b clean; vitest 2970 passed (178 files, +2 new A1 cadence assertions). RUNTIME: e2e:gating 49 passed (+2 new A4 modal-layering specs), exit code read from a redirect not a pipe; build 733.4/900 KiB. A1 root cause was hostTick's spawner emit written as an else-DEFAULT, so every recipeId that was not lightningHub got the pentagram's chewers - my P2 ignition fix is what exposed it. Fixed with an explicit per-recipe branch, and the test asserts BOTH halves (goblin tower silent AND pentagram still emitting) because muting every spawner would also satisfy the first. A4 was diagnosed against the LIVE site, not locally: the VS-Bots click ROUTES CORRECTLY and the right overlay opens - the bug is that nothing hid titleScreen, so the menu kept drawing underneath with live buttons and a click landed on the wrong mode. Hiding at the open site would not have worked because main.ts's per-frame reconciler keys only on gameState. PRE-EXISTING since S87. A3 is owner-measured and recorded as SUPERSEDING the earlier half-of-Helga ruling. A5 delivered hover+press+two sounds+canvas cursor, with isOverAnyButton added so a disabled control sounds REFUSED instead of being silent and indistinguishable from a miss. A2 NOT DONE - hard external blocker, 429 prepayment credits depleted; carried as CF-S152-b.",
-      "partial": "4 of 5 items landed. A2 (the goblinHound atlas) is BLOCKED on depleted Google AI Studio prepayment credits - see CF-S152-b."
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "Relocate the shape palette and queue to the footer",
+      "tier": "Standard",
+      "estimated_tokens": 14000,
+      "status": "pending",
+      "detail": "Move the gatherer palette and queue-chip strip out of castlePanel onto the footer band, left of the tier buttons. Owner D1 confirmed this SUPERSEDES ruling S136 P0. Register the new surface in hudLayout or the overlap gate stays blind to it.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P6",
+      "title": "Bots build towers, not random shapes",
+      "tier": "Full",
+      "estimated_tokens": 30000,
+      "status": "pending",
+      "detail": "Closes CF-S149-f, the last of the owner five playtest complaints. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. Littering fix is IN SCOPE - a bot that selects a tower and finds nowhere legal to place it reads as the same bug, not a fix.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "title": "Goblin hound atlas - the last FEED output without art",
+      "tier": "Standard",
+      "estimated_tokens": 15000,
+      "status": "pending",
+      "detail": "Closes CF-S152-b. UNBLOCKED - owner topped up billing and a live probe returned HTTP 200 with image bytes. Six resume commands already recorded. Audition the contact sheet before wiring - a hound has four legs, several enclosed background pockets, the exact matte case that bit the bat rider.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P8",
+      "title": "worker-bots tick-based wait",
+      "tier": "Micro",
+      "estimated_tokens": 6000,
+      "status": "pending",
+      "detail": "Closes CF-S152-a. Poll world.tick, never raise the timeout - a longer rope is the fix that already failed twice in this repo.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -3870,5 +3190,86 @@
   },
   "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar.",
   "handoff_doc": ".handoff-archive/HANDOFF_2026-08-26_S152.md",
-  "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4."
+  "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4.",
+  "owner_rulings_s153": {
+    "R79": {
+      "title": "FEED must be reachable during FIGHT",
+      "owner": "remember i should be able to build goblins during fight stage... we have decided that previously",
+      "means": "FEED gets its own reachability predicate. R19 keeps FIX and SCRAP BUILD-only. A0 found the cause - the popover carrying FEED is BUILD-only via canBuildNow, and creatures only tick in FIGHT, so the ONLY reachable way to feed produced an inert unit."
+    },
+    "R80": {
+      "title": "The shape palette and queue move to the footer - SUPERSEDES S136 P0",
+      "owner": "this part within the castle that shows what is the queue of shapes ... should not be inside castle but maybe to the left of the last tier down below on the footer",
+      "means": "Owner D1 confirmed the reversal. The surface being restored is NOT the old always-on options bar that S136 P0 deleted - today the footer is the tier band, a different surface. Recorded so no future session re-litigates the conflict castlePanel documents."
+    },
+    "R81": {
+      "title": "The spark draws ABOVE the HUD, and everything clickable announces itself",
+      "owner": "my spark is one layer down (behind them and they are not highlighted or anything... it doesnt FEEL nice. spark should be one layer above those options as it is the cruiser and also everything clickable should pop out, be highlighted and/or make a sound"
+    },
+    "R82": {
+      "title": "Per-type goblin speed ladder",
+      "owner": "they should each have different speeds first of all, hound and bat being fastest, then fighter and suicide, then archer, then defence",
+      "means": "A0 CORRECTION - per-type speeds ALREADY exist as hopSpeedMul. This is a re-tiering of six numbers, not new machinery. Owner D3 accepted the numbers - hound 1.15, bat 1.15, melee 0.85, suicide 0.85, archer 0.70, shield 0.45. NOTE speed alone does not fix the stack - there is no separation force in the sim, so a nudge ships alongside."
+    },
+    "R83": {
+      "title": "Units before structures - but on an acquisition radius, not globally",
+      "owner": "goblins should target not only structures but enemy creatures/soldiers first and only then structures",
+      "means": "REVERSES prior Council ruling MF3, which said bonds drive navigation and a creature is only struck when already in range. Both Council seats independently derived the same failure for the literal global-nearest reading - a single fast scout kites the whole enemy army while the base burns. ADOPTED - nearest valid unit inside an acquisition radius, else nearest structure, with a hysteresis margin because units move and re-selection is every tick with no stickiness."
+    },
+    "R84": {
+      "title": "The archer needs a visible projectile",
+      "owner": "when the archer shoots there is no projectile flying, its just invisible and looks wierd. we should make a regular arrow when he shoots enemy units and a flaming arrow when he targets buildings/connectors",
+      "means": "A0 - no projectile system exists anywhere; the archer is hitscan and the laser draws a beam. Rides the existing UNHASHED effect channel, so zero wire cost."
+    },
+    "R85": {
+      "title": "The castle - damage model DEFERRED, march-on-castle lands now",
+      "owner": "when the goblins destroy all enemy towers they shoulld attack the castle right - have we even made the castle have hp and everything?",
+      "means": "A0 - there is NO castle entity. Only castleBanks, an inventory Map. Nothing can damage it and the win condition is VICTORY POINTS, not destruction. Owner D2 - real castle HP forces a call on whether the game is still won on points, so it gets its own session and its own PDR. The cheap visible half ships in P1 because it touches the same navigation loop."
+    },
+    "R86": {
+      "title": "Bots build towers",
+      "owner": "the bots should be also building towers and not just free shapes",
+      "means": "Same as CF-S149-f. Littering fix in scope."
+    },
+    "R87": {
+      "title": "Billing topped up - the art lane is open",
+      "owner": "i put more money in google so no worry about theb biulling",
+      "means": "VERIFIED by live probe - HTTP 200 with image bytes, where the same call returned 429 RESOURCE_EXHAUSTED earlier the same session. P7 unblocked."
+    }
+  },
+  "a0_state_discovery_s153": {
+    "_method": "Run DIRECTLY via targeted greps after a 15-agent Workflow fan-out died on a spend limit with zero returns. Journal check confirmed no salvageable results - the agents were mid-tool-call.",
+    "F1": "effects is NOT hashed - stateHashFull.ts:164 marks it acknowledged, wiped every frame by the renderer. 12 effect kinds exist. ARC_FLASH carries start and end Vec2 - the exact precedent for an arrow. So P2 costs ZERO wire and needs no protocol bump.",
+    "F2": "PROTOCOL_VERSION is 31. BUILD_BLUEPRINT is ALREADY allowlisted in both host and client tables, so P6 needs no bump either.",
+    "F3": "Per-type speeds ALREADY EXIST as hopSpeedMul - melee 0.7, archer 0.7, shield 0.45, hound 1.15, bat 0.95, suicide 0.9. The owner premise that they need different speeds was already half-true. Mapping verified by pairing each const name with its value, not by assuming file order.",
+    "F4": "findNearestEnemyPrimitiveFrom iterates world.primitives and returns null when there are none. VERIFIED - there is NO castle fallback and NO root-connector concept. This refuted a Grok design built on both.",
+    "F5": "creatureCanTarget - the declared R72 targeting matrix - has ZERO production callers. Declared, never enforced. Same defect class as the S151 goblin tower recipe that was registered but never live.",
+    "F6": "NO castle entity with hp. Only castleBanks Map. Win condition is scoreByPlayer victory points. damageEntity has no castle arm.",
+    "F7": "NO separation, flocking or repulsion force exists between creatures anywhere. So the owner stack complaint is NOT fixed by speed alone.",
+    "F8": "Goblins navigate to the nearest enemy PRIMITIVE, re-selected EVERY tick with no stickiness. targetCreatureId is set separately but MF3 confined it to opportunistic in-range striking.",
+    "F9": "The palette lives in castlePanel PRECISELY because owner ruling S136 P0 deleted the always-on footer. The file documents the conflict. Owner D1 resolved it.",
+    "F10": "Layering is child-add order on app.stage with no zIndex API - a deliberate earlier choice. So P4 is a re-order, and the hazard is pointer capture, not paint order."
+  },
+  "council_s153": {
+    "seats": "Claude + Grok (grok-4.20-0309-reasoning) + Gemini (gemini-3.1-pro-preview)",
+    "rounds": 1,
+    "converged": "Acquisition radius plus hysteresis over global-nearest - both seats independently derived the same kiting failure. Also converged that a destructible castle should COEXIST with victory points rather than replace them.",
+    "diverged": "Castle durability. Grok said R75 connector-derived durability extends to the castle; Gemini said the castle is categorically different because R75 needs a physical primitive graph and none exists. Gemini won ON EVIDENCE - Grok argued from symbols that do not exist."
+  },
+  "prime_audit_s153": {
+    "grok_a1_a3": "REFUTED. Built on rootConnector, isExposed and childTowers - none of which exist - plus a claimed castle fallback in findNearestEnemyPrimitiveFrom that is absent. Verified by reading the function. Its smallest-change proposal is unimplementable.",
+    "grok_b1a": "OVERSTATED. Claimed host and worker can disagree on float positions by 0.0001. hostTick.differential.test.ts already covers moving creatures, so float determinism is solved. The REAL risk is the opposite - the gates are self-comparing, so a behaviour change lands SILENTLY.",
+    "gemini_c_coupling": "FALSE. Claimed FEED-during-FIGHT is coupled to the palette move. They are different surfaces in different files - FEED is on structurePanel, the palette on castlePanel. No coupling.",
+    "gemini_b3": "MECHANISM REJECTED, CONCERN ACCEPTED. Demanded a golden-hash exact-tick pin; all three gates are deliberately self-comparing and a hardcoded tick is brittle. Substituted a behavioural ordering assertion that also proves the structure half still works.",
+    "tally": "Tenth occurrence of empirical-refutes-plausible-criticals. Both seats produced at least one load-bearing false claim; the converged recommendation survived audit and was adopted."
+  },
+  "preflight_s153": {
+    "build": "PASS exit 0 - bundle 733.4 KiB against a 900 cap, headroom 166.6 KiB",
+    "vitest": "PASS 2970 of 2970 across 178 files",
+    "e2e_gating": "PASS 49 of 49, exit code read from a redirect",
+    "verify_deploy": "PASS 4 of 4 carriers at a68ffed",
+    "ci": "Deploy lane green. One red weekly non-gating lane - that IS CF-S152-a, now P8.",
+    "env_diff_warn": "ACKNOWLEDGED and characterised as benign - documented S166 hardening of guard-destructive.sh and verify-claims-on-stop.sh after a Windows Store python3 shim hung a hook. Snapshot reset left to the owner by design.",
+    "billing_probe": "429 at session open, HTTP 200 with image bytes after the owner topped up. P7 unblocked."
+  }
 }

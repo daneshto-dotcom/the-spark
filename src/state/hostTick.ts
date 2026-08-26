@@ -45,6 +45,9 @@ import {
   SPAWN_INTERVAL_TICKS,
   STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
   STRUCTURE_SELFDESTRUCT_RADIUS,
+  GOBLIN_UNIT_ACQUIRE_RADIUS,
+  GOBLIN_UNIT_LEASH_RADIUS,
+  GOBLIN_SPREAD_RADIUS,
 } from '../constants.ts';
 import type { BotManager } from '../bots/botManager.ts';
 import type { Spawner } from '../game/spawner.ts';
@@ -60,6 +63,9 @@ import {
   bondMidpoint,
   findNearestBondTarget,
   findNearestEnemyCreature,
+  pickNavUnit,
+  spreadTargetPos,
+  enemyCastleMarchPos,
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
 } from './creatures/creatureAI.ts';
@@ -82,7 +88,8 @@ import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
-import { asPlayerId, type PlayerId } from '../types.ts';
+import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
+import { creatureCanTarget } from './stats.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
 // the BotManager comment documents the invariant).
@@ -522,14 +529,50 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         const nextPrim = findNearestEnemyPrimitiveFrom(world, creature);
         creature.targetPrimitiveId = nextPrim;
         creature.targetBondId = null;
-        if (nextPrim !== null) {
-          const prim = world.primitives.get(nextPrim);
-          if (prim !== undefined) {
-            creature.targetPos.x = prim.pos.x;
-            creature.targetPos.y = prim.pos.y;
-          }
+
+        // ⭐ S153 P1 (owner R83) — UNITS FIRST, THEN STRUCTURES.
+        //
+        // This is the line that reverses Council ruling MF3 for structure-attackers only. MF3 said
+        // bonds drive navigation and a creature is struck only once it has wandered into range;
+        // the owner wants goblins to deal with the soldier in front of them before resuming the
+        // push. Voltkin and chewers are untouched — they take the branch below.
+        //
+        // ⭐ AND IT FINALLY GIVES `creatureCanTarget` A CALLER. A0 measured the R72 targeting
+        // matrix as DECLARED BUT DEAD: `creatureCanTarget` had zero production callers, so the
+        // table documenting who may hit what was enforcing nothing. It is the authority here
+        // rather than a hardcoded type check, which is the whole reason the table exists.
+        const navUnit = creatureCanTarget(creature.type, 'units')
+          ? pickNavUnit(
+              world,
+              creature,
+              creature.targetCreatureId,
+              GOBLIN_UNIT_ACQUIRE_RADIUS * GOBLIN_UNIT_ACQUIRE_RADIUS,
+              GOBLIN_UNIT_LEASH_RADIUS * GOBLIN_UNIT_LEASH_RADIUS,
+            )
+          : null;
+        creature.targetCreatureId = navUnit;
+
+        // Steering priority: the acquired unit, else the committed shape, else — when the enemy
+        // has no shapes left standing — the enemy keep (owner R85, the shipped half).
+        let steerTo: Vec2 | null = null;
+        if (navUnit !== null) {
+          const quarry = world.creatures.get(navUnit);
+          if (quarry !== undefined) steerTo = quarry.pos;
         }
-        creature.targetCreatureId = findNearestEnemyCreature(world, creature);
+        if (steerTo === null && nextPrim !== null) {
+          const prim = world.primitives.get(nextPrim);
+          if (prim !== undefined) steerTo = prim.pos;
+        }
+        if (steerTo === null) steerTo = enemyCastleMarchPos(world, creature);
+
+        // R82 — aim at a per-creature point on a small ring around the shared destination, so a
+        // squad converges into an arc rather than the single pile the owner photographed. Pure
+        // function of the creature id: no draw, no tick, nothing that can desync.
+        if (steerTo !== null) {
+          const spread = spreadTargetPos(steerTo, creature.id, GOBLIN_SPREAD_RADIUS);
+          creature.targetPos.x = spread.x;
+          creature.targetPos.y = spread.y;
+        }
       } else if (creature !== undefined && creature.state === 'SEEKING') {
         const isChewer = creature.sourceSpawnerId !== null;
         let doReselect: boolean;

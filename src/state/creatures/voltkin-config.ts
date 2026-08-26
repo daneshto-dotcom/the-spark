@@ -454,7 +454,7 @@ export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
   attackChargeEngageTick: 0, // no charge-up tell: it just swings
   persistent: true,
   chewsConnectors: false, // NOT the chew path — see the docblock above
-  hopSpeedMul: 0.7,
+  hopSpeedMul: 0.85,
   maxAccel: GOBLIN_MAX_ACCEL,
   selfExplode: false,
   targetsStructures: true, // THE goblin discriminator
@@ -568,7 +568,7 @@ export const GOBLIN_BAT_CONFIG: CreatureConfig = {
   attackChargeEngageTick: 0,
   persistent: true,
   chewsConnectors: false,
-  hopSpeedMul: 0.95,
+  hopSpeedMul: 1.15,
   maxAccel: GOBLIN_MAX_ACCEL,
   selfExplode: false,
   targetsStructures: true,
@@ -598,7 +598,7 @@ export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {
   attackChargeEngageTick: 0,
   persistent: true,
   chewsConnectors: false,
-  hopSpeedMul: 0.9,
+  hopSpeedMul: 0.85,
   maxAccel: GOBLIN_MAX_ACCEL,
   selfExplode: true,
   targetsStructures: true,
