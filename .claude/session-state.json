@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2463,
+  "tool_calls_session_total": 2471,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -746,7 +746,13 @@
     "S153 P2 - I TOLD THE OWNER A COST IN THE PDR AND IT WAS WRONG BY A WHOLE PROTOCOL BUMP. I said an arrow rides the unhashed effect channel for free. effects IS unhashed - but deserializeEffect is an exhaustive switch with NO DEFAULT ARM, so a new effect KIND is a wire-breaking change, which is documented in save.ts as the entire reason RAIDED cost 30->31 last session. Unhashed and additive are different properties and I conflated them. The render-driven route avoided the bump AND a second problem: effects are sampled at 10Hz against a 60Hz sim, so 5 of every 6 arrows would never have reached the client.",
     "S153 P2 - THE FIRST PHOTOGRAPH LIED AND THE LIE WAS MINE. I sampled the screenshot for fire-coloured pixels and got ZERO, which looks exactly like a broken flame renderer. The renderer was fine; my test scene put the second archer 198px from the first scene victim and GOBLIN_ARCHER_RANGE is 220, so it correctly acquired the unit and drew a PLAIN arrow. Checking the INPUT before retuning the consumer is the S152 P3 lesson and it paid again within one session. Sampling pixels rather than squinting is what made the contradiction visible at all.",
     "S153 P3 - THE MUTATION TEST IS THE ONLY THING THAT PROVED THE HALF THAT MATTERS. Six new panel tests went green on a change that spanned TWO files, and reverting only the controls.ts gate left all six still green while the e2e went red. Unit tests proved the model; the model is not the mechanic. This is the S151 goblin tower with the names changed - registered, gated, covered, unreachable. When a change spans a decision layer and an input layer, the input layer needs its own gate or it is not covered at all.",
-    "S153 P3 - RUNNING ONLY PART OF THE PRE-FLIGHT AFTER A PRIORITY COST ME A PRIORITY OF DELAY. After P2 I ran build and vitest but not e2e, so P2 shipped a layer-order regression that fog.spec was purpose-built to catch. The roll call did its job perfectly - it was written as a NAMED list precisely because a bare count had once gone stale and taken a session to attribute. The gate was fine; I just did not open it until the next priority."
+    "S153 P3 - RUNNING ONLY PART OF THE PRE-FLIGHT AFTER A PRIORITY COST ME A PRIORITY OF DELAY. After P2 I ran build and vitest but not e2e, so P2 shipped a layer-order regression that fog.spec was purpose-built to catch. The roll call did its job perfectly - it was written as a NAMED list precisely because a bare count had once gone stale and taken a session to attribute. The gate was fine; I just did not open it until the next priority.",
+    "S153 P4 - I SHIPPED A DEAD FEATURE AND ONLY A PIXEL SAMPLE FOUND IT. setHover was declared on two structural interfaces and implemented in two renderers, and nothing ever called it: a patch batch aborted midway on a failed CRLF anchor and I did not re-check which edits in that batch had actually landed. tsc green, 3003 tests green, hover doing literally nothing. The lesson is not \"test more\" - it is that a MULTI-EDIT PATCH THAT FAILS PARTWAY LEAVES A HALF-WIRED FEATURE, and the half that survives is usually the declarations, which are exactly the half that compiles.",
+    "S153 P4 - THE PIXEL TEST WAS THE WRONG INSTRUMENT FOR THE Z-ORDER AND THE RIGHT ONE FOR THE HOVER. A/B screenshots of the same pixel scored 23 vs 22 redness with the spark fix on and off, because the chip plate is alpha 0.82 and a spark UNDERNEATH bleeds through. The display-list index read 2 vs 44. When a visual property has a numeric ground truth, assert the number; save the screenshot for properties that have none.",
+    "S153 P7 - THE AUDITION STEP THE CARRY-FORWARD DEMANDED PAID FOR ITSELF ON THE FIRST TRY. A contact sheet over magenta showed two opaque black pillarbox bars that had survived the matte, in exactly ONE cell of thirty-six. The tempting fix was widening the border-connected-near-black rule; that rule already deleted whole character outlines in S152, and dark ink is what it eats. Not sampling the bad frame was strictly safer and turned out better anyway - the union bbox shrank and every cell tightened.",
+    "S153 P7 - I ASSERTED AN ARTIFACT WAS ACCEPTABLE ONLY AFTER MEASURING A SHIPPED CHARACTER. The hound keeps an opaque black drop shadow. Rather than reason about whether that matters on a black board, I measured it against the shipped shield: 9.48 percent of frame area versus 8.80 percent. House style, not a regression. A comparison against something already accepted is cheaper than an argument and much harder to be wrong about.",
+    "S153 - A PARTIAL PRE-FLIGHT IS A DEFERRED FAILURE. After P2 I ran build and vitest but not e2e, so a layer-order regression rode along until P3 ran the full lane. fog.spec caught it instantly - it roll-calls every layer BY NAME precisely because a bare count once cost a session to attribute. The gate worked; I just did not open it.",
+    "S153 - THE OWNER REJECTED ART AND THE RIGHT MOVE WAS TO STOP SPENDING, NOT TO GUESS. On \"no i dont like this dog\" I killed the clip pipeline immediately rather than iterating on a hunch, and asked for direction. The owner then repurposed the rejected asset themselves - it became a Zombie castle unit. Two clips already paid for were preserved instead of binned, and the reassignment is recorded in the design spec so no future session re-litigates it."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -821,8 +827,8 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 478109,
-  "real_context_pct_at_close": 47.81,
+  "real_context_tokens_at_close": 552394,
+  "real_context_pct_at_close": 55.24,
   "checkpoint_commit": "b4f3a69",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
@@ -1883,114 +1889,56 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "CF-S150-d",
+      "id": "CF-S153-a",
       "priority": 0,
-      "title": "THE STAT SYSTEM (R72) + THE GOBLIN TOWER — owner-directed headline for next session",
-      "state": "OWNER-DIRECTED, unstarted. R72 defines the model; three arithmetic questions need answering before code.",
-      "detail": "TWO joined pieces, in this order. (1) ⭐ DEFINE THE STAT SYSTEM FIRST (owner R72). HP / STR / DEF / PENETRATION on one shared scale, with defence+HP as the exact inverse of ATK+PEN. HP = 1 point; ATK = -1 HP point; DEF and PEN are LINEAR multipliers of +0.2 per point — pinned by the owner's own examples (2 HP + 1 DEF = 2.4; 2 HP + 2 DEF = 2 x 1.4 = 2.8, NOT 1.2 squared). A 3-ATK laser therefore one-shots a 2.8 defender. ⛔ THE FIRST ACT IS A DELETION: PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2) must GO. The owner's words: 'a goblins power should not be the backbone for the whole stat system'. My S150 write-up treated that derivation as a constraint to work around, which was wrong — it is the thing to remove. Also settle the TARGETING MATRIX as an explicit table: Helga = enemy UNITS only; chewers = TOWERS only; all goblins, laserTurret, lightningDrones and voltkin = both. LADDERS CONFIRMED by the owner: HP and ATK are INTEGER points 1..12; DEF and PEN are multiplier ladders x1.2, x1.4, x1.6, ... = (1 + 0.2 x n), linear. That also DISSOLVES the PEN-placement question: comparing ATK x (1+0.2 PEN) against HP x (1+0.2 DEF) is algebraically identical to dividing the defender's rating by (1+0.2 PEN), so either implementation is correct — prefer the multiply form (no division, no zero edge, exact in fifths). ⚠ ONE REAL QUESTION LEFT BEFORE CODE: (b) whether ATK is a THRESHOLD compared against the effective rating (which the 'destroyed with one laser hit' example implies) or a running damage pool. The 'one laser hit' example implies a THRESHOLD; 'attack = -1 hp point' implies a POOL; under a threshold a 2-ATK attacker could never kill a 3-HP target at all, and damageCreature is a pool today. THIS ONE MATTERS MOST. (c) whether the two existing HP scales collapse — creature hp is a HIT COUNT today while Primitive/defender hp is a damage pool, and constants.ts calls that out as 'the OTHER hp scale'. (2) THE GOBLIN TOWER. Settled by roadmap Q9/R24: ONE tower, SIX outputs — feed one shape, get one goblin of that type. Shape map (Q1): Dot=suicide, Line=archer, Triangle=swordsman, Square=shield, Circle=hound, Spiral=bat rider. Recipe size 'like 4 or 5' shapes. Its unit stats come from (1). Reference numbers as of S150: CHEWER_HP 1 · GOBLIN_MELEE_HP 6 · VOLTKIN_HP 8 (R71, shipped) · PRINCESS_SLAP_DAMAGE_VS_CREATURE 3 (to be deleted) · CREATURE_HIT_DAMAGE 1 · RAID_CREATURE_DAMAGE 1."
+      "title": "⛔ FIRST MOVE: P7 is committed but NOT DEPLOYED",
+      "state": "The goblin hound is on master (b4f3a69) and verified in a live local match, but prod still serves the P4 bundle.",
+      "detail": "The push-triggered deploy run NEVER APPEARED despite src/** and public/** both changing and both being in deploy.yml paths - GitHub simply created no run. A manual dispatch (32984067890) was accepted and sat QUEUED 11+ minutes without starting: Actions runner backlog, not a repo fault. DO: gh run view 32984067890; if cancelled (the silent death - no mail, no artifacts) re-dispatch with gh workflow run deploy.yml --ref master, then npm run verify-deploy and require 4 of 4. Do not report the hound as shipped until LIVE passes."
     },
     {
-      "id": "CF-S149-f",
+      "id": "P5",
       "priority": 1,
-      "title": "BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
-      "tier": "Full",
-      "state": "UNBLOCKED - all five rulings answered by R57-R61. Ready for a Full-tier PDR next session.",
-      "owner_quote": "bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics",
-      "detail": "S150 A.0 CORRECTED THE S149 SIZING IN BOTH DIRECTIONS. The wiring half is CHEAPER than S149 thought: BUILD_BLUEPRINT is one already-allowlisted client intent (since v21), planBlueprintPayment is a pure affordability oracle, stampRefusalAt already enforces phase + zone + overlap and is the SAME predicate the ghost and reducer share, and BotGoal has no wire surface - so NO PROTOCOL BUMP. But the task is bigger than S149 thought too, and Full tier is CORRECT.",
-      "structural_proof": "A bot cannot build a tower even by accident, and the reason is arithmetic, not a missing goal: GROWTH_STEP = AUTO_BOND_RADIUS * 0.8 = 48, which is INSIDE AUTO_BOND_RADIUS = 60. So every primitive a bot places auto-bonds into its ONE existing component, which grows MONOTONICALLY - while all six recipes gate on an EXACT component size (4/5/6/7/7/8) with strict !== and no upper tolerance. Past the eighth shape ignition is impossible. Worse, smartPlacement (HARD + IMBA) actively weaves REDUNDANCY bonds, which is precisely what blueprintBuild documents itself as avoiding because it kills exact-degree recipes.",
-      "self_sabotage_hazard": "Every primitive a bot has ever placed forbids a 60px clearance disc for any stamp (blueprintLegality.ts). voltkin needs ~212px clear radius inside a 960x540 quadrant. A version that adds ONLY the goal produces bots that select a tower and find nowhere legal to put it - which reads to the owner as the same bug, not a fix. Address littering in the same priority.",
-      "determinism_note": "All THREE determinism gates are SELF-COMPARING (run vs re-run, new vs frozen reference), not golden-hash pins - botController.test.ts:121-144, hostTick.replay.test.ts, hostTick.differential.test.ts. A new bot goal changes behaviour for a given seed and BREAKS NONE OF THEM, so the change lands SILENTLY. Prefer zero-draw selection (deterministic: highest blueprintCost, tie-break by id) and WRITE THE TEST, in the spawnerRngInvariance.test.ts idiom. Note the shift does not come from a new draw - it comes from PREEMPTING the BUILD goal, which skips pickTargetSpark's single sloppy-path draw.",
-      "owner_rulings_needed": [
-        "1. INSTANT STAMP OR TRAVEL-THEN-STAMP? Dispatching BUILD_BLUEPRINT instantly is legal and cheap but invisible, un-interceptible and asymmetric with the human opponent. The owner's own framing was 'then the spark (your cruiser) just drags it to where you want it'.",
-        "2. DO BOTS KEEP SINGLE-PRIMITIVE BUILDING AT ALL? Keeping it litters the zone and drains the bill being saved; deleting it removes their only complexity-income source and changes what botController.test.ts:146-160 and botGameplay.test.ts:185-210 measure.",
-        "3. HOW DOES COMPLEXITY MAP TO DIFFICULTY? Candidate: NOOB <= 4 (stink only), MID <= 5, HARD <= 7, IMBA all.",
-        "4. MAY A BOT DIRECT ITS OWN GATHERER? Without ENQUEUE_GATHERER_ORDER a bot's bank composition is random (preferredType stays null), so it affords a recipe only by luck. With it, bots get materially stronger - a balance change, not just an intelligence change.",
-        "5. 'TOWERS' STRICTLY, OR ALL SIX? Only 3 of 6 registry entries are kind:'defender' (stinkTower, laserTurret, princessHelga). pentagram and lightningHub are 'spawner'; voltkin is 'cinematic'."
-      ],
-      "owner_rulings_resolved": [
-        "R57 same shortcut + saving",
-        "R58 loose shapes kept, preference by difficulty",
-        "R59 no whitelist",
-        "R60 gatherer direction via chosen tower",
-        "R61 all six recipes count as towers"
-      ]
+      "tier": "Standard",
+      "title": "Move the shape palette + queue out of the castle onto the footer (owner point 2 / R80)",
+      "state": "NOT STARTED. A.0 fully banked below - the PDR estimate of ~14K was measured LOW.",
+      "detail": "Owner D1 CONFIRMED this supersedes ruling S136 P0 (which deleted an always-on footer); castlePanel.ts:142 documents that conflict at length, so cite R80 there when moving it. WHAT MAKES IT BIGGER THAN IT LOOKS: paletteStripHeight() and queueStripHeight() feed the castle panel HEIGHT in four places (castlePanel.ts ~304, 473, 490, 1165), so removing them shrinks the panel and every offset below them moves. The buttons are REAL Pixi Containers with pointerover/pointerout handlers, not canvas draws, and their click handlers are wired through main.ts castlePanel.setOrderHandlers(...). ⚠ REGISTER THE NEW SURFACE IN hudLayout or the overlap gate stays blind to it - that is exactly how S152 drew HUD diamonds through the Q=ZONE text."
     },
     {
-      "id": "CF-S149-a",
+      "id": "P6",
       "priority": 2,
-      "title": "DESIGN RULING NEEDED: the quarry is an OPEN HUB",
-      "state": "SUPERSEDED by owner ruling R63. The owner rejected the wall-arc framing outright (\"a stupid problem with a simple solution\") and instead closes the quarry to units during BUILD. No wall geometry changes.",
-      "detail": "Border walls run from the quarry rim OUTWARD per owner rule Q6 ('every zone has unobstructed access to its own slice of the quarry'), so a unit can route between zones THROUGH the centre while the walls are up. This is a faithful consequence of the stated geometry, not a shortcut, and walls.test.ts pins it in a describe block named 'THE QUARRY IS AN OPEN HUB' rather than leaving it to be discovered as a bug. Sealing the centre needs a wall arc across the rim - a design decision."
+      "tier": "Full",
+      "title": "Bots build towers, not random shapes (owner point 8 / R86 / CF-S149-f)",
+      "state": "NOT STARTED. The owner last of five playtest complaints, still open.",
+      "detail": "A.0 CONFIRMED THE CHEAP HALF: BUILD_BLUEPRINT is ALREADY an allowlisted client intent in both the host and client tables, so NO PROTOCOL BUMP. AUTO_BOND_RADIUS = 60 verified. The S150 structural claim (GROWTH_STEP 48 inside the bond radius, so a bot component grows monotonically past every exact-size recipe gate) was NOT re-verified this session - GROWTH_STEP is not in constants.ts, so find it before trusting that framing. ⚠ LITTERING IS IN SCOPE: a bot that selects a tower and finds nowhere legal to place it reads to the owner as the same bug, not a fix."
     },
     {
-      "id": "CF-S150-a",
+      "id": "P8",
       "priority": 3,
-      "title": "THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
-      "state": "CLOSED by owner ruling R66 - the footer number IS the shape count and is correct as shipped. Only the docblock WORDING (\"connector count\") needs correcting; the buckets must not move.",
-      "detail": "footerBandModel.ts's docblock quotes owner R36 as 'indexed by CONNECTOR COUNT', but the code buckets on blueprintCost(id), which is BLUEPRINTS[id].nodes.length - the SHAPE count. So chip '4' is the 4-shape / 3-BOND stink tower. Either R36 meant shape count all along and the docblock is wrong, or the UI has advertised the wrong axis since S149 P4. ⚠ SETTLE THIS BEFORE BUILDING THE BOT COMPLEXITY RAMP (CF-S149-f ruling 3) - the ramp would silently inherit whichever axis is wrong. Bond counts, for reference: stink 4/3, pentagram 5/5, lightningHub 6/5, laserTurret 7/6, helga 7/6, voltkin 8/7."
+      "tier": "Micro",
+      "title": "worker-bots.spec.ts tick-based wait (CF-S152-a)",
+      "state": "NOT STARTED. Cheap (~6K) and closes a red weekly lane.",
+      "detail": "Poll world.tick, NEVER raise the timeout - a longer rope is the fix that already failed twice in this repo."
     },
     {
-      "id": "CF-S148-b",
+      "id": "CF-S153-b",
       "priority": 4,
-      "title": "creatureSpawners + defenders acknowledged rows in workerSim.differential",
-      "state": "⛔ MIS-DESCRIBED BY S148/S149. The stated BLOCKER IS FALSE. Corrected S150.",
-      "detail": "The acknowledged rows are real and on disk. But the CF claimed they can only be seeded by the S153 goblin tower because a fixture would need 'five bonded Triangles built as a test fixture, which is the same ~80 lines of geometry just deleted from production'. THAT IS FALSE: BUILD_BLUEPRINT shipped in S144 P1 - FIVE DAYS BEFORE THE CF WAS WRITTEN - and stamps exact production geometry from a registry that already contains both 'pentagram' and 'stinkTower'. One dispatch seeds either family. The same false blocker invalidates the sibling 'defenders' row, which uses word-for-word the same reasoning and names the stinkTower as its cheapest fixture. ⚠ Acting on the CF as written would have misdirected a whole session toward S153. This is now CHEAP and NOT blocked."
+      "title": "TWO hound variants for one tower - the owner asked, and it is a SIM change not an art change",
+      "state": "DESIGN OPEN. The owner said two dog types for the same tower; only one is built.",
+      "detail": "Owner: \"we will use the current generated dog too but also add a more monstrous one ... two types of dogs for the same tower\". The v1 dog was later reassigned to the Zombie castle instead, so it is unclear whether the two-variant idea still stands or was superseded - ASK. ⚠ IF IT STANDS: which variant spawns must be DETERMINISTIC, derived from the creature id (the spreadTargetPos golden-angle idiom), never a draw - otherwise host and worker disagree about which dog is on the board and the differential gate will not catch it, because all three determinism gates are self-comparing."
     },
     {
-      "id": "CF-S147-e",
+      "id": "CF-S153-c",
       "priority": 5,
-      "title": "R45 lobby colour/race picker - substrate exists, needs one client intent",
-      "state": "STILL-REAL, and the ONLY inherited CF whose every file:line still verified exactly.",
-      "detail": "All four cited default-assignment sites verify (lobbyRoster.ts:103-104 among them), PLAYER_COLORS is still six entries (a race roster, not a cap - R45), and no colour/race-picker intent exists anywhere in the codebase."
+      "title": "The zombie hound has no ATTACK clip",
+      "state": "Two of three clips exist (idle, walk) under assets-source/zombie-castle/clips/zombie-hound/.",
+      "detail": "Its attack clip failed twice with \"This model is currently experiencing high demand\" - transient veo backpressure, NOT credits (the same key generated three hound clips minutes later). Re-run when the Zombie castle work actually starts; there is no consumer for the asset yet, so this is not blocking anything."
     },
     {
-      "id": "CF1",
+      "id": "R88",
       "priority": 6,
-      "title": "under ?worker=1 click-to-build stamps primitives and debits the bank but the DEFENDER never ignites",
-      "state": "STILL-REAL (opt-in only). ⛔ THE ONE-LINE DESCRIPTION HAD ROTTED - corrected S150.",
-      "detail": "The inherited wording was 'spends shapes and builds nothing', which would send a debugger to the wrong reducer. The precise S145 original: primitives ARE stamped and the bank IS debited; only `defenders` stays empty. NARROWED THIS SESSION: applyBuildBlueprint is provably ATOMIC - all four gates (player exists, blueprint exists, stamp legality, affordability) return BEFORE consumePayments, and minting happens synchronously in the same call - so 'spends and gets nothing' CANNOT originate inside that reducer. The defect is at the mirror/authority boundary. The worker DOES set isHost and DOES call the matcher (the S146 refutation still holds), so suspect the BOND_FORMED emit reaching the ignition sweep across the worker boundary. Stale refs corrected: the traced file is src/state/godlyMatcherCore.ts (not godlyRecipes/), and the isHost line is workerSim.ts:214, not :218. Needs the runtime probe the CF has always asked for. WORKER_DEFAULT_ON is still false."
-    },
-    {
-      "id": "CF3",
-      "priority": 7,
-      "title": "SWEEP: other specs whose seeding hides a real-path failure",
-      "state": "⛔ CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150.",
-      "detail": "This was NEVER 'inherited, unspecified'. Filed in S145 and restated in S146: a sweep for other specs whose fixture seeding hides a real-path failure - the generalisation of the S145/S146 lesson that a harness can be green because its oracle is looking at an empty set. It degraded to a bare id in the S148 handoff, then to the literal title 'inherited, unspecified' in S149, and was carried forward in that state through an approved deferral. The last file carrying its real text is HANDOFF_2026-08-16_S146.md:110-112. PARTLY SUPERSEDED-IN-KIND: workerSim.differential.test.ts now has exactly the anti-vacuity mechanism CF3 asked for (SEEDING_COVERAGE forces every family to be either asserted-seeded or acknowledged-with-a-reason). What REMAINS open is applying that same discipline to the OTHER specs. ⚠ Carrying an id whose content nobody can state is worse than closing it."
-    },
-    {
-      "id": "CF-S148-d",
-      "priority": 8,
-      "title": "4-peer nplayer FFA times out (quarantine lane)",
-      "state": "STILL-REAL but ⛔ THE ROOT-CAUSE DIAGNOSIS WAS WRONG. Corrected S150. Blast radius nil.",
-      "detail": "The CF asserted the test 'FAILS RELIABLY at the PEER-CONNECTION stage' and 'never gets 4 browser peers joined over real WebRTC'. THE REPO'S OWN SAVED ARTIFACT DISPROVES THAT: test-results-quarantine/nplayer-.../error-context.md shows ALL FOUR peers seated with distinct colours and the match already run to POSTGAME at tick 2212. Only the gameState clause of the predicate failed. Control flow proves the same independently: the peer-connection gate is a SEPARATE waitForWorld with its own message and a 60s budget (nplayer.spec.ts:94), so the 30000ms assertion the CF quotes is UNREACHABLE unless that gate already PASSED. Correctly scoped otherwise: tagged @quarantine-flaky, non-gating lane, so owner blast radius is genuinely nil. Fix the PREDICATE, not the transport."
-    },
-    {
-      "id": "CF-S147-c",
-      "priority": 9,
-      "title": "delete the six acknowledged hazard rows in workerSim.differential",
-      "state": "STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired.",
-      "detail": "Exactly six rows are acknowledged (bombs, potatoes, rainbows, seagulls, poops, fouledPrimitives) and HAZARD_SPAWN_ENABLED is still false AND actively pinned false by spawnerRngInvariance.test.ts. Scheduling this as a priority would produce nothing. ⭐ RECLASSIFIED: this belongs as a TRIPWIRE ATTACHED TO THE FLAG FLIP, not as a carry-forward that gets re-copied every session. Whoever flips HAZARD_SPAWN_ENABLED owns it."
-    },
-    {
-      "id": "CF-S149-c",
-      "priority": 10,
-      "title": "Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
-      "state": "Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only.",
-      "detail": "Kept only so the remaining polish is not forgotten. Not a defect. See also CF-S150-a on the axis label."
-    },
-    {
-      "id": "CF-S150-b",
-      "priority": 11,
-      "title": "rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
-      "state": "LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing.",
-      "detail": "rainbow.spec sets __TEST_RAINBOW_SPAWN_SPARKS__ = 2 (a rainbow almost immediately) and THEN calls placeFreeSparkAndConfirm. A rainbow spawn starts a flyover CINEMATIC, and Controls.onDown returns at controls.ts:537 while isInputLocked() is true — so every mouse-down during the flyover is silently discarded. It survives today only because it shrinks the flyover to 30 ticks via __TEST_FLYOVER_DURATION_TICKS__. ⚠ Its comment says the design is 'race-free by design' because the other two zone hazards are suppressed — the SAME false reasoning bomb.spec carried in its header for three sessions. Cheapest fix: build BEFORE enabling the rainbow cadence, or hold the build until activeCinematicPlayerId is null. The S150 diagnostic in placeFreeSparkAndConfirm will name the cause outright if it ever fires."
-    },
-    {
-      "id": "CF-S150-c",
-      "priority": 12,
-      "title": "chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials",
-      "state": "REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing.",
-      "detail": "G, C and M are all members of NAME_ALPHABET, so typing them as initials also triggers their global commands. chordBlocked (main.ts) gates only on INPUT/TEXTAREA focus, world.sudoku !== null, and an active cinematic - and an arcade run deliberately keeps world.sudoku null for its whole life, so none of the three clauses fire. The S150 audit-fix added a gameState guard to the arcade key listener, which stops arcade keys leaking into a MATCH, but does not stop game hotkeys leaking into the INITIALS screen. Fix: add an arcadeRun-is-entering-initials clause to chordBlocked."
+      "title": "Castle races banked as DESIGN ONLY (zombies/ghosts/fire/ice)",
+      "state": "Owner explicitly deferred: \"we will explore and decide on it later on\".",
+      "detail": "Every race opens with an IDENTICAL hp/def/atk/pen; they differ on look and playstyle only. constants.ts already anticipates this next to PLAYER_COLORS (\"six colours are six future races\"). ONE MISMATCH FOUND: there is no WHITE seat for the ghosts - the nearest is BOT_ACCENT_COLOR 0xc0c8d0, reserved for bots. Sequence matters: R85 deferred the castle DAMAGE MODEL, and R88 presupposes those four stats exist, so the damage model lands first."
     }
   ],
   "priorities_s149_archived": [
@@ -3322,7 +3270,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "GREEN",
+  "real_context_level_at_close": "YELLOW",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -3786,5 +3734,10 @@
     "env_diff_warn": "ACKNOWLEDGED and characterised as benign - documented S166 hardening of guard-destructive.sh and verify-claims-on-stop.sh after a Windows Store python3 shim hung a hook. Snapshot reset left to the owner by design.",
     "billing_probe": "429 at session open, HTTP 200 with image bytes after the owner topped up. P7 unblocked."
   },
-  "budget_note_s153": "Measured 478,109 of 1,000,000 (47.8 percent) by real-context-tokens.py after P4 - GREEN, but only 22K below the YELLOW line, so scope tightens from here. A session-pdca hook reported YELLOW at the same moment; the script is the source of truth per CLAUDE.md and it says GREEN. Reporting both rather than picking the flattering one."
+  "budget_note_s153": "Measured 478,109 of 1,000,000 (47.8 percent) by real-context-tokens.py after P4 - GREEN, but only 22K below the YELLOW line, so scope tightens from here. A session-pdca hook reported YELLOW at the same moment; the script is the source of truth per CLAUDE.md and it says GREEN. Reporting both rather than picking the flattering one.",
+  "deploy_state_s153": {
+    "shipped_and_verified_live": "P1 P2 P3 P4 - each has its own green Deploy to GitHub Pages run.",
+    "committed_pushed_NOT_LIVE": "P7. The push-triggered run NEVER APPEARED even though src/** and public/** both changed and both are in deploy.yml paths. A manual gh workflow run dispatch was accepted (run 32984067890) and has sat QUEUED for 11+ minutes without starting - GitHub Actions runner backlog, not a repo problem. verify-deploy correctly reads 2 of 4 carriers FAILING and says do not report this as shipped, so it is NOT being reported as shipped.",
+    "next_session_first_move": "Check run 32984067890. If it is cancelled - the SILENT death this repo has been bitten by, no mail and no artifacts - just re-dispatch: gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4 of 4."
+  }
 }
