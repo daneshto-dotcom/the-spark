@@ -81,7 +81,16 @@ export interface FooterChipGeom {
   readonly enabled: boolean;
 }
 
+/** R81 — pixels a hovered chip grows on each side. Small: the row is dense and must not reflow. */
+const HOVER_GROW = 2;
+
 export class FooterBand {
+  /** S153 P4 — complexity of the chip under the pointer, or null. Set by `setHover`. */
+  private hoverChip: number | null = null;
+  /** S153 P4 — id of the tower card under the pointer, or null. */
+  private hoverCard: GodlyId | null = null;
+  /** S153 P4 — pointer is held down. */
+  private pressed = false;
   private readonly container: Container;
   private readonly graphics: Graphics;
   private readonly labels: Text[] = [];
@@ -102,8 +111,28 @@ export class FooterBand {
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
     this.graphics = new Graphics();
+    this.container.label = 'footerBand'; // S153 P4 — see SparkRenderer for why layers are named.
     this.container.addChild(this.graphics);
     parent.addChild(this.container);
+  }
+
+  /**
+   * S153 P4 (owner R81) — *"everything clickable should pop out, be highlighted and/or make a
+   * sound"*.
+   *
+   * ⭐ FED FROM THE CLICK PATH'S OWN PREDICATES, never a parallel hit test. `controls.ts` already
+   * calls `chipAt`/`cardAt` on every pointermove to decide the cursor; this stores what those
+   * returned. A second, independently-written hover test is how a highlight ends up on a control
+   * that a click would miss — the exact failure the cursor work in S152 A5 called out and avoided.
+   */
+  setHover(x: number, y: number): void {
+    this.hoverChip = this.chipAt(x, y);
+    this.hoverCard = this.cardAt(x, y);
+  }
+
+  /** Pointer is DOWN. Drives the pressed look; cleared on release wherever it happens. */
+  setPressed(down: boolean): void {
+    this.pressed = down;
   }
 
   /** Clear + redraw the bar. Visible only while a match is being played. */
@@ -132,8 +161,22 @@ export class FooterBand {
       const isSel = this.selected === c.complexity;
       const tint = !c.enabled ? TINT_DISABLED : isSel ? TINT_SELECTED : TINT_ENABLED;
 
-      g.roundRect(c.x, c.y, c.w, c.h, 8).fill({ color: 0x0b0f16, alpha: 0.82 });
-      g.roundRect(c.x, c.y, c.w, c.h, 8).stroke({ width: isSel ? 3 : 2, color: tint, alpha: 0.95 });
+      /*
+       * R81 — HOVER LIFTS, PRESS SINKS. A hovered chip grows by HOVER_GROW on every side and
+       * brightens its plate; pressing it puts that back, so the chip visibly takes the click.
+       *
+       * ⚠ A DISABLED CHIP STILL RESPONDS TO HOVER, deliberately. The standing contract in this
+       * codebase is that a refused control must SAY why rather than read as absent (the castle
+       * panel's rule, carried into the FEED row in S152). A dead chip that also ignores the mouse
+       * reads as "not a control at all", which is the ambiguity the owner actually complained of.
+       */
+      const hot = this.hoverChip === c.complexity;
+      const grow = hot ? (this.pressed ? -1 : HOVER_GROW) : 0;
+      const plate = hot ? (this.pressed ? 0x161d29 : 0x131b27) : 0x0b0f16;
+      g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 8)
+        .fill({ color: plate, alpha: hot ? 0.95 : 0.82 });
+      g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 8)
+        .stroke({ width: isSel ? 3 : hot ? 3 : 2, color: tint, alpha: 0.95 });
 
       const label = this.labelAt(i);
       label.text = String(c.complexity);
@@ -150,9 +193,13 @@ export class FooterBand {
         for (const card of this.cards) {
           const armedHere = this.armed === card.id;
           const tint = armedHere ? TINT_SELECTED : card.enabled ? TINT_ENABLED : TINT_DISABLED;
-          g.roundRect(card.x, card.y, card.w, card.h, 10).fill({ color: 0x0b0f16, alpha: 0.92 });
-          g.roundRect(card.x, card.y, card.w, card.h, 10)
-            .stroke({ width: armedHere ? 3 : 2, color: tint, alpha: 0.95 });
+          // R81 — the open menu's cards lift and sink exactly like the chips that opened them.
+          const hotCard = this.hoverCard === card.id;
+          const cg = hotCard ? (this.pressed ? -1 : HOVER_GROW) : 0;
+          g.roundRect(card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, 10)
+            .fill({ color: hotCard ? (this.pressed ? 0x161d29 : 0x131b27) : 0x0b0f16, alpha: hotCard ? 0.96 : 0.92 });
+          g.roundRect(card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, 10)
+            .stroke({ width: armedHere ? 3 : hotCard ? 3 : 2, color: tint, alpha: 0.95 });
 
           // ⭐ S149 P6 — DRAW THE TOWER'S SHAPE. Owner: *"it should show the tower shape not only
           // the explanation and name as it did when it was in the castle."* Same `drawBlueprintThumb`

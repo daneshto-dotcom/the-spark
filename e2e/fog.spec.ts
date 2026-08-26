@@ -157,7 +157,13 @@ test.describe('S57 Fog of War — client-side render mask', () => {
         const i = (Math.round(y * rY) * out.width + Math.round(x * rX)) * 4;
         return [out.pixels[i], out.pixels[i + 1], out.pixels[i + 2], out.pixels[i + 3]];
       };
+      // S153 P4 — layers carry a `label` so the display list is self-describing; see
+      // SparkRenderer's constructor for why anonymous _Container entries were a problem.
+      const labelIdx = (name: string): number =>
+        (stage as any).children.findIndex((c: any) => c.label === name);
       return {
+        sparkIdx: labelIdx('sparkRenderer'),
+        footerIdx: labelIdx('footerBand'),
         aboveIdx, fogIdx, aboveFogChildNames,
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
         boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
@@ -183,6 +189,24 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     // `parent.addChild(this.graphics)`), so these are Pixi v8's own class names — hence the
     // leading underscore. Order is main.ts's construction order; keep them in sync.
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
+
+    /*
+     * ⭐ S153 P4 (owner R81) — THE SPARK OUTRANKS THE HUD.
+     *
+     * Owner: *"my spark is one layer down (behind them ...) it doesnt FEEL nice. spark should be
+     * one layer above those options as it is the cruiser"*. This NARROWS S149 P6 ("nothing on the
+     * board should ever draw over" the footer) with a single deliberate exception: the thing the
+     * player is steering.
+     *
+     * ⚠ ASSERTED ON THE DISPLAY-LIST INDEX, NOT ON PIXELS, and the reason is worth keeping. The
+     * chip plate is drawn at alpha 0.82, so a spark UNDERNEATH it still bleeds through — an A/B
+     * screenshot of the same pixel scored 23 vs 22 redness with the fix on and off, i.e. it could
+     * not tell the bug from the fix at all. The index A/B reads 2-vs-44 against a footer at ~43.
+     * When a visual property has a numeric ground truth, assert the number.
+     */
+    expect(r.sparkIdx, 'sparkRenderer must be on the stage and labelled').toBeGreaterThanOrEqual(0);
+    expect(r.footerIdx, 'footerBand must be on the stage and labelled').toBeGreaterThanOrEqual(0);
+    expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);
     expect(r.aboveFogChildNames).toEqual([
       '_Graphics',  //   0 — wallRenderer               (S149 P3) — the border walls
                     //       ⚠ FIRST ON PURPOSE: the walls are ground markings that everything

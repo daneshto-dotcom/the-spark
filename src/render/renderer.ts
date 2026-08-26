@@ -44,9 +44,31 @@ export class SparkRenderer {
   private readonly spriteBySpark: Map<SparkId, Sprite> = new Map();
   private readonly textures: ShapeTextures;
 
+  /**
+   * S153 P4 (owner R81) — *"spark should be one layer above those options as it is the cruiser"*.
+   *
+   * ⚠ THIS NARROWS S149 P6 RATHER THAN REVERSING IT. That ruling lifted the footer above the board
+   * because a zone wall was drawing over UI chrome, and it is written as "nothing on the board
+   * should ever draw over it". The spark is the exception the owner is carving out, and the reason
+   * is stated in their own words: it is the CRUISER — the thing they are steering. A cursor that
+   * disappears under the furniture is not a layering nicety, it is a lost pointer.
+   *
+   * Safe by construction: input is raw `canvas.addEventListener`, NOT Pixi hit-testing (only the
+   * arcade modal uses `eventMode`), so raising this container cannot steal a click from the footer.
+   * Verified before the change rather than assumed.
+   */
+  bringToFront(): void {
+    this.container.parent?.addChild(this.container);
+  }
+
   constructor(app: Application) {
     this.textures = makeShapeTextures(app);
     this.container = new Container();
+    // S153 P4 — NAME THE LAYER. Pixi's display list is otherwise a wall of anonymous _Container
+    // entries, which made proving the R81 z-order fix guesswork; fog.spec's roll call has the same
+    // problem and solves it with hand-maintained comments. A label costs nothing and is readable
+    // from any probe.
+    this.container.label = 'sparkRenderer';
     app.stage.addChild(this.container);
   }
 

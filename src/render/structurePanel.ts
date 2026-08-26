@@ -350,6 +350,10 @@ export class StructurePanel {
   private readonly labels: Text[] = [];
   private selected: PrimitiveId | null = null;
   private view: StructureActionView | null = null;
+  /** S153 P4 (R81) — last pointer position, for the hover look. Off-canvas until a move arrives. */
+  private hoverX = -1e9;
+  private hoverY = -1e9;
+  private pressed = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
@@ -397,8 +401,22 @@ export class StructurePanel {
           : b.kind === 'FEED'
             ? TINT_FEED
             : TINT_ENABLED;
-      g.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: 0x0b0f16, alpha: 0.92 });
-      g.roundRect(b.x, b.y, b.w, b.h, 10).stroke({ width: 2, color: tint, alpha: 0.95 });
+      /*
+       * S153 P4 (owner R81) — hover lifts, press sinks, and a DISABLED button still reacts.
+       *
+       * The disabled case matters most here: `buttonAt` deliberately ignores disabled buttons so
+       * they explain rather than act, and S152 A5 gave that refusal its own SOUND. Giving it a
+       * hover look too completes the same thought — the player learns the control is real, is
+       * aimed at, and is refusing, which is three different things from "nothing happened".
+       */
+      const hot =
+        this.hoverX >= b.x && this.hoverX <= b.x + b.w &&
+        this.hoverY >= b.y && this.hoverY <= b.y + b.h;
+      const grow = hot ? (this.pressed ? -1 : 2) : 0;
+      g.roundRect(b.x - grow, b.y - grow, b.w + grow * 2, b.h + grow * 2, 10)
+        .fill({ color: hot ? (this.pressed ? 0x161d29 : 0x131b27) : 0x0b0f16, alpha: hot ? 0.96 : 0.92 });
+      g.roundRect(b.x - grow, b.y - grow, b.w + grow * 2, b.h + grow * 2, 10)
+        .stroke({ width: hot ? 3 : 2, color: tint, alpha: 0.95 });
 
       // ⚠ THE LABEL POOL IS INDEXED ARITHMETICALLY (`1 + i*2`, `2 + i*2`), so EVERY button must
       // claim exactly two slots whether or not it uses both. A FEED button draws its shape with
@@ -501,6 +519,23 @@ export class StructurePanel {
       buttons: this.view === null ? [] : [...this.view.buttons],
       title: this.view?.title ?? '',
     };
+  }
+
+  /**
+   * S153 P4 (R81) — where the pointer is, so the draw can light the button under it.
+   *
+   * Position rather than a resolved index: the popover re-lays itself out every frame from the
+   * live world, so an index captured on move could name a different button by the time it is
+   * drawn. A point is re-resolved against THIS frame's geometry and cannot go stale.
+   */
+  setHover(x: number, y: number): void {
+    this.hoverX = x;
+    this.hoverY = y;
+  }
+
+  /** S153 P4 (R81) — pointer is held down. */
+  setPressed(down: boolean): void {
+    this.pressed = down;
   }
 
   /** S149 P5 — UI belongs above the board AND above the fog. See `FooterBand.bringToFront`. */

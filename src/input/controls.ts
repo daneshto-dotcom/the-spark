@@ -96,6 +96,10 @@ export interface FooterBandLike {
   cardEnabled(id: GodlyId): boolean;
   /** S149 P5 — mirror the armed tower so the open card can light up. */
   setArmed(id: GodlyId | null): void;
+  /** S153 P4 (R81) — the pointer moved; light whatever is under it. */
+  setHover(x: number, y: number): void;
+  /** S153 P4 (R81) — the pointer is down; sink whatever is under it. */
+  setPressed(down: boolean): void;
 }
 
 /**
@@ -122,6 +126,10 @@ export interface StructurePanelLike {
   ): { readonly kind: 'FIX' } | { readonly kind: 'SCRAP' } | { readonly kind: 'FEED'; readonly sparkType: number } | null;
   selection(): PrimitiveId | null;
   select(primitiveId: PrimitiveId | null): void;
+  /** S153 P4 (R81) — the pointer moved; light the button under it. */
+  setHover(x: number, y: number): void;
+  /** S153 P4 (R81) — the pointer is down; sink it. */
+  setPressed(down: boolean): void;
 }
 
 export interface CastlePanelLike {
@@ -442,6 +450,9 @@ export class Controls {
       // give the priority shapes to the gatherer and shows them in castle but now it is gone. those
       // mechanics should persist — we literally just move the tower purchase section to where
       // classical tower defence footbars are."
+      // R81 — the footer had no audible response at all; the popover got one in S152 A5 and the
+      // chips did not. Accept and refuse now sound different here too.
+      void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
       if (this.footerBand.cardEnabled(card)) {
         this.castlePanel?.armExternal(card);
         this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
@@ -601,6 +612,10 @@ export class Controls {
   private onDown = (e: PointerEvent): void => {
     if (this.isInputLocked()) return;
     this.updateCursor(e);
+    // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
+    // acts on the click is the frame that shows it being taken.
+    this.footerBand?.setPressed(true);
+    this.structurePanel?.setPressed(true);
     // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
     // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
@@ -819,6 +834,17 @@ export class Controls {
       (this.structurePanel?.isOverButtons(this.cursor.x, this.cursor.y) ?? false) ||
       (this.castlePanel?.isOpen() === true &&
         this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
+    /*
+     * S153 P4 (owner R81) — *"everything clickable should pop out, be highlighted and/or make a
+     * sound"*. The cursor already answered "is this clickable?"; this makes the CONTROL itself
+     * answer it, which is what the owner asked for — a cursor change is easy to miss on a dark
+     * board full of moving parts.
+     *
+     * ⚠ FED FROM THE VERY PREDICATES EVALUATED DIRECTLY ABOVE, never a parallel hit test. A
+     * highlight that can disagree with the click path is worse than none.
+     */
+    this.footerBand?.setHover(this.cursor.x, this.cursor.y);
+    this.structurePanel?.setHover(this.cursor.x, this.cursor.y);
     const want = overUi ? 'pointer' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
     // a canvas that already moves the cursor every frame.
@@ -834,6 +860,11 @@ export class Controls {
   private onUp = (e: PointerEvent): void => {
     if (this.isInputLocked()) return;
     this.updateCursor(e);
+    // ⚠ RELEASED WHEREVER IT HAPPENS. `onUp` is bound to WINDOW, not the canvas, precisely so a
+    // release off the board still arrives — otherwise dragging off a pressed chip would leave it
+    // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
+    this.footerBand?.setPressed(false);
+    this.structurePanel?.setPressed(false);
     // S72 P3 — place a carried potato on LMB-up (the carry is world state, not an
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
     if (e.button === 0) {

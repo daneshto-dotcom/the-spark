@@ -836,6 +836,10 @@ async function bootstrap(): Promise<void> {
   footerBand.bringToFront();
   // S152 — same rule, same reason: UI chrome belongs above every board renderer AND the fog.
   structurePanel.bringToFront();
+  // ⭐ S153 P4 (owner R81) — and the SPARK goes above even that. The owner photographed their own
+  // cruiser sitting behind the footer tier buttons: *"my spark is one layer down (behind them ...)
+  // it doesnt FEEL nice"*. Last of all, so it is correct by construction the way the footer is.
+  sparkRenderer.bringToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
   // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
