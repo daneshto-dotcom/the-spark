@@ -27,7 +27,7 @@
 
 import { GOBLIN_TOWER_HUB_DEGREE, GOBLIN_TOWER_SIZE, SparkType } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
-import type { PrimitiveId } from '../types.ts';
+import type { PlayerId, PrimitiveId, SpawnerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
 import type { CreatureType } from './creatures/creature.ts';
 
@@ -80,4 +80,44 @@ export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boo
     if (p.type !== SparkType.Circle) return false; // every non-hub member must be a Circle
   }
   return true;
+}
+
+
+/**
+ * S153 P3 (owner R79) — this seat's LIVE goblin tower in the component containing `primitiveId`,
+ * or null.
+ *
+ * ⭐ ONE PREDICATE, TWO CALLERS, AND THAT IS THE POINT. The input layer has to decide whether a
+ * click may open the popover at all, and the panel has to decide whether to draw a FEED row. Those
+ * two answers MUST agree: a click that opens a popover the model then refuses swallows the click
+ * and reads as a dead zone, and a panel offering FEED on something the input layer will not let you
+ * click is worse. `structurePanel` grew its own private copy of this walk (`goblinTowerAmong`);
+ * this replaces it rather than adding a third.
+ *
+ * ⚠ NO PHASE CHECK LIVES HERE, deliberately. R19's phase gate belongs to FIX and SCRAP and is
+ * composed by `canBuildNow` at their own call sites — `structureRepair.ts` is emphatic that they
+ * "must never grow their own matchPhase line", and the same discipline says this must not grow the
+ * inverse. Callers compose WHEN; this answers only WHAT.
+ *
+ * Lives in the leaf for the reason the whole file exists: `world.ts` reaches the input and panel
+ * layers, and importing a recipe module from either would fire every `registerRecipe` in the tree.
+ */
+export function seatGoblinTowerAt(
+  world: World,
+  seat: PlayerId,
+  primitiveId: PrimitiveId,
+): SpawnerId | null {
+  const seed = world.primitives.get(primitiveId);
+  if (seed === undefined) return null;
+  const comp = componentOf(seed, world.primitives, world.bonds);
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.recipeId !== 'goblinTower') continue;
+    if (sp.ownerPlayerId !== seat) continue;
+    if (!comp.primitiveIds.has(sp.anchorPrimitiveId)) continue;
+    // Re-validated, not trusted: the host's revalidation poll can lag a leaf being eaten, and a
+    // tower that no longer satisfies its recipe must not still offer to spawn from it.
+    if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
+    return sp.id;
+  }
+  return null;
 }

@@ -256,3 +256,89 @@ describe('structureActionModel — the FEED row (owner R70 / S152 P2)', () => {
     }
   });
 });
+
+
+/*
+ * ⭐ S153 P3 (owner R79) — *"i should be able to build goblins during fight stage ... we have
+ * decided that previously."*
+ *
+ * A.0 found WHY it was impossible, and it was not a rule anyone wrote: `applyFeedTower` has no
+ * phase gate at all. FEED was BUILD-only purely because the popover CARRYING it is BUILD-only by
+ * R19, a restriction that belongs to FIX and SCRAP. The pairing was inherited, not designed — and
+ * it was actively perverse, because creatures only tick in FIGHT, so the one reachable way to feed
+ * a tower produced a unit that stood inert until the phase changed.
+ */
+describe('S153 P3 — FEED during FIGHT (owner R79)', () => {
+  function goblinTowerIn(phase: 'BUILD' | 'FIGHT'): World {
+    const w = makeWorld(0);
+    w.isHost = true;
+    w.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]));
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('goblinTower')) {
+      bank[type as number] = (bank[type as number] ?? 0) + count;
+    }
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, {
+      type: 'BUILD_BLUEPRINT',
+      playerId: P0,
+      blueprintId: 'goblinTower',
+      centre: SITE,
+    });
+    runSpawnerIgnition(w);
+    // Stock it so the FEED buttons have something to be enabled BY — the point is reachability,
+    // and an all-disabled row would pass a "row exists" assertion while proving nothing.
+    const restocked = makeCastleBank();
+    restocked[SparkType.Circle as number] = 3;
+    w.castleBanks.set(P0, restocked);
+    w.matchPhase = phase;
+    return w;
+  }
+
+  it('⭐ a goblin tower is still feedable in FIGHT — six buttons, and one of them live', () => {
+    const w = goblinTowerIn('FIGHT');
+    const view = structureActionModel(w, P0, nodeId(w, 0));
+    expect(view).not.toBeNull();
+    const feed = view!.buttons.filter((b) => b.kind === 'FEED');
+    expect(feed).toHaveLength(6);
+    expect(feed.some((b) => b.enabled)).toBe(true);
+    expect(view!.feedSpawnerId).not.toBeUndefined();
+  });
+
+  it('...and FIX / SCRAP are GONE in FIGHT — R19 keeps them, they are not merely disabled', () => {
+    const w = goblinTowerIn('FIGHT');
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    expect(view.buttons.some((b) => b.kind === 'FIX')).toBe(false);
+    expect(view.buttons.some((b) => b.kind === 'SCRAP')).toBe(false);
+  });
+
+  it('...while BUILD is UNCHANGED — SCRAP is still there, so R19 was narrowed and not deleted', () => {
+    const w = goblinTowerIn('BUILD');
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    // The both-halves assertion. Without it, "no SCRAP in FIGHT" is equally satisfied by a change
+    // that removed SCRAP everywhere.
+    expect(view.buttons.some((b) => b.kind === 'SCRAP')).toBe(true);
+    expect(view.buttons.filter((b) => b.kind === 'FEED')).toHaveLength(6);
+  });
+
+  it('⛔ a NON-tower structure gets NO popover in FIGHT — widening this would create a dead zone', () => {
+    // `setup()` builds a laserTurret. In BUILD it has FIX/SCRAP; in FIGHT it has nothing to offer,
+    // and returning a model anyway would let the input layer swallow the click into an empty panel.
+    const w = setup();
+    w.matchPhase = 'FIGHT';
+    expect(structureActionModel(w, P0, nodeId(w, 0))).toBeNull();
+  });
+
+  it('names itself GOBLIN TOWER in FIGHT, where the repair plan is never computed', () => {
+    const w = goblinTowerIn('FIGHT');
+    expect(structureActionModel(w, P0, nodeId(w, 0))!.title).toBe('GOBLIN TOWER');
+  });
+
+  it('the FEED row sits where the button row would have been, not below an empty gap', () => {
+    const build = goblinTowerIn('BUILD');
+    const fight = goblinTowerIn('FIGHT');
+    const bFeed = structureActionModel(build, P0, nodeId(build, 0))!.buttons.find((b) => b.kind === 'FEED')!;
+    const fFeed = structureActionModel(fight, P0, nodeId(fight, 0))!.buttons.find((b) => b.kind === 'FEED')!;
+    // In FIGHT it rises by exactly the row it replaced, so the popover is not floating in space.
+    expect(fFeed.y).toBeLessThan(bFeed.y);
+  });
+});

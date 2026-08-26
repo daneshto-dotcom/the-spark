@@ -42,7 +42,8 @@ import { bankCountOf } from '../state/castleBank.ts';
 // ⛔ FROM THE SIDE-EFFECT-FREE LEAF, never from `godlyRecipes/goblinTower.ts` — that module calls
 // `registerRecipe` at its tail, and the documented S144 trap is that a value import of a recipe
 // module registers every recipe for everything downstream of it. `goblinKinds.ts` exists for this.
-import { GOBLIN_FEED_MAP, isGoblinTowerComponent } from '../state/goblinKinds.ts';
+import { GOBLIN_FEED_MAP, seatGoblinTowerAt } from '../state/goblinKinds.ts';
+import { componentOf } from '../game/structure.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { planStructureRepair, planStructureScrap } from '../state/structureRepair.ts';
 import type { PlayerId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
@@ -164,56 +165,47 @@ export interface StructureActionView {
  *
  * SCRAP has no third state: if you may act on the structure at all, you may tear it down.
  */
-/**
- * ⭐ PURE — the seat's own live goblin tower among `memberIds`, or null.
- *
- * ## Why this has to find a SPAWNER and not just a shape
- *
- * `FEED_TOWER` takes a `SpawnerId`, but the popover is aimed at a `PrimitiveId` — the shape the
- * player clicked. The bridge is `Spawner.anchorPrimitiveId`, so the tower is identified by finding
- * the spawner anchored to one of this structure's members.
- *
- * ⛔ AND THE `recipeId` CHECK IS LOAD-BEARING, NOT DEFENSIVE. Every producing structure in the
- * game is a `CreatureSpawner` — a pentagram, a lightning hub, a stink tower. Matching on "has a
- * spawner" would offer a FEED row on a chewer nest, and the reducer's own Gate 1 would then refuse
- * every click with no explanation on screen. The panel must not offer what the reducer refuses.
- *
- * ⚠ THE ANCHOR IS RE-VALIDATED WITH `isGoblinTowerComponent`, because the host's revalidation poll
- * is THROTTLED (`REVALIDATE_INTERVAL_TICKS`). There is a real window in which a tower whose leaves
- * have been eaten is still in `creatureSpawners`, and the reducer's Gate 3 guards the mint — but a
- * panel that keeps offering FEED on a collapsed tower reads as broken even when the refusal is
- * correct. Re-deriving costs one BFS on a component the popover has already walked.
+/*
+ * S153 P3 — the private `goblinTowerAmong` walker that stood here is GONE, replaced by the shared
+ * `seatGoblinTowerAt` in the goblinKinds leaf. The input layer needs the identical answer to decide
+ * whether a click may open this popover at all, and two copies of a predicate that must agree is
+ * how they stop agreeing.
  */
-function goblinTowerAmong(
-  world: World,
-  seat: PlayerId,
-  memberIds: ReadonlySet<PrimitiveId> | readonly PrimitiveId[],
-): { spawnerId: SpawnerId } | null {
-  const members = memberIds instanceof Set ? memberIds : new Set(memberIds);
-  for (const sp of world.creatureSpawners.values()) {
-    if (sp.recipeId !== 'goblinTower') continue;
-    if (sp.ownerPlayerId !== seat) continue;
-    if (!members.has(sp.anchorPrimitiveId)) continue;
-    if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
-    return { spawnerId: sp.id };
-  }
-  return null;
-}
+
 
 export function structureActionModel(
   world: World,
   seat: PlayerId,
   primitiveId: PrimitiveId,
 ): StructureActionView | null {
-  const scrap = planStructureScrap(world, seat, primitiveId);
-  if (scrap === null) return null; // wrong seat / wrong phase / gone — no popover at all
-  const repair = planStructureRepair(world, seat, primitiveId);
+  /*
+   * ⭐ S153 P3 (owner R79) — TWO SHAPES OF POPOVER, SPLIT ON PHASE.
+   *
+   * In BUILD this is unchanged: FIX + SCRAP (R19) and, on a goblin tower, the FEED row.
+   * Outside BUILD it collapses to FEED ALONE. FIX and SCRAP are BUILD-only by R19 and drawing
+   * them disabled mid-fight would be noise; FEED was never phase-gated in the reducer at all —
+   * `applyFeedTower` has no phase check — it simply had no reachable surface outside BUILD.
+   */
+  const inBuild = world.matchPhase === 'BUILD';
+  const feedSpawnerId = seatGoblinTowerAt(world, seat, primitiveId);
+  const scrap = inBuild ? planStructureScrap(world, seat, primitiveId) : null;
+  // BUILD needs something scrappable; outside it, only a feedable tower earns a popover.
+  if (inBuild && scrap === null) return null; // wrong seat / gone — no popover at all
+  if (!inBuild && feedSpawnerId === null) return null;
+  const repair = inBuild ? planStructureRepair(world, seat, primitiveId) : null;
+
+  // The component to anchor on. In BUILD that is the scrap plan's member list; outside it the
+  // plan was never computed, so walk the component directly.
+  const seedPrim = world.primitives.get(primitiveId);
+  if (seedPrim === undefined) return null;
+  const memberIds: Iterable<PrimitiveId> =
+    scrap !== null ? scrap.memberIds : componentOf(seedPrim, world.primitives, world.bonds).primitiveIds;
 
   // Anchor on the structure's own bounding box, not on the clicked shape: clicking a leaf and
   // clicking the hub of the same tower must put the popover in the same place, or the control looks
   // like it moved when only the cursor did.
   let minX = Infinity, maxX = -Infinity, minY = Infinity;
-  for (const id of scrap.memberIds) {
+  for (const id of memberIds) {
     const p = world.primitives.get(id);
     if (p === undefined) continue;
     minX = Math.min(minX, p.pos.x - p.radius);
@@ -223,8 +215,10 @@ export function structureActionModel(
   if (!Number.isFinite(minX)) return null;
 
   const buttons: StructureButtonGeom[] = [];
-  const count = repair === null ? 1 : 2;
-  const totalW = count * BTN_W + (count - 1) * BTN_GAP;
+  // Outside BUILD there is no FIX/SCRAP row at all, so the row width is zero and the FEED strip
+  // takes the row's place rather than hanging below an empty gap.
+  const count = !inBuild ? 0 : repair === null ? 1 : 2;
+  const totalW = count === 0 ? 0 : count * BTN_W + (count - 1) * BTN_GAP;
   let left = (minX + maxX) / 2 - totalW / 2;
   left = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - totalW - EDGE_MARGIN, left));
   // Below the structure instead of above it when there is no room up top, so a tower built against
@@ -257,7 +251,7 @@ export function structureActionModel(
     });
   }
 
-  buttons.push({
+  if (scrap !== null) buttons.push({
     kind: 'SCRAP',
     label: 'SCRAP',
     // R21 in one word to the player: this number is the SURVIVORS, so a battered tower hands back
@@ -283,14 +277,14 @@ export function structureActionModel(
    * read as absent). A player must be able to learn that Square makes the shield goblin while
    * holding no Squares.
    */
-  const feed = goblinTowerAmong(world, seat, scrap.memberIds);
+  const feed = feedSpawnerId === null ? null : { spawnerId: feedSpawnerId };
   if (feed !== null) {
     const feedW = ALL_SPARK_TYPES.length * FEED_BTN + (ALL_SPARK_TYPES.length - 1) * FEED_GAP;
     let feedLeft = (minX + maxX) / 2 - feedW / 2;
     feedLeft = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - feedW - EDGE_MARGIN, feedLeft));
     // Directly under the FIX/SCRAP row, and clamped like it: a tower against the bottom wall must
     // not push its own feed controls off-screen (the same failure the `top` flip above prevents).
-    let feedTop = top + BTN_H + FEED_ROW_GAP;
+    let feedTop = inBuild ? top + BTN_H + FEED_ROW_GAP : top;
     if (feedTop + FEED_BTN > CANVAS_HEIGHT - EDGE_MARGIN) {
       feedTop = top - FEED_ROW_GAP - FEED_BTN;
     }
@@ -314,7 +308,11 @@ export function structureActionModel(
     });
   }
 
-  const title = repair === null ? 'STRUCTURE' : codexCopyFor(repair.group.blueprintId).name;
+  const title = repair !== null
+    ? codexCopyFor(repair.group.blueprintId).name
+    : feed !== null
+      ? 'GOBLIN TOWER' // outside BUILD the repair plan is never computed, so name it directly
+      : 'STRUCTURE';
   return {
     primitiveId,
     title,

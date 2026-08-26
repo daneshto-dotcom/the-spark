@@ -71,6 +71,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // S152 A5 — UI click cues. ⚠ SAFE FOR THIS FILE: audioManager imports only constants + types, no
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
+import { seatGoblinTowerAt } from '../state/goblinKinds.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -542,7 +543,17 @@ export class Controls {
       const d2 = dx * dx + dy * dy;
       const r = prim.radius + 6; // a little forgiveness, like every other pick radius here
       if (d2 > r * r || d2 >= bestDistSq) continue;
-      if (!canBuildNow(this.world, prim.pos, this.playerId)) continue; // R19: BUILD stage, own ground
+      // S153 P3 (owner R79) — *"i should be able to build goblins during fight stage"*.
+      //
+      // R19 still owns FIX and SCRAP: outside BUILD the panel draws neither. What changes is
+      // that a LIVE GOBLIN TOWER can still be aimed at, because FEED is the one action on this
+      // popover that was never BUILD-only in the first place — `applyFeedTower` has no phase
+      // gate at all. The restriction was inherited from the surface that happened to carry it.
+      //
+      // ⚠ NARROW ON PURPOSE. Accepting any own shape here would swallow every FIGHT-phase click
+      // on your own structures into a popover the model then refuses to draw — a dead zone.
+      const towerHere = seatGoblinTowerAt(this.world, this.playerId, prim.id);
+      if (!canBuildNow(this.world, prim.pos, this.playerId) && towerHere === null) continue;
       bestId = prim.id;
       bestDistSq = d2;
     }
