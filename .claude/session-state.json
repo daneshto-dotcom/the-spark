@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2397,
+  "tool_calls_session_total": 2404,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -116,12 +116,145 @@
       "title": "Speeds re-tier + units-first targeting + separation + castle march",
       "tier": "Full",
       "estimated_tokens": 24000,
-      "status": "in_progress",
+      "status": "completed",
       "detail": "Re-tier the six hopSpeedMul values to the owner ladder - hound 1.15, bat 1.15, melee 0.85, suicide 0.85, archer 0.70, shield 0.45. Add unit-first NAVIGATION gated by an acquisition radius with a hysteresis margin on target switch. Wire creatureCanTarget as the authority - it has zero production callers today. Add a separation nudge so same-tier goblins stop overlapping. Fold in the cheap castle half - when no enemy towers remain goblins march on the castle. Gate with a behavioural ordering test asserting BOTH halves.",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "2095d3f",
+      "check_method": "RALPH+GROK-ANALYST tier. (1) tsc -b --noEmit exit 0 read from a REDIRECT not a pipe - it caught an unused helper that vitest passed straight over. (2) vitest 2983 of 2983, 179 files, +13 new. (3) e2e:gating 49 of 49 exit 0. (4) MUTATION TEST on the load-bearing assertion - reverting unitInReach to the bare null-check turns the does-NOT-enter-ATTACKING case red, proving the gate is real rather than decorative. (5) Both-halves discipline on every behavioural case - acquire has its out-of-radius negative, the dead band asserts held-keeps AND unheld-does-not-acquire, and the FSM gate asserts a real melee engagement still passes. (6) A.0 refuted the owner premise that goblins lacked per-type speeds and refuted a Grok design built on rootConnector/isExposed/childTowers, none of which exist. NOT YET DONE - live visual confirmation of the arc-not-pile behaviour, deferred to a consolidated screenshot pass with P4/P5.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "pattern": "hopSpeedMul: 1\\.15,",
+          "op": "eq",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "pattern": "hopSpeedMul: 0\\.85,",
+          "op": "eq",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "pattern": "hopSpeedMul: 0\\.7,",
+          "op": "eq",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "pattern": "hopSpeedMul: 0\\.45,",
+          "op": "eq",
+          "value": 1
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "needle": "hopSpeedMul: 0.95,"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "needle": "hopSpeedMul: 0.9,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_UNIT_LEASH_RADIUS = 300;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_SPREAD_RADIUS = 26;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function pickNavUnit("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function spreadTargetPos("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function enemyCastleMarchPos("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "import { castleAnchor } from '../gatherers/gatherer.ts';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "const unitInReach ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "      unitInReach ||"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "pattern": "\\bunitInReach\\b",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "const navUnit = creatureCanTarget(creature.type, 'units')"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "import { creatureCanTarget } from './stats.ts';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "steerTo = enemyCastleMarchPos(world, creature);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "const spread = spreadTargetPos(steerTo, creature.id, GOBLIN_SPREAD_RADIUS);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "  pickNavUnit,"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts",
+          "needle": "does NOT enter ATTACKING for a unit held at NAVIGATION distance"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts",
+          "needle": "DOES enter ATTACKING once that same unit is inside attackRange"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -241,7 +374,10 @@
     "S152 A4 - A PER-FRAME RECONCILER BEATS ANY ONE-SHOT FIX AT THE CALL SITE. Hiding the title when the overlay opened would have been undone on the next frame, because the reconciler keyed only on gameState. If a state is enforced every frame, the new condition belongs IN the predicate, not in the event handler.",
     "S152 A5 - THE COMPLAINT WAS AMBIGUITY, NOT SILENCE. A refused click and a missed click were both silent, so 'it didn't work' was unknowable. The fix that mattered was giving REFUSAL its own sound - which needed a hit test that deliberately INCLUDES disabled buttons, the opposite of what the click path wants.",
     "S152 - MY OWN PROSE BROKE THE WRITE GATE FOR HALF AN HOUR. 18 strings in session-state.json contained literal curly braces (TypeScript type literals I quoted in check_method), and the gate's field extractor is an awk BRACE COUNTER, so it returned empty for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. A data file consumed by a line-oriented parser has a grammar; respect it.",
-    "S152 - A HARD EXTERNAL BLOCKER IS NOT A FAILURE TO ENGINEER AROUND. veo/image credits ran out mid-amendment, so the hound cannot be generated at all. The useful output was a carry-forward with the EXACT six resume commands and the already-committed prompt, not a workaround that ships worse art."
+    "S152 - A HARD EXTERNAL BLOCKER IS NOT A FAILURE TO ENGINEER AROUND. veo/image credits ran out mid-amendment, so the hound cannot be generated at all. The useful output was a carry-forward with the EXACT six resume commands and the already-committed prompt, not a workaround that ships worse art.",
+    "S153 P1 - THE RANGE CHECK LIVED IN THE CALLER, AND MY CHANGE WAS THE CALLER. The FSM entered ATTACKING on a bare targetCreatureId !== null, and a comment three lines up explained it was safe because the single writer range-gated to attackRange. I was about to make a second writer that deliberately does not. The symptom would have been a goblin that never walks and never swings - ATTACKING, re-validate, abort, SEEKING, re-acquire, every tick - and NOTHING would have gone red, because the FSM stays self-consistent and all three determinism gates are self-comparing. An invariant documented as a caller convention is an invariant waiting for its second caller; the fix was to move it into the predicate, where it is also byte-identical for every shipped type.",
+    "S153 P1 - ENUMERATING THE CHAIN TALKED ME OUT OF THE EXPENSIVE DESIGN. I was ready to add a navCreatureId field for the hysteresis. Counting what the closest precedent (targetPrimitiveId) actually touches returned 14 files and ~45 sites plus a hashed-state decision. That number is what made me look for memory I already had - targetCreatureId persists across ticks by construction. Same behaviour, zero new fields, no protocol bump. Count the sites BEFORE designing, not after.",
+    "S153 P1 - THE OWNER DIAGNOSIS AND THE ACTUAL CAUSE WERE DIFFERENT, AND MEASURING SAVED THE FIX. The report was that goblins run like a stack because they all share one speed. Per-type speeds already existed and already differed. Had I implemented the request as stated I would have shipped a re-tier, the goblins would still have piled up on arrival, and the owner would have reported the same bug again - because arriveForce damps every unit onto one identical coordinate and there is no separation force in the sim at all. The stated cause was wrong; the observation was right."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -318,7 +454,7 @@
   },
   "real_context_tokens_at_close": 830000,
   "real_context_pct_at_close": 83.0,
-  "checkpoint_commit": "bf2b213",
+  "checkpoint_commit": "2095d3f",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
