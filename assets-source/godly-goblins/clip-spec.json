@@ -77,6 +77,22 @@
           "prompt": "A bright blue electric arc cracks outward from the striped coil at the top of the tower, the green vapour at the base surges upward in a big puff, the fuse flames flare, and the hanging brown sacks swing on their ropes."
         }
       }
+    },
+    {
+      "name": "goblin-hound",
+      "seed": "assets-source/godly-goblins/7-goblin-hound-CIRCLE.png",
+      "outDir": "assets-source/godly-goblins/clips/goblin-hound",
+      "states": {
+        "idle": {
+          "prompt": "The war hound stands alert on all four legs, panting, ribs rising and falling, ears twitching and head swinging slowly as it scans for prey. Its four paws stay planted on the ground and its whole body remains fully inside the frame."
+        },
+        "walk": {
+          "prompt": "The war hound runs to the right in a low fast lope, all four legs cycling in a clean gallop, tail streaming straight out behind it. It stays fully inside the frame and never leaves the ground for long."
+        },
+        "attack": {
+          "prompt": "The war hound lunges forward and snaps its jaws shut in a single hard bite, then drops back onto all four paws into its ready stance. The whole animal stays inside the frame throughout."
+        }
+      }
     }
   ]
 }

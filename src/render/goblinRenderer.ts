@@ -56,6 +56,11 @@ import { multiplierFifths } from '../state/stats.ts';
  * ⭐ S152 P3 — three more, on the owner's scoping: *"now we need this session shield goblin,
  * terrorist goblin, and bat rider goblin, all in the same art style"*. Only `goblinHound` is left
  * on the puppet.
+ *
+ * ⭐ S153 P7 — AND NOW NONE ARE. `goblinHound` shipped, so all six FEED outputs have atlas art
+ * and `drawGoblin`'s procedural puppet is a LOAD-FAILURE FALLBACK ONLY rather than the shipped
+ * look of any unit. It is deliberately kept: an atlas that fails to fetch on some peer must
+ * still draw something rather than nothing.
  */
 const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
@@ -68,6 +73,10 @@ const ATLASES: Partial<Record<CreatureType, string>> = {
   // name and the file name agree; only the CreatureType literal predates both.
   goblinSuicide: '/godly/goblin-sapper/anim/goblin-sapper',
   goblinBat: '/godly/goblin-batrider/anim/goblin-batrider',
+  // ⭐ S153 P7 — THE LAST ONE OFF THE PUPPET. goblinHound was the only FEED output still
+  // falling through to drawGoblin, which draws in green — the owner's "gay green circle".
+  // Every one of the six shapes now hands back real art.
+  goblinHound: '/godly/goblin-hound/anim/goblin-hound',
 };
 
 /**

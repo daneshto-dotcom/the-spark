@@ -116,6 +116,39 @@
         }
       },
       "enclosedWhiteLimitPct": 0.0002
+    },
+    {
+      "_why_hound": [
+        "S153 P7 - the CIRCLE feed output, and the last one still falling through to drawGoblin's",
+        "procedural puppet (the owner's 'gay green circle').",
+        "QUADRUPED, so it is the worst enclosed-white case in the roster: four legs make several",
+        "background pockets that a single-blob matte will happily keep. enclosedWhiteLimitPct is the",
+        "same MEASURED 0.0002 every S152 character uses, and the contact sheet is auditioned before",
+        "this is wired - a hound is exactly the shape that bit the bat rider."
+      ],
+      "name": "goblin-hound",
+      "outDir": "public/godly/goblin-hound/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/godly-goblins/clips/goblin-hound/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/godly-goblins/clips/goblin-hound/walk.mp4",
+          "ticksPerFrame": 3,
+          "sampleStart": 3,
+          "_why_sampleStart": "Frame 0 of this clip is PILLARBOXED - two opaque black bars survived the matte. Measured, not guessed: 144 bar-like columns of 336 in that one cell and nowhere else in the atlas."
+        },
+        "attack": {
+          "clip": "assets-source/godly-goblins/clips/goblin-hound/attack.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 30
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0002
     }
   ],
   "_sampleWindow_note": [

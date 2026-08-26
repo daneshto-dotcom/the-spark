@@ -86,14 +86,41 @@ for (const st of stateNames) {
    * action. Per-state, so a slow idle can take the whole clip while a drifting attack takes the
    * front. Absent ⇒ the whole clip, i.e. the S151 behaviour is unchanged by default.
    */
-  const window = Math.min(total, spec.states[st].sampleWindow ?? spec.sampleWindow ?? total);
+  /*
+   * ⭐ S153 P7 — `sampleStart`: SKIP LEADING FRAMES. The exact mirror of `sampleWindow` above, and
+   * added for a defect only a contact sheet could have shown.
+   *
+   * MEASURED on the goblin hound: frame 0 of its WALK clip is PILLARBOXED — veo opened the clip
+   * with the seed letterboxed inside a narrower frame, so two solid black bars flanked the dog.
+   * The S152 border-connected-near-black rule exists to eat exactly that and did NOT fire here, so
+   * the bars survived the matte as opaque geometry: 144 bar-like columns of 336 in that one cell,
+   * and nowhere else in the atlas. Every other state and every other character was clean, which is
+   * what makes this a leading-frame problem rather than a matte-threshold one.
+   *
+   * ⚠ FIXED BY NOT SAMPLING THE BAD FRAME rather than by loosening the matte. Widening the bar rule
+   * to catch this would put every character's dark INK at risk, which is precisely the S152 defect
+   * that deleted whole outlines. Skipping three frames of ninety-six costs nothing.
+   *
+   * Per-state, and ABSENT ⇒ 0 ⇒ byte-identical extraction, so no shipped atlas can regress if it is
+   * ever rebuilt.
+   */
+  const start = Math.max(0, spec.states[st].sampleStart ?? spec.sampleStart ?? 0);
+  const available = total - start;
+  if (available < spec.framesPerState) {
+    throw new Error(`${st}: ${available} frames after sampleStart ${start} < framesPerState ${spec.framesPerState}`);
+  }
+  const window = Math.min(available, spec.states[st].sampleWindow ?? spec.sampleWindow ?? available);
   if (window < spec.framesPerState) {
     throw new Error(`${st}: sampleWindow ${window} < framesPerState ${spec.framesPerState}`);
   }
   const stride = Math.max(1, Math.floor(window / spec.framesPerState));
+  const sel =
+    start === 0
+      ? `select='not(mod(n\,${stride}))'`
+      : `select='gte(n\,${start})*not(mod(n-${start}\,${stride}))'`;
   execFileSync('ffmpeg', [
     '-v', 'error', '-i', clip,
-    '-vf', `select='not(mod(n\\,${stride}))'`, '-vsync', '0',
+    '-vf', sel, '-vsync', '0',
     join(dir, 'f_%03d.png'),
   ]);
   const got = readdirSync(dir).length;

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2411,
+  "tool_calls_session_total": 2463,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -349,7 +349,8 @@
           "needle": "_visual-archer"
         }
       ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0 - tsc caught an unused param vitest ignored, twice this session now. (2) vitest 2997 total, +14 new on resolveArcherShot. (3) PIXEL-VERIFIED on a live solo match: injected both scenes into the running world via the __SPARK__ dev accessor, screenshotted, and SAMPLED THE PNG for fire-coloured pixels. First run returned ZERO, which looked like a broken flame - it was a bad test scene. The second archer sat 198px from the first scene victim and GOBLIN_ARCHER_RANGE is 220, so it correctly acquired the unit and drew a plain arrow. Re-laid the scenes beyond archer range: 200 fire-coloured pixels, and the two variants are visually distinct. Checking the INPUT before retuning the consumer is what stopped an afternoon of tweaking flame alpha for a non-bug. (4) The throwaway harness was DELETED rather than left behind - an internals-injecting spec in the gating lane is the CF3 hazard class."
+      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0 - tsc caught an unused param vitest ignored, twice this session now. (2) vitest 2997 total, +14 new on resolveArcherShot. (3) PIXEL-VERIFIED on a live solo match: injected both scenes into the running world via the __SPARK__ dev accessor, screenshotted, and SAMPLED THE PNG for fire-coloured pixels. First run returned ZERO, which looked like a broken flame - it was a bad test scene. The second archer sat 198px from the first scene victim and GOBLIN_ARCHER_RANGE is 220, so it correctly acquired the unit and drew a plain arrow. Re-laid the scenes beyond archer range: 200 fire-coloured pixels, and the two variants are visually distinct. Checking the INPUT before retuning the consumer is what stopped an afternoon of tweaking flame alpha for a non-bug. (4) The throwaway harness was DELETED rather than left behind - an internals-injecting spec in the gating lane is the CF3 hazard class.",
+      "checkpoint_commit": "8786d12"
     },
     {
       "id": "P3",
@@ -444,7 +445,8 @@
           "needle": "goblinRenderer.arrowLayer"
         }
       ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0. (2) vitest 3003, +6 panel tests incl. the both-halves guard that BUILD still shows SCRAP, so R19 was narrowed and not deleted. (3) e2e:gating 50 of 50 - one MORE than before, the new FIGHT-phase feed test. (4) MUTATION-VERIFIED ON THE HALF UNIT TESTS CANNOT REACH: reverting the controls.ts gate to BUILD-only leaves every panel test green and turns the e2e RED. That is the S151 goblin-tower defect class exactly - a model that is happy and an input layer that never calls it. (5) A REGRESSION I CAUSED IN P2 SURFACED HERE and is fixed: fog.spec roll-calls every aboveFogLayer child by name, and P2 arrowLayer was an unannounced third child from one renderer - precisely what that roll call was built to catch after a bare count cost a whole session. Added with its rationale and renumbered all 20 entries. (6) A.0 established the FEED reducer has NO phase gate, so this was a reachability change only."
+      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0. (2) vitest 3003, +6 panel tests incl. the both-halves guard that BUILD still shows SCRAP, so R19 was narrowed and not deleted. (3) e2e:gating 50 of 50 - one MORE than before, the new FIGHT-phase feed test. (4) MUTATION-VERIFIED ON THE HALF UNIT TESTS CANNOT REACH: reverting the controls.ts gate to BUILD-only leaves every panel test green and turns the e2e RED. That is the S151 goblin-tower defect class exactly - a model that is happy and an input layer that never calls it. (5) A REGRESSION I CAUSED IN P2 SURFACED HERE and is fixed: fog.spec roll-calls every aboveFogLayer child by name, and P2 arrowLayer was an unannounced third child from one renderer - precisely what that roll call was built to catch after a bare count cost a whole session. Added with its rationale and renumbered all 20 entries. (6) A.0 established the FEED reducer has NO phase gate, so this was a reachability change only.",
+      "checkpoint_commit": "3c212e2"
     },
     {
       "id": "P4",
@@ -566,7 +568,8 @@
           "needle": "_visual"
         }
       ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0, vitest 3003, e2e:gating 50 of 50. (2) ⛔ THE PIXEL TEST CAUGHT A DEAD FEATURE. setHover was declared on both interfaces and implemented in both renderers, and NOTHING CALLED IT - an earlier patch batch aborted on a failed CRLF anchor and the one wiring edit never ran. tsc was green, every test was green, and the hover did nothing. Found by sampling the chip plate colour hover-on vs hover-off: delta 0. After wiring, delta 42 - (9,12,18) to (18,26,37). Registered is not live, for the third time this session. (3) Z-ORDER PROVEN BY A/B ON THE DISPLAY-LIST INDEX, not pixels: without the fix spark index 2 vs footer 43, with it 44 vs 42. The pixel A/B was INCONCLUSIVE (redness 23 vs 22) because the chip plate is alpha 0.82 and a spark underneath bleeds through - when a visual property has a numeric ground truth, assert the number. (4) That A/B is now a PERMANENT guard in fog.spec, mutation-verified: removing bringToFront turns it red. (5) A.0 CORRECTED THE CARRY-FORWARD - castlePanel already had full drawn hover on real Pixi containers, so this was two surfaces and not four. (6) Layers now carry a label so the display list is self-describing. (7) Byte-level line-ending check on all five touched files: controls.ts still PURE CRLF, the rest PURE LF, nothing mixed."
+      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0, vitest 3003, e2e:gating 50 of 50. (2) ⛔ THE PIXEL TEST CAUGHT A DEAD FEATURE. setHover was declared on both interfaces and implemented in both renderers, and NOTHING CALLED IT - an earlier patch batch aborted on a failed CRLF anchor and the one wiring edit never ran. tsc was green, every test was green, and the hover did nothing. Found by sampling the chip plate colour hover-on vs hover-off: delta 0. After wiring, delta 42 - (9,12,18) to (18,26,37). Registered is not live, for the third time this session. (3) Z-ORDER PROVEN BY A/B ON THE DISPLAY-LIST INDEX, not pixels: without the fix spark index 2 vs footer 43, with it 44 vs 42. The pixel A/B was INCONCLUSIVE (redness 23 vs 22) because the chip plate is alpha 0.82 and a spark underneath bleeds through - when a visual property has a numeric ground truth, assert the number. (4) That A/B is now a PERMANENT guard in fog.spec, mutation-verified: removing bringToFront turns it red. (5) A.0 CORRECTED THE CARRY-FORWARD - castlePanel already had full drawn hover on real Pixi containers, so this was two surfaces and not four. (6) Layers now carry a label so the display list is self-describing. (7) Byte-level line-ending check on all five touched files: controls.ts still PURE CRLF, the rest PURE LF, nothing mixed.",
+      "checkpoint_commit": "883d1b2"
     },
     {
       "id": "P5",
@@ -597,12 +600,98 @@
       "title": "Goblin hound atlas - the last FEED output without art",
       "tier": "Standard",
       "estimated_tokens": 15000,
-      "status": "pending",
+      "status": "completed",
       "detail": "Closes CF-S152-b. UNBLOCKED - owner topped up billing and a live probe returned HTTP 200 with image bytes. Six resume commands already recorded. Audition the contact sheet before wiring - a hound has four legs, several enclosed background pockets, the exact matte case that bit the bat rider.",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "sequencing_note": "Taken BEFORE P5 and said so. P5 measured bigger than its PDR estimate - the palette strip height feeds castlePanel layout in four places and its buttons are live Pixi containers wired through main.ts - and context sits 22K below the YELLOW line. P7 is owner-FUNDED (they topped up billing mid-session for exactly this) and is mostly script runs, so it costs little context. Order chosen to maximise how many land.",
+      "owner_art_iterations": [
+        "v1 - lean mangy war-hound. REJECTED: \"no i dont like this dog\". NOT binned - the owner reassigned it on sight: \"this dog will be used as the attacks from the Zombie castle as it looks like a zombie\". Preserved with its two already-paid clips under assets-source/zombie-castle/.",
+        "v2 - old english bulldog crossed with a dingo, per \"needs to be a mix between an old english bulldog and a dingo! ... but obv - more gobliny\". Owner: \"not bad ... otherwise pretty good\", with two notes.",
+        "v3 - APPROVED (\"yes this latest hound image if fine!\"). Changed ONLY the two things asked for - goblin-green hide and a much more aggressive snarl/pose - holding breed mix, tack, silhouette and cartoon level constant, because the owner had explicitly approved those in v2."
+      ],
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-hound\\anim\\goblin-hound-atlas.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-hound\\anim\\goblin-hound-anim.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\7-goblin-hound-CIRCLE.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\walk.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\attack.mp4"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "goblinHound: '/godly/goblin-hound/anim/goblin-hound',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "S153 P7 — AND NOW NONE ARE."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "const start = Math.max(0, spec.states[st].sampleStart ?? spec.sampleStart ?? 0);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "sampleStart"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
+          "needle": "\"sampleStart\": 3"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
+          "needle": "\"name\": \"goblin-hound\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clip-spec.json",
+          "needle": "\"name\": \"goblin-hound\""
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\zombie-hound.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\clips\\zombie-hound\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\clips\\zombie-hound\\walk.mp4"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\design-spec.json",
+          "needle": "_owner_direction_s153_v3"
+        }
+      ],
+      "checkpoint_commit": "pending-commit",
+      "check_method": "RALPH+GROK-ANALYST. build green, vitest 3003, e2e:gating 50/50. TEXTURE CENSUS MEASURED: 74->77, delta 3 against limit 8 (was 74->76). THE AUDITION EARNED ITS PLACE - a contact sheet over magenta found two opaque black pillarbox bars surviving the matte, localised to exactly ONE cell (walk frame 0: 144 bar-like columns of 336, nothing else in the atlas) because veo opened that clip with the seed letterboxed. Fixed by NOT SAMPLING the bad frame - a new per-state sampleStart mirroring sampleWindow - rather than by loosening the bar rule, which would put every character ink outline at risk (the S152 defect that deleted whole outlines). Absent means 0 means byte-identical, so no shipped atlas can regress. Side benefit: bars gone shrank the union bbox 1280x720 to 1062x662 and tightened the cell 336 to 303. The drop-shadow ellipse survives as opaque near-black at 9.48 percent of frame area, COMPARED against the shipped shield at 8.80 percent - house style, not a regression, measured before being called acceptable. RENDERED LIVE: three hounds in a running match draw from the atlas, not the green puppet. The rejected v1 was PRESERVED with its two paid clips as a zombie-castle asset per owner instruction."
     },
     {
       "id": "P8",
@@ -732,9 +821,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 830000,
-  "real_context_pct_at_close": 83.0,
-  "checkpoint_commit": "2095d3f",
+  "real_context_tokens_at_close": 478109,
+  "real_context_pct_at_close": 47.81,
+  "checkpoint_commit": "883d1b2",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -3233,7 +3322,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "YELLOW",
+  "real_context_level_at_close": "GREEN",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -3651,6 +3740,15 @@
       "title": "Billing topped up - the art lane is open",
       "owner": "i put more money in google so no worry about theb biulling",
       "means": "VERIFIED by live probe - HTTP 200 with image bytes, where the same call returned 429 RESOURCE_EXHAUSTED earlier the same session. P7 unblocked."
+    },
+    "R88": {
+      "title": "CASTLE RACES - one stat line, many skins and playstyles (DESIGN BANKED, not built)",
+      "owner": "so when we start working each castle color type we will have - zombies (green), ghosts (white), fire elementals/magma creatures (red), ice giants (blue), etc.... and each castle will start with the same hp def atk and pen but it will look different and have different styles of playing (we will explore and decide on it later on!)",
+      "means": "The BALANCE decision is made even though the feature is not: every castle race opens with an IDENTICAL stat line. Races differentiate on VISUALS and PLAYSTYLE only, never on opening numbers. That is a real constraint worth banking now because it collapses most of the balance surface of the deferred castle work before it is written.",
+      "status": "EXPLICITLY DEFERRED by the owner - \"we will explore and decide on it later on\". Recorded so it is not re-derived.",
+      "codebase_already_anticipates_this": "constants.ts says it in as many words next to PLAYER_COLORS: \"six colours are six future races, of which at most four are in play at once. PLAYER_COLORS[seat] is therefore only ever a DEFAULT assignment\". The owner arrived at the same model independently.",
+      "palette_reconciliation": "MEASURED against the live palette rather than assumed. PLAYER_COLORS = Crimson 0xff3b6b, Cyan 0x3bd7ff, Yellow 0xffe23b, Green 0x44ff5e, Orange 0xff8c1a, Magenta 0xd73bff. Maps cleanly: zombies to Green, fire/magma to Crimson, ice giants to Cyan. ONE MISMATCH: there is NO WHITE SEAT for the ghosts. The nearest thing is BOT_ACCENT_COLOR 0xc0c8d0, a silvery white reserved for BOTS - which is either a happy accident (ghosts are the bot race) or a collision. Yellow, Orange and Magenta have no race proposed yet. This is the same open question the earlier elemental-keeps note left: the owner previously ruled that elements ADAPT to the existing palette rather than the palette bending to the elements.",
+      "interacts_with": "R85. The castle has NO hp, def, atk or pen today - there is no castle entity at all, only castleBanks, and the match is won on victory points. R88 presupposes those four stats exist, so it lands on top of the castle damage model that R85 deferred to its own session. Sequence: castle damage model FIRST, then races."
     }
   },
   "a0_state_discovery_s153": {
@@ -3687,5 +3785,6 @@
     "ci": "Deploy lane green. One red weekly non-gating lane - that IS CF-S152-a, now P8.",
     "env_diff_warn": "ACKNOWLEDGED and characterised as benign - documented S166 hardening of guard-destructive.sh and verify-claims-on-stop.sh after a Windows Store python3 shim hung a hook. Snapshot reset left to the owner by design.",
     "billing_probe": "429 at session open, HTTP 200 with image bytes after the owner topped up. P7 unblocked."
-  }
+  },
+  "budget_note_s153": "Measured 478,109 of 1,000,000 (47.8 percent) by real-context-tokens.py after P4 - GREEN, but only 22K below the YELLOW line, so scope tightens from here. A session-pdca hook reported YELLOW at the same moment; the script is the source of truth per CLAUDE.md and it says GREEN. Reporting both rather than picking the flattering one."
 }
