@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2600,
+  "tool_calls_session_total": 2620,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -2103,14 +2103,8 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "CF-S153-a",
-      "priority": 0,
-      "title": "FIRST MOVE - four priorities are committed but NOT DEPLOYED",
-      "detail": "P7 (hound), A1 (avatar above HUD), A2 (in-match exit), P5a (the queue fix) are all on master and unverified in prod. ROOT CAUSE IS NOT OURS, and GitHub said so on run 32985824540: \"The job was not acquired by Runner of type hosted even after multiple attempts\". Hosted-runner capacity. One run burned 15m2s waiting and failed; another queued over an hour. DO: gh run list, then gh workflow run deploy.yml --ref master, then npm run verify-deploy and require 4 of 4 before telling the owner anything is live."
-    },
-    {
       "id": "P5b",
-      "priority": 1,
+      "priority": 0,
       "tier": "Standard",
       "title": "MOVE the palette + queue to the footer, RIGHT of tier 8, always visible (R80 corrected)",
       "detail": "The BUG half shipped as P5a; this is the MOVE half and it is still open. Owner placement CORRECTED mid-session: \"always be visible on the right side of the footer (after tier 8)\" - RIGHT of the last chip, not the earlier \"left of the last tier\", and always visible rather than only while the castle is open. Supersedes S136 P0, which castlePanel.ts documents at length - cite R80 there when moving it. A.0 BANKED: paletteStripHeight and queueStripHeight feed the castle panel HEIGHT in four places (~304, 473, 490, 1165) so removing them shrinks the panel and moves everything below; the buttons are REAL Pixi Containers with pointerover/pointerout, wired through main.ts setOrderHandlers; the queue is DRAWN at castlePanel.ts:1129. Position after the last chip from footerBand layoutChips, and CHECK the legend - legendAnchor already anchors the shape key off the chip row, so it will collide and must move. REGISTER the new surface in hudLayout or the overlap gate stays blind to it.",
@@ -2118,52 +2112,52 @@
     },
     {
       "id": "A3",
-      "priority": 2,
+      "priority": 1,
       "tier": "Standard",
       "title": "Armies must retreat before FIGHT ends and idle spawn-fresh at their tower",
       "detail": "APPROVED, NOT STARTED, and the owner has now raised it TWICE with a screenshot - goblins standing in enemy territory at BUILD 1:25. Owner: \"during buld phase your own spawn stil lstay in enemy lands! thats inherently wrong - they would be killed\" and earlier \"they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built (like halfway transparent)... this is the mode for all spawn armies\". Touches the shared creature FSM. NOTE S153 P1 added enemyCastleMarchPos and unit-first navigation, so the walk-home target has a natural home in the same hostTick branch. INTERACTS WITH A4: once the castle is a target, retreat must not pull units off a winning castle push."
     },
     {
       "id": "A4",
-      "priority": 3,
+      "priority": 2,
       "tier": "Full",
       "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
       "detail": "OWNER MAIN GOAL, approved, NOT STARTED. A.0 BANKED: no castle entity exists, only castleBanks (an inventory Map); damageEntity has no castle arm; the match is won on scoreByPlayer alone. S153 P1 ALREADY makes goblins WALK to the enemy keep when no enemy shapes remain - they arrive with nothing to attack, which is exactly the owner symptom, so the pathing half is done. Needs a damageable castle entity, a damageEntity arm, the 1500-point second condition, and a hashed field so EXPECT A PROTOCOL BUMP 31 to 32 plus the six-site checklist. R88 constrains it: all castle races share ONE stat line."
     },
     {
       "id": "A5",
-      "priority": 4,
+      "priority": 3,
       "tier": "Full",
       "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
       "detail": "Approved, NOT STARTED. Owner re-reported it this session: \"bots still not building towers.... medium bots should at least build some\" - that adds a DIFFICULTY FLOOR. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. WARNING: the S150 structural claim (GROWTH_STEP 48 inside AUTO_BOND_RADIUS 60) was NOT re-verified - GROWTH_STEP is not in constants.ts. Littering in scope."
     },
     {
       "id": "R92",
-      "priority": 5,
+      "priority": 4,
       "title": "Stink tower reported as not lobbing - REPRODUCE FIRST, it is implemented",
       "detail": "The mechanic exists in full (magazine, throw interval, bag damage/radius, aggro aura, death blast, bagsRemaining on the wire). First hypothesis: DEFENDER_TARGETS.stinkTower is UNITS_ONLY, so with no enemy creature in range doing nothing is CORRECT. Reproduce with an enemy unit in range before changing anything."
     },
     {
       "id": "CF-S153-d",
-      "priority": 6,
+      "priority": 5,
       "title": "Finish the clickable / back-menu consistency sweep",
       "detail": "A2 proved the four TITLE entries and the lobby back button work. NOT covered: the OVERLAY back paths (codex, arcade, bot setup), which return without changing gameState so the probe could not observe them. They need their own assertions."
     },
     {
       "id": "CF-S153-b",
-      "priority": 7,
+      "priority": 6,
       "title": "TWO hound variants per tower - ASK FIRST, may be superseded",
       "detail": "The owner asked for two dog types, then reassigned the rejected dog to the Zombie castle instead. IF it still stands: variant choice must be DETERMINISTIC from the creature id (the spreadTargetPos golden-angle idiom), never a draw - all three determinism gates are self-comparing and would NOT catch a divergence."
     },
     {
       "id": "CF-S153-c",
-      "priority": 8,
+      "priority": 7,
       "title": "Zombie hound has no ATTACK clip",
       "detail": "idle + walk exist under assets-source/zombie-castle/. The attack clip failed twice with \"high demand\" - transient veo backpressure, NOT credits. No consumer yet, not blocking."
     },
     {
       "id": "P8",
-      "priority": 9,
+      "priority": 8,
       "tier": "Micro",
       "title": "worker-bots tick-based wait (CF-S152-a)",
       "detail": "Poll world.tick; NEVER raise the timeout - that rope already failed twice here."
@@ -3991,11 +3985,9 @@
   },
   "budget_note_s153": "Measured 478,109 of 1,000,000 (47.8 percent) by real-context-tokens.py after P4 - GREEN, but only 22K below the YELLOW line, so scope tightens from here. A session-pdca hook reported YELLOW at the same moment; the script is the source of truth per CLAUDE.md and it says GREEN. Reporting both rather than picking the flattering one.",
   "deploy_state_s153": {
-    "live": "P1 P2 P3 P4 - each has its own green Deploy run.",
-    "NOT_LIVE": "P7 (goblin hound), A1 (avatar lift), A2 (in-match exit) - all committed and pushed to master.",
-    "why": "GitHub Actions is BACKED UP, not broken. The P7 push-triggered run never appeared at all; a manual dispatch (32984067890) sat QUEUED 44 MINUTES without starting, and the A1 push run (32985824540) queued behind it. Nothing in the repo is at fault - the P4 run went green in 1m56s an hour earlier.",
-    "next_session_first_move": "gh run list. If those runs are cancelled - the SILENT death this repo documents, no mail and no artifacts - re-dispatch with gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4/4 before telling the owner anything is live.",
-    "root_cause_CONFIRMED": "NOT A REPO FAULT, proven by GitHub own annotation on run 32985824540: \"The job was not acquired by Runner of type hosted even after multiple attempts\". That is GitHub-hosted runner CAPACITY. The build job burned 15m2s waiting to be picked up and then failed; a second run has been queued over an hour. Retry when capacity returns - there is nothing to fix in the workflow, and no amount of re-reading deploy.yml will help."
+    "FINAL": "ALL EIGHT PRIORITIES ARE LIVE. verify-deploy PASS 4 of 4 at 1d24c255 - live entry asset index-CtqCL7Ex.js equals the local build by content hash.",
+    "the_scare": "GitHub-hosted runner capacity died mid-session for roughly an hour. One run burned 15m2s waiting and then FAILED with GitHub own annotation: \"The job was not acquired by Runner of type hosted even after multiple attempts\". Another sat queued 76 minutes. NOTHING was wrong with the repo or deploy.yml, and reading them would have found nothing - the annotation is what settled it. Capacity returned and a plain re-dispatch landed in 1m31s.",
+    "lesson": "A push is not a deploy, and a stuck deploy is not necessarily a broken one. verify-deploy refusing to call it shipped was correct all four times it refused."
   },
   "amendment_s153": {
     "approved": "Owner: \"GO on everything - approved!\"",
