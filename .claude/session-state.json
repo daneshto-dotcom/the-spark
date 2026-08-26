@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2502,
+  "tool_calls_session_total": 2505,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
-  "session_status": "in_progress",
+  "session_status": "ready_for_handoff",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -910,7 +910,10 @@
     "S153 P7 - THE AUDITION STEP THE CARRY-FORWARD DEMANDED PAID FOR ITSELF ON THE FIRST TRY. A contact sheet over magenta showed two opaque black pillarbox bars that had survived the matte, in exactly ONE cell of thirty-six. The tempting fix was widening the border-connected-near-black rule; that rule already deleted whole character outlines in S152, and dark ink is what it eats. Not sampling the bad frame was strictly safer and turned out better anyway - the union bbox shrank and every cell tightened.",
     "S153 P7 - I ASSERTED AN ARTIFACT WAS ACCEPTABLE ONLY AFTER MEASURING A SHIPPED CHARACTER. The hound keeps an opaque black drop shadow. Rather than reason about whether that matters on a black board, I measured it against the shipped shield: 9.48 percent of frame area versus 8.80 percent. House style, not a regression. A comparison against something already accepted is cheaper than an argument and much harder to be wrong about.",
     "S153 - A PARTIAL PRE-FLIGHT IS A DEFERRED FAILURE. After P2 I ran build and vitest but not e2e, so a layer-order regression rode along until P3 ran the full lane. fog.spec caught it instantly - it roll-calls every layer BY NAME precisely because a bare count once cost a session to attribute. The gate worked; I just did not open it.",
-    "S153 - THE OWNER REJECTED ART AND THE RIGHT MOVE WAS TO STOP SPENDING, NOT TO GUESS. On \"no i dont like this dog\" I killed the clip pipeline immediately rather than iterating on a hunch, and asked for direction. The owner then repurposed the rejected asset themselves - it became a Zombie castle unit. Two clips already paid for were preserved instead of binned, and the reassignment is recorded in the design spec so no future session re-litigates it."
+    "S153 - THE OWNER REJECTED ART AND THE RIGHT MOVE WAS TO STOP SPENDING, NOT TO GUESS. On \"no i dont like this dog\" I killed the clip pipeline immediately rather than iterating on a hunch, and asked for direction. The owner then repurposed the rejected asset themselves - it became a Zombie castle unit. Two clips already paid for were preserved instead of binned, and the reassignment is recorded in the design spec so no future session re-litigates it.",
+    "S153 A1 - I FIXED THE WRONG LAYER AND PROVED IT RIGOROUSLY. The P4 z-order work was mutation-verified, index-A/B tested and completely correct about SparkRenderer - which draws building blocks, not the player. avatarRenderer.ts opens by calling the term OVERLOADED and naming both halves. I had the disambiguation one directory away and never opened it, because the owner said spark and a class named SparkRenderer matched. Rigour applied to the wrong object produces confident, well-tested, useless work. Resolve what a NOUN refers to before measuring anything about it.",
+    "S153 A2 - THE REPORTED BUG DID NOT EXIST AND THE REAL ONE WAS BIGGER. The owner said Back-to-Title does not work; a menu sweep proved it works perfectly. What was missing was any exit from a live match at all - RETURN_TO_TITLE had exactly three call sites and none were reachable while PLAYING. Hunting for a broken handler would have found a correct one and reported no defect. When a user says a control does not work, first ask whether the control they need exists at all.",
+    "S153 A2 - THE NEGATIVES WERE THE TEST. Escape leaves the match is equally satisfied by an Escape that abandons a game on one accidental press, which is a WORSE bug than the one being fixed - Escape is already the disarm key and the close-any-overlay key. Two of the three e2e cases assert that NOTHING happens. On any change that adds a destructive shortcut, the cases proving it does not fire carry the weight."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -985,8 +988,8 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 552394,
-  "real_context_pct_at_close": 55.24,
+  "real_context_tokens_at_close": 610244,
+  "real_context_pct_at_close": 61.02,
   "checkpoint_commit": "055883b",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
@@ -2049,54 +2052,61 @@
     {
       "id": "CF-S153-a",
       "priority": 0,
-      "title": "⛔ FIRST MOVE: P7 is committed but NOT DEPLOYED",
-      "state": "The goblin hound is on master (b4f3a69) and verified in a live local match, but prod still serves the P4 bundle.",
-      "detail": "The push-triggered deploy run NEVER APPEARED despite src/** and public/** both changing and both being in deploy.yml paths - GitHub simply created no run. A manual dispatch (32984067890) was accepted and sat QUEUED 11+ minutes without starting: Actions runner backlog, not a repo fault. DO: gh run view 32984067890; if cancelled (the silent death - no mail, no artifacts) re-dispatch with gh workflow run deploy.yml --ref master, then npm run verify-deploy and require 4 of 4. Do not report the hound as shipped until LIVE passes."
+      "title": "FIRST MOVE - three priorities are committed but NOT DEPLOYED",
+      "detail": "P7 (hound), A1 (avatar above HUD), A2 (in-match exit) are all on master and unverified in prod. See deploy_state_s153. Do NOT report them as shipped until verify-deploy reads 4 of 4."
     },
     {
-      "id": "P5",
+      "id": "A4",
       "priority": 1,
-      "tier": "Standard",
-      "title": "Move the shape palette + queue out of the castle onto the footer (owner point 2 / R80)",
-      "state": "NOT STARTED. A.0 fully banked below - the PDR estimate of ~14K was measured LOW.",
-      "detail": "Owner D1 CONFIRMED this supersedes ruling S136 P0 (which deleted an always-on footer); castlePanel.ts:142 documents that conflict at length, so cite R80 there when moving it. WHAT MAKES IT BIGGER THAN IT LOOKS: paletteStripHeight() and queueStripHeight() feed the castle panel HEIGHT in four places (castlePanel.ts ~304, 473, 490, 1165), so removing them shrinks the panel and every offset below them moves. The buttons are REAL Pixi Containers with pointerover/pointerout handlers, not canvas draws, and their click handlers are wired through main.ts castlePanel.setOrderHandlers(...). ⚠ REGISTER THE NEW SURFACE IN hudLayout or the overlap gate stays blind to it - that is exactly how S152 drew HUD diamonds through the Q=ZONE text."
+      "tier": "Full",
+      "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
+      "detail": "OWNER MAIN GOAL, approved, NOT STARTED. A.0 BANKED: there is NO castle entity, only castleBanks (an inventory Map); damageEntity has no castle arm; the match is won on scoreByPlayer alone. S153 P1 ALREADY added enemyCastleMarchPos so goblins WALK to the keep when no enemy shapes remain - they arrive with nothing to attack, which is exactly the symptom the owner describes, so the walk half is already done. Needs: a damageable castle entity, a damageEntity arm, the second win condition at 1500 points, and a hashed field so EXPECT A PROTOCOL BUMP 31 to 32 plus the six-site checklist in LOCKED_DECISIONS S150. R88 constrains it: every castle race shares ONE stat line."
     },
     {
-      "id": "P6",
+      "id": "A5",
       "priority": 2,
       "tier": "Full",
-      "title": "Bots build towers, not random shapes (owner point 8 / R86 / CF-S149-f)",
-      "state": "NOT STARTED. The owner last of five playtest complaints, still open.",
-      "detail": "A.0 CONFIRMED THE CHEAP HALF: BUILD_BLUEPRINT is ALREADY an allowlisted client intent in both the host and client tables, so NO PROTOCOL BUMP. AUTO_BOND_RADIUS = 60 verified. The S150 structural claim (GROWTH_STEP 48 inside the bond radius, so a bot component grows monotonically past every exact-size recipe gate) was NOT re-verified this session - GROWTH_STEP is not in constants.ts, so find it before trusting that framing. ⚠ LITTERING IS IN SCOPE: a bot that selects a tower and finds nowhere legal to place it reads to the owner as the same bug, not a fix."
+      "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
+      "detail": "Approved, NOT STARTED. The owner words add a DIFFICULTY FLOOR to the old CF-S149-f: medium bots should at least build some. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. WARNING: the S150 structural claim (GROWTH_STEP 48 inside AUTO_BOND_RADIUS 60, so a bot component grows monotonically past every exact-size recipe gate) was NOT re-verified this session - GROWTH_STEP is not in constants.ts, so find it before trusting that framing. Littering fix in scope."
     },
     {
-      "id": "P8",
+      "id": "A3",
       "priority": 3,
-      "tier": "Micro",
-      "title": "worker-bots.spec.ts tick-based wait (CF-S152-a)",
-      "state": "NOT STARTED. Cheap (~6K) and closes a red weekly lane.",
-      "detail": "Poll world.tick, NEVER raise the timeout - a longer rope is the fix that already failed twice in this repo."
+      "tier": "Standard",
+      "title": "Armies retreat before FIGHT ends and idle spawn-fresh at their tower",
+      "detail": "Approved, NOT STARTED. Owner: spawns stay in enemy territory during build stage which is wrong, they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built, halfway transparent - and this is the mode for ALL spawn armies. Touches the shared creature FSM, not one unit type. NOTE it interacts with A4: once the castle is a target, retreat must not pull units off a castle push that is about to win."
+    },
+    {
+      "id": "CF-S153-d",
+      "priority": 4,
+      "title": "Finish the clickable / back-menu consistency sweep (owner asked, half done)",
+      "detail": "A2 proved the four TITLE entries and the lobby back button are fine. NOT covered: the OVERLAY back paths - codex, arcade, bot setup - which return without changing gameState, so the probe could not observe them. They need their own assertions."
     },
     {
       "id": "CF-S153-b",
-      "priority": 4,
-      "title": "TWO hound variants for one tower - the owner asked, and it is a SIM change not an art change",
-      "state": "DESIGN OPEN. The owner said two dog types for the same tower; only one is built.",
-      "detail": "Owner: \"we will use the current generated dog too but also add a more monstrous one ... two types of dogs for the same tower\". The v1 dog was later reassigned to the Zombie castle instead, so it is unclear whether the two-variant idea still stands or was superseded - ASK. ⚠ IF IT STANDS: which variant spawns must be DETERMINISTIC, derived from the creature id (the spreadTargetPos golden-angle idiom), never a draw - otherwise host and worker disagree about which dog is on the board and the differential gate will not catch it, because all three determinism gates are self-comparing."
+      "priority": 5,
+      "title": "TWO hound variants per tower - ASK FIRST, it may be superseded",
+      "detail": "The owner asked for two dog types for one tower, then reassigned the rejected dog to the Zombie castle instead. Unclear whether the two-variant idea still stands. IF IT DOES: variant choice must be DETERMINISTIC from the creature id (the spreadTargetPos golden-angle idiom), never a draw - all three determinism gates are self-comparing and would NOT catch a divergence here."
     },
     {
       "id": "CF-S153-c",
-      "priority": 5,
-      "title": "The zombie hound has no ATTACK clip",
-      "state": "Two of three clips exist (idle, walk) under assets-source/zombie-castle/clips/zombie-hound/.",
-      "detail": "Its attack clip failed twice with \"This model is currently experiencing high demand\" - transient veo backpressure, NOT credits (the same key generated three hound clips minutes later). Re-run when the Zombie castle work actually starts; there is no consumer for the asset yet, so this is not blocking anything."
+      "priority": 6,
+      "title": "Zombie hound has no ATTACK clip",
+      "detail": "idle and walk exist under assets-source/zombie-castle/. The attack clip failed twice with high demand - transient veo backpressure, NOT credits. No consumer exists yet, so not blocking."
     },
     {
-      "id": "R88",
-      "priority": 6,
-      "title": "Castle races banked as DESIGN ONLY (zombies/ghosts/fire/ice)",
-      "state": "Owner explicitly deferred: \"we will explore and decide on it later on\".",
-      "detail": "Every race opens with an IDENTICAL hp/def/atk/pen; they differ on look and playstyle only. constants.ts already anticipates this next to PLAYER_COLORS (\"six colours are six future races\"). ONE MISMATCH FOUND: there is no WHITE seat for the ghosts - the nearest is BOT_ACCENT_COLOR 0xc0c8d0, reserved for bots. Sequence matters: R85 deferred the castle DAMAGE MODEL, and R88 presupposes those four stats exist, so the damage model lands first."
+      "id": "P5",
+      "priority": 7,
+      "tier": "Standard",
+      "title": "Move the shape palette and queue to the footer (R80)",
+      "detail": "NOT STARTED; approved earlier as D1 (supersedes S136 P0). Bigger than its 14K estimate: paletteStripHeight and queueStripHeight feed castle-panel HEIGHT in four places, the buttons are real Pixi Containers with handlers wired through main.ts setOrderHandlers, and the new surface MUST be registered in hudLayout or the overlap gate stays blind to it."
+    },
+    {
+      "id": "P8",
+      "priority": 8,
+      "tier": "Micro",
+      "title": "worker-bots tick-based wait (CF-S152-a)",
+      "detail": "Poll world.tick; NEVER raise the timeout - that rope already failed twice here."
     }
   ],
   "priorities_s149_archived": [
@@ -3907,9 +3917,10 @@
   },
   "budget_note_s153": "Measured 478,109 of 1,000,000 (47.8 percent) by real-context-tokens.py after P4 - GREEN, but only 22K below the YELLOW line, so scope tightens from here. A session-pdca hook reported YELLOW at the same moment; the script is the source of truth per CLAUDE.md and it says GREEN. Reporting both rather than picking the flattering one.",
   "deploy_state_s153": {
-    "shipped_and_verified_live": "P1 P2 P3 P4 - each has its own green Deploy to GitHub Pages run.",
-    "committed_pushed_NOT_LIVE": "P7. The push-triggered run NEVER APPEARED even though src/** and public/** both changed and both are in deploy.yml paths. A manual gh workflow run dispatch was accepted (run 32984067890) and has sat QUEUED for 11+ minutes without starting - GitHub Actions runner backlog, not a repo problem. verify-deploy correctly reads 2 of 4 carriers FAILING and says do not report this as shipped, so it is NOT being reported as shipped.",
-    "next_session_first_move": "Check run 32984067890. If it is cancelled - the SILENT death this repo has been bitten by, no mail and no artifacts - just re-dispatch: gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4 of 4."
+    "live": "P1 P2 P3 P4 - each has its own green Deploy run.",
+    "NOT_LIVE": "P7 (goblin hound), A1 (avatar lift), A2 (in-match exit) - all committed and pushed to master.",
+    "why": "GitHub Actions is BACKED UP, not broken. The P7 push-triggered run never appeared at all; a manual dispatch (32984067890) sat QUEUED 44 MINUTES without starting, and the A1 push run (32985824540) queued behind it. Nothing in the repo is at fault - the P4 run went green in 1m56s an hour earlier.",
+    "next_session_first_move": "gh run list. If those runs are cancelled - the SILENT death this repo documents, no mail and no artifacts - re-dispatch with gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4/4 before telling the owner anything is live."
   },
   "amendment_s153": {
     "approved": "Owner: \"GO on everything - approved!\"",
