@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2193,
+  "tool_calls_session_total": 2197,
   "session_id": "S152",
   "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
   "session_start": "2026-08-23",
@@ -346,11 +346,160 @@
       "id": "P2",
       "title": "WIRE THE FEED GESTURE — six shape buttons on the FIX/SCRAP popover",
       "tier": "Standard",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "scope": "A FEED row on the live StructurePanel: glyphs via drawSparkGlyph, per-shape castle-bank counts modelled on castlePanel.ts:1088-1113, disabled when unaffordable, buttonAt widened to carry a shape payload, StructurePanelLike union widened in controls.ts, primitive-to-spawner resolution, FEED_TOWER dispatch. NO protocol bump — the wire and bench plumbing already shipped."
+      "scope": "A FEED row on the live StructurePanel: glyphs via drawSparkGlyph, per-shape castle-bank counts modelled on castlePanel.ts:1088-1113, disabled when unaffordable, buttonAt widened to carry a shape payload, StructurePanelLike union widened in controls.ts, primitive-to-spawner resolution, FEED_TOWER dispatch. NO protocol bump — the wire and bench plumbing already shipped.",
+      "check_completed": true,
+      "checkpoint_commit": "f5809fb",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
+          "needle": "goblinTowerOwnerForAnchor, 'goblinTower');"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
+          "needle": "A REGISTERED RECIPE IS NOT A LIVE RECIPE"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyMatcherCore.ts",
+          "pattern": "igniteOneSpawnerRecipe\\(world,",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "export type StructureActionKind = 'FIX' | 'SCRAP' | 'FEED';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "readonly sparkType?: SparkType;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "function goblinTowerAmong("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "if (sp.recipeId !== 'goblinTower') continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "isGoblinTowerComponent(world, sp.anchorPrimitiveId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "const held = bankCountOf(world.castleBanks, seat, type);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "const GOBLIN_SHORT_NAME"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "goblinShield: 'SHIELD',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]]"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "buttonAt(x: number, y: number): StructureAction | null {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "feedSpawnerId(): SpawnerId | null {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "drawSparkGlyph(g, b.x + b.w / 2"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "const FEED_BTN = 44;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "from '../state/goblinKinds.ts';"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "from '../state/godlyRecipes/goblinTower.ts'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "const action = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "buttonAt(x: number, y: number): 'FIX' | 'SCRAP' | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "type: 'FEED_TOWER',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "const spawnerId = structurePanel.feedSpawnerId();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
+          "needle": "the FEED row (owner R70 / S152 P2)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
+          "needle": "runSpawnerIgnition"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 15
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\feed-tower.spec.ts",
+          "needle": "expect(after.shields).toBe(before.shields + 1);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\feed-tower.spec.ts",
+          "needle": "expect(after.squares).toBe(before.squares - 1);"
+        }
+      ],
+      "check_method": "RALPH:PATROL + real clicks in a real browser. STATIC: tsc -b clean; vitest 2968 passed (177 files, +6 new FEED-row assertions on structureActionModel). RUNTIME: e2e:gating 47 passed, exit code read from a redirect not a pipe; e2e/feed-tower.spec.ts drives the ENTIRE chain with real clicks - tier chip -> tower card -> world click -> the live host sweep ignites it -> click the tower -> the FEED row -> a goblinShield appears AND the castle bank is debited by exactly 1. VISUAL: screenshotted the row (glyph + goblin name on all six buttons, FIX/SCRAP above, correct z-order, on-canvas). THE BIG FINDING WAS NOT THE MISSING BUTTON: the goblin tower NEVER IGNITED. runSpawnerIgnition names its recipes by hand and only ever named pentagram and lightningHub, while goblinTowerRecipe sat in a registry whose matcher findSpawnerMatch has ZERO production callers - so applyFeedTower's Gate 1 looked up a spawner that could not exist, and the S151 handoff's 'it builds, it ignites, it tears down' was two-of-three (teardown IS wired, via recipeStillSatisfied case 'goblinTower'). Proven empirically BEFORE fixing: my new panel test asserted 6 feed buttons and got [] after a real BUILD_BLUEPRINT + runSpawnerIgnition. Fixed with a third igniteOneSpawnerRecipe call; the recipe-module value import is safe there because world.ts does not import godlyMatcherCore (the S144 trap runs the other way). Also verified the panel counts what the REDUCER counts (bankCountOf, not the porch-inclusive availableShapeCounts) so no button can promise what Gate 4 refuses.",
+      "owner_flags": [
+        "The FEED row appears only on YOUR OWN live goblin tower, and only during BUILD (the popover itself is phase-gated by R19 - inherited behaviour, not new).",
+        "Captions name the GOBLIN, not the count, so you can learn Square -> SHIELD while holding no Squares. Say the word if you would rather see how many of each shape you hold.",
+        "Every blueprint counts as 'a tower' for P1's raid accrual, including this one - flagged there too."
+      ]
     },
     {
       "id": "P3",
@@ -371,7 +520,11 @@
     "S152 P1 — VITEST WENT GREEN WHILE TSC WAS RED, TWICE. Vitest does not typecheck, so 17/17 passing said nothing about two unwidened cause unions (the ACTION's and the EFFECT's are different unions). tsc is the gate; a green test run is not evidence the build is sound.",
     "S152 P1 — THE SILENT REGRESSION I ALMOST SHIPPED WAS FOUND BY ASKING WHAT THE GESTURE USED TO SOUND LIKE. Right-clicking a bond farted via cause:'player'. Renaming the cause to 'raid' would have muted the most common sever in the game, and NOTHING would have failed — no test asserts that SFX, and severBond's `never` guard only forces the ATTRIBUTION decision, not the audio one. Exhaustiveness guards cover the branches someone thought to guard.",
     "S152 P1 — A SCREENSHOT CAUGHT WHAT 21 LAYOUT TESTS COULD NOT, BECAUSE I HAD NOT REGISTERED THE SURFACE. My HUD diamonds drew straight through the Q=ZONE text. hudLayout.test.ts sweeps every pair of registered surfaces — it was silent only because a new surface is invisible to it until someone adds it. The durable fix was not moving the x; it was registering 'raid-pips' so the gate owns the invariant instead of my eyes.",
-    "S152 P1 — THE MIXED LINE ENDINGS BIT AGAIN AND A BYTE-LEVEL CHECK IS THE ONLY HONEST VERIFIER. controls.ts is pure CRLF, every other file pure LF. A needle written with \n matched ZERO times there, and a hand-rolled import rewrite injected 2 bare LFs into a CRLF file. Both were caught by asserting the match COUNT and then re-counting terminators as bytes — `grep -c` cannot see a line ending."
+    "S152 P1 — THE MIXED LINE ENDINGS BIT AGAIN AND A BYTE-LEVEL CHECK IS THE ONLY HONEST VERIFIER. controls.ts is pure CRLF, every other file pure LF. A needle written with \n matched ZERO times there, and a hand-rolled import rewrite injected 2 bare LFs into a CRLF file. Both were caught by asserting the match COUNT and then re-counting terminators as bytes — `grep -c` cannot see a line ending.",
+    "S152 P2 - THE MISSING BUTTON WAS THE SMALLER HALF. The goblin tower never IGNITED: runSpawnerIgnition names its recipes by hand and only ever named two, while goblinTowerRecipe sat in a registry whose matcher has zero production callers. A REGISTERED RECIPE IS NOT A LIVE RECIPE - registration feeds a matcher nothing calls, so adding a recipe to the registry LOOKS like wiring it up. Every gate downstream was correct and unreachable.",
+    "S152 P2 - 'IT BUILDS, IT IGNITES, IT TEARS DOWN' WAS TWO-OF-THREE, and I only found out because a test written for a DIFFERENT purpose (the FEED row) asserted six buttons and got zero. When a handoff lists three capabilities in one breath, the cheapest audit is one test that exercises all three through the real path - not reading the code for each.",
+    "S152 P2 - WIDENING A RETURN TYPE IS A CHEAP WAY TO BUY tsc ENFORCEMENT. Making buttonAt return a discriminated action instead of a bare string kind forced controls.ts and main.ts to be updated in the same edit. The alternative (six 'FEED_DOT'-style literals) would have compiled everywhere and pushed the payload into a string every consumer re-parses.",
+    "S152 P2 - A PANEL MUST COUNT WHAT THE REDUCER COUNTS. FEED's gate reads bankCountOf (castle bank only); the obvious availableShapeCounts also includes the porch, which would have shown a feedable shape and then been silently refused. The affordance and the authority must consult the same source or they drift."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -448,7 +601,7 @@
   },
   "real_context_tokens_at_close": 494183,
   "real_context_pct_at_close": 49.42,
-  "checkpoint_commit": "2078bb1",
+  "checkpoint_commit": "f5809fb",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
