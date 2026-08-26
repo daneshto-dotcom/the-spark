@@ -47,6 +47,7 @@ import {
   type SparkType,
   // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
   // the ceiling on how much of the bank one click may decant.
+  TITLE_EXIT_CONFIRM_MS,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -1018,6 +1019,48 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  /*
+   * ⭐ S153 A2 — LEAVE A MATCH IN PROGRESS. Owner: *"i dont want to have to restart the page to go
+   * back to main menue"*.
+   *
+   * ⛔ THERE WAS NO EXIT AT ALL, and that is the finding — not a broken button. `RETURN_TO_TITLE`
+   * was reachable from exactly three places: the lobby's Back-to-Title, the connection-lost
+   * overlay, and a click on POSTGAME. A match in PLAYING had none of them, so reloading the tab was
+   * genuinely the only way out. An e2e sweep confirmed the lobby button itself works fine
+   * (oneVOne → LOBBY → back → TITLE), which is why this is an ADDITION rather than a repair.
+   *
+   * This is the S109 P0 defect with the names changed: *"the owner got trapped: the in-game G+C
+   * codex had no key-exit, only the on-screen CLOSE button"*. Same person, same trap, a different
+   * screen.
+   *
+   * ⚠ DOUBLE-PRESS, DELIBERATELY. A single Escape that abandons a live match is a worse bug than
+   * the one being fixed — Escape is already the disarm key and the close-any-overlay key, so a
+   * player pressing it out of habit would lose their game. Two presses inside
+   * TITLE_EXIT_CONFIRM_MS is the cheapest confirmation that needs no new UI surface, and therefore
+   * no hudLayout registration (an unregistered surface is invisible to the overlap gate — the S152
+   * defect that drew HUD diamonds through the Q=ZONE text).
+   *
+   * Ordered AFTER every other Escape listener and gated on all of them being shut, so it can never
+   * swallow an Escape meant for the codex, the bot setup, the settings panel, the arcade, or a
+   * blueprint disarm.
+   */
+  let lastEscapeAtMs: number | null = null;
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (world.gameState !== 'PLAYING') return;
+    if (chordBlocked()) return; // typing a name / NONET / a cinematic is running
+    if (codexOverlay !== null && codexOverlay.isVisible()) return;
+    if (castlePanel.armedBlueprint() !== null) return; // the disarm press owns this Escape
+    const nowMs = performance.now();
+    if (lastEscapeAtMs !== null && nowMs - lastEscapeAtMs < TITLE_EXIT_CONFIRM_MS) {
+      lastEscapeAtMs = null;
+      teardownNet(session, world, controls, P1);
+      dispatch(world, { type: 'RETURN_TO_TITLE' });
+      return;
+    }
+    lastEscapeAtMs = nowMs;
+  });
+
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
   // on the *→TITLE transition watcher below). Pure decision state — no Pixi /
@@ -1264,7 +1307,7 @@ async function bootstrap(): Promise<void> {
     // player learns the gesture. Under owner R78 a right-click is a RAID: a 2-ATK hit on a unit OR a
     // connector, paid with a raid point, which severs only once accumulated damage reaches the
     // connector's capacity. Stale help is worse than none — it teaches the wrong cost model.
-    text: 'LMB drag spark → place · RMB → RAID unit or connector · Q shrink territory · ~ stats · C cinematics',
+    text: 'LMB drag spark → place · RMB → RAID unit or connector · Q shrink territory · ~ stats · C cinematics · ESC ESC quit',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(HELP_LINE_X, HELP_LINE_Y);

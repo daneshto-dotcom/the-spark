@@ -1924,3 +1924,10 @@ export const GOBLIN_SPREAD_RADIUS = 26;
  * picture and the simulation cannot drift apart.
  */
 export const ARROW_FLIGHT_TICKS = 12;
+
+/**
+ * S153 A2 — how long the second Escape has to arrive to confirm leaving a live match.
+ * 1.6s: long enough to be a deliberate double-tap, short enough that an Escape pressed for some
+ * other reason a few seconds earlier cannot combine with a later one to abandon a game.
+ */
+export const TITLE_EXIT_CONFIRM_MS = 1600;
