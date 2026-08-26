@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makeWorld, type World } from '../state/world.ts';
@@ -20,6 +20,8 @@ import { applyBuildBlueprint } from '../state/blueprintBuild.ts';
 import { makeCastleBank } from '../state/castleBank.ts';
 import { damageEntity } from '../state/damage.ts';
 import { structureActionModel } from './structurePanel.ts';
+import { runSpawnerIgnition } from '../state/godlyMatcherCore.ts';
+import '../state/godlyRecipes/goblinTower.ts';
 
 const P0 = asPlayerId(0);
 const SITE: Vec2 = { x: 300, y: 300 };
@@ -146,6 +148,111 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
     for (const b of view!.buttons) {
       expect(b.x).toBeGreaterThanOrEqual(0);
       expect(b.y).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+/*
+ * ⭐ S152 P2 — THE FEED ROW. The gesture S151 P3 shipped without.
+ *
+ * `applyFeedTower` was built, gated and covered by 13 tests while NOTHING DISPATCHED IT, so the
+ * goblin tower's whole mechanic was unreachable in play. These assertions cover the half that made
+ * it reachable: the row appears only on a live goblin tower this seat owns, it always shows all six
+ * shapes, and it counts what the REDUCER counts.
+ */
+describe('structureActionModel — the FEED row (owner R70 / S152 P2)', () => {
+  function goblinTower(): World {
+    const w = makeWorld(0);
+    w.isHost = true;
+    w.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]));
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('goblinTower')) {
+      bank[type as number] = (bank[type as number] ?? 0) + count;
+    }
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, {
+      type: 'BUILD_BLUEPRINT',
+      playerId: P0,
+      blueprintId: 'goblinTower',
+      centre: SITE,
+    });
+    // Ignition is a host poll, not a build side-effect, so drive it the way the game does.
+    runSpawnerIgnition(w);
+    return w;
+  }
+
+  it('a laserTurret gets NO feed row — the row is not offered on every producing structure', () => {
+    const view = structureActionModel(setup(), P0, nodeId(setup(), 0))!;
+    expect(view.buttons.some((b) => b.kind === 'FEED')).toBe(false);
+    expect(view.feedSpawnerId).toBeUndefined();
+  });
+
+  it('a live goblin tower gets SIX feed buttons and carries its spawner id', () => {
+    const w = goblinTower();
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    const feed = view.buttons.filter((b) => b.kind === 'FEED');
+    expect(feed).toHaveLength(ALL_SPARK_TYPES.length);
+    expect(feed).toHaveLength(6);
+    expect(view.feedSpawnerId).not.toBeUndefined();
+    // Every button names the shape it hands over — that payload is the reason `buttonAt` had to
+    // stop returning a bare kind.
+    expect(feed.every((b) => b.sparkType !== undefined)).toBe(true);
+    expect(new Set(feed.map((b) => b.sparkType)).size).toBe(6);
+  });
+
+  it('⭐ ALL SIX SHOW EVEN WHEN UNAFFORDABLE — a refused control must SAY why, never vanish', () => {
+    const w = goblinTower();
+    // Empty the bank completely: the build consumed its bill, so top it back to exactly zero.
+    w.castleBanks.set(P0, makeCastleBank());
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    const feed = view.buttons.filter((b) => b.kind === 'FEED');
+    expect(feed).toHaveLength(6);
+    expect(feed.every((b) => !b.enabled)).toBe(true);
+    // A player with no Squares must still be able to LEARN that Square makes the shield goblin.
+    expect(feed.map((b) => b.caption)).toContain('SHIELD');
+  });
+
+  it('a button is enabled exactly when the CASTLE BANK holds that shape', () => {
+    const w = goblinTower();
+    w.castleBanks.set(P0, makeCastleBank());
+    stock(w, SparkType.Circle, 2);
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    const byType = new Map(view.buttons.filter((b) => b.kind === 'FEED').map((b) => [b.sparkType, b]));
+    expect(byType.get(SparkType.Circle)!.enabled).toBe(true);
+    expect(byType.get(SparkType.Square)!.enabled).toBe(false);
+  });
+
+  it('every caption names the goblin that shape actually produces, keyed off GOBLIN_FEED_MAP', () => {
+    const w = goblinTower();
+    const view = structureActionModel(w, P0, nodeId(w, 0))!;
+    for (const b of view.buttons.filter((b) => b.kind === 'FEED')) {
+      expect(b.caption).not.toBe('?'); // '?' means the short-name table lost a CreatureType
+      expect(b.caption.length).toBeLessThanOrEqual(6); // measured ceiling for a 44px button
+    }
+  });
+
+  it('the feed row never leaves the canvas, wherever the tower stands', () => {
+    for (const centre of [{ x: 40, y: 40 }, { x: 1880, y: 1040 }, { x: 960, y: 540 }]) {
+      const w = makeWorld(0);
+      w.isHost = true;
+      w.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]));
+      const bank = makeCastleBank();
+      for (const [type, count] of blueprintBill('goblinTower')) {
+        bank[type as number] = (bank[type as number] ?? 0) + count;
+      }
+      w.castleBanks.set(P0, bank);
+      applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'goblinTower', centre });
+      runSpawnerIgnition(w);
+      const anchor = [...w.primitives.values()][0];
+      if (anchor === undefined) continue;
+      const view = structureActionModel(w, P0, anchor.id);
+      if (view === null) continue;
+      for (const b of view.buttons) {
+        expect(b.x).toBeGreaterThanOrEqual(0);
+        expect(b.y).toBeGreaterThanOrEqual(0);
+        expect(b.x + b.w).toBeLessThanOrEqual(CANVAS_WIDTH);
+        expect(b.y + b.h).toBeLessThanOrEqual(CANVAS_HEIGHT);
+      }
     }
   });
 });

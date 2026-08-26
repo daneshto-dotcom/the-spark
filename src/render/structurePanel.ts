@@ -35,17 +35,39 @@
  */
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, type SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, type SparkType } from '../constants.ts';
 import { codexCopyFor } from './codexPresentation.ts';
 import { availableShapeCounts } from '../state/blueprintBuild.ts';
+import { bankCountOf } from '../state/castleBank.ts';
+// ⛔ FROM THE SIDE-EFFECT-FREE LEAF, never from `godlyRecipes/goblinTower.ts` — that module calls
+// `registerRecipe` at its tail, and the documented S144 trap is that a value import of a recipe
+// module registers every recipe for everything downstream of it. `goblinKinds.ts` exists for this.
+import { GOBLIN_FEED_MAP, isGoblinTowerComponent } from '../state/goblinKinds.ts';
+import { drawSparkGlyph } from './sparkGlyph.ts';
 import { planStructureRepair, planStructureScrap } from '../state/structureRepair.ts';
-import type { PlayerId, PrimitiveId, Vec2 } from '../types.ts';
+import type { PlayerId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import type { World } from '../state/world.ts';
 
 /** Button box size — wide enough for "NEED 3 MORE" at 13 px without wrapping. */
 const BTN_W = 138;
 const BTN_H = 46;
 const BTN_GAP = 10;
+/**
+ * ⭐ S152 P2 — THE FEED ROW: six small square buttons, one per shape.
+ *
+ * Deliberately a different SHAPE of control from FIX/SCRAP (44 px squares carrying a glyph and a
+ * count, versus 138 px word buttons). They do different kinds of thing: FIX and SCRAP act on the
+ * structure, FEED spends inventory to produce a unit. Six more word-buttons in the same row would
+ * read as eight equal options, and the row would be 1,180 px wide.
+ *
+ * The layout is the castle panel's six-slot swatch rhythm (castlePanel.ts:1088) rather than a new
+ * idiom — a player already reads shape-glyph-plus-count there.
+ */
+const FEED_BTN = 44;
+const FEED_GAP = 6;
+/** Between the FIX/SCRAP row and the FEED row. */
+const FEED_ROW_GAP = 8;
+
 /** How far above the structure's top edge the popover floats. */
 const LIFT = 30;
 /** Keeps the popover fully on-canvas when a tower is built hard against an edge. */
@@ -54,11 +76,49 @@ const EDGE_MARGIN = 8;
 const TINT_ENABLED = 0xffd27a;
 const TINT_DISABLED = 0x93a0b4;
 const TINT_SCRAP = 0xff9b7a;
+/** S152 P2 — FEED reads as a third kind of act, so it gets its own hue rather than FIX's amber. */
+const TINT_FEED = 0x8fe36a;
 
-export type StructureActionKind = 'FIX' | 'SCRAP';
+/**
+ * ⭐ SHAPE → GOBLIN, IN SIX CHARACTERS, BECAUSE THE MAPPING IS OTHERWISE UNDISCOVERABLE.
+ *
+ * The tower's whole mechanic is that WHICH SHAPE YOU FEED IT decides what walks out (owner R70:
+ * *"takes one shape to feed to then spawn a goblin of different kinds"*), and nothing on screen
+ * told the player that. A bank count would have been the obvious caption and is the less useful
+ * one: affordability is ALREADY carried by the button being lit or dimmed, whereas
+ * Square → shield goblin cannot be inferred from anything.
+ *
+ * ⚠ SIX CHARACTERS IS A MEASURED CEILING, NOT A STYLE CHOICE: a 44 px button at fontSize 11 fits
+ * about six monospace glyphs. Keyed off `GOBLIN_FEED_MAP` so a change to what a shape produces
+ * cannot leave this label describing the old unit.
+ */
+const GOBLIN_SHORT_NAME: Readonly<Record<string, string>> = {
+  goblinSuicide: 'SAPPER',
+  goblinArcher: 'ARCHER',
+  goblinMelee: 'MELEE',
+  goblinShield: 'SHIELD',
+  goblinHound: 'HOUND',
+  goblinBat: 'BAT',
+};
+
+/**
+ * ⚠ 'FEED' CARRIES A PAYLOAD AND THE OTHER TWO DO NOT, which is why `buttonAt` can no longer
+ * return a bare kind. Six separate literals ('FEED_DOT', 'FEED_LINE', …) was the alternative and
+ * it is worse: the shape would then be encoded in a STRING that every consumer has to parse back
+ * out, and `GOBLIN_FEED_MAP` is already keyed by `SparkType`.
+ */
+export type StructureActionKind = 'FIX' | 'SCRAP' | 'FEED';
+
+/** What a click on a button MEANS — the kind, plus the shape when the kind needs one. */
+export type StructureAction =
+  | { readonly kind: 'FIX' }
+  | { readonly kind: 'SCRAP' }
+  | { readonly kind: 'FEED'; readonly sparkType: SparkType };
 
 export interface StructureButtonGeom {
   readonly kind: StructureActionKind;
+  /** Set on FEED buttons only — which shape this button hands to the tower. */
+  readonly sparkType?: SparkType;
   /** The big word. */
   readonly label: string;
   /** The small line under it — the cost, the refund, or the reason it is refused. */
@@ -72,6 +132,12 @@ export interface StructureButtonGeom {
 
 export interface StructureActionView {
   readonly primitiveId: PrimitiveId;
+  /**
+   * Set when this structure is the seat's own live goblin tower — the id `FEED_TOWER` needs.
+   * Carried on the VIEW rather than re-looked-up at click time so the id a player sees a row for
+   * is the id the dispatch uses, with no second search that could resolve differently.
+   */
+  readonly feedSpawnerId?: SpawnerId;
   /** The structure's name, or 'STRUCTURE' for something the player bonded together by hand. */
   readonly title: string;
   readonly titlePos: Vec2;
@@ -98,6 +164,42 @@ export interface StructureActionView {
  *
  * SCRAP has no third state: if you may act on the structure at all, you may tear it down.
  */
+/**
+ * ⭐ PURE — the seat's own live goblin tower among `memberIds`, or null.
+ *
+ * ## Why this has to find a SPAWNER and not just a shape
+ *
+ * `FEED_TOWER` takes a `SpawnerId`, but the popover is aimed at a `PrimitiveId` — the shape the
+ * player clicked. The bridge is `Spawner.anchorPrimitiveId`, so the tower is identified by finding
+ * the spawner anchored to one of this structure's members.
+ *
+ * ⛔ AND THE `recipeId` CHECK IS LOAD-BEARING, NOT DEFENSIVE. Every producing structure in the
+ * game is a `CreatureSpawner` — a pentagram, a lightning hub, a stink tower. Matching on "has a
+ * spawner" would offer a FEED row on a chewer nest, and the reducer's own Gate 1 would then refuse
+ * every click with no explanation on screen. The panel must not offer what the reducer refuses.
+ *
+ * ⚠ THE ANCHOR IS RE-VALIDATED WITH `isGoblinTowerComponent`, because the host's revalidation poll
+ * is THROTTLED (`REVALIDATE_INTERVAL_TICKS`). There is a real window in which a tower whose leaves
+ * have been eaten is still in `creatureSpawners`, and the reducer's Gate 3 guards the mint — but a
+ * panel that keeps offering FEED on a collapsed tower reads as broken even when the refusal is
+ * correct. Re-deriving costs one BFS on a component the popover has already walked.
+ */
+function goblinTowerAmong(
+  world: World,
+  seat: PlayerId,
+  memberIds: ReadonlySet<PrimitiveId> | readonly PrimitiveId[],
+): { spawnerId: SpawnerId } | null {
+  const members = memberIds instanceof Set ? memberIds : new Set(memberIds);
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.recipeId !== 'goblinTower') continue;
+    if (sp.ownerPlayerId !== seat) continue;
+    if (!members.has(sp.anchorPrimitiveId)) continue;
+    if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
+    return { spawnerId: sp.id };
+  }
+  return null;
+}
+
 export function structureActionModel(
   world: World,
   seat: PlayerId,
@@ -168,12 +270,57 @@ export function structureActionModel(
     h: BTN_H,
   });
 
+  /*
+   * ⭐ S152 P2 — THE FEED ROW. This is the gesture S151 P3 shipped without.
+   *
+   * `applyFeedTower` was built, gated and covered by 13 tests, and NOTHING DISPATCHED IT — so the
+   * goblin tower could be built, could ignite and could tear down, while its entire mechanic was
+   * unreachable in play. `goblinTowerFeed.ts` says so at the top of the file and names this panel
+   * as the intended home.
+   *
+   * Six buttons, always all six, never only the affordable ones — the standing contract in this
+   * codebase for a refused control (`castleStructuresModel`: a disabled tile must SAY why, never
+   * read as absent). A player must be able to learn that Square makes the shield goblin while
+   * holding no Squares.
+   */
+  const feed = goblinTowerAmong(world, seat, scrap.memberIds);
+  if (feed !== null) {
+    const feedW = ALL_SPARK_TYPES.length * FEED_BTN + (ALL_SPARK_TYPES.length - 1) * FEED_GAP;
+    let feedLeft = (minX + maxX) / 2 - feedW / 2;
+    feedLeft = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - feedW - EDGE_MARGIN, feedLeft));
+    // Directly under the FIX/SCRAP row, and clamped like it: a tower against the bottom wall must
+    // not push its own feed controls off-screen (the same failure the `top` flip above prevents).
+    let feedTop = top + BTN_H + FEED_ROW_GAP;
+    if (feedTop + FEED_BTN > CANVAS_HEIGHT - EDGE_MARGIN) {
+      feedTop = top - FEED_ROW_GAP - FEED_BTN;
+    }
+    ALL_SPARK_TYPES.forEach((type, i) => {
+      // ⛔ THE CASTLE BANK ONLY, NOT `availableShapeCounts`. The reducer's Gate 4 checks
+      // `bankCountOf` — the tower is fed from STORES, not from loose shapes on the board — so a
+      // count that also included the porch would show a feedable 1 and then be refused with no
+      // explanation. The panel must count what the reducer counts.
+      const held = bankCountOf(world.castleBanks, seat, type);
+      buttons.push({
+        kind: 'FEED',
+        sparkType: type,
+        label: '',           // the glyph IS the label — see the renderer
+        caption: GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]] ?? '?',
+        enabled: held > 0,
+        x: feedLeft + i * (FEED_BTN + FEED_GAP),
+        y: feedTop,
+        w: FEED_BTN,
+        h: FEED_BTN,
+      });
+    });
+  }
+
   const title = repair === null ? 'STRUCTURE' : codexCopyFor(repair.group.blueprintId).name;
   return {
     primitiveId,
     title,
     titlePos: { x: left + totalW / 2, y: top - 13 },
     buttons,
+    ...(feed !== null ? { feedSpawnerId: feed.spawnerId } : {}),
   };
 }
 
@@ -245,22 +392,39 @@ export class StructurePanel {
 
     for (let i = 0; i < view.buttons.length; i++) {
       const b = view.buttons[i];
-      const tint = !b.enabled ? TINT_DISABLED : b.kind === 'SCRAP' ? TINT_SCRAP : TINT_ENABLED;
+      const tint = !b.enabled
+        ? TINT_DISABLED
+        : b.kind === 'SCRAP'
+          ? TINT_SCRAP
+          : b.kind === 'FEED'
+            ? TINT_FEED
+            : TINT_ENABLED;
       g.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: 0x0b0f16, alpha: 0.92 });
       g.roundRect(b.x, b.y, b.w, b.h, 10).stroke({ width: 2, color: tint, alpha: 0.95 });
 
+      // ⚠ THE LABEL POOL IS INDEXED ARITHMETICALLY (`1 + i*2`, `2 + i*2`), so EVERY button must
+      // claim exactly two slots whether or not it uses both. A FEED button draws its shape with
+      // `drawSparkGlyph` instead of a word, so its label slot is set EMPTY rather than skipped —
+      // skipping would shift every later button's captions up by one and the trailing
+      // `hideLabelsFrom` would then leave a stale word on screen.
       const label = this.labelAt(1 + i * 2);
-      label.text = b.label;
-      label.style.fontSize = 18;
-      label.style.fill = tint;
-      label.position.set(b.x + b.w / 2, b.y + 16);
-      label.visible = true;
+      if (b.kind === 'FEED' && b.sparkType !== undefined) {
+        drawSparkGlyph(g, b.x + b.w / 2, b.y + b.h / 2 - 4, 11, b.sparkType, tint);
+        label.text = '';
+        label.visible = false;
+      } else {
+        label.text = b.label;
+        label.style.fontSize = 18;
+        label.style.fill = tint;
+        label.position.set(b.x + b.w / 2, b.y + 16);
+        label.visible = true;
+      }
 
       const caption = this.labelAt(2 + i * 2);
       caption.text = b.caption;
-      caption.style.fontSize = 13;
+      caption.style.fontSize = b.kind === 'FEED' ? 11 : 13;
       caption.style.fill = tint;
-      caption.position.set(b.x + b.w / 2, b.y + 34);
+      caption.position.set(b.x + b.w / 2, b.kind === 'FEED' ? b.y + b.h - 13 : b.y + 34);
       caption.visible = true;
     }
     this.hideLabelsFrom(1 + view.buttons.length * 2);
@@ -277,14 +441,32 @@ export class StructurePanel {
     return this.buttonAt(x, y) !== null;
   }
 
-  /** The button under this point, or null. Disabled buttons do not answer — they only explain. */
-  buttonAt(x: number, y: number): StructureActionKind | null {
+  /**
+   * The ACTION under this point, or null. Disabled buttons do not answer — they only explain.
+   *
+   * ⚠ RETURNS THE ACTION, NOT THE KIND. It used to return `'FIX' | 'SCRAP' | null`, which cannot
+   * express WHICH SHAPE a FEED button hands over. Widening the return type is what tsc-forced every
+   * consumer (`controls.ts`'s structural `StructurePanelLike`, `main.ts`'s dispatch) to be updated
+   * together, which is the point of typing it this way rather than adding a second lookup method.
+   */
+  buttonAt(x: number, y: number): StructureAction | null {
     if (this.view === null) return null;
     for (const b of this.view.buttons) {
       if (!b.enabled) continue;
-      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.kind;
+      if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue;
+      if (b.kind === 'FEED') {
+        // A FEED button with no shape is a construction bug, not a click to swallow.
+        if (b.sparkType === undefined) return null;
+        return { kind: 'FEED', sparkType: b.sparkType };
+      }
+      return { kind: b.kind === 'SCRAP' ? 'SCRAP' : 'FIX' };
     }
     return null;
+  }
+
+  /** The goblin tower this popover can feed, when it is aimed at one. */
+  feedSpawnerId(): SpawnerId | null {
+    return this.view?.feedSpawnerId ?? null;
   }
 
   /** The structure the popover is currently aimed at. */

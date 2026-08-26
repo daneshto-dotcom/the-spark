@@ -41,6 +41,10 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  // S152 P2 — FEED_TOWER's payload type. `controls.ts` carries the shape as a bare `number` on
+  // purpose (it must not import Pixi OR the SparkType enum's module graph), so the cast back to the
+  // nominal type happens here, at the one place that builds the actual intent.
+  type SparkType,
   // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
   // the ceiling on how much of the bank one click may decant.
 } from './constants.ts';
@@ -772,9 +776,31 @@ async function bootstrap(): Promise<void> {
   // error. A local SCRAP is worse: it would credit the bank locally and then have the host's
   // snapshot take the shapes back, so the player would watch their inventory tick up and down.
   // Both land when the authoritative snapshot does, which is also what makes them honest.
-  controls.setStructureActionHandler((kind, primitiveId) => {
+  // ⭐ S152 P2 — FEED_TOWER JOINS THEM, AND IT IS THE GESTURE S151 P3 SHIPPED WITHOUT. `applyFeedTower`
+  // was fully built, gated and covered by 13 tests with NOTHING DISPATCHING IT, so the goblin tower's
+  // entire mechanic — one tower, six outputs — was unreachable in play. This line is the wire.
+  //
+  // ⚠ FEED READS THE SPAWNER ID OFF THE PANEL, not from a fresh lookup here. The panel already
+  // resolved primitive → spawner when it decided to SHOW the row, and re-deriving it at click time
+  // could resolve differently on a frame where the tower is mid-collapse — offering a row for one
+  // tower and feeding another. Same reason the intent names the SELECTED primitive rather than
+  // whatever lies under the cursor.
+  controls.setStructureActionHandler((action, primitiveId) => {
+    if (action.kind === 'FEED') {
+      const spawnerId = structurePanel.feedSpawnerId();
+      // The row cannot be drawn without a spawner, so this is unreachable in practice — but a
+      // silent no-op beats dispatching FEED_TOWER with a fabricated id.
+      if (spawnerId === null) return;
+      dispatchFn({
+        type: 'FEED_TOWER',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+      });
+      return;
+    }
     dispatchFn(
-      kind === 'FIX'
+      action.kind === 'FIX'
         ? { type: 'REPAIR_STRUCTURE', playerId: world.localPlayerId, primitiveId }
         : { type: 'SCRAP_STRUCTURE', playerId: world.localPlayerId, primitiveId },
     );

@@ -24,6 +24,11 @@ import { findAllPentagramAnchors, pentagramOwnerForAnchor } from './godlyRecipes
 // S113 Batch C — importing the lightning-hub recipe also triggers its registerRecipe side-effect,
 // exactly like the pentagram import above (registry parity with the pre-split module).
 import { findAllLightningHubAnchors, lightningHubOwnerForAnchor } from './godlyRecipes/lightningHub.ts';
+// ⛔ A VALUE IMPORT OF A RECIPE MODULE, WHICH FIRES ITS `registerRecipe` — SAFE HERE AND ONLY HERE.
+// The S144/S151 trap is `world.ts -> ... -> a recipe module`, which registers every recipe for
+// essentially the whole codebase. This file is on the OTHER side of that edge: it imports world.ts,
+// world.ts does not import it. Both lines above are the same shape and have been for sessions.
+import { findAllGoblinTowerAnchors, goblinTowerOwnerForAnchor } from './godlyRecipes/goblinTower.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { CUTSCENE_FADE_MS } from '../constants.ts';
@@ -143,7 +148,25 @@ export function runSpawnerIgnition(world: World): void {
   if (!hasTopologyChange) return;
 
   if (igniteOneSpawnerRecipe(world, findAllPentagramAnchors(world), pentagramOwnerForAnchor, 'pentagram')) return;
-  igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub');
+  if (igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub')) return;
+  /*
+   * ⭐ S152 P2 — THE GOBLIN TOWER NEVER IGNITED. This line is the whole defect.
+   *
+   * S151 P3 shipped the tower's recipe, its predicate, its anchor finder, its owner resolver, its
+   * teardown (`recipeStillSatisfied` case 'goblinTower') and 13 tests for the feed reducer — and
+   * registered `goblinTowerRecipe` into the REGISTRY, whose spawner matcher (`findSpawnerMatch`)
+   * has ZERO production callers. This function is the only live ignition path and it names its
+   * recipes by hand, so the tower could be BUILT and would never become a spawner.
+   *
+   * ⛔ SO EVERY DOWNSTREAM GATE WAS CORRECT AND UNREACHABLE. `applyFeedTower`'s Gate 1 looks the
+   * spawner up in `world.creatureSpawners`; there was never an entry to find. The S151 handoff
+   * recorded "it builds, it IGNITES, it tears down" — building and teardown were true, ignition
+   * was not, and nothing failed because no test drove BUILD_BLUEPRINT through this sweep.
+   *
+   * ⚠ A REGISTERED RECIPE IS NOT A LIVE RECIPE. That is the durable lesson: registration only
+   * feeds `findSpawnerMatch`, and adding a recipe to the registry looks like wiring it up.
+   */
+  igniteOneSpawnerRecipe(world, findAllGoblinTowerAnchors(world), goblinTowerOwnerForAnchor, 'goblinTower');
 }
 
 /**

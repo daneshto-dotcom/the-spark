@@ -95,13 +95,25 @@ export interface FooterBandLike {
 }
 
 /**
- * S152 — the FIX / SCRAP popover, structurally typed for exactly the reason `FooterBandLike` is:
- * `controls.ts` must not import Pixi. Optional at every call site, so a harness without a popover
- * behaves precisely as it did before.
+ * S152 — the FIX / SCRAP / FEED popover, structurally typed for exactly the reason
+ * `FooterBandLike` is: `controls.ts` must not import Pixi. Optional at every call site, so a
+ * harness without a popover behaves precisely as it did before.
+ *
+ * ⚠ THE UNIONS ARE SPELLED OUT INLINE RATHER THAN IMPORTED FROM `structurePanel.ts`, and that is
+ * the whole discipline of this interface: importing the type would pull a Pixi module into the
+ * input layer. The cost is that these literals must be kept in step with the panel by hand — tsc
+ * catches it, because the panel is passed to `setStructurePanel` and would stop being assignable.
+ *
+ * ⭐ S152 P2 — `buttonAt` now answers with an ACTION, not a bare kind. A FEED click has to carry
+ * WHICH SHAPE, and a string kind cannot. This widening is what forced `main.ts` to be updated in
+ * the same edit instead of silently dropping the payload.
  */
 export interface StructurePanelLike {
   isOverButtons(x: number, y: number): boolean;
-  buttonAt(x: number, y: number): 'FIX' | 'SCRAP' | null;
+  buttonAt(
+    x: number,
+    y: number,
+  ): { readonly kind: 'FIX' } | { readonly kind: 'SCRAP' } | { readonly kind: 'FEED'; readonly sparkType: number } | null;
   selection(): PrimitiveId | null;
   select(primitiveId: PrimitiveId | null): void;
 }
@@ -351,16 +363,35 @@ export class Controls {
     this.structurePanel = panel;
   }
 
-  /** S152 — main.ts injects the REPAIR_STRUCTURE / SCRAP_STRUCTURE dispatch for the local seat. */
-  setStructureActionHandler(fn: (kind: 'FIX' | 'SCRAP', primitiveId: PrimitiveId) => void): void {
+  /**
+   * S152 — main.ts injects the REPAIR_STRUCTURE / SCRAP_STRUCTURE / FEED_TOWER dispatch for the
+   * local seat. The action is passed through whole, payload included, so this layer never has to
+   * know that FEED means a shape and the other two do not.
+   */
+  setStructureActionHandler(
+    fn: (
+      action:
+        | { readonly kind: 'FIX' }
+        | { readonly kind: 'SCRAP' }
+        | { readonly kind: 'FEED'; readonly sparkType: number },
+      primitiveId: PrimitiveId,
+    ) => void,
+  ): void {
     this.onStructureAction = fn;
   }
 
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
   private structurePanel: StructurePanelLike | null = null;
-  private onStructureAction: ((kind: 'FIX' | 'SCRAP', primitiveId: PrimitiveId) => void) | null =
-    null;
+  private onStructureAction:
+    | ((
+        action:
+          | { readonly kind: 'FIX' }
+          | { readonly kind: 'SCRAP' }
+          | { readonly kind: 'FEED'; readonly sparkType: number },
+        primitiveId: PrimitiveId,
+      ) => void)
+    | null = null;
 
   /**
    * S136 P0 — is the cursor over the open castle panel? Replaces `isPointerOverFooter`.
@@ -440,11 +471,11 @@ export class Controls {
    */
   private handleStructureActionClick(): boolean {
     if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
-    const kind = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);
-    if (kind === null) return false;
+    const action = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);
+    if (action === null) return false;
     const target = this.structurePanel.selection();
     if (target === null) return false;
-    this.onStructureAction?.(kind, target);
+    this.onStructureAction?.(action, target);
     return true;
   }
 
