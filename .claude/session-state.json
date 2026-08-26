@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 2275,
+  "tool_calls_session_total": 2279,
   "session_id": "S152",
   "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
   "session_start": "2026-08-23",
   "prior_session_note": "S151 closed at 85495f1; protocol 30; preflight re-measured GREEN this session: build 727.6/900 KiB, vitest 2940/2940, e2e:gating 44 exit 0, verify-deploy 4/4, CI 15/15 success",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-22_S151.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
   "session_status": "in_progress",
@@ -505,12 +505,239 @@
       "id": "P3",
       "title": "THREE GOBLINS + REBUILD THE STINK TOWER ART (owner-scoped this session)",
       "tier": "Full",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "scope": "Design PNGs then veo image-to-video atlases for shield goblin, terrorist goblin and bat rider goblin in the established style (bold ink outline, olive skin, brown leather + grey steel, plain white ground, small drop shadow, NO white sticker halo — the owner's rejected variant is literally named 'sticker-halo'). REBUILD the stink tower from the owner's 3-stink-tower-DEFENCE.png. Per-type Y offset for the flying bat rider. RETAIN specs + clips in-tree this time. Hound and poop bags explicitly OUT.",
-      "owner_diagnosis": "Owner: 'the currently implemented stink tower is shit we need to use the one from the screenshot'. Measured causes: (1) veo re-drew the tower each frame instead of animating a fixed one, so branch count changes across idle f0/f4/f8 and it appears to melt; (2) the matte's enclosed-white-by-area rule mis-fired on veo smoke, leaving pale ellipse artifacts; (3) design drift lost the symmetric five-bag layout."
+      "owner_diagnosis": "Owner: 'the currently implemented stink tower is shit we need to use the one from the screenshot'. Measured causes: (1) veo re-drew the tower each frame instead of animating a fixed one, so branch count changes across idle f0/f4/f8 and it appears to melt; (2) the matte's enclosed-white-by-area rule mis-fired on veo smoke, leaving pale ellipse artifacts; (3) design drift lost the symmetric five-bag layout.",
+      "check_completed": true,
+      "checkpoint_commit": "400b9df",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-anim.json",
+          "needle": "\"footAnchor\""
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-sapper\\anim\\goblin-sapper-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-sapper\\anim\\goblin-sapper-anim.json",
+          "needle": "\"footAnchor\""
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-anim.json",
+          "needle": "\"footAnchor\""
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-anim.json",
+          "needle": "\"footAnchor\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-shield\\anim\\goblin-shield-anim.json",
+          "needle": "\"attack\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-batrider\\anim\\goblin-batrider-anim.json",
+          "needle": "\"walk\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\stink-tower\\anim\\stink-tower-anim.json",
+          "needle": "\"idle\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "goblinShield: '/godly/goblin-shield/anim/goblin-shield',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "goblinSuicide: '/godly/goblin-sapper/anim/goblin-sapper',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "goblinBat: '/godly/goblin-batrider/anim/goblin-batrider',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "const GOBLIN_LIFT"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "goblinBat: 34,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "c.pos.y - lift"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "const SPAWN_ALPHA_FLOOR = 0.35;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "SPAWN_ALPHA_FLOOR +"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "function washTowardsWhite("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "sp.tint = washTowardsWhite(tint, TINT_WASH);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "    sp.tint = tint;\n    void tint;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "ONLY WHEN IT IS SHAPED LIKE A BAR"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "vertical = h >= 0.90 * H and w <= 0.15 * W"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "bg = bg | np.isin(dlab, list(dborder))"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "spec.get('enclosedWhiteLimitPct', 0.003)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
+          "needle": "sampleWindow"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-design.mjs"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs",
+          "needle": "AN OPERATION NAME IS MONEY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\gen-character-clips.mjs",
+          "needle": "const CONCURRENCY = 4;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clip-spec.json",
+          "needle": "staticSubject"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
+          "needle": "enclosedWhiteLimitPct"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\walk.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-shield\\attack.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\walk.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-sapper\\attack.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\walk.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-batrider\\attack.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\stink-tower\\idle.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\stink-tower\\attack.mp4"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\4-goblin-shield-SQUARE.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\5-goblin-sapper-DOT.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\6-goblin-batrider-SPIRAL.png"
+        }
+      ],
+      "check_method": "RALPH:PATROL + EYES ON EVERY FRAME. STATIC: tsc -b clean; vitest 2968 passed (177 files); build 731.5/900 KiB. RUNTIME: e2e:gating 47 passed, exit code read from a redirect not a pipe. TEXTURE CENSUS MEASURED, NOT ASSUMED (the Council's one surviving concern): render-heap reports 74->76 texture sources, growth of 2 against TEXTURE_LIMIT 8. VISUAL: every character auditioned as a contact sheet BEFORE wiring, then all three spawned through the real FEED gesture in a live match and photographed. FOUR BUGS FOUND BY LOOKING, THREE PRE-EXISTING: (1) the matte deleted whole characters' ink outlines whenever a silhouette touched the frame edge, because an outline is near-black and connected, so it joined the letterbox bar - now only BAR-SHAPED dark regions are removed; this masqueraded as veo drift for three fix attempts until I extracted the RAW clip frames and found them pristine. (2) the enclosed-white threshold was calibrated on one character and kept the bat rider's mid-sized background pockets as opaque white blobs - now a per-spec knob, default unchanged so shipped art cannot regress; measured pockets 446-14291px vs features <=24px. (3) a goblin fed during BUILD was COMPLETELY INVISIBLE - hostTick gates the creature loop on FIGHT so ticksInState stayed 0 and the spawn-in alpha was exactly 0, while FEED is only reachable in BUILD (R19); every test passed and it took a screenshot with nothing on it. (4) the owner tint is a MULTIPLY against saturated PLAYER_COLORS, so an olive goblin times crimson came out near-black - the comment promised 'faint', the code did the opposite; the colour is now washed 80% towards white, which also repairs the SHIPPED melee and archer goblins. Also fixed my OWN clip-generator defect: it threw on the first 429 and orphaned seven already-billed veo operations, so op names are now persisted the instant they exist and submission is batched.",
+      "owner_flags": [
+        "SCALE IS YOUR DIAL. GOBLIN_SPRITE_BASE_SCALE is 0.17 (= PRINCESS/2, your 'about half the size of current helga'). The new art carries much more detail than the procedural puppet did, and at this size it is hard to read in play. Say the word and it moves.",
+        "FEEDING DURING BUILD QUEUES AN INERT GOBLIN. Creatures only tick in FIGHT, and the FEED row only exists in BUILD (R19), so a fed goblin now stands ghosted until the fight starts. I made it VISIBLE rather than ruling on whether that should be allowed at all - your call.",
+        "The terrorist goblin's asset is named 'sapper' and the FEED button says SAPPER: veo refuses prompts that read as a suicide bomber, so he is a comedic bomb-hugger. The CreatureType is still goblinSuicide.",
+        "The bat rider is the weakest of the three - his seed (goblin + bat + wings + spear) is the most complex, so veo drifts off it fastest and his clips are sampled from a 16-frame window. Say if he needs another pass.",
+        "goblinHound is still on the procedural puppet - you scoped three goblins this session, and I did not infer the fourth."
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -524,7 +751,13 @@
     "S152 P2 - THE MISSING BUTTON WAS THE SMALLER HALF. The goblin tower never IGNITED: runSpawnerIgnition names its recipes by hand and only ever named two, while goblinTowerRecipe sat in a registry whose matcher has zero production callers. A REGISTERED RECIPE IS NOT A LIVE RECIPE - registration feeds a matcher nothing calls, so adding a recipe to the registry LOOKS like wiring it up. Every gate downstream was correct and unreachable.",
     "S152 P2 - 'IT BUILDS, IT IGNITES, IT TEARS DOWN' WAS TWO-OF-THREE, and I only found out because a test written for a DIFFERENT purpose (the FEED row) asserted six buttons and got zero. When a handoff lists three capabilities in one breath, the cheapest audit is one test that exercises all three through the real path - not reading the code for each.",
     "S152 P2 - WIDENING A RETURN TYPE IS A CHEAP WAY TO BUY tsc ENFORCEMENT. Making buttonAt return a discriminated action instead of a bare string kind forced controls.ts and main.ts to be updated in the same edit. The alternative (six 'FEED_DOT'-style literals) would have compiled everywhere and pushed the payload into a string every consumer re-parses.",
-    "S152 P2 - A PANEL MUST COUNT WHAT THE REDUCER COUNTS. FEED's gate reads bankCountOf (castle bank only); the obvious availableShapeCounts also includes the porch, which would have shown a feedable shape and then been silently refused. The affordance and the authority must consult the same source or they drift."
+    "S152 P2 - A PANEL MUST COUNT WHAT THE REDUCER COUNTS. FEED's gate reads bankCountOf (castle bank only); the obvious availableShapeCounts also includes the porch, which would have shown a feedable shape and then been silently refused. The affordance and the authority must consult the same source or they drift.",
+    "S152 P3 - I RETUNED THE GENERATOR THREE TIMES FOR A BUG IN THE CONSUMER. Washed-out, blotchy sprites read exactly like generative drift, so I shortened clips, narrowed sample windows and rewrote prompts. Extracting the RAW clip frames took thirty seconds and showed them pristine: the matte was deleting the ink outlines. CHECK THE INPUT BEFORE RETUNING THE THING THAT CONSUMES IT.",
+    "S152 P3 - A CONNECTED-COMPONENT RULE IS ONLY AS GOOD AS ITS SHAPE TEST. 'Remove dark regions touching the border' sounds airtight until you notice a cartoon's ink outline is dark, connected, and touches the border the moment a wingtip does - taking the whole character with it. The fix was not a better threshold but a better QUESTION: is this shaped like a bar?",
+    "S152 P3 - A THRESHOLD CALIBRATED ON ONE SAMPLE IS A CONSTANT WAITING TO BE WRONG. The 0.3% enclosed-white limit was measured on the swordsman and documented with its measurements, which is why it was fixable in minutes - but it silently failed the first character with different proportions. Per-subject knob, default unchanged, so the calibration that works keeps working.",
+    "S152 P3 - THE INVISIBLE UNIT PASSED EVERY TEST I HAD. The e2e feed spec asserts the creature exists and the bank was debited; both were true while the player saw nothing at all, because alpha was ticksInState/spawnTicks and creatures do not tick during BUILD. A screenshot found in one glance what assertions on state cannot: state is not pixels.",
+    "S152 P3 - THE COMMENT PROMISED 'FAINT' AND THE CODE MULTIPLIED AT FULL STRENGTH, for a whole session. A Pixi tint is a multiply against saturated player colours, so the shipped goblins have been near-black smudges since S151 and nobody looked. When a comment states an intent that the code cannot express in one line, verify it on screen.",
+    "S152 P3 - AN ACCEPTED ASYNC JOB IS MONEY AND MUST BE PERSISTED BEFORE ANYTHING CAN THROW. My own generator held veo operation names in a local array and threw on the first 429, orphaning seven already-billed generations. Write the receipt to disk at the moment it exists, and treat backpressure as backpressure rather than failure."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -601,7 +834,7 @@
   },
   "real_context_tokens_at_close": 494183,
   "real_context_pct_at_close": 49.42,
-  "checkpoint_commit": "f5809fb",
+  "checkpoint_commit": "400b9df",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
