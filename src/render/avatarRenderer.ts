@@ -199,6 +199,23 @@ function drawCrown(g: Graphics, cx: number, baseY: number): void {
 
 export class AvatarRenderer {
   private readonly container: Container;
+  /**
+   * ⭐ S153 A1 (owner R81, second pass) — THE LOCAL PLAYER'S AVATAR ONLY, in its own layer above
+   * the HUD.
+   *
+   * ⛔ WHY THIS IS NOT JUST `bringToFront()` ON `container`. This renderer is multi-player (S45),
+   * so one container holds EVERY seat's avatar — and the fog deliberately sits ABOVE it. This file
+   * already relies on that: the leader-crown comment states "a fogged enemy's crown is hidden with
+   * their avatar", and S110 P3's codex lift is careful to restore the layer precisely so
+   * "fog-of-war layering (fog sits above avatars) is untouched in normal play". Lifting the whole
+   * container over the HUD lifts it over the fog too, and an enemy cruiser becomes visible through
+   * fog of war. That is a competitive information leak, not a z-order nicety.
+   *
+   * So the carve-out is exactly as wide as the owner's words: *"the mouse cruiser that controls the
+   * spark"* — YOUR avatar, and nobody else's. Remote seats stay in `container`, under the fog.
+   */
+  private readonly localLayer: Container;
+
   private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
   // S81 P4 — per-player smoothed display pos for REMOTE avatars (local renders at cursor).
   private readonly displayPosByPlayer: Map<PlayerId, Vec2> = new Map();
@@ -214,7 +231,20 @@ export class AvatarRenderer {
 
   constructor(app: Application) {
     this.container = new Container();
+    this.container.label = 'avatarRenderer';
     app.stage.addChild(this.container);
+    this.localLayer = new Container();
+    this.localLayer.label = 'avatarRendererLocal';
+    app.stage.addChild(this.localLayer);
+  }
+
+  /**
+   * S153 A1 — lift the LOCAL avatar above every HUD surface. Called last in main.ts, after the
+   * footer and the popover have taken their own places, so it is correct by construction the way
+   * `FooterBand.bringToFront` is.
+   */
+  bringLocalToFront(): void {
+    this.localLayer.parent?.addChild(this.localLayer);
   }
 
   /**
@@ -248,6 +278,9 @@ export class AvatarRenderer {
     // WIN/POSTGAME, where the win banner is up and the board is still on screen. The rest of `sync`
     // still runs, so the smoothing state stays warm and the first frame back is not a jump.
     this.container.visible = !isOverlayScreen(world.gameState);
+    // S150 P1's no-avatar-on-the-menu gate applies to BOTH layers, or the local cruiser would
+    // reappear as the corner artefact that gate exists to remove.
+    this.localLayer.visible = this.container.visible;
     const localPlayerId = controls.getPlayerId();
     const nowMs = performance.now();
     const tSec = nowMs / 1000;
@@ -271,9 +304,14 @@ export class AvatarRenderer {
       let g = this.graphicsByPlayer.get(player.id);
       if (g === undefined) {
         g = new Graphics();
-        this.container.addChild(g);
         this.graphicsByPlayer.set(player.id, g);
       }
+      // S153 A1 — re-home on every sync rather than only at creation: `localPlayerId` can change
+      // (host migration, a seat swap in the lobby), and a Graphics left in the wrong layer would
+      // either hide the player's own cruiser under the HUD or expose a remote one through the fog.
+      // `addChild` on an existing child is a MOVE, so this is idempotent and costs nothing.
+      const wantLayer = player.id === localPlayerId ? this.localLayer : this.container;
+      if (g.parent !== wantLayer) wantLayer.addChild(g);
       g.clear();
 
       // S82 P3 — CVD seat nameplate (created lazily; reused across frames).

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2471,
+  "tool_calls_session_total": 2486,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -700,6 +700,110 @@
       "estimated_tokens": 6000,
       "status": "pending",
       "detail": "Closes CF-S152-a. Poll world.tick, never raise the timeout - a longer rope is the fix that already failed twice in this repo.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A1",
+      "title": "Spark genuinely above the tier number (R81 unfinished)",
+      "tier": "Micro",
+      "estimated_tokens": 8000,
+      "status": "completed",
+      "detail": "Owner raised it twice. My P4 fix proved the spark CONTAINER sits above the footer CONTAINER (index 44 vs 42, mutation-verified) and the tier labels are children of that same footer container - so by that evidence it should already be on top and it is not. Root cause UNKNOWN. Reproduce against the live build before touching anything.",
+      "check_completed": true,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
+          "needle": "  bringLocalToFront(): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
+          "needle": "this.localLayer.label = 'avatarRendererLocal';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
+          "needle": "const wantLayer = player.id === localPlayerId ? this.localLayer : this.container;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
+          "needle": "this.localLayer.visible = this.container.visible;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "  avatarRenderer.bringLocalToFront();"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "sparkRenderer.bringToFront();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
+          "needle": "sparkIdx: labelIdx('avatarRendererLocal'),"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
+          "needle": "expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);"
+        }
+      ],
+      "check_method": "RALPH. Root cause found by READING rather than guessing: avatarRenderer.ts opens by calling \"spark\" an OVERLOADED term - player avatar vs building block - and S153 P4 lifted SparkRenderer, the building blocks. The P4 index A/B was sound but measured the wrong object, which is why the owner reported the same bug twice. Corroborated by S110 P3, which lifted this exact avatar layer for this exact complaint (\"I need to see the cruiser always\"). The P4 free-spark lift is REVERTED, not left as a harmless extra, because S149 P6 says board objects must not cover UI chrome and the owner carve-out was for the cruiser. LOCAL-ONLY by construction: the renderer is multi-player and fog deliberately sits above it, so lifting the whole container would show a REMOTE cruiser through fog. Owner confirmed the local case is intended (R90). Re-homed every sync rather than at creation so a host migration or seat swap cannot strand a Graphics in the wrong layer. fog.spec retargeted to the local avatar layer and MUTATION-VERIFIED - removing the lift turns it red. build green, 3003 unit, 50/50 e2e.",
+      "checkpoint_commit": "pending"
+    },
+    {
+      "id": "A2",
+      "title": "Back to Title is dead + sweep every clickable and back-menu",
+      "tier": "Standard",
+      "estimated_tokens": 14000,
+      "status": "pending",
+      "detail": "Owner is reloading the page to leave a match. The Back to Title in lobbyScreen.ts:410 looks correctly wired, so the broken one is a DIFFERENT surface - the in-game options panel. Owner also asked to check all clickable options and back menus for consistency, so this is a sweep and not a one-liner.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A3",
+      "title": "Armies retreat before FIGHT ends and idle at their tower, spawn-fresh translucent",
+      "tier": "Standard",
+      "estimated_tokens": 18000,
+      "status": "pending",
+      "detail": "Owner: spawns stay in enemy territory during BUILD which is wrong - they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built, halfway transparent. Applies to ALL spawn armies, so it touches the shared creature FSM rather than one unit type.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A4",
+      "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
+      "tier": "Full",
+      "estimated_tokens": 35000,
+      "status": "pending",
+      "detail": "Owner MAIN GOAL. New damageable castle entity, a damageEntity castle arm, the targeting fallback to actually ATTACK rather than just march (P1 already walks them there), and a second win condition alongside scoreByPlayer at 1500. Needs a hashed field, so expect a PROTOCOL BUMP and the six-site checklist.",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A5",
+      "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
+      "tier": "Full",
+      "estimated_tokens": 30000,
+      "status": "pending",
+      "detail": "Owner: bots still not building towers, medium bots should at least build some. BUILD_BLUEPRINT is already an allowlisted client intent so no bump. Littering fix in scope.",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -3697,6 +3801,19 @@
       "codebase_already_anticipates_this": "constants.ts says it in as many words next to PLAYER_COLORS: \"six colours are six future races, of which at most four are in play at once. PLAYER_COLORS[seat] is therefore only ever a DEFAULT assignment\". The owner arrived at the same model independently.",
       "palette_reconciliation": "MEASURED against the live palette rather than assumed. PLAYER_COLORS = Crimson 0xff3b6b, Cyan 0x3bd7ff, Yellow 0xffe23b, Green 0x44ff5e, Orange 0xff8c1a, Magenta 0xd73bff. Maps cleanly: zombies to Green, fire/magma to Crimson, ice giants to Cyan. ONE MISMATCH: there is NO WHITE SEAT for the ghosts. The nearest thing is BOT_ACCENT_COLOR 0xc0c8d0, a silvery white reserved for BOTS - which is either a happy accident (ghosts are the bot race) or a collision. Yellow, Orange and Magenta have no race proposed yet. This is the same open question the earlier elemental-keeps note left: the owner previously ruled that elements ADAPT to the existing palette rather than the palette bending to the elements.",
       "interacts_with": "R85. The castle has NO hp, def, atk or pen today - there is no castle entity at all, only castleBanks, and the match is won on victory points. R88 presupposes those four stats exist, so it lands on top of the castle damage model that R85 deferred to its own session. Sequence: castle damage model FIRST, then races."
+    },
+    "R89": {
+      "title": "⭐ THE WIN CONDITION - destroy the CASTLE, or 1500 points first. SUPERSEDES the R85 deferral.",
+      "owner": "when all enemy towers are connections are destroyed the spawn dont attack the castle while this should be the main goal - destroy the castle OR get 1500 points first in too long games",
+      "means": "TWO win conditions that COEXIST, which is exactly what both Council seats independently recommended when this was put to them earlier this session - Grok and Gemini each rejected REPLACING victory points and each named the same failure mode for a second-loss-condition race. Castle destruction is the PRIMARY goal; 1500 points is the timeout path for games that drag.",
+      "supersedes": "R85 / owner D2, which deferred the castle DAMAGE MODEL to its own session. The owner has now made the call that deferral was waiting on, so the model is IN SCOPE.",
+      "a0_facts_that_shape_it": "There is NO castle entity today - only castleBanks, an inventory Map. damageEntity has no castle arm. The match is won on scoreByPlayer alone. findNearestEnemyPrimitiveFrom returns null when the enemy has no shapes left, which is precisely the moment the owner is describing; S153 P1 already added enemyCastleMarchPos so goblins WALK there - they simply have nothing to attack when they arrive.",
+      "design_constraint_from_R88": "Every castle race opens with an IDENTICAL stat line, so the castle needs ONE stat block, not per-race tuning."
+    },
+    "R90": {
+      "title": "Scouting with the cruiser is INTENDED, not a leak",
+      "owner": "you own cruiser already reveals a certain diameter zone around him so it is not an issue ... it is actually a smart way to explore and see what your enemy is bulding when you have ytime",
+      "means": "Settles the fog question raised while lifting the avatar above the HUD: the local cruiser carrying its own vision radius into enemy ground is a TACTIC the owner wants, not an exploit. Spending BUILD time scouting is a real trade. NOTE the carve-out stays LOCAL-ONLY anyway - lifting every seat would show a remote cruiser through fog, which is a different thing entirely and was never what the owner asked for."
     }
   },
   "a0_state_discovery_s153": {
@@ -3739,5 +3856,9 @@
     "shipped_and_verified_live": "P1 P2 P3 P4 - each has its own green Deploy to GitHub Pages run.",
     "committed_pushed_NOT_LIVE": "P7. The push-triggered run NEVER APPEARED even though src/** and public/** both changed and both are in deploy.yml paths. A manual gh workflow run dispatch was accepted (run 32984067890) and has sat QUEUED for 11+ minutes without starting - GitHub Actions runner backlog, not a repo problem. verify-deploy correctly reads 2 of 4 carriers FAILING and says do not report this as shipped, so it is NOT being reported as shipped.",
     "next_session_first_move": "Check run 32984067890. If it is cancelled - the SILENT death this repo has been bitten by, no mail and no artifacts - just re-dispatch: gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4 of 4."
+  },
+  "amendment_s153": {
+    "approved": "Owner: \"GO on everything - approved!\"",
+    "scope_note": "FIVE items approved. Context was 552K of 1M (YELLOW) at approval and each priority this session has cost 60-90K in practice, so all five will NOT fit. Executing in owner-pain order and reporting honestly at each boundary rather than silently narrowing. A5 is the owner stated MAIN GOAL and is Full tier."
   }
 }

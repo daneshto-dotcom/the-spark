@@ -162,7 +162,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       const labelIdx = (name: string): number =>
         (stage as any).children.findIndex((c: any) => c.label === name);
       return {
-        sparkIdx: labelIdx('sparkRenderer'),
+        sparkIdx: labelIdx('avatarRendererLocal'),
         footerIdx: labelIdx('footerBand'),
         aboveIdx, fogIdx, aboveFogChildNames,
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
@@ -191,10 +191,13 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
 
     /*
-     * ⭐ S153 P4 (owner R81) — THE SPARK OUTRANKS THE HUD.
+     * ⭐ S153 P4/A1 (owner R81) — THE PLAYER CRUISER OUTRANKS THE HUD.
      *
      * Owner: *"my spark is one layer down (behind them ...) it doesnt FEEL nice. spark should be
-     * one layer above those options as it is the cruiser"*. This NARROWS S149 P6 ("nothing on the
+     * one layer above those options as it is the cruiser"*. ⛔ P4 RAISED THE WRONG LAYER — "spark"
+     * is overloaded in this codebase (avatar vs building block) and P4 lifted SparkRenderer, the
+     * building blocks. A1 lifts the LOCAL avatar layer instead and reverts the free-spark lift.
+     * This NARROWS S149 P6 ("nothing on the
      * board should ever draw over" the footer) with a single deliberate exception: the thing the
      * player is steering.
      *
@@ -204,7 +207,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
      * not tell the bug from the fix at all. The index A/B reads 2-vs-44 against a footer at ~43.
      * When a visual property has a numeric ground truth, assert the number.
      */
-    expect(r.sparkIdx, 'sparkRenderer must be on the stage and labelled').toBeGreaterThanOrEqual(0);
+    expect(r.sparkIdx, 'the LOCAL avatar layer must be on the stage and labelled').toBeGreaterThanOrEqual(0);
     expect(r.footerIdx, 'footerBand must be on the stage and labelled').toBeGreaterThanOrEqual(0);
     expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);
     expect(r.aboveFogChildNames).toEqual([

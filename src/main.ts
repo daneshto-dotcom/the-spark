@@ -836,10 +836,21 @@ async function bootstrap(): Promise<void> {
   footerBand.bringToFront();
   // S152 — same rule, same reason: UI chrome belongs above every board renderer AND the fog.
   structurePanel.bringToFront();
-  // ⭐ S153 P4 (owner R81) — and the SPARK goes above even that. The owner photographed their own
-  // cruiser sitting behind the footer tier buttons: *"my spark is one layer down (behind them ...)
-  // it doesnt FEEL nice"*. Last of all, so it is correct by construction the way the footer is.
-  sparkRenderer.bringToFront();
+  /*
+   * ⭐ S153 A1 (owner R81, CORRECTED) — LIFT THE AVATAR, NOT THE FREE SPARKS.
+   *
+   * ⛔ S153 P4 RAISED THE WRONG LAYER, and the codebase had already written down why that was easy
+   * to do. `avatarRenderer.ts` opens by calling the term OVERLOADED: "spark = player avatar" is one
+   * half and "spark = building block" is the other, and `SparkRenderer` draws the SECOND one. P4
+   * hoisted the loose building blocks over the HUD and left the owner's cruiser exactly where it
+   * was — which is why the owner reported the identical bug twice. The index A/B in fog.spec proved
+   * a real z-order change; it just proved it about the wrong object.
+   *
+   * Raising the free sparks was also wrong on the merits: S149 P6 says board objects must not draw
+   * over UI chrome, and the owner's carve-out was for the cruiser they steer, not for scenery. So
+   * that lift is REVERTED rather than left as a harmless extra.
+   */
+  avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
   // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
