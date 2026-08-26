@@ -759,7 +759,7 @@
         }
       ],
       "check_method": "RALPH. Root cause found by READING rather than guessing: avatarRenderer.ts opens by calling \"spark\" an OVERLOADED term - player avatar vs building block - and S153 P4 lifted SparkRenderer, the building blocks. The P4 index A/B was sound but measured the wrong object, which is why the owner reported the same bug twice. Corroborated by S110 P3, which lifted this exact avatar layer for this exact complaint (\"I need to see the cruiser always\"). The P4 free-spark lift is REVERTED, not left as a harmless extra, because S149 P6 says board objects must not cover UI chrome and the owner carve-out was for the cruiser. LOCAL-ONLY by construction: the renderer is multi-player and fog deliberately sits above it, so lifting the whole container would show a REMOTE cruiser through fog. Owner confirmed the local case is intended (R90). Re-homed every sync rather than at creation so a host migration or seat swap cannot strand a Graphics in the wrong layer. fog.spec retargeted to the local avatar layer and MUTATION-VERIFIED - removing the lift turns it red. build green, 3003 unit, 50/50 e2e.",
-      "checkpoint_commit": "pending"
+      "checkpoint_commit": "b4dcff2"
     },
     {
       "id": "A2",
@@ -933,7 +933,7 @@
   },
   "real_context_tokens_at_close": 552394,
   "real_context_pct_at_close": 55.24,
-  "checkpoint_commit": "b4f3a69",
+  "checkpoint_commit": "b4dcff2",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
