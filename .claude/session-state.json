@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2509,
+  "tool_calls_session_total": 2595,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -578,16 +578,61 @@
       "superseded_by": "S153 A1. THREE of P4 original bindings asserted `sparkRenderer.bringToFront()` and a fog.spec assertion on the sparkRenderer layer. A1 established that P4 had raised the WRONG LAYER - SparkRenderer draws building blocks, the owner cruiser is the AVATAR - and REVERTED that lift, so those three claims are now false BY DESIGN. The MCV stop gate caught it, which is exactly what it is for. They are replaced with their inverses (the wrong lift must be ABSENT, the right one PRESENT) rather than deleted, so the supersession is asserted rather than merely asserted-away. Everything else P4 shipped - the hover/press work, the sounds, the layer labels - is untouched and still verified."
     },
     {
-      "id": "P5",
-      "title": "Relocate the shape palette and queue to the footer",
-      "tier": "Standard",
+      "id": "P5a",
+      "title": "R91 — ordering a tower shortfall from the footer no longer needs the castle to have been opened",
+      "tier": "Micro",
       "estimated_tokens": 14000,
-      "status": "pending",
+      "status": "completed",
       "detail": "Move the gatherer palette and queue-chip strip out of castlePanel onto the footer band, left of the tier buttons. Owner D1 confirmed this SUPERSEDES ruling S136 P0. Register the new surface in hudLayout or the overlap gate stays blind to it.",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "promoted_note": "Promoted from deferred: the owner hit a live BUG caused by the current placement, not just an ergonomics preference. Placement corrected to RIGHT of tier 8, always visible.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "needle": "  requestShapesFor(world: World, id: GodlyId): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "needle": "const row = castleStructuresModel(world).find((r) => r.id === id);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "needle": "private structuresModel"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "needle": "this.structuresModel = structures;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "this.castlePanel?.requestShapesFor(this.world, card);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "  requestShapesFor(world: World, id: GodlyId): void;"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\footer-order-shapes.spec.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\footer-order-shapes.spec.ts",
+          "needle": "with the castle NEVER opened"
+        }
+      ],
+      "checkpoint_commit": "pending",
+      "check_method": "RALPH. ROOT-CAUSED, not guessed: requestShapesFor read this.structuresModel, a field assigned ONLY inside the panel draw (castlePanel.ts:1162). Never opened the castle means empty latch means find returns undefined means a SILENT early return - no queue entry, no refusal cue, nothing on screen. That is exactly the owner sequence, including why the second attempt worked once the panel had been up. THE LATCH WAS ITSELF AN S149 P6 FIX for this class; it closed panel-was-open-then-closed and left panel-never-opened wide open. castleStructuresModel is a PURE function of world, so deriving on demand removes the failure mode rather than moving its boundary. MUTATION-VERIFIED: restoring the latch turns the new e2e red. build green, 3003 unit, 54/54 e2e (up from 53).",
+      "scope_note": "THIS IS THE BUG HALF ONLY. The owner also ruled the palette+queue must MOVE to the footer, right of tier 8, always visible (R80 as corrected). That move is NOT done and is carried forward - it is a multi-file refactor and context was 640K YELLOW. The bug is fixed independently of the move, which matters: ordering now works from the footer today, wherever the strip eventually lives."
     },
     {
       "id": "P6",
@@ -3827,7 +3872,8 @@
     "R80": {
       "title": "The shape palette and queue move to the footer - SUPERSEDES S136 P0",
       "owner": "this part within the castle that shows what is the queue of shapes ... should not be inside castle but maybe to the left of the last tier down below on the footer",
-      "means": "Owner D1 confirmed the reversal. The surface being restored is NOT the old always-on options bar that S136 P0 deleted - today the footer is the tier band, a different surface. Recorded so no future session re-litigates the conflict castlePanel documents."
+      "means": "Owner D1 confirmed the reversal. The surface being restored is NOT the old always-on options bar that S136 P0 deleted - today the footer is the tier band, a different surface. Recorded so no future session re-litigates the conflict castlePanel documents.",
+      "placement_CORRECTED": "SUPERSEDED WITHIN THE SESSION. R80 first recorded the owner phrasing \"maybe to the left of the last tier\". The owner has since been precise: \"they should always be visible on the right side of the footer (after tier 8)\". RIGHT of the last chip, not left, and ALWAYS VISIBLE during a match rather than only while the castle panel is open. Recorded so the earlier phrasing cannot be re-adopted from the older note."
     },
     "R81": {
       "title": "The spark draws ABOVE the HUD, and everything clickable announces itself",
@@ -3884,6 +3930,12 @@
       "title": "Scouting with the cruiser is INTENDED, not a leak",
       "owner": "you own cruiser already reveals a certain diameter zone around him so it is not an issue ... it is actually a smart way to explore and see what your enemy is bulding when you have ytime",
       "means": "Settles the fog question raised while lifting the avatar above the HUD: the local cruiser carrying its own vision radius into enemy ground is a TACTIC the owner wants, not an exploit. Spending BUILD time scouting is a real trade. NOTE the carve-out stays LOCAL-ONLY anyway - lifting every seat would show a remote cruiser through fog, which is a different thing entirely and was never what the owner asked for."
+    },
+    "R91": {
+      "title": "The order queue is UNREACHABLE unless the castle panel is open - reported as a bug",
+      "owner": "i clicked on tier 5 buld and then goblin tower twice - and then when i clicked on the castle it didnt show anything in queue. only when the castle page was up and then i clicked on them again, those shape that make the goblin towser came up to queue",
+      "owner_diagnosis": "the inherent mistake here is that you still keep the queuee and shapes to buld still in the castlke while i told you they should always be visible on the right side of the footer (after tier 8)",
+      "status": "A.0 IN FLIGHT - confirming whether the move alone fixes it or the enqueue gating is a separate defect."
     }
   },
   "a0_state_discovery_s153": {
@@ -3926,7 +3978,8 @@
     "live": "P1 P2 P3 P4 - each has its own green Deploy run.",
     "NOT_LIVE": "P7 (goblin hound), A1 (avatar lift), A2 (in-match exit) - all committed and pushed to master.",
     "why": "GitHub Actions is BACKED UP, not broken. The P7 push-triggered run never appeared at all; a manual dispatch (32984067890) sat QUEUED 44 MINUTES without starting, and the A1 push run (32985824540) queued behind it. Nothing in the repo is at fault - the P4 run went green in 1m56s an hour earlier.",
-    "next_session_first_move": "gh run list. If those runs are cancelled - the SILENT death this repo documents, no mail and no artifacts - re-dispatch with gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4/4 before telling the owner anything is live."
+    "next_session_first_move": "gh run list. If those runs are cancelled - the SILENT death this repo documents, no mail and no artifacts - re-dispatch with gh workflow run deploy.yml --ref master. Then npm run verify-deploy and require 4/4 before telling the owner anything is live.",
+    "root_cause_CONFIRMED": "NOT A REPO FAULT, proven by GitHub own annotation on run 32985824540: \"The job was not acquired by Runner of type hosted even after multiple attempts\". That is GitHub-hosted runner CAPACITY. The build job burned 15m2s waiting to be picked up and then failed; a second run has been queued over an hour. Retry when capacity returns - there is nothing to fix in the workflow, and no amount of re-reading deploy.yml will help."
   },
   "amendment_s153": {
     "approved": "Owner: \"GO on everything - approved!\"",

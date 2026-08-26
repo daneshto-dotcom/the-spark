@@ -869,8 +869,29 @@ export class CastlePanel {
    * rather than read from `structureMissing[]`, which is only populated while the (now disabled)
    * grid renders and would therefore be permanently empty.
    */
-  requestShapesFor(id: GodlyId): void {
-    const row = this.structuresModel.find((r) => r.id === id);
+  /**
+   * ⛔ S153 P5a (owner R91) — DERIVED ON DEMAND, NOT READ FROM A LATCH. This is a bug fix, and the
+   * bug it fixes is the one the owner hit.
+   *
+   * Owner: *"i clicked on tier 5 buld and then goblin tower twice - and then when i clicked on the
+   * castle it didnt show anything in queue. only when the castle page was up and then i clicked on
+   * them again, those shape that make the goblin tower came up to queue."*
+   *
+   * The cause was one line below: this read `this.structuresModel`, a field assigned ONLY inside
+   * the panel's draw. A player who had never opened the castle had an EMPTY latch, so `find`
+   * returned undefined and this returned silently — the order was dropped with no refusal, no
+   * sound, and nothing on screen. Opening the panel once populated the latch, which is exactly why
+   * the owner's second attempt worked and why it looked so arbitrary.
+   *
+   * ⚠ THE LATCH WAS ITSELF A FIX FOR THIS CLASS, which is worth recording rather than quietly
+   * deleting: S149 P6 introduced it because the per-tile slices it replaced were left permanently
+   * empty when the grid moved to the footer. It closed "the panel was open and then closed" and
+   * left "the panel was never opened" wide open. `castleStructuresModel` is a PURE function of
+   * `world`, so there was never a reason to cache it — deriving removes the whole failure mode
+   * instead of moving its boundary.
+   */
+  requestShapesFor(world: World, id: GodlyId): void {
+    const row = castleStructuresModel(world).find((r) => r.id === id);
     if (row === undefined || row.enabled) return; // affordable ⇒ nothing to order
     if (row.reason === 'LOCKED') return;          // a temporary input lock, not a shortage
     if (row.missing.length === 0) return;
@@ -1033,7 +1054,6 @@ export class CastlePanel {
   private reasons: string[] = [];
   /** S144 P2 — per-tile blocker, latched in sync() so getUiPoints reports what the caption showed. */
   /** S149 P6 — the last full build model, latched every sync so the FOOTER can consult it. */
-  private structuresModel: StructureRow[] = [];
   private structureReasons: string[] = [];
   /** S145 P2 — per-tile shortfall, latched per frame beside `structureReasons`. */
   private structureMissing: Array<ReadonlyArray<{ type: SparkType; need: number; have: number }>> = [];
@@ -1152,14 +1172,10 @@ export class CastlePanel {
     // S144 P2 — THE BUILD GRID. Affordability comes from `castleStructuresModel`, which decides it
     // with the SAME `planBlueprintPayment` the reducer uses — so a bright tile is always buildable.
     const structures = castleStructuresModel(world);
-    // ⭐ S149 P6 — LATCH THE WHOLE MODEL, not just the per-tile slices.
-    //
-    // `structureReasons` / `structureMissing` are populated INSIDE the tile loop, which no longer
-    // runs now that the grid moved to the footer — so they are permanently empty and
-    // `requestShapesFor` had nothing to read. Latching the model itself keeps the footer's
-    // order-the-shapes path working off exactly what the panel last computed, with no second
-    // evaluation that could disagree with it.
-    this.structuresModel = structures;
+    // ⛔ S153 P5a — THE S149 P6 LATCH IS GONE. It cached this model so the footer's
+    // order-the-shapes path had something to read, which worked only once the panel had drawn at
+    // least once; a player who never opened the castle silently lost their order (owner R91).
+    // `requestShapesFor` now derives the model itself from `world`, so there is nothing to latch.
     this.sectionLabel.position.set(
       PANEL_PAD,
       PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight(),

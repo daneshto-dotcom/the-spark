@@ -144,7 +144,7 @@ export interface CastlePanelLike {
   /** S149 P5 — arm a tower chosen from the footer band (the grid moved out of the castle). */
   armExternal(id: GodlyId | null): void;
   /** S149 P6 — queue the shapes an unaffordable tower still needs (the castle SHORT-tile path). */
-  requestShapesFor(id: GodlyId): void;
+  requestShapesFor(world: World, id: GodlyId): void;
 }
 
 /**
@@ -457,7 +457,9 @@ export class Controls {
         this.castlePanel?.armExternal(card);
         this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
       } else {
-        this.castlePanel?.requestShapesFor(card);
+        // S153 P5a (R91) — pass the world: the panel derives the shortfall on demand now rather
+        // than reading a draw-time latch, so this works whether or not the castle was ever opened.
+        this.castlePanel?.requestShapesFor(this.world, card);
       }
       return true;
     }
