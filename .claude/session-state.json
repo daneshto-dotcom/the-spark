@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2505,
+  "tool_calls_session_total": 2509,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -472,18 +472,6 @@
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "  sparkRenderer.bringToFront();"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "pattern": "structurePanel\\.bringToFront\\(\\);[\\s\\S]{0,600}?sparkRenderer\\.bringToFront\\(\\);",
-          "op": "eq",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
           "needle": "const HOVER_GROW = 2;"
         },
@@ -558,18 +546,36 @@
           "needle": "expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);"
         },
         {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "sparkIdx: labelIdx('sparkRenderer'),"
-        },
-        {
           "type": "file_lacks",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\package.json",
           "needle": "_visual"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "sparkRenderer.bringToFront();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "  avatarRenderer.bringLocalToFront();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
+          "needle": "sparkIdx: labelIdx('avatarRendererLocal'),"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "structurePanel\\.bringToFront\\(\\);[\\s\\S]{0,2000}?avatarRenderer\\.bringLocalToFront\\(\\);",
+          "op": "eq",
+          "value": 1
         }
       ],
       "check_method": "RALPH+GROK-ANALYST. (1) build exit 0, vitest 3003, e2e:gating 50 of 50. (2) ⛔ THE PIXEL TEST CAUGHT A DEAD FEATURE. setHover was declared on both interfaces and implemented in both renderers, and NOTHING CALLED IT - an earlier patch batch aborted on a failed CRLF anchor and the one wiring edit never ran. tsc was green, every test was green, and the hover did nothing. Found by sampling the chip plate colour hover-on vs hover-off: delta 0. After wiring, delta 42 - (9,12,18) to (18,26,37). Registered is not live, for the third time this session. (3) Z-ORDER PROVEN BY A/B ON THE DISPLAY-LIST INDEX, not pixels: without the fix spark index 2 vs footer 43, with it 44 vs 42. The pixel A/B was INCONCLUSIVE (redness 23 vs 22) because the chip plate is alpha 0.82 and a spark underneath bleeds through - when a visual property has a numeric ground truth, assert the number. (4) That A/B is now a PERMANENT guard in fog.spec, mutation-verified: removing bringToFront turns it red. (5) A.0 CORRECTED THE CARRY-FORWARD - castlePanel already had full drawn hover on real Pixi containers, so this was two surfaces and not four. (6) Layers now carry a label so the display list is self-describing. (7) Byte-level line-ending check on all five touched files: controls.ts still PURE CRLF, the rest PURE LF, nothing mixed.",
-      "checkpoint_commit": "883d1b2"
+      "checkpoint_commit": "883d1b2",
+      "superseded_by": "S153 A1. THREE of P4 original bindings asserted `sparkRenderer.bringToFront()` and a fog.spec assertion on the sparkRenderer layer. A1 established that P4 had raised the WRONG LAYER - SparkRenderer draws building blocks, the owner cruiser is the AVATAR - and REVERTED that lift, so those three claims are now false BY DESIGN. The MCV stop gate caught it, which is exactly what it is for. They are replaced with their inverses (the wrong lift must be ABSENT, the right one PRESENT) rather than deleted, so the supersession is asserted rather than merely asserted-away. Everything else P4 shipped - the hover/press work, the sounds, the layer labels - is untouched and still verified."
     },
     {
       "id": "P5",
