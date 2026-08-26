@@ -25,6 +25,11 @@
       "name": "6-goblin-batrider-SPIRAL",
       "_stats": "SPIRAL feed - 1 atk / 3 pen / 2 hp / 0 def - the flyer; needs a per-type Y offset in the renderer",
       "prompt": "A small goblin scout riding on the back of a large brown cartoon bat, clearly airborne and high off the ground. The bat has huge outstretched leathery wings spread wide, big pointed ears and small fangs. The goblin leans forward gripping a simple leather harness with one hand and brandishing a short crude spear overhead in the other. Large pointed ears, a big hooked nose, a gleeful snaggle-toothed grin, bandage-wrapped legs dangling free below him, bare clawed feet."
+    },
+    {
+      "name": "7-goblin-hound-CIRCLE",
+      "_stats": "CIRCLE feed - 3 atk / 2 pen / 1 hp / 0 def - the fast glass-cannon; 5 fifths, dies to one raid",
+      "prompt": "A lean mangy war-hound bred by goblins, charging forward low to the ground with its jaws open in a snarl, showing sharp teeth. Mottled grey-green and brown fur, a spiked leather collar with brass studs, a torn ear, a whip-thin tail streaming behind it, and four muscular legs mid-stride. Wiry, quick and vicious rather than bulky."
     }
   ]
 }

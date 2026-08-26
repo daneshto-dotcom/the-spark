@@ -21,6 +21,7 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
 import { fitTextToWidth } from './textFit.ts';
+import { playUiClickSFX } from './audioManager.ts';
 
 // S121 P4 — 360 was too narrow for the sublabels (the CODEX one ran ~490px wide and escaped the
 // box; Multiplayer/VS-Bots grazed the edges). Wider buttons + tighter copy + a fitTextToWidth
@@ -222,15 +223,44 @@ export class TitleScreen {
     fitTextToWidth(subText, SUBLABEL_MAX_W, 9); // S121 P4 — sublabels can never escape the button
     c.addChild(subText);
 
+    /*
+     * ⭐ S152 A5 (owner playtest) — HOVER, PRESS AND SOUND. The old feedback was a `bg.tint` of
+     * 0xddddee, i.e. a ~13% lightening of a near-black plate — effectively invisible, and there was
+     * no press state and no sound at all.
+     *
+     * Owner: *"it all need to either pop out, be highlighted, make a sound or all at once so we
+     * know when we have clicked something and it simply didnt work"*. So all three:
+     *   · HOVER  — the plate brightens AND the whole button scales up 4%: it pops out.
+     *   · PRESS  — it scales DOWN below rest on pointerdown. This is the half that answers "did my
+     *              click register", and it is the half that did not exist.
+     *   · SOUND  — an accept blip on tap.
+     *
+     * ⚠ `pointerupoutside` MUST reset the scale, or dragging off a pressed button leaves it stuck
+     * depressed forever — a button that looks permanently held is worse than no press state.
+     */
+    const REST = 1;
+    const HOVER = 1.04;
+    const PRESS = 0.97;
+    let hovered = false;
     c.eventMode = 'static';
     c.cursor = 'pointer';
-    c.on('pointertap', onClick);
+    c.on('pointertap', () => {
+      void playUiClickSFX();
+      onClick();
+    });
     c.on('pointerover', () => {
-      bg.tint = 0xddddee;
+      hovered = true;
+      bg.tint = 0xbfd4ff;
+      c.scale.set(HOVER);
     });
     c.on('pointerout', () => {
+      hovered = false;
       bg.tint = 0xffffff;
+      c.scale.set(REST);
     });
+    c.on('pointerdown', () => { c.scale.set(PRESS); });
+    c.on('pointerup', () => { c.scale.set(hovered ? HOVER : REST); });
+    c.on('pointerupoutside', () => { c.scale.set(REST); });
     return c;
   }
 }

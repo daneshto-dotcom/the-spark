@@ -68,6 +68,9 @@ import { canBuildNow } from '../state/buildLegality.ts';
 export type { ControlsDispatchFn, ControlState, ControlsLike } from './controlsCore.ts';
 export { applyControlsPerSubstep, stepAttractLerp } from './controlsCore.ts';
 import { isPointInKeep } from '../state/gatherers/gatherer.ts';
+// S152 A5 — UI click cues. ⚠ SAFE FOR THIS FILE: audioManager imports only constants + types, no
+// Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
+import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -110,6 +113,8 @@ export interface FooterBandLike {
  */
 export interface StructurePanelLike {
   isOverButtons(x: number, y: number): boolean;
+  /** S152 A5 — includes DISABLED buttons, so a refusal can be told apart from a miss. */
+  isOverAnyButton(x: number, y: number): boolean;
   buttonAt(
     x: number,
     y: number,
@@ -237,6 +242,8 @@ export class Controls {
     this.playerId = playerId;
     this.dispatchFn = dispatchFn ?? makeLocalDispatcher(world);
     const canvas = app.canvas;
+    // S152 A5 — kept so `updateHoverCursor` can set the CSS cursor for hand-hit-tested UI.
+    this.canvasEl = canvas;
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointerdown', this.onDown);
     canvas.addEventListener('pointermove', this.onMove);
@@ -472,9 +479,25 @@ export class Controls {
   private handleStructureActionClick(): boolean {
     if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
     const action = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);
-    if (action === null) return false;
+    if (action === null) {
+      /*
+       * ⭐ S152 A5 — A REFUSED CLICK NOW SOUNDS DIFFERENT FROM A MISSED ONE.
+       *
+       * Owner: *"so we know when we have clicked something and it simply didnt work"*. Clicking an
+       * unaffordable FEED shape used to be silent and indistinguishable from clicking bare board.
+       * `buttonAt` ignores disabled buttons by design (they explain, they do not act), so the
+       * DISABLED case is detected separately and given its own cue — and the click is still
+       * CONSUMED, because the player did hit a control and the board underneath must not also act.
+       */
+      if (this.structurePanel.isOverAnyButton(this.cursor.x, this.cursor.y)) {
+        void playUiRefusedSFX();
+        return true;
+      }
+      return false;
+    }
     const target = this.structurePanel.selection();
     if (target === null) return false;
+    void playUiClickSFX();
     this.onStructureAction?.(action, target);
     return true;
   }
@@ -761,7 +784,41 @@ export class Controls {
       this.state = { ...this.state, cursor: { ...this.cursor } };
     }
     // S53 P2 — ConnectDrag branch removed (unreachable state post-S52 P1).
+    this.updateHoverCursor();
   };
+
+  /*
+   * ⭐ S152 A5 (owner playtest) — THE CANVAS CURSOR ANSWERS "IS THIS CLICKABLE?".
+   *
+   * Owner: *"everything that is clickable doesnt show that it is clickable ... we also know
+   * inherently what is clickable and what is not"*.
+   *
+   * The title buttons are real Pixi containers and get `cursor: 'pointer'` for free. Every IN-GAME
+   * surface — the footer tower chips, the castle panel, the FIX/SCRAP/FEED popover — is drawn onto
+   * a raw canvas and hit-tested by hand, so the browser has no idea any of it is interactive and the
+   * cursor never changed anywhere on the board.
+   *
+   * ⭐ THIS COSTS NOTHING NEW TO KNOW. The same `isOver*` predicates the CLICK path already consults
+   * are asked here on move, so the cursor can never disagree with what a click would actually hit —
+   * which is the failure mode a second, parallel hover hit-test would have introduced.
+   */
+  private updateHoverCursor(): void {
+    const overUi =
+      this.isPointerOverFooterChip() ||
+      (this.structurePanel?.isOverButtons(this.cursor.x, this.cursor.y) ?? false) ||
+      (this.castlePanel?.isOpen() === true &&
+        this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
+    const want = overUi ? 'pointer' : '';
+    // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
+    // a canvas that already moves the cursor every frame.
+    if (this.lastCursorStyle !== want) {
+      this.canvasEl.style.cursor = want;
+      this.lastCursorStyle = want;
+    }
+  }
+
+  private lastCursorStyle = '';
+  private readonly canvasEl: HTMLCanvasElement;
 
   private onUp = (e: PointerEvent): void => {
     if (this.isInputLocked()) return;

@@ -2608,7 +2608,30 @@ async function bootstrap(): Promise<void> {
     }
 
     // S15 P2 — screen visibility gate (TITLE / LOBBY overlays).
-    const showTitle = world.gameState === 'TITLE';
+    /*
+     * ⛔ S152 A4 (owner playtest) — A MODAL MUST HIDE THE TITLE SCREEN, AND THIS IS WHY THE OWNER
+     * SAW "i click bots it takes me to muiltiplayer - it is all broken!".
+     *
+     * The VS-Bots click was ROUTING CORRECTLY the whole time — verified against the LIVE site, the
+     * correct overlay opens. The bug is layering: nothing hid `titleScreen`, so the whole menu kept
+     * drawing UNDERNEATH the overlay with its buttons still `eventMode: 'static'`. The screenshot
+     * showed "1 Player / Multiplayer / VS Bots / CODEX" ghosting through the bot rows — so a click
+     * aimed at what still looked like a live menu really did start Multiplayer.
+     *
+     * ⚠ AND HIDING IT AT THE OPEN SITE WOULD NOT HAVE WORKED. This reconciler runs EVERY FRAME and
+     * keyed only on `gameState`, which a modal does not change — so it would have forced the title
+     * straight back on the next frame. The modal state has to be part of the predicate itself.
+     *
+     * `container.visible = false` also stops Pixi hit-testing, so this makes the buttons inert as
+     * well as invisible — both halves of the defect, from one line.
+     *
+     * ⚠ PRE-EXISTING, not introduced this session: the overlay has layered this way since S87.
+     */
+    const modalUp =
+      (botSetupOverlay?.isVisible() ?? false) ||
+      (codexOverlay?.isVisible() ?? false) ||
+      arcadeOverlay.isOpen();
+    const showTitle = world.gameState === 'TITLE' && !modalUp;
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
     lobbyScreen.setVisible(showLobby);

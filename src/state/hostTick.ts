@@ -351,6 +351,26 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             sp.spawnedCount++;
           }
         }
+      } else if (sp.recipeId === 'goblinTower') {
+        /*
+         * ⭐ S152 A1 (owner playtest) — THE GOBLIN TOWER EMITS NOTHING ON A CADENCE. It is FED.
+         *
+         * Owner: *"goblin tower is passively generating pencil chewers. i think you have made this
+         * tower also have same specs as pentagram... WRONG."* — and that diagnosis was exactly
+         * right. The arm below is the PENTAGRAM behaviour, but it was written as an `else`, i.e. a
+         * DEFAULT that catches every recipeId which is not 'lightningHub'. S152 P2 made the goblin
+         * tower register a spawner for the first time and it fell straight into the chewer arm.
+         *
+         * ⛔ THE REAL DEFECT WAS THE DEFAULT ITSELF, WHICH IS WHY THIS BRANCH IS EXPLICIT AND
+         * EMPTY RATHER THAN A CONDITION BOLTED ONTO THE ARM BELOW. Any future producing recipe
+         * would have inherited chewers the same silent way. Keeping the cadence UNTOUCHED here is
+         * deliberate too: `nextSpawnTick` is never read for this recipe, so there is no backlog to
+         * drain and nothing to keep aligned.
+         *
+         * The tower's whole output goes through FEED_TOWER (`applyFeedTower`), one unit per shape
+         * handed to it — owner R70: *"takes one shape to feed to then spawn a goblin of different
+         * kinds"*.
+         */
       } else if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
         const anchor = world.primitives.get(sp.anchorPrimitiveId);
         // Defense-in-depth: a deleted anchor between the (throttled) re-validation

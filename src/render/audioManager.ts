@@ -1541,3 +1541,72 @@ export function boomFreq(
   const ratio = endHz / startHz;
   return startHz * Math.pow(ratio, t / duration);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐ S152 A5 (owner playtest) — UI CLICK FEEDBACK. Two sounds, and the SECOND one is the point.
+ *
+ *  Owner: *"everything that is clickable doesnt show that it is clickable ... it all need to either
+ *  pop out, be highlighted, make a sound or all at once so we know when we have clicked something
+ *  and it simply didnt work or that we also know inherently what is clickable and what is not!"*
+ *
+ *  ⛔ THE REAL COMPLAINT IS AMBIGUITY, NOT SILENCE. Before this, a click that was REFUSED (a control
+ *  that is disabled, unaffordable, or in the wrong phase) was indistinguishable from a click that
+ *  MISSED — both produced nothing at all. So an ACCEPT and a REFUSE get deliberately different
+ *  sounds: a crisp rising blip versus a short dull thud. "It didn't work" becomes audible rather
+ *  than inferred.
+ *
+ *  Synthesised rather than sampled — no new binary bytes, and every other short cue in this file is
+ *  a synth (`playZapBurstSFX`, `playLaserSFX`). No positional panner: these are SCREEN-SPACE UI
+ *  events, not world events, so they must not pan with a camera the player is not looking through.
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Shared preamble: resume the context and hand back a live one, or null if audio is unavailable. */
+async function uiAudioContext(): Promise<AudioContext | null> {
+  if (audioContext === null || sfxGainNode === null) return null;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] ui sfx resume() threw:', e);
+    }
+  }
+  return audioContext.state === 'running' ? audioContext : null;
+}
+
+/** A click that was ACCEPTED: short, bright, rising. ~70 ms so it never queues up under fast clicks. */
+export async function playUiClickSFX(): Promise<void> {
+  const ctx = await uiAudioContext();
+  if (ctx === null || sfxGainNode === null) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(660, now);
+  osc.frequency.exponentialRampToValueAtTime(1180, now + 0.05);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.16, now + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  osc.connect(g); g.connect(sfxGainNode);
+  osc.start(now); osc.stop(now + 0.08);
+}
+
+/**
+ * A click that was REFUSED: low, flat, falling — a dull thud rather than a buzz.
+ *
+ * ⚠ DELIBERATELY NOT AN ERROR BUZZER. The player has done nothing wrong by probing a control; the
+ * game is telling them "not now". A harsh sound on every unaffordable tower click would punish
+ * exploration, which is exactly how players learn what the buttons are.
+ */
+export async function playUiRefusedSFX(): Promise<void> {
+  const ctx = await uiAudioContext();
+  if (ctx === null || sfxGainNode === null) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(196, now);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.12, now + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+  osc.connect(g); g.connect(sfxGainNode);
+  osc.start(now); osc.stop(now + 0.12);
+}

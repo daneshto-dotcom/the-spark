@@ -442,6 +442,23 @@ export class StructurePanel {
   }
 
   /**
+   * ⭐ S152 A5 — is this point over ANY button, INCLUDING a disabled one?
+   *
+   * `buttonAt` deliberately ignores disabled buttons (they explain, they do not act), which means a
+   * click on an unaffordable FEED shape and a click on empty board are INDISTINGUISHABLE to the
+   * caller — both get null. That is precisely the ambiguity the owner reported: *"so we know when we
+   * have clicked something and it simply didnt work"*. This lets the input layer play a REFUSED cue
+   * for the first case and stay silent for the second.
+   */
+  isOverAnyButton(x: number, y: number): boolean {
+    if (this.view === null) return false;
+    for (const b of this.view.buttons) {
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return true;
+    }
+    return false;
+  }
+
+  /**
    * The ACTION under this point, or null. Disabled buttons do not answer — they only explain.
    *
    * ⚠ RETURNS THE ACTION, NOT THE KIND. It used to return `'FIX' | 'SCRAP' | null`, which cannot

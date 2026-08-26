@@ -1803,7 +1803,19 @@ export const PRINCESS_SPRITE_BASE_SCALE = 0.34;
  * current helga"*, so this is PRINCESS_SPRITE_BASE_SCALE / 2 rather than an independently chosen
  * number — expressed as the division so the relationship survives a retune of hers.
  */
-export const GOBLIN_SPRITE_BASE_SCALE = PRINCESS_SPRITE_BASE_SCALE / 2;
+/**
+ * ⭐ S152 A3 (owner playtest) — *"make all the goblins about 75% larger than they are."*
+ *
+ * ⚠ THE DERIVATION FROM HELGA IS DEAD, and pretending otherwise would be the drift this file keeps
+ * getting bitten by. The old value was `PRINCESS_SPRITE_BASE_SCALE / 2` = 0.17, from the owner's
+ * earlier *"about half the size of current helga"*. That ruling has now been SUPERSEDED by a
+ * measurement the owner made in play: at 0.17 the veo art's detail is unreadable on screen.
+ *
+ * 0.17 x 1.75 = 0.2975. Stated as the literal it now is, with the arithmetic recorded, rather than
+ * as `PRINCESS_SPRITE_BASE_SCALE / 2 * 1.75` — which would silently re-scale every goblin the next
+ * time Helga's own dial is retuned, and Helga's size is a separate owner decision.
+ */
+export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;
 
 /**
  * S151 P3 — the STINK TOWER's veo atlas scale. It is an emplacement rather than a unit, and its
