@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2279,
+  "tool_calls_session_total": 2289,
   "session_id": "S152",
   "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
   "session_start": "2026-08-23",
@@ -75,7 +75,16 @@
     "CF-S147-c :: STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired. :: delete the six acknowledged hazard rows in workerSim.differential",
     "CF-S149-c :: Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only. :: Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
     "CF-S150-b :: LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing. :: rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
-    "CF-S150-c :: REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing. :: chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials"
+    "CF-S150-c :: REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing. :: chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials",
+    {
+      "id": "CF-S152-a",
+      "title": "worker-bots.spec.ts times out on a loaded CI runner — a WALL-CLOCK wait for a SIM-TIME assertion",
+      "severity": "medium",
+      "found": "S152 close-out CI audit. The weekly 'E2E (2-browser harness)' workflow failed at 88c48fe (08-17 green, 08-24 red).",
+      "diagnosis": "NOT a logic regression — it PASSES locally on the full S152 tree (20.0s). The CI failure's own diagnostic shows why: at the 60s timeout the sim had only reached TICK 805 (~13s of sim time at 60Hz) with the bots still gathering (13 free sparks, 1 shape banked each), and `primitives: []` simply because they had not saved up enough to build yet. The spec waits on WALL CLOCK for an assertion that needs SIM TIME, and on a loaded runner those diverge.",
+      "fix_shape": "Make the wait tick-based (poll world.tick, not elapsed ms) or raise the bot build rate for the harness. ⚠ Do NOT simply raise the timeout — a longer rope is the fix that already failed twice in this repo for the phase-edge flake (CF-S148-c).",
+      "why_deferred": "Outside the approved S152 P1-P3 scope, and the workflow is a weekly non-gating lane — every 'Deploy to GitHub Pages' run is green, including P3's."
+    }
   ],
   "priorities": [
     {
@@ -757,7 +766,9 @@
     "S152 P3 - A THRESHOLD CALIBRATED ON ONE SAMPLE IS A CONSTANT WAITING TO BE WRONG. The 0.3% enclosed-white limit was measured on the swordsman and documented with its measurements, which is why it was fixable in minutes - but it silently failed the first character with different proportions. Per-subject knob, default unchanged, so the calibration that works keeps working.",
     "S152 P3 - THE INVISIBLE UNIT PASSED EVERY TEST I HAD. The e2e feed spec asserts the creature exists and the bank was debited; both were true while the player saw nothing at all, because alpha was ticksInState/spawnTicks and creatures do not tick during BUILD. A screenshot found in one glance what assertions on state cannot: state is not pixels.",
     "S152 P3 - THE COMMENT PROMISED 'FAINT' AND THE CODE MULTIPLIED AT FULL STRENGTH, for a whole session. A Pixi tint is a multiply against saturated player colours, so the shipped goblins have been near-black smudges since S151 and nobody looked. When a comment states an intent that the code cannot express in one line, verify it on screen.",
-    "S152 P3 - AN ACCEPTED ASYNC JOB IS MONEY AND MUST BE PERSISTED BEFORE ANYTHING CAN THROW. My own generator held veo operation names in a local array and threw on the first 429, orphaning seven already-billed generations. Write the receipt to disk at the moment it exists, and treat backpressure as backpressure rather than failure."
+    "S152 P3 - AN ACCEPTED ASYNC JOB IS MONEY AND MUST BE PERSISTED BEFORE ANYTHING CAN THROW. My own generator held veo operation names in a local array and threw on the first 429, orphaning seven already-billed generations. Write the receipt to disk at the moment it exists, and treat backpressure as backpressure rather than failure.",
+    "S152 AUDIT - MY AUDIT TOOL REPORTED NINE FALSE MISMATCHES BEFORE I CHECKED THE TOOL. A regex over the config source found no stat fields (they are named consts, not inline keys) and I nearly reported the whole R77 stat table as broken. Importing CREATURE_CONFIGS at runtime took one throwaway test and returned 0 mismatches. When an audit says everything is wrong, suspect the audit first.",
+    "S152 AUDIT - A RED CI RUN IS NOT AUTOMATICALLY A REGRESSION, AND THE FAILURE'S OWN DIAGNOSTIC USUALLY SAYS SO. worker-bots failed on CI and passes locally; the dumped final state showed tick 805 and bots still gathering, i.e. a wall-clock wait for a sim-time assertion. Read the diagnostic before bisecting."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -3691,5 +3702,17 @@
       "MAJOR — terrorist goblin has NO animation state for detonation (CreatureState is only SPAWNING|SEEKING|ATTACKING|DESPAWNING; goblinRenderer.ts:153 is a fixed ternary). Bat rider has NO altitude support (footAnchor.y ~0.995 plants feet on c.pos.y; the builder's bottom-centre paste crops baked headroom away).",
       "ZERO-COST — check-bundle-size.mjs measures the ENTRY JS ONLY; public/ is never counted, so additional atlases cannot fail the build gate."
     ]
+  },
+  "two_day_landing_audit_s152": {
+    "_scope": "Owner-requested: 'make sure everything weve tried to apply and build in the past two days landed as it should' — i.e. S151 P1-P3 plus S152 P1-P3.",
+    "S151_P1_hazard_archive": "VERIFIED CORRECT. HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false (dormant); all FOUR families R73 named (bomb, potato, rainbow, seagull) carry @archived-hazard so they are out of the gating lane; archive/hazards holds 27 files. hunter.spec.ts is deliberately UNtagged — the Pac-Man hunter was never in R73's list, so its absence is correct rather than a miss.",
+    "S151_P2_stat_system": "VERIFIED CORRECT, MECHANICALLY. All NINE creature stat lines match owner R77 exactly, 0 mismatches (chewer, goblinArcher, goblinMelee, goblinShield, goblinBat, goblinHound, goblinSuicide, lightningDrone, voltkin — atk/pen/hp/def each). Checked by IMPORTING CREATURE_CONFIGS at runtime, not by regex: a first pass that pattern-matched the source reported 9 false mismatches because the configs are named consts rather than inline keys. The tool was wrong, not the code.",
+    "S151_P3_goblin_tower": "⛔ TWO DEFECTS FOUND, BOTH FIXED THIS SESSION. (1) THE TOWER NEVER IGNITED: runSpawnerIgnition names its recipes by hand and only ever named pentagram + lightningHub, while goblinTowerRecipe sat in a registry whose matcher findSpawnerMatch has ZERO production callers — so applyFeedTower's Gate 1 looked up a spawner that could not exist. The handoff's 'it builds, it ignites, it tears down' was two-of-three (teardown IS wired). (2) NOTHING DISPATCHED FEED_TOWER — 13 green tests, all calling the reducer directly, while the mechanic was unreachable in play.",
+    "S151_P3_goblin_art": "⛔ TWO MORE DEFECTS, BOTH PRE-EXISTING AND BOTH FIXED. (3) The owner tint is a Pixi MULTIPLY against saturated PLAYER_COLORS, so the SHIPPED melee and archer goblins have rendered as near-black smudges since S151; the comment promised 'faint'/'subtle' and the code did the opposite. (4) The matte deleted whole characters' ink outlines whenever a silhouette touched the frame edge (an outline is near-black and connected, so it joined the letterbox bar). Also: no spec and no source clip was retained, so the three shipped atlases could not be rebuilt — which is why the owner's 'redo the stink tower' required full regeneration.",
+    "S152_P1_raid": "SHIPPED + VERIFIED. 47/47 MCV assertions, e2e/raid.spec.ts is the first right-click anywhere in the suite. Two bugs self-caught: a re-dispatched SEVER_BOND gated on a currency the raider never has, and HUD diamonds drawing through the Q=ZONE text.",
+    "S152_P2_feed": "SHIPPED + VERIFIED. 27/27 MCV assertions; e2e drives build->ignite->FEED click->a goblinShield appears AND the bank debits by exactly 1.",
+    "S152_P3_art": "SHIPPED + VERIFIED. 47/47 MCV assertions; texture census MEASURED at 74->76 (growth 2 vs limit 8); every character auditioned as a contact sheet and then photographed in a live match. A third defect found here: a goblin fed during BUILD was COMPLETELY INVISIBLE (creatures only tick in FIGHT, so ticksInState stayed 0 and the spawn-in alpha was exactly 0) — every test passed and it took a screenshot with nothing on it.",
+    "rule22_runtime_scan": "CLEAN over 3586 added lines across the three feature commits: 0 unrendered ${VAR} in comments, 0 referenced repo paths missing (21 checked), 0 documented-but-unimplemented CLI flags in the three art scripts. One earlier stale claim was found and fixed during the session — gen-character-clips.mjs's header documented a `--contact-sheet` flag that never existed.",
+    "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   }
 }
