@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2325,
+  "tool_calls_session_total": 2329,
   "session_id": "S152",
   "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
   "session_start": "2026-08-23",
@@ -84,6 +84,30 @@
       "diagnosis": "NOT a logic regression — it PASSES locally on the full S152 tree (20.0s). The CI failure's own diagnostic shows why: at the 60s timeout the sim had only reached TICK 805 (~13s of sim time at 60Hz) with the bots still gathering (13 free sparks, 1 shape banked each), and `primitives: []` simply because they had not saved up enough to build yet. The spec waits on WALL CLOCK for an assertion that needs SIM TIME, and on a loaded runner those diverge.",
       "fix_shape": "Make the wait tick-based (poll world.tick, not elapsed ms) or raise the bot build rate for the harness. ⚠ Do NOT simply raise the timeout — a longer rope is the fix that already failed twice in this repo for the phase-edge flake (CF-S148-c).",
       "why_deferred": "Outside the approved S152 P1-P3 scope, and the workflow is a weekly non-gating lane — every 'Deploy to GitHub Pages' run is green, including P3's."
+    },
+    {
+      "id": "CF-S152-b",
+      "title": "goblinHound has no atlas - the last FEED output still renders as the green procedural puppet",
+      "severity": "high",
+      "blocker": "HARD EXTERNAL: the image+veo endpoint returns 429 RESOURCE_EXHAUSTED - 'Your prepayment credits are depleted' (Google AI Studio). Nothing in the repo can work around this; it needs the owner to top up billing at https://ai.studio/projects.",
+      "why_it_matters": "Owner reported it verbatim as the 'gay green circle'. MEASURED: five of six FEED outputs have atlas art (Dot/Line/Triangle/Square/Spiral); only Circle -> goblinHound falls through to drawGoblin's procedural puppet, which is drawn in green.",
+      "resume_exactly": [
+        "1. node scripts/gen-character-design.mjs assets-source/godly-goblins/design-spec.json --only 7-goblin-hound-CIRCLE   (the hound's prompt is ALREADY committed in that spec)",
+        "2. eyeball the PNG, then add a goblin-hound block to assets-source/godly-goblins/clip-spec.json copying the goblin-shield block (idle/walk/attack, seed = the new PNG)",
+        "3. node scripts/gen-character-clips.mjs assets-source/godly-goblins/clip-spec.json --only goblin-hound --skip-existing",
+        "4. add a goblin-hound entry to assets-source/godly-goblins/atlas-specs.json with enclosedWhiteLimitPct 0.0002, then run build-sprite-atlas.mjs on it",
+        "5. AUDITION the contact sheet before wiring - a hound has four legs, i.e. several enclosed background pockets, which is exactly the matte case that bit the bat rider",
+        "6. add goblinHound to ATLASES in src/render/goblinRenderer.ts"
+      ],
+      "also_deferred_here": "OWNER-OPTIONAL: regenerating the melee + archer atlases. They are S151-era, built BEFORE this session's two matte fixes (the outline-deleting bar rule and the enclosed-white threshold), so they still carry those defects. 6 more clips would put the whole roster at one quality.",
+      "cost_note": "Today's veo run cost ~$6 and ~$3.50 of it was WASTED by my own clip script's error path, which threw on the first 429 and orphaned seven already-billed operations. That is fixed (op names are persisted the instant they exist) but it contributed to the depletion."
+    },
+    {
+      "id": "CF-S152-c",
+      "title": "A5 affordance pass covers the title screen and the structure popover - NOT yet the footer chips, castle tiles or gatherer upgrades",
+      "severity": "medium",
+      "detail": "Delivered: title-button hover+press+sound, two UI sounds, a canvas hover CURSOR for footer chips / castle panel / popover, and a REFUSED cue on disabled popover buttons. NOT delivered: a visible hover/press state ON the canvas-drawn surfaces themselves (they are hand-hit-tested Graphics with no hover concept), nor the accept/refuse cue on footer-chip and castle-tile clicks. The cursor change means they now at least ANNOUNCE they are clickable.",
+      "why_deferred": "Each canvas surface needs hover state plumbed into its own renderer, which is a per-surface change across four renderers. Session context was already YELLOW and the owner had approved going straight to handoff after the fixes."
     }
   ],
   "priorities": [
@@ -138,7 +162,7 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "case 'RAID_TARGET': ("
+          "needle": "case 'RAID_TARGET': {"
         },
         {
           "type": "file_contains",
@@ -428,12 +452,12 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "buttonAt(x: number, y: number): StructureAction | null ("
+          "needle": "buttonAt(x: number, y: number): StructureAction | null {"
         },
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "feedSpawnerId(): SpawnerId | null ("
+          "needle": "feedSpawnerId(): SpawnerId | null {"
         },
         {
           "type": "file_contains",
@@ -752,13 +776,116 @@
       "id": "A1-A5",
       "title": "SCOPE AMENDMENT — owner playtest corrections (5 items)",
       "tier": "Full",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "amendment": "Rule 16 SCOPE AMENDMENT raised after the owner playtested the live build. Owner approved verbatim: 'fix it all autonomously - approved then i approve you to go straight into handoff'.",
       "plan_file": ".claude/plans/2026-08-26_SCOPE_AMENDMENT_S152_PLAYTEST_IN-PROGRESS.md",
-      "scope": "A1 goblin tower passively emits chewers (my P2 regression — hostTick's else-default catches every non-lightningHub recipe). A2 goblinHound has no atlas (the green procedural puppet) + regenerate melee/archer at the new matte quality. A3 GOBLIN_SPRITE_BASE_SCALE x1.75 -> 0.2975. A4 modal overlays do not hide the title screen and its buttons stay live underneath, so a click lands on the wrong mode (pre-existing since S87). A5 no click affordance anywhere — hover/press/sound/disabled treatment across title + in-game surfaces."
+      "scope": "A1 goblin tower passively emits chewers (my P2 regression — hostTick's else-default catches every non-lightningHub recipe). A2 goblinHound has no atlas (the green procedural puppet) + regenerate melee/archer at the new matte quality. A3 GOBLIN_SPRITE_BASE_SCALE x1.75 -> 0.2975. A4 modal overlays do not hide the title screen and its buttons stay live underneath, so a click lands on the wrong mode (pre-existing since S87). A5 no click affordance anywhere — hover/press/sound/disabled treatment across title + in-game surfaces.",
+      "check_completed": true,
+      "checkpoint_commit": "bf2b213",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "} else if (sp.recipeId === 'goblinTower') {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "THE GOBLIN TOWER EMITS NOTHING ON A CADENCE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerCadence.test.ts",
+          "needle": "runHostTick"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerCadence.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_SPRITE_BASE_SCALE = PRINCESS_SPRITE_BASE_SCALE / 2;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "const modalUp ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "const showTitle = world.gameState === 'TITLE' && !modalUp;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\modal-layering.spec.ts",
+          "needle": "must be hidden while a modal overlay is up"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\modal-layering.spec.ts",
+          "needle": "must return once the modal closes"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\audioManager.ts",
+          "needle": "export async function playUiClickSFX"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\audioManager.ts",
+          "needle": "export async function playUiRefusedSFX"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
+          "needle": "c.on('pointerdown', () => { c.scale.set(PRESS); });"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
+          "needle": "c.on('pointerupoutside'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\titleScreen.ts",
+          "needle": "bg.tint = 0xddddee;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
+          "needle": "isOverAnyButton(x: number, y: number): boolean {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "private updateHoverCursor(): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "void playUiRefusedSFX();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "void playUiClickSFX();"
+        }
+      ],
+      "check_method": "RALPH:PATROL + the LIVE deployed site. STATIC: tsc -b clean; vitest 2970 passed (178 files, +2 new A1 cadence assertions). RUNTIME: e2e:gating 49 passed (+2 new A4 modal-layering specs), exit code read from a redirect not a pipe; build 733.4/900 KiB. A1 root cause was hostTick's spawner emit written as an else-DEFAULT, so every recipeId that was not lightningHub got the pentagram's chewers - my P2 ignition fix is what exposed it. Fixed with an explicit per-recipe branch, and the test asserts BOTH halves (goblin tower silent AND pentagram still emitting) because muting every spawner would also satisfy the first. A4 was diagnosed against the LIVE site, not locally: the VS-Bots click ROUTES CORRECTLY and the right overlay opens - the bug is that nothing hid titleScreen, so the menu kept drawing underneath with live buttons and a click landed on the wrong mode. Hiding at the open site would not have worked because main.ts's per-frame reconciler keys only on gameState. PRE-EXISTING since S87. A3 is owner-measured and recorded as SUPERSEDING the earlier half-of-Helga ruling. A5 delivered hover+press+two sounds+canvas cursor, with isOverAnyButton added so a disabled control sounds REFUSED instead of being silent and indistinguishable from a miss. A2 NOT DONE - hard external blocker, 429 prepayment credits depleted; carried as CF-S152-b.",
+      "partial": "4 of 5 items landed. A2 (the goblinHound atlas) is BLOCKED on depleted Google AI Studio prepayment credits - see CF-S152-b."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -780,7 +907,21 @@
     "S152 P3 - THE COMMENT PROMISED 'FAINT' AND THE CODE MULTIPLIED AT FULL STRENGTH, for a whole session. A Pixi tint is a multiply against saturated player colours, so the shipped goblins have been near-black smudges since S151 and nobody looked. When a comment states an intent that the code cannot express in one line, verify it on screen.",
     "S152 P3 - AN ACCEPTED ASYNC JOB IS MONEY AND MUST BE PERSISTED BEFORE ANYTHING CAN THROW. My own generator held veo operation names in a local array and threw on the first 429, orphaning seven already-billed generations. Write the receipt to disk at the moment it exists, and treat backpressure as backpressure rather than failure.",
     "S152 AUDIT - MY AUDIT TOOL REPORTED NINE FALSE MISMATCHES BEFORE I CHECKED THE TOOL. A regex over the config source found no stat fields (they are named consts, not inline keys) and I nearly reported the whole R77 stat table as broken. Importing CREATURE_CONFIGS at runtime took one throwaway test and returned 0 mismatches. When an audit says everything is wrong, suspect the audit first.",
-    "S152 AUDIT - A RED CI RUN IS NOT AUTOMATICALLY A REGRESSION, AND THE FAILURE'S OWN DIAGNOSTIC USUALLY SAYS SO. worker-bots failed on CI and passes locally; the dumped final state showed tick 805 and bots still gathering, i.e. a wall-clock wait for a sim-time assertion. Read the diagnostic before bisecting."
+    "S152 AUDIT - A RED CI RUN IS NOT AUTOMATICALLY A REGRESSION, AND THE FAILURE'S OWN DIAGNOSTIC USUALLY SAYS SO. worker-bots failed on CI and passes locally; the dumped final state showed tick 805 and bots still gathering, i.e. a wall-clock wait for a sim-time assertion. Read the diagnostic before bisecting.",
+    "S152 A1 - AN `else` IS A DEFAULT, AND A DEFAULT IS A TRAP FOR THE NEXT FEATURE. hostTick's spawner emit read `if (lightningHub) (...) else ( spawn chewer )`, so the pentagram's behaviour silently applied to every recipe that was not the hub. My ignition fix did not introduce the chewers; it made an existing default reachable. When adding a member to a family, check what the family's `else` currently promises it.",
+    "S152 A1 - THE TEST HAD TO ASSERT BOTH HALVES OR IT WOULD PASS FOR THE WRONG REASON. 'The goblin tower emits nothing' is also satisfied by muting every spawner in the game, so the same test proves the PENTAGRAM still emits chewers. A one-sided assertion on a suppression fix is not evidence.",
+    "S152 A4 - THE OWNER'S SYMPTOM AND THE ACTUAL BUG WERE DIFFERENT THINGS, and testing against the LIVE site is what separated them. 'Clicking bots takes me to multiplayer' sounded like broken routing; the routing was perfect. The menu was still drawn and still clickable UNDERNEATH the modal. Reproduce where the owner is, not where the harness is.",
+    "S152 A4 - A PER-FRAME RECONCILER BEATS ANY ONE-SHOT FIX AT THE CALL SITE. Hiding the title when the overlay opened would have been undone on the next frame, because the reconciler keyed only on gameState. If a state is enforced every frame, the new condition belongs IN the predicate, not in the event handler.",
+    "S152 A5 - THE COMPLAINT WAS AMBIGUITY, NOT SILENCE. A refused click and a missed click were both silent, so 'it didn't work' was unknowable. The fix that mattered was giving REFUSAL its own sound - which needed a hit test that deliberately INCLUDES disabled buttons, the opposite of what the click path wants.",
+    "S152 - MY OWN PROSE BROKE THE WRITE GATE FOR HALF AN HOUR. 18 strings in session-state.json contained literal curly braces (TypeScript type literals I quoted in check_method), and the gate's field extractor is an awk BRACE COUNTER, so it returned empty for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. A data file consumed by a line-oriented parser has a grammar; respect it.",
+    "S152 - A HARD EXTERNAL BLOCKER IS NOT A FAILURE TO ENGINEER AROUND. veo/image credits ran out mid-amendment, so the hound cannot be generated at all. The useful output was a carry-forward with the EXACT six resume commands and the already-committed prompt, not a workaround that ships worse art.",
+    "S152 A1 - AN `else` IS A DEFAULT, AND A DEFAULT IS A TRAP FOR THE NEXT FEATURE. hostTick's spawner emit read `if (lightningHub) (...) else ( spawn chewer )`, so the pentagram's behaviour silently applied to every recipe that was not the hub. My ignition fix did not introduce the chewers; it made an existing default reachable. When adding a member to a family, check what the family's `else` currently promises it.",
+    "S152 A1 - THE TEST HAD TO ASSERT BOTH HALVES OR IT WOULD PASS FOR THE WRONG REASON. 'The goblin tower emits nothing' is also satisfied by muting every spawner in the game, so the same test proves the PENTAGRAM still emits chewers. A one-sided assertion on a suppression fix is not evidence.",
+    "S152 A4 - THE OWNER'S SYMPTOM AND THE ACTUAL BUG WERE DIFFERENT THINGS, and testing against the LIVE site is what separated them. 'Clicking bots takes me to multiplayer' sounded like broken routing; the routing was perfect. The menu was still drawn and still clickable UNDERNEATH the modal. Reproduce where the owner is, not where the harness is.",
+    "S152 A4 - A PER-FRAME RECONCILER BEATS ANY ONE-SHOT FIX AT THE CALL SITE. Hiding the title when the overlay opened would have been undone on the next frame, because the reconciler keyed only on gameState. If a state is enforced every frame, the new condition belongs IN the predicate, not in the event handler.",
+    "S152 A5 - THE COMPLAINT WAS AMBIGUITY, NOT SILENCE. A refused click and a missed click were both silent, so 'it didn't work' was unknowable. The fix that mattered was giving REFUSAL its own sound - which needed a hit test that deliberately INCLUDES disabled buttons, the opposite of what the click path wants.",
+    "S152 - MY OWN PROSE BROKE THE WRITE GATE FOR HALF AN HOUR. 18 strings in session-state.json contained literal curly braces (TypeScript type literals I quoted in check_method), and the gate's field extractor is an awk BRACE COUNTER, so it returned empty for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. A data file consumed by a line-oriented parser has a grammar; respect it.",
+    "S152 - A HARD EXTERNAL BLOCKER IS NOT A FAILURE TO ENGINEER AROUND. veo/image credits ran out mid-amendment, so the hound cannot be generated at all. The useful output was a carry-forward with the EXACT six resume commands and the already-committed prompt, not a workaround that ships worse art."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -3727,5 +3868,5 @@
     "rule22_runtime_scan": "CLEAN over 3586 added lines across the three feature commits: 0 unrendered $(VAR) in comments, 0 referenced repo paths missing (21 checked), 0 documented-but-unimplemented CLI flags in the three art scripts. One earlier stale claim was found and fixed during the session — gen-character-clips.mjs's header documented a `--contact-sheet` flag that never existed.",
     "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   },
-  "gate_hygiene_note_s152": "STRING VALUES IN THIS FILE MUST NOT CONTAIN LITERAL ( or ) BRACES. pdca-final-gate.sh reads the in-progress priority via json_helpers.sh::extract_priority_field, which is an AWK BRACE COUNTER (deliberately, for hot-path speed on Windows git-bash where a jq spawn costs ~1s). A brace inside a string value increments its depth counter, so the extractor returned EMPTY for every field and the gate BLOCKED every Edit with 'Deliberation not completed' while the flags were in fact all correctly set. Found S152 A5: my own check_method prose quoted a TypeScript type literal. Curly braces are replaced with round ones on write."
+  "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar."
 }
