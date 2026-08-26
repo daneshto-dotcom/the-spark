@@ -33,6 +33,7 @@ import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } 
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
+import { syncArcherArrows } from './archerArrow.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
@@ -143,6 +144,12 @@ export class GoblinRenderer {
 
   /** veo sprites live ABOVE the procedural layer so a fallback frame can never overdraw one. */
   private readonly spriteLayer: Container;
+  /**
+   * S153 P2 (owner R84) — arrows in flight. Its OWN Graphics, above the sprite layer, so an
+   * arrow is never painted under the goblin that loosed it and never has to share a clear()
+   * with the body art.
+   */
+  private readonly arrowLayer: Graphics;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
   private readonly atlases: Map<CreatureType, LoadedAtlas> = new Map();
   private atlasLoadStarted = false;
@@ -152,6 +159,8 @@ export class GoblinRenderer {
     parent.addChild(this.graphics);
     this.spriteLayer = new Container();
     parent.addChild(this.spriteLayer);
+    this.arrowLayer = new Graphics();
+    parent.addChild(this.arrowLayer);
     void app;
   }
 
@@ -254,6 +263,9 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // R84 — derived from synced FSM state every frame, never from a one-shot effect push
+    // (which the 10 Hz snapshot drops ~5/6 of the time). See archerArrow.ts.
+    syncArcherArrows(this.arrowLayer, world);
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();
@@ -454,6 +466,7 @@ export class GoblinRenderer {
 
   clear(): void {
     this.graphics.clear();
+    this.arrowLayer.clear();
     this.lastSeenPos.clear();
     this.facing.clear();
   }

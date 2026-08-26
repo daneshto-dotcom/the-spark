@@ -1914,3 +1914,13 @@ export const GOBLIN_UNIT_LEASH_RADIUS = 300;
  * function of the creature id — free, and deterministic by construction rather than by audit.
  */
 export const GOBLIN_SPREAD_RADIUS = 26;
+
+/**
+ * S153 P2 (owner R84) — how long the archer's arrow is visibly in the air, in ticks.
+ *
+ * The flight window ENDS on `attackFireTick`, so the arrow lands on the exact tick the damage is
+ * applied. 12 ticks is 0.2s at 60 Hz: long enough to read as a projectile crossing a gap, short
+ * enough that it never lags behind the hit it represents. Shared rather than a local literal so the
+ * picture and the simulation cannot drift apart.
+ */
+export const ARROW_FLIGHT_TICKS = 12;

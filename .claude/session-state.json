@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2404,
+  "tool_calls_session_total": 2406,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -261,12 +261,95 @@
       "title": "Archer projectile VFX - plain arrow vs units, flaming vs structures",
       "tier": "Standard",
       "estimated_tokens": 12000,
-      "status": "pending",
+      "status": "completed",
       "detail": "New ARROW_SHOT effect kind on the existing UNHASHED effect channel, following the ARC_FLASH start-end precedent. Zero wire cost, no protocol bump. Discriminate the flaming variant on target class at the attack-fire site.",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const ARROW_FLIGHT_TICKS = 12;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
+          "needle": "export function resolveArcherShot("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
+          "needle": "export function drawArrow("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
+          "needle": "export function syncArcherArrows("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
+          "needle": "if (c.type !== 'goblinArcher') return null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
+          "needle": "flaming = true;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "import { syncArcherArrows } from './archerArrow.ts';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "private readonly arrowLayer: Graphics;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "syncArcherArrows(this.arrowLayer, world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
+          "needle": "this.arrowLayer.clear();"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\effects.ts",
+          "needle": "'ARROW_SHOT'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
+          "needle": "'ARROW_SHOT'"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "export const PROTOCOL_VERSION = 31 as const;",
+          "op": "eq",
+          "value": 1
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\playwright.config.ts",
+          "needle": "_visual-archer"
+        }
+      ],
+      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0 - tsc caught an unused param vitest ignored, twice this session now. (2) vitest 2997 total, +14 new on resolveArcherShot. (3) PIXEL-VERIFIED on a live solo match: injected both scenes into the running world via the __SPARK__ dev accessor, screenshotted, and SAMPLED THE PNG for fire-coloured pixels. First run returned ZERO, which looked like a broken flame - it was a bad test scene. The second archer sat 198px from the first scene victim and GOBLIN_ARCHER_RANGE is 220, so it correctly acquired the unit and drew a plain arrow. Re-laid the scenes beyond archer range: 200 fire-coloured pixels, and the two variants are visually distinct. Checking the INPUT before retuning the consumer is what stopped an afternoon of tweaking flame alpha for a non-bug. (4) The throwaway harness was DELETED rather than left behind - an internals-injecting spec in the gating lane is the CF3 hazard class."
     },
     {
       "id": "P3",
