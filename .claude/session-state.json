@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 2329,
+  "tool_calls_session_total": 2339,
   "session_id": "S152",
   "session_kind": "PDCA batch — RAID (R78) + the FEED gesture + three goblins & the stink tower rebuild",
   "session_start": "2026-08-23",
   "prior_session_note": "S151 closed at 85495f1; protocol 30; preflight re-measured GREEN this session: build 727.6/900 KiB, vitest 2940/2940, e2e:gating 44 exit 0, verify-deploy 4/4, CI 15/15 success",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-22_S151.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
-  "session_status": "in_progress",
+  "session_status": "closed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 30,
+  "protocol_version": 31,
   "boot_preflight": {
     "build": "PASS entry index-BijPc2IZ.js 727.6 KiB cap 900 KiB headroom 172.4",
     "vitest": "2940 passed / 176 files",
@@ -928,7 +928,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "PASS 53/53 (S150 close, MEASURED). Was \"42/42\" and byte-identical to S149 across all five S150 commits until the Rule-22 audit caught it. Trajectory this session: 49 passed / 1 failed / 3 skipped at pre-flight -> 52/0/3 after P4 revived the click-to-build trio -> 53 passed / 0 failed / 0 SKIPPED after P5 root-caused bomb.spec. Zero skips is the part worth keeping: the lane no longer hides anything.",
-  "closed": false,
+  "closed": "2026-08-26",
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -996,9 +996,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 494183,
-  "real_context_pct_at_close": 49.42,
-  "checkpoint_commit": "400b9df",
+  "real_context_tokens_at_close": 830000,
+  "real_context_pct_at_close": 83.0,
+  "checkpoint_commit": "bf2b213",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -3868,5 +3868,7 @@
     "rule22_runtime_scan": "CLEAN over 3586 added lines across the three feature commits: 0 unrendered $(VAR) in comments, 0 referenced repo paths missing (21 checked), 0 documented-but-unimplemented CLI flags in the three art scripts. One earlier stale claim was found and fixed during the session — gen-character-clips.mjs's header documented a `--contact-sheet` flag that never existed.",
     "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   },
-  "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar."
+  "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar.",
+  "handoff_doc": ".handoff-archive/HANDOFF_2026-08-26_S152.md",
+  "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4."
 }
