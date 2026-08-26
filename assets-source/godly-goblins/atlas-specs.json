@@ -1,0 +1,137 @@
+{
+  "_comment": [
+    "SPARK — S152 P3 atlas specs, one entry per character, consumed by scripts/build-sprite-atlas.mjs.",
+    "RETAINED IN-TREE: S151 shipped three atlases and kept no spec, so they could not be rebuilt or",
+    "retuned — which is exactly why the owner's 'redo the stink tower' needed a full regeneration.",
+    "ticksPerFrame values match the shipped melee/archer atlases so the new goblins animate at the",
+    "same cadence as their siblings: idle 7, walk 4, attack 5 (the stink tower keeps its own 6 / 4).",
+    "cellW is a FLOOR, not a cap: the builder widens it to fit a prop at full character height, which",
+    "is why the archer's shipped cell is 234 rather than 200 (his bow)."
+  ],
+  "specs": [
+    {
+      "name": "goblin-shield",
+      "outDir": "public/godly/goblin-shield/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/godly-goblins/clips/goblin-shield/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/godly-goblins/clips/goblin-shield/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/godly-goblins/clips/goblin-shield/attack.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 30
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0002
+    },
+    {
+      "_why_sapper": [
+        "The CreatureType is `goblinSuicide` and the owner calls it the 'terrorist goblin', but the",
+        "asset is named `goblin-sapper`: veo refuses prompts that read as a suicide bomber, so the",
+        "character was framed as a comedic sapper hugging an oversized cartoon bomb. The name follows",
+        "the art. ATLASES maps goblinSuicide -> this path, and that link is documented there."
+      ],
+      "name": "goblin-sapper",
+      "outDir": "public/godly/goblin-sapper/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/godly-goblins/clips/goblin-sapper/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/godly-goblins/clips/goblin-sapper/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/godly-goblins/clips/goblin-sapper/attack.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 36
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0002
+    },
+    {
+      "_why_batrider": [
+        "The FLYER. There is no altitude support in goblinRenderer: footAnchor.y is forced to ~0.995",
+        "by the builder and the sprite is planted on c.pos.y, so without help the bat's feet sit on",
+        "the ground. S152 P3 adds a per-type LIFT in the renderer rather than trying to bake headroom",
+        "into the cell — the builder's union-bbox crop would remove baked headroom anyway."
+      ],
+      "name": "goblin-batrider",
+      "outDir": "public/godly/goblin-batrider/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/godly-goblins/clips/goblin-batrider/idle.mp4",
+          "ticksPerFrame": 7,
+          "sampleWindow": 16
+        },
+        "walk": {
+          "clip": "assets-source/godly-goblins/clips/goblin-batrider/walk.mp4",
+          "ticksPerFrame": 4,
+          "sampleWindow": 16
+        },
+        "attack": {
+          "clip": "assets-source/godly-goblins/clips/goblin-batrider/attack.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 16
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0002
+    },
+    {
+      "_why_stink": [
+        "REBUILT ON OWNER INSTRUCTION ('the currently implemented stink tower is shit'). Same output",
+        "path as the shipped one so stinkTowerRenderer needs no change — this REPLACES the atlas whose",
+        "branch count changed between frames. Two states only: the renderer has no walk for a tower.",
+        "Cell 240 matches the shipped manifest."
+      ],
+      "name": "stink-tower",
+      "outDir": "public/godly/stink-tower/anim",
+      "cellW": 240,
+      "cellH": 240,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/godly-goblins/clips/stink-tower/idle.mp4",
+          "ticksPerFrame": 6
+        },
+        "attack": {
+          "clip": "assets-source/godly-goblins/clips/stink-tower/attack.mp4",
+          "ticksPerFrame": 4,
+          "sampleWindow": 48
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0002
+    }
+  ],
+  "_sampleWindow_note": [
+    "sampleWindow values are MEASURED from contact sheets, not chosen. veo holds an image-to-video seed",
+    "for roughly the first second then drifts, and the ATTACK clip is worst in every character because",
+    "the renderer HOLDS an attack's final frame through the recovery half of the cadence — a degraded",
+    "last frame is therefore the pose on screen longest. Clips are 4s @ 24fps = 96 frames.",
+    "shield/attack 30: it zoomed out AND slid across frame, inflating the shared union bbox to 1187px",
+    "and shrinking every other state with it. batrider all 36: the goblin turned spindly and washed out",
+    "broadly, not just late. sapper/attack 36: its final frame became a mangled double-headed figure.",
+    "stink-tower/attack 48: the lightning spread frame-wide late, shrinking the tower vs its own idle."
+  ],
+  "_enclosedWhite_note": [
+    "enclosedWhiteLimitPct 0.0002 (=0.02% of frame, ~184px) on every S152 character. MEASURED, not",
+    "chosen: on the bat rider the enclosed BACKGROUND pockets are 446-14291px while every real feature",
+    "(eyes, teeth, spear glints) is <=24px - an 18x gap, so any threshold between them is safe.",
+    "The builder default stays 0.003 so the shipped melee/archer atlases cannot regress."
+  ]
+}

@@ -70,7 +70,27 @@ for (const st of stateNames) {
   if (!Number.isFinite(total) || total < spec.framesPerState) {
     throw new Error(`${st}: clip has ${probe} frames, need >= ${spec.framesPerState}`);
   }
-  const stride = Math.floor(total / spec.framesPerState);
+  /*
+   * ⭐ S152 P3 — `sampleWindow`: TAKE THE FRAMES FROM THE FRONT OF THE CLIP, NOT THE WHOLE THING.
+   *
+   * MEASURED, not guessed: veo holds an image-to-video seed faithfully for roughly the first
+   * second and then drifts. Over a 4 s clip sampled end to end, the S152 bat rider's goblin turned
+   * spindly and washed out by the later frames, and the shield goblin's ATTACK clip zoomed out and
+   * slid across frame. Both are invisible to every test in the repo and obvious in a contact sheet.
+   *
+   * ⛔ AND THE DRIFT IS WORSE THAN IT LOOKS, because ONE union bbox covers every state: a single
+   * state whose subject wanders inflates the box for ALL of them, so the other states' characters
+   * get scaled down to fit a frame-wide box. That is how a clean idle ends up rendering small.
+   *
+   * ⚠ THE TRADE IS REAL: a narrower window is more faithful and may clip the tail of a long
+   * action. Per-state, so a slow idle can take the whole clip while a drifting attack takes the
+   * front. Absent ⇒ the whole clip, i.e. the S151 behaviour is unchanged by default.
+   */
+  const window = Math.min(total, spec.states[st].sampleWindow ?? spec.sampleWindow ?? total);
+  if (window < spec.framesPerState) {
+    throw new Error(`${st}: sampleWindow ${window} < framesPerState ${spec.framesPerState}`);
+  }
+  const stride = Math.max(1, Math.floor(window / spec.framesPerState));
   execFileSync('ffmpeg', [
     '-v', 'error', '-i', clip,
     '-vf', `select='not(mod(n\\,${stride}))'`, '-vsync', '0',
@@ -131,22 +151,67 @@ def matte(a):
     border.discard(0)
     kill = set(border)
     if n > 0:
-        # Enclosed-but-large white is background. 0.3% of the frame cleanly separates an eye
-        # (~0.05%) from a between-the-legs gap (~1.5%) — measured on the shipped swordsman.
-        limit = 0.003 * a.shape[0] * a.shape[1]
+        # ⭐ S152 P3 — THE THRESHOLD IS NOW A PER-CHARACTER KNOB, AND 0.3% WAS TOO HIGH FOR ART
+        # WITH SMALL BACKGROUND POCKETS.
+        #
+        # The original figure was calibrated on ONE character (the shipped swordsman: eye ~0.05%,
+        # between-the-legs gap ~1.5%). The bat rider has several MID-SIZED enclosed pockets - between
+        # his arm and the wing, between the rein and the bat's ear - and every one of them measured
+        # BELOW 0.3%, so they were KEPT as opaque white and shipped as blobs stuck to the character.
+        # That is the exact defect this rule was written to prevent, one size band down.
+        #
+        # ⛔ AND IT LOOKED LIKE A veo PROBLEM. The atlas showed a washed-out, blotchy goblin, so the
+        # first three fixes attempted were all on the GENERATION side (shorter clips, narrower sample
+        # windows, different prompts). Extracting the RAW clip frames settled it in one step: frames
+        # 0, 5 and 11 were pristine. The pipeline was the culprit, not the model. Check the input
+        # before retuning the thing that consumes it.
+        #
+        # MEASURED on the bat rider: background pockets 446..14291 px; every real feature (eyes,
+        # teeth, spear glints) <= 24 px. An 18x gap, so anything in between is safe. Default is
+        # UNCHANGED at 0.003 so the two shipped goblins cannot regress if they are ever rebuilt.
+        limit = spec.get('enclosedWhiteLimitPct', 0.003) * a.shape[0] * a.shape[1]
         sizes = ndimage.sum(near_white, lab, index=np.arange(1, n + 1))
         for i, sz in enumerate(sizes, start=1):
             if i not in kill and sz > limit:
                 kill.add(i)
     bg = np.isin(lab, list(kill)) if kill else np.zeros_like(near_white)
-    # ⭐ AND KILL BORDER-CONNECTED NEAR-BLACK TOO. Any letterbox that survives the column crop is
-    # solid black touching the edge; without this it renders as a hard bar across the sprite.
+    # ⛔ S152 P3 — KILL BORDER-CONNECTED NEAR-BLACK **ONLY WHEN IT IS SHAPED LIKE A BAR**.
+    #
+    # THE ORIGINAL RULE DELETED WHOLE CHARACTERS. It removed ANY dark component touching the frame
+    # edge, on the reasoning that a surviving letterbox is black and touches the edge. True — but a
+    # cartoon's INK OUTLINE is also near-black, and every outline in a drawing is ONE connected
+    # region. So the moment any part of the silhouette reaches the frame edge, the outline joins the
+    # letterbox bar into a single component and the entire character's linework is erased.
+    #
+    # Measured on the bat rider's walk clip: his wingtips touch the edge, and the atlas came out with
+    # the goblin and bat rendered as flat mid-tone shapes with NO outlines at all — while the ground
+    # shadow (not border-connected) stayed pure black. Same mechanism cost the shield goblin its
+    # outlines on the attack frames where veo let him drift wide.
+    #
+    # ⚠ AND IT MASQUERADED AS A MODEL PROBLEM for three fix attempts (shorter clips, narrower sample
+    # windows, a different prompt) because "washed out and blotchy" reads exactly like generative
+    # drift. Extracting the RAW clip frames settled it in one step: they were pristine.
+    #
+    # A letterbox bar is a BAR: it spans nearly the whole frame in one axis and is thin in the other.
+    # A character outline never is. So that is what gets tested, instead of mere edge contact.
     dark = rgb.max(axis=2) < 42
     dlab, dn = ndimage.label(dark)
     dborder = set(np.unique(np.concatenate([dlab[0, :], dlab[-1, :], dlab[:, 0], dlab[:, -1]])))
     dborder.discard(0)
-    if dborder:
-        bg = bg | np.isin(dlab, list(dborder))
+    H, W = a.shape[0], a.shape[1]
+    bars = []
+    for i in dborder:
+        ys, xs = np.nonzero(dlab == i)
+        if ys.size == 0:
+            continue
+        h = ys.max() - ys.min() + 1
+        w = xs.max() - xs.min() + 1
+        vertical = h >= 0.90 * H and w <= 0.15 * W
+        horizontal = w >= 0.90 * W and h <= 0.15 * H
+        if vertical or horizontal:
+            bars.append(i)
+    if bars:
+        bg = bg | np.isin(dlab, bars)
     alpha = np.where(bg, 0, 255).astype(np.uint8)
     # Erode by one pixel to kill the pale halo veo leaves at the ink outline.
     solid = ndimage.binary_erosion(alpha > 0, structure=np.ones((3, 3)), border_value=1)

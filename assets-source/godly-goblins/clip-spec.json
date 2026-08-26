@@ -1,0 +1,82 @@
+{
+  "_comment": [
+    "SPARK — S152 P3 veo clip spec. RETAINED IN-TREE: S151 kept neither its specs nor its clips, so",
+    "the three atlases it shipped could not be rebuilt — which is exactly why the owner's request to",
+    "redo the stink tower needed a from-scratch regeneration instead of a retune.",
+    "Every clip is seeded IMAGE-TO-VIDEO off the character's own design PNG so idle/walk/attack are",
+    "the SAME character (owner: 'need to stay consistent throughout').",
+    "State names must match goblinRenderer.syncSprite: ATTACKING->attack, SEEKING->walk, else idle."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "goblin-shield",
+      "seed": "assets-source/godly-goblins/4-goblin-shield-SQUARE.png",
+      "outDir": "assets-source/godly-goblins/clips/goblin-shield",
+      "states": {
+        "idle": {
+          "prompt": "The armoured goblin soldier stands on guard behind his big steel shield, breathing steadily, shifting his weight from foot to foot and glancing around warily."
+        },
+        "walk": {
+          "prompt": "The armoured goblin soldier marches steadily to the right behind his raised shield, taking heavy deliberate steps, his shield held forward the whole time."
+        },
+        "attack": {
+          "prompt": "The armoured goblin soldier shoves his shield forward in a hard bash, then jabs low with his short sword and pulls back to his guard stance."
+        }
+      }
+    },
+    {
+      "name": "goblin-sapper",
+      "seed": "assets-source/godly-goblins/5-goblin-sapper-DOT.png",
+      "outDir": "assets-source/godly-goblins/clips/goblin-sapper",
+      "states": {
+        "idle": {
+          "prompt": "The goblin sapper stands hugging his big round cartoon bomb to his chest, cackling and bouncing on his toes with excitement, the little fuse sparkling at the top."
+        },
+        "walk": {
+          "prompt": "The goblin sapper runs to the right clutching the round bomb against his chest, legs pumping, leaning forward eagerly."
+        },
+        "attack": {
+          "prompt": "The goblin sapper lifts the round bomb high overhead with both arms, plants it down on the ground in front of him with a flourish, then throws both arms up and grins."
+        }
+      }
+    },
+    {
+      "name": "goblin-batrider",
+      "seed": "assets-source/godly-goblins/6-goblin-batrider-SPIRAL.png",
+      "outDir": "assets-source/godly-goblins/clips/goblin-batrider",
+      "states": {
+        "idle": {
+          "prompt": "The little goblin rider hovers in mid-air on his big brown bat, the bat's leathery wings beating steadily up and down, the rider bobbing gently with each beat and his legs dangling."
+        },
+        "walk": {
+          "prompt": "The little goblin rider flies to the right on his big brown bat with strong steady wing beats, staying high in the air, his legs dangling below."
+        },
+        "attack": {
+          "prompt": "The little goblin rider swoops down on his bat and jabs his short spear downward, then the bat beats its wings hard and lifts him back up."
+        }
+      }
+    },
+    {
+      "name": "stink-tower",
+      "_why": [
+        "REBUILT ON OWNER INSTRUCTION: 'the currently implemented stink tower is shit we need to use",
+        "the one from the screenshot'. The seed is the owner's OWN drawing, outside the repo.",
+        "staticSubject is the fix for the measured defect in the shipped atlas: its branch count",
+        "CHANGES across idle f0/f4/f8, so the tower appears to melt. Only the loose parts may move."
+      ],
+      "seed": "C:/Users/onesh/OneDrive/Desktop/SPARK_S137_starter_designs/3-stink-tower-DEFENCE.png",
+      "outDir": "assets-source/godly-goblins/clips/stink-tower",
+      "staticSubject": true,
+      "states": {
+        "idle": {
+          "prompt": "Thick green stinking vapour billows slowly upward from the base of the tower, a few flies buzz in little loops around it, the fuses on the hanging brown sacks sputter with small flames, and the sacks sway very slightly on their ropes. The striped coil at the very top pulses with faint blue electricity."
+        },
+        "attack": {
+          "prompt": "A bright blue electric arc cracks outward from the striped coil at the top of the tower, the green vapour at the base surges upward in a big puff, the fuse flames flare, and the hanging brown sacks swing on their ropes."
+        }
+      }
+    }
+  ]
+}

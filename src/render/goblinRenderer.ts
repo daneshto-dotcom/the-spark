@@ -48,15 +48,69 @@ import { multiplierFifths } from '../state/stats.ts';
  * (`public/godly/helga/anim/helga-anim.json`), which is why this renderer can mirror
  * `princessRenderer` instead of inventing a second scheme.
  *
- * ⚠ ONLY THE KINDS WITH ART APPEAR HERE. The owner scoped this session to the melee and archer
- * goblins; the other four are next session. A kind absent from this map falls through to the
+ * ⚠ ONLY THE KINDS WITH ART APPEAR HERE. A kind absent from this map falls through to the
  * procedural puppet, so it is still VISIBLE and playable — which matters, because the S139 sweep
  * found that an unrendered creature simulates, walks, strikes, kills and dies with nothing drawn.
+ *
+ * ⭐ S152 P3 — three more, on the owner's scoping: *"now we need this session shield goblin,
+ * terrorist goblin, and bat rider goblin, all in the same art style"*. Only `goblinHound` is left
+ * on the puppet.
  */
 const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
+  goblinShield: '/godly/goblin-shield/anim/goblin-shield',
+  // ⚠ THE ASSET IS NAMED `goblin-sapper`, NOT `goblin-suicide`, AND THE MISMATCH IS DELIBERATE.
+  // veo refuses prompts that read as a suicide bomber, so the owner's "terrorist goblin" was framed
+  // as a comedic sapper hugging an oversized cartoon bomb and the asset name follows the ART. The
+  // FEED button captions him SAPPER too (structurePanel.GOBLIN_SHORT_NAME), so the player-facing
+  // name and the file name agree; only the CreatureType literal predates both.
+  goblinSuicide: '/godly/goblin-sapper/anim/goblin-sapper',
+  goblinBat: '/godly/goblin-batrider/anim/goblin-batrider',
 };
+
+/**
+ * ⭐ S152 P3 — PER-KIND ALTITUDE, IN CANVAS PIXELS. The atlas path had no notion of height.
+ *
+ * Every sprite is foot-anchored (`footAnchor.y` ≈ 0.995, forced by the builder) and drawn at the
+ * creature's own `pos.y`, so without this the BAT RIDER's mount stands on the ground like an
+ * infantryman. Owner R77 calls him the *"flying goblin"*, and a flyer that walks is simply wrong.
+ *
+ * ⛔ AND BAKING THE GAP INTO THE ART CANNOT WORK — I checked before adding a dial. The builder
+ * measures ONE union bounding box over every frame and pastes each crop BOTTOM-CENTRE into its
+ * cell (`build-sprite-atlas.mjs`), so empty headroom drawn above the character is cropped away by
+ * construction. The offset has to live at draw time.
+ *
+ * ⚠ RENDER-ONLY. The creature's actual `pos` is untouched, so targeting, range, collision and the
+ * `?worker=1` mirror all see the same numbers they always did. This lifts the PICTURE, nothing else
+ * — which also means a flyer is still hit by ground attacks exactly as the sim intends.
+ */
+const GOBLIN_LIFT: Partial<Record<CreatureType, number>> = {
+  goblinBat: 34,
+};
+
+/**
+ * Minimum opacity for a creature that has not started materialising. See the long note at the
+ * `alpha` computation: without a floor, a goblin fed during BUILD is drawn at alpha 0 — invisible.
+ * Low enough to read as "not active yet", high enough to be unmistakably THERE.
+ */
+const SPAWN_ALPHA_FLOOR = 0.35;
+
+/**
+ * How far the owner colour is lifted towards white before it is used as a MULTIPLY tint.
+ * 0 = the raw player colour (what S151 shipped, which crushed the art to near-black); 1 = pure
+ * white, i.e. no tint at all. 0.8 keeps the seat legible and the artwork intact.
+ */
+const TINT_WASH = 0.8;
+
+/** Lift `color` towards white by `t` (0..1), per channel. Pure — no allocation, no Pixi types. */
+function washTowardsWhite(color: number, t: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  const mix = (c: number): number => Math.round(c + (255 - c) * t) & 0xff;
+  return (mix(r) << 16) | (mix(g) << 8) | mix(b);
+}
 
 /** Every goblin kind this renderer is responsible for, atlas-backed or procedural. */
 const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
@@ -172,10 +226,23 @@ export class GoblinRenderer {
     // Negative X scale mirrors the sprite for facing — the source clips all walk to the right.
     sp.scale.set(face * GOBLIN_SPRITE_BASE_SCALE, GOBLIN_SPRITE_BASE_SCALE);
     sp.alpha = alpha;
-    // A faint owner tint so whose goblin this is stays readable at a glance, exactly as the
-    // procedural sash did. Kept subtle: the art is the character, the tint is only the flag.
-    sp.tint = tint;
-    void tint;
+    /*
+     * ⛔ S152 P3 — THE OWNER TINT WAS DESTROYING THE ART, AND IT SHIPPED THAT WAY IN S151.
+     *
+     * This line used to read `sp.tint = tint` with a comment promising a "faint" flag that was
+     * "kept subtle". A Pixi tint is a MULTIPLY, and PLAYER_COLORS are fully saturated — so an
+     * olive-green, brown-leather goblin multiplied by seat 0's crimson came out very nearly BLACK.
+     * Photographed in a live match: the shield goblin and the sapper were unreadable dark-red
+     * smudges. The comment described the intent; the code did the opposite.
+     *
+     * ⭐ SO THE COLOUR IS LIFTED TOWARDS WHITE BEFORE IT MULTIPLIES. A near-white wash barely
+     * darkens anything, which is what a "flag" was always supposed to be: seat 0's goblin reads
+     * faintly warm and seat 2's faintly cool, while both stay the character the owner drew.
+     *
+     * ⚠ THIS ALSO REPAIRS THE TWO SHIPPED GOBLINS (melee, archer) — they were tinted by the same
+     * line, so they have looked like this since S151.
+     */
+    sp.tint = washTowardsWhite(tint, TINT_WASH);
   }
 
   /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
@@ -210,14 +277,42 @@ export class GoblinRenderer {
       const tint =
         owner?.color ?? PLAYER_COLORS[c.ownerPlayerId as unknown as number] ?? PLAYER_COLORS[0]!;
 
-      // SPAWNING materialize: fade in over the config window so a granted goblin does not pop.
+      /*
+       * SPAWNING materialize: fade in over the config window so a granted goblin does not pop.
+       *
+       * ⛔ S152 P3 — THE FLOOR IS NOT COSMETIC. IT FIXED AN INVISIBLE UNIT.
+       *
+       * `hostTick` gates the ENTIRE creature loop on `matchPhase === 'FIGHT'` (hostTick.ts:447), so
+       * a creature born during BUILD never ticks and `ticksInState` stays 0 — which made this
+       * expression exactly 0, i.e. FULLY TRANSPARENT. And FEED_TOWER is only reachable during
+       * BUILD, because the structure popover that carries the button is BUILD-only by R19. So the
+       * ONLY way to use the goblin tower spent a shape from the bank and appeared to produce
+       * nothing at all, for up to a minute and a half.
+       *
+       * ⚠ FOUND BY LOOKING, NOT BY TESTING. Every unit test passed, the e2e feed spec passed (it
+       * asserts the creature EXISTS and the bank was debited — both true), and the creature was in
+       * `world.creatures` the whole time. It took a screenshot with nothing on it. This is the S139
+       * finding again: an unrendered creature simulates, walks, strikes, kills and dies with
+       * nothing drawn.
+       *
+       * The floor states the truth rather than hiding it: a fed goblin is VISIBLE but ghosted while
+       * it is still inert, and solidifies as it materialises once FIGHT begins.
+       *
+       * ⚠ WHETHER FEEDING DURING BUILD SHOULD QUEUE UNITS AT ALL IS AN OWNER QUESTION, flagged
+       * rather than decided here. This makes the current behaviour legible; it does not rule on it.
+       */
       const cfg = getCreatureConfig(c.type);
       const alpha =
-        c.state === 'SPAWNING' ? Math.min(1, c.ticksInState / Math.max(1, cfg.spawnTicks)) : 1;
+        c.state === 'SPAWNING'
+          ? SPAWN_ALPHA_FLOOR +
+            (1 - SPAWN_ALPHA_FLOOR) * Math.min(1, c.ticksInState / Math.max(1, cfg.spawnTicks))
+          : 1;
 
       const atlas = this.atlases.get(c.type);
       if (atlas !== undefined) {
-        this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y, face, alpha, tint);
+        // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
+        const lift = GOBLIN_LIFT[c.type] ?? 0;
+        this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
       } else {
         // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and
         // Voltkin precedent), and still the only art for the four kinds landing next session.
