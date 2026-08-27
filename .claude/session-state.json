@@ -2162,6 +2162,21 @@
   ],
   "carry_forward_next_session": [
     {
+      "id": "R92-batrider",
+      "priority": 0,
+      "tier": "Standard",
+      "title": "BAT RIDER: ranged harpoons + a flying read (owner, root-caused)",
+      "detail": "⭐ HE IS CONFIGURED AS MELEE. GOBLIN_BAT_CONFIG.attackRange is GOBLIN_ATTACK_RANGE = 35, the SAME constant the melee swordsman and the chewer use (\"true melee - closes onto its target\"). The archer by contrast has its own GOBLIN_ARCHER_RANGE. So the bat rider is not failing to fire a projectile - he has no ranged behaviour at all; he flies up to contact and hits. That is why nothing appears to leave him. || (1) give him his own range constant, mirroring GOBLIN_ARCHER_RANGE; (2) reuse the S153 P2 ARROW_SHOT effect for a HARPOON variant - plain at units, FIRE at towers/connectors, which is the same target-class discriminator P2 already resolves at the attack-fire site, so this is a variant not a new system; (3) the flying read: ALTITUDE_BY_KIND already exists in goblinRenderer (S152 P3 lifts the bat rider off the ground because \"a flyer that walks is simply wrong\") - verify it is applied and consider a shadow or bob so the altitude reads as flight rather than as a drawing offset."
+    },
+    {
+      "id": "P5b",
+      "priority": 1,
+      "tier": "Standard",
+      "estimated_tokens": 34000,
+      "title": "⛔ STILL NOT DONE — move the palette + queue to the footer, right of tier 8 (R80)",
+      "detail": "The owner has now asked THREE times and it is the oldest open request in the batch. S153 P5a fixed the ENQUEUE bug (ordering from the footer no longer needs the castle to have been opened) but did NOT move the UI, and the owner said so plainly. Audited plan: ~34K, files and breaking tests fully enumerated in the P5b carry-forward below. ⭐ START HERE next session, before any new feature. Implementation shape already chosen: the palette buttons and queue chips are real Pixi Containers carrying their own pointertap handlers, so REPARENT them into a new always-visible strip container anchored from footerBand chip geometry, hoist their draw above the panel open-gate, drop the two strip heights from the castle panel layout (four sites), add an isOverShapeStrip guard in controls, and register the surface in hudLayout."
+    },
+    {
       "id": "P5b",
       "priority": 0,
       "tier": "Standard",
@@ -4005,11 +4020,11 @@
       "status": "A.0 IN FLIGHT - confirming whether the move alone fixes it or the enqueue gating is a separate defect."
     },
     "R92": {
-      "title": "Stink tower reported as not lobbing bags",
-      "owner": "stink tower isnt flinging any poop bags or doing its thing...",
-      "a0_partial": "NOT UNBUILT - the mechanic is fully implemented. stinkTower.ts has the magazine, the throw interval, STINK_BAG_DAMAGE / STINK_BAG_RADIUS, the aggro aura and the death blast, and bagsRemaining is serialized and round-tripped (save.ts:723, :1866, :1901). So this is a REPRODUCTION problem, not a missing feature.",
-      "first_hypothesis_to_test": "DEFENDER_TARGETS.stinkTower is UNITS_ONLY - it lobs at the nearest enemy CREATURE in range and at nothing else. With no enemy units near it, doing nothing is correct behaviour. Reproduce with an enemy creature inside range before assuming a defect.",
-      "status": "UNVERIFIED - needs a live reproduction. Do not fix before reproducing."
+      "title": "The BAT RIDER is a RANGED harpoon thrower, and reads as flying",
+      "owner": "the goblin bat-rider doesnt look like he is shooting anything but he is a ranged unit like the ranger, he should throw his harpoons. regular ones at units and fire ones at towers. and it should show that they are flying and whatnot",
+      "a0_ROOT_CAUSE": "⭐ HE IS CONFIGURED AS MELEE. GOBLIN_BAT_CONFIG.attackRange is GOBLIN_ATTACK_RANGE = 35, the SAME constant the melee swordsman and the chewer use (\"true melee - closes onto its target\"). The archer by contrast has its own GOBLIN_ARCHER_RANGE. So the bat rider is not failing to fire a projectile - he has no ranged behaviour at all; he flies up to contact and hits. That is why nothing appears to leave him.",
+      "shape_of_the_work": "(1) give him his own range constant, mirroring GOBLIN_ARCHER_RANGE; (2) reuse the S153 P2 ARROW_SHOT effect for a HARPOON variant - plain at units, FIRE at towers/connectors, which is the same target-class discriminator P2 already resolves at the attack-fire site, so this is a variant not a new system; (3) the flying read: ALTITUDE_BY_KIND already exists in goblinRenderer (S152 P3 lifts the bat rider off the ground because \"a flyer that walks is simply wrong\") - verify it is applied and consider a shadow or bob so the altitude reads as flight rather than as a drawing offset.",
+      "cost": "Standard. The effect channel is unhashed, so the projectile half costs no wire and no protocol bump."
     }
   },
   "a0_state_discovery_s153": {
@@ -4062,5 +4077,6 @@
     "lesson": "A long-running probe reads a SNAPSHOT. If the main loop edits the same files meanwhile, the probe output expires silently and its confidence is unchanged. The audit stage caught it; without one I might have \"fixed\" an already-fixed bug from a confident report. When parallel investigation runs alongside parallel implementation, timestamp the findings or re-verify before acting.",
     "value_retained": "Report 2 (the move plan) SURVIVED on the merits, md5-pinned, and corrected the size estimate 14K -> 34K."
   },
-  "_gate_note_s153": "P5b was appended at the END of priorities and the PDCA gate started blocking every write. Cause: extract_priority_field is an awk brace counter that increments once per LINE CONTAINING a brace, so it drifts on a file this size - measured final depth 9 instead of 0 - and a block late in the file is never seen at depth 2. Fix is ordering, not content: the in_progress priority is moved to index 0, ahead of the drift. Array order is not semantic."
+  "_gate_note_s153": "P5b was appended at the END of priorities and the PDCA gate started blocking every write. Cause: extract_priority_field is an awk brace counter that increments once per LINE CONTAINING a brace, so it drifts on a file this size - measured final depth 9 instead of 0 - and a block late in the file is never seen at depth 2. Fix is ordering, not content: the in_progress priority is moved to index 0, ahead of the drift. Array order is not semantic.",
+  "gate_trap_s153": "⚠ THE PDCA GATE BLOCKS EVERY WRITE IF THE in_progress PRIORITY SITS LATE IN session-state.json. extract_priority_field is an awk counter that increments once per LINE CONTAINING a brace, so it drifts on a large file - measured final depth 9 instead of 0 - and a block near the end is never seen at depth 2. Symptom is \"Deliberation not completed for in_progress priority\" while the flags are all correctly set. FIX: keep the in_progress priority at index 0 of the priorities array. Array order is not semantic. This is the S152 brace-trap in a new form: that one was braces inside PROSE, this one is sheer file length."
 }
