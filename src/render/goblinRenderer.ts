@@ -34,7 +34,7 @@ import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { syncCreatureProjectiles } from './creatureProjectile.ts';
-import { GOBLIN_LIFT } from './creatureLift.ts';
+import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
@@ -100,13 +100,6 @@ const SPAWN_ALPHA_FLOOR = 0.35;
  * transparent"*. Taken literally.
  */
 const DORMANT_ALPHA = 0.5;
-
-/**
- * S154 P2 — the flyer's ground marker, in px. Wider than tall so it reads as lying flat on the
- * board, and small enough to say "that unit is up there" rather than looking like a puddle.
- */
-const SHADOW_RX = 11;
-const SHADOW_RY = 4;
 
 /**
  * How far the owner colour is lifted towards white before it is used as a MULTIPLY tint.
@@ -383,12 +376,13 @@ export class GoblinRenderer {
          * Drawn only for LIFTED kinds. A grounded goblin stands on its own mark; the procedural
          * puppet has always drawn its own ellipse (see `drawGoblin`).
          */
+        // ⭐ S154 AMENDMENT B — EVERY goblin gets one, not just the flyer. The owner asked for the
+        // marker in the OWNER'S colour on all spawned creatures so a crowded board reads at a glance.
+        // A lifted kind additionally gets the ring, because for a flyer the marker is also the only
+        // thing saying where the hittable unit actually is, 34 px below its picture.
+        drawGroundMarker(g, c.pos.x, c.pos.y, tint, alpha);
         if (lift > 0) {
-          g.ellipse(c.pos.x, c.pos.y, SHADOW_RX, SHADOW_RY).fill({
-            color: tint,
-            alpha: 0.3 * alpha,
-          });
-          g.ellipse(c.pos.x, c.pos.y, SHADOW_RX, SHADOW_RY).stroke({
+          g.ellipse(c.pos.x, c.pos.y, GROUND_RX, GROUND_RY).stroke({
             width: 1,
             color: tint,
             alpha: 0.55 * alpha,

@@ -44,6 +44,9 @@ import { CHEW_INTERVAL_TICKS } from '../constants.ts';
 import { CREATURE_DESPAWNING_TICKS, CREATURE_FADE_TICKS } from '../state/creatures/creature.ts';
 import type { CreatureState } from '../state/creatures/creature.ts';
 import type { World } from '../state/world.ts';
+// S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
+import { drawGroundMarker, ownerTint } from './creatureLift.ts';
+import { PLAYER_COLORS } from '../constants.ts';
 import type { CreatureId } from '../types.ts';
 import { playSplatSFX, playGnawSFX } from './audioManager.ts';
 
@@ -135,6 +138,12 @@ export class ChewerRenderer {
       if (c.type !== 'chewer') continue;
       liveIds.add(c.id);
       this.lastSeenState.set(c.id, c.state);
+      // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a
+      // glance whose soldiers those are. One shared definition in `creatureLift.ts`, called from all
+      // three creature renderers, because the owner's requirement was explicitly that it be
+      // consistent across ALL spawned creatures.
+      drawGroundMarker(g, c.pos.x, c.pos.y, ownerTint(world.players, c.ownerPlayerId, PLAYER_COLORS), 1);
+
 
       // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED
       // state + ticksInState. (⚠ S133: chewProgress IS on the wire now — the old reason

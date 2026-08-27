@@ -23,6 +23,9 @@
 
 import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
+// S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
+import { drawGroundMarker, ownerTint } from './creatureLift.ts';
+import { PLAYER_COLORS } from '../constants.ts';
 import type { Vec2 } from '../types.ts';
 import { playZapBurstSFX } from './audioManager.ts';
 import {
@@ -248,6 +251,12 @@ export class CreatureRenderer {
       if (!isVoltkin && !isDrone) continue;
       liveIds.add(creature.id);
       this.lastSeenState.set(creature.id, creature.state);
+      // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a
+      // glance whose soldiers those are. One shared definition in `creatureLift.ts`, called from all
+      // three creature renderers, because the owner's requirement was explicitly that it be
+      // consistent across ALL spawned creatures.
+      drawGroundMarker(g, creature.pos.x, creature.pos.y, ownerTint(world.players, creature.ownerPlayerId, PLAYER_COLORS), 1);
+
 
       // Renderer-side velocity estimate (wire prevPos is dead on the client mirror — see the chewer
       // renderer doc). A single >200px/frame jump is a snapshot teleport, not motion — ignore it.
