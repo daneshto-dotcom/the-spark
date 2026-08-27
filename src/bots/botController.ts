@@ -204,6 +204,16 @@ export class BotController {
         this.state = { kind: 'IDLE' };
         return;
       }
+      case 'UPGRADE_GATHERER':
+        // ⭐ AMENDMENT A — a castle command like PULL: no travel, dispatched immediately. The host
+        // re-validates score and the cap, so a refusal costs nothing.
+        send({ type: 'UPGRADE_GATHERER_SPEED', playerId: this.seat });
+        this.state = { kind: 'IDLE' };
+        return;
+      case 'BUY_GATHERER':
+        send({ type: 'BUY_GATHERER', playerId: this.seat });
+        this.state = { kind: 'IDLE' };
+        return;
       case 'TOWER': {
         /*
          * ⭐ S154 P3 (owner R86) — STAMP A TOWER. A CASTLE COMMAND, exactly like PULL: no travel, no

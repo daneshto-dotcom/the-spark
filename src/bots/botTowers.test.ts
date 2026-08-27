@@ -258,12 +258,35 @@ describe('S154 P3 — determinism: no new rng draws', () => {
   });
 
   it('chooseGoal proposes TOWER ahead of the loose-shape BUILD when a bill is held', () => {
-    // Ordering matters for behaviour: a bot holding a full bill should raise the tower rather than
-    // fritter the shapes away one at a time, which is the whole of R86.
+    /*
+     * Ordering matters for behaviour: a bot holding a full bill should raise the tower rather than
+     * fritter the shapes away one at a time, which is the whole of R86.
+     *
+     * ⚠ ECONOMY OUTRANKS BOTH, since S154 AMENDMENT A. An IMBA bot with points in hand upgrades its
+     * hauler first (*"hard and imba should be at least upgrading the gatherer speed right away"*),
+     * because that compounds into every shape that arrives afterwards. So the assertion is that TOWER
+     * beats BUILD, tested with the economy branch already satisfied — which is the ordering the owner
+     * actually asked for, rather than the one that happened to ship first.
+     */
     const w = botsWorld();
     bankTheBill(w, SEAT, CHEAPEST);
+    for (const g of w.gatherers.values()) g.speedLevel = 5; // GATHERER_MAX_SPEED_LEVEL: nothing to buy
+    w.scoreByPlayer.set(SEAT, 0); // and nothing to buy it with
     const goal = chooseGoal(w, SEAT, BOT_CONFIGS.IMBA, () => 0.5, true);
     expect(goal.kind).toBe('TOWER');
+  });
+
+  it('⭐ but the ECONOMY comes first — a hauler upgrade beats a tower, and that is the owner ruling', () => {
+    const w = botsWorld();
+    bankTheBill(w, SEAT, CHEAPEST);
+    w.scoreByPlayer.set(SEAT, 500); // plenty for an upgrade
+    expect(chooseGoal(w, SEAT, BOT_CONFIGS.IMBA, () => 0.5, true).kind).toBe('UPGRADE_GATHERER');
+    // …and a MID bot does NOT upgrade, which is the visible difference between the tiers.
+    expect(chooseGoal(w, SEAT, BOT_CONFIGS.MID, () => 0.5, true).kind).not.toBe('UPGRADE_GATHERER');
+    expect(BOT_CONFIGS.HARD.upgradesGatherer).toBe(true);
+    expect(BOT_CONFIGS.MID.upgradesGatherer).toBe(false);
+    expect(BOT_CONFIGS.IMBA.buysSecondGatherer).toBe(true);
+    expect(BOT_CONFIGS.HARD.buysSecondGatherer).toBe(false);
   });
 });
 
@@ -283,22 +306,24 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
    * the board, from an EMPTY bank, and requires a structure to exist at the end. It is the only test
    * here whose premise matches what the owner was looking at.
    */
-  // ⛔ SKIPPED, AND THE SKIP IS THE FINDING — not a convenience.
-  //
-  // This is the assertion the owner's report is actually about, and it FAILS on the shipped tree. It
-  // is kept, un-weakened, so that the day the bot economy can feed a bill this un-skips and either
-  // passes or names what is still missing. Weakening it to something that passes today would hide
-  // exactly the gap that let P3 ship believing bots build towers.
-  //
-  // MEASURED CAUSE (three sim-minutes, real runHostTick, real spawner income, real gatherer):
-  //   • PEAK bank ∪ porch pool = **1 shape**. Not 3, not 2 — one, at its fullest moment.
-  //   • income ~1 MIXED shape every 11 s; the cheapest bill wants 4 of ONE TYPE.
-  //   • the bot placed 16 primitives in that time, so it is not idle — it simply never holds two
-  //     shapes at once, and no gate inside `chooseGoal` can accumulate out of that.
-  // Closing it needs a ~45-60 s hold plus gatherer type-matching that honours `gathererOrders` for a
-  // bot seat: an ECONOMY change with a real game-feel cost (a bot saving for a minute looks passive),
-  // which is an owner decision rather than a Micro amendment's to take.
-  it.skip('a HARD bot with income and an empty bank eventually raises a tower', () => {
+  /*
+   * ⭐ THIS IS THE ASSERTION THE OWNER'S REPORT WAS ABOUT, AND IT NOW PASSES.
+   *
+   * It was written to FAIL, and it did — P3's own acceptance test passed only because its fixture
+   * PRE-BANKS the bill, proving the stamp path and never the accumulation. This one starts from an
+   * EMPTY bank with real spawner income and a real gatherer, and requires a structure to exist at the
+   * end. It stayed red through five gate designs before three changes together made it green:
+   *
+   *   1. the ECONOMY investment — HARD/IMBA now spend their first points on UPGRADE_GATHERER_SPEED,
+   *      so shapes arrive materially faster (round 1 measured income on a bot that never upgraded);
+   *   2. the ORDER goal steering the hauler at the shape the bill wants — `gathererLifecycle` reads
+   *      `world.gathererOrders`, which was the load-bearing unknown: with a random type mix no hold
+   *      length would ever have been enough;
+   *   3. the save itself, BUILD-only and duty-cycled, spend-window first.
+   *
+   * Any one of the three alone left it red. Kept un-weakened as the regression guard for all three.
+   */
+  it('a HARD bot with income and an empty bank eventually raises a tower', () => {
     const w = botsWorld();
     // Anti-vacuity on the premise: the bank really is empty and the seat really has income.
     expect(bankCountOf(w.castleBanks, SEAT, 0 as never)).toBe(0);

@@ -31,6 +31,11 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
+import {
+  GATHERER_MAX_SPEED_LEVEL,
+  GATHERER_PRICE,
+  GATHERER_SPEED_UPGRADE_PRICE,
+} from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
@@ -49,6 +54,33 @@ const FLEE_HOP = 320;
  *  radius of its avatar, hop away (chewers chew enemy connectors, not the cursor, so this
  *  is a LIGHT avoid — just don't loiter in the swarm — gated below the hunter flee). */
 
+
+/**
+ * AMENDMENT A — the save's duty cycle: hold shapes back for `SAVE_HOLD_TICKS` out of every
+ * `SAVE_CYCLE_TICKS`, then spend freely for the remainder.
+ *
+ * 1800 of 3600 ticks = 30 s saving, 30 s spending, and it only runs during BUILD.
+ *
+ * Round 1 measured income at ~1 shape per 11 s and concluded a ~45-60 s hold was needed. That
+ * measurement was taken on a bot that NEVER UPGRADED ITS HAULER — which is the other half of this
+ * amendment. A HARD or IMBA bot now spends its first 50 points on `UPGRADE_GATHERER_SPEED` and keeps
+ * going to `GATHERER_MAX_SPEED_LEVEL`, so its shapes arrive materially faster and a 30 s window buys
+ * more than 90 s did before. The two halves reinforce, which is why the hold is half what round 1's
+ * arithmetic implied.
+ *
+ * The 50 % release is the part that matters for safety: it is unconditional, so no board state can
+ * deadlock a bot, which is exactly what killed round 1's first attempt.
+ */
+/**
+ * AMENDMENT A — how many haulers a bot will buy. A BOT-SIDE restraint, not a game rule:
+ * `applyBuyGatherer` has NO per-player cap (its `owned` count is used only to place the new body), so
+ * a human may buy as many as they can afford. An IMBA bot left uncapped would spend every 105 points
+ * on another hauler and field a comical crowd, which is not the difficulty the owner asked for.
+ */
+const BOT_MAX_GATHERERS = 2;
+
+const SAVE_CYCLE_TICKS = 3_600;
+const SAVE_HOLD_TICKS = 1_800;
 
 const CHEWER_AVOID_RADIUS = 140;
 const CHEWER_AVOID_RADIUS_SQ = CHEWER_AVOID_RADIUS * CHEWER_AVOID_RADIUS;
@@ -82,6 +114,13 @@ export type BotGoal =
    * has existed and been allowlisted since S141 and no bot ever used it.
    */
   | { readonly kind: 'ORDER'; readonly sparkType: SparkType }
+  /**
+   * ⭐ S154 AMENDMENT A — spend points on the hauler. Castle commands, so no travel, exactly like
+   * `PULL`. Both intents (`UPGRADE_GATHERER_SPEED`, `BUY_GATHERER`) are already allowlisted, so this
+   * costs no new action and no protocol bump.
+   */
+  | { readonly kind: 'UPGRADE_GATHERER' }
+  | { readonly kind: 'BUY_GATHERER' }
   | { readonly kind: 'REST' };
 
 /** ⭐ S154 P3 — the tower a bot has decided to build, and where. */
@@ -261,6 +300,36 @@ export function chooseGoal(
     return { kind: 'SHRINK' };
   }
 
+  /*
+    * ⭐ 6a — S154 AMENDMENT A (owner) — INVEST IN THE ECONOMY BEFORE ANYTHING ELSE.
+    *
+    * Owner: *"hard and imba should be at least upgrading the gatherer speed right away no? i cant see
+    * differece."* Placed ABOVE the tower and the loose build because a hauler upgrade COMPOUNDS —
+    * every shape after it arrives sooner — so a bot that defers it is strictly worse off later, and
+    * "right away" is what the owner asked for.
+    *
+    * ⚠ THE GUARDS MIRROR THE REDUCERS EXACTLY, deliberately: score >= price, and for the upgrade also
+    * "owns a gatherer that is not already maxed" (`applyUpgradeGathererSpeed` checks
+    * `owned.every(g => g.speedLevel >= GATHERER_MAX_SPEED_LEVEL)`). A refused intent is a harmless
+    * no-op, but a bot that proposes one every think while REST would have done is a bot standing
+    * still — the goal has to be genuinely available, not merely legal.
+    *
+    * No rng, so the seeded replay stream is untouched.
+    */
+  const score = world.scoreByPlayer.get(seat) ?? 0;
+  if (cfg.upgradesGatherer && score >= GATHERER_SPEED_UPGRADE_PRICE) {
+    let canUpgrade = false;
+    for (const g of world.gatherers.values()) {
+      if (g.ownerPlayerId === seat && g.speedLevel < GATHERER_MAX_SPEED_LEVEL) { canUpgrade = true; break; }
+    }
+    if (canUpgrade) return { kind: 'UPGRADE_GATHERER' };
+  }
+  if (cfg.buysSecondGatherer && score >= GATHERER_PRICE) {
+    let owned = 0;
+    for (const g of world.gatherers.values()) if (g.ownerPlayerId === seat) owned++;
+    if (owned < BOT_MAX_GATHERERS) return { kind: 'BUY_GATHERER' };
+  }
+
   // ⭐ 6b — S154 P3 (owner R86) — TOWER: spend the bank on a structure.
   //
   // Placed ABOVE the loose-shape BUILD branch, because a bot holding a full bill should raise the
@@ -308,7 +377,36 @@ export function chooseGoal(
      * not a Micro amendment's. Written down here instead of shipped as an inert gate, because an
      * inert gate is precisely the dead-code class this session has been fixing.
      */
-    const sparkId = pickTargetSpark(world, me.avatarPos, cfg, rng, me.id);
+    /*
+     * ⭐ S154 AMENDMENT A (round 2) — THE SAVE, SIZED FROM THE MEASUREMENT INSTEAD OF FROM A GUESS.
+     *
+     * Round 1 tried four gates here and every one failed, ending in the number that explains them:
+     * PEAK bank ∪ porch pool over 180 sim-seconds = **1 SHAPE**, income ~1 mixed shape every 11 s,
+     * cheapest bill 4 of ONE type. The last attempt held for 7 s of every 10 — far shorter than the
+     * ~44 s it takes for four shapes to arrive at all, so the pool could never stack and no tower was
+     * ever built. The gate was not wrong in kind; it was wrong by a factor of six in DURATION.
+     *
+     * ⭐ AND THE TYPE HALF IS NOW KNOWN TO WORK: `gathererLifecycle` reads `world.gathererOrders` when
+     * choosing what to fetch, so the ORDER goal below genuinely steers the hauler at the shape the
+     * bill wants. That was the load-bearing unknown in round 1 — with a random type mix, no hold
+     * length would have been enough.
+     *
+     * So: hold for `SAVE_HOLD_TICKS` (90 s) of every `SAVE_CYCLE_TICKS` (120 s). Long enough for ~8
+     * ordered shapes to land, and still unconditional — the bot spends freely for 30 s of every
+     * cycle, so no board state can deadlock it, which is what killed attempt 1.
+     */
+    const savingForTower =
+      // ⛔ BUILD ONLY. `stampRefusalAt`'s first gate is `matchPhase !== 'BUILD' -> 'FIGHT'`, so a
+      // tower cannot be stamped during FIGHT at all: holding shapes back then buys nothing and only
+      // makes the bot look idle through the half of the match the player is watching most closely.
+      world.matchPhase === 'BUILD' &&
+      chooseTowerOrder(world, seat, cfg) !== null &&
+      // WARNING: THE SPEND WINDOW COMES FIRST IN EACH CYCLE, and that is a real choice rather than a
+      // phase accident. A bot that OPENS the match standing still reads as broken, and the opening is
+      // exactly when the player is watching it. So it plays for the first half of every cycle and
+      // saves in the second.
+      world.tick % SAVE_CYCLE_TICKS >= SAVE_HOLD_TICKS;
+    const sparkId = savingForTower ? null : pickTargetSpark(world, me.avatarPos, cfg, rng, me.id);
     if (sparkId !== null) return { kind: 'BUILD', sparkId };
     // S138 P2 — nothing on my porch. If my gatherer has banked anything, pull one out onto the porch
     // (the shipped PULL_FROM_BANK client intent) and collect it on a later think. This is the whole

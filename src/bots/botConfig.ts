@@ -73,6 +73,27 @@ export interface BotConfig {
    * the matrix was after.
    */
   readonly towerTiers: number;
+  /**
+   * ⭐ S154 AMENDMENT A (owner) — does this tier SPEND POINTS ON ITS ECONOMY?
+   *
+   * Owner, after playing three difficulties: *"they are not upgrading their gatherer - hard and imma
+   * should be at least upgrading the gatherer speed right away no? i cant see differece."* Both halves
+   * of that are true: no bot has ever emitted `UPGRADE_GATHERER_SPEED` or `BUY_GATHERER` — the intents
+   * have been allowlisted for many sessions and only the human ever used them — and an economy a bot
+   * never invests in is a tier difference the player cannot see.
+   *
+   * It is the most legible difference available, because it COMPOUNDS: a faster hauler means more
+   * shapes, which means more towers, which is exactly the ladder `towerTiers` describes. A HARD bot
+   * that upgrades on its first affordable tick pulls away from a MID one that never does, visibly,
+   * without either of them being handed anything.
+   */
+  readonly upgradesGatherer: boolean;
+  /**
+   * ⭐ S154 AMENDMENT A — and does it buy a SECOND hauler? IMBA only: `GATHERER_PRICE` is 105 against
+   * a 50-point speed upgrade, so a second body is the late, expensive play and the end-boss is the
+   * only tier that should be making it.
+   */
+  readonly buysSecondGatherer: boolean;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -94,6 +115,8 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     smartPlacement: false,
     buildsTowers: false,
     towerTiers: 0,
+    upgradesGatherer: false,
+    buysSecondGatherer: false,
   },
   MID: {
     cursorSpeed: 5.0,
@@ -113,6 +136,8 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     smartPlacement: false,
     buildsTowers: true,
     towerTiers: 2,
+    upgradesGatherer: false,
+    buysSecondGatherer: false,
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -132,6 +157,8 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     smartPlacement: true,
     buildsTowers: true,
     towerTiers: 4,
+    upgradesGatherer: true,
+    buysSecondGatherer: false,
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -151,5 +178,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     smartPlacement: true,
     buildsTowers: true,
     towerTiers: 7,
+    upgradesGatherer: true,
+    buysSecondGatherer: true,
   },
 };
