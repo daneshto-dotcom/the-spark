@@ -20,7 +20,16 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 // S138 P2 — a bot's supply is now its own bank + its own porch, never the shared quarry.
-import { bankCount, isOwnPorchSpark } from '../state/castleBank.ts';
+import { bankCount, bankCountOf, isOwnPorchSpark } from '../state/castleBank.ts';
+// S154 P3 (A5) — a bot's tower uses the SAME predicates the human path uses: affordability from
+// `planBlueprintPayment` (the one the reducer calls) and legality from the footprint-aware
+// `stampRefusalAt`, never a lookalike.
+import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
+import { planBlueprintPayment } from '../state/blueprintBuild.ts';
+import { stampRefusalAt } from '../state/blueprintLegality.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
@@ -39,6 +48,8 @@ const FLEE_HOP = 320;
 /** S100 P1 (TD Phase 1a) — a bot keeps a light berth from chewers: if one is within this
  *  radius of its avatar, hop away (chewers chew enemy connectors, not the cursor, so this
  *  is a LIGHT avoid — just don't loiter in the swarm — gated below the hunter flee). */
+
+
 const CHEWER_AVOID_RADIUS = 140;
 const CHEWER_AVOID_RADIUS_SQ = CHEWER_AVOID_RADIUS * CHEWER_AVOID_RADIUS;
 
@@ -56,7 +67,107 @@ export type BotGoal =
    * and net/ finds nothing), so adding a member costs no serialization, hash or protocol change.
    */
   | { readonly kind: 'PULL' }
+  /**
+   * ⭐ S154 P3 (owner R86) — STAMP A TOWER. Like `PULL` this is a castle command, so it needs no
+   * travel: the payment comes out of the bank and the structure appears at `centre`. `BotGoal` has
+   * NO wire surface (a grep of save.ts and net/ finds nothing), so adding members costs no
+   * serialization, no hash entry and no protocol change — the same reasoning S138 P2 recorded for
+   * `PULL`.
+   */
+  | { readonly kind: 'TOWER'; readonly blueprintId: GodlyId; readonly centre: Vec2 }
+  /**
+   * ⭐ S154 P3 — TELL MY OWN GATHERER WHAT TO FETCH. Without this a bot's tower is a lottery: bills
+   * want 3-5 of ONE shape type and a bot's gatherer runs `preferredType: null`, so the right shapes
+   * only ever arrive by luck. Bots have never emitted a single `ENQUEUE_GATHERER_ORDER` — the intent
+   * has existed and been allowlisted since S141 and no bot ever used it.
+   */
+  | { readonly kind: 'ORDER'; readonly sparkType: SparkType }
   | { readonly kind: 'REST' };
+
+/** ⭐ S154 P3 — the tower a bot has decided to build, and where. */
+export interface TowerPlan {
+  readonly blueprintId: GodlyId;
+  readonly centre: Vec2;
+}
+
+/**
+ * Blueprints in CHEAPEST-FIRST order, derived from the registry rather than hardcoded.
+ *
+ * ⚠ DERIVED, because `ALL_BLUEPRINT_IDS` is hand-written and this repo has already been bitten by
+ * that once (goblinTower was fully implemented and simply never appeared in the panel). Sorting by
+ * `blueprintCost` with an id tie-break keeps the order total and deterministic — no rng anywhere in
+ * the bot think, which is what the seeded replay gates depend on.
+ */
+const TOWERS_BY_COST: readonly GodlyId[] = [...ALL_BLUEPRINT_IDS].sort(
+  (a, b) => blueprintCost(a) - blueprintCost(b) || (a < b ? -1 : a > b ? 1 : 0),
+);
+
+/**
+ * ⭐ PURE — how far a bot's tower is planted from its own home anchor, and why it is not closer.
+ *
+ * `stampRefusalAt` already refuses a site whose footprint comes within 60 px of ANY existing
+ * primitive, so a stamp can never auto-bond at the moment it lands. The reverse is the danger: a bot
+ * hand-builds loose shapes outward from its cluster at `GROWTH_STEP` (48 px, inside
+ * `AUTO_BOND_RADIUS` 60), and a later loose shape landing within 60 px of a tower node auto-bonds a
+ * chord into it — which drops a pentagram's ring below degree 2 or breaks a voltkin chain, and the
+ * structure is torn down on the next re-validation with NO error and NO log line. Planting the tower
+ * a clear span away from where the cluster grows is the cheap half of avoiding that.
+ */
+const TOWER_SITE_OFFSET = 210;
+/** Candidate directions around the anchor, tried in a fixed order. Deterministic: never rng. */
+const TOWER_SITE_ANGLES: readonly number[] = [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, 2.8, -2.8, Math.PI];
+
+/**
+ * ⭐ PURE — the tower this bot can afford AND legally place right now, or null.
+ *
+ * Affordability is decided by **`planBlueprintPayment`, the same function the reducer uses** — never
+ * a lookalike. `footerBandModel.ts` states the rule this follows: a surface that says "you can build
+ * this" while the build refuses it is the exact defect sharing the predicate exists to prevent.
+ *
+ * Legality is decided by **`stampRefusalAt`**, which is footprint-aware, and NOT by
+ * `isLegalBuildPos` — that one tests a bare centre point and would happily return a site whose
+ * outlying nodes are off-canvas or inside a spawner zone. `buildLegalityGates.test.ts` pins the
+ * six-gate agreement sweep on the footprint-aware predicate, so this is the one to ask.
+ */
+export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): TowerPlan | null {
+  if (!cfg.buildsTowers) return null;
+  // Cheapest of all the gates and true of the whole board at once — `stampRefusalAt`'s own first
+  // check. Asking it here means the candidate loop is skipped entirely for the whole FIGHT phase.
+  if (world.matchPhase !== 'BUILD') return null;
+
+  const anchor = castleAnchor(seat as unknown as number, world.layout);
+  for (const id of TOWERS_BY_COST) {
+    if (planBlueprintPayment(world, seat, id) === null) continue;
+    for (const a of TOWER_SITE_ANGLES) {
+      const centre = {
+        x: anchor.x + Math.cos(a + Math.PI) * TOWER_SITE_OFFSET,
+        y: anchor.y + Math.sin(a + Math.PI) * TOWER_SITE_OFFSET,
+      };
+      if (stampRefusalAt(world, centre, seat, id) === null) return { blueprintId: id, centre };
+    }
+  }
+  return null;
+}
+
+/**
+ * ⭐ PURE — the shape a bot should tell its gatherer to fetch next, or null if it needs nothing.
+ *
+ * The cheapest blueprint it cannot yet afford, minus what the bank already holds, in canonical
+ * `SparkType` order so two runs of one seed agree. Returns one type at a time: the queue coalesces
+ * by type anyway, and one order per think keeps the intent stream small.
+ */
+export function chooseTowerOrder(world: World, seat: PlayerId, cfg: BotConfig): SparkType | null {
+  if (!cfg.buildsTowers) return null;
+  for (const id of TOWERS_BY_COST) {
+    if (planBlueprintPayment(world, seat, id) !== null) return null; // already affordable
+    const bill = blueprintBill(id);
+    for (const t of ALL_SPARK_TYPES) {
+      const want = bill.get(t) ?? 0;
+      if (want > 0 && bankCountOf(world.castleBanks, seat, t) < want) return t;
+    }
+  }
+  return null;
+}
 
 /**
  * Priority arbitration for an idle bot. Order: survival (flee) → economy
@@ -149,6 +260,21 @@ export function chooseGoal(
     return { kind: 'SHRINK' };
   }
 
+  // ⭐ 6b — S154 P3 (owner R86) — TOWER: spend the bank on a structure.
+  //
+  // Placed ABOVE the loose-shape BUILD branch, because a bot holding a full bill should raise the
+  // tower rather than fritter the shapes away one at a time — that is the whole point of R86.
+  //
+  // ⛔ AND IT DRAWS NO `rng()`, WHICH IS WHY IT CAN SIT HERE AT ALL. `pickTargetSpark` documents that
+  // it draws exactly once on the sloppy path and zero times on the smart path, and every seeded
+  // replay gate (hostTick.replay, workerSim.differential, botController's same-seed stream test)
+  // depends on the draw ORDER. A new branch above an existing one that consumed even one draw would
+  // shift every downstream number and break all of them. `chooseTowerPlan` and `chooseTowerOrder` are
+  // both pure functions of world state in canonical order — the `ALL_SPARK_TYPES.find` idiom
+  // botController.ts:196 already uses for exactly this reason.
+  const tower = chooseTowerPlan(world, seat, cfg);
+  if (tower !== null) return { kind: 'TOWER', blueprintId: tower.blueprintId, centre: tower.centre };
+
   // 7 — BUILD: the bread and butter. Idle-only: claiming while Carrying
   // throws carry-1 (the controller self-heals that state before thinking,
   // but the brain must never PROPOSE it).
@@ -158,6 +284,30 @@ export function chooseGoal(
     // S138 P2 — nothing on my porch. If my gatherer has banked anything, pull one out onto the porch
     // (the shipped PULL_FROM_BANK client intent) and collect it on a later think. This is the whole
     // of a bot's supply now: gatherer -> bank -> porch -> place. It can no longer touch the quarry.
+    /*
+     * ⭐ S154 P3 — ORDER THE BILL. This is the half that turns "a bot builds a tower sometimes, by
+     * luck" into "reliably": blueprint bills want 3-5 of ONE shape type, and a bot's gatherer has
+     * always run `preferredType: null`, so the right shapes only ever arrived by chance. Since
+     * `planBlueprintPayment` counts **bank ∪ own porch**, shapes queued and hauled here are still
+     * spendable on a bill even while they sit waiting to be placed.
+     *
+     * ⛔ AND IT DELIBERATELY DOES NOT GATE THE PULL BELOW IT — the first version did, and two
+     * shipped tests caught it immediately. The reasoning was that PULL drains the bank one shape at
+     * a time to feed the next single placement, so the bank never reaches a bill. True, but the
+     * gate I wrote was effectively PERMANENT: `chooseTowerOrder` returns the shortfall of the
+     * cheapest blueprint the seat cannot afford, and with six blueprints in the registry there is
+     * essentially always one of those — so the bot stopped pulling, stopped placing, and just sat
+     * ordering. `botController.test.ts` went from "an IMBA bot places at least 3" to one primitive.
+     *
+     * Ordering costs nothing and starves nothing, and it is enough: the TOWER branch above fires the
+     * moment `planBlueprintPayment` says the bill is met, and it is checked BEFORE the loose-shape
+     * BUILD, so a bot holding a full bill raises the tower rather than fritters the shapes away.
+     */
+    const wanted = chooseTowerOrder(world, seat, cfg);
+    if (wanted !== null) {
+      const queued = world.gathererOrders.get(me.id) ?? [];
+      if (!queued.includes(wanted)) return { kind: 'ORDER', sparkType: wanted };
+    }
     if (bankCount(world.castleBanks, me.id) > 0) return { kind: 'PULL' };
   }
 

@@ -204,6 +204,32 @@ export class BotController {
         this.state = { kind: 'IDLE' };
         return;
       }
+      case 'TOWER': {
+        /*
+         * ⭐ S154 P3 (owner R86) — STAMP A TOWER. A CASTLE COMMAND, exactly like PULL: no travel, no
+         * errand state, dispatched immediately. A human does this by arming a blueprint from the
+         * footer and clicking the board; the bot skips the cursor because the payment comes out of
+         * the bank, not off the porch, so there is nothing for the avatar to carry.
+         *
+         * `BUILD_BLUEPRINT` is an ALREADY-ALLOWLISTED client intent (protocol.ts), so this needs no
+         * new action and no PROTOCOL_VERSION bump.
+         *
+         * The brain has already checked affordability with `planBlueprintPayment` and legality with
+         * `stampRefusalAt` — the same two predicates the reducer uses — so a refusal here loses
+         * nothing: the shapes STAY BANKED and the next think tries again.
+         */
+        send({ type: 'BUILD_BLUEPRINT', playerId: this.seat, blueprintId: goal.blueprintId, centre: goal.centre });
+        this.state = { kind: 'IDLE' };
+        return;
+      }
+      case 'ORDER': {
+        // ⭐ S154 P3 — tell my own gatherer which shape to fetch next, so a tower bill stops being a
+        // lottery. `ENQUEUE_GATHERER_ORDER` has been an allowlisted client intent since S141 and no
+        // bot has ever emitted one. Also a castle command: no travel.
+        send({ type: 'ENQUEUE_GATHERER_ORDER', playerId: this.seat, sparkType: goal.sparkType });
+        this.state = { kind: 'IDLE' };
+        return;
+      }
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;

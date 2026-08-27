@@ -43,6 +43,20 @@ export interface BotConfig {
   /** Frontier-aware placement (bond-density toward the 1.5×prim cap) vs
    *  random own-prim growth. */
   readonly smartPlacement: boolean;
+  /**
+   * ⭐ S154 P3 (owner R86) — may this bot BANK toward a tower and stamp one?
+   *
+   * Owner, re-reporting it this session: *"bots still not building towers.... medium bots should at
+   * least build some"* — which is a DIFFICULTY FLOOR, not just a feature. NOOB is left out
+   * deliberately: it is *"your little cousin"*, and a cousin who fields a laser turret is not that.
+   *
+   * ⚠ IT COSTS MORE THAN A FLAG, AND THE FLAG ALONE WOULD HAVE BEEN A NO-OP. A bot's whole supply
+   * is gatherer → bank → porch → place, and `chooseGoal`'s PULL branch empties the bank one shape at
+   * a time to feed the next single placement — so a bot NEVER holds the 4-8 shapes a blueprint bill
+   * needs, and `planBlueprintPayment` would have returned null forever. The HOARD rule in
+   * `chooseGoal` is the load-bearing half; this field only says who is allowed to use it.
+   */
+  readonly buildsTowers: boolean;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -62,6 +76,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesPotato: false,
     usesShrink: false,
     smartPlacement: false,
+    buildsTowers: false,
   },
   MID: {
     cursorSpeed: 5.0,
@@ -79,6 +94,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesPotato: false,
     usesShrink: false,
     smartPlacement: false,
+    buildsTowers: true,
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -96,6 +112,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesPotato: false,
     usesShrink: false,
     smartPlacement: true,
+    buildsTowers: true,
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -113,5 +130,6 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesPotato: true,
     usesShrink: true,
     smartPlacement: true,
+    buildsTowers: true,
   },
 };
