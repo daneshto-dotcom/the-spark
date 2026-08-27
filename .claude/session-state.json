@@ -2163,19 +2163,24 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "R92-batrider",
-      "priority": 0,
-      "tier": "Standard",
-      "title": "BAT RIDER: ranged harpoons + a flying read (owner, root-caused)",
-      "detail": "⭐ HE IS CONFIGURED AS MELEE. GOBLIN_BAT_CONFIG.attackRange is GOBLIN_ATTACK_RANGE = 35, the SAME constant the melee swordsman and the chewer use (\"true melee - closes onto its target\"). The archer by contrast has its own GOBLIN_ARCHER_RANGE. So the bat rider is not failing to fire a projectile - he has no ranged behaviour at all; he flies up to contact and hits. That is why nothing appears to leave him. || (1) give him his own range constant, mirroring GOBLIN_ARCHER_RANGE; (2) reuse the S153 P2 ARROW_SHOT effect for a HARPOON variant - plain at units, FIRE at towers/connectors, which is the same target-class discriminator P2 already resolves at the attack-fire site, so this is a variant not a new system; (3) the flying read: ALTITUDE_BY_KIND already exists in goblinRenderer (S152 P3 lifts the bat rider off the ground because \"a flyer that walks is simply wrong\") - verify it is applied and consider a shadow or bob so the altitude reads as flight rather than as a drawing offset."
-    },
-    {
       "id": "P5b",
-      "priority": 1,
+      "priority": 0,
       "tier": "Standard",
       "estimated_tokens": 34000,
       "title": "⛔ STILL NOT DONE — move the palette + queue to the footer, right of tier 8 (R80)",
-      "detail": "The owner has now asked THREE times and it is the oldest open request in the batch. S153 P5a fixed the ENQUEUE bug (ordering from the footer no longer needs the castle to have been opened) but did NOT move the UI, and the owner said so plainly. Audited plan: ~34K, files and breaking tests fully enumerated in the P5b carry-forward below. ⭐ START HERE next session, before any new feature. Implementation shape already chosen: the palette buttons and queue chips are real Pixi Containers carrying their own pointertap handlers, so REPARENT them into a new always-visible strip container anchored from footerBand chip geometry, hoist their draw above the panel open-gate, drop the two strip heights from the castle panel layout (four sites), add an isOverShapeStrip guard in controls, and register the surface in hudLayout."
+      "detail": "The owner has now asked THREE times and it is the oldest open request in the batch. S153 P5a fixed the ENQUEUE bug (ordering from the footer no longer needs the castle to have been opened) but did NOT move the UI, and the owner said so plainly. Audited plan: ~34K, files and breaking tests fully enumerated in the P5b carry-forward below. ⭐ START HERE next session, before any new feature. Implementation shape already chosen: the palette buttons and queue chips are real Pixi Containers carrying their own pointertap handlers, so REPARENT them into a new always-visible strip container anchored from footerBand chip geometry, hoist their draw above the panel open-gate, drop the two strip heights from the castle panel layout (four sites), add an isOverShapeStrip guard in controls, and register the surface in hudLayout. || The BUG half shipped as P5a; this is the MOVE half and it is still open. Owner placement CORRECTED mid-session: \"always be visible on the right side of the footer (after tier 8)\" - RIGHT of the last chip, not the earlier \"left of the last tier\", and always visible rather than only while the castle is open. Supersedes S136 P0, which castlePanel.ts documents at length - cite R80 there when moving it. A.0 BANKED: paletteStripHeight and queueStripHeight feed the castle panel HEIGHT in four places (~304, 473, 490, 1165) so removing them shrinks the panel and moves everything below; the buttons are REAL Pixi Containers with pointerover/pointerout, wired through main.ts setOrderHandlers; the queue is DRAWN at castlePanel.ts:1129. Position after the last chip from footerBand layoutChips, and CHECK the legend - legendAnchor already anchors the shape key off the chip row, so it will collide and must move. REGISTER the new surface in hudLayout or the overlap gate stays blind to it.",
+      "tests_that_WILL_break": "castlePanel.test.ts imports CHIP_H, CHIP_W, chipOrigin, MAX_CHIPS, PALETTE_BTN, PALETTE_TYPES, paletteOrigin, paletteStripHeight and queueStripHeight directly - a compile-time certainty, not a guess. Plus castlePanel.structures.test.ts, footerBand.test.ts and hudLayout.test.ts.",
+      "file_the_probe_missed": "⭐ e2e/footer-order-shapes.spec.ts - the regression test P5a shipped. It drives the footer through __SPARK__.footerBand.getUiPoints() and asserts on cards. It does NOT touch the palette today, so it will not break on the move - but it is the natural place to ADD the assertion that the queue strip is visible in the footer WITHOUT opening the castle, which is the whole point of R80.",
+      "second_defect_named_by_a0": "The queue CHIPS are drawn from world.gathererOrders inside castlePanel draw (castlePanel.ts:1129-1131), so the queue UI is itself only visible while the panel is open. That is a SEPARATE visibility defect from the enqueue bug P5a fixed, and it is exactly what R80 asks to remove. Fixing the enqueue did not make the queue visible.",
+      "why_the_footer_cannot_do_it_alone": "FooterCardGeom carries id/name/reason/enabled but NOT `missing`, which is why the footer had to delegate to the panel at all. If ownership moves to the footer, `missing` has to move onto the card geometry (footerBand.ts:64 and the layoutCards map).",
+      "estimated_tokens_CORRECTED": "~34K, not the ~14K in the original PDR. That number comes from an A.0 probe whose file list was then INDEPENDENTLY grep-verified symbol by symbol by an adversarial auditor (PALETTE_TYPES, PALETTE_BTN, PALETTE_GAP, paletteOrigin, paletteStripHeight, chipOrigin, queueStripHeight, MAX_CHIPS, CHIP_W, CHIP_H, coalesceOrders, setOrderHandlers). Treat 34K as the honest size."
+    },
+    {
+      "id": "R92-batrider",
+      "priority": 1,
+      "tier": "Standard",
+      "title": "BAT RIDER: ranged harpoons + a flying read (owner, root-caused)",
+      "detail": "⭐ HE IS CONFIGURED AS MELEE. GOBLIN_BAT_CONFIG.attackRange is GOBLIN_ATTACK_RANGE = 35, the SAME constant the melee swordsman and the chewer use (\"true melee - closes onto its target\"). The archer by contrast has its own GOBLIN_ARCHER_RANGE. So the bat rider is not failing to fire a projectile - he has no ranged behaviour at all; he flies up to contact and hits. That is why nothing appears to leave him. || (1) give him his own range constant, mirroring GOBLIN_ARCHER_RANGE; (2) reuse the S153 P2 ARROW_SHOT effect for a HARPOON variant - plain at units, FIRE at towers/connectors, which is the same target-class discriminator P2 already resolves at the attack-fire site, so this is a variant not a new system; (3) the flying read: ALTITUDE_BY_KIND already exists in goblinRenderer (S152 P3 lifts the bat rider off the ground because \"a flyer that walks is simply wrong\") - verify it is applied and consider a shadow or bob so the altitude reads as flight rather than as a drawing offset."
     },
     {
       "id": "CF-S153-ctx",
@@ -2184,66 +2189,53 @@
       "detail": "CLAUDE.md names that script the SOURCE OF TRUTH for the GREEN/YELLOW/ORANGE/RED scope thresholds, and this session made TWO real scope cuts on its reading: deferring the Full-tier bots work at a measured 61 percent, and then declining to start P5b at a measured 69 percent. If the script over-reports, both cuts were more conservative than the budget actually required, and the owner waited an extra session for work that would have fit. || Compare the two directly at a known point next session: read the UI percentage and run real-context-tokens.py in the same breath, twice, at different fill levels. If the script is high, fix the script or restate the thresholds against whatever it actually measures - do not just lower the thresholds."
     },
     {
-      "id": "P5b",
-      "priority": 0,
-      "tier": "Standard",
-      "title": "MOVE the palette + queue to the footer, RIGHT of tier 8, always visible (R80 corrected)",
-      "detail": "The BUG half shipped as P5a; this is the MOVE half and it is still open. Owner placement CORRECTED mid-session: \"always be visible on the right side of the footer (after tier 8)\" - RIGHT of the last chip, not the earlier \"left of the last tier\", and always visible rather than only while the castle is open. Supersedes S136 P0, which castlePanel.ts documents at length - cite R80 there when moving it. A.0 BANKED: paletteStripHeight and queueStripHeight feed the castle panel HEIGHT in four places (~304, 473, 490, 1165) so removing them shrinks the panel and moves everything below; the buttons are REAL Pixi Containers with pointerover/pointerout, wired through main.ts setOrderHandlers; the queue is DRAWN at castlePanel.ts:1129. Position after the last chip from footerBand layoutChips, and CHECK the legend - legendAnchor already anchors the shape key off the chip row, so it will collide and must move. REGISTER the new surface in hudLayout or the overlap gate stays blind to it.",
-      "hazard_from_a0": "⭐ THE MOVE ALONE WOULD HAVE MADE THE BUG WORSE. The A.0 probe put it plainly: relocating the chips changes only where the queue is DRAWN, so without the P5a latch fix the player would stare at a permanently visible, permanently EMPTY footer queue - with the accidental cure (opening the castle) gone. P5a shipped first, so this hazard is now closed; do not reintroduce a latch when moving the draw.",
-      "estimated_tokens_CORRECTED": "~34K, not the ~14K in the original PDR. That number comes from an A.0 probe whose file list was then INDEPENDENTLY grep-verified symbol by symbol by an adversarial auditor (PALETTE_TYPES, PALETTE_BTN, PALETTE_GAP, paletteOrigin, paletteStripHeight, chipOrigin, queueStripHeight, MAX_CHIPS, CHIP_W, CHIP_H, coalesceOrders, setOrderHandlers). Treat 34K as the honest size.",
-      "tests_that_WILL_break": "castlePanel.test.ts imports CHIP_H, CHIP_W, chipOrigin, MAX_CHIPS, PALETTE_BTN, PALETTE_TYPES, paletteOrigin, paletteStripHeight and queueStripHeight directly - a compile-time certainty, not a guess. Plus castlePanel.structures.test.ts, footerBand.test.ts and hudLayout.test.ts.",
-      "file_the_probe_missed": "⭐ e2e/footer-order-shapes.spec.ts - the regression test P5a shipped. It drives the footer through __SPARK__.footerBand.getUiPoints() and asserts on cards. It does NOT touch the palette today, so it will not break on the move - but it is the natural place to ADD the assertion that the queue strip is visible in the footer WITHOUT opening the castle, which is the whole point of R80.",
-      "second_defect_named_by_a0": "The queue CHIPS are drawn from world.gathererOrders inside castlePanel draw (castlePanel.ts:1129-1131), so the queue UI is itself only visible while the panel is open. That is a SEPARATE visibility defect from the enqueue bug P5a fixed, and it is exactly what R80 asks to remove. Fixing the enqueue did not make the queue visible.",
-      "why_the_footer_cannot_do_it_alone": "FooterCardGeom carries id/name/reason/enabled but NOT `missing`, which is why the footer had to delegate to the panel at all. If ownership moves to the footer, `missing` has to move onto the card geometry (footerBand.ts:64 and the layoutCards map)."
-    },
-    {
       "id": "A3",
-      "priority": 1,
+      "priority": 3,
       "tier": "Standard",
       "title": "Armies must retreat before FIGHT ends and idle spawn-fresh at their tower",
       "detail": "APPROVED, NOT STARTED, and the owner has now raised it TWICE with a screenshot - goblins standing in enemy territory at BUILD 1:25. Owner: \"during buld phase your own spawn stil lstay in enemy lands! thats inherently wrong - they would be killed\" and earlier \"they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built (like halfway transparent)... this is the mode for all spawn armies\". Touches the shared creature FSM. NOTE S153 P1 added enemyCastleMarchPos and unit-first navigation, so the walk-home target has a natural home in the same hostTick branch. INTERACTS WITH A4: once the castle is a target, retreat must not pull units off a winning castle push."
     },
     {
       "id": "A4",
-      "priority": 2,
+      "priority": 4,
       "tier": "Full",
       "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
       "detail": "OWNER MAIN GOAL, approved, NOT STARTED. A.0 BANKED: no castle entity exists, only castleBanks (an inventory Map); damageEntity has no castle arm; the match is won on scoreByPlayer alone. S153 P1 ALREADY makes goblins WALK to the enemy keep when no enemy shapes remain - they arrive with nothing to attack, which is exactly the owner symptom, so the pathing half is done. Needs a damageable castle entity, a damageEntity arm, the 1500-point second condition, and a hashed field so EXPECT A PROTOCOL BUMP 31 to 32 plus the six-site checklist. R88 constrains it: all castle races share ONE stat line."
     },
     {
       "id": "A5",
-      "priority": 3,
+      "priority": 5,
       "tier": "Full",
       "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
       "detail": "Approved, NOT STARTED. Owner re-reported it this session: \"bots still not building towers.... medium bots should at least build some\" - that adds a DIFFICULTY FLOOR. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. WARNING: the S150 structural claim (GROWTH_STEP 48 inside AUTO_BOND_RADIUS 60) was NOT re-verified - GROWTH_STEP is not in constants.ts. Littering in scope."
     },
     {
       "id": "R92",
-      "priority": 4,
+      "priority": 6,
       "title": "Stink tower reported as not lobbing - REPRODUCE FIRST, it is implemented",
       "detail": "The mechanic exists in full (magazine, throw interval, bag damage/radius, aggro aura, death blast, bagsRemaining on the wire). First hypothesis: DEFENDER_TARGETS.stinkTower is UNITS_ONLY, so with no enemy creature in range doing nothing is CORRECT. Reproduce with an enemy unit in range before changing anything."
     },
     {
       "id": "CF-S153-d",
-      "priority": 5,
+      "priority": 7,
       "title": "Finish the clickable / back-menu consistency sweep",
       "detail": "A2 proved the four TITLE entries and the lobby back button work. NOT covered: the OVERLAY back paths (codex, arcade, bot setup), which return without changing gameState so the probe could not observe them. They need their own assertions."
     },
     {
       "id": "CF-S153-b",
-      "priority": 6,
+      "priority": 8,
       "title": "TWO hound variants per tower - ASK FIRST, may be superseded",
       "detail": "The owner asked for two dog types, then reassigned the rejected dog to the Zombie castle instead. IF it still stands: variant choice must be DETERMINISTIC from the creature id (the spreadTargetPos golden-angle idiom), never a draw - all three determinism gates are self-comparing and would NOT catch a divergence."
     },
     {
       "id": "CF-S153-c",
-      "priority": 7,
+      "priority": 9,
       "title": "Zombie hound has no ATTACK clip",
       "detail": "idle + walk exist under assets-source/zombie-castle/. The attack clip failed twice with \"high demand\" - transient veo backpressure, NOT credits. No consumer yet, not blocking."
     },
     {
       "id": "P8",
-      "priority": 8,
+      "priority": 10,
       "tier": "Micro",
       "title": "worker-bots tick-based wait (CF-S152-a)",
       "detail": "Poll world.tick; NEVER raise the timeout - that rope already failed twice here."
