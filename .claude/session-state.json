@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2764,
+  "tool_calls_session_total": 2771,
   "session_id": "S154",
   "session_kind": "PDCA batch (owner-approved autonomous run): P5b palette-to-footer, bat-rider harpoons + creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait",
   "session_start": "2026-08-27",
@@ -12,7 +12,7 @@
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 32,
+  "protocol_version": 33,
   "boot_preflight": {
     "build": "PASS entry index-BijPc2IZ.js 727.6 KiB cap 900 KiB headroom 172.4",
     "vitest": "2940 passed / 176 files",
@@ -368,30 +368,21 @@
           "needle": "goblinBat: 34"
         },
         {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "PROTOCOL_VERSION = 32"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 32;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "toBe(32)"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 32;"
-        },
-        {
           "type": "file_exists",
           "path": "src/state/creatures/standoff.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S154 P2 — bumped 31->32: THE BAT RIDER GETS A REAL REACH"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S154 P2: 31->32 (THE BAT RIDER"
         }
-      ]
+      ],
+      "verification_note": "Four bindings originally pinned PROTOCOL_VERSION = 32 and went stale the moment amendment C bumped it to 33 — the MCV gate caught it. Re-pointed at the CHANGELOG entry for 31->32, which is permanent history, because the CURRENT version number belongs to whichever priority set it last (now AMEND-C, which pins it)."
     },
     {
       "pdr_approved": true,
@@ -473,6 +464,232 @@
           "type": "file_contains",
           "path": "e2e/stink-tower.spec.ts",
           "needle": "the castle panel stayed shut throughout"
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "AMEND-A",
+      "tier": "Standard",
+      "status": "completed",
+      "title": "Bots invest in their economy and genuinely save for a tower (owner amendment A)",
+      "check_method": "⭐ THE ACCEPTANCE TEST THAT WAS RED ALL SESSION IS GREEN: \"a HARD bot with income and an EMPTY bank eventually raises a tower\" — real spawner income, real gatherer, no pre-banked bill. It took THREE changes and any one alone left it red: (1) the economy investment (no bot had EVER emitted UPGRADE_GATHERER_SPEED or BUY_GATHERER — allowlisted for many sessions, only the human ever used them); (2) the ORDER goal steering the hauler, which is only viable because gathererLifecycle reads world.gathererOrders — round 1s load-bearing unknown, since a bill wants 4 of ONE type; (3) the save itself, BUILD-only (stampRefusalAt refuses every stamp during FIGHT), 50% duty, SPEND WINDOW FIRST so a bot never opens the match standing still. || FIVE earlier gate designs were each killed by evidence, ending in the measurement that scoped it: PEAK bank u porch pool over 180 sim-seconds = 1 SHAPE. Round 1s arithmetic said a 90 s hold was needed; it was measured on a bot that never upgraded its hauler, which is why fixing the economy halved it. || 3075/3075 unit at that point, 0 skipped. No new rng draw, so every seeded replay gate is untouched, and two same-seed tests assert that rather than a comment claiming it.",
+      "checkpoint_commit": "9cd4aa2",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "upgradesGatherer:",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "upgradesGatherer: true",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "buysSecondGatherer: true",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "towerTiers:",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "send({ type: 'UPGRADE_GATHERER_SPEED'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "send({ type: 'BUY_GATHERER'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "SAVE_HOLD_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "world.matchPhase === 'BUILD' &&"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "it.skip("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "a HARD bot with income and an empty bank eventually raises a tower"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "HOARD_CAP"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "SAVE_WITHIN_SHAPES"
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "AMEND-B",
+      "tier": "Micro",
+      "status": "completed",
+      "title": "Player-coloured ground markers on ALL spawned creatures (owner amendment B)",
+      "check_method": "One drawGroundMarker + ownerTint in creatureLift.ts, called from all THREE creature renderers (goblin, Voltkin+drone, chewer), so \"consistent across ALL spawned creatures\" is enforced by there being nothing else to call. goblinRenderers duplicate SHADOW_RX/RY removed so the shared GROUND_RX/RY is the one definition. ownerTint reads the LIVE player.color, not the palette — the rainbow shuffle remaps seats mid-match and a palette-painted marker would label creatures with the colour their seat USED to be, which is worse than no cue. || VERIFIED: 4 headless tests + extract.canvas on the running game showing two goblins of different owners each rendering a marker (108 and 109 lit px against 0 on empty board), which is what proves the new NON-LIFTED call sites are reached rather than staying gated. || ALSO ANSWERED the owners question: the other goblins black shadows are PAINTED INTO THE veo ART, not drawn by code — on the atlas path the only drawn ellipse was the bat riders.",
+      "checkpoint_commit": "04fd5e7",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureLift.ts",
+          "needle": "export function drawGroundMarker"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureLift.ts",
+          "needle": "export function ownerTint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "drawGroundMarker(g, c.pos.x, c.pos.y, tint, alpha)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "drawGroundMarker(g, creature.pos.x"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/chewerRenderer.ts",
+          "needle": "drawGroundMarker(g, c.pos.x"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/goblinRenderer.ts",
+          "pattern": "const SHADOW_R[XY]",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/groundMarker.test.ts"
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "AMEND-C",
+      "tier": "Full",
+      "status": "completed",
+      "title": "THE CASTLE HAS 1500 HP AND CAN BE DESTROYED — A4 / R89 (owner amendment C)",
+      "check_method": "CASTLE_MAX_HP = 1500, deliberately the same number as PHASE_1_WIN_SCORE so the two victory races feel equal-length. HP on the PLAYER (already serialized + threaded through save/load — the raidPoints precedent) rather than a new world map, so no new hash family. PROTOCOL 32->33, all six checklist sites including the test TITLE. || ⛔ IT TOOK FOUR SITES AND I MISSED ONE: engage predicate, ABORT predicate (targetGoneEarly), host-tick fire gate, strike. I wired 1/3/4 and missed the abort — TRACED as state alternating ATTACKING/SEEKING with ticksInState pinned at 0 across 120 ticks and the castle at full health. S103 #8 added the creature arm to that same predicate and S139 P2 added the primitive arm while writing down this exact symptom; the castle is the fourth. All four now ask ONE extracted predicate (enemyCastleInReach) so they cannot diverge again. || Derived from POSITION, so no new creature field: targetCastleSeat would be new hashed+serialized state wanting two stateHashFull edits, where position is already both. || castleHp preserved across the carry-FSM rebuild — player.ts warns that a field omitted from pickup/fsmDrop is silently RESET, which here would be a castle healing to full whenever its owner touches a spark. Asserted. || VISIBLE: the keep carries a green/amber/red damage bar, drawn only once damaged. PIXEL-VERIFIED on the running game — #f2b749 x44 at the keep with the castle at 40%, the amber band. || 3083/3083 unit / 187 files, build 742.1/900 KiB.",
+      "checkpoint_commit": "16fc295edd5910003fc7f8a02ada33bc47891df8",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_MAX_HP = 1500;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/player.ts",
+          "needle": "castleHp: number;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "castleHp: player\\.castleHp,",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "kind: 'castle'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function enemyCastleInReach"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "pattern": "enemyCastleInReach\\(",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "enemyCastleInReach("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "enemyCastleInReach(world, after"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "!castleValid;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameState.ts",
+          "needle": "WIN-BY-CASTLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 33"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 33;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "PROTOCOL_VERSION is 33"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 33;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "hpFrac"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/castleHp.test.ts"
         }
       ]
     }
@@ -611,8 +828,8 @@
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
   "real_context_tokens_at_close": 519214,
-  "real_context_pct_at_close": 76.35,
-  "checkpoint_commit": "9cd4aa257e74343eae710136e16b1253d36c4eb1",
+  "real_context_pct_at_close": 83.11,
+  "checkpoint_commit": "16fc295edd5910003fc7f8a02ada33bc47891df8",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -1672,35 +1889,35 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "C-A4",
+      "id": "CASTLE-RACES",
       "priority": 0,
       "tier": "Full",
-      "title": "A4 — THE CASTLE IS DESTRUCTIBLE: castle OR 1500 points wins (R89)",
-      "detail": "OWNER MAIN GOAL. APPROVED THIS SESSION and deferred on BUDGET ONLY (we crossed ORANGE at 76.35%). A.0 RE-VERIFIED S154 by direct read: there is NO castle entity and no castle HP — creatureAI.ts says so in situ (\"A0 F6: there is NO castle entity and no castle HP ... this deliberately returns a POSITION and nothing else\"); damage.ts has exactly TWO target kinds (creature | primitive) so it needs a third arm; castleBanks is an inventory Map, not an entity. S153 P1 ALREADY makes goblins WALK to the enemy keep, which is exactly why the owner watched them arrive and do nothing — the pathing half is DONE and only the damage half is missing. EXPECT PROTOCOL 32->33: castle HP is new serialized AND HASHED state, and the creatures-family precedent means TWO edits in stateHashFull, plus the SIX-SITE checklist in protocol.ts. DESIGN NOTE WORTH KEEPING: a creature can attack the castle with NO new hashed creature field, by deriving \"within attackRange of an enemy castle anchor\" at the fire tick — the same derive-do-not-send discipline P2 and P4 both used. Only the castle HP itself has to ride the wire."
+      "title": "CASTLE RACES BY COLOUR — art, cinematics and passive spawns per race (owner vision)",
+      "detail": "Recorded in full at CASTLE_BUILD_SPACE_DESIGN.md (new addendum). white=ghosts, green=zombies, red=vampires, blue=ice giants, purple=demons, yellow=UNDECIDED (ASK — the owner has not named it). Each race: a generated castle, cinematics for ATTACK / DAMAGED / DESTROYED, a passive spawn (zombie hound already generated and on disk under assets-source/zombie-castle/, bats for vampires, ghosts for ghosts) and a distinct attack kind. ⛔ BALANCE RULING: \"all castles and their spawn will have the same strengh and hp to start with - later we will add castle upgrades like we have for the gatherers.\" So races are cosmetic + flavour first, identical in stats — which is why S154 shipped ONE CASTLE_MAX_HP for every seat and nothing keys HP or damage off the race. Castle upgrades later follow the GATHERER precedent (points from scoreByPlayer, a level, a cap). Owner placed this \"next session or the session after\"."
     },
     {
       "id": "D-fog",
-      "priority": 1,
+      "priority": 0,
       "tier": "Standard",
       "title": "BOTS MUST RESPECT FOG OF WAR — they currently see the whole board",
       "detail": "Owner: \"shouldnt my towers be hidden from him in fog of war during building stage and he has to explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not fair if bots see evcerything\". CONFIRMED BY DIRECT READ, not inferred: fogRenderer.ts describes itself as \"Client-side cosmetic fog\" (a RenderTexture visibility mask), and a grep of src/bots/*.ts for fog returns ZERO hits. Bots read world.primitives / world.bonds directly through nearestEnemyBond / nearestEnemyPrim / nearestEnemySpawnerBond. The fog blinds ONLY the human. Owner deferred this to next session explicitly. Shape of the fix: a per-seat visibility predicate that the BOT target scans consult, sourced from host-side exploration state — NOT from the client render mask."
     },
     {
       "id": "BOT-PhaseA",
-      "priority": 2,
+      "priority": 1,
       "tier": "Standard",
       "title": "Bot intelligence Phase A — now UNBLOCKED (all 7 owner questions answered)",
       "detail": "BOT_INTELLIGENCE_DESIGN.md §10 holds the rulings. Phase A = knowledge book + combo-aware spark pick/placement + leader-targeted raid. ⛔ Q2 IS A PROHIBITION: do not change raid rate or the number of allowed raids, the owner says the current balance is good. Q6 makes starvation policy PER TIER (HARD waits, IMBA adapts). Q4 gives Phase B its build order: goblinTower -> FEED goblins -> Voltkin later. Q7 defers SACRIFICE entirely."
     },
     {
       "id": "CF-S154-a",
-      "priority": 3,
+      "priority": 2,
       "title": "The owner saw bots \"build towers from the beginning\" while my run measured ZERO — reconcile",
       "detail": "Worth one probe. My instrumented run measured zero towers in 3 sim-minutes pre-fix, yet the owner watching live VS-BOTS said all three difficulties \"build towers from the beginning\". Either they mean freeform primitive placement (which does start immediately and reads as building), or a real match differs from the unit fixture in a way that matters — e.g. lobby-granted starting resources. DO NOT assume the first reading: the fixture-vs-live gap is exactly what let P3 ship believing bots build towers."
     },
     {
       "id": "CF-S154-b",
-      "priority": 4,
+      "priority": 3,
       "title": "Host lag in multiplayer — finish worker-sim (D4 + default-on)",
       "detail": "Owner reported the HOST workstation lagging while the joiner was smooth. Diagnosed, not guessed: the host simulates everything (hostTick is host-only; the client mirrors), and main.ts names the profiled dominant cost — \"the host 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost\". S105 P3 moved it off the catch-up loop and labelled itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks and a host falling behind runs MORE per frame. ?worker=1 (S122) is the shipped opt-in mitigation; D4 + default-on is the fix."
     }
