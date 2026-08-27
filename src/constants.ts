@@ -1403,6 +1403,32 @@ export const GOBLIN_BAT_RANGE = 150;
  */
 export const ARMY_RETREAT_LEAD_TICKS = 180;
 
+/**
+ * ⭐ S154 AMENDMENT C (owner A4 / R89) — THE CASTLE'S HIT POINTS.
+ *
+ * Owner: *"castle should have 1500 HP. so it would take quite a bit to destroy it but we should add
+ * that now."* Taken literally, and the number is deliberately the SAME as `PHASE_1_WIN_SCORE` — the
+ * two victory conditions are meant to feel like equal-length races (*"castle OR 1500 points wins"*),
+ * so one shared magnitude says that better than two tuned ones.
+ *
+ * ⛔ ONE CONSTANT FOR EVERY SEAT, AND IT MUST STAY THAT WAY FOR NOW. Owner ruling R88, restated in
+ * the S154 castle-races addendum: *"all castles and their spawn will have the same strengh and hp to
+ * start with - later we will add castle upgrades like we have for the gatherers"*. So nothing may key
+ * castle HP or castle damage off the player's race/colour. When upgrades arrive they follow the
+ * GATHERER precedent (points from `scoreByPlayer`, a level, a cap) rather than a per-race stat line.
+ */
+export const CASTLE_MAX_HP = 1500;
+
+/**
+ * How much damage one goblin strike does to a castle.
+ *
+ * At 1500 HP and `GOBLIN_ATTACK_CADENCE_TICKS` of 60, a single goblin needs 1500 / 6 = 250 swings ≈
+ * 4 minutes of uninterrupted contact — far too slow to matter alone, which is the point: the castle
+ * falls to a SUSTAINED ARMY, not to one leaked unit. Ten goblins bring it inside a couple of FIGHT
+ * phases, which is the pace the owner asked for with *"it would take quite a bit to destroy it"*.
+ */
+export const GOBLIN_DAMAGE_VS_CASTLE = 6;
+
 /* ── S151 P3 — THE GOBLIN TOWER (owner R70) ─────────────────────────────────────────────────────
  * Owner: *"its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin
  * of different kinds"*. Roadmap Q9/R24 settled the shape of it: ONE tower with SIX outputs, not six

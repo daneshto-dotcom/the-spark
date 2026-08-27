@@ -48,7 +48,19 @@ import type { World } from './worldTypes.ts';
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
   | { readonly kind: 'creature'; readonly id: CreatureId }
-  | { readonly kind: 'primitive'; readonly id: PrimitiveId };
+  | { readonly kind: 'primitive'; readonly id: PrimitiveId }
+  /**
+   * ⭐ S154 AMENDMENT C (owner A4 / R89) — THE CASTLE, keyed by seat because there is exactly one per
+   * player and `castleAnchor(seat, layout)` is where it stands.
+   *
+   * ⚠ IT HONOURS THIS FUNCTION'S CONTRACT ONLY PARTLY, AND THAT IS DELIBERATE. `damageEntity`
+   * returns "true iff the target DIED **and this function removed it**". A castle is never removed —
+   * a seat with a fallen castle keeps its avatar, its gatherers and its shapes, it has simply LOST.
+   * So the castle arm returns true on reaching zero and removes nothing, and the caller
+   * (`tickGameState`) is what turns that into an outcome. Recorded rather than quietly diverged from,
+   * because the `'defender'` arm was deleted for failing this same contract.
+   */
+  | { readonly kind: 'castle'; readonly seat: PlayerId };
 /*
  * ⛔ S151 P2 (owner R75) — THE `'defender'` ARM IS GONE. A tower has no hit points of its own, so
  * there is nothing here to subtract from. Its durability is its connectors' — damage a tower by
@@ -76,6 +88,15 @@ export function damageEntity(
   source: DamageSource,
 ): boolean {
   void source; // attribution only for now — see DamageSource
+  if (target.kind === 'castle') {
+    // ⭐ S154 AMENDMENT C — the castle arm. Clamped at zero: HP is read by the win gate and by the
+    // HUD, and a negative value would make both lie about how close the match is.
+    const seat = world.players.get(target.seat);
+    if (seat === undefined) return false;
+    if (seat.castleHp <= 0) return false; // already fallen — idempotent, never double-fires the win
+    seat.castleHp = Math.max(0, seat.castleHp - amount);
+    return seat.castleHp === 0;
+  }
   if (!Number.isInteger(amount) || amount < 0) {
     throw new Error(
       `damageEntity: amount must be a non-negative INTEGER, got ${amount}. Author damage as a ` +

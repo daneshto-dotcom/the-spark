@@ -72,7 +72,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 32; // S154 P2 — 31 → 32 (THE BAT RIDER'S REACH: GOBLIN_BAT_CONFIG.attackRange 35 → 150, a shared constant both peers compute from in creatureProjectile.ts)
+const LOCAL_PROTO_V = 33; // S154 AMENDMENT C — 32 → 33 (THE CASTLE HAS HIT POINTS: castleHp on SerializedPlayer, absent-means-CASTLE_MAX_HP, plus a new victory condition)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

@@ -59,6 +59,35 @@ export function tickGameState(
       // S76 P3 (Δ3, float-safe) — scoreProgress is now a per-tick income float, so gate on
       // Math.floor so a 49.9999 hover can't delay the win and the HUD's floored "50/50"
       // reading coincides exactly with the win firing.
+      /*
+       * ⭐ S154 AMENDMENT C (owner A4 / R89) — THE SECOND VICTORY CONDITION: *"castle OR 1500 points
+       * wins"*.
+       *
+       * Checked BEFORE the score gate, because a razed castle is the more decisive outcome and a
+       * simultaneous crossing should read as the castle falling rather than as a points win. Both
+       * thresholds are 1500 on purpose, so the two races feel the same length.
+       *
+       * ⚠ THE WINNER IS THE SURVIVOR, NOT THE DEALER OF THE LAST HIT. Attribution would need damage
+       * provenance threaded through `damageEntity` (its `source` is documented as "attribution only
+       * for now"), and in a 1v1 the two answers are identical. In FFA the survivor rule is also the
+       * fairer one: whoever finishes a wounded castle should not out-rank the seat that did the work.
+       * Flagged rather than silently chosen.
+       */
+      const fallen = [...world.players.values()].filter((p) => p.castleHp <= 0);
+      if (fallen.length > 0) {
+        const survivors = [...world.players.values()].filter((p) => p.castleHp > 0);
+        const winnerId: PlayerId = survivors.length > 0 ? survivors[0]!.id : primaryPlayerId;
+        console.info(
+          `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
+            [...world.players.values()].map((p) => `P${(p.id as number) + 1}:${p.castleHp}hp`).join(' '),
+        );
+        // Same exit the score gate uses — one WIN path, so the dwell timer, the banner and every
+        // downstream watcher behave identically however the match was won.
+        dispatch(world, { type: 'WIN_TRIGGER', winnerId });
+        extras.winEnteredTick = world.tick;
+        return world.gameState;
+      }
+
       if (Math.floor(world.scoreProgress) >= PHASE_1_WIN_SCORE) {
         let winnerId: PlayerId = primaryPlayerId;
         if (isNetworked(world)) {

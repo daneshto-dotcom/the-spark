@@ -516,6 +516,36 @@ export function standoffTargetPos(
 }
 
 /**
+ * ⭐ S154 AMENDMENT C (owner A4 / R89) — the ENEMY CASTLE this creature is standing close enough to
+ * hit, or null.
+ *
+ * ⛔ ONE DEFINITION, THREE CALLERS, and that is the whole point of extracting it. The castle strike
+ * needs the same question answered in three places — the FSM (may I enter ATTACKING?), the host-tick
+ * fire gate (is there anything to dispatch?) and the strike itself (what do I hit?) — and S139 P2
+ * left a comment one screen away recording what happens when they disagree: a goblin *"would enter
+ * ATTACKING, run its whole cadence and never actually hit anything"*. That is exactly what the first
+ * cut of this feature did, because the fire gate required a target ID and a castle attacker has none.
+ *
+ * Derived from POSITION, so it costs no new creature field: `targetCastleSeat` would be new hashed,
+ * serialized state needing two edits in `stateHashFull`, where position is already both.
+ *
+ * PURE. Lowest seat wins ties, so two peers cannot pick different castles.
+ */
+export function enemyCastleInReach(world: World, creature: Creature, reach: number): PlayerId | null {
+  if (!getCreatureConfig(creature.type).targetsStructures) return null;
+  let best: PlayerId | null = null;
+  for (const seat of world.players.keys()) {
+    if (seat === creature.ownerPlayerId) continue;
+    const victim = world.players.get(seat);
+    if (victim === undefined || victim.castleHp <= 0) continue;
+    const a = castleAnchor(seat as unknown as number, world.layout);
+    if (distSq(creature.pos, { x: a.x, y: a.y }) > reach * reach) continue;
+    if (best === null || (seat as unknown as number) < (best as unknown as number)) best = seat;
+  }
+  return best;
+}
+
+/**
  * ⭐ S154 P4 (owner A3) — WHERE THIS CREATURE'S HOME IS, for the end-of-FIGHT retreat.
  *
  * Two answers, in preference order:

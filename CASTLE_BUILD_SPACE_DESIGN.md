@@ -218,3 +218,51 @@ simply refuses until the plan is fully satisfied by shapes on hand.
   `placeFreeSparkAndConfirm`, so a panel regression surfaces there.
 - **UX is an acceptance criterion** (§1 Q3): the space must be legible and comfortable, and per the
   S136 lesson that means *looking at the render*, not only asserting state.
+
+---
+
+# ADDENDUM — CASTLE RACES BY COLOUR (owner vision, ruled 2026-08-27, S154)
+
+Recorded verbatim-in-substance so it is not lost between sessions. **Not scheduled yet** — the owner
+placed it "next session or the session after". S154 ships only the castle's **1500 HP** and the
+damage/win path underneath it.
+
+## The races, keyed on the player's colour
+
+| Colour | Race | Passive spawn | Notes |
+|---|---|---|---|
+| white | **ghosts** | ghosts | |
+| green | **zombies** | the **zombie hound** — ALREADY GENERATED, sitting in `assets-source/zombie-castle/` (idle + walk; the attack clip failed twice on veo backpressure, see CF-S153-c) | the one race with art already on disk |
+| red | **vampires** | bats | the bat rider atlas already exists and reads as vampiric |
+| blue | **ice giants** | — | |
+| purple | **demons** | — | |
+| yellow | *(undecided — owner has not named it)* | — | ⚠ ASK before inventing one |
+
+## What each race gets
+
+- **A generated castle** — "awesome looking", per race.
+- **Cinematics**: how it ATTACKS, how it looks DAMAGED, how it looks DESTROYED. Three states, not one.
+- **A passive spawn** — the castle itself produces units over time (zombie hound / bats / ghosts …),
+  distinct from the goblin tower's fed spawns.
+- **A distinct attack kind** per race.
+
+## ⛔ THE BALANCE RULING, and it is the load-bearing constraint
+
+> *"all castles and their spawn will have the same strengh and hp to start with - later we will add
+> castle upgrades like we have for the gatherers"*
+
+So the races are **cosmetic + flavour at first, identical in stats**. This matters for how S154's HP
+work is written: `CASTLE_MAX_HP` is ONE constant for every seat, deliberately, and nothing should key
+HP or damage off the race. It also matches R88, already on record: *all castle races share ONE stat
+line.*
+
+**Later**, castle upgrades arrive and follow the GATHERER precedent — points spent from
+`scoreByPlayer`, a level per castle, a cap, and the same "the panel names its blocker" contract the
+gatherer rows use (`GATHERER_SPEED_UPGRADE_PRICE` / `GATHERER_MAX_SPEED_LEVEL` are the shape to copy).
+
+## Why this addendum lives here
+
+`CASTLE_BUILD_SPACE_DESIGN.md` is the castle document and is already marked
+`OWNER-RULED 2026-08-10, NOT IMPLEMENTED` for its own §1 rulings, so it is the natural home for a
+second castle ruling that is also not yet implemented. The colour→race map is the part most likely to
+be misremembered, which is why it is a table.

@@ -64,6 +64,7 @@ import {
   findNearestBondTarget,
   findNearestEnemyCreature,
   pickNavUnit,
+  enemyCastleInReach,
   isRetreatWindow,
   ownHomePos,
   spreadTargetPos,
@@ -774,9 +775,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // conditions holds for it and without this third clause it would enter ATTACKING, run its
         // whole cadence and never actually hit anything. `applyCreatureAttack` reads the shape from
         // `targetPrimitiveId` when `bondId` is null, so the dispatch below needs no new branch.
+        // ⭐ S154 AMENDMENT C — A FOURTH CLAUSE, for exactly the reason the S139 P2 note above
+        // gives about the third: a goblin attacking a CASTLE has no bond, no creature and no
+        // primitive target, so without this it enters ATTACKING, runs its whole cadence and never
+        // hits anything. That is precisely what the first cut of this feature did.
         (after.targetCreatureId !== null ||
           after.targetBondId !== null ||
-          after.targetPrimitiveId !== null)
+          after.targetPrimitiveId !== null ||
+          enemyCastleInReach(world, after, getCreatureConfig(after.type).attackRange) !== null)
       ) {
         // S103 #8 — creature-FIRST: a Voltkin zaps an in-range enemy creature this cycle if
         // it has one (the chewer right next to it is the immediate threat), else severs its

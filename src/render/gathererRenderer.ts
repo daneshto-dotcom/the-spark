@@ -27,6 +27,7 @@ import {
   PLAYER_COLORS,
   RAINBOW_FLYOVER_DURATION_TICKS,
   SparkType,
+  CASTLE_MAX_HP,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -121,7 +122,8 @@ export class GathererRenderer {
         seat as unknown as number,
         player.color,
       );
-      this.drawKeep(g, seat as unknown as number, keepColor, world.layout);
+      // S154 AMENDMENT C — pass the castle's health so the keep can show its damage.
+      this.drawKeep(g, seat as unknown as number, keepColor, world.layout, player.castleHp / CASTLE_MAX_HP);
       // S136 P1 — the shapes HELD INSIDE this castle, drawn in its doorway. Owner item 4 asked for
       // storage to live in the castle rather than on the ground beside it; without a mark on the
       // keep itself, "stored" would be invisible until the panel is opened, and a full bank (which
@@ -163,10 +165,36 @@ export class GathererRenderer {
   }
 
   /** The placeholder keep: a battlemented box at the seat's fixed anchor, tinted to the seat. */
-  private drawKeep(g: Graphics, seat: number, color: number, layout: ZoneLayout): void {
+  private drawKeep(g: Graphics, seat: number, color: number, layout: ZoneLayout, hpFrac = 1): void {
     const { x, y } = castleAnchor(seat, layout);
     const left = x - KEEP_W / 2;
     const top = y - KEEP_H / 2;
+
+    /*
+     * ⭐ S154 AMENDMENT C (owner A4 / R89) — THE CASTLE'S DAMAGE, ON THE CASTLE.
+     *
+     * The HP itself is simulation state and the win gate reads it, but a castle that can be destroyed
+     * and shows no sign of it is an invisible feature — which is the failure mode this whole session
+     * has been fixing. So the keep carries a bar: full width at CASTLE_MAX_HP, shrinking as it takes
+     * damage, and it only appears ONCE DAMAGED so an untouched board looks exactly as it did.
+     *
+     * ⚠ RENDER-ONLY and derived from `player.castleHp`, which already rides the wire — no new field,
+     * and both peers draw the same bar from the same number.
+     *
+     * The owner's race work will replace this with real per-race damaged/destroyed art (see the
+     * CASTLE_BUILD_SPACE_DESIGN addendum). This is the placeholder that makes the mechanic legible in
+     * the meantime, matching the keep box it sits on — which is itself described as a placeholder.
+     */
+    if (hpFrac < 1) {
+      const barY = top - 7;
+      g.rect(left, barY, KEEP_W, 4).fill({ color: 0x000000, alpha: 0.55 });
+      g.rect(left, barY, KEEP_W * Math.max(0, hpFrac), 4).fill({
+        // Green while healthy, amber past half, red in the last quarter — the reading a player needs
+        // at a glance is "is that one nearly down?".
+        color: hpFrac > 0.5 ? 0x6ee07a : hpFrac > 0.25 ? 0xffc14d : 0xff4d4d,
+        alpha: 0.95,
+      });
+    }
 
     g.rect(left, top + KEEP_BATTLEMENT_H, KEEP_W, KEEP_H - KEEP_BATTLEMENT_H)
       .fill({ color, alpha: 0.22 })

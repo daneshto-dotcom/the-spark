@@ -11,6 +11,7 @@ import {
   MAX_DISRUPTION_CHARGES,
   MAX_RAID_POINTS,
   RAID_PROGRESS_PER_POINT,
+  CASTLE_MAX_HP,
 } from '../constants.ts';
 import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 
@@ -41,6 +42,19 @@ interface PlayerCommon {
    * host-authoritative and mirrored by snapshot.
    */
   raidPoints: number;
+  /**
+   * ⭐ S154 AMENDMENT C (owner A4 / R89) — THIS SEAT'S CASTLE HIT POINTS, counting down from
+   * `CASTLE_MAX_HP`. Zero means the castle has fallen and the seat has lost.
+   *
+   * ## Why it lives on the PLAYER and not in a new `world.castleHp` map
+   *
+   * A castle is per-seat by construction — `castleAnchor(seat, layout)` is where it stands and there
+   * is exactly one per player — so a seat-keyed map would be a second index of something the players
+   * map already keys. More practically: `Player` is ALREADY serialized (`SerializedPlayer`) and
+   * already threaded through save/load and the wire, so this rides existing machinery instead of
+   * adding a family. That is the same reasoning S152 P1 recorded for `raidPoints`/`raidProgress`.
+   */
+  castleHp: number;
   /**
    * Accrual progress toward the next raid point, in TENTHS. See `RAID_PROGRESS_PER_POINT`.
    * A tower is worth 5, a hand-made connection 2, and 10 tenths is a point — so "2 towers OR 5
@@ -127,6 +141,7 @@ export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { 
     disruptionCharges: 0,
     // S152 P1 — a new seat starts with no raid points and no progress toward one.
     raidPoints: 0,
+    castleHp: CASTLE_MAX_HP,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     godlyCooldownEndsAtTick: null,
@@ -157,6 +172,11 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // up or drops a shape. That is the documented failure mode of this pair of literals.
     raidPoints: player.raidPoints,
     raidProgress: player.raidProgress,
+    // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
+    // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
+    // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
+    // spark is unwinnable, and nothing would have gone red.
+    castleHp: player.castleHp,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
@@ -191,6 +211,11 @@ export function drop(player: Player): IdlePlayer {
     // up or drops a shape. That is the documented failure mode of this pair of literals.
     raidPoints: player.raidPoints,
     raidProgress: player.raidProgress,
+    // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
+    // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
+    // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
+    // spark is unwinnable, and nothing would have gone red.
+    castleHp: player.castleHp,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,

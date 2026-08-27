@@ -38,7 +38,7 @@ import {
   type CreatureType,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, engageRange, isWithinAttackRange } from './creatureAI.ts';
+import { distSq, enemyCastleInReach, engageRange, isWithinAttackRange } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -460,11 +460,24 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       return distSq(creature.pos, victim.pos) <= reach * reach;
     })();
 
+  /*
+   * ⭐ S154 AMENDMENT C (owner A4 / R89) — AND A CASTLE IN REACH IS A REASON TO ENGAGE.
+   *
+   * Without this arm the strike added in `creatureAttack` is unreachable: a goblin that has walked to
+   * the enemy keep has no bond, no unit and no shape in range, so it never leaves SEEKING and the fire
+   * tick never comes. That is the "static-parses but never fires" shape S139 P2 records one screen
+   * up, and it would have shipped as "the castle takes no damage" — the owner's exact report.
+   *
+   * Derived from position like the strike itself, so it costs no creature field.
+   */
+  const castleInReach = enemyCastleInReach(world, creature, engageRange(config)) !== null;
+
   if (
     creature.state === 'SEEKING' &&
     ((creature.targetBondId !== null && isWithinAttackRange(world, creature, creature.targetBondId)) ||
       unitInReach ||
-      structureInReach)
+      structureInReach ||
+      castleInReach)
   ) {
     creature.state = 'ATTACKING';
     creature.ticksInState = 0;
@@ -582,11 +595,32 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     // literally nothing — the exact "static-parses but never fires" shape as P1's dead dispatcher.
     const primitiveValid =
       creature.targetPrimitiveId !== null && world.primitives.has(creature.targetPrimitiveId);
+    /*
+     * ⭐ S154 AMENDMENT C — A FOURTH ARM, and the third time this exact trap has been paid for.
+     *
+     * S103 #8 added `creatureValid`. S139 P2 added `primitiveValid` and wrote down why, in words that
+     * describe what the first cut of the CASTLE strike did precisely: *"it reached ATTACKING
+     * correctly, but `bondValid` and `creatureValid` are both false for a structure attacker, so
+     * `targetGoneEarly` was TRUE on every tick from 0..attackFireTick and it bounced straight back to
+     * SEEKING before its strike could ever land."*
+     *
+     * A goblin hitting a castle has NO bond, NO creature and NO primitive target — the castle is
+     * derived from position, deliberately, to avoid a new hashed field. So all three arms were false
+     * and it bounced out of ATTACKING on tick 0, forever. TRACED: state alternating ATTACKING/SEEKING
+     * with `ticksInState` pinned at 0 across 120 ticks and the castle at full health the whole time.
+     *
+     * ⚠ THE LESSON, since this is now three for three: adding a new THING TO ATTACK means touching
+     * FOUR sites, not one — the engage predicate, the abort predicate HERE, the host-tick fire gate,
+     * and the strike. Miss any one and the unit plays a full attack animation that does nothing, with
+     * every test green.
+     */
+    const castleValid = enemyCastleInReach(world, creature, engageRange(config)) !== null;
     const targetGoneEarly =
       creature.ticksInState <= config.attackFireTick &&
       !bondValid &&
       !creatureValid &&
-      !primitiveValid;
+      !primitiveValid &&
+      !castleValid;
     /*
      * ⭐ S154 P2 — WHY THERE IS NO "RE-ARM IN PLACE" HERE, THOUGH I BUILT ONE FIRST AND IT MEASURED
      * WORSE.

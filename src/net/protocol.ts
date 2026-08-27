@@ -356,7 +356,21 @@ export type { NetSnapshot };
 // The rest of P2 needs no bump on its own and is recorded for completeness: `holdsRange` +
 // `standoffTargetPos` + the narrowed Δ4 steering gate are all HOST-ONLY sim, and gating ARC_FLASH to
 // the Voltkin only removes effects a stale peer would simply not receive.
-export const PROTOCOL_VERSION = 32 as const;
+// S154 AMENDMENT C — bumped 32->33: THE CASTLE HAS HIT POINTS (owner A4 / R89). One new
+// ADDITIVE-OPTIONAL field on `SerializedPlayer`, `castleHp`, and it forces a bump for the third
+// instance of the rule this file already records twice:
+//
+//   `castleHp` is emitted ONLY WHEN DAMAGED (`< CASTLE_MAX_HP`), so an undamaged board stays
+//   byte-identical to a v32 snapshot. But "absent means use your own default" turns CASTLE_MAX_HP
+//   into A SHARED CONSTANT BOTH PEERS COMPUTE FROM — exactly the reason VOLTKIN_HP forced 27->28,
+//   KEEP_RING_RADIUS forced 16->17 and CASTLE_BANK_CAP forced 18->19. A v32 peer would rehydrate a
+//   castle it has no field for at whatever ITS build calls full health, and the two would disagree
+//   about the hit that ENDS THE MATCH — the most consequential thing they could disagree about.
+//
+// It is also a NEW VICTORY CONDITION, which is the sharper half: `tickGameState` can now end a match
+// on `castleHp <= 0` before the score gate. A stale peer that never sees the field would keep playing
+// a match the host has already ended.
+export const PROTOCOL_VERSION = 33 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -497,6 +511,12 @@ export interface HelloMsg {
    * BOTH peers using `config.attackRange`, so a v31 client would search 35 px while a v32 host shoots
    * at 150 and would draw no harpoon at all.)
    *
+   * S154 AMENDMENT C: 32->33 (THE CASTLE HAS HIT POINTS — owner A4 / R89. `castleHp` on
+   * `SerializedPlayer`, additive-optional and emitted only when damaged, so its ABSENCE means "use
+   * your own CASTLE_MAX_HP" — the shared-constant class that forced 16->17, 18->19 and 27->28. Plus a
+   * NEW VICTORY CONDITION in tickGameState: a stale peer would keep playing a match the host has
+   * already ended on a razed castle.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -529,7 +549,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 32;
+  readonly protoVersion: 33;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

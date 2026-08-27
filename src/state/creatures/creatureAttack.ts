@@ -38,10 +38,10 @@
 import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
-import { bondMidpoint, distSq } from './creatureAI.ts';
+import { bondMidpoint, distSq, enemyCastleInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
-import { GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
+import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
 
 /**
@@ -145,6 +145,28 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         creatureId: creature.id,
       });
     }
+    return world;
+  }
+
+  /*
+   * ⭐ S154 AMENDMENT C (owner A4 / R89) — THE CASTLE STRIKE, and it needs NO new creature field.
+   *
+   * S153 P1 already walks a goblin to the enemy keep when no enemy shape is left standing
+   * (`enemyCastleMarchPos`), which is why the owner watched them arrive and mill about doing nothing:
+   * the pathing half shipped and the damage half did not exist.
+   *
+   * ⚠ DERIVED AT STRIKE TIME, NOT CARRIED. The obvious build is a `targetCastleSeat` field on
+   * Creature — and that would be new HASHED, serialized state needing two edits in `stateHashFull`
+   * plus its own protocol consideration. Position is already hashed and already on the wire, so
+   * asking "am I within reach of an enemy castle anchor?" at the fire tick costs nothing new. Same
+   * derive-do-not-send discipline P2 used for the harpoon's victim and P4 for the dormant alpha.
+   *
+   * Ordered LAST, after bond / creature / shape, so every shipped strike path short-circuits before
+   * this is evaluated and no existing behaviour changes.
+   */
+  const castleSeat = enemyCastleInReach(world, creature, getCreatureConfig(creature.type).attackRange);
+  if (castleSeat !== null) {
+    damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
     return world;
   }
 

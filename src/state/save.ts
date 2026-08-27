@@ -27,6 +27,7 @@ import {
   type StiffnessTier,
   type SparkType,
   PHASE_DURATION_TICKS,
+  CASTLE_MAX_HP,
 } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
@@ -420,6 +421,17 @@ interface SerializedPlayer {
    * an empty wallet and a board where nobody has raided stays byte-identical on the wire.
    */
   raidPoints?: number;
+  /**
+   * ⭐ S154 AMENDMENT C (A4 / R89) — the seat's castle HP. ADDITIVE-OPTIONAL and emitted only when
+   * DAMAGED (`< CASTLE_MAX_HP`), so an undamaged board stays byte-identical to a v32 snapshot.
+   *
+   * ⛔ AND THAT OMISSION IS EXACTLY WHY THIS FORCED PROTOCOL 32->33. "Absent means use your own
+   * default" turns `CASTLE_MAX_HP` into A SHARED CONSTANT BOTH PEERS COMPUTE FROM — the general rule
+   * this file's changelog records as having already forced KEEP_RING_RADIUS 16->17, CASTLE_BANK_CAP
+   * 18->19 and VOLTKIN_HP 27->28. A v32 peer reading a v33 host's snapshot would rehydrate a
+   * full-health castle it has no field for and disagree about the exact hit that ends the match.
+   */
+  castleHp?: number;
   raidProgress?: number;
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
@@ -1517,6 +1529,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // raid points on every snapshot apply, i.e. on every client frame and every host migration.
       // Precisely the defect S151 P2 shipped into the bond deserializer and caught only by audit.
       raidPoints: p.raidPoints ?? 0,
+      castleHp: p.castleHp ?? CASTLE_MAX_HP,
       raidProgress: p.raidProgress ?? 0,
       // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
       benchedUntilTick: p.benchedUntilTick,
@@ -1684,6 +1697,7 @@ function serializePlayer(p: Player): SerializedPlayer {
     // S152 P1 — emit the raid wallet only when non-zero, so a board where nobody has raided stays
     // byte-identical to pre-S152 (the `damageFifths` / `carriedPotatoId` precedent above).
     ...(p.raidPoints > 0 ? { raidPoints: p.raidPoints } : {}),
+    ...(p.castleHp < CASTLE_MAX_HP ? { castleHp: p.castleHp } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // S82 P1 — emit the cruiser-slow debuff fields only when set (byte-identical pre-S82).
     ...(p.poopedUntilTick !== undefined
