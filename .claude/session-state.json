@@ -166,7 +166,8 @@
           "needle": "no orphaned knob"
         }
       ],
-      "check_method": "RALPH. OWNER-CAUGHT DEFECT IN MY OWN P1. hopSpeedMul has ZERO production consumers - every grep hit is a declaration, a config value or a comment. The single input to locomotion is config.maxAccel, and all six goblins carried a flat GOBLIN_MAX_ACCEL, so they moved at IDENTICAL speed regardless of the ladder. P1 edited three hopSpeedMul values and shipped a change that could not do anything; its A.0 reported per-type speeds ALREADY EXIST, which was true of the DATA and false of the BEHAVIOUR. Fixed by deriving each goblin maxAccel from Math.round(GOBLIN_MAX_ACCEL * hopSpeedMul), matching the convention voltkin/chewer/drone already used by hand. MUTATION-VERIFIED: reverting all six to the flat constant turns 3 of 5 new tests red, so the guard catches P1 exact failure. Tests assert the ORDERING plus a maxAccel-tracks-hopSpeedMul binding, so an orphaned knob fails loudly rather than silently. Voltkin/chewer/drone locomotion pinned unchanged (200/120/240) to protect the replay-equivalence guard. build green, 3008 unit, 54/54 e2e."
+      "check_method": "RALPH. OWNER-CAUGHT DEFECT IN MY OWN P1. hopSpeedMul has ZERO production consumers - every grep hit is a declaration, a config value or a comment. The single input to locomotion is config.maxAccel, and all six goblins carried a flat GOBLIN_MAX_ACCEL, so they moved at IDENTICAL speed regardless of the ladder. P1 edited three hopSpeedMul values and shipped a change that could not do anything; its A.0 reported per-type speeds ALREADY EXIST, which was true of the DATA and false of the BEHAVIOUR. Fixed by deriving each goblin maxAccel from Math.round(GOBLIN_MAX_ACCEL * hopSpeedMul), matching the convention voltkin/chewer/drone already used by hand. MUTATION-VERIFIED: reverting all six to the flat constant turns 3 of 5 new tests red, so the guard catches P1 exact failure. Tests assert the ORDERING plus a maxAccel-tracks-hopSpeedMul binding, so an orphaned knob fails loudly rather than silently. Voltkin/chewer/drone locomotion pinned unchanged (200/120/240) to protect the replay-equivalence guard. build green, 3008 unit, 54/54 e2e.",
+      "checkpoint_commit": "2b70337"
     },
     {
       "id": "P1",
@@ -1101,7 +1102,7 @@
   },
   "real_context_tokens_at_close": 648000,
   "real_context_pct_at_close": 64.8,
-  "checkpoint_commit": "953a968",
+  "checkpoint_commit": "2b70337",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
