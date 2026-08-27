@@ -275,7 +275,7 @@ export class GoblinRenderer {
     const g = this.graphics;
     g.clear();
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
-    // (which the 10 Hz snapshot drops ~5/6 of the time). See archerArrow.ts.
+    // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
