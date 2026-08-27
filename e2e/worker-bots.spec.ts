@@ -42,6 +42,26 @@ import {
 const GROWTH_BUDGET_TICKS = 1_200;
 
 /**
+ * ⭐ S154 P5 (CF-S152-a) — RUNWAY FOR THE **FIRST** PLACEMENT, and it is NOT the same number as the
+ * one above.
+ *
+ * `GROWTH_BUDGET_TICKS` was tuned for the SECOND placement, by an already-warm bot whose gatherer is
+ * mid-round-trip. The first one additionally pays: match start, the gatherer's walk out, its haul
+ * back, the deposit, a `PULL_FROM_BANK`, and the porch pickup on a later think — and, since S154 P3,
+ * possibly an `ENQUEUE_GATHERER_ORDER` think as well, because a tower-building bot now tells its
+ * gatherer which shape to fetch. Denominated in the game's own units like its sibling: ~3 gatherer
+ * round trips plus a MID `buildCooldownTicks` of 210, so 1800 ticks = 30 sim-seconds.
+ *
+ * ⛔ AND THE POINT IS THAT IT IS TICKS, NOT SECONDS. The wait this replaced was
+ * `waitForWorld(..., 60_000)` — a wall-clock timeout, and the same class of defect S143 P2 already
+ * removed from the growth wait one line below: ticks are frame-bound (≤3 per rendered frame), so an
+ * identical wall window buys ~1530 ticks locally and ~670 in CI. A wall-clock wait therefore tests
+ * the RUNNER, not the game, and the standing rule from two prior failures is that the timeout is the
+ * one thing that must never be raised to make this pass.
+ */
+const FIRST_BUILD_BUDGET_TICKS = 1_800;
+
+/**
  * Wall backstop for a DEAD page, not a throughput budget. 1200 ticks needs ~109 s at the ~11
  * ticks/s measured on the CI runner, so 180 s clears it with margin. If this ever binds first the
  * helper says so explicitly rather than blaming the game.
@@ -115,11 +135,15 @@ test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke', () => {
     // Bots act INSIDE the worker: a bot-authored primitive reaches the mirror. The human
     // places nothing in this spec, so ANY primitive is bot-authored AND proves a
     // structural snapshot applied (primitives never ride the positions payload).
-    await waitForWorld(
+    // ⭐ S154 P5 (CF-S152-a) — TICK-BUDGETED, not wall-clocked. See FIRST_BUILD_BUDGET_TICKS.
+    // `GROWTH_WALL_CAP_MS` is reused unchanged as the DEAD-PAGE backstop: if it binds first the
+    // helper says so explicitly rather than blaming the game.
+    await waitForWorldWithinTicks(
       page,
       (w) => w.primitives.length >= 1,
       'first bot-authored primitive on the mirror',
-      60_000,
+      FIRST_BUILD_BUDGET_TICKS,
+      GROWTH_WALL_CAP_MS,
     );
     // ⛔ S143 P2 — SAMPLE THE HIGHEST PRIMITIVE ID, NOT THE LIVE COUNT.
     // `primitives.length` is NOT monotonic: `razePrimitives` deletes entries and MID bots sever
