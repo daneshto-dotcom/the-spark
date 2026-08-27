@@ -322,6 +322,24 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
    *   3. the save itself, BUILD-only and duty-cycled, spend-window first.
    *
    * Any one of the three alone left it red. Kept un-weakened as the regression guard for all three.
+   *
+   * ⛔⛔ AND IT IS STILL NOT PROOF OF LIVE BEHAVIOUR — THE OWNER PLAYTESTED AND SAID SO.
+   *
+   * Verbatim, after this shipped: *"the imba and hard bots now upgraded their gatherer but are still
+   * not saving or building towers"*. The economy half is confirmed working in a real match; the tower
+   * half is not. This test passes anyway, and the reason is its FIXTURE: the loop below re-pins
+   * `matchPhase = 'BUILD'` and pushes `phaseEndsAtTick` out by 10,000 on EVERY tick, so the bot gets
+   * three unbroken sim-minutes of BUILD.
+   *
+   * A real match does not. It alternates BUILD 90 s / FIGHT 45 s; the save is deliberately BUILD-only
+   * (a stamp is refused during FIGHT); and scoring — which pays for the gatherer upgrades — is
+   * FIGHT-only. So in live play the save window is chopped into 90-second slices, halved again by the
+   * duty cycle, and the shapes that arrive during FIGHT are spent before the next BUILD opens.
+   *
+   * ⚠ DO NOT "FIX" THIS BY LOOSENING THE ASSERTION. The assertion is right; the FIXTURE is
+   * unrepresentative, which is the same defect one layer up from P3's pre-banked bill — the second
+   * time this exact feature has been certified by a fixture that hands the bot something a real match
+   * never would. The next attempt needs a test that runs the REAL phase clock.
    */
   it('a HARD bot with income and an empty bank eventually raises a tower', () => {
     const w = botsWorld();

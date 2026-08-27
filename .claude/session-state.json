@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2778,
+  "tool_calls_session_total": 2783,
   "session_id": "S154",
   "session_kind": "PDCA batch + 3 owner amendments: P5b palette-to-footer, bat-rider harpoons + the ranged-creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait, then (owner, from live playtesting) bot economy investment + a working tower save, player-coloured ground markers, and the 1500-HP destructible castle",
   "session_start": "2026-08-27",
@@ -62,53 +62,7 @@
     "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
   ],
   "carry_forward": [
-    "STALE-KEY REPAIRED S150. This key held a FROZEN S147/S148-era list that the pre-handoff REVIEW CARD reads - so the gate meant to inform a human decision was showing CF-S147-b as OPEN (closed by S150 P1), CF-S148-a as open (closed in S149) and CF-S148-c prescribing raise-the-timeout (root-caused and fixed in S150 P5). Old content preserved verbatim under carry_forward_legacy_s147_s148_archived. THE LIVE LIST IS carry_forward_next_session.",
-    "CF-S150-d :: OWNER-DIRECTED, unstarted. Design partly settled, stats entirely open. :: THE GOBLIN TOWER + the unit stat pass — owner's named headline for next session",
-    "CF-S149-f :: UNBLOCKED - all five rulings answered by R57-R61. Ready for a Full-tier PDR next session. :: BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
-    "CF-S149-a :: SUPERSEDED by owner ruling R63. The owner rejected the wall-arc framing outright (\"a stupid problem with a simple solution\") and instead closes the quarry to units during BUILD. No wall geometry changes. :: DESIGN RULING NEEDED: the quarry is an OPEN HUB",
-    "CF-S150-a :: CLOSED by owner ruling R66 - the footer number IS the shape count and is correct as shipped. Only the docblock WORDING (\"connector count\") needs correcting; the buckets must not move. :: THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
-    "CF-S148-b :: ⛔ MIS-DESCRIBED BY S148/S149. The stated BLOCKER IS FALSE. Corrected S150. :: creatureSpawners + defenders acknowledged rows in workerSim.differential",
-    "CF-S147-e :: STILL-REAL, and the ONLY inherited CF whose every file:line still verified exactly. :: R45 lobby colour/race picker - substrate exists, needs one client intent",
-    "CF1 :: STILL-REAL (opt-in only). ⛔ THE ONE-LINE DESCRIPTION HAD ROTTED - corrected S150. :: under ?worker=1 click-to-build stamps primitives and debits the bank but the DEFENDER never ignites",
-    "CF3 :: ⛔ CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150. :: SWEEP: other specs whose seeding hides a real-path failure",
-    "CF-S148-d :: STILL-REAL but ⛔ THE ROOT-CAUSE DIAGNOSIS WAS WRONG. Corrected S150. Blast radius nil. :: 4-peer nplayer FFA times out (quarantine lane)",
-    "CF-S147-c :: STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired. :: delete the six acknowledged hazard rows in workerSim.differential",
-    "CF-S149-c :: Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only. :: Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
-    "CF-S150-b :: LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing. :: rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
-    "CF-S150-c :: REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing. :: chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials",
-    {
-      "id": "CF-S152-a",
-      "title": "worker-bots.spec.ts times out on a loaded CI runner — a WALL-CLOCK wait for a SIM-TIME assertion",
-      "severity": "medium",
-      "found": "S152 close-out CI audit. The weekly 'E2E (2-browser harness)' workflow failed at 88c48fe (08-17 green, 08-24 red).",
-      "diagnosis": "NOT a logic regression — it PASSES locally on the full S152 tree (20.0s). The CI failure's own diagnostic shows why: at the 60s timeout the sim had only reached TICK 805 (~13s of sim time at 60Hz) with the bots still gathering (13 free sparks, 1 shape banked each), and `primitives: []` simply because they had not saved up enough to build yet. The spec waits on WALL CLOCK for an assertion that needs SIM TIME, and on a loaded runner those diverge.",
-      "fix_shape": "Make the wait tick-based (poll world.tick, not elapsed ms) or raise the bot build rate for the harness. ⚠ Do NOT simply raise the timeout — a longer rope is the fix that already failed twice in this repo for the phase-edge flake (CF-S148-c).",
-      "why_deferred": "Outside the approved S152 P1-P3 scope, and the workflow is a weekly non-gating lane — every 'Deploy to GitHub Pages' run is green, including P3's."
-    },
-    {
-      "id": "CF-S152-b",
-      "title": "goblinHound has no atlas - the last FEED output still renders as the green procedural puppet",
-      "severity": "high",
-      "blocker": "HARD EXTERNAL: the image+veo endpoint returns 429 RESOURCE_EXHAUSTED - 'Your prepayment credits are depleted' (Google AI Studio). Nothing in the repo can work around this; it needs the owner to top up billing at https://ai.studio/projects.",
-      "why_it_matters": "Owner reported it verbatim as the 'gay green circle'. MEASURED: five of six FEED outputs have atlas art (Dot/Line/Triangle/Square/Spiral); only Circle -> goblinHound falls through to drawGoblin's procedural puppet, which is drawn in green.",
-      "resume_exactly": [
-        "1. node scripts/gen-character-design.mjs assets-source/godly-goblins/design-spec.json --only 7-goblin-hound-CIRCLE   (the hound's prompt is ALREADY committed in that spec)",
-        "2. eyeball the PNG, then add a goblin-hound block to assets-source/godly-goblins/clip-spec.json copying the goblin-shield block (idle/walk/attack, seed = the new PNG)",
-        "3. node scripts/gen-character-clips.mjs assets-source/godly-goblins/clip-spec.json --only goblin-hound --skip-existing",
-        "4. add a goblin-hound entry to assets-source/godly-goblins/atlas-specs.json with enclosedWhiteLimitPct 0.0002, then run build-sprite-atlas.mjs on it",
-        "5. AUDITION the contact sheet before wiring - a hound has four legs, i.e. several enclosed background pockets, which is exactly the matte case that bit the bat rider",
-        "6. add goblinHound to ATLASES in src/render/goblinRenderer.ts"
-      ],
-      "also_deferred_here": "OWNER-OPTIONAL: regenerating the melee + archer atlases. They are S151-era, built BEFORE this session's two matte fixes (the outline-deleting bar rule and the enclosed-white threshold), so they still carry those defects. 6 more clips would put the whole roster at one quality.",
-      "cost_note": "Today's veo run cost ~$6 and ~$3.50 of it was WASTED by my own clip script's error path, which threw on the first 429 and orphaned seven already-billed operations. That is fixed (op names are persisted the instant they exist) but it contributed to the depletion."
-    },
-    {
-      "id": "CF-S152-c",
-      "title": "A5 affordance pass covers the title screen and the structure popover - NOT yet the footer chips, castle tiles or gatherer upgrades",
-      "severity": "medium",
-      "detail": "Delivered: title-button hover+press+sound, two UI sounds, a canvas hover CURSOR for footer chips / castle panel / popover, and a REFUSED cue on disabled popover buttons. NOT delivered: a visible hover/press state ON the canvas-drawn surfaces themselves (they are hand-hit-tested Graphics with no hover concept), nor the accept/refuse cue on footer-chip and castle-tile clicks. The cursor change means they now at least ANNOUNCE they are clickable.",
-      "why_deferred": "Each canvas surface needs hover state plumbed into its own renderer, which is a per-surface change across four renderers. Session context was already YELLOW and the owner had approved going straight to handoff after the fixes."
-    }
+    "POINTER, NOT A LIST — S154. The live carry-forward is `carry_forward_next_session`. This key held a FROZEN S147/S148-era list that the pre-handoff REVIEW CARD reads, so for four sessions the gate meant to inform a human decision was presenting eight items its own text described as closed or superseded. S150 repaired the content and left the pointer note; S154 retires the content entirely (archived verbatim under carry_forward_legacy_s147_s150_archived_s154) so the card shows the LIVE list or nothing."
   ],
   "priorities": [
     {
@@ -546,7 +500,8 @@
           "path": "src/bots/botBrain.ts",
           "needle": "SAVE_WITHIN_SHAPES"
         }
-      ]
+      ],
+      "check_completed": true
     },
     {
       "pdr_approved": true,
@@ -595,7 +550,8 @@
           "type": "file_exists",
           "path": "src/render/groundMarker.test.ts"
         }
-      ]
+      ],
+      "check_completed": true
     },
     {
       "pdr_approved": true,
@@ -691,7 +647,8 @@
           "type": "file_exists",
           "path": "src/state/castleHp.test.ts"
         }
-      ]
+      ],
+      "check_completed": true
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1890,35 +1847,42 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "CASTLE-RACES",
+      "id": "CF-S154-towers",
       "priority": 0,
+      "tier": "Standard",
+      "title": "⛔ BOTS STILL DO NOT BUILD TOWERS IN A REAL MATCH — owner playtested S154 close",
+      "detail": "Owner, verbatim, after amendment A shipped: \"the imba and hard bots now upgraded their gatherer but are still not saving or building towers\". So HALF of A works live — the economy investment is visible and confirmed — and the tower half does not. ⭐ DIAGNOSIS, and it is a FIXTURE artefact rather than a mystery: botTowers.test.ts's acceptance case re-pins matchPhase='BUILD' and pushes phaseEndsAtTick out by 10,000 EVERY TICK, giving the bot three unbroken sim-minutes of BUILD. A real match alternates BUILD 90 s / FIGHT 45 s; the save is BUILD-only by design (stampRefusalAt refuses stamps during FIGHT); and scoring — which funds the gatherer upgrades — is FIGHT-only. So live, the save window is chopped into 90 s slices, halved again by the 50% duty cycle, and shapes arriving during FIGHT are spent before the next BUILD opens. ⛔ THIS IS THE SECOND TIME THIS FEATURE HAS BEEN CERTIFIED BY AN UNREPRESENTATIVE FIXTURE. P3 pre-banked the bill; A pins the phase. DO NOT loosen the assertion — write a test that runs the REAL phase clock end to end, watch it fail, and size the save against BUILD-phase-only income. The caveat is recorded in the test file itself so nobody reads it as live proof. Candidate fixes to weigh: raise the duty toward 100% within BUILD (the FIGHT block already prevents the bot looking idle during the phase the player watches); or hold across the FIGHT boundary so shapes banked in FIGHT survive into BUILD; or have the bot bank rather than place for the last N seconds of FIGHT."
+    },
+    {
+      "id": "CASTLE-RACES",
+      "priority": 1,
       "tier": "Full",
       "title": "CASTLE RACES BY COLOUR — art, cinematics and passive spawns per race (owner vision)",
       "detail": "Recorded in full at CASTLE_BUILD_SPACE_DESIGN.md (new addendum). white=ghosts, green=zombies, red=vampires, blue=ice giants, purple=demons, yellow=UNDECIDED (ASK — the owner has not named it). Each race: a generated castle, cinematics for ATTACK / DAMAGED / DESTROYED, a passive spawn (zombie hound already generated and on disk under assets-source/zombie-castle/, bats for vampires, ghosts for ghosts) and a distinct attack kind. ⛔ BALANCE RULING: \"all castles and their spawn will have the same strengh and hp to start with - later we will add castle upgrades like we have for the gatherers.\" So races are cosmetic + flavour first, identical in stats — which is why S154 shipped ONE CASTLE_MAX_HP for every seat and nothing keys HP or damage off the race. Castle upgrades later follow the GATHERER precedent (points from scoreByPlayer, a level, a cap). Owner placed this \"next session or the session after\"."
     },
     {
       "id": "D-fog",
-      "priority": 0,
+      "priority": 2,
       "tier": "Standard",
       "title": "BOTS MUST RESPECT FOG OF WAR — they currently see the whole board",
       "detail": "Owner: \"shouldnt my towers be hidden from him in fog of war during building stage and he has to explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not fair if bots see evcerything\". CONFIRMED BY DIRECT READ, not inferred: fogRenderer.ts describes itself as \"Client-side cosmetic fog\" (a RenderTexture visibility mask), and a grep of src/bots/*.ts for fog returns ZERO hits. Bots read world.primitives / world.bonds directly through nearestEnemyBond / nearestEnemyPrim / nearestEnemySpawnerBond. The fog blinds ONLY the human. Owner deferred this to next session explicitly. Shape of the fix: a per-seat visibility predicate that the BOT target scans consult, sourced from host-side exploration state — NOT from the client render mask."
     },
     {
       "id": "BOT-PhaseA",
-      "priority": 1,
+      "priority": 3,
       "tier": "Standard",
       "title": "Bot intelligence Phase A — now UNBLOCKED (all 7 owner questions answered)",
       "detail": "BOT_INTELLIGENCE_DESIGN.md §10 holds the rulings. Phase A = knowledge book + combo-aware spark pick/placement + leader-targeted raid. ⛔ Q2 IS A PROHIBITION: do not change raid rate or the number of allowed raids, the owner says the current balance is good. Q6 makes starvation policy PER TIER (HARD waits, IMBA adapts). Q4 gives Phase B its build order: goblinTower -> FEED goblins -> Voltkin later. Q7 defers SACRIFICE entirely."
     },
     {
       "id": "CF-S154-a",
-      "priority": 2,
+      "priority": 4,
       "title": "The owner saw bots \"build towers from the beginning\" while my run measured ZERO — reconcile",
       "detail": "Worth one probe. My instrumented run measured zero towers in 3 sim-minutes pre-fix, yet the owner watching live VS-BOTS said all three difficulties \"build towers from the beginning\". Either they mean freeform primitive placement (which does start immediately and reads as building), or a real match differs from the unit fixture in a way that matters — e.g. lobby-granted starting resources. DO NOT assume the first reading: the fixture-vs-live gap is exactly what let P3 ship believing bots build towers."
     },
     {
       "id": "CF-S154-b",
-      "priority": 3,
+      "priority": 5,
       "title": "Host lag in multiplayer — finish worker-sim (D4 + default-on)",
       "detail": "Owner reported the HOST workstation lagging while the joiner was smooth. Diagnosed, not guessed: the host simulates everything (hostTick is host-only; the client mirrors), and main.ts names the profiled dominant cost — \"the host 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost\". S105 P3 moved it off the catch-up loop and labelled itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks and a host falling behind runs MORE per frame. ?worker=1 (S122) is the shipped opt-in mitigation; D4 + default-on is the fix."
     }
@@ -3850,5 +3814,55 @@
     "mcv_verifier": "hard_fail=0 warn=0 exit 0 — 88 bindings across 8 completed priorities",
     "verify_deploy": "PASS 4/4 — remote master == 468944d3; LIVE entry asset == local build (index-DQB3Up9Q.js) by content-hash equality, so the castle work is genuinely live",
     "protocol_version": 33
-  }
+  },
+  "carry_forward_legacy_s147_s150_archived_s154": [
+    "STALE-KEY REPAIRED S150. This key held a FROZEN S147/S148-era list that the pre-handoff REVIEW CARD reads - so the gate meant to inform a human decision was showing CF-S147-b as OPEN (closed by S150 P1), CF-S148-a as open (closed in S149) and CF-S148-c prescribing raise-the-timeout (root-caused and fixed in S150 P5). Old content preserved verbatim under carry_forward_legacy_s147_s148_archived. THE LIVE LIST IS carry_forward_next_session.",
+    "CF-S150-d :: OWNER-DIRECTED, unstarted. Design partly settled, stats entirely open. :: THE GOBLIN TOWER + the unit stat pass — owner's named headline for next session",
+    "CF-S149-f :: UNBLOCKED - all five rulings answered by R57-R61. Ready for a Full-tier PDR next session. :: BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
+    "CF-S149-a :: SUPERSEDED by owner ruling R63. The owner rejected the wall-arc framing outright (\"a stupid problem with a simple solution\") and instead closes the quarry to units during BUILD. No wall geometry changes. :: DESIGN RULING NEEDED: the quarry is an OPEN HUB",
+    "CF-S150-a :: CLOSED by owner ruling R66 - the footer number IS the shape count and is correct as shipped. Only the docblock WORDING (\"connector count\") needs correcting; the buckets must not move. :: THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
+    "CF-S148-b :: ⛔ MIS-DESCRIBED BY S148/S149. The stated BLOCKER IS FALSE. Corrected S150. :: creatureSpawners + defenders acknowledged rows in workerSim.differential",
+    "CF-S147-e :: STILL-REAL, and the ONLY inherited CF whose every file:line still verified exactly. :: R45 lobby colour/race picker - substrate exists, needs one client intent",
+    "CF1 :: STILL-REAL (opt-in only). ⛔ THE ONE-LINE DESCRIPTION HAD ROTTED - corrected S150. :: under ?worker=1 click-to-build stamps primitives and debits the bank but the DEFENDER never ignites",
+    "CF3 :: ⛔ CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150. :: SWEEP: other specs whose seeding hides a real-path failure",
+    "CF-S148-d :: STILL-REAL but ⛔ THE ROOT-CAUSE DIAGNOSIS WAS WRONG. Corrected S150. Blast radius nil. :: 4-peer nplayer FFA times out (quarantine lane)",
+    "CF-S147-c :: STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired. :: delete the six acknowledged hazard rows in workerSim.differential",
+    "CF-S149-c :: Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only. :: Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
+    "CF-S150-b :: LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing. :: rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
+    "CF-S150-c :: REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing. :: chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials",
+    {
+      "id": "CF-S152-a",
+      "title": "worker-bots.spec.ts times out on a loaded CI runner — a WALL-CLOCK wait for a SIM-TIME assertion",
+      "severity": "medium",
+      "found": "S152 close-out CI audit. The weekly 'E2E (2-browser harness)' workflow failed at 88c48fe (08-17 green, 08-24 red).",
+      "diagnosis": "NOT a logic regression — it PASSES locally on the full S152 tree (20.0s). The CI failure's own diagnostic shows why: at the 60s timeout the sim had only reached TICK 805 (~13s of sim time at 60Hz) with the bots still gathering (13 free sparks, 1 shape banked each), and `primitives: []` simply because they had not saved up enough to build yet. The spec waits on WALL CLOCK for an assertion that needs SIM TIME, and on a loaded runner those diverge.",
+      "fix_shape": "Make the wait tick-based (poll world.tick, not elapsed ms) or raise the bot build rate for the harness. ⚠ Do NOT simply raise the timeout — a longer rope is the fix that already failed twice in this repo for the phase-edge flake (CF-S148-c).",
+      "why_deferred": "Outside the approved S152 P1-P3 scope, and the workflow is a weekly non-gating lane — every 'Deploy to GitHub Pages' run is green, including P3's."
+    },
+    {
+      "id": "CF-S152-b",
+      "title": "goblinHound has no atlas - the last FEED output still renders as the green procedural puppet",
+      "severity": "high",
+      "blocker": "HARD EXTERNAL: the image+veo endpoint returns 429 RESOURCE_EXHAUSTED - 'Your prepayment credits are depleted' (Google AI Studio). Nothing in the repo can work around this; it needs the owner to top up billing at https://ai.studio/projects.",
+      "why_it_matters": "Owner reported it verbatim as the 'gay green circle'. MEASURED: five of six FEED outputs have atlas art (Dot/Line/Triangle/Square/Spiral); only Circle -> goblinHound falls through to drawGoblin's procedural puppet, which is drawn in green.",
+      "resume_exactly": [
+        "1. node scripts/gen-character-design.mjs assets-source/godly-goblins/design-spec.json --only 7-goblin-hound-CIRCLE   (the hound's prompt is ALREADY committed in that spec)",
+        "2. eyeball the PNG, then add a goblin-hound block to assets-source/godly-goblins/clip-spec.json copying the goblin-shield block (idle/walk/attack, seed = the new PNG)",
+        "3. node scripts/gen-character-clips.mjs assets-source/godly-goblins/clip-spec.json --only goblin-hound --skip-existing",
+        "4. add a goblin-hound entry to assets-source/godly-goblins/atlas-specs.json with enclosedWhiteLimitPct 0.0002, then run build-sprite-atlas.mjs on it",
+        "5. AUDITION the contact sheet before wiring - a hound has four legs, i.e. several enclosed background pockets, which is exactly the matte case that bit the bat rider",
+        "6. add goblinHound to ATLASES in src/render/goblinRenderer.ts"
+      ],
+      "also_deferred_here": "OWNER-OPTIONAL: regenerating the melee + archer atlases. They are S151-era, built BEFORE this session's two matte fixes (the outline-deleting bar rule and the enclosed-white threshold), so they still carry those defects. 6 more clips would put the whole roster at one quality.",
+      "cost_note": "Today's veo run cost ~$6 and ~$3.50 of it was WASTED by my own clip script's error path, which threw on the first 429 and orphaned seven already-billed operations. That is fixed (op names are persisted the instant they exist) but it contributed to the depletion."
+    },
+    {
+      "id": "CF-S152-c",
+      "title": "A5 affordance pass covers the title screen and the structure popover - NOT yet the footer chips, castle tiles or gatherer upgrades",
+      "severity": "medium",
+      "detail": "Delivered: title-button hover+press+sound, two UI sounds, a canvas hover CURSOR for footer chips / castle panel / popover, and a REFUSED cue on disabled popover buttons. NOT delivered: a visible hover/press state ON the canvas-drawn surfaces themselves (they are hand-hit-tested Graphics with no hover concept), nor the accept/refuse cue on footer-chip and castle-tile clicks. The cursor change means they now at least ANNOUNCE they are clickable.",
+      "why_deferred": "Each canvas surface needs hover state plumbed into its own renderer, which is a per-surface change across four renderers. Session context was already YELLOW and the owner had approved going straight to handoff after the fixes."
+    }
+  ],
+  "owner_playtest_s154_close": "Owner playtested the shipped build at session close: gatherer upgrades CONFIRMED working live for HARD/IMBA (amendment A economy half); towers still NOT built in a real match (amendment A tower half). Recorded as CF-S154-towers with the fixture diagnosis. Reported honestly rather than left as a claim the owner had already contradicted."
 }
