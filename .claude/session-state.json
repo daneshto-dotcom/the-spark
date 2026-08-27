@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2627,
+  "tool_calls_session_total": 2637,
   "session_id": "S153",
   "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
   "session_start": "2026-08-26",
@@ -111,6 +111,63 @@
     }
   ],
   "priorities": [
+    {
+      "id": "P5b",
+      "title": "MOVE the palette + queue to the footer, right of tier 8, always visible (R80)",
+      "tier": "Standard",
+      "estimated_tokens": 34000,
+      "status": "in_progress",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "detail": "Owner asked twice. Audited plan banked in carry_forward P5b."
+    },
+    {
+      "id": "P5c",
+      "title": "The goblin speed ladder was a NO-OP — hopSpeedMul had no consumer (R82, corrected)",
+      "tier": "Micro",
+      "estimated_tokens": 9000,
+      "status": "completed",
+      "check_completed": true,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "pattern": "maxAccel: Math\\.round\\(GOBLIN_MAX_ACCEL \\* [0-9.]+\\)",
+          "op": "eq",
+          "value": 6
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "needle": "  maxAccel: GOBLIN_MAX_ACCEL,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "needle": "THIS FIELD HAD NO CONSUMER"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts",
+          "needle": "is not all one number"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts",
+          "needle": "no orphaned knob"
+        }
+      ],
+      "check_method": "RALPH. OWNER-CAUGHT DEFECT IN MY OWN P1. hopSpeedMul has ZERO production consumers - every grep hit is a declaration, a config value or a comment. The single input to locomotion is config.maxAccel, and all six goblins carried a flat GOBLIN_MAX_ACCEL, so they moved at IDENTICAL speed regardless of the ladder. P1 edited three hopSpeedMul values and shipped a change that could not do anything; its A.0 reported per-type speeds ALREADY EXIST, which was true of the DATA and false of the BEHAVIOUR. Fixed by deriving each goblin maxAccel from Math.round(GOBLIN_MAX_ACCEL * hopSpeedMul), matching the convention voltkin/chewer/drone already used by hand. MUTATION-VERIFIED: reverting all six to the flat constant turns 3 of 5 new tests red, so the guard catches P1 exact failure. Tests assert the ORDERING plus a maxAccel-tracks-hopSpeedMul binding, so an orphaned knob fails loudly rather than silently. Voltkin/chewer/drone locomotion pinned unchanged (200/120/240) to protect the replay-equivalence guard. build green, 3008 unit, 54/54 e2e."
+    },
     {
       "id": "P1",
       "title": "Speeds re-tier + units-first targeting + separation + castle march",
@@ -966,7 +1023,8 @@
     "S153 A2 - THE REPORTED BUG DID NOT EXIST AND THE REAL ONE WAS BIGGER. The owner said Back-to-Title does not work; a menu sweep proved it works perfectly. What was missing was any exit from a live match at all - RETURN_TO_TITLE had exactly three call sites and none were reachable while PLAYING. Hunting for a broken handler would have found a correct one and reported no defect. When a user says a control does not work, first ask whether the control they need exists at all.",
     "S153 A2 - THE NEGATIVES WERE THE TEST. Escape leaves the match is equally satisfied by an Escape that abandons a game on one accidental press, which is a WORSE bug than the one being fixed - Escape is already the disarm key and the close-any-overlay key. Two of the three e2e cases assert that NOTHING happens. On any change that adds a destructive shortcut, the cases proving it does not fire carry the weight.",
     "S153 P5a - A CACHE ADDED TO FIX A STALENESS BUG CREATED A STALENESS BUG ONE STATE EARLIER. S149 P6 latched the structures model because the per-tile slices it replaced were permanently empty after the grid moved to the footer. The latch is written only inside the panel draw, BELOW an early return that fires while the panel is closed - so it fixed \"open then closed\" and left \"never opened\" wide open, failing silently with no refusal cue. The underlying builder is a PURE function of world; there was never anything to cache. When the thing being cached is pure, deriving deletes the failure mode instead of relocating it.",
-    "S153 P5a - FIXING THE BUG BEFORE DOING THE MOVE MATTERED MORE THAN I REALISED. The owner attributed the empty queue to its LOCATION and asked for the move. The A.0 probe found that the move alone would have made it WORSE: the queue would be permanently visible and permanently empty, and the accidental cure - opening the castle - would be gone. Root-causing before obeying the proposed remedy is what separated the two halves; had I started with the refactor the owner asked for, I would have shipped a more visible version of the same bug."
+    "S153 P5a - FIXING THE BUG BEFORE DOING THE MOVE MATTERED MORE THAN I REALISED. The owner attributed the empty queue to its LOCATION and asked for the move. The A.0 probe found that the move alone would have made it WORSE: the queue would be permanently visible and permanently empty, and the accidental cure - opening the castle - would be gone. Root-causing before obeying the proposed remedy is what separated the two halves; had I started with the refactor the owner asked for, I would have shipped a more visible version of the same bug.",
+    "S153 P5c - I VERIFIED THE DATA AND CALLED IT THE BEHAVIOUR, AND THE OWNER CAUGHT IT BY PLAYING. P1 A.0 reported that per-type goblin speeds already existed, because the config table had a hopSpeedMul per type with differing values. Nothing read that field. The engine reads maxAccel, and all six goblins shared one flat constant. So I \"corrected\" the owner premise, shipped a three-number edit that was a guaranteed no-op, and told them it was done. I had even written \"a config field with no consumer is the classic trap here\" into my own probe brief - and then checked that the values matched a spec instead of checking that anything consumed them. Grep for CONSUMERS before claiming a config change is a behaviour change."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4002,5 +4060,6 @@
     "finding": "The adversarial auditor REFUTED its own sibling probe, correctly. Report 1 root-caused the queue bug accurately - and I shipped that fix (953a968) WHILE the workflow was still running, so by the time the auditor ran, every symbol Report 1 cited had been deleted. It re-grepped against HEAD and called the report wholly stale.",
     "lesson": "A long-running probe reads a SNAPSHOT. If the main loop edits the same files meanwhile, the probe output expires silently and its confidence is unchanged. The audit stage caught it; without one I might have \"fixed\" an already-fixed bug from a confident report. When parallel investigation runs alongside parallel implementation, timestamp the findings or re-verify before acting.",
     "value_retained": "Report 2 (the move plan) SURVIVED on the merits, md5-pinned, and corrected the size estimate 14K -> 34K."
-  }
+  },
+  "_gate_note_s153": "P5b was appended at the END of priorities and the PDCA gate started blocking every write. Cause: extract_priority_field is an awk brace counter that increments once per LINE CONTAINING a brace, so it drifts on a file this size - measured final depth 9 instead of 0 - and a block late in the file is never seen at depth 2. Fix is ordering, not content: the in_progress priority is moved to index 0, ahead of the drift. Array order is not semantic."
 }

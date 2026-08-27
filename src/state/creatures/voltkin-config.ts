@@ -226,6 +226,25 @@ export interface CreatureConfig {
    * `creatureVerlet.computeSteeringAccel` by a later layer (today that module
    * reads the module-const `CREATURE_MAX_ACCEL` directly). See §3.4 (R16).
    */
+  /**
+   * ⛔ S153 P5c — THIS FIELD HAD NO CONSUMER, AND THAT MADE THE OWNER SPEED LADDER A NO-OP.
+   *
+   * The ONLY thing that drives locomotion is `maxAccel` (creatureVerlet.computeSteeringAccel reads
+   * `config.maxAccel` and nothing else). Voltkin, the chewer and the drone always BAKED the
+   * multiplier into their own `maxAccel` by hand — the chewer comment says so: "200 x hopSpeedMul
+   * 0.6 = 120". The six goblins did not: every one of them carried a flat `GOBLIN_MAX_ACCEL`, so
+   * they all moved at IDENTICAL speed no matter what this number said.
+   *
+   * S153 P1 then "re-tiered the speeds" by editing three of these values and shipped a change that
+   * could not possibly do anything. The owner reported it plainly: *"the speed of the goblin units
+   * has not yet been changed as i asked it to be."* They were right. Worse, the A.0 for P1 reported
+   * that per-type speeds ALREADY EXISTED — true of the DATA and false of the BEHAVIOUR, which is
+   * the difference that mattered. Verifying that a config field matches a spec is not the same as
+   * verifying anything reads it.
+   *
+   * Every goblin `maxAccel` is now GOBLIN_MAX_ACCEL x this value, matching the shipped convention,
+   * and creatureSpeedLadder.test.ts asserts the ORDERING so a future dead knob fails loudly.
+   */
   readonly hopSpeedMul: number;
   /**
    * S100 P1 (TD Phase 1a) — per-substep peak steering acceleration (px/s²),
@@ -455,7 +474,7 @@ export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false, // NOT the chew path — see the docblock above
   hopSpeedMul: 0.85,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.85), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true, // THE goblin discriminator
 };
@@ -488,7 +507,7 @@ export const GOBLIN_ARCHER_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false,
   hopSpeedMul: 0.7,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.7), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
 };
@@ -515,7 +534,7 @@ export const GOBLIN_SHIELD_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false,
   hopSpeedMul: 0.45,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.45), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
 };
@@ -542,7 +561,7 @@ export const GOBLIN_HOUND_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false,
   hopSpeedMul: 1.15,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 1.15), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
 };
@@ -569,7 +588,7 @@ export const GOBLIN_BAT_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false,
   hopSpeedMul: 1.15,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 1.15), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
 };
@@ -599,7 +618,7 @@ export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {
   persistent: true,
   chewsConnectors: false,
   hopSpeedMul: 0.85,
-  maxAccel: GOBLIN_MAX_ACCEL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.85), // the ladder, made REAL (S153 P5c)
   selfExplode: true,
   targetsStructures: true,
 };
