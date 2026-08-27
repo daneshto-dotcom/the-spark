@@ -100,6 +100,11 @@ export interface FooterBandLike {
   setHover(x: number, y: number): void;
   /** S153 P4 (R81) — the pointer is down; sink whatever is under it. */
   setPressed(down: boolean): void;
+  /**
+   * ⭐ S154 P1 (R80) — press the shape strip: queue a shape, or cancel one. True when consumed.
+   * Hit-test and action are one call so a guard and an action cannot disagree about a pixel.
+   */
+  pressShapeStrip(x: number, y: number): boolean;
 }
 
 /**
@@ -461,6 +466,20 @@ export class Controls {
         // than reading a draw-time latch, so this works whether or not the castle was ever opened.
         this.castlePanel?.requestShapesFor(this.world, card);
       }
+      return true;
+    }
+
+    /*
+     * ⭐ S154 P1 (owner R80) — THE SHAPE STRIP. A palette press queues one of that shape; a queue
+     * chip press cancels one. Both dispatch through the band's injected handlers, which are the
+     * SAME ENQUEUE/CANCEL_GATHERER_ORDER dispatches the castle panel used to own.
+     *
+     * Checked after the cards (which float above the band) and before the chips (which sit to the
+     * strip's left) — neither can overlap it, so this is ordering for readability, not a tie-break.
+     * R81: accept clicks here sound like every other accepted click.
+     */
+    if (this.footerBand.pressShapeStrip(this.cursor.x, this.cursor.y)) {
+      void playUiClickSFX();
       return true;
     }
 

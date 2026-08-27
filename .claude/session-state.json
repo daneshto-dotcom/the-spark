@@ -1,14 +1,14 @@
 {
   "tool_calls_session_total": 2637,
-  "session_id": "S153",
-  "session_kind": "PDCA batch - the playtest eight: speeds+targeting, archer VFX, FEED in FIGHT, spark z-order+affordance, palette to footer, bots build towers, goblin hound art, worker-bots CI wait",
-  "session_start": "2026-08-26",
-  "prior_session_note": "S151 closed at 85495f1; protocol 30; preflight re-measured GREEN this session: build 727.6/900 KiB, vitest 2940/2940, e2e:gating 44 exit 0, verify-deploy 4/4, CI 15/15 success",
-  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-22_S151.md",
+  "session_id": "S154",
+  "session_kind": "PDCA batch (owner-approved autonomous run): P5b palette-to-footer, bat-rider harpoons + creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait",
+  "session_start": "2026-08-27",
+  "prior_session_note": "S153 closed at 057e5ec; protocol 31; S154 preflight re-measured GREEN: build 738.2/900 KiB, vitest 3008/3008 (181 files), git clean",
+  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S153.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-23_PDR_S152_BATCH.md",
-  "session_status": "ready_for_handoff",
+  "plan_file": ".claude/plans/2026-08-27_PDR_S154_BATCH.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -112,865 +112,59 @@
   ],
   "priorities": [
     {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
       "id": "P5b",
-      "title": "MOVE the palette + queue to the footer, right of tier 8, always visible (R80)",
+      "priority": 0,
       "tier": "Standard",
-      "estimated_tokens": 34000,
       "status": "in_progress",
-      "check_completed": false,
+      "title": "Palette + order queue move to the FOOTER, right of tier 8, always visible (R80)",
+      "estimated_tokens": 34000
+    },
+    {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "detail": "Owner asked twice. Audited plan banked in carry_forward P5b."
-    },
-    {
-      "id": "P5c",
-      "title": "The goblin speed ladder was a NO-OP — hopSpeedMul had no consumer (R82, corrected)",
-      "tier": "Micro",
-      "estimated_tokens": 9000,
-      "status": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "pattern": "maxAccel: Math\\.round\\(GOBLIN_MAX_ACCEL \\* [0-9.]+\\)",
-          "op": "eq",
-          "value": 6
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "needle": "  maxAccel: GOBLIN_MAX_ACCEL,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "needle": "THIS FIELD HAD NO CONSUMER"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts",
-          "needle": "is not all one number"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureSpeedLadder.test.ts",
-          "needle": "no orphaned knob"
-        }
-      ],
-      "check_method": "RALPH. OWNER-CAUGHT DEFECT IN MY OWN P1. hopSpeedMul has ZERO production consumers - every grep hit is a declaration, a config value or a comment. The single input to locomotion is config.maxAccel, and all six goblins carried a flat GOBLIN_MAX_ACCEL, so they moved at IDENTICAL speed regardless of the ladder. P1 edited three hopSpeedMul values and shipped a change that could not do anything; its A.0 reported per-type speeds ALREADY EXIST, which was true of the DATA and false of the BEHAVIOUR. Fixed by deriving each goblin maxAccel from Math.round(GOBLIN_MAX_ACCEL * hopSpeedMul), matching the convention voltkin/chewer/drone already used by hand. MUTATION-VERIFIED: reverting all six to the flat constant turns 3 of 5 new tests red, so the guard catches P1 exact failure. Tests assert the ORDERING plus a maxAccel-tracks-hopSpeedMul binding, so an orphaned knob fails loudly rather than silently. Voltkin/chewer/drone locomotion pinned unchanged (200/120/240) to protect the replay-equivalence guard. build green, 3008 unit, 54/54 e2e.",
-      "checkpoint_commit": "2b70337"
-    },
-    {
-      "id": "P1",
-      "title": "Speeds re-tier + units-first targeting + separation + castle march",
-      "tier": "Full",
-      "estimated_tokens": 24000,
-      "status": "completed",
-      "detail": "Re-tier the six hopSpeedMul values to the owner ladder - hound 1.15, bat 1.15, melee 0.85, suicide 0.85, archer 0.70, shield 0.45. Add unit-first NAVIGATION gated by an acquisition radius with a hysteresis margin on target switch. Wire creatureCanTarget as the authority - it has zero production callers today. Add a separation nudge so same-tier goblins stop overlapping. Fold in the cheap castle half - when no enemy towers remain goblins march on the castle. Gate with a behavioural ordering test asserting BOTH halves.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "2095d3f",
-      "check_method": "RALPH+GROK-ANALYST tier. (1) tsc -b --noEmit exit 0 read from a REDIRECT not a pipe - it caught an unused helper that vitest passed straight over. (2) vitest 2983 of 2983, 179 files, +13 new. (3) e2e:gating 49 of 49 exit 0. (4) MUTATION TEST on the load-bearing assertion - reverting unitInReach to the bare null-check turns the does-NOT-enter-ATTACKING case red, proving the gate is real rather than decorative. (5) Both-halves discipline on every behavioural case - acquire has its out-of-radius negative, the dead band asserts held-keeps AND unheld-does-not-acquire, and the FSM gate asserts a real melee engagement still passes. (6) A.0 refuted the owner premise that goblins lacked per-type speeds and refuted a Grok design built on rootConnector/isExposed/childTowers, none of which exist. NOT YET DONE - live visual confirmation of the arc-not-pile behaviour, deferred to a consolidated screenshot pass with P4/P5.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "pattern": "hopSpeedMul: 1\\.15,",
-          "op": "eq",
-          "value": 2
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "pattern": "hopSpeedMul: 0\\.85,",
-          "op": "eq",
-          "value": 2
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "pattern": "hopSpeedMul: 0\\.7,",
-          "op": "eq",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "pattern": "hopSpeedMul: 0\\.45,",
-          "op": "eq",
-          "value": 1
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "needle": "hopSpeedMul: 0.95,"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "needle": "hopSpeedMul: 0.9,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_UNIT_LEASH_RADIUS = 300;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_SPREAD_RADIUS = 26;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function pickNavUnit("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function spreadTargetPos("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function enemyCastleMarchPos("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "import { castleAnchor } from '../gatherers/gatherer.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "const unitInReach ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "      unitInReach ||"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "pattern": "\\bunitInReach\\b",
-          "op": "ge",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "const navUnit = creatureCanTarget(creature.type, 'units')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "import { creatureCanTarget } from './stats.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "steerTo = enemyCastleMarchPos(world, creature);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "const spread = spreadTargetPos(steerTo, creature.id, GOBLIN_SPREAD_RADIUS);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "  pickNavUnit,"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts",
-          "needle": "does NOT enter ATTACKING for a unit held at NAVIGATION distance"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\unitFirstTargeting.test.ts",
-          "needle": "DOES enter ATTACKING once that same unit is inside attackRange"
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "title": "Archer projectile VFX - plain arrow vs units, flaming vs structures",
+      "id": "R92-batrider",
+      "priority": 1,
       "tier": "Standard",
-      "estimated_tokens": 12000,
-      "status": "completed",
-      "detail": "New ARROW_SHOT effect kind on the existing UNHASHED effect channel, following the ARC_FLASH start-end precedent. Zero wire cost, no protocol bump. Discriminate the flaming variant on target class at the attack-fire site.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const ARROW_FLIGHT_TICKS = 12;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
-          "needle": "export function resolveArcherShot("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
-          "needle": "export function drawArrow("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
-          "needle": "export function syncArcherArrows("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
-          "needle": "if (c.type !== 'goblinArcher') return null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\archerArrow.ts",
-          "needle": "flaming = true;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "import { syncArcherArrows } from './archerArrow.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "private readonly arrowLayer: Graphics;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "syncArcherArrows(this.arrowLayer, world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "this.arrowLayer.clear();"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\game\\effects.ts",
-          "needle": "'ARROW_SHOT'"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "'ARROW_SHOT'"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "pattern": "export const PROTOCOL_VERSION = 31 as const;",
-          "op": "eq",
-          "value": 1
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\playwright.config.ts",
-          "needle": "_visual-archer"
-        }
-      ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0 - tsc caught an unused param vitest ignored, twice this session now. (2) vitest 2997 total, +14 new on resolveArcherShot. (3) PIXEL-VERIFIED on a live solo match: injected both scenes into the running world via the __SPARK__ dev accessor, screenshotted, and SAMPLED THE PNG for fire-coloured pixels. First run returned ZERO, which looked like a broken flame - it was a bad test scene. The second archer sat 198px from the first scene victim and GOBLIN_ARCHER_RANGE is 220, so it correctly acquired the unit and drew a plain arrow. Re-laid the scenes beyond archer range: 200 fire-coloured pixels, and the two variants are visually distinct. Checking the INPUT before retuning the consumer is what stopped an afternoon of tweaking flame alpha for a non-bug. (4) The throwaway harness was DELETED rather than left behind - an internals-injecting spec in the gating lane is the CF3 hazard class.",
-      "checkpoint_commit": "8786d12"
-    },
-    {
-      "id": "P3",
-      "title": "FEED during FIGHT",
-      "tier": "Standard",
-      "estimated_tokens": 10000,
-      "status": "completed",
-      "detail": "Give FEED its own reachability predicate instead of borrowing canBuildNow, which hard-returns false outside BUILD. R19 stays intact for FIX and SCRAP. Owner point 1.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
-          "needle": "export function seatGoblinTowerAt("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
-          "needle": "import type { PlayerId, PrimitiveId, SpawnerId } from '../types.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "const towerHere = seatGoblinTowerAt(this.world, this.playerId, prim.id);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "if (!canBuildNow(this.world, prim.pos, this.playerId) && towerHere === null) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "import { seatGoblinTowerAt } from '../state/goblinKinds.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "const inBuild = world.matchPhase === 'BUILD';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "if (!inBuild && feedSpawnerId === null) return null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "if (scrap !== null) buttons.push({"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "let feedTop = inBuild ? top + BTN_H + FEED_ROW_GAP : top;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "function goblinTowerAmong("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\structureRepair.ts",
-          "needle": "if (!canBuildNow(world, seed.pos, seat)) return null;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
-          "needle": "matchPhase"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
-          "needle": "S153 P3 — FEED during FIGHT (owner R79)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.test.ts",
-          "needle": "a NON-tower structure gets NO popover in FIGHT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\feed-tower.spec.ts",
-          "needle": "R79 — the tower is still feedable in FIGHT, through a real click"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "goblinRenderer.arrowLayer"
-        }
-      ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0. (2) vitest 3003, +6 panel tests incl. the both-halves guard that BUILD still shows SCRAP, so R19 was narrowed and not deleted. (3) e2e:gating 50 of 50 - one MORE than before, the new FIGHT-phase feed test. (4) MUTATION-VERIFIED ON THE HALF UNIT TESTS CANNOT REACH: reverting the controls.ts gate to BUILD-only leaves every panel test green and turns the e2e RED. That is the S151 goblin-tower defect class exactly - a model that is happy and an input layer that never calls it. (5) A REGRESSION I CAUSED IN P2 SURFACED HERE and is fixed: fog.spec roll-calls every aboveFogLayer child by name, and P2 arrowLayer was an unannounced third child from one renderer - precisely what that roll call was built to catch after a bare count cost a whole session. Added with its rationale and renumbered all 20 entries. (6) A.0 established the FEED reducer has NO phase gate, so this was a reachability change only.",
-      "checkpoint_commit": "3c212e2"
-    },
-    {
-      "id": "P4",
-      "title": "Spark above the HUD + finish the affordance pass",
-      "tier": "Standard",
-      "estimated_tokens": 20000,
-      "status": "completed",
-      "detail": "Reorder the display list so the spark draws above the HUD - layering is child-add order with no zIndex API. Add hover, press and sound to footer chips, castle tiles, gatherer upgrades and tier buttons. Closes CF-S152-c. Verify hit tests on screen, not in state.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\renderer.ts",
-          "needle": "  bringToFront(): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\renderer.ts",
-          "needle": "this.container.label = 'sparkRenderer';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "const HOVER_GROW = 2;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "  setHover(x: number, y: number): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "  setPressed(down: boolean): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "const hot = this.hoverChip === c.complexity;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "const hotCard = this.hoverCard === card.id;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\footerBand.ts",
-          "needle": "this.container.label = 'footerBand';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "  setHover(x: number, y: number): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "  setPressed(down: boolean): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\structurePanel.ts",
-          "needle": "this.hoverX >= b.x && this.hoverX <= b.x + b.w &&"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "this.footerBand?.setHover(this.cursor.x, this.cursor.y);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "this.structurePanel?.setHover(this.cursor.x, this.cursor.y);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "this.footerBand?.setPressed(true);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "this.footerBand?.setPressed(false);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\package.json",
-          "needle": "_visual"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "sparkRenderer.bringToFront();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "  avatarRenderer.bringLocalToFront();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "sparkIdx: labelIdx('avatarRendererLocal'),"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "pattern": "structurePanel\\.bringToFront\\(\\);[\\s\\S]{0,2000}?avatarRenderer\\.bringLocalToFront\\(\\);",
-          "op": "eq",
-          "value": 1
-        }
-      ],
-      "check_method": "RALPH+GROK-ANALYST. (1) build exit 0, vitest 3003, e2e:gating 50 of 50. (2) ⛔ THE PIXEL TEST CAUGHT A DEAD FEATURE. setHover was declared on both interfaces and implemented in both renderers, and NOTHING CALLED IT - an earlier patch batch aborted on a failed CRLF anchor and the one wiring edit never ran. tsc was green, every test was green, and the hover did nothing. Found by sampling the chip plate colour hover-on vs hover-off: delta 0. After wiring, delta 42 - (9,12,18) to (18,26,37). Registered is not live, for the third time this session. (3) Z-ORDER PROVEN BY A/B ON THE DISPLAY-LIST INDEX, not pixels: without the fix spark index 2 vs footer 43, with it 44 vs 42. The pixel A/B was INCONCLUSIVE (redness 23 vs 22) because the chip plate is alpha 0.82 and a spark underneath bleeds through - when a visual property has a numeric ground truth, assert the number. (4) That A/B is now a PERMANENT guard in fog.spec, mutation-verified: removing bringToFront turns it red. (5) A.0 CORRECTED THE CARRY-FORWARD - castlePanel already had full drawn hover on real Pixi containers, so this was two surfaces and not four. (6) Layers now carry a label so the display list is self-describing. (7) Byte-level line-ending check on all five touched files: controls.ts still PURE CRLF, the rest PURE LF, nothing mixed.",
-      "checkpoint_commit": "883d1b2",
-      "superseded_by": "S153 A1. THREE of P4 original bindings asserted `sparkRenderer.bringToFront()` and a fog.spec assertion on the sparkRenderer layer. A1 established that P4 had raised the WRONG LAYER - SparkRenderer draws building blocks, the owner cruiser is the AVATAR - and REVERTED that lift, so those three claims are now false BY DESIGN. The MCV stop gate caught it, which is exactly what it is for. They are replaced with their inverses (the wrong lift must be ABSENT, the right one PRESENT) rather than deleted, so the supersession is asserted rather than merely asserted-away. Everything else P4 shipped - the hover/press work, the sounds, the layer labels - is untouched and still verified."
-    },
-    {
-      "id": "P5a",
-      "title": "R91 — ordering a tower shortfall from the footer no longer needs the castle to have been opened",
-      "tier": "Micro",
-      "estimated_tokens": 14000,
-      "status": "completed",
-      "detail": "Move the gatherer palette and queue-chip strip out of castlePanel onto the footer band, left of the tier buttons. Owner D1 confirmed this SUPERSEDES ruling S136 P0. Register the new surface in hudLayout or the overlap gate stays blind to it.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "promoted_note": "Promoted from deferred: the owner hit a live BUG caused by the current placement, not just an ergonomics preference. Placement corrected to RIGHT of tier 8, always visible.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
-          "needle": "  requestShapesFor(world: World, id: GodlyId): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
-          "needle": "const row = castleStructuresModel(world).find((r) => r.id === id);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
-          "needle": "private structuresModel"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
-          "needle": "this.structuresModel = structures;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "this.castlePanel?.requestShapesFor(this.world, card);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "  requestShapesFor(world: World, id: GodlyId): void;"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\footer-order-shapes.spec.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\footer-order-shapes.spec.ts",
-          "needle": "with the castle NEVER opened"
-        }
-      ],
-      "checkpoint_commit": "953a968",
-      "check_method": "RALPH. ROOT-CAUSED, not guessed: requestShapesFor read this.structuresModel, a field assigned ONLY inside the panel draw (castlePanel.ts:1162). Never opened the castle means empty latch means find returns undefined means a SILENT early return - no queue entry, no refusal cue, nothing on screen. That is exactly the owner sequence, including why the second attempt worked once the panel had been up. THE LATCH WAS ITSELF AN S149 P6 FIX for this class; it closed panel-was-open-then-closed and left panel-never-opened wide open. castleStructuresModel is a PURE function of world, so deriving on demand removes the failure mode rather than moving its boundary. MUTATION-VERIFIED: restoring the latch turns the new e2e red. build green, 3003 unit, 54/54 e2e (up from 53).",
-      "scope_note": "THIS IS THE BUG HALF ONLY. The owner also ruled the palette+queue must MOVE to the footer, right of tier 8, always visible (R80 as corrected). That move is NOT done and is carried forward - it is a multi-file refactor and context was 640K YELLOW. The bug is fixed independently of the move, which matters: ordering now works from the footer today, wherever the strip eventually lives."
-    },
-    {
-      "id": "P6",
-      "title": "Bots build towers, not random shapes",
-      "tier": "Full",
-      "estimated_tokens": 30000,
       "status": "pending",
-      "detail": "Closes CF-S149-f, the last of the owner five playtest complaints. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. Littering fix is IN SCOPE - a bot that selects a tower and finds nowhere legal to place it reads as the same bug, not a fix.",
-      "check_completed": false,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
+      "title": "Bat rider gets a real ranged harpoon + a flying read (and the ranged-standoff CREEP fix)",
+      "estimated_tokens": 22000
     },
     {
-      "id": "P7",
-      "title": "Goblin hound atlas - the last FEED output without art",
-      "tier": "Standard",
-      "estimated_tokens": 15000,
-      "status": "completed",
-      "detail": "Closes CF-S152-b. UNBLOCKED - owner topped up billing and a live probe returned HTTP 200 with image bytes. Six resume commands already recorded. Audition the contact sheet before wiring - a hound has four legs, several enclosed background pockets, the exact matte case that bit the bat rider.",
-      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "sequencing_note": "Taken BEFORE P5 and said so. P5 measured bigger than its PDR estimate - the palette strip height feeds castlePanel layout in four places and its buttons are live Pixi containers wired through main.ts - and context sits 22K below the YELLOW line. P7 is owner-FUNDED (they topped up billing mid-session for exactly this) and is mostly script runs, so it costs little context. Order chosen to maximise how many land.",
-      "owner_art_iterations": [
-        "v1 - lean mangy war-hound. REJECTED: \"no i dont like this dog\". NOT binned - the owner reassigned it on sight: \"this dog will be used as the attacks from the Zombie castle as it looks like a zombie\". Preserved with its two already-paid clips under assets-source/zombie-castle/.",
-        "v2 - old english bulldog crossed with a dingo, per \"needs to be a mix between an old english bulldog and a dingo! ... but obv - more gobliny\". Owner: \"not bad ... otherwise pretty good\", with two notes.",
-        "v3 - APPROVED (\"yes this latest hound image if fine!\"). Changed ONLY the two things asked for - goblin-green hide and a much more aggressive snarl/pose - holding breed mix, tack, silhouette and cartoon level constant, because the owner had explicitly approved those in v2."
-      ],
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-hound\\anim\\goblin-hound-atlas.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\public\\godly\\goblin-hound\\anim\\goblin-hound-anim.json"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\7-goblin-hound-CIRCLE.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\walk.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clips\\goblin-hound\\attack.mp4"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "goblinHound: '/godly/goblin-hound/anim/goblin-hound',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\goblinRenderer.ts",
-          "needle": "S153 P7 — AND NOW NONE ARE."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "const start = Math.max(0, spec.states[st].sampleStart ?? spec.sampleStart ?? 0);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\build-sprite-atlas.mjs",
-          "needle": "sampleStart"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
-          "needle": "\"sampleStart\": 3"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\atlas-specs.json",
-          "needle": "\"name\": \"goblin-hound\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\clip-spec.json",
-          "needle": "\"name\": \"goblin-hound\""
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\zombie-hound.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\clips\\zombie-hound\\idle.mp4"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\zombie-castle\\clips\\zombie-hound\\walk.mp4"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\assets-source\\godly-goblins\\design-spec.json",
-          "needle": "_owner_direction_s153_v3"
-        }
-      ],
-      "checkpoint_commit": "b4f3a69",
-      "check_method": "RALPH+GROK-ANALYST. build green, vitest 3003, e2e:gating 50/50. TEXTURE CENSUS MEASURED: 74->77, delta 3 against limit 8 (was 74->76). THE AUDITION EARNED ITS PLACE - a contact sheet over magenta found two opaque black pillarbox bars surviving the matte, localised to exactly ONE cell (walk frame 0: 144 bar-like columns of 336, nothing else in the atlas) because veo opened that clip with the seed letterboxed. Fixed by NOT SAMPLING the bad frame - a new per-state sampleStart mirroring sampleWindow - rather than by loosening the bar rule, which would put every character ink outline at risk (the S152 defect that deleted whole outlines). Absent means 0 means byte-identical, so no shipped atlas can regress. Side benefit: bars gone shrank the union bbox 1280x720 to 1062x662 and tightened the cell 336 to 303. The drop-shadow ellipse survives as opaque near-black at 9.48 percent of frame area, COMPARED against the shipped shield at 8.80 percent - house style, not a regression, measured before being called acceptable. RENDERED LIVE: three hounds in a running match draw from the atlas, not the green puppet. The rejected v1 was PRESERVED with its two paid clips as a zombie-castle asset per owner instruction."
-    },
-    {
-      "id": "P8",
-      "title": "worker-bots tick-based wait",
-      "tier": "Micro",
-      "estimated_tokens": 6000,
-      "status": "pending",
-      "detail": "Closes CF-S152-a. Poll world.tick, never raise the timeout - a longer rope is the fix that already failed twice in this repo.",
-      "check_completed": false,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A1",
-      "title": "Spark genuinely above the tier number (R81 unfinished)",
-      "tier": "Micro",
-      "estimated_tokens": 8000,
-      "status": "completed",
-      "detail": "Owner raised it twice. My P4 fix proved the spark CONTAINER sits above the footer CONTAINER (index 44 vs 42, mutation-verified) and the tier labels are children of that same footer container - so by that evidence it should already be on top and it is not. Root cause UNKNOWN. Reproduce against the live build before touching anything.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
-          "needle": "  bringLocalToFront(): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
-          "needle": "this.localLayer.label = 'avatarRendererLocal';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
-          "needle": "const wantLayer = player.id === localPlayerId ? this.localLayer : this.container;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\avatarRenderer.ts",
-          "needle": "this.localLayer.visible = this.container.visible;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "  avatarRenderer.bringLocalToFront();"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "sparkRenderer.bringToFront();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "sparkIdx: labelIdx('avatarRendererLocal'),"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);"
-        }
-      ],
-      "check_method": "RALPH. Root cause found by READING rather than guessing: avatarRenderer.ts opens by calling \"spark\" an OVERLOADED term - player avatar vs building block - and S153 P4 lifted SparkRenderer, the building blocks. The P4 index A/B was sound but measured the wrong object, which is why the owner reported the same bug twice. Corroborated by S110 P3, which lifted this exact avatar layer for this exact complaint (\"I need to see the cruiser always\"). The P4 free-spark lift is REVERTED, not left as a harmless extra, because S149 P6 says board objects must not cover UI chrome and the owner carve-out was for the cruiser. LOCAL-ONLY by construction: the renderer is multi-player and fog deliberately sits above it, so lifting the whole container would show a REMOTE cruiser through fog. Owner confirmed the local case is intended (R90). Re-homed every sync rather than at creation so a host migration or seat swap cannot strand a Graphics in the wrong layer. fog.spec retargeted to the local avatar layer and MUTATION-VERIFIED - removing the lift turns it red. build green, 3003 unit, 50/50 e2e.",
-      "checkpoint_commit": "b4dcff2"
-    },
-    {
-      "id": "A2",
-      "title": "In-match exit — there was NO way to leave a running match (owner)",
-      "tier": "Standard",
-      "estimated_tokens": 14000,
-      "status": "completed",
-      "detail": "Owner is reloading the page to leave a match. The Back to Title in lobbyScreen.ts:410 looks correctly wired, so the broken one is a DIFFERENT surface - the in-game options panel. Owner also asked to check all clickable options and back menus for consistency, so this is a sweep and not a one-liner.",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const TITLE_EXIT_CONFIRM_MS = 1600;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "let lastEscapeAtMs: number | null = null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "if (world.gameState !== 'PLAYING') return;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "if (lastEscapeAtMs !== null && nowMs - lastEscapeAtMs < TITLE_EXIT_CONFIRM_MS) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "if (castlePanel.armedBlueprint() !== null) return;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "ESC ESC quit"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\exit-match.spec.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\exit-match.spec.ts",
-          "needle": "a SINGLE Escape does NOT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\exit-match.spec.ts",
-          "needle": "two Escapes far apart do NOT count"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\package.json",
-          "needle": "_menusweep"
-        }
-      ],
-      "check_method": "RALPH. ⭐ THE REPORTED BUG WAS NOT THE REAL ONE. An e2e menu sweep PROVED the lobby Back-to-Title works (oneVOne -> LOBBY -> back -> TITLE, no page errors), so nothing was broken. The actual gap: RETURN_TO_TITLE was reachable from exactly THREE places - the lobby back button, the connection-lost overlay, and a click on POSTGAME - and a match in PLAYING had none of them. Reloading really was the only exit. This is the S109 P0 trap with a different screen (\"the owner got trapped: the in-game codex had no key-exit\"). DOUBLE-PRESS on purpose: Escape is already the disarm key and the close-any-overlay key, so a single-press exit would abandon live matches by habit - a worse bug than the one being fixed. Chosen over new UI because a new surface needs hudLayout registration and an unregistered surface is invisible to the overlap gate. Ordered after every other Escape listener and gated on all of them being shut. THREE e2e cases, and two of them are the negatives: single press does nothing, and two presses 2.2s apart do nothing. build green, 3003 unit, 53/53 e2e (up from 50).",
-      "carry_forward_note": "The owner ALSO asked to check every clickable option and back menu for consistency. The sweep covered the four title entries; the OVERLAY back paths (codex, arcade, bot setup) return to TITLE without changing gameState so the probe could not see them - they need their own assertions. Carried forward.",
-      "checkpoint_commit": "055883b"
-    },
-    {
-      "id": "A3",
-      "title": "Armies retreat before FIGHT ends and idle at their tower, spawn-fresh translucent",
-      "tier": "Standard",
-      "estimated_tokens": 18000,
-      "status": "pending",
-      "detail": "Owner: spawns stay in enemy territory during BUILD which is wrong - they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built, halfway transparent. Applies to ALL spawn armies, so it touches the shared creature FSM rather than one unit type.",
-      "check_completed": false,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A4",
-      "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
-      "tier": "Full",
-      "estimated_tokens": 35000,
-      "status": "pending",
-      "detail": "Owner MAIN GOAL. New damageable castle entity, a damageEntity castle arm, the targeting fallback to actually ATTACK rather than just march (P1 already walks them there), and a second win condition alongside scoreByPlayer at 1500. Needs a hashed field, so expect a PROTOCOL BUMP and the six-site checklist.",
-      "check_completed": false,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
       "id": "A5",
-      "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
+      "priority": 2,
       "tier": "Full",
-      "estimated_tokens": 30000,
       "status": "pending",
-      "detail": "Owner: bots still not building towers, medium bots should at least build some. BUILD_BLUEPRINT is already an allowlisted client intent so no bump. Littering fix in scope.",
-      "check_completed": false,
+      "title": "Bots build TOWERS, difficulty floor at MID (R86 / CF-S149-f)",
+      "estimated_tokens": 45000
+    },
+    {
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "id": "A3",
+      "priority": 3,
+      "tier": "Standard",
+      "status": "pending",
+      "title": "Armies retreat before FIGHT ends and idle spawn-fresh at their own tower",
+      "estimated_tokens": 26000
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P8",
+      "priority": 4,
+      "tier": "Micro",
+      "status": "pending",
+      "title": "worker-bots e2e waits on world.tick, never a raised timeout (CF-S152-a)",
+      "estimated_tokens": 6000
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1064,7 +258,7 @@
     "GEMINI-AUDITOR"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner, 2026-08-22, verbatim: \"i approve full session priority batch - work in the absolute best interests of this project and vision to produce the highest possible best possible output. Get cooking!\" Preceded by explicit sign-off on the emergent accelerating-collapse behaviour: \"i understand about the emergent behavior and that was intended.\"",
+  "unlock_evidence": "Owner, 2026-08-27, verbatim: \"after thorough session boot i approve those priorities in order - P5b ... 1. Bat-rider harpoons ... and Then 5. A5 bots build towers - A3 armies retreat - P8 worker-bots wait. Work autonomously to complete all those priorities in a thorough methodical batch as mentioned. use all your tools and capabilities to work in the absolute best interests of this project and vision autonomously produce the highest quality of work! APPROVE FULL SESSION BATCH PDR AND AUTONOMOUS RUN!!! When i get back iil check what you have achieved!~ do not close session until i say so\"",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -4083,5 +3277,38 @@
     "why_it_matters": "CLAUDE.md names that script the SOURCE OF TRUTH for the GREEN/YELLOW/ORANGE/RED scope thresholds, and this session made TWO real scope cuts on its reading: deferring the Full-tier bots work at a measured 61 percent, and then declining to start P5b at a measured 69 percent. If the script over-reports, both cuts were more conservative than the budget actually required, and the owner waited an extra session for work that would have fit.",
     "hypothesis_NOT_verified": "The script sums input + cache_creation + cache_read from the latest assistant message. cache_read is re-read context, so it may be double-counting what the UI reports as live conversation context. UNVERIFIED - stated as a hypothesis, not a diagnosis.",
     "next_action": "Compare the two directly at a known point next session: read the UI percentage and run real-context-tokens.py in the same breath, twice, at different fill levels. If the script is high, fix the script or restate the thresholds against whatever it actually measures - do not just lower the thresholds."
+  },
+  "priorities_s153_archived": 15,
+  "context_tracker_resolved_s154": {
+    "carry_forward": "CF-S153-ctx CLOSED - the tracker DOES misreport, with a reproduced mechanism.",
+    "root_cause": "real-context-tokens.py discovery ladder: after --session-id and $CLAUDE_SESSION_ID it resolves a project slug and takes max(*.jsonl, key=mtime) (newest_in_slug, lines 71-75), with a final global_mtime_fallback. $CLAUDE_SESSION_ID is UNSET in this shell, so a bare call identifies the most recently written transcript near the cwd, NOT the running session.",
+    "reproduction": "Run from the Founder DNA parent dir it reported 42.58% / 425,793 tokens from a 2026-07-11 transcript of a DIFFERENT session on claude-opus-4-8 (discovery_source=cwd_derived_slug). Run from The Spark with --session-id it reported 10.62% (discovery_source=cli_session_id). Same moment, same script.",
+    "why_S153_was_bitten": "A second Spark transcript (69e273e0-....jsonl) was written at 08:59 on 2026-08-27, concurrently with S153's close, so mtime-newest could resolve to the wrong session. S153's 61%/69% readings gated two real scope cuts against an owner UI reading of 52%.",
+    "fix_adopted": "Every reading this session is taken with --session-id be6c0fd0-07e3-4da0-9908-8bbeaa3d60c6 and trusted ONLY when the JSON echoes discovery_source=cli_session_id. Readings sourced from cwd_derived_slug or global_mtime_fallback are discarded.",
+    "consequence": "Verified 10.6% GREEN at PDR time, so NOTHING in this batch is trimmed for budget."
+  },
+  "council_s154": {
+    "seats": [
+      "CLAUDE-SUPERVISOR (fable-5)",
+      "GROK-ANALYST (grok-4.20-0309-reasoning)",
+      "GEMINI-AUDITOR (gemini-3.1-pro-preview)"
+    ],
+    "rounds": 1,
+    "deviation": "Full tier calls for 2 rounds. Round 2 was REPLACED BY AN EMPIRICAL MEASUREMENT on the single risk both external seats converged on (the ranged-standoff creep), because a measurement settles it and another round of opinion does not. Recorded as a deliberate deviation, not an omission.",
+    "converged_finding_CONFIRMED_BY_MEASUREMENT": "Both seats independently predicted a ranged creature creeps inward one attack cadence at a time: ATTACKING->SEEKING on cadence elapse grants one tick of full arrive-accel, then ~59 ticks of coasting under VELOCITY_DAMPING=0.998 PER SUBSTEP (~0.984/tick). MEASURED with a throwaway probe reproducing the FSM + 8-substep physics: goblinArcher standoff decays 220 -> 155.4 px over 39 cadences (~40 s); goblinMelee 35 -> 12.8; a bat started at 150 with the melee config collapses to 0.9 px. GOBLIN_LIFETIME_TICKS is 60*60*60 = 216,000 ticks (60 min), i.e. ~3600 cadences, so the creep is NOT bounded by lifetime. THIS IS A LIVE DEFECT IN THE SHIPPED ARCHER, not just a hazard in the proposed bat rider. P2 therefore carries the creep fix as well as the range constant.",
+    "claude_refutations_of_external_seats": [
+      "GROK ranked P4 most-likely-broken on a host/client desync: \"client never runs the new steering arm, hash diverges\". REFUTED by hostTick.ts in situ: \"fan-out CREATURE_TICK to every live creature. Host-only (client never simulates; S28 NetSnapshot v2 mirrors host->client creature state).\" There is no client creature simulation to diverge from. GEMINI, given that fact, correctly cleared it as \"None\".",
+      "GROK: the strip would overlap the seat-2 porch at x=1790. REFUTED by arithmetic: the strip spans 1177-1430; 1430 < 1790. GROK also miscomputed the strip width as 458 px (the rows are STACKED: max 253).",
+      "GROK: \"the hit-test surface change alters recorded player intent ordering\", so P1 is a protocol hazard. REFUTED: hit-testing is local input; the dispatched actions (ENQUEUE_GATHERER_ORDER / CANCEL_GATHERER_ORDER) already exist and already route through the single dispatchFn seam. No wire surface changes.",
+      "GEMINI: the client cannot evaluate the plain-vs-flaming discriminator because the target id is not synced. REFUTED by archerArrow.ts's own docblock: targetCreatureId IS stripped by trimMirrorCreature, which is exactly why the rule is RE-EVALUATED LOCALLY from populations both peers hold, using the same predicate the sim uses. That is the shipped design.",
+      "GEMINI: a 6th tier would collide with a \"hardcoded\" strip at x=1177. Misread - 1177 illustrated today's values; the design derives the strip from the live chip row (the legendAnchor idiom). Kept as a REQUIREMENT to make the derivation unmistakable in code, plus a test that a 6th tier moves the strip."
+    ],
+    "adopted_from_external_seats": [
+      "GEMINI (P4, MAJOR): the plan said \"no new creature field\" but never said how the CLIENT renderer would know to draw a retreating creature half-transparent. Adopted its own answer: derive it client-side (near own tower + not attacking), matching the archerArrow/chewerRenderer derive-do-not-send idiom. No protocol bump.",
+      "GEMINI (P4, QUALITY): retreating 2-3 s early hands the enemy free unanswered hits. The owner ruled it explicitly, so it SHIPS as asked - but it is symmetric (both armies retreat) and FIGHT is ending anyway. Flagged to the owner rather than silently softened or silently shipped.",
+      "GEMINI (P4): the trap in reusing the spawn-in alpha - it lerps 0->1 over spawnTicks, so reusing it fades them IN to opaque rather than holding them at half. A HELD alpha, not a reused spawn ramp.",
+      "GROK (P3, TOOL/TEST): no test advances growth ticks after a BUILD_BLUEPRINT to prove a stamped tower is not auto-bonded into adjacent junk. Adopted - and A.0 independently found the same hazard from the other side (a later bot placement within 60 px auto-bonds a chord and tears the tower down with no error and no log line).",
+      "GROK (P1): one source of truth for the strip rects, consumed by BOTH the renderer and the input guard, rather than two parallel hit-test paths. Already the design; reinforced."
+    ]
   }
 }

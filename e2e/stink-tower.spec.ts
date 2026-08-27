@@ -17,7 +17,7 @@
  * Boots CLEAN (no `?debug=1`) for the same reason `castle-panel.spec.ts` does — see its docblock.
  */
 import { expect, test } from '@playwright/test';
-import { canvasToCss, keepAnchor, waitForWorld } from './helpers.ts';
+import { canvasToCss, waitForWorld } from './helpers.ts';
 
 /** The two shapes the recipe is made of, mirrored from `constants.ts SparkType`. */
 const SQUARE = 3;
@@ -172,40 +172,60 @@ test.describe('S141 P1 — the Stink Tower is real, and it is VISIBLE', () => {
   });
 });
 
-test.describe('S141 P2 — the gatherer order queue is reachable and honest', () => {
-  test('clicking a palette shape queues it, and the chip appears with the right count', async ({ page }) => {
+test.describe('S154 P1 (owner R80) — the order queue is reachable WITHOUT opening the castle', () => {
+  /*
+   * ⭐ THIS TEST IS THE PRIORITY. It was "S141 P2 — the gatherer order queue is reachable and
+   * honest", and it opened the castle keep first, then read `castlePanel.getUiPoints()`
+   * .paletteCenters / .chipCenters and asserted every control sat inside the PANEL plate.
+   *
+   * That is precisely the behaviour the owner reported three times as wrong: the palette and the
+   * queue only existed while the castle was open. S153 P5a fixed the ENQUEUE path underneath (a
+   * shortfall order no longer needed the panel to have been drawn once) but did not move the
+   * controls, so the queue itself stayed invisible. R80: *"always be visible on the right side of
+   * the footer (after tier 8)"*.
+   *
+   * So the test now drives `footerBand.getUiPoints()` and — the load-bearing part — NEVER CLICKS A
+   * KEEP. Its final assertion is that the castle panel was closed the whole way through.
+   */
+  test('the footer palette queues shapes, coalesces the chip, and cancels — castle never opened', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
     await bootSolo(page);
 
-    // Open the panel on the local seat's own keep.
-    const keep0 = await keepAnchor(page, 0);
-    await clickCanvas(page, keep0.x, keep0.y);
-    const pts = await page.evaluate(() => {
-      const s = (window as { __SPARK__?: { castlePanel?: { getUiPoints?: () => unknown } } }).__SPARK__;
-      return s!.castlePanel!.getUiPoints!() as {
-        open: boolean;
-        rect: { x: number; y: number; w: number; h: number };
-        paletteCenters: Array<{ type: number; x: number; y: number }>;
-        chipCenters: Array<{ index: number; type: number; count: number }>;
-      };
-    });
-    expect(pts.open, 'the panel opened on the own-keep click').toBe(true);
-    expect(pts.paletteCenters.length, 'one palette button per primitive').toBe(6);
-    expect(pts.chipCenters.length, 'no chips before anything is queued').toBe(0);
+    type StripPts = {
+      palette: Array<{ type: number; x: number; y: number; w: number; h: number }>;
+      queue: Array<{ type: number; count: number; next: boolean; x: number; y: number; w: number; h: number }>;
+      chips: Array<{ complexity: number; x: number; y: number; w: number; h: number }>;
+    };
+    const readStrip = async (): Promise<StripPts> =>
+      page.evaluate(() => {
+        const s = (window as { __SPARK__?: { footerBand?: { getUiPoints?: () => unknown } } }).__SPARK__;
+        return s!.footerBand!.getUiPoints!() as never;
+      });
+    const castleOpen = async (): Promise<boolean> =>
+      page.evaluate(() => {
+        const s = (window as { __SPARK__?: { castlePanel?: { getUiPoints?: () => { open: boolean } } } }).__SPARK__;
+        return s!.castlePanel!.getUiPoints!().open;
+      });
 
-    // ⭐ EVERY palette button must sit INSIDE the plate. An off-plate button is unclickable and
-    // completely invisible to a unit test — the S140 bank-strip overflow class.
-    for (const b of pts.paletteCenters) {
-      expect(b.x, `palette ${b.type} inside plate L`).toBeGreaterThanOrEqual(pts.rect.x);
-      expect(b.x, `palette ${b.type} inside plate R`).toBeLessThanOrEqual(pts.rect.x + pts.rect.w);
-      expect(b.y, `palette ${b.type} inside plate T`).toBeGreaterThanOrEqual(pts.rect.y);
-      expect(b.y, `palette ${b.type} inside plate B`).toBeLessThanOrEqual(pts.rect.y + pts.rect.h);
+    // ⛔ THE WHOLE POINT: the strip is there on a freshly booted match, with no click at all.
+    expect(await castleOpen(), 'no castle was opened').toBe(false);
+    const pts = await readStrip();
+    expect(pts.palette.length, 'one palette button per primitive, with the castle shut').toBe(6);
+    expect(pts.queue.length, 'no chips before anything is queued').toBe(0);
+
+    // Every button must be inside the footer band and RIGHT of the last tier chip (R80's wording).
+    const bandTop = 1080 - 84;
+    const lastChipRight = Math.max(...pts.chips.map((c) => c.x + c.w));
+    for (const b of pts.palette) {
+      expect(b.y, `palette ${b.type} below the band top`).toBeGreaterThanOrEqual(bandTop);
+      expect(b.y + b.h, `palette ${b.type} above the canvas floor`).toBeLessThanOrEqual(1080);
+      expect(b.x, `palette ${b.type} right of tier 8`).toBeGreaterThan(lastChipRight);
     }
 
     // Click one shape THREE times — the owner's "click x8 times" gesture, at N=3.
-    const square = pts.paletteCenters.find((b) => b.type === SQUARE)!;
-    for (let i = 0; i < 3; i++) await clickCanvas(page, square.x, square.y);
+    const square = pts.palette.find((b) => b.type === SQUARE)!;
+    for (let i = 0; i < 3; i++) await clickCanvas(page, square.x + square.w / 2, square.y + square.h / 2);
 
     await waitForWorld(
       page,
@@ -224,23 +244,15 @@ test.describe('S141 P2 — the gatherer order queue is reachable and honest', ()
     });
 
     // The chip coalesces to ONE entry with a count of 3 (owner ruling B4), not three chips.
-    const after = await page.evaluate(() => {
-      const s = (window as { __SPARK__?: { castlePanel?: { getUiPoints?: () => unknown } } }).__SPARK__;
-      return s!.castlePanel!.getUiPoints!() as {
-        rect: { x: number; y: number; w: number; h: number };
-        chipCenters: Array<{ index: number; type: number; count: number; x: number; y: number }>;
-      };
-    });
-    expect(after.chipCenters.length, 'three clicks coalesce into ONE chip').toBe(1);
-    expect(after.chipCenters[0].type).toBe(SQUARE);
-    expect(after.chipCenters[0].count).toBe(3);
-    // …and the chip is inside the plate too.
-    expect(after.chipCenters[0].x).toBeGreaterThanOrEqual(after.rect.x);
-    expect(after.chipCenters[0].x).toBeLessThanOrEqual(after.rect.x + after.rect.w);
-    expect(after.chipCenters[0].y).toBeLessThanOrEqual(after.rect.y + after.rect.h);
+    const after = await readStrip();
+    expect(after.queue.length, 'three clicks coalesce into ONE chip').toBe(1);
+    expect(after.queue[0].type).toBe(SQUARE);
+    expect(after.queue[0].count).toBe(3);
+    expect(after.queue[0].next, 'the only chip is the next one').toBe(true);
+    expect(after.queue[0].y, 'the chip is in the footer band').toBeGreaterThanOrEqual(bandTop);
 
     // Clicking the chip cancels ONE — click/cancel is symmetric.
-    await clickCanvas(page, after.chipCenters[0].x, after.chipCenters[0].y);
+    await clickCanvas(page, after.queue[0].x + after.queue[0].w / 2, after.queue[0].y + after.queue[0].h / 2);
     await waitForWorld(
       page,
       (w) => ((w as unknown as { gathererOrders?: Array<{ seat: number; types: number[] }> })
@@ -249,6 +261,9 @@ test.describe('S141 P2 — the gatherer order queue is reachable and honest', ()
       8_000,
     );
 
+    // ⛔ AND THE CASTLE WAS NEVER OPENED. Without this the test would still pass if the controls
+    // had merely been duplicated into the footer while the panel kept owning them.
+    expect(await castleOpen(), 'the castle panel stayed shut throughout').toBe(false);
     expect(pageErrors).toEqual([]);
   });
 });

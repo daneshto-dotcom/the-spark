@@ -705,7 +705,11 @@ async function bootstrap(): Promise<void> {
   // queue is authoritative input to target selection, so a local optimistic push could send this
   // seat's gatherers somewhere the host never agreed to and show a phantom chip if the intent is
   // dropped. The chip appears when the snapshot lands, which is also what makes it honest.
-  castlePanel.setOrderHandlers(
+  //
+  // ⭐ S154 P1 (owner R80) — WIRED TO THE FOOTER BAND, NOT THE CASTLE PANEL. The palette and the
+  // queue moved into the permanently-visible footer strip; only the injection target changed here.
+  // The two dispatches are byte-identical, which is why R80 costs no new action and no bump.
+  footerBand.setOrderHandlers(
     (sparkType) => {
       dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });
     },

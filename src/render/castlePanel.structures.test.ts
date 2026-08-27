@@ -28,7 +28,7 @@ import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import {
   PANEL_W, ROW_INNER_W, TILE, TILE_COLS, castleStructuresModel, panelHeight, panelOrigin, panelRect,
-  structureRowCount, structuresStripHeight, tileOrigin,
+  rowsTop, structureRowCount, structuresStripHeight, tileOrigin,
 } from './castlePanel.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
@@ -174,11 +174,33 @@ describe('build-grid layout stays inside the plate (the S140 overflow class)', (
     }
   });
 
-  it('panelHeight accounts for the build section', () => {
-    // Guards the ordering trap this file documents: a strip added to the layout but NOT to
-    // panelHeight leaves panelOrigin clamping against a stale height, so the panel hangs off-canvas
-    // for keeps on the lower arc of the ring.
-    expect(panelHeight(2)).toBeGreaterThan(structuresStripHeight());
+  it('panelHeight and rowsTop agree about the build section', () => {
+    /*
+     * ⭐ S154 P1 — REPAIRED PREMISE, not a moved number. This assertion used to read
+     * `expect(panelHeight(2)).toBeGreaterThan(structuresStripHeight())`, comparing the panel's
+     * REAL height (which reserves `structuresStripHeight(liveTileCount())`, and `liveTileCount()`
+     * is 0 while `CASTLE_BUILD_GRID_ENABLED` is false) against the HYPOTHETICAL full-grid height
+     * from the default argument (298 px). Those are not the same quantity, and the comparison only
+     * held because the palette + queue strips happened to pad `panelHeight` by 78 px. Removing them
+     * for R80 made it fail — which is the test doing its job late: it had been green for the wrong
+     * reason since the grid moved to the footer in S149 P5.
+     *
+     * What the test actually wants to guard is the trap this file's docblock names: a strip added to
+     * the layout but NOT to `panelHeight` leaves `panelOrigin` clamping against a stale height. So
+     * assert THAT directly — `panelHeight` and `rowsTop` are two callers of one layout and must
+     * agree by construction. Any strip added to one and not the other fails here, whatever the
+     * build grid is doing.
+     */
+    const PANEL_PAD_PROBE = 10;
+    const ROW_H_PROBE = 44;
+    const ROW_GAP_PROBE = 8;
+    for (const rows of [1, 2, 3]) {
+      expect(panelHeight(rows), `rows=${rows}`).toBe(
+        rowsTop() + rows * ROW_H_PROBE + (rows - 1) * ROW_GAP_PROBE + PANEL_PAD_PROBE,
+      );
+    }
+    // And the pure build-section function is still self-consistent at a real tile count
+    // (anti-vacuity: this is the half that keeps meaning something once the grid is re-enabled).
     expect(structuresStripHeight()).toBeGreaterThan(structureRowCount() * TILE);
   });
 

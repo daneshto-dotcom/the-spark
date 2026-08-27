@@ -136,91 +136,38 @@ export function bankStripHeight(cap: number = INVENTORY_SLOTS): number {
 const INVENTORY_SLOTS = ALL_SPARK_TYPES.length;
 
 /* ========================================================================== *
- *   S141 P2 (V6-1.4) — THE GATHERER ORDER QUEUE strip (owner ruling B4)
+ *   S154 P1 (owner R80) — THE PALETTE + ORDER QUEUE LEFT THIS FILE
  * ========================================================================== */
 
 /**
- * ⚠ WHY THIS LIVES IN THE PANEL AND NOT IN A FOOTER — two owner rulings conflict, and the LATER one
- * wins. B4 (S134) specifies *"A FOOTER BAR along the bottom of the screen"* holding the shape buttons
- * and the queue. But S136 P0 — a later playtest ruling — deleted the footer outright: *"that footer
- * with those options should be clickable once you click on the castle and not always there. because
- * eventually different towers and stuff will have different upgrades and they will pop up when you
- * click on them."* Building B4's footer verbatim would re-introduce the exact surface the owner asked
- * to have removed, plus the 1920-wide click-guard band whose removal this file documents as
- * load-bearing. Recorded here rather than silently diverged from the written ruling.
+ * ⭐ THE SHAPE PALETTE AND THE ORDER QUEUE NOW LIVE IN THE FOOTER — see `render/shapeStrip.ts`.
  *
- * Two rows, both derived from the panel width (the S140 lesson — derive from the CONTAINER, never
- * from the contents, so nothing can outgrow the plate at any count):
- *   • the PALETTE — one button per primitive type; each click queues one of that shape.
- *   • the QUEUE   — coalesced `×N` chips, leftmost first; clicking a chip cancels one.
+ * This file used to carry a long argument for why they had to live in the panel: B4 (S134) asked
+ * for a footer bar, S136 P0 then deleted the footer outright (*"that footer with those options
+ * should be clickable once you click on the castle and not always there"*), and building B4
+ * verbatim would have re-introduced the surface a later ruling removed.
+ *
+ * **R80 settles it, and not simply by being newer.** The owner asked three times for the palette
+ * and queue to be *"always be visible on the right side of the footer (after tier 8)"*. Re-read in
+ * that light, S136 P0 is about **per-tower upgrade controls** — its own justification is *"different
+ * towers and stuff will have different upgrades and they will pop up when you click on them"* — and
+ * those stay exactly where it put them: in this panel, behind a click on a castle. The shape
+ * palette is not a per-tower upgrade; it is a global economy command, which is why the owner kept
+ * reaching for it and finding it behind a click. The two rulings are separated by SUBJECT.
+ *
+ * The removal deleted SIX consumers of the two strip heights from this file's layout (the panel is
+ * correspondingly shorter), and `paletteOrigin`/`chipOrigin`/`paletteStripHeight`/`queueStripHeight`
+ * are gone with them: they were panel-local geometry and have no meaning in canvas space. The
+ * footer's equivalents are pure functions in `shapeStrip.ts`.
  */
-export const PALETTE_BTN = 30;
-export const PALETTE_GAP = 5;
-const PALETTE_PAD_BOTTOM = 8;
-export const CHIP_W = 38;
-export const CHIP_H = 30;
-const CHIP_GAP = 5;
-const QUEUE_PAD_BOTTOM = 10;
-/** The six primitives, in enum order — the palette's fixed left-to-right layout. */
-export const PALETTE_TYPES: readonly SparkType[] = ALL_SPARK_TYPES;
-/**
- * How many chips the strip can SHOW. The queue itself is capped at GATHERER_ORDER_QUEUE_MAX, but only
- * this many distinct coalesced chips fit one row — and since chips coalesce by type there can never
- * be more than one per primitive type, so a full palette always fits by construction.
- */
-export const MAX_CHIPS = 6;
-
-/** PURE — height of the palette row. */
-export function paletteStripHeight(): number {
-  return PALETTE_BTN + PALETTE_PAD_BOTTOM;
-}
-/** PURE — height of the queue-chip row. */
-export function queueStripHeight(): number {
-  return CHIP_H + QUEUE_PAD_BOTTOM;
-}
-
-/** PURE — the top-left of palette button `i`, panel-local. Centred on the panel like the bank rows. */
-export function paletteOrigin(i: number): { x: number; y: number } {
-  const n = PALETTE_TYPES.length;
-  const total = n * PALETTE_BTN + (n - 1) * PALETTE_GAP;
-  const left = (PANEL_W - total) / 2;
-  return {
-    x: left + i * (PALETTE_BTN + PALETTE_GAP),
-    y: PANEL_PAD + TITLE_H + bankStripHeight(),
-  };
-}
-
-/** PURE — the top-left of queue chip `i`, panel-local. */
-export function chipOrigin(i: number, chipCount: number): { x: number; y: number } {
-  const n = Math.max(1, Math.min(MAX_CHIPS, chipCount));
-  const total = n * CHIP_W + (n - 1) * CHIP_GAP;
-  const left = (PANEL_W - total) / 2;
-  return {
-    x: left + i * (CHIP_W + CHIP_GAP),
-    y: PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight(),
-  };
-}
 
 /**
- * PURE — collapse an ordered queue into display chips, preserving FIRST-APPEARANCE order.
- *
- * Owner ruling B4: *"Coalesce into one chip with an `×N` badge (RTS convention), not N separate
- * entries."* First-appearance order is what keeps "leftmost is next" true after coalescing — sorting
- * by count or by type would put a chip the player is not waiting for at the front and make the
- * display lie about what happens next.
- *
- * Exported and world-free so a test can pin the coalescing without a renderer (the S130 lesson: a
- * draw path that cannot be driven headlessly must not be the only place logic lives).
+ * ⚠ RE-EXPORTED, NOT MOVED-AND-FORGOTTEN. `state/gatherers/gathererOrders.test.ts` imports
+ * `coalesceOrders` from this module, and the coalescing RULE did not change when the display moved
+ * — only where it is drawn. Re-exporting keeps the one implementation authoritative instead of
+ * letting a second copy drift into existence, which is the failure this repo has already paid for.
  */
-export function coalesceOrders(queue: readonly SparkType[]): Array<{ type: SparkType; count: number }> {
-  const out: Array<{ type: SparkType; count: number }> = [];
-  for (const t of queue) {
-    const hit = out.find((c) => c.type === t);
-    if (hit !== undefined) hit.count++;
-    else out.push({ type: t, count: 1 });
-  }
-  return out;
-}
+export { coalesceOrders } from './shapeStrip.ts';
 /* ========================================================================== *
  *   S144 P2 — THE BUILD GRID (owner playtest: "its a blob ... make it easy")
  * ========================================================================== */
@@ -301,7 +248,7 @@ export function tileOrigin(i: number, count: number = ALL_BLUEPRINT_IDS.length):
   const left = (PANEL_W - total) / 2;
   return {
     x: left + col * (TILE + TILE_GAP),
-    y: PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight()
+    y: PANEL_PAD + TITLE_H + bankStripHeight()
       + SECTION_LABEL_H + row * (TILE + TILE_GAP),
   };
 }
@@ -470,7 +417,7 @@ export function panelOrigin(
  */
 export function panelHeight(rows: number, cap: number = INVENTORY_SLOTS): number {
   return (
-    TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight() +
+    TITLE_H + bankStripHeight(cap) +
     structuresStripHeight(liveTileCount()) +
     rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2
   );
@@ -487,7 +434,7 @@ export function panelHeight(rows: number, cap: number = INVENTORY_SLOTS): number
  */
 export function rowsTop(cap: number = INVENTORY_SLOTS): number {
   return (
-    PANEL_PAD + TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight()
+    PANEL_PAD + TITLE_H + bankStripHeight(cap)
     + structuresStripHeight(liveTileCount())
   );
 }
@@ -541,14 +488,6 @@ export class CastlePanel {
     filled: boolean;
   }> = [];
   private onPull: ((sparkType: SparkType) => void) | null = null;
-  /** S141 P2 — palette buttons (one per primitive) and coalesced queue chips. */
-  private readonly palette: Array<{ box: Container; bg: Graphics; glyph: Graphics; hover: boolean }> = [];
-  private readonly chips: Array<{
-    box: Container; bg: Graphics; glyph: Graphics; badge: Text; hover: boolean;
-    type: SparkType | null;
-  }> = [];
-  private onEnqueue: ((t: SparkType) => void) | null = null;
-  private onCancel: ((t: SparkType) => void) | null = null;
   /**
    * S144 P2 — the BUILD GRID. One tile per recipe, built ONCE in the constructor at a fixed count and
    * repainted in sync() — never created per frame (the bank strip's lesson: a variable-length strip
@@ -658,26 +597,6 @@ export class CastlePanel {
       this.slots.push({ box, bg, glyph, count, hover: false, filled: false });
     }
 
-    // S141 P2 — THE PALETTE: one button per primitive type. Click to queue one of that shape.
-    for (let i = 0; i < PALETTE_TYPES.length; i++) {
-      const bg = new Graphics();
-      const glyph = new Graphics();
-      const box = new Container();
-      box.addChild(bg); // Graphics child supplies containsPoint — same idiom as the rows/slots.
-      box.addChild(glyph);
-      const o = paletteOrigin(i);
-      box.position.set(o.x, o.y);
-      box.eventMode = 'static';
-      box.cursor = 'pointer';
-      const t = PALETTE_TYPES[i];
-      const idx = i;
-      box.on('pointertap', () => this.onEnqueue?.(t));
-      box.on('pointerover', () => { this.palette[idx].hover = true; });
-      box.on('pointerout', () => { this.palette[idx].hover = false; });
-      this.container.addChild(box);
-      this.palette.push({ box, bg, glyph, hover: false });
-    }
-
     // S144 P2 — THE BUILD GRID + its caption. Same Container+Graphics-child idiom as every other
     // clickable here (the Graphics child supplies `containsPoint`; a bare Container has none and
     // Pixi's hitTest falls through to false — see the file docblock).
@@ -731,36 +650,6 @@ export class CastlePanel {
     this.captionName.visible = CASTLE_BUILD_GRID_ENABLED;
     this.captionTag.visible = CASTLE_BUILD_GRID_ENABLED;
 
-    // S141 P2 — THE QUEUE CHIPS. ⚠ Built ONCE at a fixed maximum and shown/hidden in sync(), NOT
-    // created per frame: the bank strip's children are also constructor-built, and a variable-length
-    // strip that adds children in sync() would leak Pixi objects every frame. Chips coalesce by type
-    // so there can never be more than one per primitive — MAX_CHIPS always suffices.
-    for (let i = 0; i < MAX_CHIPS; i++) {
-      const bg = new Graphics();
-      const glyph = new Graphics();
-      const badge = new Text({
-        text: '',
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0xffffff }),
-      });
-      badge.anchor.set(1, 1);
-      badge.position.set(CHIP_W - 3, CHIP_H - 2);
-      const box = new Container();
-      box.addChild(bg);
-      box.addChild(glyph);
-      box.addChild(badge);
-      box.eventMode = 'static';
-      box.cursor = 'pointer';
-      const idx = i;
-      box.on('pointertap', () => {
-        const t = this.chips[idx].type;
-        if (t !== null) this.onCancel?.(t);
-      });
-      box.on('pointerover', () => { this.chips[idx].hover = true; });
-      box.on('pointerout', () => { this.chips[idx].hover = false; });
-      this.container.addChild(box);
-      this.chips.push({ box, bg, glyph, badge, hover: false, type: null });
-    }
-
     this.container.visible = false;
     app.stage.addChild(this.container);
   }
@@ -776,12 +665,6 @@ export class CastlePanel {
   /** main.ts injects the PULL_FROM_BANK dispatch for the local seat. */
   setPullHandler(fn: (sparkType: SparkType) => void): void {
     this.onPull = fn;
-  }
-
-  /** S141 P2 — main.ts injects the ENQUEUE/CANCEL_GATHERER_ORDER dispatches for the local seat. */
-  setOrderHandlers(enqueue: (t: SparkType) => void, cancel: (t: SparkType) => void): void {
-    this.onEnqueue = enqueue;
-    this.onCancel = cancel;
   }
 
   /** main.ts injects the BUY_GATHERER dispatch for the local seat. */
@@ -976,9 +859,12 @@ export class CastlePanel {
     rowCenters: Array<{ key: string; x: number; y: number; enabled: boolean; reason: string }>;
     bank: { count: number; cap: number };
     slotCenters: Array<{ index: number; x: number; y: number; filled: boolean }>;
-    /** S141 P2 — live click geometry for the order queue (the S85 P4c geometry-getter convention). */
-    paletteCenters: Array<{ type: number; x: number; y: number }>;
-    chipCenters: Array<{ index: number; type: number; count: number; x: number; y: number }>;
+    /*
+     * ⭐ S154 P1 (R80) — `paletteCenters` / `chipCenters` ARE GONE FROM HERE. The palette and the
+     * order queue moved to the permanently-visible footer strip, so their live geometry is reported
+     * by `FooterBand.getUiPoints()` as `palette` / `queue`. `e2e/stink-tower.spec.ts` reads them
+     * there now — and no longer has to open the castle first, which is the whole point of R80.
+     */
     /** S144 P2 — live click geometry for the build grid (the S85 P4c geometry-getter convention). */
     structureCenters: Array<{ id: string; x: number; y: number; enabled: boolean; reason: string }>;
     armed: string | null;
@@ -990,8 +876,6 @@ export class CastlePanel {
         rowCenters: [],
         bank: { count: 0, cap: INVENTORY_SLOTS },
         slotCenters: [],
-        paletteCenters: [],
-        chipCenters: [],
         structureCenters: [],
         // ⚠ NOT hardcoded null. A held tower outlives the panel closing (see `sync`), so reporting
         // null here would tell the harness — and any future consumer — that the player is empty-handed
@@ -1027,20 +911,6 @@ export class CastlePanel {
         };
       }),
       armed: this.armed,
-      paletteCenters: PALETTE_TYPES.map((t, i) => {
-        const po = paletteOrigin(i);
-        return { type: t as unknown as number, x: o.x + po.x + PALETTE_BTN / 2, y: o.y + po.y + PALETTE_BTN / 2 };
-      }),
-      chipCenters: this.chips
-        .map((c, i) => ({ c, i }))
-        .filter(({ c }) => c.box.visible && c.type !== null)
-        .map(({ c, i }) => ({
-          index: i,
-          type: c.type as unknown as number,
-          count: c.badge.text === '' ? 1 : Number(c.badge.text.slice(1)),
-          x: o.x + c.box.position.x + CHIP_W / 2,
-          y: o.y + c.box.position.y + CHIP_H / 2,
-        })),
       rowCenters: this.rows.map((_, i) => ({
         key: keys[i],
         x: o.x + PANEL_PAD + (PANEL_W - PANEL_PAD * 2) / 2,
@@ -1133,42 +1003,6 @@ export class CastlePanel {
       drawSparkGlyph(gl, SLOT_W / 2 - 5, SLOT_H / 2, 12, slotType, held > 0 ? tint : 0x2a3a4a);
     }
 
-    // S141 P2 — THE PALETTE. Every button is always enabled: queueing costs nothing and is allowed
-    // even while benched (see BENCH_INTENT_POLICY), so there is no disabled state to explain here.
-    for (let i = 0; i < this.palette.length; i++) {
-      const b = this.palette[i];
-      b.bg.clear();
-      b.bg.roundRect(0, 0, PALETTE_BTN, PALETTE_BTN, 5)
-        .fill({ color: b.hover ? 0x1f5f9e : 0x14283c, alpha: 0.95 })
-        .stroke({ width: 1.5, color: b.hover ? tint : 0x2a3a4a, alpha: 0.85 });
-      b.glyph.clear();
-      drawSparkGlyph(b.glyph, PALETTE_BTN / 2, PALETTE_BTN / 2, 9, PALETTE_TYPES[i], tint);
-    }
-
-    // S141 P2 — THE QUEUE. Coalesced to one chip per type with an xN badge (owner ruling B4), in
-    // FIRST-APPEARANCE order so the leftmost chip really is what gets fetched next.
-    const orders = world.gathererOrders.get(world.localPlayerId) ?? [];
-    const chips = coalesceOrders(orders).slice(0, MAX_CHIPS);
-    for (let i = 0; i < this.chips.length; i++) {
-      const c = this.chips[i];
-      const model = chips[i];
-      c.type = model?.type ?? null;
-      c.box.visible = model !== undefined;
-      if (model === undefined) continue;
-      const co = chipOrigin(i, chips.length);
-      c.box.position.set(co.x, co.y);
-      // The NEXT chip is highlighted: "leftmost is next" has to be visible, not merely true.
-      const isNext = i === 0;
-      c.bg.clear();
-      c.bg.roundRect(0, 0, CHIP_W, CHIP_H, 5)
-        .fill({ color: c.hover ? 0x7a2c2c : isNext ? 0x1b4a76 : 0x14283c, alpha: 0.95 })
-        .stroke({ width: isNext ? 2 : 1, color: c.hover ? 0xd46a6a : tint, alpha: isNext ? 0.95 : 0.6 });
-      c.glyph.clear();
-      drawSparkGlyph(c.glyph, CHIP_W / 2 - 3, CHIP_H / 2, 8, model.type, tint);
-      // Only badge a real multiple — "x1" on every chip is noise.
-      c.badge.text = model.count > 1 ? `x${model.count}` : '';
-    }
-
     // S144 P2 — THE BUILD GRID. Affordability comes from `castleStructuresModel`, which decides it
     // with the SAME `planBlueprintPayment` the reducer uses — so a bright tile is always buildable.
     const structures = castleStructuresModel(world);
@@ -1178,7 +1012,7 @@ export class CastlePanel {
     // `requestShapesFor` now derives the model itself from `world`, so there is nothing to latch.
     this.sectionLabel.position.set(
       PANEL_PAD,
-      PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight(),
+      PANEL_PAD + TITLE_H + bankStripHeight(),
     );
     this.sectionLabel.style.fill = tint;
 
@@ -1229,7 +1063,7 @@ export class CastlePanel {
     // do. A dim tile's blocker is shown HERE rather than on the tile — a 76 px box cannot hold
     // "NEED 3 MORE" legibly, but the panel's contract that a disabled thing explains itself still
     // has to be met somewhere.
-    const capY = PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight()
+    const capY = PANEL_PAD + TITLE_H + bankStripHeight()
       + SECTION_LABEL_H + structureRowCount(liveTileCount()) * TILE
       + (structureRowCount(liveTileCount()) - 1) * TILE_GAP + 6;
     this.captionName.position.set(PANEL_PAD, capY);
