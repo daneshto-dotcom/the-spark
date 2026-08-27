@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2639,
+  "tool_calls_session_total": 2648,
   "session_id": "S154",
   "session_kind": "PDCA batch (owner-approved autonomous run): P5b palette-to-footer, bat-rider harpoons + creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait",
   "session_start": "2026-08-27",
@@ -123,7 +123,38 @@
       "estimated_tokens": 6000,
       "check_completed": true,
       "checkpoint_commit": "4b9b2705aff437bea9f49bce38bd48e4daf934b2",
-      "check_method": "RUNTIME, not static: `npx playwright test e2e/worker-bots.spec.ts` -> 1 passed in 22.4 s with the tick-budgeted wait in place. That is the only check that means anything here — the whole point of the change is CI behaviour, and a static read cannot tell a tick budget from a wall clock. It also incidentally confirms S154 P3's bot changes did not disturb the worker-sim mirror path, which was the one cross-priority risk in this batch. || SCOPE DISCIPLINE HELD: test.setTimeout(360_000) and GROWTH_WALL_CAP_MS untouched (the carry-forward's standing instruction — that rope failed twice), helpers.ts untouched (waitForWorldWithinTicks already existed and this spec already imported it), and the ONE remaining waitForWorld left deliberately in place because it waits for a menu click to reach PLAYING, which a tick budget cannot measure."
+      "check_method": "RUNTIME, not static: `npx playwright test e2e/worker-bots.spec.ts` -> 1 passed in 22.4 s with the tick-budgeted wait in place. That is the only check that means anything here — the whole point of the change is CI behaviour, and a static read cannot tell a tick budget from a wall clock. It also incidentally confirms S154 P3's bot changes did not disturb the worker-sim mirror path, which was the one cross-priority risk in this batch. || SCOPE DISCIPLINE HELD: test.setTimeout(360_000) and GROWTH_WALL_CAP_MS untouched (the carry-forward's standing instruction — that rope failed twice), helpers.ts untouched (waitForWorldWithinTicks already existed and this spec already imported it), and the ONE remaining waitForWorld left deliberately in place because it waits for a menu click to reach PLAYING, which a tick budget cannot measure.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "e2e/worker-bots.spec.ts",
+          "needle": "FIRST_BUILD_BUDGET_TICKS = 1_800"
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/worker-bots.spec.ts",
+          "pattern": "waitForWorldWithinTicks\\(",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/worker-bots.spec.ts",
+          "needle": "test.setTimeout(360_000)"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/worker-bots.spec.ts",
+          "needle": "const GROWTH_WALL_CAP_MS = 180_000;"
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/worker-bots.spec.ts",
+          "pattern": "60_000,",
+          "op": "==",
+          "value": 0
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -137,7 +168,55 @@
       "estimated_tokens": 26000,
       "check_completed": true,
       "check_method": "STATIC: 3069/3069 unit / 185 files (+12 retreat.test.ts). tsc clean. Build 740.6/900 KiB. All determinism/replay gates green. || THE OWNER'S SCREENSHOT IS NOW AN INVARIANT: two armies spawned in each other's ground, a FULL FIGHT phase run out through runHostTick, and at BUILD every creature is asserted nearer its OWN keep than the enemy's. Paired with its anti-vacuity case (it does NOT walk home mid-fight), without which a permanently-homing goblin would pass the walk test. || THE TRAP THAT WOULD HAVE BEEN INVISIBLE, caught and asserted: recallArmies must move prevPos with pos. Verlet velocity is IMPLICIT in (pos - prevPos), so teleporting pos alone hands the creature a one-frame velocity of the whole board width and it rockets back across the map when FIGHT resumes — no error, and every determinism gate green because both peers do it identically. || DESIGN CONSTRAINED BY A.0 RATHER THAN BY GUESSWORK: no new CreatureState (a 'RETREATING' literal is a hard wire parse break AND renders as the idle animation row, so the unit would slide across the board standing still) and no new creature field (the creatures family is hashed; a field needs two edits in stateHashFull). Position is already hashed and serialized, so moving it costs nothing. The half-transparent idle is DERIVED from matchPhase in the renderer — no wire change, no bump.",
-      "checkpoint_commit": "a6f8f5aa5df6280a34b07a40a1caf057e876d8c3"
+      "checkpoint_commit": "a6f8f5aa5df6280a34b07a40a1caf057e876d8c3",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "ARMY_RETREAT_LEAD_TICKS = 180"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function ownHomePos"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function isRetreatWindow"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "export function recallArmies"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "recallArmies(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "const goingHome = isRetreatWindow(world)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "c\\.prevPos\\.[xy] = home\\.[xy];",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "DORMANT_ALPHA"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/creatures/retreat.test.ts"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -152,7 +231,67 @@
       "check_completed": true,
       "check_method": "STATIC: 3057/3057 unit / 184 files (+13 botTowers.test.ts). tsc clean. Build 739.8/900 KiB. All seeded replay/differential gates green (hostTick.replay, workerSim.differential, botController same-seed stream), which is the load-bearing result for a new branch inserted ABOVE pickTargetSpark: both new planners draw ZERO rng, and two same-seed tests assert the streams agree rather than a comment claiming it. || BEHAVIOURAL, not config: the acceptance test drives BotManager for six sim-seconds and requires a REAL STRUCTURE in world.primitives with >= blueprintCost nodes, bonded to each other; the floor is proven end-to-end by a NOOB in the identical world raising nothing; and a NOOB holding a FULL BILL is asserted to still refuse, which is what separates 'the flag exists' from 'the flag is consulted'. || THE LITTERING HAZARD IS COVERED IN THE DIRECTION NOTHING PROTECTED: stampRefusalAt guards the stamp, so the test keeps an IMBA bot playing 40 more sim-seconds AFTER the stamp and requires every tower node still present — the auto-bond chord that tears a structure down leaves no error and no log line. || MY FIRST HOARD RULE WAS WRONG AND THE SHIPPED SUITE CAUGHT IT: gating PULL on chooseTowerOrder made the gate permanent (six blueprints, one always unaffordable), taking an IMBA bot from >=3 placements to one. Removed, and the now-unused HOARD_CAP deleted rather than shipped unread.",
       "checkpoint_commit": "a23e097ce2b3cf748094efe1ddc949417e2fc745",
-      "real_context_tokens_at_close": null
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botConfig.ts",
+          "needle": "buildsTowers: boolean"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "buildsTowers:",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botConfig.ts",
+          "pattern": "buildsTowers: false",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function chooseTowerPlan"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function chooseTowerOrder"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "planBlueprintPayment"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "stampRefusalAt"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "send({ type: 'BUILD_BLUEPRINT'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "send({ type: 'ENQUEUE_GATHERER_ORDER'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "HOARD_CAP"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/bots/botTowers.test.ts"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -169,7 +308,90 @@
       "checkpoint_commit": "1a8e6078536d89730a4a1dd24985d872f996ed5a",
       "real_context_tokens_at_close": 519214,
       "real_context_pct_at_close": 51.92,
-      "protocol_bump": "31 -> 32, six sites; attackRange is a shared constant both peers compute from in creatureProjectile.ts"
+      "protocol_bump": "31 -> 32, six sites; attackRange is a shared constant both peers compute from in creatureProjectile.ts",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "GOBLIN_BAT_RANGE = 150"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "attackRange: GOBLIN_BAT_RANGE"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "pattern": "attackRange: GOBLIN_ATTACK_RANGE",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "pattern": "holdsRange: true",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "steersWhileAttacking"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function standoffTargetPos"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function engageRange"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/creatureProjectile.ts"
+        },
+        {
+          "type": "file_absent",
+          "path": "src/render/archerArrow.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureProjectile.ts",
+          "needle": "drawHarpoon"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureLift.ts",
+          "needle": "goblinBat: 34"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 32"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 32;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "toBe(32)"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 32;"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/creatures/standoff.test.ts"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -186,7 +408,73 @@
       "checkpoint_commit": "27a9a00f5db03ad4bf8b20c5e536ad89f2d9ece8",
       "real_context_tokens_at_close": 346671,
       "real_context_pct_at_close": 34.67,
-      "deploy_pushed": true
+      "deploy_pushed": true,
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/shapeStrip.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/shapeStrip.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/shapeStrip.ts",
+          "needle": "shapeStripLayout"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "pressShapeStrip"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "isOverShapeStrip"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "export function paletteStripHeight",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "export function chipOrigin",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "paletteCenters:",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "footerBand.setOrderHandlers"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "export { coalesceOrders } from './shapeStrip.ts';"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/stink-tower.spec.ts",
+          "needle": "WITHOUT opening the castle"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/stink-tower.spec.ts",
+          "needle": "the castle panel stayed shut throughout"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
