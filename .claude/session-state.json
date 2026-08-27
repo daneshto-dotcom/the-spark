@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2703,
+  "tool_calls_session_total": 2704,
   "session_id": "S154",
   "session_kind": "PDCA batch (owner-approved autonomous run): P5b palette-to-footer, bat-rider harpoons + creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait",
   "session_start": "2026-08-27",
@@ -612,7 +612,7 @@
   },
   "real_context_tokens_at_close": 519214,
   "real_context_pct_at_close": 51.92,
-  "checkpoint_commit": "4b9b2705aff437bea9f49bce38bd48e4daf934b2",
+  "checkpoint_commit": "04fd5e77a6ddc89257fbb0c66e0c6524d0e40ef9",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -3637,5 +3637,18 @@
     "gitleaks": "clean — 1065 commits, 25.83 MB, no leaks.",
     "protocol_chain": "protocolVersionSync 10/10 green after the 31->32 bump (chain unbroken 2..32 in both carriers).",
     "ci": "All four pushed priorities deployed SUCCESS (runs 33069205880, 33071984504, 33073060120, 33073621655)."
+  },
+  "scope_amendment_s154": {
+    "approved_by_owner": "Owner, 2026-08-27, verbatim: \"approved all those four amendments for this session! also make sure to think about the bots tactics in a smart way - there should be a clear different between each bot level. i think ive described how it should be in a previous session....\"",
+    "A_bots_save_for_towers": "PARTIAL — the per-tier TOWER LADDER shipped (towerTiers: NOOB 0 / MID 2 / HARD 4 / IMBA 7 over registry-derived cheapest-first blueprints). The SAVE did NOT ship, and that is a measured decision rather than an omission: five gate designs were each killed by evidence, ending in the measurement that settles it — PEAK bank u porch pool over 180 sim-seconds = 1 SHAPE, income ~1 mixed shape per 11 s, cheapest bill 4 of ONE type. No gate inside chooseGoal can accumulate out of that. Needs a ~45-60 s hold plus gatherer type-matching that honours gathererOrders for a bot seat = an ECONOMY change with a game-feel cost, which is an owner decision. The acceptance test is KEPT AS it.skip, un-weakened, carrying the measurement.",
+    "B_player_coloured_shadows": "SHIPPED. One drawGroundMarker + ownerTint in creatureLift.ts, called from all three creature renderers (goblin / Voltkin+drone / chewer). Reads the LIVE player.color so it survives the rainbow shuffle. 4 headless tests + live extract.canvas proof that the new non-lifted call sites are reached (108/109 lit px vs 0 control). ALSO ANSWERED: the other goblins black shadows are PAINTED INTO THE veo ART, not drawn by code.",
+    "C_A4_castle_destructible": "NOT STARTED — Full tier, expects PROTOCOL 32->33 plus the six-site checklist. Deferred on budget, see below.",
+    "D_fog_fairness": "NOT STARTED, and CONFIRMED AS A REAL DEFECT by direct read: fogRenderer.ts is \"Client-side cosmetic fog\" (a RenderTexture mask), and a grep of src/bots/*.ts for fog returns NOTHING — bots read world.primitives / world.bonds directly via nearestEnemyBond / nearestEnemyPrim / nearestEnemySpawnerBond. Bots have OMNISCIENT VISION; the fog blinds only the human. Owner: \"not fair if bots see evcerything\" — they are right.",
+    "budget_note": "Stopped at 72% YELLOW with the two Micro items done. C (~45K + a protocol bump) and D (~15K) do not fit under the ORANGE threshold at 750K, and the S153 lesson cuts both ways: do not over-cut on a bad number, and do not start a Full-tier protocol-bumping feature on fumes. Reading taken with --session-id (discovery_source cli_session_id), so the number is trustworthy this time."
+  },
+  "owner_question_answers_s154": {
+    "multiplayer_host_lag": "STRUCTURAL, not network — if it were the network the CLIENT would stutter. The host simulates everything (hostTick.ts: \"Host-only (client never simulates; S28 NetSnapshot v2 mirrors host->client creature state)\"), ~30 subsystem polls per tick plus physics, bots and AI target scans; the client renders and applies snapshots. main.ts names the profiled dominant cost: \"the host's 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost (the profiler's finding)\" — S105 P3 moved it off the catch-up loop and called itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks: a host falling behind runs MORE ticks per frame. Mitigations: host on the stronger machine; try ?worker=1 (S122, default-OFF). Finishing worker-sim (D4 + default-on) is the real fix and is already on the backlog.",
+    "castle_not_taking_damage": "EXPECTED — A4 was not in the approved batch. creatureAI.ts says it in situ: \"A0 F6: there is NO castle entity and no castle HP ... this deliberately returns a POSITION and nothing else\". damageEntity has no castle arm. S153 shipped the WALK; the attack half does not exist, and the S153 carry-forward predicted this exact report: \"they arrive with nothing to attack, which is exactly the owner symptom\".",
+    "bot_tier_design_the_owner_remembered": "FOUND: BOT_INTELLIGENCE_DESIGN.md §3 — the tier-gated KNOWLEDGE BOOK matrix (NOOB none / MID basic-magic combos / HARD full combos + pentagram + laserTurret + scoreboard-reading raid / IMBA + lightningHub + helga + sacrifice), with Phases A/B/C in §8 and SEVEN unanswered owner questions in §7 — Q1 is literally \"does the §3 matrix match your intent?\". That document is gated on those answers. NOTE the one conflict: §3 starts blueprints at HARD, the owner's later ruling (\"medium bots should at least build some\") moves the floor to MID; amendment A took the later ruling and kept the spread via towerTiers."
   }
 }
