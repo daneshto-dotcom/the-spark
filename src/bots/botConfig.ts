@@ -57,6 +57,22 @@ export interface BotConfig {
    * `chooseGoal` is the load-bearing half; this field only says who is allowed to use it.
    */
   readonly buildsTowers: boolean;
+  /**
+   * ⭐ S154 AMENDMENT A (owner) — HOW MANY RUNGS OF THE TOWER LADDER THIS TIER CLIMBS.
+   *
+   * Owner: *"there should be a clear different between each bot level"*. `buildsTowers` said only
+   * WHETHER a tier builds; this says WHAT it reaches for. Blueprints are ranked cheapest-first from
+   * the registry, and a tier may pursue the first `towerTiers` of them — so the ladder is derived and
+   * a new recipe slots in without touching this table.
+   *
+   * The result the owner can SEE across a lobby: MID fields the cheap utility tower and nothing else;
+   * HARD reaches the mid-cost defences; IMBA goes for the top of the registry. It also composes with
+   * `BOT_INTELLIGENCE_DESIGN.md` §3, which ranks blueprints per tier for the same reason — that
+   * document's matrix starts blueprints at HARD, and the owner's later ruling (*"medium bots should at
+   * least build some"*) moves the floor down to MID. Later ruling wins; the ladder keeps the SPREAD
+   * the matrix was after.
+   */
+  readonly towerTiers: number;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -77,6 +93,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesShrink: false,
     smartPlacement: false,
     buildsTowers: false,
+    towerTiers: 0,
   },
   MID: {
     cursorSpeed: 5.0,
@@ -95,6 +112,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesShrink: false,
     smartPlacement: false,
     buildsTowers: true,
+    towerTiers: 2,
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -113,6 +131,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesShrink: false,
     smartPlacement: true,
     buildsTowers: true,
+    towerTiers: 4,
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -131,5 +150,6 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     usesShrink: true,
     smartPlacement: true,
     buildsTowers: true,
+    towerTiers: 7,
   },
 };

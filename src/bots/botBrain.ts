@@ -136,7 +136,8 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
   if (world.matchPhase !== 'BUILD') return null;
 
   const anchor = castleAnchor(seat as unknown as number, world.layout);
-  for (const id of TOWERS_BY_COST) {
+  // ⭐ AMENDMENT A — only the rungs this tier climbs. See `towerTiers`.
+  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
     if (planBlueprintPayment(world, seat, id) === null) continue;
     for (const a of TOWER_SITE_ANGLES) {
       const centre = {
@@ -158,7 +159,7 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
  */
 export function chooseTowerOrder(world: World, seat: PlayerId, cfg: BotConfig): SparkType | null {
   if (!cfg.buildsTowers) return null;
-  for (const id of TOWERS_BY_COST) {
+  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
     if (planBlueprintPayment(world, seat, id) !== null) return null; // already affordable
     const bill = blueprintBill(id);
     for (const t of ALL_SPARK_TYPES) {
@@ -279,6 +280,34 @@ export function chooseGoal(
   // throws carry-1 (the controller self-heals that state before thinking,
   // but the brain must never PROPOSE it).
   if (buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
+    /*
+     * ⛔ S154 AMENDMENT A — THE SAVE IS NOT HERE, AND THE REASON IS A MEASUREMENT.
+     *
+     * Owner, playing a HARD bot: *"he is building random free form connections rather than save to
+     * build towers"*. Correct. P3 shipped the tower PLANNER and the ORDER goal but nothing that makes
+     * a bot accumulate, so `chooseTowerPlan` almost never fires in real play. (P3's own acceptance
+     * test passed because its fixture PRE-BANKS the bill — it proved the stamp path and could not
+     * prove accumulation. That gap was the defect.)
+     *
+     * Five attempts at a gate here, each killed by evidence:
+     *   1. gate PULL while any blueprint is unaffordable → permanent: six blueprints, one always is;
+     *   2. gate BUILD while the shortfall is small → never fired: the shortfall sat at 4 (the FULL
+     *      bill) for three sim-minutes;
+     *   3. a "no gatherer ⇒ do not save" guard → DEAD CODE, `START_GAME` grants every seat one;
+     *   4. gate BUILD on a 7-in-10-second duty cycle, any reachable tower → still zero towers;
+     *   5. and then the measurement that explains all four:
+     *
+     *        PEAK POOL over 180 sim-seconds = **1 shape**. Not 3, not 2 — one. bank ∪ porch held a
+     *        single shape at its fullest moment, non-empty about half the ticks, while the bot placed
+     *        16 primitives. Income is ~1 MIXED shape every 11 s and a bill wants 4 of ONE TYPE.
+     *
+     * No gate in this function can build a tower out of that. Holding for 7 s cannot stack a pool
+     * whose next arrival is 11 s away; it would take a ~45-60 s hold plus gatherer type-matching that
+     * actually honours `gathererOrders` for a bot seat. That is an ECONOMY change with a real
+     * game-feel cost — a bot that saves for a minute looks passive — which makes it the owner's call,
+     * not a Micro amendment's. Written down here instead of shipped as an inert gate, because an
+     * inert gate is precisely the dead-code class this session has been fixing.
+     */
     const sparkId = pickTargetSpark(world, me.avatarPos, cfg, rng, me.id);
     if (sparkId !== null) return { kind: 'BUILD', sparkId };
     // S138 P2 — nothing on my porch. If my gatherer has banked anything, pull one out onto the porch

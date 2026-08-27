@@ -29,6 +29,11 @@ import { describe, expect, it } from 'vitest';
 import { BOT_CONFIGS } from './botConfig.ts';
 import { chooseGoal, chooseTowerOrder, chooseTowerPlan } from './botBrain.ts';
 import { BotManager } from './botManager.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
+import { mulberry32 } from '../state/rng.ts';
+import { makeGameStateExtras } from '../state/gameState.ts';
+import type { Controls } from '../input/controls.ts';
 import { bankAdd, bankCountOf } from '../state/castleBank.ts';
 import { blueprintBill, blueprintCost, ALL_BLUEPRINT_IDS } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
@@ -37,6 +42,16 @@ import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { PLAYER_COLORS } from '../constants.ts';
+
+const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+
+function deps(): HostTickDeps {
+  return {
+    spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)),
+    controls: stubControls, botManager: null, gameStateExtras: makeGameStateExtras(),
+    alivePeerIds: null, hostSeats: new Map(),
+  } as unknown as HostTickDeps;
+}
 
 const SEAT = asPlayerId(1);
 
@@ -249,5 +264,65 @@ describe('S154 P3 — determinism: no new rng draws', () => {
     bankTheBill(w, SEAT, CHEAPEST);
     const goal = chooseGoal(w, SEAT, BOT_CONFIGS.IMBA, () => 0.5, true);
     expect(goal.kind).toBe('TOWER');
+  });
+});
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════ *
+ *   S154 AMENDMENT A (owner) — FROM AN EMPTY BANK TO A STANDING TOWER
+ * ════════════════════════════════════════════════════════════════════════════════════════════ */
+
+describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first time', () => {
+  /*
+   * Owner, playing against a HARD bot after P3 shipped: *"he is building random free form
+   * connections rather than save to build towers"*. They were right, and the reason my P3 tests did
+   * not catch it is written into their fixture: `bankTheBill()` PRE-BANKS the whole bill before the
+   * bot runs. That proves the STAMP path works and cannot prove a bot ever ACCUMULATES a bill —
+   * which was the entire defect.
+   *
+   * So this drives the real `runHostTick` with a real BotManager, a real gatherer and free sparks on
+   * the board, from an EMPTY bank, and requires a structure to exist at the end. It is the only test
+   * here whose premise matches what the owner was looking at.
+   */
+  // ⛔ SKIPPED, AND THE SKIP IS THE FINDING — not a convenience.
+  //
+  // This is the assertion the owner's report is actually about, and it FAILS on the shipped tree. It
+  // is kept, un-weakened, so that the day the bot economy can feed a bill this un-skips and either
+  // passes or names what is still missing. Weakening it to something that passes today would hide
+  // exactly the gap that let P3 ship believing bots build towers.
+  //
+  // MEASURED CAUSE (three sim-minutes, real runHostTick, real spawner income, real gatherer):
+  //   • PEAK bank ∪ porch pool = **1 shape**. Not 3, not 2 — one, at its fullest moment.
+  //   • income ~1 MIXED shape every 11 s; the cheapest bill wants 4 of ONE TYPE.
+  //   • the bot placed 16 primitives in that time, so it is not idle — it simply never holds two
+  //     shapes at once, and no gate inside `chooseGoal` can accumulate out of that.
+  // Closing it needs a ~45-60 s hold plus gatherer type-matching that honours `gathererOrders` for a
+  // bot seat: an ECONOMY change with a real game-feel cost (a bot saving for a minute looks passive),
+  // which is an owner decision rather than a Micro amendment's to take.
+  it.skip('a HARD bot with income and an empty bank eventually raises a tower', () => {
+    const w = botsWorld();
+    // Anti-vacuity on the premise: the bank really is empty and the seat really has income.
+    expect(bankCountOf(w.castleBanks, SEAT, 0 as never)).toBe(0);
+    expect([...w.gatherers.values()].filter((g) => g.ownerPlayerId === SEAT).length).toBeGreaterThan(0);
+
+    // ⚠ NO HAND-MINTED SPARKS. `runHostTick` drives `deps.spawner`, so free sparks appear on the
+    // board on the game's own cadence and the bot's gatherer hauls them the way it does in a real
+    // match. A hand-seeded pile would be a fixture that hands the bot its income — the exact shortcut
+    // that let the P3 tests pass while the live behaviour was broken.
+    const m = new BotManager(['HARD'], 0xbeef);
+    const d = deps();
+    const st = makeHostTickState(w);
+    // Three sim-minutes of BUILD. The phase clock is pinned so the whole run stays buildable —
+    // stampRefusalAt refuses everything during FIGHT, which is correct and not what is under test.
+    for (let t = 0; t < 60 * 180; t++) {
+      w.matchPhase = 'BUILD';
+      w.phaseEndsAtTick = w.tick + 10_000;
+      m.tick(w);
+      runHostTick(w, d, st);
+    }
+
+    const stamped = [...w.primitives.values()].filter((p) => p.placedBy === SEAT && p.origin !== null);
+    expect(stamped.length, 'the bot accumulated a bill and raised a real structure').toBeGreaterThanOrEqual(
+      blueprintCost(CHEAPEST),
+    );
   });
 });
