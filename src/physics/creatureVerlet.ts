@@ -112,7 +112,32 @@ export function creatureVerletStep(c: Creature, dtSub: number, accel: Vec2 = ZER
  * documented cross-resolve.
  */
 export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
-  if (c.state !== 'SEEKING') return ZERO_ACCEL;
+  /*
+   * ⭐ S154 P2 — Δ4 IS NARROWED FOR STANDOFF FIGHTERS, AND ONLY FOR THEM.
+   *
+   * Δ4 above says "ZERO_ACCEL when state !== 'SEEKING'", and the trap it cross-resolves is real:
+   * SPAWNING and DESPAWNING must be force-free. But `ZERO_ACCEL` means **COAST, NOT STOP** — a
+   * creature that enters ATTACKING still carrying velocity keeps gliding, and `VELOCITY_DAMPING` is
+   * 0.998 per SUBSTEP (≈0.984/tick), so a modest 0.2 px/tick takes ~200 ticks to bleed away.
+   *
+   * Traced with the real host tick: the bat rider engaged correctly at 121 px and then drifted to
+   * **53.7 px** over the next three seconds, asymptoting there. Nothing was wrong with the engage,
+   * the range, or the destination — the unit simply had no force available to hold station, and the
+   * one SEEKING tick each cadence buys is far too small to fight 200 ticks of momentum. Two earlier
+   * attempts (re-arming in ATTACKING; moving the destination onto a standoff ring) each helped and
+   * neither was sufficient, because both left the coast unopposed.
+   *
+   * So a `holdsRange` creature keeps steering while ATTACKING. `arriveForce` then does exactly what
+   * it already does everywhere else: ramps down linearly inside `CREATURE_ARRIVE_RADIUS` and holds
+   * the unit at its target — which for these two kinds is a point on the standoff ring, not the
+   * victim. It brakes on the way in and pushes back out if it drifts inside.
+   *
+   * ⚠ SPAWNING AND DESPAWNING ARE UNTOUCHED, so neither half of the Q7 momentum trap is
+   * reintroduced. And `holdsRange` is false on all seven other configs, so every shipped unit whose
+   * locomotion is a replay-equivalence guard (Voltkin especially) is byte-identical.
+   */
+  const steersWhileAttacking = c.state === 'ATTACKING' && getCreatureConfig(c.type).holdsRange;
+  if (c.state !== 'SEEKING' && !steersWhileAttacking) return ZERO_ACCEL;
   // S100 P1 (TD Phase 1a, R16) — de-hardcode the peak accel: read it from the
   // creature's config instead of the bare CREATURE_MAX_ACCEL module const. For
   // Voltkin `config.maxAccel === CREATURE_MAX_ACCEL === 200` (× hopSpeedMul 1), so

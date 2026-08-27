@@ -38,7 +38,7 @@ import {
   type CreatureType,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, isWithinAttackRange } from './creatureAI.ts';
+import { distSq, engageRange, isWithinAttackRange } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -426,7 +426,10 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     (() => {
       const prim = world.primitives.get(creature.targetPrimitiveId);
       if (prim === undefined) return false;
-      return distSq(creature.pos, prim.pos) <= config.attackRange * config.attackRange;
+      // ⭐ S154 P2 — a STANDOFF fighter engages slightly INSIDE its reach, so `arriveForce` has
+      // already braked it by the time ATTACKING switches its steering off. See `engageRange`.
+      const reach = engageRange(config);
+      return distSq(creature.pos, prim.pos) <= reach * reach;
     })();
 
   // ⛔ S153 P1 — THE RANGE TEST MOVED INTO THE PREDICATE, AND IT HAD TO.
@@ -453,7 +456,8 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     (() => {
       const victim = world.creatures.get(creature.targetCreatureId);
       if (victim === undefined) return false;
-      return distSq(creature.pos, victim.pos) <= config.attackRange * config.attackRange;
+      const reach = engageRange(config); // S154 P2 — see the note on the structure arm above
+      return distSq(creature.pos, victim.pos) <= reach * reach;
     })();
 
   if (
@@ -583,6 +587,27 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       !bondValid &&
       !creatureValid &&
       !primitiveValid;
+    /*
+     * ⭐ S154 P2 — WHY THERE IS NO "RE-ARM IN PLACE" HERE, THOUGH I BUILT ONE FIRST AND IT MEASURED
+     * WORSE.
+     *
+     * The bounce below looks like the cause of the ranged-standoff creep: on the one SEEKING tick it
+     * grants, `computeSteeringAccel` hands out a full `arriveForce` impulse, and `VELOCITY_DAMPING`
+     * (0.998 per SUBSTEP) bleeds that off slowly. So the first fix kept a `holdsRange` creature in
+     * ATTACKING across cadences, re-arming `ticksInState` instead of leaving the state.
+     *
+     * A trace of the real host tick showed that made it WORSE — the bat rider ended up 53 px from a
+     * shape he is meant to harpoon from 150, against 70 px without the change. The reason is the
+     * other half of Δ4: **ZERO_ACCEL means COAST, NOT STOP.** A creature that enters ATTACKING still
+     * carrying velocity keeps gliding, and holding it in ATTACKING forever removes the ONLY thing
+     * that could ever pull it back out. The bounce is not the bug — with the destination moved onto
+     * the standoff ring (`standoffTargetPos`), the bounce is the CORRECTION: each cadence buys one
+     * tick of steering toward the ring, which points OUTWARD whenever the unit has drifted inside
+     * it. The creep was never the impulse; it was that the impulse aimed at the victim.
+     *
+     * Recorded because the wrong fix is the intuitive one, and because it was a mechanism I had
+     * already reasoned about correctly one paragraph earlier and still got backwards in practice.
+     */
     if (cadenceElapsed || targetGoneEarly) {
       creature.state = 'SEEKING';
       creature.ticksInState = 0;

@@ -49,6 +49,7 @@ import {
   GOBLIN_ATTACK_CADENCE_TICKS,
   GOBLIN_ATTACK_FIRE_TICK,
   GOBLIN_ATTACK_RANGE,
+  GOBLIN_BAT_RANGE,
   GOBLIN_LIFETIME_TICKS,
   GOBLIN_MAX_ACCEL,
   GOBLIN_MELEE_HP,
@@ -281,6 +282,35 @@ export interface CreatureConfig {
    * because all three are explicitly `false`.
    */
   readonly targetsStructures: boolean;
+  /**
+   * ⭐ S154 P2 — TRUE for a creature that FIGHTS FROM ITS STANDOFF and must not drift into contact.
+   *
+   * ## The defect this closes was MEASURED, and it is in shipped code
+   *
+   * Both Council seats independently predicted it and a probe confirmed it: a ranged creature creeps
+   * inward one attack cadence at a time. `computeSteeringAccel` returns `ZERO_ACCEL` unless the state
+   * is SEEKING, so an ATTACKING creature coasts — but when the cadence elapses the FSM drops it back
+   * to SEEKING for a tick, it takes one tick of full `arriveForce` toward its victim, and
+   * `VELOCITY_DAMPING` is 0.998 **per substep** (≈0.984 per tick), so that impulse decays slowly and
+   * carries it measurably closer before the next engage.
+   *
+   * Measured over 39 cadences (~40 s) with the real FSM and the real 8-substep physics:
+   *   • `goblinArcher` (range 220): standoff decays **220 → 155 px**
+   *   • `goblinMelee`  (range 35):  35 → 12.8 px (harmless — melee is supposed to be in contact)
+   *
+   * `GOBLIN_LIFETIME_TICKS` is 60 × 60 × 60 = 216,000 ticks — SIXTY MINUTES, i.e. ~3600 cadences —
+   * so the creep is not bounded by a short life. The archer walks into the melee band he exists to
+   * avoid, which makes his one distinguishing trait quietly temporary.
+   *
+   * ## Why a named flag rather than `attackRange > GOBLIN_ATTACK_RANGE`
+   *
+   * That predicate would also catch the Voltkin (180) and the lightning drone (its blast radius),
+   * changing two shipped units whose replays are pinned byte-exact by `save.replay.test.ts` — and
+   * every determinism gate in this repo is SELF-COMPARING, so a wrong-but-consistent change to them
+   * would pass. An explicit flag keeps all seven other configs byte-identical and makes the intent
+   * greppable, which is the same reasoning `targetsStructures` records just above.
+   */
+  readonly holdsRange: boolean;
 }
 
 /**
@@ -318,6 +348,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   pen: VOLTKIN_PEN,
   selfExplode: false, // a Voltkin zaps; it never self-detonates
   targetsStructures: false, // a Voltkin targets connectors + creatures, never shapes
+  holdsRange: false,
 };
 
 /**
@@ -385,6 +416,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
   pen: CHEWER_PEN,
   selfExplode: false, // a chewer gnaws bonds; it never self-detonates
   targetsStructures: false, // a chewer commits to a CONNECTOR, not a shape
+  holdsRange: false,
 };
 
 /**
@@ -426,6 +458,7 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
   pen: DRONE_PEN,
   selfExplode: true, // THE drone discriminator
   targetsStructures: false, // a drone detonates on a CONNECTOR
+  holdsRange: false,
 };
 
 /**
@@ -477,6 +510,7 @@ export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.85), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true, // THE goblin discriminator
+  holdsRange: false,
 };
 
 /**
@@ -510,6 +544,7 @@ export const GOBLIN_ARCHER_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.7), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
+  holdsRange: true,  // S154 P2 — fights from its standoff; see holdsRange for the measured creep
 };
 
 /**
@@ -537,6 +572,7 @@ export const GOBLIN_SHIELD_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.45), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
+  holdsRange: false,
 };
 
 /**
@@ -564,6 +600,7 @@ export const GOBLIN_HOUND_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 1.15), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
+  holdsRange: false,
 };
 
 /**
@@ -581,7 +618,7 @@ export const GOBLIN_BAT_CONFIG: CreatureConfig = {
   spawnTicks: 30,
   despawningTicks: 30,
   fadeTicks: 15,
-  attackRange: GOBLIN_ATTACK_RANGE,
+  attackRange: GOBLIN_BAT_RANGE, // ⭐ S154 P2 (R92) — was GOBLIN_ATTACK_RANGE (35), i.e. MELEE
   attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
   attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
   attackChargeEngageTick: 0,
@@ -591,6 +628,7 @@ export const GOBLIN_BAT_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 1.15), // the ladder, made REAL (S153 P5c)
   selfExplode: false,
   targetsStructures: true,
+  holdsRange: true,  // S154 P2 — fights from its standoff; see holdsRange for the measured creep
 };
 
 /**
@@ -621,6 +659,7 @@ export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {
   maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.85), // the ladder, made REAL (S153 P5c)
   selfExplode: true,
   targetsStructures: true,
+  holdsRange: false,
 };
 
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {

@@ -33,7 +33,8 @@ import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } 
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
-import { syncArcherArrows } from './archerArrow.ts';
+import { syncCreatureProjectiles } from './creatureProjectile.ts';
+import { GOBLIN_LIFT } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
@@ -80,24 +81,12 @@ const ATLASES: Partial<Record<CreatureType, string>> = {
 };
 
 /**
- * ⭐ S152 P3 — PER-KIND ALTITUDE, IN CANVAS PIXELS. The atlas path had no notion of height.
- *
- * Every sprite is foot-anchored (`footAnchor.y` ≈ 0.995, forced by the builder) and drawn at the
- * creature's own `pos.y`, so without this the BAT RIDER's mount stands on the ground like an
- * infantryman. Owner R77 calls him the *"flying goblin"*, and a flyer that walks is simply wrong.
- *
- * ⛔ AND BAKING THE GAP INTO THE ART CANNOT WORK — I checked before adding a dial. The builder
- * measures ONE union bounding box over every frame and pastes each crop BOTTOM-CENTRE into its
- * cell (`build-sprite-atlas.mjs`), so empty headroom drawn above the character is cropped away by
- * construction. The offset has to live at draw time.
- *
- * ⚠ RENDER-ONLY. The creature's actual `pos` is untouched, so targeting, range, collision and the
- * `?worker=1` mirror all see the same numbers they always did. This lifts the PICTURE, nothing else
- * — which also means a flyer is still hit by ground attacks exactly as the sim intends.
+ * ⭐ S152 P3 — PER-KIND ALTITUDE moved to `creatureLift.ts` in S154 P2, because the HARPOON needs
+ * the same number: a projectile launched from a flyer's `pos` emanates from empty air below its
+ * picture. `goblinRenderer` already imports the projectile module, so the lift had to move to a
+ * shared leaf rather than be imported back out of here. See that file for why baking the gap into
+ * the art cannot work.
  */
-const GOBLIN_LIFT: Partial<Record<CreatureType, number>> = {
-  goblinBat: 34,
-};
 
 /**
  * Minimum opacity for a creature that has not started materialising. See the long note at the
@@ -105,6 +94,13 @@ const GOBLIN_LIFT: Partial<Record<CreatureType, number>> = {
  * Low enough to read as "not active yet", high enough to be unmistakably THERE.
  */
 const SPAWN_ALPHA_FLOOR = 0.35;
+
+/**
+ * S154 P2 — the flyer's ground marker, in px. Wider than tall so it reads as lying flat on the
+ * board, and small enough to say "that unit is up there" rather than looking like a puddle.
+ */
+const SHADOW_RX = 11;
+const SHADOW_RY = 4;
 
 /**
  * How far the owner colour is lifted towards white before it is used as a MULTIPLY tint.
@@ -274,7 +270,7 @@ export class GoblinRenderer {
     g.clear();
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See archerArrow.ts.
-    syncArcherArrows(this.arrowLayer, world);
+    syncCreatureProjectiles(this.arrowLayer, world);
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();
@@ -333,6 +329,43 @@ export class GoblinRenderer {
       if (atlas !== undefined) {
         // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
         const lift = GOBLIN_LIFT[c.type] ?? 0;
+        /*
+         * ⭐ S154 P2 (owner R92) — A GROUND MARKER UNDER A FLYER, so the altitude reads as FLIGHT.
+         *
+         * S152 P3 lifted the bat rider's picture 34 px and left it at that, which is ambiguous: an
+         * unanchored sprite hovering above the board reads just as easily as a drawing offset — a
+         * character mounted slightly too high — as it does as a flyer. What tells a viewer something
+         * is IN THE AIR is the gap between it and a mark on the ground beneath it.
+         *
+         * It sits at the creature's REAL `pos`, which is also where its hitbox, its targeting and
+         * every range check are — so it does double duty: it tells the player where the unit
+         * actually IS, which now matters, because the bat fights from 150 px and the thing you see
+         * is 34 px from the thing you can hit.
+         *
+         * ⛔ AND IT IS A TINTED RING, NOT A BLACK SHADOW — because a black shadow here was a
+         * MEASURED NO-OP. The first cut drew `0x000000` at alpha 0.22, the obvious thing. A pixel
+         * sample of the running game then showed the board background is **pure black (0,0,0)**:
+         * black over black composites to black, so those pixels were provably identical with and
+         * without the feature. That is the same class of defect as S153 P5c's speed ladder — a
+         * change that cannot possibly have an effect, shipped and reported as done — and the only
+         * reason it did not ship again is that the altitude was checked with `extract.canvas` rather
+         * than by looking at the code. Drawn in the OWNER TINT instead: visible on black, still
+         * subtle over a lit structure, and it doubles as a seat cue.
+         *
+         * Drawn only for LIFTED kinds. A grounded goblin stands on its own mark; the procedural
+         * puppet has always drawn its own ellipse (see `drawGoblin`).
+         */
+        if (lift > 0) {
+          g.ellipse(c.pos.x, c.pos.y, SHADOW_RX, SHADOW_RY).fill({
+            color: tint,
+            alpha: 0.3 * alpha,
+          });
+          g.ellipse(c.pos.x, c.pos.y, SHADOW_RX, SHADOW_RY).stroke({
+            width: 1,
+            color: tint,
+            alpha: 0.55 * alpha,
+          });
+        }
         this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
       } else {
         // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and

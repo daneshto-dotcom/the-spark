@@ -65,6 +65,7 @@ import {
   findNearestEnemyCreature,
   pickNavUnit,
   spreadTargetPos,
+  standoffTargetPos,
   enemyCastleMarchPos,
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
@@ -565,10 +566,39 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         }
         if (steerTo === null) steerTo = enemyCastleMarchPos(world, creature);
 
-        // R82 — aim at a per-creature point on a small ring around the shared destination, so a
-        // squad converges into an arc rather than the single pile the owner photographed. Pure
-        // function of the creature id: no draw, no tick, nothing that can desync.
-        if (steerTo !== null) {
+        /*
+         * ⭐ S154 P2 — A STANDOFF FIGHTER AIMS AT THE RING, NOT AT THE VICTIM.
+         *
+         * The bat rider and the archer are `holdsRange: true`. Steering them straight at the thing
+         * they are shooting relied on the FSM to stop them — and `ZERO_ACCEL` in ATTACKING means
+         * COAST, not stop, so their approach momentum glided them ~175 px past the standoff and
+         * into the melee band. Pulling the destination back onto the ring lets `arriveForce`'s
+         * existing linear ramp-down brake them, so they arrive slow and stay put.
+         *
+         * ⚠ ONLY WHEN THERE IS SOMETHING TO SHOOT. When `steerTo` is the enemy KEEP (the R85
+         * no-shapes-left march) there is no victim to stand off from, so the march is left alone —
+         * otherwise a ranged goblin would stop 128 px short of the castle it is marching on, which
+         * is the opposite of the point.
+         */
+        const holdsRange = getCreatureConfig(creature.type).holdsRange;
+        const hasVictim = navUnit !== null || nextPrim !== null;
+        if (steerTo !== null && holdsRange && hasVictim) {
+          // ⚠ AND IT REPLACES THE TRANSLATIONAL SPREAD BELOW, rather than composing with it:
+          // `standoffTargetPos` already scatters the squad by ROTATING along the ring, which keeps
+          // every member exactly `ring` px out. Adding a 26 px translation on top would point some
+          // of them straight at the victim and eat the whole standoff margin.
+          const spread = standoffTargetPos(
+            creature.pos,
+            steerTo,
+            getCreatureConfig(creature.type).attackRange,
+            creature.id,
+          );
+          creature.targetPos.x = spread.x;
+          creature.targetPos.y = spread.y;
+        } else if (steerTo !== null) {
+          // R82 — aim at a per-creature point on a small ring around the shared destination, so a
+          // squad converges into an arc rather than the single pile the owner photographed. Pure
+          // function of the creature id: no draw, no tick, nothing that can desync.
           const spread = spreadTargetPos(steerTo, creature.id, GOBLIN_SPREAD_RADIUS);
           creature.targetPos.x = spread.x;
           creature.targetPos.y = spread.y;

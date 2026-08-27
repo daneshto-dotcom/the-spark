@@ -1358,6 +1358,31 @@ export const GOBLIN_ARCHER_PEN = 2;
  */
 export const GOBLIN_ARCHER_RANGE = 220;
 
+/**
+ * ⭐ S154 P2 (owner R92) — THE BAT RIDER'S HARPOON REACH, and the reason he needed one at all.
+ *
+ * Owner report: nothing appears to leave the bat rider when he attacks. The cause was not a missing
+ * projectile — it was that `GOBLIN_BAT_CONFIG.attackRange` was `GOBLIN_ATTACK_RANGE` (35), the
+ * SAME constant the melee swordsman, the shield and the hound use, documented right there as *"true
+ * melee — closes onto its target"*. He had no ranged behaviour to fail at: he flew to contact and
+ * hit. Four of the six goblins shared that one constant, so the bat was textually indistinguishable
+ * from three melee units.
+ *
+ * ## Why 150, bounded on THREE sides
+ *
+ *  • **Strictly below `GOBLIN_UNIT_ACQUIRE_RADIUS` (220)** — this is the hard one. A goblin acquires
+ *    a unit to NAVIGATE toward it at 220 and only engages inside `attackRange`. Set the bat to 220
+ *    and the two collapse into each other: he would satisfy `unitInReach` on the very tick he
+ *    acquires, enter ATTACKING at maximum navigation distance and never close at all. The
+ *    acquire-then-navigate design needs daylight between the two numbers.
+ *  • **Below the archer's 220** — the archer's reach *is* his identity (*"the only goblin that kills
+ *    without closing"*), bought with the flimsiest body in the game. A bat that outranged or matched
+ *    him would take that away for free, since the bat also has the highest PEN on any goblin.
+ *  • **Far above melee (35)** — the point of the priority. A thrown harpoon has to visibly cross
+ *    open ground, or the owner's complaint is unchanged.
+ */
+export const GOBLIN_BAT_RANGE = 150;
+
 /* ── S151 P3 — THE GOBLIN TOWER (owner R70) ─────────────────────────────────────────────────────
  * Owner: *"its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin
  * of different kinds"*. Roadmap Q9/R24 settled the shape of it: ONE tower with SIX outputs, not six

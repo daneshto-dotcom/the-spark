@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 30 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 32 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -84,7 +84,13 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // something that rides along with an unrelated edit. If you are here because this went red:
     // update the const, the narrative history JSDoc, the `protoVersion` type literal, this number,
     // and e2e/smoke.spec.ts's LOCAL_PROTO_V.
-    expect(PROTOCOL_VERSION).toBe(31);
+    //
+    // ⚠ S154 P2 — AND THIS TITLE. It read "is 30" while asserting 31, i.e. it had ALREADY drifted one
+    // bump before this session touched it — the very failure this test's own comment describes two
+    // paragraphs up ("all three of the others said 'is 17' while asserting 18"). Site 5 of the
+    // checklist says "this number **and its test title**" for exactly this reason. A title is what a
+    // human reads when deciding whether the pin is current, so a stale one is worse than none.
+    expect(PROTOCOL_VERSION).toBe(32);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {

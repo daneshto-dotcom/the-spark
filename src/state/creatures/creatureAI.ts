@@ -458,6 +458,91 @@ export function spreadTargetPos(target: Vec2, creatureId: CreatureId, radius: nu
 }
 
 /**
+ * ⭐ S154 P2 — WHERE A STANDOFF FIGHTER ACTUALLY WANTS TO STAND: on a ring around its victim, not
+ * on top of it.
+ *
+ * ## The bug this closes, and why the obvious fix was not enough
+ *
+ * A ranged creature was steered straight AT its victim and relied on the FSM to stop it: entering
+ * ATTACKING makes `computeSteeringAccel` return `ZERO_ACCEL`. The first fix attempt kept it in
+ * ATTACKING across cadences so it never got another acceleration impulse — correct, and still not
+ * enough, because **ZERO_ACCEL means COAST, NOT STOP**. `VELOCITY_DAMPING` is 0.998 per substep
+ * (≈0.984 per tick), so a unit that spent its whole approach accelerating arrives carrying ~2.8
+ * px/tick and glides `v / (1 − 0.984) ≈ 175 px` further before that bleeds away — further than the
+ * entire standoff it was supposed to hold. Measured with the real host tick: the bat rider still
+ * ended up 18 px from a shape he is meant to harpoon from 150.
+ *
+ * So the destination itself has to be the ring. `arriveForce` already ramps its force down linearly
+ * inside `CREATURE_ARRIVE_RADIUS`, which means a creature aimed at the ring DECELERATES into it and
+ * arrives slow — no coast to absorb. That is existing, tested machinery doing the braking, rather
+ * than a new velocity clamp bolted onto the physics.
+ *
+ * ## Why 0.85 of the range and not 1.0
+ *
+ * The ring has to sit INSIDE `attackRange`, or the creature parks exactly on the boundary where the
+ * engage predicate is `<=` and jitters in and out of ATTACKING as the solver nudges it. 0.85 leaves
+ * a comfortable band that is still unmistakably a standoff (128 px of the bat's 150, 187 of the
+ * archer's 220).
+ *
+ * PURE: a function of two positions and one constant. No rng, no wall-clock, no world mutation.
+ */
+export function standoffTargetPos(
+  from: Vec2,
+  target: Vec2,
+  attackRange: number,
+  creatureId: CreatureId,
+): Vec2 {
+  const dx = from.x - target.x;
+  const dy = from.y - target.y;
+  const ring = attackRange * STANDOFF_RANGE_FRACTION;
+  const d = Math.hypot(dx, dy);
+  // Degenerate: sitting exactly on the target. Any direction is as good as another, and a FIXED one
+  // keeps this deterministic — picking by rng here would desync a replay.
+  const base = d < 1e-6 ? 0 : Math.atan2(dy, dx);
+  /*
+   * ⚠ THE SQUAD SPREAD IS AN ANGLE HERE, NOT AN OFFSET, and that is the whole reason this function
+   * takes an id. The goblin branch normally scatters a squad with `spreadTargetPos`, which
+   * TRANSLATES the destination by up to GOBLIN_SPREAD_RADIUS (26 px) in a golden-angle direction.
+   * Applied to a standoff ring that is only `attackRange × 0.15` inside the engage distance, a
+   * translation pointing straight at the victim eats the entire margin and puts the unit back inside
+   * the melee band. Rotating ALONG the ring spreads the squad into a firing arc while keeping every
+   * member exactly `ring` px from the victim — which is what a line of archers should look like
+   * anyway.
+   */
+  const GOLDEN_ANGLE = 2.399963229728653; // π(3 − √5) — the same idiom as `spreadTargetPos`
+  const arc = Math.cos(((creatureId as unknown as number) + 1) * GOLDEN_ANGLE) * STANDOFF_ARC_RAD;
+  const angle = base + arc;
+  return { x: target.x + Math.cos(angle) * ring, y: target.y + Math.sin(angle) * ring };
+}
+
+/**
+ * How far inside `attackRange` a standoff fighter parks (see `standoffTargetPos`), and how far
+ * inside it ENGAGES.
+ *
+ * ⛔ THE TWO NUMBERS MUST DIFFER, AND THE ENGAGE ONE MUST BE THE LARGER. `computeSteeringAccel`
+ * returns ZERO_ACCEL the moment a creature enters ATTACKING — no force at all, which means no
+ * BRAKING either. So if the FSM engaged at the full `attackRange` the unit would lose its steering
+ * while still closing at terminal velocity and coast straight through the ring: measured at 18 px
+ * from a shape the bat rider is supposed to harpoon from 150. Engaging just INSIDE the approach,
+ * slightly outside the ring, means `arriveForce`'s linear ramp-down has already slowed it to a crawl
+ * by the time the steering is switched off, so the residual coast is a few px rather than ~175.
+ */
+export const STANDOFF_RANGE_FRACTION = 0.8;
+/** Where a standoff fighter starts shooting, as a fraction of `attackRange`. See above. */
+export const STANDOFF_ENGAGE_FRACTION = 0.9;
+/** Half-width of the firing arc a squad spreads across, in radians (~14°). */
+export const STANDOFF_ARC_RAD = 0.25;
+
+/**
+ * PURE — the distance at which `creature` engages, which is its full `attackRange` unless it is a
+ * standoff fighter. One definition, consumed by the FSM's three engage predicates and by the strike
+ * re-check, so "how close do I have to be" cannot fork between deciding to shoot and shooting.
+ */
+export function engageRange(config: { attackRange: number; holdsRange: boolean }): number {
+  return config.holdsRange ? config.attackRange * STANDOFF_ENGAGE_FRACTION : config.attackRange;
+}
+
+/**
  * R85 (the shipped half) — where a structure-attacker walks when the enemy has NO shapes left.
  *
  * ⛔ A0 F6: there is NO castle entity and no castle HP. `castleBanks` is an inventory Map, and the

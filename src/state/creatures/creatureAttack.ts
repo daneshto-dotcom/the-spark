@@ -116,15 +116,35 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       'creature',
     );
     if (died) creature.killCount += 1;
-    // A chewer never zaps a creature (it only chews bonds); this branch is Voltkin/lightning only,
-    // so always emit ARC_FLASH + let main.ts trigger the screen-shake (the existing ARC_FLASH gate).
-    world.effects.push({
-      kind: 'ARC_FLASH',
-      tick: world.tick,
-      start: arcStart,
-      end: arcEnd,
-      creatureId: creature.id,
-    });
+    /*
+     * ⛔ S154 P2 — THE COMMENT THAT USED TO BE HERE HAD GONE FALSE, AND IT WAS DRAWING LIGHTNING OUT
+     * OF EVERY GOBLIN.
+     *
+     * It read: *"A chewer never zaps a creature (it only chews bonds); this branch is
+     * Voltkin/lightning only, so always emit ARC_FLASH"* — and that was true when it was written.
+     * S153 P1 (owner R83, units-first targeting) then gave every GOBLIN a `targetCreatureId`, so
+     * goblins started arriving here too and each one has been firing the Voltkin's signature
+     * lightning arc at whatever it punches. Nobody noticed because a lightning bolt on a hit is not
+     * obviously wrong until you know it belongs to a different unit.
+     *
+     * It becomes unmissable in this priority: the archer would draw an ARROW **and** a lightning
+     * arc for one shot, and the bat rider a HARPOON and a lightning arc. So the emit is now gated on
+     * the unit that actually owns the effect.
+     *
+     * ⚠ KEYED ON THE TYPE, DELIBERATELY, and not on `!config.targetsStructures`. That predicate
+     * would give the right answer today purely by coincidence — it means "attacks shapes", not "has
+     * a lightning arc" — and this file's own docblock warns at length against riding one overloaded
+     * flag to mean a second thing. The arc IS Voltkin's signature; naming it says so.
+     */
+    if (creature.type === 'voltkin') {
+      world.effects.push({
+        kind: 'ARC_FLASH',
+        tick: world.tick,
+        start: arcStart,
+        end: arcEnd,
+        creatureId: creature.id,
+      });
+    }
     return world;
   }
 

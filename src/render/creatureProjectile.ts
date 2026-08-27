@@ -1,9 +1,17 @@
 /**
- * SPARK — S153 P2 (owner R84) — THE ARCHER'S ARROW.
+ * SPARK — CREATURE PROJECTILES: the archer's ARROW (S153 P2, R84) and the bat rider's HARPOON
+ * (S154 P2, R92).
  *
- * Owner: *"when the archer shoots there is no projectile flying, its just invisible and looks
- * wierd. we should make a regular arrow when he shoots enemy units and a flaming arrow when he
- * targets buildings/connectors."*
+ * Owner on the archer: *"when the archer shoots there is no projectile flying, its just invisible
+ * and looks wierd. we should make a regular arrow when he shoots enemy units and a flaming arrow
+ * when he targets buildings/connectors."*
+ *
+ * ⭐ S154 P2 — AND THE SAME COMPLAINT ABOUT THE BAT RIDER HAD A COMPLETELY DIFFERENT CAUSE. Nothing
+ * left him because he had no ranged behaviour at all: `GOBLIN_BAT_CONFIG.attackRange` was
+ * `GOBLIN_ATTACK_RANGE` (35), the melee constant, so he flew to CONTACT and hit. Giving him
+ * `GOBLIN_BAT_RANGE` (150) is what created a projectile to draw in the first place. His harpoon is a
+ * VARIANT of this one mechanism rather than a second system: same derived-from-state channel, same
+ * flight window, same unit-vs-structure discriminator, different silhouette.
  *
  * ## Why this is RENDER-DRIVEN and not a `world.effects` push
  *
@@ -40,20 +48,36 @@
 import type { Graphics } from 'pixi.js';
 import { ARROW_FLIGHT_TICKS } from '../constants.ts';
 import type { World } from '../state/world.ts';
-import type { Creature } from '../state/creatures/creature.ts';
+import type { Creature, CreatureType } from '../state/creatures/creature.ts';
+import { liftOf } from './creatureLift.ts';
 import { distSq } from '../state/creatures/creatureAI.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { Vec2 } from '../types.ts';
 
-/** A resolved shot: where the arrow is flying from, to, and whether it burns. */
-export interface ArcherShot {
+/** Which silhouette this projectile draws with. */
+export type ProjectileKind = 'arrow' | 'harpoon';
+
+/** A resolved shot: where the projectile is flying from, to, whether it burns, and what it is. */
+export interface ProjectileShot {
   readonly from: Vec2;
   readonly to: Vec2;
   /** R84 — true when the victim is a structure/connector, false for a unit. */
   readonly flaming: boolean;
   /** 0 → just released, 1 → landing on the fire tick. */
   readonly t: number;
+  readonly kind: ProjectileKind;
 }
+
+/**
+ * Which kinds throw something, and what. Keyed on the creature type rather than on a config flag
+ * because this is pure PRESENTATION — `holdsRange` decides who fights at a distance, this decides
+ * what the picture of that looks like, and the two are not the same question (a future ranged unit
+ * might throw neither an arrow nor a harpoon).
+ */
+const PROJECTILE_BY_TYPE: Partial<Record<CreatureType, ProjectileKind>> = {
+  goblinArcher: 'arrow',
+  goblinBat: 'harpoon',
+};
 
 /**
  * PURE — resolve the arrow in flight for one creature, or `null` if it is not shooting right now.
@@ -63,8 +87,9 @@ export interface ArcherShot {
  * the simulation, which is precisely the complaint being fixed — the owner is not asking for
  * decoration, they are asking to be able to SEE what already happens.
  */
-export function resolveArcherShot(world: World, c: Creature): ArcherShot | null {
-  if (c.type !== 'goblinArcher') return null;
+export function resolveProjectileShot(world: World, c: Creature): ProjectileShot | null {
+  const kind = PROJECTILE_BY_TYPE[c.type];
+  if (kind === undefined) return null;
   if (c.state !== 'ATTACKING') return null;
 
   const config = getCreatureConfig(c.type);
@@ -101,10 +126,26 @@ export function resolveArcherShot(world: World, c: Creature): ArcherShot | null 
 
   const span = ARROW_FLIGHT_TICKS <= 0 ? 1 : ARROW_FLIGHT_TICKS;
   const t = Math.max(0, Math.min(1, (c.ticksInState - start) / span));
-  return { from: { x: c.pos.x, y: c.pos.y }, to: { x: to.x, y: to.y }, flaming, t };
+  /*
+   * ⭐ S154 P2 — THE LAUNCH POINT IS LIFTED, and for the bat rider that is not cosmetic. His picture
+   * is drawn `GOBLIN_LIFT.goblinBat` = 34 px above his `pos` (see `creatureLift.ts`), so a harpoon
+   * launched from `pos` would visibly emanate from empty air below the mount. `liftOf` is 0 for
+   * every grounded kind, so the archer's arrow is byte-identical.
+   *
+   * ⚠ ONLY THE `from` END. The victim is a ground-anchored shape or an unlifted unit, so lifting
+   * `to` as well would make the shot arrive above whatever it hits.
+   */
+  const lift = liftOf(c.type);
+  return { from: { x: c.pos.x, y: c.pos.y - lift }, to: { x: to.x, y: to.y }, flaming, t, kind };
 }
 
 const SHAFT_LEN = 13;
+/** Harpoon geometry — longer and heavier than the arrow, with a line trailing the tail. */
+const HARPOON_LEN = 19;
+const HARPOON_LINE = 14;
+const HARPOON_SHAFT = 0x6f7d8c; // cold iron
+const HARPOON_HEAD = 0xc8d2dc; // honed edge, brighter than the shaft so the barbs read
+const HARPOON_LINE_COLOR = 0x8a7c63; // hemp
 const PLAIN_COLOR = 0xd8cdb4; // pale ash shaft
 const PLAIN_HEAD = 0x8a8f98; // grey flint
 const FLAME_CORE = 0xffe08a;
@@ -118,7 +159,7 @@ const FLAME_OUTER = 0xd8341c;
  * textures would count against the texture-census growth budget the repo tracks, and a procedural
  * flame costs none of it while reading correctly at this size.
  */
-export function drawArrow(g: Graphics, shot: ArcherShot): void {
+export function drawArrow(g: Graphics, shot: ProjectileShot): void {
   const dx = shot.to.x - shot.from.x;
   const dy = shot.to.y - shot.from.y;
   const len = Math.hypot(dx, dy);
@@ -171,11 +212,79 @@ export function drawArrow(g: Graphics, shot: ArcherShot): void {
   }
 }
 
-/** Redraw every in-flight arrow this frame. Called from the goblin renderer's sync. */
-export function syncArcherArrows(g: Graphics, world: World): void {
+/**
+ * PURE draw — the bat rider's HARPOON: a heavier shaft with a barbed head and a trailing line.
+ *
+ * ⭐ WHY A DIFFERENT SILHOUETTE AND NOT A RECOLOURED ARROW. The owner asked for the bat rider to
+ * throw *harpoons*, and at this size the only things that read at a glance are LENGTH, WEIGHT and
+ * the presence of a line. So the shaft is thicker and longer than the arrow's, the head is a pair of
+ * swept-back barbs rather than a filled triangle, and a slack line trails from the tail toward the
+ * thrower — which is also what makes it read as thrown BY someone rather than fired from a machine.
+ *
+ * The flaming variant reuses the arrow's three-blob procedural wake for the same reason it exists
+ * there: two new textures would count against the texture-census growth budget, and a procedural
+ * flame costs none of it while reading correctly at this size.
+ */
+export function drawHarpoon(g: Graphics, shot: ProjectileShot): void {
+  const dx = shot.to.x - shot.from.x;
+  const dy = shot.to.y - shot.from.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return;
+  const ux = dx / len;
+  const uy = dy / len;
+  const px = -uy;
+  const py = ux;
+
+  const tipX = shot.from.x + dx * shot.t;
+  const tipY = shot.from.y + dy * shot.t;
+  const tailX = tipX - ux * HARPOON_LEN;
+  const tailY = tipY - uy * HARPOON_LEN;
+
+  // The trailing LINE back toward the thrower — slack, so it curves off the flight axis.
+  const slackX = tailX - ux * HARPOON_LINE + px * 3.5;
+  const slackY = tailY - uy * HARPOON_LINE + py * 3.5;
+  g.moveTo(tailX, tailY)
+    .quadraticCurveTo(tailX - ux * HARPOON_LINE * 0.5 + px * 5, tailY - uy * HARPOON_LINE * 0.5 + py * 5, slackX, slackY)
+    .stroke({ width: 1, color: shot.flaming ? FLAME_OUTER : HARPOON_LINE_COLOR, alpha: 0.5 });
+
+  if (shot.flaming) {
+    const blobs: ReadonlyArray<readonly [number, number, number, number]> = [
+      [0.3, 6, FLAME_OUTER, 0.3],
+      [0.6, 4.4, FLAME_MID, 0.45],
+      [0.86, 2.8, FLAME_CORE, 0.7],
+    ];
+    for (const [along, radius, color, alpha] of blobs) {
+      g.circle(tipX - ux * HARPOON_LEN * (1 - along), tipY - uy * HARPOON_LEN * (1 - along), radius).fill({
+        color,
+        alpha,
+      });
+    }
+  }
+
+  // Shaft — deliberately heavier than the arrow's 1.6.
+  g.moveTo(tailX, tailY)
+    .lineTo(tipX, tipY)
+    .stroke({ width: 2.6, color: shot.flaming ? FLAME_CORE : HARPOON_SHAFT, alpha: 0.95 });
+
+  // Head: a narrow spike plus two swept-back barbs.
+  g.moveTo(tipX, tipY)
+    .lineTo(tipX - ux * 7 + px * 3.2, tipY - uy * 7 + py * 3.2)
+    .lineTo(tipX - ux * 4.5, tipY - uy * 4.5)
+    .lineTo(tipX - ux * 7 - px * 3.2, tipY - uy * 7 - py * 3.2)
+    .fill({ color: shot.flaming ? FLAME_MID : HARPOON_HEAD, alpha: 0.95 });
+}
+
+/** PURE draw — dispatch one resolved shot to its own silhouette. */
+export function drawProjectile(g: Graphics, shot: ProjectileShot): void {
+  if (shot.kind === 'harpoon') drawHarpoon(g, shot);
+  else drawArrow(g, shot);
+}
+
+/** Redraw every in-flight projectile this frame. Called from the goblin renderer's sync. */
+export function syncCreatureProjectiles(g: Graphics, world: World): void {
   g.clear();
   for (const c of world.creatures.values()) {
-    const shot = resolveArcherShot(world, c);
-    if (shot !== null) drawArrow(g, shot);
+    const shot = resolveProjectileShot(world, c);
+    if (shot !== null) drawProjectile(g, shot);
   }
 }

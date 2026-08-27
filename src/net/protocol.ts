@@ -337,7 +337,26 @@ export type { NetSnapshot };
 //
 // `raidPoints`/`raidProgress` on `SerializedPlayer` also ride this bump, but they are emitted only
 // when non-zero and rehydrate `?? 0`, so on their own they would NOT have needed one.
-export const PROTOCOL_VERSION = 31 as const;
+// S154 P2 — bumped 31->32: THE BAT RIDER GETS A REAL REACH (owner R92). One constant, and it forces
+// a bump for the same reason VOLTKIN_HP forced 27->28: `GOBLIN_BAT_CONFIG.attackRange` goes from
+// GOBLIN_ATTACK_RANGE (35, the melee constant) to GOBLIN_BAT_RANGE (150), and `attackRange` is never
+// serialized at all — so it is A SHARED CONSTANT BOTH PEERS COMPUTE FROM, in the exact sense this
+// file's general rule describes.
+//
+// Where the two peers use it: `render/creatureProjectile.ts` resolves the in-flight projectile on
+// BOTH host and client, independently, from synced state — that is its whole design (the arrow is
+// derived every frame rather than pushed as an effect, because a one-shot effect push is lost ~5/6
+// of the time at 10 Hz). It re-derives the victim with `config.attackRange * config.attackRange`. A
+// v31 client watching a v32 host's bat rider would search a 35 px radius while the host is shooting
+// something 150 px away, find nothing, and draw NO harpoon at all — the stale peer would see the
+// unit swinging at empty air, which is precisely the symptom the owner reported and this priority
+// fixes. Not a hash divergence (creatures are simulated host-only), but a silent, invisible-to-tests
+// disagreement about what the player sees.
+//
+// The rest of P2 needs no bump on its own and is recorded for completeness: `holdsRange` +
+// `standoffTargetPos` + the narrowed Δ4 steering gate are all HOST-ONLY sim, and gating ARC_FLASH to
+// the Voltkin only removes effects a stale peer would simply not receive.
+export const PROTOCOL_VERSION = 32 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -472,6 +491,12 @@ export interface HelloMsg {
    * `victim?`) and correctly took no bump; a new KIND is not that. Also `raidPoints`/`raidProgress`
    * on `SerializedPlayer`, which ARE additive-optional and would not on their own have needed one.)
    *
+   * S154 P2: 31->32 (THE BAT RIDER'S REACH — owner R92. `GOBLIN_BAT_CONFIG.attackRange` 35 -> 150.
+   * `attackRange` is NEVER serialized, so it is a shared constant both peers compute from — the
+   * VOLTKIN_HP 27->28 class exactly. `render/creatureProjectile.ts` re-derives each shot's victim on
+   * BOTH peers using `config.attackRange`, so a v31 client would search 35 px while a v32 host shoots
+   * at 150 and would draw no harpoon at all.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -504,7 +529,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 31;
+  readonly protoVersion: 32;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
