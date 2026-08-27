@@ -32,7 +32,7 @@
  */
 
 import type { Bond } from '../../physics/bonds.ts';
-import { PLAYER_COLORS } from '../../constants.ts';
+import { ARMY_RETREAT_LEAD_TICKS, PLAYER_COLORS } from '../../constants.ts';
 import type { BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
@@ -513,6 +513,47 @@ export function standoffTargetPos(
   const arc = Math.cos(((creatureId as unknown as number) + 1) * GOLDEN_ANGLE) * STANDOFF_ARC_RAD;
   const angle = base + arc;
   return { x: target.x + Math.cos(angle) * ring, y: target.y + Math.sin(angle) * ring };
+}
+
+/**
+ * ⭐ S154 P4 (owner A3) — WHERE THIS CREATURE'S HOME IS, for the end-of-FIGHT retreat.
+ *
+ * Two answers, in preference order:
+ *   1. **its own tower**, when the creature came out of one — a tower-fed goblin carries
+ *      `sourceSpawnerId`, and the spawner names the primitive it is anchored to. This is the one the
+ *      owner asked for by name (*"stay near their tower"*);
+ *   2. **its own castle**, otherwise. The starter goblins each seat is granted have no spawner, so
+ *      without this fallback they would have no home to run to and would keep marching.
+ *
+ * Returns null only when neither exists, in which case the caller leaves the creature alone rather
+ * than steering it at (0,0).
+ *
+ * PURE: reads world, mutates nothing. No rng, no wall-clock.
+ */
+export function ownHomePos(world: World, creature: Creature): Vec2 | null {
+  if (creature.sourceSpawnerId !== null) {
+    const spawner = world.creatureSpawners.get(creature.sourceSpawnerId);
+    if (spawner !== undefined) {
+      const anchor = world.primitives.get(spawner.anchorPrimitiveId);
+      if (anchor !== undefined) return { x: anchor.pos.x, y: anchor.pos.y };
+    }
+  }
+  const seat = creature.ownerPlayerId as unknown as number;
+  if (!world.players.has(creature.ownerPlayerId)) return null;
+  const a = castleAnchor(seat, world.layout);
+  return { x: a.x, y: a.y };
+}
+
+/**
+ * ⭐ S154 P4 — is the army in its run-home window? True for the last `ARMY_RETREAT_LEAD_TICKS` of a
+ * FIGHT. A WINDOW evaluated every tick, never an edge — the `tickGathererShelter` precedent, which
+ * documents why: a NONET freeze can skip a whole phase, and an edge test misses it.
+ */
+export function isRetreatWindow(world: World): boolean {
+  return (
+    world.matchPhase === 'FIGHT' &&
+    world.phaseEndsAtTick - world.tick <= ARMY_RETREAT_LEAD_TICKS
+  );
 }
 
 /**

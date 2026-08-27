@@ -64,6 +64,8 @@ import {
   findNearestBondTarget,
   findNearestEnemyCreature,
   pickNavUnit,
+  isRetreatWindow,
+  ownHomePos,
   spreadTargetPos,
   standoffTargetPos,
   enemyCastleMarchPos,
@@ -133,6 +135,55 @@ export interface HostTickState {
   invariantSnap: InvariantSnapshot;
   /** DEV invariant-probe log throttle (≤1 error line per 60 ticks). */
   lastViolationLogTick: number;
+}
+
+/**
+ * ⭐ S154 P4 (owner A3) — THE DEADLINE HALF OF THE RETREAT: on the FIGHT→BUILD edge, every creature
+ * still out in the field is put back at its own home.
+ *
+ * ## Why a walk alone could not satisfy the owner
+ *
+ * The whole creature fan-out is gated on `matchPhase === 'FIGHT'` (S149 P3 — creatures are dormant
+ * during BUILD). The instant the phase flips they stop ticking entirely: `state`, `ticksInState` and
+ * `targetPos` freeze at whatever they were. So the run-home window can only ever be a BEST EFFORT —
+ * a slow unit, or one that acquired a target late, is frozen mid-field for the whole BUILD phase,
+ * standing in enemy territory. That is precisely the screenshot the owner sent.
+ *
+ * This is the same shape as `GATHERER_SHELTER_LEAD_TICKS`, whose docblock settles the principle:
+ * *"THIS IS A DEADLINE, NOT A HEAD START. The mechanism deliberately does NOT send gatherers walking
+ * home and hope they arrive."* The difference is that the owner asked for the WALK by name — it is
+ * the thing they want to see — so A3 ships both: the walk is the read, and this is the guarantee.
+ *
+ * ⚠ NO NEW FIELD AND NO NEW STATE, deliberately. A `RETREATING` CreatureState would be a hard wire
+ * parse break (the 'SHELTERED' 25→26 class) AND would render as the idle animation row, because
+ * `goblinRenderer` maps every state that is not ATTACKING or SEEKING to 'idle' — so a retreating
+ * goblin would slide across the board standing still. Position is already hashed and already
+ * serialized, so moving it costs nothing new.
+ *
+ * Idempotent: called once per boundary-crossing tick, and running it twice is a no-op.
+ */
+export function recallArmies(world: World): void {
+  for (const c of world.creatures.values()) {
+    const home = ownHomePos(world, c);
+    if (home === null) continue;
+    // ⚠ prevPos MOVES WITH pos. This is a Verlet integrator: velocity is implicit in
+    // (pos - prevPos), so setting pos alone would hand the creature a colossal one-frame velocity
+    // and fling it back out across the board the moment FIGHT resumes.
+    c.pos.x = home.x;
+    c.pos.y = home.y;
+    c.prevPos.x = home.x;
+    c.prevPos.y = home.y;
+    c.targetPos.x = home.x;
+    c.targetPos.y = home.y;
+    // Drop every commitment: the target it was walking to is on the other side of the board now.
+    c.targetBondId = null;
+    c.targetCreatureId = null;
+    c.targetPrimitiveId = null;
+    if (c.state === 'ATTACKING') {
+      c.state = 'SEEKING';
+      c.ticksInState = 0;
+    }
+  }
 }
 
 export function makeHostTickState(world: World): HostTickState {
@@ -211,6 +262,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
         releaseShelteredGatherers(world);
+        // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
+        recallArmies(world);
       }
     }
   }
@@ -553,10 +606,29 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           : null;
         creature.targetCreatureId = navUnit;
 
-        // Steering priority: the acquired unit, else the committed shape, else — when the enemy
-        // has no shapes left standing — the enemy keep (owner R85, the shipped half).
-        let steerTo: Vec2 | null = null;
-        if (navUnit !== null) {
+        /*
+         * ⭐ S154 P4 (owner A3) — RUN HOME, AND IT OUTRANKS EVERYTHING ELSE.
+         *
+         * Owner: *"they should run back 2 or 3 sec before end of fight and stay near their tower as
+         * if they were just built... this is the mode for all spawn armies"*, and then again with a
+         * screenshot of goblins standing in enemy territory during BUILD: *"thats inherently wrong -
+         * they would be killed"*.
+         *
+         * Placed ABOVE the unit / shape / keep chain because a retreat that yields to a target is
+         * not a retreat — a goblin with an enemy in leash range would keep fighting through the
+         * whistle and be exactly where the owner photographed it.
+         *
+         * ⚠ THE COST OF THAT, NAMED RATHER THAN HIDDEN: for these last three seconds an army turns
+         * its back while the other side may still be swinging. GEMINI raised it as a game-feel
+         * objection and it is a real one. It ships as asked because the owner ruled it explicitly and
+         * it is SYMMETRIC — both armies turn at the same tick, and the phase is ending anyway.
+         */
+        const goingHome = isRetreatWindow(world) ? ownHomePos(world, creature) : null;
+
+        // Steering priority: HOME if the fight is ending, else the acquired unit, else the committed
+        // shape, else — when the enemy has no shapes left standing — the enemy keep (owner R85).
+        let steerTo: Vec2 | null = goingHome;
+        if (steerTo === null && navUnit !== null) {
           const quarry = world.creatures.get(navUnit);
           if (quarry !== undefined) steerTo = quarry.pos;
         }
@@ -581,7 +653,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * is the opposite of the point.
          */
         const holdsRange = getCreatureConfig(creature.type).holdsRange;
-        const hasVictim = navUnit !== null || nextPrim !== null;
+        // ⚠ `goingHome` disqualifies the standoff: a retreating archer must reach its own tower, not
+        // park 0.8×range short of it, and home is not something to stand off from.
+        const hasVictim = goingHome === null && (navUnit !== null || nextPrim !== null);
         if (steerTo !== null && holdsRange && hasVictim) {
           // ⚠ AND IT REPLACES THE TRANSLATIONAL SPREAD BELOW, rather than composing with it:
           // `standoffTargetPos` already scatters the squad by ROTATING along the ring, which keeps

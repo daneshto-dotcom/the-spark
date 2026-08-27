@@ -1383,6 +1383,26 @@ export const GOBLIN_ARCHER_RANGE = 220;
  */
 export const GOBLIN_BAT_RANGE = 150;
 
+/**
+ * ⭐ S154 P4 (owner A3) — HOW LONG BEFORE THE FIGHT ENDS AN ARMY TURNS FOR HOME.
+ *
+ * Owner, twice, the second time with a screenshot of goblins standing in enemy territory at BUILD
+ * 1:25: *"during buld phase your own spawn stil lstay in enemy lands! thats inherently wrong - they
+ * would be killed"*, and earlier *"they should run back 2 or 3 sec before end of fight and stay near
+ * their tower as if they were just built (like halfway transparent)... this is the mode for all spawn
+ * armies"*. 180 ticks = the upper end of the 2-3 s they asked for, because a goblin crosses the board
+ * slowly and the extra second is the difference between arriving and being snapped.
+ *
+ * ⛔ AND IT IS A DEADLINE, NOT A HEAD START — the same distinction `GATHERER_SHELTER_LEAD_TICKS`
+ * records for the haulers. The whole creature fan-out is gated on `matchPhase === 'FIGHT'`, so the
+ * instant the phase flips every creature stops ticking: state, `ticksInState` and `targetPos` all
+ * freeze exactly where they are. A retreat that only *starts* them walking would therefore leave the
+ * slow ones frozen mid-field in enemy ground — which is the owner's screenshot, not a fix for it. So
+ * the walk is the READ and the FIGHT→BUILD edge SNAPS whoever is still out, and both halves are
+ * needed.
+ */
+export const ARMY_RETREAT_LEAD_TICKS = 180;
+
 /* ── S151 P3 — THE GOBLIN TOWER (owner R70) ─────────────────────────────────────────────────────
  * Owner: *"its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin
  * of different kinds"*. Roadmap Q9/R24 settled the shape of it: ONE tower with SIX outputs, not six

@@ -96,6 +96,12 @@ const ATLASES: Partial<Record<CreatureType, string>> = {
 const SPAWN_ALPHA_FLOOR = 0.35;
 
 /**
+ * S154 P4 (owner A3) — opacity of an army standing down between fights: *"like halfway
+ * transparent"*. Taken literally.
+ */
+const DORMANT_ALPHA = 0.5;
+
+/**
  * S154 P2 — the flyer's ground marker, in px. Wider than tall so it reads as lying flat on the
  * board, and small enough to say "that unit is up there" rather than looking like a puddle.
  */
@@ -319,11 +325,33 @@ export class GoblinRenderer {
        * rather than decided here. This makes the current behaviour legible; it does not rule on it.
        */
       const cfg = getCreatureConfig(c.type);
+      /*
+       * ⭐ S154 P4 (owner A3) — DORMANT ARMIES ARE DRAWN HALF-TRANSPARENT: *"stay near their tower as
+       * if they were just built (like halfway transparent)"*.
+       *
+       * DERIVED, not sent. `matchPhase` already rides the wire (the HUD clock reads it), so both
+       * peers reach the same answer with no new field, no hashed state and no protocol bump — the
+       * same derive-don't-send channel `creatureProjectile` and `chewerRenderer` use, and chosen for
+       * the same reason.
+       *
+       * ⚠ IT IS ALSO HONEST RATHER THAN DECORATIVE. Creatures are genuinely inert during BUILD (the
+       * whole fan-out is gated on FIGHT), so "not active yet" is exactly what the picture should say
+       * — the same meaning `SPAWN_ALPHA_FLOOR` carries for a unit that has not finished
+       * materialising.
+       *
+       * ⚠ AND IT IS A HELD VALUE, NOT A REUSED SPAWN RAMP. The tempting shortcut is to push
+       * retreating units back into SPAWNING and let the existing lerp do the work; GEMINI flagged
+       * the trap and it is right — that ramp climbs 0→1 over `spawnTicks`, so they would fade IN to
+       * fully opaque within half a second instead of staying half-there.
+       */
+      const dormant = world.matchPhase !== 'FIGHT';
       const alpha =
         c.state === 'SPAWNING'
           ? SPAWN_ALPHA_FLOOR +
             (1 - SPAWN_ALPHA_FLOOR) * Math.min(1, c.ticksInState / Math.max(1, cfg.spawnTicks))
-          : 1;
+          : dormant
+            ? DORMANT_ALPHA
+            : 1;
 
       const atlas = this.atlases.get(c.type);
       if (atlas !== undefined) {
