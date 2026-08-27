@@ -156,3 +156,31 @@ Today's bots attack the *nearest* enemy — the change is a targeting FILTER + a
 | BOND_FORMED timing desync risk | Grok | **REFUTED** | matcher runs inside the differential-gated tick pipeline; executor polls world state on think ticks, no async reaction |
 | Personality tells (hover/stare/victory beat) | Gemini | **ADOPTED** | Phase C |
 | Q6 starvation + Q7 collateral + Q3/Q4 rulings | Gemini | **ADOPTED** | §7 |
+
+---
+
+## 10. OWNER ANSWERS TO §7 — RULED 2026-08-27 (S154)
+
+§7 had been open since S123. All seven are now answered. **These are owner rulings: they supersede
+the §3 matrix and the §8 phasing wherever they disagree.**
+
+| Q | Ruling | What changes |
+|---|---|---|
+| **Q1** Difficulty feel | *"gatherer upgrades should be in hard and imba and in mid they should raid also"* | Gatherer investment = **HARD + IMBA** (shipped in S154 amendment A: `upgradesGatherer`, plus `buysSecondGatherer` for IMBA only). **Raid drops to MID.** |
+| **Q2** Raid pressure | *"2 raids are fine as it is currently. dont change raid rate or number of allowed raids. its a good balance now and doesnt change the game."* | ⛔ **DO NOT TOUCH.** The design's 1-concurrent-raider cap proposal is WITHDRAWN — the live balance stands. No change to `severChance`, no change to the concurrent cap. |
+| **Q3** Sacrifice depth | *"bond sever only like exists today"* | No `RECLAIM_PRIMITIVE` verb. Matches the Council recommendation (a literal delete reads as the AI cheating). |
+| **Q4** Godly cinematics | *"imba can chace voltkin later but first probably to build an army of goblins. he should look to build goblin tower first and then buy goblins with leftover shapes"* | ⭐ **Re-orders IMBA's desire vector: goblinTower FIRST, then FEED it goblins with leftover shapes, and only then Voltkin.** This is a concrete build order, not a preference — the goblin army is the mid-game and Voltkin is the late luxury. |
+| **Q5** Phasing | *"sure for now why not"* | A → B → C stands. |
+| **Q6** Resource starvation | *"depends on bot level. hard would wait, imba would adapt to build what he can before the build phase ends"* | ⭐ **A per-tier policy, not one default.** HARD idles-and-waits for the blueprint it wants; **IMBA re-ranks against what is actually available and gets SOMETHING up before BUILD ends.** That is a genuine, visible intelligence difference and it is cheap. |
+| **Q7** Collateral / sacrifice occasions | *"they should not raid their own structures unless they actually have a plan. sacrifice is only for imba and only in certain occasions ... youve built voltkin but you know that the middle connection of voltkin will destroy 4 connectors at once if someone raids it so they would build reinforcement connectors around and then destroy them right before the fight starts ... thats super smart and we shouldnt really even included that yet. its for later"* | ⛔ **SACRIFICE IS DEFERRED ENTIRELY** — out of Phase C, out of scope until asked for. The rule that survives: **a bot never severs its own bonds without a plan.** The owner's worked example (reinforce a Voltkin's fragile middle connector, then drop the scaffolding just before FIGHT) is recorded as the eventual TARGET behaviour, explicitly not now. |
+
+### Notes for whoever implements Phase A
+
+- **Q1's "mid should raid also" may already be half-true.** `BOT_CONFIGS.MID` is already `canSever: true,
+  severChance: 0.25`, so MID *does* sever today. What §3 gated at HARD is the SMART version —
+  `readsScoreboard`, i.e. picking the LEADER and aiming at a keystone connector. Read the ruling as
+  "MID keeps raiding, and the leader-targeted version is what HARD adds", and confirm with the owner
+  before moving `readsScoreboard` down.
+- **Q2 is a prohibition and the most important line here.** Raid rate and concurrency are BALANCED.
+  Phase A must not touch them while adding leader targeting.
+- **Q4 gives Phase B its build order for free**: goblinTower → FEED goblins → (later) Voltkin.

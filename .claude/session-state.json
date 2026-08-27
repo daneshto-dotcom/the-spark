@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2717,
+  "tool_calls_session_total": 2722,
   "session_id": "S154",
   "session_kind": "PDCA batch (owner-approved autonomous run): P5b palette-to-footer, bat-rider harpoons + creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait",
   "session_start": "2026-08-27",
@@ -611,8 +611,8 @@
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
   "real_context_tokens_at_close": 519214,
-  "real_context_pct_at_close": 51.92,
-  "checkpoint_commit": "04fd5e77a6ddc89257fbb0c66e0c6524d0e40ef9",
+  "real_context_pct_at_close": 76.35,
+  "checkpoint_commit": "9cd4aa257e74343eae710136e16b1253d36c4eb1",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -1672,82 +1672,37 @@
   ],
   "carry_forward_next_session": [
     {
-      "id": "P5b",
+      "id": "C-A4",
       "priority": 0,
-      "tier": "Standard",
-      "estimated_tokens": 34000,
-      "title": "⛔ STILL NOT DONE — move the palette + queue to the footer, right of tier 8 (R80)",
-      "detail": "The owner has now asked THREE times and it is the oldest open request in the batch. S153 P5a fixed the ENQUEUE bug (ordering from the footer no longer needs the castle to have been opened) but did NOT move the UI, and the owner said so plainly. Audited plan: ~34K, files and breaking tests fully enumerated in the P5b carry-forward below. ⭐ START HERE next session, before any new feature. Implementation shape already chosen: the palette buttons and queue chips are real Pixi Containers carrying their own pointertap handlers, so REPARENT them into a new always-visible strip container anchored from footerBand chip geometry, hoist their draw above the panel open-gate, drop the two strip heights from the castle panel layout (four sites), add an isOverShapeStrip guard in controls, and register the surface in hudLayout. || The BUG half shipped as P5a; this is the MOVE half and it is still open. Owner placement CORRECTED mid-session: \"always be visible on the right side of the footer (after tier 8)\" - RIGHT of the last chip, not the earlier \"left of the last tier\", and always visible rather than only while the castle is open. Supersedes S136 P0, which castlePanel.ts documents at length - cite R80 there when moving it. A.0 BANKED: paletteStripHeight and queueStripHeight feed the castle panel HEIGHT in four places (~304, 473, 490, 1165) so removing them shrinks the panel and moves everything below; the buttons are REAL Pixi Containers with pointerover/pointerout, wired through main.ts setOrderHandlers; the queue is DRAWN at castlePanel.ts:1129. Position after the last chip from footerBand layoutChips, and CHECK the legend - legendAnchor already anchors the shape key off the chip row, so it will collide and must move. REGISTER the new surface in hudLayout or the overlap gate stays blind to it.",
-      "tests_that_WILL_break": "castlePanel.test.ts imports CHIP_H, CHIP_W, chipOrigin, MAX_CHIPS, PALETTE_BTN, PALETTE_TYPES, paletteOrigin, paletteStripHeight and queueStripHeight directly - a compile-time certainty, not a guess. Plus castlePanel.structures.test.ts, footerBand.test.ts and hudLayout.test.ts.",
-      "file_the_probe_missed": "⭐ e2e/footer-order-shapes.spec.ts - the regression test P5a shipped. It drives the footer through __SPARK__.footerBand.getUiPoints() and asserts on cards. It does NOT touch the palette today, so it will not break on the move - but it is the natural place to ADD the assertion that the queue strip is visible in the footer WITHOUT opening the castle, which is the whole point of R80.",
-      "second_defect_named_by_a0": "The queue CHIPS are drawn from world.gathererOrders inside castlePanel draw (castlePanel.ts:1129-1131), so the queue UI is itself only visible while the panel is open. That is a SEPARATE visibility defect from the enqueue bug P5a fixed, and it is exactly what R80 asks to remove. Fixing the enqueue did not make the queue visible.",
-      "why_the_footer_cannot_do_it_alone": "FooterCardGeom carries id/name/reason/enabled but NOT `missing`, which is why the footer had to delegate to the panel at all. If ownership moves to the footer, `missing` has to move onto the card geometry (footerBand.ts:64 and the layoutCards map).",
-      "estimated_tokens_CORRECTED": "~34K, not the ~14K in the original PDR. That number comes from an A.0 probe whose file list was then INDEPENDENTLY grep-verified symbol by symbol by an adversarial auditor (PALETTE_TYPES, PALETTE_BTN, PALETTE_GAP, paletteOrigin, paletteStripHeight, chipOrigin, queueStripHeight, MAX_CHIPS, CHIP_W, CHIP_H, coalesceOrders, setOrderHandlers). Treat 34K as the honest size."
+      "tier": "Full",
+      "title": "A4 — THE CASTLE IS DESTRUCTIBLE: castle OR 1500 points wins (R89)",
+      "detail": "OWNER MAIN GOAL. APPROVED THIS SESSION and deferred on BUDGET ONLY (we crossed ORANGE at 76.35%). A.0 RE-VERIFIED S154 by direct read: there is NO castle entity and no castle HP — creatureAI.ts says so in situ (\"A0 F6: there is NO castle entity and no castle HP ... this deliberately returns a POSITION and nothing else\"); damage.ts has exactly TWO target kinds (creature | primitive) so it needs a third arm; castleBanks is an inventory Map, not an entity. S153 P1 ALREADY makes goblins WALK to the enemy keep, which is exactly why the owner watched them arrive and do nothing — the pathing half is DONE and only the damage half is missing. EXPECT PROTOCOL 32->33: castle HP is new serialized AND HASHED state, and the creatures-family precedent means TWO edits in stateHashFull, plus the SIX-SITE checklist in protocol.ts. DESIGN NOTE WORTH KEEPING: a creature can attack the castle with NO new hashed creature field, by deriving \"within attackRange of an enemy castle anchor\" at the fire tick — the same derive-do-not-send discipline P2 and P4 both used. Only the castle HP itself has to ride the wire."
     },
     {
-      "id": "R92-batrider",
+      "id": "D-fog",
       "priority": 1,
       "tier": "Standard",
-      "title": "BAT RIDER: ranged harpoons + a flying read (owner, root-caused)",
-      "detail": "⭐ HE IS CONFIGURED AS MELEE. GOBLIN_BAT_CONFIG.attackRange is GOBLIN_ATTACK_RANGE = 35, the SAME constant the melee swordsman and the chewer use (\"true melee - closes onto its target\"). The archer by contrast has its own GOBLIN_ARCHER_RANGE. So the bat rider is not failing to fire a projectile - he has no ranged behaviour at all; he flies up to contact and hits. That is why nothing appears to leave him. || (1) give him his own range constant, mirroring GOBLIN_ARCHER_RANGE; (2) reuse the S153 P2 ARROW_SHOT effect for a HARPOON variant - plain at units, FIRE at towers/connectors, which is the same target-class discriminator P2 already resolves at the attack-fire site, so this is a variant not a new system; (3) the flying read: ALTITUDE_BY_KIND already exists in goblinRenderer (S152 P3 lifts the bat rider off the ground because \"a flyer that walks is simply wrong\") - verify it is applied and consider a shadow or bob so the altitude reads as flight rather than as a drawing offset."
+      "title": "BOTS MUST RESPECT FOG OF WAR — they currently see the whole board",
+      "detail": "Owner: \"shouldnt my towers be hidden from him in fog of war during building stage and he has to explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not fair if bots see evcerything\". CONFIRMED BY DIRECT READ, not inferred: fogRenderer.ts describes itself as \"Client-side cosmetic fog\" (a RenderTexture visibility mask), and a grep of src/bots/*.ts for fog returns ZERO hits. Bots read world.primitives / world.bonds directly through nearestEnemyBond / nearestEnemyPrim / nearestEnemySpawnerBond. The fog blinds ONLY the human. Owner deferred this to next session explicitly. Shape of the fix: a per-seat visibility predicate that the BOT target scans consult, sourced from host-side exploration state — NOT from the client render mask."
     },
     {
-      "id": "CF-S153-ctx",
+      "id": "BOT-PhaseA",
       "priority": 2,
-      "title": "The context tracker may over-report, and it gates scope decisions",
-      "detail": "CLAUDE.md names that script the SOURCE OF TRUTH for the GREEN/YELLOW/ORANGE/RED scope thresholds, and this session made TWO real scope cuts on its reading: deferring the Full-tier bots work at a measured 61 percent, and then declining to start P5b at a measured 69 percent. If the script over-reports, both cuts were more conservative than the budget actually required, and the owner waited an extra session for work that would have fit. || Compare the two directly at a known point next session: read the UI percentage and run real-context-tokens.py in the same breath, twice, at different fill levels. If the script is high, fix the script or restate the thresholds against whatever it actually measures - do not just lower the thresholds."
-    },
-    {
-      "id": "A3",
-      "priority": 3,
       "tier": "Standard",
-      "title": "Armies must retreat before FIGHT ends and idle spawn-fresh at their tower",
-      "detail": "APPROVED, NOT STARTED, and the owner has now raised it TWICE with a screenshot - goblins standing in enemy territory at BUILD 1:25. Owner: \"during buld phase your own spawn stil lstay in enemy lands! thats inherently wrong - they would be killed\" and earlier \"they should run back 2 or 3 sec before end of fight and stay near their tower as if they were just built (like halfway transparent)... this is the mode for all spawn armies\". Touches the shared creature FSM. NOTE S153 P1 added enemyCastleMarchPos and unit-first navigation, so the walk-home target has a natural home in the same hostTick branch. INTERACTS WITH A4: once the castle is a target, retreat must not pull units off a winning castle push."
+      "title": "Bot intelligence Phase A — now UNBLOCKED (all 7 owner questions answered)",
+      "detail": "BOT_INTELLIGENCE_DESIGN.md §10 holds the rulings. Phase A = knowledge book + combo-aware spark pick/placement + leader-targeted raid. ⛔ Q2 IS A PROHIBITION: do not change raid rate or the number of allowed raids, the owner says the current balance is good. Q6 makes starvation policy PER TIER (HARD waits, IMBA adapts). Q4 gives Phase B its build order: goblinTower -> FEED goblins -> Voltkin later. Q7 defers SACRIFICE entirely."
     },
     {
-      "id": "A4",
+      "id": "CF-S154-a",
+      "priority": 3,
+      "title": "The owner saw bots \"build towers from the beginning\" while my run measured ZERO — reconcile",
+      "detail": "Worth one probe. My instrumented run measured zero towers in 3 sim-minutes pre-fix, yet the owner watching live VS-BOTS said all three difficulties \"build towers from the beginning\". Either they mean freeform primitive placement (which does start immediately and reads as building), or a real match differs from the unit fixture in a way that matters — e.g. lobby-granted starting resources. DO NOT assume the first reading: the fixture-vs-live gap is exactly what let P3 ship believing bots build towers."
+    },
+    {
+      "id": "CF-S154-b",
       "priority": 4,
-      "tier": "Full",
-      "title": "THE CASTLE IS DESTRUCTIBLE - castle OR 1500 points wins (R89)",
-      "detail": "OWNER MAIN GOAL, approved, NOT STARTED. A.0 BANKED: no castle entity exists, only castleBanks (an inventory Map); damageEntity has no castle arm; the match is won on scoreByPlayer alone. S153 P1 ALREADY makes goblins WALK to the enemy keep when no enemy shapes remain - they arrive with nothing to attack, which is exactly the owner symptom, so the pathing half is done. Needs a damageable castle entity, a damageEntity arm, the 1500-point second condition, and a hashed field so EXPECT A PROTOCOL BUMP 31 to 32 plus the six-site checklist. R88 constrains it: all castle races share ONE stat line."
-    },
-    {
-      "id": "A5",
-      "priority": 5,
-      "tier": "Full",
-      "title": "Bots build towers - medium and up (R86 / CF-S149-f)",
-      "detail": "Approved, NOT STARTED. Owner re-reported it this session: \"bots still not building towers.... medium bots should at least build some\" - that adds a DIFFICULTY FLOOR. BUILD_BLUEPRINT is already an allowlisted client intent so no protocol bump. WARNING: the S150 structural claim (GROWTH_STEP 48 inside AUTO_BOND_RADIUS 60) was NOT re-verified - GROWTH_STEP is not in constants.ts. Littering in scope."
-    },
-    {
-      "id": "R92",
-      "priority": 6,
-      "title": "Stink tower reported as not lobbing - REPRODUCE FIRST, it is implemented",
-      "detail": "The mechanic exists in full (magazine, throw interval, bag damage/radius, aggro aura, death blast, bagsRemaining on the wire). First hypothesis: DEFENDER_TARGETS.stinkTower is UNITS_ONLY, so with no enemy creature in range doing nothing is CORRECT. Reproduce with an enemy unit in range before changing anything."
-    },
-    {
-      "id": "CF-S153-d",
-      "priority": 7,
-      "title": "Finish the clickable / back-menu consistency sweep",
-      "detail": "A2 proved the four TITLE entries and the lobby back button work. NOT covered: the OVERLAY back paths (codex, arcade, bot setup), which return without changing gameState so the probe could not observe them. They need their own assertions."
-    },
-    {
-      "id": "CF-S153-b",
-      "priority": 8,
-      "title": "TWO hound variants per tower - ASK FIRST, may be superseded",
-      "detail": "The owner asked for two dog types, then reassigned the rejected dog to the Zombie castle instead. IF it still stands: variant choice must be DETERMINISTIC from the creature id (the spreadTargetPos golden-angle idiom), never a draw - all three determinism gates are self-comparing and would NOT catch a divergence."
-    },
-    {
-      "id": "CF-S153-c",
-      "priority": 9,
-      "title": "Zombie hound has no ATTACK clip",
-      "detail": "idle + walk exist under assets-source/zombie-castle/. The attack clip failed twice with \"high demand\" - transient veo backpressure, NOT credits. No consumer yet, not blocking."
-    },
-    {
-      "id": "P8",
-      "priority": 10,
-      "tier": "Micro",
-      "title": "worker-bots tick-based wait (CF-S152-a)",
-      "detail": "Poll world.tick; NEVER raise the timeout - that rope already failed twice here."
+      "title": "Host lag in multiplayer — finish worker-sim (D4 + default-on)",
+      "detail": "Owner reported the HOST workstation lagging while the joiner was smooth. Diagnosed, not guessed: the host simulates everything (hostTick is host-only; the client mirrors), and main.ts names the profiled dominant cost — \"the host 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost\". S105 P3 moved it off the catch-up loop and labelled itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks and a host falling behind runs MORE per frame. ?worker=1 (S122) is the shipped opt-in mitigation; D4 + default-on is the fix."
     }
   ],
   "priorities_s149_archived": [
@@ -3079,7 +3034,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "YELLOW",
+  "real_context_level_at_close": "ORANGE",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -3650,5 +3605,17 @@
     "multiplayer_host_lag": "STRUCTURAL, not network — if it were the network the CLIENT would stutter. The host simulates everything (hostTick.ts: \"Host-only (client never simulates; S28 NetSnapshot v2 mirrors host->client creature state)\"), ~30 subsystem polls per tick plus physics, bots and AI target scans; the client renders and applies snapshots. main.ts names the profiled dominant cost: \"the host's 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost (the profiler's finding)\" — S105 P3 moved it off the catch-up loop and called itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks: a host falling behind runs MORE ticks per frame. Mitigations: host on the stronger machine; try ?worker=1 (S122, default-OFF). Finishing worker-sim (D4 + default-on) is the real fix and is already on the backlog.",
     "castle_not_taking_damage": "EXPECTED — A4 was not in the approved batch. creatureAI.ts says it in situ: \"A0 F6: there is NO castle entity and no castle HP ... this deliberately returns a POSITION and nothing else\". damageEntity has no castle arm. S153 shipped the WALK; the attack half does not exist, and the S153 carry-forward predicted this exact report: \"they arrive with nothing to attack, which is exactly the owner symptom\".",
     "bot_tier_design_the_owner_remembered": "FOUND: BOT_INTELLIGENCE_DESIGN.md §3 — the tier-gated KNOWLEDGE BOOK matrix (NOOB none / MID basic-magic combos / HARD full combos + pentagram + laserTurret + scoreboard-reading raid / IMBA + lightningHub + helga + sacrifice), with Phases A/B/C in §8 and SEVEN unanswered owner questions in §7 — Q1 is literally \"does the §3 matrix match your intent?\". That document is gated on those answers. NOTE the one conflict: §3 starts blueprints at HARD, the owner's later ruling (\"medium bots should at least build some\") moves the floor to MID; amendment A took the later ruling and kept the spread via towerTiers."
-  }
+  },
+  "owner_rulings_s154_bot_intelligence": {
+    "ruled": "2026-08-27 — all seven §7 questions of BOT_INTELLIGENCE_DESIGN.md answered",
+    "recorded_in": "BOT_INTELLIGENCE_DESIGN.md §10 (new) — the durable home, so the rulings outlive this session",
+    "Q1": "gatherer upgrades HARD+IMBA (SHIPPED, amendment A); raid drops to MID. NOTE: MID already has canSever:true / severChance:0.25, so what §3 gated at HARD is the SMART raid (readsScoreboard, i.e. leader + keystone targeting) — confirm with the owner before moving that down.",
+    "Q2": "PROHIBITION, and the most important line in the set: \"2 raids are fine as it is currently. dont change raid rate or number of allowed raids.\" The design 1-concurrent-raider cap proposal is WITHDRAWN. The live balance stands.",
+    "Q3": "bond-sever only; no RECLAIM_PRIMITIVE verb.",
+    "Q4": "IMBA build order, concrete rather than a preference: goblinTower FIRST -> FEED goblins with leftover shapes -> Voltkin only later.",
+    "Q5": "phasing A->B->C approved.",
+    "Q6": "PER-TIER policy, not one default: HARD idles-and-waits for the blueprint it wants; IMBA re-ranks against what is actually available and gets SOMETHING up before BUILD ends.",
+    "Q7": "SACRIFICE DEFERRED ENTIRELY — out of Phase C, out of scope until asked for. Surviving rule: a bot never severs its OWN bonds without a plan. The owner worked example (reinforce a Voltkin fragile middle connector, then drop the scaffolding just before FIGHT) is recorded as the eventual target behaviour, explicitly not now."
+  },
+  "carry_forward_s153_closed": "S153 list retired: P5b, R92-batrider, A5, A3 and P8 all SHIPPED this session; CF-S153-ctx CLOSED (tracker root-caused). A4 carried forward as C-A4. R92 stink tower, CF-S153-b/-c/-d remain open but were not owner priorities this session."
 }
