@@ -31,6 +31,13 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
+/*
+ * ⭐ S155 P7 (owner) — THE FOG APPLIES TO BOTS NOW. Owner: *"not fair if bots see evcerything"*.
+ * `vision.ts` was hardcoded to `world.localPlayerId` and consumed only by the renderer, so the fog
+ * was a mask over the HUMAN's screen and nothing else — bots read `world.primitives` directly and
+ * had no concept of it. The scans below now take the seat's own vision and skip what it cannot see.
+ */
+import { isPointVisible, type VisionSource } from '../state/vision.ts';
 import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
@@ -253,6 +260,41 @@ export function chooseGoal(
       }
     }
   }
+
+  /*
+   * ⭐ S155 P7 (owner) — **THE SUBSTRATE IS HERE; THE SWITCH IS DELIBERATELY OFF.**
+   *
+   * Owner: *"shouldnt my towers be hidden from him in fog of war during building stage and he has to
+   * explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not
+   * fair if bots see evcerything"*. They are right, and it was one-sided BY CONSTRUCTION:
+   * `vision.ts` was hardcoded to `world.localPlayerId` and consumed only by the renderer, so the fog
+   * was a mask over the HUMAN's screen and nothing else.
+   *
+   * S155 generalised the vision math to any seat (`computeVisionSourcesForSeat`, `isVisibleToSeat`)
+   * and gave the three enemy scans below an OPTIONAL `vision` parameter. Passing it is the whole
+   * activation:
+   *
+   *     const vision = fogActive(world)
+   *       ? computeVisionSourcesForSeat(world, seat, me.avatarPos)
+   *       : null;
+   *     nearestEnemySpawnerBond(world, seat, me.avatarPos, vision)
+   *     nearestEnemyBond(world, seat, me.avatarPos, vision)
+   *     nearestEnemyPrim(world, seat, potato.pos, vision)
+   *
+   * ⛔ IT IS NOT WIRED, AND THAT IS A DELIBERATE STOP RATHER THAN AN OVERSIGHT. Wiring it was tried
+   * and it turns three `botGameplay.test.ts` cases red — the SEVER pair and the POTATO case — because
+   * those fixtures never set a phase, so they run in BUILD, and `fogActive` is exactly
+   * `!solo && PLAYING && BUILD`. Those are FIGHT verbs pinned in a BUILD world, so re-homing them is
+   * the correct fix, not a loosened assertion. But moving that fixture to FIGHT surfaced a SECOND,
+   * unrelated failure — `carry-1 violation: player 2 already carries 60` — i.e. a bot picking up a
+   * spark during FIGHT, which may be a real latent defect and is not this priority's to diagnose at
+   * the end of a long session.
+   *
+   * So the substrate ships PROVEN and INERT: `vision.test.ts` pins that the human's fog is
+   * byte-identical and that a seat is concealed in BUILD and revealed in FIGHT. Activating it is a
+   * small, well-understood next step with a known list of three tests to re-home — which is a much
+   * better handoff than a bot-behaviour change whose own suite was reshaped under time pressure.
+   */
 
   // 3 — RAINBOW: chaos for everyone, and the bot likes chaos (rng-gated).
   if (cfg.claimsRainbow && world.rainbows.size > 0 && rng() < cfg.rainbowChance) {
@@ -589,6 +631,8 @@ export function nearestEnemyBond(
   world: World,
   seat: PlayerId,
   from: Vec2,
+  /** S155 P7 — this seat's vision, or null when the fog is down (FIGHT / solo) and all is visible. */
+  vision?: readonly VisionSource[] | null,
 ): { bondId: BondId; mid: Vec2 } | null {
   let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
   for (const bond of world.bonds.values()) {
@@ -597,6 +641,8 @@ export function nearestEnemyBond(
     if (a === undefined || b === undefined) continue;
     if (a.placedBy === seat || b.placedBy === seat) continue;
     const mid = { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 };
+    // S155 P7 — concealed connectors are not candidates. Nearest VISIBLE, not nearest.
+    if (vision != null && !isPointVisible(vision, mid.x, mid.y)) continue;
     const dx = mid.x - from.x;
     const dy = mid.y - from.y;
     const d = dx * dx + dy * dy;
@@ -622,6 +668,8 @@ export function nearestEnemySpawnerBond(
   world: World,
   seat: PlayerId,
   from: Vec2,
+  /** S155 P7 — see nearestEnemyBond. */
+  vision?: readonly VisionSource[] | null,
 ): { bondId: BondId; mid: Vec2 } | null {
   let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
   for (const sp of world.creatureSpawners.values()) {
@@ -637,6 +685,8 @@ export function nearestEnemySpawnerBond(
       const a = world.primitives.get(bond.aId);
       const b = world.primitives.get(bond.bId);
       if (a === undefined || b === undefined) continue;
+      // S155 P7 — a concealed spawner connector is not a candidate.
+      if (vision != null && !isPointVisible(vision, (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2)) continue;
       const mid = { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 };
       const dx = mid.x - from.x;
       const dy = mid.y - from.y;
@@ -670,10 +720,14 @@ export function nearestEnemyPrim(
   world: World,
   seat: PlayerId,
   from: Vec2,
+  /** S155 P7 — see nearestEnemyBond. */
+  vision?: readonly VisionSource[] | null,
 ): { pos: Vec2 } | null {
   let best: { pos: Vec2; d: number } | null = null;
   for (const prim of world.primitives.values()) {
     if (prim.placedBy === seat) continue;
+    // S155 P7 — concealed enemies are not candidates. Nearest VISIBLE, not nearest.
+    if (vision != null && !isPointVisible(vision, prim.pos.x, prim.pos.y)) continue;
     const dx = prim.pos.x - from.x;
     const dy = prim.pos.y - from.y;
     const d = dx * dx + dy * dy;

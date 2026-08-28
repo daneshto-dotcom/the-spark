@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2894,
+  "tool_calls_session_total": 2917,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -514,22 +514,80 @@
     {
       "id": "P7",
       "title": "Bots must not see through the fog (runs before P5 so targeting is written once)",
-      "status": "in_progress",
+      "status": "completed_partial",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "⚠ PARTIAL BY DELIBERATE CHOICE: the SUBSTRATE ships proven; the bot-side ACTIVATION is one documented change that is NOT wired. Saying so plainly rather than implying the fairness complaint is closed. CONFIRMED THE OWNER IS RIGHT, AND THAT IT WAS ONE-SIDED BY CONSTRUCTION: computeVisionSources was hardcoded to world.localPlayerId and its ONLY consumers were fogRenderer.ts and exploredMemory.ts, both render-side; a grep of src/bots/** for fog or vision returns nothing, because bots read world.primitives and world.bonds directly. The bots were not cheating on purpose - the fog had no existence outside the human's screen. ⭐ AND AN A.0 FINDING THAT SHRANK THE PRIORITY AND MADE IT Q2-SAFE: fogActive is `isNetworked(world) && PLAYING && matchPhase === 'BUILD'`, and isNetworked is `gameMode !== 'solo'` - so VS-BOTS IS fogged (the owner's premise holds) but ONLY during BUILD, per the owner's own R62 ruling that fog lifts for the fight. That means gating bots on visibility cannot touch FIGHT behaviour at all, which is where raiding lives - so it cannot breach the Q2 prohibition ('dont change raid rate or number of allowed raids'). The priority is therefore much smaller and much safer than the PDR assumed, and no scouting heuristic is needed for combat. SHIPPED (proven, inert): computeVisionSourcesForSeat(world, seat, cursor) - the previous body byte-for-byte with the seat supplied instead of read - plus isVisibleToSeat(world, seat, cursor, x, y) which returns TRUE whenever the fog is down. computeVisionSources now delegates with localPlayerId, so the HUMAN's fog is unchanged BY CONSTRUCTION and a test asserts the two produce identical output rather than assuming it. The three enemy scans (nearestEnemyBond / nearestEnemySpawnerBond / nearestEnemyPrim) gained an OPTIONAL vision parameter and skip concealed candidates when given one - nearest VISIBLE rather than nearest. No caller passes it, so behaviour is bit-identical today. 5 new tests: human-fog equality, per-seat beacons (a seat is not lit by an enemy structure), concealed-in-BUILD, revealed-in-FIGHT, and no-fog-in-solo. ⛔ WHY THE ACTIVATION IS NOT WIRED, AND IT IS A STOP RATHER THAN AN OVERSIGHT. I wired it and it turned three botGameplay.test.ts cases red - the SEVER pair and the POTATO case - because those fixtures never set a phase, so they run in BUILD where fogActive is true. Those are FIGHT verbs pinned in a BUILD world, so RE-HOMING them is the correct fix and not a loosened assertion. But moving that fixture to FIGHT surfaced a SECOND, unrelated failure - 'carry-1 violation: player 2 already carries 60', i.e. a bot picking up a spark during FIGHT - which may be a genuine latent defect and is not this priority's to diagnose at 65% context at the end of a long session. Shipping a bot-behaviour change whose own suite I had reshaped under time pressure is precisely the S154 failure mode this session exists to correct, so I stopped at the proven half. ACTIVATION IS THREE LINES, written verbatim into the botBrain.ts docblock together with the list of tests to re-home. VERIFIED: tsc exit 0 · 3128/3128 unit tests, 191 files (+5) · build 746.8 KiB / 900 cap · src/bots behaviour unchanged (44/44 bot tests green with no fixture edits; botGameplay.test.ts reverted to its committed state).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.ts",
+          "needle": "export function computeVisionSourcesForSeat"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.ts",
+          "needle": "export function isVisibleToSeat"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.ts",
+          "needle": "return computeVisionSourcesForSeat(world, world.localPlayerId, localCursor);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.ts",
+          "needle": "if (!fogActive(world)) return true;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "THE SUBSTRATE IS HERE; THE SWITCH IS DELIBERATELY OFF"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "vision?: readonly VisionSource[] | null,"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "vision != null && !isPointVisible",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.test.ts",
+          "needle": "the HUMAN fog is byte-identical"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vision.test.ts",
+          "needle": "during BUILD a seat CANNOT see a distant enemy structure"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/vision.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 5
+        }
+      ]
     },
     {
       "id": "P5",
       "title": "Bot intelligence Phase A (knowledge book, combo-aware targeting, leader-targeted raid as a FILTER only)",
-      "status": "pending",
+      "status": "not_started",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": false,
+      "check_method": "NOT STARTED — ran out of context budget after six priorities. See the handoff: Phase A is additionally BLOCKED on an owner confirmation, because P6 found TWO owner ruling sets that disagree about raid targeting vs raid rate (BACKLOG \"Bot rulings\" vs BOT_INTELLIGENCE_DESIGN §10). Starting Phase A without settling that risks shipping the balance change the owner explicitly forbade."
     },
     {
       "id": "P6",

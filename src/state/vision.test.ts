@@ -15,6 +15,8 @@ import {
   fogActive,
   fogTargetAlpha,
   stepFogAlpha,
+  computeVisionSourcesForSeat,
+  isVisibleToSeat,
 } from './vision.ts';
 import {
   R_PERSONAL,
@@ -319,5 +321,78 @@ describe('stepFogAlpha', () => {
   it('holds steady when already at the target', () => {
     expect(stepFogAlpha(1, 1, 0.02)).toBe(1);
     expect(stepFogAlpha(0, 0, 0.02)).toBe(0);
+  });
+});
+
+/**
+ * ⭐ S155 P7 (owner) — THE FOG IS NO LONGER A ONE-WAY MIRROR.
+ *
+ * Owner: *"shouldnt my towers be hidden from him in fog of war during building stage and he has to
+ * explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not
+ * fair if bots see evcerything"*.
+ *
+ * ⛔ THEY WERE RIGHT, AND IT WAS ONE-SIDED BY CONSTRUCTION: `computeVisionSources` was hardcoded to
+ * `world.localPlayerId`, and its only consumers were `fogRenderer.ts` and `exploredMemory.ts` — both
+ * render-side. A grep of `src/bots/**` for fog or vision returns NOTHING. The bots were not cheating
+ * on purpose; the fog simply had no existence outside the human's screen.
+ *
+ * These pin the SUBSTRATE that fixes it. The bot-side activation is deliberately not wired yet — see
+ * the long note in `botBrain.ts` for why, and for the exact three lines that switch it on.
+ */
+describe('S155 P7 — per-seat vision', () => {
+  const seatWorld = (): World => {
+    const w = makeWorld(0x7e5);
+    w.gameState = 'PLAYING';
+    w.gameMode = 'bots'; // not solo ⇒ fog is eligible
+    w.matchPhase = 'BUILD';
+    w.localPlayerId = asPlayerId(0);
+    w.players.set(asPlayerId(0), { avatarPos: { x: 100, y: 100 } } as never);
+    w.players.set(asPlayerId(1), { avatarPos: { x: 1800, y: 900 } } as never);
+    return w;
+  };
+
+  it('⭐ the HUMAN fog is byte-identical — computeVisionSources just delegates', () => {
+    // The refactor's one hard requirement: this is the player's own screen and it must not move by a
+    // pixel. Asserted, not assumed.
+    const w = seatWorld();
+    const cursor = { x: 400, y: 400 };
+    expect(computeVisionSources(w, cursor)).toEqual(
+      computeVisionSourcesForSeat(w, w.localPlayerId, cursor),
+    );
+  });
+
+  it('each seat gets its OWN beacons — a seat is not lit by an enemy structure', () => {
+    const w = seatWorld();
+    // One primitive owned by seat 1, far from seat 0.
+    w.primitives.set(1 as never, {
+      id: 1, pos: { x: 1800, y: 900 }, placedBy: asPlayerId(1), bonds: new Set(),
+    } as never);
+    const seat0 = computeVisionSourcesForSeat(w, asPlayerId(0), { x: 100, y: 100 });
+    const seat1 = computeVisionSourcesForSeat(w, asPlayerId(1), { x: 1800, y: 900 });
+    // Seat 1 sees its own prim as a beacon; seat 0 does not.
+    expect(seat1.some((s) => s.x === 1800 && s.y === 900 && s.radius === R_BEACON)).toBe(true);
+    expect(seat0.some((s) => s.radius === R_BEACON)).toBe(false);
+  });
+
+  it('⭐ during BUILD a seat CANNOT see a distant enemy structure', () => {
+    const w = seatWorld();
+    // Seat 1's keep, on the far side of the board from seat 0's eye.
+    expect(isVisibleToSeat(w, asPlayerId(0), { x: 100, y: 100 }, 1800, 900)).toBe(false);
+    // ...and it CAN see its own ground.
+    expect(isVisibleToSeat(w, asPlayerId(0), { x: 100, y: 100 }, 100, 100)).toBe(true);
+  });
+
+  it('⚠ during FIGHT the fog is DOWN for everyone, so visibility is a pass-through', () => {
+    // Owner ruling R62 — fog is a BUILD-stage concern and lifts for the fight. This is what keeps the
+    // change away from raid balance entirely: raiding happens in FIGHT, where nothing is filtered.
+    const w = seatWorld();
+    w.matchPhase = 'FIGHT';
+    expect(isVisibleToSeat(w, asPlayerId(0), { x: 100, y: 100 }, 1800, 900)).toBe(true);
+  });
+
+  it('and in SOLO there is no fog at all, for any seat', () => {
+    const w = seatWorld();
+    w.gameMode = 'solo';
+    expect(isVisibleToSeat(w, asPlayerId(0), { x: 100, y: 100 }, 1800, 900)).toBe(true);
   });
 });

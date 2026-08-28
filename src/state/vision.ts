@@ -33,7 +33,7 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from '../constants.ts';
-import type { Vec2 } from '../types.ts';
+import type { PlayerId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
 // S62 — sourced from gameMode (light leaf graph) to keep vision a pure
 // render-input leaf rather than pulling world.ts's full runtime graph.
@@ -55,11 +55,39 @@ export interface VisionSource {
  * primitives are the beacons and player 0's are excluded, and vice-versa.
  */
 export function computeVisionSources(world: World, localCursor: Vec2): VisionSource[] {
+  return computeVisionSourcesForSeat(world, world.localPlayerId, localCursor);
+}
+
+/**
+ * ⭐ S155 P7 (owner) — **THE SAME VISION MATH, FOR ANY SEAT.**
+ *
+ * Owner: *"shouldnt my towers be hidden from him in fog of war during building stage and he has to
+ * explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not
+ * fair if bots see evcerything"*.
+ *
+ * ⛔ THEY WERE RIGHT, AND IT WAS ONE-SIDED BY CONSTRUCTION. This function was hardcoded to
+ * `world.localPlayerId` and its only two consumers were `fogRenderer.ts` and `exploredMemory.ts` —
+ * both render-side. A grep of `src/bots/**` for fog or vision returns NOTHING: bots read
+ * `world.primitives` and `world.bonds` directly. So the fog was a mask over the HUMAN's screen and
+ * nothing else; the bots were not cheating on purpose, they simply had no concept of it.
+ *
+ * Generalising is the whole change: the body below is byte-for-byte the previous implementation with
+ * `me` supplied instead of read, and `computeVisionSources` now delegates with `localPlayerId` — so
+ * the human's fog is unchanged by construction, which `vision.test.ts` asserts rather than assumes.
+ *
+ * `cursor` is the seat's eye: the live pointer for the local human, and the bot's avatar position for
+ * a bot seat. Both are "where that player is looking from", which is exactly what R_PERSONAL means.
+ */
+export function computeVisionSourcesForSeat(
+  world: World,
+  seat: PlayerId,
+  cursor: Vec2,
+): VisionSource[] {
   const sources: VisionSource[] = [
     { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y, radius: SPAWNER_RADIUS },
-    { x: localCursor.x, y: localCursor.y, radius: R_PERSONAL },
+    { x: cursor.x, y: cursor.y, radius: R_PERSONAL },
   ];
-  const me = world.localPlayerId;
+  const me = seat;
   for (const prim of world.primitives.values()) {
     if (prim.placedBy !== me) continue;
     sources.push({ x: prim.pos.x, y: prim.pos.y, radius: R_BEACON });
@@ -71,6 +99,37 @@ export function computeVisionSources(world: World, localCursor: Vec2): VisionSou
     sources.push({ x: creature.pos.x, y: creature.pos.y, radius: R_CREATURE_VISION });
   }
   return sources;
+}
+
+/**
+ * ⭐ S155 P7 — can `seat` SEE the point (x, y) right now?
+ *
+ * ⚠ RETURNS TRUE WHENEVER THE FOG IS NOT UP, and that is the load-bearing clause rather than a
+ * shortcut. `fogActive` is `!solo && PLAYING && matchPhase === 'BUILD'` — the owner's R62 ruling
+ * (*"Fog of war should be lifted during fight stage and kept only during build phase"*). So:
+ *
+ *   · during BUILD, every seat is concealed from every other seat, symmetrically — which is the
+ *     fairness the owner asked for;
+ *   · during FIGHT there is no fog for ANYBODY, so this is a pass-through and bot combat behaviour
+ *     is bit-for-bit what it was.
+ *
+ * ⛔ THAT IS ALSO WHY THIS DOES NOT BREACH THE OWNER'S Q2 RAID PROHIBITION (*"dont change raid rate
+ * or number of allowed raids"*). Raiding lives in the FIGHT, where this function cannot say no.
+ * What it removes is a bot reaching into an unexplored quadrant during the BUILD stage — the exact
+ * thing the human is forbidden from doing and was complaining about.
+ *
+ * Cost is a per-call sources rebuild (O(own prims + own creatures)); bots consult it on THINK ticks
+ * (every 6-48 ticks, staggered by seat), never per frame.
+ */
+export function isVisibleToSeat(
+  world: World,
+  seat: PlayerId,
+  cursor: Vec2,
+  x: number,
+  y: number,
+): boolean {
+  if (!fogActive(world)) return true;
+  return isPointVisible(computeVisionSourcesForSeat(world, seat, cursor), x, y);
 }
 
 /**
