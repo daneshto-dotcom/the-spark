@@ -311,12 +311,26 @@ export function chooseGoal(
   // no enemy spawner exists does the bot fall back to the generic nearest-enemy-bond
   // (the pre-S100 behaviour, byte-identical). Without this, bots never answer a spawner
   // and VS-BOTS balance tests read falsely (R11).
+  //
+  // ⭐ S156 P1 (owner ruling) — WHO gets raided is now the LADDER's answer, not geometry's.
+  // `ladderTargetSeat` picks the rung one step above this bot (see its docblock). The search then
+  // runs TWICE: once narrowed to that seat, then — only if the rung has nothing raidable, or the
+  // board is still flat — the original un-narrowed search, byte-identical to pre-S156. So a charge
+  // is never stranded because the rung happened to be out of reach, and the opening minutes of a
+  // 0–0 match behave exactly as they did before.
+  //
+  // Within a target the S100 spawner-first rule is PRESERVED: a spawner is an active threat, so the
+  // rung's spawner outranks the rung's ordinary connectors. What changed is only the seat, which is
+  // why this does not touch the owner's settled raid BUDGET (§10 Q2: *"dont change raid rate or
+  // number of allowed raids"*). Targeting and rate are orthogonal — `MAX_DISRUPTION_CHARGES` and
+  // `severChance` are untouched, and this branch still draws exactly ONE rng value.
   if (cfg.canSever && me.disruptionCharges >= 1 && rng() < cfg.severChance) {
-    const spawnerTarget = nearestEnemySpawnerBond(world, seat, me.avatarPos);
-    if (spawnerTarget !== null) {
-      return { kind: 'SEVER', bondId: spawnerTarget.bondId, pos: spawnerTarget.mid };
-    }
-    const target = nearestEnemyBond(world, seat, me.avatarPos);
+    const rung = ladderTargetSeat(world, seat);
+    const target =
+      (rung === null ? null : nearestEnemySpawnerBond(world, seat, me.avatarPos, null, rung)) ??
+      (rung === null ? null : nearestEnemyBond(world, seat, me.avatarPos, null, rung)) ??
+      nearestEnemySpawnerBond(world, seat, me.avatarPos) ??
+      nearestEnemyBond(world, seat, me.avatarPos);
     if (target !== null) return { kind: 'SEVER', bondId: target.bondId, pos: target.mid };
   }
 
@@ -625,6 +639,62 @@ export function isLegalBuildPos(pos: Vec2, seat: PlayerId, world: World): boolea
   return canBuildNow(world, pos, seat);
 }
 
+/**
+ * ⭐ S156 P1 (owner ruling) — **THE RAID LADDER: which enemy seat this bot punches at.**
+ *
+ * Owner, twice: *"bots should target 'the leader OR the nearest enemy whose score sits closest above
+ * their own' — i.e. each bot punches one rung up the ladder!"* Before this, bots raided whatever
+ * connector was NEAREST and never read the scoreboard at all, which meant the seat that got raided
+ * was decided by geometry — so a runaway leader on the far side of the board was structurally SAFE
+ * while whoever happened to be adjacent absorbed every charge.
+ *
+ * The rule, in order:
+ *   1. **One rung up** — of the enemies scoring STRICTLY ABOVE me, the one with the LOWEST such
+ *      score. That is "the nearest enemy whose score sits closest above their own", and it makes the
+ *      leader everyone's target transitively: #2 punches #1 directly, #3 punches #2, and the pressure
+ *      walks up the ladder instead of pooling on a geographic neighbour.
+ *   2. **Nobody above me → the closest challenger below.** A leader has no rung to climb, so it
+ *      suppresses the highest-scoring enemy beneath it. This is DERIVED, not dictated: the owner's
+ *      rule is silent on the top seat, and leaving the leader to fall back on "nearest" would let it
+ *      spend its charges on the weakest player on the board, which is the kingmaking the ladder
+ *      exists to prevent.
+ *   3. **A flat board → `null`.** At 0–0 (and any all-equal state) there is no ladder, so the caller
+ *      keeps the pre-S156 nearest-enemy behaviour byte-for-byte. This is why the opening minutes are
+ *      unchanged and why no existing fixture that never scores had to be re-pinned.
+ *
+ * ⛔ **PURE, AND IT DRAWS ZERO RNG.** `chooseGoal` feeds one seeded stream whose DRAW ORDER
+ * `hostTick.replay`, `workerSim.differential` and `botController`'s same-seed test all depend on. A
+ * targeting rule that consumed a draw would have traded a balance fix for a desync, so the ladder is
+ * a pure function of `world.scoreByPlayer` — reproducible from any snapshot, identical on host and
+ * client. Ties break by `world.players` INSERTION order via the strict comparison's keep-first rule,
+ * the same convention `leaderPlayerId` uses, so the ladder and the HUD crown never disagree.
+ */
+export function ladderTargetSeat(world: World, seat: PlayerId): PlayerId | null {
+  const myScore = world.scoreByPlayer.get(seat) ?? 0;
+  let rungUp: PlayerId | null = null;
+  let rungUpScore = Infinity;
+  let below: PlayerId | null = null;
+  let belowScore = -Infinity;
+  for (const player of world.players.values()) {
+    if (player.id === seat) continue;
+    const score = world.scoreByPlayer.get(player.id) ?? 0;
+    if (score > myScore) {
+      // Closest ABOVE: keep the smallest, first-seen wins a tie (players Map order).
+      if (score < rungUpScore) {
+        rungUpScore = score;
+        rungUp = player.id;
+      }
+    } else if (score < myScore) {
+      // Closest BELOW: keep the largest, first-seen wins a tie.
+      if (score > belowScore) {
+        belowScore = score;
+        below = player.id;
+      }
+    }
+  }
+  return rungUp ?? below;
+}
+
 /** Nearest bond NOT owned by `seat` (cross-color bonds are impossible, so a
  *  bond whose aId-prim has a different placer is hostile). */
 export function nearestEnemyBond(
@@ -633,6 +703,8 @@ export function nearestEnemyBond(
   from: Vec2,
   /** S155 P7 — this seat's vision, or null when the fog is down (FIGHT / solo) and all is visible. */
   vision?: readonly VisionSource[] | null,
+  /** S156 P1 — restrict to bonds owned by this seat (the raid ladder's rung). Null = any enemy. */
+  targetSeat?: PlayerId | null,
 ): { bondId: BondId; mid: Vec2 } | null {
   let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
   for (const bond of world.bonds.values()) {
@@ -640,6 +712,9 @@ export function nearestEnemyBond(
     const b = world.primitives.get(bond.bId);
     if (a === undefined || b === undefined) continue;
     if (a.placedBy === seat || b.placedBy === seat) continue;
+    // S156 P1 — the raid ladder narrows the field to ONE enemy's connectors. Endpoints always
+    // share an owner (cross-colour bonds cannot form), so testing `aId` is testing the bond.
+    if (targetSeat != null && a.placedBy !== targetSeat) continue;
     const mid = { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 };
     // S155 P7 — concealed connectors are not candidates. Nearest VISIBLE, not nearest.
     if (vision != null && !isPointVisible(vision, mid.x, mid.y)) continue;
@@ -670,10 +745,14 @@ export function nearestEnemySpawnerBond(
   from: Vec2,
   /** S155 P7 — see nearestEnemyBond. */
   vision?: readonly VisionSource[] | null,
+  /** S156 P1 — restrict to this seat's spawners (the raid ladder's rung). Null = any enemy. */
+  targetSeat?: PlayerId | null,
 ): { bondId: BondId; mid: Vec2 } | null {
   let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
   for (const sp of world.creatureSpawners.values()) {
     if (sp.ownerPlayerId === seat) continue; // only raid ENEMY spawners
+    // S156 P1 — the raid ladder narrows the field to ONE enemy's spawners.
+    if (targetSeat != null && sp.ownerPlayerId !== targetSeat) continue;
     const anchor = world.primitives.get(sp.anchorPrimitiveId);
     if (anchor === undefined) continue; // stale anchor (poll will tear it down)
     const comp = componentOf(anchor, world.primitives, world.bonds);
