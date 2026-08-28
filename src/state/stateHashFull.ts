@@ -78,6 +78,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
 
   // ---- entity families S133 made visible for the first time ----
   creatures: 'hashed',
+  // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
+  pendingCreatureDeaths: 'acknowledged',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
   // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to

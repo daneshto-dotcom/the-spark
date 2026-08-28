@@ -209,6 +209,25 @@ export interface World {
    */
   creatures: Map<CreatureId, Creature>;
   /**
+   * ⭐ S155 N1 — TRANSIENT, ONE-TICK deferral set for creatures that took a lethal blow during the
+   * host tick's strike batch. `null` everywhere except inside that batch, which is what keeps every
+   * other damage path (raid, laser, potato blast) on the unchanged immediate-delete behaviour.
+   *
+   * ⛔ WHY IT EXISTS. Owner, after a cross-network match: *"player 2 had a way bigger army then me but
+   * theyt couldnt even destroy one of my goblins"* — and, on being told they had engaged, *"both
+   * players goblins did appear to be fighting each other but only Player one spawn actuall managed to
+   * kill"*. Reproduced and isolated: the deciding variable is neither the seat nor the creature id, it
+   * is `creatures` ITERATION ORDER. Whoever the loop reached first killed the other outright and took
+   * ZERO damage, because the loser was deleted mid-loop and never reached its own fire tick. Creatures
+   * are stored in SPAWN order, so whoever spawned first won every exchange — which is precisely why it
+   * looked like only seat 0's units had working stats.
+   *
+   * ⚠ NEVER SERIALIZED AND NEVER HASHED — `'acknowledged'` in FIELD_COVERAGE. It cannot survive a tick
+   * boundary: `runHostTick` opens it before the creature loop and sweeps it immediately after, so no
+   * snapshot, save or hash ever observes a non-null value.
+   */
+  pendingCreatureDeaths: Set<CreatureId> | null;
+  /**
    * S25 P0 — monotonic counter for creature IDs. Host-only mint authority.
    */
   nextCreatureId: number;

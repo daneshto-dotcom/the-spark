@@ -73,7 +73,7 @@ import {
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
 } from './creatures/creatureAI.ts';
-import { underChewerCaps } from './creatures/creatureLifecycle.ts';
+import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -484,6 +484,30 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     }
   }
 
+  /*
+   * ⭐ S155 N1 — OPEN THE ONE-TICK DEATH DEFERRAL for the strike batch below.
+   *
+   * Owner, after a cross-network match: *"player 2 had a way bigger army then me but theyt couldnt
+   * even destroy one of my goblins"*, then: *"both players goblins did appear to be fighting each
+   * other but only Player one spawn actuall managed to kill"*.
+   *
+   * ⛔ THE DECIDING VARIABLE WAS THIS LOOP'S ORDER — not the seat, and not the creature id (both were
+   * ruled out by swapping them in `_probe_symmetry`). Whoever the loop reached FIRST killed the other
+   * outright and took ZERO damage back, because the loser was deleted mid-loop and every later step
+   * reads `world.creatures.get(id)` → undefined, so it never reached its own fire tick. Creatures live
+   * in SPAWN order, so whoever spawned first won every single exchange — which is exactly why it
+   * looked like only seat 0's units had working stats.
+   *
+   * With the removal deferred, a creature that takes a lethal blow still lands the strike it had
+   * already committed to this tick. A mutual engagement therefore destroys BOTH, and a bigger army
+   * wins on attrition — which is the outcome the owner expected and did not get.
+   *
+   * ⚠ The one-shot arithmetic is deliberately untouched: `GOBLIN_MELEE_HP = 1` is the owner's R70
+   * ruling and ATK/DEF are R72's ladder. Removing the ORDER advantage is sufficient and does not
+   * retune anyone's balance numbers.
+   */
+  world.pendingCreatureDeaths = new Set();
+
   // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
   // never simulates; S28 NetSnapshot v2 mirrors host→client creature state).
   // Snapshot the keys BEFORE iterating because applyCreatureTick auto-deletes
@@ -807,6 +831,17 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // is render-identical (the CLIENT has used exactly that pattern since S31).
       }
     }
+  }
+
+  /*
+   * ⭐ S155 N1 — CLOSE THE DEFERRAL. Every creature that took a lethal blow in the batch above is
+   * removed here, after all of them have struck. Deterministic (built in loop order, and removal
+   * order cannot change the outcome), and the field is nulled so no snapshot, save or hash can ever
+   * observe a non-null value at a tick boundary.
+   */
+  if (world.pendingCreatureDeaths !== null) {
+    sweepDeferredDeaths(world, world.pendingCreatureDeaths);
+    world.pendingCreatureDeaths = null;
   }
 
   // S87 — VS-BOTS: bots think + act (host-only by construction — bots mode

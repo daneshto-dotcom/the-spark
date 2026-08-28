@@ -288,6 +288,11 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         'lastDiscoveredComboNames',
         'localPlayerId',
         'pendingCinematics',
+        // ⭐ S155 N1 — a TRANSIENT one-tick set: runHostTick opens it before the creature strike
+        // batch and sweeps + nulls it immediately after, so it is provably null at every tick
+        // boundary and there is nothing for a snapshot, a save or either hash to observe. Listed
+        // here deliberately rather than dodged, which is exactly what this test exists to force.
+        'pendingCreatureDeaths',
         'players',
       ].sort(),
     );

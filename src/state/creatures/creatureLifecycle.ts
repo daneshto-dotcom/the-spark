@@ -282,17 +282,70 @@ export function applyDespawnCreature(world: World, action: DespawnCreatureAction
  * client, and it fires for EVERY chewer death — raid, potato, future laser — not just this one
  * path). Returns true if the creature died (caller may award a reward, etc.).
  */
-export function damageCreature(world: World, creatureId: CreatureId, amountFifths: number): boolean {
+export function damageCreature(
+  world: World,
+  creatureId: CreatureId,
+  amountFifths: number,
+  /**
+   * ⭐ S155 N1 — DEFER THE REMOVAL so a mutual exchange resolves SIMULTANEOUSLY.
+   *
+   * When supplied, a creature reduced to 0 ehp is recorded here instead of being deleted, and the
+   * caller sweeps the set once the whole batch of this tick's strikes has been applied. Omitted (every
+   * other caller) ⇒ byte-identical immediate deletion.
+   *
+   * ⛔ WHY THIS EXISTS — a measured, seat-independent unfairness the owner hit in a real match:
+   * *"player 2 had a way bigger army then me but theyt couldnt even destroy one of my goblins"*, and
+   * on being told they had engaged: *"both players goblins did appear to be fighting each other but
+   * only Player one spawn actuall managed to kill the other players didnt seem to do any damange to
+   * player one"*.
+   *
+   * `_probe_symmetry` reproduced it and isolated the variable, and it is NOT the seat and NOT the
+   * creature id — it is `world.creatures` ITERATION ORDER:
+   *
+   *     A inserted first → A kills B, and A takes ZERO damage
+   *     B inserted first → B kills A, and B takes ZERO damage      (ids swapped: no effect)
+   *
+   * The loser never reaches its own fire tick, because it is deleted mid-loop and every later step
+   * does `world.creatures.get(id)` → undefined. And the advantage is TOTAL rather than marginal
+   * because a goblin one-shots: ehp is `1 × (5+2) = 7` fifths and a strike deals `2 × (5+0) = 10`.
+   * Creatures are stored in SPAWN order, so whoever spawned first wins every single exchange —
+   * which is exactly why it read as "seat 0's units work and nobody else's do".
+   *
+   * ⚠ THE ONE-SHOT ARITHMETIC IS DELIBERATELY LEFT ALONE. `GOBLIN_MELEE_HP = 1` is the owner's R70
+   * ruling (*"as fragile as a chewer"*) and ATK/DEF are R72's ladder. Those are balance numbers and
+   * not mine to retune. Removing the ORDER advantage is sufficient for the owner's expectation: with
+   * both blows landing, a mutual engagement destroys both, so a bigger army wins on attrition.
+   */
+  deferDelete?: Set<CreatureId>,
+): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
   // S151 P2 — both sides are in FIFTHS: `ehp` is `hp × (5 + def)` and the amount is
   // `atk × (5 + pen)`. Same subtraction that has always been here, on one shared scale.
   c.ehp -= amountFifths;
   if (c.ehp <= 0) {
+    if (deferDelete !== undefined) {
+      // Still "dead" to the caller (kill counts, effects, return value) — only the REMOVAL waits, so
+      // a creature that has already taken a lethal blow this tick can still land the one it had
+      // committed to. It cannot act again: its ehp is <= 0 and the sweep runs before the next tick.
+      deferDelete.add(creatureId);
+      return true;
+    }
     world.creatures.delete(creatureId);
     return true;
   }
   return false;
+}
+
+/**
+ * ⭐ S155 N1 — remove every creature that took a lethal blow during this tick's strike batch.
+ * Called by `runHostTick` once, AFTER the batch, so mutual kills are genuinely mutual. Deterministic:
+ * the set is built in loop order and deletion order cannot affect the outcome (each id is removed
+ * exactly once and nothing reads a 0-ehp creature in between).
+ */
+export function sweepDeferredDeaths(world: World, dead: Set<CreatureId>): void {
+  for (const id of dead) world.creatures.delete(id);
+  dead.clear();
 }
 
 /**

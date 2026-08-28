@@ -108,7 +108,10 @@ export function damageEntity(
   switch (target.kind) {
     case 'creature':
       // Delegate — `damageCreature` stays THE creature-death path (S102 unified hp model).
-      return damageCreature(world, target.id, amount);
+      // ⭐ S155 N1 — pass the host tick's one-tick deferral set THROUGH, so a mutual melee exchange
+      // resolves simultaneously instead of being decided by `creatures` iteration order. `null`
+      // outside that batch ⇒ immediate deletion, exactly as before, for every other damage source.
+      return damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
 
     case 'primitive': {
       const prim = world.primitives.get(target.id);
