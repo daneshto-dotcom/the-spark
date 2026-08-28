@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  FIGHT_PHASE_TICKS,
   CASTLE_PORCH_SLOTS,
   PLAYER_COLORS,
   SPAWNER_CENTER_X,
@@ -168,13 +169,25 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
     expect(chooseGoal(world, SEAT, BOT_CONFIGS.MID, mulberry32(1), true).kind).not.toBe('CLEAN');
   });
 
+  /*
+   * ⭐ S156 P2 — MOVED TO FIGHT, because raiding is a FIGHT verb and the fog now applies to bots.
+   *
+   * `fogActive` is `!solo && PLAYING && BUILD`, so this fixture (which never set a phase and so ran
+   * in BUILD) was asking a bot to raid a connector it correctly cannot SEE. The assertion is
+   * unchanged; only the phase the verb belongs in was wrong, and it had been wrong invisibly for as
+   * long as the fog was a human-only mask.
+   */
   it('SEVERs the nearest enemy bond when charged (rng under severChance)', () => {
     const world = botsWorld();
-    // Enemy (seat 2) builds two bonded prims.
+    // Enemy (seat 2) builds two bonded prims — while it is still BUILD, because `canBuildNow`
+    // refuses every placement outside that phase and a refused place leaves the seat Carrying.
     const enemy = asPlayerId(2);
     placeOwnPrim(world, enemy, ENEMY_GROUND.x, ENEMY_GROUND.y, 60);
     placeOwnPrim(world, enemy, ENEMY_GROUND.x - 40, ENEMY_GROUND.y, 61);
     expect(world.bonds.size).toBeGreaterThan(0);
+    // ...and only THEN enter the FIGHT, where raiding happens and the fog is down.
+    world.matchPhase = 'FIGHT';
+    world.phaseEndsAtTick = world.tick + FIGHT_PHASE_TICKS;
     const me = world.players.get(SEAT)!;
     me.disruptionCharges = 1;
     // IMBA severChance 0.9 — first mulberry32(7) draw is < 0.9.

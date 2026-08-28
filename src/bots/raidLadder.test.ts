@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { FIGHT_PHASE_TICKS, PLAYER_COLORS, SparkType } from '../constants.ts';
 import { ownZonePoint } from '../state/zones.fixtures.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -49,6 +49,25 @@ function board(): World {
   world.nextBondId = 0;
   world.nextSpawnerId = 0;
   return world;
+}
+
+/**
+ * ⭐ S156 P2 — ENTER THE FIGHT, **AFTER** EVERYTHING IS BUILT. Call order matters and the reason is
+ * a real gate, not a quirk.
+ *
+ * Raiding is a FIGHT verb, and S156 P2 turned the per-seat fog on for bots (`fogActive` is exactly
+ * `!solo && PLAYING && BUILD`), so a SEVER fixture left in the default BUILD phase asks a bot to
+ * raid a connector it correctly cannot SEE.
+ *
+ * ⛔ BUT FLIPPING THE PHASE INSIDE `board()` PRODUCES A DIFFERENT, MISLEADING FAILURE — the
+ * `carry-1 violation: player N already carries M` that S155 flagged as a possible latent defect. It
+ * is not a defect. `canBuildNow` refuses every placement outside BUILD (`buildLegality.ts`), so a
+ * fixture that places during FIGHT leaves the player stuck in `Carrying`, and the NEXT pickup throws
+ * carry-1. The violation is the fixture's, not the product's. Hence: build in BUILD, then fight.
+ */
+function enterFight(world: World): void {
+  world.matchPhase = 'FIGHT';
+  world.phaseEndsAtTick = world.tick + FIGHT_PHASE_TICKS;
 }
 
 /** Score the board directly — the ladder reads `scoreByPlayer` and nothing else. */
@@ -146,6 +165,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 }); // rung above 10 is seat 3
     const me = world.players.get(ME)!;
     me.disruptionCharges = 2;
+    enterFight(world);
     // Stand ON seat 2's structure, so seat 2 is unambiguously the NEAREST enemy.
     const near = ownZonePoint(2, L);
     dispatch(world, { type: 'UPDATE_AVATAR_POS', playerId: ME, pos: near });
@@ -170,6 +190,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
     me.disruptionCharges = 2;
+    enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
     expect(goal.kind).toBe('SEVER');
@@ -181,6 +202,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     buildStructure(world, asPlayerId(2), 230);
     const me = world.players.get(ME)!;
     me.disruptionCharges = 2;
+    enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
     expect(goal.kind).toBe('SEVER');
@@ -195,6 +217,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
       if (scored) score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
       const me = world.players.get(ME)!;
       me.disruptionCharges = 2;
+      enterFight(world);
       let n = 0;
       const counting = (): number => {
         n += 1;
@@ -214,6 +237,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
     me.disruptionCharges = 0;
+    enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
     expect(goal.kind).not.toBe('SEVER');
@@ -225,6 +249,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
     me.disruptionCharges = 2;
+    enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.NOOB, alwaysSever, false);
     expect(goal.kind).not.toBe('SEVER');

@@ -120,6 +120,26 @@ export interface BotConfig {
    * difficulty floor between a NOOB that never builds towers and a HARD that rushes them.
    */
   readonly rushesFirstTower: boolean;
+  /**
+   * ⭐ S156 P2 (owner ruling) — does this bot SCOUT instead of loitering?
+   *
+   * Owner: *"a saving bot doesnt need to look passive he can explore the map, see what his neighbors
+   * are building and if they are building where."*
+   *
+   * This is the missing half of S155 P7. That priority generalised the fog to any seat and then
+   * shipped it INERT, because blinding a bot without giving it a way to LOOK makes it dumber rather
+   * than fairer. Scouting is the way to look: instead of the aimless `maybeWander` stroll a resting
+   * bot has always done, a scouting bot walks a deterministic patrol of its neighbours' build areas,
+   * and its own cursor radius lifts the fog it walks into.
+   *
+   * That REST is worth spending is not a guess — a goal-distribution probe over five sim-minutes
+   * measured REST at 176/300 samples for HARD and 226/300 for IMBA. The bots were already standing
+   * around for most of the match; this gives that time a purpose.
+   *
+   * HARD and IMBA only, matching `rushesFirstTower`: these are the tiers that hold shapes back, so
+   * they are the ones with idle time to spend, and the tiers the fog costs the most.
+   */
+  readonly scoutsWhileIdle: boolean;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -144,6 +164,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     upgradesGatherer: false,
     buysSecondGatherer: false,
     rushesFirstTower: false,
+    scoutsWhileIdle: false,
   },
   MID: {
     cursorSpeed: 5.0,
@@ -166,6 +187,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     upgradesGatherer: false,
     buysSecondGatherer: false,
     rushesFirstTower: false,
+    scoutsWhileIdle: false,
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -188,6 +210,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     upgradesGatherer: true,
     buysSecondGatherer: false,
     rushesFirstTower: true,
+    scoutsWhileIdle: true,
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -210,5 +233,6 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     upgradesGatherer: true,
     buysSecondGatherer: true,
     rushesFirstTower: true,
+    scoutsWhileIdle: true,
   },
 };

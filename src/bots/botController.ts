@@ -260,6 +260,16 @@ export class BotController {
       case 'FLEE':
         this.state = { kind: 'ERRAND', verb: 'FLEE', targetPos: goal.pos, refId: null, since: t };
         return;
+      /*
+       * ⭐ S156 P2 (owner) — SCOUT reuses the FLEE actuation exactly: travel to a point, do nothing
+       * on arrival. Deliberately NOT a new verb — `onArrival`'s switch has no SCOUT case, so the bot
+       * simply goes IDLE when it gets there and thinks again, which is the whole behaviour. A new
+       * verb would have needed an arrival branch, a validation branch and a test for each, to
+       * express "walk over there and look".
+       */
+      case 'SCOUT':
+        this.state = { kind: 'ERRAND', verb: 'FLEE', targetPos: goal.pos, refId: null, since: t };
+        return;
       case 'REST':
         this.maybeWander(world);
         return;

@@ -37,7 +37,12 @@ import { canBuildNow } from '../state/buildLegality.ts';
  * was a mask over the HUMAN's screen and nothing else — bots read `world.primitives` directly and
  * had no concept of it. The scans below now take the seat's own vision and skip what it cannot see.
  */
-import { isPointVisible, type VisionSource } from '../state/vision.ts';
+import {
+  computeVisionSourcesForSeat,
+  fogActive,
+  isPointVisible,
+  type VisionSource,
+} from '../state/vision.ts';
 import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
@@ -128,6 +133,11 @@ export type BotGoal =
    */
   | { readonly kind: 'UPGRADE_GATHERER' }
   | { readonly kind: 'BUY_GATHERER' }
+  /**
+   * ⭐ S156 P2 (owner) — walk a neighbour's build area instead of loitering. Movement only: it
+   * reuses the FLEE-shaped ERRAND actuation, carries no verb, and touches nothing on arrival.
+   */
+  | { readonly kind: 'SCOUT'; readonly pos: Vec2 }
   | { readonly kind: 'REST' };
 
 /** ⭐ S154 P3 — the tower a bot has decided to build, and where. */
@@ -308,39 +318,32 @@ export function chooseGoal(
   }
 
   /*
-   * ⭐ S155 P7 (owner) — **THE SUBSTRATE IS HERE; THE SWITCH IS DELIBERATELY OFF.**
+   * ⭐ S155 P7 + S156 P2 (owner) — **THE FOG NOW APPLIES TO BOTS, AND THEY CAN LOOK.**
    *
    * Owner: *"shouldnt my towers be hidden from him in fog of war during building stage and he has to
    * explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not
-   * fair if bots see evcerything"*. They are right, and it was one-sided BY CONSTRUCTION:
+   * fair if bots see evcerything"*. They were right, and it was one-sided BY CONSTRUCTION:
    * `vision.ts` was hardcoded to `world.localPlayerId` and consumed only by the renderer, so the fog
    * was a mask over the HUMAN's screen and nothing else.
    *
    * S155 generalised the vision math to any seat (`computeVisionSourcesForSeat`, `isVisibleToSeat`)
-   * and gave the three enemy scans below an OPTIONAL `vision` parameter. Passing it is the whole
-   * activation:
+   * and gave the enemy scans an optional `vision` parameter — then shipped it INERT, deliberately,
+   * because blinding a bot without giving it a way to LOOK makes it dumber rather than fairer.
    *
-   *     const vision = fogActive(world)
-   *       ? computeVisionSourcesForSeat(world, seat, me.avatarPos)
-   *       : null;
-   *     nearestEnemySpawnerBond(world, seat, me.avatarPos, vision)
-   *     nearestEnemyBond(world, seat, me.avatarPos, vision)
-   *     nearestEnemyPrim(world, seat, potato.pos, vision)
+   * ⭐ S156 P2 SUPPLIES THE MISSING HALF AND TURNS IT ON. The owner ruled the other way round from
+   * how I had framed it — *"a saving bot doesnt need to look passive he can explore the map, see
+   * what his neighbors are building and if they are building where"* — so the same change that
+   * blinds a bot also gives it a patrol (`scoutPoint`, the SCOUT goal at the bottom of this
+   * function). Fog and scouting ship together because either alone is a regression.
    *
-   * ⛔ IT IS NOT WIRED, AND THAT IS A DELIBERATE STOP RATHER THAN AN OVERSIGHT. Wiring it was tried
-   * and it turns three `botGameplay.test.ts` cases red — the SEVER pair and the POTATO case — because
-   * those fixtures never set a phase, so they run in BUILD, and `fogActive` is exactly
-   * `!solo && PLAYING && BUILD`. Those are FIGHT verbs pinned in a BUILD world, so re-homing them is
-   * the correct fix, not a loosened assertion. But moving that fixture to FIGHT surfaced a SECOND,
-   * unrelated failure — `carry-1 violation: player 2 already carries 60` — i.e. a bot picking up a
-   * spark during FIGHT, which may be a real latent defect and is not this priority's to diagnose at
-   * the end of a long session.
-   *
-   * So the substrate ships PROVEN and INERT: `vision.test.ts` pins that the human's fog is
-   * byte-identical and that a seat is concealed in BUILD and revealed in FIGHT. Activating it is a
-   * small, well-understood next step with a known list of three tests to re-home — which is a much
-   * better handoff than a bot-behaviour change whose own suite was reshaped under time pressure.
+   * ⚠ `fogActive` is `!solo && PLAYING && BUILD`, so during FIGHT this is null and every scan below
+   * is bit-for-bit what it was. What it removes is a bot reaching into an unexplored quadrant during
+   * BUILD — the exact thing the human cannot do and was complaining about. It therefore does not
+   * touch the owner's Q2 raid prohibition either: raiding lives in the FIGHT, where the fog is down.
    */
+  const vision = fogActive(world)
+    ? computeVisionSourcesForSeat(world, seat, me.avatarPos)
+    : null;
 
   // 3 — RAINBOW: chaos for everyone, and the bot likes chaos (rng-gated).
   if (cfg.claimsRainbow && world.rainbows.size > 0 && rng() < cfg.rainbowChance) {
@@ -373,10 +376,10 @@ export function chooseGoal(
   if (cfg.canSever && me.disruptionCharges >= 1 && rng() < cfg.severChance) {
     const rung = ladderTargetSeat(world, seat);
     const target =
-      (rung === null ? null : nearestEnemySpawnerBond(world, seat, me.avatarPos, null, rung)) ??
-      (rung === null ? null : nearestEnemyBond(world, seat, me.avatarPos, null, rung)) ??
-      nearestEnemySpawnerBond(world, seat, me.avatarPos) ??
-      nearestEnemyBond(world, seat, me.avatarPos);
+      (rung === null ? null : nearestEnemySpawnerBond(world, seat, me.avatarPos, vision, rung)) ??
+      (rung === null ? null : nearestEnemyBond(world, seat, me.avatarPos, vision, rung)) ??
+      nearestEnemySpawnerBond(world, seat, me.avatarPos, vision) ??
+      nearestEnemyBond(world, seat, me.avatarPos, vision);
     if (target !== null) return { kind: 'SEVER', bondId: target.bondId, pos: target.mid };
   }
 
@@ -387,7 +390,7 @@ export function chooseGoal(
     me.carriedPotatoId === undefined
   ) {
     for (const potato of world.potatoes.values()) {
-      if (potato.state === 'FREE' && nearestEnemyPrim(world, seat, potato.pos) !== null) {
+      if (potato.state === 'FREE' && nearestEnemyPrim(world, seat, potato.pos, vision) !== null) {
         return {
           kind: 'POTATO_GRAB',
           potatoId: potato.id,
@@ -571,6 +574,27 @@ export function chooseGoal(
       if (!queued.includes(wanted)) return { kind: 'ORDER', sparkType: wanted };
     }
     if (bankCount(world.castleBanks, me.id) > 0) return { kind: 'PULL' };
+  }
+
+  /*
+   * ⭐ S156 P2 (owner) — 8 — SCOUT: there is nothing to do here, so go and LOOK.
+   *
+   * Owner: *"a saving bot doesnt need to look passive he can explore the map, see what his neighbors
+   * are building and if they are building where."* This sits exactly where REST used to, which is
+   * the point: a goal-distribution probe measured REST at 176/300 think-samples for HARD and 226/300
+   * for IMBA over five sim-minutes, so this is by far the biggest block of bot time in the match and
+   * it was being spent on an aimless stroll.
+   *
+   * It is also what makes the fog above FAIR rather than merely punishing: a blinded bot that never
+   * moves stays blind, and `scoutPoint`'s patrol walks its cursor radius over a neighbour's build
+   * area — the same way a human explores. Deterministic and rng-free (see `scoutPoint`).
+   *
+   * REST remains the floor for every non-scouting tier, and for a scouting bot in a world with
+   * nobody to visit.
+   */
+  if (cfg.scoutsWhileIdle) {
+    const look = scoutPoint(world, seat);
+    if (look !== null) return { kind: 'SCOUT', pos: look };
   }
 
   return { kind: 'REST' };
@@ -784,6 +808,42 @@ export function ladderTargetSeat(world: World, seat: PlayerId): PlayerId | null 
     }
   }
   return rungUp ?? below;
+}
+
+/**
+ * ⭐ S156 P2 (owner ruling) — WHERE A BOT GOES TO LOOK.
+ *
+ * Owner: *"a saving bot doesnt need to look passive he can explore the map, see what his neighbors
+ * are building and if they are building where."*
+ *
+ * The patrol is a deterministic ROTATION over the other seats: `world.tick / SCOUT_DWELL_TICKS`
+ * selects one, and the destination is the midpoint of (that seat's castle anchor → board centre) —
+ * which is where a seat actually builds, not where its keep is drawn. Walking there puts the bot's
+ * own `R_PERSONAL` cursor radius over a neighbour's construction, which is precisely the "see what
+ * they are building and where" the owner asked for, and it is the same derivation the zone test
+ * fixtures use for "a point inside seat N's ground".
+ *
+ * ⛔ ZERO RNG, ON PURPOSE. The obvious implementation is a random walk, and it would have been
+ * wrong twice over: `chooseGoal`'s seeded stream has a DRAW ORDER that `hostTick.replay`,
+ * `workerSim.differential` and `botController`'s same-seed test all depend on, and a random
+ * destination would also make the patrol unreproducible from a snapshot. A tick-driven rotation is
+ * deterministic, replay-safe, and reads as more purposeful than wandering anyway.
+ *
+ * Returns null in solo or any single-seat world, where there is nobody to scout.
+ */
+const SCOUT_DWELL_TICKS = 900; // 15 s at 60 Hz — long enough to actually arrive and look
+export function scoutPoint(world: World, seat: PlayerId): Vec2 | null {
+  const enemies: PlayerId[] = [];
+  for (const player of world.players.values()) {
+    if (player.id !== seat) enemies.push(player.id);
+  }
+  if (enemies.length === 0) return null;
+  const which = Math.floor(world.tick / SCOUT_DWELL_TICKS) % enemies.length;
+  const anchor = castleAnchor(enemies[which] as unknown as number, world.layout);
+  return {
+    x: (anchor.x + CANVAS_WIDTH / 2) / 2,
+    y: (anchor.y + CANVAS_HEIGHT / 2) / 2,
+  };
 }
 
 /** Nearest bond NOT owned by `seat` (cross-color bonds are impossible, so a
