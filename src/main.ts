@@ -95,6 +95,8 @@ import {
   HOST_STARVATION_MS,
 } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
+// ⭐ S155 P2 — the in-match BACK TO MAIN button + its confirm modal.
+import { makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
@@ -1057,11 +1059,27 @@ async function bootstrap(): Promise<void> {
     if (chordBlocked()) return; // typing a name / NONET / a cinematic is running
     if (codexOverlay !== null && codexOverlay.isVisible()) return;
     if (castlePanel.armedBlueprint() !== null) return; // the disarm press owns this Escape
+    /*
+     * ⭐ S155 P2 — Escape CANCELS the leave modal rather than leaving.
+     *
+     * Ordered above the double-press logic on purpose. With the confirm up, Escape is unambiguously
+     * "back out of this dialog" — every other overlay in the game already answers Escape that way —
+     * and letting the gesture fall through to the second-press branch would mean a player who opened
+     * the dialog and hit Escape to dismiss it got ejected from the match instead. That is the same
+     * class of accident the modal itself was chosen to prevent (Council C6).
+     */
+    if (exitButton.isConfirmOpen()) {
+      exitButton.closeConfirm();
+      lastEscapeAtMs = null; // and it does NOT count as the first press of a new double-tap
+      return;
+    }
     const nowMs = performance.now();
     if (lastEscapeAtMs !== null && nowMs - lastEscapeAtMs < TITLE_EXIT_CONFIRM_MS) {
       lastEscapeAtMs = null;
-      teardownNet(session, world, controls, P1);
-      dispatch(world, { type: 'RETURN_TO_TITLE' });
+      // S155 P2 — the shared thunk (was an inline teardown+dispatch copy). Behaviour is identical:
+      // leaveToTitle additionally calls stopQuickmatch(), which this path was silently MISSING — a
+      // double-Escape out of a quickmatch match left the discovery running.
+      leaveToTitle();
       return;
     }
     lastEscapeAtMs = nowMs;
@@ -1187,6 +1205,26 @@ async function bootstrap(): Promise<void> {
       qmDiscovery = null;
     }
   };
+  /*
+   * ⭐ S155 P2 — THE ONE WAY OUT, and there is now exactly one.
+   *
+   * Owner: *"back to main doesnt work from multiplayer and from some windows. needs to make it all
+   * work"*. The *"from multiplayer"* half is the network teardown: leaving a match means stopping
+   * quickmatch discovery, disposing the transport AND clearing the session, then letting the reducer
+   * do its cinematic/state cleanup. Before this there were THREE hand-copied sites doing that
+   * sequence (lobby Back, connection-lost return, double-Escape) — and three copies of a teardown
+   * is exactly how one of them ends up missing the network half and "back to main" half-works.
+   *
+   * Every exit now calls this: the new BACK TO MAIN button, the double-Escape gesture, the lobby's
+   * Back button, and the connection-lost return. One sequence, one place to get right.
+   */
+  const leaveToTitle = (): void => {
+    stopQuickmatch();
+    teardownNet(session, world, controls, P1);
+    // S31 P0-2 — route through reducer dispatch, never a direct gameState write: applyReturnToTitle
+    // owns the cinematic-state clear, and a direct assignment bypasses it entirely.
+    dispatch(world, { type: 'RETURN_TO_TITLE' });
+  };
   // The all-ready gate fires this; ignore it once the match has left LOBBY so a
   // late LOBBY_READY can't re-dispatch START_GAME (idempotency, Council F4).
   const onAutoBegin = (): void => {
@@ -1292,21 +1330,26 @@ async function bootstrap(): Promise<void> {
     onBeginMatch,
     onQuickMatch: startQuickmatch,
     onToggleReady,
-    onBackToTitle: () => {
-      // S31 P0-2 (PRIME-AUDIT Δ5 scope amendment) — route through reducer
-      // dispatch so the new applyReturnToTitle cinematic-state-clear cleanup
-      // applies on the lobby-back path too. Pre-S31 this set gameState
-      // directly which bypassed the reducer cleanup entirely.
-      stopQuickmatch();
-      teardownNet(session, world, controls, P1);
-      dispatch(world, { type: 'RETURN_TO_TITLE' });
-    },
-    onReturnFromConnectionLost: () => {
-      stopQuickmatch();
-      teardownNet(session, world, controls, P1);
-      dispatch(world, { type: 'RETURN_TO_TITLE' });
-    },
+    // S155 P2 — both were verbatim copies of the same three-step teardown; they now share the ONE
+    // `leaveToTitle` thunk with the double-Escape gesture and the new BACK TO MAIN button.
+    onBackToTitle: leaveToTitle,
+    onReturnFromConnectionLost: leaveToTitle,
   });
+
+  /*
+   * ⭐ S155 P2 — THE BACK TO MAIN BUTTON. Owner: *"back to main doesnt work from multiplayer and from
+   * some windows... doesnt pop out or show thaty it is clickable like other buttons... need to make
+   * it interractive and obvious."*
+   *
+   * ⛔ THE A.0 FINDING WAS THAT THERE WAS NO BUTTON AT ALL — in a live match the only exit was an
+   * undiscoverable double-Escape whose own comment said it was chosen because it *"needs no new UI
+   * surface"*. So this is an addition, not a repair, and its confirm is a MODAL with spatially
+   * separated choices rather than a two-step same-hitbox press: the S155 Council's strongest UX
+   * finding was that a two-step confirm on one hitbox ejects double-clicking players from live
+   * matches — and a double-click is the most likely input from someone who just pressed a button and
+   * saw nothing happen, i.e. exactly this player. See exitButton.ts.
+   */
+  const exitButton = makeExitButton(app, leaveToTitle);
 
   const hint = new Text({
     // ⚠ S152 P1 — "RMB click on bond → sever" WAS NOW A LIE, and the help line is the one place a
@@ -1352,6 +1395,9 @@ async function bootstrap(): Promise<void> {
       get controls() { return controls; },
       get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
+      // S155 P2 — exit-button + confirm-modal geometry and state, so the e2e clicks real targets
+      // rather than transcribed coordinates (the S85 P4c geometry-getter convention).
+      get exitButton() { return exitButton; },
       get titleScreen() { return titleScreen; },
       // S136 P0 — castle-panel geometry + per-row enabled/reason, for e2e. Before this session the
       // buy/speed controls had ZERO e2e coverage, which is exactly why a control that is disabled
@@ -2699,6 +2745,15 @@ async function bootstrap(): Promise<void> {
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
     lobbyScreen.setVisible(showLobby);
+    /*
+     * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
+     *
+     * Shown in PLAYING and nowhere else, because every other state already has its own exit: TITLE
+     * *is* the destination, LOBBY has its Back button, POSTGAME returns on a click, and the
+     * connection-lost overlay has its own return. `modalUp` is reused rather than re-derived so the
+     * button cannot draw over the codex / bot-setup / arcade panes — the S152 through-drawing class.
+     */
+    exitButton.setVisible(world.gameState === 'PLAYING' && !modalUp);
 
     // S16 P3.b — hide spawner ring + legend during TITLE/LOBBY so they don't
     // bleed through the overlay panes (user-flagged after S15 screenshot review).

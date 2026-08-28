@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2830,
+  "tool_calls_session_total": 2831,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -221,17 +221,158 @@
     {
       "id": "P2",
       "title": "A real, obvious, interactive BACK TO MAIN",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "TWO FINDINGS, and the second one is why the owner has now reported this twice. (1) THERE IS NO BACK-TO-MAIN BUTTON AT ALL: `grep -rni 'back to main'` over src/ returns only comments and one e2e title. In a live match the ONLY exit was an undiscoverable double-Escape (main.ts, S153 A2) whose own comment justified itself as needing 'no new UI surface'. So the owner is not reporting a broken button, they are reporting a missing one — this is an ADDITION, not a repair. (2) 'LIKE OTHER BUTTONS' WAS A PRECISE TECHNICAL CLAIM: `lobbyScreen.makeButton` — which builds Host, Join, Begin AND Back, i.e. the lobby's own back-to-main — had eventMode, cursor and a bare pointertap and NOTHING else: no hover, no press state, no sound. Meanwhile S152 A5 fixed this EXACT complaint ('it all need to either pop out, be highlighted, make a sound or all at once so we know when we have clicked something') on the title screen and left the fix INLINE there. The title buttons pop; nothing else did. The owner was comparing two real surfaces and was right about both. SHIPPED: buttonFeedback.ts lifts the S152 A5 grammar verbatim (REST 1 / HOVER 1.04 / PRESS 0.97, 0xbfd4ff tint, click blip, and the pointerupoutside reset whose absence leaves a button stuck looking permanently held) into ONE shared implementation, now used by titleScreen (refactored to it, no behaviour change), lobbyScreen.makeButton, the quickmatch READY toggle, the new exit button and both modal buttons. A future tune moves every button together instead of leaving a third screen behind for a fourth report. exitButton.ts adds the in-match BACK TO MAIN affordance with a drop shadow so it reads as resting ABOVE the canvas. COUNCIL BLOCKER ADOPTED (GEMINI-AUDITOR, and it was my worst design decision in the batch): my first confirm was two-step on the SAME hitbox ('CLICK AGAIN TO LEAVE'), which ejects a double-clicking player from a live match — and a double-click is the MOST likely input from someone who just pressed a button and saw nothing happen, i.e. exactly the player this priority is for. Replaced by a dimming modal with SPATIALLY SEPARATED choices, 60px of dead space between them, the destructive one NOT under the pointer that opened it, and a click-swallowing backdrop so a stray second click is a no-op. 'Keep playing' deliberately sits nearer where the pointer already is, so if a stray double-click does reach the panel it hits the SAFE button. An e2e asserts the double-click does not leave. GEOMETRY WAS MEASURED, NOT GUESSED: hudSurfaces() was DUMPED for worst-case 4-row metrics and the free slot read off the real rects — which is what caught the trap, because the energy gauge and progress rail run x=1882..1904 from y=80 all the way to the footer, so the natural 'flush to HUD_RIGHT_X' placement would have drawn straight through the progress rail for the entire match. The button therefore ends at x=1876. It is REGISTERED in hudSurfaces() as 'exit-button', so hudLayout.test.ts's all-pairs overlap gate now proves the slot is free (21/21 green with it registered) — S152 shipped HUD diamonds through the Q=ZONE text precisely because an unregistered surface is invisible to that gate. LATENT DEFECT FOUND AND FIXED WHILE CONSOLIDATING: the three copies of the leave sequence were not identical — the double-Escape path was MISSING stopQuickmatch(), so leaving a quickmatch match by keyboard left the discovery running. All four exits (button, double-Escape, lobby Back, connection-lost return) now share ONE leaveToTitle thunk. Escape now CANCELS the confirm rather than leaving, ordered above the double-press branch so a player who opens the dialog and hits Escape to dismiss it is not ejected instead. VERIFIED, incl. in a real browser: tsc 0 · 3114/3114 unit (190 files, +9 button-grammar tests incl. a pinned constants canary) · hudLayout overlap gate 21/21 WITH the new surface · build 746.6 KiB / 900 cap (headroom 153.4) · e2e/exit-match.spec.ts 9/9 in real Chromium through REAL pointer events — the three original S153 A2 invariants (a SINGLE Escape must never abandon a match) still green, plus open-confirm, Keep-playing, Leave-match, Escape-cancels, the double-click guard, and 'S155 exit-from-multiplayer' which drives a JOINER out of a live networked match and asserts peerCount drops to 0, i.e. the network half the owner meant by 'doesnt work from multiplayer' (a gameState assertion alone would pass with the socket still open) · VISUAL PROOF captured to ab-shots/s155/ (rest, hover, modal) and inspected: the button sits top-right clear of the beta badge and the right-edge rail, the hover state is visibly brighter, and the modal's red/green choices are well separated.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/buttonFeedback.ts",
+          "needle": "export function attachButtonFeedback"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/buttonFeedback.ts",
+          "needle": "export const BUTTON_HOVER_SCALE = 1.04;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/buttonFeedback.ts",
+          "needle": "export const BUTTON_PRESS_SCALE = 0.97;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/buttonFeedback.ts",
+          "needle": "pointerupoutside"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/exitButton.ts",
+          "needle": "export const EXIT_BTN_LABEL = 'BACK TO MAIN';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/exitButton.ts",
+          "needle": "export const EXIT_RIGHT_LIMIT = 1876;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/exitButton.ts",
+          "needle": "export function exitButtonRect"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/exitButton.ts",
+          "needle": "backdrop.eventMode = 'static';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "out.push({ name: 'exit-button', rect: exitButtonRect() });"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "attachButtonFeedback(c, bg, onClick);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/titleScreen.ts",
+          "needle": "const HOVER = 1.04;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyScreen.ts",
+          "needle": "attachButtonFeedback(c, bg, onClick);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyScreen.ts",
+          "needle": "attachButtonFeedback(this.readyButton, this.readyButtonBg"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const leaveToTitle = (): void => {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "onBackToTitle: leaveToTitle,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "onReturnFromConnectionLost: leaveToTitle,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const exitButton = makeExitButton(app, leaveToTitle);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "if (exitButton.isConfirmOpen()) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "exitButton.setVisible(world.gameState === 'PLAYING' && !modalUp);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/main.ts",
+          "pattern": "leaveToTitle\\(\\)",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/buttonFeedback.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 9
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/exit-match.spec.ts",
+          "pattern": "^  test\\(",
+          "op": ">=",
+          "value": 9
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/exit-match.spec.ts",
+          "pattern": "S155 exit-from-multiplayer",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "S155 exit-from-multiplayer"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/exit-match.spec.ts",
+          "needle": "expect(js.peerCount).toBe(0);"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "package.json",
+          "syntax_type": "json"
+        }
+      ]
     },
     {
       "id": "P3",
       "title": "Voltkin's clock starts when the fight starts (one-step deferral, no stasis)",
-      "status": "pending",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -3541,5 +3682,7 @@
     "A0-16: WORKER_DEFAULT_ON = false, and the one red CI test is worker-bots.spec.ts - the exact surface a default-on flip would activate. The flip is therefore CONDITIONAL in this batch.",
     "A0-17: context 184,652/1,000,000 = 18.47% GREEN at PDR time. All later readings pass --session-id explicitly.",
     "A0-18: tsc -b --noEmit exit 0; tree clean but for the session-state counter."
-  ]
+  ],
+  "deploy_verified_s155_p1": "PASS by content-hash equality — the LIVE asset at https://spark-online.space is assets/index-DJYhUA3Y.js, byte-identical to the P1 local build ('[bundle] main entry assets/index-DJYhUA3Y.js: 744.5 KiB'). Deploy run 33160264467 success; remote master 44acfabf. So P1 is genuinely in the owner's browser, not merely committed.",
+  "e2e_gating_status_s155": "GREEN — 59 passed, exit 0 read from a redirect not a pipe (S154 trap). Includes the six new S155 P2 exit-button tests, which GATE by default in a new spec-less file... (they live in the already-gating e2e/exit-match.spec.ts)."
 }

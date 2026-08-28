@@ -13,6 +13,8 @@
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
+// ⭐ S155 P2 — the ONE shared button grammar (hover pop + press + blip). See buttonFeedback.ts.
+import { attachButtonFeedback } from './buttonFeedback.ts';
 import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
@@ -379,9 +381,11 @@ export class LobbyScreen {
     this.readyButtonText.anchor.set(0.5);
     this.readyButtonText.position.set(BUTTON_WIDTH / 2, BUTTON_HEIGHT / 2);
     this.readyButton.addChild(this.readyButtonText);
-    this.readyButton.eventMode = 'static';
-    this.readyButton.cursor = 'pointer';
-    this.readyButton.on('pointertap', () => {
+    // ⭐ S155 P2 — the QUICK MATCH ready toggle gets the shared grammar too. It is one of the two
+    // paths the owner reported broken ("neither the quick match nor the host/join"), and a toggle
+    // whose press does not register is the one control where that ambiguity is worst: you cannot
+    // tell "my click missed" from "I am ready and the other player is not".
+    attachButtonFeedback(this.readyButton, this.readyButtonBg, () => {
       this.selfReady = !this.selfReady;
       this.paintReadyButton();
       callbacks.onToggleReady(this.selfReady);
@@ -783,9 +787,20 @@ export class LobbyScreen {
     text.anchor.set(0.5);
     text.position.set(BUTTON_WIDTH / 2, BUTTON_HEIGHT / 2);
     c.addChild(text);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.on('pointertap', onClick);
+    /*
+     * ⭐ S155 P2 — THESE BUTTONS NOW POP, HIGHLIGHT AND CLICK. Owner: *"back to main doesnt pop out
+     * or show thaty it is clickable like other buttons... need to make it interractive and obvious."*
+     *
+     * ⛔ AND "LIKE OTHER BUTTONS" IS THE WHOLE DIAGNOSIS. This factory builds Host / Join / Begin
+     * **and Back** — the lobby's own back-to-main — and it had `eventMode`, `cursor` and a bare
+     * `pointertap` and NOTHING ELSE: no hover, no press state, no sound. Meanwhile S152 A5 fixed
+     * exactly this complaint on the title screen and left the fix inline there, so the title buttons
+     * pop and these never did. The owner was comparing two real surfaces and was right about both.
+     *
+     * One shared grammar now (buttonFeedback.ts), so a future tune moves every button together
+     * instead of leaving a third screen behind for a fourth report.
+     */
+    attachButtonFeedback(c, bg, onClick);
     return c;
   }
 

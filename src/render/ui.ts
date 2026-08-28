@@ -32,6 +32,8 @@ import {
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
+// ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
+import { exitButtonRect } from './exitButton.ts';
 
 const GAUGE_X = CANVAS_WIDTH - 24;
 
@@ -511,6 +513,17 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
       h: PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP,
     },
   });
+  /*
+   * ⭐ S155 P2 — THE BACK-TO-MAIN BUTTON IS A REGISTERED SURFACE.
+   *
+   * Registering it is not bookkeeping, it is the gate: S152 shipped HUD diamonds drawn straight
+   * through the Q=ZONE text because an unregistered surface is invisible to `hudLayout.test.ts`.
+   * The slot was chosen by DUMPING this function's own output for worst-case 4-row metrics rather
+   * than by eyeballing the screen — and that is what caught the trap, because the energy gauge and
+   * progress rail run x=1882..1904 from y=80 all the way down to the footer, so the natural
+   * "flush right" placement would have drawn through the rail for the whole match.
+   */
+  out.push({ name: 'exit-button', rect: exitButtonRect() });
   out.push({
     name: 'help-line',
     rect: { x: HELP_LINE_X, y: HELP_LINE_Y, w: m.helpWidth, h: 12 },

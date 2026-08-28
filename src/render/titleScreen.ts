@@ -21,7 +21,7 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
 import { fitTextToWidth } from './textFit.ts';
-import { playUiClickSFX } from './audioManager.ts';
+import { attachButtonFeedback } from './buttonFeedback.ts';
 
 // S121 P4 — 360 was too narrow for the sublabels (the CODEX one ran ~490px wide and escaped the
 // box; Multiplayer/VS-Bots grazed the edges). Wider buttons + tighter copy + a fitTextToWidth
@@ -237,30 +237,16 @@ export class TitleScreen {
      *
      * ⚠ `pointerupoutside` MUST reset the scale, or dragging off a pressed button leaves it stuck
      * depressed forever — a button that looks permanently held is worse than no press state.
+     *
+     * ⭐ S155 P2 — EXTRACTED, NOT CHANGED. The block that used to live here is now
+     * `attachButtonFeedback` in buttonFeedback.ts, verbatim: same scales (1 / 1.04 / 0.97), same
+     * 0xbfd4ff hover tint, same blip, same `pointerupoutside` reset. It moved because the owner
+     * reported the SAME complaint about a second screen — *"back to main doesnt pop out or show
+     * thaty it is clickable like other buttons"* — and *"like other buttons"* turned out to mean
+     * "like these ones", since `lobbyScreen.makeButton` had no hover, press or sound at all. One
+     * grammar shared by every button beats a third hand-rolled variant and a fourth report.
      */
-    const REST = 1;
-    const HOVER = 1.04;
-    const PRESS = 0.97;
-    let hovered = false;
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.on('pointertap', () => {
-      void playUiClickSFX();
-      onClick();
-    });
-    c.on('pointerover', () => {
-      hovered = true;
-      bg.tint = 0xbfd4ff;
-      c.scale.set(HOVER);
-    });
-    c.on('pointerout', () => {
-      hovered = false;
-      bg.tint = 0xffffff;
-      c.scale.set(REST);
-    });
-    c.on('pointerdown', () => { c.scale.set(PRESS); });
-    c.on('pointerup', () => { c.scale.set(hovered ? HOVER : REST); });
-    c.on('pointerupoutside', () => { c.scale.set(REST); });
+    attachButtonFeedback(c, bg, onClick);
     return c;
   }
 }
