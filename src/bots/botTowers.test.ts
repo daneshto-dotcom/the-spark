@@ -368,4 +368,78 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
       blueprintCost(CHEAPEST),
     );
   });
+
+  /**
+   * ⭐⭐ S155 P4 — **THE REPRESENTATIVE ACCEPTANCE TEST**, and the three ways the old one was not.
+   *
+   * The block above ends with an instruction from S154: *"⚠ DO NOT 'fix' this by loosening the
+   * assertion. The assertion is right; the FIXTURE is unrepresentative... The next attempt needs a
+   * test that runs the REAL phase clock."* This is that test, and building it found that the fixture
+   * was unrepresentative in **three** independent ways, each of which hid the next:
+   *
+   *   1. **the phase clock was PINNED** — `matchPhase = 'BUILD'` and `phaseEndsAtTick += 10_000`
+   *      every tick, giving three unbroken sim-minutes of BUILD. A real match alternates BUILD 90 s /
+   *      FIGHT 45 s. (This is the one S154 identified.)
+   *   2. **the match was TWO-SEAT** — the owner plays VS-BOTS with three bots. Four seats split one
+   *      quarry four ways, so per-bot income is materially lower.
+   *   3. **the only opponent NEVER BUILT** — seat 0 is an idle human seat, so `nearestEnemyBond`
+   *      finds nothing, the rng-gated SEVER branch never fires, and the bot sails down to its economy
+   *      and tower branches. With three real opponents it spends far more of its thinks raiding.
+   *
+   * ⛔ AND THE HEADLINE RESULT IS NOT WHAT S154 PREDICTED. On this representative fixture the
+   * SHIPPED code does raise towers — it is late, not absent:
+   *
+   *     MID  — no tower in 5 sim-minutes (it has the lowest `towerTiers` and does not upgrade)
+   *     HARD — first tower at tick ~10 400 (~2.9 sim-minutes), a second by ~16 600
+   *     IMBA — first tower at tick ~17 900 (~5 sim-minutes)
+   *
+   * So the owner's *"still not saving or building towers"* is a SPEED complaint, not a dead feature:
+   * the first tower lands after roughly two full BUILD/FIGHT cycles, which is longer than they
+   * watched. Tuning that is a balance decision with an owner-visible cost, so it is left for a ruling
+   * rather than guessed at here — see the session handoff.
+   *
+   * ⚠ THIS TEST ASSERTS WHAT IS TRUE TODAY so a regression to genuine ZERO is caught. It deliberately
+   * does NOT assert a tick budget: pinning "within N ticks" against a number nobody has ruled on
+   * would be inventing balance in a test file.
+   */
+  it('⭐ THE REAL PHASE CLOCK, FOUR SEATS: a HARD bot still raises a tower', () => {
+    // Four seats, three of them bots — the owner's actual VS-BOTS shape. Seat 1 is the HARD bot.
+    const w = makeWorld(0xb07);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME',
+      mode: 'bots',
+      isHost: true,
+      roster: [0, 1, 2, 3].map((seat) => ({ seat, color: PLAYER_COLORS[seat] })),
+      botSeats: [1, 2, 3],
+    });
+    expect(bankCountOf(w.castleBanks, SEAT, 0 as never)).toBe(0);
+
+    const m = new BotManager(['HARD', 'MID', 'IMBA'], 0xbeef);
+    const d = deps();
+    const st = makeHostTickState(w);
+
+    // ⛔ NO PHASE PINNING — that deletion is the point of this test.
+    let firstTowerTick = -1;
+    const phasesSeen = new Set<string>();
+    for (let t = 0; t < 60 * 300; t++) {
+      m.tick(w);
+      runHostTick(w, d, st);
+      phasesSeen.add(w.matchPhase);
+      if (firstTowerTick < 0) {
+        const any = [...w.primitives.values()].some((p) => p.placedBy === SEAT && p.origin !== null);
+        if (any) firstTowerTick = w.tick;
+      }
+    }
+
+    // Anti-vacuity: the clock really ran, and the bot really lived through both phases.
+    expect(phasesSeen.has('BUILD')).toBe(true);
+    expect(phasesSeen.has('FIGHT')).toBe(true);
+
+    const stamped = [...w.primitives.values()].filter((p) => p.placedBy === SEAT && p.origin !== null);
+    expect(
+      stamped.length,
+      `a HARD bot on the REAL clock in a FOUR-SEAT match raised a structure (first tower at tick ${firstTowerTick})`,
+    ).toBeGreaterThanOrEqual(blueprintCost(CHEAPEST));
+  });
 });

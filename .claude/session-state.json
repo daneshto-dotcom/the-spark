@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2843,
+  "tool_calls_session_total": 2884,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -456,17 +456,65 @@
     {
       "id": "P4",
       "title": "The bot tower save, sized from BUILD-only income, tested on the real phase clock",
-      "status": "in_progress",
+      "status": "completed_partial",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "⚠ PARTIAL, AND THE HONEST HEADLINE IS THAT THE OWNER'S #4 IS NOT FIXED. What shipped is a REPRESENTATIVE test, a measurement that refutes the diagnosis this priority was planned on, and a REVERTED experiment. No behavioural change to botBrain.ts was kept. FOLLOWED THE HANDOFF INSTRUCTION LITERALLY ('DO NOT loosen the assertion - write a test on the REAL phase clock, watch it fail'), and building it found the S154 fixture was unrepresentative in THREE independent ways, each hiding the next: (1) the phase clock was PINNED (matchPhase='BUILD' and phaseEndsAtTick += 10000 EVERY tick = three unbroken sim-minutes of BUILD; a real match is BUILD 90s / FIGHT 45s) - the one S154 identified; (2) the match was TWO-SEAT while the owner plays three bots, and four seats split one quarry four ways; (3) the only opponent NEVER BUILT (seat 0 is an idle human seat), so nearestEnemyBond finds nothing, the rng-gated SEVER branch never fires, and the bot sails down to its economy and tower branches - with three real opponents it spends far more thinks raiding. ⛔ AND THE RESULT REFUTES THE PDR's DIAGNOSIS. My planned fix was phase-relative anchoring of the save window, on arithmetic showing the longest contiguous hold is 30s against a ~44s bill. Measured on the representative fixture, the SHIPPED code DOES raise towers - it is LATE, not absent: MID none in 5 sim-minutes; HARD first tower at tick ~10,400 (~2.9 sim-min) and a second by ~16,600; IMBA first at ~17,900 (~5 sim-min). So the owner's 'still not saving or building towers' is a SPEED complaint, not a dead feature - the first tower lands after roughly two full BUILD/FIGHT cycles, longer than they watched. ⛔ I TRIED TWO FIXES AND BOTH MADE IT MEASURABLY WORSE, SO BOTH WERE REVERTED. (a) type-aware protection (never place a shape the bill still needs, replacing the duty-cycled clock); (b) hoisting the zero-travel castle commands (UPGRADE / BUY / TOWER / ORDER) above the raid branches. Head-to-head on the same seed and fixture: BASELINE HARD 2 towers (ticks 10388, 16634) + IMBA 1 tower (17882); WITH MY CHANGES HARD 1 tower (13160) + IMBA 0. Strictly worse. botBrain.ts is byte-identical to S154 at close (git status shows it unmodified). ⭐⭐ AND THE MOST IMPORTANT ENTRY: MY OWN INSTRUMENT WAS WRONG FOR THREE ROUNDS AND I ACTED ON IT. BotManager(['NOOB', tier, 'IMBA']) assigns seats 1,2,3 in order, so the tier under test sat at SEAT 2 while I measured SEAT 1 - the NOOB, whose config has buildsTowers:false and upgradesGatherer:false. Every 4-seat number I reported for three rounds ('ZERO towers for every tier', 'speedLevel stays 0', 'UPGRADE_GATHERER proposed 300/300 and never lands') described a NOOB behaving exactly as designed. I built a confident causal story on it - branch-order starvation, a dead upgrade intent - and started changing code. It was caught by testing applyUpgradeGathererSpeed IN ISOLATION, where it worked first try (speed 0->1, score 500->450); that contradiction forced me back to the harness instead of the product. With the seat corrected, HARD reaches speedLevel 5 (MAXED) and sends BUILD_BLUEPRINT. The S154 reflexion says a green suite is not evidence; this says the same about a red one. WHAT REMAINS, stated plainly for the owner: making bots build towers EARLIER is a balance decision with a visible cost (a bot that saves looks passive), and this session has no owner ruling on the target. Deliberately NOT guessed at in a test file. The representative test now asserts what is TRUE today so a regression to genuine zero is caught, and carries the per-tier first-tower measurements so the next session tunes from numbers. VERIFIED: tsc exit 0 · 3123/3123 unit tests, 191 files · build 746.8 KiB / 900 cap · botBrain.ts unmodified vs S154.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "THE REAL PHASE CLOCK, FOUR SEATS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "botSeats: [1, 2, 3],"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "NO PHASE PINNING"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botTowers.test.ts",
+          "needle": "the only opponent NEVER BUILT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "const SAVE_CYCLE_TICKS = 3_600;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "billProtectedTypes"
+        },
+        {
+          "type": "file_absent",
+          "path": "src/bots/_s155_probe.test.ts"
+        },
+        {
+          "type": "file_absent",
+          "path": "src/bots/_s155_probe2.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botTowers.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 16
+        }
+      ]
     },
     {
       "id": "P7",
       "title": "Bots must not see through the fog (runs before P5 so targeting is written once)",
-      "status": "pending",
+      "status": "in_progress",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -3758,5 +3806,12 @@
     "A0-18: tsc -b --noEmit exit 0; tree clean but for the session-state counter."
   ],
   "deploy_verified_s155_p1": "PASS by content-hash equality — the LIVE asset at https://spark-online.space is assets/index-DJYhUA3Y.js, byte-identical to the P1 local build ('[bundle] main entry assets/index-DJYhUA3Y.js: 744.5 KiB'). Deploy run 33160264467 success; remote master 44acfabf. So P1 is genuinely in the owner's browser, not merely committed.",
-  "e2e_gating_status_s155": "GREEN — 59 passed, exit 0 read from a redirect not a pipe (S154 trap). Includes the six new S155 P2 exit-button tests, which GATE by default in a new spec-less file... (they live in the already-gating e2e/exit-match.spec.ts)."
+  "e2e_gating_status_s155": "GREEN — 59 passed, exit 0 read from a redirect not a pipe (S154 trap). Includes the six new S155 P2 exit-button tests, which GATE by default in a new spec-less file... (they live in the already-gating e2e/exit-match.spec.ts).",
+  "p4_measurement_s155": {
+    "fixture": "4 seats (3 bots), REAL BUILD/FIGHT clock, 5 sim-minutes (18000 ticks), seed 0xbeef, tier under test at seat 1",
+    "baseline_s154_code": "MID 0 towers · HARD 2 towers (first tick 10388, second 16634) · IMBA 1 tower (tick 17882)",
+    "with_my_reverted_changes": "MID 0 · HARD 1 (tick 13160) · IMBA 0 — STRICTLY WORSE, reverted",
+    "conclusion": "The owner's report is a SPEED complaint, not a dead feature. First tower lands after ~2 full BUILD/FIGHT cycles. Tuning it earlier is an owner balance ruling, not a guess.",
+    "instrument_error": "For three measurement rounds I read SEAT 1 while BotManager(['NOOB', tier, 'IMBA']) had put the tier under test at SEAT 2. Every 'zero towers / speedLevel 0' number was the NOOB behaving as designed. Caught by testing the reducer in isolation and finding it worked."
+  }
 }
