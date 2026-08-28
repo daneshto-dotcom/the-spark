@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2928,
+  "tool_calls_session_total": 2936,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-28_PDR_S155_BATCH.md",
-  "session_status": "open_awaiting_owner_review",
+  "session_status": "context_exhausted_handoff_recommended",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -216,7 +216,8 @@
           "path": "package.json",
           "syntax_type": "json"
         }
-      ]
+      ],
+      "checkpoint_commit": "1c57b70a065d8e0df36932c8d56e10e50376748d"
     },
     {
       "id": "P2",
@@ -367,7 +368,8 @@
           "path": "package.json",
           "syntax_type": "json"
         }
-      ]
+      ],
+      "checkpoint_commit": "3b986c346d0f0383c4017090cd18f5242e21314a"
     },
     {
       "id": "P3",
@@ -451,7 +453,8 @@
           "path": "src/net/protocol.ts",
           "needle": "export const PROTOCOL_VERSION = 33 as const;"
         }
-      ]
+      ],
+      "checkpoint_commit": "43a2e77ae72e253ccd282f487c812c94a1723831"
     },
     {
       "id": "P4",
@@ -509,7 +512,8 @@
           "op": ">=",
           "value": 16
         }
-      ]
+      ],
+      "checkpoint_commit": "dca8c173909e80f520d051502666788e79c945da"
     },
     {
       "id": "P7",
@@ -576,7 +580,8 @@
           "op": ">=",
           "value": 5
         }
-      ]
+      ],
+      "checkpoint_commit": "96454dee791a40513b1ddafe00210bb319163113"
     },
     {
       "id": "P5",
@@ -642,7 +647,8 @@
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
           "needle": "STATUS S155 (2026-08-28)"
         }
-      ]
+      ],
+      "checkpoint_commit": "c5a7ee5ea1d842c4dfb6b3a47420899233e22972"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1788,46 +1794,14 @@
     "AGENTS: owner explicitly asked for two agents on the remaining work. Agent A = HUD coherence audit + fixes. Agent B = FIX/SCRAP (R13/R19/R21)."
   ],
   "carry_forward_next_session": [
-    {
-      "id": "CF-S154-towers",
-      "priority": 0,
-      "tier": "Standard",
-      "title": "⛔ BOTS STILL DO NOT BUILD TOWERS IN A REAL MATCH — owner playtested S154 close",
-      "detail": "Owner, verbatim, after amendment A shipped: \"the imba and hard bots now upgraded their gatherer but are still not saving or building towers\". So HALF of A works live — the economy investment is visible and confirmed — and the tower half does not. ⭐ DIAGNOSIS, and it is a FIXTURE artefact rather than a mystery: botTowers.test.ts's acceptance case re-pins matchPhase='BUILD' and pushes phaseEndsAtTick out by 10,000 EVERY TICK, giving the bot three unbroken sim-minutes of BUILD. A real match alternates BUILD 90 s / FIGHT 45 s; the save is BUILD-only by design (stampRefusalAt refuses stamps during FIGHT); and scoring — which funds the gatherer upgrades — is FIGHT-only. So live, the save window is chopped into 90 s slices, halved again by the 50% duty cycle, and shapes arriving during FIGHT are spent before the next BUILD opens. ⛔ THIS IS THE SECOND TIME THIS FEATURE HAS BEEN CERTIFIED BY AN UNREPRESENTATIVE FIXTURE. P3 pre-banked the bill; A pins the phase. DO NOT loosen the assertion — write a test that runs the REAL phase clock end to end, watch it fail, and size the save against BUILD-phase-only income. The caveat is recorded in the test file itself so nobody reads it as live proof. Candidate fixes to weigh: raise the duty toward 100% within BUILD (the FIGHT block already prevents the bot looking idle during the phase the player watches); or hold across the FIGHT boundary so shapes banked in FIGHT survive into BUILD; or have the bot bank rather than place for the last N seconds of FIGHT."
-    },
-    {
-      "id": "CASTLE-RACES",
-      "priority": 1,
-      "tier": "Full",
-      "title": "CASTLE RACES BY COLOUR — art, cinematics and passive spawns per race (owner vision)",
-      "detail": "Recorded in full at CASTLE_BUILD_SPACE_DESIGN.md (new addendum). white=ghosts, green=zombies, red=vampires, blue=ice giants, purple=demons, yellow=UNDECIDED (ASK — the owner has not named it). Each race: a generated castle, cinematics for ATTACK / DAMAGED / DESTROYED, a passive spawn (zombie hound already generated and on disk under assets-source/zombie-castle/, bats for vampires, ghosts for ghosts) and a distinct attack kind. ⛔ BALANCE RULING: \"all castles and their spawn will have the same strengh and hp to start with - later we will add castle upgrades like we have for the gatherers.\" So races are cosmetic + flavour first, identical in stats — which is why S154 shipped ONE CASTLE_MAX_HP for every seat and nothing keys HP or damage off the race. Castle upgrades later follow the GATHERER precedent (points from scoreByPlayer, a level, a cap). Owner placed this \"next session or the session after\"."
-    },
-    {
-      "id": "D-fog",
-      "priority": 2,
-      "tier": "Standard",
-      "title": "BOTS MUST RESPECT FOG OF WAR — they currently see the whole board",
-      "detail": "Owner: \"shouldnt my towers be hidden from him in fog of war during building stage and he has to explore my zone with his cruiser/spark to see whats there? thats how it is for me at least, not fair if bots see evcerything\". CONFIRMED BY DIRECT READ, not inferred: fogRenderer.ts describes itself as \"Client-side cosmetic fog\" (a RenderTexture visibility mask), and a grep of src/bots/*.ts for fog returns ZERO hits. Bots read world.primitives / world.bonds directly through nearestEnemyBond / nearestEnemyPrim / nearestEnemySpawnerBond. The fog blinds ONLY the human. Owner deferred this to next session explicitly. Shape of the fix: a per-seat visibility predicate that the BOT target scans consult, sourced from host-side exploration state — NOT from the client render mask."
-    },
-    {
-      "id": "BOT-PhaseA",
-      "priority": 3,
-      "tier": "Standard",
-      "title": "Bot intelligence Phase A — now UNBLOCKED (all 7 owner questions answered)",
-      "detail": "BOT_INTELLIGENCE_DESIGN.md §10 holds the rulings. Phase A = knowledge book + combo-aware spark pick/placement + leader-targeted raid. ⛔ Q2 IS A PROHIBITION: do not change raid rate or the number of allowed raids, the owner says the current balance is good. Q6 makes starvation policy PER TIER (HARD waits, IMBA adapts). Q4 gives Phase B its build order: goblinTower -> FEED goblins -> Voltkin later. Q7 defers SACRIFICE entirely."
-    },
-    {
-      "id": "CF-S154-a",
-      "priority": 4,
-      "title": "The owner saw bots \"build towers from the beginning\" while my run measured ZERO — reconcile",
-      "detail": "Worth one probe. My instrumented run measured zero towers in 3 sim-minutes pre-fix, yet the owner watching live VS-BOTS said all three difficulties \"build towers from the beginning\". Either they mean freeform primitive placement (which does start immediately and reads as building), or a real match differs from the unit fixture in a way that matters — e.g. lobby-granted starting resources. DO NOT assume the first reading: the fixture-vs-live gap is exactly what let P3 ship believing bots build towers."
-    },
-    {
-      "id": "CF-S154-b",
-      "priority": 5,
-      "title": "Host lag in multiplayer — finish worker-sim (D4 + default-on)",
-      "detail": "Owner reported the HOST workstation lagging while the joiner was smooth. Diagnosed, not guessed: the host simulates everything (hostTick is host-only; the client mirrors), and main.ts names the profiled dominant cost — \"the host 10Hz full-world snapshot serialize+JSON.stringify is the single dominant host-only per-frame cost\". S105 P3 moved it off the catch-up loop and labelled itself \"smooth-regardless-of-host, STEP 1\". It compounds because dtSec is clamped to 0.05, so a frame may run up to 3 sim ticks and a host falling behind runs MORE per frame. ?worker=1 (S122) is the shipped opt-in mitigation; D4 + default-on is the fix."
-    }
+    "N1 units-cannot-kill-units - HIGHEST severity. Needs an OWNER RULING first (should armies actively hunt each other, or only strike what wanders into range? Council MF3 chose the latter deliberately). Full diagnosis in owner_playtest_s155_cross_network.N1.",
+    "N3 stuck at CONNECTING when the friend hosts - a DIFFERENT status string from yesterday's CONNECTED, so probably an earlier failure than S155 P1 addressed. Ask for the [net] console line; probe the re-host-after-a-match path.",
+    "N4 button hit areas - systemic, cheap; fix belongs in buttonFeedback.ts plus a test that every button declares a hitArea.",
+    "N2 raid parity across seats - grep the raid path for seat asymmetry; check a joiner's raid intent round-trips.",
+    "A1 laddered raid targeting - owner RE-CONFIRMED. Amendment at .claude/plans/2026-08-28_SCOPE_AMENDMENT_S155.md. Owner clarified the raid BUDGET is just MAX_DISRUPTION_CHARGES=2, spendable any time, with no concurrency gate to add or remove.",
+    "A2 scouting + activate the P7 fog for bots - owner GO. One coherent change; scouting is what makes the fog fair instead of a nerf.",
+    "A3 seed defenders in workerSim.differential (peak is 0 today, so the guard compares nothing) THEN flip WORKER_DEFAULT_ON - owner GO. Only 5 of 21 spec files carry the worker flag, so re-run e2e:gating AFTER the flip.",
+    "P5 bot intelligence Phase A - not started."
   ],
   "priorities_s149_archived": [
     {
@@ -3891,5 +3865,36 @@
     "why_it_is_bigger_than_P4": "It joins P4 and P7 into one behaviour. P7 shipped per-seat fog vision INERT because blinding bots without giving them a way to see risked making them dumber (the Council's 'do not blind them without a cane'). Scouting IS the cane — and it is the only thing that makes fog meaningful for a bot: something to DO about not knowing. So the same feature (a) makes saving look purposeful, (b) makes the fog fair without making bots stupid, and (c) gives the bot real information instead of the omniscience it has today.",
     "scope_note": "NOT yet implemented. Needs a scope amendment: a SCOUT goal (move toward the nearest unexplored area of the board / a neighbour's zone), per-seat explored memory so what it saw persists, and the P7 activation wired at the same time so the bot is scouting for a reason.",
     "status": "RECORDED, AWAITING GO"
+  },
+  "checkpoint_note_s155": "Checkpoint SHAs backfilled for all six completed priorities after the CHECKPOINT hook flagged P1 as missing one. Each is the priority's own feat/fix commit, not the session HEAD, so the SHA points at the diff the claim is about.",
+  "owner_playtest_s155_cross_network": {
+    "context": "Owner played a REAL cross-network 2-player match while S155 P1-P3 were live. Four new reports. NONE fixed - context hit 71% before work could start. Diagnoses recorded to the depth reached, with the self-corrections that matter.",
+    "N1_units_are_beauty": {
+      "verbatim": "player 2 had a way bigger army then me but theyt couldnt even destroy one of my goblins. i think the spawn stats have only been implemented foir player 1 and all other players just have the units as beauty without doing anything.",
+      "severity": "HIGHEST of anything open - an army that cannot fight is the core loop failing.",
+      "owner_hypothesis": "stats/combat implemented for player 1 (seat 0) only.",
+      "what_i_PROVED": "The owner's hypothesis is NOT supported by the code. There is NO seat-0 or localPlayerId gate anywhere in damage.ts, creatureAttack.ts, creatureAI.ts or hostTick.ts. The creature fan-out is host-authoritative and seat-agnostic, and hostTick.ts:715 DOES assign creature-vs-creature targets for every non-chewer (goblins included, via S153 P1).",
+      "the_REAL_mechanism": "hostTick.ts:709-716 acquires an enemy-CREATURE target ONLY when one is ALREADY within attackRange, and the comment states the rule deliberately: bonds stay the navigation target, this just NOTES a creature already within attackRange, and per Council MF3 it NEVER paths toward it. So unit-vs-unit killing depends on incidental proximity, and goblin attack range is melee-short. Two armies can share a field and never engage. MEANWHILE defenders (towers) DO actively acquire and DO kill creatures (defenderLifecycle.ts:244). THAT ASYMMETRY EXPLAINS THE REPORT AND WHY IT LOOKED SEAT-SPECIFIC: whoever has TOWERS kills units; whoever has only an ARMY kills nothing. The owner builds towers; player 2 brought a big army - so it read as mine-works-theirs-is-decoration.",
+      "stale_comment_found": "That same block says 'S103 #8 - Voltkin ONLY' and 'Chewers never get a creature target', but the code is if (!isChewer), which covers goblins since S153 P1. The comment describes a narrower rule than the code implements - the drift class a Rule-22 audit looks for.",
+      "next_step_NOT_taken": "Needs an OWNER RULING: should units actively hunt enemy units (path toward them), or only strike what wanders into range? MF3 deliberately chose the latter. If the answer is that armies should fight, that is a combat-design change (pathing + determinism + wire), not a bug fix. Do NOT start it without the ruling.",
+      "my_own_error_recorded": "I first concluded findNearestEnemyCreature had ZERO production callers and that creature-vs-creature was dead code. WRONG, and the cause was my own instrument: a head -20 truncated the grep before hostTick.ts:715. Caught by continuing to verify instead of writing it up. SECOND time this session a misaimed harness produced a confident false conclusion (see P4's seat mix-up); both times the tell was a contradiction between two of my own readings."
+    },
+    "N2_raid_consistency": {
+      "verbatim": "also im not sure opther players raid and player 1 raid is the same. need to make sure we are consistent across the board",
+      "status": "NOT investigated (context). Cheap first probe: raid is MAX_DISRUPTION_CHARGES=2 charges plus RAID_ATK/RAID_PEN through the same damageEntity dispatcher; grep the raid path for playerId/isHost asymmetry the way N1 was grepped, and check a JOINER's raid intent round-trips - a client raid is an INTENT the host applies, so a dropped intent would look exactly like my-raid-works-theirs-does-not."
+    },
+    "N3_stuck_when_friend_hosts": {
+      "verbatim": "after first game we tried to reconnect but this time so my friend is player one and it didnt work (was stuck at connecting like it was yesterday). couldnt connect to him",
+      "CRITICAL_DISTINCTION": "Stuck at CONNECTING is a DIFFERENT status string from yesterday's CONNECTED. LOBBY_STATUS.CONNECTING means mode=joining with peerCount STILL 0 - no peer ever appeared, i.e. a TRANSPORT/signaling failure. JOINED_WAIT (Connected. Waiting for host to begin...) means a peer DID appear and trust never latched, which is what S155 P1 diagnosed. If the owner truly sat on Connecting..., P1's stall message would NOT fire, because the detector requires firstPeerAtMs != null. So this may be an UNRELATED, EARLIER failure in the chain.",
+      "what_P1_gives_the_next_session": "Reason-logged diagnostics are now live. Ask the owner for the browser console line beginning [net] - it names whether a peer was ever seen, and if one was, which of the three attest checks failed, with all three values.",
+      "also_probe": "the SECOND match specifically - they had just played one game and re-hosted. Suspect state left from the first match (teardownNet coverage on the host-then-rehost path), a different code path from a cold first join, and exactly what worked-first-failed-second points at."
+    },
+    "N4_button_hit_areas": {
+      "verbatim": "the back to title button or whatever if only clickable in some stops. make sure all the buttons are actially sclickable in their entire shapes and places that they actually hold on the map and in the menues. each clickable thing has to be crealrely clickable in its entirety and not on side of the button clickable and 40% or the right part of it is not....",
+      "status": "NOT fixed (context). Fix is known, systemic and cheap.",
+      "diagnosis": "Pixi containers with eventMode=static and NO explicit hitArea are hit-tested by walking their CHILDREN's bounds. A button's clickable region is therefore the union of its plate and its text - neither stable nor the full rounded rect - and it shifts when attachButtonFeedback scales the container on hover (1.04). That is precisely clickable-on-one-side-dead-on-the-other.",
+      "the_fix": "Set an explicit hitArea = new Rectangle(0, 0, W, H) on EVERY interactive container - lobbyScreen.makeButton, titleScreen.makeButton, exitButton (button + both modal buttons), the READY toggle, botSetupOverlay, castlePanel rows/slots/tiles - then a unit test asserting every button exposes a hitArea whose area equals its declared W*H, so a future button cannot ship without one.",
+      "note": "Third owner report in this family (S152 A5 make-it-pop, S155 P2 like-other-buttons, now clickable-in-its-entirety). The through-line is that button behaviour was never centralised. P2 created buttonFeedback.ts for exactly that reason - the hitArea belongs in the same helper, applied by construction."
+    }
   }
 }
