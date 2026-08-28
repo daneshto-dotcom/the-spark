@@ -385,11 +385,16 @@ export class LobbyScreen {
     // paths the owner reported broken ("neither the quick match nor the host/join"), and a toggle
     // whose press does not register is the one control where that ambiguity is worst: you cannot
     // tell "my click missed" from "I am ready and the other player is not".
-    attachButtonFeedback(this.readyButton, this.readyButtonBg, () => {
-      this.selfReady = !this.selfReady;
-      this.paintReadyButton();
-      callbacks.onToggleReady(this.selfReady);
-    });
+    attachButtonFeedback(
+      this.readyButton,
+      this.readyButtonBg,
+      () => {
+        this.selfReady = !this.selfReady;
+        this.paintReadyButton();
+        callbacks.onToggleReady(this.selfReady);
+      },
+      { hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT } },
+    );
     this.readyButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
     this.readyButton.visible = false;
     this.container.addChild(this.readyButton);
@@ -800,7 +805,10 @@ export class LobbyScreen {
      * One shared grammar now (buttonFeedback.ts), so a future tune moves every button together
      * instead of leaving a third screen behind for a fourth report.
      */
-    attachButtonFeedback(c, bg, onClick);
+    // Top-left origin: this factory draws its plate from (0, 0).
+    attachButtonFeedback(c, bg, onClick, {
+      hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
+    });
     return c;
   }
 

@@ -39,6 +39,7 @@
  * unit-testable with a stub and no WebGL — the same reason `lobbyStateMachine.ts` is a pure reducer.
  */
 
+import { Rectangle } from 'pixi.js';
 import { playUiClickSFX } from './audioManager.ts';
 
 /** Rest / hover / press scales. Exported so tests and callers cannot drift from each other. */
@@ -65,6 +66,11 @@ export interface FeedbackTarget {
   cursor?: string | null | undefined;
   scale: { set(v: number): void };
   on(event: string, fn: () => void): unknown;
+  /**
+   * ⭐ S155 N4 — the explicit click rectangle. Pixi types this as a shape-or-null; kept loose here so
+   * the helper stays testable against a stub, and so the ONE place that writes it is this module.
+   */
+  hitArea?: unknown;
 }
 
 /** The minimum a background plate must offer — just something to tint. */
@@ -72,7 +78,39 @@ export interface TintTarget {
   tint: number;
 }
 
+/** A button's clickable rectangle, in the button container's OWN local coordinates. */
+export interface HitRect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface ButtonFeedbackOpts {
+  /**
+   * ⭐ S155 N4 (owner) — **THE FULL CLICK RECTANGLE, AND IT IS REQUIRED.**
+   *
+   * Owner: *"the back to title button or whatever if only clickable in some stops. make sure all the
+   * buttons are actially sclickable in their entire shapes ... each clickable thing has to be
+   * crealrely clickable in its entirety and not on side of the button clickable and 40% or the right
+   * part of it is not"*.
+   *
+   * ⛔ THE CAUSE: a Pixi container with `eventMode = 'static'` and NO `hitArea` is hit-tested by
+   * walking its CHILDREN. So a button's clickable region was the UNION OF ITS PLATE AND ITS TEXT —
+   * which is not the plate, is not stable, and MOVES every time the hover grammar scales the
+   * container to 1.04. That is exactly "one side works, 40% of the other is dead".
+   *
+   * ⚠ REQUIRED, not optional, DELIBERATELY. Making it optional is how three screens ended up without
+   * a hover state (S152 → S155 P2). A required field means a new button cannot ship without a hit
+   * rect, and `buttonFeedback.test.ts` additionally pins that every call site in `src/render` passes
+   * one.
+   *
+   * ⚠ IN LOCAL COORDINATES, so the origin differs by call site and MUST match how the plate is drawn:
+   * `titleScreen` draws its plate CENTRED (`-w/2, -h/2`), while `lobbyScreen` and `exitButton` draw
+   * from the top-left (`0, 0`). Passing the wrong origin silently offsets the whole click target,
+   * which is the very bug being fixed.
+   */
+  readonly hit: HitRect;
   /**
    * Suppress the click blip. For buttons that already make their own noise, or whose action
    * immediately plays something louder. Default false — silence is opt-in, never accidental.
@@ -91,11 +129,20 @@ export function attachButtonFeedback(
   c: FeedbackTarget,
   bg: TintTarget,
   onClick: () => void,
-  opts: ButtonFeedbackOpts = {},
+  opts: ButtonFeedbackOpts,
 ): void {
   let hovered = false;
   c.eventMode = 'static';
   c.cursor = 'pointer';
+  /*
+   * ⭐ S155 N4 — the whole button is clickable, and it stays that way under the hover scale.
+   *
+   * An explicit hitArea REPLACES child-bounds hit-testing outright, so the region is exactly the
+   * plate: no text-shaped dead zones, no drift when `scale.set(1.04)` fires, and no dependence on
+   * what happens to be drawn inside. Pixi transforms the local rect by the container's own
+   * transform, so a scaled button grows its target with it rather than losing part of it.
+   */
+  c.hitArea = new Rectangle(opts.hit.x, opts.hit.y, opts.hit.w, opts.hit.h);
   c.on('pointertap', () => {
     if (opts.silent !== true) void playUiClickSFX();
     onClick();

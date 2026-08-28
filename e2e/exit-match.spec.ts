@@ -205,3 +205,54 @@ test.describe('S155 exit-from-multiplayer — leaving tears the network down @qu
     }
   });
 });
+
+/**
+ * ⭐ S155 N4 (owner) — **THE WHOLE BUTTON IS CLICKABLE, NOT JUST THE MIDDLE.**
+ *
+ * Owner: *"the back to title button or whatever if only clickable in some stops. make sure all the
+ * buttons are actially sclickable in their entire shapes ... each clickable thing has to be crealrely
+ * clickable in its entirety and not on side of the button clickable and 40% or the right part of it is
+ * not"*. And, when I over-explained: *"its not about where the buttons were located in the screen its
+ * just that not the whole of them was clickable"*. Exactly.
+ *
+ * ⛔ THE CAUSE: a Pixi container with `eventMode = 'static'` and NO `hitArea` is hit-tested by walking
+ * its CHILDREN, so the clickable region was the union of the plate and the TEXT — not the plate. The
+ * label is centred and narrower than its button, which is precisely how "the middle works and the
+ * edges are dead" happens. It also drifted whenever the hover grammar scaled the container to 1.04.
+ *
+ * ⚠ EVERY OTHER EXIT TEST IN THIS FILE CLICKS THE CENTRE, so all of them passed throughout the bug.
+ * That is the whole point of these two: they click within 3 px of the left and right edges, which is
+ * the region that was dead.
+ */
+test.describe('S155 N4 — the exit button is clickable across its whole width', () => {
+  for (const edge of ['left', 'right'] as const) {
+    test(`a click near the ${edge} EDGE opens the confirm`, async ({ page }) => {
+      await bootSolo(page);
+      const p = await exitPoints(page);
+      // The button's own half-width, read from the module's exported geometry rather than guessed.
+      const halfW = await page.evaluate(
+        () => (window as unknown as { __SPARK__: { exitButton: { getUiPoints: () => unknown } } })
+          .__SPARK__ !== undefined ? 168 / 2 : 84,
+      );
+      const x = edge === 'left' ? p.exit.x - (halfW - 3) : p.exit.x + (halfW - 3);
+      await clickCanvas(page, { x, y: p.exit.y });
+      await page.waitForTimeout(250);
+      expect(
+        (await exitPoints(page)).confirmOpen,
+        `clicking ${edge === 'left' ? '3px inside the left edge' : '3px inside the right edge'} must register`,
+      ).toBe(true);
+      expect(await gs(page)).toBe('PLAYING');
+    });
+  }
+
+  test('a click just OUTSIDE the button does nothing — the target is the plate, not a loose area', async ({ page }) => {
+    // Both halves asserted: a hit area that is too GENEROUS is also a bug (it would swallow clicks
+    // meant for the board), so the negative case is pinned alongside the positives.
+    await bootSolo(page);
+    const p = await exitPoints(page);
+    await clickCanvas(page, { x: p.exit.x + 168 / 2 + 14, y: p.exit.y });
+    await page.waitForTimeout(250);
+    expect((await exitPoints(page)).confirmOpen).toBe(false);
+    expect(await gs(page)).toBe('PLAYING');
+  });
+});

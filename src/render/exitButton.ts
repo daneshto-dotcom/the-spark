@@ -180,7 +180,9 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
     t.anchor.set(0.5);
     t.position.set(MODAL_BTN_W / 2, MODAL_BTN_H / 2);
     c.addChild(t);
-    attachButtonFeedback(c, bg, onClick);
+    attachButtonFeedback(c, bg, onClick, {
+      hit: { x: 0, y: 0, w: MODAL_BTN_W, h: MODAL_BTN_H },
+    });
     return c;
   };
 
@@ -197,9 +199,16 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
   modal.addChild(keepBtn);
   root.addChild(modal);
 
-  attachButtonFeedback(btn, btnBg, () => {
-    modal.visible = true;
-  });
+  // ⚠ The hit rect is the PLATE, not the plate plus its drop shadow: the shadow is decoration drawn
+  // at (3, 3) and must not be clickable, or the button would appear to respond 3 px outside itself.
+  attachButtonFeedback(
+    btn,
+    btnBg,
+    () => {
+      modal.visible = true;
+    },
+    { hit: { x: 0, y: 0, w: EXIT_BTN_W, h: EXIT_BTN_H } },
+  );
 
   app.stage.addChild(root);
   app.stage.sortableChildren = true;

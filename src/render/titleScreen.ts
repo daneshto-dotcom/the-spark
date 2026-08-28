@@ -246,7 +246,10 @@ export class TitleScreen {
      * "like these ones", since `lobbyScreen.makeButton` had no hover, press or sound at all. One
      * grammar shared by every button beats a third hand-rolled variant and a fourth report.
      */
-    attachButtonFeedback(c, bg, onClick);
+    // ⚠ CENTRED origin — this factory draws its plate from (-w/2, -h/2), unlike the lobby's.
+    attachButtonFeedback(c, bg, onClick, {
+      hit: { x: -BUTTON_WIDTH / 2, y: -BUTTON_HEIGHT / 2, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
+    });
     return c;
   }
 }
