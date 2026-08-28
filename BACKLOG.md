@@ -5,6 +5,75 @@
 
 ---
 
+# ⚑ STATUS S155 (2026-08-28) — MULTIPLAYER'S SILENT DEAD END · AND THE BOT-TOWER QUESTION, ANSWERED WITH NUMBERS
+
+> Owner's seven-priority batch. P1/P2/P3 shipped and live. P4 shipped a **representative test and a
+> measurement that refuted its own plan**. P6 below. **P7 and P5 did not fit** — see the handoff.
+
+## ⭐ THE RECONCILIATION (owner P6): *"bots build towers from the beginning"* vs ZERO MEASURED
+
+Both readings were taken on fixtures that could not answer the question. S155 built one that can —
+**4 seats, 3 bots, the REAL BUILD/FIGHT clock, 5 sim-minutes, seed `0xbeef`** — and the answer is:
+
+| tier | towers in 5 sim-minutes | first tower |
+|---|---|---|
+| MID | **0** | — |
+| HARD | **2** | tick **10 388** (~2.9 sim-min) |
+| IMBA | **1** | tick **17 882** (~5.0 sim-min) |
+
+**So the feature is not dead — it is LATE.** The owner's *"still not saving or building towers"* is a
+SPEED complaint: the first tower lands after roughly **two full BUILD/FIGHT cycles**, which is longer
+than a player watches before concluding nothing is happening. And the owner's *"from the beginning"*
+observation is about **freeform primitive placement**, which does start immediately (HARD places
+13 450 `PLACE_PRIMITIVE` intents in the same run) — two different things being counted.
+
+⛔ **The S154 acceptance fixture was unrepresentative in THREE ways, each hiding the next:** the phase
+clock was pinned to BUILD; the match was 2-seat; and its only opponent never built, so the rng-gated
+SEVER branch never fired and the bot sailed down to its economy and tower branches. In the 2-seat
+world HARD builds at ticks 5132 / 11360 / 17552 — genuinely fine, and genuinely not the owner's game.
+
+⚠ **TWO ATTEMPTED FIXES WERE MEASURED WORSE AND REVERTED** (type-aware bill protection; hoisting the
+zero-travel castle commands above the raid branches): HARD 2→1 towers, IMBA 1→0. `botBrain.ts` is
+byte-identical to S154.
+
+**OPEN, AND IT IS AN OWNER BALANCE CALL:** how much earlier should a bot's first tower land? Making it
+earlier costs game-feel (a bot that saves looks passive). Not guessed at here.
+
+## ⛔ SIM-WORKER DEFAULT-ON — **NOT FLIPPED**, and the two gates that say why
+
+The S155 PDR made the flip explicitly CONDITIONAL. Re-read of this file's own gate row: the remaining
+conditions are **(1) seed `defenders` in the determinism tripwire** — still open, acknowledged in code
+and printed every run — and **(2) one owner playtest on `?worker=1`**. Neither is discharged, so
+`WORKER_DEFAULT_ON` stays `false`.
+
+Two things DID improve and are worth recording so the next session does not re-derive them:
+
+- **`worker-bots.spec.ts` is GREEN.** It was the single failure in the 2026-08-24 scheduled gating run
+  (1 failed / 45 passed) and it passes locally at S155 HEAD in the full lane (22.3 s), inside a
+  **59-passed, exit-0** `npm run e2e:gating`. So the lane's one red is not a standing defect.
+- ⚠ **The flag-count hazard still stands and is the real reason to be slow here:** only **5 of 21**
+  spec files carry the `?worker=` flag, so a flip silently re-points the other 16 onto the worker
+  path. That is a bigger surface than the flip itself.
+
+## ⚠ TWO OWNER RULING SETS DISAGREE, AND P5 IS GATED ON WHICH WINS
+
+Found while reading for P6. There are **two** records of the bot rulings and they are not the same:
+
+| | this file (§ "Bot rulings", earlier) | `BOT_INTELLIGENCE_DESIGN.md` §10 (ruled 2026-08-27, S154) |
+|---|---|---|
+| **Q1** | NOOB basic combos · MID +towers · HARD +raiding +godlies · IMBA +strategy | gatherer upgrades = HARD+IMBA; **raid drops to MID** |
+| **Q2** | *replaces* the 1-raider cap: HARD/IMBA raid the leader **or the nearest enemy whose score sits closest above their own** (laddered); NOOB/MID raid randomly | ⛔ **PROHIBITION** — *"dont change raid rate or number of allowed raids"* |
+
+**They are reconcilable, and Phase A should be written to both:** §10's prohibition is about raid
+**RATE and CONCURRENCY**; the earlier ruling is about **TARGETING** — which rung to punch. Those are
+orthogonal, so laddered "closest score above me" targeting can ship *without* changing how often or
+how many bots raid. §10 is the later record and wins on any genuine conflict.
+
+⛔ **Do not start Phase A without confirming that reading with the owner** — it is the difference
+between a targeting filter and a balance change they explicitly forbade.
+
+---
+
 # ⚑ STATUS S143 (2026-08-13) — THE THREE FLIP GATES ARE CLOSED · THE 3-WEEK CI RED IS FIXED AND PROVEN
 
 > **3 of 3 priorities shipped, deployed (4/4), and CI-verified. The sim-worker flip is STILL NOT

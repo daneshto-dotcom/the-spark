@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2884,
+  "tool_calls_session_total": 2894,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -534,12 +534,57 @@
     {
       "id": "P6",
       "title": "Reconcile the tower contradiction; repair worker-bots; worker default-on flip CONDITIONAL",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "TWO HALVES, both answered with evidence rather than argument. HALF 1 - RECONCILE 'bots build towers from the beginning' (owner, watching) vs ZERO MEASURED (instrumented run). Both prior readings were taken on fixtures that could not answer it. P4 built one that can (4 seats, 3 bots, REAL BUILD/FIGHT clock, 5 sim-minutes, seed 0xbeef) and the answer is: MID 0 towers; HARD 2 (first tick 10388 = ~2.9 sim-min, second 16634); IMBA 1 (tick 17882 = ~5.0 sim-min). THE FEATURE IS NOT DEAD, IT IS LATE - the first tower lands after roughly two full BUILD/FIGHT cycles, longer than a player watches before concluding nothing is happening. And the owner's 'from the beginning' is about FREEFORM PRIMITIVE PLACEMENT, which does start immediately (HARD emits 13,450 PLACE_PRIMITIVE intents in the same run) - two different things were being counted, which is exactly why the two observations looked irreconcilable. Written into BACKLOG.md as a table so the next session tunes from numbers. The remaining question - how much earlier should the first tower land - is an owner BALANCE call with a real game-feel cost (a bot that saves looks passive) and is deliberately NOT guessed at. HALF 2 - SIM-WORKER DEFAULT-ON: NOT FLIPPED, and that is the ruling, not an omission. The PDR made the flip explicitly CONDITIONAL. Re-reading BACKLOG's own gate row, the remaining conditions are (1) seed `defenders` in the determinism tripwire - still open, acknowledged in code and printed every run - and (2) one owner playtest on ?worker=1. NEITHER is discharged, so WORKER_DEFAULT_ON stays false. Flipping a default-on switch for the whole player base against an undischarged determinism gate would be precisely the ship-it-anyway failure this repo keeps writing reflexions about. TWO THINGS DID IMPROVE and are recorded so they are not re-derived: worker-bots.spec.ts - the single failure in the 2026-08-24 scheduled gating run (1 failed / 45 passed) - is GREEN at S155 HEAD inside a 59-passed exit-0 full gating lane, so the lane's one red is not a standing defect; and the flag-count hazard still stands and is the real reason to be slow - only 5 of 21 spec files carry the ?worker= flag, so a flip silently re-points the other 16 onto the worker path, a bigger surface than the flip itself. ⭐ AND A THIRD FINDING, FOUND WHILE READING FOR THIS PRIORITY AND WORTH MORE THAN EITHER HALF: THERE ARE TWO OWNER RULING SETS FOR THE BOTS AND THEY DISAGREE. BACKLOG's 'Bot rulings' section says Q1 = NOOB basic combos / MID +towers / HARD +raiding +godlies / IMBA +strategy, and Q2 = 'replaces the 1-concurrent-raider cap; HARD and IMBA all raid, targeting the leader OR the nearest enemy whose score sits closest above their own; NOOB/MID raid randomly'. BOT_INTELLIGENCE_DESIGN.md section 10 (ruled 2026-08-27, LATER) says Q1 = gatherer upgrades HARD+IMBA and raid drops to MID, and Q2 = a PROHIBITION, 'dont change raid rate or number of allowed raids'. P5 is gated on which wins. They ARE reconcilable and the reconciliation is written into BACKLOG: section 10's prohibition is about raid RATE and CONCURRENCY; the earlier ruling is about TARGETING (which rung to punch). Those are orthogonal, so laddered 'closest score above me' targeting can ship WITHOUT changing how often or how many bots raid, and section 10 wins on any genuine conflict as the later record. ⛔ Recorded as a MUST-CONFIRM before Phase A starts, because the difference between the two readings is the difference between a targeting filter and a balance change the owner explicitly forbade. VERIFIED: tsc exit 0 · 3123/3123 unit tests · WORKER_DEFAULT_ON confirmed still false by grep · BACKLOG.md carries the S155 status block with the measurement table, the flip decision and the ruling-conflict note.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "STATUS S155 (2026-08-28)"
+        },
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "THE RECONCILIATION (owner P6)"
+        },
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "the feature is not dead — it is LATE"
+        },
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "SIM-WORKER DEFAULT-ON — **NOT FLIPPED**"
+        },
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "TWO OWNER RULING SETS DISAGREE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/workerFlag.ts",
+          "needle": "export const WORKER_DEFAULT_ON = false;"
+        },
+        {
+          "type": "grep_count",
+          "path": "BACKLOG.md",
+          "pattern": "tick \\*\\*10 388\\*\\*",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "STATUS S155 (2026-08-28)"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
