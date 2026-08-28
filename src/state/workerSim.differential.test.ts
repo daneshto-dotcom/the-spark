@@ -42,11 +42,18 @@ import {
 } from './workerSim.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { bankAdd } from './castleBank.ts';
-import { asPlayerId, asPrimitiveId, asSparkId } from '../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, asSparkId, type BondId } from '../types.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
 import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 // S143 P3 — SparkType feeds the gatherer order queue seeded below; see scriptInputs.
-import { HUNTER_HUNT_TICKS, PRIMITIVE_MAX_HP, SPARK_VISUAL_SIZE, SparkType } from '../constants.ts';
+import {
+  HUNTER_HUNT_TICKS,
+  PRIMITIVE_MAX_HP,
+  SPARK_VISUAL_SIZE,
+  STINK_TOWER_HUB_DEGREE,
+  SparkType,
+} from '../constants.ts';
+import { STINK_HUB_TYPE, STINK_LEAF_TYPE } from './godlyRecipes/stinkTower.ts';
 
 const P0 = asPlayerId(0);
 const SEED = 0x51220042;
@@ -154,7 +161,115 @@ function buildBotsWorld(): World {
       sourceSpawnerId: null,
     });
   }
+  seedStinkTower(world);
   return world;
+}
+
+/**
+ * ⭐ S156 P3 — the stink tower's geometry, and the ONE spark that completes it live.
+ *
+ * `STINK_LEAF_RADIUS` is 45: inside `AUTO_BOND_RADIUS` (60) so each leaf bonds to the hub, but far
+ * enough apart (45·√3 ≈ 78) that the leaves do NOT bond to each other. The recipe tolerates an
+ * inter-leaf bond, but keeping them apart keeps the component's shape unambiguous.
+ */
+const STINK_CENTRE = { x: 760, y: 300 };
+const STINK_LEAF_RADIUS = 45;
+function stinkLeafPos(i: number): { x: number; y: number } {
+  const angle = (i * 2 * Math.PI) / STINK_TOWER_HUB_DEGREE;
+  return {
+    x: STINK_CENTRE.x + Math.cos(angle) * STINK_LEAF_RADIUS,
+    y: STINK_CENTRE.y + Math.sin(angle) * STINK_LEAF_RADIUS,
+  };
+}
+
+/**
+ * ⭐ S156 P3 — SEED A **DEFENDER**, BY BUILDING THE REAL RECIPE GEOMETRY.
+ *
+ * `defenders` is marked hashed and IS projected by `hashWorldStateFull`, but measured over all 300
+ * frames its peak size was **0** — so the guard sat green having compared an empty map. That is the
+ * same "the oracle is wired and looking at nothing" failure S143 P3 found for `gathererOrders`, and
+ * the SEEDING_COVERAGE row below has carried it as an acknowledged hole ever since.
+ *
+ * ⛔ THE HOLE COULD NOT BE CLOSED BY INJECTING A DEFENDER, which is why it stayed open: `hostTick`
+ * re-validates every defender each tick against anchor existence AND `recipeStillSatisfied`, so a
+ * hand-inserted `REGISTER_DEFENDER` is torn down within a tick. The row's own note says what was
+ * needed — *"real recipe geometry ... the stinkTower (3 Circles bonded to 1 Square) is the
+ * cheapest"* — so that is exactly what this builds. The matcher then registers the defender the way
+ * production does, and re-validation keeps it alive because the shape is genuinely there.
+ *
+ * Geometry (`stinkTower.ts`): ONE Square hub at bond-degree exactly `STINK_TOWER_HUB_DEGREE`, plus
+ * that many Circle leaves, in a component of exactly `STINK_TOWER_SIZE`. Leaves are spread on a
+ * circle so the component cannot pick up an extra member and fall out of the exact-size gate.
+ *
+ * Symmetric by construction, the same argument the bank and bot-primitive seeding above rely on: the
+ * batch rig adopts THIS world through its JSON save, and INIT adoption is asserted bit-exact before
+ * any tick — so the seeding cannot itself be the source of a difference.
+ */
+function seedStinkTower(world: World): void {
+  const player = world.players.get(P0);
+  if (player === undefined) return;
+
+  const mk = (type: SparkType, x: number, y: number) => {
+    const id = asPrimitiveId(world.nextPrimitiveId++);
+    const prim = {
+      id,
+      type,
+      placerColor: player.color,
+      placedBy: P0,
+      createdTick: world.tick,
+      pos: { x, y },
+      prevPos: { x, y },
+      bonds: new Set<BondId>(),
+      ownerColor: player.color,
+      lastOwnershipChange: world.tick,
+      hp: PRIMITIVE_MAX_HP,
+      radius: Math.max(8, SPARK_VISUAL_SIZE[type] * 0.45),
+      origin: null,
+    };
+    world.primitives.set(id, prim);
+    return prim;
+  };
+
+  const hub = mk(STINK_HUB_TYPE, STINK_CENTRE.x, STINK_CENTRE.y);
+  for (let i = 0; i < STINK_TOWER_HUB_DEGREE; i++) {
+    const at = stinkLeafPos(i);
+    const leaf = mk(STINK_LEAF_TYPE, at.x, at.y);
+    const bondId = asBondId(world.nextBondId++);
+    world.bonds.set(bondId, {
+      id: bondId,
+      aId: hub.id,
+      bId: leaf.id,
+      a: hub,
+      b: leaf,
+      restLength: STINK_LEAF_RADIUS,
+      stiffnessTier: 'MID',
+      createdTick: world.tick,
+      damageFifths: 0,
+    });
+    hub.bonds.add(bondId);
+    leaf.bonds.add(bondId);
+  }
+
+  /*
+   * ⛔ AND NOW REGISTER IT, THROUGH THE REAL REDUCER — which the acknowledged row said could not be
+   * done. It was right about the mechanism and wrong about the conclusion: re-validation tears down
+   * an injected defender because it re-checks `recipeStillSatisfied` every tick, so an injection
+   * WITHOUT geometry dies within a tick. With the star above genuinely on the board the predicate
+   * passes, and the defender lives for the whole run.
+   *
+   * The matcher route was tried first and does not work here: `runDefenderIgnition` only scans on a
+   * TOPOLOGY CHANGE (a `BOND_FORMED`, or a player-caused `BOND_SEVERED`), and neither a hand-built
+   * component nor this rig's scripted placements produce one — measured, over all 300 frames. So the
+   * registration is dispatched directly, exactly as the matcher would have dispatched it.
+   */
+  dispatch(world, {
+    type: 'REGISTER_DEFENDER',
+    defenderKind: 'stinkTower',
+    ownerPlayerId: P0,
+    anchorPrimitiveId: hub.id,
+    recipeId: 'stinkTower',
+    pos: { x: STINK_CENTRE.x, y: STINK_CENTRE.y },
+  });
 }
 
 interface Rig {
@@ -542,17 +657,17 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
         // which is stronger coverage than an incidental spawn would be.
         'covered by the dedicated hunter round-trip test in this file, not by the 300-frame run',
       ],
-      [
-        'defenders',
-        peak.defenders,
-        // ⚠ A REAL, OPEN HOLE — acknowledged so it is visible, NOT because it is acceptable.
-        // Seeding a defender is not a one-line intent: hostTick re-validates every defender each
-        // tick against anchor existence AND `defenderRecipeStillSatisfied`, dispatching
-        // REMOVE_DEFENDER on failure, so an injected REGISTER_DEFENDER is torn down within a
-        // tick. It needs real recipe geometry built by the scripted placements (the stinkTower —
-        // 3 Circles bonded to 1 Square — is the cheapest). Logged as a carry-forward.
-        'needs real recipe geometry; an injected defender is torn down within one tick — CARRY-FORWARD',
-      ],
+      // ⭐ S156 P3 — CLOSED. This row was an acknowledged hole from S143 to S156: `defenders` is
+      // hashed and projected, but its peak was 0 across all 300 frames, so the guard sat green
+      // having compared an empty map. `seedStinkTower` now builds the real recipe geometry and
+      // registers the defender, and the row is ASSERTED like any other.
+      //
+      // ⛔ CLOSING IT IMMEDIATELY CAUGHT A REAL DESYNC, which is the entire argument for why an
+      // acknowledged hole is a liability rather than a note: `loadRephaseDefenders` collapsed a
+      // freshly-registered defender's `tick + interval` to `tick` on load, so the host and the
+      // sim-worker disagreed about the first shot of every new tower. See the fix in
+      // `defenderLifecycle.ts`. The guard failed the moment it was given something to compare.
+      ['defenders', peak.defenders, null],
     ];
 
     for (const [name, size, acknowledged] of SEEDING_COVERAGE) {

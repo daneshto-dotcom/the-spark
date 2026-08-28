@@ -402,7 +402,28 @@ export function recipeStillSatisfied(world: World, defender: Defender): boolean 
 export function loadRephaseDefenders(world: World): void {
   for (const d of world.defenders.values()) {
     const interval = getDefenderConfig(d.kind).fireIntervalTicks;
-    const rem = ((d.nextFireTick - world.tick) % interval + interval) % interval;
+    const delta = d.nextFireTick - world.tick;
+    /*
+     * ⛔ S156 P3 — LEAVE AN ALREADY-VALID PHASE ALONE. The modulo below is correct for a STALE tick
+     * and wrong for a fresh one, and the boundary case is not exotic — it is the most common state a
+     * defender is ever saved in.
+     *
+     * A just-registered defender has `nextFireTick = tick + interval` (`applyRegisterDefender`). The
+     * old unconditional modulo mapped that to `interval % interval === 0`, i.e. `nextFireTick =
+     * world.tick` — so a defender that should fire in a full interval fired IMMEDIATELY after any
+     * load. That is the very insta-fire class this function was written to prevent, reintroduced at
+     * exactly one point of its own domain.
+     *
+     * It is not a cosmetic off-by-one. The sim WORKER adopts the world through this same JSON save
+     * path, so host and worker disagreed about the first shot of every freshly built tower — a live
+     * desync, and the reason the `defenders` differential row could not be closed until now. It also
+     * hit host-migration and any save/load with a new tower on the board.
+     *
+     * `delta` in `[0, interval]` is already a valid phase and is preserved EXACTLY. Only a value in
+     * the past (the case the docblock above describes) or absurdly far ahead is folded back.
+     */
+    if (delta >= 0 && delta <= interval) continue;
+    const rem = ((delta % interval) + interval) % interval;
     d.nextFireTick = world.tick + rem;
   }
 }

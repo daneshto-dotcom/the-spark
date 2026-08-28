@@ -39,9 +39,37 @@ export const WORKER_FLAG_PARAM = 'worker';
  * `false` = the sim worker is opt-in via `?worker=1` (the shipped S122 posture).
  * `true`  = the sim worker is the default and `?worker=0` opts out.
  *
- * The default-on flip has been LOCKED since S129 and is gated on three measured items
+ * The default-on flip was LOCKED from S129 and is gated on three measured items
  * (see BACKLOG "Sim-worker default-on"). Flipping this constant is the WHOLE change —
  * that is the point of routing every consumer through `isSimWorkerRequested`.
+ *
+ * ⭐ S156 P3 (owner: *"lets make it all work and then flipp it"*) — **STILL FALSE, AND NOW FOR A
+ * MEASURED REASON RATHER THAN AN UNEXAMINED ONE.** The flip was attempted this session, the whole
+ * gate was run against it, and it was reverted. What that bought:
+ *
+ * 1. ⛔ **A REAL DESYNC WAS FOUND AND FIXED** — the thing the flip was actually waiting on.
+ *    `workerSim.differential`'s `defenders` row had been an acknowledged hole since S143: the family
+ *    is hashed and projected, but its measured peak was ZERO across all 300 frames, so the HARD gate
+ *    sat green having compared an empty map. The worker's agreement with the host said nothing
+ *    whatever about towers. Seeding it with real stink-tower geometry failed the gate immediately:
+ *    `loadRephaseDefenders` collapsed a freshly-registered defender's `tick + interval` to `tick` on
+ *    load, and the worker adopts the world through exactly that JSON save path — so host and worker
+ *    disagreed about the first shot of every new tower. Fixed in `defenderLifecycle.ts`; the row is
+ *    now ASSERTED, not acknowledged. Flipping before this would have shipped that desync by default.
+ *
+ * 2. ⛔ **THE REMAINING BLOCKER IS THE E2E HARNESS, AND IT IS NOW A NUMBER: 10 gating specs.**
+ *    With the flip on, `npm run e2e:gating` goes 52 passed / 10 failed. Only 5 of the 29 spec files
+ *    carry `?worker=`, so the flip silently re-points the other 24 onto the worker path — and
+ *    `__SPARK__.world` (main.ts) returns the MAIN-THREAD world, which under the worker is a mirror
+ *    rather than the authority. Specs that SEED through that hook (bank contents, hunter trigger,
+ *    phase clock) are writing to a world the sim no longer reads, so they fail for a harness reason,
+ *    not a product one. Failing specs: click-to-build (×3), feed-tower (×2), hunter, match-clock,
+ *    raid, stink-tower, zones-visual.
+ *
+ *    Closing it means routing those specs' seeding through `postIntent` (or proxying the hook into
+ *    the worker) so the harness addresses whichever world is authoritative. Until then the flip
+ *    would ship a default with NO gating evidence behind it for those ten flows — which is exactly
+ *    what *"make it all work and then flip it"* forbids.
  */
 export const WORKER_DEFAULT_ON = false;
 
