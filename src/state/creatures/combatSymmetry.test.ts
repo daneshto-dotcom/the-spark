@@ -45,10 +45,21 @@
  *
  * ⚠ THE ONE-SHOT ARITHMETIC IS LEFT ALONE ON PURPOSE. `GOBLIN_MELEE_HP = 1` is the owner's R70 ruling
  * (*"as fragile as a chewer"*) and ATK/DEF/PEN are R72's ladder. Those are balance numbers and not
- * mine to retune; removing the ORDER advantage is sufficient to make the fight fair. The consequence
- * is worth stating plainly for whoever tunes next: with both blows landing and everything one-shotting,
- * goblin-vs-goblin melee is now mutual annihilation, so armies trade 1:1. If survivors are wanted,
- * that is an HP/DEF decision.
+ * mine to retune; removing the ORDER advantage is sufficient to make the fight fair.
+ *
+ * ## ⭐ SUPERSEDED IN PART BY S156 P4 — read this before trusting the paragraph above
+ *
+ * N1's fix made BOTH blows land, so a duel annihilated both units and armies traded 1:1. I reported
+ * that consequence to the owner and they ruled against it: *"random generator when two units collide
+ * is the smarter for now but actually the real fix is to give all units attack speed which we will
+ * do later"*. So a duel has a WINNER again — chosen by `winsInitiative`'s per-pair, per-tick roll
+ * (`creatureAttack.ts`), not by spawn order.
+ *
+ * ⛔ N1's ACTUAL GUARANTEE SURVIVES UNTOUCHED, and it is the reason this file still exists: the
+ * `world.creatures` iteration order decides NOTHING. The cases below now assert that invariant
+ * directly — same ids, flipped insertion order, same survivor — rather than asserting the
+ * both-die consequence that the ruling replaced. The deferral in `runHostTick` also stays: it is
+ * what makes the loop order irrelevant for non-mutual chains, which initiative does not cover.
  */
 import { describe, expect, it } from 'vitest';
 import { dispatch, makeWorld, type World } from '../world.ts';
@@ -115,9 +126,26 @@ const CASES = [
   { label: 'seat A first AND higher id', idA: 2, idB: 1, bFirst: false },
 ] as const;
 
-describe('S155 N1 — mutual melee is symmetric, whatever the loop order', () => {
+/*
+ * ⛔ S156 P4 — THE OUTCOME ASSERTED HERE CHANGED, AND THE GUARANTEE DID NOT.
+ *
+ * These four cases were written to pin N1's fix: mutual annihilation, both goblins dead. The owner
+ * has since superseded that RULE — *"random generator when two units collide is the smarter for
+ * now"* — so a duel now has a winner again, chosen by `winsInitiative`'s per-pair, per-tick roll.
+ *
+ * What must NOT change, and is what this file has always really been about, is that **the loop order
+ * decides nothing**. So the cases now assert the invariant directly instead of asserting one of its
+ * consequences: the pair (idA, idB) fully determines the survivor, and flipping the insertion order
+ * with the ids held fixed produces the SAME survivor. Under the original bug that was false by
+ * construction — the survivor was whoever the loop reached first — so this still fails against the
+ * defect the owner's match found, which is the property that made the old assertion worth having.
+ *
+ * The old "both die" assertion is deliberately NOT loosened into something vacuous like "at least
+ * one died": that would pass under N1's bug too.
+ */
+describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop order', () => {
   it.each(CASES)(
-    '$label: BOTH die — neither seat is invulnerable',
+    '$label: exactly ONE goblin survives — a duel has a winner again',
     ({ idA, idB, bFirst }) => {
       const w = duelWorld();
       seedDuel(w, idA, idB, bFirst);
@@ -125,15 +153,46 @@ describe('S155 N1 — mutual melee is symmetric, whatever the loop order', () =>
       const st = makeHostTickState(w);
       for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
 
-      /*
-       * ⭐ THE ASSERTION THE OWNER'S MATCH BOUGHT. Before the fix exactly one of these was DEAD and
-       * the other sat on FULL ehp — and which one flipped purely with the insertion order. Both
-       * halves are asserted: "B dies" alone would also be satisfied by the original bug.
-       */
-      expect(w.creatures.has(asCreatureId(idA)), 'seat A goblin should be dead').toBe(false);
-      expect(w.creatures.has(asCreatureId(idB)), 'seat B goblin should be dead').toBe(false);
+      const aAlive = w.creatures.has(asCreatureId(idA));
+      const bAlive = w.creatures.has(asCreatureId(idB));
+      expect(aAlive !== bAlive, 'exactly one goblin should have survived the duel').toBe(true);
     },
   );
+
+  /**
+   * ⭐ THE ASSERTION THE OWNER'S MATCH BOUGHT, restated for the roll. Before N1's fix the survivor
+   * flipped purely with the insertion order; if that were still true, this would fail. Ids are held
+   * IDENTICAL across the two runs and only the insertion order moves, so the loop order is the sole
+   * variable under test.
+   */
+  it('⛔ flipping the INSERTION ORDER does not change who survives', () => {
+    function survivor(bFirst: boolean): number {
+      const w = duelWorld();
+      seedDuel(w, 1, 2, bFirst);
+      const d = deps();
+      const st = makeHostTickState(w);
+      for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
+      return w.creatures.has(asCreatureId(1)) ? 1 : 2;
+    }
+    expect(survivor(false)).toBe(survivor(true));
+  });
+
+  /**
+   * And the flip side: neither SEAT is privileged. Swapping which seat holds which id swaps the
+   * survivor, proving the verdict tracks the id pair (the roll) rather than the seat — the exact
+   * theory the owner started from (*"stats only implemented for player 1"*) and which N1 refuted.
+   */
+  it('⛔ neither SEAT is privileged — swapping the ids swaps the survivor', () => {
+    function survivingSeat(idA: number, idB: number): 'A' | 'B' {
+      const w = duelWorld();
+      seedDuel(w, idA, idB, false);
+      const d = deps();
+      const st = makeHostTickState(w);
+      for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
+      return w.creatures.has(asCreatureId(idA)) ? 'A' : 'B';
+    }
+    expect(survivingSeat(1, 2)).not.toBe(survivingSeat(2, 1));
+  });
 
   it('⛔ the deferral NEVER survives a tick boundary (nothing serialized or hashed can see it)', () => {
     // The field is 'acknowledged' in FIELD_COVERAGE on the strength of exactly this property.

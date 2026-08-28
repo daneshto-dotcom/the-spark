@@ -43,6 +43,54 @@ import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
+import { mix32 } from '../rng.ts';
+
+/**
+ * ⭐ S156 P4 (owner ruling) — **WHO SWINGS FIRST WHEN TWO UNITS COLLIDE.**
+ *
+ * Owner, rejecting the premise of my own proposal rather than its conclusion: *"if you truly arrive
+ * first but what does arriving first even mean? deeper in enemy territory? they all have if two
+ * units have similar speed then who arrives 'first'? stupid way to think about it. random generator
+ * when two units collide is the smarter for now but actually the real fix is to give all units
+ * attack speed which we will do later - the only real solution!"*
+ *
+ * They are right about the premise. With near-identical unit speeds, "who arrived first" is a
+ * sub-pixel positional accident, and S155 N1 proved the engine was amplifying exactly that kind of
+ * accident (there, `world.creatures` insertion order) into a total win. Replacing an accident with
+ * an explicit, fair coin flip is an honest stopgap; per-unit ATTACK SPEED is the real answer and is
+ * NOT this change.
+ *
+ * ## Why this is not S155 N1 wearing a new hat
+ *
+ * N1's defect was that ONE SIDE SYSTEMATICALLY took zero damage for the whole match — the same seat
+ * won every exchange, because the deciding variable was fixed for the match's lifetime. Here the
+ * roll is re-cast **per pair, per tick**, so no seat, no spawn order and no id can hold an advantage
+ * across two exchanges, let alone a match. That is the property `combatSymmetry.test.ts` pins.
+ *
+ * ## Determinism — a hash, never a stream
+ *
+ * ⛔ It MUST NOT draw from a seeded `mulberry32` stream. `hostTick.replay`, `workerSim.differential`
+ * and the bot same-seed test all depend on those streams' DRAW ORDER, and a draw taken inside the
+ * creature loop happens a different number of times depending on how many units are alive — which is
+ * a desync, not a balance change. So this is `mix32`, the repo's stateless-hash idiom: pure,
+ * consumes no stream, reads no clock, and reproducible from a snapshot on any peer.
+ *
+ * ## Symmetry — both sides must reach the SAME verdict
+ *
+ * The pair is keyed on `min(a,b), max(a,b)` so the hash is ORDER-INDEPENDENT: whichever creature the
+ * loop reaches first, both compute one identical roll, and exactly one of them is the winner. If the
+ * key were (attacker, victim) the two would hash differently and both — or neither — could win.
+ */
+export function winsInitiative(a: CreatureId, b: CreatureId, tick: number): boolean {
+  const x = a as unknown as number;
+  const y = b as unknown as number;
+  if (x === y) return true; // degenerate; a creature never collides with itself
+  const lo = Math.min(x, y);
+  const hi = Math.max(x, y);
+  const roll = mix32(mix32(lo, hi), tick);
+  // One bit of an avalanche hash is a fair coin. Low id wins on 0, high id on 1.
+  return (roll & 1) === 0 ? x === lo : x === hi;
+}
 
 /**
  * Action shape — exported for `world.ts` GameAction union composition.
@@ -100,6 +148,27 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   if (action.targetCreatureId !== undefined && action.targetCreatureId !== null) {
     const victim = world.creatures.get(action.targetCreatureId);
     if (victim === undefined) return world;
+    /*
+     * ⭐ S156 P4 (owner ruling) — A MUTUAL COLLISION IS DECIDED BY A ROLL, NOT BY WHO GOT THERE.
+     *
+     * "Two units collide" is exactly this: each one is targeting the other. When that holds, one
+     * roll (see `winsInitiative`) decides who swings; the loser does not strike THIS tick, and since
+     * almost every unit one-shots almost every other, that usually means it does not strike at all.
+     *
+     * ⚠ ONE-SIDED engagements are untouched — if the victim is aiming somewhere else, there is no
+     * collision to arbitrate and the attacker simply strikes. That matters: it keeps a unit that
+     * catches an enemy mid-chew or mid-walk fully lethal, so the roll never becomes a general
+     * damage-halving tax on the whole game.
+     *
+     * ⚠ AND THE S155 N1 DEFERRAL IS DELIBERATELY LEFT IN PLACE. It is what stops `world.creatures`
+     * iteration order from deciding anything, which is a DIFFERENT guarantee from this one and still
+     * load-bearing for non-mutual chains (A kills B while B was striking C — B's committed blow on C
+     * still lands). Initiative decides *who swings in a duel*; the deferral decides *that the loop
+     * order is irrelevant*. Removing either one re-opens a bug the other does not cover.
+     */
+    if (victim.targetCreatureId === action.creatureId) {
+      if (!winsInitiative(action.creatureId, action.targetCreatureId, world.tick)) return world;
+    }
     const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
     const arcEnd: Vec2 = { x: victim.pos.x, y: victim.pos.y };
     // S139 P1 — routed through the `damageEntity` dispatcher rather than calling `damageCreature`
