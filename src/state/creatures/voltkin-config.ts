@@ -151,6 +151,41 @@ export interface CreatureConfig {
   readonly lifetimeTicks: number;
   /* S58 (#4): Voltkin = 1200 (20 s @ 60 Hz) — 2.5× the original 480/8 s. */
   /**
+   * ⭐ S155 P3 (owner) — **WHEN DOES `lifetimeTicks` START COUNTING?**
+   *
+   * Owner: *"voltkin has a timedown but it is counted from when you've build him and not from fight
+   * start. he should start from fight start. my friend played with bots and built voltkins and by the
+   * time the fight started voltkin had dissapeared..."*
+   *
+   * Arithmetically inevitable, not bad luck: Voltkin's lifetime is 1200 ticks = **20 s**, BUILD is
+   * 5400 = **90 s**, and the entire creature fan-out is gated on `matchPhase === 'FIGHT'`
+   * (`hostTick.ts`) — so a Voltkin raised in BUILD spends its whole life DORMANT and is gone before
+   * the fight it was paid for.
+   *
+   *   · `'absolute'` (default when omitted) — `despawnAtTick = spawnedAtTick + lifetimeTicks`, the
+   *     pre-S155 behaviour for every creature, unchanged and byte-identical.
+   *   · `'fight'` — if born during BUILD, the clock instead starts at the beginning of that
+   *     creature's FIRST fight (`world.phaseEndsAtTick`, which during BUILD *is* the FIGHT-start
+   *     tick). Born during FIGHT: identical to `'absolute'`.
+   *
+   * ⛔ ONE STEP ONLY, AND THE SECOND STEP WOULD HAVE BEEN AN EXPLOIT. The tempting reading of the
+   * owner's ask is "the timer only ticks during FIGHT", i.e. pause across EVERY build. The S155
+   * Council (GEMINI-AUDITOR, R2, as the point it would *"die on"*) showed that is a stasis chamber:
+   * *"spam Voltkins in the last 5 seconds of a FIGHT phase, let their clocks freeze, build MORE
+   * during the 90-second BUILD phase, and enter the next FIGHT phase with double or triple the
+   * intended Voltkin mass."* Correct — and it would have broken the unit economy while looking like a
+   * bug fix. So once the clock starts it runs absolutely and never pauses again;
+   * `voltkinFightClock.test.ts` asserts a Voltkin whose despawn lands in the next BUILD still dies
+   * there.
+   *
+   * ⚠ THE FUSE/BATTERY DISTINCTION IS WHY THIS IS A DECLARED FIELD AND NOT AN `if (type ===
+   * 'voltkin')`. `LIGHTNING_DRONE_CONFIG.lifetimeTicks` is a FLIGHT FUSE (8 s: explode if you never arrived),
+   * not a combat battery. Deferring a fuse would make a drone effectively immortal for the whole of
+   * BUILD. Making every creature declare which kind of clock it has means the next one has to answer
+   * the question instead of inheriting a special case.
+   */
+  readonly lifetimeClock?: 'absolute' | 'fight';
+  /**
    * Duration in ticks of the SPAWNING state before SEEKING activates.
    * During SPAWNING the creature is force-free (`computeSteeringAccel`
    * returns `ZERO_ACCEL`). Blueprint Q7; Voltkin = 60 (1 s).
@@ -322,6 +357,10 @@ export interface CreatureConfig {
 export const VOLTKIN_CONFIG: CreatureConfig = {
   type: 'voltkin',
   lifetimeTicks: 1200,
+  // ⭐ S155 P3 (owner) — the ONLY creature on the roster that opts in. A Voltkin is summoned by a
+  // godly combo the player pays for, and 20 s of a 90 s BUILD meant paying for nothing. See the
+  // `lifetimeClock` docblock for the one-step rule and the stasis exploit that bounds it.
+  lifetimeClock: 'fight',
   spawnTicks: 60,
   despawningTicks: 60,
   fadeTicks: 30,

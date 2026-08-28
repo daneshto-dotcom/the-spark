@@ -128,7 +128,21 @@ function spawnChewer(
 }
 
 describe('Voltkin regression — persistent gate does not touch the Voltkin lifecycle', () => {
-  it('a Voltkin still auto-deletes at tick 1200 and enters DESPAWNING at 1140', () => {
+  it('a Voltkin still enters DESPAWNING one despawn-window before its end, then auto-deletes', () => {
+    /*
+     * ⭐ S155 P3 — REWRITTEN TO TEST WHAT IT CLAIMS, rather than re-baselined.
+     *
+     * The intent stated in the describe title is *"the persistent gate does not touch the Voltkin
+     * lifecycle"* — i.e. the FSM RELATIONSHIP: DESPAWNING opens `CREATURE_DESPAWNING_TICKS` before
+     * `despawnAtTick`, and the creature is gone at `despawnAtTick`. That relationship is entirely
+     * phase-independent.
+     *
+     * The absolute numbers 1140/1200 were an accident of `makeWorld` opening in BUILD at tick 0, and
+     * they broke the moment Voltkin's clock started at FIGHT (S155 P3, owner). Re-pinning them to
+     * 6540/6600 would have re-encoded the same accident one phase later, so the ticks are now DERIVED
+     * from the creature's own `despawnAtTick`. The test can no longer be broken by a phase-length
+     * re-tune, and it now fails only if the thing it is named after actually regresses.
+     */
     const world = makeWorld(1);
     applySpawnCreature(world, {
       type: 'SPAWN_CREATURE',
@@ -139,14 +153,14 @@ describe('Voltkin regression — persistent gate does not touch the Voltkin life
     });
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
-    expect(c.despawnAtTick).toBe(VOLTKIN_LIFETIME_TICKS); // spawnedAtTick 0 + 1200
-    // DESPAWNING at despawnAtTick - 60 = 1140.
+    // The lifetime is still exactly VOLTKIN_LIFETIME_TICKS long — only its START moved.
+    const despawnAt = c.despawnAtTick;
+    expect(despawnAt - world.phaseEndsAtTick).toBe(VOLTKIN_LIFETIME_TICKS);
     c.state = 'SEEKING';
-    world.tick = VOLTKIN_LIFETIME_TICKS - CREATURE_DESPAWNING_TICKS; // 1140
+    world.tick = despawnAt - CREATURE_DESPAWNING_TICKS;
     applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
     expect(world.creatures.get(id)!.state).toBe('DESPAWNING');
-    // Auto-delete at despawnAtTick = 1200.
-    world.tick = VOLTKIN_LIFETIME_TICKS; // 1200
+    world.tick = despawnAt;
     applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
     expect(world.creatures.has(id)).toBe(false);
   });

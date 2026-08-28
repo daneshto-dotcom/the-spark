@@ -77,7 +77,22 @@ describe('applySpawnCreature', () => {
     expect(c.state).toBe('SPAWNING');
     expect(c.ticksInState).toBe(0);
     expect(c.spawnedAtTick).toBe(world.tick);
-    expect(c.despawnAtTick).toBe(world.tick + VOLTKIN_LIFETIME_TICKS);
+    /*
+     * ⭐ S155 P3 — THIS LINE USED TO READ `world.tick + VOLTKIN_LIFETIME_TICKS`, AND IT WAS
+     * ASSERTING THE DEFECT.
+     *
+     * `makeWorld` opens in BUILD at tick 0 with `phaseEndsAtTick = PHASE_DURATION_TICKS`, so the old
+     * expectation pinned a Voltkin dying at tick 1200 — 4200 ticks (70 s) BEFORE the fight it was
+     * summoned for. That is exactly the owner's report: *"by the time the fight started voltkin had
+     * dissapeared"*. The suite was green throughout, because it was checking the arithmetic the code
+     * performed rather than the behaviour the game needed.
+     *
+     * Voltkin now carries `lifetimeClock: 'fight'`, so a Voltkin born in BUILD anchors its 20 s to
+     * the start of its first fight. Written against `world.phaseEndsAtTick` rather than a literal, so
+     * it stays true if the phase lengths are ever re-tuned. See voltkinFightClock.test.ts for the
+     * full rule, including the one-step bound that prevents a stasis-chamber exploit.
+     */
+    expect(c.despawnAtTick).toBe(world.phaseEndsAtTick + VOLTKIN_LIFETIME_TICKS);
     expect(c.pos).toEqual(TARGET_POS);
     expect(c.prevPos).toEqual(TARGET_POS); // S26-reserved; zero implicit velocity for S25
   });

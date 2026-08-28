@@ -353,6 +353,30 @@ export interface Creature {
  * gate, not this tick, governs removal; the sentinel lifetime is defense-in-depth).
  * `targetPos` is supplied by the caller (Council Q1: the caller computes it).
  */
+/**
+ * ⭐ S155 P3 — the tick a creature's lifetime STARTS counting from.
+ *
+ * Pure, and the ONLY place the rule lives. For an `'absolute'`-clock creature (every creature but
+ * Voltkin, and the default when the field is omitted) that is its birth tick — byte-identical to the
+ * pre-S155 behaviour. For a `'fight'`-clock creature born during BUILD it is the start of its FIRST
+ * fight, which during BUILD is exactly what `phaseEndsAtTick` holds.
+ *
+ * ⛔ ONE STEP, NEVER A RUNNING PAUSE. Read the `lifetimeClock` docblock in voltkin-config.ts for the
+ * stasis-chamber exploit that bounds this: pausing across every BUILD would let a player bank Voltkins
+ * through the build phase and enter the next fight with multiples of the intended mass.
+ *
+ * `clock` is optional so the hundreds of existing factory calls (and every locked replay guard) keep
+ * the absolute behaviour with no edit — omitting it can only ever mean "count from birth".
+ */
+export function lifetimeStartTick(
+  config: Pick<CreatureConfig, 'lifetimeClock'>,
+  spawnedAtTick: number,
+  clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number },
+): number {
+  if (config.lifetimeClock !== 'fight' || clock === undefined) return spawnedAtTick;
+  return clock.matchPhase === 'BUILD' ? clock.phaseEndsAtTick : spawnedAtTick;
+}
+
 export function makeCreature(
   config: CreatureConfig,
   args: {
@@ -363,6 +387,15 @@ export function makeCreature(
     spawnedAtTick: number;
     /** S100 P1 — null = Voltkin (lifetime-bound); SpawnerId = chewer (persistent). */
     sourceSpawnerId?: SpawnerId | null;
+    /**
+     * ⭐ S155 P3 — the live match clock, for `lifetimeClock: 'fight'` creatures. `World` satisfies it
+     * structurally, so the reducer just passes `world`.
+     *
+     * OMITTING IT IS SAFE AND MEANS "absolute": that is what preserves byte-equivalence for every
+     * existing call site and for the locked replay guards. Both fields it reads are already hashed and
+     * already on the wire, so this needs no new wire field and no PROTOCOL_VERSION bump.
+     */
+    clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number };
   },
 ): Creature {
   return {
@@ -379,7 +412,12 @@ export function makeCreature(
     ticksInState: 0,
     killCount: 0,
     spawnedAtTick: args.spawnedAtTick,
-    despawnAtTick: args.spawnedAtTick + config.lifetimeTicks,
+    // ⭐ S155 P3 — computed ONCE, here, and stored as an ABSOLUTE tick. That is what keeps it
+    // restore- and migration-safe: `despawnAtTick` is itself serialized, so a snapshot or a
+    // host takeover carries the integer rather than recomputing it against a clock that may have
+    // moved on. A later mutation of `phaseEndsAtTick` cannot retroactively change a live creature.
+    despawnAtTick:
+      lifetimeStartTick(config, args.spawnedAtTick, args.clock) + config.lifetimeTicks,
     sourceSpawnerId: args.sourceSpawnerId ?? null,
     chewProgress: 0,
     // S151 P2 — the pool is HP POINTS x the DEF multiplier, in fifths. def is 0 across the
@@ -401,6 +439,11 @@ export function makeVoltkinCreature(args: {
   pos: Vec2;
   targetPos: Vec2;
   spawnedAtTick: number;
+  /**
+   * S155 P3 — forwarded to `makeCreature` so a Voltkin summoned during BUILD starts its 20 s at
+   * FIGHT. Optional, so every existing call (and the replay guards) keeps the absolute clock.
+   */
+  clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number };
 }): Creature {
   return makeCreature(VOLTKIN_CONFIG, { ...args, sourceSpawnerId: null });
 }

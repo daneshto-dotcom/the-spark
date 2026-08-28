@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2831,
+  "tool_calls_session_total": 2843,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -372,17 +372,91 @@
     {
       "id": "P3",
       "title": "Voltkin's clock starts when the fight starts (one-step deferral, no stasis)",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "OWNER BUG, AND IT WAS ARITHMETICALLY INEVITABLE RATHER THAN BAD LUCK. Three shipped numbers force it: VOLTKIN_CONFIG.lifetimeTicks = 1200 = 20s at PHYSICS_HZ 60; PHASE_DURATION_TICKS (BUILD) = 5400 = 90s; and the entire creature fan-out is gated on matchPhase==='FIGHT' (hostTick.ts:147), so a creature raised in BUILD neither acts nor is watched while its clock burns down. A Voltkin summoned with >20s of BUILD left therefore spends its whole life dormant and is gone before the fight it was paid for. The failing test I wrote FIRST quantified it exactly: 'expected 1200 to be 6600' and 'expected -4200 to be 1200' - dead 4200 ticks (70 seconds) before FIGHT began. COUNCIL R2 BLOCKER ADOPTED, and it changed the design: my first redesign made the lifetime mean '20 seconds of ACTIVE COMBAT TIME', the clock skipping EVERY BUILD gap - which sounded more honest and which GEMINI-AUDITOR had argued for in R1. In R2 the same seat killed it as the point it would 'die on': that is a STASIS CHAMBER. 'spam Voltkins in the last 5 seconds of a FIGHT phase, let their clocks freeze, build MORE during the 90-second BUILD phase, and enter the next FIGHT phase with double or triple the intended Voltkin mass.' Correct, and it would have broken the unit economy while looking like a bug fix. SHIPPED: a ONE-STEP deferral. A 'fight'-clock creature born during BUILD anchors to the start of its FIRST fight (world.phaseEndsAtTick, which during BUILD IS the FIGHT-start tick); born during FIGHT it is unchanged; and once the clock starts it runs ABSOLUTELY and never pauses again. A dedicated test asserts a Voltkin raised 10s before a fight ends still dies 10s into the following BUILD rather than being banked. AND THE SIMPLER FORM DISSOLVED GROK-ANALYST'S TWO OBJECTIONS RATHER THAN PATCHING THEM, which is why it is the design and not a compromise. The multi-phase version had to walk the BUILD/FIGHT schedule, which (a) baked PHASE_DURATION_TICKS into a serialized computed field so a future re-tune would silently invalidate every saved creature (GROK HIGH), and (b) had to replicate the phase accumulator's multi-flip boundary semantics exactly, including after a NONET freeze (GROK MEDIUM). The one-step form walks no schedule and bakes no constant: it reads one live, already-hashed, already-on-the-wire field. No new wire field, NO PROTOCOL_VERSION BUMP (stays 33), and despawnAtTick remains an absolute tick computed ONCE at construction and serialized as itself - so a save/restore or host migration carries the integer instead of recomputing it against a clock that has moved. Asserted by a test that mutates phaseEndsAtTick after birth and shows the creature's despawn does not move. THE FUSE/BATTERY DISTINCTION IS DECLARED, NOT SPECIAL-CASED: CreatureConfig gains an optional lifetimeClock: 'absolute'|'fight', default absolute, and ONLY VOLTKIN_CONFIG opts in. LIGHTNING_DRONE_CONFIG's 8s is a FLIGHT FUSE (explode if you never arrived), not a combat battery - deferring it would make a drone immortal for the whole of BUILD - and a test pins that it stays absolute, as do chewer and the goblin kinds. Omitting the field is byte-identical to pre-S155, which is what preserves the locked replay equivalence for every existing call site. TWO PRE-EXISTING TESTS WENT RED AND I READ THEM INSTEAD OF RE-BASELINING THEM (the S154 lesson: a failing test after a correct change is sometimes the test reporting an older defect). (1) creatureLifecycle.test.ts asserted despawnAtTick === world.tick + VOLTKIN_LIFETIME_TICKS - it was ASSERTING THE DEFECT, pinning a Voltkin dying at tick 1200 in a BUILD world; updated to phaseEndsAtTick + lifetime and written against the field rather than a literal. (2) towerDefense.test.ts's 'a Voltkin still auto-deletes at tick 1200 and enters DESPAWNING at 1140' had a phase-INDEPENDENT intent (the FSM relationship named in its own describe title) but hardcoded numbers that were an accident of makeWorld opening in BUILD at tick 0. Re-pinning them to 6540/6600 would have re-encoded the same accident one phase later, so the ticks are now DERIVED from the creature's own despawnAtTick - it can no longer be broken by a phase-length re-tune and now fails only if the thing it is named after regresses. VERIFIED: tsc exit 0 · 3122/3122 unit tests, 191 files (+8 new incl. the stasis-exploit guard and a back-compat guard proving the no-clock factory path is unchanged) · the locked replay and save guards (save.replay, save.creatureLifetime, hostTick.replay, stateHashFull) all green WITHOUT re-baselining, which is the evidence that the wire format and hash are untouched · build 747.0 KiB / 900 cap. Verification here is reducer-level rather than render-level ON PURPOSE: the reducer IS the runtime for this behaviour, and the test drives the real dispatch path, not a reconstruction.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "readonly lifetimeClock?: 'absolute' | 'fight';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "lifetimeClock: 'fight',"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "pattern": "lifetimeClock: 'fight'",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "export function lifetimeStartTick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "lifetimeStartTick(config, args.spawnedAtTick, args.clock) + config.lifetimeTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "if (config.lifetimeClock !== 'fight' || clock === undefined) return spawnedAtTick;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "pattern": "clock: world,",
+          "op": "==",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.test.ts",
+          "needle": "expect(c.despawnAtTick).toBe(world.phaseEndsAtTick + VOLTKIN_LIFETIME_TICKS);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/towerDefense.test.ts",
+          "needle": "expect(despawnAt - world.phaseEndsAtTick).toBe(VOLTKIN_LIFETIME_TICKS);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/creatures/towerDefense.test.ts",
+          "needle": "auto-deletes at tick 1200 and enters DESPAWNING at 1140"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkinFightClock.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 8
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinFightClock.test.ts",
+          "needle": "NO STASIS CHAMBER"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 33 as const;"
+        }
+      ]
     },
     {
       "id": "P4",
       "title": "The bot tower save, sized from BUILD-only income, tested on the real phase clock",
-      "status": "pending",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,

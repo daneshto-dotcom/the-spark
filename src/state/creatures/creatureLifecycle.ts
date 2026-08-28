@@ -142,6 +142,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
             pos: action.pos,
             targetPos: action.targetPos,
             spawnedAtTick: world.tick,
+        // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
+        clock: world,
           })
         : makeCreature(getCreatureConfig(action.creatureType), {
             id,
@@ -149,6 +151,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
             pos: action.pos,
             targetPos: action.targetPos,
             spawnedAtTick: world.tick,
+        // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
+        clock: world,
             sourceSpawnerId: null,
           });
     world.creatures.set(id, creature);
@@ -170,6 +174,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         pos: action.pos,
         targetPos: action.targetPos,
         spawnedAtTick: world.tick,
+        // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
+        clock: world,
         sourceSpawnerId,
       }),
     );
@@ -192,6 +198,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     pos: action.pos,
     targetPos: action.targetPos,
     spawnedAtTick: world.tick,
+        // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
+        clock: world,
     sourceSpawnerId,
   });
   world.creatures.set(id, creature);
