@@ -29,6 +29,12 @@
 #                            opt-in benchmarks. Split out in S126 because 3 soak tests
 #                            were 15.2m of a 16.8m suite and made the 15m gating cap
 #                            unmeetable — which silently killed the gate for 3+ weeks.
+#   • job `e2e-protocol`   — GATING (S142 P2). The 2-peer PROTOCOL-MISMATCH pair, selected by
+#                            grep so it gates without losing its @quarantine-flaky tag.
+#   • job `e2e-lobby`      — GATING (S155 P1). The 2-peer LOBBY + MATCH-START baseline, same
+#                            grep-lane idiom. Added because multiplayer had NO blocking
+#                            coverage at all and a broken lobby reached the owner's living
+#                            room. See the long note on the job itself.
 #   • job `e2e-quarantine` — NON-GATING. Runs ONLY @quarantine-flaky, the real
 #                            multi-peer WebRTC tests that fail in the CI sandbox
 #                            on net::ERR_ADDRESS_UNREACHABLE (it can't hold P2P
@@ -260,6 +266,77 @@ jobs:
         with:
           name: playwright-protocol-results
           path: test-results-protocol/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # ⭐ S155 P1 — THE LOBBY-GATE LANE. GATING (no continue-on-error).
+  #
+  # WHY THIS EXISTS, AND IT IS THE STRUCTURAL FINDING OF S155. The owner played with a friend and
+  # multiplayer would not start. When I went looking for the test that should have caught it, there
+  # wasn't one — not a failing one, NONE. *Every* real-WebRTC test in smoke.spec.ts carries
+  # ` @quarantine-flaky`, `e2e:gating` grep-INVERTS that tag, and the quarantine job is
+  # `continue-on-error`. So the entire netcode — the thing this game IS — has been shipping with
+  # zero blocking coverage for roughly a hundred sessions. A multiplayer regression had no way to
+  # reach anyone except by the owner losing an evening to it, which is exactly what happened.
+  #
+  # THE ONE TEST THAT WOULD HAVE CAUGHT IT is `S46 Baseline — lobby + match start`: host hosts,
+  # joiner joins, host presses Begin, BOTH peers reach PLAYING. That is the whole of the owner's
+  # broken flow in one assertion.
+  #
+  # AND IT IS NOT FLAKY, WHICH IS THE POINT — measured, not assumed:
+  #   • CI run 32701269568 (2026-08-24, quarantine lane): PASSED in 6.6s.
+  #   • Local at S155 HEAD over real Trystero/Nostr, 2 Chromium contexts: PASSED, 45.0s wall.
+  # Two independent green runs on real P2P. Meanwhile the 3-peer and 4-peer FFA tests in the same
+  # file DID fail in both places — consistent with their own documented reason (the sandbox cannot
+  # hold 3+ simultaneous P2P data channels). So 2-peer is stable and 3-peer is not; only 2-peer is
+  # promoted, and the rest keep their tag.
+  #
+  # WHY A SEPARATE JOB RATHER THAN UN-TAGGING THE TEST — the S142 P2 precedent, followed
+  # deliberately rather than reinvented. smoke.spec.ts carries an explicit S98 P1 rule (every test
+  # in it is real P2P, keep the tag) and S126 spent a whole session undoing the damage of flaky
+  # multi-peer tests reddening the main gate. Isolating it keeps that rule intact: if a relay
+  # hiccups, THIS lane goes red and names exactly what broke, without taking the gating lane down.
+  #
+  # Retries stay at the default (2), same reasoning as the protocol lane: a relay hiccup is the one
+  # genuinely transient failure retries are for, and the budget is trivial at ~7-45s of tests.
+  #
+  # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice, add
+  # `continue-on-error: true` HERE — do NOT delete the lane, and do NOT re-tag the test. A noisy
+  # multiplayer signal is still infinitely better than the none we had.
+  e2e-lobby:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
+      # standing rule for every lane in this file.
+      PW_GLOBAL_TIMEOUT_MIN: 9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (lobby + match start — the 2-peer Begin gate, GATING)
+        run: npm run e2e:lobby
+        env:
+          CI: 'true'
+
+      - name: Upload lobby-lane results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-lobby-results
+          path: test-results-lobby/
           retention-days: 14
           if-no-files-found: ignore
 

@@ -95,6 +95,8 @@ import {
   HOST_STARVATION_MS,
 } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
+// ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
+import { joinStallMessage } from './net/joinDiagnosis.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
 // stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
@@ -2876,6 +2878,43 @@ async function bootstrap(): Promise<void> {
       } else {
         lobbyScreen.updateDiagnostics('');
       }
+      /*
+       * ⭐ S155 P1 — SAY IT OUT LOUD WHEN THE JOIN CANNOT SUCCEED.
+       *
+       * Owner: *"you see that player already in when trying to connect and it keeps saying
+       * connected... but then its stuck."* Every clause of that is one state — the host attestation
+       * never latching — and the reason it was invisible is that the two things the joiner DOES
+       * render (the seat rack and the status line) are both driven by transport `peerCount`, which
+       * knows nothing about trust. So the screen looked healthy while three separate recovery paths
+       * were shut. See joinDiagnosis.ts for the clause-by-clause mapping.
+       *
+       * ⛔ THIS SURFACES A DIAGNOSIS, IT DOES NOT LOWER THE TRUST BAR. The S155 Council killed the
+       * "admit the Begin anyway when there's only one peer" idea as a BLOCKER: the room code is
+       * public in quickmatch and room membership is racy, so "the only host-candidate" is
+       * attacker-controllable and would hand out unfiltered snapshot authority. Nothing is admitted.
+       *
+       * Latched ONCE (`joinTrust.stallReported` — see why it lives on the per-attempt object rather
+       * than in this loop) rather than re-asserted per frame: `onLobbyError` sets the sticky
+       * `errorLatched` flag, and re-latching every frame would both churn and out-shout a transient
+       * recovery. Transient failures stay quiet — the message only appears after JOIN_STALL_WARN_MS
+       * of a connected-but-unverifiable peer, which no healthy join ever reaches.
+       */
+      if (!world.isHost && session.joinTrust !== null && !session.joinTrust.stallReported) {
+        const stall = joinStallMessage(
+          session.joinTrust,
+          performance.now(),
+          session.hostVerifiedPeerId !== null,
+        );
+        if (stall !== null) {
+          session.joinTrust.stallReported = true;
+          console.warn(
+            `[net] JOIN STALLED — ${stall} (last attest failure: ` +
+              `${session.joinTrust.lastFailure ?? 'none offered'})`,
+          );
+          onLobbyError(stall);
+        }
+      }
+
       // S46 P1 Phase A.0 — host-side diagnostic strip. Mirror joiner pattern
       // so the host can SEE the load-bearing state for the BUG-CRITICAL-4
       // "Begin Match never appears" regression. Three hypothesis spaces:

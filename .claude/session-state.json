@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 2792,
-  "session_id": "S154",
-  "session_kind": "PDCA batch + 3 owner amendments: P5b palette-to-footer, bat-rider harpoons + the ranged-creep fix, A5 bots build towers, A3 armies retreat, P8 worker-bots tick wait, then (owner, from live playtesting) bot economy investment + a working tower save, player-coloured ground markers, and the 1500-HP destructible castle",
-  "session_start": "2026-08-27",
-  "prior_session_note": "S153 closed at 057e5ec; protocol 31; S154 preflight re-measured GREEN: build 738.2/900 KiB, vitest 3008/3008 (181 files), git clean",
-  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S153.md",
+  "tool_calls_session_total": 2830,
+  "session_id": "S155",
+  "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
+  "session_start": "2026-08-28",
+  "prior_session_note": "S154 closed at ca2f3d5; PROTOCOL 33; S155 preflight measured: tsc exit 0, deploy lane 15/15 success, zero open issues, 7/7 Nostr relays healthy, 2-peer WebRTC e2e PASSES at HEAD",
+  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-27_PDR_S154_BATCH.md",
-  "session_status": "ready_for_handoff",
+  "plan_file": ".claude/plans/2026-08-28_PDR_S155_BATCH.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -66,589 +66,217 @@
   ],
   "priorities": [
     {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "P8",
-      "priority": 4,
-      "tier": "Micro",
+      "id": "P1",
+      "title": "Multiplayer must start, and must never silently refuse to",
       "status": "completed",
-      "title": "worker-bots e2e waits on world.tick, never a raised timeout (CF-S152-a)",
-      "estimated_tokens": 6000,
-      "check_completed": true,
-      "checkpoint_commit": "4b9b2705aff437bea9f49bce38bd48e4daf934b2",
-      "check_method": "RUNTIME, not static: `npx playwright test e2e/worker-bots.spec.ts` -> 1 passed in 22.4 s with the tick-budgeted wait in place. That is the only check that means anything here — the whole point of the change is CI behaviour, and a static read cannot tell a tick budget from a wall clock. It also incidentally confirms S154 P3's bot changes did not disturb the worker-sim mirror path, which was the one cross-priority risk in this batch. || SCOPE DISCIPLINE HELD: test.setTimeout(360_000) and GROWTH_WALL_CAP_MS untouched (the carry-forward's standing instruction — that rope failed twice), helpers.ts untouched (waitForWorldWithinTicks already existed and this spec already imported it), and the ONE remaining waitForWorld left deliberately in place because it waits for a menu click to reach PLAYING, which a tick budget cannot measure.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-bots.spec.ts",
-          "needle": "FIRST_BUILD_BUDGET_TICKS = 1_800"
-        },
-        {
-          "type": "grep_count",
-          "path": "e2e/worker-bots.spec.ts",
-          "pattern": "waitForWorldWithinTicks\\(",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-bots.spec.ts",
-          "needle": "test.setTimeout(360_000)"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-bots.spec.ts",
-          "needle": "const GROWTH_WALL_CAP_MS = 180_000;"
-        },
-        {
-          "type": "grep_count",
-          "path": "e2e/worker-bots.spec.ts",
-          "pattern": "60_000,",
-          "op": "==",
-          "value": 0
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "A3",
-      "priority": 3,
-      "tier": "Standard",
-      "status": "completed",
-      "title": "Armies retreat before FIGHT ends and idle spawn-fresh at their own tower",
-      "estimated_tokens": 26000,
-      "check_completed": true,
-      "check_method": "STATIC: 3069/3069 unit / 185 files (+12 retreat.test.ts). tsc clean. Build 740.6/900 KiB. All determinism/replay gates green. || THE OWNER'S SCREENSHOT IS NOW AN INVARIANT: two armies spawned in each other's ground, a FULL FIGHT phase run out through runHostTick, and at BUILD every creature is asserted nearer its OWN keep than the enemy's. Paired with its anti-vacuity case (it does NOT walk home mid-fight), without which a permanently-homing goblin would pass the walk test. || THE TRAP THAT WOULD HAVE BEEN INVISIBLE, caught and asserted: recallArmies must move prevPos with pos. Verlet velocity is IMPLICIT in (pos - prevPos), so teleporting pos alone hands the creature a one-frame velocity of the whole board width and it rockets back across the map when FIGHT resumes — no error, and every determinism gate green because both peers do it identically. || DESIGN CONSTRAINED BY A.0 RATHER THAN BY GUESSWORK: no new CreatureState (a 'RETREATING' literal is a hard wire parse break AND renders as the idle animation row, so the unit would slide across the board standing still) and no new creature field (the creatures family is hashed; a field needs two edits in stateHashFull). Position is already hashed and serialized, so moving it costs nothing. The half-transparent idle is DERIVED from matchPhase in the renderer — no wire change, no bump.",
-      "checkpoint_commit": "a6f8f5aa5df6280a34b07a40a1caf057e876d8c3",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "ARMY_RETREAT_LEAD_TICKS = 180"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function ownHomePos"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function isRetreatWindow"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "export function recallArmies"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "recallArmies(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "const goingHome = isRetreatWindow(world)"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/hostTick.ts",
-          "pattern": "c\\.prevPos\\.[xy] = home\\.[xy];",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "DORMANT_ALPHA"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/creatures/retreat.test.ts"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "A5",
-      "priority": 2,
       "tier": "Full",
-      "status": "completed",
-      "title": "Bots build TOWERS, difficulty floor at MID (R86 / CF-S149-f)",
-      "estimated_tokens": 45000,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
       "check_completed": true,
-      "check_method": "STATIC: 3057/3057 unit / 184 files (+13 botTowers.test.ts). tsc clean. Build 739.8/900 KiB. All seeded replay/differential gates green (hostTick.replay, workerSim.differential, botController same-seed stream), which is the load-bearing result for a new branch inserted ABOVE pickTargetSpark: both new planners draw ZERO rng, and two same-seed tests assert the streams agree rather than a comment claiming it. || BEHAVIOURAL, not config: the acceptance test drives BotManager for six sim-seconds and requires a REAL STRUCTURE in world.primitives with >= blueprintCost nodes, bonded to each other; the floor is proven end-to-end by a NOOB in the identical world raising nothing; and a NOOB holding a FULL BILL is asserted to still refuse, which is what separates 'the flag exists' from 'the flag is consulted'. || THE LITTERING HAZARD IS COVERED IN THE DIRECTION NOTHING PROTECTED: stampRefusalAt guards the stamp, so the test keeps an IMBA bot playing 40 more sim-seconds AFTER the stamp and requires every tower node still present — the auto-bond chord that tears a structure down leaves no error and no log line. || MY FIRST HOARD RULE WAS WRONG AND THE SHIPPED SUITE CAUGHT IT: gating PULL on chooseTowerOrder made the gate permanent (six blueprints, one always unaffordable), taking an IMBA bot from >=3 placements to one. Removed, and the now-unused HOARD_CAP deleted rather than shipped unread.",
-      "checkpoint_commit": "a23e097ce2b3cf748094efe1ddc949417e2fc745",
-      "real_context_tokens_at_close": null,
+      "check_method": "FINDING (structural, and the reason the owner's evening was lost): multiplayer had ZERO blocking test coverage. Every real-WebRTC test in e2e/smoke.spec.ts carries @quarantine-flaky, `e2e:gating` grep-INVERTS that tag, and the quarantine job is continue-on-error - so for ~100 sessions a broken lobby could only be discovered by a human losing an evening to it. Both external Council seats independently ranked this in their top three. FIXED by following the shipped S142 P2 idiom rather than inventing one: a new GATING `e2e-lobby` job + `npm run e2e:lobby` grep-lane selects the 2-peer lobby+Begin baseline (and the new stall spec) WITHOUT un-tagging them, so a relay hiccup reds that lane and names the cause instead of taking the 45-test shared gate down. Justified on measurement, not hope: the S46 Baseline passed in CI run 32701269568 (2026-08-24, 6.6s) and twice locally at HEAD, while the 3-peer/4-peer FFA specs failed in BOTH of those same runs, consistent with their own documented sandbox limit - so 2-peer is stable, 3-peer is not, and only 2-peer was promoted. ROOT-CAUSE WORK: A0-2 measured that the 2-peer host/join/Begin flow PASSES at HEAD over real Trystero/Nostr, so the owner's failure is not reachable from a dev build on one machine and I did NOT claim to have reproduced it. What I DID prove by construction is the failure MECHANISM, and it matches the owner's sentence clause by clause: clientHandlers.route buffers LOBBY_PRESENCE and START_GAME_SIGNAL while hostVerifiedPeerId is null, and hostAuthFilter independently drops NETSNAPSHOT, so a never-latching host attestation leaves the joiner (a) still SEEING the other player because the seat rack falls back to count-based derivation, (b) still reading 'Connected. Waiting for host to begin...' because the status line is driven by transport peerCount which knows nothing about trust, (c) permanently in LOBBY with even the S39 P1 snapshot rescue path shut, and (d) told NOTHING, because attest failures were deliberately console-only. Three independent recovery paths gated behind one silent async predicate with no timeout and no exit. COUNCIL BLOCKER ADOPTED: my first design admitted a buffered Begin when it was the only host-candidate peer, reasoning that S82 attestation exists to beat a THIRD peer. GROK killed it and was right - the room code is PUBLIC in quickmatch (advertised over Nostr) and room membership is racy, so 'the only host-candidate' is ATTACKER-CONTROLLABLE: an actor who knows the code could arrange to be the only visible candidate and be handed unfiltered NETSNAPSHOT authority. Strictly worse than being stuck. FEATURE DROPPED ENTIRELY; nothing is admitted without a valid attestation, and an e2e now ASSERTS the joiner is still refused so that property can never be 'fixed' away. SHIPPED INSTEAD: (1) diagnoseHostAttest in hostIdentity.ts returns WHICH of the three checks failed (CODE_MISMATCH / KEY_IMPORT_FAILED / SIGNATURE_INVALID / MALFORMED) plus the three values GROK asked to be logged - derivedCode, expectedCode, senderPeerId - and verifyHostAttest now DELEGATES to it, so there is one implementation and every existing caller reads the identical boolean computed by the identical checks in the identical order (back-compat pinned by test). SIGNATURE_INVALID with a correct derivedCode is precisely the signature that the peerId the host signed is not the peerId the joiner verifies against, which was GROK's un-falsifiable-offline root-cause hypothesis - now it will name itself in one log line. (2) joinDiagnosis.ts, a pure lobbyStateMachine-pattern reducer: per-attempt trust facts plus a stall interpretation that fires only after JOIN_STALL_WARN_MS (8s - chosen between a ~ms P-256 verify and the transport's own 30s HANDSHAKE_TIMEOUT_MS, so transient failures stay quiet and permanent ones get reported), naming the LAYER in plain language with no crypto jargon (asserted) and always naming the way out. The BEGIN_REJECTED branch outranks the others because it is the only one that proves the host did its part - it pressed Begin, we received it, we threw it away - which is exactly the owner's state. (3) The one-shot report flag lives ON the per-attempt JoinTrustState rather than in the render loop, so its lifetime is correct by construction across host-start / join / quickmatch-joinCode / Back / auto-reconnect instead of needing five reset sites where missing one would either leave a stale 'stuck' message on a healthy join or suppress the message on the retry the player was just told to make. VERIFIED, incl. in a real browser per PRIME-AUDIT runtime-verifiability: tsc exit 0; 3105/3105 unit tests (189 files, +22 new: 8 attest-diagnosis incl. every failure arm and the peerId-mismatch arm, 14 stall-reducer incl. a byte-exact string canary mirroring lobbyStateMachine's); build 744.5 KiB / 900 cap, headroom 155.5; and `npm run e2e:lobby` 3/3 PASS over real WebRTC in Chromium - the two new join-stall specs are the FIRST automated reproduction of the owner's symptom class, driven through a joiner-only __FORCE_ATTEST_FAIL__ seam (same idiom as __TEST_MIGRATION__ / the protoVersion override; it only ever makes verification STRICTER, so no trust is weakened). CONVERGENCE WORTH RECORDING: the owner said 'neither the quick match nor the host/join the server', and both paths funnel through the same connectAsClient -> route -> attest latch, which is why both failed identically. Quickmatch's READY affordance was checked and is NOT a gap - it already has eventMode static, cursor pointer and a live 'ready k/n' tally. HONEST RESIDUAL: the root cause of a live verification failure remains unproven (PRIME-AUDIT item 2). What is fixed is the silent dead-end and the missing diagnosis, so the owner's next report is one message from conclusive instead of one session.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/bots/botConfig.ts",
-          "needle": "buildsTowers: boolean"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "buildsTowers:",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "buildsTowers: false",
-          "op": "==",
-          "value": 1
+          "path": "package.json",
+          "needle": "e2e:lobby"
         },
         {
           "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "export function chooseTowerPlan"
+          "path": "package.json",
+          "needle": "S46 Baseline|S155 join-stall"
         },
         {
           "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "export function chooseTowerOrder"
+          "path": ".github/workflows/e2e.yml",
+          "needle": "e2e-lobby:"
         },
         {
           "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "planBlueprintPayment"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "stampRefusalAt"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "send({ type: 'BUILD_BLUEPRINT'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "send({ type: 'ENQUEUE_GATHERER_ORDER'"
+          "path": ".github/workflows/e2e.yml",
+          "needle": "npm run e2e:lobby"
         },
         {
           "type": "file_lacks",
-          "path": "src/bots/botBrain.ts",
-          "needle": "HOARD_CAP"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/bots/botTowers.test.ts"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "R92-batrider",
-      "priority": 1,
-      "tier": "Standard",
-      "status": "completed",
-      "title": "Bat rider gets a real ranged harpoon + a flying read (and the ranged-standoff CREEP fix)",
-      "estimated_tokens": 22000,
-      "check_completed": true,
-      "check_method": "STATIC: 3044/3044 unit / 183 files (from 3028; +9 standoff.test.ts driving the REAL runHostTick, +7 harpoon cases in creatureProjectile.test.ts). tsc clean. Build 739.8/900 KiB. Every determinism + replay gate green, which is the load-bearing result: the creep fix is scoped by `holdsRange` so Voltkin/chewer/drone locomotion (pinned byte-exact by save.replay.test.ts) is untouched. Protocol 31->32 with all six checklist sites edited; protocolVersionSync + the protocol.test pin both green. || MEASURED, NOT ASSUMED — three times over: (1) the creep itself, reproduced with the real FSM + 8-substep physics: shipped goblinArcher 220 -> 155.4 px over 39 cadences; (2) the FIRST TWO FIXES MEASURED WORSE OR INSUFFICIENT (re-arm-in-ATTACKING took the bat to 53 px, worse than the 70 px baseline; the standoff ring alone left it at 70), which is why the shipped fix is the third design and why the two rejected ones are recorded in the source; (3) the final behaviour traced tick-by-tick: brakes at 82 px, converges on the 120 px ring, still firing. || RUNTIME (Pixi extract.canvas on the running dev server, real metrics): lifted bat sprite 881 lit px; FLAMING HARPOON drawn in the corridor between shooter and target, colours #f5d683 / #400d07 / #954d19 = the flame palette, i.e. the projectile is genuinely in flight and correctly chose the structure variant; ground marker 25 lit px of the owner's crimson tint against 0 on empty board. Zero console errors. || ⛔ AND THE PIXEL PASS CAUGHT A NO-OP BEFORE IT SHIPPED: the first ground shadow was black at alpha 0.22 and the board background measured PURE BLACK (0,0,0), so it was mathematically invisible — the S153 P5c class exactly. Replaced with a tinted ring and re-measured. A liveness experiment (temporarily enlarging the ellipse to 40x20 -> 422 lit px vs 0 control) was used to separate 'call site not reached' from 'too subtle to detect', because an early probe caught the async atlas fallback (green #7fae4e puppet) instead of the atlas sprite.",
-      "checkpoint_commit": "1a8e6078536d89730a4a1dd24985d872f996ed5a",
-      "real_context_tokens_at_close": 519214,
-      "real_context_pct_at_close": 51.92,
-      "protocol_bump": "31 -> 32, six sites; attackRange is a shared constant both peers compute from in creatureProjectile.ts",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "GOBLIN_BAT_RANGE = 150"
+          "path": ".github/workflows/e2e.yml",
+          "needle": "e2e-lobby:\n    runs-on: ubuntu-latest\n    timeout-minutes: 12\n    continue-on-error"
         },
         {
           "type": "file_contains",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "needle": "attackRange: GOBLIN_BAT_RANGE"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "pattern": "attackRange: GOBLIN_ATTACK_RANGE",
-          "op": "==",
-          "value": 3
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "pattern": "holdsRange: true",
-          "op": "==",
-          "value": 2
+          "path": "src/net/hostIdentity.ts",
+          "needle": "export async function diagnoseHostAttest"
         },
         {
           "type": "file_contains",
-          "path": "src/physics/creatureVerlet.ts",
-          "needle": "steersWhileAttacking"
+          "path": "src/net/hostIdentity.ts",
+          "needle": "return (await diagnoseHostAttest(attest, roomCode, senderPeerId)).ok;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function standoffTargetPos"
+          "path": "src/net/hostIdentity.ts",
+          "needle": "export function formatAttestDiagnosis"
         },
         {
           "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function engageRange"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/render/creatureProjectile.ts"
-        },
-        {
-          "type": "file_absent",
-          "path": "src/render/archerArrow.ts"
+          "path": "src/net/joinDiagnosis.ts",
+          "needle": "export const JOIN_STALL_WARN_MS = 8_000;"
         },
         {
           "type": "file_contains",
-          "path": "src/render/creatureProjectile.ts",
-          "needle": "drawHarpoon"
+          "path": "src/net/joinDiagnosis.ts",
+          "needle": "export function joinStallMessage"
         },
         {
           "type": "file_contains",
-          "path": "src/render/creatureLift.ts",
-          "needle": "goblinBat: 34"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/creatures/standoff.test.ts"
+          "path": "src/net/joinDiagnosis.ts",
+          "needle": "stallReported"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "S154 P2 — bumped 31->32: THE BAT RIDER GETS A REAL REACH"
+          "path": "src/net/session.ts",
+          "needle": "joinTrust: import('./joinDiagnosis.ts').JoinTrustState | null;"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "S154 P2: 31->32 (THE BAT RIDER"
-        }
-      ],
-      "verification_note": "Four bindings originally pinned PROTOCOL_VERSION = 32 and went stale the moment amendment C bumped it to 33 — the MCV gate caught it. Re-pointed at the CHANGELOG entry for 31->32, which is permanent history, because the CURRENT version number belongs to whichever priority set it last (now AMEND-C, which pins it)."
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "P5b",
-      "priority": 0,
-      "tier": "Standard",
-      "status": "completed",
-      "title": "Palette + order queue move to the FOOTER, right of tier 8, always visible (R80)",
-      "estimated_tokens": 34000,
-      "check_completed": true,
-      "check_method": "STATIC: 3028/3028 unit across 182 files (baseline 3008/181; +20 new shapeStrip.test.ts, +1 card-clearance, castlePanel net -1 as six strip-geometry assertions were replaced by five inversions). tsc --noEmit clean. Build 738.1 KiB entry / 900 KiB cap, headroom 161.9. || RUNTIME (the half a green suite cannot prove, and this is render work): booted the dev server, drove the LIVE app with real Pixi text metrics, and read footerBand.getUiPoints() with the castle NEVER OPENED. Measured: 5 chips, tier-8 chip right edge x=1143; palette 6 buttons x=1177..1382 at y=1005; queue row y=1041 — i.e. right of tier 8 and inside the band (996..1080), matching the pre-computed prediction exactly. Pressed palette shape 3 through the REAL DOM->controls.ts path: world.gathererOrders became {0:[3]} and world.primitives stayed 0, so the PLACE_FROM_FREE guard holds. Three presses coalesced to one chip x3; pressing the chip cancelled one (x2); a click on the EMPTY band at x=1700 enqueued nothing, so the bottom 7.8% of the board is still clickable — the constraint that got the original footer deleted. castlePanel.getUiPoints().open was false at every step. Zero console errors. || MEASURED AND THEN PINNED: the open tower-card menu bottom is y=1003 against a strip top of y=1005 — a 2 px margin between two independently-computed layouts, now asserted.",
-      "checkpoint_commit": "27a9a00f5db03ad4bf8b20c5e536ad89f2d9ece8",
-      "real_context_tokens_at_close": 346671,
-      "real_context_pct_at_close": 34.67,
-      "deploy_pushed": true,
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/render/shapeStrip.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/render/shapeStrip.test.ts"
+          "path": "src/net/session.ts",
+          "needle": "session.joinTrust = null;"
         },
         {
           "type": "file_contains",
-          "path": "src/render/shapeStrip.ts",
-          "needle": "shapeStripLayout"
+          "path": "src/net/clientHandlers.ts",
+          "needle": "noteAttestResult(deps.session.joinTrust, d)"
         },
         {
           "type": "file_contains",
-          "path": "src/render/footerBand.ts",
-          "needle": "pressShapeStrip"
+          "path": "src/net/clientHandlers.ts",
+          "needle": "beginBuffered = true"
         },
         {
           "type": "file_contains",
-          "path": "src/render/footerBand.ts",
-          "needle": "isOverShapeStrip"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "export function paletteStripHeight",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "export function chipOrigin",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "paletteCenters:",
-          "op": "==",
-          "value": 0
+          "path": "src/net/clientHandlers.ts",
+          "needle": "__FORCE_ATTEST_FAIL__"
         },
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "needle": "footerBand.setOrderHandlers"
+          "needle": "joinStallMessage("
         },
         {
           "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "export { coalesceOrders } from './shapeStrip.ts';"
+          "path": "src/main.ts",
+          "needle": "session.joinTrust.stallReported = true;"
         },
         {
           "type": "file_contains",
-          "path": "e2e/stink-tower.spec.ts",
-          "needle": "WITHOUT opening the castle"
+          "path": "e2e/join-stall.spec.ts",
+          "needle": "__FORCE_ATTEST_FAIL__"
         },
         {
           "type": "file_contains",
-          "path": "e2e/stink-tower.spec.ts",
-          "needle": "the castle panel stayed shut throughout"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "AMEND-A",
-      "tier": "Standard",
-      "status": "completed",
-      "title": "Bots invest in their economy and genuinely save for a tower (owner amendment A)",
-      "check_method": "⭐ THE ACCEPTANCE TEST THAT WAS RED ALL SESSION IS GREEN: \"a HARD bot with income and an EMPTY bank eventually raises a tower\" — real spawner income, real gatherer, no pre-banked bill. It took THREE changes and any one alone left it red: (1) the economy investment (no bot had EVER emitted UPGRADE_GATHERER_SPEED or BUY_GATHERER — allowlisted for many sessions, only the human ever used them); (2) the ORDER goal steering the hauler, which is only viable because gathererLifecycle reads world.gathererOrders — round 1s load-bearing unknown, since a bill wants 4 of ONE type; (3) the save itself, BUILD-only (stampRefusalAt refuses every stamp during FIGHT), 50% duty, SPEND WINDOW FIRST so a bot never opens the match standing still. || FIVE earlier gate designs were each killed by evidence, ending in the measurement that scoped it: PEAK bank u porch pool over 180 sim-seconds = 1 SHAPE. Round 1s arithmetic said a 90 s hold was needed; it was measured on a bot that never upgraded its hauler, which is why fixing the economy halved it. || 3075/3075 unit at that point, 0 skipped. No new rng draw, so every seeded replay gate is untouched, and two same-seed tests assert that rather than a comment claiming it.",
-      "checkpoint_commit": "9cd4aa2",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "upgradesGatherer:",
-          "op": "==",
-          "value": 5
+          "path": "e2e/join-stall.spec.ts",
+          "needle": "S155 join-stall"
         },
         {
           "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "upgradesGatherer: true",
-          "op": "==",
+          "path": "src/net/hostAttestDiagnosis.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 8
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/joinDiagnosis.test.ts",
+          "pattern": "^  it\\(",
+          "op": ">=",
+          "value": 14
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/join-stall.spec.ts",
+          "pattern": "^  test\\(",
+          "op": ">=",
           "value": 2
         },
         {
           "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "buysSecondGatherer: true",
-          "op": "==",
-          "value": 1
+          "path": "src/net/hostIdentity.ts",
+          "pattern": "AttestFailureReason",
+          "op": ">=",
+          "value": 2
         },
         {
           "type": "grep_count",
-          "path": "src/bots/botConfig.ts",
-          "pattern": "towerTiers:",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "send({ type: 'UPGRADE_GATHERER_SPEED'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "send({ type: 'BUY_GATHERER'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "SAVE_HOLD_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "world.matchPhase === 'BUILD' &&"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/bots/botTowers.test.ts",
-          "needle": "it.skip("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botTowers.test.ts",
-          "needle": "a HARD bot with income and an empty bank eventually raises a tower"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/bots/botBrain.ts",
-          "needle": "HOARD_CAP"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/bots/botBrain.ts",
-          "needle": "SAVE_WITHIN_SHAPES"
-        }
-      ],
-      "check_completed": true
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "AMEND-B",
-      "tier": "Micro",
-      "status": "completed",
-      "title": "Player-coloured ground markers on ALL spawned creatures (owner amendment B)",
-      "check_method": "One drawGroundMarker + ownerTint in creatureLift.ts, called from all THREE creature renderers (goblin, Voltkin+drone, chewer), so \"consistent across ALL spawned creatures\" is enforced by there being nothing else to call. goblinRenderers duplicate SHADOW_RX/RY removed so the shared GROUND_RX/RY is the one definition. ownerTint reads the LIVE player.color, not the palette — the rainbow shuffle remaps seats mid-match and a palette-painted marker would label creatures with the colour their seat USED to be, which is worse than no cue. || VERIFIED: 4 headless tests + extract.canvas on the running game showing two goblins of different owners each rendering a marker (108 and 109 lit px against 0 on empty board), which is what proves the new NON-LIFTED call sites are reached rather than staying gated. || ALSO ANSWERED the owners question: the other goblins black shadows are PAINTED INTO THE veo ART, not drawn by code — on the atlas path the only drawn ellipse was the bat riders.",
-      "checkpoint_commit": "04fd5e7",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureLift.ts",
-          "needle": "export function drawGroundMarker"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureLift.ts",
-          "needle": "export function ownerTint"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "drawGroundMarker(g, c.pos.x, c.pos.y, tint, alpha)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "drawGroundMarker(g, creature.pos.x"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "drawGroundMarker(g, c.pos.x"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/goblinRenderer.ts",
-          "pattern": "const SHADOW_R[XY]",
+          "path": "src/net/clientHandlers.ts",
+          "pattern": "verifyHostAttest\\(",
           "op": "==",
           "value": 0
         },
         {
-          "type": "file_exists",
-          "path": "src/render/groundMarker.test.ts"
+          "type": "syntax_ok",
+          "path": "package.json",
+          "syntax_type": "json"
         }
-      ],
-      "check_completed": true
+      ]
     },
     {
+      "id": "P2",
+      "title": "A real, obvious, interactive BACK TO MAIN",
+      "status": "in_progress",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": "AMEND-C",
+      "check_completed": false
+    },
+    {
+      "id": "P3",
+      "title": "Voltkin's clock starts when the fight starts (one-step deferral, no stasis)",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P4",
+      "title": "The bot tower save, sized from BUILD-only income, tested on the real phase clock",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P7",
+      "title": "Bots must not see through the fog (runs before P5 so targeting is written once)",
+      "status": "pending",
       "tier": "Full",
-      "status": "completed",
-      "title": "THE CASTLE HAS 1500 HP AND CAN BE DESTROYED — A4 / R89 (owner amendment C)",
-      "check_method": "CASTLE_MAX_HP = 1500, deliberately the same number as PHASE_1_WIN_SCORE so the two victory races feel equal-length. HP on the PLAYER (already serialized + threaded through save/load — the raidPoints precedent) rather than a new world map, so no new hash family. PROTOCOL 32->33, all six checklist sites including the test TITLE. || ⛔ IT TOOK FOUR SITES AND I MISSED ONE: engage predicate, ABORT predicate (targetGoneEarly), host-tick fire gate, strike. I wired 1/3/4 and missed the abort — TRACED as state alternating ATTACKING/SEEKING with ticksInState pinned at 0 across 120 ticks and the castle at full health. S103 #8 added the creature arm to that same predicate and S139 P2 added the primitive arm while writing down this exact symptom; the castle is the fourth. All four now ask ONE extracted predicate (enemyCastleInReach) so they cannot diverge again. || Derived from POSITION, so no new creature field: targetCastleSeat would be new hashed+serialized state wanting two stateHashFull edits, where position is already both. || castleHp preserved across the carry-FSM rebuild — player.ts warns that a field omitted from pickup/fsmDrop is silently RESET, which here would be a castle healing to full whenever its owner touches a spark. Asserted. || VISIBLE: the keep carries a green/amber/red damage bar, drawn only once damaged. PIXEL-VERIFIED on the running game — #f2b749 x44 at the keep with the castle at 40%, the amber band. || 3083/3083 unit / 187 files, build 742.1/900 KiB.",
-      "checkpoint_commit": "16fc295edd5910003fc7f8a02ada33bc47891df8",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_MAX_HP = 1500;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "castleHp: number;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/game/player.ts",
-          "pattern": "castleHp: player\\.castleHp,",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/damage.ts",
-          "needle": "kind: 'castle'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function enemyCastleInReach"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "pattern": "enemyCastleInReach\\(",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "enemyCastleInReach("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "enemyCastleInReach(world, after"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "!castleValid;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gameState.ts",
-          "needle": "WIN-BY-CASTLE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "PROTOCOL_VERSION = 33"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 33;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "PROTOCOL_VERSION is 33"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 33;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "hpFrac"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/castleHp.test.ts"
-        }
-      ],
-      "check_completed": true
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P5",
+      "title": "Bot intelligence Phase A (knowledge book, combo-aware targeting, leader-targeted raid as a FILTER only)",
+      "status": "pending",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P6",
+      "title": "Reconcile the tower contradiction; repair worker-bots; worker default-on flip CONDITIONAL",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
     }
   ],
   "reflexion_entries_to_archive": [
@@ -748,7 +376,7 @@
     "GEMINI-AUDITOR"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner, 2026-08-27, verbatim: \"after thorough session boot i approve those priorities in order - P5b ... 1. Bat-rider harpoons ... and Then 5. A5 bots build towers - A3 armies retreat - P8 worker-bots wait. Work autonomously to complete all those priorities in a thorough methodical batch as mentioned. use all your tools and capabilities to work in the absolute best interests of this project and vision autonomously produce the highest quality of work! APPROVE FULL SESSION BATCH PDR AND AUTONOMOUS RUN!!! When i get back iil check what you have achieved!~ do not close session until i say so\"",
+  "unlock_evidence": "Owner pre-approved the complete seven-priority batch in writing, 2026-08-28, verbatim: 'This is the full seven priority session batch that you will be working this session. im leaving and am pre-approving this complete session batch after you create a thorough, pedantic, and well constructed and well planned session priority batch and pdr. work in the absolute best interests of this project and vision producing the absolute highest possible quality of output !!! i will check your work when i get back - dont close of the session when you are done. make it cohgerent and consistent with what we are actually trying to do and check you're work that it has landed!' Approval was CONDITIONAL on producing a thorough PDR first; the PDR (528 lines, 18 A.0 rows, 21-row Battle Ledger, 2 Council rounds, PRIME-AUDIT) was produced before any code was written.",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -3864,5 +3492,54 @@
       "why_deferred": "Each canvas surface needs hover state plumbed into its own renderer, which is a per-surface change across four renderers. Session context was already YELLOW and the owner had approved going straight to handoff after the fixes."
     }
   ],
-  "owner_playtest_s154_close": "Owner playtested the shipped build at session close: gatherer upgrades CONFIRMED working live for HARD/IMBA (amendment A economy half); towers still NOT built in a real match (amendment A tower half). Recorded as CF-S154-towers with the fixture diagnosis. Reported honestly rather than left as a claim the owner had already contradicted."
+  "owner_playtest_s154_close": "Owner playtested the shipped build at session close: gatherer upgrades CONFIRMED working live for HARD/IMBA (amendment A economy half); towers still NOT built in a real match (amendment A tower half). Recorded as CF-S154-towers with the fixture diagnosis. Reported honestly rather than left as a claim the owner had already contradicted.",
+  "owner_directive_s155": {
+    "p1": "i tried the game with my friend last night and multiplayer mdoe doesnt work, neither the quick match nor the host/join the server. you see that player already in when trying to connect and it keeps saying connected... but then its stuck.",
+    "p2": "back to main doesnt work from multiplayer and from some windows. needs to make it all work but also back to main doesnt pop out or show thaty it is clickable like other buttons... need to make it interractive and obvious.",
+    "p3": "voltkin has a timedown but it is counted from when you've build him and not from fight start. he should start from fight start. my friend played with bots and built voltkins and by the time the fight started voltkin had dissapeared...",
+    "p4": "BOTS STILL DON'T BUILD TOWERS IN A REAL MATCH - owner confirmed by playing. DO NOT loosen the assertion - write a test on the REAL phase clock, watch it fail, size the save to BUILD-only income.",
+    "p5": "BOT PHASE A - all 7 section-7 questions answered. Q2 IS A PROHIBITION: do not touch raid rate or allowed-raid count.",
+    "p6": "Reconcile 'bots build towers from the beginning' (owner) vs zero measured; and host-lag -> finish worker-sim D4.",
+    "p7": "FOG FAIRNESS - bots consult NO fog and see the whole board. Needs host-side visibility.",
+    "instruction": "dont close of the session when you are done; check your work that it has landed"
+  },
+  "council_s155": {
+    "seats": [
+      "CLAUDE (Opus 5, supervisor/author)",
+      "GROK-ANALYST (grok-4.20-0309-reasoning)",
+      "GEMINI-AUDITOR (gemini-3.1-pro-preview)"
+    ],
+    "rounds": 2,
+    "battle_ledger_rows": 21,
+    "blockers_adopted": [
+      "C1 GROK BLOCKER: the P1 degraded-trust admission is an exploitable impersonation vector (public room code + racy async membership => 'only host-candidate peer' is attacker-controllable, and the attacker would receive unfiltered NETSNAPSHOT authority). FEATURE DROPPED ENTIRELY.",
+      "C9 GEMINI R2 BLOCKER (its declared die-on-this): the stasis-chamber exploit. Pausing the Voltkin clock across ALL BUILD phases lets a player spam Voltkins at the end of a FIGHT, freeze their clocks through the 90s BUILD, and enter the next FIGHT with 2-3x the intended mass. Reduced to a ONE-STEP deferral that never pauses again.",
+      "C6 GEMINI: the two-step same-hitbox confirm ejects double-clicking players from live matches. Replaced with a modal with spatially separated buttons.",
+      "C5 GROK+GEMINI converged: promote the 2-peer e2e out of quarantine BEFORE editing the netcode trust latch.",
+      "C18 GEMINI R2: isolated commits prove the code compiles, not that the game works; P3 and P4 intersect in the gameplay loop. Added a mandatory cross-priority interaction gate."
+    ],
+    "rejected_with_reason": [
+      "C17 GEMINI 'drop P5/P6/P7': REJECTED on owner authority, not engineering - the owner pre-approved all seven in writing and scaling their scope down is their call. Recorded UNRESOLVED; C18 is the mitigation owed for overruling it.",
+      "C10 GEMINI 'save on goals not clocks': PARTIALLY REJECTED with evidence - a pure goal gate was already MEASURED to deadlock (six blueprints, one always unaffordable => permanent hold => the bot stopped placing anything)."
+    ],
+    "quality_gate": "PASSED - Round 2 produced a BLOCKER-class finding (C9) that Round 1 had not, which is the gate's purpose. Both seats independently ranked the systemic test debt top-3 and independently attacked P3 from opposite directions onto the same simpler design."
+  },
+  "a0_state_discovery_s155": [
+    "A0-1 REFUTED: relay decay is NOT the cause - 7/7 Nostr relays healthy (curl 200/302 + scripts/probe-relays.mjs). RELAY_HEALTH.md's primary hypothesis is dead. Torrent tier degraded (404/DEAD/403) but Nostr is primary.",
+    "A0-2 DELTA: the 2-peer host/join/Begin e2e over REAL WebRTC PASSES at HEAD (45.0s). The harness does not reproduce the owner's failure.",
+    "A0-3: 3-peer FFA fails locally exactly as its own quarantine comment predicts (environmental - the runner cannot hold 3 simultaneous P2P data channels). Recorded, not acted on.",
+    "A0-4 DELTA (the structural finding): EVERY real-WebRTC multiplayer test is @quarantine-flaky and e2e:gating grep-INVERTS that tag, so the netcode has had ZERO blocking coverage for ~100 sessions.",
+    "A0-5 DELTA: scheduled E2E run 32701684435-era run 32701269568 (2026-08-24) FAILED unnoticed - gating lane 1 failed (worker-bots.spec.ts, the exact P6 surface) / 45 passed; quarantine lane 8 failed.",
+    "A0-6: PROTOCOL_VERSION 33 and a mismatch IS surfaced on both sides, so a stale bundle would be loud, not silent. Mismatch is not the cause.",
+    "A0-7: live index.html Cache-Control max-age=600 - bounded, and A0-6 makes it moot.",
+    "A0-8 VERIFIED TRUE: exactly one hoisted @trystero-p2p/core, all four packages 0.25.2, so selfId genuinely is shared across strategies. BUT GROK correctly noted this probe validated the MODULE CONSTANT, not the runtime per-channel peerId.",
+    "A0-9 CONFIRMED BY CONSTRUCTION: the joiner buffers START_GAME_SIGNAL and LOBBY_PRESENCE while hostVerifiedPeerId is null and hostAuthFilter separately drops NETSNAPSHOT, so a never-latching attestation leaves the joiner permanently in LOBBY with the count-based rack still SHOWING the other player, the status still saying Connected, and no error at all because failures are deliberately console-only. Every clause of the owner's sentence maps onto that state.",
+    "A0-10 DELTA: there is NO back-to-main button anywhere. The only exit from a live match is an undiscoverable double-Escape (main.ts:1051), whose own comment says it was chosen because it needs no new UI surface.",
+    "A0-11 CONFIRMED: Voltkin lifetimeTicks 1200 = 20s; BUILD = 5400 ticks = 90s; creatures are dormant during BUILD. A Voltkin built with >20s of BUILD left is arithmetically guaranteed dead before FIGHT.",
+    "A0-13 CONFIRMED AND WORSE THAN DOCUMENTED: the bot save gate is tick % 3600 >= 1800 (30s of every 60s) while its own docblock claims 'hold 90s of every 120s' - a 2x comment/code contradiction. And because the window is anchored to ABSOLUTE tick it collides with the phase clock, so save windows land inside FIGHT where the gate is disabled. Longest contiguous hold ever = 30s against a measured ~44s needed for one bill. Zero towers is arithmetically required.",
+    "A0-14 CONFIRMED: vision.ts computes sources for world.localPlayerId only; sole consumers fogRenderer.ts and exploredMemory.ts; zero fog refs in src/bots/**. Bots are omniscient; the fog blinds only the human.",
+    "A0-16: WORKER_DEFAULT_ON = false, and the one red CI test is worker-bots.spec.ts - the exact surface a default-on flip would activate. The flip is therefore CONDITIONAL in this batch.",
+    "A0-17: context 184,652/1,000,000 = 18.47% GREEN at PDR time. All later readings pass --session-id explicitly.",
+    "A0-18: tsc -b --noEmit exit 0; tree clean but for the session-state counter."
+  ]
 }

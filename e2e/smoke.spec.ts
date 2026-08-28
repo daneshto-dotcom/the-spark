@@ -25,6 +25,21 @@
  * any NEW test added here is real-WebRTC → keep the ` @quarantine-flaky` tag in its
  * describe title.
  *
+ * ⭐ S155 P1 — A SECOND DESCRIBE NOW ALSO GATES, VIA ITS OWN GREP LANE, AND ITS TAG ALSO STAYS.
+ * `S46 Baseline — lobby + match start` is additionally executed by the `e2e-lobby` job in
+ * .github/workflows/e2e.yml via `npm run e2e:lobby` (`--grep "S46 Baseline"`), which is NOT
+ * continue-on-error. Same shape as the protocol lane below, and for a sharper reason.
+ *
+ * ⛔ THE REASON: the owner could not play with a friend, and when I went looking for the test that
+ * should have caught it there was not a failing one — there was NONE. Every test in this file is
+ * tagged, `e2e:gating` grep-inverts the tag, and the quarantine job is continue-on-error, so the
+ * netcode — the thing this game IS — had zero blocking coverage for ~100 sessions. This describe is
+ * the owner's exact broken flow in one assertion (host hosts → joiner joins → Begin → BOTH reach
+ * PLAYING), and it is NOT flaky: it PASSED in CI run 32701269568 (2026-08-24, 6.6s) and again
+ * locally at S155 HEAD over real Trystero/Nostr (45.0s wall). The 3-peer and 4-peer FFA describes
+ * failed in BOTH of those same runs, consistent with their own documented sandbox limit — so 2-peer
+ * is stable, 3-peer is not, and ONLY 2-peer is promoted. Do not extend the lane's grep to them.
+ *
  * ⭐ S142 P2 — ONE DESCRIBE IN THIS FILE NOW ALSO RUNS IN A GATING LANE, AND ITS TAG STAYS.
  * The `Protocol mismatch` describe below is additionally executed by the `e2e-protocol` job
  * in .github/workflows/e2e.yml, via `npm run e2e:protocol` (`--grep "Protocol mismatch"`),

@@ -202,27 +202,137 @@ export async function verifyHostAttest(
   roomCode: string,
   senderPeerId: string,
 ): Promise<boolean> {
+  return (await diagnoseHostAttest(attest, roomCode, senderPeerId)).ok;
+}
+
+/**
+ * ⭐ S155 P1 — WHY the attestation failed, not merely THAT it did.
+ *
+ * ## The defect this exists to make diagnosable
+ *
+ * The owner played with a friend and multiplayer would not start: *"you see that player already in
+ * when trying to connect and it keeps saying connected... but then its stuck."* Every clause of that
+ * maps onto ONE state — this verification never succeeding:
+ *
+ *   • `clientHandlers.route` BUFFERS `LOBBY_PRESENCE` while `hostVerifiedPeerId === null`, so the
+ *     joiner's seat rack falls back to COUNT-based derivation and therefore still *shows the other
+ *     player* — the first clause of the report, produced by the fallback rather than by real data;
+ *   • the lobby status is driven by transport `peerCount`, which is unaffected by verification, so it
+ *     still says **"Connected. Waiting for host to begin..."** — the second clause;
+ *   • `START_GAME_SIGNAL` is buffered too, so the joiner never leaves LOBBY, and `hostAuthFilter`
+ *     separately drops `NETSNAPSHOT`, so the S39 P1 snapshot fallback that exists precisely to
+ *     rescue a lost Begin **cannot fire either** — the third clause, "stuck";
+ *   • and `verifyHostAttest` returned a BARE BOOLEAN, so the only trace was a console line that
+ *     could not say which of three independent checks failed.
+ *
+ * ⛔ THE SHAPE OF THE BUG IS THE SILENCE, and that is what is fixed here. A single async predicate
+ * gated three separate recovery paths with no timeout, no user-visible reason, and no fallback.
+ *
+ * ## Why this is a diagnosis and NOT a bypass
+ *
+ * The S82 latch is doing its job — it stops a third peer hijacking the trust anchor. The S155 Council
+ * (GROK, BLOCKER) killed the "just admit the Begin if there's only one peer" idea outright, and was
+ * right to: the room code is PUBLIC in quickmatch (advertised over Nostr) and room membership is
+ * racy, so *"the only host-candidate peer"* is attacker-controllable — an actor who knows the code
+ * could arrange to be the only visible candidate and be handed unfiltered `NETSNAPSHOT` authority.
+ * Strictly worse than being stuck. So NOTHING is admitted without a valid attestation; instead the
+ * failure becomes legible, and the player gets a way out (`joinDiagnosis.ts`).
+ *
+ * ## One implementation, per this module's own convention
+ *
+ * `verifyHostAttest` now DELEGATES here rather than re-deriving the three checks — the same
+ * *"One function, used by BOTH the host (derive) and the client (verify) — no second implementation
+ * to drift"* rule that `roomCodeFromDigest` is written under. Every existing caller is unaffected:
+ * the boolean it returns is the `ok` field of this result, computed by the identical steps in the
+ * identical order.
+ *
+ * ## The reasons, and what each one means when you see it in a log
+ *
+ *  - `CODE_MISMATCH`     — fingerprint(pubkey) ≠ the room code we are verifying against. Either the
+ *                          typed/advertised code does not belong to this host, or a peer that is not
+ *                          the host sent an attest. Carries BOTH codes so the log can show them.
+ *  - `KEY_IMPORT_FAILED` — the SPKI bytes are not an importable P-256 key (garbage / truncated /
+ *                          wrong curve), or WebCrypto is unavailable in this context.
+ *  - `SIGNATURE_INVALID` — key and code are right but the signature does not verify over
+ *                          `(roomCode ‖ senderPeerId)`. ⚠ THE MOST INTERESTING ONE: the host signs
+ *                          over the peerId IT believes it has (`makeAttest(selfId)`), and the joiner
+ *                          verifies over the peerId ITS transport reports for the sender. If those
+ *                          two strings ever disagree at runtime, this is the reason you will see, and
+ *                          `senderPeerId` in the log is the value to compare against the host's.
+ *                          Round-tripped both ways in `hostAttestDiagnosis.test.ts`.
+ *  - `MALFORMED`         — base64 decode threw before any check could run.
+ */
+export type AttestFailureReason =
+  | 'CODE_MISMATCH'
+  | 'KEY_IMPORT_FAILED'
+  | 'SIGNATURE_INVALID'
+  | 'MALFORMED';
+
+export interface AttestDiagnosis {
+  readonly ok: boolean;
+  /** Absent when ok. */
+  readonly reason?: AttestFailureReason;
+  /** The room code derived from the offered pubkey — null when the key never decoded. */
+  readonly derivedCode: string | null;
+  /** The code we verified AGAINST (what the joiner typed, or what quickmatch advertised). */
+  readonly expectedCode: string;
+  /** The transport peerId of the sender — the value the signature must bind. */
+  readonly senderPeerId: string;
+}
+
+export async function diagnoseHostAttest(
+  attest: HostAttest,
+  roomCode: string,
+  senderPeerId: string,
+): Promise<AttestDiagnosis> {
+  const base = { derivedCode: null, expectedCode: roomCode, senderPeerId } as const;
+  let spki: Uint8Array;
+  let derivedCode: string;
   try {
-    const spki = b64ToBytes(attest.spkiB64);
-    if ((await roomCodeFromPubkey(spki)) !== roomCode) return false;
-    const pubKey = await crypto.subtle.importKey(
+    spki = b64ToBytes(attest.spkiB64);
+    derivedCode = await roomCodeFromPubkey(spki);
+  } catch {
+    return { ok: false, reason: 'MALFORMED', ...base };
+  }
+  // Check order is IDENTICAL to the pre-S155 verifyHostAttest: code first, then key, then signature.
+  if (derivedCode !== roomCode) {
+    return { ok: false, reason: 'CODE_MISMATCH', ...base, derivedCode };
+  }
+  let pubKey: CryptoKey;
+  try {
+    pubKey = await crypto.subtle.importKey(
       'spki',
       spki.slice().buffer as ArrayBuffer,
       KEYGEN_PARAMS,
       false,
       ['verify'],
     );
+  } catch {
+    return { ok: false, reason: 'KEY_IMPORT_FAILED', ...base, derivedCode };
+  }
+  try {
     const payload = buildAttestPayload(roomCode, senderPeerId);
     const sig = b64ToBytes(attest.sigB64);
-    return await crypto.subtle.verify(
+    const good = await crypto.subtle.verify(
       ECDSA_PARAMS,
       pubKey,
       sig.slice().buffer as ArrayBuffer,
       payload.slice().buffer as ArrayBuffer,
     );
+    return good
+      ? { ok: true, ...base, derivedCode }
+      : { ok: false, reason: 'SIGNATURE_INVALID', ...base, derivedCode };
   } catch {
-    return false;
+    return { ok: false, reason: 'MALFORMED', ...base, derivedCode };
   }
+}
+
+/** One-line, log-safe rendering of a failed diagnosis. Never called on `ok`. */
+export function formatAttestDiagnosis(d: AttestDiagnosis): string {
+  return (
+    `reason=${d.reason ?? 'OK'} derivedCode=${d.derivedCode ?? '<undecodable>'} ` +
+    `expectedCode=${d.expectedCode} senderPeerId=${d.senderPeerId}`
+  );
 }
 
 /* ───────────────── S118 P1 (host-migration D2): client PROOF-OF-POSSESSION ───────────────── */

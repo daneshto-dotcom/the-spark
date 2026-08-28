@@ -19,6 +19,7 @@
     "e2e:soak": "playwright test --grep \"@soak|@perf-measure\" --output=test-results-soak --reporter=list",
     "e2e:quarantine": "playwright test --grep @quarantine-flaky --output=test-results-quarantine --reporter=list",
     "e2e:protocol": "playwright test --grep \"Protocol mismatch\" --output=test-results-protocol --reporter=list",
+    "e2e:lobby": "playwright test --grep \"S46 Baseline|S155 join-stall\" --output=test-results-lobby --reporter=list",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "probe-relays": "node scripts/probe-relays.mjs"

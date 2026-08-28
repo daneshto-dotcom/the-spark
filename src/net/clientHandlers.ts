@@ -15,7 +15,15 @@
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
 import type { HostAttest, NetMessage, RosterEntry } from './protocol.ts';
-import { verifyHostAttest, buildPubkeyPopPayload, type PeerIdentity } from './hostIdentity.ts';
+import {
+  diagnoseHostAttest,
+  formatAttestDiagnosis,
+  buildPubkeyPopPayload,
+  type PeerIdentity,
+} from './hostIdentity.ts';
+// ⭐ S155 P1 — the joiner's trust-progress facts + the stall interpretation. See joinDiagnosis.ts
+// for why a silent never-latching attestation produced every clause of the owner's bug report.
+import { makeJoinTrustState, noteAttestResult } from './joinDiagnosis.ts';
 import { verifyWarrant } from './successionWarrant.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4) — claim verification; the D3 exact-successor
 // gate (computeAliveSeats/computeSuccessorSeat) was retired by the D4 claim ladder + b′.
@@ -180,17 +188,80 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       string,
       { signal?: NetMessage; presence?: NetMessage }
     >();
+    /*
+     * ⭐ S155 P1 — the trust-progress facts for THIS join attempt.
+     *
+     * Per-connect (fresh on every reconnect, like the verify/buffer closures around it) but parked on
+     * the SESSION rather than in this closure, because the per-frame stall check in main.ts has no
+     * other way to see it. `teardownNet` clears it.
+     */
+    deps.session.joinTrust = makeJoinTrustState();
+    // The clock the stall is measured from: the first moment ANY peer was connected. Without this the
+    // stall detector cannot tell "nobody is here yet" (not a stall, ever) from "someone is here and
+    // has been unverifiable for 8 seconds" (exactly the owner's bug).
+    transport.onPeerChange((_peerId, kind) => {
+      const t = deps.session.joinTrust;
+      if (kind === 'join' && t !== null && t.firstPeerAtMs === null) {
+        t.firstPeerAtMs = performance.now();
+      }
+    });
     const kickVerify = (attest: HostAttest, peerId: string): void => {
       if (deps.session.hostVerifiedPeerId !== null || verifying.has(peerId)) return;
       verifying.add(peerId);
-      void verifyHostAttest(attest, code, peerId).then((ok) => {
+      /*
+       * ⭐ S155 P1 — TEST SEAM: force the verification to fail, so the STALL path can be driven in a
+       * real browser instead of only unit-tested.
+       *
+       * ⛔ WHY THIS EARNS ITS BYTES. The owner's bug is un-reproducible on demand — the 2-peer e2e
+       * passes at HEAD on real Trystero/Nostr (measured, 3 runs), so there is no natural way to make
+       * a browser sit in the stuck state and check that the fix actually speaks. Without a seam, the
+       * player-facing half of this priority could only be verified by reading the reducer, which is
+       * exactly the "static parse ≠ runtime validation" failure the PRIME-AUDIT protocol exists to
+       * forbid — and it is how the P4 tower defect passed twice on an unrepresentative fixture.
+       *
+       * Idiom borrowed rather than invented: the same shape as `__TEST_MIGRATION__` above and the
+       * send-side protoVersion override in protocol.ts, which documents itself as shipping "as a
+       * ~6-line no-op". It only ever makes verification STRICTER (never admits anything), so the
+       * worst case if a player somehow set it is their own join refusing to verify — no trust is
+       * weakened, which is the property that makes a seam on a security path acceptable at all.
+       */
+      const forceFail =
+        typeof window !== 'undefined' &&
+        (window as { __FORCE_ATTEST_FAIL__?: boolean }).__FORCE_ATTEST_FAIL__ === true;
+      const verdict = forceFail
+        ? Promise.resolve<Awaited<ReturnType<typeof diagnoseHostAttest>>>({
+            ok: false,
+            reason: 'SIGNATURE_INVALID',
+            derivedCode: code,
+            expectedCode: code,
+            senderPeerId: peerId,
+          })
+        : diagnoseHostAttest(attest, code, peerId);
+      void verdict.then((d) => {
         verifying.delete(peerId);
-        if (!ok) {
-          // Fail → stay PRE-latch and remain able to process the next attestation
-          // (Council S82 Gemini R2#2 — a corrupt first attest must not wedge us).
-          // console-only: a spoofer's failed attest must not scare the user with a
-          // lobby error while the genuine host verifies fine.
-          console.warn(`[net] host attestation FAILED verification from ${peerId}`);
+        // ⭐ S155 P1 — record EVERY attempt, pass or fail. The stall detector needs to distinguish
+        // "offered an identity that did not check out" from "never offered one at all"; they have
+        // different causes and the player-facing sentences differ.
+        if (deps.session.joinTrust !== null) noteAttestResult(deps.session.joinTrust, d);
+        if (!d.ok) {
+          /*
+           * Fail → stay PRE-latch and remain able to process the next attestation
+           * (Council S82 Gemini R2#2 — a corrupt first attest must not wedge us).
+           *
+           * ⛔ STILL CONSOLE-ONLY *HERE*, AND THAT IS DELIBERATE — the S82 reasoning is intact: a
+           * spoofer's failed attest must not scare the user while the genuine host verifies fine one
+           * message later. What S155 changes is that a failure is no longer only console-only
+           * FOREVER: the per-frame stall check in main.ts surfaces a real message once this has gone
+           * unresolved past JOIN_STALL_WARN_MS. Transient stays quiet; permanent gets reported.
+           *
+           * And the line now says WHICH of the three checks failed plus the three values needed to
+           * act on it — see diagnoseHostAttest. `SIGNATURE_INVALID` with a correct derivedCode is the
+           * signature that the peerId the host signed is not the peerId we are verifying against.
+           */
+          console.warn(
+            `[net] host attestation FAILED verification from ${peerId} — ` +
+              `${formatAttestDiagnosis(d)}`,
+          );
           return;
         }
         if (deps.session.hostVerifiedPeerId === null) {
@@ -222,8 +293,27 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       ) {
         if (!pendingByPeer.has(peerId) && pendingByPeer.size >= 12) return; // flood guard
         const slot = pendingByPeer.get(peerId) ?? {};
-        if (msg.kind === 'START_GAME_SIGNAL') slot.signal = msg;
-        else slot.presence = msg;
+        /*
+         * ⭐ S155 P1 — RECORD THAT WE THREW A BEGIN AWAY.
+         *
+         * This is the single most diagnostic fact in the whole join path, and before S155 nothing
+         * anywhere observed it. `beginBuffered` means: the host DID press Begin Match, we DID receive
+         * it, and we discarded it for lack of trust. A player in that state is not waiting for the
+         * host — the host has already gone — which is why `joinStallMessage` ranks this branch above
+         * the others and says so in different words.
+         *
+         * ⛔ THE BUFFER IS NOT A BUG AND IS NOT BEING REMOVED. It is the S82 fail-closed posture,
+         * and it is also self-healing on the happy path: a Begin carries the attest, so kickVerify
+         * fires from this very message and the replay in kickVerify applies it microseconds later.
+         * It only becomes a dead end when verification never succeeds — and reporting that is the fix.
+         */
+        if (msg.kind === 'START_GAME_SIGNAL') {
+          slot.signal = msg;
+          if (deps.session.joinTrust !== null) deps.session.joinTrust.beginBuffered = true;
+        } else {
+          slot.presence = msg;
+          if (deps.session.joinTrust !== null) deps.session.joinTrust.presenceBuffered = true;
+        }
         pendingByPeer.set(peerId, slot);
         return;
       }

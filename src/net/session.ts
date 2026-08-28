@@ -128,6 +128,18 @@ export interface NetSession {
    * advance, teardown, and match end.
    */
   latchedClaimSeat: number | null;
+  /**
+   * ⭐ S155 P1 — JOINER-side trust-progress facts for the CURRENT join attempt, or null on the host
+   * / before any join. Set by `connectAsClient`, read every frame by main.ts's stall check.
+   *
+   * WHY IT LIVES HERE. The facts are produced inside `connectAsClient`'s per-connect closures and
+   * consumed by the render loop, which has no other handle on them — and that gap is exactly why the
+   * owner's stuck lobby was invisible: a join could be permanently unverifiable and NOTHING outside
+   * that closure could tell. Cleared on teardown, re-made on every fresh connect (including
+   * auto-reconnect, which deliberately does NOT teardown — a reconnect gets a fresh stall clock
+   * because its patience budget should start over, while the durable trust latch survives).
+   */
+  joinTrust: import('./joinDiagnosis.ts').JoinTrustState | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -151,6 +163,8 @@ export function makeNetSession(): NetSession {
     lastRoster: null,
     currentEpoch: 0,
     latchedClaimSeat: null,
+    // S155 P1 — joiner-only; the client connect path installs a fresh one per attempt.
+    joinTrust: null,
   };
 }
 
@@ -214,5 +228,9 @@ export function teardownNet(
   session.lastRoster = null;
   session.currentEpoch = 0;
   session.latchedClaimSeat = null;
+  // S155 P1 — the stall clock and the attest counters belong to ONE join attempt. Dropping them here
+  // means a Back-then-rejoin starts with full patience and no inherited failure text, which is the
+  // whole point of the "press Back to retry" advice the stall message gives.
+  session.joinTrust = null;
   triggerAudioCursorReset();
 }
