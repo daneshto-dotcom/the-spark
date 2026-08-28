@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2924,
+  "tool_calls_session_total": 2928,
   "session_id": "S155",
   "session_kind": "PDCA batch, 7 owner priorities pre-approved: P1 multiplayer never starts, P2 a real BACK TO MAIN, P3 Voltkin's clock starts at FIGHT, P4 the bot tower save on the real phase clock, P7 fog fairness for bots, P5 bot intelligence Phase A, P6 reconcile towers + worker-sim D4",
   "session_start": "2026-08-28",
@@ -3884,5 +3884,12 @@
     "mcv_verifier": "hard_fail=0 warn=0 exit 0 — 0 UNBOUND watch-root files",
     "verify_deploy": "PASS 4/4 — content-hash equality",
     "protocol_version": 33
+  },
+  "owner_ruling_s155_scouting": {
+    "ruled": "2026-08-28, verbatim: \"a saving bot doesnt need to look passive he can explore the map, see what his neighbors are building and if they are building where.\"",
+    "what_it_settles": "It REJECTS THE PREMISE of my open question rather than answering it. I asked how much earlier a bot's tower should land, and framed the cost as 'a saving bot looks passive'. The owner says that cost does not have to exist: the save window becomes SCOUTING time. So the constraint that was blocking a longer hold is dissolved, and the tuning question changes shape.",
+    "why_it_is_bigger_than_P4": "It joins P4 and P7 into one behaviour. P7 shipped per-seat fog vision INERT because blinding bots without giving them a way to see risked making them dumber (the Council's 'do not blind them without a cane'). Scouting IS the cane — and it is the only thing that makes fog meaningful for a bot: something to DO about not knowing. So the same feature (a) makes saving look purposeful, (b) makes the fog fair without making bots stupid, and (c) gives the bot real information instead of the omniscience it has today.",
+    "scope_note": "NOT yet implemented. Needs a scope amendment: a SCOUT goal (move toward the nearest unexplored area of the board / a neighbour's zone), per-seat explored memory so what it saw persists, and the P7 activation wired at the same time so the bot is scouting for a reason.",
+    "status": "RECORDED, AWAITING GO"
   }
 }
