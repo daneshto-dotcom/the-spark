@@ -27,6 +27,12 @@ test-results/
 test-results-quarantine/
 test-results-soak/
 test-results-protocol/
+# S155 P1 — the new GATING lobby lane writes its own --output dir (same reason every other
+# lane has one: so a lane never overwrites another lane's report/traces). It was not listed,
+# so the P1 commit swept in test-results-lobby/ AND a throwaway probe dir complete with
+# failure screenshots. The catch-all stops the next ad-hoc probe dir doing the same.
+test-results-lobby/
+test-results-*/
 .playwright-cache/
 
 # S74 — root handoff docs are ephemeral; the permanent copy lives in .handoff-archive/
