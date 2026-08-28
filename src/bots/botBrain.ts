@@ -203,6 +203,52 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
  * `SparkType` order so two runs of one seed agree. Returns one type at a time: the queue coalesces
  * by type anyway, and one order per think keeps the intent stream small.
  */
+/**
+ * ⭐ S156 P5 — has `seat` already stamped a structure? A blueprint's primitives carry a non-null
+ * `origin` (the stamp that produced them), which is the same signal `botTowers.test.ts` has used to
+ * detect a raised tower since S154 — reused rather than re-derived, so one definition of "has a
+ * tower" serves both the brain and the tests. Pure, no rng.
+ */
+export function hasStampedStructure(world: World, seat: PlayerId): boolean {
+  for (const p of world.primitives.values()) {
+    if (p.placedBy === seat && p.origin !== null) return true;
+  }
+  return false;
+}
+
+/**
+ * ⭐ S156 P5 — every spark type the bot's target blueprint still needs more of, or null when it
+ * needs nothing (no pursued blueprint, or the cheapest one is already affordable).
+ *
+ * This is `chooseTowerOrder` widened from "the FIRST missing type" to "ALL missing types", against
+ * the SAME blueprint and the same counting rule, so the set a bot HOLDS is exactly the set it
+ * ORDERS. Keeping one predicate behind both answers is deliberate: a bot that hoards a type it is
+ * not ordering starves itself, and one that orders a type it will not hoard never accumulates.
+ *
+ * ⚠ Bank-only, mirroring `chooseTowerOrder`, even though `planBlueprintPayment` spends bank ∪ porch.
+ * That makes the need a slight OVER-estimate whenever the porch already holds some of a type, so the
+ * bot holds a little more than strictly necessary — erring toward raising the tower, which is the
+ * direction the owner ruled. Pure, no rng.
+ */
+export function towerBillNeeds(
+  world: World,
+  seat: PlayerId,
+  cfg: BotConfig,
+): ReadonlySet<SparkType> | null {
+  if (!cfg.buildsTowers) return null;
+  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
+    if (planBlueprintPayment(world, seat, id) !== null) return null; // already affordable
+    const bill = blueprintBill(id);
+    const needs = new Set<SparkType>();
+    for (const t of ALL_SPARK_TYPES) {
+      const want = bill.get(t) ?? 0;
+      if (want > 0 && bankCountOf(world.castleBanks, seat, t) < want) needs.add(t);
+    }
+    if (needs.size > 0) return needs;
+  }
+  return null;
+}
+
 export function chooseTowerOrder(world: World, seat: PlayerId, cfg: BotConfig): SparkType | null {
   if (!cfg.buildsTowers) return null;
   for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
@@ -451,6 +497,37 @@ export function chooseGoal(
      * ordered shapes to land, and still unconditional — the bot spends freely for 30 s of every
      * cycle, so no board state can deadlock it, which is what killed attempt 1.
      */
+    /*
+     * ⭐ S156 P5 (owner ruling) — RUSH THE FIRST TOWER BY PROTECTING ITS BILL, NOT BY STANDING STILL.
+     *
+     * Owner: *"bot in hard and imba should build the first tower whenever the tower they want to
+     * build is available!!! can even be 30 sec!"*
+     *
+     * The duty cycle below is right for the steady state and wrong for the FIRST tower, and the
+     * reason is arithmetic rather than taste: a bill wants 4 of ONE type, the hauler delivers about
+     * one shape every 11 s, and the 30 s spend window falls inside the ~44 s those four take to
+     * arrive — so the loose-build branch spends the exact shapes the bill is accumulating and resets
+     * the pool before it can reach 4. Measured on the real four-seat clock BEFORE this change: HARD's
+     * first tower at tick 10 370 (~2.9 min), and IMBA never raised one at all in five sim-minutes.
+     *
+     * ⛔ THE FIRST VERSION OF THIS FIX WAS A BLANKET HOLD, AND IT WAS WRONG IN A WAY S154 ALREADY
+     * DOCUMENTED. Suppressing the build outright made four shipped tests place ZERO primitives —
+     * the same total-stall signature as S154's attempt 1 ("the bot stopped pulling, stopped placing,
+     * and just sat ordering"). A bot that banks its whole opening is not rushing a tower, it is
+     * refusing to play.
+     *
+     * So the hold is SURGICAL: hoard only the types the bill still needs (`towerBillNeeds`) and keep
+     * building with everything else. That is strictly better than both predecessors — the bill can
+     * finally accumulate because nothing spends it, and the bot keeps placing, scoring and looking
+     * alive because the shapes the bill does not want are still fair game.
+     *
+     * Bounded by construction: `hasStampedStructure` only ever goes false → true, so the rush cannot
+     * outlive the first tower; afterwards the S154 duty cycle resumes untouched. Pure, and the rng
+     * draw COUNT is unchanged (see `pickTargetSpark`'s `hold` parameter).
+     */
+    const rushingFirstTower =
+      cfg.rushesFirstTower && world.matchPhase === 'BUILD' && !hasStampedStructure(world, seat);
+    const heldForBill = rushingFirstTower ? towerBillNeeds(world, seat, cfg) : null;
     const savingForTower =
       // ⛔ BUILD ONLY. `stampRefusalAt`'s first gate is `matchPhase !== 'BUILD' -> 'FIGHT'`, so a
       // tower cannot be stamped during FIGHT at all: holding shapes back then buys nothing and only
@@ -462,7 +539,9 @@ export function chooseGoal(
       // exactly when the player is watching it. So it plays for the first half of every cycle and
       // saves in the second.
       world.tick % SAVE_CYCLE_TICKS >= SAVE_HOLD_TICKS;
-    const sparkId = savingForTower ? null : pickTargetSpark(world, me.avatarPos, cfg, rng, me.id);
+    const sparkId = savingForTower
+      ? null
+      : pickTargetSpark(world, me.avatarPos, cfg, rng, me.id, heldForBill);
     if (sparkId !== null) return { kind: 'BUILD', sparkId };
     // S138 P2 — nothing on my porch. If my gatherer has banked anything, pull one out onto the porch
     // (the shipped PULL_FROM_BANK client intent) and collect it on a later think. This is the whole
@@ -519,6 +598,16 @@ export function pickTargetSpark(
   cfg: BotConfig,
   rng: () => number,
   seat: PlayerId,
+  /**
+   * ⭐ S156 P5 — spark types this bot is hoarding for its first tower's bill, and so will not spend
+   * on a loose shape. Null (the default, and every pre-S156 call site) holds nothing.
+   *
+   * ⚠ Passing a set can only SHRINK the candidate list, never reorder it, so the single `rng()` draw
+   * on the sloppy path is still drawn exactly once — the draw COUNT that the seeded replay gates
+   * depend on is unchanged. It is only ever passed by the rushing tiers, which are both
+   * `smartPlacement` and therefore draw zero times here anyway.
+   */
+  hold?: ReadonlySet<SparkType> | null,
 ): SparkId | null {
   const seatIndex = seat as unknown as number;
   const free: Array<{ id: SparkId; d: number }> = [];
@@ -526,6 +615,8 @@ export function pickTargetSpark(
     if (s.state.kind !== 'Free') continue;
     // S138 P2 — own porch only, never the quarry.
     if (!isOwnPorchSpark(seatIndex, s.pos, world.layout)) continue;
+    // S156 P5 — this shape is earmarked for the tower bill; build with something else.
+    if (hold != null && hold.has(s.type)) continue;
     const dx = s.pos.x - from.x;
     const dy = s.pos.y - from.y;
     free.push({ id: s.id, d: dx * dx + dy * dy });

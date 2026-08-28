@@ -94,6 +94,32 @@ export interface BotConfig {
    * only tier that should be making it.
    */
   readonly buysSecondGatherer: boolean;
+  /**
+   * ⭐ S156 P5 (owner ruling) — does this bot RUSH its first tower?
+   *
+   * Owner: *"bot in hard and imba should build the first tower whenever the tower they want to build
+   * is available!!! can even be 30 sec!"*
+   *
+   * The S154 duty cycle has a bot spend shapes for 30 s of every 60 s, and the measurement that
+   * matters is why that is fatal to a FIRST tower specifically: a bill wants 4 of ONE type and the
+   * hauler delivers roughly one shape every 11 s, so the loose-build window spends exactly the
+   * shapes the bill is accumulating and the pool is repeatedly reset to zero before it can reach 4.
+   * S156's baseline on the real four-seat clock: HARD's first tower landed at tick 10 370 (~2.9 min)
+   * and IMBA's never landed at all inside five sim-minutes.
+   *
+   * When true, the bot holds its shapes CONTINUOUSLY — no duty cycle — but only until its first
+   * structure is stamped. After that the S154 cycle resumes unchanged, so the restraint is bounded
+   * and a bot cannot spend the whole match standing still.
+   *
+   * ⚠ The passivity this trades away is the cost S154 priced the hold against (*"a bot that saves
+   * for a minute looks passive"*). The owner has since removed that cost directly — *"a saving bot
+   * doesnt need to look passive he can explore the map"* — which is the scouting work, and they
+   * overrode the timing concern explicitly with *"can even be 30 sec"*.
+   *
+   * HARD and IMBA only, matching the ruling verbatim. MID keeps the duty cycle and stays the
+   * difficulty floor between a NOOB that never builds towers and a HARD that rushes them.
+   */
+  readonly rushesFirstTower: boolean;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -117,6 +143,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     towerTiers: 0,
     upgradesGatherer: false,
     buysSecondGatherer: false,
+    rushesFirstTower: false,
   },
   MID: {
     cursorSpeed: 5.0,
@@ -138,6 +165,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     towerTiers: 2,
     upgradesGatherer: false,
     buysSecondGatherer: false,
+    rushesFirstTower: false,
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -159,6 +187,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     towerTiers: 4,
     upgradesGatherer: true,
     buysSecondGatherer: false,
+    rushesFirstTower: true,
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -180,5 +209,6 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     towerTiers: 7,
     upgradesGatherer: true,
     buysSecondGatherer: true,
+    rushesFirstTower: true,
   },
 };
