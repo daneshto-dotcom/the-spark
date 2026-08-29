@@ -798,6 +798,32 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
               creature.targetPos.x = mid.x;
               creature.targetPos.y = mid.y;
             }
+          } else {
+            /*
+             * ⭐ S157 B5 (owner) — NOTHING LEFT TO CHEW? MARCH ON THE KEEP.
+             *
+             * Owner: *"after all enemy structures are destroyed pencil chewers just stand there
+             * idle...."* — and they did, literally. `findNearestBondTarget` returns null with no
+             * enemy bond on the board, `targetPos` was then left at its stale value, and the
+             * creature stood still for the rest of the match.
+             *
+             * `enemyCastleMarchPos` already existed and was already wired — for GOBLINS, in the
+             * `targetsStructures` branch above. This is the same call in the branch that never got
+             * it. (My first plan had this backwards: I thought the strike was generic and only
+             * navigation was missing. Review proved the reverse — navigation existed, the strike was
+             * type-gated. Both halves were needed, and shipping either alone gives a unit that walks
+             * to the keep and cannot hit it, or one that can hit it and never walks there.)
+             *
+             * ⛔ ONLY IN THE `nextTarget === null` ARM, which preserves the ordering the goblin branch
+             * already uses: the castle is the LAST fallback, reached when there is genuinely nothing
+             * else. Hoisting it any higher would have chewers abandoning a half-chewed connector to
+             * beeline the keep — exactly the degenerate rush the fallback ordering exists to prevent.
+             */
+            const march = enemyCastleMarchPos(world, creature);
+            if (march !== null) {
+              creature.targetPos.x = march.x;
+              creature.targetPos.y = march.y;
+            }
           }
         }
         // S103 #8 — Voltkin ONLY: opportunistic enemy-creature target. Bonds stay the

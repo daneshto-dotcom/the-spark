@@ -532,7 +532,23 @@ export function standoffTargetPos(
  * PURE. Lowest seat wins ties, so two peers cannot pick different castles.
  */
 export function enemyCastleInReach(world: World, creature: Creature, reach: number): PlayerId | null {
-  if (!getCreatureConfig(creature.type).targetsStructures) return null;
+  /*
+   * ⭐ S157 B5 (owner) — EVERY OFFENSIVE UNIT CAN HIT A CASTLE, not just the shape-attackers.
+   *
+   * Owner: *"pencil chewers should also target castle (also voltkin and drones and every creature
+   * that is offensive to towers (not helga)), instead after all enemy structures are destroyed
+   * pencil chewers just stand there idle...."*
+   *
+   * This one line was half the bug. `targetsStructures` means "attacks SHAPES" — it is false for the
+   * chewer, the Voltkin and the drone, all of which attack CONNECTORS instead. Gating the castle on
+   * it meant a chewer standing ON the enemy keep could never enter ATTACKING against it, because
+   * this function is the sole authority behind all three castle sites (the engage predicate, the
+   * abort predicate and the strike). Proven before the fix: `castleInReach — chewer=null
+   * voltkin=null drone=null goblin=1`.
+   *
+   * ⚠ "not helga" needs no clause here: Helga is a DEFENDER, not a creature, and never reaches this
+   * function at all.
+   */
   let best: PlayerId | null = null;
   for (const seat of world.players.keys()) {
     if (seat === creature.ownerPlayerId) continue;

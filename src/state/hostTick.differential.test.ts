@@ -51,6 +51,7 @@ import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
 import {
   bondMidpoint,
+  enemyCastleMarchPos,
   findNearestBondTarget,
   findNearestEnemyCreature,
   isWithinAttackRange,
@@ -257,6 +258,25 @@ function referenceHostTick(world: World, ref: RefCtx): void {
               const mid = bondMidpoint(targetBond);
               creature.targetPos.x = mid.x;
               creature.targetPos.y = mid.y;
+            }
+          } else {
+            /*
+             * ⭐ S157 B5 — MIRRORED INTO THE FROZEN REFERENCE, DELIBERATELY.
+             *
+             * This file is a verbatim transcription of the pre-S119 host tick, and its whole value is
+             * that it diverges when the extraction drifts. So an intentional BEHAVIOUR change has to
+             * be written into both sides — otherwise the gate reports a refactor bug that is not one,
+             * and the next real drift hides behind a failure everyone has learned to expect.
+             *
+             * The change (owner): *"after all enemy structures are destroyed pencil chewers just
+             * stand there idle"* — with no bond to chew they now march on the enemy keep, the same
+             * fallback goblins have had since S153. Kept in the `nextTarget === null` arm on both
+             * sides so the castle stays the LAST resort and a chewer never abandons a live commit.
+             */
+            const march = enemyCastleMarchPos(world, creature);
+            if (march !== null) {
+              creature.targetPos.x = march.x;
+              creature.targetPos.y = march.y;
             }
           }
         }
