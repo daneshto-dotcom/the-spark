@@ -99,6 +99,7 @@ import { formatStrategySummary } from './net/strategySummary.ts';
 import { makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
+import { HAS_TURN_CONFIGURED } from './net/iceConfig.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
 // stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
@@ -2959,6 +2960,10 @@ async function bootstrap(): Promise<void> {
           session.joinTrust,
           performance.now(),
           session.hostVerifiedPeerId !== null,
+          // S157 N1 — when no relay is configured, the no-peer branch can name the actual cause
+          // instead of shrugging. Measured: the shipped TURN credentials were retired upstream, so
+          // the game gathered ZERO relay candidates and any pair needing a relay hung forever.
+          HAS_TURN_CONFIGURED,
         );
         if (stall !== null) {
           session.joinTrust.stallReported = true;

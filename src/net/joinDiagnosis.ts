@@ -63,6 +63,18 @@ import { formatAttestDiagnosis } from './hostIdentity.ts';
 export const JOIN_STALL_WARN_MS = 8_000;
 
 /**
+ * ⭐ S157 N1 — how long a joiner may sit with NO PEER AT ALL before we call it.
+ *
+ * Deliberately LONGER than `JOIN_STALL_WARN_MS`: that window starts once a peer is already present,
+ * so the only thing outstanding is a millisecond-scale signature check. Here we are waiting on relay
+ * discovery, signalling propagation across public Nostr relays, and a full ICE negotiation between
+ * two continents — all of which are legitimately slow. 20 s sits below the transport's own
+ * `HANDSHAKE_TIMEOUT_MS` (30 s) so the player is told what is happening BEFORE the machinery gives
+ * up underneath them, and well above any healthy cross-country connect.
+ */
+export const JOIN_NO_PEER_WARN_MS = 20_000;
+
+/**
  * Per-connect trust-progress facts. Lives on the NetSession (cleared by `teardownNet`, re-made on
  * every fresh connect) because the stall is a property of THIS join attempt, not of the page.
  *
@@ -70,6 +82,13 @@ export const JOIN_STALL_WARN_MS = 8_000;
  * below, so the interpretation is testable without a transport.
  */
 export interface JoinTrustState {
+  /**
+   * ⭐ S157 N1 — `performance.now()` when THIS attempt began. Without it there is no clock against
+   * which "nobody ever arrived" can be measured, which is exactly why S155's detector could not fire
+   * for the owner's actual failure: every branch it had was keyed off `firstPeerAtMs`, and in this
+   * bug that field stays null forever.
+   */
+  startedAtMs: number;
   /** `performance.now()` at the first peer we ever saw this attempt. null ⇒ nobody has connected. */
   firstPeerAtMs: number | null;
   /** How many attestations we have been offered (any sender). */
@@ -97,8 +116,9 @@ export interface JoinTrustState {
   stallReported: boolean;
 }
 
-export function makeJoinTrustState(): JoinTrustState {
+export function makeJoinTrustState(nowMs = 0): JoinTrustState {
   return {
+    startedAtMs: nowMs,
     firstPeerAtMs: null,
     attestsSeen: 0,
     attestFailures: 0,
@@ -133,6 +153,20 @@ export const JOIN_STALL = {
   BEGIN_REJECTED: 'The host started the match, but we could not verify them',
   /** Advice, appended to every branch. Names both exits that actually exist today. */
   ADVICE: 'press Back to retry, or play VS BOTS.',
+  /**
+   * ⭐ S157 N1 — NOBODY EVER ARRIVED. A different failure from every string above, and until now the
+   * only one with no message at all: those all describe a peer we CAN see and cannot trust, whereas
+   * this is the case where the ICE check never completed and Trystero never fired a peer event.
+   * The owner has now hit it twice, from two continents, on both join paths.
+   */
+  NO_PEER: 'Could not reach the other player',
+  /**
+   * The cause, when we can prove it. A relay (TURN) is what lets two players connect when both are
+   * behind a strict router or mobile carrier NAT — which is the usual case between countries. With
+   * none configured the connection cannot be completed at all, and saying so is far better than a
+   * spinner that never stops.
+   */
+  NO_RELAY: 'no relay server is configured, so players behind strict routers or mobile networks cannot be reached',
 } as const;
 
 /** Human-readable gloss per failure reason. Never shows crypto jargon to a player. */
@@ -166,9 +200,28 @@ export function joinStallMessage(
   s: JoinTrustState,
   nowMs: number,
   verified: boolean,
+  /** S157 N1 — is a TURN relay even available? Lets the no-peer branch name the real cause. */
+  hasTurn = true,
 ): string | null {
   if (verified) return null; // trust established — nothing to report, ever
-  if (s.firstPeerAtMs === null) return null; // nobody has connected yet; not a stall
+  /*
+   * ⭐ S157 N1 — THE BRANCH THAT WAS MISSING, AND IT IS THE ONE THE OWNER KEEPS HITTING.
+   *
+   * Every branch below requires `firstPeerAtMs`, i.e. a peer we can see. The owner's failure is the
+   * opposite: *"it gets stuck at connecting and never connects"* — no peer EVER appears, so the old
+   * detector returned null forever and the lobby span "Connecting..." with nothing to say.
+   *
+   * Measured cause (a live browser probe against the shipped ICE config): `relay: 0` — the TURN
+   * credentials were retired upstream, so the game runs STUN-only and any pair that needs a relay
+   * cannot complete ICE. `HAS_TURN_CONFIGURED` lets us state that as the reason rather than guess,
+   * and when a relay IS configured we fall back to the honest generic line.
+   */
+  if (s.firstPeerAtMs === null) {
+    if (nowMs - s.startedAtMs < JOIN_NO_PEER_WARN_MS) return null; // still legitimately negotiating
+    return hasTurn
+      ? `${JOIN_STALL.NO_PEER} — ${JOIN_STALL.ADVICE}`
+      : `${JOIN_STALL.NO_PEER}: ${JOIN_STALL.NO_RELAY} — ${JOIN_STALL.ADVICE}`;
+  }
   if (nowMs - s.firstPeerAtMs < JOIN_STALL_WARN_MS) return null; // still inside the patience window
 
   if (s.beginBuffered) {

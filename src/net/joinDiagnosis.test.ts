@@ -22,6 +22,7 @@ import {
   makeJoinTrustState,
   noteAttestResult,
   type JoinTrustState,
+  JOIN_NO_PEER_WARN_MS,
 } from './joinDiagnosis.ts';
 import type { AttestDiagnosis } from './hostIdentity.ts';
 
@@ -47,12 +48,23 @@ describe('S155 P1 — joinStallMessage stays SILENT whenever silence is correct'
     expect(joinStallMessage(s, STALLED_AT + 10 * JOIN_STALL_WARN_MS, true)).toBeNull();
   });
 
-  it('nobody connected yet is NOT a stall — that is just an empty room', () => {
-    // The distinction that makes the whole detector usable: a host waiting alone for a friend to
-    // type the code must never be told something is wrong. firstPeerAtMs === null is that state.
-    const s = makeJoinTrustState();
+  /*
+   * ⛔ S157 N1 — THIS TEST PINNED A RULE THAT WAS HIDING THE OWNER'S ACTUAL BUG.
+   *
+   * It asserted that `firstPeerAtMs === null` is NEVER a stall, justified as *"a host waiting alone
+   * for a friend to type the code must never be told something is wrong"*. That rationale is real
+   * but it belongs to a DIFFERENT guard: the per-frame check in main.ts is gated on `!world.isHost`,
+   * so a waiting host never reaches this function at all. Inside the function, "no peer" is the
+   * JOINER's state — and a joiner sitting with no peer forever is precisely the failure the owner
+   * has now hit twice from two countries (*"stuck at connecting and never connects"*).
+   *
+   * So the silence is now bounded by `JOIN_NO_PEER_WARN_MS` instead of being unconditional: quiet
+   * while a cross-country negotiation is legitimately in progress, and honest once it plainly is not.
+   */
+  it('a joiner with no peer stays quiet INSIDE the no-peer window', () => {
+    const s = makeJoinTrustState(T0);
     expect(s.firstPeerAtMs).toBeNull();
-    expect(joinStallMessage(s, T0 + 60_000, false)).toBeNull();
+    expect(joinStallMessage(s, T0 + JOIN_NO_PEER_WARN_MS - 1, false)).toBeNull();
   });
 
   it('inside the patience window it stays quiet even with a failure already recorded', () => {
@@ -171,5 +183,50 @@ describe('S155 P1 — CANARY: the stall strings are pinned', () => {
 
   it('the patience window is 8s — between a ~ms verify and the 30s transport timeout', () => {
     expect(JOIN_STALL_WARN_MS).toBe(8_000);
+  });
+});
+
+/**
+ * ⭐ S157 N1 — the branch that answers the owner's report.
+ *
+ * Measured against the live site: an `RTCPeerConnection` built from the shipped `ICE_SERVERS`
+ * gathered `relay: 0` — every TURN url returned `400 TURN allocate error` because the free
+ * OpenRelay credentials were retired upstream. STUN-only cannot connect two peers that both sit
+ * behind strict NAT, so no peer event ever fires and the lobby hangs on "Connecting..." with
+ * nothing to say. These pin the saying-something.
+ */
+describe('S157 N1 — nobody ever arrived', () => {
+  it('⭐ speaks up once the no-peer window has elapsed', () => {
+    const s = makeJoinTrustState(T0);
+    const msg = joinStallMessage(s, T0 + JOIN_NO_PEER_WARN_MS + 1, false, true);
+    expect(msg).not.toBeNull();
+    expect(msg).toContain(JOIN_STALL.NO_PEER);
+  });
+
+  it('⭐ NAMES THE RELAY as the cause when none is configured', () => {
+    const s = makeJoinTrustState(T0);
+    const msg = joinStallMessage(s, T0 + JOIN_NO_PEER_WARN_MS + 1, false, false);
+    expect(msg).toContain(JOIN_STALL.NO_RELAY);
+  });
+
+  it('does NOT blame the relay when one is configured — then it is an honest generic failure', () => {
+    const s = makeJoinTrustState(T0);
+    const msg = joinStallMessage(s, T0 + JOIN_NO_PEER_WARN_MS + 1, false, true);
+    expect(msg).not.toContain(JOIN_STALL.NO_RELAY);
+  });
+
+  it('a verified host still silences it, even with no peer ever recorded', () => {
+    const s = makeJoinTrustState(T0);
+    expect(joinStallMessage(s, T0 + 10 * JOIN_NO_PEER_WARN_MS, true, false)).toBeNull();
+  });
+
+  it('⛔ once a peer HAS appeared, the no-peer branch never fires again', () => {
+    // Otherwise a slow-but-healthy join would be told the relay is missing, which is both wrong and
+    // alarming. The attest branches own that state; this one must hand over cleanly.
+    const s = makeJoinTrustState(T0);
+    s.firstPeerAtMs = T0 + 1000;
+    const msg = joinStallMessage(s, T0 + 10 * JOIN_NO_PEER_WARN_MS, false, false);
+    expect(msg).not.toContain(JOIN_STALL.NO_RELAY);
+    expect(msg).not.toContain(JOIN_STALL.NO_PEER);
   });
 });

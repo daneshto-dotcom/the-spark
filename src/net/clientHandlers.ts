@@ -195,7 +195,9 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
      * the SESSION rather than in this closure, because the per-frame stall check in main.ts has no
      * other way to see it. `teardownNet` clears it.
      */
-    deps.session.joinTrust = makeJoinTrustState();
+    // S157 N1 — stamped with NOW so the no-peer branch has a clock. Before this, "nobody ever
+    // arrived" was unmeasurable and the owner's actual failure had no message at all.
+    deps.session.joinTrust = makeJoinTrustState(performance.now());
     // The clock the stall is measured from: the first moment ANY peer was connected. Without this the
     // stall detector cannot tell "nobody is here yet" (not a stall, ever) from "someone is here and
     // has been unverifiable for 8 seconds" (exactly the owner's bug).

@@ -74,25 +74,81 @@ export const STRATEGY_FLAGS = {
 
 export type StrategyName = keyof typeof STRATEGY_FLAGS;
 
-export const ICE_SERVERS: RTCIceServer[] = [
+/**
+ * ⭐ S157 N1 — **THE TURN SERVERS WERE DEAD, AND THAT IS WHY MULTIPLAYER HANGS ON "Connecting...".**
+ *
+ * Owner, after trying to play with his brother in Israel: *"we still could not connect to each
+ * other. not through quick match nor from hosting (one hosts a server and other inputs code). it
+ * gets stuck at connecting and never connects!"*
+ *
+ * ## The measurement, taken in a real browser against the LIVE site
+ *
+ * An `RTCPeerConnection` built with the shipped `ICE_SERVERS` gathered:
+ *   `host: 1, srflx: 1, relay: 0` — and every TURN url reported an error:
+ *   `400 TURN allocate error` on :80 and :443/udp (the credentials are REJECTED), and
+ *   `701 Failed to establish connection` on :443/tcp.
+ *
+ * The `openrelayproject` credentials belonged to Metered's free OpenRelay service, which has since
+ * been retired; the hostname still resolves (it now fronts their paid product), so nothing looked
+ * broken from the outside. **`relay: 0` means the game has been running STUN-ONLY.**
+ *
+ * ## Why that produces exactly the owner's symptom
+ *
+ * STUN alone connects two peers only when at least one side's NAT is permissive. When both sides sit
+ * behind symmetric NAT or carrier-grade NAT — the norm on mobile networks, and very likely across two
+ * countries — the only way through is a TURN *relay*. With no relay candidate the ICE check never
+ * succeeds, Trystero never fires a peer event, and the lobby sits on "Connecting..." forever. It also
+ * explains why QUICKMATCH and HOST-WITH-A-CODE fail identically: they share this one config
+ * (`quickmatch.ts` and `transport.ts` both read `ICE_SERVERS`).
+ *
+ * And it explains the intermittency — the owner HAS connected before. `srflx: 1` proves STUN works,
+ * so friendly-NAT pairs still connect. It is the hostile pairs that cannot.
+ *
+ * ## What this change does, and what it honestly cannot
+ *
+ * ⛔ **A working TURN server cannot be shipped in source.** TURN relays real game traffic, so it costs
+ * real bandwidth — which is why every free one dies. Four candidates were probed live in the browser
+ * (`openrelay.metered.ca`, `global.relay.metered.ca`, `freestun.net`, `freeturn.net`) and **all four
+ * returned zero relay candidates.** There is no credential-free option left to hard-code.
+ *
+ * So: the dead entries are REMOVED (they cost gathering time and error noise on every single
+ * connection attempt, including the ones that would otherwise succeed), the STUN pool is widened
+ * across three independent operators, and TURN becomes **build-time configurable** so provisioning an
+ * account is a credential paste and not a code change. See `TURN_SETUP.md`.
+ */
+
+/** Widened S157 — three independent operators, so one going down is not an outage. */
+const STUN_ONLY: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=udp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:global.stun.twilio.com:3478' },
 ];
+
+/**
+ * ⭐ S157 N1 — TURN from the build environment. Set these and rebuild; nothing else changes.
+ *
+ *   VITE_TURN_URLS       comma-separated, e.g. "turn:x.example:3478,turns:x.example:5349?transport=tcp"
+ *   VITE_TURN_USERNAME
+ *   VITE_TURN_CREDENTIAL
+ *
+ * Parsed defensively: a half-filled config (urls but no credential) is IGNORED rather than shipped,
+ * because a malformed ICE server is another silent `400 allocate error` — the precise failure this
+ * whole change exists to end.
+ */
+function turnFromEnv(): RTCIceServer[] {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+  const urls = (env.VITE_TURN_URLS ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+  const username = (env.VITE_TURN_USERNAME ?? '').trim();
+  const credential = (env.VITE_TURN_CREDENTIAL ?? '').trim();
+  if (urls.length === 0 || username === '' || credential === '') return [];
+  return [{ urls, username, credential }];
+}
+
+/** True when a relay is even possible — consumed by the join preflight to explain a failure. */
+export const HAS_TURN_CONFIGURED: boolean = turnFromEnv().length > 0;
+
+export const ICE_SERVERS: RTCIceServer[] = [...STUN_ONLY, ...turnFromEnv()];
 
 export const HANDSHAKE_TIMEOUT_MS = 30000;
 export const ICE_POLL_INTERVAL_MS = 1000;
