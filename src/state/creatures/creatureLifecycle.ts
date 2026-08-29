@@ -42,6 +42,8 @@ import { distSq, enemyCastleInReach, engageRange, isWithinAttackRange } from './
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
+  GOBLIN_MAX_GLOBAL,
+  GOBLIN_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_VICTIM,
 } from '../../constants.ts';
@@ -189,7 +191,25 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
   //   • global:      ALL live chewers ≥ CHEWER_MAX_GLOBAL (perf/wire ceiling)
   //   • per-victim:  chewers already targeting the chosen victim ≥ CHEWER_MAX_PER_VICTIM
   //                  (only checked when the spawner poll supplied `victimPlayerId`)
-  if (!underChewerCaps(world, sourceSpawnerId, action.victimPlayerId)) return world;
+  /*
+   * ⭐ S157 B1 (owner) — **A GOBLIN IS NOT A CHEWER, AND IT WAS BEING GATED AS ONE.**
+   *
+   * Owner: *"Late game 0 Goblins not being built even if you feed their towers any shapes and the
+   * shapes are being consumed nevertheless"*.
+   *
+   * Everything spawner-sourced that was not a drone fell into `underChewerCaps` — which counts ONLY
+   * `type === 'chewer'`. So a fed goblin was refused by a ceiling it could not contribute to, and
+   * `applyFeedTower` had already debited the bank. Late game just means "enough chewers alive", which
+   * is why it looked like a late-game bug rather than a wiring bug.
+   *
+   * Each population now answers to its own ceiling — the same separation `underDroneCaps` already
+   * established for drones, and for the same stated reason: one hazard class must never block another.
+   */
+  const capOk =
+    action.creatureType === 'chewer'
+      ? underChewerCaps(world, sourceSpawnerId, action.victimPlayerId)
+      : underGoblinCaps(world, sourceSpawnerId);
+  if (!capOk) return world;
 
   const id = asCreatureId(world.nextCreatureId++);
   const creature = makeCreature(getCreatureConfig(action.creatureType), {
@@ -204,6 +224,28 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
   });
   world.creatures.set(id, creature);
   return world;
+}
+
+/**
+ * ⭐ S157 B1 — the GOBLIN population gate. Mirror of `underDroneCaps`, counting only what it gates.
+ *
+ * "Goblin" here means every spawner-sourced creature that is not a chewer and not a drone — i.e. the
+ * fed roster from a goblin tower. Counting `!== 'chewer'` rather than enumerating goblin type names
+ * is deliberate: a new fed unit type then inherits the correct ceiling automatically instead of
+ * silently falling back into the chewer cap, which is the exact defect this function exists to fix.
+ */
+export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boolean {
+  let global = 0;
+  let perSpawner = 0;
+  for (const c of world.creatures.values()) {
+    if (c.sourceSpawnerId === null) continue; // Voltkin population — its own rule
+    if (c.type === 'chewer' || c.type === 'lightningDrone') continue;
+    global++;
+    if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
+  }
+  if (global >= GOBLIN_MAX_GLOBAL) return false;
+  if (perSpawner >= GOBLIN_MAX_PER_SPAWNER) return false;
+  return true;
 }
 
 /**

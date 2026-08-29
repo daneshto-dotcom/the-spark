@@ -1267,9 +1267,56 @@ export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its
 // was ~3× high. Trivial on WebRTC (Trystero auto-chunks), guarded by the
 // wire-size assertion in save.replay.test.ts — ⚠ which is FIXTURE-scoped and not a runtime budget. CHEWER_MAX_PER_VICTIM (below) stays the governor of how
 // many can attack ONE player at once in 1v1/vs-bots; the global cap mostly matters in FFA.
-export const CHEWER_MAX_GLOBAL = 12; // hard ceiling on live chewers (overlap buffer; post-playtest ceiling 18)
-export const CHEWER_MAX_PER_SPAWNER = 4; // overlap buffer above the ~3.3 steady-state; destruction rate scales with this
-export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single player
+/**
+ * ⭐ S157 B8b (owner) — **THE CHEWER CAPS ARE OFF.**
+ *
+ * Owner: *"pencil chewer pentagram tower should continuously generate pencil chewers on a timer and
+ * not have a limit … keep poppiong them out - they are supposed to be a horde!"*, and then, on the
+ * numbers: *"spawner interval for chewer is fine, just turn off their cap and have their tower
+ * continuously produce pencil chewers in the same speed as now."*
+ *
+ * So `SPAWN_INTERVAL_TICKS` and `CHEWER_CONFIG.lifetimeTicks` are UNTOUCHED — only the ceilings move.
+ * The numbers below are effectively-unbounded sentinels rather than a deleted check: the guard stays
+ * in place as a runaway backstop (an unbounded creature population is a genuine perf and wire risk if
+ * some future bug spins the emitter), but no reachable amount of play will meet it.
+ *
+ * ⚠ I ARGUED AGAINST THIS ON BANDWIDTH GROUNDS AND I WAS WRONG. The measurement is right here in this
+ * file's own history: ~41 B per creature on the wire, so 12 chewers ≈ +558 B per snapshot, described
+ * as *"Trivial on WebRTC (Trystero auto-chunks)"*, and the save.replay size assertion is explicitly
+ * FIXTURE-scoped, not a runtime budget. I repeated a stale docblock instead of reading the numbers.
+ *
+ * ⚠ AND THE OLD PER-VICTIM CAP WAS DEAD CODE. `CHEWER_MAX_PER_VICTIM` was only ever applied when the
+ * caller passed a `victimPlayerId`, and the one production caller never did — so the "3" the owner
+ * remembered was `CHEWER_MAX_PER_SPAWNER = 4` minus the fact that the real steady state is
+ * `lifetimeTicks / SPAWN_INTERVAL_TICKS` ≈ 3.3. The lifetime, not the cap, is what a tower settles at;
+ * removing the cap means it never STOPS, and removes the shared global ceiling that was starving
+ * goblins (see GOBLIN_MAX_GLOBAL).
+ */
+export const CHEWER_MAX_GLOBAL = 10_000; // owner: no cap — sentinel backstop only
+export const CHEWER_MAX_PER_SPAWNER = 10_000; // owner: no cap — a tower never stops emitting
+export const CHEWER_MAX_PER_VICTIM = 10_000; // was dead code (never passed a victim); kept for shape
+
+/**
+ * ⭐ S157 B1 (owner) — GOBLINS GET THEIR OWN POPULATION, and this is the fix for the loudest bug.
+ *
+ * Owner: *"Late game 0 Goblins not being built even if you feed their towers any shapes and the
+ * shapes are being consumed nevertheless - not cool!"*
+ *
+ * A fed goblin carries a non-null `sourceSpawnerId` and is not a drone, so it fell through to the
+ * CHEWER cap — a cap that counts only `type === 'chewer'`. Goblins were therefore **gated by a
+ * ceiling they could not contribute to**: once the chewer population saturated, every feed was
+ * silently refused, and because `applyFeedTower` debited the bank BEFORE dispatching, the shape was
+ * already gone. That is the whole report, including *"except helga"* — she is a DEFENDER, so no
+ * creature cap touches her.
+ *
+ * ⛔ THE CAP IS LOAD-BEARING, NOT COSMETIC. `GOBLIN_MELEE_CONFIG.persistent = true`, so
+ * `GOBLIN_LIFETIME_TICKS` never fires for goblins — they do not age out. Lifting the accidental
+ * chewer gate WITHOUT giving them their own ceiling would hand the game an unbounded, never-churning
+ * population, which is the one creature family where a runaway genuinely cannot self-correct.
+ * Generous enough to never be felt in play; finite so a bug cannot melt a match.
+ */
+export const GOBLIN_MAX_GLOBAL = 200;
+export const GOBLIN_MAX_PER_SPAWNER = 60;
 
 // === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===
 // ONE damage scale across the whole game. Two kinds of destructible thing have HP:

@@ -53,6 +53,7 @@ import { SparkType } from '../constants.ts';
 // from ever leaving TITLE. See `goblinKinds.ts`.
 import { GOBLIN_FEED_MAP } from './goblinKinds.ts';
 import { bankCountOf, bankRemove } from './castleBank.ts';
+import { underGoblinCaps } from './creatures/creatureLifecycle.ts';
 import type { PlayerId, SpawnerId, Vec2 } from '../types.ts';
 import { dispatch } from './world.ts';
 import type { World } from './worldTypes.ts';
@@ -110,6 +111,21 @@ export function applyFeedTower(world: World, action: FeedTowerAction): World {
   // Checked against the castle bank only — the tower is fed from stores, not from loose shapes on
   // the board, which is what makes it a decision about your inventory rather than about your reach.
   if (bankCountOf(world.castleBanks, action.playerId, action.sparkType) <= 0) return world;
+
+  /*
+   * ── GATE 5 (S157 B1, owner) — CAN THE GOBLIN ACTUALLY BE BORN? ───────────────────────────────
+   *
+   * Owner: *"the shapes are being consumed nevertheless - not cool!"* — and that half of the report
+   * is this line's fault, not the cap's. The population check lived DOWNSTREAM in
+   * `applySpawnCreature`, so a refused spawn returned silently to a caller that had already spent
+   * the shape. Paying for nothing is worse than being told no.
+   *
+   * Asking here restores the atomicity this module's own header claims: every gate is evaluated
+   * BEFORE the first mutation, so a refusal costs the player nothing. The downstream check stays as
+   * the authoritative guard (the same defense-in-depth `applySpawnCreature` documents for chewers) —
+   * this one exists so the bank is never debited for a spawn that cannot happen.
+   */
+  if (!underGoblinCaps(world, action.spawnerId)) return world;
 
   // ── ALL GATES PASSED — only now does anything change ─────────────────────────────────────────
   bankRemove(world.castleBanks, action.playerId, action.sparkType);
