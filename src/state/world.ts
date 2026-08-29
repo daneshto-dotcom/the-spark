@@ -444,6 +444,7 @@ export function makeWorld(rngSeed: number): World {
     // S93 — NONET event: no trial active, not yet fired this match.
     sudoku: null,
     sudokuFiredThisMatch: false,
+    waveNumber: 1, // S157 B8 — the opening BUILD is wave 1
     // S97 P5 — per-type godly guard: no godly type fired yet this match.
     godlyFiredThisMatch: new Set(),
   };

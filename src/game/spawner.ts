@@ -202,12 +202,25 @@ export class Spawner {
     potatoesOut?: PotatoSpawnRequest[],
     rainbowsOut?: RainbowSpawnRequest[],
     seagullsOut?: SeagullSpawnRequest[],
+    /**
+     * ⭐ S157 B8 (owner) — the WAVE speed-up. 1 = unchanged; 1.2 = shapes arrive 20 % sooner.
+     *
+     * ⛔ APPLIED TO THE RESULTING INTERVAL, NOT TO THE RNG. `sampleInterarrival` draws exactly ONE
+     * value per call and then divides by the rate, so scaling the interval afterwards leaves the
+     * seeded stream's draw COUNT and draw ORDER untouched — the property `spawnerRngInvariance`
+     * exists to protect and the reason `physicsLoop` insists you gate the DISPATCH and never
+     * `spawner.tick`. What changes is when a spawn lands, which both host and worker compute
+     * identically because `waveNumber` is synced and hashed.
+     *
+     * Defaulting to 1 keeps every existing caller and fixture byte-identical.
+     */
+    rateMultiplier = 1,
   ): number {
     let n = 0;
     this.secondsUntilNextSpawn -= dtSec;
     while (this.secondsUntilNextSpawn <= 0) {
       freeSparks.push(this.spawnOne(tick));
-      this.secondsUntilNextSpawn += this.sampleInterarrival();
+      this.secondsUntilNextSpawn += this.sampleInterarrival() / rateMultiplier;
       n++;
       // S71 P1 — bomb cadence: one bomb every BOMB_SPAWN_MIN..MAX sparks. The
       // counter decrement is RNG-free; only the next-countdown draw + bomb position

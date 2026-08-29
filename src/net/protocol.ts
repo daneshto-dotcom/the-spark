@@ -356,6 +356,10 @@ export type { NetSnapshot };
 // The rest of P2 needs no bump on its own and is recorded for completeness: `holdsRange` +
 // `standoffTargetPos` + the narrowed Δ4 steering gate are all HOST-ONLY sim, and gating ARC_FLASH to
 // the Voltkin only removes effects a stale peer would simply not receive.
+// S157 B8 — bumped 33->34: THE WAVE COUNTER. `WorldSnapshot.waveNumber` (additive-optional, omitted
+// while 1). A v33 peer has no wave field, restores to wave 1, and therefore computes a DIFFERENT
+// quarry spawn rate from the host — divergent shape counts and a divergent state hash, which the
+// version gate refuses rather than lets limp.
 // S154 AMENDMENT C — bumped 32->33: THE CASTLE HAS HIT POINTS (owner A4 / R89). One new
 // ADDITIVE-OPTIONAL field on `SerializedPlayer`, `castleHp`, and it forces a bump for the third
 // instance of the rule this file already records twice:
@@ -370,7 +374,17 @@ export type { NetSnapshot };
 // It is also a NEW VICTORY CONDITION, which is the sharper half: `tickGameState` can now end a match
 // on `castleHp <= 0` before the score gate. A stale peer that never sees the field would keep playing
 // a match the host has already ended.
-export const PROTOCOL_VERSION = 33 as const;
+/*
+ * ⭐ S157 B8 — BUMPED 33 → 34: `WorldSnapshot.waveNumber`.
+ *
+ * A v33 peer has no wave field, so it would restore to wave 1 and compute a DIFFERENT quarry spawn
+ * rate from the host — the shapes on its screen would arrive at the wrong cadence and its state hash
+ * would diverge. That is exactly what the version gate exists to refuse rather than let limp.
+ *
+ * The field is additive-optional and omitted while the value is 1, so an opening snapshot is
+ * byte-identical to v33 and a pre-S157 save restores cleanly to wave 1.
+ */
+export const PROTOCOL_VERSION = 34 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -517,6 +531,13 @@ export interface HelloMsg {
    * NEW VICTORY CONDITION in tickGameState: a stale peer would keep playing a match the host has
    * already ended on a razed castle.)
    *
+   * S157 B8: 33->34 (THE WAVE COUNTER — owner. `waveNumber` on `WorldSnapshot`, additive-optional and
+   * omitted while it is 1, so an opening snapshot stays byte-identical to v33. It is NOT cosmetic:
+   * the wave drives the quarry's spawn rate (`waveSpawnMultiplier`), so a v33 peer — which restores
+   * to wave 1 — would compute a different number of shapes than the host and diverge on the state
+   * hash. Same class as the shared-constant bumps above: the absence of the field means a DIFFERENT
+   * value, not a missing one.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -549,7 +570,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 33;
+  readonly protoVersion: 34;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

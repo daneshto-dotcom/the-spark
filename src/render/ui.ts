@@ -81,11 +81,23 @@ export function formatSoloScore(score: number): string {
  * the deadline before the host's flip arrives, and the NONET freeze can leave it negative on the
  * host too. Showing "-0:03" would look broken, so it floors at 0:00 and waits for the flip.
  */
-export function formatPhaseBanner(phase: MatchPhase, ticksRemaining: number): string {
+export function formatPhaseBanner(
+  phase: MatchPhase,
+  ticksRemaining: number,
+  /**
+   * ⭐ S157 B8 (owner) — *"there should be a place on the top near the timer counting how many waves
+   * has it been"*. Rendered INTO the existing banner rather than as a new HUD surface: it is already
+   * "near the timer" by construction, it inherits the banner's placement, font and safe-area handling
+   * for free, and a new surface would need its own layout plus `hudSurfaces` registration for one
+   * short string. Optional so every existing caller and test keeps its exact output.
+   */
+  waveNumber?: number,
+): string {
   const secs = Math.max(0, Math.ceil(ticksRemaining / PHYSICS_HZ));
   const mm = Math.floor(secs / 60);
   const ss = secs % 60;
-  return `${phase}  ${mm}:${String(ss).padStart(2, '0')}`;
+  const clock = `${phase}  ${mm}:${String(ss).padStart(2, '0')}`;
+  return waveNumber === undefined ? clock : `WAVE ${waveNumber}   ${clock}`;
 }
 
 /**
@@ -1031,7 +1043,11 @@ export class HUD {
       this.lastSeenPhase = null;
       return;
     }
-    this.phaseBannerText.text = formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick);
+    this.phaseBannerText.text = formatPhaseBanner(
+      world.matchPhase,
+      world.phaseEndsAtTick - world.tick,
+      world.waveNumber,
+    );
     this.phaseBannerText.style.fill = world.matchPhase === 'FIGHT' ? 0xffb347 : 0xcfe8ff;
     this.phaseBannerText.visible = true;
 

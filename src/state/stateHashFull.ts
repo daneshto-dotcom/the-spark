@@ -126,6 +126,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   hunterSpawned: 'hashed',
   rainbowSwitchTick: 'hashed',
   sudokuFiredThisMatch: 'hashed',
+  waveNumber: 'hashed', // S157 B8 — drives the spawn rate, so a divergence is a real desync
   activeCinematicPlayerId: 'hashed',
   // Allocator cursors — two sims that allocated different id counts have diverged
   // even when the surviving entities happen to match.
@@ -380,6 +381,7 @@ export function determinismParts(world: World): string[] {
     `hs${o(world.hunterSpawned)}`,
     `rw${o(world.rainbowSwitchTick)}`,
     `sf${o(world.sudokuFiredThisMatch)}`,
+    `wv${world.waveNumber}`,
     `ac${n(world.activeCinematicPlayerId)}`,
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +

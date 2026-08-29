@@ -535,6 +535,24 @@ export interface World {
    */
   sudokuFiredThisMatch: boolean;
   /**
+   * ⭐ S157 B8 (owner) — **THE WAVE NUMBER.** One wave = one BUILD + one FIGHT turn.
+   *
+   * Owner: *"each build-fight turn should be considered as WAVE and there should be a place on the
+   * top near the timer counting how many waves has it been. Also every wave the spawned
+   * primitives/shapes should spawn faster and faster (0.2 each wave). so wave 1 is normal. wave 2 is
+   * 1.2. wave 3 is 1.4x faster. wave 4 is 1.6 times faster etc..."*
+   *
+   * ⚠ IT CANNOT BE DERIVED, WHICH IS WHY IT IS STORED. The obvious shortcut is `tick / phase length`,
+   * and it is wrong: `applyStartGame` does NOT reset `world.tick` (it stamps
+   * `phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS` and says so), so a second match in the same
+   * page session would start on whatever wave the arithmetic happened to produce.
+   *
+   * Starts at 1 — the opening BUILD is wave 1, not wave 0 — and increments on each entry INTO BUILD,
+   * i.e. once per completed turn. Serialized + hashed so the host, a joiner and the `?worker=1`
+   * mirror all agree; a disagreement here would desync the SPAWN RATE, not just a HUD number.
+   */
+  waveNumber: number;
+  /**
    * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
    * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old
    * per-player 60s cooldown gate (which cross-blocked DIFFERENT types for 60s). Independent of

@@ -56,6 +56,7 @@ import {
   POTATO_MAX_ACTIVE,
   RAINBOW_MAX_ACTIVE,
   SEAGULL_MAX_ACTIVE,
+  waveSpawnMultiplier,
 } from '../constants.ts';
 import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from '../game/spawner.ts';
 import type { Spark } from '../game/spark.ts';
@@ -93,7 +94,12 @@ export function stepPhysics(
   const potatoSpawns: PotatoSpawnRequest[] = [];
   const rainbowSpawns: RainbowSpawnRequest[] = [];
   const seagullSpawns: SeagullSpawnRequest[] = [];
-  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns, rainbowSpawns, seagullSpawns);
+  // ⭐ S157 B8 (owner) — waves make the quarry faster. See `waveSpawnMultiplier`; the multiplier
+  // scales the resulting INTERVAL, never the rng, so the seeded stream is untouched.
+  spawner.tick(
+    PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns, rainbowSpawns, seagullSpawns,
+    waveSpawnMultiplier(world.waveNumber),
+  );
   // ⭐ S149 P2 / CF-S148-a (R22) — THE QUARRY PRODUCES DURING BUILD ONLY.
   //
   // *"The spawner produces during BUILD only."* Found violated on disk by the S148 vision-gap

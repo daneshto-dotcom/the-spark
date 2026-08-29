@@ -279,6 +279,19 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // per boundary-crossing tick is correct and re-firing is harmless.
     if (flipped) {
       if (world.matchPhase === 'BUILD') {
+        /*
+         * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
+         *
+         * *"each build-fight turn should be considered as WAVE"*. Counted on entry into BUILD, so
+         * wave N is "the Nth BUILD+FIGHT turn" and the opening BUILD (which never crosses this edge)
+         * is wave 1 from `makeWorld`. Incrementing on the FIGHT edge instead would have made the
+         * very first fight wave 2.
+         *
+         * Sits inside the `flipped` guard with the other edge actions, so a NONET freeze that skips
+         * a whole phase still advances exactly one wave per boundary crossing rather than one per
+         * tick — the same reason that guard is keyed on "the loop ran AND we landed in X".
+         */
+        world.waveNumber += 1;
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
         releaseShelteredGatherers(world);

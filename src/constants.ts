@@ -1315,6 +1315,21 @@ export const CHEWER_MAX_PER_VICTIM = 10_000; // was dead code (never passed a vi
  * population, which is the one creature family where a runaway genuinely cannot self-correct.
  * Generous enough to never be felt in play; finite so a bug cannot melt a match.
  */
+/**
+ * ⭐ S157 B8 (owner) — how much faster shapes arrive each wave. *"wave 1 is normal. wave 2 is 1.2.
+ * wave 3 is 1.4x faster. wave 4 is 1.6 times faster etc..."*
+ *
+ * ⚠ DELIBERATELY UNCAPPED, on the owner's ruling: *"dont cap because people build more and more
+ * gatherers so it should scale in the way i have described."* That answers the objection I raised —
+ * hauling capacity grows with the wave count too, so the extra shapes are consumed rather than
+ * accumulating on the board. The live spark count at high waves is still worth MEASURING and
+ * reporting; it is a balance ruling, not a wire-budget one.
+ */
+export const WAVE_SPAWN_RATE_STEP = 0.2;
+export function waveSpawnMultiplier(waveNumber: number): number {
+  return 1 + WAVE_SPAWN_RATE_STEP * Math.max(0, waveNumber - 1);
+}
+
 export const GOBLIN_MAX_GLOBAL = 200;
 export const GOBLIN_MAX_PER_SPAWNER = 60;
 

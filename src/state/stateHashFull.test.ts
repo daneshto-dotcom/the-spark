@@ -68,6 +68,11 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextGathererId',
   // S146 P2 — the descending NEGATIVE allocator for reducer-minted pulls. Also a scalar.
   'nextPulledSparkId',
+  // ⭐ S157 B8 — THE WAVE COUNTER. A world SCALAR (projected as the `wv` part), not an entity family,
+  // so it belongs here rather than in EXPECTED below. It is hashed because it drives the quarry's
+  // SPAWN RATE: a host and a `?worker=1` mirror disagreeing about the wave would diverge on how many
+  // shapes exist, which is a real desync rather than a cosmetic HUD difference.
+  'waveNumber',
   // S147 P1 — THE MATCH CLOCK. Both are world SCALARS, not entity families: `matchPhase` is a string
   // literal union and `phaseEndsAtTick` an absolute tick, projected as the `mp`/`pe` parts in
   // determinismParts. They belong here rather than in EXPECTED below, which enumerates only the

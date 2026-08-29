@@ -202,6 +202,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S93 — a fresh match starts with NO NONET trial active + the once-per-match guard reset.
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
+  world.waveNumber = 1; // S157 B8 — every match opens on wave 1
   world.godlyFiredThisMatch.clear(); // S97 P5 — each godly type can fire again next match
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();

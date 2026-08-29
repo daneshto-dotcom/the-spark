@@ -251,6 +251,8 @@ export interface WorldSnapshot {
     readonly resolvedTick: number | null;
   };
   sudokuFiredThisMatch?: boolean;
+  /** S157 B8 — the wave counter. Optional so a pre-S157 save restores to wave 1. */
+  waveNumber?: number;
   /**
    * S97 P5 — per-type godly once-per-match guard (SORTED GodlyId[]). Additive-optional (emitted
    * only when non-empty); a new host (host-migration) / save-load won't re-fire an already-used
@@ -948,6 +950,8 @@ export function snapshot(
             resolvedTick: world.sudoku.resolvedTick,
           },
     sudokuFiredThisMatch: world.sudokuFiredThisMatch ? true : undefined,
+    // S157 B8 — omitted on wave 1 so an opening snapshot stays byte-identical to pre-S157.
+    waveNumber: world.waveNumber > 1 ? world.waveNumber : undefined,
     // S97 P5 — emit the per-type godly guard only when non-empty (sorted ⇒ byte-stable, like discoveredCombos).
     godlyFiredThisMatch:
       world.godlyFiredThisMatch.size > 0 ? [...world.godlyFiredThisMatch].sort() : undefined,
@@ -1317,6 +1321,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
           resolvedTick: snap.sudoku.resolvedTick,
         };
   world.sudokuFiredThisMatch = snap.sudokuFiredThisMatch ?? false;
+  world.waveNumber = snap.waveNumber ?? 1; // S157 B8
   world.godlyFiredThisMatch = new Set((snap.godlyFiredThisMatch ?? []) as GodlyId[]); // S97 P5
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
