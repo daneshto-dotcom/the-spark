@@ -83,6 +83,30 @@ const SHARED_STYLE = [
 
 const MODEL = 'gemini-3-pro-image';
 
+/*
+ * ⭐ S157 — TWO ADDITIVE SPEC KNOBS, BOTH `absent ⇒ byte-identical to the S152 behaviour`.
+ *
+ * 1. `spec.sharedStyle` (string | string[]) REPLACES `SHARED_STYLE` for one spec file. The default
+ *    above is not neutral house style — it hard-codes *"olive sage-green goblin skin"* and *"facing
+ *    and moving to the RIGHT"*, which are correct for the goblin ROSTER and wrong for a PROP. The
+ *    landed stink bag is a squashed sack on the ground: it has no skin, no facing, and forcing an
+ *    action pose on it produces a goblin holding a bag rather than a bag.
+ *
+ * 2. `ch.refImages` (string[]) sends real images alongside the text, because the owner's binding
+ *    requirement here is *"make sure the bag that's generated looks like the bags that are hanging
+ *    on the branches"* — an IDENTITY constraint, not a style one. A text description of a burlap
+ *    sack yields *a* burlap sack; the actual pixels of the owner's own hanging sacks yield THAT
+ *    sack. Same reasoning as `gen-character-clips.mjs` seeding image-to-video off the design PNG.
+ *
+ * ⚠ The reference images are STYLE/IDENTITY input, never a copy source: the prompt asks for a new
+ *   drawing of the same object in a new pose, and every reference is the project's own art.
+ */
+function styleBlock(spec) {
+  const s = spec.sharedStyle;
+  if (s === undefined) return SHARED_STYLE;
+  return Array.isArray(s) ? s.join(' ') : s;
+}
+
 const specPath = process.argv[2];
 if (specPath === undefined) {
   console.error('usage: node scripts/gen-character-design.mjs <spec.json> [--only <name>]');
@@ -98,8 +122,22 @@ const key = apiKey();
 
 for (const ch of spec.characters) {
   if (only !== null && ch.name !== only) continue;
+  // Reference images FIRST, then the text — the order the API documents for image-conditioned
+  // generation, and the order that makes the text read as instructions ABOUT the images.
+  const reqParts = [];
+  for (const ref of ch.refImages ?? []) {
+    const p = resolve(ref);
+    if (!existsSync(p)) throw new Error(`${ch.name}: refImage missing: ${p}`);
+    reqParts.push({
+      inlineData: {
+        mimeType: p.endsWith('.jpg') || p.endsWith('.jpeg') ? 'image/jpeg' : 'image/png',
+        data: readFileSync(p).toString('base64'),
+      },
+    });
+  }
+  reqParts.push({ text: `${ch.prompt} ${styleBlock(spec)}` });
   const body = {
-    contents: [{ parts: [{ text: `${ch.prompt} ${SHARED_STYLE}` }] }],
+    contents: [{ parts: reqParts }],
     generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
   };
   const bodyFile = join(outDir, `.req-${ch.name}.json`);

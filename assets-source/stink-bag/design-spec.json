@@ -1,0 +1,71 @@
+{
+  "_comment": [
+    "SPARK — S157 LANDED STINK BAG design seeds. Consumed by scripts/gen-character-design.mjs.",
+    "RETAINED IN-TREE for the same reason as godly-goblins/design-spec.json: S151 kept neither its",
+    "specs nor its clips and its atlases could not be rebuilt. Everything here is reproducible from",
+    "the repo alone.",
+    "",
+    "OWNER REQUIREMENT (binding): 'make sure the bag that's generated looks like the bags that are",
+    "hanging on the branches.' Those bags are NOT the green circles the PROCEDURAL fallback in",
+    "src/render/stinkTowerRenderer.ts draws — that rig only paints while the veo atlas is loading or",
+    "has failed. What is ON SCREEN is the owner's own 3-stink-tower-DEFENCE.png: warm mid-brown",
+    "burlap sacks, bold black ink outline, flat cel shading, a cinched neck tied with a pale cream",
+    "cord, a pale worm-like fuse with a small orange flame, darker brown speckles.",
+    "ref-bag-from-owner-tower.png is a crop of two of those exact sacks and is passed as refImages,",
+    "so identity is carried by PIXELS rather than by an adjective.",
+    "",
+    "THE GREEN IS THE STINK, NOT THE BAG. In the owner's design the green (bright yellow-green,",
+    "the STINK 0x7fbf3f family) is the vapour at the tower's base. A landed bag is a brown sack",
+    "emitting that green — painting the sack itself green would make it a different object from the",
+    "ones on the branches, which is precisely what the owner asked to avoid.",
+    "",
+    "Three variants are generated so the landed pose can be auditioned before a clip is paid for.",
+    "The chosen one is copied to stink-bag-landed.png and referenced by clip-spec.json."
+  ],
+  "outDir": "assets-source/stink-bag",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks, exactly matching the reference image: the same warm mid-brown",
+    "burlap, the same darker brown speckles and mottling, the same thick even black outline, the same",
+    "pale cream cord and fuse. Muted earthy palette with ONE bright accent: the yellow-green stink.",
+    "This is a PROP lying on the ground, not a character: no face, no limbs, no creature, nobody",
+    "holding it, no tower, no branch, no rope, nothing hanging.",
+    "Single object, centered, viewed from slightly above at a three-quarter angle, resting on the",
+    "ground with a small soft dark oval shadow directly beneath it.",
+    "Plain pure white background, completely empty.",
+    "No text, no logo, no border, no frame, no white outline around the silhouette,",
+    "no die-cut sticker edge, no drop-shadow behind the object, no background scenery, no grass,",
+    "no ground texture, no horizon line."
+  ],
+  "characters": [
+    {
+      "name": "stink-bag-landed-a",
+      "refImages": [
+        "assets-source/stink-bag/ref-bag-from-owner-tower.png"
+      ],
+      "prompt": "ONE of the round brown burlap stink sacks from the reference image, after it has been thrown and has LANDED on the ground. Same sack, same brown burlap, same speckles, same bold black ink outline, same pale cream cord around its cinched neck, same gathered fabric flaring above the tie. It now sits squat on the ground, its bottom flattened and bulging outward under its own weight, slumped and settled. Its fuse has already burned out: only a short blackened cream stub is left where the flame was, with a thin curl of grey smoke. A ragged split has opened along one seam of the sack and thick bright yellow-green stink vapour is pouring out of it and curling upward in soft flame-like wisps, roughly as tall as the sack itself and no taller. A few small black cartoon flies loop around it on little dashed flight paths, and two or three short green vapour droplets hang in the air beside it."
+    },
+    {
+      "name": "stink-bag-landed-b",
+      "refImages": [
+        "assets-source/stink-bag/ref-bag-from-owner-tower.png"
+      ],
+      "prompt": "ONE of the round brown burlap stink sacks from the reference image, after it has been thrown and has LANDED on the ground. Same sack, same brown burlap, same speckles, same bold black ink outline. It has tipped over onto its side and lies half-collapsed on the ground, its cinched neck pointing toward the viewer with the pale cream cord slipped loose and the gathered mouth of the sack fallen open. Its fuse has already burned out: a short blackened cream stub with a thin curl of grey smoke. Thick bright yellow-green stink vapour spills out of the open mouth and curls upward in soft flame-like wisps, roughly as tall as the sack itself and no taller. A few small black cartoon flies loop around it on little dashed flight paths."
+    },
+    {
+      "name": "stink-bag-landed-c",
+      "refImages": [
+        "assets-source/stink-bag/ref-bag-from-owner-tower.png"
+      ],
+      "prompt": "ONE of the round brown burlap stink sacks from the reference image, after it has been thrown and has LANDED on the ground. Same sack, same brown burlap, same speckles, same bold black ink outline, same pale cream cord around its cinched neck. It sits upright on the ground, squashed flat where it rests, swollen and over-full so the burlap is straining and its stitched seams are visibly bulging apart. Its fuse has already burned out: a short blackened cream stub with a thin curl of grey smoke. Bright yellow-green stink vapour hisses out through a small tear in the side and through the gathered neck, curling upward in soft flame-like wisps roughly as tall as the sack itself and no taller. A small dark green puddle has soaked into the ground right at its base and a few small black cartoon flies loop around it on little dashed flight paths."
+    },
+    {
+      "name": "stink-bag-landed-d",
+      "_chosen": "SHIPPED. Variant d is a deliberate synthesis of the first pass: variant c had the truest sack (plump and ROUND like the ones on the branches, cord and gathered neck-flare dead centre on top) but its vapour was two pale wisps that would disappear at the ~30px this renders in world; variant a had a bold saturated plume but a slumped pear-shaped body that read as a different object. d asks for c's body with a's plume, plus the ground puddle that carries the owner's 'stinking up a radius'.",
+      "refImages": [
+        "assets-source/stink-bag/ref-bag-from-owner-tower.png"
+      ],
+      "prompt": "ONE of the round brown burlap stink sacks from the reference image, after it has been thrown and has LANDED on the ground. It is the SAME sack: the same plump ROUND ball shape, the same warm mid-brown burlap with darker brown speckles and mottling, the same thick even black ink outline, the same pale cream cord cinching the neck with the gathered fabric flaring above the tie like a little crown, and the tie sitting on TOP of the sack exactly as it does on the branch. It now rests on the ground, still round but flattened and bulging outward where it meets the ground, settled under its own weight. Its fuse has already burned out: only a short blackened cream stub is left, with a thin curl of grey smoke. A ragged split has torn open low on the near side of the sack. THICK BOLD bright yellow-green stink vapour pours out of that split and out from under the loose neck tie and curls upward in fat rounded flame-like wisps with a heavy black outline, roughly as tall as the sack itself and no taller, and no wider than the sack. A dark green puddle has soaked into the ground around its base. Three small black cartoon flies loop around it on little dashed flight paths."
+    }
+  ]
+}

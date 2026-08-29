@@ -1,0 +1,15 @@
+{
+  "cellW": 128,
+  "cellH": 128,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9922
+  },
+  "states": {
+    "idle": {
+      "row": 0,
+      "frames": 12,
+      "ticksPerFrame": 15
+    }
+  }
+}

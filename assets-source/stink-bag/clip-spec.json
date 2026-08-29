@@ -1,0 +1,101 @@
+{
+  "_comment": [
+    "SPARK — S157 LANDED STINK BAG veo clip spec. Consumed by scripts/gen-character-clips.mjs.",
+    "A landed bag has exactly ONE state — `idle`, the stinking loop it plays until it is destroyed.",
+    "There is no walk (it does not move) and no attack (the AURA is the attack, and an aura is a",
+    "state readout the renderer draws, not art).",
+    "",
+    "⛔ TWO CLIPS ARE GENERATED ON PURPOSE, AND ONLY ONE SHIPS.",
+    "`gen-character-clips.mjs` documents the defect that cost S151 its stink tower: veo REDREW the",
+    "subject each frame instead of animating a fixed one, so the tower's branch count changed between",
+    "frames and it appeared to MELT. `staticSubject: true` is the prompt-level mitigation, and the",
+    "script's own header is explicit that it is a prompt and not a guarantee — the frames must be",
+    "auditioned.",
+    "But the owner also asked for the bag to be 'subtly breathing/settling', which is the exact",
+    "motion `staticSubject` forbids. Those two requirements cannot both be satisfied by one prompt,",
+    "so both are generated and the contact sheets decide:",
+    "  · stink-bag        — staticSubject, the safe one: a rigid sack, all motion in the vapour.",
+    "  · stink-bag-breathe — no staticSubject, asks for a slow swell; ships only if the silhouette",
+    "                        actually held across all 96 frames.",
+    "A melting bag is a far worse defect than a still one, so `stink-bag` is the default and the",
+    "breathing variant has to earn its place.",
+    "",
+    "⭐ ROUND 1 AUDITION RESULT (measured, not eyeballed — scripts are in the report, numbers below):",
+    "  · stink-bag-breathe REJECTED. Exactly the drift gen-character-clips.mjs warns about: by the",
+    "    second half of the clip the sack had lost its speckles and its torn split had healed shut,",
+    "    and the flies' dashed paths had swollen into one frame-wide dashed ring. The owner's",
+    "    'subtly breathing' is not worth a bag that stops being the same bag.",
+    "  · stink-bag (staticSubject) HELD the sack perfectly across all 96 frames — but its PLUME does",
+    "    not loop: it grows monotonically and from frame ~40 onward it runs off the top of the 720px",
+    "    frame (measured content-bbox top hits 0 and stays there). A clipped plume would ship as a",
+    "    plume sliced flat by the cell edge, and no 12-frame window in it returns to its own start.",
+    "  · So round 2 constrains the plume's SIZE and HEIGHT explicitly, which round 1 never did — it",
+    "    only asked for a constant RATE, and veo honoured the rate while the plume accumulated.",
+    "",
+    "⭐ ROUND 2 RESULT — stink-bag-tight-a SHIPS. Capping the plume by SIZE and HEIGHT (not just by",
+    "rate) fixed both defects at once: its content-bbox top stays at y40..82 and never reaches the",
+    "frame edge, and its best loop cost fell to 10.4 from 18.5. Measured on the built atlas, the last",
+    "cell differs from the first by mean-abs 8.3/255 while every other cell differs by 16..29 — the",
+    "wrap is the SMALLEST jump in the loop, which is what seamless means numerically.",
+    "tight-b lost on both counts: its grey fuse smoke thickened until it competed with the green, and",
+    "its best loop cost was 14.5.",
+    "",
+    "⚠ ALL FOUR CLIPS ARE RETAINED, INCLUDING THE THREE REJECTED ONES — they are the evidence behind",
+    "the verdicts above, and veo is billed per generation, so a later session that disagrees can",
+    "re-audition them for free instead of re-paying. Re-running this spec with `--skip-existing`",
+    "therefore costs NOTHING; re-running it WITHOUT that flag re-pays for all four.",
+    "",
+    "MEASURED RIGIDITY (the S151 melting-tower check, run on the shipped atlas): inside the sack the",
+    "mean absolute difference from frame 0 peaks at 5.7/255 across all 12 cells, against 29 for the",
+    "cell as a whole. The sack does not move; only the vapour does. staticSubject did its job."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "stink-bag",
+      "seed": "assets-source/stink-bag/stink-bag-landed.png",
+      "outDir": "assets-source/stink-bag/clips/stink-bag",
+      "staticSubject": true,
+      "states": {
+        "idle": {
+          "prompt": "The burst brown burlap stink sack sits on the ground, exactly as in the source image. Thick bright yellow-green stink vapour pours continuously out of the torn split in its side and out from under its loose neck tie, billowing and curling slowly upward in fat rounded wisps that rise, thin out and dissolve away, replaced from below by more vapour in an unbroken steady flow. The dark green puddle soaked into the ground around its base shimmers faintly. The three little black flies circle it in slow lazy loops along their dashed flight paths. A thin ribbon of grey smoke drifts up from the burnt fuse stub. The vapour flows at a constant even rate for the whole shot, with no puff, no burst and no change of pace, so the motion loops seamlessly."
+        }
+      }
+    },
+    {
+      "name": "stink-bag-breathe",
+      "seed": "assets-source/stink-bag/stink-bag-landed.png",
+      "outDir": "assets-source/stink-bag/clips/stink-bag-breathe",
+      "states": {
+        "idle": {
+          "prompt": "The burst brown burlap stink sack sits on the ground, exactly as in the source image, and swells and relaxes very slightly and very slowly, like a slow shallow breath — the same sack throughout, its outline, its speckles, its cord, its neck tie and its torn split all staying exactly where they are, only gently expanding and settling by a hair. Thick bright yellow-green stink vapour pours continuously out of the torn split in its side and out from under its loose neck tie, billowing and curling slowly upward in fat rounded wisps that rise, thin out and dissolve away, replaced from below by more vapour in an unbroken steady flow. The dark green puddle soaked into the ground around its base shimmers faintly. The three little black flies circle it in slow lazy loops along their dashed flight paths. A thin ribbon of grey smoke drifts up from the burnt fuse stub. The breath and the vapour both run at a constant even rate for the whole shot, so the motion loops seamlessly."
+        }
+      }
+    },
+    {
+      "name": "stink-bag-tight-a",
+      "_why": "Round 2. The plume is capped by SIZE and HEIGHT, not just by rate — the round-1 defect.",
+      "seed": "assets-source/stink-bag/stink-bag-landed.png",
+      "outDir": "assets-source/stink-bag/clips/stink-bag-tight-a",
+      "staticSubject": true,
+      "states": {
+        "idle": {
+          "prompt": "The burst brown burlap stink sack sits on the ground, exactly as in the source image. Small compact rounded puffs of bright yellow-green stink vapour seep continuously out of the torn split in its side and out from under its loose neck tie. Each puff drifts gently upward only a short distance and then thins out and fades away completely, while new puffs seep out below to replace it. CRITICAL: the plume of vapour stays exactly the same small size and the same low height for the entire shot. It rises no higher than the top of the sack itself, it stays narrower than the sack, it never grows, never builds up, never billows outward and never comes anywhere near the top or the sides of the frame. There is always the same small amount of vapour on screen. The dark green puddle around its base shimmers faintly. The three little black flies stay small and circle slowly close in around the sack without wandering away from it. A thin ribbon of grey smoke drifts up from the burnt fuse stub and fades out at the same low height. The shot ends on exactly the same picture it began on, so it can be played on an endless loop with no visible jump."
+        }
+      }
+    },
+    {
+      "name": "stink-bag-tight-b",
+      "_why": "Round 2, second draw. veo is stochastic and a loopable plume is a lucky sample; two draws roughly doubles the chance one of them cycles instead of accumulating. The cheaper of the two failure modes is paying for a clip that loses.",
+      "seed": "assets-source/stink-bag/stink-bag-landed.png",
+      "outDir": "assets-source/stink-bag/clips/stink-bag-tight-b",
+      "staticSubject": true,
+      "states": {
+        "idle": {
+          "prompt": "The burst brown burlap stink sack sits on the ground, exactly as in the source image. Small compact rounded puffs of bright yellow-green stink vapour seep continuously out of the torn split in its side and out from under its loose neck tie. Each puff drifts gently upward only a short distance and then thins out and fades away completely, while new puffs seep out below to replace it. CRITICAL: the plume of vapour stays exactly the same small size and the same low height for the entire shot. It rises no higher than the top of the sack itself, it stays narrower than the sack, it never grows, never builds up, never billows outward and never comes anywhere near the top or the sides of the frame. There is always the same small amount of vapour on screen. The dark green puddle around its base shimmers faintly. The three little black flies stay small and circle slowly close in around the sack without wandering away from it. A thin ribbon of grey smoke drifts up from the burnt fuse stub and fades out at the same low height. The shot ends on exactly the same picture it began on, so it can be played on an endless loop with no visible jump."
+        }
+      }
+    }
+  ]
+}
