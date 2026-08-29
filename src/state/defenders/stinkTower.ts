@@ -41,6 +41,7 @@ import {
   STINK_DEATH_BLAST_PER_BAG_RADIUS,
   STINK_DEATH_BLAST_SHARDS,
   STINK_TOWER_BAGS,
+  STINK_TOWER_ATTACK_RANGE,
   STINK_BAG_ATK,
   STINK_BAG_PEN,
   STINK_DEATH_BLAST_ATK,
@@ -147,6 +148,38 @@ export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialD
 }
 
 /**
+ * ⭐ S157 B9 (owner) — WHERE THE NEXT BAG LANDS, when there is nobody to aim at.
+ *
+ * Owner: *"he should not target any enemies but shoot our at random areas in a radius"*.
+ *
+ * ⛔ DETERMINISTIC, NEVER `Math.random`, and never a draw from a seeded stream either. The whole
+ * defender FSM is a pure function of `world.tick` (its module header says so), and the `?worker=1`
+ * mirror re-runs it independently — a real random draw here would land the bag in a different place
+ * on host and worker, which is a desync, and a seeded draw would shift the stream's ORDER for
+ * everything downstream. `mix32`/`pseudoRand` is the repo's stateless-hash idiom for exactly this:
+ * reproducible from a snapshot on any peer, consuming nothing.
+ *
+ * Keyed on `(defenderId, tick)` so successive throws scatter instead of stacking, and each tower
+ * scatters differently from its neighbour.
+ */
+export function stinkLobTarget(d: Defender, tick: number): Vec2 {
+  const seed = mix32(d.id as unknown as number, tick);
+  /*
+   * ⚠ `pseudoRand` RETURNS [-1, 1), NOT [0, 1) — `(x / 0x80000000) - 1`. Its existing caller in this
+   * file (`stinkShardDir`) wants a SIGNED jitter, so the sign is load-bearing there and the range is
+   * easy to mis-read. Feeding the raw value to `Math.sqrt` yields NaN for every negative draw, and a
+   * NaN position silently places the bag nowhere. The first draft did exactly that and the scatter
+   * test caught it — which is why the range is normalised explicitly here rather than assumed.
+   */
+  const unit = (i: number): number => (pseudoRand(seed, i) + 1) / 2; // [-1,1) → [0,1)
+  const angle = unit(0) * Math.PI * 2;
+  // sqrt keeps the scatter UNIFORM over the disc; without it the bags cluster at the centre, which
+  // reads as "aiming badly" rather than "shelling an area".
+  const radius = Math.sqrt(unit(1)) * STINK_TOWER_ATTACK_RANGE;
+  return { x: d.pos.x + Math.cos(angle) * radius, y: d.pos.y + Math.sin(angle) * radius };
+}
+
+/**
  * THE THROW — one bag at the current target. Called from the FSM's FIRE entry.
  *
  * Returns true if a bag was actually thrown, so the caller can decide the FSM consequence rather
@@ -185,7 +218,19 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
  * between the host and the worker mirror, and drift in a damage cadence is a desync.
  */
 export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDamageFn): boolean {
-  if (!stinkIsDepleted(d)) return false;
+  /*
+   * ⭐ S157 B9 (owner) — **A LOADED TOWER STINKS TOO.** This used to open with
+   * `if (!stinkIsDepleted(d)) return false;`, so the smell only existed once the magazine was EMPTY.
+   *
+   * Owner: *"the bags (and tower) should be visibly stinking up a radius until destroyed"* and
+   * *"its not very clear what the stink tower does right now"*. Those two sentences are the same
+   * sentence: for the first ~40 s of its life — most of a 45 s FIGHT — the tower was inert scenery
+   * with no aura, no smell and (see the throw path) usually no bags thrown either. The player had
+   * nothing to read it by.
+   *
+   * Depletion still MEANS something: a spent tower keeps only this aura, while a loaded one has the
+   * aura AND its bags AND the death blast. The aura is what it IS, not what it becomes.
+   */
   const phase = (d.id as unknown as number) % DOT_CADENCE_TICKS;
   if (world.tick % DOT_CADENCE_TICKS !== phase) return false;
   radialDamage(

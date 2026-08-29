@@ -39,7 +39,7 @@ import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
-import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkThrowBag } from './stinkTower.ts';
+import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkLobTarget, stinkThrowBag } from './stinkTower.ts';
 import type { World } from '../worldTypes.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
@@ -186,8 +186,13 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   // S141 P1 — a DEPLETED Stink Tower is a passive area denier: it ticks its aura on the shared DoT
   // cadence regardless of FSM state, and taunts nearby enemy creatures into coming to it. Runs before
   // the FSM so a spent tower still contributes on the tick it runs dry.
-  if (d.kind === 'stinkTower' && stinkIsDepleted(d)) {
+  // ⭐ S157 B9 (owner) — the aura is unconditional now; see `stinkAuraTick`. The AGGRO taunt below
+  // stays depletion-only: a spent tower has nothing left but the smell, so pulling enemies onto it is
+  // its last trick, whereas a loaded tower should not be dragging the fight into its own blast.
+  if (d.kind === 'stinkTower') {
     stinkAuraTick(world, d, applyRadialDamage);
+  }
+  if (d.kind === 'stinkTower' && stinkIsDepleted(d)) {
     for (const cid of stinkAggroTargets(world, d)) {
       const c = world.creatures.get(cid as unknown as CreatureId);
       if (c === undefined) continue;
@@ -257,6 +262,25 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
             d.ticksInState = 0;
             d.walkTargetPos = victim !== undefined ? { x: victim.pos.x, y: victim.pos.y } : null;
           }
+        } else if (d.kind === 'stinkTower') {
+          /*
+           * ⭐ S157 B9 (owner) — **A STINK TOWER DOES NOT AIM. IT LOBS.**
+           *
+           * Owner: *"he should not target any enemies but shoot our at random areas in a radius"*.
+           *
+           * Before this the tower shared the turret's acquire-or-idle rule, so with no enemy creature
+           * inside `STINK_TOWER_ATTACK_RANGE` (260 px) it threw NOTHING — it just reset its timer and
+           * waited. Combined with FIGHT-only dormancy, a tower nobody walked past threw zero bags for
+           * an entire match. That, far more than the 8 s cadence, is why *"its not very clear what the
+           * stink tower does"*.
+           *
+           * Now it fires blind on its own cadence, and `lastStrikePos` — the field the renderer already
+           * uses to draw the lob arc — carries a scattered point instead of a victim.
+           */
+          d.targetCreatureId = null;
+          d.lastStrikePos = stinkLobTarget(d, world.tick);
+          d.state = 'WINDUP';
+          d.ticksInState = 0;
         } else {
           // Nothing in range — retry shortly rather than fire into the void.
           d.targetCreatureId = null;
@@ -320,6 +344,18 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         // FIRE: the strike lands NOW. Capture the endpoint BEFORE the victim can vanish, then deal
         // the unified single-target hit. The FIRE state (+ lastStrikePos) is what the client renders.
         const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
+        /*
+         * ⭐ S157 B9 — A BLIND LOB STILL LANDS. The stink tower reaches FIRE with no victim (see the
+         * IDLE branch), so gating the whole strike on `victim !== undefined` would have thrown away
+         * the untargeted throw the owner asked for. `lastStrikePos` was already chosen when it armed.
+         */
+        if (victim === undefined && d.kind === 'stinkTower' && d.lastStrikePos !== null) {
+          stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
+          d.state = 'FIRE';
+          d.ticksInState = 0;
+          d.nextFireTick = world.tick + fireInterval;
+          break;
+        }
         if (victim !== undefined) {
           d.lastStrikePos = { x: victim.pos.x, y: victim.pos.y };
           if (d.kind === 'stinkTower') {

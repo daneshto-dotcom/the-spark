@@ -1883,7 +1883,16 @@ export const STINK_TOWER_HUB_DEGREE = 3;
 export const STINK_TOWER_BAGS = 5;
 // One bag every 8 s. ⚠ MUST BE NON-ZERO: `loadRephaseDefenders` takes `% fireIntervalTicks` with no
 // zero guard, so an interval of 0 would write NaN into nextFireTick on every load and migration.
-export const STINK_THROW_INTERVAL_TICKS = 8 * PHYSICS_HZ; // 480
+/**
+ * ⭐ S157 B9 (owner) — 8 s → 4 s, so the whole magazine actually lands inside a fight.
+ *
+ * Owner: *"Stink tower should visibly shoot out all 5 stink bags"*. At 8 s × `STINK_TOWER_BAGS` 5 the
+ * magazine took 40 s against a 45 s FIGHT — and that was the BEST case, reachable only if an enemy
+ * creature stayed inside 260 px for the whole phase. At 4 s all five land in 20 s, leaving the tower
+ * visibly spent (it sags — `stinkTowerRenderer` already draws that) for the rest of the fight, which
+ * is the tactical read the death blast depends on.
+ */
+export const STINK_THROW_INTERVAL_TICKS = 4 * PHYSICS_HZ; // 240 — was 480 (8 s)
 export const STINK_TOWER_WINDUP_TICKS = 20; // a visible lob wind-up
 export const STINK_TOWER_ATTACK_RANGE = 260; // short — it lobs, it does not snipe (turret is 420)
 // Bag impact: a small radial splash. Authored as an INTEGER because `damageEntity` THROWS on a
