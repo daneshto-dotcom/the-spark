@@ -74,6 +74,9 @@ import {
   isWithinAttackRange,
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
+// S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
+import { componentOf } from '../game/structure.ts';
+import { razePrimitives } from './razePrimitives.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -372,6 +375,38 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           continue;
         }
       }
+      /*
+       * ⭐ S157 P0 (owner) — **SPAWNERS ARE DORMANT OUTSIDE THE FIGHT.** This poll was the ONE
+       * subsystem with no phase gate at all, and that single omission drove three of the owner's
+       * nine playtest reports:
+       *
+       *   · *"lightning hubs blow up own structures … during build phase"* — the hub's arc ends in
+       *     `STRUCTURE_SELFDESTRUCT`, a 240 px raze, and it fired 60 s after ignition, i.e. inside
+       *     the 90 s BUILD. A hub built early in BUILD ALWAYS detonated in its owner's own base.
+       *   · *"pencil chewers … not being spawned late game"* — pentagrams kept minting through
+       *     BUILD while the despawn (inside `applyCreatureTick`, dispatched only by the FIGHT-gated
+       *     fan-out at the bottom of this file) could not run, so the global chewer cap filled with
+       *     frozen chewers.
+       *   · *"0 Goblins … the shapes are being consumed nevertheless"* — those frozen chewers hold
+       *     the cap that `applySpawnCreature` (wrongly) applies to fed goblins, and BUILD is exactly
+       *     when a player feeds their tower.
+       *
+       * Placed AFTER the revalidation above and BEFORE the emit, deliberately — the same split the
+       * defender poll uses (`matchPhase !== 'FIGHT'` sits below its own revalidate): a spawner whose
+       * recipe was broken during BUILD must still be REMOVED, because dormancy suspends the WEAPON,
+       * not the bookkeeping.
+       *
+       * ⛔ AND THE CADENCE IS KEPT ALIGNED TO NOW, not merely skipped. A bare `continue` would leave
+       * `nextSpawnTick` in the past across a 90 s BUILD, so the FIGHT edge would dump a backlog
+       * burst — and for a lightningHub, fire its self-destruct on the first FIGHT tick. That is the
+       * absolute-deadline-survives-a-phase-edge class that has now bitten this repo three times
+       * (S156 P3's `loadRephaseDefenders`, the drone fuse, `standDownDefenders`). The `while` idiom
+       * is lifted verbatim from the fouled branch below, which solved this exact problem in S109.
+       */
+      if (world.matchPhase !== 'FIGHT') {
+        while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+        continue;
+      }
       // S109 P2 — a pooped chewer-spawner stops emitting until the owner cleans it
       // ("shouldn't work until cleaned"). Keep the cadence aligned to NOW while fouled so a
       // cleaned spawner resumes on its normal cadence instead of dumping a backlog burst of the
@@ -391,11 +426,30 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const anchor = world.primitives.get(sp.anchorPrimitiveId);
           if (sp.spawnedCount >= STRUCTURE_SELFDESTRUCT_DRONE_COUNT) {
             if (anchor !== undefined) {
+              /*
+               * ⭐ S157 P0 — IT STILL CONSUMES ITSELF; IT NO LONGER CONSUMES THE BASE AROUND IT.
+               *
+               * The blast below now spares its owner, and that alone would have made a
+               * "self-destruct" leave its own structure standing — a silent buff, and not what the
+               * owner asked for. They objected to it *"blow[ing] up own structures or nearby
+               * friendlies"*, not to the hub paying its own price. So the two are separated: the hub
+               * razes its OWN component explicitly, and the AoE spares everything else of the
+               * owner's. Cost intact, friendly fire gone.
+               *
+               * Razing the whole COMPONENT rather than just the anchor is deliberate — dropping the
+               * anchor alone would leave the five leaves as bond-less orphans, which is the exact
+               * defect the owner reported separately (*"the last shape stays and attracts enemy
+               * fire"*).
+               */
+              const selfIds = [...componentOf(anchor, world.primitives, world.bonds).primitiveIds];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
                 pos: { x: anchor.pos.x, y: anchor.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
+                // ⭐ S157 P0 — spare the seat that built it. See `applyStructureSelfDestruct`.
+                ownerPlayerId: sp.ownerPlayerId,
               });
+              razePrimitives(world, selfIds);
             }
             dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
           } else if (anchor !== undefined && underDroneCaps(world, spawnerId)) {

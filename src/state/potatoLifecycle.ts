@@ -25,6 +25,7 @@ import { asPotatoId, type CreatureId, type PlayerId, type PotatoId, type Primiti
 import { makePotato, type Potato } from './potato.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { Creature } from './creatures/creature.ts';
+import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
 
 const POTATO_BLAST_RADIUS_SQ = POTATO_BLAST_RADIUS * POTATO_BLAST_RADIUS;
@@ -61,6 +62,14 @@ export interface StructureSelfDestructAction {
   readonly type: 'STRUCTURE_SELFDESTRUCT';
   readonly pos: Vec2;
   readonly radius: number;
+  /**
+   * ⭐ S157 P0 (owner) — the seat whose structure is detonating, so the blast can spare it.
+   *
+   * OPTIONAL, because this is a HOST-INTERNAL action (`protocol.ts` records it as never a client
+   * intent) and an omitted owner means "spare nobody" — the pre-S157 behaviour, kept so the one
+   * other dispatcher and every existing test stay exactly as they were.
+   */
+  readonly ownerPlayerId?: PlayerId;
 }
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
@@ -218,6 +227,18 @@ export function applyRadialClear(
   cy: number,
   radiusSq: number,
   creatureKill: (creature: Creature) => boolean,
+  /**
+   * ⭐ S157 P0 (owner) — WHICH PRIMITIVES THIS BLAST IS ALLOWED TO TAKE. Optional, and omitting it
+   * destroys everything in radius — which is what the potato does and what this function did for its
+   * whole life, so the potato path stays byte-identical.
+   *
+   * It exists because the primitive loop had NO predicate at all while the creature loop had one,
+   * and `applyStructureSelfDestruct` passed `() => true` for creatures and inherited "everything"
+   * for shapes. That is the owner's report: *"lightning hubs blow up own structures … they shouldnt
+   * be able to hit friendlies"*. A blast that can choose its victims among creatures but not among
+   * shapes is an asymmetry with no design behind it.
+   */
+  primKill: (prim: Primitive) => boolean = () => true,
 ): World {
   const creatureVictims: CreatureId[] = [];
   for (const [cid, creature] of world.creatures) {
@@ -231,6 +252,7 @@ export function applyRadialClear(
 
   const victims: PrimitiveId[] = [];
   for (const [pid, prim] of world.primitives) {
+    if (!primKill(prim)) continue;
     const dx = prim.pos.x - cx;
     const dy = prim.pos.y - cy;
     if (dx * dx + dy * dy <= radiusSq) victims.push(pid);
@@ -265,7 +287,27 @@ export function applyStructureSelfDestruct(world: World, action: StructureSelfDe
   const cx = action.pos.x;
   const cy = action.pos.y;
   world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: action.radius });
-  return applyRadialClear(world, cx, cy, action.radius * action.radius, () => true);
+  /*
+   * ⭐ S157 P0 (owner) — **THE BLAST NO LONGER EATS ITS OWN BASE.**
+   *
+   * Owner: *"lightning hubs blow up own structures or nearby friendlies … they shouldnt be able to
+   * hit friendlies in friendly territory"*. This was the single most damaging line in the report and
+   * it was a one-word omission: `() => true` for creatures, and nothing at all for primitives, so a
+   * 240 px raze took the owner's own shapes and the three drones they had just paid for.
+   *
+   * With `ownerPlayerId` supplied, the owner's shapes and units are spared and everyone else's are
+   * not — the hub becomes the offensive finale it was designed to be. Omitted (the potato path, and
+   * any pre-S157 caller), the behaviour is byte-identical to before.
+   */
+  const owner = action.ownerPlayerId;
+  return applyRadialClear(
+    world,
+    cx,
+    cy,
+    action.radius * action.radius,
+    (c) => owner === undefined || c.ownerPlayerId !== owner,
+    (p) => owner === undefined || p.placedBy !== owner,
+  );
 }
 
 /**
