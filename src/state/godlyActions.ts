@@ -41,7 +41,27 @@ export function applyGodlyTrigger(world: World, event: GodlyTriggerEvent): World
   if (triggerer === undefined) return world;
   world.activeCinematicPlayerId = event.triggererPlayerId;
   world.currentCinematicEvent = event;
-  world.godlyFiredThisMatch.add(event.godlyId); // S97 P5 — this type is now spent for the match
+  /*
+   * S97 P5 — records that this type has fired this match.
+   *
+   * ⭐ S157 B4 — IT NO LONGER BLOCKS THE SUMMON (see `findGodlyMatch`); it is now purely a record.
+   *
+   * ⛔ THE OWNER'S OTHER HALF IS DEFERRED, DELIBERATELY, AND THIS IS THE NOTE FOR WHOEVER TAKES IT:
+   * *"voltkin cinematic SHOULD be once per game for the first person to have built him. but the
+   * voltkin spawn himself should be generated every time someone builds his tower."* The SPAWN half
+   * ships now. The CINEMATIC half does not, because the obvious implementation is wrong in a way
+   * that is easy to miss: the cutscene overlay's own `onComplete` is the SOLE driver of
+   * `GODLY_COMPLETE` and of `pendingCinematics` queue advancement (`startCinematicIfNeeded`), so
+   * simply not playing the overlay for a repeat would leave `activeCinematicPlayerId` latched
+   * forever and every subsequent Voltkin queued behind it — strictly worse than the bug being fixed.
+   *
+   * Doing it properly means separating the cinematic's TIMING (which the sim owns, in both direct
+   * and worker mode, and which `pendingCreatureSpawn` is scheduled against) from its VISUALS. That is
+   * a real change to the one pipeline this session's netcode work depends on, and it is not a change
+   * to make unattended at the end of a long session. Until then the cutscene plays on every summon,
+   * which is the pre-S97 behaviour.
+   */
+  world.godlyFiredThisMatch.add(event.godlyId);
   return world;
 }
 

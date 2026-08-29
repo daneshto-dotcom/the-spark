@@ -109,10 +109,25 @@ describe('S99 — runGodlyMatcher fires on player-sever (Voltkin via reduction)'
     expect(world.godlyFiredThisMatch.has('voltkin')).toBe(true);
   });
 
-  it('does not re-fire when Voltkin already fired this match (once-per-type gate holds)', () => {
+  it('⭐ S157 B4 — DOES re-fire after Voltkin already fired: the owner ruled the lock out', () => {
+    /*
+     * ⛔ THIS TEST PINNED THE BUG THE OWNER REPORTED, and inverting it is the fix.
+     *
+     * Owner: *"you can only build one voltkiin per ghame - not cool, hes not reeally a godly
+     * anymore … you should be able to build him as many times as you build his towers. across all
+     * players in the whole game!"* `godlyFiredThisMatch` is keyed on the recipe id and is GLOBAL, so
+     * the first Voltkin anywhere locked it out for every player for the rest of the match.
+     *
+     * Pacing is not lost with the latch: `applySpawnCreature` still refuses a second LIVE Voltkin per
+     * (owner, type), so a seat fields one at a time and earns the next by building the tower again —
+     * which is the ruling, enforced by the structure rather than by a match-wide flag.
+     */
     world.godlyFiredThisMatch.add('voltkin');
     world.effects.push({ kind: 'BOND_SEVERED', tick: 100, pos: { x: 0, y: 0 }, cause: 'player' });
     runGodlyMatcher(world, makeGodlyOrchestrationState(), stubCtx());
-    expect(world.activeCinematicPlayerId).toBeNull(); // gate skipped it → no new cinematic
+    expect(
+      world.activeCinematicPlayerId,
+      'a second Voltkin is summonable in the same match',
+    ).not.toBeNull();
   });
 });

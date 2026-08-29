@@ -91,7 +91,30 @@ export interface DefenderMatchResult {
 export function findGodlyMatch(world: World, bondPos: { x: number; y: number }): MatchResult | null {
   for (const recipe of REGISTRY.values()) {
     if (recipe.kind !== 'cinematic') continue; // spawner recipes handled by findSpawnerMatch
-    if (world.godlyFiredThisMatch.has(recipe.id)) continue; // already used this type this match
+    /*
+     * ⭐ S157 B4 (owner) — THE ONCE-PER-MATCH LOCK IS GONE FROM MATCHING.
+     *
+     * Owner: *"Currently you can only build one voltkiin per ghame - not cool, hes not reeally a
+     * godly anymore - there arent really godlies anymore justy more expensive towers. you should be
+     * able to build him as many times as you build his towers. across all players in the whole
+     * game!"*
+     *
+     * `godlyFiredThisMatch` is keyed on the RECIPE ID alone and is global, not per-player — so the
+     * first Voltkin anywhere on the board locked it out for everyone for the rest of the match.
+     * Spawner recipes were already excluded from this gate by design (a pentagram is rebuildable and
+     * several players may each have one); cinematic recipes never were, and Voltkin is the only
+     * cinematic recipe, which is why the symptom was Voltkin-specific.
+     *
+     * ⚠ THE PACING IS NOT LOST WITH IT. `applySpawnCreature` independently refuses a second LIVE
+     * creature of the same `(owner, type)`, so a seat still fields one Voltkin at a time — you get
+     * another when the last one has done its work, by building his tower again. That is exactly the
+     * owner's *"as many times as you build his towers"*, and it is a rule the structure itself
+     * enforces rather than a match-wide latch.
+     *
+     * The set is still written by `applyGodlyTrigger` and still serialized/hashed — it now records
+     * "this type has been seen this match", which is what the CINEMATIC half of the ruling will read.
+     * See the deferral note in `godlyActions.ts`.
+     */
     const match = recipe.predicate(world, bondPos);
     if (match === null) continue;
     const triggerer = world.players.get(match.triggererPlayerId);
