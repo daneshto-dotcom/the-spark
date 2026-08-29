@@ -293,13 +293,20 @@ describe('disruptionManager — applySeverTopology', () => {
       del: new Set<PrimitiveId>(),
       delBonds: new Set<BondId>(),
     };
+    /*
+     * ⭐ S157 B2 — this fixture's "cycle case" was not reachable, and the orphan sweep exposed it.
+     *
+     * It passes `del: {}` (nothing deleted, as a cycle cut produces) over a world of TWO primitives
+     * joined by ONE bond. A real cycle keeps both endpoints attached via the rest of the ring; here,
+     * removing the only bond leaves both shapes holding nothing — which S157 B2 now correctly takes.
+     * So the ASSERTION under test is the bond teardown, and that is what is asserted; the survivor
+     * claim was an artifact of a fixture that could not occur in play. `sever.test.ts` case 4 covers
+     * a genuine triangle cut, where nothing is orphaned and nothing is deleted.
+     */
     applySeverTopology(world, bond, split);
     expect(world.bonds.has(bond.id)).toBe(false);
     expect(primA.bonds.has(bond.id)).toBe(false);
     expect(primB.bonds.has(bond.id)).toBe(false);
-    // Primitives themselves should remain (split.del empty = cycle case).
-    expect(world.primitives.has(primA.id)).toBe(true);
-    expect(world.primitives.has(primB.id)).toBe(true);
   });
 
   it('cascade-deletes primitives + bonds in split (chain sever)', () => {
@@ -348,11 +355,22 @@ describe('disruptionManager — applySeverTopology', () => {
     };
     applySeverTopology(world, bond, split);
 
+    // The cascade itself — this test's actual subject — is unchanged.
     expect(world.bonds.has(bond.id)).toBe(false);
     expect(world.bonds.has(bondBC.id)).toBe(false);
-    expect(world.primitives.has(primA.id)).toBe(true);
     expect(world.primitives.has(primB.id)).toBe(false);
     expect(world.primitives.has(primC.id)).toBe(false);
-    expect(primA.bonds.has(bond.id)).toBe(false);
+    /*
+     * ⭐ S157 B2 (owner) — AND THE KEPT SIDE GOES TOO, BECAUSE IT IS NOW HOLDING NOTHING.
+     *
+     * A—B—C cut at the A—B end: B and C are the losing limb, so A is "kept" — and is left as a
+     * single bond-less shape. That is precisely the thing the owner reported: *"the last shape stays
+     * and attracts enemy fire and it takes a million hits to kill it"*. Chewers, Voltkin and drones
+     * all target bonds, so nothing but a goblin could even reach it, at six swings.
+     *
+     * "Kept by the split" and "survives the teardown" are two different claims, and only the first is
+     * `severSplit`'s business. This asserts the second.
+     */
+    expect(world.primitives.has(primA.id), 'the orphaned keep-side shape is razed too').toBe(false);
   });
 });

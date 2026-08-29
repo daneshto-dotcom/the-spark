@@ -128,7 +128,10 @@ export function damageEntity(
       });
       // The shared four-step contract: incident bonds off both endpoints, bonds gone, prim gone,
       // then the Verlet + fouled-set fixups. Never hand-roll this.
-      razePrimitives(world, [target.id]);
+      // ⭐ S157 B2 — killing one half of a two-shape structure must not leave the other half
+      // standing as unkillable clutter. Same rule as the sever path; review caught that fixing only
+      // the sever site would miss this door.
+      razePrimitives(world, [target.id], undefined, true);
       return true;
     }
 

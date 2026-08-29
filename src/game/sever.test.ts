@@ -53,15 +53,26 @@ function bondBetween(world: World, a: PrimitiveId, b: PrimitiveId): BondId {
 }
 
 describe('§ VIII.4 sever rule', () => {
-  it('1. two-prim chain → smaller side (single prim) is deleted', () => {
+  it('1. two-prim chain → the whole thing goes (S157 B2: the orphan dies with it)', () => {
     const w = makeWorld(0);
     const a = place(w, 0, null);
     const b = place(w, 1, a);
     expect(w.primitives.size).toBe(2);
     dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b), playerId: asPlayerId(0), cause: 'physics' });
-    expect(w.primitives.size).toBe(1);
-    // Anchor (older) survives; b (newer single-prim limb) is gone.
-    expect(w.primitives.has(a)).toBe(true);
+    /*
+     * ⭐ S157 B2 (owner) — THE SURVIVOR IS GONE, AND THIS TEST WAS ASSERTING IT.
+     *
+     * Owner: *"when there are no connectors left in a destroyed tower, the last shape/primitive
+     * should be destroyed and dissapear with the last connector. instead the last shape stays and
+     * attracts enemy fire and it takes a million hits to kill it"*.
+     *
+     * `severSplit` keeps the LARGER side, so on a two-primitive chain both sides are size 1 and the
+     * tie-break always left exactly one bond-less shape standing. This case pinned that as correct.
+     * The tie-break itself is unchanged and still covered by cases 2, 3 and 5, which have a genuinely
+     * larger side to keep.
+     */
+    expect(w.primitives.size, 'a two-prim chain leaves NOTHING behind').toBe(0);
+    expect(w.primitives.has(a)).toBe(false);
     expect(w.primitives.has(b)).toBe(false);
   });
 

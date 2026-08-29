@@ -152,9 +152,11 @@ describe('applyCreatureAttack — happy path', () => {
     const severs = world.effects.filter((e) => e.kind === 'SEVER_ERASE');
     // S34 PB-9 — tightened from `>=1` weak assertion to exact count. The
     // §VIII.4 sever rule says a two-prim chain sever drops the SMALLER side
-    // (single-prim limb) → split.del.size = 1 → exactly one SEVER_ERASE.
-    // Exact count catches mutations that produce 0 or 2+ (logic regression).
-    expect(severs).toHaveLength(1);
+    // ⭐ S157 B2 — now TWO: the losing limb, plus the shape it left holding nothing. Both are real
+    // removals and both draw the erase flourish, which is what the effect is for.
+    // (single-prim limb) → split.del.size = 1 → one SEVER_ERASE for it, and one for the shape it
+    // left bond-less. Exact count still catches mutations that produce 0 or 3+ (logic regression).
+    expect(severs).toHaveLength(2);
   });
 });
 

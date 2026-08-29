@@ -186,5 +186,6 @@ export function computeSeverEraseEffects(
  * orchestrator owns those (Gemini AUDITOR findings #2 + #3).
  */
 export function applySeverTopology(world: World, bond: Bond, split: SeverSplit): void {
-  razePrimitives(world, split.del, [bond.id, ...split.delBonds]);
+  // ⭐ S157 B2 (owner) — a sever that leaves a lone shape now takes the shape too. See razePrimitives.
+  razePrimitives(world, split.del, [bond.id, ...split.delBonds], true);
 }

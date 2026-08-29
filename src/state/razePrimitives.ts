@@ -55,6 +55,20 @@ export function razePrimitives(
   world: World,
   primIds: Iterable<PrimitiveId>,
   alsoBonds?: Iterable<BondId>,
+  /**
+   * ⭐ S157 B2 — also take any shape that LOST ITS LAST BOND in this teardown.
+   *
+   * OPT-IN, and the default is `false` on purpose. The owner's report is about a STRUCTURE coming
+   * apart — *"when there are no connectors left in a destroyed tower, the last shape should be
+   * destroyed and dissapear with the last connector"* — so the sever and damage paths pass true.
+   *
+   * ⛔ THE AREA HAZARDS DELIBERATELY DO NOT. `applyRadialClear`'s identity is that it is
+   * POSITION-based: it takes what is inside the radius and *"spares those outside"*, which
+   * `potatoLifecycle` documents and a shipped test pins by name. Orphan-razing there would reach
+   * outside the blast and delete a shape the player can see was never in it — a different mechanic,
+   * decided while the owner is asleep. Left for them to rule on; recorded rather than assumed.
+   */
+  razeOrphans = false,
 ): void {
   // Collect first, mutate second. Deriving the incident set from the live primitives BEFORE
   // any deletion is what makes "taking [0,1,2]" safe here — cf. the bankTake splice trap.
@@ -67,6 +81,32 @@ export function razePrimitives(
     for (const bondId of prim.bonds) doomedBonds.add(bondId);
   }
 
+  /*
+   * ⭐ S157 B2 (owner) — REMEMBER WHO WAS ATTACHED, so a shape left holding nothing dies with it.
+   *
+   * Owner: *"when there are no connectors left in a destroyed tower, the last shape/primitive should
+   * be destroyed and dissapear with the last connector. instead the last shape stays and attracts
+   * enemy fire and it takes a million hits to kill it - WEIRD and too long!"*
+   *
+   * The survivor is created by `severSplit`, which deletes the SMALLER side of a cut and keeps the
+   * larger — so on the final bond of a two-primitive structure both sides are size 1 and the
+   * tie-break always leaves exactly one shape standing, by construction. It then has zero bonds, and
+   * NOTHING in the game removed a bond-less primitive.
+   *
+   * That is why it felt unkillable rather than merely annoying: chewers, Voltkin and drones all
+   * target BONDS, so three of the four attacker families could not touch it at all, and the fourth
+   * needed six swings (`GOBLIN_DAMAGE_VS_PRIMITIVE` 167 vs `PRIMITIVE_MAX_HP` 1000) — six times the
+   * cost of the single connector that had been holding it up. Meanwhile it still scored, so a
+   * "destroyed" tower kept paying its owner.
+   */
+  const neighbours = new Set<PrimitiveId>();
+  for (const bondId of doomedBonds) {
+    const bond = world.bonds.get(bondId);
+    if (bond === undefined) continue;
+    neighbours.add(bond.aId);
+    neighbours.add(bond.bId);
+  }
+
   for (const bondId of [...doomedBonds].sort((a, b) => Number(a) - Number(b))) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue;
@@ -76,6 +116,44 @@ export function razePrimitives(
   }
 
   for (const primId of doomedPrims) world.primitives.delete(primId);
+
+  /*
+   * ⭐ S157 B2 — and now take anything that LOST its last bond in this teardown.
+   *
+   * ⛔ "LOST its last bond", never "has no bonds". A freshly placed shape a player has not bonded to
+   * anything yet is a completely legal board state (`invariants.ts` treats bond-less primitives as
+   * first-class), and razing those would delete the opening move of every match. The distinction is
+   * free here: `neighbours` is derived from the bonds being destroyed, so a shape that was never
+   * attached to the doomed set can never appear in it.
+   *
+   * ⚠ Placed at the ONE removal path rather than at the sever site. Review caught that a sever-only
+   * fix is insufficient — a goblin killing one half of a two-shape structure orphans the other half
+   * through `damageEntity` with no sever involved, and so does any `applyRadialClear`. All of them
+   * funnel through here, which is what this module was extracted to be.
+   *
+   * No cascade is possible: an orphan by definition holds no bonds, so removing it cannot strip a
+   * bond from anyone else. One pass is complete.
+   */
+  const orphans: PrimitiveId[] = [];
+  if (razeOrphans) for (const primId of neighbours) {
+    const prim = world.primitives.get(primId);
+    if (prim !== undefined && prim.bonds.size === 0) orphans.push(primId);
+  }
+  if (orphans.length > 0) {
+    orphans.sort((a, b) => Number(a) - Number(b)); // deterministic, like every other loop here
+    for (const primId of orphans) {
+      const prim = world.primitives.get(primId);
+      if (prim === undefined) continue;
+      world.effects.push({
+        kind: 'SEVER_ERASE',
+        tick: world.tick,
+        pos: { x: prim.pos.x, y: prim.pos.y },
+        color: prim.placerColor,
+        radius: prim.radius,
+      });
+      world.primitives.delete(primId);
+    }
+  }
 
   snapPrevPosForUnbonded(world.primitives);
 
