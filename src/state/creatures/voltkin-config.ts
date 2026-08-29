@@ -431,6 +431,25 @@ export const CHEWER_CONFIG: CreatureConfig = {
   // actually completes severs rather than timing out mid-bite. Lifetime-expiry FADES via DESPAWNING
   // (the chewerRenderer death-watcher reserves the green-goo splat for KILLS — a non-DESPAWNING vanish).
   lifetimeTicks: 3000, // 50 s @ 60Hz — finite so the swarm churns (steady-state ≈ 3000/SPAWN_INTERVAL_TICKS 900 ≈ 3.3/spawner)
+  /*
+   * ⭐ S157 F4 — CONSIDERED AND DELIBERATELY NOT CHANGED. Recorded so the next session does not
+   * re-derive it.
+   *
+   * Review flagged that this config has no `lifetimeClock` and so defaults to `'absolute'` — the trap
+   * S155 P3 fixed for the Voltkin one screen up. Before S157 P0 that was genuinely harmful: a
+   * pentagram minted chewers through the whole 90 s BUILD which could not tick (the fan-out is
+   * FIGHT-only) and therefore could not age out, so the caps filled with corpses.
+   *
+   * ⛔ P0's phase gate removes the cause, and switching the clock was measured to be WORSE than
+   * leaving it. Under `'absolute'` a chewer born in a FIGHT survives that whole fight and is swept at
+   * the start of the next one — i.e. each fight begins fresh, which is the same semantic
+   * `recallArmies` already enforces for position. Under `'fight'` a chewer would accumulate FIGHT
+   * time across multiple fights, quietly outliving the phase it belongs to.
+   *
+   * It also breaks a deliberate contract: `voltkinFightClock.test.ts` pins that Voltkin is the ONLY
+   * type that opts in, precisely so this field cannot spread by habit. Three shipped tests went red,
+   * and none of them was asserting a defect — they were asserting that. Left as-is.
+   */
   spawnTicks: 30, // 0.5 s materialize (faster than Voltkin's 1 s — it's a swarm unit)
   despawningTicks: 30,
   fadeTicks: 15,

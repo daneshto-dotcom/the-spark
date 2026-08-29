@@ -183,6 +183,22 @@ export function recallArmies(world: World): void {
     c.targetBondId = null;
     c.targetCreatureId = null;
     c.targetPrimitiveId = null;
+    /*
+     * ⭐ S157 F3 (found by review) — **CLEAR THE BITE COUNTER, OR THE CHEWER IS BRICKED FOR THE MATCH.**
+     *
+     * A chewer recalled mid-bite kept `chewProgress > 0`, and re-selection is gated on
+     * `chewProgress === 0` (the "do not abandon a commit halfway" rule). But the only writer that
+     * zeroes it lives inside the ATTACKING branch of the FSM — which this recall has just left. So the
+     * creature could never re-select (no bond), never re-enter ATTACKING (nothing in reach), and never
+     * reset the counter. A closed loop: it stood at its spawner doing nothing for the rest of the
+     * match while still occupying the population cap.
+     *
+     * Dropping it here is correct rather than merely convenient: the recall has already dropped the
+     * bond this progress was AGAINST, so a surviving count is progress toward a target that no longer
+     * exists. Every other commitment on this creature is cleared three lines up for exactly that
+     * reason; this field was simply missed.
+     */
+    c.chewProgress = 0;
     if (c.state === 'ATTACKING') {
       c.state = 'SEEKING';
       c.ticksInState = 0;

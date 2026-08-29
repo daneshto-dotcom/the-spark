@@ -233,12 +233,10 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
    * Ordered LAST, after bond / creature / shape, so every shipped strike path short-circuits before
    * this is evaluated and no existing behaviour changes.
    */
-  const castleSeat = enemyCastleInReach(world, creature, getCreatureConfig(creature.type).attackRange);
-  if (castleSeat !== null) {
-    damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
-    return world;
-  }
-
+  /*
+   * ⭐ S157 F1 — THE CASTLE STRIKE MOVED TO WHERE ITS OWN DOCBLOCK SAYS IT IS. See below the shape
+   * branch; it now genuinely runs LAST.
+   */
   // ── S139 P2 — STRUCTURE strike (goblin) ──────────────────────────────────────────────────
   // Reached when the hostTick fan-out fired with `bondId: null` and no creature target, which for a
   // structure-attacker means "hit the shape you are committed to". Ordered AFTER the creature branch
@@ -280,6 +278,32 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       creature.killCount += 1;
       creature.targetPrimitiveId = null; // commit released — re-seek next tick
     }
+    return world;
+  }
+
+  /*
+   * ⭐ S157 F1 (found by review, NOT reported by the owner — but they were about to hit it) — THE
+   * CASTLE STRIKE NOW ACTUALLY RUNS LAST.
+   *
+   * Its docblock above has always said *"Ordered LAST, after bond / creature / shape, so every
+   * shipped strike path short-circuits before this is evaluated and no existing behaviour changes."*
+   * It was ordered FIRST. Nothing short-circuited before it, so the moment a goblin came within
+   * `attackRange` of ANY enemy keep, every one of its strikes was spent on the castle — and the shape
+   * it was committed to took nothing.
+   *
+   * Measured: a `goblinMelee` committed to an enemy shape 10 px from the keep left that shape at
+   * `hp = 1000` (untouched) while the castle drained; the same goblin 400 px away brought the shape
+   * to 833 in one hit. Worse for the ranged roster — `goblinArcher` has `attackRange = 220`, so there
+   * was a 220 px dead zone around every keep in which structure damage could not land at all, and the
+   * goblin kept its `targetPrimitiveId` the whole time, committed to a shape it would never damage.
+   *
+   * Moving it restores the documented intent exactly: bond / creature / shape are tried first, and the
+   * castle is what a unit hits when there is nothing else left — which is also the only reading under
+   * which S154's *"a castle in reach is a reason to engage"* does not cannibalise a siege.
+   */
+  const castleSeat = enemyCastleInReach(world, creature, getCreatureConfig(creature.type).attackRange);
+  if (castleSeat !== null) {
+    damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
     return world;
   }
 

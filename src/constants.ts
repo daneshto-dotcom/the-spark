@@ -1813,8 +1813,23 @@ export const STINK_BAG_ATK = 1; // ⭐ R77 — a bag deals "1atk 1pierce when de
 export const TURRET_BEAM_PEN = 0; // owner R77 gave no turret PEN; unchanged
 export const STINK_BAG_PEN = 1; // ⭐ R77 — was 0
 // Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
-export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "every 30s")
-export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes
+/**
+ * ⭐ S157 B7 (owner) — HALVED. *"Laser tower should charge up and be able to shoot x2 quicker!"*
+ *
+ * This overrides the earlier *"every 30s"* spec, which was authored before the match clock existed.
+ * Against a 45 s FIGHT (`FIGHT_PHASE_TICKS = 2700`) a 30 s cadence is barely one useful shot.
+ *
+ * ⚠ MEASURED BASELINE, and it is not what I first reported. Defenders are dormant outside FIGHT while
+ * `world.tick` keeps advancing, and `standDownDefenders` does not re-phase `nextFireTick` — so it is
+ * already in the past at every FIGHT edge and the turret fires immediately. Real behaviour was
+ * therefore TWO shots per fight (t=0 and t=1800), not "about one". At 900 it is FOUR (0/900/1800/2700).
+ *
+ * The charge-up the owner asked for needs no work: `turretRenderer` derives it as
+ * `1 - remaining / config.fireIntervalTicks`, so the ring simply fills twice as fast. The windup tell
+ * halves with it to keep the same proportion of the cycle.
+ */
+export const TURRET_FIRE_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — owner: "x2 quicker" (was 1800)
+export const TURRET_WINDUP_TICKS = 9; // the pre-beam tell, halved with the cadence (was 18)
 export const TURRET_WINDUP_RINGS = 5; // client-visible charge rings across the fire interval (owner: "5 rings")
 export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 
