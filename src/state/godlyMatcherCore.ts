@@ -176,6 +176,31 @@ export function runSpawnerIgnition(world: World): void {
  * defense-in-depth).
  */
 export function runDefenderIgnition(world: World): void {
+  /*
+   * ⭐ S157 B6 (owner) — **DEFENDERS IGNITE DURING BUILD ONLY, WHICH IS ALSO THE "ONLY NEXT TURN" RULE.**
+   *
+   * Owner: *"if she is destroyed but tower is up he will not produce another helga during the same
+   * fight stage that she was destroyed in. only next turn."*
+   *
+   * Before this, ignition ran on ANY topology change anywhere on the board, with a single de-dup:
+   * "is a defender already live at this anchor?". So killing Helga and then forming any bond anywhere
+   * re-summoned her instantly, mid-fight, for free — proven by review (delete her, push one
+   * BOND_FORMED, she is back in the same FIGHT).
+   *
+   * ⛔ AND THE FIX IS A PHASE GATE RATHER THAN A NEW SPENT-SET, deliberately. The obvious build is a
+   * per-phase `Set<PrimitiveId>` of anchors that have already summoned — but that is new WORLD state,
+   * which means serializing it, hashing it, adding it to FIELD_COVERAGE and to the worker
+   * differential's SEEDING_COVERAGE, and another PROTOCOL_VERSION bump. The phase gate delivers the
+   * owner's rule EXACTLY ("only next turn") with no new state at all, because a turn boundary is
+   * precisely a BUILD.
+   *
+   * It is also coherent for the whole roster, not a Helga special case: `canBuildNow` already refuses
+   * every placement outside BUILD, so a recipe can only be COMPLETED during BUILD anyway. The one
+   * behaviour this removes is a structure being severed DOWN into a valid recipe mid-fight and popping
+   * a tower into existence — which is not a thing a player should be able to do while the walls are
+   * down.
+   */
+  if (world.matchPhase !== 'BUILD') return;
   let hasTopologyChange = false;
   for (const eff of world.effects) {
     if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }

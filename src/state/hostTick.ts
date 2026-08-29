@@ -292,6 +292,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * tick — the same reason that guard is keyed on "the loop ran AND we landed in X".
          */
         world.waveNumber += 1;
+        /*
+         * ⭐ S157 B6 — and the fight she outlived her scaffold in is over, so now she goes.
+         *
+         * This is what stops "survives the recipe break" becoming "immortal". She fights on with a
+         * broken tower for the rest of that FIGHT — the owner's ask — and is cleared at the turn
+         * boundary if the structure was never rebuilt. A tower that IS rebuilt re-summons her next
+         * BUILD through the normal ignition path.
+         */
+        for (const [defenderId, d] of [...world.defenders]) {
+          if (d.kind !== 'princess') continue;
+          if (!world.primitives.has(d.anchorPrimitiveId) || !defenderRecipeStillSatisfied(world, d)) {
+            dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
+          }
+        }
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
         releaseShelteredGatherers(world);
@@ -551,7 +565,28 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     for (const [defenderId, d] of [...world.defenders]) {
       const did = defenderId as unknown as number;
       if (world.tick % REVALIDATE_INTERVAL_TICKS === did % REVALIDATE_INTERVAL_TICKS) {
-        if (!world.primitives.has(d.anchorPrimitiveId) || !defenderRecipeStillSatisfied(world, d)) {
+        /*
+         * ⭐ S157 B6 (owner) — **HELGA IS A CHARACTER, NOT A TOWER, AND SHE OUTLIVES HER SCAFFOLD.**
+         *
+         * Owner: *"Helga should stay alive after her tower connectors are destroyed until she is
+         * destroyed herself"*, and separately: *"i never saiid a tower has no hit points of its
+         * own!!! ... helga has her own hit points and stats regardless of her towers stats"*.
+         *
+         * Every defender used to die the instant its recipe broke. For a TURRET that is right and the
+         * owner endorsed it — a tower's durability IS its connectors. For Helga it was never right:
+         * she is a summoned unit standing next to a structure, and cutting one connector deleted her
+         * mid-swing.
+         *
+         * She now ignores the recipe check for the whole FIGHT she was summoned into, and is swept at
+         * the BUILD edge (below) if her structure is gone. A missing ANCHOR still removes her, because
+         * `applyDefenderTick` reads the anchor for her home position and an anchorless princess would
+         * drift with no leash.
+         */
+        const survivesRecipeBreak = d.kind === 'princess' && world.matchPhase === 'FIGHT';
+        if (
+          !world.primitives.has(d.anchorPrimitiveId) ||
+          (!survivesRecipeBreak && !defenderRecipeStillSatisfied(world, d))
+        ) {
           dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
           continue;
         }
