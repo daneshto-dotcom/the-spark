@@ -60,7 +60,20 @@ export type DamageTarget =
    * (`tickGameState`) is what turns that into an outcome. Recorded rather than quietly diverged from,
    * because the `'defender'` arm was deleted for failing this same contract.
    */
-  | { readonly kind: 'castle'; readonly seat: PlayerId };
+  | { readonly kind: 'castle'; readonly seat: PlayerId }
+  /**
+   * ⭐ S158 P7 (CF-S157-c) — A UNIT-CLASS DEFENDER, i.e. HELGA. Owner: she should stay out *"until
+   * she is destroyed herself"*, which nothing could do because the whole defender damage substrate
+   * was removed at S151 P2 under a reading of R75 that R77 later corrected (R75 is about TOWERS).
+   *
+   * ⚠ THE TOWER QUESTION IS NOT REOPENED. This arm subtracts from `Defender.ehp`, which is `null`
+   * for every kind without `config.unitStats` — so a turret or a stink tower handed to this function
+   * takes NOTHING and returns false, exactly as it does today. Towers still die by recipe-break.
+   *
+   * It honours the contract in full, unlike the castle arm above: a defender that reaches zero IS
+   * removed here, so `true` means what it means everywhere else.
+   */
+  | { readonly kind: 'defender'; readonly id: DefenderId };
 /*
  * ⛔ S151 P2 (owner R75) — THE `'defender'` ARM IS GONE. A tower has no hit points of its own, so
  * there is nothing here to subtract from. Its durability is its connectors' — damage a tower by
@@ -132,6 +145,44 @@ export function damageEntity(
       // standing as unkillable clutter. Same rule as the sever path; review caught that fixing only
       // the sever site would miss this door.
       razePrimitives(world, [target.id], undefined, true);
+      return true;
+    }
+
+    case 'defender': {
+      /*
+       * ⭐ S158 P7 (CF-S157-c) — THE DEFENDER ARM, BACK AND SCOPED.
+       *
+       * `ehp === null` means a TOWER: no pool, nothing to subtract, immune — exactly as S151 P2
+       * left it, and exactly what R75 asks for. Only a defender the config gave `unitStats` (Helga,
+       * per R77) has a pool to lose. That scoping is the whole reason this can come back without
+       * re-litigating the tower ruling.
+       *
+       * The amount is in FIFTHS, like every unit hit in the game, because `ehp` is a fifths pool.
+       */
+      const d = world.defenders.get(target.id);
+      if (d === undefined || d.ehp === null) return false;
+      d.ehp -= amount;
+      if (d.ehp > 0) return false;
+      // She is gone. Same visible death the erased primitive gets, so a client with no idea WHY
+      // she vanished still sees something happen where she stood.
+      world.effects.push({
+        kind: 'SEVER_ERASE',
+        tick: world.tick,
+        pos: { x: d.pos.x, y: d.pos.y },
+        color: world.players.get(d.ownerPlayerId)?.color ?? 0xffffff,
+        radius: 24,
+      });
+      /*
+       * ⚠ REMOVED HERE, WHICH IS WHAT LETS THIS ARM HONOUR THE CONTRACT the castle arm cannot.
+       * `removeDefenderAndRazeAnchor` is deliberately NOT used: that path exists so a blast that
+       * kills a TOWER also takes its anchor, because a defender deleted while its recipe still
+       * matches is re-ignited on the next topology change and becomes immortal. Helga's recipe is
+       * hers to rebuild — the owner's ruling is that she *"only comes back next turn"* — and razing
+       * the player's own shapes because their princess died would be a second, unasked-for
+       * punishment. The re-ignition risk does not apply: ignition only runs on a topology change,
+       * and killing her changes no topology.
+       */
+      world.defenders.delete(target.id);
       return true;
     }
 
@@ -387,6 +438,21 @@ export function applyRadialDamage(
   // result and callers (the stink death blast) count it. It is simply no longer damaged here.
   for (const cid of creatureVictims) {
     damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source);
+  }
+  /*
+   * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
+   *
+   * The note above says the defender arm of this blast is gone because a tower has no hit points
+   * to subtract. That is still true and still enforced — `damageEntity` returns false for any
+   * defender whose `ehp` is null, which is every tower. What changes is that HELGA is not a tower:
+   * she is a unit standing in a field of fire, and a potato going off at her feet doing nothing
+   * was never the ruling, it was the collateral of a removal that was too broad.
+   *
+   * `unitAmountFifths`, not `primitiveAmount` — the two scales are adjacent parameters of this
+   * function and swapping them typechecks, which is why the signature documents them at length.
+   */
+  for (const did of defenderVictims) {
+    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source);
   }
   for (const pid of primVictims) {
     damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source);

@@ -38,7 +38,7 @@
 import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
-import { bondMidpoint, distSq, enemyCastleInReach } from './creatureAI.ts';
+import { bondMidpoint, distSq, enemyCastleInReach, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
@@ -251,6 +251,40 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // LETHAL hit emits SEVER_ERASE from inside `damageEntity`. That is the shipped "state IS the event
   // bus" ruling, and it keeps this feature at zero new wire surface.
   const attackerConfig = getCreatureConfig(creature.type);
+
+  /*
+   * ⭐ S158 P7 (CF-S157-c) — HELGA IS STRUCK BEFORE THE SHAPE SHE IS STANDING ON. ORDER IS THE DESIGN.
+   *
+   * Owner: she holds the field *"until she is destroyed herself"*. She is a DEFENDER standing between
+   * an attacker and what it wants, so a unit that walks into her must deal with her rather than reach
+   * past her to the keep — the same 'units first, then structures' reading R83 gave for creatures,
+   * applied to the one unit that is not in `world.creatures`.
+   *
+   * ⚠ ABOVE THE STRUCTURE ARM, AND THE FIRST CUT HAD IT BELOW — which passed every unit test and
+   * failed the end-to-end one. Helga stands at her own hub, so a goblin that reaches her is also in
+   * range of the enemy SHAPE she is anchored to; with the structure arm first it spent every strike
+   * on the wall beside her and she was untouchable in practice while being perfectly damageable in
+   * theory. This is the same defect S157 F1 found in the castle strike, in the opposite direction.
+   *
+   * It changes nothing for any creature that cannot find one: `killableDefenderInReach` returns null
+   * for every tower (no pool) and for every defender out of range, so both arms below are reached
+   * exactly as often as before in every situation without a live enemy princess in reach.
+   *
+   * The hit is the attacker's OWN stats on the shared ladder — not a bespoke constant — so retuning a
+   * goblin retunes what it does to her, and the kill table stays derivable from the roster.
+   */
+  const defenderId = killableDefenderInReach(world, creature, attackerConfig.attackRange);
+  if (defenderId !== null) {
+    const killed = damageEntity(
+      world,
+      { kind: 'defender', id: defenderId },
+      attackFifths(attackerConfig.atk, attackerConfig.pen),
+      'creature',
+    );
+    if (killed) creature.killCount += 1;
+    return world;
+  }
+
   if (attackerConfig.targetsStructures && creature.targetPrimitiveId !== null) {
     const prim = world.primitives.get(creature.targetPrimitiveId);
     // The shape died between target selection and this fire tick (another goblin, a potato, a

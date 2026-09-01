@@ -273,8 +273,11 @@ type SpawnerHashed =
 type DefenderHashed =
   | 'id' | 'kind' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'pos' | 'prevPos'
   // S151 P2 (R75) — 'hp' removed: a tower has no hit points of its own.
+  // ⭐ S158 P7 (CF-S157-c) — 'ehp' is its scoped replacement: a UNIT-class defender (Helga) carries
+  // a real pool in fifths and can be killed; a tower carries `null` and is as immune as ever.
+  // HASHED because it decides whether she is alive, which every later tick branches on.
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
-  | 'lastStrikePos' | 'bagsRemaining';
+  | 'lastStrikePos' | 'bagsRemaining' | 'ehp';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -491,7 +494,8 @@ export function determinismParts(world: World): string[] {
       `d${n(d.id)}:${d.kind}:${n(d.ownerPlayerId)}:${n(d.anchorPrimitiveId)}:${d.recipeId}` +
         `:${d.pos.x},${d.pos.y}:${v2(d.prevPos)}:${v2(d.walkTargetPos)}` +
         `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
-        `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}`,
+        `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}` +
+        `:eh${o(d.ehp)}`, // S158 P7 — `_` for a tower (null), a number for a unit-class defender
     );
   }
 

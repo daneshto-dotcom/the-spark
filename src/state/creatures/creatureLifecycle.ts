@@ -38,7 +38,7 @@ import {
   type CreatureType,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, enemyCastleInReach, engageRange, isWithinAttackRange } from './creatureAI.ts';
+import { distSq, enemyCastleInReach, engageRange, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -575,12 +575,28 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
    */
   const castleInReach = enemyCastleInReach(world, creature, engageRange(config)) !== null;
 
+  /*
+   * ⭐ S158 P7 (CF-S157-c) — AND HELGA, for exactly the reason the castle term above exists.
+   *
+   * The strike clause in the host tick can only fire on a creature that is ALREADY in ATTACKING.
+   * A defender is neither a bond, a unit (`world.creatures`), nor a shape, so without this term a
+   * goblin could stand on top of her forever, never leave SEEKING, and never reach its fire tick —
+   * the same 'static-parses but never fires' shape the note above records, and the shape that made
+   * the first cut of this priority pass every unit test while failing the end-to-end one.
+   *
+   * Derived from position like the castle, so it costs no creature field. Towers are excluded by
+   * `killableDefenderInReach` itself (no pool), so no creature ever engages something it cannot hurt.
+   */
+  const defenderInReach =
+    killableDefenderInReach(world, creature, engageRange(config)) !== null;
+
   if (
     creature.state === 'SEEKING' &&
     ((creature.targetBondId !== null && isWithinAttackRange(world, creature, creature.targetBondId)) ||
       unitInReach ||
       structureInReach ||
-      castleInReach)
+      castleInReach ||
+      defenderInReach)
   ) {
     creature.state = 'ATTACKING';
     creature.ticksInState = 0;

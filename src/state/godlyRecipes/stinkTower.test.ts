@@ -128,7 +128,7 @@ describe('S141 P1 — the stink-tower predicate', () => {
       id: asPrimitiveId(0) as never, kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: hub,
       recipeId: 'laserTurret', pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 }, walkTargetPos: null,
       state: 'IDLE', ticksInState: 0, bagsRemaining: 0,
-      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
+      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null, ehp: null, // S158 P7 — a TOWER carries no pool
     });
     expect(stinkTowerPredicate(w, { x: 0, y: 0 })).toBeNull();
   });

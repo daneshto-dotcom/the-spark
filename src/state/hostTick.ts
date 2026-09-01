@@ -72,6 +72,7 @@ import {
   enemyCastleMarchPos,
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
+  killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
   distSq, // S158 P3 — the goblin bomber's arrival test (shape or acquired unit)
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
@@ -1036,7 +1037,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         (after.targetCreatureId !== null ||
           after.targetBondId !== null ||
           after.targetPrimitiveId !== null ||
-          enemyCastleInReach(world, after, getCreatureConfig(after.type).attackRange) !== null)
+          enemyCastleInReach(world, after, getCreatureConfig(after.type).attackRange) !== null ||
+          // ⭐ S158 P7 (CF-S157-c) — A FIFTH CLAUSE, for exactly the reason the third and fourth
+          // exist: HELGA is neither a creature, a bond, a primitive nor a castle, so without this
+          // a goblin standing next to her would enter ATTACKING, run its whole cadence and never
+          // hit anything. `killableDefenderInReach` filters to defenders with a POOL, so a turret
+          // still cannot be engaged — towers die by recipe-break (R75), unchanged.
+          killableDefenderInReach(world, after, getCreatureConfig(after.type).attackRange) !== null)
       ) {
         // S103 #8 — creature-FIRST: a Voltkin zaps an in-range enemy creature this cycle if
         // it has one (the chewer right next to it is the immediate threat), else severs its

@@ -737,6 +737,18 @@ interface SerializedDefender {
   readonly state: DefenderState;
   readonly ticksInState: number;
   /* S151 P2 (R75) — `hp` removed from the wire: a tower has no hit points of its own. */
+  /**
+   * ⭐ S158 P7 (CF-S157-c) — REMAINING POOL, IN FIFTHS, for a UNIT-class defender (Helga).
+   *
+   * Additive-optional and emitted only when NON-NULL, so every TOWER on the wire stays byte-identical
+   * to pre-S158 — towers carry `null` and always will. Only a defender R77 gave unit stats pays a byte.
+   *
+   * ⛔ IT MUST ROUND-TRIP, and `?? null` on the read is NOT a default — it is the rehydrate for a
+   * tower. Falling back to the factory's FULL pool would heal Helga to full on every snapshot apply,
+   * i.e. on every client frame and every host migration: precisely the refund defect S152 P1 records
+   * for raid points and S151 P2 shipped into the bond deserializer.
+   */
+  readonly ehp?: number;
   readonly nextFireTick: number;
   /** S141 P1 — Stink Tower ammo. Additive-optional: absent ⇒ 0, so no other kind pays a byte. */
   readonly bagsRemaining?: number;
@@ -1926,6 +1938,8 @@ function serializeDefender(d: Defender): SerializedDefender {
     // S141 P1 — STINK TOWER AMMO. Additive-optional: emitted only when NON-ZERO, so every turret and
     // HELGA on the wire stays byte-identical to pre-S141 (they carry 0 and always will). Only a kind
     // with a magazine pays a byte.
+    // ⭐ S158 P7 — emitted only for a defender that HAS a pool, so towers stay byte-identical.
+    ...(d.ehp !== null ? { ehp: d.ehp } : {}),
     ...(d.bagsRemaining !== 0 ? { bagsRemaining: d.bagsRemaining } : {}),
     ...(d.targetCreatureId !== null ? { targetCreatureId: d.targetCreatureId } : {}),
     ...(d.lastStrikePos !== null ? { lastStrikePos: { x: d.lastStrikePos.x, y: d.lastStrikePos.y } } : {}),
@@ -1962,6 +1976,10 @@ function deserializeDefender(s: SerializedDefender): Defender {
   d.nextFireTick = s.nextFireTick;
   // S141 P1 — absent means ZERO (the additive-optional emit skips 0), NOT the factory's full
   // magazine. `?? 0` rather than `?? config.bags` is the whole point: a spent tower must stay spent.
+  // ⭐ S158 P7 — ABSENT MEANS `null` (a tower), NOT the factory's full pool. Reading it as a default
+  // would heal Helga to full on every snapshot apply. The factory already set the right starting
+  // value; this line only ever OVERWRITES it with what actually came over the wire.
+  d.ehp = s.ehp ?? null;
   d.bagsRemaining = s.bagsRemaining ?? 0;
   d.targetCreatureId = s.targetCreatureId ?? null;
   d.lastStrikePos = s.lastStrikePos !== undefined ? { x: s.lastStrikePos.x, y: s.lastStrikePos.y } : null;

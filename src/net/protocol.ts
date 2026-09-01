@@ -402,7 +402,25 @@ export type { NetSnapshot };
  * The field is omitted while the map is empty, so a match with no stink tower produces snapshots
  * byte-identical to v34 and every pre-S158 save restores cleanly with no clouds.
  */
-export const PROTOCOL_VERSION = 35 as const;
+// S158 P7 — bumped 35->36: HELGA CAN BE KILLED. `SerializedDefender.ehp` (additive-optional,
+// emitted only for a UNIT-class defender) restores the per-defender pool that S151 P2 removed under
+// a reading of R75 that R77 later corrected — R75 is about TOWERS, and Helga is a spawned unit.
+/*
+ * ⭐ S158 P7 (CF-S157-c) — BUMPED 35 → 36: `SerializedDefender.ehp`.
+ *
+ * Owner: Helga holds the field *"until she is destroyed herself"*. Nothing could destroy her,
+ * because the defender damage substrate was deleted wholesale at S151 P2.
+ *
+ * ⛔ WHY IT EARNS A BUMP THOUGH THE FIELD IS ADDITIVE-OPTIONAL. A v35 peer has no `ehp`, so it
+ * rehydrates a defender through `makeDefender` and gets the FULL pool from config — it would show a
+ * Helga at full strength while the host has her one hit from death, and its state hash would diverge
+ * for as long as she is damaged. Same class as every bump this list records: the absence of the field
+ * means a DIFFERENT value, not a missing one.
+ *
+ * Towers are unaffected in every direction: they carry `ehp: null`, the emit skips null, and the read
+ * rehydrates null — so a match without a princess produces snapshots byte-identical to v35.
+ */
+export const PROTOCOL_VERSION = 36 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -562,6 +580,11 @@ export interface HelloMsg {
    * would restore a world with none, be unable to draw the ground its units are dying on, and
    * diverge on the state hash for as long as any cloud lives.)
    *
+   * S158 P7: 35->36 (HELGA IS KILLABLE — CF-S157-c, owner. `ehp` on `SerializedDefender`,
+   * additive-optional and emitted only for a UNIT-class defender, so a match with no princess is
+   * byte-identical to v35. It is NOT cosmetic: a v35 peer has no field, rehydrates her through the
+   * factory at FULL pool, and diverges on the state hash for as long as she is damaged.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -594,7 +617,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 35;
+  readonly protoVersion: 36;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

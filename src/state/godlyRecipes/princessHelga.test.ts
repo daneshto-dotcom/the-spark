@@ -10,7 +10,9 @@
 import { describe, expect, it } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
-import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP, PRINCESS_HP, PRINCESS_DEF } from '../../constants.ts';
+// S158 P7 — the shared ladder, so this fixture's pool is derived rather than pasted.
+import { unitPoolFifths } from '../stats.ts';
 import {
   asBondId,
   asCreatureId,
@@ -141,7 +143,7 @@ describe('helgaPredicate + end-to-end slap', () => {
       id: asDefenderId(0), kind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
       recipeId: 'helga', pos: { x: 300, y: 300 }, prevPos: { x: 300, y: 300 }, walkTargetPos: null,
       state: 'IDLE', ticksInState: 0, bagsRemaining: 0, // S141 P1 — no magazine on HELGA
-      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
+      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null, ehp: unitPoolFifths(PRINCESS_HP, PRINCESS_DEF), // S158 P7 — HELGA is a UNIT and carries one (R77)
     });
     expect(helgaPredicate(w, { x: 0, y: 0 })).toBeNull();
   });

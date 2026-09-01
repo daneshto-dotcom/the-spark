@@ -163,7 +163,7 @@ describe('laserTurretPredicate', () => {
       id: asDefenderId(0), kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
       recipeId: 'laserTurret', pos: { x: 200, y: 200 }, prevPos: { x: 200, y: 200 }, walkTargetPos: null,
       state: 'IDLE', ticksInState: 0, bagsRemaining: 0, // S141 P1 — no magazine on a turret
-      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
+      nextFireTick: 0, targetCreatureId: null, lastStrikePos: null, ehp: null, // S158 P7 — a TOWER carries no pool
     });
     expect(laserTurretPredicate(w, { x: 0, y: 0 })).toBeNull();
   });

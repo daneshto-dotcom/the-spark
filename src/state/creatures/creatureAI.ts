@@ -33,7 +33,7 @@
 
 import type { Bond } from '../../physics/bonds.ts';
 import { ARMY_RETREAT_LEAD_TICKS, PLAYER_COLORS } from '../../constants.ts';
-import type { BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
+import type { DefenderId, BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
@@ -557,6 +557,38 @@ export function enemyCastleInReach(world: World, creature: Creature, reach: numb
     const a = castleAnchor(seat as unknown as number, world.layout);
     if (distSq(creature.pos, { x: a.x, y: a.y }) > reach * reach) continue;
     if (best === null || (seat as unknown as number) < (best as unknown as number)) best = seat;
+  }
+  return best;
+}
+
+/**
+ * ⭐ S158 P7 (CF-S157-c) — **A KILLABLE ENEMY DEFENDER IN REACH — i.e. HELGA.**
+ *
+ * Owner: she should hold the field *"until she is destroyed herself"*. Something has to be able to
+ * destroy her, and the units already walking past her are the obvious candidates.
+ *
+ * ⚠ `ehp !== null` IS THE WHOLE FILTER, AND IT IS NOT A PROXY — it is the same discriminator the
+ * damage arm uses. A tower has `null`, so a goblin can never enter ATTACKING against a turret it
+ * cannot hurt, and R75's tower ruling stays untouched. Towers die by recipe-break, as always.
+ *
+ * Deterministic: LOWEST DEFENDER ID wins ties, mirroring `enemyCastleInReach`'s lowest-seat rule.
+ * Nearest-first would be more natural to a player and is deliberately NOT used — a distance
+ * comparison between two defenders at equal range would be settled by float noise, and float noise
+ * is how a host and its mirror stop agreeing.
+ *
+ * PURE: reads world, mutates nothing.
+ */
+export function killableDefenderInReach(
+  world: World,
+  creature: Creature,
+  reach: number,
+): DefenderId | null {
+  let best: DefenderId | null = null;
+  for (const d of world.defenders.values()) {
+    if (d.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    if (d.ehp === null) continue; // a TOWER — nothing to subtract from, so nothing to attack
+    if (distSq(creature.pos, d.pos) > reach * reach) continue;
+    if (best === null || (d.id as unknown as number) < (best as unknown as number)) best = d.id;
   }
   return best;
 }

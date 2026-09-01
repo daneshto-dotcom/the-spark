@@ -56,6 +56,8 @@ import {
   PRINCESS_ATK,
   PRINCESS_PEN,
 } from '../../constants.ts';
+// S158 P7 — the shared stat ladder; a unit-class defender's pool is hp × (1 + 0.2·DEF), in fifths.
+import { unitPoolFifths } from '../stats.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 
@@ -125,6 +127,29 @@ export interface Defender {
    * `damage.ts` was already killing defenders through it. Two sessions of drift on one field, and
    * the numbers behind it were never validated by play because nothing ever attacked a tower.
    */
+  /**
+   * ⭐ S158 P7 (CF-S157-c) — **REMAINING EFFECTIVE HIT POINTS, IN FIFTHS. `null` FOR A TOWER.**
+   *
+   * Owner's ask, verbatim: Helga should stay out *"until she is destroyed herself"*. She could not
+   * be — S157 B6 bounded her life by the FIGHT instead, which is why she was not immortal and also
+   * not killable. Nothing in the game could subtract from a defender, because the whole substrate
+   * was removed at S151 P2.
+   *
+   * ⛔ AND THAT REMOVAL WAS NOT WRONG — IT WAS OVER-BROAD, AND R77 SAID SO. R75 is about TOWERS:
+   * *"towers have attack and piercing but not def and hp because they are based on the connectors
+   * that build them"*. S151 read it as "defenders have no hp" and deleted the field for every kind.
+   * R77 then listed Helga at *"4atk, 4pierce, 6hp, 4 def … those are all spawned units"* — she is a
+   * UNIT that happens to live in `world.defenders`, not an emplacement.
+   *
+   * So this is scoped by `config.unitStats`, the field R77 already forced into existence: a defender
+   * with unit stats carries a pool; a tower carries `null` and stays exactly as immune as it is
+   * today. **The tower question is not reopened**, and that is the point of the null rather than a 0.
+   *
+   * FIFTHS, and named `ehp` rather than `hp`, for the reason `Creature.ehp` records: the ladder is
+   * `hp × (1 + 0.2·DEF)`, so this holds `unitPoolFifths(...)` and a reader who assumed hit points
+   * would be wrong by a factor of five. That confusion cost a protocol bump once already.
+   */
+  ehp: number | null;
   /**
    * S141 P1 — STINK TOWER AMMO. How many stink bags remain unthrown. Meaningless for the other kinds
    * (seeded 0 and never read), which is why it is a plain non-optional number rather than a
@@ -337,6 +362,9 @@ export function makeDefender(args: {
     walkTargetPos: null, // S110 P4 — not pursuing on ignition
     state: 'IDLE',
     ticksInState: 0,
+    // ⭐ S158 P7 — a UNIT-class defender (Helga) gets a real pool off the shared ladder; a TOWER gets
+    // null and stays immune to subtraction, exactly as R75 requires.
+    ehp: config.unitStats === null ? null : unitPoolFifths(config.unitStats.hp, config.unitStats.def),
     bagsRemaining: config.bags, // S141 P1 — 0 for every kind without a magazine
     nextFireTick: args.registeredAtTick + config.fireIntervalTicks,
     targetCreatureId: null,
