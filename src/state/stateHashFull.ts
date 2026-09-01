@@ -169,6 +169,14 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   pendingCinematics: 'acknowledged',
   /** Presentation-only; `activeCinematicPlayerId` carries the sim-visible part. */
   currentCinematicEvent: 'acknowledged',
+  /**
+   * S158 P5 — decides whether the cutscene OVERLAY is DRAWN, and nothing else. No sim branch reads
+   * it: the cinematic's duration, its queue and `pendingCreatureSpawn` are identical either way, so
+   * two peers disagreeing about it produce identical sim state. It also legitimately DIFFERS per
+   * peer in the same way `currentCinematicEvent` does — each side runs `applyGodlyTrigger` when the
+   * trigger reaches it, so their cinematic bookkeeping is latency-offset by construction.
+   */
+  cinematicIsFirstShowing: 'acknowledged',
   /** Display strings derived from `discoveredCombos`, which is hashed. */
   lastDiscoveredComboNames: 'acknowledged',
   /** Presentation timer for the combo toast; no sim branch reads it. */

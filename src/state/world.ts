@@ -393,6 +393,7 @@ export function makeWorld(rngSeed: number): World {
     isHost: true,
     activeCinematicPlayerId: null,
     currentCinematicEvent: null,
+    cinematicIsFirstShowing: false, // S158 P5 — set per-trigger by applyGodlyTrigger
     pendingCinematics: [],
     creatures: new Map(),
     // S155 N1 — transient; opened + swept inside runHostTick only.

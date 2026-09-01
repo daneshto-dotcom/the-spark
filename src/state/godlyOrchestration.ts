@@ -151,9 +151,29 @@ export function startCinematicIfNeeded(
     return;
   }
   const localPlayerId = ctx.controls.getPlayerId();
-  if (owner !== localPlayerId) ctx.vignette.setVisible(true);
+  /*
+   * ⭐ S158 P5 (CF-S157-d) — THE CUTSCENE PLAYS ONCE PER MATCH; THE VOLTKIN STILL COMES EVERY TIME.
+   *
+   * Owner: *"voltkin cinematic SHOULD be once per game for the first person to have built him. but
+   * the voltkin spawn himself should be generated every time someone builds his tower."*
+   *
+   * `cinematicIsFirstShowing` is captured by `applyGodlyTrigger` from `godlyFiredThisMatch` in the
+   * one instant the answer still exists — immediately before it records the id.
+   *
+   * ⛔ A REPEAT IS PLAYED SILENTLY, NOT SKIPPED. `cutsceneOverlay.onComplete` (below) is the SOLE
+   * driver of `GODLY_COMPLETE` and of `pendingCinematics` advancement, so returning early here would
+   * latch `activeCinematicPlayerId` forever and queue every later Voltkin behind it. The silent run
+   * keeps the clock, the completion, the queue and `pendingCreatureSpawn` byte-identical, and drops
+   * only the video, the voice and the vignette.
+   */
+  const silent = !world.cinematicIsFirstShowing;
+  // The vignette dims the board for everyone who is NOT the summoner — it exists to frame the
+  // cutscene, so it goes with it. Without this gate, a repeat would dim the screen for the other
+  // players for ~4.8 s with nothing to look at, which is worse than either extreme.
+  if (owner !== localPlayerId && !silent) ctx.vignette.setVisible(true);
   const targetPos = event.targetPos;
   void ctx.cutsceneOverlay.play(recipe, {
+    silent,
     targetPos,
     onComplete: () => {
       // Idempotent — GODLY_COMPLETE clears activeCinematicPlayerId; next tick

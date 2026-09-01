@@ -53,10 +53,34 @@ export interface CutsceneContext {
   onComplete(): void;
   /** Plays the recipe's voice clip at the scripted offset. audioManager hook. */
   playVoice(assetUrl: string): void;
+  /**
+   * ⭐ S158 P5 (CF-S157-d) — run the cinematic with NO VISUALS and NO AUDIO.
+   *
+   * Owner: the Voltkin cutscene should play *"once per game for the first person to have built
+   * him"*, while the Voltkin himself still spawns every time anyone builds his tower.
+   *
+   * ⛔ IT IS A SILENT PLAY, NOT A SKIP, AND THE DIFFERENCE IS THE WHOLE DESIGN. This overlay's
+   * `onComplete` is the SOLE driver of `GODLY_COMPLETE` and of `pendingCinematics` advancement, and
+   * the creature's spawn tick is scheduled against the same duration. Simply not calling `play()`
+   * for a repeat would latch `activeCinematicPlayerId` forever and queue every later Voltkin behind
+   * it — strictly worse than the behaviour being fixed. So a silent run keeps the clock, the
+   * completion and the queue EXACTLY as they are, and drops only what the player sees and hears.
+   */
+  silent?: boolean;
   // S28 P0 — `onCinematicHandoff` DELETED (Council Q2 UNANIMOUS A). Wall-clock
   // setTimeout(handoff, cinematicMs) violated replay determinism (S25 reflexion
   // #6). Replaced by `world.pendingCreatureSpawn` schedule polled in the
   // physics tick loop (see main.ts startCinematicIfNeeded + tick Step 0).
+}
+
+/**
+ * The cinematic's length before its fade-out, in wall-clock ms. ONE expression, consumed by both the
+ * visible path's completion timer and S158 P5's silent path — the two must not be able to drift,
+ * because the creature's spawn tick (`pendingCreatureSpawn`) is scheduled against this same duration
+ * plus FADE_MS, and a cutscene that ended before or after its own Voltkin would be visible instantly.
+ */
+function totalDurationMs(recipe: CinematicGodlyRecipe): number {
+  return recipe.cinematicMs + recipe.sustainedEffectMs;
 }
 
 export class CutsceneOverlay {
@@ -99,6 +123,27 @@ export class CutsceneOverlay {
       this.abort();
     }
     this.active = true;
+
+    /*
+     * ⭐ S158 P5 — THE SILENT PATH. Same duration, same completion, nothing drawn and nothing heard.
+     *
+     * Taken BEFORE the container is made visible and before any DOM is built, so a repeat costs no
+     * video element, no decode, no texture upload and no voice clip — which also means a mid-match
+     * Voltkin no longer triggers an mp4 load on a machine that has already paid for it once.
+     *
+     * `totalMs` is read from the SAME expression the visible path uses (see the completion timer at
+     * the end of this method) rather than a copy: if a recipe's timings change, the two paths cannot
+     * drift apart, and a drift here would desynchronise the cutscene from `pendingCreatureSpawn`.
+     */
+    if (ctx.silent === true) {
+      const silentTimer = setTimeout(() => {
+        this.active = false;
+        ctx.onComplete();
+      }, totalDurationMs(recipe) + FADE_MS);
+      this.timers.push(silentTimer);
+      return;
+    }
+
     this.container.visible = true;
     this.bg.alpha = 0;
 
@@ -256,7 +301,7 @@ export class CutsceneOverlay {
     // polled in the physics tick loop. Replay-safe + 1v1 determinism preserved.
 
     // Final fade-out + onComplete after cinematicMs + sustainedEffectMs.
-    const totalMs = recipe.cinematicMs + recipe.sustainedEffectMs;
+    const totalMs = totalDurationMs(recipe);
     const completeTimer = setTimeout(() => {
       this.fade(1, 0, FADE_MS, () => {
         this.cleanup(video);

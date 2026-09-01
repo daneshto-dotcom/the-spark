@@ -195,6 +195,20 @@ export interface World {
    */
   currentCinematicEvent: GodlyTriggerEvent | null;
   /**
+   * ⭐ S158 P5 (CF-S157-d) — is the CURRENT cinematic the first time this godly has fired this
+   * match? Owner: *"voltkin cinematic SHOULD be once per game for the first person to have built
+   * him. but the voltkin spawn himself should be generated every time someone builds his tower."*
+   *
+   * Set by `applyGodlyTrigger` from `godlyFiredThisMatch` BEFORE it records the id — which is the
+   * only moment the answer is still available, and the reason this is a field rather than something
+   * the renderer re-derives. Cleared on GODLY_COMPLETE / GODLY_ABORT.
+   *
+   * PRESENTATION-ONLY, and deliberately so: it decides whether the OVERLAY is drawn, never whether
+   * the cinematic runs. The timing, the queue and `pendingCreatureSpawn` are untouched, so a repeat
+   * summons its Voltkin at exactly the same tick as the first one did.
+   */
+  cinematicIsFirstShowing: boolean;
+  /**
    * S22 P3 — queue of pending godly triggers behind the active one. Host
    * processes one at a time. main.ts setTimeout (wall-clock cinematicMs +
    * sustainedEffectMs) shifts the next event and re-dispatches.

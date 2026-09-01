@@ -283,6 +283,13 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     expect(acknowledged).toEqual(
       [
         'botSeats',
+        // ⭐ S158 P5 (CF-S157-d) — decides whether the cutscene OVERLAY is DRAWN, and nothing else.
+        // No sim branch reads it: a repeat Voltkin runs the same duration, advances the same queue
+        // and lands the same `pendingCreatureSpawn` tick as the first, with the video, voice and
+        // vignette dropped. Two peers disagreeing about it therefore produce identical sim state —
+        // and they legitimately WILL disagree, because each runs `applyGodlyTrigger` when the
+        // trigger reaches it, exactly as `currentCinematicEvent` two lines below already does.
+        'cinematicIsFirstShowing',
         'cinematicsEnabled',
         'comboToastTick',
         'currentCinematicEvent',
