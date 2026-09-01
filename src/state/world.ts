@@ -120,6 +120,8 @@ import {
 // S113 Batch C — lightning-drone explode reducer (host-internal). dispatch()<->droneLifecycle is the
 // same runtime-safe cycle as creatureAttack.ts (dispatch is called, not imported, at module-init).
 import { applyDroneExplode, type DroneExplodeAction } from './droneLifecycle.ts';
+// S158 P3 (CF-S157-e) — the terrorist goblin's own detonation, distinct from the drone's bond-sever.
+import { applySuicideBlast, type SuicideBlastAction } from './creatures/suicideBlast.ts';
 import {
   applyDissipateRainbow,
   applySpawnRainbow,
@@ -309,6 +311,7 @@ export type GameAction =
   // NEITHER is a client INTENT — host-authored + snapshot-replicated; they ride
   // KNOWN_GAME_ACTION_TYPES_RECORD only. PROTOCOL_VERSION 13->14 (new CreatureType + recipeId).
   | DroneExplodeAction
+  | SuicideBlastAction
   | StructureSelfDestructAction
   // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is a client INTENT (any player clicking it);
   // SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence / TTL poll). PROTOCOL 5->6.
@@ -745,6 +748,9 @@ export function dispatch(world: World, action: GameAction): World {
     // S113 Batch C — lightning-drone building reducers.
     case 'DRONE_EXPLODE':
       return applyDroneExplode(world, action);
+
+    case 'SUICIDE_BLAST':
+      return applySuicideBlast(world, action);
 
     case 'STRUCTURE_SELFDESTRUCT':
       return applyStructureSelfDestruct(world, action);

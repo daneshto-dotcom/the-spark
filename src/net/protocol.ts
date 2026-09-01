@@ -1002,6 +1002,12 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // CLIENT_INTENT_TYPES so a modified client sending one is dropped by the host allowlist gate.
   // PROTOCOL bump (13->14) owned by the PROTOCOL_VERSION above.
   DRONE_EXPLODE: true,
+  // ⭐ S158 P3 (CF-S157-e) — the terrorist goblin's own detonation. HOST-INTERNAL on exactly the
+  // same footing as DRONE_EXPLODE above: host-authored, listed here only because this Record must
+  // mirror GameAction['type'] exhaustively, and deliberately ABSENT from CLIENT_INTENT_TYPES so a
+  // modified client cannot detonate someone else's unit. NO PROTOCOL bump — it emits only the
+  // already-mirrored BOMB_EXPLODE effect and changes no serialized field.
+  SUICIDE_BLAST: true,
   STRUCTURE_SELFDESTRUCT: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(

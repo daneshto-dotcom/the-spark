@@ -72,6 +72,7 @@ import {
   enemyCastleMarchPos,
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
+  distSq, // S158 P3 — the goblin bomber's arrival test (shape or acquired unit)
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
@@ -685,7 +686,37 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       //    phase-spread by id (§3.4 R7); (c) enemyOnly=true so it never eats its own
       //    spawner (R8) + runs the FFA target-spread.
       const creature = world.creatures.get(id);
-      if (creature !== undefined && creature.state === 'SEEKING' && getCreatureConfig(creature.type).selfExplode) {
+      /*
+       * ⭐ S158 P3 (CF-S157-e) — `&& !targetsStructures` IS THE WHOLE FIX, AND HERE IS WHY IT IS A
+       * CONJUNCT RATHER THAN A REORDER.
+       *
+       * `GOBLIN_SUICIDE_CONFIG` sets BOTH `selfExplode` and `targetsStructures`. This branch ran
+       * first, so the terrorist goblin was handed the lightning drone's whole identity: it homed on
+       * enemy CONNECTORS instead of shapes, detonated through `applyDroneExplode` — which severs
+       * bonds and never reads atk/pen, so its 4 ATK / 0 PEN applied to NOTHING — and used the
+       * drone's 110 px radius instead of its own 70 px. Every stat the owner dictated for the unit
+       * was dead.
+       *
+       * The `else if` below was correct when it was written: no creature was both, because the flag
+       * pair had no overlap until the goblin roster landed. Nothing was wrong at the time and
+       * nothing failed when it became wrong — the config simply grew a case the branch never
+       * considered.
+       *
+       * ⚠ A CONJUNCT, NOT A SWAP. Putting `targetsStructures` first would move the shipped drone /
+       * Voltkin / chewer selection code, and the comment two screens down records that its byte
+       * position is pinned by creatureAI.test.ts, hostTick.differential.test.ts and
+       * save.replay.test.ts. This narrows the drone branch to what it always meant — "explodes AND
+       * is not a structure-attacker" — and leaves every existing creature byte-identical
+       * (`lightningDrone` is `targetsStructures: false`).
+       */
+      const seekCfg = creature === undefined ? null : getCreatureConfig(creature.type);
+      if (
+        creature !== undefined &&
+        creature.state === 'SEEKING' &&
+        seekCfg !== null &&
+        seekCfg.selfExplode &&
+        !seekCfg.targetsStructures
+      ) {
         // S113 Batch C — a lightning-DRONE is a homing missile: every-tick enemy-only
         // re-selection (NOT the chewer throttle/stickiness — it never commits/chews). It then
         // DETONATES in Step 1.5 below the moment it is in blast range (or its fuse expires).
@@ -891,18 +922,46 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // `continue` past the CREATURE_TICK / attack-fire steps. Runs AFTER Step 1's fresh target
       // re-selection so `isWithinAttackRange` sees this tick's nearest-enemy-bond.
       const droneCandidate = world.creatures.get(id);
-      if (
-        droneCandidate !== undefined &&
-        droneCandidate.state === 'SEEKING' &&
-        getCreatureConfig(droneCandidate.type).selfExplode
-      ) {
-        const inRange =
-          droneCandidate.targetBondId !== null &&
-          isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
+      const bomberCfg = droneCandidate === undefined ? null : getCreatureConfig(droneCandidate.type);
+      if (droneCandidate !== undefined && bomberCfg !== null && droneCandidate.state === 'SEEKING' && bomberCfg.selfExplode) {
+        /*
+         * ⭐ S158 P3 (CF-S157-e) — TWO BOMBERS, TWO ARRIVAL TESTS, TWO DETONATIONS.
+         *
+         * The drone arrives at a CONNECTOR and severs; the terrorist goblin arrives at a SHAPE (or at
+         * the unit it acquired on the way) and deals its stats in a radius. Sharing one arrival test
+         * was the second half of the bug: a goblin whose `targetBondId` is forced null by the
+         * structure-attacker branch could never be "in range", so it would have flown until its FUSE
+         * expired and then detonated wherever it happened to be — which is how the old code reached
+         * `applyDroneExplode` at all.
+         */
         const fuseExpiring = world.tick >= droneCandidate.despawnAtTick - 1;
-        if (inRange || fuseExpiring) {
-          dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
-          continue;
+        if (bomberCfg.targetsStructures) {
+          // ⚠ A goblin bomber commits to a PRIMITIVE, and opportunistically to a unit. Both count as
+          // arrival — owner R83's "units first, then structures" would be hollow if a bomber walked
+          // through the soldier in front of it to reach a wall.
+          const prim =
+            droneCandidate.targetPrimitiveId === null
+              ? undefined
+              : world.primitives.get(droneCandidate.targetPrimitiveId);
+          const quarry =
+            droneCandidate.targetCreatureId === null
+              ? undefined
+              : world.creatures.get(droneCandidate.targetCreatureId);
+          const reach = bomberCfg.attackRange * bomberCfg.attackRange;
+          const atShape = prim !== undefined && distSq(droneCandidate.pos, prim.pos) <= reach;
+          const atUnit = quarry !== undefined && distSq(droneCandidate.pos, quarry.pos) <= reach;
+          if (atShape || atUnit || fuseExpiring) {
+            dispatch(world, { type: 'SUICIDE_BLAST', creatureId: id });
+            continue;
+          }
+        } else {
+          const inRange =
+            droneCandidate.targetBondId !== null &&
+            isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
+          if (inRange || fuseExpiring) {
+            dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
+            continue;
+          }
         }
       }
 
