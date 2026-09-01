@@ -110,8 +110,50 @@ jobs:
       - name: Unit tests (gating — a red test now blocks the deploy)
         run: npx vitest run
 
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      # ⭐ S158 P1 — THE TURN CREDENTIALS HAVE TO REACH *THIS* BUILD, AND THEY DID NOT.
+      #
+      # S157 found the multiplayer root cause (the shipped TURN servers were dead, so the game ran
+      # STUN-only and any pair behind strict NAT hung forever) and shipped `TURN_SETUP.md`, whose
+      # step 4 says: put three values in a `.env` file, then "run a deploy — the values are baked in
+      # at build time".
+      #
+      # ⛔ THAT RUNBOOK COULD NOT HAVE WORKED, AND THE REASON IS THIS FILE. `.env` is gitignored
+      # (deliberately — a TURN credential in a public repo gets scraped for free bandwidth). This
+      # workflow builds from a CLEAN `actions/checkout`, so the `.env` on the owner's disk does not
+      # exist here. The build step below had no `env:` at all, and `gh secret list` / `gh variable
+      # list` were both EMPTY. The owner would have done the five-minute signup, pushed, watched a
+      # green deploy, and still been unable to reach his brother — with nothing on screen to say why.
+      #
+      # Vite inlines any `VITE_`-prefixed variable it finds in `process.env` at build time; verified
+      # empirically at S158 boot by building with a probe value and grepping it back out of the
+      # emitted bundle. So an `env:` block here is the whole fix.
+      #
+      # ⚠ UNSET IS A SUPPORTED STATE, NOT A FAILURE. An absent secret evaluates to the empty string,
+      # `turnFromEnv()` in `src/net/iceConfig.ts` refuses a half-filled config, and the build ships
+      # STUN-only exactly as it does today. Nothing here can break a deploy by being missing.
+      #
+      # ⚠ AND THE HONEST CAVEAT, RECORDED WHERE IT IS ACTED ON: a TURN credential consumed by a
+      # BROWSER is public by construction — it is inlined into the bundle, and anyone can read it out
+      # of the deployed JavaScript. That is not a leak introduced here, it is how browser WebRTC
+      # works without a token server. Pick a provider with a hard quota cap so a scraper costs a
+      # rate-limit rather than a bill. See TURN_SETUP.md § "Is it safe to put this in the game?".
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      - name: TURN wiring report (booleans only — never the values)
+        run: node scripts/turn-wiring-report.mjs
+        env:
+          VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS || secrets.VITE_TURN_URLS }}
+          VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
+          VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+
       - name: Build (vite + tsc + bundle cap)
         run: npm run build
+        env:
+          # URLs are not secret, so they may live in a repo VARIABLE (readable in the UI, easier to
+          # eyeball) — with a secret accepted as a fallback so three secrets also works.
+          VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS || secrets.VITE_TURN_URLS }}
+          VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
+          VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

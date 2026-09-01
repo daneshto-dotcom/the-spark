@@ -219,3 +219,108 @@ describe('S131 P2 — deploy.yml gates the deploy on the test suite', () => {
     expect(YML).toContain('branches: [master]');
   });
 });
+
+/**
+ * ⭐ S158 P1 — THE BUILD MUST ACTUALLY RECEIVE THE TURN CREDENTIALS.
+ *
+ * S157 shipped a runbook that told the owner to put three values in a `.env` file and redeploy. The
+ * live site is built by `actions/checkout` from a clean tree and `.env` is git-ignored, so those
+ * values could never have reached the deployed bundle — the owner would have done the signup, seen a
+ * green deploy, and still been unable to reach his brother. The build step simply had no `env:`.
+ *
+ * ⚠ THE DRIFT THIS EXISTS TO CATCH IS A TYPO, NOT A DELETION. If the workflow ever says
+ * `VITE_TURN_URL` while `iceConfig.ts` reads `VITE_TURN_URLS`, everything still builds, deploys and
+ * reports green — and ships STUN-only forever. So the guard pins the two sides AGAINST EACH OTHER
+ * rather than against a hard-coded list of its own.
+ */
+
+/** The `env:` mapping attached to the step that runs `cmd`. Empty map when the step has none. */
+function envOfStepRunning(cmd: string): ReadonlyMap<string, string> {
+  const lines = YML.split('\n');
+  const at = lines.findIndex((l) => /^\s*(?:-\s*)?run:\s*(.+?)\s*$/.exec(l)?.[1] === cmd);
+  const out = new Map<string, string>();
+  if (at === -1) return out;
+  const stepIndent = /^(\s*)/.exec(lines[at])?.[1].length ?? 0;
+  let inEnv = false;
+  for (const line of lines.slice(at + 1)) {
+    if (line.trim() === '') continue;
+    const indent = /^(\s*)/.exec(line)?.[1].length ?? 0;
+    if (indent < stepIndent || /^\s*-\s/.test(line)) break; // next step — stop
+    if (indent === stepIndent) {
+      inEnv = /^\s*env:\s*$/.test(line);
+      continue;
+    }
+    if (!inEnv) continue;
+    const kv = /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(.*?)\s*$/.exec(line);
+    if (kv) out.set(kv[1], kv[2]);
+  }
+  return out;
+}
+
+const ICE_CONFIG_SRC = readFileSync(
+  fileURLToPath(new URL('./net/iceConfig.ts', import.meta.url)),
+  'utf8',
+);
+
+/** The `VITE_`-prefixed names `src/net/iceConfig.ts` actually reads. The other side of the contract. */
+const ICE_CONFIG_ENV_NAMES: readonly string[] = [
+  ...new Set(
+    (ICE_CONFIG_SRC.match(/env\.(VITE_[A-Z0-9_]+)/g) ?? []).map((m) => m.replace('env.', '')),
+  ),
+].sort();
+
+describe('S158 P1 — the TURN credentials reach the production build', () => {
+  it('CONTROL — iceConfig.ts really does read VITE_ env vars (else every test below is vacuous)', () => {
+    expect(ICE_CONFIG_ENV_NAMES.length).toBeGreaterThanOrEqual(3);
+    expect(ICE_CONFIG_ENV_NAMES).toContain('VITE_TURN_URLS');
+  });
+
+  it('⭐ the build step passes EVERY env var iceConfig reads — the two sides cannot drift', () => {
+    const env = envOfStepRunning('npm run build');
+    expect(
+      env.size,
+      'the build step has no env: block, so a clean CI checkout ships STUN-only no matter what secrets exist',
+    ).toBeGreaterThan(0);
+    for (const name of ICE_CONFIG_ENV_NAMES) {
+      expect([...env.keys()], `deploy.yml must pass ${name} to the build`).toContain(name);
+    }
+  });
+
+  it('the values come from repository secrets/variables, never a literal baked into the workflow', () => {
+    const env = envOfStepRunning('npm run build');
+    for (const [name, value] of env) {
+      if (!name.startsWith('VITE_TURN_')) continue;
+      expect(value, `${name} must be a secrets/vars expression, never a literal credential`).toMatch(
+        /\$\{\{[^}]*(secrets|vars)\./,
+      );
+    }
+  });
+
+  it('the wiring REPORT sees the same names as the build, so a green log cannot lie', () => {
+    // The report step is what the owner reads to confirm their secrets landed. If it were given a
+    // different (or smaller) set than the build, it could print "RELAY WILL BE SHIPPED" for a build
+    // that shipped nothing — worse than no report at all.
+    const build = [...envOfStepRunning('npm run build').keys()].sort();
+    const report = [...envOfStepRunning('node scripts/turn-wiring-report.mjs').keys()].sort();
+    expect(report).toEqual(build);
+  });
+
+  it('an UNSET secret is a supported state — iceConfig refuses a half-filled config rather than shipping it', () => {
+    // The behavioural half of "a missing secret cannot break the deploy": without this, a future
+    // edit could let an absent credential produce a malformed RTCIceServer, which is another silent
+    // `400 allocate error` — the exact failure this whole change exists to end.
+    expect(ICE_CONFIG_SRC).toMatch(/urls\.length === 0 \|\| username === '' \|\| credential === ''/);
+  });
+
+  it('.env.example documents the same three names, and says it does NOT affect the live site', () => {
+    const example = readFileSync(fileURLToPath(new URL('../.env.example', import.meta.url)), 'utf8');
+    for (const name of ICE_CONFIG_ENV_NAMES) expect(example).toContain(name);
+    expect(example.toUpperCase()).toContain('GIT-IGNORED');
+  });
+
+  it('the runbook points at repository secrets — the mechanism that actually reaches production', () => {
+    const doc = readFileSync(fileURLToPath(new URL('../TURN_SETUP.md', import.meta.url)), 'utf8');
+    for (const name of ICE_CONFIG_ENV_NAMES) expect(doc).toContain(name);
+    expect(doc).toMatch(/Secrets and variables/i);
+  });
+});

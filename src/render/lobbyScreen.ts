@@ -83,6 +83,11 @@ export interface LobbyScreenCallbacks {
   /** S87 P4 — this player's readiness changed in a quickmatch room. `ready` is
    *  the new (post-toggle) state — the button is the single source of truth. */
   onToggleReady(ready: boolean): void;
+  /**
+   * ⭐ S158 P1 — run the connection self-test. main.ts owns the probe (it holds `ICE_SERVERS`);
+   * this screen owns only the button and the panel it prints into.
+   */
+  onTestConnection(): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -91,6 +96,8 @@ export interface LobbyUiPointsView {
   joinButton: { x: number; y: number };
   beginButton: { x: number; y: number };
   backButton: { x: number; y: number };
+  /** S158 P1 — the connection self-test button, so an e2e can click it. */
+  testConnectionButton: { x: number; y: number };
   // S87 P4 — QUICK MATCH entry + the in-room READY toggle (e2e click targets).
   quickMatchButton: { x: number; y: number };
   readyButton: { x: number; y: number };
@@ -119,6 +126,9 @@ export class LobbyScreen {
   // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
   private hostBtnRef: Container;
   private backBtnRef: Container;
+  // S158 P1 — the connection self-test button + the panel its verdict prints into.
+  private testBtnRef: Container;
+  private connectionTestText: Text;
   // S87 P4 — QUICK MATCH (select pane) + the in-room READY toggle + ready tally.
   private quickMatchBtnRef: Container;
   private readyButton: Container;
@@ -424,6 +434,46 @@ export class LobbyScreen {
     this.container.addChild(backBtn);
     this.backBtnRef = backBtn; // S85 P4c — geometry getter
 
+    /*
+     * ⭐ S158 P1 — THE CONNECTION SELF-TEST, ON THE SCREEN WHERE THE FAILURE HAPPENS.
+     *
+     * S157 diagnosed the multiplayer outage by pasting an RTCPeerConnection snippet into the browser
+     * console (`host:1 srflx:1 relay:0`) and wrote the recipe into TURN_SETUP.md as an F12 exercise.
+     * That is a tool for whoever wrote it. This button is the same measurement for whoever has to
+     * USE it — and it sits in the lobby precisely because the lobby is where "Connecting…" hangs,
+     * and where three completely different faults look identical (no relay / rejected relay / the
+     * other player simply never arrived).
+     *
+     * Mirrors the Back button's corner on the opposite side: both are screen-level chrome that stay
+     * available in every lobby mode, unlike Host/Join/Begin which the reducer shows and hides.
+     */
+    const testBtn = this.makeButton('TEST CONNECTION', 0x66ccff, () => {
+      this.showConnectionTestRunning();
+      callbacks.onTestConnection();
+    });
+    testBtn.position.set(CANVAS_WIDTH - 40 - BUTTON_WIDTH, CANVAS_HEIGHT - 80);
+    this.container.addChild(testBtn);
+    this.testBtnRef = testBtn;
+
+    // The panel the result prints into. Anchored bottom-centre-right above the button so a long
+    // detail paragraph grows UPWARD into empty space instead of off the bottom of the canvas.
+    this.connectionTestText = new Text({
+      text: '',
+      style: new TextStyle({
+        fontFamily: 'monospace',
+        fontSize: 16,
+        fill: 0xcccccc,
+        wordWrap: true,
+        wordWrapWidth: 620,
+        align: 'right',
+        lineHeight: 22,
+      }),
+    });
+    this.connectionTestText.anchor.set(1, 1); // bottom-right: grows up and to the left
+    this.connectionTestText.position.set(CANVAS_WIDTH - 40, CANVAS_HEIGHT - 100);
+    this.connectionTestText.visible = false;
+    this.container.addChild(this.connectionTestText);
+
     // S22 P2 — connection-lost overlay extracted to connectionLostOverlay.ts.
     this.connectionLostHandle = makeConnectionLostOverlay(
       app,
@@ -528,6 +578,10 @@ export class LobbyScreen {
     // S46 P1 Phase A.0 — reset host diagnostic strip too.
     this.hostDiagnosticsText.visible = false;
     this.hostDiagnosticsText.text = '';
+    // S158 P1 — and the self-test verdict. It describes THIS network at THAT moment; carrying a
+    // stale "no relay" line into a fresh lobby would be a lie the moment credentials are added.
+    this.connectionTestText.visible = false;
+    this.connectionTestText.text = '';
     this.updateInputVisibility();
   }
 
@@ -607,6 +661,8 @@ export class LobbyScreen {
       joinButton: center(this.joinPane.position.x, this.joinPane.position.y, this.joinButton),
       beginButton: center(0, 0, this.beginButton),
       backButton: center(0, 0, this.backBtnRef),
+      // S158 P1 — the connection self-test button (same top-left-anchored plate as Back).
+      testConnectionButton: center(0, 0, this.testBtnRef),
       // S87 P4 — quickmatch click targets (top-left-anchored roundRects → center).
       quickMatchButton: center(0, 0, this.quickMatchBtnRef),
       readyButton: center(0, 0, this.readyButton),
@@ -659,6 +715,33 @@ export class LobbyScreen {
     }
     if (!this.diagnosticsText.visible) this.diagnosticsText.visible = true;
     if (this.diagnosticsText.text !== text) this.diagnosticsText.text = text;
+  }
+
+  /**
+   * ⭐ S158 P1 — the self-test is running. Shown immediately on click rather than after the probe,
+   * because the gather takes up to 8 s and a button that looks dead for 8 s reads as broken — which
+   * is the exact complaint (owner, S152 A5) that put press-feedback on every button in this game.
+   */
+  showConnectionTestRunning(): void {
+    this.connectionTestText.style.fill = 0xcccccc;
+    this.connectionTestText.text = 'Testing your connection…';
+    this.connectionTestText.visible = true;
+  }
+
+  /**
+   * S158 P1 — print the verdict. Green when a relay answered, amber otherwise: a failed self-test is
+   * not an ERROR (nothing broke just now), it is a FINDING about this network, so it deliberately
+   * does not borrow the red the lobby uses for a genuine connection fault.
+   */
+  showConnectionTestResult(ok: boolean, headline: string, detail: string): void {
+    this.connectionTestText.style.fill = ok ? 0x9bff3b : 0xffcc55;
+    this.connectionTestText.text = `${ok ? '✓' : '⛔'} ${headline}\n\n${detail}`;
+    this.connectionTestText.visible = true;
+  }
+
+  /** Test-only accessor for the self-test panel (mirrors getStatusText). */
+  getConnectionTestText(): string {
+    return this.connectionTestText.visible ? this.connectionTestText.text : '';
   }
 
   /** Test-only accessor + cleanup hook. */

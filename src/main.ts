@@ -99,7 +99,9 @@ import { formatStrategySummary } from './net/strategySummary.ts';
 import { makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
-import { HAS_TURN_CONFIGURED } from './net/iceConfig.ts';
+import { HAS_TURN_CONFIGURED, ICE_SERVERS } from './net/iceConfig.ts';
+// S158 P1 — the connection self-test the TEST CONNECTION button runs.
+import { probeIce, summarizeIce } from './net/iceProbe.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
 // stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
@@ -1331,6 +1333,36 @@ async function bootstrap(): Promise<void> {
     onBeginMatch,
     onQuickMatch: startQuickmatch,
     onToggleReady,
+    /*
+     * ⭐ S158 P1 — THE CONNECTION SELF-TEST. main.ts owns this rather than the screen because the
+     * screen must not import net config: `ICE_SERVERS` is the very thing under test, and reading it
+     * from anywhere but the one shipped module would let the test pass against a config the game
+     * does not actually use — which is precisely the failure mode S157 spent a session chasing.
+     *
+     * Fire-and-forget with an explicit catch: a probe that throws (WebRTC disabled outright, or a
+     * hardened profile) must still print something, because "the button did nothing" is the one
+     * outcome this whole feature exists to abolish.
+     */
+    onTestConnection: () => {
+      void probeIce(ICE_SERVERS, HAS_TURN_CONFIGURED)
+        .then((r) => {
+          const v = summarizeIce(r);
+          console.info(
+            `[net] connection self-test — host:${r.host} srflx:${r.srflx} relay:${r.relay} ` +
+              `turnConfigured:${r.turnConfigured} complete:${r.complete}` +
+              (r.errors.length > 0 ? ` errors:[${r.errors.join(' | ')}]` : ''),
+          );
+          lobbyScreen?.showConnectionTestResult(v.ok, v.headline, v.detail);
+        })
+        .catch((err: unknown) => {
+          lobbyScreen?.showConnectionTestResult(
+            false,
+            'The connection test could not run',
+            'This browser refused to open a test connection at all, which usually means WebRTC is ' +
+              `disabled by an extension or a policy. (${String(err)})`,
+          );
+        });
+    },
     // S155 P2 — both were verbatim copies of the same three-step teardown; they now share the ONE
     // `leaveToTitle` thunk with the double-Escape gesture and the new BACK TO MAIN button.
     onBackToTitle: leaveToTitle,
