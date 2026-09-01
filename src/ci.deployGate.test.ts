@@ -324,3 +324,53 @@ describe('S158 P1 — the TURN credentials reach the production build', () => {
     expect(doc).toMatch(/Secrets and variables/i);
   });
 });
+
+describe('S158 P8 — the build is REPRODUCIBLE, so verify-deploy can mean something', () => {
+  /**
+   * ⛔ THIS GUARD EXISTS BECAUSE S158 P1 BROKE THE DEPLOY VERIFIER AND ONLY THE VERIFIER NOTICED.
+   *
+   * Giving the CI build step an `env:` block means an UNSET secret arrives as `''`, not as nothing —
+   * GitHub expressions always produce a string. Vite inlines `import.meta.env` as an object literal
+   * containing exactly the VITE_ keys it found, so CI emitted `{VITE_TURN_URLS: "", …}` while a plain
+   * local build emitted an object without those keys. Same source, same behaviour, DIFFERENT BYTES:
+   * CI shipped `index-BpAMsFnW.js` and a local build produced `index-C3Yn9Lmv.js`.
+   *
+   * `verify-deploy`'s LIVE carrier proves the deployed bundle IS the bundle you built, by content
+   * hash. It went red on a perfectly good deploy — and a gate that cries wolf every time is worse
+   * than no gate, because it trains its reader to skip the run where it is right.
+   *
+   * Declaring the keys in `vite.config.ts` makes them present with the same value everywhere. This
+   * test keeps the declaration in step with what `iceConfig.ts` actually reads, so adding a fourth
+   * VITE_ variable cannot silently reintroduce the divergence.
+   */
+  const VITE_CONFIG = readFileSync(
+    fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('⭐ every VITE_ key iceConfig reads is DECLARED in vite.config, so an unset one is not "absent"', () => {
+    for (const name of ICE_CONFIG_ENV_NAMES) {
+      expect(
+        VITE_CONFIG,
+        `${name} is read by iceConfig but not declared in vite.config — CI (which always defines it, ` +
+          `possibly as "") and a local build will emit different bytes, and verify-deploy's LIVE ` +
+          `carrier will fail on every green deploy`,
+      ).toContain(name);
+    }
+  });
+
+  it('the declaration DEFAULTS to a value rather than leaving the key out when unset', () => {
+    // `?? ''` is the load-bearing half: without it an unset variable is still an absent key, which is
+    // the exact divergence this guard exists to prevent.
+    expect(VITE_CONFIG).toMatch(/process\.env\[[^\]]+\]\s*\?\?\s*''/);
+  });
+
+  it('and it is wired through `define`, not merely mentioned in a comment', () => {
+    // ⚠ LINE-ANCHORED, AND THE FIRST VERSION WAS NOT. A bare /define:\s*turnDefines/ matched the
+    // COMMENTED-OUT form too, so the mutation test that should have proven this guard — commenting
+    // the line out — passed. That is the exact false-match this file's own extraction notes warn
+    // about two screens up, committed by the guard written to avoid it.
+    // The `m` flag anchors ^ to each LINE, so `// define: …` cannot satisfy it.
+    expect(VITE_CONFIG).toMatch(/^\s*define:\s*turnDefines\s*,?\s*$/m);
+  });
+});

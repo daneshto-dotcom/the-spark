@@ -1,3 +1,23 @@
+> ## ⭐ ARCHIVED AT S158 — EVERY ITEM SHIPPED, AND THE FILE WAS LYING ABOUT IT
+>
+> This amendment sat in `.claude/plans/` marked **IN-PROGRESS** for six sessions after its work was
+> done, so every boot's pre-flight announced live plan work that did not exist. Verified at the S158
+> boot before archiving:
+>
+> | | shipped |
+> |---|---|
+> | A1 goblin tower emits chewers | S152 P2 — the `else` default was replaced by an explicit per-recipe branch |
+> | A2 the green-circle hound | S153 P7 — all six FEED outputs have atlas art; `drawGoblin` is a load-failure fallback only |
+> | A3 goblins 75% larger | S152 — `GOBLIN_SPRITE_BASE_SCALE` |
+> | A4 the title screen under the modal | S152 A4 — pinned by `e2e/modal-layering.spec.ts`, green today |
+> | A5 the affordance pass | S152 A5 (title) + S155 P2 (`buttonFeedback.ts`, one shared grammar) |
+>
+> The S157 handoff also recorded that the review gate's "HELD / NEEDS A HUMAN DECISION" card reads a
+> stale snapshot. This file was part of what made that card wrong. Left in the archive, not deleted:
+> the diagnoses in it are still the best account of why each defect existed.
+
+---
+
 # SCOPE AMENDMENT — S152 PLAYTEST CORRECTIONS (Rule 16)
 
 Date: 2026-08-26 | Session: S152 | Entry commit: 6fb47af | Tier: **Full**
