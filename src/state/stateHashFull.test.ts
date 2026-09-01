@@ -22,6 +22,7 @@ import { makeHunter } from './hunters/hunter.ts';
 import { makePotato } from './potato.ts';
 import { makeRainbow } from './rainbow.ts';
 import { makePoop, makeSeagull } from './seagulls/seagull.ts';
+import { makeStinkCloud } from './defenders/stinkCloud.ts';
 import { makeWorld } from './world.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
@@ -39,6 +40,7 @@ import {
   asHunterId,
   asPlayerId,
   asPoopId,
+  asStinkCloudId,
   asPotatoId,
   asPrimitiveId,
   asRainbowId,
@@ -64,6 +66,8 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextPrimitiveId', 'nextBondId', 'nextCreatureId', 'nextSpawnerId', 'nextDefenderId',
   'nextBombId', 'nextHunterId', 'nextPotatoId', 'nextRainbowId', 'nextSeagullId',
   'nextPoopId', 'sudoku', 'pendingCreatureSpawn',
+  // S158 P6 — the landed-stink-bag allocator cursor (a scalar, like every other nextXId above).
+  'nextStinkCloudId',
   // V6-1.1 — the gatherer allocator cursor (a scalar, like every other nextXId above).
   'nextGathererId',
   // S146 P2 — the descending NEGATIVE allocator for reducer-minted pulls. Also a scalar.
@@ -352,6 +356,12 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     w.castleBanks.set(P0, invBank);
     // S141 P2 — a queued order, so the new family contributes a part here too.
     w.gathererOrders.set(P0, [SparkType.Square, SparkType.Circle, SparkType.Square]);
+    // S158 P6 — a landed stink bag, so the new family contributes a part here too. Without this the
+    // family's projection loop could be deleted and every assertion in this file would stay green.
+    w.stinkClouds.set(
+      asStinkCloudId(1),
+      makeStinkCloud({ id: asStinkCloudId(1), pos: { x: 80, y: 80 }, ownerPlayerId: P0, landedAtTick: 1, radius: 90 }),
+    );
     w.fouledPrimitives.add(asPrimitiveId(3));
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
@@ -374,6 +384,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['rainbows', /^ra\d+:/],
       ['seagulls', /^sg\d+:/],
       ['poops', /^pp\d+:/],
+      ['stinkClouds', /^sc\d+:/],
       ['fouledPrimitives', /^fo:\d/],
       ['discoveredCombos', /^dc:./],
       ['godlyFiredThisMatch', /^gf:./],

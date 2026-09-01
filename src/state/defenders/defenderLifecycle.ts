@@ -331,8 +331,32 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
     }
     case 'WINDUP': {
       if (d.kind === 'princess') freezeDefender(d); // hold position through the wind-up
+      /*
+       * ⛔⭐ S158 P6 — **A BLIND LOB IS NOT AN INVALID TARGET, AND UNTIL NOW IT WAS.**
+       *
+       * S157 B9 gave the stink tower the owner's untargeted throw — *"he should not target any
+       * enemies but shoot our at random areas in a radius"* — by arming WINDUP from IDLE with
+       * `targetCreatureId = null` and a scattered `lastStrikePos`. The FIRE branch below was written
+       * to match, and says so: *"A BLIND LOB STILL LANDS. The stink tower reaches FIRE with no
+       * victim."*
+       *
+       * **It could not reach FIRE.** `targetValid` returns false on a null target by its first line,
+       * so this guard aborted every blind lob one tick after it armed and sent the tower back to IDLE
+       * with a re-acquire delay. The tower therefore STILL threw nothing unless an enemy wandered
+       * inside 260 px — which is the exact behaviour B9 was written to end (*"a tower nobody walked
+       * past threw zero bags for an entire match"*). The fix and the comment describing it shipped;
+       * the path between them did not.
+       *
+       * ⚠ FOUND BY THE WORKER-DIFFERENTIAL'S SEEDING GUARD, not by a test of the feature. S158 P6
+       * asserted `stinkClouds` SEEDED, the harness reported the family empty across 300 frames, and
+       * the reason was that no bag is ever thrown. That is the second time in three sessions this
+       * anti-vacuity assertion has surfaced a live defect (S156 P3 found a real desync the same way),
+       * and it is the argument against ever leaving one of its rows merely "acknowledged".
+       */
+      const blindLob =
+        d.kind === 'stinkTower' && d.targetCreatureId === null && d.lastStrikePos !== null;
       // Abort if the target slipped away mid-windup (died / left range) — re-acquire from IDLE.
-      if (!targetValid(world, d, config)) {
+      if (!blindLob && !targetValid(world, d, config)) {
         d.state = 'IDLE';
         d.ticksInState = 0;
         d.targetCreatureId = null;

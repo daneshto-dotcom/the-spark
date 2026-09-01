@@ -1978,6 +1978,24 @@ export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;
  * S151 P3 — the STINK TOWER's veo atlas scale. It is an emplacement rather than a unit, and its
  * source art is a tall tree, so it does not follow the goblin relationship.
  */
+/**
+ * ⭐ S158 P6 (CF-S157-b) — HOW LONG A LANDED BAG KEEPS STINKING.
+ *
+ * Owner: a thrown bag should *land and stink over time*, not vanish in one splash frame. S157 shipped
+ * the 12-frame atlas for it and nothing drew it; this is the entity that does.
+ *
+ * ⚠ THE ONLY NEW NUMBER IN THIS FEATURE, DELIBERATELY. A landed cloud ticks the SAME damage the
+ * tower's own aura ticks (`STINK_AURA_DAMAGE` to shapes, `attackFifths(STINK_BAG_ATK, STINK_BAG_PEN)`
+ * to units, on the shared `DOT_CADENCE_TICKS` beat) over the bag's OWN `STINK_BAG_RADIUS` — every one
+ * of those is a number the owner already ruled on. Inventing a second stink economy beside the first
+ * would have been three more balance numbers nobody asked for.
+ *
+ * Set to exactly one throw interval so the rule is legible at the table: **the ground a bag hits
+ * stays foul until the next bag lands.** It also self-limits the population — a tower holds at most
+ * one or two live clouds — which is why this needs no cap constant of its own.
+ */
+export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS; // 240 — 4 s
+
 export const STINK_TOWER_SPRITE_BASE_SCALE = 0.42;
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===

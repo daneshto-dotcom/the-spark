@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 34; // S157 B8 — 33 → 34 (THE WAVE COUNTER: waveNumber on WorldSnapshot, additive-optional, drives the quarry spawn rate)
+const LOCAL_PROTO_V = 35; // S158 P6 — 34 → 35 (THE LANDED STINK BAG: stinkClouds on WorldSnapshot, additive-optional, deals radial damage on the DoT beat)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

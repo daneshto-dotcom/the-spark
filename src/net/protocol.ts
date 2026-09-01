@@ -384,7 +384,25 @@ export type { NetSnapshot };
  * The field is additive-optional and omitted while the value is 1, so an opening snapshot is
  * byte-identical to v33 and a pre-S157 save restores cleanly to wave 1.
  */
-export const PROTOCOL_VERSION = 34 as const;
+// S158 P6 — bumped 34->35: THE LANDED STINK BAG. `WorldSnapshot.stinkClouds` (additive-optional,
+// omitted while the map is empty) turns a thrown bag from an instantaneous splash into a real
+// serialized hazard that keeps dealing radial damage on the shared DoT beat until it expires.
+/*
+ * ⭐ S158 P6 (CF-S157-b) — BUMPED 34 → 35: `WorldSnapshot.stinkClouds`.
+ *
+ * A LANDED stink bag is now a real serialized entity rather than an instantaneous splash — owner:
+ * a thrown bag should *land and stink over time*. Each cloud applies radial damage on the shared DoT
+ * beat until it expires, so it is sim state, not decoration.
+ *
+ * ⛔ WHY THIS EARNS A BUMP EVEN THOUGH THE FIELD IS ADDITIVE-OPTIONAL. A v34 peer would restore a
+ * snapshot with NO clouds and then watch its own units take damage from clean ground it cannot draw,
+ * while its state hash diverges from the host's on every cloud that exists. That is the same class as
+ * the wave counter above: the absence of the field means a DIFFERENT world, not a missing decoration.
+ *
+ * The field is omitted while the map is empty, so a match with no stink tower produces snapshots
+ * byte-identical to v34 and every pre-S158 save restores cleanly with no clouds.
+ */
+export const PROTOCOL_VERSION = 35 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -538,6 +556,12 @@ export interface HelloMsg {
    * hash. Same class as the shared-constant bumps above: the absence of the field means a DIFFERENT
    * value, not a missing one.)
    *
+   * S158 P6: 34->35 (THE LANDED STINK BAG — CF-S157-b, owner. `stinkClouds` on `WorldSnapshot`,
+   * additive-optional and omitted while empty, so a match without a stink tower is byte-identical
+   * to v34. It is NOT cosmetic: a cloud deals radial damage on the shared DoT beat, so a v34 peer
+   * would restore a world with none, be unable to draw the ground its units are dying on, and
+   * diverge on the state hash for as long as any cloud lives.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -570,7 +594,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 34;
+  readonly protoVersion: 35;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

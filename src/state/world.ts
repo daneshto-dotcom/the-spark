@@ -425,6 +425,9 @@ export function makeWorld(rngSeed: number): World {
     nextSeagullId: 0,
     poops: new Map(),
     nextPoopId: 0,
+    // S158 P6 — landed stink bags (CF-S157-b).
+    stinkClouds: new Map(),
+    nextStinkCloudId: 0,
     fouledPrimitives: new Set(),
     // S88 G3a — in-match combo-discovery set (the magic combos); empty at world birth.
     discoveredCombos: new Set(),

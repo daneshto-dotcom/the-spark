@@ -30,6 +30,8 @@ export type SpawnerId = number & { readonly __brand: 'SpawnerId' };
 export type DefenderId = number & { readonly __brand: 'DefenderId' };
 // V6-1.1 — bought hauler unit ("gatherer"; NEVER "Worker" — the Web Worker owns the World).
 export type GathererId = number & { readonly __brand: 'GathererId' };
+// ⭐ S158 P6 (CF-S157-b) — a LANDED stink bag: the lingering hazard a thrown bag leaves behind.
+export type StinkCloudId = number & { readonly __brand: 'StinkCloudId' };
 
 export const asSparkId = (n: number): SparkId => n as SparkId;
 export const asPrimitiveId = (n: number): PrimitiveId => n as PrimitiveId;
@@ -45,5 +47,6 @@ export const asPoopId = (n: number): PoopId => n as PoopId;
 export const asSpawnerId = (n: number): SpawnerId => n as SpawnerId;
 export const asDefenderId = (n: number): DefenderId => n as DefenderId;
 export const asGathererId = (n: number): GathererId => n as GathererId;
+export const asStinkCloudId = (n: number): StinkCloudId => n as StinkCloudId;
 
 export const v2copy = (v: Vec2): Vec2 => ({ x: v.x, y: v.y });

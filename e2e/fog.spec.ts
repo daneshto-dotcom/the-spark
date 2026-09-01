@@ -247,6 +247,19 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Container', //  17 — rainbowFlyoverRenderer.char
       '_Graphics',  //  18 — seagullRenderer              (main.ts:519, S77 P3)
       '_Graphics',  //  19 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  20 — stinkCloudRenderer.haze      (S158 P6) ⭐ NEW — a LANDED stink bag.
+                    //       ⚠ ABOVE THE FOG, and that is the whole reason it is declared here: a
+                    //       cloud DEALS DAMAGE, and its damage does not care whether the ground is
+                    //       fogged. Hiding the marker would let a player lose units to a patch of
+                    //       board they were never shown — an ambush rather than a hazard. Same
+                    //       argument the potato and the poop above ride on.
+                    //       The haze draws the TRUE damage radius, so the edge is readable; it is
+                    //       also the load-failure fallback for the atlas, exactly as the goblins'
+                    //       procedural puppet is for theirs.
+      '_Container', //  21 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
+                    //       which shipped a session ago with ZERO references anywhere in src/.
+                    //       Above its own haze, for the same reason the goblin sprites sit above
+                    //       their puppet: the fallback must never overdraw the real art.
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

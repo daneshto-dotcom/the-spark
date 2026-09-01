@@ -26,11 +26,12 @@ import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
+import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
-import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
+import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId, StinkCloudId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -437,6 +438,20 @@ export interface World {
    * SPLAT_STRUCTURE poop persists until cleaned, a SPLAT_GROUND poop until its TTL.
    * Additive-optional `poops[]` in NetSnapshot. Cleared on teardown.
    */
+  /**
+   * ⭐ S158 P6 (CF-S157-b) — LANDED STINK BAGS. Owner: a thrown bag should *land and stink over
+   * time*, not vanish in the frame it arrives. A cloud is the tower's own aura moved to where the bag
+   * fell and given an end (see `defenders/stinkCloud.ts`); the impact splash is unchanged, so this is
+   * purely what the bag LEAVES BEHIND.
+   *
+   * Host-authoritative and SERIALIZED — a client that could not see them would draw an empty patch of
+   * ground its units are dying on, which is the exact class of blind spot S156 P3 closed for
+   * `defenders`. Rides the additive-optional `stinkClouds[]` in NetSnapshot (PROTOCOL 34->35).
+   * Self-limiting: one lifetime is one throw interval, so a tower holds one or two at a time.
+   */
+  stinkClouds: Map<StinkCloudId, StinkCloud>;
+  /** S158 P6 — monotonic cloud id counter (host-only mint authority). */
+  nextStinkCloudId: number;
   poops: Map<PoopId, Poop>;
   /** S77 P3 — monotonic poop id counter (host-only mint authority). */
   nextPoopId: number;

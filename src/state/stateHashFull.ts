@@ -102,6 +102,11 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   rainbows: 'hashed',
   seagulls: 'hashed',
   poops: 'hashed',
+  /**
+   * ⭐ S158 P6 (CF-S157-b) — landed stink bags. Real sim state: each one applies radial damage on
+   * the shared DoT beat, so two sims disagreeing about one disagree about who is dying.
+   */
+  stinkClouds: 'hashed',
   fouledPrimitives: 'hashed',
   discoveredCombos: 'hashed',
   godlyFiredThisMatch: 'hashed',
@@ -143,6 +148,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   nextRainbowId: 'hashed',
   nextSeagullId: 'hashed',
   nextPoopId: 'hashed',
+  nextStinkCloudId: 'hashed',
   /** The NONET trial FREEZES the sim, so its presence and identity are sim state. */
   sudoku: 'hashed',
   /** A queued spawn is pending sim work, not presentation. Discriminant only (see body). */
@@ -231,6 +237,7 @@ type PotatoF = keyof ElemOf<World['potatoes']>;
 type RainbowF = keyof ElemOf<World['rainbows']>;
 type SeagullF = keyof ElemOf<World['seagulls']>;
 type PoopF = keyof ElemOf<World['poops']>;
+type StinkCloudF = keyof ElemOf<World['stinkClouds']>;
 type GathererF = keyof ElemOf<World['gatherers']>;
 
 // Every field name below is projected by hashWorldStateFull. Keep in lockstep.
@@ -279,6 +286,9 @@ type RainbowHashed = 'id' | 'pos' | 'spawnedAtTick' | 'dissipateAtTick';
 type SeagullHashed = 'id' | 'pos' | 'prevPos' | 'vx' | 'baseY' | 'spawnedAtTick' | 'lastPoopTick';
 type PoopHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'spawnedAtTick' | 'landedAtTick' | 'fouledPrimId';
+// S158 P6 — every field a landed stink bag carries is projected; it has no presentation-only ones.
+type StinkCloudHashed =
+  | 'id' | 'pos' | 'ownerPlayerId' | 'landedAtTick' | 'radius';
 // V6-1.1 — the cosmetic shapeshift is NOT here because it is NOT world state (renderer-only,
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
 type GathererHashed =
@@ -331,10 +341,12 @@ const _potatoComplete: NoUncovered<Exclude<PotatoF, PotatoHashed>> = true;
 const _rainbowComplete: NoUncovered<Exclude<RainbowF, RainbowHashed>> = true;
 const _seagullComplete: NoUncovered<Exclude<SeagullF, SeagullHashed>> = true;
 const _poopComplete: NoUncovered<Exclude<PoopF, PoopHashed>> = true;
+const _stinkCloudComplete: NoUncovered<Exclude<StinkCloudF, StinkCloudHashed>> = true;
 const _gathererComplete: NoUncovered<Exclude<GathererF, GathererHashed>> = true;
 void _primComplete; void _bondComplete; void _sparkComplete; void _creatureComplete;
 void _spawnerComplete; void _defenderComplete; void _bombComplete; void _hunterComplete;
 void _potatoComplete; void _rainbowComplete; void _seagullComplete; void _poopComplete;
+void _stinkCloudComplete;
 void _gathererComplete;
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -557,6 +569,12 @@ export function determinismParts(world: World): string[] {
       `pp${n(p.id)}:${p.pos.x},${p.pos.y}:${v2(p.prevPos)}:${p.state}` +
         `:sa${o(p.spawnedAtTick)}:la${o(p.landedAtTick)}:fp${n(p.fouledPrimId)}`,
     );
+  }
+
+  // S158 P6 — landed stink bags. Sorted by id so Map insertion order cannot leak into the digest.
+  const clouds = [...world.stinkClouds.values()].sort((a, b) => Number(a.id) - Number(b.id));
+  for (const c of clouds) {
+    parts.push(`sc${n(c.id)}:${c.pos.x},${c.pos.y}:o${n(c.ownerPlayerId)}:la${o(c.landedAtTick)}:r${o(c.radius)}`);
   }
 
   parts.push(`fo:${idSet(world.fouledPrimitives)}`);

@@ -1,0 +1,287 @@
+/**
+ * SPARK — S158 P6 (CF-S157-b): the landed stink bag.
+ *
+ * Two things are pinned here, and the second one is the more valuable:
+ *
+ * 1. **The cloud itself** — a thrown bag leaves a hazard behind, it stinks on the shared DoT beat,
+ *    it spares its owner, and it expires. The art for this shipped in S157 and nothing drew it.
+ *
+ * 2. ⛔ **THE BLIND LOB, WHICH HAD NEVER ONCE FIRED.** S157 B9 implemented the owner's untargeted
+ *    throw (*"he should not target any enemies but shoot our at random areas in a radius"*) by
+ *    arming WINDUP with a null target — and the WINDUP branch's `targetValid` guard returns false on
+ *    a null target by its first line, so every blind lob aborted one tick after arming. The tower
+ *    still threw nothing unless an enemy walked within 260 px, which is the exact behaviour B9 was
+ *    written to end. The fix shipped, its comment shipped, and the path between them did not.
+ *
+ *    It was found by the worker-differential's anti-vacuity seeding assertion, not by a test of the
+ *    feature: asserting `stinkClouds` SEEDED reported the family empty across 300 frames, and the
+ *    reason was that no bag is ever thrown. The test below is the direct carrier it never had.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { makeWorld, dispatch, type World } from '../world.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
+import { makeGameStateExtras } from '../gameState.ts';
+import { mulberry32 } from '../rng.ts';
+import { hashWorldStateFull } from '../stateHashFull.ts';
+import { applyRadialDamage } from '../damage.ts';
+import {
+  makeStinkCloud,
+  stinkCloudExpiryTick,
+  stinkCloudProgress,
+  stinkCloudTick,
+  sweepExpiredStinkClouds,
+} from './stinkCloud.ts';
+import { asPlayerId, asPrimitiveId, asStinkCloudId } from '../../types.ts';
+import type { Primitive } from '../../game/primitive.ts';
+import type { Controls } from '../../input/controls.ts';
+import {
+  DOT_CADENCE_TICKS,
+  PRIMITIVE_MAX_HP,
+  SparkType,
+  STINK_AURA_DAMAGE,
+  STINK_BAG_RADIUS,
+  STINK_CLOUD_LIFETIME_TICKS,
+} from '../../constants.ts';
+
+const P0 = asPlayerId(0);
+const P1 = asPlayerId(1);
+const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+
+function deps(seed = 1): HostTickDeps {
+  return {
+    spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(seed)),
+    controls: stubControls,
+    botManager: null,
+    gameStateExtras: makeGameStateExtras(),
+    alivePeerIds: null,
+    hostSeats: new Map(),
+  } as unknown as HostTickDeps;
+}
+
+function make1v1(): World {
+  const w = makeWorld(0x6158);
+  dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+  w.gameState = 'PLAYING';
+  w.matchPhase = 'FIGHT';
+  w.creatures.clear();
+  return w;
+}
+
+function addPrimAt(world: World, seat: 0 | 1, x: number, y: number): Primitive {
+  const player = world.players.get(asPlayerId(seat))!;
+  const id = asPrimitiveId(world.nextPrimitiveId++);
+  const prim: Primitive = {
+    id, type: SparkType.Square,
+    placerColor: player.color, placedBy: player.id, createdTick: world.tick,
+    pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: player.color,
+    lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+  };
+  world.primitives.set(id, prim);
+  return prim;
+}
+
+/** A cloud at (500,500) owned by `owner`, landing on the tick the world is currently at. */
+function landCloud(w: World, owner = P0, idNum = 0) {
+  const id = asStinkCloudId(idNum);
+  const c = makeStinkCloud({
+    id, pos: { x: 500, y: 500 }, ownerPlayerId: owner,
+    landedAtTick: w.tick, radius: STINK_BAG_RADIUS,
+  });
+  w.stinkClouds.set(id, c);
+  return c;
+}
+
+describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
+  it('⭐ damages an ENEMY shape inside the radius on its cadence tick', () => {
+    const w = make1v1();
+    const victim = addPrimAt(w, 1, 520, 500); // 20 px from the cloud centre
+    const c = landCloud(w);
+    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS; // land exactly on this cloud's phase
+    expect(stinkCloudTick(w, c, applyRadialDamage), 'this must be a cadence tick').toBe(true);
+    expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP - STINK_AURA_DAMAGE);
+  });
+
+  it('does NOTHING on an off-cadence tick — the beat is the point, not a per-tick drip', () => {
+    const w = make1v1();
+    const victim = addPrimAt(w, 1, 520, 500);
+    const c = landCloud(w);
+    w.tick = ((c.id as unknown as number) % DOT_CADENCE_TICKS) + 1;
+    expect(stinkCloudTick(w, c, applyRadialDamage)).toBe(false);
+    expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP);
+  });
+
+  it('spares its OWNER — the contract every area hazard in this game holds', () => {
+    const w = make1v1();
+    const mine = addPrimAt(w, 0, 520, 500);
+    const c = landCloud(w, P0);
+    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    stinkCloudTick(w, c, applyRadialDamage);
+    expect(w.primitives.get(mine.id)!.hp).toBe(PRIMITIVE_MAX_HP);
+  });
+
+  it('reaches only its OWN radius, which it carries rather than re-reading the constant', () => {
+    const w = make1v1();
+    const inside = addPrimAt(w, 1, 500 + STINK_BAG_RADIUS - 5, 500);
+    const outside = addPrimAt(w, 1, 500 + STINK_BAG_RADIUS + 5, 500);
+    const c = landCloud(w);
+    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    stinkCloudTick(w, c, applyRadialDamage);
+    expect(w.primitives.get(inside.id)!.hp).toBeLessThan(PRIMITIVE_MAX_HP);
+    expect(w.primitives.get(outside.id)!.hp).toBe(PRIMITIVE_MAX_HP);
+  });
+
+  it('phase-spreads by id, so two clouds landing together do not pulse on one tick', () => {
+    // The property that keeps a barrage from spiking a frame. Ids 0 and 1 have different phases.
+    const w = make1v1();
+    const a = makeStinkCloud({ id: asStinkCloudId(0), pos: { x: 0, y: 0 }, ownerPlayerId: P0, landedAtTick: 0, radius: 90 });
+    const b = makeStinkCloud({ id: asStinkCloudId(1), pos: { x: 0, y: 0 }, ownerPlayerId: P0, landedAtTick: 0, radius: 90 });
+    w.tick = 0;
+    expect(stinkCloudTick(w, a, applyRadialDamage)).toBe(true);
+    expect(stinkCloudTick(w, b, applyRadialDamage)).toBe(false);
+  });
+
+  it('expires after exactly STINK_CLOUD_LIFETIME_TICKS, and the sweep removes it', () => {
+    const w = make1v1();
+    const c = landCloud(w);
+    expect(stinkCloudExpiryTick(c)).toBe(c.landedAtTick + STINK_CLOUD_LIFETIME_TICKS);
+    w.tick = stinkCloudExpiryTick(c) - 1;
+    sweepExpiredStinkClouds(w);
+    expect(w.stinkClouds.size, 'one tick short — still stinking').toBe(1);
+    w.tick = stinkCloudExpiryTick(c);
+    sweepExpiredStinkClouds(w);
+    expect(w.stinkClouds.size).toBe(0);
+  });
+
+  it('progress runs 0 → 1 and CLAMPS at both ends (the renderer divides by it)', () => {
+    const c = makeStinkCloud({ id: asStinkCloudId(0), pos: { x: 0, y: 0 }, ownerPlayerId: P0, landedAtTick: 100, radius: 90 });
+    expect(stinkCloudProgress(c, 50)).toBe(0); // before it landed (a rewound replay)
+    expect(stinkCloudProgress(c, 100)).toBe(0);
+    expect(stinkCloudProgress(c, 100 + STINK_CLOUD_LIFETIME_TICKS / 2)).toBeCloseTo(0.5);
+    expect(stinkCloudProgress(c, 100 + STINK_CLOUD_LIFETIME_TICKS)).toBe(1);
+    expect(stinkCloudProgress(c, 10_000)).toBe(1);
+  });
+});
+
+describe('S158 P6 — ⛔ THE BLIND LOB, which had never once fired', () => {
+  /**
+   * Builds a real stink tower through the real reducer, exactly as the worker-differential harness
+   * does: the geometry has to be genuinely on the board or the host re-validation poll tears the
+   * defender down within a tick.
+   */
+  function worldWithStinkTower(): World {
+    const w = make1v1();
+    const player = w.players.get(P0)!;
+    const mk = (type: SparkType, x: number, y: number): Primitive => {
+      const id = asPrimitiveId(w.nextPrimitiveId++);
+      const prim: Primitive = {
+        id, type, placerColor: player.color, placedBy: P0, createdTick: w.tick,
+        pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: player.color,
+        lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+      };
+      w.primitives.set(id, prim);
+      return prim;
+    };
+    // 1 Square hub + 3 Circle leaves — the shipped stinkTower recipe.
+    const hub = mk(SparkType.Square, 760, 300);
+    for (let i = 0; i < 3; i++) {
+      const ang = (i / 3) * Math.PI * 2;
+      const leaf = mk(SparkType.Circle, 760 + Math.cos(ang) * 40, 300 + Math.sin(ang) * 40);
+      const bondId = w.nextBondId++ as unknown as never;
+      w.bonds.set(bondId, {
+        id: bondId, aId: hub.id, bId: leaf.id, a: hub, b: leaf,
+        restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick,
+      } as never);
+      hub.bonds.add(bondId);
+      leaf.bonds.add(bondId);
+    }
+    dispatch(w, {
+      type: 'REGISTER_DEFENDER', defenderKind: 'stinkTower', ownerPlayerId: P0,
+      anchorPrimitiveId: hub.id, recipeId: 'stinkTower', pos: { x: 760, y: 300 },
+    });
+    return w;
+  }
+
+  it('⭐ a tower with NO enemy in range still throws — and the bag stays on the ground', () => {
+    const w = worldWithStinkTower();
+    expect(w.defenders.size, 'the tower must survive re-validation, or this proves nothing').toBe(1);
+    const before = [...w.defenders.values()][0]!.bagsRemaining;
+
+    const d = deps();
+    const st = makeHostTickState(w);
+    // Long enough for the first cadence (STINK_THROW_INTERVAL_TICKS 240) plus its wind-up.
+    for (let t = 0; t < 320; t++) runHostTick(w, d, st);
+
+    // BEFORE THE FIX both of these were 0/unchanged: WINDUP armed with a null target and the
+    // `targetValid` guard aborted it one tick later, every single time, forever.
+    expect([...w.defenders.values()][0]!.bagsRemaining, 'a bag must actually have been spent').toBeLessThan(before);
+    expect(w.stinkClouds.size, 'and it must have left a cloud behind').toBeGreaterThan(0);
+  });
+
+  it('the cloud outlives its TOWER — a hazard, not an aura', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let t = 0; t < 320; t++) runHostTick(w, d, st);
+    expect(w.stinkClouds.size).toBeGreaterThan(0);
+
+    // Raze the tower outright. The ground it fouled must stay foul — which is why the cloud loop
+    // lives beside the defender fan-out rather than inside it.
+    w.defenders.clear();
+    runHostTick(w, d, st);
+    expect(w.stinkClouds.size).toBeGreaterThan(0);
+  });
+
+  it('CONTROL — clouds are swept, so they cannot accumulate for the whole match', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let t = 0; t < 900; t++) runHostTick(w, d, st);
+    // A lifetime is exactly one throw interval, so the population self-limits at one or two rather
+    // than growing with every bag. If the sweep were dropped this would climb with the bag count.
+    expect(w.stinkClouds.size).toBeLessThanOrEqual(2);
+  });
+
+  it('⭐ is DETERMINISTIC: two identical runs agree on hashWorldStateFull every tick', () => {
+    const a = worldWithStinkTower();
+    const b = worldWithStinkTower();
+    const da = deps(21);
+    const db = deps(21);
+    const sa = makeHostTickState(a);
+    const sb = makeHostTickState(b);
+    for (let t = 0; t < 320; t++) {
+      runHostTick(a, da, sa);
+      runHostTick(b, db, sb);
+      expect(hashWorldStateFull(a), `divergence at tick ${t}`).toBe(hashWorldStateFull(b));
+    }
+    expect(a.stinkClouds.size, 'and the run must actually have produced clouds').toBeGreaterThan(0);
+  });
+});
+
+describe('S158 P6 — teardown', () => {
+  it('clouds clear on GODLY_ABORT alongside every other entity family', () => {
+    const w = make1v1();
+    landCloud(w);
+    expect(w.stinkClouds.size).toBe(1);
+    dispatch(w, { type: 'GODLY_ABORT' });
+    expect(w.stinkClouds.size).toBe(0);
+    expect(w.nextStinkCloudId).toBe(0);
+  });
+
+  it('and on RETURN_TO_TITLE — no cloud survives into the next match', () => {
+    const w = make1v1();
+    landCloud(w);
+    dispatch(w, { type: 'RETURN_TO_TITLE' });
+    expect(w.stinkClouds.size).toBe(0);
+  });
+
+  it('CONTROL — P1 is not spared by a P0 cloud (the spare is OWNER-scoped, not global)', () => {
+    const w = make1v1();
+    const theirs = addPrimAt(w, 1, 505, 500);
+    const c = landCloud(w, P1); // owned by the OTHER seat this time
+    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    stinkCloudTick(w, c, applyRadialDamage);
+    expect(w.primitives.get(theirs.id)!.hp, 'P1 owns this shape and owns the cloud').toBe(PRIMITIVE_MAX_HP);
+  });
+});

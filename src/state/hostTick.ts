@@ -75,6 +75,9 @@ import {
   distSq, // S158 P3 — the goblin bomber's arrival test (shape or acquired unit)
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
+// S158 P6 — the landed stink bag's damage beat + expiry sweep (CF-S157-b).
+import { stinkCloudTick, sweepExpiredStinkClouds } from './defenders/stinkCloud.ts';
+import { applyRadialDamage } from './damage.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
 import { componentOf } from '../game/structure.ts';
 import { razePrimitives } from './razePrimitives.ts';
@@ -601,6 +604,30 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       if (world.matchPhase !== 'FIGHT') continue;
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
+  }
+
+  /*
+   * ⭐ S158 P6 (CF-S157-b) — LANDED STINK BAGS keep stinking after the tower that threw them.
+   *
+   * ⚠ ITS OWN LOOP, NOT A BRANCH INSIDE THE DEFENDER FAN-OUT ABOVE, AND THAT IS THE POINT. A cloud
+   * OUTLIVES its tower — that is most of what makes it a hazard rather than an aura — so hanging it
+   * off the defender loop would silently kill every cloud the moment its tower was destroyed, which
+   * is precisely the moment a player most wants the ground to stay foul.
+   *
+   * FIGHT-gated like every other weapon (S149 R5: nothing attacks during BUILD), but the SWEEP runs
+   * unconditionally below so a cloud thrown in the last second of a fight cannot survive into the
+   * next build stage as an invisible minefield.
+   */
+  if (world.gameState === 'PLAYING' && world.stinkClouds.size > 0) {
+    if (world.matchPhase === 'FIGHT') {
+      // Snapshot the values first: `applyRadialDamage` can delete primitives and creatures, and one
+      // day may delete a cloud, and mutating a map mid-iteration is where replay divergence hides.
+      for (const c of [...world.stinkClouds.values()]) {
+        if (!world.stinkClouds.has(c.id)) continue; // defensive: a sibling tick removed it
+        stinkCloudTick(world, c, applyRadialDamage);
+      }
+    }
+    sweepExpiredStinkClouds(world);
   }
 
   /*

@@ -47,7 +47,9 @@ import {
   STINK_DEATH_BLAST_ATK,
   STINK_DEATH_BLAST_PEN,
 } from '../../constants.ts';
-import type { PlayerId, Vec2 } from '../../types.ts';
+import { asStinkCloudId, type PlayerId, type Vec2 } from '../../types.ts';
+// S158 P6 — the landed bag this throw leaves behind (CF-S157-b).
+import { makeStinkCloud } from './stinkCloud.ts';
 import type { DamageSource } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import { mix32, pseudoRand } from '../rng.ts';
@@ -202,6 +204,30 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
     world, at.x, at.y, STINK_BAG_RADIUS,
     STINK_BAG_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
     'hazard', d.ownerPlayerId,
+  );
+  /*
+   * ⭐ S158 P6 (CF-S157-b) — AND THE BAG STAYS WHERE IT FELL.
+   *
+   * Owner: a thrown bag should *land and stink over time*. Until now this function was the bag's
+   * entire life — one splash, in the tick it arrived — so the only lasting smell in the game was the
+   * aura around the tower itself, and everything it threw was a flash. S157 shipped a 12-frame atlas
+   * for the landed bag and nothing in src/ ever referenced it.
+   *
+   * ⚠ THE IMPACT ABOVE IS UNCHANGED, deliberately. The cloud is what the bag LEAVES BEHIND, not a
+   * replacement for the hit — so every shipped number, test and balance read on the throw still
+   * holds, and this priority adds only the residue. See `stinkCloud.ts` for why the cloud reuses the
+   * tower's own aura numbers rather than minting a second stink economy.
+   */
+  const id = asStinkCloudId(world.nextStinkCloudId++);
+  world.stinkClouds.set(
+    id,
+    makeStinkCloud({
+      id,
+      pos: at,
+      ownerPlayerId: d.ownerPlayerId,
+      landedAtTick: world.tick,
+      radius: STINK_BAG_RADIUS,
+    }),
   );
   return true;
 }

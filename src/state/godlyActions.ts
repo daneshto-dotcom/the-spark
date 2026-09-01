@@ -125,6 +125,10 @@ export function applyGodlyAbort(world: World): World {
   // S136 P1 — and the castle banks, on the same inline rationale as the line above.
   world.castleBanks.clear();
   world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
+  // S158 P6 — and the landed stink bags, on the same inline rationale as every line above: a cloud
+  // outliving the tower that threw it would keep damaging a board nobody is playing on any more.
+  world.stinkClouds.clear();
+  world.nextStinkCloudId = 0;
   /*
    * ⭐ S158 P4 (CF-S157-f) — THE ONE THING THE TEARDOWN FORGOT.
    *

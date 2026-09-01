@@ -208,6 +208,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.seagulls.clear();
   world.nextSeagullId = 0;
   world.poops.clear();
+  // S158 P6 — landed stink bags clear with every other hazard (CF-S157-b).
+  world.stinkClouds.clear();
+  world.nextStinkCloudId = 0;
   world.nextPoopId = 0;
   world.fouledPrimitives.clear();
   // S100 P1 (TD Phase 1a) — clear any lingering spawner at match start (same all-hazards
@@ -425,6 +428,9 @@ export function applyReturnToTitle(world: World): World {
   world.seagulls.clear();
   world.nextSeagullId = 0;
   world.poops.clear();
+  // S158 P6 — landed stink bags clear with every other hazard (CF-S157-b).
+  world.stinkClouds.clear();
+  world.nextStinkCloudId = 0;
   world.nextPoopId = 0;
   world.fouledPrimitives.clear();
   // S100 P1 (TD Phase 1a) — clear creature spawners on title-return (mirror of the other

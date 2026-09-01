@@ -541,6 +541,9 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
       creatures: 0, creatureSpawners: 0, defenders: 0, bombs: 0, hunters: 0,
       potatoes: 0, rainbows: 0, seagulls: 0, poops: 0, fouledPrimitives: 0,
       gatherers: 0, castleBanks: 0, gathererOrders: 0,
+      // S158 P6 (CF-S157-b) — landed stink bags. Seeded NATURALLY by seedStinkTower (S156 P3): the
+      // tower throws on its own cadence during the run, and every bag it throws leaves one of these.
+      stinkClouds: 0,
     };
     const observePeaks = (w: World): void => {
       for (const key of Object.keys(peak) as Array<keyof typeof peak>) {
@@ -668,6 +671,13 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
       // sim-worker disagreed about the first shot of every new tower. See the fix in
       // `defenderLifecycle.ts`. The guard failed the moment it was given something to compare.
       ['defenders', peak.defenders, null],
+      // ⭐ S158 P6 (CF-S157-b) — ASSERTED, not acknowledged, and it costs nothing to assert because
+      // S156 P3 already seeded the tower that produces them. That is the payoff of closing the
+      // `defenders` hole rather than papering over it: the next family downstream of a real defender
+      // arrives seeded for free. A landed bag is hashed and projected like any other entity, so a
+      // host and a `?worker=1` mirror disagreeing about one would diverge here rather than in a
+      // playtest, which is the whole point of this harness.
+      ['stinkClouds', peak.stinkClouds, null],
     ];
 
     for (const [name, size, acknowledged] of SEEDING_COVERAGE) {

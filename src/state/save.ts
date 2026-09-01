@@ -52,6 +52,7 @@ import {
   type PotatoId,
   type RainbowId,
   type PoopId,
+  type StinkCloudId,
   type PrimitiveId,
   type SeagullId,
   type SparkId,
@@ -72,6 +73,8 @@ import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
+// S158 P6 — landed stink bags ride the snapshot; the factory keeps rehydration total.
+import { makeStinkCloud, type StinkCloud } from './defenders/stinkCloud.ts';
 import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
 import {
   makeDefender,
@@ -268,6 +271,8 @@ export interface WorldSnapshot {
    */
   seagulls?: SerializedSeagull[];
   poops?: SerializedPoop[];
+  /** S158 P6 — landed stink bags. Additive-optional: omitted when empty (byte-identical pre-S158). */
+  stinkClouds?: SerializedStinkCloud[];
   fouledPrimitives?: PrimitiveId[];
   /**
    * S87 — seats occupied by AI bots in 'bots' mode. Additive-optional
@@ -860,6 +865,25 @@ interface SerializedPoop {
   readonly fouledPrimId?: PrimitiveId;
 }
 
+/**
+ * ⭐ S158 P6 (CF-S157-b) — a LANDED stink bag on the wire.
+ *
+ * EVERY field round-trips, and that is deliberate rather than lazy: a cloud has no host-only state
+ * to omit. `landedAtTick` is the absolute tick it landed (the client derives both the expiry and the
+ * atlas frame from it), and `radius` is stored per-cloud so a joiner mid-match sees the bag at the
+ * size it was actually thrown at, not the size the constant happens to be in its build.
+ *
+ * ⛔ A CLIENT THAT COULD NOT SEE THESE would draw clean ground its units are dying on — exactly the
+ * class of blind spot S156 P3 closed for `defenders`, which had hidden a live desync for 13 sessions.
+ */
+interface SerializedStinkCloud {
+  readonly id: StinkCloudId;
+  readonly pos: Vec2;
+  readonly ownerPlayerId: PlayerId;
+  readonly landedAtTick: number;
+  readonly radius: number;
+}
+
 export function snapshot(
   world: World,
   // S82 P2 — host-only extras injected by the SAVE call site. The Spawner is not part of
@@ -960,6 +984,12 @@ export function snapshot(
       ? [...world.seagulls.values()].map(serializeSeagull)
       : undefined,
     poops: world.poops.size > 0 ? [...world.poops.values()].map(serializePoop) : undefined,
+    // S158 P6 — same additive-optional shape: absent when there are none, so a match with no stink
+    // tower produces byte-identical snapshots to pre-S158.
+    stinkClouds:
+      world.stinkClouds.size > 0
+        ? [...world.stinkClouds.values()].map(serializeStinkCloud)
+        : undefined,
     fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
     // S87 — emit bot seats only when present (byte-identical pre-S87 + on the wire,
     // where bots can never exist).
@@ -1345,6 +1375,20 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((p.id as number) > maxPoopId) maxPoopId = p.id as number;
     }
     if (maxPoopId >= 0) world.nextPoopId = maxPoopId + 1;
+  }
+  // ⭐ S158 P6 (CF-S157-b) — landed stink bags. Same clear-then-rehydrate-then-advance-the-cursor
+  // shape as every family above, and the cursor advance is the load-bearing part: a host that
+  // resumed from a snapshot with a cursor of 0 would re-mint ids already in the map and overwrite
+  // live clouds — the failure this pattern exists to prevent.
+  world.stinkClouds.clear();
+  world.nextStinkCloudId = 0;
+  if (snap.stinkClouds !== undefined) {
+    let maxCloudId = -1;
+    for (const c of snap.stinkClouds) {
+      world.stinkClouds.set(c.id, deserializeStinkCloud(c));
+      if ((c.id as number) > maxCloudId) maxCloudId = c.id as number;
+    }
+    if (maxCloudId >= 0) world.nextStinkCloudId = maxCloudId + 1;
   }
   // S77 P3 — fouled-primitives (host income-halt set). Round-trips so a host save/load + replay
   // resumes the income halt exactly; the client stores-but-ignores it (never computes income).
@@ -2310,6 +2354,28 @@ function deserializeSeagull(s: SerializedSeagull): Seagull {
     spawnedAtTick: 0,
     lastPoopTick: s.lastPoopTick,
   };
+}
+
+/** S158 P6 — a landed stink bag serializes whole; it carries no host-only state. */
+function serializeStinkCloud(c: StinkCloud): SerializedStinkCloud {
+  return {
+    id: c.id,
+    pos: { x: c.pos.x, y: c.pos.y },
+    ownerPlayerId: c.ownerPlayerId,
+    landedAtTick: c.landedAtTick,
+    radius: c.radius,
+  };
+}
+
+/** S158 P6 — rehydrate a landed stink bag. Total: every field came over the wire. */
+function deserializeStinkCloud(s: SerializedStinkCloud): StinkCloud {
+  return makeStinkCloud({
+    id: s.id,
+    pos: s.pos,
+    ownerPlayerId: s.ownerPlayerId,
+    landedAtTick: s.landedAtTick,
+    radius: s.radius,
+  });
 }
 
 /** S77 P3 — poop serialize. prevPos/spawnedAtTick host-only + omitted. */

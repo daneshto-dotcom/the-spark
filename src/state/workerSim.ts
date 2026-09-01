@@ -333,6 +333,13 @@ export function structuralSignature(world: World): string {
     world.rainbows.size,
     world.seagulls.size,
     world.poops.size,
+    // ⭐ S158 P6 (CF-S157-b) — LANDED STINK BAGS, on the same rationale as every entity above: this
+    // signature is one of the two UNFORCED serialization sites (nothing makes tsc fail if a family
+    // is omitted), and a cloud is authoritative sim state that deals damage. Without this term a bag
+    // landing changes no other size in this view — the throw does not create or destroy anything
+    // else — so the render mirror would not be told the ground had turned foul until the 100 ms
+    // floor batch happened to fire, and would draw clean ground the player's units were dying on.
+    world.stinkClouds.size,
     world.fouledPrimitives.size,
     world.discoveredCombos.size,
     world.sudoku === null ? 0 : 1,

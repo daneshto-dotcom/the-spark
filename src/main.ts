@@ -186,6 +186,8 @@ import { ComboToastRenderer } from './render/comboToastRenderer.ts';
 import { SeverToastRenderer } from './render/severToastRenderer.ts';
 import { SeagullRenderer } from './render/seagullRenderer.ts';
 import { PoopRenderer } from './render/poopRenderer.ts';
+// ⭐ S158 P6 (CF-S157-b) — landed stink bags: the S157 atlas, finally drawn.
+import { StinkCloudRenderer } from './render/stinkCloudRenderer.ts';
 import { ScreenShake, shouldTriggerNonetResolveShake } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
@@ -646,6 +648,12 @@ async function bootstrap(): Promise<void> {
   // player — so it renders through the fog to all). Poops render above the gull's body layer.
   const seagullRenderer = new SeagullRenderer(app, aboveFogLayer);
   const poopRenderer = new PoopRenderer(app, aboveFogLayer);
+  /*
+   * ⭐ S158 P6 — landed stink bags, on `aboveFogLayer` for the same reason the poops are: a hazard
+   * you cannot see is not a hazard, it is an ambush. Its damage does not care about fog, so hiding
+   * the marker behind fog would let a player lose a unit to ground they were never shown.
+   */
+  const stinkCloudRenderer = new StinkCloudRenderer(app, aboveFogLayer);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -3203,6 +3211,8 @@ async function bootstrap(): Promise<void> {
     // S77 P3 — seagull (flapping gull + shadow) + poop (falling/splat), before the effects wipe.
     seagullRenderer.sync(world);
     poopRenderer.sync(world);
+    // S158 P6 — the landed bags (haze at the true damage radius + the atlas on top).
+    stinkCloudRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);
