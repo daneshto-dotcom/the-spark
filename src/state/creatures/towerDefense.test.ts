@@ -271,7 +271,43 @@ describe('Chew loop — 5 hits sever exactly on the 5th; no re-seek mid-chew', (
   });
 });
 
-describe('Caps — global / per-spawner / per-victim; independent populations', () => {
+/**
+ * ⭐ S158 P2 — WHY THESE TESTS NO LONGER ENUMERATE TO THE CAP, AND WHAT THAT UNCOVERED.
+ *
+ * ## 1. The cost, which had become a coin-flip on every deploy
+ *
+ * S157 B8b turned the chewer caps OFF the only way a constant can be turned off — by raising all
+ * three to `10_000` ("owner: no cap — sentinel backstop only"). Every test in this block looped to
+ * `CAP + k`, and every iteration called `underChewerCaps`, which scans the whole creature map. So the
+ * loops silently became O(n²) at n = 10 000. The per-victim test alone took **2.1 s** in isolation
+ * and **TIMED OUT at vitest's 5 s default** under full-suite parallelism.
+ *
+ * `npx vitest run` is a gating step in `deploy.yml`. A suite that fails on a busy runner is a deploy
+ * that fails at random, for a reason nobody would go looking for in a cap test. It was reported as
+ * 3220/3220 at the S157 close and measured 3219/3220 at the S158 boot — same code, different machine
+ * load. **The fix is the cost, not the timeout**: raising `testTimeout` would hide it and hand the
+ * problem back the moment a runner got busier.
+ *
+ * The population is now built by CLONING one real spawned chewer, so the records are exactly what
+ * the spawn path produces, and the cap scan is paid once at the boundary instead of 10 000 times.
+ *
+ * ## 2. ⛔ And the old per-victim and per-spawner assertions were VACUOUS
+ *
+ * Visible only while fixing the cost: B8b set all three sentinels to the **same** `10_000`. The old
+ * per-victim test spawned `CHEWER_MAX_PER_VICTIM + 4` chewers across distinct spawners and asserted
+ * (a) at most CAP were committed to the victim, and (b) `underChewerCaps` then reported `false`.
+ * **Both are fully satisfied by the GLOBAL cap**, which bites at the identical count — so neither
+ * assertion could distinguish the per-victim rule from the global one, and both would still pass
+ * with the per-victim branch deleted outright. The per-spawner test has the same shape and the same
+ * hole.
+ *
+ * While the three constants are equal, the per-spawner and per-victim boundaries are **not
+ * independently reachable**, so no honest test can pin them. Rather than keep two expensive tests
+ * that prove something they do not prove, this block now pins the sentinel that IS observable, and
+ * adds a TRIPWIRE that goes red the moment the constants stop being equal — which is exactly when
+ * real per-spawner / per-victim coverage becomes both possible and necessary.
+ */
+describe('Caps — the sentinel backstop; independent populations', () => {
   function worldWithPlayers(n: number): World {
     const world = makeWorld(0);
     world.players.clear();
@@ -281,62 +317,92 @@ describe('Caps — global / per-spawner / per-victim; independent populations', 
     return world;
   }
 
-  it('per-spawner cap: a single spawner cannot exceed CHEWER_MAX_PER_SPAWNER', () => {
-    const world = worldWithPlayers(2);
-    for (let i = 0; i < CHEWER_MAX_PER_SPAWNER + 3; i++) {
-      spawnChewer(world, { x: i * 10, y: 0 }, 0);
+  /**
+   * Fill the creature map to exactly `n` chewers by cloning one REAL spawn — O(n), where `n` real
+   * spawns would be O(n²) because each one re-scans the whole map for the cap.
+   *
+   * ⚠ The seed comes from `applySpawnCreature`, not a hand-written literal, so the clones carry every
+   * field the real path sets. A literal would drift the first time `Creature` grows a field, and
+   * would then be quietly testing a shape the game never produces.
+   *
+   * ⚠ `pos`/`prevPos`/`targetPos` are COPIED rather than shared. A bare spread would alias one vector
+   * across 10 000 records, so a single mutation would move the whole swarm at once — harmless for
+   * counting, and a trap for whoever next builds a movement assertion on this helper.
+   */
+  function fillChewers(world: World, n: number, spreadSpawners = true): void {
+    spawnChewer(world, { x: 0, y: 0 }, 0);
+    const seed = [...world.creatures.values()].at(-1);
+    expect(seed, 'the seed spawn must land, or every clone below is vacuous').toBeDefined();
+    for (let i = world.creatures.size; i < n; i++) {
+      const id = asCreatureId(world.nextCreatureId++);
+      world.creatures.set(id, {
+        ...seed!,
+        id,
+        pos: { ...seed!.pos },
+        prevPos: { ...seed!.prevPos },
+        targetPos: { ...seed!.targetPos },
+        sourceSpawnerId: asSpawnerId(spreadSpawners ? i : 0),
+      });
     }
-    const fromSpawner0 = [...world.creatures.values()].filter(
-      (c) => c.sourceSpawnerId === asSpawnerId(0),
-    ).length;
-    expect(fromSpawner0).toBe(CHEWER_MAX_PER_SPAWNER);
-  });
+    expect(world.creatures.size, 'fill must land exactly on n').toBe(n);
+  }
 
-  it('global cap: total live chewers cannot exceed CHEWER_MAX_GLOBAL across many spawners', () => {
+  it('⭐ the sentinel backstop flips EXACTLY at the cap, and refuses through the real spawn path', () => {
     const world = worldWithPlayers(2);
-    // Use many distinct spawners so the per-spawner cap never bites first.
-    for (let s = 0; s < CHEWER_MAX_GLOBAL + 5; s++) {
-      spawnChewer(world, { x: s * 7, y: 0 }, s);
-    }
+    fillChewers(world, CHEWER_MAX_GLOBAL - 1);
+
+    // One short of the cap the gate is OPEN — the half the old ≤-cap assertion never checked, and
+    // the half that fails if someone makes the comparison off-by-one in the safe-looking direction.
+    expect(underChewerCaps(world, asSpawnerId(999))).toBe(true);
+    spawnChewer(world, { x: 1, y: 0 }, 999);
+    expect(world.creatures.size).toBe(CHEWER_MAX_GLOBAL);
+
+    // AT the cap the gate is SHUT, and the refusal runs through the real spawn path rather than the
+    // predicate alone — five more attempts add nothing.
+    expect(underChewerCaps(world, asSpawnerId(1000))).toBe(false);
+    for (let s = 0; s < 5; s++) spawnChewer(world, { x: s * 7, y: 0 }, 2000 + s);
     expect(world.creatures.size).toBe(CHEWER_MAX_GLOBAL);
   });
 
-  it('per-victim cap: at most CHEWER_MAX_PER_VICTIM chewers committed to one victim', () => {
+  it('⚠ TRIPWIRE — the three caps are one sentinel today, so per-spawner/per-victim cannot be tested', () => {
+    /*
+     * Not a behaviour assertion — a NOTICE with teeth. While the three constants are equal the global
+     * cap always bites first (or simultaneously), so any test claiming to prove the per-spawner or
+     * per-victim rule is actually proving the global one. That is exactly how the two tests this
+     * replaced passed while asserting nothing.
+     *
+     * If you LOWER either of these below the global cap you have made that rule reachable again, and
+     * this goes red to say so. That is the moment to write the real boundary tests: fill to `CAP - 1`
+     * with `fillChewers(world, n, false)` for per-spawner (all one spawner), assert the gate open,
+     * spawn one, assert it shut — while the global count stays comfortably below its own cap, so the
+     * assertion cannot be satisfied by the wrong rule.
+     */
+    expect(
+      CHEWER_MAX_PER_SPAWNER,
+      'per-spawner cap is now below global — it is independently reachable, so write its boundary test',
+    ).toBeGreaterThanOrEqual(CHEWER_MAX_GLOBAL);
+    expect(
+      CHEWER_MAX_PER_VICTIM,
+      'per-victim cap is now below global — it is independently reachable, so write its boundary test',
+    ).toBeGreaterThanOrEqual(CHEWER_MAX_GLOBAL);
+  });
+
+  it('the per-victim hint is ACCEPTED and cannot flip a healthy gate shut', () => {
+    // The one thing about the per-victim branch that IS observable while the sentinels are equal:
+    // passing the optional hint must not change the answer below the cap. If a future edit let the
+    // victim tally leak into the global one — an easy mistake, they share a single loop — this reddens.
     const world = worldWithPlayers(2);
-    // Give each chewer a committed enemy bond owned by player 1, then keep emitting
-    // with a victimPlayerId hint — underChewerCaps counts chewers whose targetBondId
-    // belongs to that victim.
-    let bondCount = 0;
-    for (let i = 0; i < CHEWER_MAX_PER_VICTIM + 4; i++) {
-      const bond = addEnemyBond(world, 100 + i, 200 + i * 2, 201 + i * 2, 40 + i, 0, PLAYER_COLORS[1], 1);
-      // distinct spawner per chewer so per-spawner cap never blocks the per-victim assertion
-      spawnChewer(world, { x: i, y: 0 }, 50 + i, 0, 1);
-      // commit the freshly-spawned chewer (if it spawned) to the victim's bond
-      const all = [...world.creatures.values()];
-      const last = all[all.length - 1];
-      if (last !== undefined && last.sourceSpawnerId !== null) {
-        last.targetBondId = bond;
-      }
-      bondCount++;
-    }
-    void bondCount;
-    const committedToVictim1 = [...world.creatures.values()].filter((c) => {
-      if (c.targetBondId === null) return false;
-      const b = world.bonds.get(c.targetBondId);
-      if (b === undefined) return false;
-      return world.primitives.get(b.aId)?.placedBy === asPlayerId(1);
-    }).length;
-    expect(committedToVictim1).toBeLessThanOrEqual(CHEWER_MAX_PER_VICTIM);
-    // underChewerCaps reports the victim cap is saturated.
-    expect(underChewerCaps(world, asSpawnerId(999), asPlayerId(1))).toBe(false);
+    const bond = addEnemyBond(world, 100, 200, 201, 40, 0, PLAYER_COLORS[1], 1);
+    fillChewers(world, 8);
+    for (const c of world.creatures.values()) c.targetBondId = bond;
+    expect(underChewerCaps(world, asSpawnerId(0), asPlayerId(1))).toBe(true);
+    expect(underChewerCaps(world, asSpawnerId(0), asPlayerId(0))).toBe(true);
+    expect(underChewerCaps(world, asSpawnerId(0))).toBe(true);
   });
 
   it('independent populations: a saturated chewer swarm does NOT block a Voltkin summon', () => {
     const world = worldWithPlayers(2);
-    // Saturate the global chewer cap.
-    for (let s = 0; s < CHEWER_MAX_GLOBAL; s++) {
-      spawnChewer(world, { x: s * 7, y: 0 }, s);
-    }
+    fillChewers(world, CHEWER_MAX_GLOBAL); // saturated
     expect(world.creatures.size).toBe(CHEWER_MAX_GLOBAL);
     // A Voltkin summon (sourceSpawnerId == null) must still succeed — it is counted
     // against the null-population only (currently 0 for this owner).
@@ -361,12 +427,11 @@ describe('Caps — global / per-spawner / per-victim; independent populations', 
       pos: { x: 0, y: 0 },
       targetPos: { x: 10, y: 10 },
     });
-    // Now the chewer global cap should still allow CHEWER_MAX_GLOBAL chewers.
-    for (let s = 0; s < CHEWER_MAX_GLOBAL; s++) {
-      spawnChewer(world, { x: s * 7, y: 0 }, s);
-    }
+    // The Voltkin is live; the chewer population must still reach its own full cap beside it.
+    fillChewers(world, CHEWER_MAX_GLOBAL + 1); // +1 = the Voltkin already occupying a map slot
+    expect(underChewerCaps(world, asSpawnerId(1))).toBe(false); // chewers saturated…
     const chewers = [...world.creatures.values()].filter((c) => c.sourceSpawnerId !== null);
-    expect(chewers.length).toBe(CHEWER_MAX_GLOBAL);
+    expect(chewers.length).toBe(CHEWER_MAX_GLOBAL); // …at exactly CAP, the Voltkin costing nothing
   });
 });
 
