@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3787,
+  "tool_calls_session_total": 3808,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -156,17 +156,103 @@
       "id": "P2",
       "priority_id": "S159-P2",
       "name": "Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred)",
-      "status": "in_progress",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "Voltkin chain lightning — the bolt walks up to 6 links over enemy units AND connectors, three-phase (compute / damage / sever), no new effect kind and no protocol bump",
+      "tier": "Standard",
+      "check_method": "RALPH:PATROL + empirical. (1) GEMINI's R1 prescription implemented verbatim: seven enemies in a line 100 px apart (inside the 120 px hop), the Voltkin zaps the first, and the test asserts WHICH one lives rather than how many died — survivor id 16 = the far end of the line, killCount exactly 6. A broken tie-break leaves a different survivor. (2) NEGATIVE CONTROLS RUN, two at once: both call sites unwired AND the creature tie-break's id compare replaced with `false` -> 4 of 14 tests red, including the seven-in-a-line case. (3) A CAUGHT DEFECT, not a hypothetical: the first cut hand-rolled the enemy test as `anchor.placedBy === attacker.ownerPlayerId`. The shipped discriminant is endpoint `placerColor` vs the owner's LIVE colour — `findNearestEnemyPrimitiveFrom` records that a territory-captured shape keeps its original allegiance for targeting, and a rainbow colour shuffle remaps colours without touching `placedBy`. Replaced with the exported `isEnemyBond` and pinned by a captured-shape test that FAILS on the hand-rolled version. (4) 14 tests: cap, hop-range gate, no-revisit, enemy-only, within-kind tie-break with reversed insertion order, cross-kind order (creature beats bond at equal distance), connector chaining, chewer-does-not-chain (asserted via the neighbour's damageFifths staying 0, so not even banked damage leaks), purity (twice on one world = same answer, world.effects still empty), and the single-zap case still emitting exactly ONE arc. (5) 3374/3374 across 214 files, tsc 0, build 764.2/900 KiB. ⚠ HONEST NOTE ON THE REPLAY GUARDS: creatureAI/hostTick.differential/save.replay pin Voltkin behaviour but they are DIFFERENTIAL (two sims against each other), so they pass a deliberate behaviour change without noticing it. Nothing in the suite holds a golden Voltkin value — stated rather than presented as proof of byte-equivalence, because the behaviour DID change, by owner request.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "needle": "export function voltkinChainFrom("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "needle": "export function applyVoltkinChain("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "needle": "if (!isEnemyBond(world, attacker, b)) continue;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "needle": "if (anchor.placedBy"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "pattern": "ARC_FLASH",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const VOLTKIN_CHAIN_HOP_RANGE = 120;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "S159 P2 — CHAIN LIGHTNING IS IMPLEMENTED"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "CHAIN LIGHTNING IS NOT IMPLEMENTED"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAttack.ts",
+          "pattern": "applyVoltkinChain\\(world, creature",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 14
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts",
+          "needle": "expect(alive[0].id).toBe(line[6].id);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 38 as const;"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
+          "pattern": "isEnemyBond",
+          "op": ">=",
+          "value": 2
+        }
+      ]
     },
     {
       "id": "P3",
       "priority_id": "S159-P3",
       "name": "the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -223,6 +309,16 @@
       "priority": "S159-P1",
       "lesson": "**A NEGATIVE CONTROL IS WORTH MORE THAN THE ASSERTION IT PROTECTS.** With the four-line steering insert removed, the bag still DISAPPEARED — it expired on its own timer at tick 210 — so \"the bag is gone\" passes on a completely unwired build. What separates the two worlds is `killCount`: 1 when a unit struck it, 0 when it merely rotted. **Run the test against the broken build before believing the green one**, and prefer an assertion that names the MECHANISM over one that names the outcome, because outcomes have more than one cause.",
       "tag": "#negative-control-before-believing-green"
+    },
+    {
+      "priority": "S159-P2",
+      "lesson": "**A HAND-ROLLED PREDICATE IS A SECOND SOURCE OF TRUTH, AND IT WILL DISAGREE WITH THE FIRST.** The chain's first cut asked `anchor.placedBy === attacker.ownerPlayerId` for enemy-ness. Plausible, compiles, passes a naive fixture — and it is a DIFFERENT QUESTION from the one the game asks. The shipped rule is endpoint `placerColor` vs the owner's LIVE colour, because a captured shape keeps its original allegiance for targeting and a colour shuffle remaps colours without touching `placedBy`. **When a rule already exists as an exported function, call it — the cost of re-deriving it is not the typing, it is that the two copies drift and only one of them is tested.**",
+      "tag": "#call-the-existing-predicate"
+    },
+    {
+      "priority": "S159-P2",
+      "lesson": "**DIFFERENTIAL GUARDS DO NOT NOTICE A DELIBERATE BEHAVIOUR CHANGE, AND THAT CUTS BOTH WAYS.** Three test files are documented as pinning Voltkin behaviour byte-identically, and all three stayed green through a change that gives the Voltkin five extra targets per strike — because they compare two SIMS against each other, not against a golden value. That is the right design for desync hunting and the wrong thing to cite as evidence of byte-equivalence. **Say which kind of guard you have before claiming what its green means.**",
+      "tag": "#differential-is-not-golden"
     }
   ],
   "totals": {

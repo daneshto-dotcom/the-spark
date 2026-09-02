@@ -1579,15 +1579,44 @@ export const PRINCESS_DEF = 4;
 /**
  * VOLTKIN — "3 atk (chain lightning …) 6 pierce. 8hp, and 3 def". HP lives in VOLTKIN_HP above
  * (unchanged at 8 since owner R71).
- * ⚠ CHAIN LIGHTNING IS NOT IMPLEMENTED — the owner describes it hitting *"multiple
- * connectors/targets that are within range of one another … maybe we do max6"*. Today a Voltkin
- * zaps ONE target. Recorded as scope.
+ * ⭐ S159 P2 — CHAIN LIGHTNING IS IMPLEMENTED. It was recorded here as unbuilt scope for eight
+ * sessions: the owner describes it hitting *"multiple connectors/targets that are within range of
+ * one another … maybe we do max6"*, and a Voltkin zapped exactly one thing. It now walks up to
+ * `VOLTKIN_CHAIN_MAX_TARGETS` links — see `state/creatures/voltkinChain.ts`, and read
+ * `VOLTKIN_CHAIN_HOP_RANGE` below for the two numbers in it that are MINE.
  */
 export const VOLTKIN_ATK = 3;
 export const VOLTKIN_PEN = 6;
 export const VOLTKIN_DEF = 3;
-/** Owner's suggested ceiling for the chain, held here so the future implementation has a number. */
+/**
+ * ⭐ S159 P2 — the owner's ceiling for the chain, and it is now WIRED (`voltkinChain.ts`). It counts
+ * the SEED, so a full bolt is the primary target plus five jumps.
+ */
 export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
+/**
+ * ⭐ S159 P2 — **HOW FAR THE BOLT JUMPS FROM ONE LINK TO THE NEXT.**
+ *
+ * Owner R77: *"multiple connectors/targets that are within range of one another … maybe we do
+ * max6"*. The count was recorded above eight sessions ago; *"within range of one another"* needed a
+ * number, and this is it.
+ *
+ * ⚠ IT IS MINE, NOT THE OWNER'S. Sized from two things already on the board rather than picked:
+ *   · the Voltkin's own `attackRange` is **180**, and a hop must be SHORTER than that or the chain
+ *     stops being a chain — at equal range each jump could re-acquire anything the Voltkin could
+ *     have zapped directly, and 6 targets anywhere in a 180 px bubble is a different mechanic;
+ *   · `constants.ts:708` records that *"three structures arranged ~90 px apart"* is the shape of a
+ *     built cluster, so 120 reliably walks a structure's neighbouring connectors and a bunched
+ *     squad, and reliably does NOT reach the next structure over.
+ *
+ * ⚠ AND NO DAMAGE FALLOFF, WHICH IS ALSO MINE. Every link takes the Voltkin's full
+ * `attackFifths(VOLTKIN_ATK, VOLTKIN_PEN)`. R77 gives the unit's atk/pen and the target count and
+ * says nothing about decay, and a decay curve would be balance the owner never asked for. The
+ * consequence is worth stating plainly because they will feel it before they read it: 33 fifths
+ * against a connector capacity of `count + 4` means a full bolt can take SIX connectors off a
+ * structure in one strike. That is the mechanic as described; if it plays too strong the dial is
+ * here, and falloff is the obvious first thing to add.
+ */
+export const VOLTKIN_CHAIN_HOP_RANGE = 120;
 /**
  * ⭐ S152 P1 (owner R78) — A RAID IS A 2-ATK / 0-PEN HIT, AND NOTHING MORE THAN THAT.
  *

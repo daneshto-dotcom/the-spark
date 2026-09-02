@@ -43,6 +43,8 @@ import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
+// S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
+import { applyVoltkinChain } from './voltkinChain.ts';
 import { mix32 } from '../rng.ts';
 
 /**
@@ -212,6 +214,21 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         start: arcStart,
         end: arcEnd,
         creatureId: creature.id,
+      });
+      /*
+       * ⭐ S159 P2 (owner R77) — AND THEN THE BOLT WALKS. *"multiple connectors/targets that are
+       * within range of one another … maybe we do max6"*. The victim just struck is the SEED, so it
+       * is never hit twice, and the arc above is the first segment of the same bolt.
+       *
+       * ⚠ SEEDED WITH `arcEnd`, WHICH WAS CAPTURED BEFORE THE DAMAGE LANDED. The victim may have
+       * died on the line above and be gone from `world.creatures` by now; the bolt still has to
+       * jump onward from where it hit, so the position travels with the seed rather than being
+       * looked up again.
+       */
+      applyVoltkinChain(world, creature, {
+        kind: 'creature',
+        id: action.targetCreatureId,
+        pos: arcEnd,
       });
     }
     return world;
@@ -391,6 +408,23 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // starting from scratch — and a laser and a chewer can work on the same strut.
   const attacker = getCreatureConfig(creature.type);
   const broke = damageConnector(world, action.bondId, attackFifths(attacker.atk, attacker.pen));
+
+  /*
+   * ⭐ S159 P2 (owner R77) — CHAIN LIGHTNING, AND IT FIRES WHETHER OR NOT THIS CONNECTOR GAVE WAY.
+   * The bolt hit it either way, so it jumps on either way — a chain that only existed on a killing
+   * blow would be a different mechanic from the one R77 describes.
+   *
+   * ⚠ PLACED BEFORE THE PRIMARY'S SEVER DISPATCH, DELIBERATELY. `damageConnector` re-reads capacity
+   * from the component the bond is CURRENTLY in, so every link — including this one, already priced
+   * on the line above — is measured against the same intact structure. Sever first and the later
+   * links would be priced against a component this strike had just cut, which is both harder to
+   * reason about and unfair in a way the player cannot see. `voltkinChain.ts` records the full
+   * three-phase argument.
+   */
+  if (creature.type === 'voltkin') {
+    applyVoltkinChain(world, creature, { kind: 'bond', id: action.bondId, pos: arcEnd });
+  }
+
   if (!broke) {
     // The connector held. A chewer already emits its own CHEW_BITE from the FSM, so there is nothing
     // to show here — and deliberately no new effect kind (a new GameEffect member costs four
