@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3601,
+  "tool_calls_session_total": 3627,
   "session_id": "S158",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run: P1 TURN reaches production, P2 flaky deploy-gating test, P3 goblinSuicide drone-path, P4 godly abort latch, P5 Voltkin cinematic once per game, P6 landed stink bag entity, P7 killable Helga, P8 housekeeping",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "CHECK",
+  "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-01_PDR_S158_BATCH_IN-PROGRESS.md",
-  "session_status": "PRIORITIES_COMPLETE_AWAITING_OWNER",
+  "session_status": "IN_PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -445,12 +445,12 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "case 'defender': {"
+          "needle": "case 'defender': \u007b"
         },
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "for (const did of defenderVictims) {"
+          "needle": "for (const did of defenderVictims) \u007b"
         },
         {
           "type": "file_contains",
@@ -475,12 +475,12 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 36 as const;"
+          "needle": "S158 P7: 35->36 (HELGA IS KILLABLE"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 36;"
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P7 — bumped 35->36: HELGA CAN BE KILLED."
         },
         {
           "type": "file_contains",
@@ -524,6 +524,219 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
+    },
+    {
+      "id": "A1",
+      "title": "Aura at the owner 0.2 atk/sec - the shipped rate is 12x it (tower AND landed bags)",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'ive already defined how the towers aura should be ... i gave you the stats'. FOUND in the S151 PDR's deferred-R77 list: 'the stink tree 0.2 atk/sec aura model'. MEASURED the shipped rate: stinkAuraTick fired on the 0.5s DoT beat for attackFifths(1,1)=6 fifths=1.2 atk, i.e. 2.4 atk/sec - TWELVE times the owner number. STINK_AURA_DAMAGE=20 was likewise never theirs (its own comment said '2% of max hp', authored S141). AND I PROPAGATED IT: S158 P6 gave the landed bag the same numbers ARGUING they were already owner-ruled. Sound reasoning, false premise - which is why the constant now carries its provenance in writing. The cadence moved to a SECOND because 0.2 atk is exactly 1 fifth and half a fifth per half-second is inexpressible (damageEntity throws on fractions by design). 4 tests, including a CONTROL that computes the 12x ratio explicitly so the size of the correction is on record.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_AURA_UNIT_FIFTHS = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_AURA_CADENCE_TICKS = PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkTower.ts",
+          "needle": "STINK_AURA_UNIT_FIFTHS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
+          "needle": "STINK_AURA_CADENCE_TICKS"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A2",
+      "title": "A landed stink bag is DESTRUCTIBLE, pulls AGGRO and deals on-destroy damage (R77)",
+      "status": "pending",
+      "tier": "Full",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A3",
+      "title": "A raid hits ANYTHING - RAID_TARGET gains defender; R78 kill table already lists Helga at 6 raids",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'a raid should hit anything ... ive already explained it'. FOUND: constants.ts has published the R78 kill table since S152, including HELGA(54, needs 6) and voltkin(64, needs 7). TWO OF THOSE ROWS WERE UNREACHABLE. (1) Helga: no defender arm existed because S151 P2 removed the substrate; S158 P7 restored it, so the arm became expressible. (2) VOLTKIN: S152 P1 removed the chewers-only restriction from the REDUCER, wrote 'R78 says units', and LEFT IT IN THE PICKER - the rule was widened where it is enforced and not where it is aimed, so nobody could ever have spent the first of voltkin's seven raids. Added the defender discriminant, the reducer arm, and pickRaidableDefender gated on ehp!==null so a tower is unaimable AND unhurtable by the same discriminator and the two cannot drift; dropped the picker's chewers-only line. A tower refuses the raid AND KEEPS THE POINT (paid-but-got-nothing stays unrepresentable). PROTOCOL 36->37: a new discriminant on a CLIENT INTENT, which a v36 host accepts, misroutes to the connector arm and drops silently - the 30->31 class, not an additive field. 9 tests.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\raidHitsAnything.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "private pickRaidableDefender()"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "if (c.sourceSpawnerId === null) continue; // chewers only"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A3: 36->37 (A RAID HITS ANYTHING"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A3 — bumped 36->37: A RAID HITS ANYTHING."
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A4",
+      "title": "CF-S157-g closed as MOOT - HAZARD_SPAWN_ENABLED=false, there are no area hazards",
+      "status": "completed",
+      "tier": "Micro",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'we dont have area hazards right? didnt we remove those?' CORRECT, and verified rather than taken on trust: HAZARD_SPAWN_ENABLED=false (constants.ts:446, S147 Step 0) and physicsLoop gates all four hazard dispatch sites on it, so bombs, potatoes, rainbows and seagulls cannot spawn at all. CF-S157-g asked whether area hazards should raze the shapes they orphan; there are no area hazards. Closed as MOOT rather than answered, with the flag named so it re-opens correctly if hazards ever return.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const HAZARD_SPAWN_ENABLED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\physics\\physicsLoop.ts",
+          "needle": "HAZARD_SPAWN_ENABLED &&"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B1",
+      "title": "Multiplayer: one workstation reaches Israel and another on the SAME LAN does not",
+      "status": "pending",
+      "tier": "Full",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B2",
+      "title": "The lightning drone tower was producing on the CHEWER cadence, in three places",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'the lighning drone tower is not producing or spawning suicide drones'. MEASURED FIRST through the real host tick plus the real ignition path: it DOES produce - emits at ticks 900/1800/2700 and self-destructs at 3600. Reporting 'works, closing' would have been true and useless: against a 45s FIGHT (FIGHT_PHASE_TICKS 2700) that is the first drone 15s in, the second at 30s, the third AT the phase edge - about two briefly-visible drones for a six-shape structure. THE CADENCE WAS INHERITED, NOT CHOSEN: the constant read '= SPAWN_INTERVAL_TICKS // reuse the chewer cadence', and TWO of its three readers skipped even that alias and named the chewer constant outright - the registration seed (spawnerLifecycle) and the BUILD phase-gate re-alignment (hostTick). So the FIRST drone was one chewer-interval out AND a hub crossing the phase edge stood silent up to 15s into the fight it was built for; the cadence fix alone would not have been felt. ONE shared spawnerIntervalTicks now, and 900->300 so all three drones plus the self-destruct land inside one fight. Also corrected a constants comment claiming the hub gate is '>=, not ==' when the code has always tested an exact match - how a player concludes a near-miss build should have worked. MUTATION-TESTED three ways; one mutation initially PASSED because my test asserted a SYMPTOM that a lucky alignment satisfied, so it now asserts the invariant (nextSpawnTick - tick <= the recipe own interval) swept across seven BUILD lengths.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawner.ts",
+          "needle": "export function spawnerIntervalTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawnerLifecycle.ts",
+          "needle": "spawnerIntervalTicks(action.recipeId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "const step = spawnerIntervalTicks(sp.recipeId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ;"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B3",
+      "title": "Unlimited Voltkins - the per-seat live gate exempted for voltkin only",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'you could also make one voltkin per account... not fair. i told you already you should be able to build as many voltkins as you wish.' S157 B4 removed the once-per-MATCH lock and its note argued the pacing survived because applySpawnCreature independently refuses a second LIVE creature of the same (owner, type) - offered as a feature. That per-seat gate IS the cap the owner is objecting to; B4 only moved it from the match to the seat. Exempted 'voltkin' ONLY, and that is not timidity: the gate is the blueprint Q10 invariant protecting the FREE STARTER units, where without it a re-grant would silently double a seat army. The old max-1 invariant test is INVERTED rather than deleted, so the change is visible in the file that used to guarantee it, plus a new half pinning that goblins are still gated.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "if (action.creatureType !== 'voltkin') "
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
+          "needle": "AS MANY VOLTKINS AS IT BUILDS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
+          "needle": "max-1-per-player invariant: second spawn for same owner is silent no-op"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B4",
+      "title": "Ten goblins per tower - GOBLIN_MAX_PER_SPAWNER 60 to 10",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'we will cap 10 goblins per tower per turn ... if you have any left over from the previous round then the count continues and capped at each tower holding 10 goblins!' The second sentence settles the shape: a LIVE population cap, not a per-phase allowance. An allowance would let a player bank 10 a turn and field 40 by the fourth fight, which is the unlimited-goblins problem with extra steps; ten LIVE per tower means four survivors leave room for exactly six more, which is what 'the count continues' says. It needed no new mechanism: underGoblinCaps' per-spawner term already counts LIVE goblins attributed to one spawner and is already re-checked inside applySpawnCreature BEFORE the bank is debited (S157 B1). The rule was one number away - it was 60, which no game ever reached, so the tower behaved as uncapped. Design consequence the owner is buying: a second tower is now worth building.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_MAX_PER_SPAWNER = 10;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "TEN GOBLINS PER TOWER. THAT IS THE WHOLE RULE."
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -558,7 +771,7 @@
     "S158 P6 - SHIP THE WHOLE VERTICAL SLICE OR NONE OF IT. A new entity family touched 14 sites: id brand, entity, host tick, serialize, protocol bump, FIELD_COVERAGE, hash projection, structuralSignature, differential seeding, three teardowns, renderer, z-order manifest. Half of those omitted is not a smaller feature, it is a desync - and the two UNFORCED sites (structuralSignature and the positions buffer) are the ones nothing would have caught.",
     "S158 P6 - THE FORCING FUNCTIONS EARNED THEIR KEEP THREE TIMES IN ONE PRIORITY: FIELD_COVERAGE refused the World fields until classified AND projected, the hash test refused the family until it contributed a part, and the e2e above-fog Z-ORDER MANIFEST refused two new layers until each carried its reason. Each cost about a minute and each made explicit a decision I would otherwise have made in passing.",
     "S158 P6 - REUSE THE OWNER'S RULED NUMBERS RATHER THAN MINTING NEW ONES. A landed bag could have had its own damage, radius and cadence: three balance numbers nobody asked for. Making it the tower's own aura moved to where the bag fell needed exactly ONE new constant, and the feature is describable in one sentence at the table.",
-    "S158 P6 - THE PDCA WRITE GATE BLOCKED ME AND THE GATE WAS NOT WRONG ABOUT ITS OWN RULE, only about the file. Its block extractor counts JSON depth line-by-line, so a verification needle containing a literal brace ('${{ secrets.X }}') desynchronised the counter and blanked every field it reads. Diagnosed by running the extractor directly rather than assuming the state file was wrong, then fixed by authoring brace-free needles. Recorded upstream rather than worked around silently.",
+    "S158 P6 - THE PDCA WRITE GATE BLOCKED ME AND THE GATE WAS NOT WRONG ABOUT ITS OWN RULE, only about the file. Its block extractor counts JSON depth line-by-line, so a verification needle containing a literal brace ('$\u007b\u007b secrets.X \u007d\u007d') desynchronised the counter and blanked every field it reads. Diagnosed by running the extractor directly rather than assuming the state file was wrong, then fixed by authoring brace-free needles. Recorded upstream rather than worked around silently.",
     "S158 P7 - THE BLOCKER WAS A MISREAD RULING, NOT MISSING CODE. Helga could not be killed because six sessions earlier a ruling about TOWERS was applied to every defender, and the correction (R77) landed later without the deletion being revisited. The fix was to scope the restoration by the very field the correction had forced into existence. When a capability is missing, check whether it was REMOVED on purpose and whether that purpose still stands.",
     "S158 P7 - A MUTATION TEST TOLD ME MY OWN ADDITION WAS UNPROVEN, AND IT WAS RIGHT. Deleting the engage term left the whole suite green: every fixture planted Helga on her own anchor, which is an enemy SHAPE, so something else was already engaging the attacker. Building the fixture that isolates the term (hub outside the goblin's engage range, inside her leash) took ten minutes and turned a decorative line into a proven one.",
     "S158 P7 - WHEN AN END-TO-END TEST FAILS, SUSPECT THE FIXTURE BEFORE THE FEATURE. Twice in one priority: the arm was ordered below the structure strike (real bug), and then a lone goblin could not kill her (fixture wrong - she one-shots him). Probing showed the strike landing perfectly while the ATTACKER expired. A probe distinguishes those two in a minute; staring at the diff does not.",
@@ -3590,7 +3803,7 @@
     "GAME FEEL (A3, adopted from GEMINI): retreating 2-3 s before FIGHT ends hands the enemy that long of free unanswered hits. The owner ruled it explicitly so it ships as asked; it is symmetric (both armies retreat) and the phase is ending anyway. Raised rather than silently softened."
   ],
   "rule22_audit_s154": {
-    "BUG_A_placeholders": "CLEAN — no unrendered ${VAR} in the 057e5ec..HEAD diff.",
+    "BUG_A_placeholders": "CLEAN — no unrendered $\u007bVAR\u007d in the 057e5ec..HEAD diff.",
     "BUG_B_missing_files": "CLEAN — all seven new files resolve on disk.",
     "BUG_C_dangling_refs": "ONE FOUND AND FIXED: goblinRenderer.ts:278 still pointed at \"archerArrow.ts\" after the S154 P2 git mv to creatureProjectile.ts. Exactly the stale-pointer class this audit exists for — the code compiled and every test passed, and the comment sent the next reader to a file that no longer exists.",
     "gitleaks": "clean — 1065 commits, 25.83 MB, no leaks.",
@@ -3623,7 +3836,7 @@
   },
   "carry_forward_s153_closed": "S153 list retired: P5b, R92-batrider, A5, A3 and P8 all SHIPPED this session; CF-S153-ctx CLOSED (tracker root-caused). A4 carried forward as C-A4. R92 stink tower, CF-S153-b/-c/-d remain open but were not owner priorities this session.",
   "rule22_audit_s154_final": {
-    "BUG_A": "CLEAN — the only ${VAR} hit in the 057e5ec..HEAD diff is inside this file's own audit record, not code.",
+    "BUG_A": "CLEAN — the only $\u007bVAR\u007d hit in the 057e5ec..HEAD diff is inside this file's own audit record, not code.",
     "BUG_B": "CLEAN — all 9 added files resolve on disk (creatureProjectile.ts/.test.ts were git mv renames, not adds).",
     "BUG_C": "CLEAN after one fix earlier in the session (a stale \"See archerArrow.ts\" pointer in goblinRenderer). Re-swept at close for archerArrow / resolveArcherShot / syncArcherArrows / HOARD_CAP / SAVE_WITHIN_SHAPES / towerShortfall / SHADOW_RX — all zero. The two surviving `paletteStripHeight` references are DELIBERATE: the absence-assertion in castlePanel.test.ts and the tombstone docblock in castlePanel.ts."
   },
@@ -3932,8 +4145,8 @@
     "protocol_version": 36,
     "note": "PROTOCOL bumped twice this session: 34->35 (P6 stinkClouds) and 35->36 (P7 defender ehp)."
   },
-  "gate_note_s158": "The pdca-final-gate block extractor (json_helpers.sh extract_priority_field) counts JSON depth LINE-BY-LINE - one increment for any line containing '{'. A verification needle holding a literal brace (e.g. \"${{ secrets.X }}\" or \"dispatch(world, { type: ... })\") desynchronises that counter, so the in_progress block is never found and EVERY field it reads comes back empty - which the gate reads as 'deliberation not completed' and blocks all writes. Diagnosed at S158 P6 after the gate refused a file write with correct gate fields present at BOTH levels. Needles are now authored BRACE-FREE, asserting the same substrings. This is an upstream hook limitation, NOT a project defect, and it is recorded here rather than silently worked around: the durable fix is per-brace counting (or jq) in extract_priority_field.",
-  "gate_note_s158_addendum": "Verification needles must stay BRACE-FREE - see gate_note_s158. Any '{' or '}' in a needle desynchronises the hook's line-based depth counter and blocks every subsequent file write.",
+  "gate_note_s158": "The pdca-final-gate block extractor (json_helpers.sh extract_priority_field) counts JSON depth LINE-BY-LINE - one increment for any line containing '\u007b'. A verification needle holding a literal brace (e.g. \"$\u007b\u007b secrets.X \u007d\u007d\" or \"dispatch(world, \u007b type: ... \u007d)\") desynchronises that counter, so the in_progress block is never found and EVERY field it reads comes back empty - which the gate reads as 'deliberation not completed' and blocks all writes. Diagnosed at S158 P6 after the gate refused a file write with correct gate fields present at BOTH levels. Needles are now authored BRACE-FREE, asserting the same substrings. This is an upstream hook limitation, NOT a project defect, and it is recorded here rather than silently worked around: the durable fix is per-brace counting (or jq) in extract_priority_field.",
+  "gate_note_s158_addendum": "Verification needles must stay BRACE-FREE - see gate_note_s158. Any '\u007b' or '\u007d' in a needle desynchronises the hook's line-based depth counter and blocks every subsequent file write.",
   "owner_directive_s158": "Owner pre-approved the batch mid-turn and left: 'i pre-approve the pdr and will answer all the questions when i get back as well as check all your work ... Autonomous run and full session top priority batch APPROVED!' plus 'DO NOT close the session'. So NO /handoff was run and the session is deliberately left open with all 8 priorities completed and a summary + question list presented.",
   "open_questions_for_owner_s158": [
     "CF-S157-g (inherited, still open): should AREA HAZARDS (potato, radial clear) also raze the shapes they orphan? The sever and damage paths do; applyRadialClear does not, and a shipped test pins its 'spares those outside' identity by name.",
@@ -3943,5 +4156,17 @@
     "P7: should a RAID be able to hit Helga? It would need a right-click hit test for defenders, i.e. a new input behaviour, so I did not invent one. Creature strikes and area hazards already kill her.",
     "N2 (inherited): raid parity across seats. I found NO asymmetry in the sim - the reducers are seat-agnostic and raid progress is credited on BOTH build paths. If it still looks wrong in a real game, tell me what you saw and I will probe the input layer instead."
   ],
-  "mcv_note_s158": "P6 first bound PROTOCOL_VERSION = 35 as a literal; P7 bumped it to 36 later the same session and the claims verifier went red - correctly. A current-value pin is a point-in-time claim and a later priority can supersede it without either being wrong. Rebound to the permanent NARRATIVE LINK P6 added ('bumped 34->35'), which is history and cannot be invalidated by a subsequent bump. P7 keeps the literal pin, because it is the one that is currently true."
+  "mcv_note_s158": "TWICE THIS SESSION a priority bound PROTOCOL_VERSION as a CURRENT-VALUE literal and a later priority bumped past it, turning the claims verifier red on work that was correct: P6 pinned 35 and P7 bumped to 36; P7 pinned 36 and A3 bumped to 37. A current-value pin is a point-in-time claim, and in a session that bumps the protocol three times it is guaranteed to expire. Every protocol claim is now bound to the priority's own NARRATIVE LINK ('bumped N->M: ...'), which is permanent history and cannot be invalidated by a later bump. The literal is still enforced - by protocol.test.ts's deliberate pin and by protocolVersionSync's unbroken-chain test - which is the right place for it.",
+  "amendment_file_s158": ".claude/plans/2026-09-02_SCOPE_AMENDMENT_S158_OWNER_RULINGS_IN-PROGRESS.md",
+  "owner_rulings_s158_review": [
+    "P6 aura: owner 'ive already defined how the towers aura should be ... i gave you the stats' -> FOUND in the R77 deferred list: 'the stink tree's 0.2 atk/sec aura model'. The SHIPPED rate is 2.4 atk/sec - 12x too strong - and S158 P6 propagated it to the landed bag on the false premise that it was an owner number.",
+    "P6 bags: R77 also specifies 'destructible stink bags as entities with aggro and on-destroy damage'. P6 shipped the entity PASSIVE; destructible, aggro and on-destroy are missing.",
+    "P7 raid: owner 'a raid should hit anything ... ive already explained it' -> FOUND: the constants.ts R78 block already publishes the kill table INCLUDING 'HELGA(54, needs 6)'. The ruling always covered her; S152 could not implement it because defenders had no ehp.",
+    "P5 cutscene gap: 'fine for now' -> ACCEPTED, no change made.",
+    "CF-S157-g: owner 'we dont have area hazards right? didnt we remove those?' -> CORRECT. HAZARD_SPAWN_ENABLED=false since S147 Step 0. Closed as moot."
+  ],
+  "open_work_s158": [
+    "A2 - a landed stink bag should be DESTRUCTIBLE, pull AGGRO and deal on-destroy damage (R77's deferred mechanics list, verbatim: 'destructible stink bags as entities with aggro and on-destroy damage'). P6 shipped the entity PASSIVE. The entity, wire, hash and art all exist; the three properties do not. NOT STARTED.",
+    "B1 - owner playtest: from workstation A (France) he reached his brother (Israel); from workstation B on the SAME LAN, quickmatch could not FIND the game and the room code would not connect either. Same NAT and same public IP, so TURN cannot be the differentiator - it is machine-local. The layer shared by BOTH symptoms is SIGNALLING (Trystero over the Nostr relays), not ICE: quickmatch advertises over the relays and a code join exchanges its offer over them, so a machine that cannot reach them fails at both in exactly this way. The S158 P1 TEST CONNECTION button probes ICE only and therefore cannot yet tell the two machines apart. NEXT STEP: extend it to report signalling-relay reachability, then run it on both."
+  ]
 }
