@@ -114,11 +114,31 @@ describe('S151 P3 — the goblin tower ignites on exactly its own shape', () => 
     expect(isGoblinTowerComponent(w, hub.id)).toBe(true);
   });
 
-  it('a SIXTH shape bonded on tears the tower down (the exact-size gate)', () => {
+  /*
+   * ⭐ S158 B2b (owner playtest) — THIS TEST PINNED THE BUG AS INTENDED BEHAVIOUR, and it is INVERTED
+   * rather than deleted so the change is visible where the old guarantee lived.
+   *
+   * Owner, twice: *"the lighning drone tower is not producing or spawning suicide drones"* and then
+   * *"drone tower was NOT producing."* MEASURED: bonding ONE ordinary shape onto ONE LEAF made the
+   * whole-component test fail, and the re-validation poll then removed the spawner within half a
+   * second — silently, permanently, indistinguishable from a tower that never worked. On a real board
+   * you build things next to each other, which is why it never showed up in an isolated fixture.
+   *
+   * The recipe now tests the STAR AT THE ANCHOR (see starShape.ts). A tower dies when its OWN star is
+   * broken, which is the counterplay the design wanted, and survives a neighbour touching it.
+   */
+  it('⭐ SURVIVES a sixth shape bonded to a LEAF (S158 B2b — was: it tore the tower down)', () => {
     const w = makeWorld(0);
     const hub = circleStar(w, GOBLIN_TOWER_HUB_DEGREE);
     const leaf = [...w.primitives.values()].find((p) => p.id !== hub.id)!;
     bond(w, 950, leaf, addPrim(w, 50, SparkType.Circle, 700, 300));
+    expect(isGoblinTowerComponent(w, hub.id)).toBe(true);
+  });
+
+  it('⛔ but a shape bonded to the HUB still tears it down — the arm count IS the recipe', () => {
+    const w = makeWorld(0);
+    const hub = circleStar(w, GOBLIN_TOWER_HUB_DEGREE);
+    bond(w, 951, hub, addPrim(w, 51, SparkType.Circle, 700, 300));
     expect(isGoblinTowerComponent(w, hub.id)).toBe(false);
   });
 });

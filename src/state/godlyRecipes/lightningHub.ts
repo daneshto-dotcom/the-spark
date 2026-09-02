@@ -21,9 +21,10 @@
  * REGISTER_SPAWNER (never a cinematic). Registered via side-effect import (pentagram precedent).
  */
 
-import { SparkType, LIGHTNING_HUB_DEGREE, LIGHTNING_HUB_COMPONENT_SIZE } from '../../constants.ts';
-import { componentOf } from '../../game/structure.ts';
+import { SparkType, LIGHTNING_HUB_DEGREE } from '../../constants.ts';
 import { registerRecipe } from './index.ts';
+// S158 B2b — the shared star test that replaced four whole-component tests.
+import { isStarAt } from './starShape.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
@@ -34,19 +35,10 @@ import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
  * (a chewer/drone eating a Circle leaf drops the size/degree → the hub's spawner tears down).
  */
 export function isLightningHubComponent(world: World, dotId: PrimitiveId): boolean {
-  const hub = world.primitives.get(dotId);
-  if (hub === undefined) return false;
-  if (hub.type !== SparkType.Dot) return false;
-  if (hub.bonds.size !== LIGHTNING_HUB_DEGREE) return false;
-  const comp = componentOf(hub, world.primitives, world.bonds);
-  if (comp.primitiveIds.size !== LIGHTNING_HUB_COMPONENT_SIZE) return false;
-  for (const id of comp.primitiveIds) {
-    if (id === dotId) continue;
-    const p = world.primitives.get(id);
-    if (p === undefined) return false;
-    if (p.type !== SparkType.Circle) return false; // every non-hub member must be a Circle
-  }
-  return true;
+  // ⭐ S158 B2b — the STAR AT THE ANCHOR, not the island it sits on. The old whole-component
+  // test made one friendly shape bonded to one LEAF un-make the tower, and the re-validation
+  // poll then removed it silently. See starShape.ts for the measurement and the consequence.
+  return isStarAt(world, dotId, SparkType.Dot, SparkType.Circle, LIGHTNING_HUB_DEGREE);
 }
 
 /**

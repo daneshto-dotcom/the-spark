@@ -145,11 +145,32 @@ describe('isLightningHubComponent — recipe gate', () => {
     expect(isLightningHubComponent(world, anchor)).toBe(true);
   });
 
-  it('rejects an extra attached shape (component size > 6)', () => {
+  /*
+   * ⭐ S158 B2b (owner playtest) — THIS TEST PINNED THE BUG AS INTENDED BEHAVIOUR, and it is INVERTED
+   * rather than deleted so the change is visible where the old guarantee lived.
+   *
+   * Owner, twice: *"the lighning drone tower is not producing or spawning suicide drones"* and then
+   * *"drone tower was NOT producing."* MEASURED: bonding ONE ordinary shape onto ONE LEAF made the
+   * whole-component test fail, and the re-validation poll then removed the spawner within half a
+   * second — silently, permanently, indistinguishable from a tower that never worked. On a real board
+   * you build things next to each other, which is why it never showed up in an isolated fixture.
+   *
+   * The recipe now tests the STAR AT THE ANCHOR (see starShape.ts). A tower dies when its OWN star is
+   * broken, which is the counterplay the design wanted, and survives a neighbour touching it.
+   */
+  it('⭐ SURVIVES an extra shape bonded to a LEAF — a neighbour must not un-make your tower', () => {
     const world = makeWorld(1);
     const anchor = buildHub(world);
     world.primitives.set(asPrimitiveId(6), makePrim(6, 200, 200, SparkType.Circle));
-    addBond(world, 100, 1, 6); // attach a 7th shape to a leaf → size 7
+    addBond(world, 100, 1, 6); // a 7th shape hanging off a leaf, the way a real base grows
+    expect(isLightningHubComponent(world, anchor)).toBe(true);
+  });
+
+  it('⛔ but an extra shape bonded to the HUB still un-makes it — that IS a different shape', () => {
+    const world = makeWorld(1);
+    const anchor = buildHub(world);
+    world.primitives.set(asPrimitiveId(6), makePrim(6, 200, 200, SparkType.Circle));
+    addBond(world, 100, 0, 6); // onto the hub → degree 6, no longer a five-armed star
     expect(isLightningHubComponent(world, anchor)).toBe(false);
   });
 });

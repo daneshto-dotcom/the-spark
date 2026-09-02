@@ -117,12 +117,31 @@ describe('isLaserTurretComponent — strict 1-Line + 6-Spiral-leaf star', () => 
     expect(isLaserTurretComponent(w, hub.id)).toBe(false);
   });
 
-  it('rejects an EXTRA attached shape (a leaf bonded to an external prim grows the component past 7)', () => {
+  /*
+   * ⭐ S158 B2b (owner playtest) — THIS TEST PINNED THE BUG AS INTENDED BEHAVIOUR, and it is INVERTED
+   * rather than deleted so the change is visible where the old guarantee lived.
+   *
+   * Owner, twice: *"the lighning drone tower is not producing or spawning suicide drones"* and then
+   * *"drone tower was NOT producing."* MEASURED: bonding ONE ordinary shape onto ONE LEAF made the
+   * whole-component test fail, and the re-validation poll then removed the spawner within half a
+   * second — silently, permanently, indistinguishable from a tower that never worked. On a real board
+   * you build things next to each other, which is why it never showed up in an isolated fixture.
+   *
+   * The recipe now tests the STAR AT THE ANCHOR (see starShape.ts). A tower dies when its OWN star is
+   * broken, which is the counterplay the design wanted, and survives a neighbour touching it.
+   */
+  it('⭐ SURVIVES an external shape bonded to a LEAF (S158 B2b — was: rejected)', () => {
     const w = setup();
     const line = buildTurret(w, 1, TURRET_HUB_DEGREE);
-    // Attach an external Dot to one leaf → the component grows past TURRET_SIZE → reject.
     const leaf = w.primitives.get(asPrimitiveId(101))!;
     bond(w, 9999, leaf, addPrim(w, 5000, SparkType.Dot, 260, 260));
+    expect(isLaserTurretComponent(w, line)).toBe(true);
+  });
+
+  it('⛔ but an external shape bonded to the HUB still rejects — degree 7 is not this recipe', () => {
+    const w = setup();
+    const line = buildTurret(w, 1, TURRET_HUB_DEGREE);
+    bond(w, 9998, w.primitives.get(line)!, addPrim(w, 5001, SparkType.Dot, 300, 300));
     expect(isLaserTurretComponent(w, line)).toBe(false);
   });
 

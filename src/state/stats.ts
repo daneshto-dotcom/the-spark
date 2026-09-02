@@ -75,6 +75,7 @@
  * Pixi-free, DOM-free, World-free, side-effect-free — pure arithmetic and one lookup table.
  */
 
+import { GOBLIN_DAMAGE_VS_PRIMITIVE, GOBLIN_MELEE_ATK } from '../constants.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import type { DefenderKind } from './defenders/defender.ts';
 
@@ -130,6 +131,26 @@ export function unitPoolFifths(hp: number, def: number): number {
  */
 export function attackFifths(atk: number, pen: number): number {
   return atk * multiplierFifths(pen);
+}
+
+/**
+ * ⭐ S158 P3b (owner) — **AN ATK VALUE, ON THE 1000-PER-SHAPE SCALE.**
+ *
+ * Owner, ruling on the terrorist goblin's blast: *"the 4atk against units + 4 atk against
+ * structures/structur connectors"*. Units and connectors both live on the fifths ladder, so those
+ * two are `attackFifths` and need nothing new. SHAPES do not — a primitive has 1000 hit points, and
+ * until now the only bridge between the two scales was one hard-coded number.
+ *
+ * The bridge that already existed, made general: `GOBLIN_DAMAGE_VS_PRIMITIVE` (167) is what
+ * `GOBLIN_MELEE_ATK` (2) does to a shape, chosen so six goblin swings fell one. That is 83.5 points
+ * of shape per point of attack, and every other unit's shape damage now follows from its own ATK
+ * rather than needing a bespoke constant nobody can keep in step.
+ *
+ * ⚠ ROUNDED, because `damageEntity` THROWS on a fraction by design — the DoT model is authored in
+ * whole units. 4 atk → 334, i.e. three blasts to fell a shape.
+ */
+export function primitiveDamageForAtk(atk: number): number {
+  return Math.round((atk * GOBLIN_DAMAGE_VS_PRIMITIVE) / GOBLIN_MELEE_ATK);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *

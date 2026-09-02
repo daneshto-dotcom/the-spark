@@ -21,17 +21,22 @@
  * ## What this is, and what it deliberately is NOT
  *
  * Owner R77, verbatim: *"only one attack that deals 4atk and 0 pierce in an area of effect"*, and
- * separately *"the area of effect on the drones is larger then terrorist goblin"*. So the blast is a
- * **stat-driven radial hit**, not a connector sever — that is the drone's identity and the two units
- * are meant to be siblings, not clones. Connectors still go when their shapes die, through the
- * ordinary cascade inside `damageEntity`, which is the coherent way for a bomb to take them.
+ * separately *"the area of effect on the drones is larger then terrorist goblin"*.
  *
- * ⚠ **ONE NUMBER HERE IS MINE AND THE OWNER SHOULD RULE ON IT.** R77 gives 4 ATK / 0 PEN, which is a
- * *unit* stat; it says nothing about what one blast does to a SHAPE. Rather than invent a balance
- * number, the blast deals `GOBLIN_DAMAGE_VS_PRIMITIVE` — **exactly one ordinary goblin strike** —
- * to every enemy shape in radius. So the suicide goblin is not stronger per target than its cousins;
- * it is WIDE, and it pays with its life. That is the conservative reading, it reuses an owner-ruled
- * constant instead of minting one, and it is flagged rather than silently decided.
+ * ⭐ **AND S158 P3b SETTLED THE HALF R77 LEFT OPEN.** S158 P3 shipped this blast dealing one ordinary
+ * goblin strike to shapes, flagged as *"one number here is mine and the owner should rule on it"* —
+ * because 4 atk / 0 pen is a UNIT stat and says nothing about a 1000-hit-point shape. They ruled:
+ *
+ * > *"the 4atk against units + 4 atk against structures/structur connectors"*
+ *
+ * Three targets, ONE number. Units and connectors are both on the fifths ladder, so both are
+ * `attackFifths(4, 0)` = 20 fifths. Shapes are not, so `primitiveDamageForAtk` bridges the two scales
+ * from the anchor that already existed (a goblin's 2 atk is 167 shape points, i.e. six swings), which
+ * puts this blast at 334 — **three blasts fell a shape**.
+ *
+ * So he is no longer merely WIDE: at 20 fifths he one-shots most of the roster, and at 20 fifths
+ * against a connector he cuts anything in a component of 16 or fewer. He is a real bomb now, which
+ * is what the ruling says, and he still pays with his life.
  *
  * ## Determinism
  *
@@ -42,15 +47,14 @@
  */
 
 import {
-  GOBLIN_DAMAGE_VS_PRIMITIVE,
   GOBLIN_SUICIDE_ATK,
   GOBLIN_SUICIDE_PEN,
   GOBLIN_SUICIDE_BLAST_RADIUS,
 } from '../../constants.ts';
-import type { CreatureId } from '../../types.ts';
-import { applyRadialDamage } from '../damage.ts';
-import { attackFifths } from '../stats.ts';
-import type { World } from '../world.ts';
+import type { BondId, CreatureId } from '../../types.ts';
+import { applyRadialDamage, damageConnector } from '../damage.ts';
+import { attackFifths, primitiveDamageForAtk } from '../stats.ts';
+import { dispatch, type World } from '../world.ts';
 
 /**
  * The unit half of the blast, on the stat ladder. Named rather than inlined so the two damage scales
@@ -101,11 +105,52 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     cx,
     cy,
     GOBLIN_SUICIDE_BLAST_RADIUS,
-    GOBLIN_DAMAGE_VS_PRIMITIVE, // one ordinary goblin strike per shape — see the note above
+    primitiveDamageForAtk(GOBLIN_SUICIDE_ATK), // ⭐ S158 P3b — the owner's 4 atk, on the shape scale
     SUICIDE_BLAST_UNIT_FIFTHS,
     'creature',
     bomber.ownerPlayerId,
   );
+
+  /*
+   * ⭐ S158 P3b (owner) — **AND THE CONNECTORS.**
+   *
+   * Owner: *"the 4atk against units + 4 atk against structures/structur connectors"*. Three targets,
+   * one number. Units and shapes are handled by the radial call above; connectors are not, and
+   * deliberately so — `applyRadialDamage`'s own note refuses a connector arm because *"making area
+   * damage sever bonds directly would be a large new behaviour nobody asked for — one potato could
+   * shred a fortress"*. That reasoning stands for area damage IN GENERAL. It does not stand against
+   * an explicit ruling about THIS unit, so the arm lives here, on the one creature the owner named,
+   * rather than being pushed down into the shared helper where it would silently arm everything.
+   *
+   * ⚠ `damageConnector` RETURNS "SHOULD SEVER" AND DOES NOT SEVER — severance must run through the
+   * one SEVER_BOND path, which splits topology and emits its effects in the right order. Re-dispatching
+   * from inside a reducer is the Council-sanctioned pattern `applyDroneExplode` and `applyCreatureAttack`
+   * already use, and JS being single-threaded makes the synchronous re-entry safe.
+   *
+   * Collected before mutating, and enemy-only by the same `placedBy` rule the raid arm uses: a bond
+   * has no owner field, so ownership is read off the primitives it joins.
+   */
+  const blastFifths = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
+  const r2 = GOBLIN_SUICIDE_BLAST_RADIUS * GOBLIN_SUICIDE_BLAST_RADIUS;
+  const hitBonds: BondId[] = [];
+  for (const [bondId, bond] of world.bonds) {
+    const aOwner = world.primitives.get(bond.aId)?.placedBy;
+    const bOwner = world.primitives.get(bond.bId)?.placedBy;
+    if (aOwner === bomber.ownerPlayerId || bOwner === bomber.ownerPlayerId) continue; // spare its own
+    const mx = (bond.a.pos.x + bond.b.pos.x) / 2;
+    const my = (bond.a.pos.y + bond.b.pos.y) / 2;
+    const dx = mx - cx;
+    const dy = my - cy;
+    if (dx * dx + dy * dy <= r2) hitBonds.push(bondId);
+  }
+  // Sorted so the severance order is a total order and cannot depend on Map iteration.
+  hitBonds.sort((a, b) => (a as unknown as number) - (b as unknown as number));
+  for (const bondId of hitBonds) {
+    if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
+    if (damageConnector(world, bondId, blastFifths)) {
+      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'creature' });
+    }
+  }
 
   world.creatures.delete(action.creatureId);
   return world;

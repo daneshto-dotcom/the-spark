@@ -179,3 +179,60 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
     expect(everSeen, 'no drone may be minted outside the fight').toBe(0);
   });
 });
+
+describe('S158 B2b — THE OWNER\u2019S ACTUAL BOARD: a hub with a neighbour attached', () => {
+  /**
+   * \u26d4 THE TEST THAT WOULD HAVE CAUGHT IT, and the reason the first two probes did not.
+   *
+   * Owner, after I reported the tower produces: *"drone tower was NOT producing. maybe he was on the
+   * chewers clock but no drones were actually being produced."* They were right. Both earlier probes
+   * built an ISOLATED hub on an empty board, where it works perfectly.
+   *
+   * On a real board you build things next to each other. ONE ordinary shape bonded to ONE LEAF grew
+   * the component past six, the whole-component recipe test returned false, and the re-validation
+   * poll removed the spawner within half a second \u2014 silently, and for the rest of the match.
+   */
+  it('\u2b50 a hub with a shape bonded to one of its LEAVES still emits its drones', () => {
+    const w = worldWithHub();
+    // The neighbour. Exactly what killed it: one shape, one bond, onto a leaf.
+    const leaf = [...w.primitives.values()].find((p) => p.type === SparkType.Circle)!;
+    const neighbour = mk(w, SparkType.Square, leaf.pos.x + 20, leaf.pos.y);
+    const bid = asBondId(w.nextBondId++);
+    w.bonds.set(bid, {
+      id: bid, aId: leaf.id, bId: neighbour.id, a: leaf, b: neighbour,
+      restLength: 20, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick,
+    });
+    leaf.bonds.add(bid);
+    neighbour.bonds.add(bid);
+
+    w.matchPhase = 'FIGHT';
+    const { everSeen } = runFight(w, FIGHT_PHASE_TICKS);
+    expect(everSeen, 'a neighbouring shape must not silently kill the tower').toBe(
+      STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
+    );
+  });
+
+  it('\u26d4 CONTROL \u2014 breaking the STAR still kills it, which is the counterplay that must survive', () => {
+    const w = worldWithHub();
+    w.matchPhase = 'FIGHT';
+    const d = deps();
+    const st = makeHostTickState(w);
+    const cursor = { lastMatcherTick: -1 };
+    runGodlyMatcherCore(w, cursor);
+    runHostTick(w, d, st);
+    expect(w.creatureSpawners.size, 'ignited first').toBe(1);
+
+    // An enemy eats a leaf. The star is broken, so the tower must go.
+    const leaf = [...w.primitives.values()].find((p) => p.type === SparkType.Circle)!;
+    for (const bid of leaf.bonds) w.bonds.delete(bid);
+    w.primitives.delete(leaf.id);
+    for (const p of w.primitives.values()) {
+      for (const bid of [...p.bonds]) if (!w.bonds.has(bid)) p.bonds.delete(bid);
+    }
+    for (let t = 0; t < 120; t++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d, st);
+    }
+    expect(w.creatureSpawners.size, 'a broken star must still tear the spawner down').toBe(0);
+  });
+});

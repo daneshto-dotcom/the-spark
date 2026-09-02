@@ -44,11 +44,12 @@
  */
 
 import { SparkType } from '../../constants.ts';
-import { componentOf } from '../../game/structure.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
+// S158 B2b — the shared star test that replaced four whole-component tests.
+import { isStarAt } from './starShape.ts';
 
 /**
  * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
@@ -77,19 +78,10 @@ const HUB_DEGREE = TURRET_HUB_DEGREE;
  * size/degree/type mismatch (an extra shape, a wrong leaf, a missing leaf) still rejects.
  */
 export function isLaserTurretComponent(world: World, lineId: PrimitiveId): boolean {
-  const hub = world.primitives.get(lineId);
-  if (hub === undefined) return false;
-  if (hub.type !== SparkType.Line) return false;
-  if (hub.bonds.size !== HUB_DEGREE) return false;
-  const comp = componentOf(hub, world.primitives, world.bonds);
-  if (comp.primitiveIds.size !== TURRET_SIZE) return false;
-  for (const id of comp.primitiveIds) {
-    if (id === lineId) continue;
-    const p = world.primitives.get(id);
-    if (p === undefined) return false;
-    if (p.type !== SparkType.Spiral) return false; // every non-hub member must be a Spiral
-  }
-  return true;
+  // ⭐ S158 B2b — the STAR AT THE ANCHOR, not the island it sits on. The old whole-component
+  // test made one friendly shape bonded to one LEAF un-make the tower, and the re-validation
+  // poll then removed it silently. See starShape.ts for the measurement and the consequence.
+  return isStarAt(world, lineId, SparkType.Line, SparkType.Spiral, HUB_DEGREE);
 }
 
 /**

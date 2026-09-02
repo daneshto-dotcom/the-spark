@@ -31,14 +31,13 @@ import type { Controls } from '../../input/controls.ts';
 import type { Creature } from './creature.ts';
 import {
   DRONE_EXPLODE_RADIUS,
-  GOBLIN_DAMAGE_VS_PRIMITIVE,
   GOBLIN_SUICIDE_ATK,
   GOBLIN_SUICIDE_BLAST_RADIUS,
   GOBLIN_SUICIDE_PEN,
   PRIMITIVE_MAX_HP,
   SparkType,
 } from '../../constants.ts';
-import { attackFifths } from '../stats.ts';
+import { attackFifths, primitiveDamageForAtk } from '../stats.ts';
 
 /**
  * The blast's unit damage, derived from the OWNER'S OWN NUMBERS through the shared ladder rather
@@ -165,16 +164,38 @@ describe('S158 P3 — the terrorist goblin NAVIGATES like a goblin, not like a d
 });
 
 describe('S158 P3 — the blast itself: stats that finally apply to something', () => {
-  it('⭐ damages every enemy shape in radius by exactly one goblin strike', () => {
+  /*
+   * ⭐ S158 P3b — THE OWNER RULED THE NUMBER P3 FLAGGED, so this test is retargeted rather than
+   * deleted. P3 shipped one ordinary goblin strike per shape and said in writing that the figure
+   * was mine. Owner: *"the 4atk against units + 4 atk against structures/structur connectors"*.
+   *
+   * Derived through `primitiveDamageForAtk` rather than pasted, so it follows the roster: if the
+   * goblin's own shape damage is ever retuned, this moves with it instead of going red for a
+   * reason that is not a bug.
+   */
+  it('⭐ damages every enemy shape in radius by the owner’s 4 ATK (three blasts fell a shape)', () => {
     const w = make1v1();
     const bomber = spawn(w, 'goblinSuicide', 0, 500, 500);
     const near = addPrimAt(w, 1, 520, 500); // 20 px  — inside 70
     const alsoNear = addPrimAt(w, 1, 500, 560); // 60 px — inside 70
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id });
 
+    const expected = primitiveDamageForAtk(GOBLIN_SUICIDE_ATK);
     for (const p of [near, alsoNear]) {
-      expect(w.primitives.get(p.id)!.hp).toBe(PRIMITIVE_MAX_HP - GOBLIN_DAMAGE_VS_PRIMITIVE);
+      expect(w.primitives.get(p.id)!.hp).toBe(PRIMITIVE_MAX_HP - expected);
     }
+    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'three blasts fell a shape').toBe(3);
+  });
+
+  it('⭐ and CUTS ENEMY CONNECTORS in radius — the third target in the same ruling', () => {
+    const w = make1v1();
+    const bomber = spawn(w, 'goblinSuicide', 0, 500, 500);
+    const bondId = addBondAt(w, 1, 520, 500); // an enemy connector, 20 px away
+    const mine = addBondAt(w, 0, 515, 500); // and one of the bomber's OWN, at point-blank
+    applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id });
+    // 20 fifths against a 2-connector component's capacity (6) severs outright.
+    expect(w.bonds.has(bondId), 'the enemy connector is cut').toBe(false);
+    expect(w.bonds.has(mine), 'and its own side is spared').toBe(true);
   });
 
   it('⭐ uses ITS OWN 70 px radius, not the drone\'s 110 — the owner ruled the drone bigger', () => {
