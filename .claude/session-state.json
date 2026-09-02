@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3732,
+  "tool_calls_session_total": 3741,
   "session_id": "S158",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run: P1 TURN reaches production, P2 flaky deploy-gating test, P3 goblinSuicide drone-path, P4 godly abort latch, P5 Voltkin cinematic once per game, P6 landed stink bag entity, P7 killable Helga, P8 housekeeping",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-01_PDR_S158_BATCH_IN-PROGRESS.md",
-  "session_status": "READY_FOR_HANDOFF",
+  "session_status": "S158 CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -854,7 +854,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "PASS 53/53 (S150 close, MEASURED). Was \"42/42\" and byte-identical to S149 across all five S150 commits until the Rule-22 audit caught it. Trajectory this session: 49 passed / 1 failed / 3 skipped at pre-flight -> 52/0/3 after P4 revived the click-to-build trio -> 53 passed / 0 failed / 0 SKIPPED after P5 root-caused bomb.spec. Zero skips is the part worth keeping: the lane no longer hides anything.",
-  "closed": "2026-08-27",
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -3693,7 +3693,7 @@
     "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   },
   "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar.",
-  "handoff_doc": ".handoff-archive/HANDOFF_2026-08-26_S152.md",
+  "handoff_doc": "HANDOFF_2026-09-02_S158.md",
   "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4.",
   "owner_rulings_s153": {
     "R79": {
@@ -4241,5 +4241,8 @@
     "OWNER ACTION - B1: press TEST CONNECTION on BOTH workstations and compare. This machine's baseline is relays 7/7 and ICE host:1 srflx:1 relay:0. If the other reports 0/7 relays, that is the answer and it is a firewall/VPN/extension on that machine.",
     "OWNER RULINGS STILL OPEN: (a) is the drone cadence of 5s right? it is my dial; (b) should stink-bag HP be more than 1? mine, R77 never gave it; (c) recipes may now OVERLAP after the star fix - a Circle leaf of a lightning hub can also be a goblin-tower hub. Say if leaves should belong to exactly one star.",
     "R77 MECHANICS STILL DEFERRED (not started): Voltkin chain lightning (~6 targets) and drone AoE sizing."
-  ]
+  ],
+  "reflexion_s158_archived_count": 12,
+  "reflexion_s158_staged_count": 38,
+  "review_gate_s158": "BLOCKED at exit 2 as designed; APPROVED on the owner explicit instruction in-conversation (\"i approve a full and thorough /handoff\", \"close off with /handoff\"). NOTE: the gate card HELD list is STALE for the SECOND session running - it reads an S155-era snapshot listing A1/A2/A3/N3/N2/P4/P5 as open. boot-snapshot.md is the live list."
 }

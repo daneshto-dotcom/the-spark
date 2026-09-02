@@ -1,3 +1,9 @@
+> **STATUS: COMPLETED** (S158, archived at handoff)
+>
+> A1/A2/A3/A4 shipped, plus the four B-items from the live playtest (B1-B4) and the P3b ruling. The one property NOT done is NAVIGATION aggro for landed stink bags - carried forward with its reason.
+
+---
+
 # SCOPE AMENDMENT — S158, owner review of the autonomous batch (Rule 16)
 
 Date: 2026-09-02 | Session: S158 | Entry commit: 7a8d466 | Tier: **Standard**

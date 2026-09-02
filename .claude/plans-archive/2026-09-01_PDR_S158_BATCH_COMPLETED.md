@@ -1,3 +1,9 @@
+> **STATUS: COMPLETED** (S158, archived at handoff)
+>
+> All 8 priorities shipped, committed, pushed and verified live.
+
+---
+
 # BATCH PDR — S158 · "finish what we already know needs finishing"
 
 Date: 2026-09-01 | Session: S158 | Entry commit: 668ecd3 | Tier: **Full** (batch takes the highest tier)
