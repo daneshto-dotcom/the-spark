@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 3958,
+  "tool_calls_session_total": 3959,
   "session_id": "S160",
   "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
   "session_start": "2026-09-02T17:30:00+02:00",
   "prior_session_note": "S159 shipped 9 priorities. Handoff HANDOFF_S159.md, boot-snapshot.md at c90b444.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S160 IN PROGRESS",
+  "session_status": "S160 — 4/4 priorities complete, deploy verified 4/4",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 38,
+  "protocol_version": 39,
   "boot_preflight": {
     "typecheck": "PASS exit 0",
     "vitest": "PASS exit 0 — 3399 passed / 218 files",
@@ -38,117 +38,66 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "TURN — prove the code path end to end, correct the runbook",
+      "title": "TURN — proved the code path end to end; corrected a FALSE deploy instruction and hardened the vite define read",
       "tier": "Micro",
-      "status": "in_progress",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "Traced VITE_TURN_* from deploy.yml:149-156 -> vite.config define -> iceConfig.turnFromEnv -> RTCConfiguration.iceServers (transport.ts:376-379, quickmatch.ts:173). Proved the inlining EMPIRICALLY from the emitted bundle: compiled turnFromEnv is const n=\"\".split(\",\"), with the key names absent, i.e. the dotted define fired textually. Fixed boot-snapshot.md \"push anything\" — deploy.yml gates the push trigger on a paths allowlist, so a secret-only change triggers NO run and workflow_dispatch is the only route. Three new ci.deployGate assertions pin the dotted form and forbid re-aliasing; the anti-alias guard strips comments after its first cut matched iceConfig own docblock.",
+      "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "Rule on the two tower dials that are mine (stink reload, drone hub uplift)",
+      "title": "Ruled both tower dials KEEP; corrected three pieces of my own S159 paperwork",
       "tier": "Micro",
-      "status": "pending",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "STINK: kept the BUILD-edge refill. Measured the drain through the real FSM — throws at ticks 254/538/822/1106/1390, gaps 284 not 240 because WINDUP+FIRE+RECOVER cost 44 per throw, so the tower is DRY for the last 22 of every 45 s. Deleted a FALSE justification (the per-bag rack runs only in the atlas-null fallback and the atlas ships, so the live tell is one alpha step 0.72->1), which re-prices the slow-reload alternative. DRONE: kept the death blast. My handoff dial advice was BACKWARDS in three documents — DRONE_MAX_PER_SPAWNER 3->2 changes nothing (occupancy at every due slot is 1, peak live 2 against a ceiling of 3); the cadence is the only linear lever. The 9/fight and the cap slack are now ASSERTED, having lived in a comment and a console.log. DRONE_EMIT_INTERVAL_TICKS docblock still described the retired burst design — rewritten.",
+      "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "Rule on the four numbers + record the recipe-overlap finding",
+      "title": "Ruled all four numbers KEEP; four of the five statements about them were wrong",
       "tier": "Micro",
-      "status": "pending",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "CHAIN LIGHTNING: <=29 re-derived EXACT (33 fifths vs capacity n+4, inclusive >=, boundary checked both sides) and now asserted; SIX connectors re-framed as a CEILING (creatures and bonds share the six link slots and a creature wins an exact tie) and pinned. Fixed the R77 citation — the ruling is in session-state.json, not SPARK_TD_SESSION_SPECS.md where grep max6 returns zero hits — and four sites that silently typo-fixed the owner quote maywe->maybe inside quotation marks. WITHDREW the hop-range second justification: it cited ~90 px structure spacing to argue 120 does not reach the next structure over, but 120 > 90 so it does. STINK BAG: the constant said \"most of the roster\", measured ALL of it with ZERO margin (goblin shield deals exactly 5 into a 5 pool) — pinned. AURA: 12x is the UNIT half only; shapes are 2x. OVERLAP: 7-instead-of-10 described one lattice and priced another (one shared Circle is 9, a 10% discount; 7 needs all three leaves), and same-tick teardown is true of the PREDICATES only — two unaligned polls, <=30 ticks.",
+      "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P4",
-      "title": "Races W1-A: race token + wire (PROTOCOL 38->39) + the castle weapon on the same bump",
+      "title": "Races W1-A (race token + wire, PROTOCOL 38->39) + THE CASTLE SHOOTS BACK",
       "tier": "Full",
-      "status": "pending",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "Executed the owner pre-approved PDR from SPARK_RACES_SPEC.md §15 with every line number re-verified first (32-agent read-only drift workflow, 0 errors). B5 DECIDED AND RECORDED: raceId is NOT hashed because it is IMMUTABLE AFTER BEGIN — explicitly not the raidPoints precedent the spec forbids, and the argument does not transfer to the tech perks. B6 (race follows the peer, not the dense seat) and B7 (the else arm, or the host own race is discarded at Begin) both built. I got the emit rule wrong first and the existing suite caught it: always-emit broke byte-identity, and omit-when-equal-to-default silently reintroduces B6 because the RECEIVER re-derives from the dense seat, so it must be omit-only-when-unclaimed. CASTLE GUNS: owner ruled NEAREST-IN-RANGE, superseding Q4 retaliation-only; NO stored timer (schedule derived from world.tick, so nothing to hash, no bump, and it pays for W1-B VFX with no wire field); fires inside the death-deferral window; seats visited in explicit id order. Q3 45-tick cadence MEASURED AND REJECTED — it one-shots every melee unit and deleted the castle-kill win condition, which is why ten unrelated tests went red. Shipped at 240 with the price pinned: 1 goblin ZERO damage, 10 HOLDS at 474, 15 FALLS at tick 1342, so a push needs ~15 where the tuning assumed 10. All ten red tests fixed honestly rather than accommodated; my first repair was worse and is recorded, because zeroing the castles trips the B2 win gate. B1 bit my own fixtures twice.",
+      "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
-    {
-      "priority": "S159-P1",
-      "lesson": "**THE CHEAPEST VERSION OF A CARRIED-FORWARD PLAN CAN BE A DIFFERENT PLAN.** Two sessions carried bag aggro as \"needs a new committed-target field on Creature (wire + hash + protocol bump)\" — reasoned by analogy with the tower taunt, which writes `targetPrimitiveId` because a tower HAS an anchor primitive. The analogy imported the tower's cost without re-testing its premise. The codebase had already written down both tests for when a committed target must be STORED (several sites must agree within one tick) and when it needs HYSTERESIS (the target moves); a bag fails both, so the feature is a derived scan and Creature is byte-identical. **Before paying a carried-forward cost, re-derive it — a handoff's SHAPE is a claim too, not just its numbers.**",
-      "tag": "#carried-forward-shape-is-a-claim"
-    },
-    {
-      "priority": "S159-P1",
-      "lesson": "**A NEGATIVE CONTROL IS WORTH MORE THAN THE ASSERTION IT PROTECTS.** With the four-line steering insert removed, the bag still DISAPPEARED — it expired on its own timer at tick 210 — so \"the bag is gone\" passes on a completely unwired build. What separates the two worlds is `killCount`: 1 when a unit struck it, 0 when it merely rotted. **Run the test against the broken build before believing the green one**, and prefer an assertion that names the MECHANISM over one that names the outcome, because outcomes have more than one cause.",
-      "tag": "#negative-control-before-believing-green"
-    },
-    {
-      "priority": "S159-P2",
-      "lesson": "**A HAND-ROLLED PREDICATE IS A SECOND SOURCE OF TRUTH, AND IT WILL DISAGREE WITH THE FIRST.** The chain's first cut asked `anchor.placedBy === attacker.ownerPlayerId` for enemy-ness. Plausible, compiles, passes a naive fixture — and it is a DIFFERENT QUESTION from the one the game asks. The shipped rule is endpoint `placerColor` vs the owner's LIVE colour, because a captured shape keeps its original allegiance for targeting and a colour shuffle remaps colours without touching `placedBy`. **When a rule already exists as an exported function, call it — the cost of re-deriving it is not the typing, it is that the two copies drift and only one of them is tested.**",
-      "tag": "#call-the-existing-predicate"
-    },
-    {
-      "priority": "S159-P2",
-      "lesson": "**DIFFERENTIAL GUARDS DO NOT NOTICE A DELIBERATE BEHAVIOUR CHANGE, AND THAT CUTS BOTH WAYS.** Three test files are documented as pinning Voltkin behaviour byte-identically, and all three stayed green through a change that gives the Voltkin five extra targets per strike — because they compare two SIMS against each other, not against a golden value. That is the right design for desync hunting and the wrong thing to cite as evidence of byte-equivalence. **Say which kind of guard you have before claiming what its green means.**",
-      "tag": "#differential-is-not-golden"
-    },
-    {
-      "priority": "S159-P3",
-      "lesson": "**A GATE THAT READS A HARDCODED KEY LIST IS A GATE WITH AN EXPIRY DATE.** The review card resolved HELD from `carry_forward_from_S152 or _S151 or _S150 or carry_forward`. Every session that invented a new session-suffixed key silently moved the live list out of its view, and it printed an S155 snapshot for two sessions while two handoffs warned the reader BY HAND not to trust it. Nobody fixed it because the warning was cheaper to write than the diagnosis. **A stale gate output is a bug report about the gate, not a note for the reader** - and the fix includes printing the KEY it read, so the next drift shows up on the card instead of needing an investigation.",
-      "tag": "#stale-gate-output-is-a-bug-report"
-    },
-    {
-      "priority": "S159-P4",
-      "lesson": "**RENAMING THE FILE WOULD HAVE SILENCED NOTHING.** Three archived plans made the boot warn every session, and the obvious fix - rename `*_IN-PROGRESS.md` - is the wrong one: pre-flight.sh greps plans-archive/*.md for a STATUS LINE inside the file, not for the filename. Same shape as S158 P1's TURN runbook, which told the owner to fill in a gitignored .env that CI never reads. **Find the code that fires the warning before deciding what will stop it.**",
-      "tag": "#find-the-code-that-fires-the-warning"
-    },
-    {
-      "priority": "S159-P5",
-      "lesson": "**THE DIAGNOSTIC WAS ASKING THE WRONG QUESTION, AND IT ACCUSED THE ONE SURVIVOR.** `probe-relays.mjs` graded `wss://` endpoints by rewriting them to `https://` and reading the HTTP status. A WebSocket endpoint answering 404 to a plain GET is NORMAL, so the probe reported the only living tracker as suspect and gave the two genuinely dead ones the same grade. One real WebSocket handshake separated them in 8 seconds. **A probe must perform the operation the product performs** - anything cheaper measures a different system and reports on it with total confidence.",
-      "tag": "#probe-the-operation-not-a-proxy"
-    },
-    {
-      "priority": "S159-P5",
-      "lesson": "**A REDUNDANCY LIST WHERE LENGTH IS THE REQUIREMENT IS NOT REDUNDANCY.** `transport.ts` passes `redundancy: relayUrls.length`, so adding a fallback tracker RAISES the bar the strategy must clear. Two dead entries out of three therefore failed the whole strategy instead of degrading it, and the 'uncorrelated failure domain' the Council added in S44 had been contributing nothing for months while reporting itself in red next to an unrelated real blocker. **When you add a fallback, check whether the code treats it as an OPTION or as a REQUIREMENT.**",
-      "tag": "#redundancy-that-raises-the-bar"
-    },
-    {
-      "priority": "S159-P5",
-      "lesson": "**I BROKE THE 'NEVER READ AN EXIT CODE THROUGH A PIPE' RULE IN THE COMMAND THAT WAS CHECKING COMPLIANCE.** `verify-session-claims.py ... | tail -2 && git commit` reads TAIL's status, not the verifier's, so a hard_fail=2 verdict scrolled past and the commit went through anyway. The project has this rule written down for `e2e:gating` and I applied it there and nowhere else. **A rule about exit codes is about EVERY gate, not the one it was first written for** — redirect to a file and echo `$?`. Second half of the same lesson: both times a binding failed this session it was an OVER-STRICT `file_lacks` catching the docblock that EXPLAINS the removed thing. A behaviour claim belongs on the executable form (the quoted array entry), never on the prose.",
-      "tag": "#exit-code-through-a-pipe"
-    },
-    {
-      "priority": "S159-P6",
-      "lesson": "**THE FOUR-SITES WARNING CAUGHT S158 TWICE AND THEN S158 ITSELF SHIPPED THREE OF FOUR.** B2b removed the whole-component clause from the goblin tower, the laser turret and the lightning hub, and `starShape.ts` announced that it had replaced FOUR component tests. The stink tower - the FIRST tower a player builds, on the most crowded ground they will ever build on - kept the clause for another session, so the bug the owner reported twice stayed live in the recipe most likely to hit it. **Counting the sites you fixed is not the same as counting the sites**; grep for the CLAUSE, not for the file names you remember touching.",
-      "tag": "#count-the-sites-not-your-edits"
-    },
-    {
-      "priority": "S159-P6",
-      "lesson": "**A STALE ⛔ IS WORSE THAN NO COMMENT, AND THE LOUDEST ONES GO STALE FIRST.** `goblinTowerFeed.ts` opened with *'READ THIS BEFORE ASSUMING THE FEATURE IS LIVE - nothing dispatches this action yet'*. The gesture shipped ONE SESSION LATER and nobody came back, so for seven sessions the first thing a reader saw was an instruction to distrust a working mechanic. Five more comments in this sweep had gone false the same way - each written carefully, each true when written, none owned by the session that made it false. **When you make a feature real, grep for the comments that said it was not.**",
-      "tag": "#stale-warnings-outlive-their-truth"
-    },
-    {
-      "priority": "S159-P7",
-      "lesson": "**BEFORE ASKING THE OWNER TO RULE, CHECK THE CASE EXISTS.** The flag asking them to rule on recipe overlap described a lattice that cannot be built: a lightning hub's Circle leaf cannot be a goblin-tower hub, because the goblin hub needs EVERY arm to be a Circle and that leaf is bonded to a Dot. The degree in the sentence was wrong too. S158's lesson was 'grep the archive before asking for a ruling that already exists'; this is its mirror - **construct the case before asking for a ruling on it.** Three lines of test turned a vague warning into a costed trade (20-30 % fewer shapes, paid for by a shared point of failure).",
-      "tag": "#construct-the-case-before-asking"
-    },
-    {
-      "priority": "S159-P8",
-      "lesson": "**A FIELD WITH ONE WRITER AND ONE DECREMENTER IS A COUNTDOWN, NOT A RESOURCE — AND NO SINGLE-FIGHT TEST CAN SEE IT.** `bagsRemaining` was filled at construction and never again, so the stink tower worked in fight one and was scenery forever after. Every stink test in the suite lived inside ONE fight, where a magazine that never refills is indistinguishable from a working one. **When a feature has a per-round rhythm, at least one test has to cross the round boundary** — and the owner found this by playing two rounds, which is a thing no unit test in the repo did.",
-      "tag": "#cross-the-round-boundary"
-    },
-    {
-      "priority": "S159-P9",
-      "lesson": "**\"WTF, IT SHOULD NOT BE SO\" CAN MEAN \"I CHANGED MY MIND\", AND TREATING IT AS A BUG WOULD HAVE DELETED THEIR OWN MECHANIC.** The drone hub vanishing after three drones was the S113 design the owner chose, glass-cannon and all, recorded in that PDR's R3. The cheap read was 'fix the disappearing tower' — which would have quietly binned the lightning storm they never complained about. Checking the archive first turned a bug fix into a RULING REVERSAL with one narrow question (does the blast survive?), and the answer was to MOVE it rather than remove it. **Before fixing what a player reports, find out whether they specified it.**",
-      "tag": "#they-may-have-specified-it"
-    },
-    {
-      "priority": "S159-P9",
-      "lesson": "**NEVER BIND A CODE CLAIM TO THE STATUS TEXT OF A PLANNING DOCUMENT — CLOSING THE WORK IS WHAT CHANGES IT.** Two P9 bindings asserted BACKLOG.md's wording as it stood while the two faults were PENDING (`- [ ] **T1 …`, and a 'NEXT SESSION'S TOP TWO' heading). The handoff then correctly rewrote that block to record both as shipped, and the Stop gate reported 2 hard fails against my own claims. Distinct from the session's four earlier binding lessons, which were all about over-strict `file_lacks` needles catching a docblock: this one is about binding to something whose whole purpose is to change. **Bind to the substance that survives the work being finished** — here, both items recorded as `[x]` with their commit. And the gate earning its keep at the very last step is the argument for it.",
-      "tag": "#never-bind-to-planning-status-text"
-    }
+    "P1 — A DOCUMENT CAN CARRY THE SAME DEFECT CLASS AS THE CODE IT DESCRIBES. S158 fixed a TURN runbook that pointed at a gitignored .env; boot-snapshot then told the owner to \"push anything\", which deploy.yml paths allowlist makes false for a secret-only change. The fix for a fix had landed one document over.",
+    "P1 — TRUE BY MEASUREMENT IS NOT TRUE BY CONSTRUCTION. The TURN inlining worked only via a Vite-internal merge of import.meta.env.* defines into a whole-object replacement. I proved it from the emitted bundle and then changed the code so the explicit define is what fires, because the proof was itself the problem.",
+    "P1 — MY OWN GUARD READ MY OWN EXPLANATION AS THE DEFECT. The anti-alias assertion failed on the docblock that quotes the banned form in order to explain it. Strip comments, and keep a control assertion so the strip cannot silently empty the haystack.",
+    "P2 — A DIAL THAT DOES NOTHING IS WORSE THAN NO ADVICE. Three documents told the next session the drone CAP was the first lever for a too-strong hub. Occupancy at every due slot is 1, so the first move was a no-op and the cadence was the only linear lever. Advice about a dial needs the same measurement as the dial.",
+    "P2 — A NUMBER QUOTED TO THE OWNER WANTS AN ASSERTION. The 9-drone uplift lived in a comment and a console.log while three documents quoted it to them. A retune could have made it 6 with nothing going red.",
+    "P2/P3 — I HAD WRITTEN REASONS THAT WERE FALSE, AND THE FALSE HALF WAS THE PERSUASIVE HALF. The stink refill was justified by a render path that only runs when the atlas fails to load; the chain hop range was justified by a citation that proves the opposite of the sentence it supports. Both survived review because they read like measurements.",
+    "P3 — A RULING IS QUOTED, NOT TIDIED. Four sites had silently corrected the owner typo maywe->maybe inside quotation marks, and the citation beside them pointed at a file where the ruling does not appear at all.",
+    "P4 — THE EXISTING SUITE CAUGHT MY DESIGN ERROR, AND THE TIDIER FIX WAS THE WRONG ONE. Always emitting raceId broke byte-identity; omitting it when equal to the seat default looks better and silently reintroduces B6, because the receiver re-derives the default from the DENSE seat. Only omit-when-unclaimed holds both contracts.",
+    "P4b — SHIPPING A MECHANIC CAN DELETE A DIFFERENT ONE, AND NOTHING IS DESIGNED TO NOTICE. Q3 castle cadence made the castle one-shot every melee unit, so the castle-kill win condition quietly stopped existing while the score win condition remained. No test in the repo pitted the two mechanics against each other; ten unrelated tests going red was the only signal.",
+    "P4b — WHEN A NEW MECHANIC REDDENS OLD TESTS, FIX THE FIXTURE OR THE DESIGN, NEVER THE ASSERTION. My first repair silenced the guns by zeroing both castles, which trips the first-castle-ends-it win gate and stopped combat entirely. The right repairs were to measure the duel at its resolution rather than thirty seconds later, to send an actual army where the comment already said armies, and to pin the lone-goblin case as its own new truth.",
+    "P4 — B1 BIT MY OWN FIXTURES TWICE IN ONE PRIORITY. A second creature with the same (owner, type) and a null sourceSpawnerId is dropped with no error, so a 20-goblin probe was secretly one goblin. The spec warned it looks correct on an empty fixture; it also looks correct inside a measurement you wrote yourself.",
+    "META — THE OWNER WAS RIGHT THAT I HAD NOT READ IT ALL. I answered from §14 and §15 and produced a finding framed as a design gap, when the design was complete and I had simply not reached R94 and §3.2. Reading the remaining 800 lines did not delete the finding, it narrowed it into something more useful — and their instruction, that the guns belong with the race castles, was correct."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -223,8 +172,8 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 768770,
-  "real_context_pct_at_close": 76.9,
+  "real_context_tokens_at_close": 532567,
+  "real_context_pct_at_close": 53.26,
   "checkpoint_commit": "c90b444",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
@@ -4449,5 +4398,14 @@
     "castle_targeting": "NEAREST ENEMY CREATURE IN RANGE — supersedes SPARK_TD_SESSION_SPECS.md:59 Q4 retaliation-only. Owner ruled 2026-09-02 when shown both documents. Record as a reversal AT the constant.",
     "batch_shape": "Go — all four priorities in order",
     "council_waiver": "races W1-A design: Council WAIVED by owner (pre-approved PDR says do not re-council)"
+  },
+  "gates_at_close": {
+    "typecheck": "exit 0",
+    "vitest": "exit 0 — 3452 passed / 221 files (boot baseline 3399/218)",
+    "build": "exit 0 — 765.0 / 900 KiB, headroom 135.0",
+    "e2e_gating": "exit 0, 62 passed — exit code read from a redirect, never a pipe",
+    "verify_deploy": "PASS 4/4 at 3f3737ca, content-hash equality (index-IWvvMPW8.js)",
+    "ci": "4/4 runs success, zero cancelled",
+    "protocol_version_sync": "green at 39"
   }
 }
