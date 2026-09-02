@@ -42,17 +42,27 @@ describe('S159 P6 — declared-but-dead stats are pinned, not merely commented',
     expect(cfg.pen).toBe(DRONE_PEN);
   });
 
-  it('⛔ and NOTHING SPENDS THEM: applyDroneExplode severs bonds and never reads atk/pen', () => {
+  /**
+   * ⭐ S160 P5 — **INVERTED, NOT DELETED, AND THE GAP IS CLOSED.** This asserted that
+   * `droneLifecycle.ts` did NOT mention `DRONE_ATK`/`DRONE_PEN` — the "designed to fail when the gap
+   * closes" half of the file's own premise. R77's drone AoE landed in S160 P5, so the assertion
+   * flips to its opposite rather than vanishing: the same file now guards that the numbers stay
+   * SPENT, which is the property a future refactor could silently undo.
+   *
+   * The S158 B2b treatment, applied to a pin that announced its own closure exactly as designed.
+   */
+  it('⭐ S160 P5 — the drone SPENDS both numbers now, and still severs its owner-ruled 3', () => {
     const drone = src('..', 'droneLifecycle.ts');
-    // The drone's explosion is a bond-sever. When the stat-driven blast lands, these two assertions
-    // are the ones to delete — together with the ⛔ block in constants.ts above `DRONE_ATK`.
-    expect(
-      drone.includes('DRONE_ATK'),
-      'DRONE_ATK is now read by droneLifecycle — the R77 drone AoE has landed. Delete this assertion ' +
-        'and update the ⛔ note above DRONE_ATK in constants.ts, which says the numbers are dead.',
-    ).toBe(false);
-    expect(drone.includes('DRONE_PEN')).toBe(false);
+    expect(drone.includes('DRONE_ATK'), 'the drone must spend its atk').toBe(true);
+    expect(drone.includes('DRONE_PEN'), 'the drone must spend its pen').toBe(true);
+    // ⛔ ADDITIVE, not a conversion: the unconditional sever is the owner's separate COUNT ruling
+    // ("3 connectors per lightning"), and stat-gating it would make the drone WEAKER against big
+    // fortresses (30 fifths cuts a connector only while the component has <= 26). See the docblock.
     expect(drone).toContain('SEVER_BOND');
+    expect(drone).toContain('DRONE_MAX_CONNECTORS');
+    // It goes through the SHARED helper, not a bespoke second damage path.
+    expect(drone).toContain('applyRadialDamage');
+    expect(drone).toContain('primitiveDamageForAtk');
   });
 
   it('✅ the SIBLING case is live, which is what makes the drone gap a gap and not a design', () => {
@@ -67,10 +77,24 @@ describe('S159 P6 — declared-but-dead stats are pinned, not merely commented',
     expect(GOBLIN_SUICIDE_PEN).toBeGreaterThanOrEqual(0);
   });
 
-  it('constants.ts states the drone gap in the same place the numbers live', () => {
+  it('⭐ S160 P5 — constants.ts no longer CLAIMS a gap that is closed', () => {
+    /*
+     * This asserted that constants.ts CONTAINED the words "DECLARED BUT DEAD". That was right while
+     * the gap was open and it is a lie now, so it inverts with the rest of the file — and inverting
+     * it is the point: a note describing a mechanic the game HAS since gained is exactly the stale
+     * comment this codebase keeps paying for. Two prior corrections of the same kind are pinned
+     * below, so this file is now a small ledger of notes that went false and were fixed.
+     */
     const c = src('..', '..', 'constants.ts');
-    expect(c).toContain('`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD');
-    // And the note that went false at S158 P3 must stay corrected: the suicide goblin's AoE IS built.
+    expect(
+      c,
+      'the drone AoE shipped at S160 P5, so this claim must be gone from constants.ts',
+    ).not.toContain('`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD');
+    // ...and the note that replaced it must say so where the numbers live.
+    expect(c).toContain('THESE NUMBERS ARE SPENT');
+    // The note that went false at S158 P3 must stay corrected: the suicide goblin's AoE IS built.
     expect(c).not.toContain('THE AoE SHAPE IS NOT IMPLEMENTED IN P3');
+    // And the sibling paragraph that pointed at the drone gap must not still point at it.
+    expect(c).not.toContain("THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE");
   });
 });

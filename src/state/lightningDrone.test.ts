@@ -17,6 +17,8 @@
 import { describe, it, expect } from 'vitest';
 import { dispatch, makeWorld, type World } from './world.ts';
 import {
+  DRONE_ATK,
+  DRONE_PEN,
   DRONE_EXPLODE_RADIUS,
   DRONE_MAX_CONNECTORS,
   DRONE_MAX_GLOBAL,
@@ -33,6 +35,7 @@ import {
   asPrimitiveId,
   asSpawnerId,
   type BondId,
+  type PlayerId,
   type PrimitiveId,
 } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -48,17 +51,29 @@ import { underChewerCaps } from './creatures/creatureLifecycle.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { LIGHTNING_DRONE_CONFIG, CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { snapshot } from './save.ts';
+import { attackFifths, primitiveDamageForAtk } from './stats.ts';
 
 const OWNER = asPlayerId(0);
 const OWNER_COLOR = PLAYER_COLORS[0];
 const ENEMY_COLOR = PLAYER_COLORS[1];
 
-function makePrim(id: number, x: number, y: number, type: SparkType, color: number = OWNER_COLOR): Primitive {
+// ⚠ S160 P5 — `placedBy` is now an optional 5th parameter, defaulted to OWNER so every existing
+// call site is byte-identical. `applyRadialDamage` spares SHAPES by `placedBy` (not by colour),
+// and the field is readonly, so an enemy-owned primitive has to be built that way rather than
+// reassigned after the fact.
+function makePrim(
+  id: number,
+  x: number,
+  y: number,
+  type: SparkType,
+  color: number = OWNER_COLOR,
+  placedBy: PlayerId = OWNER,
+): Primitive {
   return {
     id: asPrimitiveId(id),
     type,
     placerColor: color,
-    placedBy: OWNER,
+    placedBy,
     createdTick: 0,
     pos: { x, y },
     prevPos: { x, y },
@@ -364,5 +379,115 @@ describe('determinism — DRONE_EXPLODE is replay byte-identical', () => {
   }
   it('two identically-built worlds match byte-for-byte after the explode', () => {
     expect(detJson(buildExplodeWorld(0xabc))).toBe(detJson(buildExplodeWorld(0xabc)));
+  });
+});
+
+/**
+ * SPARK — S160 P5 (owner R77): **THE DRONE'S AoE DAMAGE, THE LAST UNBUILT R77 MECHANIC.**
+ *
+ * Owner R77: *"5 damage(atk) and 1 pierce in an area of effect (suicide drones)"*. For six sessions
+ * `DRONE_ATK`/`DRONE_PEN` reached `LIGHTNING_DRONE_CONFIG` and stopped there — `applyDroneExplode`
+ * severed bonds and never read either — so the dictated damage model described a mechanic the game
+ * did not have. `pinnedDeadStats.test.ts` asserted that gap on purpose; it is inverted now.
+ *
+ * ⛔ THE FIX IS ADDITIVE, AND THESE ASSERTIONS EXIST TO KEEP IT THAT WAY. `constants.ts` warned that
+ * CONVERTING the sever into stat damage would make the drone WEAKER against big fortresses (30 fifths
+ * cuts a connector only while the component has <= 26). So the unconditional `DRONE_MAX_CONNECTORS`
+ * sever — the owner's separate COUNT ruling — is untouched, and the damage is new on top. The last
+ * case below is the one that would catch a future "tidy-up" that stat-gates the sever.
+ */
+describe('S160 P5 — the drone finally spends its 5 atk / 1 pen in an area of effect', () => {
+  const ENEMY = asPlayerId(1);
+
+  /** An enemy UNIT `dist` px from the drone's detonation point at (0,0). */
+  function addEnemyUnit(world: World, id: number, dist: number): void {
+    const c = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(id),
+      ownerPlayerId: ENEMY,
+      pos: { x: dist, y: 0 },
+      targetPos: { x: dist, y: 0 },
+      spawnedAtTick: 0,
+      sourceSpawnerId: asSpawnerId(9),
+    });
+    c.state = 'SEEKING';
+    world.creatures.set(c.id, c);
+  }
+
+  it('⭐ the numbers come from the owner, on the shared ladder', () => {
+    // 5 x (5 + 1) = 30 fifths against units; 5 atk on the 1000-per-shape scale is 418.
+    expect(attackFifths(DRONE_ATK, DRONE_PEN)).toBe(30);
+    expect(primitiveDamageForAtk(DRONE_ATK)).toBe(418);
+  });
+
+  it('⭐ kills an enemy UNIT inside the radius — it dealt NO unit damage at all before S160', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    addEnemyUnit(world, 900, DRONE_EXPLODE_RADIUS - 20);
+    expect(world.creatures.has(asCreatureId(900))).toBe(true);
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    // A chewer's pool is 5 fifths against a 30-fifth blast.
+    expect(world.creatures.has(asCreatureId(900)), 'an enemy unit in the blast must die').toBe(false);
+  });
+
+  it('does NOT reach a unit outside the radius', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    addEnemyUnit(world, 901, DRONE_EXPLODE_RADIUS + 40);
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    expect(world.creatures.has(asCreatureId(901))).toBe(true);
+  });
+
+  it('⛔ spares the units of the side that SENT it — the area-hazard contract', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    const mine = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(902), ownerPlayerId: OWNER, pos: { x: 20, y: 0 },
+      targetPos: { x: 20, y: 0 }, spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(0),
+    });
+    mine.state = 'SEEKING';
+    world.creatures.set(mine.id, mine);
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    expect(world.creatures.has(asCreatureId(902)), 'a drone never harms the side that sent it').toBe(true);
+  });
+
+  it('⭐ damages an enemy SHAPE by the owner atk value on the shape scale', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    world.primitives.set(asPrimitiveId(77), makePrim(77, 30, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    const hit = world.primitives.get(asPrimitiveId(77));
+    expect(hit, 'one blast is 418 of 1000, so the shape survives it').toBeDefined();
+    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - primitiveDamageForAtk(DRONE_ATK));
+  });
+
+  it('⛔ and the CONNECTOR SEVER IS STILL UNCONDITIONAL — additive, not a conversion', () => {
+    /*
+     * THE REGRESSION GUARD. 30 fifths cuts a connector only while its component has <= 26, so if a
+     * later change routes the sever through `damageConnector` this drone would take NOTHING off a
+     * big fortress where today it always takes its owner-ruled 3. This builds a component far larger
+     * than 26 connectors and asserts the drone still bites.
+     */
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    // A long enemy chain: 40 primitives, 39 connectors, all well past the 26 threshold.
+    let pid = 200;
+    const N = 40;
+    for (let i = 0; i < N; i++) {
+      const prim = makePrim(pid + i, i * 6 - 10, 0, SparkType.Dot, ENEMY_COLOR, ENEMY);
+      world.primitives.set(asPrimitiveId(pid + i), prim);
+    }
+    for (let i = 0; i < N - 1; i++) addBond(world, 300 + i, pid + i, pid + i + 1);
+    const bondsBefore = world.bonds.size;
+    expect(bondsBefore, 'a component far larger than the 26-connector stat threshold').toBeGreaterThan(26);
+
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+
+    const severedCount = bondsBefore - world.bonds.size;
+    expect(
+      severedCount,
+      'the drone must still sever its owner-ruled connectors on a big fortress. If this reads 0, the ' +
+        'sever has been stat-gated and the drone has been silently nerfed against exactly the bases ' +
+        'it exists to open up — see the docblock on DRONE_ATK.',
+    ).toBeGreaterThan(0);
   });
 });

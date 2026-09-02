@@ -43,8 +43,14 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
        ⭐ **AND HERE IS THAT CONSEQUENCE, MEASURED:** throws land at ticks **254, 538, 822, 1106,
        1390** into a 2700-tick FIGHT — gaps of **284**, not the 240 `STINK_THROW_INTERVAL_TICKS`
        implies, because WINDUP+FIRE+RECOVER cost 44 ticks a throw. **The tower is DRY for the last
-       22 of every 45 seconds.** Owner's call: more bags, a slower cadence that spreads five across
-       the whole fight, or leave it as a front-loaded burst. Pinned by `stinkReload.test.ts`.
+       22 of every 45 seconds.** Pinned by `stinkReload.test.ts`.
+       ✅ **RULED: LEAVE IT AT 5 BAGS** — the owner counted the tower art (five hanging bags in
+       `assets-source/godly-goblins/clips/stink-tower/idle.mp4`) and agreed with the count.
+       ⛔ **And they corrected "dry" → "idle", which I had conflated:** *"it doesnt sit idle because
+       it also has his aura around him that damages enemies and taunts any close by units."* True in
+       code both ways — `stinkAuraTick` is unconditional since S157 B9, and `stinkAggroTargets`
+       returns early UNLESS depleted, so the taunt exists ONLY when empty. Running out is a **MODE
+       CHANGE, not an off-switch**: a spent tower keeps the aura and GAINS a taunt, becoming bait.
        ⚠ The alternative "slow reload with visible progress" is **NOT cheap**, and S160 corrected my
        own false reason for thinking it was: the per-bag rack is in `drawTower`, which runs ONLY in
        the atlas-null fallback, and the atlas ships. On the live path the sole magazine tell is one
@@ -121,24 +127,37 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
      how it was found. Shipped at **240 ticks (4 s)** — MY number — and here is what it costs,
      measured through the real host tick and now pinned in `castleGuns.test.ts`:
      **1 goblin → ZERO damage** (shot before its first swing) · 5 → castle holds at 1284 ·
-     **10 → castle HOLDS at 474**, so the shipped tuning's figure is no longer enough ·
-     **15 → castle FALLS at tick 1342.**
-     ⇒ **A sustained push now needs ~15 goblins where `GOBLIN_DAMAGE_VS_CASTLE` assumed 10.** Which
-     constant should move — the cadence or the goblin damage — is the OWNER'S call. ⚠ 60 ticks is a
-     hard floor: below it an attacker dies before it swings once.
+     **10 → castle HOLDS at 474** · **15 → castle FALLS at tick 1342.**
+     ⛔ **READ THAT AS AN ORDERING, NOT A LAW — the owner pushed back on the bare "10 vs 15" and was
+     right:** *"what kind of goblins in how long?? it is all dynamic and different as it should be!"*
+     The fixture spawns melee goblins DIRECTLY ONTO the keep, in continuous contact, on an empty
+     board. A real match has mixed unit types, travel time, walls and towers in the way, and
+     attrition on the approach. **What the fixture establishes is only this: one attacker cannot win,
+     ten no longer can, fifteen still can — so the castle-kill victory is REACHABLE rather than
+     deleted, which is what Q3's 45 ticks broke.** The integer is an artefact of one board.
+     ✅ **RULED: KEEP AS IS and play it first.** Which constant later moves — the cadence or
+     `GOBLIN_DAMAGE_VS_CASTLE` — is the owner's call after a real match. ⚠ 60 ticks is a hard floor:
+     below it an attacker dies before it swings once.
    · ⭐ **And the design intent is now literally true rather than merely slow.**
      `GOBLIN_DAMAGE_VS_CASTLE` always said a lone leaker is *"far too slow to matter alone… the
      castle falls to a SUSTAINED ARMY"*. Before the gun that was arithmetic; now a lone attacker is
      actively killed.
 
-5. **DRONE AoE — the last unbuilt R77 mechanic, and P9 raised its stakes.** `DRONE_ATK` 5 /
-   `DRONE_PEN` 1 reach the config and stop: `applyDroneExplode` severs bonds and never reads either,
-   so *"5 damage and 1 pierce in an area of effect"* describes a mechanic the game does not have.
-   `pinnedDeadStats.test.ts` asserts the gap and is designed to fail when it closes;
-   `state/creatures/suicideBlast.ts` is the ready-made generalisation. ⚠ Now that a hub produces
-   FOREVER rather than three times, the drone's damage model matters far more than it did.
-   ⚠ Still a balance change: 30 fifths breaks a connector up to a 26-connector structure and then
-   stops, so a drone gets WEAKER against big fortresses.
+5. ✅ **DRONE AoE — SHIPPED S160 P5. R77'S DEFERRED LIST IS NOW EMPTY.** `DRONE_ATK` 5 /
+   `DRONE_PEN` 1 had reached the config and stopped for six sessions; the drone now spends both.
+   · **units** `attackFifths(5,1)` = **30 fifths** · **shapes** `primitiveDamageForAtk(5)` = **418**
+     of 1000, so three drones fell one · owner spared, through the shared `applyRadialDamage`.
+   · ⛔ **AND THE FIX IS ADDITIVE, WHICH IS THE WHOLE DECISION.** This entry used to warn that
+     30 fifths *"breaks a connector up to a 26-connector structure and then stops, so a drone gets
+     WEAKER against big fortresses"* — and that warning is exactly why the sever was NOT converted.
+     R77 gives a **damage sentence** for the AoE and a separate **count** for connectors (*"3
+     connectors per lightning"*), so the damage is spent on units and shapes while the unconditional
+     `DRONE_MAX_CONNECTORS` sever is untouched. No balance regression, no owner ruling needed, and a
+     regression test builds a 39-connector component and asserts the drone still bites.
+   · ⚠ It IS a buff to feel, on top of P9's 9-per-fight: a drone that dealt no unit damage at all
+     now one-shots most of the roster inside 110 px.
+   · `pinnedDeadStats.test.ts` fired exactly as designed and was **INVERTED, not deleted** (the S158
+     B2b treatment), so it now guards that the numbers stay spent.
 
 6. **N2 raid parity across seats** — needs an OWNER OBSERVATION, not a fix. The reducers are
    seat-agnostic and `grantRaidProgress` fires on both build paths. If it still looks wrong in a real

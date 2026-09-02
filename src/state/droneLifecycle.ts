@@ -24,11 +24,25 @@ import { dispatch } from './world.ts';
 import type { BondId, CreatureId, SpawnerId, Vec2 } from '../types.ts';
 import { bondMidpoint, isEnemyBond } from './creatures/creatureAI.ts';
 import {
+  DRONE_ATK,
   DRONE_EXPLODE_RADIUS,
   DRONE_MAX_CONNECTORS,
   DRONE_MAX_GLOBAL,
   DRONE_MAX_PER_SPAWNER,
+  DRONE_PEN,
 } from '../constants.ts';
+import { applyRadialDamage } from './damage.ts';
+import { attackFifths, primitiveDamageForAtk } from './stats.ts';
+
+/**
+ * ⭐ S160 P5 (owner R77) — **THE DRONE'S AoE DAMAGE, WHICH IT NEVER HAD.** The last unbuilt item on
+ * R77's deferred list: *"5 damage(atk) and 1 pierce in an area of effect (suicide drones)"*.
+ *
+ * Named rather than inlined for the reason `suicideBlast.ts` gives at its own constant:
+ * `applyRadialDamage` takes a 1000-per-shape amount and a FIFTHS amount ADJACENTLY, and swapping
+ * them typechecks silently.
+ */
+const DRONE_BLAST_UNIT_FIFTHS = attackFifths(DRONE_ATK, DRONE_PEN);
 
 const DRONE_EXPLODE_RADIUS_SQ = DRONE_EXPLODE_RADIUS * DRONE_EXPLODE_RADIUS;
 
@@ -85,6 +99,49 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
 
   // Burst visual (wire-mirrored) — emit ONCE, before the severs.
   world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: DRONE_EXPLODE_RADIUS });
+
+  /*
+   * ⭐ S160 P5 (owner R77) — **AND NOW IT ACTUALLY DEALS ITS DAMAGE.**
+   *
+   * Owner R77: *"5 damage(atk) and 1 pierce in an area of effect (suicide drones)"*. Until S160 those
+   * two numbers reached `LIGHTNING_DRONE_CONFIG.atk/pen` and stopped: this function severed bonds and
+   * never read either, so the dictated damage model described a mechanic the game did not have.
+   * `pinnedDeadStats.test.ts` asserted that gap on purpose and is inverted by this change.
+   *
+   * The shape of the fix follows `suicideBlast.ts` exactly — same shared ladder, same unit-and-shape
+   * split, same owner-sparing radial helper — which is what its docblock advertised itself as.
+   *   · units:  `attackFifths(5, 1)` = **30 fifths**
+   *   · shapes: `primitiveDamageForAtk(5)` = **418** of a primitive's 1000, so three drones fell one
+   *
+   * ⛔ **AND THE CONNECTOR SEVER BELOW IS DELIBERATELY LEFT UNCONDITIONAL. THIS IS THE WHOLE
+   * DESIGN DECISION, AND IT IS WHY THE GAP COULD BE CLOSED WITHOUT AN OWNER RULING.**
+   *
+   * `constants.ts` warned, correctly, that CONVERTING the sever into stat damage is a balance change
+   * the owner should see first: 30 fifths against `connectorCapacityFifths(n) = n + 4` cuts a
+   * connector only while n <= 26, so a stat-gated drone would go from "always takes 3 connectors" to
+   * "takes NOTHING off a 30-connector fortress" — weaker against exactly the big bases it exists to
+   * open up. Nobody asked for that.
+   *
+   * So this is ADDITIVE, not a conversion. The drone keeps `DRONE_MAX_CONNECTORS` unconditional
+   * severs — the owner's own COUNT ruling (*"3 connectors per lightning"*) — and GAINS the unit and
+   * shape damage it was always specified to have. R77's damage sentence is now spent; R77's connector
+   * count is untouched. ⚠ The asymmetry with `suicideBlast.ts`, whose connector arm IS stat-gated, is
+   * intentional and this is the reason: the goblin has no count ruling, the drone does.
+   *
+   * ⚠ ORDER: candidates were collected ABOVE, before this damage lands, because a destroyed
+   * primitive takes its bonds with it. The sever loop re-checks `world.bonds.get(bondId)` and skips
+   * what is already gone, which is the same stale-entry defence it already had for sibling drones.
+   */
+  applyRadialDamage(
+    world,
+    cx,
+    cy,
+    DRONE_EXPLODE_RADIUS,
+    primitiveDamageForAtk(DRONE_ATK),
+    DRONE_BLAST_UNIT_FIFTHS,
+    'creature',
+    drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds
+  );
 
   const arcStart: Vec2 = { x: cx, y: cy };
   let severed = 0;

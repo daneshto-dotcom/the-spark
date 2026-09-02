@@ -364,9 +364,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * is `stinkReload.test.ts`'s "the five bags really do fit inside a REAL fight"): throws land
          * at ticks **254, 538, 822, 1106, 1390** into a 2700-tick FIGHT — gaps of **284**, not the
          * 240 `STINK_THROW_INTERVAL_TICKS` implies, because WINDUP + FIRE + RECOVER cost 44 ticks a
-         * throw. So the magazine is **dry for the last 1310 ticks — 22 of every 45 seconds.** That
-         * falls out of the owner's own bag count, so it is theirs to rule on: more bags, a slower
-         * cadence that spreads five across the whole fight, or leave it as a front-loaded burst.
+         * throw. So the magazine is **dry for the last 1310 ticks — 22 of every 45 seconds.**
+         *
+         * ⛔ BUT "DRY" IS NOT "IDLE", AND S160 P2 FIRST DESCRIBED IT AS IF IT WERE. The owner
+         * corrected it: *"it doesnt sit idle because it also has his aura around him that damages
+         * enemies and taunts any close by units."* Both halves check out in code — `stinkAuraTick`
+         * is UNCONDITIONAL since S157 B9 (*"a loaded tower stinks too"*), and `stinkAggroTargets`
+         * opens with `if (!stinkIsDepleted(d)) return []`, so the taunt exists ONLY when empty.
+         * ⇒ Running out is a **MODE CHANGE, not an off-switch**: a spent tower keeps its aura and
+         * GAINS a taunt, becoming bait that pulls enemies onto itself. `stinkAuraTick`'s own
+         * docblock already said it — *"the aura is what it IS, not what it becomes"*.
+         *
+         * ✅ AND THE BAG COUNT IS SETTLED. The owner checked it against the tower art and ruled
+         * **leave it at 5**: five hanging bags are what the idle clip actually draws
+         * (`assets-source/godly-goblins/clips/stink-tower/idle.mp4`, counted at S160).
          *
          * Idempotent for TWO reasons, and the weaker one used to be the only one stated: it assigns a
          * constant, AND it sits outside the flip loop so it cannot execute twice in a tick. Either

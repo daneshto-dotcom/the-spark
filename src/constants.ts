@@ -1585,12 +1585,24 @@ export const CASTLE_FIRE_INTERVAL_TICKS = 240; // 4 s — NOT Q3's 45. See the r
  * cadence ≤ 60 an attacker dies before it swings even once and *"a goblin that reaches the keep
  * actually hits it"* — an owner report, with a test named after it — becomes false.
  *
- * ⭐ 240 (4 s) IS MINE, AND HERE IS WHAT IT COSTS, MEASURED not estimated (`castleGuns.test.ts`
- * finds the threshold by running the real host tick): a sustained push now needs about **15 goblins
- * where the shipped tuning assumed 10**, and an attacker lands ~4 swings before it dies. That is a
- * REAL balance change to the owner's headline win condition, and it is unavoidable — ANY working
- * castle gun makes the castle-kill path harder. The dial is here; the alternative dial is
- * `GOBLIN_DAMAGE_VS_CASTLE`, and which of the two should move is the OWNER'S call, not mine.
+ * ⭐ 240 (4 s) IS MINE. What it costs is measured rather than estimated (`castleGuns.test.ts`
+ * finds the threshold by running the real host tick): on that fixture a sustained push needs about
+ * **15 melee goblins where the shipped tuning assumed 10**, and an attacker lands ~4 swings first.
+ *
+ * ⛔ AND READ THAT NUMBER FOR WHAT IT IS — A FIXTURE READING, NOT A LAW OF THE GAME. The owner
+ * pushed back on the bare "10 vs 15" framing and was right to: *"what kind of goblins in how long??
+ * it is all dynamic and different as it should be!"* The measurement spawns melee goblins DIRECTLY
+ * ONTO the enemy keep, in continuous contact, on an otherwise empty board. A real match has mixed
+ * unit types with different pools, travel time, walls and towers in the way, and attrition on the
+ * approach — so 15 is the number for THAT fixture and nothing more.
+ *
+ * ⭐ What the fixture DOES establish, and the only reason it exists, is the ORDERING: one attacker
+ * cannot win, ten no longer can, fifteen still can — so the castle-kill victory is REACHABLE rather
+ * than deleted, which is exactly what Q3's 45 ticks broke. Treat the ordering as the finding and the
+ * integer as an artefact of one board.
+ *
+ * The dial is here; the alternative dial is `GOBLIN_DAMAGE_VS_CASTLE`. Which should move is the
+ * OWNER'S call, and they have asked to PLAY it before either does.
  *
  * ⭐ AND THE DESIGN INTENT IS NOW LITERALLY TRUE RATHER THAN MERELY SLOW. `GOBLIN_DAMAGE_VS_CASTLE`
  * says a lone leaked unit is *"far too slow to matter alone, which is the point: the castle falls to
@@ -1648,9 +1660,10 @@ export const GOBLIN_BAT_PEN = 3;
  * unit was flying the lightning drone's mission entirely — wrong radius, wrong target family, and
  * 4 ATK applied to nothing.
  *
- * ⚠ THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE. See `DRONE_ATK` below: its explosion severs
- * bonds outright and never reads its own atk/pen, so those two numbers remain declared-but-dead.
- * `suicideBlast.ts` is the ready-made generalisation when that lands.
+ * ✅ AND THE DRONE'S HALF IS CLOSED TOO, AT S160 P5. This paragraph used to say the drone still
+ * severed bonds without reading its own atk/pen. It now spends both through the very generalisation
+ * this note predicted — `suicideBlast.ts`'s shape, reused — while keeping its unconditional
+ * 3-connector sever, because that count is a separate owner ruling. See `DRONE_ATK` below.
  */
 export const GOBLIN_SUICIDE_HP = 2;
 export const GOBLIN_SUICIDE_DEF = 0;
@@ -1662,22 +1675,28 @@ export const GOBLIN_SUICIDE_BLAST_RADIUS = 70;
 /**
  * Electric drone — "5 damage(atk) and 1 pierce in an area of effect (suicide drones) … 2hp, 0 def".
  *
- * ⛔ **`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD, RE-MEASURED S159 P6.** Their only consumers
- * are `LIGHTNING_DRONE_CONFIG.atk/pen`, and the drone's one and only attack path
- * (`droneLifecycle.ts applyDroneExplode`) SEVERS enemy bonds outright inside `DRONE_EXPLODE_RADIUS`
- * — it never reads atk or pen. So the owner's dictated *"5 damage and 1 pierce in an area of effect"*
- * currently describes a mechanic the game does not have, while the radius (110) is real and live.
+ * ✅ **S160 P5 — LIVE. THESE NUMBERS ARE SPENT, AND THIS WAS THE LAST UNBUILT ITEM ON R77.** For six
+ * sessions this note read *"DECLARED BUT DEAD"*: their only consumers were
+ * `LIGHTNING_DRONE_CONFIG.atk/pen`, and `applyDroneExplode` severed enemy bonds without ever reading
+ * either, so the owner's dictated *"5 damage and 1 pierce in an area of effect"* described a mechanic
+ * the game did not have. `pinnedDeadStats.test.ts` asserted the gap rather than describing it, and it
+ * went red exactly as designed when the blast landed — it is now INVERTED to guard the closure.
  *
- * This is the last unbuilt item on R77's deferred-mechanics list, and it is a SHAPE change, not the
- * "sizing" question two handoffs called it. `pinnedDeadStats.test.ts` asserts the gap so the codebase
- * states it rather than relying on this comment, and `state/creatures/suicideBlast.ts` (S158 P3) is
- * the ready-made generalisation: same shared ladder, same unit-and-structure split.
+ * What ships (`droneLifecycle.ts`, following `suicideBlast.ts`'s shape as that file advertised):
+ *   · units:  `attackFifths(5, 1)` = **30 fifths**
+ *   · shapes: `primitiveDamageForAtk(5)` = **418** of a primitive's 1000 — three drones fell one
+ *   · connectors: **UNCHANGED** — still `DRONE_MAX_CONNECTORS` unconditional severs
  *
- * ⚠ IT IS LEFT UNBUILT ON PURPOSE, because converting a bond-SEVER into stat damage is a balance
- * change the owner should see before it ships: 5 atk / 1 pen is 30 fifths, which breaks a connector
- * of capacity `count + 4` up to a 26-connector structure and then stops — so a drone would get
- * WEAKER against big fortresses and keep its bite against small ones. That may well be the right
- * game; it is not mine to decide silently.
+ * ⛔ **AND THAT LAST LINE IS THE DESIGN DECISION, TAKEN BECAUSE OF WHAT THIS NOTE USED TO WARN.** It
+ * said converting the sever into stat damage was a balance change the owner should see first, and it
+ * was right: 30 fifths against `connectorCapacityFifths(n) = n + 4` cuts a connector only while
+ * n <= 26, so a stat-gated drone would take NOTHING off a 30-connector fortress where today it always
+ * takes 3 — weaker against exactly the big bases it exists to open up.
+ *
+ * So the fix is **ADDITIVE, not a conversion**: R77's damage sentence is now spent on units and
+ * shapes, and R77's separate connector COUNT (*"3 connectors per lightning"*) is untouched. No
+ * balance regression, no owner ruling needed, and the drone is strictly better against armies and
+ * shapes than it was — which IS a buff to feel, on top of P9's 9-per-fight.
  */
 export const DRONE_HP = 2;
 export const DRONE_ATK = 5;

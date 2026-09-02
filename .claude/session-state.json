@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3976,
+  "tool_calls_session_total": 3987,
   "session_id": "S160",
   "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -554,6 +554,99 @@
         }
       ],
       "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
+    },
+    {
+      "id": "P5",
+      "title": "DRONE AoE — the last unbuilt R77 mechanic, closed ADDITIVELY so no shipped behaviour weakens",
+      "tier": "Micro",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "R77 (*\"5 damage(atk) and 1 pierce in an area of effect (suicide drones)\"*) had reached LIGHTNING_DRONE_CONFIG and stopped for six sessions: applyDroneExplode severed bonds and never read atk or pen. Now spends both through the SHARED helper, following suicideBlast.ts exactly as that file advertised itself: units attackFifths(5,1) = 30 fifths, shapes primitiveDamageForAtk(5) = 418 of 1000 (so three drones fell one), owner spared. ⛔ THE DESIGN DECISION: the connector sever is left UNCONDITIONAL and additive rather than converted, because constants.ts had warned — correctly — that stat-gating it would make the drone WEAKER against big fortresses (30 fifths cuts a connector only while the component has <= 26, so a 30-connector base would take ZERO where today it always loses 3). R77 gives a separate COUNT ruling for connectors (\"3 connectors per lightning\") and only a damage sentence for the AoE, so spending the damage on units and shapes closes the gap with no balance regression and no owner ruling needed. The asymmetry with suicideBlast.ts (whose connector arm IS stat-gated) is deliberate and written at both sites. pinnedDeadStats.test.ts was INVERTED, not deleted (the S158 B2b treatment) — it went red exactly as designed when the gap closed, and now guards that the numbers stay spent; its constants.ts assertion inverted too, since the DECLARED-BUT-DEAD note is now false. Six new tests including a regression guard that builds a 39-connector component and asserts the drone still bites.",
+      "checkpoint_commit": "PENDING",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "DRONE_ATK"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "DRONE_PEN"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "applyRadialDamage("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "primitiveDamageForAtk(DRONE_ATK)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "DRONE_BLAST_UNIT_FIFTHS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "DRONE_MAX_CONNECTORS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "type: 'SEVER_BOND'"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/droneLifecycle.ts",
+          "pattern": "damageConnector",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "THESE NUMBERS ARE SPENT"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/pinnedDeadStats.test.ts",
+          "needle": "the drone SPENDS both numbers now"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/pinnedDeadStats.test.ts",
+          "pattern": "NOTHING SPENDS THEM",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/lightningDrone.test.ts",
+          "needle": "the drone finally spends its 5 atk / 1 pen"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/lightningDrone.test.ts",
+          "needle": "the CONNECTOR SEVER IS STILL UNCONDITIONAL"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -568,7 +661,12 @@
     "P4b — SHIPPING A MECHANIC CAN DELETE A DIFFERENT ONE, AND NOTHING IS DESIGNED TO NOTICE. Q3 castle cadence made the castle one-shot every melee unit, so the castle-kill win condition quietly stopped existing while the score win condition remained. No test in the repo pitted the two mechanics against each other; ten unrelated tests going red was the only signal.",
     "P4b — WHEN A NEW MECHANIC REDDENS OLD TESTS, FIX THE FIXTURE OR THE DESIGN, NEVER THE ASSERTION. My first repair silenced the guns by zeroing both castles, which trips the first-castle-ends-it win gate and stopped combat entirely. The right repairs were to measure the duel at its resolution rather than thirty seconds later, to send an actual army where the comment already said armies, and to pin the lone-goblin case as its own new truth.",
     "P4 — B1 BIT MY OWN FIXTURES TWICE IN ONE PRIORITY. A second creature with the same (owner, type) and a null sourceSpawnerId is dropped with no error, so a 20-goblin probe was secretly one goblin. The spec warned it looks correct on an empty fixture; it also looks correct inside a measurement you wrote yourself.",
-    "META — THE OWNER WAS RIGHT THAT I HAD NOT READ IT ALL. I answered from §14 and §15 and produced a finding framed as a design gap, when the design was complete and I had simply not reached R94 and §3.2. Reading the remaining 800 lines did not delete the finding, it narrowed it into something more useful — and their instruction, that the guns belong with the race castles, was correct."
+    "META — THE OWNER WAS RIGHT THAT I HAD NOT READ IT ALL. I answered from §14 and §15 and produced a finding framed as a design gap, when the design was complete and I had simply not reached R94 and §3.2. Reading the remaining 800 lines did not delete the finding, it narrowed it into something more useful — and their instruction, that the guns belong with the race castles, was correct.",
+    "P5 — CLOSING A DECLARED-BUT-DEAD STAT DOES NOT HAVE TO MEAN CONVERTING THE MECHANIC THAT STOOD IN FOR IT. The obvious reading of \"spend DRONE_ATK/PEN\" was to route the bond sever through damageConnector, and constants.ts had already worked out that this would make the drone weaker against big fortresses. Spending the numbers on the targets the drone had NO damage against at all — units and shapes — closes the gap additively, with no balance regression and no owner ruling needed. The warning in the constant did its job six sessions after it was written.",
+    "P5 — A PIN DESIGNED TO FAIL ON CLOSURE ACTUALLY FIRED, AND THE RIGHT MOVE WAS TO INVERT IT, NOT DELETE IT. pinnedDeadStats.test.ts said \"delete this assertion\"; inverting instead turns a one-shot tripwire into a standing guard that the numbers stay spent, and its constants.ts assertion had to flip too because the note it checked for had become the stale comment.",
+    "META — THE OWNER CAUGHT ME STATING A FIXTURE READING AS A LAW OF THE GAME. \"A push needs 15 goblins instead of 10\" is true of one board: melee goblins spawned onto the keep in continuous contact with nothing else alive. Their objection — *\"what kind of goblins in how long?? it is all dynamic\"* — is the correct standard. The ORDERING was the finding; the integer was an artefact, and I presented the artefact.",
+    "META — AND I OVERSTATED \"DRY\" AS \"IDLE\" ON THE STINK TOWER. The owner knew their own design better than my measurement did: a spent tower keeps its aura and GAINS its taunt, so emptying is a mode change rather than an off-switch. The code said so in a docblock I had already read this session (\"the aura is what it IS, not what it becomes\").",
+    "TOOLING — GIT NORMALISES THE WORKING COPY TO CRLF ON COMMIT, so a multi-line \\n-only patch anchor that worked earlier in a session silently stops matching later. Detect the file's line ending and translate the anchor; a single-line anchor hides the problem rather than avoiding it."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4868,7 +4966,11 @@
   "owner_rulings_s160": {
     "castle_targeting": "NEAREST ENEMY CREATURE IN RANGE — supersedes SPARK_TD_SESSION_SPECS.md:59 Q4 retaliation-only. Owner ruled 2026-09-02 when shown both documents. Record as a reversal AT the constant.",
     "batch_shape": "Go — all four priorities in order",
-    "council_waiver": "races W1-A design: Council WAIVED by owner (pre-approved PDR says do not re-council)"
+    "council_waiver": "races W1-A design: Council WAIVED by owner (pre-approved PDR says do not re-council)",
+    "castle_cadence": "KEEP AS IS, play it first. ⚠ And the owner rejected the bare \"10 vs 15 goblins\" framing as abstract: *\"what kind of goblins in how long?? it is all dynamic and different as it should be!\"* Correct — the figure is one fixture (melee goblins spawned onto the keep, continuous contact, empty board). Re-recorded at the constant as an ORDERING (one cannot win, ten no longer can, fifteen still can => the castle-kill victory is reachable rather than deleted) with the integer flagged as an artefact of one board.",
+    "stink_bags": "LEAVE AT 5. The owner counted the tower art and agreed: five hanging bags in assets-source/godly-goblins/clips/stink-tower/idle.mp4 (I extracted a frame and counted independently — five).",
+    "stink_dry_vs_idle": "OWNER CORRECTION, and they were right: *\"it doesnt sit idle because it also has his aura around him that damages enemies and taunts any close by units.\"* Verified in code both ways — stinkAuraTick is UNCONDITIONAL since S157 B9, and stinkAggroTargets returns early UNLESS depleted, so the taunt exists ONLY when empty. Running out is a MODE CHANGE, not an off-switch: a spent tower keeps the aura and GAINS a taunt, becoming bait. My \"sits idle\" framing was the error.",
+    "chain_falloff": "LEAVE AS IS, play it first. No change shipped."
   },
   "gates_at_close": {
     "typecheck": "exit 0",
