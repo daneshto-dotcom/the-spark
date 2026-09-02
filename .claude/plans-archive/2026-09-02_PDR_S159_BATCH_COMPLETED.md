@@ -166,3 +166,19 @@ which satisfies GROK's determinism worry more strongly than its own prescription
   deriving it. The deliberation removed work rather than adding it.
 - **What remains uncertain:** the 1-test discrepancy at E1 (3353 vs a claimed 3352) has no explanation
   yet. It is recorded, and P6 will look for it rather than assume the handoff simply miscounted.
+
+
+---
+
+## STATUS: COMPLETED (stamped at the S159 handoff)
+
+All seven priorities shipped, committed and pushed; the live site is verified by content-hash equality
+(`verify-deploy` PASS 4/4 at `5e682ac`). Gates at close: `tsc` 0 - **3393/3393** unit tests across 216
+files - `e2e:gating` exit 0, 62 passed (run TWICE, before and after the stink-tower sim change) -
+bundle 763.9 / 900 KiB - MCV claims verifier **88 bindings, hard_fail=0, exit 0**.
+
+⭐ WHAT THE PLAN DID NOT PREDICT. P6 was the lowest-status priority in the batch and returned the
+highest value: the **stink tower was the fourth site of the S158 B2b bug** - the owner's own reported
+defect, still live in the FIRST tower a player builds. The plan's own A.0 also carried one FALSE row
+(E15 called drone AoE 'a NUMBER ruling, not unbuilt code'; the shape is unbuilt and the owner's stats
+are dead), which the sweep corrected. Both are recorded in `analyze_s159` in session-state.

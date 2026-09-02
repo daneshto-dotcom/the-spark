@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3828,
+  "tool_calls_session_total": 3849,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -764,7 +764,7 @@
   "real_context_pct_at_close": 83.11,
   "checkpoint_commit": "0192fb5",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": false,
+  "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered $(VAR) placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -4902,5 +4902,38 @@
       "the chain's power: 33 fifths one-shots any connector in a component of <=29 connectors, and a full bolt takes SIX per strike. Gemini's arithmetic matches the flag already written at VOLTKIN_CHAIN_HOP_RANGE. NOT nerfed — the owner specified the mechanic and the number; escalated in the handoff with falloff named as the first dial."
     ],
     "net": "two tests added, two docblock claims made precise, one ranked critical refuted, no code defect found."
+  },
+  "analyze_s159": {
+    "calibration": [
+      {
+        "predicted": "P1 needs a new committed-target field on Creature plus wire + hash + a protocol bump (carried in two handoffs and in my own draft PDR)",
+        "actual": "no field, nothing serialised, nothing hashed, PROTOCOL_VERSION unchanged. The codebase had already written down both tests for when a committed target must be stored and when it needs hysteresis, and a bag fails both.",
+        "direction": "WRONG, in the cheaper direction. The deliberation REMOVED work — which the PRIME-AUDIT predicted it might and is the outcome to hope for."
+      },
+      {
+        "predicted": "A.0 row E15: drone AoE is 'a NUMBER ruling, not unbuilt code'",
+        "actual": "FALSE, and P6 caught it. DRONE_ATK/DRONE_PEN reach the config and stop; applyDroneExplode severs bonds and never reads either. The SHAPE is unbuilt and the owner-dictated stats are dead. I mis-stated a scope row in my own A.0 and the sweep corrected me.",
+        "direction": "WRONG. An A.0 row is a claim like any other."
+      },
+      {
+        "predicted": "the coherence sweep (P6) would surface stale comments",
+        "actual": "it surfaced five stale comments AND the session's biggest find: the stink tower was the fourth site of the S158 B2b bug — the owner's own reported bug, live in the FIRST tower a player builds. That find exists because the owner asked for a sweep, not because my plan was good.",
+        "direction": "UNDER-predicted. The lowest-status priority in the batch returned the highest value."
+      },
+      {
+        "predicted": "e2e:gating 62 passed and bundle under cap",
+        "actual": "62 passed twice (before and after the sim change), bundle 763.9/900. Both as predicted.",
+        "direction": "RIGHT."
+      }
+    ],
+    "external_seat_calibration": "Across PLAN and CHECK, FOUR of the externally-raised criticals did not survive an empirical check: GROK's cross-version rubber-band (refuted by the protocol-mismatch latch and the absence of any client prediction layer), its CreatureTarget-union counter-proposal (already rejected on the record with a measured reason), its claim of arc draw calls in a src/client directory that does not exist, and GEMINI's top-ranked CHECK critical about the id tie-break (the guard it said was missing is present and a passing test pins it). What the seats DID deliver was worth the cost: the chewProgress priority matrix, the 7-equidistant-targets test design, the exact-tie test, the stalling bound, and two loose claims in my own docblocks. The pattern to carry forward is not \"distrust the seats\" — it is **take their QUESTIONS and re-derive their ANSWERS**.",
+    "my_own_process_failures": [
+      "Read a verifier exit code through a PIPE and committed past a hard_fail=2 verdict. The project had that rule written down for e2e:gating only, so I applied it there and nowhere else. Now in the project CLAUDE.md.",
+      "THREE over-strict `file_lacks` bindings in one session, each catching the docblock that EXPLAINS the removed thing. A behaviour claim belongs on the executable form; a corrected comment needs `file_contains` the marker plus `grep_count == 1` on the old phrase.",
+      "A verification needle ending in an opening brace silently blinded every PDCA gate. That one turned into a real OS-level fix with 7 regression assertions — but it cost a diagnosis mid-session, and the gate reported the wrong cause while it lasted."
+    ],
+    "what_would_have_caught_the_big_find_earlier": "A grep for the CLAUSE instead of for the file names. S158's own note claimed it had replaced FOUR component tests; counting `isStarAt` call sites (3) against that claim (4) takes one command and would have found the stink tower a session earlier. Promotion candidate: at any priority that removes a defective pattern, grep for the pattern and count the sites BEFORE writing how many were fixed.",
+    "reflexion_entries": 12,
+    "completed_priorities": 7
   }
 }
