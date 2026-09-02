@@ -25,7 +25,7 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R115
+## 1. OWNER RULINGS — R93 THROUGH R118
 
 Ruling numbers continue from R92, the highest on record at authoring time.
 **R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
@@ -44,10 +44,13 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | **R108** | **THE RACE TOWER IS TIER 3 AND IT IS FED, goblin-tower style.** A new tier BELOW the current floor — *"we don't have tier three. we start from tier four."* It produces **the same unit the castle emits**, on demand, by being fed. Owner: *"that's easy to implement"* — and it is, because `goblinTowerFeed.ts` is the working precedent. |
 | **R109** | **ONE FEED SHAPE PER RACE, TAKEN FROM THE PRIMITIVE COLOUR LEGEND.** Owner: *"we already have on the bottom left all the primitives with their colors, so just take from that."* Matching `SPARK_COLORS` to `PLAYER_COLORS` by hue gives the map in §2. ⚠ **Orange→Dot is forced by elimination**, not by hue — there is no orange primitive, and Dot (white) is the only shape left. |
 | **R110** | **A RACE IS EXCLUSIVE — ONE PLAYER PER RACE PER MATCH.** First to choose locks it. Owner's reason, and it is the right one: *"the only way to differentiate them is the colors… it'll be hard to know who's who."* Revisit only if players ever get a second identity marker. |
-| **R111** | **THE GENERAL DRAFT TRACK WALKS THE FOUR STAT AXES**, in this order: wave 5 = ATK · wave 10 = DEF · wave 15 = HP (of spawned units) · wave 20 = PEN. ⚠ The owner said *"10%"* for each; **percentages do not exist in this stat system** — see §9.8. The ORDER is ruled; the magnitude is not yet expressible. |
+| **R111** | **THE GENERAL DRAFT TRACK WALKS THE FOUR STAT AXES**, in this order: wave 5 = ATK · wave 10 = DEF · wave 15 = HP (of spawned units) · wave 20 = PEN. Magnitude settled by R118. |
 | **R112** | **BUILD ONLY WAVE 5 FIRST.** The race perks for waves 10/15/20 are deliberately deferred: *"let's first do level five, and then as we go… Claude can ask me, okay what is for the next tier."* **This is a named trigger, not an oversight** — ask once wave 5 ships. |
 | **R113** | **BUFFS RENDER BESIDE THE PLAYER NAME**, one icon per drafted wave, stacking left to right — *"player one, this is the buff he got for this, this is the buff he got for level ten."* Each buff needs its own generated icon. |
 | **R114** | **GHOSTS AND ICE GIANTS ARE OUT** — not parked. *"There's no more ghost and ice giants."* A 7th/8th colour is possible someday (*"we might add thirty colors, who cares"*) but is explicitly NOT now. |
+| **R116** | **THE SIX RACE UNITS ARE NAMED** — see §2. Vampires: bats · Nagas: **porpoising piranhas** · Mummies: **Egyptian scarab beetles**, brightly coloured · Zombies: the hound · Orcs: an **orc warband** grunt with twin axes · Demons: **soul eaters**, dementor-like spirits. |
+| **R117** | ⛔ **ASYMMETRIC UNIT STATS AND CADENCES WERE CONSIDERED AND REJECTED — by the owner, on the spot.** He floated a big slow troll (*"twice bigger looking… two times stronger… but he spawns only once per turn"*) balanced against three of a smaller unit, then killed it himself: *"actually that's too complicated because we said there's gonna be a tiered building on each one that will also build those."* **All six race units share ONE stat line and ONE cadence.** He is right, and the reason is exact: the tier-3 tower makes the same unit on demand, so a per-unit spawn-rate balance would be trivially bypassed by building more towers. |
+| **R118** | **A DRAFT OPTION GRANTS +1 POINT ON ITS AXIS.** The owner proposed *"instead of ten percent we'll do twenty percent"* — and on DEF and PEN he is **exactly right**: the ladder is `1 + 0.2n`, so +1 point IS +20%, with no rounding anywhere. On HP and ATK a percentage is a category error (they are integer counts, not scales), and +1 point is the smallest step that exists. Full derivation in §9.8. |
 | **R115** | **VAMPIRE CHEWERS LOOK VAMPIRIC** — red teeth and/or blood dripping where they walk. The chewer renderer must therefore know its owner's race. Render-only (race already rides on `Player`), and **scoped to vampires only** — this is not a licence to re-skin every shared unit per race. |
 
 ### Standing rulings this spec depends on (do not re-derive)
@@ -64,12 +67,15 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 
 | Colour | Hex | Race | Race unit | Feed shape (R109) | Art status |
 |---|---|---|---|---|---|
-| Crimson | `0xff3b6b` | **Vampires** | bats | **Triangle** `#FF3B3B` | `goblin-batrider` atlas exists and already reads vampiric |
-| Cyan | `0x3bd7ff` | **Nagas** | — | **Square** `#3B5BFF` | none |
-| Yellow | `0xffe23b` | **Mummies** | — | **Line** `#FFE066` | none |
-| Green | `0x44ff5e` | **Zombies** | **zombie hound** | **Circle** `#3BFF7A` | ✅ `assets-source/zombie-castle/` — idle + walk clips + still. **Attack clip failed twice on veo backpressure (CF-S153-c) and is still missing.** |
-| Orange | `0xff8c1a` | **Orcs** | — | **Dot** `#FFFFFF` | none |
-| Magenta | `0xd73bff` | **Demons** | — | **Spiral** `#A23BFF` | none |
+| Crimson | `0xff3b6b` | **Vampires** | **Bat** | **Triangle** `#FF3B3B` | ⚠ partial — `goblin-batrider` atlas exists and reads vampiric |
+| Cyan | `0x3bd7ff` | **Nagas** | **Piranha** — porpoises in and out of the ground | **Square** `#3B5BFF` | ❌ none |
+| Yellow | `0xffe23b` | **Mummies** | **Scarab beetle** — Egyptian, brightly coloured | **Line** `#FFE066` | ❌ none |
+| Green | `0x44ff5e` | **Zombies** | **Zombie hound** | **Circle** `#3BFF7A` | ✅ `assets-source/zombie-castle/` — idle + walk. **Attack clip failed twice on veo backpressure (CF-S153-c), still missing.** |
+| Orange | `0xff8c1a` | **Orcs** | **Warband grunt** — twin axes, goblin-shaped role | **Dot** `#FFFFFF` | ❌ none |
+| Magenta | `0xd73bff` | **Demons** | **Soul eater** — dementor-like drifting spirit | **Spiral** `#A23BFF` | ❌ none |
+
+⛔ **All six units share ONE stat line and ONE spawn cadence (R117).** Their DIFFERENCE is entirely in
+look and movement — which is where the naga's porpoising and the soul eater's drift do real work.
 
 **Each race has ONE unit.** The castle emits it free on a timer (R107); the race tower is fed that
 race's shape to make more of it (R108). Same unit from both sources.
@@ -501,9 +507,9 @@ axes in order:
 | 15 | **HP** up |
 | 20 | **PENETRATION** up |
 
-⛔ The owner said "+10%" for each. **Percentages are not representable in this stat system** — see
-§9.8, which is a live blocker with three options for the owner to pick from. The ORDER above is ruled
-and can be built against; the magnitude cannot, yet.
+**Magnitude: +1 POINT on the axis (R118).** On DEF and PEN that is *exactly* the owner's 20%, because
+the ladder steps by 0.2 per point. On HP and ATK a "percentage" is a category error — they are integer
+counts, and +1 is the smallest step that exists. Full reasoning in §9.8.
 
 **The race track past wave 5 is deliberately unwritten (R112).** Build wave 5, then ask. This is a
 named trigger, not a gap.
@@ -590,30 +596,41 @@ convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
   drone detonation and a demonic Voltkin zap all firing.
 - Tripwire: **no tech perk modifies a castle stat** (R104), mirroring the R97 tripwire in §3.3.
 
-### 9.8 ⛔ BLOCKER — "+10%" IS NOT EXPRESSIBLE IN THIS STAT SYSTEM
+### 9.8 ✅ RESOLVED — THE DRAFT GRANTS +1 POINT, AND ON TWO AXES THAT IS EXACTLY 20%
 
-R111 rules the general track walks ATK → DEF → HP → PEN. The **order is settled**. The **magnitude is
-not**, and it cannot be, because this is the same wall §9.4 hit:
+The owner's fix — *"instead of ten percent we'll do twenty percent"* — is **exactly right for the two
+axes that are percentages, and a category error on the other two.** Both halves matter.
 
-- **HP and ATK are integer POINTS** on a flat ladder, design range 1..12 (`state/stats.ts`).
-- **DEF and PEN are integer points** indexing the multiplier ladder `1 + 0.2n` — pinned twice by the
-  owner as **1.4, not 1.44**, i.e. linear, not compounding.
-- Everything is carried in **fifths** so it is exactly integer, because `damageEntity` **throws** on a
-  fractional amount and the host must match the `?worker=1` mirror bit-for-bit.
+**DEF and PEN ARE percentages, and 20% is the system's own native step.** The ladder is `1 + 0.2n`
+(`state/stats.ts`), pinned twice by the owner as *1.4, not 1.44*. So:
 
-So "+10% attack" on a chewer (`CHEWER_ATK = 1`) is 1.1 — which does not exist. And the smallest legal
-step is coarse: **+1 ATK point on a 1-ATK unit is +100%**, and one DEF/PEN point is a flat **+20%**.
+> **+1 DEF point = ×1.2 effective HP = exactly +20%.**
+> **+1 PEN point = ×1.2 damage dealt = exactly +20%.**
 
-**Three ways out. The owner picks; do not choose one silently.**
+No rounding, no fifths problem, nothing to invent. The owner reached the system's real granularity by
+intuition.
 
-| Option | What the draft grants | Granularity | Verdict |
-|---|---|---|---|
-| **A** | **+1 point** on the axis | +100% for a 1-point unit; +20% on DEF/PEN | Honest to the system, zero new machinery — but brutal on 1-HP units |
-| **B** | **Widen the ladder** — re-express units in fifths so a "point" is 5× finer, then +10% becomes a legal integer step | fine | Correct long-term, but it is a **rewrite of every unit stat in the game** and belongs in the balance pass, not here |
-| **C** | The draft grants a **flat +1 PEN point** regardless of the named axis (a uniform ×1.2 on damage) | +20% | Cheapest, integer-exact, but collapses R111's four distinct axes into one |
+**HP and ATK are NOT percentages — they are integer counts** on a flat 1..12 ladder. "20% of 1 HP" is
+1.2 and does not exist, exactly as 10% did not. The smallest step that exists is **+1 point**.
 
-⚠ **Do not implement a float multiplier and round it.** That is the exact defect the fifths system
-exists to prevent, and the rounding would differ nowhere visibly until a host and a worker disagreed.
+**THE RULE (R118): every general draft option grants +1 POINT on its named axis.**
+
+| Wave | Axis | What +1 point actually does |
+|---|---|---|
+| 5 | **ATK** | +1 attack point. On a 1-ATK chewer that is +100%; on an 8-HP-scale unit it is proportionally smaller |
+| 10 | **DEF** | ×1.2 effective HP — **exactly the owner's 20%** |
+| 15 | **HP** | +1 hit point |
+| 20 | **PEN** | ×1.2 damage — **exactly the owner's 20%** |
+
+**Why +100% on a 1-point unit is acceptable, and may even be desirable.** The buff is *relatively*
+larger for weak units and smaller for strong ones, so the roster COMPRESSES rather than spreading.
+A draft that helps a chewer more than a Voltkin is a stabilising force, not a runaway.
+
+⚠ **If it does feel too coarse in play, the fix is to RAISE BASE UNIT HP AND ATK** — giving room for
+finer relative steps — **never to introduce a fractional buff.** `damageEntity` throws on a
+non-integer amount by design, and a rounded float would diverge the host from the `?worker=1` mirror
+invisibly until a desync surfaced somewhere unrelated. That is the defect the fifths system exists to
+prevent. This is a balance-pass item, not a licence.
 
 ---
 
@@ -659,22 +676,17 @@ exists to prevent, and the rounding would differ nowhere visibly until a host an
 
 Most of the original list was closed by the owner on 2026-09-02. What remains, ranked by when it bites.
 
-### ⛔ BLOCKS BUILDING SOMETHING
-
-1. **The "+10%" magnitude (§9.8).** The general draft track's ORDER is ruled (R111) but percentages
-   are not representable in an integer-fifths stat system. Three options are laid out in §9.8 —
-   **the owner picks one.** Blocks the tech draft's general option, nothing else.
-
 ### ⚠ NEEDED BEFORE THE WAVE THAT USES IT
 
-2. **The five missing race units.** Zombies have the hound. Vampires are named as bats (the
-   `goblin-batrider` atlas exists). **Nagas, mummies, orcs and demons have no unit at all** — and each
-   race's unit is now needed TWICE over (the castle emits it, the tier-3 tower makes more). Blocks
-   W1-C and W2.
-3. **The castle spawn cadence and its phase gate.** "~30 s" is a dial. But also: does the castle emit
-   during BUILD, during FIGHT, or both? The phase split already stops the quarry in FIGHT and holds
-   defenders outside it, so this is a real mechanical choice, not a number. Blocks W1-C.
-4. **Race perks for waves 10, 15, 20.** Deliberately deferred by R112 with a named trigger: **ask once
+1. **Does the castle emit during BUILD, during FIGHT, or both?** "~30 s" is a dial and can be guessed;
+   this cannot. The phase split already stops the quarry in FIGHT and holds defenders outside it, so
+   emitting in BUILD means an army waiting at the wall-drop, and emitting only in FIGHT means the
+   castle is inert half the match. **A mechanic, not a number.** Blocks W1-C.
+2. **Is a submerged naga piranha targetable?** R116 gives it a porpoising movement — out of the
+   ground, forward, back under, invisible while below. If it cannot be hit while submerged that is a
+   real combat advantage and R117 says all six units are equal, so either the dive is purely cosmetic
+   (still targetable, just not drawn) or R117 needs an exception. Blocks the naga unit.
+3. **Race perks for waves 10, 15, 20.** Deliberately deferred by R112 with a named trigger: **ask once
    wave 5 ships.** Not a gap.
 
 ### 🕓 LATE — the owner has explicitly said "one of the last phases"
