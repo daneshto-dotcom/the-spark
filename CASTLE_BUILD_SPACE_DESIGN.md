@@ -223,20 +223,35 @@ simply refuses until the plan is fully satisfied by shapes on hand.
 
 # ADDENDUM — CASTLE RACES BY COLOUR (owner vision, ruled 2026-08-27, S154)
 
+> ## ⛔ THE ROSTER BELOW IS SUPERSEDED — SEE `SPARK_RACES_SPEC.md` (owner-ruled 2026-09-02)
+>
+> **The colours in this table do not exist in the game.** It names white / blue / purple; the palette
+> (`constants.ts:50-57`) is Crimson, Cyan, Yellow, Green, Orange, Magenta. There is no white and no
+> blue. It also left orange unmapped and yellow unnamed. The owner settled all of it on 2026-09-02:
+>
+> **Crimson = vampires · Cyan = nagas · Yellow = mummies · Green = zombies · Orange = orcs ·
+> Magenta = demons.** Ghosts and ice giants are PARKED as races 7 and 8; white is ruled out as a
+> player colour entirely (R100 — `0xe6e6f0` already means UNOWNED).
+>
+> The table is left in place rather than deleted, because it is the traceable original and because
+> everything BELOW it — "what each race gets", the R88 balance ruling, and the castle-upgrade
+> precedent — is still current. **`SPARK_RACES_SPEC.md` is the authority on the roster, the balance
+> architecture and the execution ladder.**
+
 Recorded verbatim-in-substance so it is not lost between sessions. **Not scheduled yet** — the owner
 placed it "next session or the session after". S154 ships only the castle's **1500 HP** and the
 damage/win path underneath it.
 
-## The races, keyed on the player's colour
+## The races, keyed on the player's colour ⛔ SUPERSEDED — see the banner above
 
 | Colour | Race | Passive spawn | Notes |
 |---|---|---|---|
-| white | **ghosts** | ghosts | |
-| green | **zombies** | the **zombie hound** — ALREADY GENERATED, sitting in `assets-source/zombie-castle/` (idle + walk; the attack clip failed twice on veo backpressure, see CF-S153-c) | the one race with art already on disk |
-| red | **vampires** | bats | the bat rider atlas already exists and reads as vampiric |
-| blue | **ice giants** | — | |
-| purple | **demons** | — | |
-| yellow | *(undecided — owner has not named it)* | — | ⚠ ASK before inventing one |
+| white | **ghosts** | ghosts | ⛔ no white in the palette; ghosts PARKED as a future race |
+| green | **zombies** | the **zombie hound** — ALREADY GENERATED, sitting in `assets-source/zombie-castle/` (idle + walk; the attack clip failed twice on veo backpressure, see CF-S153-c) | ✅ still correct — the one race with art already on disk |
+| red | **vampires** | bats | ✅ still correct as CRIMSON; the bat rider atlas already exists and reads as vampiric |
+| blue | **ice giants** | — | ⛔ no blue in the palette; ice giants PARKED. Cyan is NAGAS |
+| purple | **demons** | — | ✅ still correct as MAGENTA |
+| yellow | *(undecided — owner has not named it)* | — | ✅ RESOLVED 2026-09-02 — yellow is **mummies**. Orange is **orcs** |
 
 ## What each race gets
 
