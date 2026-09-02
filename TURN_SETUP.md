@@ -40,6 +40,37 @@ It also explains the two things that looked contradictory:
 - **You have connected before.** `srflx: 1` proves the simpler path works, so friendly networks still
   connect. It is the hostile pairs — like Israel ↔ here — that cannot.
 
+## ⭐ 2026-09-02 — you tested both workstations, and it answered the open question
+
+You pressed **TEST CONNECTION** on both machines on the same network and sent the result. The
+important part is what it *rules out*:
+
+```
+Room KFU2AR · 2 players connected · sync 3/3
+Matchmaking: All 7 answered            [nostr:7/7 torrent:fail]
+⛔ No relay server — you can only reach players on friendly networks
+```
+
+**There is no split between your two workstations.** The previous session's hypothesis was that one
+machine might report `0/7` relays — which would have meant a firewall, VPN or browser extension on
+that machine. It does not. Both reach all seven matchmaking relays, both found each other, and the
+room filled to 2/4. So:
+
+- **Nothing is wrong with either machine, and nothing is wrong with your router.**
+- **The only thing still missing is TURN** — the one red line in that panel, and the one thing on
+  this page. Everything else is green.
+- Same-network play works today. It is the hostile pairs — like Israel ↔ here — that need Step 1.
+
+**And `torrent:fail` was a real bug, now fixed.** That is the *secondary* matchmaking strategy (a
+BitTorrent tracker, kept as a backup with a different failure domain from the Nostr relays). Two of
+the three trackers it was configured with had gone dead, and because the code asks for *all* of them,
+two dead entries failed the whole strategy instead of degrading it — so the backup had been
+contributing nothing while showing red next to the real problem. The dead hosts are out, a
+live one is in, and `npm run probe-relays` now tests them with a real WebSocket handshake instead of
+an HTTPS request (which was reporting the one surviving tracker as suspect). It should read
+`torrent:✓` after the next deploy. **It was never related to the connection problem** — the red line
+above is.
+
 ## Why it cannot just be hard-coded
 
 A TURN server relays your actual game traffic, so it costs real bandwidth. That is why every free one

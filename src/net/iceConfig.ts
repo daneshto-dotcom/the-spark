@@ -51,11 +51,34 @@ export const NOSTR_RELAYS = [
  * — Council Gemini R1 diversity argument). Defaults sourced from upstream
  * package's `defaultRelayUrls` export; deterministically pinned here so we
  * own the rotation cycle rather than inheriting upstream changes silently.
+ *
+ * ⭐ S159 P5 — **TWO OF THE THREE WERE DEAD, WHICH IS WHY THE OWNER'S LOBBY SAID `torrent:fail`.**
+ *
+ * The owner pressed TEST CONNECTION on both workstations and sent the result: matchmaking
+ * `[nostr:7/7 torrent:fail]`. Measured here with a REAL WebSocket handshake (not an HTTPS GET — see
+ * `scripts/probe-relays.mjs`, which was giving a false verdict; details there), 2026-09-02:
+ *
+ *     wss://tracker.openwebtorrent.com          OPEN   ← kept
+ *     wss://tracker.btorrent.xyz                ERROR  ← removed, has been dead for years
+ *     wss://tracker.files.fm:7073/announce      ERROR  ← removed (non-standard port, refuses)
+ *     wss://tracker.webtorrent.dev              OPEN   ← added, the replacement
+ *
+ * ⚠ WHY TWO DEAD ENTRIES COULD KILL THE WHOLE STRATEGY RATHER THAN DEGRADE IT: `transport.ts`
+ * passes `redundancy: relayUrls.length`, so the list length IS the requirement. Three URLs asked
+ * for three working trackers, and the strategy failed as a unit — the fallback that exists for
+ * "uncorrelated failure domain" has therefore been contributing NOTHING since those hosts went
+ * down, while reporting itself in red on the owner's diagnostic strip next to the real blocker
+ * (no TURN). A dead fallback that cries wolf is worse than no fallback.
+ *
+ * ⚠ AND THIS LIST WILL DECAY AGAIN. That is the nature of free public infrastructure, and it is
+ * why the accompanying test asserts the two known-dead hosts are ABSENT rather than asserting the
+ * live ones are present: a test that pins living hosts would have to be edited every time the
+ * internet moves, whereas "never re-add a host we measured as dead" stays true forever. Re-measure
+ * with `npm run probe-relays` when the strip shows red.
  */
 export const TORRENT_TRACKERS = [
   'wss://tracker.openwebtorrent.com',
-  'wss://tracker.btorrent.xyz',
-  'wss://tracker.files.fm:7073/announce',
+  'wss://tracker.webtorrent.dev',
 ];
 
 /**

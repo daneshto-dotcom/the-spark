@@ -252,37 +252,211 @@
       "id": "P3",
       "priority_id": "S159-P3",
       "name": "the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward",
-      "status": "in_progress",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "the HELD-card root cause - the review gate resolved from a hardcoded S150-S152 key chain and fell through to a stale generic key; fixed in the script AND in this project's record",
+      "tier": "Micro",
+      "check_method": "Empirical, both halves. (1) ROOT CAUSE, not a symptom: pre-handoff-review.py:148 resolved HELD as carry_forward_from_S152 or _S151 or _S150 or carry_forward. None of the first three keys exist in this project; the generic key still held the S155 list; the live list was carry_forward_s158_deferred. Two handoffs had warned the reader BY HAND not to trust their own review gate. (2) It now resolves by SESSION NUMBER, takes EVERY key at the newest session (a session filing under two keys must not lose half its items), and PRINTS THE KEY on the card so provenance is visible - verified live, the card now reads '[from carry_forward_s159 + carry_forward_s159_debt]' and lists both items. Ordering is NUMERIC, not lexical: a string sort picks s99 over s158, and there is an assertion for exactly that. (3) 8 assertions in scripts/tests/test-pre-handoff-review-held.py, incl. the live regression, history-key exclusion, the legacy fallback and the old chain's own key shape still resolving. NEGATIVE CONTROL RUN: 3 of 8 fail against the pre-patch script. (4) Also fixed the row that printed 'PP1' - the id already carries its P. (5) Project side: the stale generic key is ARCHIVED so nothing can fall back onto it, and CF-S157-g is closed as MOOT with the reason recorded - HAZARD_SPAWN_ENABLED=false means there are no area hazards, so there was never a ruling for the owner to make. Committed in the ~/.claude repo at 61aa853.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
+          "needle": "def held_source(d):"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
+          "needle": "d.get(\"carry_forward_from_S152\")"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
+          "needle": "\"HELD / NEEDS A HUMAN DECISION:%s\""
+        },
+        {
+          "type": "syntax_ok",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
+          "lang": "python"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\tests\\test-pre-handoff-review-held.py"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\.claude\\scripts\\tests\\test-pre-handoff-review-held.py",
+          "needle": "numeric-order"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "needle": "\"carry_forward\": ["
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "needle": "carry_forward_legacy_s155_archived_s159"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "needle": "carry_forward_s158_deferred_closed_s159"
+        }
+      ]
     },
     {
       "id": "P4",
       "priority_id": "S159-P4",
       "name": "stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "stale plan naming - three archived plans still carried a STATUS: IN-PROGRESS line, so the boot pre-flight warned about all three every session; stamped with their shipped evidence",
+      "tier": "Micro",
+      "check_method": "Traced the fix through the machinery that actually fires, which is S158 P1's whole lesson. pre-flight.sh:86 greps plans-archive/*.md for a STATUS LINE, so RENAMING the files would have silenced NOTHING - the STATUS line inside each file is what changed and the rename is cosmetic on top. Verified by re-running that exact grep over the directory: zero matches. Every stamp is evidence re-probed at stamp time rather than inherited from the plan's own claims: goblinMelee is recorded as a FREE STARTER at creatureLifecycle.ts:143, GOBLIN_ARCHER_CONFIG is registered at voltkin-config.ts:728, the stink tower's recipe is blueprints.ts:183; zones.ts (11 KB) plus zoneCastleAnchor, buildLegalityGates.test.ts and the measured 1.9->2.6 re-tune at constants.ts:513 (gatherers/zoneEconomy.test.ts, five seeds); CASTLE_MAX_HP 1500 plus the fallen/survivors win gate at gameState.ts:76. AND ONE PART DID NOT SHIP: castle GUNS. A grep for castleGun|keepGun|castleTurret returns nothing in src/. It is specced WITH an owner ruling already attached (SPARK_TD_SESSION_SPECS.md:59 Q4 - retaliation-only against anything that damaged this castle within 300 ticks; :208-230 costs it as a defender-FSM reuse) and it is the same ground as the owner's elemental-keeps idea. Carried forward as the top recommendation rather than closed, and the stamp says so in as many words so that no future reader takes the word CLOSED to mean the work was dropped.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md"
+        },
+        {
+          "type": "file_absent",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_IN-PROGRESS.md"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md",
+          "needle": "STATUS: IN-PROGRESS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md",
+          "needle": "blueprints.ts:183"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md"
+        },
+        {
+          "type": "file_absent",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_IN-PROGRESS.md"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md",
+          "needle": "STATUS: IN-PROGRESS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md",
+          "needle": "zoneCastleAnchor"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md"
+        },
+        {
+          "type": "file_absent",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_IN-PROGRESS.md"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md",
+          "needle": "STATUS: IN-PROGRESS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md",
+          "needle": "THE ONE PART THAT NEVER SHIPPED, CARRIED FORWARD RATHER THAN CLOSED: CASTLE GUNS"
+        }
+      ]
     },
     {
       "id": "P5",
       "priority_id": "S159-P5",
       "name": "B1 closure from the owner two-workstation measurement + the torrent:fail strategy",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "B1 closed by the owner's own measurement - there is no two-workstation split; and the torrent:fail beside it was a real bug: two of three trackers were dead",
+      "tier": "Micro",
+      "check_method": "Owner measurement + empirical probes. (1) B1 IS ANSWERED, and the S158 hypothesis is DISPROVED: the owner pressed TEST CONNECTION on both workstations on one network and sent the screenshot - room KFU2AR, 2 players connected, sync 3/3, 'Matchmaking: All 7 answered', [nostr:7/7 torrent:fail], and the single red line 'No relay server'. S158 predicted the second machine might report 0/7 relays, which would have meant a firewall/VPN/extension on that machine. It reports 7/7. Nothing is wrong with either machine or the router; TURN is the only thing left. Recorded in TURN_SETUP.md as its own section so the owner reads the answer where they read the runbook. (2) torrent:fail WAS A REAL BUG, and the first probe nearly hid it. npm run probe-relays graded WSS endpoints by rewriting them to https:// and reading the HTTP status: it reported tracker.openwebtorrent.com as [CHECK] on an HTTP 404 - a 404 to a plain GET is NORMAL for a WebSocket endpoint. A real WebSocket handshake (Node's built-in WebSocket) measured the truth: openwebtorrent OPEN, btorrent.xyz ERROR, files.fm:7073 ERROR, and tracker.webtorrent.dev OPEN as a replacement. (3) WHY TWO DEAD ENTRIES KILLED THE WHOLE STRATEGY instead of degrading it: transport.ts passes `redundancy: relayUrls.length`, so the list length IS the requirement - the 'uncorrelated failure domain' fallback the S44 Council added has therefore been contributing NOTHING while showing red beside the real blocker. (4) Fixed: dead hosts out, live one in, probe rewritten to handshake. Re-run reads 9/9 configured relays OPEN and confirms both removed hosts are still dead. (5) 7 tests in src/net/relayLists.test.ts, and they deliberately do NOT assert the hosts are alive - that would make the suite depend on free public infrastructure. They assert what stays true: a host measured dead is never re-added, the probe script's hand-copied lists EQUAL iceConfig's (a probe reporting on a different list than the game uses is worse than no probe), no duplicates, wss:// only, and that the probe still handshakes rather than GETs. 3381/3381 across 215 files, tsc 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "'wss://tracker.webtorrent.dev',"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "tracker.btorrent.xyz"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "tracker.files.fm"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "TWO OF THE THREE WERE DEAD, WHICH IS WHY THE OWNER'S LOBBY SAID"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
+          "needle": "new WebSocket(wssUrl)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
+          "needle": "replace(/^wss:/, 'https:')"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
+          "needle": "const KNOWN_DEAD = ["
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 7
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts",
+          "needle": "never re-adds a tracker measured dead"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
+          "needle": "There is no split between your two workstations."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
+          "needle": "Room KFU2AR"
+        }
+      ]
     },
     {
       "id": "P6",
       "priority_id": "S159-P6",
       "name": "coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -319,6 +493,26 @@
       "priority": "S159-P2",
       "lesson": "**DIFFERENTIAL GUARDS DO NOT NOTICE A DELIBERATE BEHAVIOUR CHANGE, AND THAT CUTS BOTH WAYS.** Three test files are documented as pinning Voltkin behaviour byte-identically, and all three stayed green through a change that gives the Voltkin five extra targets per strike — because they compare two SIMS against each other, not against a golden value. That is the right design for desync hunting and the wrong thing to cite as evidence of byte-equivalence. **Say which kind of guard you have before claiming what its green means.**",
       "tag": "#differential-is-not-golden"
+    },
+    {
+      "priority": "S159-P3",
+      "lesson": "**A GATE THAT READS A HARDCODED KEY LIST IS A GATE WITH AN EXPIRY DATE.** The review card resolved HELD from `carry_forward_from_S152 or _S151 or _S150 or carry_forward`. Every session that invented a new session-suffixed key silently moved the live list out of its view, and it printed an S155 snapshot for two sessions while two handoffs warned the reader BY HAND not to trust it. Nobody fixed it because the warning was cheaper to write than the diagnosis. **A stale gate output is a bug report about the gate, not a note for the reader** - and the fix includes printing the KEY it read, so the next drift shows up on the card instead of needing an investigation.",
+      "tag": "#stale-gate-output-is-a-bug-report"
+    },
+    {
+      "priority": "S159-P4",
+      "lesson": "**RENAMING THE FILE WOULD HAVE SILENCED NOTHING.** Three archived plans made the boot warn every session, and the obvious fix - rename `*_IN-PROGRESS.md` - is the wrong one: pre-flight.sh greps plans-archive/*.md for a STATUS LINE inside the file, not for the filename. Same shape as S158 P1's TURN runbook, which told the owner to fill in a gitignored .env that CI never reads. **Find the code that fires the warning before deciding what will stop it.**",
+      "tag": "#find-the-code-that-fires-the-warning"
+    },
+    {
+      "priority": "S159-P5",
+      "lesson": "**THE DIAGNOSTIC WAS ASKING THE WRONG QUESTION, AND IT ACCUSED THE ONE SURVIVOR.** `probe-relays.mjs` graded `wss://` endpoints by rewriting them to `https://` and reading the HTTP status. A WebSocket endpoint answering 404 to a plain GET is NORMAL, so the probe reported the only living tracker as suspect and gave the two genuinely dead ones the same grade. One real WebSocket handshake separated them in 8 seconds. **A probe must perform the operation the product performs** - anything cheaper measures a different system and reports on it with total confidence.",
+      "tag": "#probe-the-operation-not-a-proxy"
+    },
+    {
+      "priority": "S159-P5",
+      "lesson": "**A REDUNDANCY LIST WHERE LENGTH IS THE REQUIREMENT IS NOT REDUNDANCY.** `transport.ts` passes `redundancy: relayUrls.length`, so adding a fallback tracker RAISES the bar the strategy must clear. Two dead entries out of three therefore failed the whole strategy instead of degrading it, and the 'uncorrelated failure domain' the Council added in S44 had been contributing nothing for months while reporting itself in red next to an unrelated real blocker. **When you add a fallback, check whether the code treats it as an OPTION or as a REQUIREMENT.**",
+      "tag": "#redundancy-that-raises-the-bar"
     }
   ],
   "totals": {
@@ -4503,5 +4697,11 @@
   },
   "carry_forward_s159": [
     "N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix. S158 probed the sim and found no asymmetry (the reducers are seat-agnostic; grantRaidProgress fires on both build paths). If it still looks wrong in a real game, the next place to look is the input layer."
-  ]
+  ],
+  "owner_measurement_s159_b1": {
+    "source": "owner screenshot + message, 2026-09-02, both workstations on the same network",
+    "reading": "room KFU2AR, 2 players connected, sync 3/3, nostr:7/7, torrent:fail, \"Matchmaking: All 7 answered\", \"No relay server\"",
+    "conclusion": "NO two-workstation split. The S158 firewall/VPN hypothesis is disproved. TURN remains the only blocker for hostile-NAT pairs.",
+    "torrent_fail": "a REAL and separate bug, fixed this session (2 of 3 trackers dead + redundancy = list length). Never related to the connection problem."
+  }
 }
