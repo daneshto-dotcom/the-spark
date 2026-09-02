@@ -35,18 +35,32 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
      firewall/VPN hypothesis is disproved.
    · **`torrent:fail` is fixed** (two of three trackers were dead and the code asked for all of them).
 
-2. ⛔ **PLAY THE TWO TOWER FIXES AND RULE ON THEIR NUMBERS.** Both shipped this session, and both
-   created a decision that is MINE, not the owner's:
-   (a) **the stink tower refills its 5 bags on every BUILD edge** — one magazine per round, the
-       reading that matches *"restart him each round"*. If that is too strong: a slow reload spread
-       across BUILD (visible progress, punishes a short build), or a FEED gesture like the goblin
-       tower's (a real cost, but a tower can then be starved).
-   (b) **the drone hub's lightning storm MOVED to the hub's death rather than being deleted** — they
-       objected to the tower disappearing, not to it having a blast. One branch to strike if they want
-       it gone; the FEED-row is the precedent if they want it on a player trigger.
-   ⚠ **AND FEEL THE P9 UPLIFT:** the hub now delivers **9 drones in a 45 s fight** (measured) instead
-   of 3, with at most `DRONE_MAX_PER_SPAWNER` = 3 in the air. That is a large buff to a structure they
-   already found strong. The cap is the first dial, the 5 s cadence the second.
+2. ⛔ **PLAY THE TWO TOWER FIXES.** ✅ **S160 P2 RULED ON BOTH AND MEASURED WHAT THEY ACTUALLY DO** —
+   so what is left for the owner is a NUMBER TO FEEL, not a question to answer.
+   (a) **the stink tower refills its 5 bags on every BUILD edge — KEPT.** One magazine per round is
+       the literal reading of *"restart him each round"*, and `STINK_TOWER_BAGS = 5` is the owner's
+       own figure, so its consequences are downstream of their number.
+       ⭐ **AND HERE IS THAT CONSEQUENCE, MEASURED:** throws land at ticks **254, 538, 822, 1106,
+       1390** into a 2700-tick FIGHT — gaps of **284**, not the 240 `STINK_THROW_INTERVAL_TICKS`
+       implies, because WINDUP+FIRE+RECOVER cost 44 ticks a throw. **The tower is DRY for the last
+       22 of every 45 seconds.** Owner's call: more bags, a slower cadence that spreads five across
+       the whole fight, or leave it as a front-loaded burst. Pinned by `stinkReload.test.ts`.
+       ⚠ The alternative "slow reload with visible progress" is **NOT cheap**, and S160 corrected my
+       own false reason for thinking it was: the per-bag rack is in `drawTower`, which runs ONLY in
+       the atlas-null fallback, and the atlas ships. On the live path the sole magazine tell is one
+       alpha step, `0.72 → 1`. Visible progress needs new draw code.
+   (b) **the drone hub's lightning storm MOVED to the hub's death rather than being deleted — KEPT.**
+       They objected to the tower disappearing, not to it having a blast. One branch to strike if they
+       want it gone; the FEED-row is the precedent if they want it on a player trigger.
+   ⚠ **FEEL THE P9 UPLIFT:** the hub delivers **9 drones in a 45 s fight** — now *asserted*
+   (`lightningHubDelivers.test.ts`), where before it lived in a comment and a `console.log`.
+   ⛔ **AND S160 CORRECTED THE DIAL ADVICE THIS FILE USED TO GIVE.** It said *"the cap is the first
+   dial, the 5 s cadence the second."* **That is backwards, and the first move does nothing at all:**
+   occupancy at every due slot is 1, so `DRONE_MAX_PER_SPAWNER` 3 → 2 changes NOTHING (peak live is
+   **2**, against a ceiling of 3 — the cap is slack, now asserted as such). Only 3 → 1 bites, and
+   bluntly (5/fight). **Correct order for "too strong": `DRONE_EMIT_INTERVAL_TICKS` first — the only
+   linear lever, count = 2700/interval, so 450 t → 6 and 600 t → 4 — then `DRONE_MAX_CONNECTORS`
+   (damage per drone, one reader), then the cap.**
 
 3. ⛔ **FOUR MORE OWNER DECISIONS from the main batch**, each flagged at its constant, none blocking:
    (a) drone cadence 5 s; (b) stink-bag HP 1; (c) **chain-lightning hop range 120 px and NO falloff** —

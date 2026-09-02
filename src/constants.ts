@@ -1761,11 +1761,32 @@ export const LIGHTNING_HUB_COMPONENT_SIZE = LIGHTNING_HUB_DEGREE + 1; // 1 hub +
  * two hundred lines below still reads *"against a 45 s FIGHT a 30 s cadence is barely one useful
  * shot"*.
  *
- * 5 s delivers all three drones and the self-destruct inside the first 20 s of a fight, so the hub
- * is a burst weapon you can actually watch happen. ⚠ A DIAL, not a derivation — flagged for the
- * owner alongside the count (3) and the self-destruct radius, which are theirs from S113.
+ * ⛔ S160 P2(b) — THE PARAGRAPH THAT STOOD HERE DESCRIBED THE RETIRED DESIGN. It read *"5 s delivers
+ * all three drones and the self-destruct inside the first 20 s of a fight, so the hub is a burst
+ * weapon you can actually watch happen."* S159 P9 deleted that burst on the owner's reversal
+ * (*"he should continuously spawn them at the equal intervals"*) — the hub is now permanent and this
+ * cadence governs a CONTINUOUS emitter, not a three-shot opener. Corrected rather than left standing,
+ * because a comment that describes deleted behaviour is a bug report about the comment.
+ *
+ * ⭐ WHAT IT ACTUALLY BUYS, RE-DERIVED (S160 P2(b), pinned by `lightningHubDelivers.test.ts`):
+ * `FIGHT_PHASE_TICKS` 2700 / 300 = **9 emit slots per fight, exactly**, and it holds for every
+ * BUILD-carry alignment (for any carry d ∈ [1,300], floor((2700−d)/300)+1 = 9). It does NOT depend on
+ * `DRONE_LIFETIME_TICKS` or on travel: one drone is alive when a slot comes due, against a cap of 3,
+ * so `DRONE_MAX_PER_SPAWNER` never blocks a slot and early detonations only lower occupancy. The
+ * count becomes lifetime-dependent only if the fuse is raised to ≥ 900 t (3 × this interval).
+ *
+ * ⚠ **THIS IS THE FIRST DIAL IN BOTH DIRECTIONS**, because it is the only linear one: count =
+ * 2700 / interval, so 450 t → 6 and 600 t → 4. See `DRONE_MAX_PER_SPAWNER` for why the cap is not.
+ * A DIAL, not a derivation — flagged for the owner alongside the in-air cap (3) and the
+ * self-destruct radius, which are theirs from S113.
+ *
+ * ⚠ Two hubs that ignite on the SAME tick emit in perfect lockstep — the cadence is seeded off the
+ * ignition tick (`spawnerLifecycle.ts:72`) and advanced by integer `+=` (`hostTick.ts:588`), so it is
+ * drift-free and RNG-free, but nothing staggers two of them. Not a defect today; if lockstep bursts
+ * ever matter visually or for scan cost, the shipped precedent is the id-mod phase-spread at
+ * `hostTick.ts:1024`. ⛔ Do NOT "fix" it with an accumulator or a random offset.
  */
-export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — chosen for a 45s fight
+export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — 9 emits per 45s fight (measured)
 /*
  * ⛔ S159 P9 — `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` IS DELETED. It said *"emit 3 drones, then
  * self-destruct on the next slot"*, which was the S113 design the owner has now reversed: *"he should
@@ -1790,9 +1811,26 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  * exactly as they have been playing it — what changed is that the hub REPLENISHES them now instead of
  * dying. With `DRONE_EMIT_INTERVAL_TICKS` 5 s against `DRONE_LIFETIME_TICKS` 8 s the steady state is
  * about two in the air, so this cap rarely binds; it is the ceiling on a hub whose drones are all
- * still flying, not the normal case. Raising it is the first dial if a hub feels weak.
+ * still flying, not the normal case.
+ *
+ * ⛔ S160 P2(b) — THIS CAP IS NOT A DIAL. IT IS SLACK, AND MY OWN HANDOFF SAID THE OPPOSITE.
+ * `HANDOFF_S159.md`, `boot-snapshot.md` and the S159 session-state all told the next session *"the
+ * cap is the first dial, the 5 s cadence the second"* for a hub that feels TOO STRONG. Measured
+ * against the shipped constants, that is backwards and the first move does nothing at all:
+ *
+ *   · occupancy at every DUE SLOT is exactly `ceil(480/300) − 1` = **1**, so 3 → 2 changes NOTHING;
+ *     the count stays 9 per fight. Peak live is 2, against a ceiling of 3.
+ *   · only 3 → **1** bites, and then bluntly: slots fire at 300/900/1500/2100/2700 = 5 per fight,
+ *     because each 480-tick fuse blocks exactly one following 300-tick slot.
+ *   · `DRONE_EMIT_INTERVAL_TICKS` is the LINEAR lever — count = 2700 / interval, so 450 t → 6,
+ *     600 t → 4. That is the dial.
+ *
+ * ⇒ **Correct order for "too strong": `DRONE_EMIT_INTERVAL_TICKS` first, then `DRONE_MAX_CONNECTORS`
+ * (damage per drone, one reader, no cadence change), then this — third and blunt.** The sentence
+ * above ("raising it is the first dial if a hub feels WEAK") was always right in that direction and
+ * is left standing; it is the *strong* direction that was wrong, which is why the error survived.
  */
-export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept)
+export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
 export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 

@@ -22,8 +22,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FIGHT_PHASE_TICKS,
   PRIMITIVE_MAX_HP,
   SparkType,
+  STINK_THROW_INTERVAL_TICKS,
   STINK_TOWER_BAGS,
   STINK_TOWER_HUB_DEGREE,
 } from '../../constants.ts';
@@ -199,5 +201,75 @@ describe('S159 P8 — the stink tower reloads between fights', () => {
     w.phaseEndsAtTick = w.tick - 1;
     run(w, 1, d, st);
     expect(asTurret.bagsRemaining, 'no magazine, no reload').toBe(0);
+  });
+});
+
+/**
+ * SPARK — S160 P2(a): **THE CADENCE, MEASURED THROUGH THE FSM RATHER THAN COMPUTED FROM CONSTANTS.**
+ *
+ * ## Why this exists — the test it replaces could not see the thing it claimed
+ *
+ * `stinkBehaviour.test.ts`'s "the magazine empties inside a fight" is pure arithmetic on two
+ * constants: `STINK_THROW_INTERVAL_TICKS * STINK_TOWER_BAGS < FIGHT_PHASE_TICKS`. It never
+ * constructs a tower and never runs `applyDefenderTick`, so **it cannot see the FSM at all** — the
+ * per-throw WINDUP (`STINK_TOWER_WINDUP_TICKS`), the FIRE and RECOVER states, or the
+ * `DEFENDER_REACQUIRE_TICKS` retry after a mid-windup abort. Every one of those pushes real throws
+ * later than the constants say, and a retune of any of them leaves that assertion green.
+ *
+ * That is the same shape as the defect S159 P8 fixed: an assertion that is *true about the constants*
+ * and silent about the behaviour. So this measures the actual decrement ticks on the real clock and
+ * prints them, which is also how the figure in `hostTick.ts`'s reload docblock gets to be a
+ * measurement instead of a claim.
+ */
+describe('S160 P2(a) — the five bags really do fit inside a REAL fight', () => {
+  it('⭐ measures the true drain, FSM cost included, against the full FIGHT_PHASE_TICKS', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+
+    // ⚠ `igniteThenFight` shortens the fight to keep the other cases quick. Restore the REAL length:
+    // the whole point is to price the magazine against the fight players actually get.
+    const fightStart = w.tick;
+    w.phaseEndsAtTick = fightStart + FIGHT_PHASE_TICKS;
+
+    const throwTicks: number[] = [];
+    let last = t.bagsRemaining;
+    expect(last, 'the control — a full magazine, or the drain below measures nothing').toBe(
+      STINK_TOWER_BAGS,
+    );
+
+    // Tick one at a time so every decrement is attributed to an exact tick.
+    while (w.matchPhase === 'FIGHT' && t.bagsRemaining > 0) {
+      run(w, 1, d, st);
+      if (t.bagsRemaining < last) {
+        throwTicks.push(w.tick - fightStart);
+        last = t.bagsRemaining;
+      }
+    }
+
+    const gaps = throwTicks.slice(1).map((v, i) => v - throwTicks[i]!);
+    const drain = throwTicks[throwTicks.length - 1] ?? -1;
+    const naive = STINK_THROW_INTERVAL_TICKS * STINK_TOWER_BAGS;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[S160 P2a] throws at ${throwTicks.join(', ')} (ticks into FIGHT) · gaps ${gaps.join(', ')} · ` +
+        `drained by ${drain} of ${FIGHT_PHASE_TICKS} · the constants-only estimate was ${naive}`,
+    );
+
+    expect(throwTicks, 'all five bags are thrown').toHaveLength(STINK_TOWER_BAGS);
+    expect(t.bagsRemaining).toBe(0);
+    expect(
+      drain,
+      `the magazine must empty INSIDE the fight, not merely inside ${naive} arithmetic ticks`,
+    ).toBeLessThan(FIGHT_PHASE_TICKS);
+
+    // ⭐ THE ASSERTION THE ARITHMETIC TEST CANNOT MAKE: the FSM costs real ticks, so the true drain
+    // is strictly LATER than the naive product. If this ever reads `<=`, the windup/fire/recover
+    // states have stopped costing anything and something has been short-circuited.
+    expect(
+      drain,
+      'the FSM adds windup + fire + recover per throw, so the real drain exceeds the naive product',
+    ).toBeGreaterThan(naive - STINK_THROW_INTERVAL_TICKS);
   });
 });

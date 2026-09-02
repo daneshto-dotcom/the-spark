@@ -337,16 +337,40 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * ⚠ THE NUMBER IS THE OWNER'S; THE CADENCE IS MINE. `STINK_TOWER_BAGS = 5` comes from
          * *"visibly shoot out all 5 stink bags"*. What never existed is a REFILL RULE. One full
          * magazine per round is the reading that matches *"each round"*, and the BUILD edge is where
-         * it belongs rather than the FIGHT edge: `stinkTowerRenderer` draws the hanging bag count
-         * from this field, so the player WATCHES the tower re-arm during BUILD instead of it
-         * silently filling at the whistle. The two alternatives, if this is wrong: a slow reload
-         * spread across BUILD (visible progress, punishes a short build), or a FEED gesture like the
-         * goblin tower's (a real cost, but then a tower can be starved).
+         * it belongs rather than the FIGHT edge — a magazine that fills at the whistle cannot be
+         * seen to fill at all, and BUILD is the phase the player is looking at their own base.
          *
-         * Idempotent by construction — it assigns a constant, so the double-flip a NONET freeze can
-         * cause (see the `flipped` guard above) refills to the same 5 rather than stacking.
-         * `config.bags` is 0 for every kind without a magazine, so this is a no-op for the turret,
-         * HELGA and every future kind that does not carry one.
+         * ⛔ S160 P2(a) — I DELETED A REASON THAT WAS FALSE, AND IT RE-PRICES ONE OF THE
+         * ALTERNATIVES. This docblock used to argue the BUILD edge because *"`stinkTowerRenderer`
+         * draws the hanging bag count from this field, so the player WATCHES the tower re-arm"*.
+         * **That is not what ships.** The per-bag rack lives in `drawTower`
+         * (`stinkTowerRenderer.ts:201-217`), which runs ONLY in the `atlas === null` fallback — and
+         * the atlas ships (`public/godly/stink-tower/anim/stink-tower-anim.json` +
+         * `stink-tower-atlas.png`). On the live path the sole magazine tell is one binary alpha step,
+         * `sp.alpha = depleted ? 0.72 : 1` (`:155`). A player sees the tower brighten, not five bags
+         * reappear. The BUILD-edge choice still stands on the second half of the argument; the
+         * rendering half was wrong.
+         *
+         * ⇒ Alternative (a), "a slow reload with visible progress", is therefore NOT free: the only
+         * per-bag readout in the renderer is dead code behind the shipping atlas, so it needs new
+         * draw work, not just a different write here. Alternative (b), a FEED gesture like the goblin
+         * tower's, is a real cost but lets a tower be starved — and the feed path hardcodes
+         * `'goblinTower'` in THREE places, not two (`goblinTowerFeed.ts:102`, `goblinKinds.ts:107`,
+         * and the popover title at `structurePanel.ts:316`).
+         *
+         * ⭐ AND THE CONSEQUENCE THE OWNER SHOULD FEEL, MEASURED not estimated (S160 P2(a), the test
+         * is `stinkReload.test.ts`'s "the five bags really do fit inside a REAL fight"): throws land
+         * at ticks **254, 538, 822, 1106, 1390** into a 2700-tick FIGHT — gaps of **284**, not the
+         * 240 `STINK_THROW_INTERVAL_TICKS` implies, because WINDUP + FIRE + RECOVER cost 44 ticks a
+         * throw. So the magazine is **dry for the last 1310 ticks — 22 of every 45 seconds.** That
+         * falls out of the owner's own bag count, so it is theirs to rule on: more bags, a slower
+         * cadence that spreads five across the whole fight, or leave it as a front-loaded burst.
+         *
+         * Idempotent for TWO reasons, and the weaker one used to be the only one stated: it assigns a
+         * constant, AND it sits outside the flip loop so it cannot execute twice in a tick. Either
+         * way the double-flip a NONET freeze can cause (see the `flipped` guard above) refills to the
+         * same 5 rather than stacking. `config.bags` is 0 for every kind without a magazine, so this
+         * is a no-op for the turret, HELGA and every future kind that does not carry one.
          */
         for (const d of world.defenders.values()) {
           d.bagsRemaining = getDefenderConfig(d.kind).bags;

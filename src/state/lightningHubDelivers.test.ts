@@ -148,6 +148,28 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
     expect(everSeen, 'more than the retired 3-drone burst').toBeGreaterThan(DRONE_MAX_PER_SPAWNER);
     expect(selfDestructedAt, 'and the hub survives its own production').toBeNull();
     expect(w.creatureSpawners.size, 'still standing at the whistle').toBe(1);
+
+    /*
+     * ⭐ S160 P2(b) — AND THE NUMBER ITSELF IS NOW PINNED, NOT JUST ITS FLOOR.
+     *
+     * Everything above only asserted `> 3`. The **9** that three documents quote to the owner as the
+     * measured uplift lived in the comment on line 137 and in the `console.log` above — so a cadence
+     * retune could have silently made it 6 with nothing going red, while the handoff kept telling the
+     * owner it was 9. The project's own rule is that a handoff number is a claim, not a measurement;
+     * this turns it into a measurement.
+     *
+     * Derived, so a deliberate retune updates the expectation instead of fighting it:
+     * `FIGHT_PHASE_TICKS / DRONE_EMIT_INTERVAL_TICKS`. If that stops matching `everSeen`, either the
+     * cadence moved (fine — re-read the docblock) or a cap has started blocking slots (NOT fine at
+     * these constants, and the reason `DRONE_MAX_PER_SPAWNER` is documented as inert slack).
+     */
+    const slots = Math.floor(FIGHT_PHASE_TICKS / DRONE_EMIT_INTERVAL_TICKS);
+    expect(slots, 'the arithmetic the owner was quoted').toBe(9);
+    expect(
+      everSeen,
+      `one emit per slot: ${FIGHT_PHASE_TICKS} / ${DRONE_EMIT_INTERVAL_TICKS} = ${slots}. A lower ` +
+        'number means a cap is blocking slots; a higher one means something emits off-cadence.',
+    ).toBe(slots);
   });
 
   it('⭐ S159 P9 — never exceeds DRONE_MAX_PER_SPAWNER in the air at once', () => {
@@ -167,9 +189,23 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
       if (live > peak) peak = live;
     }
     // eslint-disable-next-line no-console
-    console.log(`[S159 P9] peak live drones from one hub: ${peak} (cap ${DRONE_MAX_PER_SPAWNER})`);
+    console.log(`[S160 P2b] peak live drones from one hub: ${peak} (cap ${DRONE_MAX_PER_SPAWNER})`);
     expect(peak).toBeGreaterThan(0);
     expect(peak).toBeLessThanOrEqual(DRONE_MAX_PER_SPAWNER);
+
+    /*
+     * ⛔ S160 P2(b) — THE CAP IS SLACK, AND THAT IS ASSERTED HERE SO THE HANDOFF CANNOT LIE AGAIN.
+     *
+     * S159's handoff told the next session "the cap is the first dial" for a hub that feels too
+     * strong. It is not: occupancy at every due slot is 1 (`ceil(480/300) − 1`), so 3 → 2 changes
+     * nothing and only 3 → 1 bites. Peak live is therefore strictly BELOW the ceiling, and pinning
+     * that is what makes the claim checkable — if a future retune ever makes `peak === cap`, the cap
+     * has become load-bearing and the docblock on `DRONE_MAX_PER_SPAWNER` needs rewriting.
+     */
+    expect(
+      peak,
+      'the cap is documented as inert slack — peak must sit strictly below it, or that doc is wrong',
+    ).toBeLessThan(DRONE_MAX_PER_SPAWNER);
   });
 
   it('⭐ a hub carried through BUILD is never more than ITS OWN cadence from firing', () => {
