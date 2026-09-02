@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3987,
+  "tool_calls_session_total": 3988,
   "session_id": "S160",
   "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -562,7 +562,7 @@
       "status": "completed",
       "check_completed": true,
       "check_method": "R77 (*\"5 damage(atk) and 1 pierce in an area of effect (suicide drones)\"*) had reached LIGHTNING_DRONE_CONFIG and stopped for six sessions: applyDroneExplode severed bonds and never read atk or pen. Now spends both through the SHARED helper, following suicideBlast.ts exactly as that file advertised itself: units attackFifths(5,1) = 30 fifths, shapes primitiveDamageForAtk(5) = 418 of 1000 (so three drones fell one), owner spared. ⛔ THE DESIGN DECISION: the connector sever is left UNCONDITIONAL and additive rather than converted, because constants.ts had warned — correctly — that stat-gating it would make the drone WEAKER against big fortresses (30 fifths cuts a connector only while the component has <= 26, so a 30-connector base would take ZERO where today it always loses 3). R77 gives a separate COUNT ruling for connectors (\"3 connectors per lightning\") and only a damage sentence for the AoE, so spending the damage on units and shapes closes the gap with no balance regression and no owner ruling needed. The asymmetry with suicideBlast.ts (whose connector arm IS stat-gated) is deliberate and written at both sites. pinnedDeadStats.test.ts was INVERTED, not deleted (the S158 B2b treatment) — it went red exactly as designed when the gap closed, and now guards that the numbers stay spent; its constants.ts assertion inverted too, since the DECLARED-BUT-DEAD note is now false. Six new tests including a regression guard that builds a 39-connector component and asserts the drone still bites.",
-      "checkpoint_commit": "PENDING",
+      "checkpoint_commit": "afc63de",
       "verification": [
         {
           "type": "file_contains",
