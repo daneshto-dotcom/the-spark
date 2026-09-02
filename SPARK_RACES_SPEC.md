@@ -3,7 +3,9 @@
 **Status:** OWNER-RULED 2026-09-02 · NOT IMPLEMENTED · ready to execute A→Z
 **Authored:** from a live owner brainstorm, against a full audit of `src/`, the roadmaps and the handoff record
 **Supersedes:** the `CASTLE_BUILD_SPACE_DESIGN.md` § ADDENDUM race table (2026-08-27) — **that table's colours were wrong** (see §5.1)
-**Baseline at authoring:** commit `1e5b261` · `PROTOCOL_VERSION 38` · vitest 3244/3244 across 204 files · bundle 900 KiB cap
+**Baseline (MEASURED 2026-09-02, not inherited):** `PROTOCOL_VERSION 38` · vitest **3353/3353 across 212 files** · typecheck clean · bundle cap 900 KiB
+⚠ `node_modules/` may be absent on a fresh checkout — **run `npm ci` first** or both `typecheck` and `vitest` fail spuriously.
+⚠ The handoff said 3244/204. It was wrong by 109 tests and 8 files. §10 trap 5 warned about exactly this; it caught its own author.
 
 ---
 
@@ -225,7 +227,7 @@ R88 quote are still good.
 |---|---|---|
 | Colour-is-not-seat seam | `constants.ts:59-72`, `net/lobbyRoster.ts` | R45 already declares `PLAYER_COLORS[seat]` a default and `Player.color` the authority. **The seam is already cut.** |
 | Recipe registry | `state/godlyRecipes/index.ts` | `registerRecipe` → `Map<GodlyId, GodlyRecipe>`, three kinds (`cinematic` / `spawner` / `defender`). New towers are purely additive. |
-| Footer band | `render/footerBandModel.ts` | **Derived from the registry**, buckets on `blueprintCost`. New towers and new tiers appear on the bar with no edit. |
+| Footer band | `render/footerBandModel.ts` | Buckets on `blueprintCost`, so a new TIER chip appears with no edit. ⚠ **Derived from `ALL_BLUEPRINT_IDS`** via `castleStructuresModel` (`castlePanel.ts:291`), NOT from the recipe registry — a new TOWER still needs the hand-written array edit (trap 1). |
 | Castle panel | `render/castlePanel.ts` | Built around a `PanelControl` **descriptor list** precisely so structures get their own upgrade rows later — its docblock quotes the owner saying so. Also already enforces *"a disabled control must say why"*, so "NEED 250" comes free. |
 | Stat ladder | `state/stats.ts` | Three families (units / towers / connectors), HP-DEF-ATK-PEN as **integer fifths** — exact, no floats reach the damage path. Per-race numbers plug straight in when the balance wave allows them. |
 | Bot setup overlay | `render/botSetupOverlay.ts` | Title-screen overlay, **no new `GameState`**, click-to-cycle rows. This is the exact pattern to copy for race select. |
@@ -348,11 +350,11 @@ army obeys the phase rhythm the rest of the game already obeys.
 
 | The owner's words (R120) | What already exists |
 |---|---|
-| *"every thirty seconds it produces"* | `spawners/spawnerLifecycle.ts` — tick-deterministic cadence, seeded RNG |
-| *"they hide inside the castle"* during BUILD | `GathererState 'SHELTERED'` (S149 P2, protocol 25→26) — a unit inside the castle that does nothing at all |
+| *"every thirty seconds it produces"* | `spawners/spawnerLifecycle.ts` — tick-deterministic cadence. ⚠ **No RNG at all** in that path (its docblock `:15-17` says so); the spec's "seeded RNG" was wrong |
+| *"they hide inside the castle"* during BUILD | `GathererState 'SHELTERED'` (S149 P2) — ⚠ **a GATHERER state. `CreatureState` has no equivalent** — see §14 blocker 8 |
 | *"they get released during fight stage"* | the same phase edge that un-shelters gatherers |
 | *"it keeps producing during fight"* | cadence simply is not phase-gated off |
-| *"then they go back"* | **`recallArmies` (`hostTick.ts:177`)** — S154 P4, owner A3, already walks every creature home before FIGHT ends |
+| *"then they go back"* | **`recallArmies` (`hostTick.ts:177`)** — S154 P4, owner A3. ⚠ It **TELEPORTS** at the BUILD edge (`:184-193`, `:321`); the *walk* is a separate mechanism, `ARMY_RETREAT_LEAD_TICKS = 180` (`constants.ts:1488`, used at `creatureAI.ts:654-661`) — and it fires ONLY for `targetsStructures` units |
 
 ⚠ `retreat.test.ts` records the principle that governs the recall, and it must govern this too:
 **it is a DEADLINE, not a head start.** The creature fan-out is gated on `matchPhase === 'FIGHT'`, so
@@ -509,8 +511,8 @@ Current tiers, for reference (bucketed on `blueprintCost` = shape count, per R66
 
 | Tier | Global towers today |
 |---|---|
-| 4 | STINK TOWER · GOBLIN TOWER |
-| 5 | PENTAGRAM |
+| 4 | STINK TOWER *(alone)* |
+| 5 | PENTAGRAM · **GOBLIN TOWER** |
 | 6 | LIGHTNING HUB |
 | 7 | LASER TURRET · PRINCESS HELGA |
 | 8 | VOLTKIN |
@@ -545,9 +547,11 @@ implementable inside Wave 1. Sequence it accordingly.
 
 ### 9.2 ⚠ THE INTERVAL IS RULED AT 5 — the one thing to MEASURE, not to re-argue
 
-One wave = BUILD + FIGHT = `2 × PHASE_DURATION_TICKS` = 180 s. So the first draft lands **~15 minutes
-in**, the second at 30. Whether a real match reaches wave 5 is unknown — the balance pass (S157+)
-has not run, and the win threshold is 1500 points.
+⚠ **CORRECTED BY AUDIT — THE PHASES ARE NOT THE SAME LENGTH.** S149 split them:
+`PHASE_DURATION_TICKS = 5400` is **BUILD only (90 s)**; `FIGHT_PHASE_TICKS = 2700` is **45 s**
+(`constants.ts:389-391`, `phaseDurationTicks()` at `:401`). So **one wave = 8100 ticks = 135 s**, not
+180. The first draft lands **~11.25 min** in, the second at ~22.5. Whether a real match reaches wave 5
+is still unknown — the balance pass has not run, and the win threshold is 1500 points.
 
 **Do not change the number.** Ship it at 5 as a NAMED CONSTANT (`TECH_DRAFT_WAVE_INTERVAL = 5`) and
 report, in the balance pass, how many drafts a real match actually fires. If the answer is zero, that
@@ -658,8 +662,10 @@ convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
 
 ### 9.7 Tests
 
-- Unit: the draft fires at waves 5, 10, 15 and **not** at 4, 6, 9 — driven through the real
-  `hostTick` wave edge, not by calling the trigger directly.
+- Unit: the draft fires at the **correct wave edge and no other** — driven through the real
+  `hostTick` wave edge, not by calling the trigger directly. ⚠ **Pin the exact number first (§14
+  blocker 13): `waveNumber` increments on ENTRY INTO BUILD, so "the BUILD edge after wave 5's FIGHT"
+  is `waveNumber === 6`.** §9.5 and this bullet contradicted each other in the original draft.
 - Unit: a perk set round-trips through save/load and through the wire; a joiner mid-match sees every
   seat's perks.
 - Unit: the no-choice deadline auto-assigns the general option and the phase advances **on time**
@@ -761,10 +767,456 @@ the sentinel exists:
    unbounded wire payload and an unbounded hash input."* A runaway here degrades the netcode before
    it ever unbalances the match.
 
-**The arithmetic, so it is sized rather than guessed.** At a 30 s cadence a castle emits **6 units per
-wave** (one wave = 180 s), in addition to tower output. Twenty waves is ~120 units per seat from the
-castle alone, ~480 across a 4-player board, on top of goblins and chewers. That is not alarming — but
-it IS the number to watch in the balance pass, and the cadence is the dial if it bites.
+**The arithmetic, so it is sized rather than guessed.** At a 30 s cadence and a **135 s wave** (§9.2,
+corrected), a castle emits **4.5 units per wave** — ~90 per seat over 20 waves, ~360 across a
+4-player board, on top of goblins and chewers. Not alarming, but it IS the balance-pass number to
+watch, and the cadence is the dial.
+
+⚠ **AND RACE UNITS WILL SHARE THE GOBLIN GLOBAL CEILING UNLESS SOMEBODY DECIDES OTHERWISE.**
+`underGoblinCaps` (`creatureLifecycle.ts:257-270`) counts *every* spawner-sourced non-chewer
+non-drone creature against `GOBLIN_MAX_GLOBAL = 200` — its docblock advertises that as a feature
+(*"a new fed unit type inherits the correct ceiling automatically"*). So R124's per-tower 10 comes
+free from `GOBLIN_MAX_PER_SPAWNER`, but the **200 global is now shared between two unrelated
+economies**: a seat fielding 150 hounds starves its own goblin tower. Castle-emitted units
+(`sourceSpawnerId === null`) skip that loop entirely, so R123's uncapped castle is satisfied and the
+§9B sentinel has nothing enforcing it. **Decide both explicitly.**
+
+---
+
+# 14. ⛔ AUDIT FINDINGS — READ THIS SECTION BEFORE WRITING ANY CODE
+
+Three review agents audited this spec against the live codebase on 2026-09-02: one verified ~80 code
+claims, one hunted unfinished pathways, one produced the W1-A site list in §15. **Everything below is
+a defect in the plan, not in the code.** Each was measured, each is cited, and each would have cost a
+session or a rebuild.
+
+## 14.1 THE FIVE THAT KILL A PHASE
+
+### B1 — ⛔ THE CASTLE EMITTER IS BLOCKED BY A SHIPPED GATE. W1-C IS DEAD ON ARRIVAL AS WRITTEN.
+
+`applySpawnCreature` (`src/state/creatures/creatureLifecycle.ts:147-156`) returns the world
+**unchanged** — no error, no log — if a live creature already exists with the same
+`(ownerPlayerId, type)` and `sourceSpawnerId === null`. Only `voltkin` is exempt. The docblock says
+the gate is deliberate: it protects the free starter goblins.
+
+So a castle emitter dispatching `SPAWN_CREATURE{type:'zombieHound', sourceSpawnerId: null}` mints
+**exactly one unit per seat for the whole match**, then silently no-ops forever. R107, R120 and every
+number in §9B assume otherwise.
+
+**The obvious guess (`sourceSpawnerId: null`) is the broken one, and it looks correct on an empty
+fixture** — trap 6 verbatim. The alternative, a sentinel `SpawnerId` for the castle, breaks
+`ownHomePos` (`creatureAI.ts`, spawner lookup first), `underGoblinCaps` and `recipeStillSatisfied`.
+**Decide this before W1-C, and write the decision at the gate.**
+
+### B2 — ⛔ SEAT ELIMINATION DOES NOT EXIST. ONE CASTLE AT 0 HP ENDS THE MATCH FOR EVERYONE.
+
+`src/state/gameState.ts:76-88`: the **first** castle to fall immediately ends the match and awards
+victory to `survivors[0]` — first in Map iteration order, i.e. arbitrary among three survivors in a
+4-player FFA.
+
+**§9B case 1 ("two seats down, survivors' armies grow") describes an unreachable board state.** So do
+§9.5's no-choice rule and §9.6's "a joiner mid-match sees every seat's perks". Elimination is a new
+`Player` state, a new win condition, a rewrite of the `castleHp <= 0` gate, and a disposal policy for
+the fallen seat's spawners / defenders / creatures / gatherers / bank. **None of that is in any wave
+of this spec.** Either add a wave or accept that races ship onto a first-castle-ends-it match.
+
+### B3 — ⛔ `CLAIM_RACE` CANNOT BE A CLIENT INTENT. THE LOBBY HAS NO INTENT PATH.
+
+W1-A step 4 prescribes a route that is closed at the moment it is needed. Three independent reasons:
+
+- `hostHandlers.ts:306` — the INTENT branch requires `session.hostSync !== null`; null until the match starts.
+- `hostHandlers.ts:336-341` — every INTENT is stamped from `session.hostSeats.get(peerId)` and
+  **dropped fail-closed** when absent. `session.ts:39`: *"Empty on the client and before Begin."*
+- In LOBBY, `world.players` holds only seat 0, so a reducer would have no player to write to.
+
+**Use the `LOBBY_READY` precedent instead** (`protocol.ts:906-909`, handled at
+`hostHandlers.ts:389-393`): a top-level `NetMessage` kind, keyed by transport `peerId`, handled
+outside the INTENT path. Full site list in §15.4e.
+
+Second half: the spec says the resolution *"broadcasts in `LOBBY_PRESENCE`"* — but that beacon is
+only emitted from `transport.onPeerChange` (join/leave). **A race claim is neither.** The handler must
+call the broadcast itself.
+
+### B4 — ⛔ THE RAINBOW SHUFFLE COLLIDES WITH RACE-DERIVED COLOUR.
+
+`applyTriggerRainbow` (`src/state/rainbowLifecycle.ts:129-135`) permutes every player's `color` and
+every primitive's `placerColor`/`ownerColor` through a derangement. `player.ts:20-25` documents
+`color` as mutable *for that reason*.
+
+Two mutually exclusive outcomes, and the spec picked neither:
+- Shuffle colour only → a vampire seat paints cyan while its castle art (keyed on `raceId`) stays
+  crimson, destroying R110's entire stated rationale.
+- Shuffle `raceId` too → seats swap races mid-match, invalidating built race towers and moving
+  drafted perks to the wrong player.
+
+**RULING TO WRITE: shuffle `color`, never `raceId`.** `color` is "what this seat looks like right
+now"; `raceId` is "who this seat is". ⛔ **Therefore `Player.color` is NOT deleted** — §4's
+"colour is derived" means *derived at construction*, not a getter.
+
+⚠ And it has a third consequence the spec missed entirely: **every recipe resolves its owner by
+matching `p.color === anchorPrim.placerColor`** (`pentagram.ts:141-149`, mirrored in
+`lightningHub.ts` / `goblinTower.ts`). The six new race towers each need an owner resolver, and §7's
+per-tower bill does not list one.
+
+### B5 — ⛔ THE TECH PERKS MUST BE HASHED, AND `Player` IS THE ONE FAMILY THE ORACLE EXCLUDES.
+
+§9.6 says the perks *"must contribute to the wide hash"* (correct — they change damage and spawn
+rates). §5.4 says `Player` fields are **not** hashed (also correct —
+`stateHashFull.ts:167`, `players: 'acknowledged'`, whose docblock explains it must stay that way or
+client prediction reads as desync).
+
+**These contradict, and `FIELD_COVERAGE` is keyed on `keyof World`, not `keyof Player`** — so putting
+`techPerks` on `Player` compiles clean, escapes the wide oracle, and the tsc tripwire never fires.
+The same argument applies to `raceId`, which selects the emitted `CreatureType`.
+
+**Weigh both options explicitly and record the choice**: hash the whole `players` family (breaks the
+oracle by its own docblock) versus a new hashed `World` field (contradicts §4's one-token principle
+and costs the full ten-site bill). Do **not** default to "follow the `raidPoints` precedent" —
+`raidPoints` is a currency nothing simulates from; perks are a sim input.
+
+## 14.2 THE FOUR THAT SILENTLY HALF-LAND
+
+### B6 — `buildMatchRoster` DISCARDS EVERYTHING BUT `peerId`.
+
+`lobbyRoster.ts:121-132` compacts to dense seats and assigns `color: PLAYER_COLORS[denseSeat]`. Its
+docblock already accepts *"a one-time colour change at match start"* for an unfilled hole. **With
+races that is a RACE change** — a player who locked vampires in the lobby begins as nagas. Adding
+`raceId` to `RosterEntry` but leaving line 129 untouched means the field is simply never populated on
+the authoritative Begin roster, **and every lobby-side test still passes.**
+
+### B7 — `applyStartGame`'s IDEMPOTENT ARM DROPS THE HOST'S OWN RACE.
+
+`gameMode.ts:245-252` skips a player that already exists — and **seat 0 always already exists**, built
+by `makeWorld` (`world.ts:462`). Without an `else` branch that stamps the race onto the existing
+player, the host's chosen race is discarded at Begin while every joiner sees it correctly. A
+one-sided, host-only, never-red colour desync. Exact code in §15.7b.
+
+### B8 — THERE IS NO `SHELTERED` STATE FOR CREATURES, AND `recallArmies` ALREADY REFUSED TO ADD ONE.
+
+R120 claims both halves ship. Only the gatherer half does. `CreatureState` is
+`'SPAWNING' | 'SEEKING' | 'ATTACKING' | 'DESPAWNING'` (`creature.ts:185`), and `recallArmies`'
+docblock (`hostTick.ts:169-174`) is a **standing ruling against this exact addition**: a new state
+*"would be a hard wire parse break (the 'SHELTERED' 25→26 class) AND would render as the idle
+animation row, because `goblinRenderer` maps every state that is not ATTACKING or SEEKING to 'idle'
+— so a retreating goblin would slide across the board standing still."*
+
+Sheltering creatures therefore needs a wire literal, a renderer decision, and answers the spec never
+asks: is a sheltered unit targetable? does it hold the population cap? does it Verlet-integrate?
+
+### B9 — `runSpawnerIgnition` IS A HARDCODED CHAIN, AND §7's TOWER BILL OMITS IT.
+
+`godlyMatcherCore.ts:142-171` is three hardcoded `if (igniteOneSpawnerRecipe(...)) return;` calls. Its
+own comment records this failure once already: *"⭐ S152 P2 — THE GOBLIN TOWER NEVER IGNITED… ⚠ A
+REGISTERED RECIPE IS NOT A LIVE RECIPE."*
+
+Follow §7's seven-item bill exactly and you get six race towers that build, stamp, pass
+`blueprints.test.ts`, appear in the footer, tear down correctly — **and never become spawners**, so
+`applyFeedTower` can never find them. **Add `runSpawnerIgnition` and a `recipeStillSatisfied` case
+(`spawnerLifecycle.ts:109-131`) to the bill.** Without the latter, the `default:` arm keeps a tower
+alive off a single surviving primitive, forever, with no error.
+
+## 14.3 THE FIVE SMALLER TRAPS
+
+| # | Finding |
+|---|---|
+| B10 | **`FEED_TOWER` hardcodes `goblinTower` twice** — `goblinTowerFeed.ts:98` (Gate 1) and `structurePanel.ts:190`. The panel row is always **six** buttons captioned from `GOBLIN_FEED_MAP`, under a documented contract. A one-shape race tower needs a decision: one button, or six with five disabled? Widening only one side gives either an unreachable tower or six lit buttons that all silently refuse. |
+| B11 | **The 3-ring validator family is unchosen.** The repo has two, and S158 B2b deliberately migrated the star recipes OFF the component-walk one: `isPentagramComponent` (`pentagram.ts:57-77`) kills the tower if one friendly shape bonds to any node; `isStarAt` (`starShape.ts`) fixed exactly that but **does not apply to a ring** (no hub). §7 currently locks in the fragile variant by naming pentagram. **A ring needs a third validator.** |
+| B12 | **The ring's geometry constant is unchosen.** Reusing `RING_R = 40` at n=3 gives side ≈ **69 px**, breaking `blueprints.ts:44-45`'s stated invariant (*"≤ `AUTO_BOND_RADIUS` (60)"*) — stampable but un-buildable by hand. Sizing by side instead gives the smallest footprint in the game and loosens `stampRefusalAt`'s clearance ring. Pick one and write the arithmetic at the constant. |
+| B13 | **The draft's wave trigger is off by one, and the spec contradicts itself.** `waveNumber` increments on ENTRY INTO BUILD (`hostTick.ts:302`). §9.5's *"the BUILD edge following wave 5's FIGHT"* is `waveNumber === 6`; §9.7's test forbade 6. Also unstated: where the PENDING offer lives — R106's deadline needs a per-seat pending-offer record, serialized (a joiner mid-BUILD must see it) and hashed (auto-assignment must fire on the same tick for everyone). |
+| B14 | **Bots enumerate `ALL_BLUEPRINT_IDS` with no race and no seat filter.** `botBrain.ts:157-159` sorts it at module level — no world, no seat. §7's "the footer inherits the filter for free" covers the two RENDER consumers and misses the only non-render one. **Tier 3 makes race towers the cheapest builds in the game**, so every bot of every race picks the same one by alphabetical tie-break, spends its bank on the wrong primitive and queues the wrong shape. Bots also have no `CHOOSE_TECH` verb. ⚠ There is **no `src/bots/botTowers.ts`** — only its test; the logic is in `botBrain.ts`. |
+
+## 14.4 SMALLER CORRECTIONS ALREADY APPLIED ABOVE
+
+Wave length 180 s → **135 s**; castle output 6/wave → **4.5/wave**; goblin tower tier 4 → **tier 5**;
+the footer derives from `ALL_BLUEPRINT_IDS` not the registry; the four-sites warning lives in
+`primitive.ts` / `defender.ts` / `save.ts`, not `blueprints.ts`; `spawnerLifecycle` has **no RNG**;
+`recallArmies` **teleports** (the walk is `ARMY_RETREAT_LEAD_TICKS`, and fires only for
+`targetsStructures` units — so **R123's "survivors return exactly as chewers do" is factually wrong:
+chewers do not walk home**); the test baseline is **3353/212**; `codexCopyFor`'s fallback is at `:116`
+and `CODEX_COPY` is itself `Record<string, …>` so the proposed tsc fix needs the record retyped too;
+`buildMatchRoster`'s palette line is `:129`; `layoutWire.test.ts` is under `src/state/`;
+`pentagram` is already 5 shapes / 5 bonds so the 3-ring is **not** the first where the counts agree.
+
+⚠ **`assets-source/zombie-castle/` contains a HOUND, not a castle** (`clips/zombie-hound/{idle,walk}.mp4`).
+**Six castles need generating, not five.** The manifest count is unchanged at 57 only because the
+castle row was already 18.
+
+## 14.5 THE RACE UNIT'S ARCHETYPE IS UNSPECIFIED, AND IT DECIDES FIVE BEHAVIOURS
+
+R125 gives four stat numbers. The creature fan-out branches on **config flags**, not stats:
+
+- `hostTick.ts:778-782` — `targetsStructures` picks the goblin branch (shape targeting, units-first, castle march).
+- `hostTick.ts:899-961` — the fall-through is `isChewer = sourceSpawnerId !== null`. ⛔ **A castle unit with `sourceSpawnerId === null` lands in the VOLTKIN arm and will eat its own owner's bonds** (`enemyOnly = false`).
+- `hostTick.ts:845` — `isRetreatWindow` has exactly one caller, inside the `targetsStructures` branch. **A non-`targetsStructures` race unit gets no walk home at all.**
+- `hostTick.ts:971-1011` — `selfExplode` routes two different detonation paths.
+- `creatureLifecycle.ts:228-231` — the cap bucket is `type === 'chewer' ? underChewerCaps : underGoblinCaps`.
+
+**Copy `GOBLIN_MELEE_CONFIG` and you inherit `targetsStructures: true`** — which is what makes retreat,
+standoff spread and shape-targeting work. Copy the chewer and you get a unit that never walks home and
+eats friendly connectors. **Choose deliberately and write the reason at the config.**
+
+
+---
+
+# 15. W1-A — THE EXACT IMPLEMENTATION. COPY THIS.
+
+Researched against the live tree so the executing session does not re-derive it. **Scope: the race
+token, its default, serialization, the wire, and the colour audit. NOT the selection UI** (that is
+W1-A item 5, and it depends on §14 B3's transport decision).
+
+⚠ **Run `npm ci` first** — `node_modules/` may be absent, and both `typecheck` and `vitest` fail
+spuriously without it.
+
+## 15.1 `src/state/races.ts` — NEW FILE, SHIP THIS VERBATIM
+
+```ts
+/**
+ * SPARK — W1-A — the RACE ROSTER, in a module with NO SIDE EFFECTS.
+ *
+ * ## ⛔ WHY THIS IS ITS OWN FILE, AND IT IS NOT ORGANISATIONAL TIDINESS
+ *
+ * `state/goblinKinds.ts` was carved out of `godlyRecipes/goblinTower.ts` after that module's
+ * tail-call to `registerRecipe` fired for essentially the whole codebase — because `world.ts`
+ * reaches the reducer that wanted the map. Its header records the measured consequence: the
+ * `?worker=1` bots match never left TITLE, with 198 polls throwing during boot, and *nothing about
+ * the file that caused it looked wrong*.
+ *
+ * The race table has strictly WIDER reach than that map did — reducers, the serializer, the lobby
+ * and every renderer that paints an owner colour all need it. Same trap, bigger blast radius.
+ *
+ * ⭐ RACE IS PRIMARY. COLOUR IS DERIVED — at construction, not by a getter. `Player.color` SURVIVES,
+ * because `rainbowLifecycle.applyTriggerRainbow` rewrites it in place for eight seconds and must not
+ * rewrite the race. `color` is "what this seat looks like right now"; `raceId` is "who this seat is".
+ *
+ * ⚠ `Record<RaceId, …>` EVERYWHERE, NEVER AN ARRAY LITERAL OF IDS — a Record is
+ * exhaustiveness-checked by tsc; an array is not (the `ALL_BLUEPRINT_IDS` trap).
+ *
+ * Pixi-free, DOM-free, World-free, and it registers nothing.
+ */
+
+import { SparkType } from '../constants.ts';
+
+/** The six races (SPARK_RACES_SPEC.md §2, LOCKED). */
+export type RaceId = 'vampires' | 'nagas' | 'mummies' | 'zombies' | 'orcs' | 'demons';
+
+/**
+ * ⚠ ORDER IS LOAD-BEARING. Index i is the race whose colour is `PLAYER_COLORS[i]`, i.e. the race a
+ * seat gets when nobody chooses. Reordering silently reassigns every default.
+ */
+export const ALL_RACES: readonly RaceId[] = [
+  'vampires', // crimson
+  'nagas',    // cyan
+  'mummies',  // yellow
+  'zombies',  // green
+  'orcs',     // orange
+  'demons',   // magenta
+];
+
+/**
+ * ⭐ RACE → IDENTITY COLOUR. These six values ARE `PLAYER_COLORS`, in order — duplicated as literals
+ * rather than imported and indexed, deliberately. `races.test.ts` asserts the equality as a
+ * TRIPWIRE: a palette retune reddens that test and forces a decision about the races, instead of
+ * silently redefining six of them.
+ */
+export const RACE_COLORS: Readonly<Record<RaceId, number>> = {
+  vampires: 0xff3b6b,
+  nagas: 0x3bd7ff,
+  mummies: 0xffe23b,
+  zombies: 0x44ff5e,
+  orcs: 0xff8c1a,
+  demons: 0xd73bff,
+};
+
+/**
+ * ⭐ RACE → FEED SHAPE (R109). The shape this race's tier-3 tower is fed, and — per R119 — the shape
+ * the tower is BUILT from.
+ *
+ * ⛔ NOT `GOBLIN_FEED_MAP` AND MUST NOT BE CONFLATED WITH IT. That map is
+ * `Record<SparkType, CreatureType>` and runs the other direction: the goblin tower is global and
+ * decides its output at feed time. This is one race, one shape, one unit.
+ */
+export const RACE_FEED_SHAPE: Readonly<Record<RaceId, SparkType>> = {
+  vampires: SparkType.Triangle,
+  nagas: SparkType.Square,
+  mummies: SparkType.Line,
+  zombies: SparkType.Circle,
+  orcs: SparkType.Dot,
+  demons: SparkType.Spiral,
+};
+
+/**
+ * ⭐ THE DEFAULT, AND THE ONLY ONE. A seat that never chose gets the race for its seat colour —
+ * R45's *"PLAYER_COLORS[seat] is only ever a DEFAULT assignment"*, restated in race terms. This is
+ * what keeps solo, vs-bots, a stale peer's roster and every pre-existing save working with ZERO UI.
+ *
+ * ⛔ DERIVED FROM THE SEAT, NEVER FROM THE HEX. A colour→race reverse lookup breaks the moment the
+ * rainbow shuffle remaps `player.color` (§14 B4).
+ *
+ * Modulo, not a bounds check: total today and total if either constant moves.
+ */
+export function defaultRaceForSeat(seat: number): RaceId {
+  const n = ALL_RACES.length;
+  return ALL_RACES[((Math.trunc(seat) % n) + n) % n]!;
+}
+
+/** Narrowing guard for a value off the wire or off disk. Fail-closed. */
+export function isRaceId(v: unknown): v is RaceId {
+  return typeof v === 'string' && (ALL_RACES as readonly string[]).includes(v);
+}
+```
+
+## 15.2 `Player.raceId` — `src/game/player.ts`
+
+**Interface** — insert after `castleHp` (`:57`), before `raidProgress` (`:63`):
+`raceId: RaceId;` — required, mutable (host arbitration may reassign before Begin), documented as
+serialized-but-not-hashed following `raidPoints`.
+
+**`makeIdlePlayer` (`:134`)** — add a fourth parameter **with a seat default**, which is what keeps
+all ~95 test fixtures compiling:
+```ts
+raceId: RaceId = defaultRaceForSeat(id),
+```
+and `raceId,` in the returned literal.
+
+**⛔ BOTH CARRY-FSM RECONSTRUCTIONS.** The exported names are **`pickup` (`:160`)** and **`drop`
+(`:199`)** — not `fsmPickup`/`fsmDrop`. Both rebuild the player wholesale; add `raceId: player.raceId,`
+beside `castleHp: player.castleHp,` in each. tsc catches an omission here because the field is
+required — but the comment goes in anyway, as the third entry in a documented pattern.
+
+**Other construction sites:** `grep -rn "makeIdlePlayer" src/` → 106 hits / 51 files. Only three are
+production, and **two need no edit** (`world.ts:462` seat 0 → vampires/crimson; `gameMode.ts:260`
+legacy 1v1 seat 1 → nagas/cyan — both behaviour-identical). The third is §15.7.
+
+## 15.3 Serialization — `src/state/save.ts`
+
+| Site | Line | Change |
+|---|---|---|
+| `SerializedPlayer` | after `castleHp?` (`:441`) | `raceId?: RaceId;` — additive-optional, emitted only when non-default |
+| deserialize (`applySnapshotCore`) | after `castleHp:` (`:1595`) | `raceId: isRaceId(p.raceId) ? p.raceId : defaultRaceForSeat(p.id),` |
+| serialize (`serializePlayer`) | after the `castleHp` line (`:1763`) | `...(p.raceId !== defaultRaceForSeat(p.id) ? { raceId: p.raceId } : {}),` |
+
+⛔ **`isRaceId` first.** This value crosses a trust boundary as a bare string; an unvalidated
+assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
+⛔ **Never a hardcoded fallback.** `applySnapshotCore` runs on **every NetSnapshot apply**, so a wrong
+default resets every player's race on every client frame — the S151 P2 bond-deserializer defect.
+⭐ `netSnapshot` derives from `snapshot()` by destructure-and-drop (`:1078-1090`), so **the field
+reaches the wire with no further edit.**
+
+## 15.4 The wire — `src/net/protocol.ts`
+
+- **`RosterEntry` (`:805`)** — add `readonly raceId?: RaceId;` after `ready`.
+- **`isValidRoster` (`:1199-1222`)** — one line after the `ready` check:
+  `if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;`
+  ⭐ This single edit covers **both** `START_GAME_SIGNAL` and `LOBBY_PRESENCE` — they share the
+  validator by design (`:853`).
+- **`StartGameMsg` / `LobbyPresenceMsg`** — **no interface change**; both already carry
+  `readonly RosterEntry[]`. Update `LobbyPresenceMsg`'s "PURELY COSMETIC" docblock (`:846-854`): the
+  beacon is now the carrier for claim resolution, though the graceful-degradation argument survives.
+- **`CLAIM_RACE`** — ⛔ **NOT an intent (§14 B3).** Follow `LobbyReadyMsg` (`:906-909`): new
+  `ClaimRaceMsg` kind, added to the `NetMessage` union (`:911-921`), a `parseNetMessage` arm rejecting
+  unless `isRaceId`, a `session.lobbyRaces: Map<string, RaceId>` (init `session.ts:152`, clear `:207`),
+  and a handler beside `hostHandlers.ts:389` that arbitrates and calls the presence broadcast itself.
+
+## 15.5 The six bump sites — 38 → 39
+
+| # | File:line | Edit |
+|---|---|---|
+| 1 | `protocol.ts:454` | `PROTOCOL_VERSION = 39 as const` |
+| 2 | `protocol.ts:~452` | new narrative block in `bumped 38->39:` form (gated by regex `/bumped\s+(\d+)\s*->\s*(\d+)/g`) |
+| 3 | `protocol.ts:~626` | compact `HelloMsg` list entry, chronological, at 3-space `   * ` indentation |
+| 4 | `protocol.ts:659` | `readonly protoVersion: 39;` — the tsc tripwire |
+| 5a | `protocol.test.ts:75` **and `:93`** | the pin **and its title** |
+| 5b | `e2e/smoke.spec.ts:90` | `LOCAL_PROTO_V = 39`. ⛔ Do **not** touch `:91` — `NEWER_PEER_V` must stay derived |
+| 6 | narrative + `LOCKED_DECISIONS.md` | **the SESSION label.** `W1-A` is a SPEC id. Write `W1-A (S<n>)` so nobody reconstructs a session named "W1-A" |
+
+**The bump argument to write:** both fields are additive-optional in shape, and *that is why they
+bump* — S150's *"a field a stale peer can silently DROP is more dangerous than one it cannot parse"*,
+the `Primitive.origin` 26→27 class. A v38 joiner drops the key, falls back to its own
+`defaultRaceForSeat`, and paints every castle a different colour from the host for the whole match
+with nothing red on either side.
+
+## 15.6 `src/net/lobbyRoster.ts`
+
+`reconcileLobbySeats` — **no change** (a seat is assigned, a race is claimed; keep the authorities
+separate). `buildLobbyRoster` (`:97`) and `buildMatchRoster` (`:121`) each take two new defaulted
+parameters (`raceByPeer`, `selfRace`) and derive `color: RACE_COLORS[raceId]`. An empty map reproduces
+the pre-W1-A roster **byte for byte**.
+
+⛔ **`buildMatchRoster` line 129 is §14 B6** — the race must follow the **peer**, not the dense seat.
+`PLAYER_COLORS` becomes unused in this file; drop the import (knip is at zero here).
+
+Call sites: `quickmatchGate.ts:77`, `hostHandlers.ts:443`. ⚠ **Read `rosterWithReady` in
+`quickmatchGate.ts` before editing** — if it rebuilds entries rather than spreading them, the race is
+dropped at Begin **in quickmatch rooms only**.
+
+## 15.7 START_GAME — `src/state/gameMode.ts`
+
+**(a) `StartGameAction.roster` (`:49`)** — add `readonly raceId?: RaceId;` to the structural entry
+type. Optional here, required on `Player`: absence means "this caller did not choose", and keeps ~10
+test dispatch sites compiling.
+
+**(b) `applyStartGame` (`:236-253`)** — resolve once, and **add the `else` arm (§14 B7):**
+```ts
+const raceId = entry.raceId ?? defaultRaceForSeat(entry.seat);
+if (!world.players.has(pid)) {
+  const p = makeIdlePlayer(pid, entry.color, radialSpawnPos(entry.seat, total), raceId);
+  ...
+} else {
+  // ⛔ seat 0 ALWAYS already exists (makeWorld). Without this the host's own chosen race is
+  // discarded at Begin while every joiner sees it — a one-sided, never-red colour desync.
+  const existing = world.players.get(pid)!;
+  existing.raceId = raceId;
+  existing.color = entry.color;
+}
+```
+
+**(c) ⛔ TWO `.map` PROJECTIONS THAT SILENTLY DROP THE FIELD** — tsc will not complain, because the
+target type has it optional. **These are the single likeliest place for this feature to half-land:**
+- `hostHandlers.ts:507` — `roster.map((e) => ({ seat: e.seat, color: e.color }))`
+- `clientHandlers.ts:360` — same shape
+
+Both need `, raceId: e.raceId`.
+
+## 15.8 The `PLAYER_COLORS` audit — 4 real edits, not 15
+
+96 grep hits; 23 non-test code sites. The seam R45 cut in advance means colour identity already
+funnels through `Player.color` and `RosterEntry.color`, so there are **exactly four** places to change
+— **a1–a4, all in `lobbyRoster.ts` (`:103`, `:104`, `:126`, `:129`)**.
+
+**Deferred to the UI item:** `botSetupOverlay.ts:196` (bot swatch) and `main.ts:1121` (vs-bots roster)
+— correct defaults today, must become race-derived when the cyclers land.
+
+**Leave alone — these are the design working:** `creatureAI.ts:111` and `goblinRenderer.ts:294` and
+`creatureLift.ts:83-90` all read `owner?.color` FIRST and fall back to the palette only when the owner
+is absent. ⭐ `creatureAI.ts:92-95` already states the rule: *"read the owner's LIVE colour (single
+source of truth), NOT the static palette."* Also leave: `rainbowLifecycle.ts:77` (§14 B4),
+`gathererRenderer.ts:91` (a hue-cycling animation), `ui.ts:715` (pool **sizing**), and all of
+`titleScreen.ts` / `lobbyScreen.ts` (chrome, no seats).
+
+⚠ **One site needs reading before classifying:** `gathererRenderer.ts:94` `seatColor()`. If any caller
+paints an **owned** gatherer or keep it is a real edit; if it only feeds `keepRainbowTint` it is not.
+
+**Five stale comments to correct:** `constants.ts:59-72` (R45 — the future arrived; point at
+`races.ts`), `protocol.ts:218` and `:536` (same pointer), `lobbyGeometry.ts:23` and
+`lobbyStateMachine.ts:317` (*"seat i → PLAYER_COLORS[i]"* — now only the default),
+`seatRack.ts:7`. ⚠ Also stale and unrelated: `ui.ts:712-714` still says 7 seats / 6 cap (R41 made it
+4/4).
+
+## 15.9 Tests
+
+**New:** `src/state/races.test.ts` (exhaustiveness, the `RACE_COLORS === PLAYER_COLORS` tripwire,
+`defaultRaceForSeat` totality, `isRaceId` rejection) · `src/net/raceWire.test.ts` (modelled on
+`src/state/layoutWire.test.ts`, which exists because the wire path had been *read* not *proven*) ·
+`src/net/raceClaim.test.ts` (arbitration via a pure helper, folded like `reconcileLobbySeats`).
+
+**Extend:** `game/player.test.ts` (pickup/drop preserve `raceId`) · `state/save.test.ts` (round-trip,
+**byte-identity when all-default**, absent→default, garbage→default) · `net/lobbyRoster.test.ts`
+(⭐ **a claimed race survives dense compaction**) · `net/protocol.test.ts` (the pin + validator cases).
+
+**Do not touch:** `net/protocolVersionSync.test.ts` — it is the gate and must be left free to fail.
+`state/benchGate.test.ts:52-55` asserts set-equality against `CLIENT_INTENT_TYPES` and will redden by
+itself if the intent route is taken without a `BENCH_INTENT_POLICY` row.
+
 
 ---
 
@@ -794,9 +1246,10 @@ it IS the number to watch in the balance pass, and the cadence is the dial if it
 6. **⛔ "MY FIXTURE IS NOT THEIR BOARD."** S158 measured the drone tower producing; the owner said
    flatly it was not — both probes used an isolated hub on an empty board, and on a real board one
    bonded shape deleted the tower within half a second. Test race towers **on a populated board**.
-7. **⛔ THE FOUR-SITES WARNING.** `state/blueprints.ts` documents that a change here touches four
-   places and that doing three of four leaves the tests green. It caught two separate priorities in
-   S158 alone. Read it before every tower.
+7. **⛔ THE FOUR-SITES WARNING — AND IT IS NOT IN `blueprints.ts`.** The audit found this
+   misattributed. The four-sites warnings live in **`src/game/primitive.ts:54`**,
+   **`src/state/defenders/defender.ts:164`** and **`src/state/save.ts:529`**. `blueprints.ts`
+   documents two *different* traps (bill-drift and import side effects). Read the right file.
 8. **⛔ THE FOOTER PORCH CONSTRAINT.** `render/footerBand.ts:7-24` documents, and its test asserts,
    that chips are centred because the `QUADRANTS_4P` seat-2/seat-3 castle porches sit at x=1790 and
    x=130 *inside* the footer band. Anything added to the footer must clear them and carry its own
