@@ -90,12 +90,14 @@
         {
           "type": "file_contains",
           "path": "boot-snapshot.md",
-          "needle": "Actions → Deploy to"
+          "needle": "Actions → Deploy to",
+          "ephemeral_target_note": "boot-snapshot.md is REGENERATED every handoff (protocol STEP 2.95). A file_contains on it is a binding with an expiry date — kept here only because the substance is ALSO asserted against a durable file in the same priority."
         },
         {
           "type": "file_contains",
           "path": "boot-snapshot.md",
-          "needle": "workflow_dispatch"
+          "needle": "workflow_dispatch",
+          "ephemeral_target_note": "boot-snapshot.md is REGENERATED every handoff (protocol STEP 2.95). A file_contains on it is a binding with an expiry date — kept here only because the substance is ALSO asserted against a durable file in the same priority."
         },
         {
           "type": "grep_count",
@@ -156,8 +158,8 @@
         },
         {
           "type": "file_contains",
-          "path": "boot-snapshot.md",
-          "needle": "DRONE_EMIT_INTERVAL_TICKS` first"
+          "path": "src/constants.ts",
+          "needle": "Correct order for \"too strong\": `DRONE_EMIT_INTERVAL_TICKS` first"
         },
         {
           "type": "file_contains",
@@ -666,7 +668,8 @@
     "P5 — A PIN DESIGNED TO FAIL ON CLOSURE ACTUALLY FIRED, AND THE RIGHT MOVE WAS TO INVERT IT, NOT DELETE IT. pinnedDeadStats.test.ts said \"delete this assertion\"; inverting instead turns a one-shot tripwire into a standing guard that the numbers stay spent, and its constants.ts assertion had to flip too because the note it checked for had become the stale comment.",
     "META — THE OWNER CAUGHT ME STATING A FIXTURE READING AS A LAW OF THE GAME. \"A push needs 15 goblins instead of 10\" is true of one board: melee goblins spawned onto the keep in continuous contact with nothing else alive. Their objection — *\"what kind of goblins in how long?? it is all dynamic\"* — is the correct standard. The ORDERING was the finding; the integer was an artefact, and I presented the artefact.",
     "META — AND I OVERSTATED \"DRY\" AS \"IDLE\" ON THE STINK TOWER. The owner knew their own design better than my measurement did: a spent tower keeps its aura and GAINS its taunt, so emptying is a mode change rather than an off-switch. The code said so in a docblock I had already read this session (\"the aura is what it IS, not what it becomes\").",
-    "TOOLING — GIT NORMALISES THE WORKING COPY TO CRLF ON COMMIT, so a multi-line \\n-only patch anchor that worked earlier in a session silently stops matching later. Detect the file's line ending and translate the anchor; a single-line anchor hides the problem rather than avoiding it."
+    "TOOLING — GIT NORMALISES THE WORKING COPY TO CRLF ON COMMIT, so a multi-line \\n-only patch anchor that worked earlier in a session silently stops matching later. Detect the file's line ending and translate the anchor; a single-line anchor hides the problem rather than avoiding it.",
+    "S160 (caught at the Stop gate, SECOND time) — I BOUND A CLAIM TO boot-snapshot.md, A FILE THE HANDOFF PROTOCOL REGENERATES FROM SCRATCH AT STEP 2.95. It was guaranteed to break at close, and it did. This is the identical lesson S159 P9 learned about BACKLOG.md status text — \"never bind a code claim to a document whose whole purpose is to change\" — which I had READ and RE-APPENDED to the reflexion log an hour earlier in this same session. Knowing a lesson and applying it are different acts. ⇒ Before writing any binding, ask what REGENERATES the target: ephemeral (boot-snapshot, plans/, status blocks) vs durable (src/, LOCKED_DECISIONS, .handoff-archive). And the failure surfaced a second, bigger miss: the regeneration had silently dropped the corrected drone dial order out of the next session's PRIMARY boot file, so the fix was not just to rebind but to put the substance into carry_forward_s160 where the regeneration will carry it."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4999,6 +5002,7 @@
     "⛔ OWNER ACTION — PROVISION TURN. Still the ONLY thing blocking cross-country multiplayer. Three repository secrets (VITE_TURN_URLS / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL), then **Actions → Deploy to GitHub Pages → Run workflow**. ⚠ S160 P1 CORRECTED THE INSTRUCTION: the old \"then push anything\" was FALSE — deploy.yml gates its push trigger on a paths allowlist and adding secrets changes no file, so a docs push triggers NO run. workflow_dispatch is the only route. The code side is now PROVEN from the emitted bundle, not asserted.",
     "⛔ OWNER TO PLAY AND RULE — the castle cadence. Ruled KEEP-and-play-first at S160. Which constant later moves, CASTLE_FIRE_INTERVAL_TICKS (240) or GOBLIN_DAMAGE_VS_CASTLE (6), is the owner's call after a real match. ⚠ 60 ticks is a hard floor: below it an attacker dies before it swings once. ⚠ And read the fixture number as an ORDERING, not a law — the owner was right that \"15 goblins\" is abstract; it is one board (melee goblins spawned onto the keep, continuous contact, nothing else alive).",
     "⛔ OWNER TO PLAY AND RULE — chain-lightning falloff. Ruled leave-at-full-power-and-play-first. One constant to change. Phrase the consequence as \"UP TO six connectors\": creatures and bonds compete for the same six link slots and a creature wins an exact tie.",
+    "⚠ IF THE DRONE HUB FEELS TOO STRONG, THE DIAL ORDER IS `DRONE_EMIT_INTERVAL_TICKS` FIRST, then `DRONE_MAX_CONNECTORS` (damage per drone, one reader), then `DRONE_MAX_PER_SPAWNER` — which is THIRD and blunt, because it does nothing until 1. S159's handoff had this backwards in three documents and S160 measured it: occupancy at every due slot is 1, so 3→2 changes NOTHING and peak live is 2 against a ceiling of 3. The cadence is the only linear lever (count = 2700/interval, so 450 t → 6 and 600 t → 4). Written in full at the constant; both the 9-per-fight and the cap's slack are asserted in `lightningHubDelivers.test.ts`.",
     "⚠ N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix (carried unchanged from S159).",
     "⭐ THE RACE EXPANSION IS NEXT, ON FRESH CONTEXT, AND IT IS OWNER-DIRECTED. W1-A shipped (race token + wire, PROTOCOL 39). The dependency order in SPARK_RACES_SPEC.md §12 is W1-A → W1-B (art) → W1-C (the castle produces) → W1-D (upgrades), with the tech draft (§9) available off W1-A alone.",
     "W1-B — THE CASTLE BECOMES ITS RACE. Per-race castle art keyed on raceId, three states (intact/damaged/destroyed), per-race gatherer silhouettes, and per-race attack VFX — which S160 P4b finally made real, and which needs NO new wire field because the castle's fire schedule is derivable from world.tick. ⚠ ART REALITY: 57 pieces; only zombies have any, and assets-source/zombie-castle/ contains a HOUND not a castle, so SIX castles need generating, three states each. The zombie hound attack clip has failed generation twice (CF-S153-c) — retry it early. ⚠ Memory rule: spike the art and SHOW THE OWNER before wiring; original style only, never a recognisable franchise; clean transparent matte (the old sprite had a visible square box, worst on attack).",
