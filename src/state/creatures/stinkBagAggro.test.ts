@@ -236,6 +236,53 @@ describe('S159 P1 — the AGGRO half of R77: a landed bag pulls a unit onto it',
     expect(dist(g.targetPos, foe.pos)).toBeLessThan(dist(g.targetPos, bagPos));
   });
 
+  it('⭐ S159 CHECK (GROK) — an exact distance TIE is stable, not a flip-flop', () => {
+    // GROK-ANALYST's CHECK note: the negative control covered the wiring but not the TIE, and the
+    // tie is the only case where the id compare decides anything. Two bags exactly 100 px either
+    // side of the goblin, inserted highest-id first so a "first wins" bug answers 21.
+    const w = fightWorld();
+    const g = spawnGoblin(w, 900, 900);
+    landBag(w, 900, 900 - 100, P1, 21);
+    landBag(w, 900, 900 + 100, P1, 20);
+    const first = nearestEnemyStinkCloudWithin(w, g, STINK_BAG_AGGRO_RADIUS);
+    expect(first).toBe(asStinkCloudId(20));
+
+    // And it STAYS that answer while the unit closes on it — the point being that the pick does not
+    // alternate at 60 Hz, which is the failure `GOBLIN_UNIT_LEASH_RADIUS` exists to prevent for units.
+    const d = deps();
+    const st = makeHostTickState(w);
+    settleToSeeking(w, g, d, st);
+    for (let i = 0; i < 30; i++) {
+      runHostTick(w, d, st);
+      const pick = nearestEnemyStinkCloudWithin(w, g, STINK_BAG_AGGRO_RADIUS);
+      if (pick === null) break; // a bag expired — nothing left to be unstable about
+      expect(pick).toBe(asStinkCloudId(20));
+    }
+  });
+
+  it('⭐ S159 CHECK (GEMINI) — a unit ALREADY ATTACKING is not peeled off by a bag', () => {
+    // GEMINI-AUDITOR's CHECK note was that placing BAG above the committed shape lets a defender
+    // stall an army indefinitely by throwing bags at it. The bound already exists and is worth
+    // pinning: this navigation branch runs ONLY in SEEKING, so a unit that has closed on its target
+    // and entered ATTACKING is not re-steered at all. A bag pulls units that are still WALKING.
+    const w = fightWorld();
+    const prim = addPrimAt(w, 1, 900, 900);
+    const g = spawnGoblin(w, 900 - 20, 900); // already in reach of the shape
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let i = 0; i < 120 && g.state !== 'ATTACKING'; i++) runHostTick(w, d, st);
+    expect(g.state).toBe('ATTACKING');
+
+    // Now drop a bag right next to it. The steering chain must not run.
+    const bagId = landBag(w, 900 - 60, 900);
+    const before = { x: g.targetPos.x, y: g.targetPos.y };
+    runHostTick(w, d, st);
+    expect(w.stinkClouds.has(bagId)).toBe(true); // the bag is there to be noticed
+    expect(g.targetPos.x).toBeCloseTo(before.x, 5);
+    expect(g.targetPos.y).toBeCloseTo(before.y, 5);
+    expect(prim.id).toBeDefined();
+  });
+
   it('is deterministic: two identical worlds stay hash-equal tick for tick with bags on the board', () => {
     const build = (): { w: World; d: HostTickDeps; st: ReturnType<typeof makeHostTickState> } => {
       const w = fightWorld();

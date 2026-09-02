@@ -651,7 +651,14 @@ export function enemyStinkCloudInReach(
  * navigation asks a different question at a different radius. And `GOBLIN_UNIT_LEASH_RADIUS`'s
  * docblock records the test for when a committed target needs HYSTERESIS: when the target MOVES. A
  * bag does not move, and a unit walking toward the nearest bag only makes that bag nearer, so this
- * scan cannot oscillate. Same conclusion the castle march (`enemyCastleMarchPos`) and the castle /
+ * scan cannot CYCLE — the failure the leash exists to prevent, where a target is picked up and
+ * dropped at 60 Hz and the unit pirouettes instead of walking.
+ *
+ * ⚠ S159 CHECK (GROK-ANALYST) was right that the stronger claim would be false: a moving unit CAN
+ * hand off from one bag to another when its path crosses the line equidistant between them. That is
+ * not oscillation, it is switching to a genuinely nearer target and then closing on it, and the
+ * exact-tie case is settled by the id compare rather than by float noise. `stinkBagAggro.test.ts`
+ * pins the tie and asserts the pick is STABLE across the following ticks. Same conclusion the castle march (`enemyCastleMarchPos`) and the castle /
  * princess engagement clauses reached, in their own words: *"derived from position like the strike
  * itself, so it costs no creature field."*
  *

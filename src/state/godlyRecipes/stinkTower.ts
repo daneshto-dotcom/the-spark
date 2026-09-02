@@ -131,6 +131,12 @@ export const STINK_LEAF_TYPE = SparkType.Circle;
  * already on the board), whereas the old behaviour destroyed towers they built on purpose. The other
  * S141 mitigation — no death blast on deconstruction — is untouched.
  *
+ * ⚠ S159 CHECK (GEMINI-AUDITOR) pressed further: with no self-heal, are the player's four shapes
+ * LOCKED into a tower they never wanted? No — **SCRAP** is the answer, and it shipped in S152 P2 as
+ * a button on the same structure popover, returning the survivors. The affordance the self-heal was
+ * standing in for now exists explicitly, which is a better game than a tower that vanishes on its
+ * own: the player decides, and they can see what they get back before they decide.
+ *
  * Exported so `defenderLifecycle.recipeStillSatisfied` (via the recipe's `stillValid`) can
  * re-validate a live tower each poll: a chewer eating a Circle leaf, a severed arm, or a fourth
  * shape bonded to the HUB itself all still tear it down, because all three break the star.

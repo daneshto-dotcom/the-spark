@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3817,
+  "tool_calls_session_total": 3828,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -73,7 +73,7 @@
       "unlock_source": "user",
       "title": "bag navigation aggro — R77's last unbuilt bag property, shipped as a DERIVED scan with no new Creature field, no serialization, no hash change and no protocol bump",
       "tier": "Standard",
-      "check_method": "RALPH:PATROL + empirical. (1) MEASURED end-to-end, not asserted: a goblinMelee placed exactly one STINK_BAG_AGGRO_RADIUS (220 px) from an enemy bag walks to it and KILLS it at tick 184 of the bag's 240-tick life, with killCount 1 proving a strike rather than an expiry. (2) NEGATIVE CONTROL RUN: with the four-line steering insert removed, the bag EXPIRED instead at tick 210 with killCount 0 and TWO tests went red — so the test bites, and note that a naive 'the bag is gone' assertion would have passed the broken build. (3) The nearest-vs-lowest-id test asserts BOTH scans in one place (nearestEnemyStinkCloudWithin -> the near bag, enemyStinkCloudInReach -> the far one), so it can never degrade into a tautology. (4) Determinism: two identically-built worlds compared with hashWorldStateFull every tick for 240 ticks. (5) Full suite 3360/3360 across 213 files (was 3353/212) and tsc -b --noEmit exit 0 — the goblin navigation chain is shared by every goblin test, so a regression there would have surfaced. (6) DESIGN CLAIM VERIFIED BY ABSENCE: the carried-forward plan called for a new committed-target field on Creature (wire + hash + protocol bump). Two docblocks in the codebase decide it against that — targetPrimitiveId's ('several sites must agree within one tick') and GOBLIN_UNIT_LEASH_RADIUS's ('the target MOVES'). Neither holds for a bag: engagement and the strike both re-derive from position (S158 A2), and a bag does not move. So Creature is byte-identical and PROTOCOL_VERSION stays 38 — bound below as a file_lacks on creature.ts.",
+      "check_method": "RALPH:PATROL + empirical. (1) MEASURED end-to-end, not asserted: a goblinMelee placed exactly one STINK_BAG_AGGRO_RADIUS (220 px) from an enemy bag walks to it and KILLS it at tick 184 of the bag's 240-tick life, with killCount 1 proving a strike rather than an expiry. (2) NEGATIVE CONTROL RUN: with the four-line steering insert removed, the bag EXPIRED instead at tick 210 with killCount 0 and TWO tests went red — so the test bites, and note that a naive 'the bag is gone' assertion would have passed the broken build. (3) The nearest-vs-lowest-id test asserts BOTH scans in one place (nearestEnemyStinkCloudWithin -> the near bag, enemyStinkCloudInReach -> the far one), so it can never degrade into a tautology. (4) Determinism: two identically-built worlds compared with hashWorldStateFull every tick for 240 ticks. (5) Full suite 3360/3360 across 213 files (was 3353/212) and tsc -b --noEmit exit 0 — the goblin navigation chain is shared by every goblin test, so a regression there would have surfaced. (6) DESIGN CLAIM VERIFIED BY ABSENCE: the carried-forward plan called for a new committed-target field on Creature (wire + hash + protocol bump). Two docblocks in the codebase decide it against that — targetPrimitiveId's ('several sites must agree within one tick') and GOBLIN_UNIT_LEASH_RADIUS's ('the target MOVES'). Neither holds for a bag: engagement and the strike both re-derive from position (S158 A2), and a bag does not move. So Creature is byte-identical and PROTOCOL_VERSION stays 38 — bound below as a file_lacks on creature.ts. ⭐ CHECK ADDED TWO TESTS, both from external seats and both PASSING on the shipped code: GROK's exact-distance TIE case (two bags equidistant, inserted highest-id first — the lowest id wins and KEEPS winning for 30 ticks as the unit closes, so the pick is stable rather than alternating at 60 Hz), and GEMINI's stalling bound (it argued that placing BAG above the committed shape lets a defender peel an army off a castle indefinitely; the bound already existed — this navigation branch runs ONLY in SEEKING, so a unit that has closed and entered ATTACKING is not re-steered at all, and that is now pinned). GROK also caught a loose claim in the docblock — 'this scan cannot oscillate' is too strong, since a moving unit CAN hand off between two bags when its path crosses their bisector — narrowed to the claim that is true and testable (it cannot CYCLE).",
       "verification": [
         {
           "type": "file_contains",
@@ -138,7 +138,7 @@
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts",
           "pattern": "^  it\\(",
           "op": "==",
-          "value": 7
+          "value": 9
         },
         {
           "type": "file_lacks",
@@ -4880,5 +4880,27 @@
     "json_helpers_brace_bug": "FIXED (committed in ~/.claude at 7c812df). extract_priority_field counted braces off the RAW line, so a brace inside a STRING VALUE unbalanced `depth`. Live-fired here: a verification needle ending in `{` pushed every later priority block to depth 3 and pdca-final-gate.sh then blocked every Edit/Write with \"Deliberation not completed\". Worse in the mirror case — the extractor returns the WRONG BLOCK (a COMPLETED priority) rather than nothing, so a gate could read check_completed off the wrong priority. 7 regression assertions; 3 of 7 fail on the old helper.",
     "s96_p2_state_inject_1_fail": "NOT MINE, NOT FIXED, DIAGNOSED. `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` has failed at 11 PASS / 1 FAIL both BEFORE and AFTER my json_helpers change (verified by swapping the helper back). The failing fixture is \"DELIBERATION GATE negative (pdr_approved:true => no fire)\": the gate fires anyway, and its own output says \"[GATE LOCKED] PDR not approved\" while the fixture claims pdr_approved:true — i.e. the fixture sets the flag where the hook does not read it, the same top-level-vs-per-priority split that CLAUDE.md warns about. Closing it needs a RULE decision (does user approval waive deliberation for a Micro priority, per the tiered Rule 17 waiver?), not a code fix, so it is left for an OS-level session with that authority rather than guessed at from a game project.",
     "pre_flight_no_claude_md": "FIXED. The boot pre-flight warned \"No CLAUDE.md found in project\" while the parent Founder DNA CLAUDE.md says each project's own CLAUDE.md declares its workflow. Written this session from rules VERIFIED against the code, not copied from handoffs."
+  },
+  "check_s159_triumvirate": {
+    "seats": [
+      "RALPH:PATROL (inline, per priority)",
+      "GROK-ANALYST (grok-4.20-0309-reasoning)",
+      "GEMINI-AUDITOR (gemini-3.1-pro-preview)"
+    ],
+    "ground_rules_given": "do not claim to have run anything; do not cite a symbol or line that is not in the supplied text (a prior session lost time to five fabricated criticals)",
+    "grok_verdict": "no severe defect a player would hit. Two reasoning corrections, one missing test.",
+    "grok_upheld": [
+      "the docblock claim 'this scan cannot oscillate' is too strong — a MOVING unit can hand off between two bags when its path crosses their bisector. Narrowed to the true claim (it cannot CYCLE) and the tie is now pinned by a test.",
+      "'the chain is computed from the pre-strike world' sat badly beside the bond arm running AFTER the primary's damageConnector. The precise version is STRONGER: selection reads only geometry and ownership, which the primary strike does not touch (damageConnector mutates only bond.damageFifths; the creature arm can remove the SEED, which is excluded from selection anyway) — so both arms select the identical chain and the phase order matters for PRICING, not selection.",
+      "missing test: the exact-distance TIE. ADDED, and it asserts stability across 30 ticks, not just the first pick."
+    ],
+    "gemini_verdict": "ranked findings; one of them REFUTED by the code.",
+    "gemini_refuted": "⛔ GEMINI's #1 (ranked 'certain to hit'): that a bond with a lower id will displace a creature at equal distance because 'the runtime will still evaluate bond.id < creature.id'. FALSE. The bond arm's tie clause requires `best.kind === 'bond'` BEFORE comparing ids, so a bond can never displace a creature already chosen at that distance — and the test 'prefers a CREATURE over a BOND at the identical distance' has been passing since it was written. Verified by reading the code and re-running the file (14/14), not by argument. This is the third session in a row where an external seat's highest-ranked critical did not survive an empirical check.",
+    "gemini_upheld": [
+      "the stalling dynamic: BAG sits above the committed shape, so a defender could in principle peel an army by throwing bags. The BOUND already existed and is now pinned — the navigation branch runs ONLY in SEEKING, so a unit that has closed and entered ATTACKING is never re-steered. A bag pulls units that are still WALKING.",
+      "the accidental-tower consequence: with no self-heal, are the shapes locked? Answered in the code — SCRAP shipped in S152 P2 on the same popover and returns the survivors, so the affordance the self-heal stood in for now exists explicitly and the player decides.",
+      "the chain's power: 33 fifths one-shots any connector in a component of <=29 connectors, and a full bolt takes SIX per strike. Gemini's arithmetic matches the flag already written at VOLTKIN_CHAIN_HOP_RANGE. NOT nerfed — the owner specified the mechanic and the number; escalated in the handoff with falloff named as the first dial."
+    ],
+    "net": "two tests added, two docblock claims made precise, one ranked critical refuted, no code defect found."
   }
 }

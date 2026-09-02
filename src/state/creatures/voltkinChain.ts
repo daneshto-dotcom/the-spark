@@ -13,8 +13,18 @@
  *   2. **DAMAGE** every link.
  *   3. **SEVER** whichever connectors that damage broke.
  *
- * Phase 1 finishes before anything mutates, which is what makes the chain a pure function of the
- * world at the fire tick. Interleaving would make it depend on its own side effects:
+ * Phase 1 finishes before phases 2 and 3 mutate anything, which is what makes the chain a pure
+ * function of the world at the fire tick.
+ *
+ * ⚠ S159 CHECK (GROK-ANALYST) CAUGHT A LOOSE CLAIM HERE, AND THE PRECISE VERSION IS STRONGER. This
+ * used to say the chain is computed from "the pre-strike world", which sits badly beside the fact
+ * that in the bond arm this runs AFTER the primary's `damageConnector`. The accurate statement:
+ * **selection reads only geometry and ownership** — positions, bond endpoints, `placerColor`, ids —
+ * and the primary strike touches NONE of those. `damageConnector` mutates `bond.damageFifths` and
+ * nothing else; the creature arm's `damageEntity` can remove the seed from `world.creatures`, and the
+ * seed is excluded from selection anyway. So both arms select the identical chain, and the phase
+ * order matters for PRICING (capacity), not for selection. Interleaving would make the pricing depend
+ * on its own side effects:
  * `damageConnector` re-reads a connector's capacity from the component it is *currently* part of
  * (`connectorCapacityFifths(count)` = `count + 4` fifths), so severing link 2 before pricing link 3
  * would change link 3's toughness — and a host and a replay that visited links in a different order
