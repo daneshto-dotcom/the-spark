@@ -40,7 +40,7 @@ import {
   LIGHTNING_HUB_DEGREE,
   PRIMITIVE_MAX_HP,
   SparkType,
-  STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
+  DRONE_MAX_PER_SPAWNER,
 } from '../constants.ts';
 
 const P0 = asPlayerId(0);
@@ -126,15 +126,50 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
     expect([...w.creatureSpawners.values()][0]!.recipeId).toBe('lightningHub');
   });
 
-  it('⭐ emits ALL its drones and self-destructs within a single 45 s FIGHT', () => {
+  it('⭐ S159 P9 — KEEPS PRODUCING all fight and does NOT self-destruct (was: 3 drones, then gone)', () => {
+    /*
+     * INVERTED, not deleted — the S158 B2b treatment, applied to a behaviour the owner has RE-RULED.
+     *
+     * This asserted the S113 design: exactly `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` drones and then a
+     * self-destruct inside the same fight. The owner played it: *"lightning drone tower spawns like 3
+     * drones and then dissapears! wtf? it should not be so. he should continuously spawn them at the
+     * equal intervals."* So the assertion flips — more than the retired burst, and the hub is STILL
+     * STANDING at the whistle. Measured at 9 drones in one 45 s fight on the 5 s cadence.
+     *
+     * ⚠ The two claims the ORIGINAL test existed for both survive elsewhere: that the cadence lets a
+     * hub deliver inside ONE fight (the BUILD-carry test below still pins it) and that a hub is
+     * dormant during BUILD (its own CONTROL). Only the self-destruct half is retired.
+     */
     const w = worldWithHub();
     w.matchPhase = 'FIGHT';
     const { everSeen, selfDestructedAt } = runFight(w, FIGHT_PHASE_TICKS);
-    // BEFORE THE FIX: 900-tick cadence ⇒ the third drone lands ON the phase edge and the
-    // self-destruct never happens inside the fight at all.
-    expect(everSeen, 'every drone the hub owes').toBe(STRUCTURE_SELFDESTRUCT_DRONE_COUNT);
-    expect(selfDestructedAt, 'and it pays its own price inside the same fight').not.toBeNull();
-    expect(selfDestructedAt!).toBeLessThan(FIGHT_PHASE_TICKS);
+    // eslint-disable-next-line no-console
+    console.log(`[S159 P9] one 45 s fight: ${everSeen} drones, selfDestructedAt=${selfDestructedAt}`);
+    expect(everSeen, 'more than the retired 3-drone burst').toBeGreaterThan(DRONE_MAX_PER_SPAWNER);
+    expect(selfDestructedAt, 'and the hub survives its own production').toBeNull();
+    expect(w.creatureSpawners.size, 'still standing at the whistle').toBe(1);
+  });
+
+  it('⭐ S159 P9 — never exceeds DRONE_MAX_PER_SPAWNER in the air at once', () => {
+    // With the self-destruct retired, this cap stops being a restatement of the burst and becomes the
+    // hub's whole balance — so it is asserted directly instead of inferred from a tower that died.
+    const w = worldWithHub();
+    w.matchPhase = 'FIGHT';
+    const d = deps();
+    const st = makeHostTickState(w);
+    const cursor = { lastMatcherTick: -1 };
+    let peak = 0;
+    for (let t = 0; t < FIGHT_PHASE_TICKS; t++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d, st);
+      let live = 0;
+      for (const c of w.creatures.values()) if (c.type === 'lightningDrone') live++;
+      if (live > peak) peak = live;
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[S159 P9] peak live drones from one hub: ${peak} (cap ${DRONE_MAX_PER_SPAWNER})`);
+    expect(peak).toBeGreaterThan(0);
+    expect(peak).toBeLessThanOrEqual(DRONE_MAX_PER_SPAWNER);
   });
 
   it('⭐ a hub carried through BUILD is never more than ITS OWN cadence from firing', () => {
@@ -207,8 +242,11 @@ describe('S158 B2b — THE OWNER\u2019S ACTUAL BOARD: a hub with a neighbour att
 
     w.matchPhase = 'FIGHT';
     const { everSeen } = runFight(w, FIGHT_PHASE_TICKS);
-    expect(everSeen, 'a neighbouring shape must not silently kill the tower').toBe(
-      STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
+    // S159 P9 — was `.toBe(STRUCTURE_SELFDESTRUCT_DRONE_COUNT)`. The claim is unchanged in substance
+    // (a neighbouring shape must not silently kill the tower); only its arithmetic moved, because the
+    // hub is a factory now rather than a three-shot burst.
+    expect(everSeen, 'a neighbouring shape must not silently kill the tower').toBeGreaterThan(
+      DRONE_MAX_PER_SPAWNER,
     );
   });
 

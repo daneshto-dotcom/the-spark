@@ -30,6 +30,24 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+/*
+ * ⭐ S159 P9 — A FROZEN CONSTANT FOR A FROZEN REFERENCE.
+ *
+ * `referenceHostTick` below is deliberately a VERBATIM transcription of the pre-S119 host tick, and
+ * its whole value is that it does NOT track later features. It read
+ * `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` from constants.ts — and S159 P9 DELETED that constant, because
+ * the owner reversed the 3-drones-then-self-destruct design it encoded (*"he should continuously spawn
+ * them at the equal intervals"*).
+ *
+ * Importing a live constant into a frozen reference was the latent mistake: it let a production retune
+ * silently rewrite history. The value is therefore inlined at the number the reference was frozen WITH,
+ * and it must never be "updated" again — if a scenario below ever drives a hub past this many drones,
+ * the reference will self-destruct where production now keeps producing, and the resulting hash
+ * divergence is CORRECT and means the scenario has outgrown the frozen reference, not that the
+ * reference is wrong.
+ */
+const FROZEN_SELFDESTRUCT_DRONE_COUNT = 3;
 import {
   DRONE_EMIT_INTERVAL_TICKS,
   HUNTER_TRIGGER_SCORE,
@@ -39,7 +57,6 @@ import {
   PLAYER_COLORS,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   SparkType,
 } from '../constants.ts';
@@ -167,7 +184,7 @@ function referenceHostTick(world: World, ref: RefCtx): void {
       if (sp.recipeId === 'lightningHub') {
         if (world.tick >= sp.nextSpawnTick) {
           const anchor = world.primitives.get(sp.anchorPrimitiveId);
-          if (sp.spawnedCount >= STRUCTURE_SELFDESTRUCT_DRONE_COUNT) {
+          if (sp.spawnedCount >= FROZEN_SELFDESTRUCT_DRONE_COUNT) {
             if (anchor !== undefined) {
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',

@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3874,
+  "tool_calls_session_total": 3885,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S159_BATCH.md",
-  "session_status": "S159 CLOSED",
+  "session_status": "S159 IN-PROGRESS (scope amendment: the owner's two playtest tower faults)",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -623,6 +623,155 @@
           "needle": "THE AURA IS 0.2 ATK/SEC. IT HAS BEEN 2.4 SINCE S157"
         }
       ]
+    },
+    {
+      "id": "P8",
+      "priority_id": "S159-P8",
+      "name": "T1 — the stink tower re-arms between fights (bagsRemaining was filled once at construction and never refilled)",
+      "status": "completed",
+      "check_completed": true,
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "title": "T1 — the stink tower re-arms between fights: bagsRemaining was filled once at construction and NEVER refilled, so the tower fired in fight one and never again",
+      "check_method": "RALPH:PATROL + empirical, on the owner's own report. (1) CAUSE, grep-verified before any code: `bagsRemaining` had exactly TWO writes in src/ — filled at defender.ts:368 from config.bags, decremented at stinkTower.ts:194 — and `state/defenders/` had NO matchPhase handling at all, so no boundary reset it. Rebuilding was the only reload, which is exactly what the owner was doing by hand. (2) FIX: one loop on the existing BUILD phase-edge beside standDownDefenders ('walls up, guns cold, doors open' — and magazines refilled). Chosen over the FIGHT edge because stinkTowerRenderer draws the hanging bag count from this field, so the player WATCHES it re-arm during BUILD; and because that branch is already documented idempotent and double-flip-safe. It assigns a constant, so any number of NONET-freeze flips lands on the same 5. config.bags is 0 for every magazine-less kind, so it is a no-op for the turret and HELGA — asserted. (3) MEASURED end-to-end through the REAL host tick across a real phase flip: 'started 5, drained to 0, after the BUILD edge: 5' and then 'fight two: 5 -> 4' — the second fight throws, which is the exact thing the owner could not get without rebuilding. (4) NEGATIVE CONTROL RUN: with the loop removed the log reads 'after the BUILD edge: 0' and 3 of 5 tests go red — the owner's bug reproduced on demand. (5) A FIXTURE TRAP CAUGHT AND RECORDED: the first cut set matchPhase='FIGHT' before igniting and got a world with no tower, because runDefenderIgnition opens with `if (world.matchPhase !== 'BUILD') return` (S157 B6, the owner's 'only next turn' rule). The fixture now ignites in BUILD then crosses on the real clock, which is also the faithful order. (6) 3399/3399 across 218 files, tsc 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "d.bagsRemaining = getDefenderConfig(d.kind).bags;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "THE STINK TOWER ONLY EVER FIRED"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "pattern": "getDefenderConfig",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
+          "needle": "and the round change re-arms it"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
+          "needle": "AND IT MUST BE IN **BUILD** TO IGNITE AT ALL"
+        }
+      ]
+    },
+    {
+      "id": "P9",
+      "priority_id": "S159-P9",
+      "name": "T2 — the drone hub produces continuously and keeps its blast as a death throe (the 3-drone self-destruct was the shipped S113 design)",
+      "status": "completed",
+      "check_completed": true,
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "title": "T2 — the drone hub produces continuously and keeps its blast as a death throe; the 3-drones-then-self-destruct was the shipped S113 design, so this is a recorded ruling reversal",
+      "check_method": "RALPH:PATROL + empirical, and the FIRST finding was that it is not a bug. (1) hostTick.ts emitted STRUCTURE_SELFDESTRUCT_DRONE_COUNT (3) drones and then deliberately self-destructed; the S113 Batch C PDR calls the hub a 'glass-cannon' and its R3 records 'Structure self-destruct kills your own build: INTENDED (owner chose owner-agnostic)'. So the owner is reversing their own ruling — recorded AT the code, the S158 A1 precedent, rather than quietly re-purposed. (2) I ALSO PROBED FOR A SECOND CAUSE and found none: lightningHub re-validates through isLightningHubComponent, which S158 B2b already converted to isStarAt, so the self-destruct was the sole reason it vanished. (3) MY CALL, FLAGGED: the blast is NOT deleted, it MOVED to the hub's death (the recipe-break branch, whose own comment proves teardownSpawners never reaches it — so no blast on a win screen or title return, the same property awardSpawnerKillReward already relies on). They objected to the tower disappearing, not to it having a blast. (4) The cadence now advances on EVERY due slot, emitted or skipped, so emits stay on the exact grid — 'equal intervals' in their words — instead of banking blocked slots and bursting three at once when a drone dies. (5) DRONE_MAX_PER_SPAWNER de-aliased: it was `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, a restatement of a burst that no longer exists, and is now its own 3 with the provenance kept. The dead constant is DELETED rather than left as a one-valued relic. (6) MEASURED: 9 drones in one 45 s fight with the hub still standing (was 3 then gone), peak 2 live against the cap of 3 — matching the 5 s-cadence / 8 s-lifetime arithmetic exactly. (7) NEGATIVE CONTROL RUN: restoring the self-destruct gives selfDestructedAt=1199 and the test goes red. (8) THREE tests pinned the retired design and all three were INVERTED, not deleted (the B2b treatment) — including the anti-vacuity test in spawnerPhaseGate, whose detonation coverage was RELOCATED to the new death path rather than dropped. (9) The frozen pre-S119 differential reference kept its own local constant, with a note that importing a live constant into a frozen reference let a production retune silently rewrite history. 3399/3399 across 218 files, tsc 0, bundle 764.0/900 KiB. ⚠ BINDING NOTE: the `file_lacks`/count-0 form fails on the bare constant NAME because the block comment QUOTES the retired constant to record the reversal — so the bindings assert the EXECUTABLE form is gone (`>= STRUCTURE_SELFDESTRUCT_DRONE_COUNT` count 0) and the name survives exactly once, as history. Fourth instance of that lesson this session, and now a habit.",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STRUCTURE_SELFDESTRUCT_DRONE_COUNT"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const DRONE_MAX_PER_SPAWNER = 3;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "HOW MANY DRONES ONE HUB KEEPS IN THE AIR"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "THE HUB IS A FACTORY NOW, NOT A THREE-SHOT BURST"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "sp.nextSpawnTick += DRONE_EMIT_INTERVAL_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "if (sp.recipeId === 'lightningHub') {\n            const dying = world.primitives.get(sp.anchorPrimitiveId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
+          "needle": "KEEPS PRODUCING all fight and does NOT self-destruct"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
+          "needle": "never exceeds DRONE_MAX_PER_SPAWNER in the air at once"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawnerPhaseGate.test.ts",
+          "needle": "the hub survives its own production now"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawnerPhaseGate.test.ts",
+          "needle": "and the death blast consumed its own component"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.differential.test.ts",
+          "needle": "A FROZEN CONSTANT FOR A FROZEN REFERENCE"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "pattern": ">= STRUCTURE_SELFDESTRUCT_DRONE_COUNT",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "pattern": "STRUCTURE_SELFDESTRUCT_DRONE_COUNT",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "NEXT SESSION'S TOP TWO — OWNER PLAYTEST OF S159"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "pattern": "^- \\[ \\] \\*\\*T[12] ",
+          "op": "==",
+          "value": 2
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -685,6 +834,16 @@
       "priority": "S159-P7",
       "lesson": "**BEFORE ASKING THE OWNER TO RULE, CHECK THE CASE EXISTS.** The flag asking them to rule on recipe overlap described a lattice that cannot be built: a lightning hub's Circle leaf cannot be a goblin-tower hub, because the goblin hub needs EVERY arm to be a Circle and that leaf is bonded to a Dot. The degree in the sentence was wrong too. S158's lesson was 'grep the archive before asking for a ruling that already exists'; this is its mirror - **construct the case before asking for a ruling on it.** Three lines of test turned a vague warning into a costed trade (20-30 % fewer shapes, paid for by a shared point of failure).",
       "tag": "#construct-the-case-before-asking"
+    },
+    {
+      "priority": "S159-P8",
+      "lesson": "**A FIELD WITH ONE WRITER AND ONE DECREMENTER IS A COUNTDOWN, NOT A RESOURCE — AND NO SINGLE-FIGHT TEST CAN SEE IT.** `bagsRemaining` was filled at construction and never again, so the stink tower worked in fight one and was scenery forever after. Every stink test in the suite lived inside ONE fight, where a magazine that never refills is indistinguishable from a working one. **When a feature has a per-round rhythm, at least one test has to cross the round boundary** — and the owner found this by playing two rounds, which is a thing no unit test in the repo did.",
+      "tag": "#cross-the-round-boundary"
+    },
+    {
+      "priority": "S159-P9",
+      "lesson": "**\"WTF, IT SHOULD NOT BE SO\" CAN MEAN \"I CHANGED MY MIND\", AND TREATING IT AS A BUG WOULD HAVE DELETED THEIR OWN MECHANIC.** The drone hub vanishing after three drones was the S113 design the owner chose, glass-cannon and all, recorded in that PDR's R3. The cheap read was 'fix the disappearing tower' — which would have quietly binned the lightning storm they never complained about. Checking the archive first turned a bug fix into a RULING REVERSAL with one narrow question (does the blast survive?), and the answer was to MOVE it rather than remove it. **Before fixing what a player reports, find out whether they specified it.**",
+      "tag": "#they-may-have-specified-it"
     }
   ],
   "totals": {
@@ -692,7 +851,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "exit 0, 62 passed (S159, run twice)",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -764,7 +923,7 @@
   "real_context_pct_at_close": 59.97,
   "checkpoint_commit": "a83b867",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": true,
+  "analyze_completed": false,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered $(VAR) placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -4959,6 +5118,10 @@
       "lightning drone tower spawns ~3 drones then disappears; should spawn continuously at equal intervals"
     ],
     "triage": "T1 is a real bug with the mechanism found (a magazine that is never refilled). T2 is the SHIPPED S113 design (3 drones then a deliberate self-destruct) and therefore an owner ruling reversal, not a defect — recorded as such so the next session asks the one question instead of \"fixing\" a mechanic the owner previously specified.",
-    "not_fixed_this_session": "deliberate. The owner asked for them to be added to the next session's top priorities, and Rule 16 plus the URGENCY protocol both require a scope amendment before code. What was done instead: both mechanisms located and grep-verified, and the design/ruling question each needs written down."
-  }
+    "not_fixed_this_session": "deliberate. The owner asked for them to be added to the next session's top priorities, and Rule 16 plus the URGENCY protocol both require a scope amendment before code. What was done instead: both mechanisms located and grep-verified, and the design/ruling question each needs written down.",
+    "resolution": "FIXED THIS SESSION under a scope amendment on the owner's explicit 'do it'. T1 was a real bug (a magazine that was never refilled) and is fixed with a measured before/after. T2 was the shipped S113 design, so it is a recorded ruling reversal: continuous production, and the blast RELOCATED to the hub's death rather than deleted, because they objected to the tower disappearing and not to it having a blast.",
+    "t1b_random_locations": "INVESTIGATED, NOT A DEFECT, AND IT IS THE OWNER'S OWN RULING. The report's phrase 'throwing 5 poop bags to random locations at random intervals' describes S157 B9, which they asked for verbatim: 'he should not target any enemies but shoot our at random areas in a radius'. stinkLobTarget is DETERMINISTIC (mix32 keyed on defenderId+tick, never Math.random — a real draw would desync the ?worker=1 mirror) and uniform over the disc via sqrt. The INTERVAL is the fixed STINK_THROW_INTERVAL_TICKS (4 s) plus a wind-up, so it is regular rather than random. Nothing changed; recorded so a future session does not 'fix' a feature the owner specified."
+  },
+  "amendment_file_s159": ".claude/plans/2026-09-02_SCOPE_AMENDMENT_S159_PLAYTEST_TOWERS.md",
+  "unlock_evidence_s159_amendment": "Owner verbatim, 2026-09-02 after playing the S159 build: \"make sure to fix them THIS SESSION and only then close off the session systematically running a FULL /handoff as i expect you didnt run the whole skill as you should have so the session is not closed and now those two bugs are extra last priorities to complete! do it\""
 }

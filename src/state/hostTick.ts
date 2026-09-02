@@ -43,7 +43,6 @@ import {
   phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -90,6 +89,8 @@ import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
 } from './defenders/defenderLifecycle.ts';
+// S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
+import { getDefenderConfig } from './defenders/defender.ts';
 import {
   releaseShelteredGatherers,
   tickGathererShelter,
@@ -318,6 +319,38 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         }
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
+        /*
+         * ⭐ S159 P8 (owner playtest) — **AND THE MAGAZINES REFILL. THE STINK TOWER ONLY EVER FIRED
+         * ONCE PER MATCH.**
+         *
+         * Owner, after playing the S159 build: *"stink tower only plays on his first fight cycle
+         * (throwing 5 poop bags ...) and then the next fight he does nothing! Need to restart him
+         * each round."*
+         *
+         * ⛔ THE CAUSE, MEASURED: `bagsRemaining` had exactly TWO writes in `src/` — filled once at
+         * construction (`makeDefender`, from `config.bags`) and decremented once per throw
+         * (`stinkThrowBag`). **Nothing refilled it, ever**, and `state/defenders/` had no phase
+         * awareness at all. After five bags `stinkIsDepleted()` was permanently true, so the tower
+         * dropped to aura-plus-taunt for the rest of the match and REBUILDING it was the only
+         * reload — which is precisely what the owner was doing by hand, every round.
+         *
+         * ⚠ THE NUMBER IS THE OWNER'S; THE CADENCE IS MINE. `STINK_TOWER_BAGS = 5` comes from
+         * *"visibly shoot out all 5 stink bags"*. What never existed is a REFILL RULE. One full
+         * magazine per round is the reading that matches *"each round"*, and the BUILD edge is where
+         * it belongs rather than the FIGHT edge: `stinkTowerRenderer` draws the hanging bag count
+         * from this field, so the player WATCHES the tower re-arm during BUILD instead of it
+         * silently filling at the whistle. The two alternatives, if this is wrong: a slow reload
+         * spread across BUILD (visible progress, punishes a short build), or a FEED gesture like the
+         * goblin tower's (a real cost, but then a tower can be starved).
+         *
+         * Idempotent by construction — it assigns a constant, so the double-flip a NONET freeze can
+         * cause (see the `flipped` guard above) refills to the same 5 rather than stacking.
+         * `config.bags` is 0 for every kind without a magazine, so this is a no-op for the turret,
+         * HELGA and every future kind that does not carry one.
+         */
+        for (const d of world.defenders.values()) {
+          d.bagsRemaining = getDefenderConfig(d.kind).bags;
+        }
         releaseShelteredGatherers(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
@@ -424,6 +457,40 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           // reads sp.ownerPlayerId). teardownSpawners clears the map directly and never
           // reaches this branch, so a match-end / title-return mints nothing.
           awardSpawnerKillReward(world, sp);
+          /*
+           * ⭐ S159 P9 — **THE LIGHTNING HUB'S BLAST, MOVED FROM ITS THIRD DRONE TO ITS DEATH.**
+           *
+           * The owner asked for continuous production (*"he should continuously spawn them at the
+           * equal intervals"*), which retires the emit-counted self-destruct. It does NOT retire the
+           * blast: they objected to the tower disappearing, not to it having one, and S113 R3 records
+           * them choosing the owner-agnostic AoE deliberately. So the hub still pays the price it
+           * always paid — it now pays it when its recipe breaks, which is the `stinkDeathBlast`
+           * shape one directory over.
+           *
+           * ⛔ WHY THIS EXACT BRANCH AND NOT `applyRemoveSpawner`: the reducer is reached by every
+           * teardown path, so a blast there would detonate on the win screen and on a title-return.
+           * This branch is DESTRUCTION, not teardown, and its own comment above says why that holds —
+           * *"teardownSpawners clears the map directly and never reaches this branch"* — which is the
+           * same guarantee `awardSpawnerKillReward` on the line above already relies on. One
+           * property, two consumers.
+           *
+           * S157 P0's two rulings move with the code unchanged: the AoE SPARES the owner's other
+           * structures, and the hub razes its OWN component explicitly so its leaves cannot survive
+           * as bond-less orphans (*"the last shape stays and attracts enemy fire"*).
+           */
+          if (sp.recipeId === 'lightningHub') {
+            const dying = world.primitives.get(sp.anchorPrimitiveId);
+            if (dying !== undefined) {
+              const selfIds = [...componentOf(dying, world.primitives, world.bonds).primitiveIds];
+              dispatch(world, {
+                type: 'STRUCTURE_SELFDESTRUCT',
+                pos: { x: dying.pos.x, y: dying.pos.y },
+                radius: STRUCTURE_SELFDESTRUCT_RADIUS,
+                ownerPlayerId: sp.ownerPlayerId,
+              });
+              razePrimitives(world, selfIds);
+            }
+          }
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
           continue;
         }
@@ -483,43 +550,43 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         continue;
       }
       // S113 Batch C — branch the emit on the recipe. A pentagram (the default) spawns chewers
-      // (unchanged). A lightningHub spawns up to STRUCTURE_SELFDESTRUCT_DRONE_COUNT lightning
-      // drones on the cadence, then on the NEXT cadence slot SELF-DESTRUCTS (a large
-      // owner-agnostic AoE at the anchor) + REMOVE_SPAWNER — fired together so it is exactly-once
-      // (the spawner leaves the map, so this branch is structurally unreachable again). Reusing
-      // nextSpawnTick for the self-destruct delay gives the 3rd drone a full cadence to fly out.
+      // (unchanged).
+      /*
+       * ⭐ S159 P9 (owner playtest) — **THE HUB IS A FACTORY NOW, NOT A THREE-SHOT BURST.**
+       *
+       * Owner, after playing the S159 build: *"lightning drone tower spawns like 3 drones and then
+       * dissapears! wtf? it should not be so. he should continuously spawn them at the equal
+       * intervals."*
+       *
+       * ⚠ WHAT THEY SAW WAS NOT A BUG — IT WAS THIS BLOCK DOING EXACTLY WHAT S113 SPECIFIED, WHICH
+       * IS WHY THE OLD COMMENT IS QUOTED HERE RATHER THAN DELETED. It read: *"A lightningHub spawns
+       * up to STRUCTURE_SELFDESTRUCT_DRONE_COUNT lightning drones on the cadence, then on the NEXT
+       * cadence slot SELF-DESTRUCTS (a large owner-agnostic AoE at the anchor) + REMOVE_SPAWNER"*.
+       * The S113 Batch C PDR calls the hub a **"glass-cannon"** and its R3 records
+       * *"Structure self-destruct kills your own build: INTENDED (owner chose owner-agnostic)"*.
+       * So the owner is REVERSING THEIR OWN RULING, which is entirely their call — and the reversal
+       * is recorded here, at the code it governs, the way S158 A1 recorded the aura correction
+       * instead of quietly re-purposing an owner number.
+       *
+       * ⭐ WHAT SURVIVES, AND WHY THAT IS MY CALL RATHER THAN THEIRS: **the lightning storm is not
+       * deleted, it MOVED TO THE HUB'S DEATH** (the recipe-break branch above). They objected to the
+       * tower *disappearing after three drones*, not to it having a blast — and deleting an
+       * owner-chosen mechanic nobody complained about is the expensive reading of a two-sentence
+       * report. If they want it gone it is one branch to strike; if they want it back on a trigger,
+       * the FEED-row on the structure popover is the shipped precedent for a player-fired button.
+       *
+       * ⚠ AND THE SLOT IS SKIPPED, NOT BANKED, WHEN THE LIVE CAP BLOCKS IT. `nextSpawnTick` now
+       * advances even on a blocked slot, so emits stay on the exact `DRONE_EMIT_INTERVAL_TICKS`
+       * grid — *"equal intervals"* in the owner's words. Banking blocked slots would drain them one
+       * per tick the moment a drone died, i.e. a burst of three at once, which is the same
+       * now-overdue-slot hazard the fouled-primitive branch above handles with its own `while`.
+       */
       if (sp.recipeId === 'lightningHub') {
         if (world.tick >= sp.nextSpawnTick) {
           const anchor = world.primitives.get(sp.anchorPrimitiveId);
-          if (sp.spawnedCount >= STRUCTURE_SELFDESTRUCT_DRONE_COUNT) {
-            if (anchor !== undefined) {
-              /*
-               * ⭐ S157 P0 — IT STILL CONSUMES ITSELF; IT NO LONGER CONSUMES THE BASE AROUND IT.
-               *
-               * The blast below now spares its owner, and that alone would have made a
-               * "self-destruct" leave its own structure standing — a silent buff, and not what the
-               * owner asked for. They objected to it *"blow[ing] up own structures or nearby
-               * friendlies"*, not to the hub paying its own price. So the two are separated: the hub
-               * razes its OWN component explicitly, and the AoE spares everything else of the
-               * owner's. Cost intact, friendly fire gone.
-               *
-               * Razing the whole COMPONENT rather than just the anchor is deliberate — dropping the
-               * anchor alone would leave the five leaves as bond-less orphans, which is the exact
-               * defect the owner reported separately (*"the last shape stays and attracts enemy
-               * fire"*).
-               */
-              const selfIds = [...componentOf(anchor, world.primitives, world.bonds).primitiveIds];
-              dispatch(world, {
-                type: 'STRUCTURE_SELFDESTRUCT',
-                pos: { x: anchor.pos.x, y: anchor.pos.y },
-                radius: STRUCTURE_SELFDESTRUCT_RADIUS,
-                // ⭐ S157 P0 — spare the seat that built it. See `applyStructureSelfDestruct`.
-                ownerPlayerId: sp.ownerPlayerId,
-              });
-              razePrimitives(world, selfIds);
-            }
-            dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
-          } else if (anchor !== undefined && underDroneCaps(world, spawnerId)) {
+          // ⭐ S159 P9 — the cadence advances on EVERY due slot, emitted or skipped. See the note above.
+          sp.nextSpawnTick += DRONE_EMIT_INTERVAL_TICKS;
+          if (anchor !== undefined && underDroneCaps(world, spawnerId)) {
             dispatch(world, {
               type: 'SPAWN_CREATURE',
               creatureType: 'lightningDrone',
@@ -530,10 +597,19 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
               targetPos: { x: anchor.pos.x, y: anchor.pos.y },
               sourceSpawnerId: spawnerId,
             });
-            sp.nextSpawnTick += DRONE_EMIT_INTERVAL_TICKS;
             sp.spawnedCount++;
           }
         }
+        /*
+         * ⛔ S159 P9 — THE SELF-DESTRUCT ARM THAT USED TO LIVE HERE IS GONE, and what it did is
+         * preserved in two places rather than lost: the owner's reversal is quoted in the block
+         * comment above, and the BLAST ITSELF now fires from the recipe-break branch further up
+         * (`hubDeathBlast`) so the hub still pays a price — it just pays it when it DIES instead
+         * of after its third drone. S157 P0's reasoning moved with the code: the blast spares the
+         * owner's other structures, and the hub razes its OWN component explicitly so the five
+         * leaves cannot be left as bond-less orphans (*"the last shape stays and attracts enemy
+         * fire"*).
+         */
       } else if (sp.recipeId === 'goblinTower') {
         /*
          * ⭐ S152 A1 (owner playtest) — THE GOBLIN TOWER EMITS NOTHING ON A CADENCE. It is FED.

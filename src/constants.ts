@@ -1766,12 +1766,33 @@ export const LIGHTNING_HUB_COMPONENT_SIZE = LIGHTNING_HUB_DEGREE + 1; // 1 hub +
  * owner alongside the count (3) and the self-destruct radius, which are theirs from S113.
  */
 export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — chosen for a 45s fight
-export const STRUCTURE_SELFDESTRUCT_DRONE_COUNT = 3; // emit 3 drones, then self-destruct on the next slot
+/*
+ * ⛔ S159 P9 — `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` IS DELETED. It said *"emit 3 drones, then
+ * self-destruct on the next slot"*, which was the S113 design the owner has now reversed: *"he should
+ * continuously spawn them at the equal intervals."* With the emit counter gone nothing read it except
+ * the alias below, and a one-valued constant that nothing reads is the exact "declared but dead"
+ * pattern this file keeps finding (`CONNECTOR_HP`, the `DEFENDER_HP` sentinel, the R72 targeting
+ * matrix). Its VALUE survives, with its provenance, as the live-population cap below.
+ */
 export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t = 8s fly-time FUSE (explodes on expiry if it never arrived)
 export const DRONE_EXPLODE_RADIUS = 110; // px — small targeted blast (== the drone's arrival/attack range)
 export const DRONE_MAX_CONNECTORS = 3; // <=3 ENEMY bonds severed per drone (owner: "3 connectors per lightning")
 export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN population, NOT shared with chewers)
-export const DRONE_MAX_PER_SPAWNER = STRUCTURE_SELFDESTRUCT_DRONE_COUNT; // <=3 live from one hub
+/**
+ * ⭐ S159 P9 — **HOW MANY DRONES ONE HUB KEEPS IN THE AIR**, and it is now the hub's whole balance.
+ *
+ * It used to be `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT` — an alias, because a hub that self-destructed
+ * after three drones could never have more than three alive anyway, so the cap was a restatement of
+ * the burst. The owner's reversal makes the hub permanent, so this stops being a restatement and
+ * becomes the number that decides how much pressure a hub applies for the rest of the match.
+ *
+ * ⚠ HELD AT 3 DELIBERATELY: it is the owner's own figure from S113 and it keeps the in-flight feel
+ * exactly as they have been playing it — what changed is that the hub REPLENISHES them now instead of
+ * dying. With `DRONE_EMIT_INTERVAL_TICKS` 5 s against `DRONE_LIFETIME_TICKS` 8 s the steady state is
+ * about two in the air, so this cap rarely binds; it is the ceiling on a hub whose drones are all
+ * still flying, not the normal case. Raising it is the first dial if a hub feels weak.
+ */
+export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept)
 export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 

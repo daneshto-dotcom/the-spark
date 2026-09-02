@@ -1,0 +1,203 @@
+/**
+ * SPARK — S159 P8 (owner playtest): **THE STINK TOWER RE-ARMS BETWEEN FIGHTS.**
+ *
+ * Owner, after playing the S159 build: *"stink tower only plays on his first fight cycle (throwing 5
+ * poop bags to random locations at random intervals) and then the next fight he does nothing! Need to
+ * restart him each round."*
+ *
+ * ## The defect, and why nothing caught it
+ *
+ * `bagsRemaining` had exactly TWO writes in `src/`: filled once at construction (`makeDefender`, from
+ * `config.bags`) and decremented once per throw (`stinkThrowBag`). **Nothing refilled it, ever** —
+ * and `state/defenders/` had no phase awareness at all, so no boundary reset it. After five bags the
+ * tower was permanently depleted; rebuilding it was the only reload, which is exactly what the owner
+ * was doing by hand every round.
+ *
+ * No test caught it because every stink test lives inside ONE fight. A magazine that never refills is
+ * indistinguishable from a working one until the second fight — so the tests here are written across
+ * a PHASE BOUNDARY on purpose, driven through the real `runHostTick` clock rather than by setting
+ * `matchPhase` directly, because the reload rides the same `flipped` edge as `standDownDefenders`.
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  PRIMITIVE_MAX_HP,
+  SparkType,
+  STINK_TOWER_BAGS,
+  STINK_TOWER_HUB_DEGREE,
+} from '../../constants.ts';
+import { asBondId, asPlayerId, asPrimitiveId } from '../../types.ts';
+import type { Primitive } from '../../game/primitive.ts';
+import { dispatch, makeWorld, type World } from '../world.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
+import { mulberry32 } from '../rng.ts';
+import { makeGameStateExtras } from '../gameState.ts';
+import { runGodlyMatcherCore } from '../godlyMatcherCore.ts';
+// ⚠ SIDE-EFFECT IMPORT, and the fixture is dead without it: every recipe module calls
+// `registerRecipe` at its tail, so `runDefenderIgnition` cannot find the stink tower unless the
+// module has been loaded. The `blueprintBuild.test.ts` suite does the same thing for the same reason.
+import '../godlyRecipes/stinkTower.ts';
+import type { Controls } from '../../input/controls.ts';
+import type { Defender } from './defender.ts';
+
+const P0 = asPlayerId(0);
+const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+
+function deps(): HostTickDeps {
+  return {
+    spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)),
+    controls: stubControls,
+    botManager: null,
+    gameStateExtras: makeGameStateExtras(),
+    alivePeerIds: null,
+    hostSeats: new Map(),
+  } as unknown as HostTickDeps;
+}
+
+function mk(w: World, type: SparkType, x: number, y: number): Primitive {
+  const player = w.players.get(P0)!;
+  const id = asPrimitiveId(w.nextPrimitiveId++);
+  const prim: Primitive = {
+    id, type, placerColor: player.color, placedBy: P0, createdTick: w.tick,
+    pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: player.color,
+    lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+  };
+  w.primitives.set(id, prim);
+  return prim;
+}
+
+/** A real stink tower: 1 Square hub of degree 3 + 3 Circle leaves, plus the topology change that ignites it. */
+function worldWithStinkTower(): World {
+  const w = makeWorld(0x5175);
+  dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+  w.gameState = 'PLAYING';
+  w.creatures.clear();
+  const hub = mk(w, SparkType.Square, 600, 400);
+  for (let i = 0; i < STINK_TOWER_HUB_DEGREE; i++) {
+    const a = (i / STINK_TOWER_HUB_DEGREE) * Math.PI * 2;
+    const leaf = mk(w, SparkType.Circle, 600 + Math.cos(a) * 40, 400 + Math.sin(a) * 40);
+    const bid = asBondId(w.nextBondId++);
+    w.bonds.set(bid, {
+      id: bid, aId: hub.id, bId: leaf.id, a: hub, b: leaf,
+      restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick,
+    });
+    hub.bonds.add(bid);
+    leaf.bonds.add(bid);
+  }
+  // `runDefenderIgnition` scans only on a topology change — the one thing a hand-built fixture must
+  // supply. (`lightningHubDelivers.test.ts` records the same trap for the spawner side.)
+  w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 600, y: 400 }, bondCount: 3 });
+  // ⚠ AND IT MUST BE IN **BUILD** TO IGNITE AT ALL. `runDefenderIgnition` opens with
+  // `if (world.matchPhase !== 'BUILD') return` — S157 B6, the owner's *"only next turn"* rule. The
+  // first cut of this fixture set FIGHT before igniting and got a world with no tower in it, which is
+  // also the more faithful order: a player builds the tower during BUILD and then the fight starts.
+  w.matchPhase = 'BUILD';
+  return w;
+}
+
+/** Ignite in BUILD, then cross into FIGHT on the real clock. Returns the live tower. */
+function igniteThenFight(w: World, d: HostTickDeps, st: ReturnType<typeof makeHostTickState>): Defender {
+  run(w, 5, d, st);
+  const t = tower(w);
+  if (t === undefined) throw new Error('fixture failed to ignite a stink tower');
+  w.phaseEndsAtTick = w.tick + 1; // the next tick flips BUILD -> FIGHT through the production path
+  while (w.matchPhase !== 'FIGHT') run(w, 1, d, st);
+  // A fight long enough for all five throws (4 s apart, plus a wind-up each).
+  w.phaseEndsAtTick = w.tick + 5 * 4 * 60 + 600;
+  return t;
+}
+
+const tower = (w: World): Defender | undefined =>
+  [...w.defenders.values()].find((d) => d.kind === 'stinkTower');
+
+/** Run the real host tick (matcher included, as main.ts does) for `ticks`. */
+function run(w: World, ticks: number, d = deps(), st = makeHostTickState(w)): void {
+  const cursor = { lastMatcherTick: -1 };
+  for (let t = 0; t < ticks; t++) {
+    runGodlyMatcherCore(w, cursor);
+    runHostTick(w, d, st);
+  }
+}
+
+describe('S159 P8 — the stink tower reloads between fights', () => {
+  it('the control: it ignites and its magazine starts full', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    run(w, 5, d, st);
+    const t = tower(w);
+    expect(t, 'a fixture that never ignites proves nothing below').toBeDefined();
+    expect(t!.bagsRemaining).toBe(STINK_TOWER_BAGS);
+  });
+
+  it('⭐ empties over one fight, and is FULL again after the BUILD edge', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+    const startedWith = t.bagsRemaining;
+
+    // Empty it, still inside the fight.
+    while (w.matchPhase === 'FIGHT' && t.bagsRemaining > 0) run(w, 60, d, st);
+    expect(t.bagsRemaining, 'the fight drains the magazine').toBe(0);
+
+    // Now cross into BUILD on the REAL clock — the flip runs through the same
+    // `while (world.tick >= world.phaseEndsAtTick)` path production uses.
+    while (w.matchPhase !== 'BUILD') run(w, 30, d, st);
+    // eslint-disable-next-line no-console
+    console.log(`[S159 P8] started ${startedWith}, drained to 0, after the BUILD edge: ${t.bagsRemaining}`);
+    expect(t.bagsRemaining, 'and the round change re-arms it').toBe(STINK_TOWER_BAGS);
+  });
+
+  it('⭐ and it THROWS again in the second fight — the thing the owner could not get without rebuilding', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+    while (w.matchPhase === 'FIGHT' && t.bagsRemaining > 0) run(w, 60, d, st);
+    while (w.matchPhase !== 'BUILD') run(w, 30, d, st);
+    // Shorten the BUILD so the second fight arrives without 90 s of ticks. `phaseEndsAtTick` is the
+    // real mechanism — the flip still goes through production's own `while (tick >= phaseEndsAtTick)`.
+    w.phaseEndsAtTick = w.tick + 60;
+    for (let i = 0; i < 40 && (w.matchPhase as string) !== 'FIGHT'; i++) run(w, 30, d, st);
+    expect(w.matchPhase, 'the second fight started').toBe('FIGHT');
+    expect(t.bagsRemaining, 'entering fight two with a full magazine').toBe(STINK_TOWER_BAGS);
+
+    // And it actually spends them — the assertion the owner's report is about.
+    const before = t.bagsRemaining;
+    run(w, 4 * 60 + 120, d, st);
+    // eslint-disable-next-line no-console
+    console.log(`[S159 P8] fight two: ${before} -> ${t.bagsRemaining}`);
+    expect(t.bagsRemaining, 'fight two throws too').toBeLessThan(before);
+  });
+
+  it('is idempotent across a DOUBLE phase flip (the NONET-freeze case the edge guard exists for)', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+    t.bagsRemaining = 1;
+    // A deadline far in the PAST makes the `while` loop flip more than once in a single tick.
+    w.phaseEndsAtTick = w.tick - 10_000;
+    run(w, 1, d, st);
+    // Refilling assigns a constant, so any number of flips lands on the same magazine.
+    expect(t.bagsRemaining).toBe(STINK_TOWER_BAGS);
+  });
+
+  it('a kind with NO magazine is untouched by the reload', () => {
+    // `config.bags` is 0 for the turret, HELGA and every future kind without one, so the reload must
+    // be a no-op for them rather than inventing ammunition.
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+    // Fake a magazine-less defender by borrowing the record and switching kind for the assertion.
+    const asTurret: Defender = { ...t, kind: 'turret', bagsRemaining: 0 };
+    w.defenders.set(asPrimitiveId(9999) as never, asTurret);
+    w.phaseEndsAtTick = w.tick - 1;
+    run(w, 1, d, st);
+    expect(asTurret.bagsRemaining, 'no magazine, no reload').toBe(0);
+  });
+});

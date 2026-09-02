@@ -215,8 +215,35 @@ describe('S157 P0 — the spawner poll is FIGHT-gated', () => {
     }
 
     expect(sawDrone, 'the hub emitted at least one drone during FIGHT').toBe(true);
-    expect(world.primitives.has(anchor.id), 'the hub detonated itself at the end of its arc').toBe(false);
-    expect(world.primitives.has(enemy.id), 'and it took the ENEMY shape with it').toBe(false);
+    /*
+     * ⭐ S159 P9 — THESE TWO ASSERTIONS ARE INVERTED, and the anti-vacuity value is preserved by
+     * moving the detonation half to where the blast now lives rather than dropping it.
+     *
+     * They used to read *"the hub detonated itself at the end of its arc"* and *"and it took the
+     * ENEMY shape with it"* — the S113 design. The owner has re-ruled it: *"he should continuously
+     * spawn them at the equal intervals."* So the hub must now SURVIVE its own production, and
+     * nothing should have exploded while it was merely working.
+     */
+    expect(world.primitives.has(anchor.id), 'the hub survives its own production now').toBe(true);
+    expect(world.primitives.has(enemy.id), 'and nothing detonated while it was merely working').toBe(true);
+    expect(world.creatureSpawners.size, 'still registered as a spawner').toBe(1);
+
+    // ⭐ AND THE BLAST STILL EXISTS — it fires when the hub DIES. Break its star and the recipe-break
+    // branch detonates it, taking the enemy shape inside the 240 px radius with it. Without this the
+    // inversion above would have quietly deleted the coverage instead of relocating it.
+    for (const bondId of [...world.bonds.keys()]) {
+      const b = world.bonds.get(bondId)!;
+      if (b.aId === anchor.id || b.bId === anchor.id) {
+        world.primitives.get(b.aId)?.bonds.delete(bondId);
+        world.primitives.get(b.bId)?.bonds.delete(bondId);
+        world.bonds.delete(bondId);
+        break; // one arm is enough: the star is no longer degree-5
+      }
+    }
+    for (let t = 0; t < 200; t++) runHostTick(world, d, st);
+    expect(world.creatureSpawners.size, 'the broken star tore the hub down').toBe(0);
+    expect(world.primitives.has(anchor.id), 'and the death blast consumed its own component').toBe(false);
+    expect(world.primitives.has(enemy.id), 'and took the enemy shape in radius with it').toBe(false);
   });
 
   it('a pentagram emits nothing during BUILD either (it is the same poll)', () => {
