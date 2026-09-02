@@ -7,7 +7,59 @@ twice) · bundle **763.9 / 900 KiB** · `verify-deploy` **PASS 4/4** with conten
 
 ## Next Steps
 
-1. ⛔ **OWNER ACTION — PROVISION TURN. It is now the ONLY thing between you and cross-country
+> ⭐ **THE OWNER PLAYTESTED S159 AND REPORTED TWO TOWER BUGS. They are the TOP TWO priorities for the
+> next session, ahead of everything below, and each already has its mechanism identified at the code.
+> One is an unambiguous bug; the other is the owner REVERSING their own earlier ruling, which needs a
+> single question answered before any code is written. Do not conflate them.**
+
+1. ⛔⭐ **THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT — AND IT IS AN UNAMBIGUOUS BUG, MECHANISM FOUND.**
+   Owner, verbatim: *"stink tower only plays on his first fight cycle (throwing 5 poop bags to random
+   locations at random intervals) and then the next fight he does nothing! Need to restart him each
+   round."*
+   **Cause, located and grep-verified at S159 close (no fix attempted — this is the next session's
+   priority, and Rule 16 wants an amendment first):** `bagsRemaining` is a MAGAZINE that is filled
+   exactly once, at construction — `defender.ts:368` (`bagsRemaining: config.bags`) — and thereafter
+   only ever DECREMENTED, at `stinkTower.ts:194` (`d.bagsRemaining--`). **Nothing anywhere refills it.**
+   There is no `matchPhase` handling in `state/defenders/` at all, so no phase boundary resets it. After
+   five bags `stinkIsDepleted()` is permanently true, the tower drops to aura-plus-taunt forever, and
+   re-building it is the only way to get a fresh magazine — exactly what the owner is doing by hand.
+   **The question the fix must answer (and it is a design question, so ASK IT):** does the magazine
+   refill *fully at every FIGHT start* (5 bags per fight — the reading that matches "each round"), or
+   *slowly during BUILD* (a reload the player can watch), or *on a feed gesture* like the goblin tower?
+   The constant `STINK_TOWER_BAGS = 5` and the owner's *"visibly shoot out all 5 stink bags"* are not in
+   dispute; only the refill rule is missing, because nobody ever specified it.
+   ⚠ Also in that sentence and worth a separate look: *"random locations at random intervals"*. The lob
+   target is `stinkLobTarget` and the cadence is `STINK_THROW_INTERVAL_TICKS` (4 s, fixed) — nothing in
+   the sim may use RNG, so "random" is either the blind-lob fallback picking a spread position with no
+   target in range, or a real defect in target selection. Measure it before assuming it is cosmetic.
+
+2. ⛔⭐ **THE LIGHTNING DRONE TOWER "DISAPPEARS" AFTER 3 DRONES — AND THIS ONE IS NOT A BUG, IT IS THE
+   OWNER REVERSING AN S113 RULING. Get the ruling before writing code.**
+   Owner, verbatim: *"lightning drone tower spawns like 3 drones and then dissapears! wtf? it should not
+   be so. he should continuously spawn them at the equal intervals."*
+   **What the code does, and why:** `hostTick.ts:491-520` — the hub emits
+   `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` (**3**) drones on the cadence and then, on the NEXT cadence slot,
+   **self-destructs on purpose**: a `STRUCTURE_SELFDESTRUCT` AoE at the anchor plus `razePrimitives` on
+   its own component. That is the shipped design from **S113 Batch C**, whose PDR calls the hub a
+   *"glass-cannon"* and records the owner choosing the owner-agnostic blast
+   (`.claude/plans-archive/2026-06-28_PDR_S113_Batch_C_Lightning_Drone_COMPLETED.md`, R3: *"INTENDED
+   (owner chose owner-agnostic)"*). S157 P0 then refined it to spare the owner's OTHER structures while
+   still consuming its own component.
+   **So "it disappears" is the feature, and the owner now wants a different unit.** That is entirely
+   their call — but the fix deletes or repurposes a whole mechanic, so ONE question must be answered
+   first: **does the self-destruct survive at all?**
+   (a) *Delete it* — the hub becomes a permanent drone factory on `DRONE_EMIT_INTERVAL_TICKS`. Then
+       `DRONE_MAX_PER_SPAWNER` (currently `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, i.e. 3) becomes the
+       live-population cap and needs its own number, and the lightning-storm AoE leaves the game.
+   (b) *Keep it as an option* — continuous production, with the self-destruct on a player trigger
+       (a button on the structure popover, beside FIX/SCRAP — the FEED-row precedent).
+   (c) *Keep it on a condition* — e.g. it blows when destroyed, which is the stink tower's own
+       `stinkDeathBlast` shape and would preserve the "glass cannon" flavour without ending the tower.
+   ⚠ Whichever is chosen, the S113 PDR and `STRUCTURE_SELFDESTRUCT_DRONE_COUNT`'s docblock both say the
+   3 and the radius are the OWNER'S numbers — so the reversal must be recorded AT the constant, the way
+   S158 A1 recorded the aura correction. Do not quietly re-purpose an owner number.
+
+3. ⛔ **OWNER ACTION — PROVISION TURN. It is now the ONLY thing between you and cross-country
    multiplayer, and this session removed the last doubt about that.** Sign up at **metered.ca/stun-turn**
    (free, 50 GB/month), then in the repo: **Settings → Secrets and variables → Actions → New repository
    secret**, three times: `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then push
@@ -20,7 +72,7 @@ twice) · bundle **763.9 / 900 KiB** · `verify-deploy` **PASS 4/4** with conten
      because the code asks for *all* of them, two dead entries failed the whole backup strategy. It
      should read `torrent:✓` now.
 
-2. ⛔ **SIX OWNER DECISIONS, all of them numbers or trades that are MINE, each flagged at its constant.**
+4. ⛔ **SIX OWNER DECISIONS, all of them numbers or trades that are MINE, each flagged at its constant.**
    None blocks play — they are calibration after you have felt them:
    (a) **drone cadence 5 s** — chosen so all three drones land inside a 45 s fight;
    (b) **stink-bag HP = 1** — R77 gives the bag's on-destroy atk/pen, never its durability;
@@ -35,26 +87,28 @@ twice) · bundle **763.9 / 900 KiB** · `verify-deploy` **PASS 4/4** with conten
        tick. Say the word if leaves should belong to exactly one star;
    (f) **an accidental stink tower no longer self-heals** — see step 3. SCRAP returns the survivors.
 
-3. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already yours.** `SPARK_TD_SESSION_SPECS.md:59`
+5. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already yours.** `SPARK_TD_SESSION_SPECS.md:59`
    Q4 carries your ruling — *"castle attacks any enemy units that attack it"* ⇒ retaliation-only against
    anything that damaged this castle within 300 ticks — and `:208-230` costs it as a reuse of the defender
    FSM. A grep for `castleGun|keepGun|castleTurret` returns NOTHING in `src/`. Castle HP and elimination
    both shipped; this is the half that makes them matter, and it is the same ground as your elemental-keeps
    idea. Needs its own PDR (Rule 16), which is why S159 carried it instead of building it.
 
-4. **DRONE AoE — the last unbuilt R77 mechanic, and its stats are currently DEAD.** `DRONE_ATK` 5 /
+6. **DRONE AoE — the last unbuilt R77 mechanic, and its stats are currently DEAD.** `DRONE_ATK` 5 /
    `DRONE_PEN` 1 reach the config and stop: `applyDroneExplode` severs bonds and never reads either, so
    your *"5 damage and 1 pierce in an area of effect"* describes a mechanic the game does not have.
    `pinnedDeadStats.test.ts` asserts the gap and is designed to fail when it closes.
    `state/creatures/suicideBlast.ts` (the terrorist goblin, S158 P3) is the ready-made generalisation.
    ⚠ NOT done silently because it is a balance change: 30 fifths breaks a connector up to a 26-connector
    structure and then stops, so a drone would get WEAKER against big fortresses.
+   ⚠ AND IT NOW DEPENDS ON PRIORITY 2: if the hub becomes a continuous factory, a drone's blast is no
+   longer a once-per-hub event and its damage model matters far more than it did as a 3-shot burst.
 
-5. **N2 raid parity across seats** — still needs an OWNER OBSERVATION, not a fix. The reducers are
+7. **N2 raid parity across seats** — still needs an OWNER OBSERVATION, not a fix. The reducers are
    seat-agnostic and `grantRaidProgress` fires on both build paths. If it still looks wrong in a real
    game, the next place to look is the input layer.
 
-6. **Held debt (not a bug):** `Creature` now carries four parallel nullable committed-target fields.
+8. **Held debt (not a bug):** `Creature` now carries four parallel nullable committed-target fields.
    `creature.ts:237` records why a discriminated union was rejected (a new hash encoding + ~18 sites),
    and S159 P1 deliberately did NOT add a fifth. Revisit only as its own amendment.
 

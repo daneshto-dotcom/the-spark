@@ -5,6 +5,40 @@
 
 ---
 
+# ⚑ NEXT SESSION'S TOP TWO — OWNER PLAYTEST OF S159, 2026-09-02
+
+The owner played the S159 build and reported two tower faults. **These are the top two priorities and
+they outrank everything else in this file.** Both mechanisms were located at the code before the
+session closed; neither was fixed, because one needs a design answer and the other needs an owner
+ruling, and Rule 16 wants the amendment first.
+
+- [ ] **T1 — THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT.** Owner: *"stink tower only plays on his
+      first fight cycle (throwing 5 poop bags to random locations at random intervals) and then the
+      next fight he does nothing! Need to restart him each round."*
+      **Unambiguous bug, cause found:** `bagsRemaining` is filled once at construction
+      (`defender.ts:368`) and only ever decremented (`stinkTower.ts:194`). **Nothing refills it**, and
+      `state/defenders/` has no `matchPhase` handling at all, so no phase boundary resets it. Rebuilding
+      is the only reload — which is what the owner is doing by hand.
+      **Needs one design answer:** refill fully at every FIGHT start (matches "each round"), reload
+      slowly during BUILD, or reload on a feed gesture (the goblin-tower precedent)?
+      **Second, smaller thread in the same sentence:** *"random locations at random intervals"* — the
+      sim has no RNG, so this is either the blind-lob fallback or a real target-selection defect.
+      Measure before assuming cosmetic.
+- [ ] **T2 — THE DRONE HUB "DISAPPEARS" AFTER 3 DRONES — A RULING REVERSAL, NOT A BUG.** Owner: *"it
+      should not be so. he should continuously spawn them at the equal intervals."*
+      **What ships today is the S113 design:** `hostTick.ts:491` emits
+      `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` (3) drones, then self-destructs — AoE at the anchor plus
+      `razePrimitives` on its own component. The S113 PDR calls the hub a *"glass-cannon"* and records
+      the owner choosing the owner-agnostic blast; S157 P0 refined it to spare their other structures.
+      **So the owner is reversing their own earlier ruling, which is their call — but ask ONE question
+      first: does the self-destruct survive?** (a) delete it (then `DRONE_MAX_PER_SPAWNER`, currently
+      aliased to the count 3, needs its own number and the lightning storm leaves the game);
+      (b) keep it on a player trigger beside FIX/SCRAP; (c) keep it on death, the `stinkDeathBlast`
+      shape. Record the reversal AT the constant, the way S158 A1 recorded the aura correction — the 3
+      and the radius are documented as the owner's numbers.
+
+---
+
 # ⚑ STATUS S155 (2026-08-28) — MULTIPLAYER'S SILENT DEAD END · AND THE BOT-TOWER QUESTION, ANSWERED WITH NUMBERS
 
 > Owner's seven-priority batch. P1/P2/P3 shipped and live. P4 shipped a **representative test and a
