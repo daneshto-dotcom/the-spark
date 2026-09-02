@@ -99,9 +99,11 @@ import { formatStrategySummary } from './net/strategySummary.ts';
 import { makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
-import { HAS_TURN_CONFIGURED, ICE_SERVERS } from './net/iceConfig.ts';
+import { HAS_TURN_CONFIGURED, ICE_SERVERS, NOSTR_RELAYS, STRATEGY_FLAGS } from './net/iceConfig.ts';
 // S158 P1 — the connection self-test the TEST CONNECTION button runs.
 import { probeIce, summarizeIce } from './net/iceProbe.ts';
+// S158 B1 — the matchmaking half: the layer the owner's two workstations actually differ on.
+import { probeRelays, summarizeRelays } from './net/relayProbe.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
 // stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
@@ -1352,15 +1354,49 @@ async function bootstrap(): Promise<void> {
      * outcome this whole feature exists to abolish.
      */
     onTestConnection: () => {
-      void probeIce(ICE_SERVERS, HAS_TURN_CONFIGURED)
-        .then((r) => {
+      /*
+       * ⭐ S158 B1 (owner playtest) — BOTH HALVES, BECAUSE THE FIRST HALF ANSWERED THE WRONG
+       * QUESTION.
+       *
+       * Owner, across countries: from one workstation he reached his brother; from another ON THE
+       * SAME LAN, quickmatch could not FIND the game and the room code would not connect. Two
+       * machines behind one router share every property ICE cares about, so TURN cannot be the
+       * difference — and the P1 self-test probes ICE only. Run on both machines it would have
+       * printed the same thing twice.
+       *
+       * The layer BOTH of his symptoms share is the matchmaking relays: quickmatch advertises the
+       * room over them and a code join exchanges its offer over them, so a machine that cannot
+       * reach them fails at exactly those two things and nothing else. They are probed FIRST and
+       * reported FIRST for that reason — a red relay line makes the ICE line beside the point.
+       */
+      const relays = STRATEGY_FLAGS.nostr ? NOSTR_RELAYS : [];
+      void Promise.all([
+        probeRelays(relays),
+        probeIce(ICE_SERVERS, HAS_TURN_CONFIGURED),
+      ])
+        .then(([rr, r]) => {
+          const rv = summarizeRelays(rr);
           const v = summarizeIce(r);
           console.info(
-            `[net] connection self-test — host:${r.host} srflx:${r.srflx} relay:${r.relay} ` +
+            `[net] connection self-test — relays:${rr.reachable}/${rr.attempted} ` +
+              `host:${r.host} srflx:${r.srflx} relay:${r.relay} ` +
               `turnConfigured:${r.turnConfigured} complete:${r.complete}` +
+              (rr.unreachable.length > 0 ? ` unreachable:[${rr.unreachable.join(' | ')}]` : '') +
               (r.errors.length > 0 ? ` errors:[${r.errors.join(' | ')}]` : ''),
           );
-          lobbyScreen?.showConnectionTestResult(v.ok, v.headline, v.detail);
+          // ⚠ The RELAY verdict leads when it is the failing one: without a matchmaking server the
+          // game never reaches the stage the ICE verdict describes, so reporting ICE first would
+          // point the reader at the wrong layer.
+          const ok = rv.ok && v.ok;
+          const headline = rv.ok ? v.headline : rv.headline;
+          const detail = rv.ok
+            ? `${v.detail}
+
+Matchmaking: ${rv.detail}`
+            : `${rv.detail}
+
+Network routes: ${v.detail}`;
+          lobbyScreen?.showConnectionTestResult(ok, headline, detail);
         })
         .catch((err: unknown) => {
           lobbyScreen?.showConnectionTestResult(
