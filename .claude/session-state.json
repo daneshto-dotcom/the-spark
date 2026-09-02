@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3810,
+  "tool_calls_session_total": 3817,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -4875,5 +4875,10 @@
     "reading": "room KFU2AR, 2 players connected, sync 3/3, nostr:7/7, torrent:fail, \"Matchmaking: All 7 answered\", \"No relay server\"",
     "conclusion": "NO two-workstation split. The S158 firewall/VPN hypothesis is disproved. TURN remains the only blocker for hostile-NAT pairs.",
     "torrent_fail": "a REAL and separate bug, fixed this session (2 of 3 trackers dead + redundancy = list length). Never related to the connection problem."
+  },
+  "os_level_findings_s159": {
+    "json_helpers_brace_bug": "FIXED (committed in ~/.claude at 7c812df). extract_priority_field counted braces off the RAW line, so a brace inside a STRING VALUE unbalanced `depth`. Live-fired here: a verification needle ending in `{` pushed every later priority block to depth 3 and pdca-final-gate.sh then blocked every Edit/Write with \"Deliberation not completed\". Worse in the mirror case — the extractor returns the WRONG BLOCK (a COMPLETED priority) rather than nothing, so a gate could read check_completed off the wrong priority. 7 regression assertions; 3 of 7 fail on the old helper.",
+    "s96_p2_state_inject_1_fail": "NOT MINE, NOT FIXED, DIAGNOSED. `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` has failed at 11 PASS / 1 FAIL both BEFORE and AFTER my json_helpers change (verified by swapping the helper back). The failing fixture is \"DELIBERATION GATE negative (pdr_approved:true => no fire)\": the gate fires anyway, and its own output says \"[GATE LOCKED] PDR not approved\" while the fixture claims pdr_approved:true — i.e. the fixture sets the flag where the hook does not read it, the same top-level-vs-per-priority split that CLAUDE.md warns about. Closing it needs a RULE decision (does user approval waive deliberation for a Micro priority, per the tiered Rule 17 waiver?), not a code fix, so it is left for an OS-level session with that authority rather than guessed at from a game project.",
+    "pre_flight_no_claude_md": "FIXED. The boot pre-flight warned \"No CLAUDE.md found in project\" while the parent Founder DNA CLAUDE.md says each project's own CLAUDE.md declares its workflow. Written this session from rules VERIFIED against the code, not copied from handoffs."
   }
 }
