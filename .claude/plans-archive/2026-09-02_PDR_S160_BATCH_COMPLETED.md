@@ -1,3 +1,13 @@
+> ## ✅ STATUS: COMPLETED — 5/5 PRIORITIES SHIPPED AND DEPLOYED (S160)
+>
+> P1 TURN proof + a corrected false deploy instruction · P2 both tower dials ruled · P3 all four
+> numbers ruled · P4 races W1-A + the castle shoots back (PROTOCOL 38→39) · P5 drone AoE, which
+> empties R77's deferred list. Scope GREW by one priority (P5) on the owner's explicit instruction
+> to finish everything pre-defined rather than leave it behind the race expansion.
+>
+> Gates at close: typecheck 0 · vitest 3458/3458 / 221 files · build 0 (765.0/900 KiB) ·
+> e2e:gating 0, 62 passed · verify-deploy PASS 4/4 · MCV hard_fail=0 with 100 bindings.
+
 ═══════════════════════════════════════════════════════════
     PDR — S160 BATCH
     Boot-snapshot §1–§3, then §4 (CASTLE GUNS) via the owner's races roadmap

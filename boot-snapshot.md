@@ -1,226 +1,143 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-02 | Session: S159 | Commit: `c90b444` | PROTOCOL 38 (unchanged all session)
+Generated: 2026-09-02 | Session: S160 | Commit: `b854173` | **PROTOCOL 39** (bumped 38 → 39 this session)
 
-State at close: `tsc` 0 · **3399/3399** unit tests / 218 files · `e2e:gating` exit 0, 62 passed (run
-THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 900 KiB** ·
-`verify-deploy` **PASS 4/4** with content-hash equality · MCV **110 bindings, exit 0** · real context
-**768,770 / 1,000,000 (76.9 % ORANGE)**.
+State at close: `tsc` 0 · **3458/3458** unit tests / 221 files · `e2e:gating` exit 0, 62 passed ·
+bundle **765.0 / 900 KiB** (headroom 135.0) · `verify-deploy` **PASS 4/4** with content-hash equality ·
+CI **8/8 success** · MCV **100 bindings, hard_fail=0** · Rule 22 runtime audit clean ·
+real context **698,197 / 1,000,000 (69.8 % YELLOW)**.
 
-> **S159 ran NINE priorities.** Seven were the planned batch; then the owner played the build and sent
-> back two tower faults, which were fixed the same session under a scope amendment. Both are live.
+> **S160 ran FIVE priorities and closed the whole pre-defined list**, at the owner's explicit
+> instruction not to leave anything buried behind the race expansion. Highlights: **races W1-A**
+> (the race token + wire, PROTOCOL 38 → 39), **the castle finally shoots back**, and **R77's
+> deferred-mechanics list is now EMPTY**.
+>
+> ⚠ **Much of P2 and P3 was correcting MY OWN S159 claims** — a false deploy instruction, a dial
+> lever documented backwards in three places, a justification that contradicted its own citation,
+> and four sites that had silently tidied a verbatim owner quote. Read those entries before trusting
+> a number in an older handoff.
+>
+> ⭐ **NEXT SESSION IS THE RACE EXPANSION, ON FRESH CONTEXT, AND THE OWNER HAS ALREADY APPROVED THE
+> PDR.** Entry point: `.claude/plans/2026-09-02_PDR_RACES_W1_PREAPPROVED.md` (stamped IN-PROGRESS
+> with exactly where S160 left it) + `SPARK_RACES_SPEC.md` §6 W1-B. The art is the long pole.
 
 ## Next Steps
 
-1. ⛔ **OWNER ACTION — PROVISION TURN. It is the ONLY thing between you and cross-country
-   multiplayer.** Sign up at **metered.ca/stun-turn** (free, 50 GB/month), then in the repo:
-   **Settings → Secrets and variables → Actions → New repository secret**, three times:
-   `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then go **Actions → Deploy to
-   GitHub Pages → Run workflow**. `TURN_SETUP.md` is the runbook and carries the owner's own
-   two-workstation measurement.
-   · ⛔ **S160 P1 CORRECTED A TRAP IN THIS VERY LINE.** It used to say *"then push anything"*. That is
-     FALSE: `deploy.yml:26-34` gates the push trigger on a paths allowlist (`src/**`, `public/**`,
-     `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json`,
-     `.github/workflows/deploy.yml`). **Adding repository secrets changes no file at all**, and a
-     push of docs / `.claude/` / `HANDOFF_*` matches none of those paths — so the owner would add the
-     secrets, push, see NO run, and reasonably conclude the wiring was broken. `workflow_dispatch` is
-     the only route that works from a secret change. `TURN_SETUP.md:119-121` already worded it right;
-     this file did not. Same class as S158's gitignored-`.env` defect, one document over.
-   · ✅ **The code side is PROVEN, not asserted** (S160 P1). `deploy.yml:149-156` passes all three
-     into the build env (URLS also accepting a repo *variable*); it is the only build/deploy path in
-     the repo; `iceConfig.ts:162-186` reads them, comma-splits the URL list, refuses a half-filled
-     config, and feeds `RTCConfiguration.iceServers` at both join sites (`transport.ts:376-379`,
-     `quickmatch.ts:173`). Verified out of the **emitted bundle**, not from the comments.
-   · **B1 is CLOSED.** Their screenshot: room `KFU2AR`, 2 players connected, `sync 3/3`, "Matchmaking:
-     All 7 answered". No split between the two machines, nothing wrong with the router — S158's
-     firewall/VPN hypothesis is disproved.
-   · **`torrent:fail` is fixed** (two of three trackers were dead and the code asked for all of them).
+1. ⛔ OWNER ACTION — PROVISION TURN. Still the ONLY thing blocking cross-country multiplayer. Three repository secrets (VITE_TURN_URLS / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL), then **Actions → Deploy to GitHub Pages → Run workflow**. ⚠ S160 P1 CORRECTED THE INSTRUCTION: the old "then push anything" was FALSE — deploy.yml gates its push trigger on a paths allowlist and adding secrets changes no file, so a docs push triggers NO run. workflow_dispatch is the only route. The code side is now PROVEN from the emitted bundle, not asserted.
 
-2. ⛔ **PLAY THE TWO TOWER FIXES.** ✅ **S160 P2 RULED ON BOTH AND MEASURED WHAT THEY ACTUALLY DO** —
-   so what is left for the owner is a NUMBER TO FEEL, not a question to answer.
-   (a) **the stink tower refills its 5 bags on every BUILD edge — KEPT.** One magazine per round is
-       the literal reading of *"restart him each round"*, and `STINK_TOWER_BAGS = 5` is the owner's
-       own figure, so its consequences are downstream of their number.
-       ⭐ **AND HERE IS THAT CONSEQUENCE, MEASURED:** throws land at ticks **254, 538, 822, 1106,
-       1390** into a 2700-tick FIGHT — gaps of **284**, not the 240 `STINK_THROW_INTERVAL_TICKS`
-       implies, because WINDUP+FIRE+RECOVER cost 44 ticks a throw. **The tower is DRY for the last
-       22 of every 45 seconds.** Pinned by `stinkReload.test.ts`.
-       ✅ **RULED: LEAVE IT AT 5 BAGS** — the owner counted the tower art (five hanging bags in
-       `assets-source/godly-goblins/clips/stink-tower/idle.mp4`) and agreed with the count.
-       ⛔ **And they corrected "dry" → "idle", which I had conflated:** *"it doesnt sit idle because
-       it also has his aura around him that damages enemies and taunts any close by units."* True in
-       code both ways — `stinkAuraTick` is unconditional since S157 B9, and `stinkAggroTargets`
-       returns early UNLESS depleted, so the taunt exists ONLY when empty. Running out is a **MODE
-       CHANGE, not an off-switch**: a spent tower keeps the aura and GAINS a taunt, becoming bait.
-       ⚠ The alternative "slow reload with visible progress" is **NOT cheap**, and S160 corrected my
-       own false reason for thinking it was: the per-bag rack is in `drawTower`, which runs ONLY in
-       the atlas-null fallback, and the atlas ships. On the live path the sole magazine tell is one
-       alpha step, `0.72 → 1`. Visible progress needs new draw code.
-   (b) **the drone hub's lightning storm MOVED to the hub's death rather than being deleted — KEPT.**
-       They objected to the tower disappearing, not to it having a blast. One branch to strike if they
-       want it gone; the FEED-row is the precedent if they want it on a player trigger.
-   ⚠ **FEEL THE P9 UPLIFT:** the hub delivers **9 drones in a 45 s fight** — now *asserted*
-   (`lightningHubDelivers.test.ts`), where before it lived in a comment and a `console.log`.
-   ⛔ **AND S160 CORRECTED THE DIAL ADVICE THIS FILE USED TO GIVE.** It said *"the cap is the first
-   dial, the 5 s cadence the second."* **That is backwards, and the first move does nothing at all:**
-   occupancy at every due slot is 1, so `DRONE_MAX_PER_SPAWNER` 3 → 2 changes NOTHING (peak live is
-   **2**, against a ceiling of 3 — the cap is slack, now asserted as such). Only 3 → 1 bites, and
-   bluntly (5/fight). **Correct order for "too strong": `DRONE_EMIT_INTERVAL_TICKS` first — the only
-   linear lever, count = 2700/interval, so 450 t → 6 and 600 t → 4 — then `DRONE_MAX_CONNECTORS`
-   (damage per drone, one reader), then the cap.**
+2. ⛔ OWNER TO PLAY AND RULE — the castle cadence. Ruled KEEP-and-play-first at S160. Which constant later moves, CASTLE_FIRE_INTERVAL_TICKS (240) or GOBLIN_DAMAGE_VS_CASTLE (6), is the owner's call after a real match. ⚠ 60 ticks is a hard floor: below it an attacker dies before it swings once. ⚠ And read the fixture number as an ORDERING, not a law — the owner was right that "15 goblins" is abstract; it is one board (melee goblins spawned onto the keep, continuous contact, nothing else alive).
 
-3. ✅ **THE FOUR NUMBERS — S160 P3 RULED AND RE-DERIVED ALL OF THEM.** Every ruling is KEEP; what
-   changed is that four of the five *statements* about them were wrong, and this list was carrying
-   three of the errors.
-   (a) **drone cadence 5 s — KEPT**, and it is now the documented FIRST dial in both directions
-       (see §2 for why the cap is not). 9 emits/fight is asserted, not commented.
-   (b) **stink-bag HP 1 — KEPT.** ⚠ Its constant said *"most of the roster pops it in one hit"*.
-       Measured: **ALL of it does**, and the floor has **ZERO margin** — a cloud dies to any amount
-       ≥ 5 fifths and the weakest unit on the board, the goblin shield at 1 ATK / 0 PEN, deals
-       exactly 5. Any shield nerf or any `+1` to `STINK_BAG_DEF` makes a stink carpet impassable to
-       it. Documented **and now pinned** (`stinkCloud.test.ts`).
-   (c) **chain-lightning hop 120 px and NO falloff — KEPT.** R77 gives atk/pen and the target count
-       and says nothing about decay; adding a decay curve would be balance the owner never asked for
-       on a mechanic they have not yet played. Falloff is still the obvious first dial.
-       ⭐ **"≤ 29 connectors" is EXACT** — 33 fifths vs capacity `n+4`, inclusive `>=`, boundary
-       checked both sides (n=29 severs, n=30 holds). **Now asserted** (`voltkinChain.test.ts`).
-       ⚠ **But "SIX connectors" is a CEILING, not a typical case** — creatures and bonds compete for
-       the same six link slots in one nearest-first contest and a creature WINS an exact tie, so any
-       defender nearer than the next connector eats a link. Say **"up to six"**. Also pinned.
-       ⛔ Two errors in my own docblock, both fixed: the R77 citation pointed at
-       `SPARK_TD_SESSION_SPECS.md`, where `grep max6` returns **zero** hits (the ruling is in
-       `.claude/session-state.json`); and four sites quoted the owner as *"maybe we do max6"* when
-       they typed *"maywe"* — a silent typo-fix inside quotation marks. Also, the docblock's second
-       justification for 120 **contradicted its own evidence** (it cited "~90 px apart" to argue
-       120 does not reach the next structure over; 120 > 90, so it does). Withdrawn — 120 now has
-       one reason, not two, and no containment guarantee.
-   (d) **the stink aura — the "12× nerf" is HALF RIGHT and this line overstated it.** 12× is exact
-       for the **unit** half (2.4 → 0.2 atk/sec); the **shape** half went 40 → 20 per second, which
-       is **2×**. Repeating "12×" unqualified mis-models structure attrition by 6×. The constant
-       itself always said both correctly; only the handoff flattened it. **Correct one-liner: units
-       12× weaker, shapes 2× weaker.**
-   **Recipe OVERLAP — the design stands, two of its sentences did not.**
-   Two goblin towers chaining hub-to-hub (8 Circles instead of 10) is right.
-   ⚠ The stink+lightning **"7 instead of 10"** described one lattice and priced another: sharing
-   **one** Circle — what the sentence actually says — costs **9** (a 10 % discount); **7** requires
-   sharing **all three** stink leaves (30 %). The honest single figure is the 20–30 % range.
-   ⚠ And **"drops BOTH towers in the same tick"** is true of the *predicates* and false of the
-   *teardown*: the spawner poll and the defender poll run on two unaligned schedules, so both towers
-   fall within **≤ 30 ticks (0.5 s)** on slots that coincide only by accident. The "it is paid for"
-   argument survives untouched; the timing sentence was the half a balance discussion would lean on.
+3. ⛔ OWNER TO PLAY AND RULE — chain-lightning falloff. Ruled leave-at-full-power-and-play-first. One constant to change. Phrase the consequence as "UP TO six connectors": creatures and bonds compete for the same six link slots and a creature wins an exact tie.
 
-4. ✅ **CASTLE GUNS — SHIPPED S160 P4b, AND THE OWNER RULED ITS TARGETING.**
-   ⛔ **THE RULING: NEAREST ENEMY IN RANGE, which SUPERSEDES Q4.** `SPARK_TD_SESSION_SPECS.md:59` Q4
-   said *"castle attacks any enemy units that attack it"* ⇒ retaliation-only, 300-tick window; the
-   races spec's §3.2 instead described wave-1 targeting as *"nearest enemy creature in range"*. Shown
-   both, the owner chose nearest-in-range. Recorded as a REVERSAL at the constant. ⇒ There is no
-   retaliation bookkeeping anywhere: no `lastDamagedByTick`, nothing serialized.
-   · **No stored fire timer, by design.** The schedule is `world.tick % interval === seat % interval`
-     — nothing to serialize, nothing to hash, no bump. A `nextFireTick` on `Player` would have put a
-     MUTABLE sim input outside the wide oracle with no tsc tripwire (the races spec's B5 hazard;
-     `Defender.nextFireTick` IS hashed, so copying it onto `Player` would have been wrong).
-     ⭐ It also pays for W1-B: per-race attack VFX needs **no new wire field**, because a renderer can
-     re-derive when each castle fires and at what.
-   · ⚠ **THE NUMBER THE OWNER MUST RULE ON — Q3's 45-tick cadence was MEASURED AND REJECTED.** A shot
-     is 8 fifths and a melee goblin's pool is 7, so the castle one-shots every melee unit in the game;
-     at 45 ticks it killed one every 0.75 s and **silently deleted the castle-kill win condition**
-     (ten goblins wiped in 450 ticks having dealt ~250 of 1500). Ten existing tests went red, which is
-     how it was found. Shipped at **240 ticks (4 s)** — MY number — and here is what it costs,
-     measured through the real host tick and now pinned in `castleGuns.test.ts`:
-     **1 goblin → ZERO damage** (shot before its first swing) · 5 → castle holds at 1284 ·
-     **10 → castle HOLDS at 474** · **15 → castle FALLS at tick 1342.**
-     ⛔ **READ THAT AS AN ORDERING, NOT A LAW — the owner pushed back on the bare "10 vs 15" and was
-     right:** *"what kind of goblins in how long?? it is all dynamic and different as it should be!"*
-     The fixture spawns melee goblins DIRECTLY ONTO the keep, in continuous contact, on an empty
-     board. A real match has mixed unit types, travel time, walls and towers in the way, and
-     attrition on the approach. **What the fixture establishes is only this: one attacker cannot win,
-     ten no longer can, fifteen still can — so the castle-kill victory is REACHABLE rather than
-     deleted, which is what Q3's 45 ticks broke.** The integer is an artefact of one board.
-     ✅ **RULED: KEEP AS IS and play it first.** Which constant later moves — the cadence or
-     `GOBLIN_DAMAGE_VS_CASTLE` — is the owner's call after a real match. ⚠ 60 ticks is a hard floor:
-     below it an attacker dies before it swings once.
-   · ⭐ **And the design intent is now literally true rather than merely slow.**
-     `GOBLIN_DAMAGE_VS_CASTLE` always said a lone leaker is *"far too slow to matter alone… the
-     castle falls to a SUSTAINED ARMY"*. Before the gun that was arithmetic; now a lone attacker is
-     actively killed.
+4. ⚠ N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix (carried unchanged from S159).
 
-5. ✅ **DRONE AoE — SHIPPED S160 P5. R77'S DEFERRED LIST IS NOW EMPTY.** `DRONE_ATK` 5 /
-   `DRONE_PEN` 1 had reached the config and stopped for six sessions; the drone now spends both.
-   · **units** `attackFifths(5,1)` = **30 fifths** · **shapes** `primitiveDamageForAtk(5)` = **418**
-     of 1000, so three drones fell one · owner spared, through the shared `applyRadialDamage`.
-   · ⛔ **AND THE FIX IS ADDITIVE, WHICH IS THE WHOLE DECISION.** This entry used to warn that
-     30 fifths *"breaks a connector up to a 26-connector structure and then stops, so a drone gets
-     WEAKER against big fortresses"* — and that warning is exactly why the sever was NOT converted.
-     R77 gives a **damage sentence** for the AoE and a separate **count** for connectors (*"3
-     connectors per lightning"*), so the damage is spent on units and shapes while the unconditional
-     `DRONE_MAX_CONNECTORS` sever is untouched. No balance regression, no owner ruling needed, and a
-     regression test builds a 39-connector component and asserts the drone still bites.
-   · ⚠ It IS a buff to feel, on top of P9's 9-per-fight: a drone that dealt no unit damage at all
-     now one-shots most of the roster inside 110 px.
-   · `pinnedDeadStats.test.ts` fired exactly as designed and was **INVERTED, not deleted** (the S158
-     B2b treatment), so it now guards that the numbers stay spent.
+5. ⭐ THE RACE EXPANSION IS NEXT, ON FRESH CONTEXT, AND IT IS OWNER-DIRECTED. W1-A shipped (race token + wire, PROTOCOL 39). The dependency order in SPARK_RACES_SPEC.md §12 is W1-A → W1-B (art) → W1-C (the castle produces) → W1-D (upgrades), with the tech draft (§9) available off W1-A alone.
 
-6. **N2 raid parity across seats** — needs an OWNER OBSERVATION, not a fix. The reducers are
-   seat-agnostic and `grantRaidProgress` fires on both build paths. If it still looks wrong in a real
-   game, the next place to look is the input layer.
+6. W1-B — THE CASTLE BECOMES ITS RACE. Per-race castle art keyed on raceId, three states (intact/damaged/destroyed), per-race gatherer silhouettes, and per-race attack VFX — which S160 P4b finally made real, and which needs NO new wire field because the castle's fire schedule is derivable from world.tick. ⚠ ART REALITY: 57 pieces; only zombies have any, and assets-source/zombie-castle/ contains a HOUND not a castle, so SIX castles need generating, three states each. The zombie hound attack clip has failed generation twice (CF-S153-c) — retry it early. ⚠ Memory rule: spike the art and SHOW THE OWNER before wiring; original style only, never a recognisable franchise; clean transparent matte (the old sprite had a visible square box, worst on attack).
 
-7. **Held debt (not a bug):** `Creature` carries four parallel nullable committed-target fields.
-   `creature.ts:237` records why a discriminated union was rejected (a new hash encoding + ~18 sites),
-   and S159 P1 deliberately did NOT add a fifth. Revisit only as its own amendment.
+7. W1-A item 5 — THE SELECTION UI (the owner's P2). ⛔ Gated on B3: CLAIM_RACE cannot be a client intent (hostSync is null before Begin, hostSeats is empty so intents drop fail-closed, and world.players holds only seat 0). Follow the LOBBY_READY precedent — a top-level NetMessage kind keyed by transport peerId — and the claim handler must call the LOBBY_PRESENCE broadcast itself, because that beacon only fires from onPeerChange. ⚠ Until this ships only seats 0-3 are reachable, so orange (orcs) and magenta (demons) never appear in a match. Own bump.
+
+8. ⛔ B2 — SEAT ELIMINATION DOES NOT EXIST, AND IT NEEDS AN OWNER RULING. gameState.ts: the FIRST castle to reach 0 HP ends the match for EVERYONE and awards victory to survivors[0] — first in Map iteration order, i.e. arbitrary among three survivors in a 4-player FFA. Every piece of 4-player reasoning in the races spec (§9B case 1, §9.5, §9.6) describes an unreachable board state. It also bit S160 twice as a test-repair trap: silencing a castle by zeroing its HP trips this gate and stops combat entirely. Either add elimination as its own priority or accept explicitly that races ship onto a first-castle-ends-it match.
+
+9. ⛔ B1 — THE CASTLE EMITTER IS BLOCKED BY A SHIPPED SPAWN GATE, and it gates W1-C. applySpawnCreature returns the world UNCHANGED — no error, no log — for a creature with sourceSpawnerId === null when one of that (owner, type) already lives; only voltkin is exempt. ⚠ S160 CONFIRMED IT EMPIRICALLY: it silently collapsed a 20-goblin probe to ONE goblin, twice, in my own fixtures. Decide null vs a castle sentinel SpawnerId (which then touches underGoblinCaps — creatureVerlet and ownHomePos turned out NOT to be blockers, and recipeStillSatisfied has no sourceSpawnerId input at all, so the spec's blast-radius list is wrong in both directions) and write the decision at the gate.
+
+10. B5 (the perks half) — STILL OPEN, and the S160 raceId decision deliberately does NOT settle it. raceId is unhashed because it is IMMUTABLE AFTER BEGIN; tech perks change mid-match, so that argument is unavailable to them and FIELD_COVERAGE marks players: 'acknowledged' keyed on keyof World, so putting them on Player escapes the wide oracle with no tsc tripwire. Weigh both options in the draft's own PDR.
+
+11. ⭐ THE TECH DRAFT (§9) — the spec calls it the highest identity-per-effort item in the document: it needs ONLY raceId (which now exists), four of its six perks are one-constant changes, and every perk buffs content that already ships. Offer it BEFORE Wave 2's six towers if the schedule slips. ⚠ Its wave trigger is off by one in the spec: waveNumber increments on ENTRY INTO BUILD, so "the BUILD edge after wave 5's FIGHT" is waveNumber === 6.
+
+12. B8-B14 — bound to the waves that use them. Live line-number corrections measured at S160 are in the S160 handoff's drift table; the 14.5 archetype fan-out moved ~80-110 lines from the spec's citations, which is real S159 drift and the one place the spec's numbers genuinely rotted.
+
+13. HELD DEBT (unchanged, amendment-only): Creature's four parallel nullable committed-target fields (creature.ts:237 records why a discriminated union was rejected). And the OS-level hook test s96-p2-state-inject fails 1 of 12, identically before and after — closing it needs a RULE decision (does user approval waive deliberation for a Micro priority?) that a project session lacks authority for.
+
+14. RECORDED SO NOBODY "CLEANS" IT: origin/gh-pages still exists as a legacy remote branch, left alone deliberately for the fourth session running — deleting it could disturb Pages, and verify-deploy ignores it in favour of the deployments API.
 
 ## Blockers
 
-- ⛔ **TURN provisioning (owner action).** Code side complete and verified. An account plus three
-  repository secrets.
-- Nothing else external. Live and verified: `verify-deploy` PASS 4/4 with content-hash equality.
-- `origin/gh-pages` still exists as a legacy remote branch, left alone deliberately for the third
-  session running: deleting it could disturb Pages, and `verify-deploy` ignores it in favour of the
-  deployments API. Recorded so nobody "cleans" it.
-- **OS-level, diagnosed not fixed:** `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` fails 1 of 12,
-  identically before and after this session's `json_helpers` fix (verified by swapping the helper
-  back). Closing it needs a RULE decision — does user approval waive deliberation for a Micro
-  priority? — so it is left for a session with that authority.
+- ⛔ **TURN provisioning (OWNER ACTION).** The only thing between the game and cross-country
+  multiplayer. Code side **PROVEN** at S160 P1 from the emitted bundle, not asserted.
+  ⚠ Add the three repository secrets, then **Actions → Deploy to GitHub Pages → Run workflow** —
+  NOT "push anything", which S160 P1 proved false (`deploy.yml` gates the push trigger on a paths
+  allowlist and adding secrets changes no file, so a docs push fires nothing).
+- ⛔ **B2 — seat elimination does not exist**, and it needs an owner ruling before any 4-player
+  reasoning in the races spec holds. The first castle to reach 0 HP ends the match for EVERYONE and
+  awards victory to `survivors[0]` = Map iteration order.
+- ⛔ **B1 blocks the castle emitter** (W1-C) and **B3 blocks the selection UI** (W1-A item 5).
+- Nothing else external. Live and verified 4/4 at `b854173`.
+- `origin/gh-pages` still exists as a legacy remote branch, left alone deliberately for the fourth
+  session running. `origin/claude/castle-races-unique-towers-xb9uzi` is **fully merged into master**
+  and was left in place on purpose — it is the owner's branch from another account, so pruning it is
+  their call, not mine.
+- **OS-level, diagnosed not fixed:** `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` fails 1 of
+  12, identically before and after. Closing it needs a RULE decision a project session lacks
+  authority for.
 
 ## Pending Backlog
 
-- **T1/T2 are DONE.** BACKLOG.md's "NEXT SESSION'S TOP TWO" block now records them as shipped
-  (P8/P9, `c90b444`) rather than pending. No other open `- [ ]` items in BACKLOG.md.
+- **None.** `BACKLOG.md` has zero open `- [ ]` items: S159's T1/T2 shipped, and S160 closed the
+  last pre-defined carry (drone AoE). The forward plan now lives in `SPARK_RACES_SPEC.md` §6-§9 and
+  the pre-approved races PDR.
 
 ## Recent Reflexion (last 2 sessions)
 
-### S159 (2026-09-02) — nine priorities: two R77 mechanics, two lying gates, a sweep that found the owner's own bug in a fourth place, and then two more from the owner's playtest
+## S160 (2026-09-02) — five priorities: races W1-A + the castle finally shoots, the last R77 mechanic closed, and four of my own S159 claims turned out to be wrong
 
-- **P8 — a field with one writer and one decrementer is a COUNTDOWN, not a resource, and no
-  single-fight test can see it.** The stink magazine was filled at construction and never again. Every
-  stink test lived inside one fight, where that is indistinguishable from working. The owner found it
-  by playing two rounds. **When a feature has a per-round rhythm, a test has to cross the boundary.**
-- **P9 — "wtf, it should not be so" can mean "I changed my mind".** The hub vanishing after three
-  drones was the owner's own S113 glass-cannon design. Treating it as a bug would have deleted the
-  lightning storm they never complained about; checking the archive turned it into a reversal with one
-  narrow question, and the answer was to MOVE the blast, not remove it.
-- **The four-sites warning caught S158 twice, and then S158 shipped three of four.** The stink tower
-  kept the defective component clause for another session — the owner's own reported bug, live in the
-  FIRST tower a player builds.
-- **A stale ⛔ is worse than no comment, and the loudest ones go stale first.** One file opened with
-  "READ THIS BEFORE ASSUMING THE FEATURE IS LIVE" for seven sessions after the feature shipped.
-- **A gate that reads a hardcoded key list has an expiry date**, and a stale gate output is a bug
-  report about the gate, not a note for the reader. Four gates lied this session; all four are fixed.
-- **A probe must perform the operation the product performs.** The relay probe graded WebSocket
-  endpoints with an HTTPS GET and accused the only living tracker.
-- **A negative control is worth more than the assertion it protects** — the bag vanished either way,
-  and only `killCount` told the truth.
-- **I broke "never read an exit code through a pipe" in the command that was checking compliance**, and
-  four figures in my own paperwork were written before being measured. All caught, all corrected.
-- **Take the external seats' QUESTIONS, re-derive their ANSWERS.** Four of their criticals did not
-  survive an empirical check, including both seats' top-ranked one — and they earned their cost anyway.
+- **S160 — AN ASSERTION THAT GREPS A BARE WORD READS THE DOCUMENTATION, NOT THE CODE — AND IT HAPPENED FIVE TIMES IN ONE SESSION.** Good docblocks NAME the thing they forbid, so `raceId == 0` failed on *"Nothing in this file reads `raceId`"*, `nextFireTick == 0` failed on the sentence explaining why there is none, `PLAYER_COLORS == 0` failed on six comment mentions, my narrowed `color: PLAYER_COLORS[` failed a THIRD time on the docblock quoting that exact form, and P1's anti-alias guard failed on `iceConfig`'s own explanation. Even the Rule-22 close-out audit hit it. **Assert CODE SHAPES — import lines, property accesses, comment-stripped patterns — and keep a control assertion proving the strip did not empty the haystack.** One of the bad bindings earned its keep anyway: `PLAYER_COLORS` surfaced two genuinely stale sentences still saying colour tracks the seat.
 
-### S158 (2026-09-01/02) — sixteen priorities; the owner reviewed the batch and sent me back to the record twice
+- **S160 P4b — SHIPPING A MECHANIC CAN SILENTLY DELETE A DIFFERENT ONE, AND NOTHING IN THE REPO IS DESIGNED TO NOTICE.** A castle shot is 8 fifths; a melee goblin's pool is 7. So Q3's 45-tick cadence made the castle one-shot every melee unit in the game and killed the castle-kill victory outright — ten goblins wiped in 450 ticks having dealt ~250 of 1500 — while `PHASE_1_WIN_SCORE` quietly became the only real win condition. No test had ever pitted the two mechanics against each other; **ten unrelated tests going red was the only signal.** When a new mechanic touches a win condition, price it against the constant that tunes that condition before choosing a number.
 
-- **The fix for a fix was a dead end nobody would have found.** S157's TURN runbook told the owner to
-  put three values in a gitignored `.env`; CI builds from a clean checkout. When the last mile of a fix
-  is an OWNER ACTION, trace that action through the machinery that actually ships.
-- **A handoff number is a claim, not a measurement**, and *turning a limit off by raising its constant
-  is a performance change in disguise*.
-- **The owner sent me back to the record and the record was right, twice.**
-- **My fixture is not their board.** An isolated hub on an empty board proved a tower "worked" that one
-  bonded shape deleted within half a second on a real board.
-- **My own fix broke a gate and only that gate noticed.** A gate that cries wolf is worse than no gate.
+- **S160 P4b — WHEN A NEW MECHANIC REDDENS OLD TESTS, FIX THE FIXTURE OR THE DESIGN, NEVER THE ASSERTION — AND MY FIRST REPAIR WAS WORSE THAN THE PROBLEM.** I silenced the guns by zeroing both castles, which trips the first-castle-at-0 win gate (the races spec's own B2) and stopped combat entirely, so both duellists survived instead. The right repairs were narrower and each said something true: measure a duel at the tick it RESOLVES rather than thirty seconds later (the winner then marches on the keep and is shot), send an actual ARMY where the comment already said armies, and pin the lone-goblin case as its own new truth.
+
+- **S160 P5 — CLOSING A DECLARED-BUT-DEAD STAT NEED NOT MEAN CONVERTING THE MECHANIC THAT STOOD IN FOR IT.** The obvious reading of *"spend `DRONE_ATK`/`DRONE_PEN`"* was to route the bond sever through `damageConnector` — and `constants.ts` had already worked out, six sessions earlier, that this would make the drone WEAKER against big fortresses (30 fifths cuts a connector only while the component has ≤26). Spending the numbers on the two target families the drone had NO damage against at all closes R77 additively: no balance regression, no owner ruling needed. **A warning written at a constant did its job six sessions after it was written — read the neighbours before implementing the field.**
+
+- **S160 — A DIAL THAT DOES NOTHING IS WORSE THAN NO ADVICE.** Three documents told the next session the drone CAP was the first lever for a too-strong hub. Measured: occupancy at every due slot is 1, so `DRONE_MAX_PER_SPAWNER` 3→2 changes nothing and peak live is 2 against a ceiling of 3 — the cap is slack, not a brake. The cadence was the only linear lever the whole time. **Advice about a dial needs the same measurement as the dial itself**, and the wrong direction survived because the sentence was *right* for "feels weak" and never re-checked for "feels strong".
+
+- **S160 — A NUMBER QUOTED TO THE OWNER WANTS AN ASSERTION, NOT A COMMENT.** The 9-drone uplift lived in a docblock and a `console.log` while three documents quoted it to them; a retune could have made it 6 with nothing going red. Same for the chain's "≤29 connectors" and the castle's kill threshold. All three are now derived-and-asserted, so the documents cannot drift from the game.
+
+- **S160 — I HAD WRITTEN REASONS THAT WERE FALSE, AND THE FALSE HALF WAS THE PERSUASIVE HALF.** The stink refill was justified by a render path that only runs when the atlas FAILS to load (so the live tell is one alpha step, not five reappearing bags), and the chain hop range was justified by a citation that proves the opposite of the sentence it supports (120 > the ~90 px structure spacing it cited, so the hop DOES reach the next structure over). Both survived review because they read like measurements. **A stated reason is a claim; check the citation, not just the conclusion.**
+
+- **S160 — A RULING IS QUOTED, NOT TIDIED.** Four sites had silently corrected the owner's typo *"maywe we do max6"* → *"maybe"* INSIDE quotation marks, and the citation beside them pointed at a file where `grep max6` returns zero hits. The ruling actually lived in `session-state.json`. **If it is in quotes it is verbatim, and the pointer has to resolve.**
+
+- **S160 — THE OWNER CAUGHT ME STATING A FIXTURE READING AS A LAW OF THE GAME.** *"A push needs 15 goblins instead of 10"* is true of one board: melee goblins spawned directly onto the keep, continuous contact, nothing else alive. Their objection — *"what kind of goblins in how long?? it is all dynamic and different as it should be!"* — is the correct standard. The ORDERING was the finding (one cannot win, ten no longer can, fifteen still can ⇒ the victory is reachable rather than deleted); the integer was an artefact, and I led with the artefact. **Report the ordering a fixture establishes, not the integer it happens to produce.**
+
+- **S160 — AND THEY KNEW THEIR OWN DESIGN BETTER THAN MY MEASUREMENT DID.** I called the spent stink tower "idle" for 22 of every 45 seconds. It is not: `stinkAuraTick` is unconditional since S157 B9 and `stinkAggroTargets` returns early UNLESS depleted, so emptying is a **mode change, not an off-switch** — the tower keeps its aura and GAINS a taunt, becoming bait. The code said so in a docblock I had already read this session. **"Dry" and "idle" are different words; measure the whole behaviour before naming it.**
+
+- **S160 — A STALE MARKER IS WORSE THAN NONE, AND THIS REPO HAD FOUR MORE.** The pre-handoff review card was still printing S159's carry-forwards as open — including *"castle guns… a grep finds nothing in `src/`"* and *"drone AoE… still declared-but-dead"*, both shipped that same day — so approving it would have booted the next session on false information. Alongside: a scope amendment reading **IN-PROGRESS for 23 sessions** while its own archive copy read `_COMPLETED`, and a root `reflexion_log.md` frozen at Session 54 while the live one lives in `.claude/`. **At close, re-read what the NEXT boot will read, not what you wrote.**
+
+- **S160 — I NEARLY REPORTED A GREEN GATE FROM A LEFTOVER LOG FILE.** A re-run chained `node -e … && python …`; node exited 1, `&&` short-circuited so the verifier never ran, and my grep then read a stale `/tmp` log from session **S153** announcing *"exit 0, hard_fail=0"*. Only the header's `session=S153 completed=3` gave it away. **Fresh unique output path, exit code read directly, never through a chain** — this project's own standing rule, broken by me inside the command that was checking my compliance with it.
+
+- **S160 (tooling) — GIT NORMALISES THE WORKING COPY TO CRLF ON COMMIT, so a multi-line `\n`-only patch anchor that worked earlier in the session silently stops matching later.** Detect the file's actual line ending and translate the anchor; falling back to single-line anchors hides the problem instead of avoiding it. Longest-matching-prefix bisection finds it in one step.
+
+- **S160 (meta) — THE OWNER WAS RIGHT THAT I HAD NOT READ IT ALL.** I answered from §14 and §15 of their spec and produced a "finding" framed as a design gap, when the design was complete and I simply had not reached R94/§3.2. Reading the remaining 800 lines did not delete the finding — it narrowed it into something more useful (the spec fully specifies the gun's behaviour but no wave's Work list BUILDS it, and §5.2/§5.3 mention it in neither table) — and their instruction, that the guns belong with the race castles, was correct all along. **When someone asks "have you read all of it?", the answer is a fact about you, not a judgement to defend.**
+
+## S159 (2026-09-02) — NINE priorities: two R77 mechanics, two lying gates, a sweep that found the owner's own bug still live in a fourth place, and then the owner played it and sent back two more
+
+- **S159 P8 — A FIELD WITH ONE WRITER AND ONE DECREMENTER IS A COUNTDOWN, NOT A RESOURCE — AND NO SINGLE-FIGHT TEST CAN SEE IT.** `bagsRemaining` was filled at construction and never again, so the stink tower worked in fight one and was scenery forever after. Every stink test in the suite lived inside ONE fight, where a magazine that never refills is indistinguishable from a working one. **When a feature has a per-round rhythm, at least one test has to cross the round boundary** — the owner found this by playing two rounds, which is a thing no test in the repo did. Its fixture then failed twice, both times instructively: the recipe registry is a side-effect import, and `runDefenderIgnition` is BUILD-gated (S157 B6), so a fixture that sets FIGHT before igniting gets a world with no tower in it.
+
+- **S159 P9 — "WTF, IT SHOULD NOT BE SO" CAN MEAN "I CHANGED MY MIND", AND TREATING IT AS A BUG WOULD HAVE DELETED THEIR OWN MECHANIC.** The drone hub vanishing after three drones was the S113 design the owner chose, glass-cannon and all, recorded in that PDR's R3. The cheap read was "fix the disappearing tower" — which would have quietly binned the lightning storm they never complained about. Checking the archive first turned a bug fix into a RULING REVERSAL with one narrow question (*does the blast survive?*), and the answer was to MOVE it, not remove it. **Before fixing what a player reports, find out whether they specified it.** Corollary from the same priority: THREE tests pinned the retired design, and the anti-vacuity one had to have its coverage RELOCATED rather than dropped — inverting a test is not the same as deleting what it proved.
+
+- **S159 P9 (caught at the Stop gate) — NEVER BIND A CODE CLAIM TO THE STATUS TEXT OF A PLANNING DOCUMENT; CLOSING THE WORK IS WHAT CHANGES IT.** Two verification bindings asserted BACKLOG.md's wording as it stood while the two playtest faults were PENDING (`- [ ] **T1 …`, and a "NEXT SESSION'S TOP TWO" heading). The handoff then correctly rewrote that block to record both as shipped, and the claims verifier reported 2 hard fails against my own assertions — at the very last step, which is the argument for having it. Distinct from this session's four earlier binding lessons (all over-strict `file_lacks` needles catching the docblock that EXPLAINS a removal): this one is about binding to something whose whole purpose is to change. **Bind to the substance that survives the work being finished.**
+
+- **S159 P1 — THE CHEAPEST VERSION OF A CARRIED-FORWARD PLAN CAN BE A DIFFERENT PLAN.** Two handoffs carried bag aggro as *"needs a new committed-target field on `Creature` (wire + hash + protocol bump)"*, reasoned by analogy with the depleted tower's taunt — which needs a field because it writes `targetPrimitiveId` and a tower HAS an anchor primitive to point at. The analogy imported the cost without re-testing its premise. The codebase had already written down both tests for when a committed target must be STORED (several sites must agree within one tick) and when it needs HYSTERESIS (the target moves); a bag fails both, so the feature is a derived scan, `Creature` is byte-identical and PROTOCOL_VERSION never moved. **Before paying a carried-forward cost, re-derive it — a handoff's SHAPE is a claim too, not just its numbers.**
+
+- **S159 P1 — A NEGATIVE CONTROL IS WORTH MORE THAN THE ASSERTION IT PROTECTS.** With the four-line steering insert removed, the bag still DISAPPEARED — it expired on its own 4-second timer — so "the bag is gone" passes on a completely unwired build. What separates the two worlds is `killCount`: 1 when a unit struck it, 0 when it merely rotted. **Run the test against the broken build before believing the green one**, and prefer an assertion that names the MECHANISM over one that names the outcome, because outcomes have more than one cause.
+
+- **S159 P2 — A HAND-ROLLED PREDICATE IS A SECOND SOURCE OF TRUTH, AND IT WILL DISAGREE WITH THE FIRST.** The chain's first cut asked `anchor.placedBy === attacker.ownerPlayerId` for enemy-ness. Plausible, compiles, passes a naive fixture — and a DIFFERENT QUESTION from the one the game asks. The shipped rule is endpoint `placerColor` against the owner's LIVE colour, because a captured shape keeps its original allegiance for targeting and a rainbow shuffle remaps colours without touching `placedBy`. **When a rule already exists as an exported function, call it** — the cost of re-deriving is not the typing, it is that the two copies drift and only one is tested.
+
+- **S159 P2 — DIFFERENTIAL GUARDS DO NOT NOTICE A DELIBERATE BEHAVIOUR CHANGE, AND THAT CUTS BOTH WAYS.** Three files are documented as pinning Voltkin behaviour byte-identically, and all three stayed green through a change that gives it five extra targets per strike — because they compare two SIMS, not a golden value. Right design for desync hunting, wrong thing to cite as evidence of equivalence. **Say which kind of guard you have before claiming what its green means.**
+
+- **S159 P3 — A GATE THAT READS A HARDCODED KEY LIST IS A GATE WITH AN EXPIRY DATE.** The review card resolved HELD from `carry_forward_from_S152 or _S151 or _S150 or carry_forward`. Every session that invented a new session-suffixed key moved the live list out of its view, so it printed an S155 snapshot for two sessions while two handoffs warned the reader BY HAND not to trust it. Nobody fixed it because the warning was cheaper to write than the diagnosis. **A stale gate output is a bug report about the gate, not a note for the reader** — and the fix prints the KEY it read, so the next drift shows up on the card instead of needing an investigation.
+
+- **S159 P4 — RENAMING THE FILE WOULD HAVE SILENCED NOTHING.** Three archived plans made the boot warn every session, and the obvious fix — rename `*_IN-PROGRESS.md` — is the wrong one: `pre-flight.sh` greps `plans-archive/*.md` for a STATUS LINE **inside** the file. Same shape as S158's TURN runbook, which told the owner to fill in a gitignored `.env` that CI never reads. **Find the code that fires the warning before deciding what will stop it.**
+
+- **S159 P5 — THE DIAGNOSTIC WAS ASKING THE WRONG QUESTION, AND IT ACCUSED THE ONE SURVIVOR.** `probe-relays.mjs` graded `wss://` endpoints by rewriting them to `https://` and reading the HTTP status. A WebSocket endpoint answering 404 to a plain GET is NORMAL, so the probe reported the only living tracker as suspect and gave the two dead ones the same grade. One real WebSocket handshake separated them in eight seconds. **A probe must perform the operation the product performs** — anything cheaper measures a different system and reports on it with total confidence.
+
+- **S159 P5 — A REDUNDANCY LIST WHERE LENGTH IS THE REQUIREMENT IS NOT REDUNDANCY.** `transport.ts` passes `redundancy: relayUrls.length`, so adding a fallback tracker RAISES the bar the strategy must clear. Two dead entries of three failed the whole strategy instead of degrading it, and the uncorrelated-failure-domain fallback the S44 Council added had been contributing nothing for months while showing red beside an unrelated real blocker. **When you add a fallback, check whether the code treats it as an OPTION or as a REQUIREMENT.**
+
+- **S159 P5 — I BROKE THE "NEVER READ AN EXIT CODE THROUGH A PIPE" RULE IN THE COMMAND THAT WAS CHECKING COMPLIANCE.** `verify-session-claims.py … | tail -2 && git commit` reads TAIL's status, so a `hard_fail=2` verdict scrolled past and the commit went through. The project has this rule written down for `e2e:gating` and I applied it there and nowhere else. **A rule about exit codes is about EVERY gate, not the one it was first written for.** Its twin: all three binding failures this session were over-strict `file_lacks` needles catching the docblock that EXPLAINS the removed thing — a behaviour claim belongs on the executable form, and a corrected comment needs `file_contains` the marker plus `grep_count == 1` on the old phrase.
+
+- **S159 P6 — THE FOUR-SITES WARNING CAUGHT S158 TWICE, AND THEN S158 ITSELF SHIPPED THREE OF FOUR.** B2b removed the whole-component clause from the goblin tower, the laser turret and the lightning hub, and `starShape.ts` announced it had replaced FOUR component tests. The stink tower — the FIRST tower a player builds, on the most crowded ground they will ever build on — kept the clause for another session, so the bug the owner reported twice stayed live in the recipe most likely to hit it. **Counting the sites you fixed is not the same as counting the sites**: grep for the CLAUSE, not for the file names you remember touching.
+
+- **S159 P6 — A STALE ⛔ IS WORSE THAN NO COMMENT, AND THE LOUDEST ONES GO STALE FIRST.** `goblinTowerFeed.ts` opened with *"READ THIS BEFORE ASSUMING THE FEATURE IS LIVE — nothing dispatches this action yet"*. The gesture shipped ONE SESSION LATER and nobody came back, so for seven sessions the first thing a reader saw was an instruction to distrust a working mechanic. Five more comments in this sweep had gone false the same way — each careful, each true when written, none owned by the session that made it false. **When you make a feature real, grep for the comments that said it was not.**
+
+- **S159 P7 — BEFORE ASKING THE OWNER TO RULE, CHECK THE CASE EXISTS.** The flag asking them to rule on recipe overlap described a lattice that cannot be built: a lightning hub's Circle leaf cannot be a goblin-tower hub, because the goblin hub needs EVERY arm to be a Circle and that leaf is bonded to a Dot. The degree in the sentence was wrong too. S158's lesson was *grep the archive before asking for a ruling that already exists*; this is its mirror — **construct the case before asking for a ruling on it.** Three short tests turned a vague warning into a costed trade (20-30 % fewer shapes, paid for by a shared point of failure).
+
+- **S159 SESSION #external-seats — TAKE THEIR QUESTIONS, RE-DERIVE THEIR ANSWERS.** Across PLAN and CHECK, FOUR externally-raised criticals did not survive an empirical check, including both seats' highest-ranked one (Grok's cross-version rubber-band, refuted by the protocol-mismatch latch; Gemini's id tie-break, where the guard it said was missing is present and a passing test pins it). Grok also cited draw calls in a `src/client` directory that does not exist. And yet the seats earned their cost every round: the `chewProgress` priority matrix, the seven-equidistant-targets test design, the exact-tie test, the stalling bound, and two loose claims in my own docblocks. **The pattern is not "distrust the seats" — it is that their QUESTIONS are the value and their ANSWERS need measuring.**

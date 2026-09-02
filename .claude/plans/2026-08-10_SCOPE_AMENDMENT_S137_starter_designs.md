@@ -1,6 +1,13 @@
 # SCOPE AMENDMENT (Rule 16) — S137: the three free starter designs
 
-**STATUS: IN-PROGRESS** — designed + art spiked + owner-ruled. NOT implemented. Session A is the next step.
+**STATUS: COMPLETED** — stamped S160 during handoff STEP 1.5.
+
+⛔ THIS FILE READ **IN-PROGRESS** FOR 23 SESSIONS WHILE ITS OWN ARCHIVE COPY READ `_COMPLETED`.
+All three starter designs ship and have shipped for a long time — the goblin swordsman and archer
+come off the goblin tower's six-shape feed map, and the stink tower is live enough that S159 and
+S160 both spent priorities tuning it. The stale marker is the same defect class S159 P4 fixed three
+instances of; this was the fourth, still sitting in the live `.claude/plans/` directory where a boot
+pre-flight reads it. Original text preserved below.
 
 **Trigger:** owner request, 2026-08-10, after the round-2 build-space rulings. This is a scope
 EXPANSION beyond the S137 batch PDR and beyond `CASTLE_BUILD_SPACE_DESIGN.md`, so it gets its own
