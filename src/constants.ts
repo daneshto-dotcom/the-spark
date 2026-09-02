@@ -2172,6 +2172,35 @@ export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;
 export const GOBLIN_UNIT_LEASH_RADIUS = 300;
 
 /**
+ * ⭐ S159 P1 (owner R77) — **HOW CLOSE A LANDED STINK BAG HAS TO BE TO PULL A UNIT ONTO IT.**
+ *
+ * R77's deferred list, verbatim: *"destructible stink bags as entities with aggro and on-destroy
+ * damage"*. S158 shipped the two halves that need no navigation — a bag is destructible, and it
+ * BURSTS when killed — and left AGGRO, the word in the middle, unbuilt. This is that number.
+ *
+ * ⚠ IT IS THE SAME NUMBER AS `GOBLIN_UNIT_ACQUIRE_RADIUS`, BY REFERENCE AND ON PURPOSE. The rule at
+ * the table is then one sentence rather than two: **a unit reacts to a bag at exactly the distance
+ * it reacts to an enemy soldier.** Coupling them by reference rather than copying 220 is deliberate
+ * too — a future retune of the acquire radius should move this with it, because the moment the two
+ * diverge a player has to learn two notice-distances for no reason they can see.
+ *
+ * ⛔ AND A BIG NUMBER HERE WOULD BE A LIE ABOUT THE FEATURE, WHICH IS WHY IT IS NOT ONE. A bag lives
+ * `STINK_CLOUD_LIFETIME_TICKS` = **4 seconds**. "A unit walks ACROSS THE MAP to a bag" — the shape
+ * this was carried forward as — cannot happen at any radius: the bag expires long before the walk
+ * ends, so a wide pull would only strip a siege of its army and hand it nothing. What this radius
+ * buys is the thing that IS reachable in four seconds: the bag in your path becomes business, and
+ * you eat the burst to clear it. `stinkBagAggro.test.ts` measures the arrival rather than asserting
+ * it, so if the roster's speeds ever change the test says so instead of quietly passing.
+ *
+ * ⚠ NO HYSTERESIS PARTNER, AND THE LEASH DOCBLOCK ABOVE IS WHY. Its dead-band exists because a UNIT
+ * moves, so a single radius makes acquisition flicker at 60 Hz. A bag does not move, and a unit
+ * walking toward the nearest bag only makes that bag nearer, so nearest-with-lowest-id-tie-break is
+ * already stable — the same argument that docblock makes for shapes. A stored committed-target field
+ * would buy nothing and cost a serialized, hashed field on every creature in the game.
+ */
+export const STINK_BAG_AGGRO_RADIUS = GOBLIN_UNIT_ACQUIRE_RADIUS;
+
+/**
  * Owner point 4: *"when you build multiple goblins they just run like a stack ... it looks messy
  * and not cool."*
  *

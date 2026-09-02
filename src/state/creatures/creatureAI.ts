@@ -604,8 +604,14 @@ export function killableDefenderInReach(
  * length has not reached the bag; making the whole radius targetable would let an archer pop bags
  * from outside the thing that makes them dangerous, which removes the trade the owner asked for.
  *
- * Deterministic: LOWEST id wins ties, mirroring `killableDefenderInReach` — a distance comparison
- * between two equidistant bags would be settled by float noise, and float noise desyncs.
+ * Deterministic: LOWEST id wins, mirroring `killableDefenderInReach`.
+ *
+ * ⚠ S159 P1 — LOWEST ID WINS OUTRIGHT HERE, NOT MERELY ON A TIE, and the previous wording of this
+ * line said "wins ties" as though a distance compare ran first. None does: every bag that passes
+ * the reach gate is equally hittable from where the unit already stands, so *which* one it swings at
+ * is a free choice and the cheapest deterministic answer is the right one. That is exactly why
+ * NAVIGATION cannot reuse this function — walking to the lowest-id bag when a nearer one is at your
+ * feet would look broken — and why `nearestEnemyStinkCloudWithin` below exists beside it.
  */
 export function enemyStinkCloudInReach(
   world: World,
@@ -619,6 +625,61 @@ export function enemyStinkCloudInReach(
     if (best === null || (c.id as unknown as number) < (best as unknown as number)) best = c.id;
   }
   return best;
+}
+
+/**
+ * ⭐ S159 P1 (owner R77) — **THE BAG A UNIT SHOULD WALK TO**, i.e. the AGGRO half of
+ * *"destructible stink bags as entities with aggro and on-destroy damage"*.
+ *
+ * NEAREST enemy bag within `radius`, lowest id on a true tie. The difference from
+ * `enemyStinkCloudInReach` above is the whole reason both exist: that one answers *"what can I hit
+ * from here"*, where any candidate is as good as another, so it takes the cheapest deterministic
+ * pick. This one answers *"where do I go"*, where the nearest is the only answer that does not look
+ * broken on screen.
+ *
+ * ⛔ WHY THIS IS A DERIVED SCAN AND NOT A COMMITTED `Creature` FIELD. The obvious build — the one
+ * this was carried forward as — is a taunt that writes a new `targetStinkCloudId`, mirroring the
+ * depleted tower's taunt (`stinkTower.ts` `stinkAggroTargets`). That tower taunt needs a field
+ * because it writes `targetPrimitiveId` and a tower HAS an anchor primitive to point at; a bag is
+ * not a primitive, so the shape of the carried-forward plan was a NEW serialized, hashed field on
+ * every creature in the game, plus its four wiring sites and a protocol bump.
+ *
+ * It buys nothing. `Creature.targetPrimitiveId`'s own docblock records the test for when a committed
+ * target must be STORED: when several sites must agree on it *within one tick*. For a bag they need
+ * not — engagement and the strike both re-derive from position (`creatureLifecycle`'s sixth clause
+ * and `creatureAttack`'s bag arm, both shipped in S158 A2 and both taking a reach, not an id), and
+ * navigation asks a different question at a different radius. And `GOBLIN_UNIT_LEASH_RADIUS`'s
+ * docblock records the test for when a committed target needs HYSTERESIS: when the target MOVES. A
+ * bag does not move, and a unit walking toward the nearest bag only makes that bag nearer, so this
+ * scan cannot oscillate. Same conclusion the castle march (`enemyCastleMarchPos`) and the castle /
+ * princess engagement clauses reached, in their own words: *"derived from position like the strike
+ * itself, so it costs no creature field."*
+ *
+ * Determinism: pure read, no RNG, no wall clock, squared distances (no sqrt), explicit id compare on
+ * an exact tie so V8 Map insertion order can never decide it.
+ */
+export function nearestEnemyStinkCloudWithin(
+  world: World,
+  creature: Creature,
+  radius: number,
+): StinkCloudId | null {
+  let bestId: StinkCloudId | null = null;
+  let bestDistSq = Infinity;
+  const r2 = radius * radius;
+  for (const c of world.stinkClouds.values()) {
+    if (c.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    const dSq = distSq(creature.pos, c.pos);
+    if (dSq > r2) continue;
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (c.id as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = c.id;
+    }
+  }
+  return bestId;
 }
 
 /**

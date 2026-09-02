@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3786,
+  "tool_calls_session_total": 3787,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -66,17 +66,97 @@
       "id": "P1",
       "priority_id": "S159-P1",
       "name": "bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property)",
-      "status": "in_progress",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "bag navigation aggro — R77's last unbuilt bag property, shipped as a DERIVED scan with no new Creature field, no serialization, no hash change and no protocol bump",
+      "tier": "Standard",
+      "check_method": "RALPH:PATROL + empirical. (1) MEASURED end-to-end, not asserted: a goblinMelee placed exactly one STINK_BAG_AGGRO_RADIUS (220 px) from an enemy bag walks to it and KILLS it at tick 184 of the bag's 240-tick life, with killCount 1 proving a strike rather than an expiry. (2) NEGATIVE CONTROL RUN: with the four-line steering insert removed, the bag EXPIRED instead at tick 210 with killCount 0 and TWO tests went red — so the test bites, and note that a naive 'the bag is gone' assertion would have passed the broken build. (3) The nearest-vs-lowest-id test asserts BOTH scans in one place (nearestEnemyStinkCloudWithin -> the near bag, enemyStinkCloudInReach -> the far one), so it can never degrade into a tautology. (4) Determinism: two identically-built worlds compared with hashWorldStateFull every tick for 240 ticks. (5) Full suite 3360/3360 across 213 files (was 3353/212) and tsc -b --noEmit exit 0 — the goblin navigation chain is shared by every goblin test, so a regression there would have surfaced. (6) DESIGN CLAIM VERIFIED BY ABSENCE: the carried-forward plan called for a new committed-target field on Creature (wire + hash + protocol bump). Two docblocks in the codebase decide it against that — targetPrimitiveId's ('several sites must agree within one tick') and GOBLIN_UNIT_LEASH_RADIUS's ('the target MOVES'). Neither holds for a bag: engagement and the strike both re-derive from position (S158 A2), and a bag does not move. So Creature is byte-identical and PROTOCOL_VERSION stays 38 — bound below as a file_lacks on creature.ts.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_BAG_AGGRO_RADIUS = GOBLIN_UNIT_ACQUIRE_RADIUS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "A bag lives\n * `STINK_CLOUD_LIFETIME_TICKS` = **4 seconds**"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function nearestEnemyStinkCloudWithin("
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "pattern": "nearestEnemyStinkCloudWithin",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "LOWEST ID WINS OUTRIGHT HERE, NOT MERELY ON A TIE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "const bagId = nearestEnemyStinkCloudWithin(world, creature, STINK_BAG_AGGRO_RADIUS);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "if (steerTo === null && bagId !== null) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "goingHome === null && (navUnit !== null || bagId !== null || nextPrim !== null)"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "pattern": "\\bbagId\\b",
+          "op": ">=",
+          "value": 4
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts",
+          "needle": "expect(g.killCount).toBeGreaterThanOrEqual(1); // KILLED, not expired"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 7
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creature.ts",
+          "needle": "targetStinkCloudId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 38 as const;"
+        }
+      ]
     },
     {
       "id": "P2",
       "priority_id": "S159-P2",
       "name": "Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred)",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -133,7 +213,18 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "S159-P1",
+      "lesson": "**THE CHEAPEST VERSION OF A CARRIED-FORWARD PLAN CAN BE A DIFFERENT PLAN.** Two sessions carried bag aggro as \"needs a new committed-target field on Creature (wire + hash + protocol bump)\" — reasoned by analogy with the tower taunt, which writes `targetPrimitiveId` because a tower HAS an anchor primitive. The analogy imported the tower's cost without re-testing its premise. The codebase had already written down both tests for when a committed target must be STORED (several sites must agree within one tick) and when it needs HYSTERESIS (the target moves); a bag fails both, so the feature is a derived scan and Creature is byte-identical. **Before paying a carried-forward cost, re-derive it — a handoff's SHAPE is a claim too, not just its numbers.**",
+      "tag": "#carried-forward-shape-is-a-claim"
+    },
+    {
+      "priority": "S159-P1",
+      "lesson": "**A NEGATIVE CONTROL IS WORTH MORE THAN THE ASSERTION IT PROTECTS.** With the four-line steering insert removed, the bag still DISAPPEARED — it expired on its own timer at tick 210 — so \"the bag is gone\" passes on a completely unwired build. What separates the two worlds is `killCount`: 1 when a unit struck it, 0 when it merely rotted. **Run the test against the broken build before believing the green one**, and prefer an assertion that names the MECHANISM over one that names the outcome, because outcomes have more than one cause.",
+      "tag": "#negative-control-before-believing-green"
+    }
+  ],
   "totals": {
     "budget_remaining": 1000000
   },

@@ -48,6 +48,7 @@ import {
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
   GOBLIN_SPREAD_RADIUS,
+  STINK_BAG_AGGRO_RADIUS, // S159 P1 — the AGGRO half of R77's landed bag
 } from '../constants.ts';
 import type { BotManager } from '../bots/botManager.ts';
 import type { Spawner } from '../game/spawner.ts';
@@ -74,6 +75,7 @@ import {
   isWithinAttackRange,
   killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
   enemyStinkCloudInReach, // S158 A2 — the sixth: a destructible landed bag (R77)
+  nearestEnemyStinkCloudWithin, // S159 P1 — and the bag a unit should WALK to (R77 aggro)
   distSq, // S158 P3 — the goblin bomber's arrival test (shape or acquired unit)
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
@@ -844,12 +846,41 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          */
         const goingHome = isRetreatWindow(world) ? ownHomePos(world, creature) : null;
 
-        // Steering priority: HOME if the fight is ending, else the acquired unit, else the committed
-        // shape, else — when the enemy has no shapes left standing — the enemy keep (owner R85).
+        /*
+         * ⭐ S159 P1 (owner R77) — **AND A LANDED STINK BAG PULLS, which is the "aggro" in R77's
+         * *"destructible stink bags as entities with aggro and on-destroy damage"*.**
+         *
+         * S158 A2 shipped the two halves that need no navigation: the bag has a pool, and it bursts
+         * when killed. It also wired the two clauses that let a unit ALREADY STANDING at one deal
+         * with it — the sixth engagement clause in `creatureLifecycle` and the bag arm in
+         * `creatureAttack`. Nothing walked to a bag, so the pull existed on paper only.
+         *
+         * ⚠ PLACED BELOW THE ACQUIRED UNIT AND ABOVE THE COMMITTED SHAPE, and that order is the
+         * design: the soldier swinging at you outranks the bag at your feet, and the bag at your
+         * feet outranks the wall you are marching on. Under HOME, like everything else — a retreat
+         * that detours to pop a bag is not a retreat (S154 P4).
+         *
+         * ⚠ THE GATE THIS DOES *NOT* NEED, stated because its sibling does. The depleted tower's
+         * taunt has to check `sourceSpawnerId` (a chewer mid-chew is glued to its bond by design)
+         * and `targetsStructures` (nothing else reads `targetPrimitiveId`). Neither applies here:
+         * this branch is ALREADY `targetsStructures`-only, and a chewer never enters it — so the
+         * provenance question is answered by which branch the creature took, not by a flag test.
+         * The consequence is the same one the taunt records: a Voltkin will sail past a bag, and a
+         * playtester should expect it.
+         */
+        const bagId = nearestEnemyStinkCloudWithin(world, creature, STINK_BAG_AGGRO_RADIUS);
+
+        // Steering priority: HOME if the fight is ending, else the acquired unit, else a landed
+        // enemy bag in the way (S159 P1), else the committed shape, else — when the enemy has no
+        // shapes left standing — the enemy keep (owner R85).
         let steerTo: Vec2 | null = goingHome;
         if (steerTo === null && navUnit !== null) {
           const quarry = world.creatures.get(navUnit);
           if (quarry !== undefined) steerTo = quarry.pos;
+        }
+        if (steerTo === null && bagId !== null) {
+          const bag = world.stinkClouds.get(bagId);
+          if (bag !== undefined) steerTo = bag.pos;
         }
         if (steerTo === null && nextPrim !== null) {
           const prim = world.primitives.get(nextPrim);
@@ -874,7 +905,11 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         const holdsRange = getCreatureConfig(creature.type).holdsRange;
         // ⚠ `goingHome` disqualifies the standoff: a retreating archer must reach its own tower, not
         // park 0.8×range short of it, and home is not something to stand off from.
-        const hasVictim = goingHome === null && (navUnit !== null || nextPrim !== null);
+        // ⭐ S159 P1 — a BAG counts as a victim for the standoff, or a ranged unit would walk into
+        // the very cloud it can already shoot from outside. `bagId` is only non-null inside
+        // STINK_BAG_AGGRO_RADIUS, so this cannot fire on a bag the unit is not going to.
+        const hasVictim =
+          goingHome === null && (navUnit !== null || bagId !== null || nextPrim !== null);
         if (steerTo !== null && holdsRange && hasVictim) {
           // ⚠ AND IT REPLACES THE TRANSLATIONAL SPREAD BELOW, rather than composing with it:
           // `standoffTargetPos` already scatters the squad by ROTATING along the ring, which keeps
