@@ -17,17 +17,18 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 1. One session = one objective = one exit gate. Anything else becomes a carry-forward.
 2. No `Math.random()` anywhere in sim code — seeded RNG only.
 3. A protocol bump costs SIX edits (`LOCKED_DECISIONS.md` § S150). Do all six or the gate reddens.
-4. Do not guess an owner ruling. §10 lists what is still open — **ask**.
+4. Do not guess an owner ruling. §11 lists what is still open — **ask**.
 
 **Before writing code, read:** `state/blueprints.ts` docblock (the import-side-effect trap),
 `state/goblinKinds.ts` docblock (why shared recipe data lives in leaf modules),
-`LOCKED_DECISIONS.md` § S150 (the bump checklist), and §9 of this file (the traps).
+`LOCKED_DECISIONS.md` § S150 (the bump checklist), and §10 of this file (the traps).
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R100
+## 1. OWNER RULINGS — R93 THROUGH R106
 
 Ruling numbers continue from R92, the highest on record at authoring time.
+**R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
 
 | # | Ruling |
 |---|---|
@@ -61,10 +62,9 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | Orange | `0xff8c1a` | **Orcs** | — | none |
 | Magenta | `0xd73bff` | **Demons** | — | none |
 
-⚠ **Two of these six races are unreachable today.** Default seat assignment (`buildMatchRoster`,
-`net/lobbyRoster.ts:126`) hands out `PLAYER_COLORS[denseSeat]`, and with `MAX_PLAYERS = 4` that only
-ever reaches seats 0–3 = crimson / cyan / yellow / green. **Orange (orcs) and magenta (demons) cannot
-be played at all until the selection screen ships.** That is the strongest single argument for Wave 1.
+Default seat assignment (`buildMatchRoster`, `net/lobbyRoster.ts:126`) hands out
+`PLAYER_COLORS[denseSeat]`, so today it only ever reaches seats 0–3. **The selection screen (W1-A)
+makes all six reachable** — that is what it is for. `PLAYER_COLORS[seat]` stays a default only (R45).
 
 ### The orc / goblin overlap — RESOLVED, recorded so it is not re-opened
 
@@ -133,7 +133,7 @@ seat, and the "a disabled control must say why" contract (`GATHERER_SPEED_UPGRAD
 
 Zombies buy hound spawn rate. Vampires buy lifesteal on the castle's attack. Nagas buy something
 aquatic/constricting. Mummies buy decay aura strength. Orcs buy warband size. Demons buy something
-infernal. *(The specific branch contents are §10-open — ask the owner.)*
+infernal. *(The specific branch contents are §11-open — ask the owner.)*
 
 > ⛔ **THE RULE THAT MAKES THIS SAFE: a race upgrade may modify behaviours and race-specific units,
 > and may NEVER modify HP, DEF, ATK or range.**
@@ -175,7 +175,7 @@ lobby can all import it without dragging a registration side effect across the c
 that caused it looked wrong*).
 
 **`Record<RaceId, …>` everywhere, never an array literal of ids.** A `Record` is
-exhaustiveness-checked by tsc; an array is not. See §9 trap 1 for what that has already cost.
+exhaustiveness-checked by tsc; an array is not. See §10 trap 1 for what that has already cost.
 
 ---
 
@@ -356,9 +356,9 @@ serialized literal, so six separate landings cost six bumps.
 1. A `GodlyId` literal (`state/godlyRecipes/types.ts`) — **serialized**.
 2. A recipe module + predicate + `registerRecipe` at its tail.
 3. A `Blueprint` entry in `state/blueprints.ts` **`BLUEPRINTS`** — *and* in **`ALL_BLUEPRINT_IDS`**
-   (see §9 trap 1).
+   (see §10 trap 1).
 4. A defender or spawner config + a stat line in `state/stats.ts`.
-5. **Codex copy** in `render/codexPresentation.ts` `CODEX_COPY` (see §9 trap 2).
+5. **Codex copy** in `render/codexPresentation.ts` `CODEX_COPY` (see §10 trap 2).
 6. Art.
 7. Tests: the blueprint stamps, ignites, and survives re-validation; the bill matches the predicate.
 
@@ -371,7 +371,7 @@ still build all seven global towers. The second half is the regression that prov
 replacing actually held.
 
 **Tier placement is a design choice, not a rule.** Put each race's signature tower at whatever shape
-count suits its fantasy. §10 records that the owner has not assigned these yet.
+count suits its fantasy. §11 records that the owner has not assigned these yet.
 
 **Exit gate.** Six race towers, each buildable only by its race, each igniting and surviving
 re-validation; all seven global towers still buildable by everyone; one bump, six sites, green.
@@ -404,7 +404,136 @@ tower in a real match than from a thirty-tower spec.
 
 ---
 
-## 9. THE TRAPS — every one of these has already cost this project a session
+## 9. THE TECH DRAFT — a choice every 5 waves (R101–R106)
+
+**Owner, 2026-09-02:** *"every 5 rounds there is an upgrade offered to each player that has one race
+unique option and one general... then another upgrade after 10th round fight. then again at 15. etc."*
+
+⭐ **This delivers more race identity per unit of work than Wave 3 does, and it is cheaper by two
+orders of magnitude.** Four of the six race perks are ONE-CONSTANT changes. Every perk buffs content
+that already ships, so **the whole system works before a single race tower exists** — it is
+implementable inside Wave 1. Sequence it accordingly.
+
+### 9.1 The rulings
+
+| # | Ruling |
+|---|---|
+| **R101** | **THE TECH DRAFT.** At the end of every 5th wave's FIGHT — waves **5, 10, 15, 20, …**, recurring with no ceiling — each player is offered **TWO options** and picks **one**: a **general** upgrade (identical for every race) and a **race-unique** one. |
+| **R102** | **THE SIX RACE PERKS**, as the owner specified them — see §9.3. |
+| **R103** | **SUB-DRONES ARE ONE GENERATION.** A naga carpet drone's children do **not** themselves split. Stated because the code must enforce it, not because it was ever in doubt. |
+| **R104** | **NO OVERLAP BETWEEN THE TWO PROGRESSION SYSTEMS.** Castle upgrades (R96/R97) modify **the castle**. The tech draft modifies **the army and the towers**. Neither may touch the other's numbers. Two systems that can both move the same value make balance unarguable. |
+| **R105** | **A ZOMBIE REVIVES AT 1 HP FLAT, not at 10% of max.** The owner said 10%; the arithmetic does not exist — see §9.4. 1 HP is the same fantasy ("it gets back up, barely"), is an integer, and works for every unit. |
+| **R106** | **THE DRAFT NEVER BLOCKS THE SIM.** A player who does not choose before the BUILD phase ends is auto-assigned the **general** option. See §9.5. |
+
+### 9.2 ⚠ THE INTERVAL IS RULED AT 5 — the one thing to MEASURE, not to re-argue
+
+One wave = BUILD + FIGHT = `2 × PHASE_DURATION_TICKS` = 180 s. So the first draft lands **~15 minutes
+in**, the second at 30. Whether a real match reaches wave 5 is unknown — the balance pass (S157+)
+has not run, and the win threshold is 1500 points.
+
+**Do not change the number.** Ship it at 5 as a NAMED CONSTANT (`TECH_DRAFT_WAVE_INTERVAL = 5`) and
+report, in the balance pass, how many drafts a real match actually fires. If the answer is zero, that
+is a tuning input for the owner — not a licence to redesign the feature.
+
+### 9.3 The perk table (R102)
+
+| Race | Race-unique perk | Touches | Cost |
+|---|---|---|---|
+| **Vampires** | Pencil chewers spawn **50% quicker** | `SPAWN_INTERVAL_TICKS` (pentagram) | one constant |
+| **Mummies** | Stink tower and stink bags get **+50% radius** | `STINK_TOWER_ATTACK_RANGE` + bag radius | one constant |
+| **Nagas** | **Carpet drones** — a lightning drone's suicide spawns **2 smaller drones** that fly further out and explode. Visually identical at **50% scale**, **25% of the parent's stats**. | `droneLifecycle.ts` + a new spawn-on-death path | **real work** |
+| **Orcs** | Each goblin tower allows **15** spawned goblins instead of 10 | the goblin population cap | one constant |
+| **Zombies** | Each dead spawned unit **comes back to life once** at 1 HP (R105) | the creature death path | **real work** |
+| **Demons** | Voltkin becomes **DEMONIC VOLTKIN** — **×2 ATK**, and its lightning renders **red and black** | `VOLTKIN` atk + the arc-flash palette | one constant + a palette |
+
+**The general track** is one option per draft, identical for every race. The owner's example is
+*"increase all spawned unit ATK by 10%"*. Later drafts need their own general options — §11 open.
+
+⭐ **Every perk buffs a GLOBAL tower** — pentagram, stink tower, lightning hub, goblin tower, Voltkin.
+That is what makes the system shippable early. **The deliberate consequence: each race is pulled
+toward a build.** The mummy plays stink-heavy, the orc plays goblin-swarm, the demon rushes Voltkin.
+This narrows strategy per race and widens it across races, which is the RTS idiom the project is
+drawing from. Recorded as intent so a later session does not "fix" it.
+
+**Ship the four one-constant perks as one batch.** Nagas and zombies get their own priorities.
+
+### 9.4 ⛔ WHY 10% OF MAX HP DOES NOT EXIST IN THIS GAME (the reason for R105)
+
+`CHEWER_HP = 1`. Goblins are **also 1** — S151 P2 took them 6 → 1 (*"the goblin stops being the
+backbone, and becomes chewer-fragile"*). 10% of 1 is 0.1.
+
+`damageEntity` **throws** on a non-integer amount, by design: the whole stat system is expressed in
+integer FIFTHS (`state/stats.ts`) precisely so no float ever reaches the damage path, because the host
+and the `?worker=1` mirror must agree bit-for-bit. So "10% of max HP" either truncates to **0** (the
+unit revives dead) or rounds to **1** (a *full* resurrection, since max is 1). Voltkin at 8 HP gives
+0.8, which is not an integer either.
+
+**1 HP flat. Not a percentage. Not a rounding rule.**
+
+### 9.5 The mechanics — decided, and overridable
+
+Four calls made here rather than left open, each marked `[CLAUDE — overridable]` in the repo's own
+convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
+
+- **WHEN it fires** `[owner-ruled]` — at the **BUILD edge** following wave 5/10/15's FIGHT. Never
+  mid-fight: you choose during the sealed, calm build stage, which is also where the walls are up.
+- **VISIBILITY** `[CLAUDE — overridable]` — **public.** Every player sees what every other player
+  took, on the HUD beside the wave counter. Hidden asymmetric power inside a 90-second fight is
+  unreadable, and the whole point of races is that opponents adapt to them.
+- **NO-CHOICE** `[CLAUDE — overridable, and R106 makes it non-negotiable in principle]` — a player
+  who has not chosen when BUILD ends is auto-assigned the **general** option. The sim must never wait
+  on a human: an AFK seat, a dropped peer mid-migration, or a bot with no handler would otherwise
+  stall every other player's match.
+- **BOTS CHOOSE TOO** `[CLAUDE — overridable]` — a bot picks its race option by default. A bot that
+  never drafts falls permanently behind and makes VS-BOTS progressively meaningless.
+- **STACKING** `[CLAUDE — overridable]` — perks are **cumulative and permanent for the match**. Wave
+  10's pick does not replace wave 5's. With a recurring interval and no ceiling, this is the only
+  reading that makes late waves matter.
+
+### 9.6 Wire and determinism
+
+- **`waveNumber` ALREADY EXISTS AND IS ALREADY HASHED** (`worldTypes.ts:583`, `stateHashFull.ts:134`),
+  serialized, and displayed next to the timer — S157 B8 built it. It increments on entry into BUILD
+  (`hostTick.ts:302`). **No new counter is needed.** ⚠ Read its docblock first: it explains why the
+  wave number is STORED and cannot be derived from `tick / phase length` (`applyStartGame` does not
+  reset `world.tick`, so a second match in the same page session would compute garbage).
+- **The chosen perks are hashed sim state.** They change damage, spawn rates and populations, so two
+  peers holding different perk sets diverge within a tick. A per-seat perk set on `Player` (the
+  `raidPoints` precedent) is serialized; the perks themselves must contribute to the wide hash.
+- **A `CHOOSE_TECH` client intent**, added to `CLIENT_INTENT_TYPES`, host-authoritative. **Protocol
+  bump** — a stale peer would reject the message outright and its seat could never draft while
+  another seat could.
+- **The zombie revive needs a serialized `hasRevived` flag on `Creature`** so a unit cannot revive
+  forever. That is an additive wire field on a family that serializes at full fidelity — bump.
+- ⚠ **The revive must not fire inside `pendingCreatureDeaths`.** That set is a one-tick deferral,
+  explicitly never serialized and never hashed (`'acknowledged'` in `FIELD_COVERAGE`): `runHostTick`
+  opens it before the creature loop and sweeps it immediately after. A resurrection hooked into the
+  wrong side of that sweep is exactly how host and worker diverge. Prove parity with a differential
+  test across a full BUILD→FIGHT→BUILD cycle with revives firing.
+- ⚠ **The chewer caps are OFF** — `CHEWER_MAX_GLOBAL / PER_SPAWNER / PER_VICTIM` are all `10_000`
+  sentinels (S157 B8b, owner: *"no cap — a tower never stops emitting"*). The vampire perk is
+  therefore **+50% on an uncapped emitter**. Not a blocker; it is the one perk whose population curve
+  must be measured rather than assumed.
+- ⚠ **The orc cap is documented as LOAD-BEARING, not cosmetic** (`constants.ts:1312`):
+  `GOBLIN_MELEE_CONFIG.persistent = true`, so goblins never age out. Raising 10 → 15 is fine; removing
+  the ceiling is not.
+
+### 9.7 Tests
+
+- Unit: the draft fires at waves 5, 10, 15 and **not** at 4, 6, 9 — driven through the real
+  `hostTick` wave edge, not by calling the trigger directly.
+- Unit: a perk set round-trips through save/load and through the wire; a joiner mid-match sees every
+  seat's perks.
+- Unit: the no-choice deadline auto-assigns the general option and the phase advances **on time**
+  (this is the R106 test — it proves the sim never waits).
+- Unit: a naga sub-drone does **not** split (R103), and a zombie revives exactly **once** (R105).
+- Differential: host vs `?worker=1` mirror agree bit-for-bit across a cycle with a revive, a carpet
+  drone detonation and a demonic Voltkin zap all firing.
+- Tripwire: **no tech perk modifies a castle stat** (R104), mirroring the R97 tripwire in §3.3.
+
+---
+
+## 10. THE TRAPS — every one of these has already cost this project a session
 
 1. **⛔ `ALL_BLUEPRINT_IDS` IS HAND-WRITTEN AND HAS ALREADY SPRUNG.** S151 P3 added `goblinTower` to
    the `BLUEPRINTS` record — so `blueprintFor` resolved it, it ignited, it tore down correctly, and
@@ -442,7 +571,7 @@ tower in a real match than from a thirty-tower spec.
 
 ---
 
-## 10. STILL GENUINELY OPEN — ASK, DO NOT GUESS
+## 11. STILL GENUINELY OPEN — ASK, DO NOT GUESS
 
 Each of these has a workable default above, but the owner has not ruled. `CASTLE_BUILD_SPACE_DESIGN.md`
 already carries a ⚠ ASK marker for exactly this class of question, and it was honoured — honour it here.
@@ -464,10 +593,16 @@ already carries a ⚠ ASK marker for exactly this class of question, and it was 
    collisions at 4–6 players? R100 rules white out.
 8. **Can a race be picked twice** in a match (two zombie players), or is it exclusive? W1-A assumes
    **exclusive**; say so if that is wrong, because it changes the claim protocol.
+9. **The GENERAL track beyond the first draft.** The owner gave one: *"increase all spawned unit ATK
+   by 10%."* Waves 10, 15, 20… each need their own general option. Does the general track repeat the
+   same +10% (compounding), or is it a distinct list?
+10. **The RACE track beyond the first draft.** R102 gives one perk per race. A recurring draft with no
+    ceiling needs a perk per race per draft — or the race option runs out and the choice collapses to
+    "general or nothing". **This is the one that bites soonest**: it becomes real at wave 10.
 
 ---
 
-## 11. DEPENDENCY ORDER
+## 12. DEPENDENCY ORDER
 
 ```
 W1-A race field + selection ──► W1-B castle art ──► W1-C passive spawn ──► W1-D upgrades L1
@@ -475,24 +610,33 @@ W1-A race field + selection ──► W1-B castle art ──► W1-C passive spa
       │                                                    └── the one mechanical difference
       └── everything downstream needs raceId on the wire
 
+W1-A ──► W1-E THE TECH DRAFT (§9) ──┐   needs ONLY raceId; every perk buffs content that
+         4 cheap perks + the shell  │   already ships, so it does NOT wait for W2 towers
+                                    │
 W1 complete ──► W2 six signature towers ──► [PLAYTEST] ──► W3 the grid, tier by tier
                                                   │
-                                                  └── Layer 2 race upgrades + real attack geometry
-                                                      land here, on measurement
+                                                  └── Layer 2 race upgrades, the naga + zombie
+                                                      perks, and real attack geometry land here,
+                                                      on measurement
 ```
 
 Every arrow is a hard dependency. **W1-A is first and almost alone** — every later surface reads
 `raceId`. The playtest gate before W3 is not optional: it is the whole reason for R98's wave sizing.
 
+⭐ **The tech draft is the highest identity-per-effort item in this document.** It needs `raceId` and
+nothing else, and four of its six perks are single constants. If the schedule slips, build it before
+the signature towers, not after.
+
 ---
 
-## 12. THE ONE-PARAGRAPH SUMMARY
+## 13. THE ONE-PARAGRAPH SUMMARY
 
-Six races, one per player colour, chosen in a real selection screen that also makes orange and magenta
-reachable for the first time. Every castle starts identical at 1500 HP and stays stat-identical
-forever; races differ in how they look, what their castle passively spawns, which unique towers they
-can build, and which upgrade branch they can buy into. Victory points buy castle upgrades on a
-universal ladder every race shares, plus a race-only branch that may never touch a shared stat axis —
-and because victory points are also the win condition, upgrading is a genuine trade against winning.
-Ship identity first, then one signature tower per race, then the full per-tier grid only after the
-owner has actually played it.
+Six races, one per player colour, chosen in a real selection screen that makes all six playable. Every
+castle starts identical at 1500 HP and stays stat-identical forever; races differ in how they look,
+what their castle passively spawns, which unique towers they can build, which upgrade branch they can
+buy into, and — every fifth wave — which of two offered perks they draft. Victory points buy castle
+upgrades on a universal ladder every race shares, plus a race-only branch that may never touch a
+shared stat axis; and because victory points are also the win condition, upgrading is a genuine trade
+against winning. The tech draft is separate, free, and touches only the army and the towers, never the
+castle. Ship identity and the draft first, then one signature tower per race, then the full per-tier
+grid only after the owner has actually played it.
