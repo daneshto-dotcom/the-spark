@@ -25,7 +25,7 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R124
+## 1. OWNER RULINGS — R93 THROUGH R126
 
 Ruling numbers continue from R92, the highest on record at authoring time.
 **R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
@@ -56,6 +56,8 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | **R122** | **THE TIER-3 TOWERS GET THEIR OWN DRAWN ART**, one per race, appropriate to that race. Not just the three coloured primitives. **+6 to the art manifest.** |
 | **R123** | **RACE UNITS LIVE UNTIL KILLED. NO TIMER, NO PER-PLAYER CAP.** Owner: *"they don't need an expire timer, that's stupid — just live until killed."* Survivors **always** return home and shelter, exactly as goblins and chewers do today. **The governor is FIGHT ATTRITION, not a ceiling** — owner: *"what stops an army growing forever? the enemies having also armies growing forever. so they kill each other."* The `persistent: true` model, same as `GOBLIN_MELEE_CONFIG`. |
 | **R124** | **THE CAP LIVES ON THE TOWER, NOT THE PLAYER.** A tier-3 tower holds ~10 of its race's unit, on the goblin-tower precedent — *"then they'll make people build multiple of those."* The **castle** emitter is uncapped and keeps producing regardless. `[CLAUDE — overridable]` 10, matching `GOBLIN` exactly rather than inventing a second number. |
+| **R125** | **THE RACE UNIT STAT LINE IS 1 / 1 / 1 / 1** — 1 HP, 1 DEF, 1 ATK, 1 PEN, identical for all six races (R117). Owner: *"it should be really simple… even weaker than a pencil chewer… it's only three connectors worth."* **Verified against the live roster in §9C — the numbers do what he intended.** |
+| **R126** | **WAVES 10/15/20 SHIP THE GENERAL OPTION ONLY, until the race perks are decided.** Owner: *"we can do placeholders… have them already produce the general one and a placeholder [race] which is nothing."* ⚠ Built as a **single-option draft**, not a two-option draft with a dead button — see §9.5. |
 | **R118** | **A DRAFT OPTION GRANTS +1 POINT ON ITS AXIS.** The owner proposed *"instead of ten percent we'll do twenty percent"* — and on DEF and PEN he is **exactly right**: the ladder is `1 + 0.2n`, so +1 point IS +20%, with no rounding anywhere. On HP and ATK a percentage is a category error (they are integer counts, not scales), and +1 point is the smallest step that exists. Full derivation in §9.8. |
 | **R115** | **VAMPIRE CHEWERS LOOK VAMPIRIC** — red teeth and/or blood dripping where they walk. The chewer renderer must therefore know its owner's race. Render-only (race already rides on `Player`), and **scoped to vampires only** — this is not a licence to re-skin every shared unit per race. |
 
@@ -440,25 +442,21 @@ the design paying off.
 This collapses "six bespoke towers" into **one tower pattern instantiated six times.** It is by far
 the cheapest version of Wave 2 and it is the owner's own design.
 
-### ⛔ ONE REAL RECIPE COLLISION — THE VAMPIRE TOWER AND THE PENTAGRAM
+### ⚠ PREDICATE HYGIENE — THE VAMPIRE TOWER AND THE PENTAGRAM SHARE A FAMILY
 
-**`pentagram` is a closed ring of 5 Triangles, each degree exactly 2. The vampire tower is a closed
-ring of 3 Triangles, each degree exactly 2.** Same primitive, same topology, different count — the
-only thing separating them is `n`.
+**Not a design collision — the owner is right that a 3-ring and a 5-ring are plainly different
+towers.** It is a two-line implementation note, recorded because it is the kind of thing that ships
+green and wrong.
 
-Check the other five before assuming this is the only one. It is: mummies are a Line ring (the laser
-turret is a Line HUB with 6 leaves), nagas a Square ring (Voltkin is a Square/Triangle CHAIN), orcs a
-Dot ring (the lightning hub is a Dot HUB), demons a Spiral ring (no Spiral-hub recipe exists), zombies
-a Circle ring (both the goblin tower and stink tower are HUB stars). **Vampires are the sole clash.**
+`pentagram` is a closed ring of 5 Triangles at degree exactly 2; the vampire tower is a closed ring of
+3 Triangles at degree exactly 2. Same primitive, same topology, separated by `n`. Every other race
+tower is unambiguous: mummies a Line ring (the laser turret is a Line HUB), nagas a Square ring
+(Voltkin is a CHAIN), orcs a Dot ring (the lightning hub is a Dot HUB), demons a Spiral ring (no
+Spiral-hub recipe exists), zombies a Circle ring (goblin and stink towers are HUB stars).
 
-Two things this demands, and `pentagram.ts` already documents why the second one matters — it is the
-one recipe where an extra bond is *fatal* rather than tolerated:
-
-1. **Both predicates must assert an EXACT node count**, not a minimum. A 5-ring must not satisfy the
-   3-ring test, and adding two Triangles to a vampire tower must not silently transmute it into a
-   pentagram.
-2. **A test that builds each and asserts the other does NOT ignite** — in both directions. Without it,
-   this fails exactly the way the goblin tower failed: everything green, wrong thing on the board.
+So: **both predicates assert an EXACT node count**, and **one test builds each and proves the other
+does not ignite.** Cheap, and it forecloses the failure mode the goblin tower already demonstrated —
+a fully working tower that appeared as the wrong thing, with every test green.
 
 ### 7.3 ⚠ THE SUBMERGED NAGA IS AN ENGINEERING SURFACE, NOT A RENDER TOGGLE (R121)
 
@@ -580,8 +578,14 @@ axes in order:
 the ladder steps by 0.2 per point. On HP and ATK a "percentage" is a category error — they are integer
 counts, and +1 is the smallest step that exists. Full reasoning in §9.8.
 
-**The race track past wave 5 is deliberately unwritten (R112).** Build wave 5, then ask. This is a
-named trigger, not a gap.
+**The race track past wave 5 is deliberately unwritten (R112).** Build wave 5, then ask.
+
+⛔ **AND WAVES 10/15/20 MUST NOT SHIP A DEAD BUTTON (R126).** The owner asked for the general option
+live with a race "placeholder which is nothing" — but a two-option draft where one option does nothing
+is not a choice, it is a broken screen every player learns to ignore. Build it as a **single-option
+draft**: at a wave with no race perk defined, present the general option alone and grant it. The code
+path already exists — R106 auto-assigns the general on no-choice — so this is a UI state, not a second
+mechanism. When the race perks are decided, the second option simply appears.
 
 ⭐ **Every perk buffs a GLOBAL tower** — pentagram, stink tower, lightning hub, goblin tower, Voltkin.
 That is what makes the system shippable early. **The deliberate consequence: each race is pulled
@@ -700,6 +704,35 @@ finer relative steps — **never to introduce a fractional buff.** `damageEntity
 non-integer amount by design, and a rounded float would diverge the host from the `?worker=1` mirror
 invisibly until a desync surfaced somewhere unrelated. That is the defect the fifths system exists to
 prevent. This is a balance-pass item, not a licence.
+
+---
+
+## 9C. THE RACE UNIT STAT LINE, VERIFIED AGAINST THE LIVE ROSTER (R125)
+
+`1 HP · 1 DEF · 1 ATK · 1 PEN`, identical for all six races. Worked through `state/stats.ts` — every
+figure below is in FIFTHS and exact.
+
+| Unit | HP | DEF | **Effective HP** | ATK | PEN | **Damage dealt** |
+|---|---|---|---|---|---|---|
+| **Race unit (R125)** | 1 | 1 | **6** | 1 | 1 | **6** |
+| Pencil chewer | 1 | 0 | 5 | 1 | 2 | 7 |
+| Goblin melee | 1 | 2 | 7 | 2 | 1 | 12 |
+| Goblin archer | 1 | 1 | 6 | 2 | 2 | 14 |
+| Goblin shield | 2 | 3 | 16 | 1 | 0 | 5 |
+| Goblin hound | 1 | 0 | 5 | 3 | 2 | 21 |
+
+**The owner's intent holds, and the reading is sharper than "weaker than a chewer".**
+
+- ⭐ **Offensively it is the FLOOR of the entire roster** — 6 fifths, below the chewer's 7 and less
+  than a third of the goblin hound's 21. Exactly right for a free unit off a 3-shape tower.
+- ⭐ **Defensively it dies in ONE HIT to literally everything on the board**, chewers included
+  (7 ≥ 6). There is no attacker in the game it survives.
+- It one-shots a chewer (6 ≥ 5) and another race unit (6 ≥ 6), and it does NOT one-shot a goblin melee
+  (6 < 7) or a shield (6 < 16). A coherent bottom rung.
+- ⚠ The single nuance: `DEF 1` makes it nominally *tougher* than a chewer (6 vs 5), which reads
+  against "even weaker". **In practice that point buys nothing** — everything one-shots it at either
+  value — so `1/1/1/1` and `1/0/1/1` are behaviourally identical today. Keeping the owner's `1/1/1/1`;
+  flagged only so nobody later "corrects" it as a typo.
 
 ---
 
