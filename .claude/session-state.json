@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3627,
+  "tool_calls_session_total": 3726,
   "session_id": "S158",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run: P1 TURN reaches production, P2 flaky deploy-gating test, P3 goblinSuicide drone-path, P4 godly abort latch, P5 Voltkin cinematic once per game, P6 landed stink bag entity, P7 killable Helga, P8 housekeeping",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-01_PDR_S158_BATCH_IN-PROGRESS.md",
-  "session_status": "IN_PROGRESS",
+  "session_status": "READY_FOR_HANDOFF",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -200,7 +200,7 @@
       "tier": "Standard",
       "check_completed": true,
       "checkpoint_commit": "b1ccce3",
-      "check_method": "CF-S157-e CONFIRMED AT SOURCE, not inherited: GOBLIN_SUICIDE_CONFIG sets BOTH selfExplode:true and targetsStructures:true, and hostTick.ts tested selfExplode FIRST, so the terrorist goblin took the lightning drone's branch end to end - homed on CONNECTORS instead of shapes, detonated via applyDroneExplode (which severs bonds and never reads atk/pen, so its 4 ATK / 0 PEN applied to NOTHING), and used DRONE_EXPLODE_RADIUS 110px instead of its own 70px. Read applyDroneExplode in full to confirm it touches world.bonds and nothing else. FIX IS A CONJUNCT NOT A REORDER (selfExplode && !targetsStructures) because the shipped drone/Voltkin/chewer selection code's byte position is pinned by creatureAI.test.ts, hostTick.differential.test.ts and save.replay.test.ts - lightningDrone is targetsStructures:false so every existing creature is byte-identical. SECOND HALF: the arrival test needed the same split - a goblin bomber's targetBondId is forced null by the structure-attacker branch so it could never be 'in range' and would fly until its FUSE expired, which is HOW it reached applyDroneExplode. New host-internal SUICIDE_BLAST reducer (absent from CLIENT_INTENT_TYPES; emits only the already-mirrored BOMB_EXPLODE, so zero wire surface and NO protocol bump). MUTATION-TESTED: reverting both halves turns the two host-tick-driven tests RED (commits-to-a-shape, arrives-and-reduces-hp); restored -> 11/11. Includes a CONTROL that the drone still commits to connectors and still severs them, and a same-world double-run agreeing on hashWorldStateFull for 200 ticks. FLAGGED FOR THE OWNER: R77 gives 4 ATK / 0 PEN, a UNIT stat, and says nothing about what one blast does to a SHAPE; rather than invent a balance number the blast deals GOBLIN_DAMAGE_VS_PRIMITIVE - exactly one ordinary goblin strike - to every enemy shape in radius. tsc clean; 3255/3255; bundle 754.9/900 KiB.",
+      "check_method": "CF-S157-e CONFIRMED AT SOURCE, not inherited: GOBLIN_SUICIDE_CONFIG sets BOTH selfExplode:true and targetsStructures:true, and hostTick.ts tested selfExplode FIRST, so the terrorist goblin took the lightning drone's branch end to end - homed on CONNECTORS instead of shapes, detonated via applyDroneExplode (which severs bonds and never reads atk/pen, so its 4 ATK / 0 PEN applied to NOTHING), and used DRONE_EXPLODE_RADIUS 110px instead of its own 70px. Read applyDroneExplode in full to confirm it touches world.bonds and nothing else. FIX IS A CONJUNCT NOT A REORDER (selfExplode && !targetsStructures) because the shipped drone/Voltkin/chewer selection code's byte position is pinned by creatureAI.test.ts, hostTick.differential.test.ts and save.replay.test.ts - lightningDrone is targetsStructures:false so every existing creature is byte-identical. SECOND HALF: the arrival test needed the same split - a goblin bomber's targetBondId is forced null by the structure-attacker branch so it could never be 'in range' and would fly until its FUSE expired, which is HOW it reached applyDroneExplode. New host-internal SUICIDE_BLAST reducer (absent from CLIENT_INTENT_TYPES; emits only the already-mirrored BOMB_EXPLODE, so zero wire surface and NO protocol bump). MUTATION-TESTED: reverting both halves turns the two host-tick-driven tests RED (commits-to-a-shape, arrives-and-reduces-hp); restored -> 11/11. Includes a CONTROL that the drone still commits to connectors and still severs them, and a same-world double-run agreeing on hashWorldStateFull for 200 ticks. FLAGGED FOR THE OWNER: R77 gives 4 ATK / 0 PEN, a UNIT stat, and says nothing about what one blast does to a SHAPE; rather than invent a balance number the blast deals GOBLIN_DAMAGE_VS_PRIMITIVE - exactly one ordinary goblin strike - to every enemy shape in radius. tsc clean; 3255/3255; bundle 754.9/900 KiB. *** S158 P3b (owner ruling on the number P3 flagged): 'the 4atk against units + 4 atk against structures/structur connectors'. Three targets, ONE number. Units keep attackFifths(4,0)=20 fifths; shapes now take 334 via a new primitiveDamageForAtk that GENERALISES the bridge that already existed (a goblin's 2 atk is 167, chosen so six swings fell a shape) - three blasts fell a shape; connectors take 20 fifths, cutting anything in a component of 16 or fewer. The connector arm lives on THIS creature, not in applyRadialDamage, whose own note refuses a general connector arm because 'one potato could shred a fortress' - that reasoning stands for area damage in general and not against an explicit ruling about one named unit.",
       "verification": [
         {
           "type": "file_exists",
@@ -241,6 +241,16 @@
           "pattern": "type: 'DRONE_EXPLODE'",
           "op": "==",
           "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stats.ts",
+          "needle": "export function primitiveDamageForAtk"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts",
+          "needle": "AND THE CONNECTORS."
         }
       ],
       "pdr_approved": true,
@@ -460,7 +470,7 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "      defenderInReach)"
+          "needle": "const defenderInReach ="
         },
         {
           "type": "file_contains",
@@ -562,12 +572,48 @@
     {
       "id": "A2",
       "title": "A landed stink bag is DESTRUCTIBLE, pulls AGGRO and deals on-destroy damage (R77)",
-      "status": "pending",
+      "status": "completed",
       "tier": "Full",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": [],
+      "check_completed": true,
+      "checkpoint_commit": "4cbf69b",
+      "check_method": "R77's deferred list, verbatim: 'destructible stink bags as entities with aggro and on-destroy damage', plus STINK_BAG_ATK's own comment carrying the owner's 'a bag deals 1atk 1pierce when destroyed'. P6 shipped the entity PASSIVE. Added a pool (ehp, fifths, off the shared ladder), a stinkCloud arm in damageEntity that removes it and BURSTS, wire+hash with PROTOCOL 37->38 (REQUIRED not optional: a v37 peer would rehydrate every damaged bag at full pool), and a targeting path. THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER - a player must not be able to safely clear their own minefield. *** THE FOUR-SITES WARNING IN creatureLifecycle CAUGHT ME TWICE IN ONE SESSION. *** It says adding a new thing to attack means touching the engage predicate, the ABORT predicate, the host-tick fire gate and the strike. S158 P7 (Helga) and A2 (the bag) each did THREE. P7's tests stayed green exactly as that note predicts, because every fixture planted Helga on her own hub - an enemy PRIMITIVE - so primitiveValid carried the goblin through the window by accident. The bag has no such accident and a probe caught it: ATTACKING with ticksInState pinned at 0 while the bag sat at full pool. HONEST LIMIT, written into the test: deleting the defenderValid arm does NOT redden the Helga test, because primitiveValid checks only that the committed shape EXISTS, not that it is in range. The arm is kept and the test says plainly that it pins the behaviour rather than that arm; the stink-bag end-to-end IS arm-sensitive and mutation-proven. ALSO fixed a vacuous test of my own: the first end-to-end ran 400 ticks against a 240-tick bag lifetime, so the bag expired on its own timer and passed with the strike arm deleted. ONE NUMBER IS MINE AND FLAGGED: R77 gives the bag's on-destroy ATK/PEN but never its durability; 1 hp / 0 def makes it a tactical object rather than a wall.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
+          "needle": "  ehp: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
+          "needle": "case 'stinkCloud': "
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function enemyStinkCloudInReach"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "      !stinkCloudValid;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "      !defenderValid &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_BAG_HP = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A2: 37->38 (DESTRUCTIBLE STINK BAGS"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -637,12 +683,31 @@
     {
       "id": "B1",
       "title": "Multiplayer: one workstation reaches Israel and another on the SAME LAN does not",
-      "status": "pending",
+      "status": "completed",
       "tier": "Full",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": [],
+      "check_completed": true,
+      "checkpoint_commit": "3f556ea",
+      "check_method": "Owner: from one workstation he reached his brother in Israel; from another ON THE SAME LAN, quickmatch could not FIND the game and the room code would not connect. THAT REPORT RULES OUT THE ASSUMED CAUSE: two machines behind one router share every property ICE cares about, so if TURN or NAT were the difference BOTH would fail. The layer BOTH symptoms share is the matchmaking relays - quickmatch advertises the room over them and a code join exchanges its offer over them - so a machine that cannot reach them fails at exactly those two things. The S158 P1 self-test probes ICE only and would have printed the same thing twice on both machines. Added relayProbe (pure summarizeRelays + injectable socket sweep) and wired both halves into the one button, with the RELAY verdict LEADING when it fails - without a matchmaking server the game never reaches the stage the ICE verdict describes. SOME relays unreachable is still OK and says so, because the list is deliberately spread across independent operators; only ZERO is loud, and its text names the two-machine case explicitly. VERIFIED LIVE IN A REAL BROWSER, not just unit-tested: relays 7/7 reachable from this machine, ICE host:1 srflx:1 relay:0 (the S157 finding, still true), and the panel renders both verdicts in the lobby (screenshot taken). Those are the baseline numbers to compare against the other workstation.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "probeRelays(relays)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts",
+          "needle": "SAME network"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -653,32 +718,37 @@
       "status": "completed",
       "tier": "Standard",
       "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'the lighning drone tower is not producing or spawning suicide drones'. MEASURED FIRST through the real host tick plus the real ignition path: it DOES produce - emits at ticks 900/1800/2700 and self-destructs at 3600. Reporting 'works, closing' would have been true and useless: against a 45s FIGHT (FIGHT_PHASE_TICKS 2700) that is the first drone 15s in, the second at 30s, the third AT the phase edge - about two briefly-visible drones for a six-shape structure. THE CADENCE WAS INHERITED, NOT CHOSEN: the constant read '= SPAWN_INTERVAL_TICKS // reuse the chewer cadence', and TWO of its three readers skipped even that alias and named the chewer constant outright - the registration seed (spawnerLifecycle) and the BUILD phase-gate re-alignment (hostTick). So the FIRST drone was one chewer-interval out AND a hub crossing the phase edge stood silent up to 15s into the fight it was built for; the cadence fix alone would not have been felt. ONE shared spawnerIntervalTicks now, and 900->300 so all three drones plus the self-destruct land inside one fight. Also corrected a constants comment claiming the hub gate is '>=, not ==' when the code has always tested an exact match - how a player concludes a near-miss build should have worked. MUTATION-TESTED three ways; one mutation initially PASSED because my test asserted a SYMPTOM that a lucky alignment satisfied, so it now asserts the invariant (nextSpawnTick - tick <= the recipe own interval) swept across seven BUILD lengths.",
+      "checkpoint_commit": "1fc2c35",
+      "check_method": "TWO ROUNDS, and the owner was right both times. ROUND 1: I measured the hub producing (emits at 900/1800/2700, self-destructs at 3600) and fixed an INHERITED cadence - DRONE_EMIT_INTERVAL_TICKS was literally '= SPAWN_INTERVAL_TICKS // reuse the chewer cadence' and TWO of its three readers named the chewer constant outright (the registration seed and the BUILD phase-gate re-alignment). One shared spawnerIntervalTicks; 900 -> 300. ROUND 2, after the owner said 'drone tower was NOT producing ... no drones were actually being produced': my fixtures were ISOLATED hubs on an empty board. MEASURED the real case: bond ONE ordinary shape onto ONE LEAF and isLightningHubComponent returns FALSE, because every tower recipe validated its whole CONNECTED COMPONENT ('the component is exactly N+1 primitives'). The re-validation poll then dispatches REMOVE_SPAWNER within half a second - silently, permanently, indistinguishable from a tower that never worked. On a real board you build things next to each other. NEVER DRONE-SPECIFIC: the identical clause sat in the goblin tower and the laser turret too, and the THREE tests that failed when I fixed it were the three PINNING THE BUG AS INTENDED - each bonds its extra shape to a LEAF. All three inverted, not deleted. Fixed with one shared isStarAt: the star AT THE ANCHOR, not the island it sits on. Hub degree stays EXACT (identity is (hub type, degree); the turret is degree-6 and the hub degree-5). CONSEQUENCE FLAGGED: recipes may now OVERLAP - a Circle leaf of a lightning hub can also be a goblin-tower hub. MUTATION-TESTED three ways; one mutation initially passed because a test asserted a symptom a lucky alignment satisfied, so it now asserts the invariant swept across seven BUILD lengths.",
       "verification": [
         {
           "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts"
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\lightningHub.ts",
+          "needle": "return isStarAt(world, dotId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\laserTurret.ts",
+          "needle": "return isStarAt(world, lineId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
+          "needle": "return isStarAt(world, circleId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
+          "needle": "ACTUAL BOARD: a hub with a neighbour attached"
         },
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawner.ts",
           "needle": "export function spawnerIntervalTicks"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawnerLifecycle.ts",
-          "needle": "spawnerIntervalTicks(action.recipeId)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "const step = spawnerIntervalTicks(sp.recipeId);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ;"
         }
       ],
       "pdr_approved": true,
@@ -4156,7 +4226,7 @@
     "P7: should a RAID be able to hit Helga? It would need a right-click hit test for defenders, i.e. a new input behaviour, so I did not invent one. Creature strikes and area hazards already kill her.",
     "N2 (inherited): raid parity across seats. I found NO asymmetry in the sim - the reducers are seat-agnostic and raid progress is credited on BOTH build paths. If it still looks wrong in a real game, tell me what you saw and I will probe the input layer instead."
   ],
-  "mcv_note_s158": "TWICE THIS SESSION a priority bound PROTOCOL_VERSION as a CURRENT-VALUE literal and a later priority bumped past it, turning the claims verifier red on work that was correct: P6 pinned 35 and P7 bumped to 36; P7 pinned 36 and A3 bumped to 37. A current-value pin is a point-in-time claim, and in a session that bumps the protocol three times it is guaranteed to expire. Every protocol claim is now bound to the priority's own NARRATIVE LINK ('bumped N->M: ...'), which is permanent history and cannot be invalidated by a later bump. The literal is still enforced - by protocol.test.ts's deliberate pin and by protocolVersionSync's unbroken-chain test - which is the right place for it.",
+  "mcv_note_s158": "TWICE THIS SESSION a priority bound PROTOCOL_VERSION as a CURRENT-VALUE literal and a later priority bumped past it, turning the claims verifier red on work that was correct: P6 pinned 35 and P7 bumped to 36; P7 pinned 36 and A3 bumped to 37. A current-value pin is a point-in-time claim, and in a session that bumps the protocol three times it is guaranteed to expire. Every protocol claim is now bound to the priority's own NARRATIVE LINK ('bumped N->M: ...'), which is permanent history and cannot be invalidated by a later bump. The literal is still enforced - by protocol.test.ts's deliberate pin and by protocolVersionSync's unbroken-chain test - which is the right place for it. THIRD instance of the same class: P7 pinned the literal line \"defenderInReach)\" and A2 appended a sixth clause after it, turning it into \"defenderInReach ||\". A binding must name the THING, not the punctuation its position in a growing list happens to give it today. Rebound to the declaration.",
   "amendment_file_s158": ".claude/plans/2026-09-02_SCOPE_AMENDMENT_S158_OWNER_RULINGS_IN-PROGRESS.md",
   "owner_rulings_s158_review": [
     "P6 aura: owner 'ive already defined how the towers aura should be ... i gave you the stats' -> FOUND in the R77 deferred list: 'the stink tree's 0.2 atk/sec aura model'. The SHIPPED rate is 2.4 atk/sec - 12x too strong - and S158 P6 propagated it to the landed bag on the false premise that it was an owner number.",
@@ -4166,7 +4236,10 @@
     "CF-S157-g: owner 'we dont have area hazards right? didnt we remove those?' -> CORRECT. HAZARD_SPAWN_ENABLED=false since S147 Step 0. Closed as moot."
   ],
   "open_work_s158": [
-    "A2 - a landed stink bag should be DESTRUCTIBLE, pull AGGRO and deal on-destroy damage (R77's deferred mechanics list, verbatim: 'destructible stink bags as entities with aggro and on-destroy damage'). P6 shipped the entity PASSIVE. The entity, wire, hash and art all exist; the three properties do not. NOT STARTED.",
-    "B1 - owner playtest: from workstation A (France) he reached his brother (Israel); from workstation B on the SAME LAN, quickmatch could not FIND the game and the room code would not connect either. Same NAT and same public IP, so TURN cannot be the differentiator - it is machine-local. The layer shared by BOTH symptoms is SIGNALLING (Trystero over the Nostr relays), not ICE: quickmatch advertises over the relays and a code join exchanges its offer over them, so a machine that cannot reach them fails at both in exactly this way. The S158 P1 TEST CONNECTION button probes ICE only and therefore cannot yet tell the two machines apart. NEXT STEP: extend it to report signalling-relay reachability, then run it on both."
+    "AGGRO for landed stink bags (the third property in R77's line) is NOT done. Destructible and on-destroy shipped; a unit standing AT a bag now attacks it. What is missing is NAVIGATION aggro - units walking ACROSS the map to a bag. The existing taunt (stinkAggroTargets) works only because a tower has an ANCHOR PRIMITIVE to point `targetPrimitiveId` at; a bag is not a primitive, so this needs a new committed-target field on Creature (wire + hash + protocol bump). Deliberately deferred, not forgotten.",
+    "OWNER ACTION - TURN: sign up at metered.ca/stun-turn (free, 50 GB/mo), then repo Settings > Secrets and variables > Actions, add VITE_TURN_URLS / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL, then redeploy. The deploy log's 'TURN wiring report' step says in booleans whether they arrived.",
+    "OWNER ACTION - B1: press TEST CONNECTION on BOTH workstations and compare. This machine's baseline is relays 7/7 and ICE host:1 srflx:1 relay:0. If the other reports 0/7 relays, that is the answer and it is a firewall/VPN/extension on that machine.",
+    "OWNER RULINGS STILL OPEN: (a) is the drone cadence of 5s right? it is my dial; (b) should stink-bag HP be more than 1? mine, R77 never gave it; (c) recipes may now OVERLAP after the star fix - a Circle leaf of a lightning hub can also be a goblin-tower hub. Say if leaves should belong to exactly one star.",
+    "R77 MECHANICS STILL DEFERRED (not started): Voltkin chain lightning (~6 targets) and drone AoE sizing."
   ]
 }
