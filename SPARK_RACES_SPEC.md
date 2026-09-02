@@ -25,7 +25,7 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R118
+## 1. OWNER RULINGS — R93 THROUGH R121
 
 Ruling numbers continue from R92, the highest on record at authoring time.
 **R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
@@ -50,6 +50,9 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | **R114** | **GHOSTS AND ICE GIANTS ARE OUT** — not parked. *"There's no more ghost and ice giants."* A 7th/8th colour is possible someday (*"we might add thirty colors, who cares"*) but is explicitly NOT now. |
 | **R116** | **THE SIX RACE UNITS ARE NAMED** — see §2. Vampires: bats · Nagas: **porpoising piranhas** · Mummies: **Egyptian scarab beetles**, brightly coloured · Zombies: the hound · Orcs: an **orc warband** grunt with twin axes · Demons: **soul eaters**, dementor-like spirits. |
 | **R117** | ⛔ **ASYMMETRIC UNIT STATS AND CADENCES WERE CONSIDERED AND REJECTED — by the owner, on the spot.** He floated a big slow troll (*"twice bigger looking… two times stronger… but he spawns only once per turn"*) balanced against three of a smaller unit, then killed it himself: *"actually that's too complicated because we said there's gonna be a tiered building on each one that will also build those."* **All six race units share ONE stat line and ONE cadence.** He is right, and the reason is exact: the tier-3 tower makes the same unit on demand, so a per-unit spawn-rate balance would be trivially bypassed by building more towers. |
+| **R119** | **THE TIER-3 TOWER IS THREE OF THE RACE'S OWN SHAPE, CLOSED IN A TRIANGLE.** Owner: *"each race's tower will be built of his own shapes… three circles interconnected in a triangle, and it will build the zombie hound tower."* So the recipe shape and the FEED shape are the same primitive — the tower is visibly made of what it eats. Each node degree exactly 2, the `pentagram` ring pattern at n=3. ⚠ See §7 for the one recipe collision this creates. |
+| **R120** | **THE CASTLE PRODUCES IN BOTH PHASES, AND THE UNITS SHELTER.** Owner: *"every thirty seconds it produces, and they hide inside the [castle], and then they get released during fight stage. And it keeps producing during fight until fight is done, and then they go back."* ⭐ **Both halves of this cycle ALREADY SHIP** — `GathererState 'SHELTERED'` (S149 P2) and `recallArmies` (S154 P4, owner A3). This is a third rider on two proven mechanisms, not new tech. |
+| **R121** | **A SUBMERGED NAGA CANNOT BE TARGETED — a stated exception to R117.** Owner: *"maybe not. that's a cool thing to add… so it won't really affect [melee] because when units bite each other they're all during fight mode. Only whether can they be hit by towers when they move."* ⚠ **This IS a real advantage** and R117 says units are equal — so it is recorded as THE ONE exception, and it is bounded by its own cost: a naga is submerged only while MOVING (~40% of transit) and must SURFACE to attack, so it cannot deal damage while immune. See §7.3. |
 | **R118** | **A DRAFT OPTION GRANTS +1 POINT ON ITS AXIS.** The owner proposed *"instead of ten percent we'll do twenty percent"* — and on DEF and PEN he is **exactly right**: the ladder is `1 + 0.2n`, so +1 point IS +20%, with no rounding anywhere. On HP and ATK a percentage is a category error (they are integer counts, not scales), and +1 point is the smallest step that exists. Full derivation in §9.8. |
 | **R115** | **VAMPIRE CHEWERS LOOK VAMPIRIC** — red teeth and/or blood dripping where they walk. The chewer renderer must therefore know its owner's race. Render-only (race already rides on `Player`), and **scoped to vampires only** — this is not a licence to re-skin every shared unit per race. |
 
@@ -331,22 +334,40 @@ have seen it. Capture both a damaged and an undamaged castle through Playwright 
 
 **Exit gate.** Six castles, three states each, visually distinct in a captured frame.
 
-### W1-C · THE PASSIVE CASTLE SPAWN — one session · PROTOCOL 39 → 40
+### W1-C · THE CASTLE PRODUCES, AND ITS ARMY SHELTERS — one session · PROTOCOL 39 → 40
 
-**Objective.** The one mechanical difference in Wave 1: your castle produces your race's unit.
+**Objective.** The one mechanical difference in Wave 1: your castle makes your race's unit, and that
+army obeys the phase rhythm the rest of the game already obeys.
 
-**Work.** A per-seat, tick-deterministic emitter on the castle anchor — same cadence discipline as
-`state/spawners/spawnerLifecycle.ts`, seeded RNG only, host-authoritative. Cadence and unit are keyed
-on `raceId`. Zombies emit the hound (art exists); the other five need a unit each.
+**⭐ THE WHOLE CYCLE IS A THIRD RIDER ON TWO SHIPPED MECHANISMS. Read them before writing anything.**
 
-⚠ **Identical cadence and identical unit stats across races in this wave** (R94). The *unit* differs;
-its numbers do not. Divergent numbers are the balance wave.
+| The owner's words (R120) | What already exists |
+|---|---|
+| *"every thirty seconds it produces"* | `spawners/spawnerLifecycle.ts` — tick-deterministic cadence, seeded RNG |
+| *"they hide inside the castle"* during BUILD | `GathererState 'SHELTERED'` (S149 P2, protocol 25→26) — a unit inside the castle that does nothing at all |
+| *"they get released during fight stage"* | the same phase edge that un-shelters gatherers |
+| *"it keeps producing during fight"* | cadence simply is not phase-gated off |
+| *"then they go back"* | **`recallArmies` (`hostTick.ts:177`)** — S154 P4, owner A3, already walks every creature home before FIGHT ends |
+
+⚠ `retreat.test.ts` records the principle that governs the recall, and it must govern this too:
+**it is a DEADLINE, not a head start.** The creature fan-out is gated on `matchPhase === 'FIGHT'`, so
+the instant the phase flips units freeze where they stand. The assertion that matters is the
+invariant — *at BUILD, no creature is in enemy ground* — not the animation.
+
+**Work.** A per-seat emitter on the castle anchor, cadence keyed on nothing but `world.tick`. Units
+produced during BUILD are born SHELTERED. The FIGHT edge releases them; the BUILD edge recalls and
+re-shelters the survivors.
+
+⚠ **Identical cadence and identical unit stats across all six races** (R117). The *unit* differs; its
+numbers do not.
 
 **Tests.** Differential: host and `?worker=1` mirror agree bit-for-bit across a full BUILD→FIGHT→BUILD
-cycle with spawns firing. Unit: cadence is derived from `world.tick`, never wall-clock. Unit: a
-destroyed castle stops emitting.
+cycle with production and recall both firing. Unit: cadence derives from `world.tick`, never
+wall-clock. Unit: a destroyed castle stops emitting. Invariant: **at BUILD, no race unit stands in
+enemy ground** — the `retreat.test.ts` assertion, extended to the new family.
 
-**Exit gate.** Six races each emit their own unit; hashes identical host-vs-worker; a full match plays.
+**Exit gate.** Six races each emit their own unit; the shelter/release/recall cycle holds across three
+consecutive waves; hashes identical host-vs-worker; a full match plays.
 
 ### W1-D · CASTLE UPGRADES, LAYER 1 — one session · rides W1-C's bump if sequenced together
 
@@ -399,9 +420,13 @@ the design paying off.
 
 **All six race towers are the SAME shape and the SAME mechanic**, differing only in what they emit:
 
-- **3 shapes, 2 bonds.** Under R66 the footer number is the SHAPE count, so "tier 3" = 3 shapes.
-  Geometry: a 1-hub + 2-leaf mini-star of that race's feed shape (§2). Needs a blueprint, but they
-  are six instances of one pattern, not six designs.
+- **3 shapes, 3 bonds — a CLOSED TRIANGLE of the race's own feed shape (R119).** Zombies: three
+  Circles in a ring. Vampires: three Triangles. Every node degree exactly 2. This is the `pentagram`
+  ring pattern at n=3, and `blueprints.ts` already writes ring edges explicitly for exactly this
+  reason. ⚠ Under R66 the footer chip is the SHAPE count, so this reads as "3" — note the bond count
+  is also 3 here (a ring, not a chain), which is the first recipe where those two numbers agree.
+- **The tower is made of what it eats.** Recipe shape == feed shape, per race. That is a genuinely
+  good piece of design: the player never has to memorise a mapping, because the tower shows it.
 - **Fed, goblin-tower style** — put in the race's shape, get one of the race's units. Reuse
   `state/goblinTowerFeed.ts`; do not write a second feed path.
 - **Unlike the goblin tower, it accepts exactly ONE shape** — its race's. The goblin tower maps all
@@ -411,6 +436,47 @@ the design paying off.
 
 This collapses "six bespoke towers" into **one tower pattern instantiated six times.** It is by far
 the cheapest version of Wave 2 and it is the owner's own design.
+
+### ⛔ ONE REAL RECIPE COLLISION — THE VAMPIRE TOWER AND THE PENTAGRAM
+
+**`pentagram` is a closed ring of 5 Triangles, each degree exactly 2. The vampire tower is a closed
+ring of 3 Triangles, each degree exactly 2.** Same primitive, same topology, different count — the
+only thing separating them is `n`.
+
+Check the other five before assuming this is the only one. It is: mummies are a Line ring (the laser
+turret is a Line HUB with 6 leaves), nagas a Square ring (Voltkin is a Square/Triangle CHAIN), orcs a
+Dot ring (the lightning hub is a Dot HUB), demons a Spiral ring (no Spiral-hub recipe exists), zombies
+a Circle ring (both the goblin tower and stink tower are HUB stars). **Vampires are the sole clash.**
+
+Two things this demands, and `pentagram.ts` already documents why the second one matters — it is the
+one recipe where an extra bond is *fatal* rather than tolerated:
+
+1. **Both predicates must assert an EXACT node count**, not a minimum. A 5-ring must not satisfy the
+   3-ring test, and adding two Triangles to a vampire tower must not silently transmute it into a
+   pentagram.
+2. **A test that builds each and asserts the other does NOT ignite** — in both directions. Without it,
+   this fails exactly the way the goblin tower failed: everything green, wrong thing on the board.
+
+### 7.3 ⚠ THE SUBMERGED NAGA IS AN ENGINEERING SURFACE, NOT A RENDER TOGGLE (R121)
+
+A piranha under the ground cannot be targeted. That is one sentence of design and a real amount of
+code, because **every acquisition path in the game has to learn the word "untargetable"**:
+
+- `findNearestEnemyCreatureFrom` and every defender's target acquisition;
+- the castle guns;
+- creature-vs-creature AI;
+- ⭐ **and the case that will be missed: a defender that has ALREADY COMMITTED to a naga which then
+  submerges mid-windup.** `Defender` carries `targetCreatureId` across ticks. Dropping the target is
+  correct; silently firing into a submerged unit is the bug, and it will not show up in any test that
+  only checks acquisition.
+
+**Why this is allowed to break R117, and what bounds it.** It IS a real advantage — a naga army
+crossing open ground eats roughly 40% less tower fire. It survives as the sole exception because it
+carries its own cost, stated by the owner: **a naga is submerged only while MOVING and must surface to
+attack.** It cannot deal damage while it is immune. That is a trade, not a free buff.
+
+⚠ **Measure it in the balance pass.** Submerged fraction is a live dial (the owner's estimate is ~40%
+under, ~60% over). If nagas dominate, that number is the knob — not the mechanic.
 
 ### ⚠ A 3-SHAPE TOWER MOVES THE OPENING ECONOMY — say so before it surprises someone
 
@@ -676,16 +742,26 @@ prevent. This is a balance-pass item, not a licence.
 
 Most of the original list was closed by the owner on 2026-09-02. What remains, ranked by when it bites.
 
+### ⛔ BLOCKS BUILDING SOMETHING
+
+1. **WHAT BOUNDS THE RACE-UNIT POPULATION?** R120 has the castle producing in *both* phases and
+   survivors returning home each wave, so the army **compounds across waves** and nothing written
+   anywhere stops it. The codebase has a standing lesson on exactly this
+   (`constants.ts:1312`): goblins are `persistent = true`, never age out, and their cap is documented
+   as *"LOAD-BEARING, not cosmetic… the one creature family where a runaway genuinely cannot
+   self-correct."* Four sub-answers are needed and they interact:
+   **(a)** do race units age out on a lifetime (chewer model) or persist (goblin model)?
+   **(b)** is there a cap per player, and what is it?
+   **(c)** do survivors really return, or does the army reset each wave?
+   **(d)** does the tier-3 tower's output count against the same cap?
+   Blocks W1-C — the emitter cannot be written without (a) and (b).
+
 ### ⚠ NEEDED BEFORE THE WAVE THAT USES IT
 
-1. **Does the castle emit during BUILD, during FIGHT, or both?** "~30 s" is a dial and can be guessed;
-   this cannot. The phase split already stops the quarry in FIGHT and holds defenders outside it, so
-   emitting in BUILD means an army waiting at the wall-drop, and emitting only in FIGHT means the
-   castle is inert half the match. **A mechanic, not a number.** Blocks W1-C.
-2. **Is a submerged naga piranha targetable?** R116 gives it a porpoising movement — out of the
-   ground, forward, back under, invisible while below. If it cannot be hit while submerged that is a
-   real combat advantage and R117 says all six units are equal, so either the dive is purely cosmetic
-   (still targetable, just not drawn) or R117 needs an exception. Blocks the naga unit.
+2. **Do the six tier-3 towers get their own ART, or are they just their three primitives?** Every
+   shipped tower IS its geometry; only some carry an extra sprite over it (`stinkTowerRenderer.ts`).
+   The owner said *"obviously they need their own art for each"* — if that means a sprite per race
+   that is six more pieces on the manifest; if the coloured shapes are the art, it is zero.
 3. **Race perks for waves 10, 15, 20.** Deliberately deferred by R112 with a named trigger: **ask once
    wave 5 ships.** Not a gap.
 
