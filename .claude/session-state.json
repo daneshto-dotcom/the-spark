@@ -387,22 +387,12 @@
       "unlock_source": "user",
       "title": "B1 closed by the owner's own measurement - there is no two-workstation split; and the torrent:fail beside it was a real bug: two of three trackers were dead",
       "tier": "Micro",
-      "check_method": "Owner measurement + empirical probes. (1) B1 IS ANSWERED, and the S158 hypothesis is DISPROVED: the owner pressed TEST CONNECTION on both workstations on one network and sent the screenshot - room KFU2AR, 2 players connected, sync 3/3, 'Matchmaking: All 7 answered', [nostr:7/7 torrent:fail], and the single red line 'No relay server'. S158 predicted the second machine might report 0/7 relays, which would have meant a firewall/VPN/extension on that machine. It reports 7/7. Nothing is wrong with either machine or the router; TURN is the only thing left. Recorded in TURN_SETUP.md as its own section so the owner reads the answer where they read the runbook. (2) torrent:fail WAS A REAL BUG, and the first probe nearly hid it. npm run probe-relays graded WSS endpoints by rewriting them to https:// and reading the HTTP status: it reported tracker.openwebtorrent.com as [CHECK] on an HTTP 404 - a 404 to a plain GET is NORMAL for a WebSocket endpoint. A real WebSocket handshake (Node's built-in WebSocket) measured the truth: openwebtorrent OPEN, btorrent.xyz ERROR, files.fm:7073 ERROR, and tracker.webtorrent.dev OPEN as a replacement. (3) WHY TWO DEAD ENTRIES KILLED THE WHOLE STRATEGY instead of degrading it: transport.ts passes `redundancy: relayUrls.length`, so the list length IS the requirement - the 'uncorrelated failure domain' fallback the S44 Council added has therefore been contributing NOTHING while showing red beside the real blocker. (4) Fixed: dead hosts out, live one in, probe rewritten to handshake. Re-run reads 9/9 configured relays OPEN and confirms both removed hosts are still dead. (5) 7 tests in src/net/relayLists.test.ts, and they deliberately do NOT assert the hosts are alive - that would make the suite depend on free public infrastructure. They assert what stays true: a host measured dead is never re-added, the probe script's hand-copied lists EQUAL iceConfig's (a probe reporting on a different list than the game uses is worse than no probe), no duplicates, wss:// only, and that the probe still handshakes rather than GETs. 3381/3381 across 215 files, tsc 0.",
+      "check_method": "Owner measurement + empirical probes. (1) B1 IS ANSWERED, and the S158 hypothesis is DISPROVED: the owner pressed TEST CONNECTION on both workstations on one network and sent the screenshot - room KFU2AR, 2 players connected, sync 3/3, 'Matchmaking: All 7 answered', [nostr:7/7 torrent:fail], and the single red line 'No relay server'. S158 predicted the second machine might report 0/7 relays, which would have meant a firewall/VPN/extension on that machine. It reports 7/7. Nothing is wrong with either machine or the router; TURN is the only thing left. Recorded in TURN_SETUP.md as its own section so the owner reads the answer where they read the runbook. (2) torrent:fail WAS A REAL BUG, and the first probe nearly hid it. npm run probe-relays graded WSS endpoints by rewriting them to https:// and reading the HTTP status: it reported tracker.openwebtorrent.com as [CHECK] on an HTTP 404 - a 404 to a plain GET is NORMAL for a WebSocket endpoint. A real WebSocket handshake (Node's built-in WebSocket) measured the truth: openwebtorrent OPEN, btorrent.xyz ERROR, files.fm:7073 ERROR, and tracker.webtorrent.dev OPEN as a replacement. (3) WHY TWO DEAD ENTRIES KILLED THE WHOLE STRATEGY instead of degrading it: transport.ts passes `redundancy: relayUrls.length`, so the list length IS the requirement - the 'uncorrelated failure domain' fallback the S44 Council added has therefore been contributing NOTHING while showing red beside the real blocker. (4) Fixed: dead hosts out, live one in, probe rewritten to handshake. Re-run reads 9/9 configured relays OPEN and confirms both removed hosts are still dead. (5) 7 tests in src/net/relayLists.test.ts, and they deliberately do NOT assert the hosts are alive - that would make the suite depend on free public infrastructure. They assert what stays true: a host measured dead is never re-added, the probe script's hand-copied lists EQUAL iceConfig's (a probe reporting on a different list than the game uses is worse than no probe), no duplicates, wss:// only, and that the probe still handshakes rather than GETs. 3381/3381 across 215 files, tsc 0. ⚠ BINDING CORRECTION, LOGGED RATHER THAN QUIETLY REDONE: the first cut asserted `file_lacks` on the dead hostnames, which FAILED — they appear in the docblock's measurement table, which is exactly where they should appear. The behaviour claim is about the ARRAY LITERAL, so it is now a grep_count of the QUOTED form (0 for each dead host, 2 entries total). Same over-strict-needle mistake P2 hit; and it was caught late because the verifier ran through a PIPE, so the `&&` chain read tail's exit status instead of the verifier's — the project's own 'read the exit code directly, never through a pipe' rule, broken in the very command that was checking compliance.",
       "verification": [
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
           "needle": "'wss://tracker.webtorrent.dev',"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "tracker.btorrent.xyz"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "tracker.files.fm"
         },
         {
           "type": "file_contains",
@@ -449,6 +439,27 @@
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
           "needle": "Room KFU2AR"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "pattern": "'wss://tracker\\.btorrent\\.xyz'",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "pattern": "'wss://tracker\\.files\\.fm[^']*'",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "pattern": "'wss://tracker\\.[a-z.]+(:\\d+)?(/[a-z]*)?'",
+          "op": "==",
+          "value": 2
         }
       ]
     },
@@ -513,6 +524,11 @@
       "priority": "S159-P5",
       "lesson": "**A REDUNDANCY LIST WHERE LENGTH IS THE REQUIREMENT IS NOT REDUNDANCY.** `transport.ts` passes `redundancy: relayUrls.length`, so adding a fallback tracker RAISES the bar the strategy must clear. Two dead entries out of three therefore failed the whole strategy instead of degrading it, and the 'uncorrelated failure domain' the Council added in S44 had been contributing nothing for months while reporting itself in red next to an unrelated real blocker. **When you add a fallback, check whether the code treats it as an OPTION or as a REQUIREMENT.**",
       "tag": "#redundancy-that-raises-the-bar"
+    },
+    {
+      "priority": "S159-P5",
+      "lesson": "**I BROKE THE 'NEVER READ AN EXIT CODE THROUGH A PIPE' RULE IN THE COMMAND THAT WAS CHECKING COMPLIANCE.** `verify-session-claims.py ... | tail -2 && git commit` reads TAIL's status, not the verifier's, so a hard_fail=2 verdict scrolled past and the commit went through anyway. The project has this rule written down for `e2e:gating` and I applied it there and nowhere else. **A rule about exit codes is about EVERY gate, not the one it was first written for** — redirect to a file and echo `$?`. Second half of the same lesson: both times a binding failed this session it was an OVER-STRICT `file_lacks` catching the docblock that EXPLAINS the removed thing. A behaviour claim belongs on the executable form (the quoted array entry), never on the prose.",
+      "tag": "#exit-code-through-a-pipe"
     }
   ],
   "totals": {
