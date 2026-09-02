@@ -25,7 +25,7 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R121
+## 1. OWNER RULINGS — R93 THROUGH R124
 
 Ruling numbers continue from R92, the highest on record at authoring time.
 **R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
@@ -53,6 +53,9 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | **R119** | **THE TIER-3 TOWER IS THREE OF THE RACE'S OWN SHAPE, CLOSED IN A TRIANGLE.** Owner: *"each race's tower will be built of his own shapes… three circles interconnected in a triangle, and it will build the zombie hound tower."* So the recipe shape and the FEED shape are the same primitive — the tower is visibly made of what it eats. Each node degree exactly 2, the `pentagram` ring pattern at n=3. ⚠ See §7 for the one recipe collision this creates. |
 | **R120** | **THE CASTLE PRODUCES IN BOTH PHASES, AND THE UNITS SHELTER.** Owner: *"every thirty seconds it produces, and they hide inside the [castle], and then they get released during fight stage. And it keeps producing during fight until fight is done, and then they go back."* ⭐ **Both halves of this cycle ALREADY SHIP** — `GathererState 'SHELTERED'` (S149 P2) and `recallArmies` (S154 P4, owner A3). This is a third rider on two proven mechanisms, not new tech. |
 | **R121** | **A SUBMERGED NAGA CANNOT BE TARGETED — a stated exception to R117.** Owner: *"maybe not. that's a cool thing to add… so it won't really affect [melee] because when units bite each other they're all during fight mode. Only whether can they be hit by towers when they move."* ⚠ **This IS a real advantage** and R117 says units are equal — so it is recorded as THE ONE exception, and it is bounded by its own cost: a naga is submerged only while MOVING (~40% of transit) and must SURFACE to attack, so it cannot deal damage while immune. See §7.3. |
+| **R122** | **THE TIER-3 TOWERS GET THEIR OWN DRAWN ART**, one per race, appropriate to that race. Not just the three coloured primitives. **+6 to the art manifest.** |
+| **R123** | **RACE UNITS LIVE UNTIL KILLED. NO TIMER, NO PER-PLAYER CAP.** Owner: *"they don't need an expire timer, that's stupid — just live until killed."* Survivors **always** return home and shelter, exactly as goblins and chewers do today. **The governor is FIGHT ATTRITION, not a ceiling** — owner: *"what stops an army growing forever? the enemies having also armies growing forever. so they kill each other."* The `persistent: true` model, same as `GOBLIN_MELEE_CONFIG`. |
+| **R124** | **THE CAP LIVES ON THE TOWER, NOT THE PLAYER.** A tier-3 tower holds ~10 of its race's unit, on the goblin-tower precedent — *"then they'll make people build multiple of those."* The **castle** emitter is uncapped and keeps producing regardless. `[CLAUDE — overridable]` 10, matching `GOBLIN` exactly rather than inventing a second number. |
 | **R118** | **A DRAFT OPTION GRANTS +1 POINT ON ITS AXIS.** The owner proposed *"instead of ten percent we'll do twenty percent"* — and on DEF and PEN he is **exactly right**: the ladder is `1 + 0.2n`, so +1 point IS +20%, with no rounding anywhere. On HP and ATK a percentage is a category error (they are integer counts, not scales), and +1 point is the smallest step that exists. Full derivation in §9.8. |
 | **R115** | **VAMPIRE CHEWERS LOOK VAMPIRIC** — red teeth and/or blood dripping where they walk. The chewer renderer must therefore know its owner's race. Render-only (race already rides on `Player`), and **scoped to vampires only** — this is not a licence to re-skin every shared unit per race. |
 
@@ -700,6 +703,38 @@ prevent. This is a balance-pass item, not a licence.
 
 ---
 
+## 9B. POPULATION — THE DESIGN IS RIGHT, AND IT STILL NEEDS A SENTINEL
+
+**The owner's argument is sound and should not be softened.** Fight attrition genuinely is the
+governor: units die in FIGHT, they do not respawn, you rebuild. Every opponent's army grows too. This
+is how the shipped goblin economy already behaves and it works.
+
+⭐ **AND THE OWNER HAS ALREADY RULED THIS EXACT QUESTION ONCE — the answer is the precedent, not a
+new argument.** S157 B8b, on chewers: *"no cap — a tower never stops emitting."* What actually
+shipped is `CHEWER_MAX_GLOBAL / PER_SPAWNER / PER_VICTIM = 10_000`, commented **"owner: no cap —
+sentinel backstop only."** A number so far past play that it is never felt, and finite so a bug cannot
+melt a match. **Do exactly that here.** It is not a gameplay cap and must never be tuned as one.
+
+**Three cases where "they kill each other" does not hold**, none of them a design flaw — they are why
+the sentinel exists:
+
+1. **An eliminated or turtling opponent.** In a 4-player match with two seats down, the survivors'
+   armies grow against nothing.
+2. **A passive stalemate.** Units are FIGHT-gated and recall home; two defensive players can accrue
+   for many waves with near-zero attrition.
+3. ⛔ **The binding limit is the WIRE, not the board.** Every creature serializes into `NetSnapshot`
+   at 10 Hz and contributes to the hash, and every one costs Verlet integration each tick. The
+   codebase states the principle directly at the gatherer-queue cap: *"an unbounded array is an
+   unbounded wire payload and an unbounded hash input."* A runaway here degrades the netcode before
+   it ever unbalances the match.
+
+**The arithmetic, so it is sized rather than guessed.** At a 30 s cadence a castle emits **6 units per
+wave** (one wave = 180 s), in addition to tower output. Twenty waves is ~120 units per seat from the
+castle alone, ~480 across a 4-player board, on top of goblins and chewers. That is not alarming — but
+it IS the number to watch in the balance pass, and the cadence is the dial if it bites.
+
+---
+
 ## 10. THE TRAPS — every one of these has already cost this project a session
 
 1. **⛔ `ALL_BLUEPRINT_IDS` IS HAND-WRITTEN AND HAS ALREADY SPRUNG.** S151 P3 added `goblinTower` to
@@ -742,27 +777,14 @@ prevent. This is a balance-pass item, not a licence.
 
 Most of the original list was closed by the owner on 2026-09-02. What remains, ranked by when it bites.
 
-### ⛔ BLOCKS BUILDING SOMETHING
-
-1. **WHAT BOUNDS THE RACE-UNIT POPULATION?** R120 has the castle producing in *both* phases and
-   survivors returning home each wave, so the army **compounds across waves** and nothing written
-   anywhere stops it. The codebase has a standing lesson on exactly this
-   (`constants.ts:1312`): goblins are `persistent = true`, never age out, and their cap is documented
-   as *"LOAD-BEARING, not cosmetic… the one creature family where a runaway genuinely cannot
-   self-correct."* Four sub-answers are needed and they interact:
-   **(a)** do race units age out on a lifetime (chewer model) or persist (goblin model)?
-   **(b)** is there a cap per player, and what is it?
-   **(c)** do survivors really return, or does the army reset each wave?
-   **(d)** does the tier-3 tower's output count against the same cap?
-   Blocks W1-C — the emitter cannot be written without (a) and (b).
-
 ### ⚠ NEEDED BEFORE THE WAVE THAT USES IT
 
-2. **Do the six tier-3 towers get their own ART, or are they just their three primitives?** Every
-   shipped tower IS its geometry; only some carry an extra sprite over it (`stinkTowerRenderer.ts`).
-   The owner said *"obviously they need their own art for each"* — if that means a sprite per race
-   that is six more pieces on the manifest; if the coloured shapes are the art, it is zero.
-3. **Race perks for waves 10, 15, 20.** Deliberately deferred by R112 with a named trigger: **ask once
+1. **The race-unit stat line itself.** R117 says all six share ONE stat line — but nobody has said
+   what it is. HP, ATK, DEF and PEN points, on the `state/stats.ts` ladders. A first pass can be
+   proposed against the existing roster (`CHEWER_HP = 1`, goblins at 1, `VOLTKIN_HP = 8`) and the
+   owner rules on it; it is a number, not a mechanic, so it does not block starting.
+2. **Race perks for waves 10, 15, 20.** Eighteen perks — three more per race. The general track is
+   already settled (DEF → HP → PEN). Deliberately deferred by R112 with a named trigger: **ask once
    wave 5 ships.** Not a gap.
 
 ### 🕓 LATE — the owner has explicitly said "one of the last phases"
