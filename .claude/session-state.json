@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3741,
-  "session_id": "S158",
-  "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run: P1 TURN reaches production, P2 flaky deploy-gating test, P3 goblinSuicide drone-path, P4 godly abort latch, P5 Voltkin cinematic once per game, P6 landed stink bag entity, P7 killable Helga, P8 housekeeping",
+  "tool_calls_session_total": 3786,
+  "session_id": "S159",
+  "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "CHECK",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-01_PDR_S158_BATCH_IN-PROGRESS.md",
-  "session_status": "S158 CLOSED",
+  "plan_file": ".claude/plans/2026-09-02_PDR_S159_BATCH.md",
+  "session_status": "S159 IN-PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -61,800 +61,85 @@
     "TWO MORE TRAPS. (a) package.json test script is still bare vitest = WATCH MODE, never exits; deploy.yml:107-108 works around it with npx vitest run. So npm test in CI or a subagent hangs to the 15m timeout and reports cancelled, NOT failure - the silent-death class already in memory. (b) UPGRADE_GATHERER_SPEED is FLEET-WIDE (gathererLifecycle.ts:101-119 charges once and steps EVERY owned gatherer), and its docblock justifies that by 'there is no unit-selection UI (that is V6-1.4)'. If R3 introduces per-gatherer selection, that justification EXPIRES and a submenu with a SPEED row would silently upgrade the whole fleet.",
     "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
   ],
-  "carry_forward": [
-    "⛔ A1 LADDERED RAID TARGETING — owner RE-CONFIRMED twice ('i already told you'): bots target 'the leader OR the nearest enemy whose score sits closest above their own', each punching ONE RUNG UP. Today they hit the NEAREST enemy connector and never read the scoreboard. Owner also SETTLED the budget question: MAX_DISRUPTION_CHARGES=2 IS the '2 raids', spendable any time against any unit/enemy/connector, and there is no concurrency gate to add or remove — so A1 changes ONLY which target is chosen. Design + Q2-compliance argument written at .claude/plans/2026-08-28_SCOPE_AMENDMENT_S155.md.",
-    "⛔ A2 SCOUTING + ACTIVATE THE P7 FOG FOR BOTS — owner GO, and it is ONE change not two. Owner: 'a saving bot doesnt need to look passive he can explore the map, see what his neighbors are building and if they are building where.' Scouting is also the missing half of P7: the per-seat vision substrate shipped INERT because blinding a bot without giving it a way to LOOK makes it dumber rather than fairer. Activation is three documented lines in botBrain.ts; it turns three botGameplay cases red (FIGHT verbs pinned in a BUILD fixture — re-home them) and surfaced a SECOND unrelated failure to diagnose: 'carry-1 violation: player 2 already carries 60', a bot picking up a spark during FIGHT.",
-    "⛔ A3 SEED `defenders` IN workerSim.differential THEN FLIP WORKER_DEFAULT_ON — owner GO ('lets make it all work and then flipp it'). The gap is COVERAGE, not hashing: defenders IS hashed, but the differential records peak.defenders === 0 across all 300 frames, so the guard sits green having compared nothing. Seed a live tower that survives re-validation, FORCE the guard to fail on divergence, then flip. ⚠ Only 5 of 21 spec files carry the ?worker= flag, so the flip silently re-points the other 16 onto the worker path — re-run e2e:gating AFTER the flip, not before.",
-    "⛔ N3 STILL STUCK WHEN THE FRIEND HOSTS — owner: 'was stuck at connecting like it was yesterday'. ⭐ 'Connecting...' is a DIFFERENT status from 'Connected...': it means NO PEER EVER APPEARED, so P1's stall detector cannot even fire (it requires firstPeerAtMs != null). Probably an earlier link in the chain than P1 fixed. ASK THE OWNER FOR THE BROWSER CONSOLE LINE beginning '[net]' — the S155 P1 diagnostics now name whether a peer was seen and, if so, which of the three attest checks failed with all three values. Also probe the RE-HOST-after-a-match path: it failed on the SECOND game, which is a different code path from a cold join.",
-    "N2 RAID PARITY ACROSS SEATS — owner: 'im not sure opther players raid and player 1 raid is the same.' Not yet probed. Now much more likely to be real, because N1 proved a seat-symmetric-looking system can hide an order/ownership asymmetry. Grep the raid path for playerId/isHost asymmetry the way N1 was grepped, and check a JOINER's raid intent round-trips (a client raid is an INTENT the host applies, so a dropped intent looks exactly like 'my raid works, theirs does not').",
-    "P4 BOT TOWERS ARE LATE, NOT ABSENT — measured on a representative 4-seat real-clock fixture: MID none in 5 sim-min, HARD first tower tick ~10,400 (~2.9 min), IMBA ~17,900 (~5 min). The owner's complaint is a SPEED one. Making it earlier is an owner BALANCE call; the owner's scouting ruling REMOVES the cost I had priced against it ('a saving bot looks passive'), so a longer hold is now cheap. Two of my attempted fixes measured WORSE and were reverted — botBrain.ts is byte-identical to S154.",
-    "N1 FOLLOW-UP — THE COMBAT RULE ITSELF (owner ruling wanted). The order-advantage bug is FIXED and live: same-tick strikes all land, so mutual engagements destroy both and a bigger army wins on attrition. Owner then asked: 'either they all attack the same time. or they have to roll a d20 and whoever has the highest attacks first.' ⭐ RECOMMEND AGAINST the d20: it REINTRODUCES the exact outcome they were angry about — one side taking zero damage — merely randomised instead of spawn-ordered, and it adds an rng draw to the creature loop that every seeded replay/differential gate depends on the draw ORDER of. STILL OPEN: strict simultaneity only covers SAME-TICK exchanges; a unit that engages a few ticks earlier still lands a free first strike, which is arguably legitimate tactics. Needs an owner decision if they want that closed too. Also for them: with nearly everything one-shotting, melee is now mutual annihilation and armies trade 1:1 — survivors are an HP/DEF decision.",
-    "P5 BOT INTELLIGENCE PHASE A — not started. Also confirm the ruling reconciliation first: BACKLOG's 'Bot rulings' and BOT_INTELLIGENCE_DESIGN §10 disagree on raid targeting vs raid rate. They ARE orthogonal (§10 governs RATE/CONCURRENCY, the earlier ruling governs TARGETING) and §10 wins on genuine conflict — but confirm before writing code, because the difference is a targeting filter versus a balance change the owner explicitly forbade."
-  ],
   "priorities": [
     {
       "id": "P1",
-      "title": "TURN actually reaches production - CI env wiring, .env.example, runbook rewrite, in-game connection self-test",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "ccf0dab",
-      "check_method": "A.0 DELTA found at boot, NOT inherited from the handoff: TURN_SETUP.md step 4 said a .env file + a deploy would bake the credentials in, but .env is gitignored, deploy.yml's build step had NO env: block, and `gh secret list` / `gh variable list` were BOTH EMPTY - so a clean CI checkout could never see them. The owner's 5-minute action would have produced a green deploy and a still-broken multiplayer. EMPIRICAL PROBE before writing anything: built with VITE_TURN_URLS=turn:probe.example:3478 and grepped the emitted bundle - 'probe.example:3478' and 'probeuser' both present, so 'Vite inlines VITE_* from process env' is MEASURED, not assumed (it also proves the credential is public in the bundle, now stated honestly in the runbook). SHIPPED: deploy.yml env: on the build step from secrets/vars; scripts/turn-wiring-report.mjs printing booleans-only, smoke-tested in BOTH states locally (all-unset -> 'no relay in this build'; all-set -> 'RELAY WILL BE SHIPPED'); src/net/iceProbe.ts (pure summarizeIce + injectable probeIce) with 17 tests; a TEST CONNECTION button in the lobby wired through main.ts to the real ICE_SERVERS so the test cannot pass against a config the game does not use. GUARDS MUTATION-TESTED: (1) removing the build env: block -> 2 tests red; (2) the VITE_TURN_URL singular typo, which would deploy green and ship nothing -> the same 2 tests red; restored -> 16/16 green. An EXISTING guard also fired for real: the block-scalar check refused my first `run: |` step, so the report became a script file. tsc clean; 3244/3244; e2e:gating exit 0 (62 passed); bundle 754.2/900 KiB.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.env.example"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
-          "needle": "VITE_TURN_CREDENTIAL: $"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
-          "needle": "run: node scripts/turn-wiring-report.mjs"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
-          "pattern": "VITE_TURN_URLS:",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
-          "needle": "makeButton('TEST CONNECTION'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "onTestConnection: () =>"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "summarizeIce "
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\ci.deployGate.test.ts",
-          "needle": "the two sides cannot drift"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
-          "needle": "Secrets and variables"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
-          "needle": "run: |"
-        }
-      ],
+      "priority_id": "S159-P1",
+      "name": "bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property)",
+      "status": "in_progress",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "The flaky test that gates every deploy - towerDefense per-victim cap times out at 5000ms under full-suite load",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "942cf45",
-      "check_method": "A.0 DELTA #2: handoff claimed 3220/3220; MEASURED 3219/3220. towerDefense.test.ts 'per-victim cap' fails 'Test timed out in 5000ms' under full-suite parallelism and passes ALONE in 2128ms - vitest has no testTimeout configured (default 5000) and `npx vitest run` is a gating step in deploy.yml, so this is a deploy that fails at random. ROOT CAUSE traced to S157 B8b: turning the chewer caps off raised all three constants to 10_000, and every test in that block loops to CAP+k calling underChewerCaps (an O(n) map scan) per iteration => O(n^2) at n=10000. Nothing about that change looks like a test-performance change, which is why it landed green and drifted red on a busier machine. Fixed the COST not the timeout: the population is now built by CLONING one real spawned chewer, so records are exactly what the spawn path produces and the scan is paid once at the boundary. File 3097ms -> 30ms. SECOND FINDING, surfaced by the first: with all three sentinels EQUAL the global cap bites at the identical count, so the old per-victim and per-spawner assertions were satisfied by the GLOBAL rule and would have passed with the per-victim branch deleted outright - they were VACUOUS. Replaced with (a) the observable sentinel pinned at its exact boundary including the open-at-CAP-1 half the old <=-cap assertion never checked and a refusal driven through the real spawn path, (b) a TRIPWIRE that reddens the moment either constant drops below global - exactly when real coverage becomes possible AND necessary - carrying the recipe at the assertion, (c) the per-victim hint pinned as accepted-and-harmless, catching the easy mistake of the victim tally leaking into the global one (they share one loop). VERIFIED: 3244/3244 on THREE consecutive full runs (204/204 files each); tsc clean; e2e:gating exit 0.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "function fillChewers"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "TRIPWIRE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "the sentinel backstop flips EXACTLY at the cap"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "for (let i = 0; i < CHEWER_MAX_PER_SPAWNER + 3; i++)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "for (let s = 0; s < CHEWER_MAX_GLOBAL + 5; s++)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
-          "needle": "for (let i = 0; i < CHEWER_MAX_PER_VICTIM + 4; i++)"
-        }
-      ],
+      "priority_id": "S159-P2",
+      "name": "Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred)",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "CF-S157-e: goblinSuicide takes the DRONE path - no unit damage, navigates to bonds not shapes",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "b1ccce3",
-      "check_method": "CF-S157-e CONFIRMED AT SOURCE, not inherited: GOBLIN_SUICIDE_CONFIG sets BOTH selfExplode:true and targetsStructures:true, and hostTick.ts tested selfExplode FIRST, so the terrorist goblin took the lightning drone's branch end to end - homed on CONNECTORS instead of shapes, detonated via applyDroneExplode (which severs bonds and never reads atk/pen, so its 4 ATK / 0 PEN applied to NOTHING), and used DRONE_EXPLODE_RADIUS 110px instead of its own 70px. Read applyDroneExplode in full to confirm it touches world.bonds and nothing else. FIX IS A CONJUNCT NOT A REORDER (selfExplode && !targetsStructures) because the shipped drone/Voltkin/chewer selection code's byte position is pinned by creatureAI.test.ts, hostTick.differential.test.ts and save.replay.test.ts - lightningDrone is targetsStructures:false so every existing creature is byte-identical. SECOND HALF: the arrival test needed the same split - a goblin bomber's targetBondId is forced null by the structure-attacker branch so it could never be 'in range' and would fly until its FUSE expired, which is HOW it reached applyDroneExplode. New host-internal SUICIDE_BLAST reducer (absent from CLIENT_INTENT_TYPES; emits only the already-mirrored BOMB_EXPLODE, so zero wire surface and NO protocol bump). MUTATION-TESTED: reverting both halves turns the two host-tick-driven tests RED (commits-to-a-shape, arrives-and-reduces-hp); restored -> 11/11. Includes a CONTROL that the drone still commits to connectors and still severs them, and a same-world double-run agreeing on hashWorldStateFull for 200 ticks. FLAGGED FOR THE OWNER: R77 gives 4 ATK / 0 PEN, a UNIT stat, and says nothing about what one blast does to a SHAPE; rather than invent a balance number the blast deals GOBLIN_DAMAGE_VS_PRIMITIVE - exactly one ordinary goblin strike - to every enemy shape in radius. tsc clean; 3255/3255; bundle 754.9/900 KiB. *** S158 P3b (owner ruling on the number P3 flagged): 'the 4atk against units + 4 atk against structures/structur connectors'. Three targets, ONE number. Units keep attackFifths(4,0)=20 fifths; shapes now take 334 via a new primitiveDamageForAtk that GENERALISES the bridge that already existed (a goblin's 2 atk is 167, chosen so six swings fell a shape) - three blasts fell a shape; connectors take 20 fifths, cutting anything in a component of 16 or fewer. The connector arm lives on THIS creature, not in applyRadialDamage, whose own note refuses a general connector arm because 'one potato could shred a fortress' - that reasoning stands for area damage in general and not against an explicit ruling about one named unit.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideGoblin.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "!seekCfg.targetsStructures"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "type: 'SUICIDE_BLAST', creatureId: id"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
-          "needle": "case 'SUICIDE_BLAST':"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "SUICIDE_BLAST: true,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts",
-          "needle": "GOBLIN_SUICIDE_BLAST_RADIUS"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "pattern": "type: 'DRONE_EXPLODE'",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stats.ts",
-          "needle": "export function primitiveDamageForAtk"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts",
-          "needle": "AND THE CONNECTORS."
-        }
-      ],
+      "priority_id": "S159-P3",
+      "name": "the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P4",
-      "title": "CF-S157-f: applyGodlyAbort leaves godlyFiredThisMatch set (latent; prerequisite for P5)",
-      "status": "completed",
-      "tier": "Micro",
-      "check_completed": true,
-      "checkpoint_commit": "4d70bd5",
-      "check_method": "CF-S157-f, AND THE CARRY-FORWARD OVERSTATED IT. Recorded as 'an aborted cinematic permanently burns that godly for all players'. MEASURED: that was true under S97 semantics and STOPPED being true at S157 B4 - findGodlyMatch no longer consults godlyFiredThisMatch and a full grep shows ZERO production readers (only gameMode.ts clears, godlyActions.ts writes, tests read). So it was LATENT, not a live defect. Fixed FIRST anyway because P5 makes the set load-bearing again: landing P5 on a teardown that leaks would resurrect it as a real bug in a much harder place to see. applyGodlyAbort cleared creatures, spawners, defenders, gatherers, castleBanks and gathererOrders and left this one Set standing; it now clears alongside them. Verified the sole caller is main.ts's terminal connection-lost edge, i.e. a full match teardown, so clearing the whole set is consistent rather than over-broad. 3 tests incl. a CONTROL that abort still clears everything it cleared before.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyActions.ts",
-          "needle": "world.godlyFiredThisMatch.clear();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyCinematicOnce.test.ts",
-          "needle": "GODLY_ABORT clears godlyFiredThisMatch alongside every other collection"
-        }
-      ],
+      "priority_id": "S159-P4",
+      "name": "stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P5",
-      "title": "CF-S157-d: the Voltkin cinematic once per game - separate cinematic TIMING from VISUALS",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "4d70bd5",
-      "check_method": "CF-S157-d, the owner's half-shipped ruling: 'voltkin cinematic SHOULD be once per game for the first person to have built him. but the voltkin spawn himself should be generated every time someone builds his tower.' I DIVERGED FROM THE S157 DEFERRAL NOTE AND SAY SO: it concluded the fix required moving the cinematic's TIMING into the sim. Its analysis of the HAZARD is exactly right (the overlay's onComplete is the SOLE driver of GODLY_COMPLETE and pendingCinematics advancement, so not playing the overlay would latch activeCinematicPlayerId forever and queue every later Voltkin behind it) but it over-estimated the CURE: the timing does not have to MOVE to be separated from the visuals, only to keep running while the visuals do not. A repeat takes a SILENT path through the same play() - same duration, same onComplete, same queue advance, same pendingCreatureSpawn tick - dropping video, voice and vignette. No protocol bump, no serialized state, no sim behaviour moved. cinematicIsFirstShowing is captured by applyGodlyTrigger from godlyFiredThisMatch in the one instant the answer exists (immediately before the add), which is why the renderer cannot re-derive it. Classified 'acknowledged' in FIELD_COVERAGE with its reason; the stateHashFull forcing function went RED and made me declare it deliberately, which is what it exists for. Visible and silent paths now share ONE duration expression - a drift there would desynchronise the cutscene from the Voltkin it covers for. FLAGGED: on a repeat there is now a quiet ~4.8s between building the tower and the Voltkin appearing; shortening it means moving pendingCreatureSpawn's schedule, which the replay guards pin, so it is left for the owner to rule on after they feel it. 15 tests; the load-bearing one asserts a SILENT run STILL calls onComplete and on the same schedule to the millisecond (a test that only checked silence would pass against the latch), plus a CONTROL that the silent branch is the one exercised and one proving it needs no DOM at all. tsc clean; 3270/3270; e2e:gating exit 0 (62 passed); bundle 755.3/900 KiB.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyCinematicOnce.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneSilent.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\worldTypes.ts",
-          "needle": "cinematicIsFirstShowing: boolean;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyActions.ts",
-          "needle": "world.cinematicIsFirstShowing = !world.godlyFiredThisMatch.has(event.godlyId);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyOrchestration.ts",
-          "needle": "const silent = !world.cinematicIsFirstShowing;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneOverlay.ts",
-          "needle": "ctx.silent === true"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneOverlay.ts",
-          "needle": "function totalDurationMs(recipe: CinematicGodlyRecipe): number"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
-          "needle": "cinematicIsFirstShowing: 'acknowledged',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.test.ts",
-          "needle": "'cinematicIsFirstShowing',"
-        }
-      ],
+      "priority_id": "S159-P5",
+      "name": "B1 closure from the owner two-workstation measurement + the torrent:fail strategy",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P6",
-      "title": "CF-S157-b: the landed stink bag as a real serialized hazard entity (art already shipped, unused)",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "0148742",
-      "check_method": "CF-S157-b. CONFIRMED AT BOOT: public/godly/stink-bag/anim/ holds a 12-frame atlas and a grep showed ZERO references to it anywhere in src/. stinkThrowBag applied one instantaneous radial splash and the bag ceased to exist in the tick it arrived. SHIPPED as a full vertical slice because half an entity is a desync: StinkCloudId brand; the entity + factory + pure tick/expiry/progress helpers; a host-tick loop placed BESIDE the defender fan-out rather than inside it (a cloud OUTLIVES its tower - that is most of what makes it a hazard); serialization with PROTOCOL_VERSION 34->35; FIELD_COVERAGE classification + hash projection; structuralSignature (one of the two UNFORCED serialization sites); worker-differential seeding; all three teardown paths (match start, title return, godly abort); and a renderer that finally draws the S157 atlas over a haze at the TRUE damage radius. ONE new constant only - the lifetime - because every damage number reuses what the owner already ruled for this same weapon, and the impact splash is unchanged so no shipped balance moves. *** THE FIND THAT MATTERS MORE THAN THE FEATURE: S157 B9's BLIND LOB HAD NEVER ONCE FIRED. *** B9 implemented the owner's untargeted throw by arming WINDUP with targetCreatureId=null, and targetValid returns false on a null target BY ITS FIRST LINE - so the WINDUP guard aborted every blind lob one tick after it armed. The tower still threw nothing unless an enemy wandered inside 260px, which is exactly the behaviour B9 was written to end. The fix shipped, its comment shipped ('A BLIND LOB STILL LANDS'), and the path between them did not. FOUND by asserting stinkClouds SEEDED in the worker differential rather than acknowledging it, then PROBING the 300-frame run (bags stayed 5, state stayed IDLE, nextFireTick advanced by DEFENDER_REACQUIRE) instead of relaxing the assertion - the second time in three sessions that anti-vacuity guard has surfaced a live defect. MUTATION-TESTED: reverting the blind-lob guard turns 3 of 14 new tests red incl. the determinism run. Two more forcing functions fired and were right: FIELD_COVERAGE refused the new World fields until classified+projected, and the e2e above-fog Z-ORDER MANIFEST refused two new layers until each was declared with its reason. tsc clean; 3284/3284; e2e:gating exit 0 (62 passed); bundle 758.5/900 KiB.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\stinkCloudRenderer.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 P6 — bumped 34->35: THE LANDED STINK BAG"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 P6 — bumped 34->35: THE LANDED STINK BAG"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 P6: 34->35 (THE LANDED STINK BAG"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\worldTypes.ts",
-          "needle": "nextStinkCloudId: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
-          "needle": "stinkClouds: 'hashed',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
-          "needle": "world.stinkClouds.size,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
-          "needle": "['stinkClouds', peak.stinkClouds, null],"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defenderLifecycle.ts",
-          "needle": "const blindLob ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defenderLifecycle.ts",
-          "needle": "A BLIND LOB IS NOT AN INVALID TARGET"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "sweepExpiredStinkClouds(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "function deserializeStinkCloud"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
-          "needle": "stinkCloudRenderer.spriteLayer"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STINK_CLOUD_LIFETIME_TICKS"
-        }
-      ],
+      "priority_id": "S159-P6",
+      "name": "coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": "P7",
-      "title": "CF-S157-c: make Helga killable - mutable defender hp on the wire + a targeting path",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "fe4924e",
-      "check_method": "CF-S157-c. THE RULING WAS THE BLOCKER, NOT THE CODE: R75 ('towers have attack and piercing but not def and hp because they are based on the connectors that build them') was read at S151 P2 as 'defenders have no hp', and the field, the wire bytes, the hash term and the damage arm were deleted for EVERY kind. R77 corrected the over-reading ('Helga - 4atk, 4pierce, 6hp, 4 def ... those are all spawned units'). So the substrate returns SCOPED BY config.unitStats - the very field R77 forced into existence - and a tower carries null and stays exactly as immune as today. Six of the 22 tests exist only to prove that second half. FIVE SITES: record+factory; a defender arm in damageEntity that REMOVES her (honouring the contract the castle arm cannot); the AoE arm restored on the UNIT scale; SerializedDefender.ehp with PROTOCOL 35->36; and the hash term. Deliberately does NOT raze her anchor (the re-ignition hazard that justifies removeDefenderAndRazeAnchor for towers cannot arise - ignition runs only on a topology change). TWO TARGETING SITES, and the second only exists because a mutation test caught the first untested: killableDefenderInReach is both a fifth STRIKE clause and a fifth ENGAGE term. THREE THINGS THE TESTS FOUND THAT I HAD WRONG: (1) the defender arm was first placed BELOW the structure strike, so a goblin spent every hit on the enemy shape she is anchored to - the same defect as S157 F1, reversed; (2) deleting the engage term left the WHOLE SUITE GREEN because every fixture planted her on an anchor that was itself an enemy shape, so I built the fixture that isolates it (hub 200px away: outside a melee goblin's 35px engage, inside her own 380px leash) and it now fails when the term is removed; (3) my first end-to-end test asserted a LONE goblin kills her - measured, he takes her to 42/54 and she one-shots him at 4atk/4pierce vs 2hp, so the fixture was wrong, not the feature. DEFERRED WITH A REASON: RAID_TARGET gains no 'defender' kind - that needs an input-layer hit test, i.e. inventing a right-click behaviour the owner has not asked for. tsc clean; 3306/3306; e2e:gating exit 0 (62 passed); bundle 759.3/900.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\helgaKillable.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defender.ts",
-          "needle": "ehp: number | null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defender.ts",
-          "needle": "config.unitStats === null ? null : unitPoolFifths"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "case 'defender': \u007b"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "for (const did of defenderVictims) \u007b"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function killableDefenderInReach"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "const defenderInReach ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAttack.ts",
-          "needle": "const defenderId = killableDefenderInReach"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
-          "needle": "| 'bagsRemaining' | 'ehp';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 P7: 35->36 (HELGA IS KILLABLE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 P7 — bumped 35->36: HELGA CAN BE KILLED."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
-          "needle": "d.ehp = s.ehp ?? null;"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "P8",
-      "title": "Housekeeping the boot surfaced - stale S152 plan, stale review-gate card, state hygiene",
-      "status": "completed",
-      "tier": "Micro",
-      "check_completed": true,
-      "checkpoint_commit": "7a8d466",
-      "check_method": "Housekeeping the boot surfaced, PLUS a regression this session caused that only the deploy verifier noticed. (1) `npm run verify-deploy` failed its LIVE carrier after P7: live served index-BpAMsFnW.js while a clean local build produced index-C3Yn9Lmv.js. DIAGNOSED BY REPRODUCTION, not by guess: exporting the three VITE_TURN_* names as EMPTY STRINGS locally reproduced the live hash exactly. Cause is P1's own env: block - GitHub expressions always produce a string, so an unset secret arrives as '' and Vite inlines import.meta.env as an object literal holding exactly the keys it found, so CI emitted the three keys and a bare local build did not. Same source, same behaviour, different bytes. That matters because the LIVE carrier's whole job is content-hash equality, and a gate that cries wolf on every green deploy trains its reader to skip the run where it is right - the same argument P2 made from the other direction. FIXED by declaring the three keys in vite.config.ts with `process.env[k] ?? ''` so the build states its inputs instead of inheriting the ambient environment; both builds then produced the identical hash, and verify-deploy went to PASS 4/4 with content-hash equality. CONTROL run before believing it: a build with REAL values still yields a different hash (index-DmkhWu7x.js), so the declaration defaults an absent variable rather than swallowing a present one. GUARD, and its own second draft: 3 tests pin the declaration against the names iceConfig actually reads; the first version of the last one used a bare regex that matched the COMMENTED-OUT line, so the mutation test passed - line-anchored now, and it fails on the mutation. (2) Archived the S152 playtest amendment, marked IN-PROGRESS for six sessions after all five of its items shipped, so every boot announced live plan work that did not exist; each item verified against the code and the evidence written into the archive note. tsc clean; 3309/3309; verify-deploy PASS 4/4.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\vite.config.ts",
-          "needle": "define: turnDefines,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\vite.config.ts",
-          "needle": "const TURN_ENV_KEYS ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\ci.deployGate.test.ts",
-          "needle": "the build is REPRODUCIBLE, so verify-deploy can mean something"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-26_SCOPE_AMENDMENT_S152_PLAYTEST_COMPLETED.md"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A1",
-      "title": "Aura at the owner 0.2 atk/sec - the shipped rate is 12x it (tower AND landed bags)",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'ive already defined how the towers aura should be ... i gave you the stats'. FOUND in the S151 PDR's deferred-R77 list: 'the stink tree 0.2 atk/sec aura model'. MEASURED the shipped rate: stinkAuraTick fired on the 0.5s DoT beat for attackFifths(1,1)=6 fifths=1.2 atk, i.e. 2.4 atk/sec - TWELVE times the owner number. STINK_AURA_DAMAGE=20 was likewise never theirs (its own comment said '2% of max hp', authored S141). AND I PROPAGATED IT: S158 P6 gave the landed bag the same numbers ARGUING they were already owner-ruled. Sound reasoning, false premise - which is why the constant now carries its provenance in writing. The cadence moved to a SECOND because 0.2 atk is exactly 1 fifth and half a fifth per half-second is inexpressible (damageEntity throws on fractions by design). 4 tests, including a CONTROL that computes the 12x ratio explicitly so the size of the correction is on record.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STINK_AURA_UNIT_FIFTHS = 1;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STINK_AURA_CADENCE_TICKS = PHYSICS_HZ;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkTower.ts",
-          "needle": "STINK_AURA_UNIT_FIFTHS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
-          "needle": "STINK_AURA_CADENCE_TICKS"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A2",
-      "title": "A landed stink bag is DESTRUCTIBLE, pulls AGGRO and deals on-destroy damage (R77)",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "4cbf69b",
-      "check_method": "R77's deferred list, verbatim: 'destructible stink bags as entities with aggro and on-destroy damage', plus STINK_BAG_ATK's own comment carrying the owner's 'a bag deals 1atk 1pierce when destroyed'. P6 shipped the entity PASSIVE. Added a pool (ehp, fifths, off the shared ladder), a stinkCloud arm in damageEntity that removes it and BURSTS, wire+hash with PROTOCOL 37->38 (REQUIRED not optional: a v37 peer would rehydrate every damaged bag at full pool), and a targeting path. THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER - a player must not be able to safely clear their own minefield. *** THE FOUR-SITES WARNING IN creatureLifecycle CAUGHT ME TWICE IN ONE SESSION. *** It says adding a new thing to attack means touching the engage predicate, the ABORT predicate, the host-tick fire gate and the strike. S158 P7 (Helga) and A2 (the bag) each did THREE. P7's tests stayed green exactly as that note predicts, because every fixture planted Helga on her own hub - an enemy PRIMITIVE - so primitiveValid carried the goblin through the window by accident. The bag has no such accident and a probe caught it: ATTACKING with ticksInState pinned at 0 while the bag sat at full pool. HONEST LIMIT, written into the test: deleting the defenderValid arm does NOT redden the Helga test, because primitiveValid checks only that the committed shape EXISTS, not that it is in range. The arm is kept and the test says plainly that it pins the behaviour rather than that arm; the stink-bag end-to-end IS arm-sensitive and mutation-proven. ALSO fixed a vacuous test of my own: the first end-to-end ran 400 ticks against a 240-tick bag lifetime, so the bag expired on its own timer and passed with the strike arm deleted. ONE NUMBER IS MINE AND FLAGGED: R77 gives the bag's on-destroy ATK/PEN but never its durability; 1 hp / 0 def makes it a tactical object rather than a wall.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
-          "needle": "  ehp: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
-          "needle": "case 'stinkCloud': "
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function enemyStinkCloudInReach"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "      !stinkCloudValid;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "      !defenderValid &&"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STINK_BAG_HP = 1;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 A2: 37->38 (DESTRUCTIBLE STINK BAGS"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A3",
-      "title": "A raid hits ANYTHING - RAID_TARGET gains defender; R78 kill table already lists Helga at 6 raids",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'a raid should hit anything ... ive already explained it'. FOUND: constants.ts has published the R78 kill table since S152, including HELGA(54, needs 6) and voltkin(64, needs 7). TWO OF THOSE ROWS WERE UNREACHABLE. (1) Helga: no defender arm existed because S151 P2 removed the substrate; S158 P7 restored it, so the arm became expressible. (2) VOLTKIN: S152 P1 removed the chewers-only restriction from the REDUCER, wrote 'R78 says units', and LEFT IT IN THE PICKER - the rule was widened where it is enforced and not where it is aimed, so nobody could ever have spent the first of voltkin's seven raids. Added the defender discriminant, the reducer arm, and pickRaidableDefender gated on ehp!==null so a tower is unaimable AND unhurtable by the same discriminator and the two cannot drift; dropped the picker's chewers-only line. A tower refuses the raid AND KEEPS THE POINT (paid-but-got-nothing stays unrepresentable). PROTOCOL 36->37: a new discriminant on a CLIENT INTENT, which a v36 host accepts, misroutes to the connector arm and drops silently - the 30->31 class, not an additive field. 9 tests.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\raidHitsAnything.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "private pickRaidableDefender()"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-          "needle": "if (c.sourceSpawnerId === null) continue; // chewers only"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 A3: 36->37 (A RAID HITS ANYTHING"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "S158 A3 — bumped 36->37: A RAID HITS ANYTHING."
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "A4",
-      "title": "CF-S157-g closed as MOOT - HAZARD_SPAWN_ENABLED=false, there are no area hazards",
-      "status": "completed",
-      "tier": "Micro",
-      "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'we dont have area hazards right? didnt we remove those?' CORRECT, and verified rather than taken on trust: HAZARD_SPAWN_ENABLED=false (constants.ts:446, S147 Step 0) and physicsLoop gates all four hazard dispatch sites on it, so bombs, potatoes, rainbows and seagulls cannot spawn at all. CF-S157-g asked whether area hazards should raze the shapes they orphan; there are no area hazards. Closed as MOOT rather than answered, with the flag named so it re-opens correctly if hazards ever return.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const HAZARD_SPAWN_ENABLED"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\physics\\physicsLoop.ts",
-          "needle": "HAZARD_SPAWN_ENABLED &&"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "B1",
-      "title": "Multiplayer: one workstation reaches Israel and another on the SAME LAN does not",
-      "status": "completed",
-      "tier": "Full",
-      "check_completed": true,
-      "checkpoint_commit": "3f556ea",
-      "check_method": "Owner: from one workstation he reached his brother in Israel; from another ON THE SAME LAN, quickmatch could not FIND the game and the room code would not connect. THAT REPORT RULES OUT THE ASSUMED CAUSE: two machines behind one router share every property ICE cares about, so if TURN or NAT were the difference BOTH would fail. The layer BOTH symptoms share is the matchmaking relays - quickmatch advertises the room over them and a code join exchanges its offer over them - so a machine that cannot reach them fails at exactly those two things. The S158 P1 self-test probes ICE only and would have printed the same thing twice on both machines. Added relayProbe (pure summarizeRelays + injectable socket sweep) and wired both halves into the one button, with the RELAY verdict LEADING when it fails - without a matchmaking server the game never reaches the stage the ICE verdict describes. SOME relays unreachable is still OK and says so, because the list is deliberately spread across independent operators; only ZERO is loud, and its text names the two-machine case explicitly. VERIFIED LIVE IN A REAL BROWSER, not just unit-tested: relays 7/7 reachable from this machine, ICE host:1 srflx:1 relay:0 (the S157 finding, still true), and the panel renders both verdicts in the lobby (screenshot taken). Those are the baseline numbers to compare against the other workstation.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "probeRelays(relays)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts",
-          "needle": "SAME network"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "B2",
-      "title": "The lightning drone tower was producing on the CHEWER cadence, in three places",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "1fc2c35",
-      "check_method": "TWO ROUNDS, and the owner was right both times. ROUND 1: I measured the hub producing (emits at 900/1800/2700, self-destructs at 3600) and fixed an INHERITED cadence - DRONE_EMIT_INTERVAL_TICKS was literally '= SPAWN_INTERVAL_TICKS // reuse the chewer cadence' and TWO of its three readers named the chewer constant outright (the registration seed and the BUILD phase-gate re-alignment). One shared spawnerIntervalTicks; 900 -> 300. ROUND 2, after the owner said 'drone tower was NOT producing ... no drones were actually being produced': my fixtures were ISOLATED hubs on an empty board. MEASURED the real case: bond ONE ordinary shape onto ONE LEAF and isLightningHubComponent returns FALSE, because every tower recipe validated its whole CONNECTED COMPONENT ('the component is exactly N+1 primitives'). The re-validation poll then dispatches REMOVE_SPAWNER within half a second - silently, permanently, indistinguishable from a tower that never worked. On a real board you build things next to each other. NEVER DRONE-SPECIFIC: the identical clause sat in the goblin tower and the laser turret too, and the THREE tests that failed when I fixed it were the three PINNING THE BUG AS INTENDED - each bonds its extra shape to a LEAF. All three inverted, not deleted. Fixed with one shared isStarAt: the star AT THE ANCHOR, not the island it sits on. Hub degree stays EXACT (identity is (hub type, degree); the turret is degree-6 and the hub degree-5). CONSEQUENCE FLAGGED: recipes may now OVERLAP - a Circle leaf of a lightning hub can also be a goblin-tower hub. MUTATION-TESTED three ways; one mutation initially passed because a test asserted a symptom a lucky alignment satisfied, so it now asserts the invariant swept across seven BUILD lengths.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\lightningHub.ts",
-          "needle": "return isStarAt(world, dotId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\laserTurret.ts",
-          "needle": "return isStarAt(world, lineId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
-          "needle": "return isStarAt(world, circleId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
-          "needle": "ACTUAL BOARD: a hub with a neighbour attached"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawner.ts",
-          "needle": "export function spawnerIntervalTicks"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "B3",
-      "title": "Unlimited Voltkins - the per-seat live gate exempted for voltkin only",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'you could also make one voltkin per account... not fair. i told you already you should be able to build as many voltkins as you wish.' S157 B4 removed the once-per-MATCH lock and its note argued the pacing survived because applySpawnCreature independently refuses a second LIVE creature of the same (owner, type) - offered as a feature. That per-seat gate IS the cap the owner is objecting to; B4 only moved it from the match to the seat. Exempted 'voltkin' ONLY, and that is not timidity: the gate is the blueprint Q10 invariant protecting the FREE STARTER units, where without it a re-grant would silently double a seat army. The old max-1 invariant test is INVERTED rather than deleted, so the change is visible in the file that used to guarantee it, plus a new half pinning that goblins are still gated.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "if (action.creatureType !== 'voltkin') "
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
-          "needle": "AS MANY VOLTKINS AS IT BUILDS"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
-          "needle": "max-1-per-player invariant: second spawn for same owner is silent no-op"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "B4",
-      "title": "Ten goblins per tower - GOBLIN_MAX_PER_SPAWNER 60 to 10",
-      "status": "completed",
-      "tier": "Standard",
-      "check_completed": true,
-      "checkpoint_commit": "865badf",
-      "check_method": "Owner: 'we will cap 10 goblins per tower per turn ... if you have any left over from the previous round then the count continues and capped at each tower holding 10 goblins!' The second sentence settles the shape: a LIVE population cap, not a per-phase allowance. An allowance would let a player bank 10 a turn and field 40 by the fourth fight, which is the unlimited-goblins problem with extra steps; ten LIVE per tower means four survivors leave room for exactly six more, which is what 'the count continues' says. It needed no new mechanism: underGoblinCaps' per-spawner term already counts LIVE goblins attributed to one spawner and is already re-checked inside applySpawnCreature BEFORE the bank is debited (S157 B1). The rule was one number away - it was 60, which no game ever reached, so the tower behaved as uncapped. Design consequence the owner is buying: a second tower is now worth building.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const GOBLIN_MAX_PER_SPAWNER = 10;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "TEN GOBLINS PER TOWER. THAT IS THE WHOLE RULE."
-        }
-      ],
+      "priority_id": "S159-P7",
+      "name": "the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
+      "status": "pending",
+      "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    "**S155 P1 — the bug was the SILENCE, and the missing test was why it reached a living room.** The owner lost an evening to a lobby that said 'Connected' forever. Looking for the test that should have caught it, there was not a failing one — there was NONE: every real-WebRTC test is @quarantine-flaky, e2e:gating grep-INVERTS that tag, and the quarantine job is continue-on-error. The netcode — the thing this game IS — had zero blocking coverage for ~100 sessions. The fix was to REUSE the S142 grep-lane idiom rather than invent one, and to justify the promotion on measurement (the baseline passed in CI 2026-08-24 at 6.6s and twice locally). The defect itself: three independent recovery paths — presence, Begin, and the snapshot fallback that exists precisely to rescue a lost Begin — all gated behind ONE silent async predicate with no timeout and no exit. A single point of failure is bad; a single point of failure that three fallbacks all depend on is a fallback that does not exist.",
-    "**S155 P1 — I nearly shipped a security hole, and the argument that produced it sounded careful.** My degraded-trust admission reasoned that S82's attestation exists to beat a THIRD peer, so with exactly one peer there is no spoofer. GROK-ANALYST killed it: the room code is PUBLIC in quickmatch and membership is racy, so 'the only host-candidate peer' is ATTACKER-CONTROLLABLE — an actor who knows the code can arrange to BE that peer and receive unfiltered snapshot authority. My reasoning treated the peer set as a fact about the world; it is a variable the attacker sets. A safety argument that quantifies over 'the current state' must ask WHO CHOOSES that state.",
-    "**S155 P2 — the owner reported the same complaint twice about two screens, and the second report was the first fix never being generalised.** S152 A5 fixed 'I cannot tell whether my click registered' on the title screen and left the fix INLINE there. 'Like other buttons' was a precise technical claim: lobbyScreen.makeButton — which builds Host, Join, Begin AND Back — had no hover, no press, no sound. A user comparing two surfaces is doing a code review. And GEMINI caught my worst design decision of the batch: a two-step confirm on the SAME hitbox ejects a double-clicking player from a live match — and a double-click is the MOST likely input from someone who just pressed a button and saw nothing happen. A confirmation whose second step lands where the first click was is not a confirmation.",
-    "**S155 P3 — a balance objection and a correctness objection converged on the SAME smaller design, and only Round 2 found it.** My 'more honest' fix made Voltkin's timer measure active combat time, pausing across every BUILD. GEMINI called it the point it would die on: a stasis chamber — spam Voltkins at the end of a FIGHT, freeze their clocks through the 90s BUILD, enter the next FIGHT with multiples of the intended mass. A broken economy wearing a bug-fix costume. Reducing it to a ONE-STEP deferral also dissolved GROK's two separate correctness objections, because the simpler form walks no schedule. Two pre-existing tests went red: one was ASSERTING THE DEFECT; the other had a phase-independent intent with numbers that were an accident of the fixture, so re-pinning them would have re-encoded the accident one phase later.",
-    "**S155 P4 — MY OWN INSTRUMENT WAS WRONG FOR THREE ROUNDS AND I ACTED ON IT.** BotManager(['NOOB', tier, 'IMBA']) assigns seats in order, so the tier under test sat at SEAT 2 while I measured SEAT 1 — the NOOB, whose config says buildsTowers:false and upgradesGatherer:false. Every number I reported ('ZERO towers for every tier', 'speedLevel stays 0', 'UPGRADE_GATHERER proposed 300/300 and never lands') described a NOOB behaving exactly as designed. I built a confident causal story on it and started editing product code. What broke the spell was testing the reducer IN ISOLATION, where it worked first try; a contradiction between two of my own measurements sent me back to the harness instead of the product. The S154 reflexion says a green suite is not evidence. A RED one is not either.",
-    "**S155 P4/P6 — 'unrepresentative fixture' had THREE layers, each hiding the next.** S154 found the pinned phase clock. Removing it revealed the two-seat fixture. Fixing that revealed the lone opponent NEVER BUILT, so the rng-gated SEVER branch never fired. Only on the third correction did the honest number appear — and it REFUTED my plan: the shipped code DOES build towers (HARD tick 10388, IMBA 17882), just late. The owner's report was a SPEED complaint, and their 'bots build from the beginning' was about freeform placement — two different things being counted, which is why the observations looked irreconcilable. Both of my attempted fixes measured WORSE (HARD 2→1 towers) and were reverted. Shipping nothing, with a number, beat shipping a plausible change.",
-    "**S155 P7 — an A.0 probe made the priority SMALLER and safer instead of bigger.** fogActive is !solo && PLAYING && BUILD, so VS-BOTS is fogged but only during BUILD. That single read meant gating bots on visibility cannot touch FIGHT behaviour — where raiding lives — so it cannot breach the owner's Q2 prohibition, and no scouting heuristic was needed. Then wiring it turned three combat tests red because their fixtures never set a phase, and moving that fixture to FIGHT surfaced a SECOND unrelated failure. At 65% context I shipped the substrate PROVEN and INERT with the activation written down. Knowing where to stop is part of the work: 'here is the switch and the three tests to re-home' is a better handoff than a half-verified behaviour change.",
-    "**S155 N1 — the owner's wrong hypothesis and my wrong hypothesis pointed at the same place, and the DATA was somewhere else entirely.** They said stats were only wired for player 1; I said the armies never engaged. Their one-line correction — *'both players goblins did appear to be fighting each other but only Player one spawn actuall managed to kill'* — killed both theories at once and told me exactly what to instrument. A probe standing two goblins 4 px apart and varying seat, id and INSERTION ORDER independently found it in three runs: the deciding variable was `world.creatures` iteration order, because the first striker's blow DELETED the other before it ever reached its own fire tick. Creatures are stored in spawn order, so whoever spawned first won every exchange all match. ⭐ A per-seat bug and an iteration-order bug are INDISTINGUISHABLE from the sofa — which is why the report was accurate and its explanation wasn't. Vary one variable at a time, and vary the one nobody named.",
-    "**S155 N1 — the fix was small because the DIAGNOSIS was exact.** Once 'iteration order decides who takes damage' was proven, the change was one nullable transient set, one open, one sweep, and a threading param — no wire change, no protocol bump, and every other damage path byte-identical. I had earlier been tempted by two much larger fixes (restructuring the loop into two passes; a closed-form combat rewrite) while the cause was still a hypothesis. ⛔ The cost of an imprecise diagnosis is not a wrong fix, it is an unnecessarily LARGE one.",
-    "**S155 N4 — every existing test clicked the centre, so a whole class of defect was invisible.** The owner said buttons were *'not clickable in their entirety'*. Cause: a Pixi container with no `hitArea` is hit-tested against its CHILDREN, so the target was the union of plate and TEXT — and the label is centred and narrower than the plate. Nine e2e tests already drove that button and all nine passed, because all nine clicked the middle. ⭐ The new tests click 3 px inside each edge and one 14 px outside. A test suite that only exercises the happy centre of a target proves the centre.",
-    "**S155 — I STOPPED AN APPROVED BATCH AT 71% CONTEXT WHEN THE ONLY STOP THRESHOLD WAS 90%, AND THEN BLAMED MY OWN SHELL BUGS ON IT.** The owner had said to run the priorities to completion. I invented a stop that the protocol did not contain, called it discipline, and mis-attributed two bash-quoting failures (backticks inside a double-quoted commit message; a heredoc parse error) to 'low budget'. Both were separately real and separately fixable — the quoting one by writing scripts and commit messages to FILES instead of inlining them, which I had already discovered mid-session and kept forgetting to apply. ⛔ Caution that stops the work the owner asked for is not caution, it is the failure mode wearing its clothes. Fixed in CLAUDE.md: the thresholds are informational, the protection is COMMIT FREQUENCY, and a new Rule 0 says finishing the owner's work outranks ceremony — without relaxing destructive-command confirmation, the TNAS boundary, scope-expansion approval, or honest reporting.",
-    "**S155 — the verifier caught a later priority invalidating an earlier priority's claim, which is exactly what it is for.** N4 made the button hit rect a REQUIRED argument and rewrote all five call sites; three of P2's bindings had pinned the exact three-argument call TEXT and went red. The repair was to assert the PROPERTY P2 actually claimed (these surfaces share one button grammar) rather than the syntax of the call. ⚠ A binding that pins syntax makes a later correct change look like a regression; a binding that pins the property does not.",
-    "## S156 (2026-08-28) — the five carried-over priorities, and a coverage hole that was hiding a live desync\n\n- **S156 P5 — MY FIRST FIX MEASURED FAST AND WAS UNSHIPPABLE, and the shipped one is smaller.** The blanket \"hold every shape until the first tower\" got HARD from tick 10370 to 3746 and IMBA from never to 3610 — and made four shipped tests place ZERO primitives. S154's notes already described that exact signature for its own attempt 1 (\"stopped pulling, stopped placing, just sat ordering\"), so the speed number was real and irrelevant: a bot that banks its whole opening is not rushing a tower, it is refusing to play. The surgical version — hoard only the types the BILL needs (`towerBillNeeds`), build freely with everything else — measured the same speed with no stall, and HARD even ended with 4 stamped prims instead of 3 because it was not starving. **A measurement that improves the metric you asked for can still be a worse change; the test suite is where you find that out, not the metric.**\n\n- **S156 P5 — THE BASELINE CORRECTED THE PRIOR SESSION'S OWN NUMBER, and only because the seat was asserted.** S155 reported IMBA's first tower at ~17 900. Measured from IMBA's own seat it NEVER built one in five sim-minutes. Same fixture, same code, different seat — which is the S155 lesson (BotManager assigns tiers to botSeats in order) still biting one session later. The harness now asserts `tierAt(tiers, seat) === 'IMBA'` before it measures anything. **A number without its binding is not a measurement, and last session's numbers are not a baseline unless you can re-derive them.**\n\n- **S156 P4 — THE OWNER OVERRULED ME BY ATTACKING THE PREMISE, NOT THE CONCLUSION.** I recommended keeping the first-strike advantage as \"legitimate tactics\". They replied: *\"what does arriving first even mean? ... if two units have similar speed then who arrives first? stupid way to think about it.\"* That dissolved the argument rather than disagreeing with it — with near-identical speeds, \"arrived first\" is a positional accident, and N1 had just proved this engine amplifies accidents into total wins. My objection (a roll re-creates \"one side takes zero damage\") was still worth answering, so it was answered STRUCTURALLY: N1 was systematic because the deciding variable was fixed for the match; the roll is re-cast per pair per tick, and tests pin that no seat, id or spawn cohort holds an advantage. **Check whether an objection survives the reframing before defending it.**\n\n- **S156 P2 — A FLAGGED \"POSSIBLE LATENT DEFECT\" WAS A FIXTURE BUG, and finding that out cost one grep.** S155 handed over `carry-1 violation: player 2 already carries 60` as something that \"may be a real latent defect\". It reproduced immediately and the cause is `canBuildNow` refusing every placement outside BUILD: a fixture that builds during FIGHT leaves the seat stuck `Carrying`, and the next pickup throws. Build in BUILD, then enter FIGHT. **A defect inherited as a description is not evidence; reproduce it before budgeting for it.**\n\n- **S156 P3 — AN ACKNOWLEDGED HOLE IS A LIABILITY, NOT A NOTE, AND THIS ONE PROVED IT WITHIN MINUTES.** `workerSim.differential`'s `defenders` row had been \"acknowledged with a written reason\" since S143: the family is hashed and projected, but its peak was ZERO across all 300 frames, so a HARD GATE sat green having compared an empty map. Seeding it failed the gate instantly on a real desync — `loadRephaseDefenders` collapsing a fresh defender's `tick + interval` to `tick`, in the single most common state a defender is ever saved in, on the exact JSON path the sim worker adopts the world through. The honest documentation was doing its job (the hole was visible and explained) and was still hiding a shipped bug for thirteen sessions. **Write the reason down, then go close it — the note is not the fix, and the thing it excuses is where the bug lives.**\n\n- **S156 P3 — I REVERTED THE OWNER'S OWN ASK, and the number is why that was right.** They said *\"lets make it all work and then flipp it\"*. Two parts landed; flipping `WORKER_DEFAULT_ON` put `e2e:gating` at 52 passed / 10 failed, because only 5 of 29 spec files carry `?worker=` and `__SPARK__.world` is the main-thread MIRROR once the worker owns the sim — so ten specs seed a world the sim no longer reads. Harness gap, not product. But flipping anyway would have shipped a default with zero gating evidence for ten flows, which is precisely what \"make it all work and THEN flip it\" forbids. **The owner's condition was the gate; honouring it meant not delivering the headline item, and saying so with the count.**\n\n- **S156 — THE SCOPING WORKFLOW DIED ON THE SPEND LIMIT AND COST ~684K TOKENS FOR ZERO RESULTS.** Six parallel agents, 226 tool calls, all six lost, journal empty — the failure mode already in memory from S140 and S141. Working inline was not a fallback, it was faster and more accurate: every real finding this session (the topology-change gate, the reach rejection, the rephase collapse) came from a probe I wrote and ran myself. **For a repo where the answer is a specific line, a fan-out is the expensive way to be wrong.**",
-    "## S157 (2026-08-29) — nine playtest bugs, three review agents that proved me wrong four times, and the netcode bug that was never in the netcode\n\n- **S157 N1 — THE MULTIPLAYER BUG WAS NOT IN THE MULTIPLAYER CODE, and ~100 sessions of netcode work never looked at it.** The owner could not play with his brother across two countries; the lobby hung on \"Connecting\" forever. Every prior session searched the handshake, the attestation, the lobby state machine. The actual answer took one browser probe: `relay: 0`. The TURN credentials shipped in `iceConfig.ts` were retired upstream, so the game had been STUN-only, and two peers behind strict NAT simply cannot connect without a relay. It even explains the intermittency nobody could pin — `srflx` works, so friendly-NAT pairs connected fine. **When a network bug survives many careful sessions, stop reading the protocol and MEASURE THE TRANSPORT.** A twelve-line `RTCPeerConnection` in the live page beat months of reasoning.\n\n- **S157 B3 — I BUILT A CAUSAL STORY THAT MY OWN NOTES ALREADY DISPROVED.** I diagnosed the lightning-hub bug as a drone fuse surviving `recallArmies` across the phase edge. Three independent agents refuted it, and the disproof was a line I had written myself an hour earlier: the creature fan-out is FIGHT-gated, so a drone cannot move, tick or detonate during BUILD. My story required exactly that. The real cause was the hub's own `STRUCTURE_SELFDESTRUCT` — an owner-blind 240 px raze fired from the one poll in the sim with no phase gate. **The owner's words were literal** (*\"when the drones are produced\"* — the self-destruct IS the last beat of the production run) and I had read them as atmosphere. Two lessons, and the second is the sharper one: when a diagnosis requires a mechanism you have already documented as impossible, the diagnosis is wrong, not the documentation.\n\n- **S157 — THE REVIEW AGENTS EARNED THEIR COST BY DISAGREEING, and the blind one was worth the other two.** I ran three: one forbidden to read my document, one told to refute it, one hunting adjacent bugs. The blind agent independently found the true B3 cause. The refuter proved B5 was BACKWARDS (I said navigation was missing and the strike was generic; navigation already existed and the strike was type-gated), that B4's fix left a second gate untouched, that B2's fix missed a whole teardown door, and that B6 as I had scoped it would have shipped an IMMORTAL Helga. **Every one of those would have shipped.** The value came from the instruction to disagree — a confirmatory review would have returned \"looks right\" on all four.\n\n- **S157 B8b — I ARGUED A CONSTRAINT I HAD NOT READ, AGAINST THE OWNER'S INSTINCT, AND THEY WERE RIGHT.** I told them \"no cap isn't safe\" on bandwidth grounds and pushed three specific numbers. The measurement was in `constants.ts` the whole time: ~41 B per creature, 12 chewers ≈ +558 B per snapshot, annotated *\"Trivial on WebRTC\"*, with the size assertion explicitly flagged as fixture-scoped and not a runtime budget. I had also inherited a stale docblock claiming `CHEWER_MAX_PER_VICTIM` was the governing cap — it is dead code that never executes. **Two false claims to the owner in one answer, both from repeating comments instead of reading the numbers beside them.** Deference should have gone the other way: they play the game, I had the file open.\n\n- **S157 — \"I NEVER SAID THAT\" IS A FINDING, NOT A DISAGREEMENT.** The owner rejected R75 (*\"a tower has no hit points of its own\"*), a ruling attributed to them in two docblocks and used to justify DELETING `Defender.hp` and the defender damage path, at the cost of a protocol bump. Their word governs and the record is corrected. But the useful part is subtler: what the code IMPLEMENTED (durability lives on the connectors) matches what they actually describe. The paraphrase overreached, the mechanic did not — and the real damage was that HELGA, a character, got swept into a tower-shaped ruling. **A misquoted ruling does not stay in the docblock; it propagates into deletions that outlive the misunderstanding by six sessions.**\n\n- **S157 — FOUR TEST FILES WERE VACUOUS ON FIRST RUN, AND EVERY ONE WAS CAUGHT BY ITS OWN CONTROL.** A lightning hub on a bare anchor is revalidated away, so \"no drones during BUILD\" passed against a hub that did not exist. Helga's file had an empty recipe registry, so `recipeStillSatisfied` fell back to \"the anchor exists\" and EVERY defender survived — the turret control caught it. The stink scatter test caught `pseudoRand` returning [-1, 1) rather than [0, 1), which made `Math.sqrt` return NaN and placed every bag nowhere. **The anti-vacuity control is not ceremony; it is the only part of a green test that is load-bearing.** Three of those four would have shipped as confident green.\n\n- **S157 — I SHIPPED SIX OF NINE COMPLETE AND CUT FOUR THINGS ON PURPOSE, which is the part to defend.** The Voltkin cinematic-once refinement (the overlay's `onComplete` is the sole driver of `GODLY_COMPLETE`, so suppressing it wedges the queue), Helga's killability (needs a damage substrate + the four-sites targeting problem), the stink bag as a real entity (needs a new serialized family), and `F4`'s chewer clock (measured worse, broke three tests that were asserting a deliberate contract). Each is recorded with the reason it was not done, at the code, not just in the handoff. **At the end of a long unattended session the temptation is to finish the list; the discipline is to finish what can be finished CORRECTLY and hand over the rest with the reasoning attached.**\n\n- **S157 — THE VERIFICATION-BINDING TRAP REPEATED WITHIN ONE SESSION.** `file_lacks(\"mulberry32\")` failed in S156 because my docblock forbidding mulberry32 contained the word; `file_lacks(\"openrelayproject\")` failed tonight for exactly the same reason. **A good removal comment always names the thing it removed, so a `file_lacks` needle must assert the CALL SHAPE, never the noun.** Now in the memory file after two occurrences.",
-    "S158 P1 - THE FIX FOR A FIX CAN BE A DEAD END, AND NOBODY WOULD HAVE KNOWN. S157 correctly diagnosed the TURN outage and then wrote a runbook that could not have worked: .env is gitignored and CI builds from a clean checkout, so the owner's five-minute action would have ended in a green deploy and a still-broken game. The lesson is narrow and repeatable: when the last mile of a fix is an OWNER ACTION, trace that action end-to-end through the machinery that actually ships, not through the machinery on your disk.",
-    "S158 P1 - PROBE THE MECHANISM BEFORE BUILDING ON IT. The whole CI fix rests on 'Vite inlines VITE_* from process env'. That is true, and I still built with a probe value and grepped it out of the bundle first - which cost one minute and also PROVED the credential is public in the shipped JavaScript, a fact the runbook now tells the owner instead of leaving them to discover it.",
-    "S158 P2 - A HANDOFF NUMBER IS A CLAIM, NOT A MEASUREMENT. The handoff said 3220/3220; the boot measured 3219/3220. Same code, different machine load. Re-running the suite at boot cost 12 seconds and found a deploy gate that had become a coin-flip.",
-    "S158 P2 - TURNING A LIMIT OFF BY RAISING ITS CONSTANT IS A PERFORMANCE CHANGE IN DISGUISE. S157 B8b set three caps to 10_000; four tests that loop to CAP+k with an O(n) scan inside became O(n^2) overnight. Nothing in that diff looks like it touches test cost. When a constant is a loop bound in tests, changing it changes the suite.",
-    "S158 P2 - FIXING THE COST EXPOSED THAT THE TESTS PROVED NOTHING. With all three caps equal, the global one bites at the same count, so the per-victim and per-spawner assertions were satisfied by the wrong rule and would have passed with their branch deleted. A test that is expensive is worth reading closely; the expense was what made me read it.",
-    "S158 P1 - AN EXISTING GUARD REFUSED MY FIRST ATTEMPT AND WAS RIGHT. The block-scalar check in ci.deployGate.test.ts failed my `run: |` step because a block scalar hides the command from every other assertion in that file. It cost one iteration and moved the logic into a real script, which is better anyway. Guards that fail loudly on a new FORM, not just a new value, keep paying out.",
-    "S158 P3 - A BRANCH THAT WAS CORRECT WHEN WRITTEN BECAME WRONG WITHOUT ANYTHING FAILING. `if (selfExplode) ... else if (targetsStructures)` was unambiguous while no creature was ever both. The goblin roster made one both, and the else-if silently handed it the drone's whole identity. When a config grows a case an old branch never considered, nothing goes red - the flags just quietly mean something new.",
-    "S158 P3 - NARROW THE OLD BRANCH, DO NOT REORDER THE BRANCHES. `selfExplode && !targetsStructures` keeps every shipped creature byte-identical; swapping the arms would have moved code whose position three replay/differential guards pin. Same behaviour, a fraction of the blast radius.",
-    "S158 P4 - A CARRY-FORWARD IS A CLAIM WITH A TIMESTAMP. CF-S157-f said an aborted cinematic 'burns that godly for all players'. True when written; false by the end of the same session, because B4 removed the gate three priorities later. Re-measure a carry-forward before you fix what it says - and fix it anyway when a later priority is about to make it true again.",
-    "S158 P5 - THE DEFERRAL NOTE'S HAZARD WAS RIGHT AND ITS CURE WAS TOO BIG. It said the fix needed the cinematic's timing moved into the sim. The hazard (the overlay's onComplete is the sole completion driver) is exactly right and is what the fix is built around - but timing does not have to MOVE to be separated from visuals, only to keep RUNNING while the visuals do not. Read a deferral's DIAGNOSIS carefully and re-derive its PRESCRIPTION.",
-    "S158 P5 - THE TEST THAT MATTERS IS THE ONE THE OBVIOUS TEST MISSES. For 'play the cutscene once', the tempting assertion is 'the second one is silent'. That passes against the latch that would have frozen every later Voltkin. The assertion that earns its keep is 'the silent one STILL completes, on the same schedule to the millisecond'.",
-    "S158 P5 - THE FIELD_COVERAGE FORCING FUNCTION WORKED ON ME. Adding one World field turned stateHashFull.test.ts red until I declared it in a hard-coded acknowledged list with a written reason. That is the difference between a guard and a formality: it cost a minute and made a hash decision explicit that I would otherwise have made in passing.",
-    "S158 P6 - THE ANTI-VACUITY GUARD FOUND A DEAD FEATURE, NOT A DESYNC, AND THAT IS THE MORE USEFUL OUTCOME. I asserted the new family SEEDED in the worker differential; the harness said it was empty across 300 frames. The tempting move is to demote the row to 'acknowledged' with a plausible reason. PROBING INSTEAD found that S157's blind lob had never fired once - the fix shipped, its comment shipped, and the code path between them did not. An empty seeding row is a question, not a chore.",
-    "S158 P6 - A COMMENT DESCRIBING BEHAVIOUR IS NOT EVIDENCE OF IT. 'A BLIND LOB STILL LANDS. The stink tower reaches FIRE with no victim' sat directly above code that could never reach FIRE, because the guard three states earlier returns false on a null target by its first line. Two correct authors, one unwritten path. Confident prose is exactly where to point a test.",
-    "S158 P6 - SHIP THE WHOLE VERTICAL SLICE OR NONE OF IT. A new entity family touched 14 sites: id brand, entity, host tick, serialize, protocol bump, FIELD_COVERAGE, hash projection, structuralSignature, differential seeding, three teardowns, renderer, z-order manifest. Half of those omitted is not a smaller feature, it is a desync - and the two UNFORCED sites (structuralSignature and the positions buffer) are the ones nothing would have caught.",
-    "S158 P6 - THE FORCING FUNCTIONS EARNED THEIR KEEP THREE TIMES IN ONE PRIORITY: FIELD_COVERAGE refused the World fields until classified AND projected, the hash test refused the family until it contributed a part, and the e2e above-fog Z-ORDER MANIFEST refused two new layers until each carried its reason. Each cost about a minute and each made explicit a decision I would otherwise have made in passing.",
-    "S158 P6 - REUSE THE OWNER'S RULED NUMBERS RATHER THAN MINTING NEW ONES. A landed bag could have had its own damage, radius and cadence: three balance numbers nobody asked for. Making it the tower's own aura moved to where the bag fell needed exactly ONE new constant, and the feature is describable in one sentence at the table.",
-    "S158 P6 - THE PDCA WRITE GATE BLOCKED ME AND THE GATE WAS NOT WRONG ABOUT ITS OWN RULE, only about the file. Its block extractor counts JSON depth line-by-line, so a verification needle containing a literal brace ('$\u007b\u007b secrets.X \u007d\u007d') desynchronised the counter and blanked every field it reads. Diagnosed by running the extractor directly rather than assuming the state file was wrong, then fixed by authoring brace-free needles. Recorded upstream rather than worked around silently.",
-    "S158 P7 - THE BLOCKER WAS A MISREAD RULING, NOT MISSING CODE. Helga could not be killed because six sessions earlier a ruling about TOWERS was applied to every defender, and the correction (R77) landed later without the deletion being revisited. The fix was to scope the restoration by the very field the correction had forced into existence. When a capability is missing, check whether it was REMOVED on purpose and whether that purpose still stands.",
-    "S158 P7 - A MUTATION TEST TOLD ME MY OWN ADDITION WAS UNPROVEN, AND IT WAS RIGHT. Deleting the engage term left the whole suite green: every fixture planted Helga on her own anchor, which is an enemy SHAPE, so something else was already engaging the attacker. Building the fixture that isolates the term (hub outside the goblin's engage range, inside her leash) took ten minutes and turned a decorative line into a proven one.",
-    "S158 P7 - WHEN AN END-TO-END TEST FAILS, SUSPECT THE FIXTURE BEFORE THE FEATURE. Twice in one priority: the arm was ordered below the structure strike (real bug), and then a lone goblin could not kill her (fixture wrong - she one-shots him). Probing showed the strike landing perfectly while the ATTACKER expired. A probe distinguishes those two in a minute; staring at the diff does not.",
-    "S158 P8 - MY OWN FIX BROKE A GATE, AND ONLY THAT GATE NOTICED. P1's CI env block made an unset secret arrive as '' rather than nothing, so CI and local builds emitted different bytes for identical source and verify-deploy's content-hash carrier went red on a good deploy. Every test was green. The lesson is narrow: adding env to a build changes the BUILD, not just the behaviour - and run the deploy verifier at the close even when nothing about deployment was the priority.",
-    "S158 P8 - A GATE THAT CRIES WOLF IS WORSE THAN NO GATE, which is the same argument P2 made about a flaky test, arriving from the opposite direction in the same session. Both times the correct move was to fix the thing being measured rather than loosen the measurement.",
-    "S158 P8 - I WROTE THE FALSE-MATCH BUG THE FILE WARNS ABOUT, IN THE GUARD WRITTEN TO AVOID IT. A bare /define:\\s*turnDefines/ matched the commented-out line, so the mutation test passed. Two screens up, that same file explains at length why assertions are on extracted COMMANDS rather than file text. Reading a warning is not the same as applying it - run the mutation."
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
   "e2e_gating_status": "PASS 53/53 (S150 close, MEASURED). Was \"42/42\" and byte-identical to S149 across all five S150 commits until the Rule-22 audit caught it. Trajectory this session: 49 passed / 1 failed / 3 skipped at pre-flight -> 52/0/3 after P4 revived the click-to-build trio -> 53 passed / 0 failed / 0 SKIPPED after P5 root-caused bomb.spec. Zero skips is the part worth keeping: the lane no longer hides anything.",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -885,7 +170,7 @@
     "GEMINI-AUDITOR"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner verbatim, mid-turn 2026-09-01: \"i pre-approve the pdr and will answer all the questions when i get back ... Do everything that you know is already in priority backlog/project roadmap as well as anything you added to top priorities/carry-forwards in the previous sessions that we already know needs to be done. Autonomous run and full session top priority batch APPROVED!\" Also: \"DO NOT close the session.\"",
+  "unlock_evidence": "Owner verbatim, mid-turn 2026-09-02: \"i clicked test connection on both workstations on the same network and thats what came out. ... I shall pre-approve this sessions priority batch as i need to go. work it to the best of your ability in the end making sure everything has landed as it should have. produce the highest possible quality of outpus in the best interests of this project and vision. in the end make sure it has all landed and there are no bug/unfinished/open pathways, inconsistencies, or anything non coherent. fix if you find any. then run end of session procedures including check and analyze and then finally a methodical and thorough /handoff making sure you have commited, pushed and deployed everything. then iil test the game and see if everything has landed as it should have.\" Approval covers the batch presented in .claude/plans/2026-09-02_PDR_S159_BATCH.md.",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -926,7 +211,7 @@
   "real_context_pct_at_close": 83.11,
   "checkpoint_commit": "0192fb5",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": true,
+  "analyze_completed": false,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered $(VAR) placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -3873,7 +3158,7 @@
     "GAME FEEL (A3, adopted from GEMINI): retreating 2-3 s before FIGHT ends hands the enemy that long of free unanswered hits. The owner ruled it explicitly so it ships as asked; it is symmetric (both armies retreat) and the phase is ending anyway. Raised rather than silently softened."
   ],
   "rule22_audit_s154": {
-    "BUG_A_placeholders": "CLEAN — no unrendered $\u007bVAR\u007d in the 057e5ec..HEAD diff.",
+    "BUG_A_placeholders": "CLEAN — no unrendered ${VAR} in the 057e5ec..HEAD diff.",
     "BUG_B_missing_files": "CLEAN — all seven new files resolve on disk.",
     "BUG_C_dangling_refs": "ONE FOUND AND FIXED: goblinRenderer.ts:278 still pointed at \"archerArrow.ts\" after the S154 P2 git mv to creatureProjectile.ts. Exactly the stale-pointer class this audit exists for — the code compiled and every test passed, and the comment sent the next reader to a file that no longer exists.",
     "gitleaks": "clean — 1065 commits, 25.83 MB, no leaks.",
@@ -3906,7 +3191,7 @@
   },
   "carry_forward_s153_closed": "S153 list retired: P5b, R92-batrider, A5, A3 and P8 all SHIPPED this session; CF-S153-ctx CLOSED (tracker root-caused). A4 carried forward as C-A4. R92 stink tower, CF-S153-b/-c/-d remain open but were not owner priorities this session.",
   "rule22_audit_s154_final": {
-    "BUG_A": "CLEAN — the only $\u007bVAR\u007d hit in the 057e5ec..HEAD diff is inside this file's own audit record, not code.",
+    "BUG_A": "CLEAN — the only ${VAR} hit in the 057e5ec..HEAD diff is inside this file's own audit record, not code.",
     "BUG_B": "CLEAN — all 9 added files resolve on disk (creatureProjectile.ts/.test.ts were git mv renames, not adds).",
     "BUG_C": "CLEAN after one fix earlier in the session (a stale \"See archerArrow.ts\" pointer in goblinRenderer). Re-swept at close for archerArrow / resolveArcherShot / syncArcherArrows / HOARD_CAP / SAVE_WITHIN_SHAPES / towerShortfall / SHADOW_RX — all zero. The two surviving `paletteStripHeight` references are DELIBERATE: the absence-assertion in castlePanel.test.ts and the tombstone docblock in castlePanel.ts."
   },
@@ -4205,18 +3490,14 @@
       "CF-S157-c confirmed: mutable defender hp was removed from record AND wire at S151 P2"
     ]
   },
-  "carry_forward_s158_deferred": [
-    "CF-S157-g - owner ruling needed: should area hazards (potato, radial clear) also raze the shapes they orphan?",
-    "N2 - owner observation needed: raid parity across seats. No asymmetry found in the sim."
-  ],
   "deploy_verified_s158": {
     "final_commit": "7a8d466",
     "verify_deploy": "PASS 4/4 with content-hash equality after the P8 reproducibility fix",
     "protocol_version": 36,
     "note": "PROTOCOL bumped twice this session: 34->35 (P6 stinkClouds) and 35->36 (P7 defender ehp)."
   },
-  "gate_note_s158": "The pdca-final-gate block extractor (json_helpers.sh extract_priority_field) counts JSON depth LINE-BY-LINE - one increment for any line containing '\u007b'. A verification needle holding a literal brace (e.g. \"$\u007b\u007b secrets.X \u007d\u007d\" or \"dispatch(world, \u007b type: ... \u007d)\") desynchronises that counter, so the in_progress block is never found and EVERY field it reads comes back empty - which the gate reads as 'deliberation not completed' and blocks all writes. Diagnosed at S158 P6 after the gate refused a file write with correct gate fields present at BOTH levels. Needles are now authored BRACE-FREE, asserting the same substrings. This is an upstream hook limitation, NOT a project defect, and it is recorded here rather than silently worked around: the durable fix is per-brace counting (or jq) in extract_priority_field.",
-  "gate_note_s158_addendum": "Verification needles must stay BRACE-FREE - see gate_note_s158. Any '\u007b' or '\u007d' in a needle desynchronises the hook's line-based depth counter and blocks every subsequent file write.",
+  "gate_note_s158": "The pdca-final-gate block extractor (json_helpers.sh extract_priority_field) counts JSON depth LINE-BY-LINE - one increment for any line containing '{'. A verification needle holding a literal brace (e.g. \"${{ secrets.X }}\" or \"dispatch(world, { type: ... })\") desynchronises that counter, so the in_progress block is never found and EVERY field it reads comes back empty - which the gate reads as 'deliberation not completed' and blocks all writes. Diagnosed at S158 P6 after the gate refused a file write with correct gate fields present at BOTH levels. Needles are now authored BRACE-FREE, asserting the same substrings. This is an upstream hook limitation, NOT a project defect, and it is recorded here rather than silently worked around: the durable fix is per-brace counting (or jq) in extract_priority_field.",
+  "gate_note_s158_addendum": "Verification needles must stay BRACE-FREE - see gate_note_s158. Any '{' or '}' in a needle desynchronises the hook's line-based depth counter and blocks every subsequent file write.",
   "owner_directive_s158": "Owner pre-approved the batch mid-turn and left: 'i pre-approve the pdr and will answer all the questions when i get back as well as check all your work ... Autonomous run and full session top priority batch APPROVED!' plus 'DO NOT close the session'. So NO /handoff was run and the session is deliberately left open with all 8 priorities completed and a summary + question list presented.",
   "open_questions_for_owner_s158": [
     "CF-S157-g (inherited, still open): should AREA HAZARDS (potato, radial clear) also raze the shapes they orphan? The sever and damage paths do; applyRadialClear does not, and a shipped test pins its 'spares those outside' identity by name.",
@@ -4244,5 +3525,796 @@
   ],
   "reflexion_s158_archived_count": 12,
   "reflexion_s158_staged_count": 38,
-  "review_gate_s158": "BLOCKED at exit 2 as designed; APPROVED on the owner explicit instruction in-conversation (\"i approve a full and thorough /handoff\", \"close off with /handoff\"). NOTE: the gate card HELD list is STALE for the SECOND session running - it reads an S155-era snapshot listing A1/A2/A3/N3/N2/P4/P5 as open. boot-snapshot.md is the live list."
+  "review_gate_s158": "BLOCKED at exit 2 as designed; APPROVED on the owner explicit instruction in-conversation (\"i approve a full and thorough /handoff\", \"close off with /handoff\"). NOTE: the gate card HELD list is STALE for the SECOND session running - it reads an S155-era snapshot listing A1/A2/A3/N3/N2/P4/P5 as open. boot-snapshot.md is the live list.",
+  "priorities_s158_archived": [
+    {
+      "id": "P1",
+      "title": "TURN actually reaches production - CI env wiring, .env.example, runbook rewrite, in-game connection self-test",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "ccf0dab",
+      "check_method": "A.0 DELTA found at boot, NOT inherited from the handoff: TURN_SETUP.md step 4 said a .env file + a deploy would bake the credentials in, but .env is gitignored, deploy.yml's build step had NO env: block, and `gh secret list` / `gh variable list` were BOTH EMPTY - so a clean CI checkout could never see them. The owner's 5-minute action would have produced a green deploy and a still-broken multiplayer. EMPIRICAL PROBE before writing anything: built with VITE_TURN_URLS=turn:probe.example:3478 and grepped the emitted bundle - 'probe.example:3478' and 'probeuser' both present, so 'Vite inlines VITE_* from process env' is MEASURED, not assumed (it also proves the credential is public in the bundle, now stated honestly in the runbook). SHIPPED: deploy.yml env: on the build step from secrets/vars; scripts/turn-wiring-report.mjs printing booleans-only, smoke-tested in BOTH states locally (all-unset -> 'no relay in this build'; all-set -> 'RELAY WILL BE SHIPPED'); src/net/iceProbe.ts (pure summarizeIce + injectable probeIce) with 17 tests; a TEST CONNECTION button in the lobby wired through main.ts to the real ICE_SERVERS so the test cannot pass against a config the game does not use. GUARDS MUTATION-TESTED: (1) removing the build env: block -> 2 tests red; (2) the VITE_TURN_URL singular typo, which would deploy green and ship nothing -> the same 2 tests red; restored -> 16/16 green. An EXISTING guard also fired for real: the block-scalar check refused my first `run: |` step, so the report became a script file. tsc clean; 3244/3244; e2e:gating exit 0 (62 passed); bundle 754.2/900 KiB.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.env.example"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "needle": "VITE_TURN_CREDENTIAL: $"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "needle": "run: node scripts/turn-wiring-report.mjs"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "pattern": "VITE_TURN_URLS:",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
+          "needle": "makeButton('TEST CONNECTION'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "onTestConnection: () =>"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "summarizeIce "
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\ci.deployGate.test.ts",
+          "needle": "the two sides cannot drift"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
+          "needle": "Secrets and variables"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "needle": "run: |"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2",
+      "title": "The flaky test that gates every deploy - towerDefense per-victim cap times out at 5000ms under full-suite load",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "942cf45",
+      "check_method": "A.0 DELTA #2: handoff claimed 3220/3220; MEASURED 3219/3220. towerDefense.test.ts 'per-victim cap' fails 'Test timed out in 5000ms' under full-suite parallelism and passes ALONE in 2128ms - vitest has no testTimeout configured (default 5000) and `npx vitest run` is a gating step in deploy.yml, so this is a deploy that fails at random. ROOT CAUSE traced to S157 B8b: turning the chewer caps off raised all three constants to 10_000, and every test in that block loops to CAP+k calling underChewerCaps (an O(n) map scan) per iteration => O(n^2) at n=10000. Nothing about that change looks like a test-performance change, which is why it landed green and drifted red on a busier machine. Fixed the COST not the timeout: the population is now built by CLONING one real spawned chewer, so records are exactly what the spawn path produces and the scan is paid once at the boundary. File 3097ms -> 30ms. SECOND FINDING, surfaced by the first: with all three sentinels EQUAL the global cap bites at the identical count, so the old per-victim and per-spawner assertions were satisfied by the GLOBAL rule and would have passed with the per-victim branch deleted outright - they were VACUOUS. Replaced with (a) the observable sentinel pinned at its exact boundary including the open-at-CAP-1 half the old <=-cap assertion never checked and a refusal driven through the real spawn path, (b) a TRIPWIRE that reddens the moment either constant drops below global - exactly when real coverage becomes possible AND necessary - carrying the recipe at the assertion, (c) the per-victim hint pinned as accepted-and-harmless, catching the easy mistake of the victim tally leaking into the global one (they share one loop). VERIFIED: 3244/3244 on THREE consecutive full runs (204/204 files each); tsc clean; e2e:gating exit 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "function fillChewers"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "TRIPWIRE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "the sentinel backstop flips EXACTLY at the cap"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "for (let i = 0; i < CHEWER_MAX_PER_SPAWNER + 3; i++)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "for (let s = 0; s < CHEWER_MAX_GLOBAL + 5; s++)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\towerDefense.test.ts",
+          "needle": "for (let i = 0; i < CHEWER_MAX_PER_VICTIM + 4; i++)"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P3",
+      "title": "CF-S157-e: goblinSuicide takes the DRONE path - no unit damage, navigates to bonds not shapes",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "b1ccce3",
+      "check_method": "CF-S157-e CONFIRMED AT SOURCE, not inherited: GOBLIN_SUICIDE_CONFIG sets BOTH selfExplode:true and targetsStructures:true, and hostTick.ts tested selfExplode FIRST, so the terrorist goblin took the lightning drone's branch end to end - homed on CONNECTORS instead of shapes, detonated via applyDroneExplode (which severs bonds and never reads atk/pen, so its 4 ATK / 0 PEN applied to NOTHING), and used DRONE_EXPLODE_RADIUS 110px instead of its own 70px. Read applyDroneExplode in full to confirm it touches world.bonds and nothing else. FIX IS A CONJUNCT NOT A REORDER (selfExplode && !targetsStructures) because the shipped drone/Voltkin/chewer selection code's byte position is pinned by creatureAI.test.ts, hostTick.differential.test.ts and save.replay.test.ts - lightningDrone is targetsStructures:false so every existing creature is byte-identical. SECOND HALF: the arrival test needed the same split - a goblin bomber's targetBondId is forced null by the structure-attacker branch so it could never be 'in range' and would fly until its FUSE expired, which is HOW it reached applyDroneExplode. New host-internal SUICIDE_BLAST reducer (absent from CLIENT_INTENT_TYPES; emits only the already-mirrored BOMB_EXPLODE, so zero wire surface and NO protocol bump). MUTATION-TESTED: reverting both halves turns the two host-tick-driven tests RED (commits-to-a-shape, arrives-and-reduces-hp); restored -> 11/11. Includes a CONTROL that the drone still commits to connectors and still severs them, and a same-world double-run agreeing on hashWorldStateFull for 200 ticks. FLAGGED FOR THE OWNER: R77 gives 4 ATK / 0 PEN, a UNIT stat, and says nothing about what one blast does to a SHAPE; rather than invent a balance number the blast deals GOBLIN_DAMAGE_VS_PRIMITIVE - exactly one ordinary goblin strike - to every enemy shape in radius. tsc clean; 3255/3255; bundle 754.9/900 KiB. *** S158 P3b (owner ruling on the number P3 flagged): 'the 4atk against units + 4 atk against structures/structur connectors'. Three targets, ONE number. Units keep attackFifths(4,0)=20 fifths; shapes now take 334 via a new primitiveDamageForAtk that GENERALISES the bridge that already existed (a goblin's 2 atk is 167, chosen so six swings fell a shape) - three blasts fell a shape; connectors take 20 fifths, cutting anything in a component of 16 or fewer. The connector arm lives on THIS creature, not in applyRadialDamage, whose own note refuses a general connector arm because 'one potato could shred a fortress' - that reasoning stands for area damage in general and not against an explicit ruling about one named unit.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideGoblin.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "!seekCfg.targetsStructures"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "type: 'SUICIDE_BLAST', creatureId: id"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\world.ts",
+          "needle": "case 'SUICIDE_BLAST':"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "SUICIDE_BLAST: true,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts",
+          "needle": "GOBLIN_SUICIDE_BLAST_RADIUS"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "pattern": "type: 'DRONE_EXPLODE'",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stats.ts",
+          "needle": "export function primitiveDamageForAtk"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\suicideBlast.ts",
+          "needle": "AND THE CONNECTORS."
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P4",
+      "title": "CF-S157-f: applyGodlyAbort leaves godlyFiredThisMatch set (latent; prerequisite for P5)",
+      "status": "completed",
+      "tier": "Micro",
+      "check_completed": true,
+      "checkpoint_commit": "4d70bd5",
+      "check_method": "CF-S157-f, AND THE CARRY-FORWARD OVERSTATED IT. Recorded as 'an aborted cinematic permanently burns that godly for all players'. MEASURED: that was true under S97 semantics and STOPPED being true at S157 B4 - findGodlyMatch no longer consults godlyFiredThisMatch and a full grep shows ZERO production readers (only gameMode.ts clears, godlyActions.ts writes, tests read). So it was LATENT, not a live defect. Fixed FIRST anyway because P5 makes the set load-bearing again: landing P5 on a teardown that leaks would resurrect it as a real bug in a much harder place to see. applyGodlyAbort cleared creatures, spawners, defenders, gatherers, castleBanks and gathererOrders and left this one Set standing; it now clears alongside them. Verified the sole caller is main.ts's terminal connection-lost edge, i.e. a full match teardown, so clearing the whole set is consistent rather than over-broad. 3 tests incl. a CONTROL that abort still clears everything it cleared before.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyActions.ts",
+          "needle": "world.godlyFiredThisMatch.clear();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyCinematicOnce.test.ts",
+          "needle": "GODLY_ABORT clears godlyFiredThisMatch alongside every other collection"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "CF-S157-d: the Voltkin cinematic once per game - separate cinematic TIMING from VISUALS",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "4d70bd5",
+      "check_method": "CF-S157-d, the owner's half-shipped ruling: 'voltkin cinematic SHOULD be once per game for the first person to have built him. but the voltkin spawn himself should be generated every time someone builds his tower.' I DIVERGED FROM THE S157 DEFERRAL NOTE AND SAY SO: it concluded the fix required moving the cinematic's TIMING into the sim. Its analysis of the HAZARD is exactly right (the overlay's onComplete is the SOLE driver of GODLY_COMPLETE and pendingCinematics advancement, so not playing the overlay would latch activeCinematicPlayerId forever and queue every later Voltkin behind it) but it over-estimated the CURE: the timing does not have to MOVE to be separated from the visuals, only to keep running while the visuals do not. A repeat takes a SILENT path through the same play() - same duration, same onComplete, same queue advance, same pendingCreatureSpawn tick - dropping video, voice and vignette. No protocol bump, no serialized state, no sim behaviour moved. cinematicIsFirstShowing is captured by applyGodlyTrigger from godlyFiredThisMatch in the one instant the answer exists (immediately before the add), which is why the renderer cannot re-derive it. Classified 'acknowledged' in FIELD_COVERAGE with its reason; the stateHashFull forcing function went RED and made me declare it deliberately, which is what it exists for. Visible and silent paths now share ONE duration expression - a drift there would desynchronise the cutscene from the Voltkin it covers for. FLAGGED: on a repeat there is now a quiet ~4.8s between building the tower and the Voltkin appearing; shortening it means moving pendingCreatureSpawn's schedule, which the replay guards pin, so it is left for the owner to rule on after they feel it. 15 tests; the load-bearing one asserts a SILENT run STILL calls onComplete and on the same schedule to the millisecond (a test that only checked silence would pass against the latch), plus a CONTROL that the silent branch is the one exercised and one proving it needs no DOM at all. tsc clean; 3270/3270; e2e:gating exit 0 (62 passed); bundle 755.3/900 KiB.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyCinematicOnce.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneSilent.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\worldTypes.ts",
+          "needle": "cinematicIsFirstShowing: boolean;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyActions.ts",
+          "needle": "world.cinematicIsFirstShowing = !world.godlyFiredThisMatch.has(event.godlyId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyOrchestration.ts",
+          "needle": "const silent = !world.cinematicIsFirstShowing;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneOverlay.ts",
+          "needle": "ctx.silent === true"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\cutsceneOverlay.ts",
+          "needle": "function totalDurationMs(recipe: CinematicGodlyRecipe): number"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
+          "needle": "cinematicIsFirstShowing: 'acknowledged',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.test.ts",
+          "needle": "'cinematicIsFirstShowing',"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P6",
+      "title": "CF-S157-b: the landed stink bag as a real serialized hazard entity (art already shipped, unused)",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "0148742",
+      "check_method": "CF-S157-b. CONFIRMED AT BOOT: public/godly/stink-bag/anim/ holds a 12-frame atlas and a grep showed ZERO references to it anywhere in src/. stinkThrowBag applied one instantaneous radial splash and the bag ceased to exist in the tick it arrived. SHIPPED as a full vertical slice because half an entity is a desync: StinkCloudId brand; the entity + factory + pure tick/expiry/progress helpers; a host-tick loop placed BESIDE the defender fan-out rather than inside it (a cloud OUTLIVES its tower - that is most of what makes it a hazard); serialization with PROTOCOL_VERSION 34->35; FIELD_COVERAGE classification + hash projection; structuralSignature (one of the two UNFORCED serialization sites); worker-differential seeding; all three teardown paths (match start, title return, godly abort); and a renderer that finally draws the S157 atlas over a haze at the TRUE damage radius. ONE new constant only - the lifetime - because every damage number reuses what the owner already ruled for this same weapon, and the impact splash is unchanged so no shipped balance moves. *** THE FIND THAT MATTERS MORE THAN THE FEATURE: S157 B9's BLIND LOB HAD NEVER ONCE FIRED. *** B9 implemented the owner's untargeted throw by arming WINDUP with targetCreatureId=null, and targetValid returns false on a null target BY ITS FIRST LINE - so the WINDUP guard aborted every blind lob one tick after it armed. The tower still threw nothing unless an enemy wandered inside 260px, which is exactly the behaviour B9 was written to end. The fix shipped, its comment shipped ('A BLIND LOB STILL LANDS'), and the path between them did not. FOUND by asserting stinkClouds SEEDED in the worker differential rather than acknowledging it, then PROBING the 300-frame run (bags stayed 5, state stayed IDLE, nextFireTick advanced by DEFENDER_REACQUIRE) instead of relaxing the assertion - the second time in three sessions that anti-vacuity guard has surfaced a live defect. MUTATION-TESTED: reverting the blind-lob guard turns 3 of 14 new tests red incl. the determinism run. Two more forcing functions fired and were right: FIELD_COVERAGE refused the new World fields until classified+projected, and the e2e above-fog Z-ORDER MANIFEST refused two new layers until each was declared with its reason. tsc clean; 3284/3284; e2e:gating exit 0 (62 passed); bundle 758.5/900 KiB.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\stinkCloudRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P6 — bumped 34->35: THE LANDED STINK BAG"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P6 — bumped 34->35: THE LANDED STINK BAG"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P6: 34->35 (THE LANDED STINK BAG"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\worldTypes.ts",
+          "needle": "nextStinkCloudId: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
+          "needle": "stinkClouds: 'hashed',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
+          "needle": "world.stinkClouds.size,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
+          "needle": "['stinkClouds', peak.stinkClouds, null],"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defenderLifecycle.ts",
+          "needle": "const blindLob ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defenderLifecycle.ts",
+          "needle": "A BLIND LOB IS NOT AN INVALID TARGET"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "sweepExpiredStinkClouds(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
+          "needle": "function deserializeStinkCloud"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\fog.spec.ts",
+          "needle": "stinkCloudRenderer.spriteLayer"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_CLOUD_LIFETIME_TICKS"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "title": "CF-S157-c: make Helga killable - mutable defender hp on the wire + a targeting path",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "fe4924e",
+      "check_method": "CF-S157-c. THE RULING WAS THE BLOCKER, NOT THE CODE: R75 ('towers have attack and piercing but not def and hp because they are based on the connectors that build them') was read at S151 P2 as 'defenders have no hp', and the field, the wire bytes, the hash term and the damage arm were deleted for EVERY kind. R77 corrected the over-reading ('Helga - 4atk, 4pierce, 6hp, 4 def ... those are all spawned units'). So the substrate returns SCOPED BY config.unitStats - the very field R77 forced into existence - and a tower carries null and stays exactly as immune as today. Six of the 22 tests exist only to prove that second half. FIVE SITES: record+factory; a defender arm in damageEntity that REMOVES her (honouring the contract the castle arm cannot); the AoE arm restored on the UNIT scale; SerializedDefender.ehp with PROTOCOL 35->36; and the hash term. Deliberately does NOT raze her anchor (the re-ignition hazard that justifies removeDefenderAndRazeAnchor for towers cannot arise - ignition runs only on a topology change). TWO TARGETING SITES, and the second only exists because a mutation test caught the first untested: killableDefenderInReach is both a fifth STRIKE clause and a fifth ENGAGE term. THREE THINGS THE TESTS FOUND THAT I HAD WRONG: (1) the defender arm was first placed BELOW the structure strike, so a goblin spent every hit on the enemy shape she is anchored to - the same defect as S157 F1, reversed; (2) deleting the engage term left the WHOLE SUITE GREEN because every fixture planted her on an anchor that was itself an enemy shape, so I built the fixture that isolates it (hub 200px away: outside a melee goblin's 35px engage, inside her own 380px leash) and it now fails when the term is removed; (3) my first end-to-end test asserted a LONE goblin kills her - measured, he takes her to 42/54 and she one-shots him at 4atk/4pierce vs 2hp, so the fixture was wrong, not the feature. DEFERRED WITH A REASON: RAID_TARGET gains no 'defender' kind - that needs an input-layer hit test, i.e. inventing a right-click behaviour the owner has not asked for. tsc clean; 3306/3306; e2e:gating exit 0 (62 passed); bundle 759.3/900.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\helgaKillable.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defender.ts",
+          "needle": "ehp: number | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\defender.ts",
+          "needle": "config.unitStats === null ? null : unitPoolFifths"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
+          "needle": "case 'defender': {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
+          "needle": "for (const did of defenderVictims) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function killableDefenderInReach"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "const defenderInReach ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAttack.ts",
+          "needle": "const defenderId = killableDefenderInReach"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\stateHashFull.ts",
+          "needle": "| 'bagsRemaining' | 'ehp';"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P7: 35->36 (HELGA IS KILLABLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 P7 — bumped 35->36: HELGA CAN BE KILLED."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\save.ts",
+          "needle": "d.ehp = s.ehp ?? null;"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P8",
+      "title": "Housekeeping the boot surfaced - stale S152 plan, stale review-gate card, state hygiene",
+      "status": "completed",
+      "tier": "Micro",
+      "check_completed": true,
+      "checkpoint_commit": "7a8d466",
+      "check_method": "Housekeeping the boot surfaced, PLUS a regression this session caused that only the deploy verifier noticed. (1) `npm run verify-deploy` failed its LIVE carrier after P7: live served index-BpAMsFnW.js while a clean local build produced index-C3Yn9Lmv.js. DIAGNOSED BY REPRODUCTION, not by guess: exporting the three VITE_TURN_* names as EMPTY STRINGS locally reproduced the live hash exactly. Cause is P1's own env: block - GitHub expressions always produce a string, so an unset secret arrives as '' and Vite inlines import.meta.env as an object literal holding exactly the keys it found, so CI emitted the three keys and a bare local build did not. Same source, same behaviour, different bytes. That matters because the LIVE carrier's whole job is content-hash equality, and a gate that cries wolf on every green deploy trains its reader to skip the run where it is right - the same argument P2 made from the other direction. FIXED by declaring the three keys in vite.config.ts with `process.env[k] ?? ''` so the build states its inputs instead of inheriting the ambient environment; both builds then produced the identical hash, and verify-deploy went to PASS 4/4 with content-hash equality. CONTROL run before believing it: a build with REAL values still yields a different hash (index-DmkhWu7x.js), so the declaration defaults an absent variable rather than swallowing a present one. GUARD, and its own second draft: 3 tests pin the declaration against the names iceConfig actually reads; the first version of the last one used a bare regex that matched the COMMENTED-OUT line, so the mutation test passed - line-anchored now, and it fails on the mutation. (2) Archived the S152 playtest amendment, marked IN-PROGRESS for six sessions after all five of its items shipped, so every boot announced live plan work that did not exist; each item verified against the code and the evidence written into the archive note. tsc clean; 3309/3309; verify-deploy PASS 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\vite.config.ts",
+          "needle": "define: turnDefines,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\vite.config.ts",
+          "needle": "const TURN_ENV_KEYS ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\ci.deployGate.test.ts",
+          "needle": "the build is REPRODUCIBLE, so verify-deploy can mean something"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-26_SCOPE_AMENDMENT_S152_PLAYTEST_COMPLETED.md"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A1",
+      "title": "Aura at the owner 0.2 atk/sec - the shipped rate is 12x it (tower AND landed bags)",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'ive already defined how the towers aura should be ... i gave you the stats'. FOUND in the S151 PDR's deferred-R77 list: 'the stink tree 0.2 atk/sec aura model'. MEASURED the shipped rate: stinkAuraTick fired on the 0.5s DoT beat for attackFifths(1,1)=6 fifths=1.2 atk, i.e. 2.4 atk/sec - TWELVE times the owner number. STINK_AURA_DAMAGE=20 was likewise never theirs (its own comment said '2% of max hp', authored S141). AND I PROPAGATED IT: S158 P6 gave the landed bag the same numbers ARGUING they were already owner-ruled. Sound reasoning, false premise - which is why the constant now carries its provenance in writing. The cadence moved to a SECOND because 0.2 atk is exactly 1 fifth and half a fifth per half-second is inexpressible (damageEntity throws on fractions by design). 4 tests, including a CONTROL that computes the 12x ratio explicitly so the size of the correction is on record.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_AURA_UNIT_FIFTHS = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_AURA_CADENCE_TICKS = PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkTower.ts",
+          "needle": "STINK_AURA_UNIT_FIFTHS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
+          "needle": "STINK_AURA_CADENCE_TICKS"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A2",
+      "title": "A landed stink bag is DESTRUCTIBLE, pulls AGGRO and deals on-destroy damage (R77)",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "4cbf69b",
+      "check_method": "R77's deferred list, verbatim: 'destructible stink bags as entities with aggro and on-destroy damage', plus STINK_BAG_ATK's own comment carrying the owner's 'a bag deals 1atk 1pierce when destroyed'. P6 shipped the entity PASSIVE. Added a pool (ehp, fifths, off the shared ladder), a stinkCloud arm in damageEntity that removes it and BURSTS, wire+hash with PROTOCOL 37->38 (REQUIRED not optional: a v37 peer would rehydrate every damaged bag at full pool), and a targeting path. THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER - a player must not be able to safely clear their own minefield. *** THE FOUR-SITES WARNING IN creatureLifecycle CAUGHT ME TWICE IN ONE SESSION. *** It says adding a new thing to attack means touching the engage predicate, the ABORT predicate, the host-tick fire gate and the strike. S158 P7 (Helga) and A2 (the bag) each did THREE. P7's tests stayed green exactly as that note predicts, because every fixture planted Helga on her own hub - an enemy PRIMITIVE - so primitiveValid carried the goblin through the window by accident. The bag has no such accident and a probe caught it: ATTACKING with ticksInState pinned at 0 while the bag sat at full pool. HONEST LIMIT, written into the test: deleting the defenderValid arm does NOT redden the Helga test, because primitiveValid checks only that the committed shape EXISTS, not that it is in range. The arm is kept and the test says plainly that it pins the behaviour rather than that arm; the stink-bag end-to-end IS arm-sensitive and mutation-proven. ALSO fixed a vacuous test of my own: the first end-to-end ran 400 ticks against a 240-tick bag lifetime, so the bag expired on its own timer and passed with the strike arm deleted. ONE NUMBER IS MINE AND FLAGGED: R77 gives the bag's on-destroy ATK/PEN but never its durability; 1 hp / 0 def makes it a tactical object rather than a wall.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkCloud.ts",
+          "needle": "  ehp: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\damage.ts",
+          "needle": "case 'stinkCloud': "
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
+          "needle": "export function enemyStinkCloudInReach"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "      !stinkCloudValid;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "      !defenderValid &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const STINK_BAG_HP = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A2: 37->38 (DESTRUCTIBLE STINK BAGS"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A3",
+      "title": "A raid hits ANYTHING - RAID_TARGET gains defender; R78 kill table already lists Helga at 6 raids",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'a raid should hit anything ... ive already explained it'. FOUND: constants.ts has published the R78 kill table since S152, including HELGA(54, needs 6) and voltkin(64, needs 7). TWO OF THOSE ROWS WERE UNREACHABLE. (1) Helga: no defender arm existed because S151 P2 removed the substrate; S158 P7 restored it, so the arm became expressible. (2) VOLTKIN: S152 P1 removed the chewers-only restriction from the REDUCER, wrote 'R78 says units', and LEFT IT IN THE PICKER - the rule was widened where it is enforced and not where it is aimed, so nobody could ever have spent the first of voltkin's seven raids. Added the defender discriminant, the reducer arm, and pickRaidableDefender gated on ehp!==null so a tower is unaimable AND unhurtable by the same discriminator and the two cannot drift; dropped the picker's chewers-only line. A tower refuses the raid AND KEEPS THE POINT (paid-but-got-nothing stays unrepresentable). PROTOCOL 36->37: a new discriminant on a CLIENT INTENT, which a v36 host accepts, misroutes to the connector arm and drops silently - the 30->31 class, not an additive field. 9 tests.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\raidHitsAnything.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "private pickRaidableDefender()"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "needle": "if (c.sourceSpawnerId === null) continue; // chewers only"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A3: 36->37 (A RAID HITS ANYTHING"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "needle": "S158 A3 — bumped 36->37: A RAID HITS ANYTHING."
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "A4",
+      "title": "CF-S157-g closed as MOOT - HAZARD_SPAWN_ENABLED=false, there are no area hazards",
+      "status": "completed",
+      "tier": "Micro",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'we dont have area hazards right? didnt we remove those?' CORRECT, and verified rather than taken on trust: HAZARD_SPAWN_ENABLED=false (constants.ts:446, S147 Step 0) and physicsLoop gates all four hazard dispatch sites on it, so bombs, potatoes, rainbows and seagulls cannot spawn at all. CF-S157-g asked whether area hazards should raze the shapes they orphan; there are no area hazards. Closed as MOOT rather than answered, with the flag named so it re-opens correctly if hazards ever return.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const HAZARD_SPAWN_ENABLED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\physics\\physicsLoop.ts",
+          "needle": "HAZARD_SPAWN_ENABLED &&"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B1",
+      "title": "Multiplayer: one workstation reaches Israel and another on the SAME LAN does not",
+      "status": "completed",
+      "tier": "Full",
+      "check_completed": true,
+      "checkpoint_commit": "3f556ea",
+      "check_method": "Owner: from one workstation he reached his brother in Israel; from another ON THE SAME LAN, quickmatch could not FIND the game and the room code would not connect. THAT REPORT RULES OUT THE ASSUMED CAUSE: two machines behind one router share every property ICE cares about, so if TURN or NAT were the difference BOTH would fail. The layer BOTH symptoms share is the matchmaking relays - quickmatch advertises the room over them and a code join exchanges its offer over them - so a machine that cannot reach them fails at exactly those two things. The S158 P1 self-test probes ICE only and would have printed the same thing twice on both machines. Added relayProbe (pure summarizeRelays + injectable socket sweep) and wired both halves into the one button, with the RELAY verdict LEADING when it fails - without a matchmaking server the game never reaches the stage the ICE verdict describes. SOME relays unreachable is still OK and says so, because the list is deliberately spread across independent operators; only ZERO is loud, and its text names the two-machine case explicitly. VERIFIED LIVE IN A REAL BROWSER, not just unit-tested: relays 7/7 reachable from this machine, ICE host:1 srflx:1 relay:0 (the S157 finding, still true), and the panel renders both verdicts in the lobby (screenshot taken). Those are the baseline numbers to compare against the other workstation.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "probeRelays(relays)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayProbe.ts",
+          "needle": "SAME network"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B2",
+      "title": "The lightning drone tower was producing on the CHEWER cadence, in three places",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "1fc2c35",
+      "check_method": "TWO ROUNDS, and the owner was right both times. ROUND 1: I measured the hub producing (emits at 900/1800/2700, self-destructs at 3600) and fixed an INHERITED cadence - DRONE_EMIT_INTERVAL_TICKS was literally '= SPAWN_INTERVAL_TICKS // reuse the chewer cadence' and TWO of its three readers named the chewer constant outright (the registration seed and the BUILD phase-gate re-alignment). One shared spawnerIntervalTicks; 900 -> 300. ROUND 2, after the owner said 'drone tower was NOT producing ... no drones were actually being produced': my fixtures were ISOLATED hubs on an empty board. MEASURED the real case: bond ONE ordinary shape onto ONE LEAF and isLightningHubComponent returns FALSE, because every tower recipe validated its whole CONNECTED COMPONENT ('the component is exactly N+1 primitives'). The re-validation poll then dispatches REMOVE_SPAWNER within half a second - silently, permanently, indistinguishable from a tower that never worked. On a real board you build things next to each other. NEVER DRONE-SPECIFIC: the identical clause sat in the goblin tower and the laser turret too, and the THREE tests that failed when I fixed it were the three PINNING THE BUG AS INTENDED - each bonds its extra shape to a LEAF. All three inverted, not deleted. Fixed with one shared isStarAt: the star AT THE ANCHOR, not the island it sits on. Hub degree stays EXACT (identity is (hub type, degree); the turret is degree-6 and the hub degree-5). CONSEQUENCE FLAGGED: recipes may now OVERLAP - a Circle leaf of a lightning hub can also be a goblin-tower hub. MUTATION-TESTED three ways; one mutation initially passed because a test asserted a symptom a lucky alignment satisfied, so it now asserts the invariant swept across seven BUILD lengths.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\lightningHub.ts",
+          "needle": "return isStarAt(world, dotId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\laserTurret.ts",
+          "needle": "return isStarAt(world, lineId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinKinds.ts",
+          "needle": "return isStarAt(world, circleId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
+          "needle": "ACTUAL BOARD: a hub with a neighbour attached"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawners\\spawner.ts",
+          "needle": "export function spawnerIntervalTicks"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B3",
+      "title": "Unlimited Voltkins - the per-seat live gate exempted for voltkin only",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'you could also make one voltkin per account... not fair. i told you already you should be able to build as many voltkins as you wish.' S157 B4 removed the once-per-MATCH lock and its note argued the pacing survived because applySpawnCreature independently refuses a second LIVE creature of the same (owner, type) - offered as a feature. That per-seat gate IS the cap the owner is objecting to; B4 only moved it from the match to the seat. Exempted 'voltkin' ONLY, and that is not timidity: the gate is the blueprint Q10 invariant protecting the FREE STARTER units, where without it a re-grant would silently double a seat army. The old max-1 invariant test is INVERTED rather than deleted, so the change is visible in the file that used to guarantee it, plus a new half pinning that goblins are still gated.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "if (action.creatureType !== 'voltkin') "
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
+          "needle": "AS MANY VOLTKINS AS IT BUILDS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.test.ts",
+          "needle": "max-1-per-player invariant: second spawn for same owner is silent no-op"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "B4",
+      "title": "Ten goblins per tower - GOBLIN_MAX_PER_SPAWNER 60 to 10",
+      "status": "completed",
+      "tier": "Standard",
+      "check_completed": true,
+      "checkpoint_commit": "865badf",
+      "check_method": "Owner: 'we will cap 10 goblins per tower per turn ... if you have any left over from the previous round then the count continues and capped at each tower holding 10 goblins!' The second sentence settles the shape: a LIVE population cap, not a per-phase allowance. An allowance would let a player bank 10 a turn and field 40 by the fourth fight, which is the unlimited-goblins problem with extra steps; ten LIVE per tower means four survivors leave room for exactly six more, which is what 'the count continues' says. It needed no new mechanism: underGoblinCaps' per-spawner term already counts LIVE goblins attributed to one spawner and is already re-checked inside applySpawnCreature BEFORE the bank is debited (S157 B1). The rule was one number away - it was 60, which no game ever reached, so the tower behaved as uncapped. Design consequence the owner is buying: a second tower is now worth building.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const GOBLIN_MAX_PER_SPAWNER = 10;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "TEN GOBLINS PER TOWER. THAT IS THE WHOLE RULE."
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    }
+  ],
+  "a0_state_discovery_s159": {
+    "method": "empirical probes, 18 rows — see PDR §3",
+    "E1_test_count_delta": "measured 3353/3353 (212 files); S158 handoff claimed 3352. No code changed since. UNEXPLAINED — P6 to investigate, not assumed a miscount.",
+    "E11_protocol_mismatch": "transport.ts:144 detectProtocolMismatch + per-peer latch at :194 — a mismatched peer is REFUSED, there is no degraded-play path.",
+    "E12_no_client_prediction": "grep found no client-side creature prediction/reconciliation; client is snapshot-driven.",
+    "E14_render_driven_channel": "render/creatureProjectile.ts:1-46 — per-strike visuals are DERIVED EVERY FRAME from wire state; a world.effects push is lost ~5/6 (10 Hz sample vs 60 Hz wipe) and a new effect kind costs a bump.",
+    "E16_held_card_root_cause": "~/.claude/scripts/pre-handoff-review.py:148 hardcodes carry_forward_from_S152/S151/S150 then generic carry_forward; live list is carry_forward_s158_deferred.",
+    "E18_owner_measurement": "Owner pressed TEST CONNECTION on BOTH workstations, same network: room KFU2AR, 2 players connected, sync 3/3, nostr:7/7, torrent:fail, \"Matchmaking: All 7 answered\", only red line = \"No relay server\". S158 hypothesis (0/7 on the second machine => firewall/VPN) DISPROVED."
+  },
+  "council_s159": {
+    "rounds": 2,
+    "seats": [
+      "CLAUDE",
+      "GROK-PLAN (grok-4.20-0309-reasoning)",
+      "GEMINI-AUDITOR (gemini-3.1-pro-preview)"
+    ],
+    "r1_verdicts": {
+      "grok": "REJECT (4 challenges)",
+      "gemini": "ADOPT-WITH-CHANGES (3 challenges)"
+    },
+    "r2": "GROK conceded C2 and C4 in full plus the factual half of C3; its surviving press cited draw calls in a src/client directory that does not exist (fabricated). GEMINI final: hash-classification question rendered moot by E14.",
+    "net_effect": "the deliberation REMOVED work: the drafted 38->39 protocol bump is unnecessary (E10/E11) and a serialized chain list would be worse than deriving it (E14).",
+    "battle_ledger": "PDR section 7"
+  },
+  "carry_forward_s159_debt": [
+    "GROK G-C2 (held, not fixed): Creature now carries four parallel nullable committed-target fields and P1 makes five. creature.ts:237 records why a discriminated union was rejected (new hash encoding + ~18 sites). Revisit only as its own owner-approved amendment (Rule 16)."
+  ],
+  "carry_forward_legacy_s155_archived_s159": {
+    "note": "S159 P3 — ARCHIVED. This generic `carry_forward` key held the S155 list (A1 laddered raid targeting, A2 scouting, ...) long after those items shipped, and because pre-handoff-review.py resolved HELD from a hardcoded S150-S152 chain and then fell through to THIS key, the review card printed an S155-era snapshot for two sessions running. Both halves are fixed: the resolver now picks the newest carry_forward_s<N>* key and prints its provenance; this key is retired so nothing can fall back onto it again.",
+    "items": [
+      "⛔ A1 LADDERED RAID TARGETING — owner RE-CONFIRMED twice ('i already told you'): bots target 'the leader OR the nearest enemy whose score sits closest above their own', each punching ONE RUNG UP. Today they hit the NEAREST enemy connector and never read the scoreboard. Owner also SETTLED the budget question: MAX_DISRUPTION_CHARGES=2 IS the '2 raids', spendable any time against any unit/enemy/connector, and there is no concurrency gate to add or remove — so A1 changes ONLY which target is chosen. Design + Q2-compliance argument written at .claude/plans/2026-08-28_SCOPE_AMENDMENT_S155.md.",
+      "⛔ A2 SCOUTING + ACTIVATE THE P7 FOG FOR BOTS — owner GO, and it is ONE change not two. Owner: 'a saving bot doesnt need to look passive he can explore the map, see what his neighbors are building and if they are building where.' Scouting is also the missing half of P7: the per-seat vision substrate shipped INERT because blinding a bot without giving it a way to LOOK makes it dumber rather than fairer. Activation is three documented lines in botBrain.ts; it turns three botGameplay cases red (FIGHT verbs pinned in a BUILD fixture — re-home them) and surfaced a SECOND unrelated failure to diagnose: 'carry-1 violation: player 2 already carries 60', a bot picking up a spark during FIGHT.",
+      "⛔ A3 SEED `defenders` IN workerSim.differential THEN FLIP WORKER_DEFAULT_ON — owner GO ('lets make it all work and then flipp it'). The gap is COVERAGE, not hashing: defenders IS hashed, but the differential records peak.defenders === 0 across all 300 frames, so the guard sits green having compared nothing. Seed a live tower that survives re-validation, FORCE the guard to fail on divergence, then flip. ⚠ Only 5 of 21 spec files carry the ?worker= flag, so the flip silently re-points the other 16 onto the worker path — re-run e2e:gating AFTER the flip, not before.",
+      "⛔ N3 STILL STUCK WHEN THE FRIEND HOSTS — owner: 'was stuck at connecting like it was yesterday'. ⭐ 'Connecting...' is a DIFFERENT status from 'Connected...': it means NO PEER EVER APPEARED, so P1's stall detector cannot even fire (it requires firstPeerAtMs != null). Probably an earlier link in the chain than P1 fixed. ASK THE OWNER FOR THE BROWSER CONSOLE LINE beginning '[net]' — the S155 P1 diagnostics now name whether a peer was seen and, if so, which of the three attest checks failed with all three values. Also probe the RE-HOST-after-a-match path: it failed on the SECOND game, which is a different code path from a cold join.",
+      "N2 RAID PARITY ACROSS SEATS — owner: 'im not sure opther players raid and player 1 raid is the same.' Not yet probed. Now much more likely to be real, because N1 proved a seat-symmetric-looking system can hide an order/ownership asymmetry. Grep the raid path for playerId/isHost asymmetry the way N1 was grepped, and check a JOINER's raid intent round-trips (a client raid is an INTENT the host applies, so a dropped intent looks exactly like 'my raid works, theirs does not').",
+      "P4 BOT TOWERS ARE LATE, NOT ABSENT — measured on a representative 4-seat real-clock fixture: MID none in 5 sim-min, HARD first tower tick ~10,400 (~2.9 min), IMBA ~17,900 (~5 min). The owner's complaint is a SPEED one. Making it earlier is an owner BALANCE call; the owner's scouting ruling REMOVES the cost I had priced against it ('a saving bot looks passive'), so a longer hold is now cheap. Two of my attempted fixes measured WORSE and were reverted — botBrain.ts is byte-identical to S154.",
+      "N1 FOLLOW-UP — THE COMBAT RULE ITSELF (owner ruling wanted). The order-advantage bug is FIXED and live: same-tick strikes all land, so mutual engagements destroy both and a bigger army wins on attrition. Owner then asked: 'either they all attack the same time. or they have to roll a d20 and whoever has the highest attacks first.' ⭐ RECOMMEND AGAINST the d20: it REINTRODUCES the exact outcome they were angry about — one side taking zero damage — merely randomised instead of spawn-ordered, and it adds an rng draw to the creature loop that every seeded replay/differential gate depends on the draw ORDER of. STILL OPEN: strict simultaneity only covers SAME-TICK exchanges; a unit that engages a few ticks earlier still lands a free first strike, which is arguably legitimate tactics. Needs an owner decision if they want that closed too. Also for them: with nearly everything one-shotting, melee is now mutual annihilation and armies trade 1:1 — survivors are an HP/DEF decision.",
+      "P5 BOT INTELLIGENCE PHASE A — not started. Also confirm the ruling reconciliation first: BACKLOG's 'Bot rulings' and BOT_INTELLIGENCE_DESIGN §10 disagree on raid targeting vs raid rate. They ARE orthogonal (§10 governs RATE/CONCURRENCY, the earlier ruling governs TARGETING) and §10 wins on genuine conflict — but confirm before writing code, because the difference is a targeting filter versus a balance change the owner explicitly forbade."
+    ]
+  },
+  "carry_forward_s158_deferred_closed_s159": {
+    "items": [
+      "CF-S157-g - owner ruling needed: should area hazards (potato, radial clear) also raze the shapes they orphan?",
+      "N2 - owner observation needed: raid parity across seats. No asymmetry found in the sim."
+    ],
+    "resolution": {
+      "CF-S157-g": "MOOT, and it was already moot when it was written. S158 A4 established HAZARD_SPAWN_ENABLED=false — there are no area hazards to raze anything, so there is no ruling for the owner to make. Removed from the live list rather than carried a third session.",
+      "N2": "STILL LIVE — re-stated under carry_forward_s159. Needs an owner observation; no sim asymmetry exists."
+    }
+  },
+  "carry_forward_s159": [
+    "N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix. S158 probed the sim and found no asymmetry (the reducers are seat-agnostic; grantRaidProgress fires on both build paths). If it still looks wrong in a real game, the next place to look is the input layer."
+  ]
 }

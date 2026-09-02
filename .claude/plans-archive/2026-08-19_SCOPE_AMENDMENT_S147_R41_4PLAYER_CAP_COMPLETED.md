@@ -1,6 +1,6 @@
 # SCOPE AMENDMENT — S147 · R41 (4-PLAYER CAP) + R42 (DASHBOARD) + S148 (ZONES)
 
-**STATUS: IN-PROGRESS - P2 (R41 cap + R42 dashboard) SHIPPED at a23510d, deploy verified 4/4. P3 (S148 zones + anchors + legality + economy re-tune) NOT STARTED - deferred at 58.1% YELLOW context rather than stop half-way through a hashed-geometry migration. All A.0 (E1-E12), the HOW-only Council verdicts and the verified geometry are banked in this document; a fresh session starts at implementation.**
+**STATUS: COMPLETED** (stamped S159 P4) — P2 (R41 cap + R42 dashboard) shipped at `a23510d`, and P3, the part this line said was NOT STARTED, shipped as **S148 P1**. Evidence, re-probed at the stamp: the zone partition is `src/state/zones.ts` (11 KB) with `zones.test.ts` + `zones.fixtures.ts`; **anchors** are `zoneCastleAnchor` feeding `castleAnchor` (`zones.ts:13`, flagged there as HASHED GEOMETRY); **legality** is `buildLegalityGates.test.ts` (16 KB); and the **economy re-tune** is `constants.ts:513` — *"S148 P1 — RAISED 1.9 -> 2.6 BECAUSE THE ZONE PARTITION MOVED THE CASTLES"* — measured over five seeds by `src/state/gatherers/zoneEconomy.test.ts`. Nothing in P3 is outstanding.
 
 **Status: APPROVED** (owner, 2026-08-19: *"sure lets run it why not if we have context. get to work"*)
 Tier: **FULL** · Parent PDR: `.claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md` (P1 shipped at `4e586ee`)

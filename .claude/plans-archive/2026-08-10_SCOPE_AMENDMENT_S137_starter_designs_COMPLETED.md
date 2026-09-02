@@ -1,6 +1,10 @@
 # SCOPE AMENDMENT (Rule 16) — S137: the three free starter designs
 
-**STATUS: IN-PROGRESS** — designed + art spiked + owner-ruled. NOT implemented. Session A is the next step.
+**STATUS: COMPLETED** (stamped S159 P4) — all three starter designs SHIPPED, across S138–S158 rather than in the single "Session A" this document planned for, which is why its own STATUS line went stale and the SessionStart pre-flight warned about it every boot for weeks. Evidence, re-probed at the stamp:
+· **Goblin Swordsman** — `goblinMelee`, and `creatureLifecycle.ts:143` records it as a FREE STARTER protected by the blueprint Q10 invariant (*"each seat is granted one goblin of each kind"*).
+· **Goblin Archer** — `goblinArcher`, `GOBLIN_ARCHER_CONFIG` registered at `voltkin-config.ts:728`, stats at `constants.ts:1433-1439`, and he has had a real arrow since S153 P2 (`render/creatureProjectile.ts`).
+· **Stink Tower** — `DefenderKind` includes `'stinkTower'`, its recipe is `blueprints.ts:183 star('stinkTower')` at `STINK_TOWER_SIZE`, and S157/S158 took it all the way to landed bags that are destructible and burst.
+⚠ The S138 amendment box below ("THE CONSEQUENCE ABOVE WAS FALSE FOR 2 OF THE 3 UNITS") is the reason this took ten sessions instead of one, and it is worth reading before costing any "it is just config + art" claim.
 
 **Trigger:** owner request, 2026-08-10, after the round-2 build-space rulings. This is a scope
 EXPANSION beyond the S137 batch PDR and beyond `CASTLE_BUILD_SPACE_DESIGN.md`, so it gets its own
