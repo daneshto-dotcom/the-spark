@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3849,
+  "tool_calls_session_total": 3851,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S159_BATCH.md",
-  "session_status": "S159 IN-PROGRESS",
+  "session_status": "S159 CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -691,8 +691,8 @@
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "PASS 53/53 (S150 close, MEASURED). Was \"42/42\" and byte-identical to S149 across all five S150 commits until the Rule-22 audit caught it. Trajectory this session: 49 passed / 1 failed / 3 skipped at pre-flight -> 52/0/3 after P4 revived the click-to-build trio -> 53 passed / 0 failed / 0 SKIPPED after P5 root-caused bomb.spec. Zero skips is the part worth keeping: the lane no longer hides anything.",
-  "closed": false,
+  "e2e_gating_status": "exit 0, 62 passed (S159, run twice)",
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -760,9 +760,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 519214,
-  "real_context_pct_at_close": 83.11,
-  "checkpoint_commit": "0192fb5",
+  "real_context_tokens_at_close": 599683,
+  "real_context_pct_at_close": 59.97,
+  "checkpoint_commit": "a83b867",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -3159,7 +3159,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "ORANGE",
+  "real_context_level_at_close": "YELLOW",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -3531,7 +3531,7 @@
     "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   },
   "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar.",
-  "handoff_doc": "HANDOFF_2026-09-02_S158.md",
+  "handoff_doc": "HANDOFF_2026-09-02_S159.md (+ .handoff-archive/)",
   "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4.",
   "owner_rulings_s153": {
     "R79": {
@@ -4935,5 +4935,17 @@
     "what_would_have_caught_the_big_find_earlier": "A grep for the CLAUSE instead of for the file names. S158's own note claimed it had replaced FOUR component tests; counting `isStarAt` call sites (3) against that claim (4) takes one command and would have found the stink tower a session earlier. Promotion candidate: at any priority that removes a defective pattern, grep for the pattern and count the sites BEFORE writing how many were fixed.",
     "reflexion_entries": 12,
     "completed_priorities": 7
+  },
+  "reflexion_s159_archived_count": 12,
+  "close_gates_s159": {
+    "tsc": "exit 0",
+    "vitest": "3393/3393 across 216 files",
+    "e2e_gating": "exit 0, 62 passed — run TWICE (before and after the stink-tower sim change), exit code read from a file, not a pipe",
+    "bundle": "763.9 / 900 KiB",
+    "verify_deploy": "PASS 4/4 with content-hash equality at 5e682ac",
+    "mcv": "88 bindings, hard_fail=0, exit 0",
+    "review_gate": "card regenerated, BLOCKED at exit 2, APPROVED under the owner's explicit mid-turn instruction to run the handoff, then cleared at STEP 6",
+    "push": "ahead 0 / behind 0; remote credential verified live with ls-remote",
+    "branches": "master + origin/master + origin/gh-pages (legacy, left alone deliberately for the third session — deleting could disturb Pages and verify-deploy ignores it)"
   }
 }
