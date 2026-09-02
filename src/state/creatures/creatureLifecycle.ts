@@ -126,13 +126,33 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     // The Voltkin path is deliberately left calling `makeVoltkinCreature` verbatim rather than
     // routed through the generic factory, so its construction stays byte-identical and the replay
     // guards (save.replay.test.ts) cannot shift.
-    for (const c of world.creatures.values()) {
-      if (
-        c.sourceSpawnerId === null &&
-        c.ownerPlayerId === action.ownerPlayerId &&
-        c.type === action.creatureType
-      ) {
-        return world;
+    /*
+     * ⭐ S158 B3 (owner playtest) — **THE VOLTKIN IS EXEMPT. BUILD AS MANY AS YOU LIKE.**
+     *
+     * Owner: *"you could also make one voltkin per account... not fair. i told you already you
+     * should be able to build as many voltkins as you wish."*
+     *
+     * S157 B4 removed the once-per-MATCH lock from `findGodlyMatch` and its note said the pacing
+     * was not lost because *"applySpawnCreature independently refuses a second LIVE creature of
+     * the same (owner, type), so a seat still fields one Voltkin at a time"*. That was offered as
+     * a feature. The owner has now played it and ruled the other way: this gate IS the
+     * one-per-account cap they are objecting to, and B4 only ever moved it from the match to the
+     * seat.
+     *
+     * ⚠ THE GATE STAYS FOR EVERY OTHER null-spawner CREATURE, and that is not timidity. It is the
+     * blueprint Q10 invariant protecting the FREE STARTER units — each seat is granted one goblin
+     * of each kind, and without it a re-grant would silently double a seat's army. The owner's
+     * ruling is about the Voltkin they BUILD, not about the units they are given.
+     */
+    if (action.creatureType !== 'voltkin') {
+      for (const c of world.creatures.values()) {
+        if (
+          c.sourceSpawnerId === null &&
+          c.ownerPlayerId === action.ownerPlayerId &&
+          c.type === action.creatureType
+        ) {
+          return world;
+        }
       }
     }
     const id = asCreatureId(world.nextCreatureId++);

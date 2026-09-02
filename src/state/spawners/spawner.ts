@@ -25,6 +25,7 @@
  * stable handle, re-validated each poll (Layer 5 fills `recipeStillSatisfied`).
  */
 
+import { DRONE_EMIT_INTERVAL_TICKS, SPAWN_INTERVAL_TICKS } from '../../constants.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 
@@ -57,6 +58,28 @@ export interface CreatureSpawner {
  * to `ignitedAtTick` so the first poll re-validates after one throttle window.
  * `spawnedCount` starts at 0.
  */
+/**
+ * ⭐ S158 B2 (owner playtest) — **THE EMIT CADENCE A GIVEN RECIPE ACTUALLY RUNS ON.**
+ *
+ * Owner: *"the lighning drone tower is not producing or spawning suicide drones."* It was producing.
+ * It was producing on the CHEWER's clock, in THREE separate places, because `DRONE_EMIT_INTERVAL_TICKS`
+ * was defined as `= SPAWN_INTERVAL_TICKS // reuse the chewer cadence` and two of the three sites
+ * skipped the alias entirely and named the chewer constant outright:
+ *
+ *   1. the registration seed (`spawnerLifecycle`) — so the FIRST drone was one chewer-interval out;
+ *   2. the BUILD-phase re-alignment (`hostTick`) — so a hub crossing the phase edge carried a
+ *      deadline up to one chewer-interval INTO the fight it was built for;
+ *   3. the emit itself, which alone used the drone alias.
+ *
+ * Against a 45 s fight that is the difference between a burst weapon and a tower that appears inert.
+ * ONE definition now, because three readers of one number were allowed to disagree and did.
+ *
+ * A recipe with no cadence (the goblin tower is FED, never polled) gets the default — inert for it.
+ */
+export function spawnerIntervalTicks(recipeId: GodlyId): number {
+  return recipeId === 'lightningHub' ? DRONE_EMIT_INTERVAL_TICKS : SPAWN_INTERVAL_TICKS;
+}
+
 export function makeSpawner(args: {
   id: SpawnerId;
   ownerPlayerId: PlayerId;

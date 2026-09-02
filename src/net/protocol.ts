@@ -420,7 +420,24 @@ export type { NetSnapshot };
  * Towers are unaffected in every direction: they carry `ehp: null`, the emit skips null, and the read
  * rehydrates null — so a match without a princess produces snapshots byte-identical to v35.
  */
-export const PROTOCOL_VERSION = 36 as const;
+// S158 A3 — bumped 36->37: A RAID HITS ANYTHING. `RAID_TARGET.target` gains the discriminant
+// `defender`, so a right-click can spend a raid point on HELGA — which the R78 kill table has
+// published as *"HELGA(54, needs 6)"* since S152 without any way to aim it.
+/*
+ * ⭐ S158 A3 (owner) — BUMPED 36 → 37: `RAID_TARGET.target.kind` gains `'defender'`.
+ *
+ * Owner: *"a raid should hit anything, it holds a certain attack strenght and stats of its own —
+ * again ive already explained it when we worked the unit and tower stats."*
+ *
+ * ⛔ WHY A NEW DISCRIMINANT VALUE EARNS A BUMP, when a new optional field would not. `RAID_TARGET`
+ * is a CLIENT INTENT. A v36 host receiving `kind:'defender'` passes the allowlist — the action TYPE
+ * is unchanged — and then falls through its own switch to the connector arm, where
+ * `world.bonds.get(<a DefenderId>)` is undefined and the reducer silently returns. The raid
+ * vanishes: no damage, no point spent, no error, and the two peers disagree about what happened.
+ * A silent divergence on an intent is precisely the failure this file's own notes call the more
+ * dangerous half, which is why the payload RESHAPE at 30→31 took a bump for the same reason.
+ */
+export const PROTOCOL_VERSION = 37 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -585,6 +602,10 @@ export interface HelloMsg {
    * byte-identical to v35. It is NOT cosmetic: a v35 peer has no field, rehydrates her through the
    * factory at FULL pool, and diverges on the state hash for as long as she is damaged.)
    *
+   * S158 A3: 36->37 (A RAID HITS ANYTHING — owner. `RAID_TARGET.target` gains the `defender`
+   * discriminant. Not additive-optional: a v36 host accepts the intent, misroutes it to the
+   * connector arm, and drops it silently — same class as the 30->31 payload reshape.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -617,7 +638,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 36;
+  readonly protoVersion: 37;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

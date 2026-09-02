@@ -92,6 +92,8 @@ import {
   tickGathererShelter,
 } from './gatherers/gathererLifecycle.ts';
 import { underDroneCaps } from './droneLifecycle.ts';
+// S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
+import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
 import { tickGameState, type GameStateExtras } from './gameState.ts';
 import { shouldCookOffInHand } from './potatoLifecycle.ts';
@@ -409,7 +411,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   //       LIVE position, then advance the cadence by `+=` (NOT `= tick + interval`)
   //       so emit timing never drifts. Snapshot the entries first (REMOVE_SPAWNER
   //       deletes from the Map mid-loop, mirroring the bomb-dissipate snapshot).
-  if (world.gameState === 'PLAYING' && world.creatureSpawners.size > 0) {
+ if (world.gameState === 'PLAYING' && world.creatureSpawners.size > 0) {
     for (const [spawnerId, sp] of [...world.creatureSpawners]) {
       if (world.tick - sp.lastValidatedTick >= REVALIDATE_INTERVAL_TICKS) {
         sp.lastValidatedTick = world.tick;
@@ -452,7 +454,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * is lifted verbatim from the fouled branch below, which solved this exact problem in S109.
        */
       if (world.matchPhase !== 'FIGHT') {
-        while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+        /*
+         * ⭐ S158 B2 (owner playtest) — RE-ALIGN BY THE SPAWNER'S **OWN** CADENCE.
+         *
+         * This advanced every recipe by `SPAWN_INTERVAL_TICKS`, the CHEWER's 15 s, whatever the
+         * spawner actually was. For a lightning hub — whose cadence S158 B2 cut to 5 s so its three
+         * drones land inside one 45 s fight — that meant the BUILD re-alignment left `nextSpawnTick`
+         * up to 15 s past the FIGHT edge, and the tower stood silent through a third of the fight it
+         * was built for. The cadence fix alone would not have been felt.
+         *
+         * The S157 P0 reasoning this line was written for is untouched and still the point: keep the
+         * deadline aligned to NOW so a 90 s BUILD cannot bank a backlog burst — for a hub, one that
+         * would fire its self-destruct on the first FIGHT tick. Only the STEP was wrong.
+         */
+        const step = spawnerIntervalTicks(sp.recipeId);
+        while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += step;
         continue;
       }
       // S109 P2 — a pooped chewer-spawner stops emitting until the owner cleans it

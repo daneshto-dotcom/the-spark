@@ -53,7 +53,7 @@ import { canStampAt } from '../state/blueprintLegality.ts';
 import type { World } from '../state/world.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
-import type { BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 
@@ -814,6 +814,26 @@ export class Controls {
         });
         return;
       }
+      /*
+       * ⭐ S158 A3 — HELGA, between the units and the connectors.
+       *
+       * She is a UNIT that happens to live in `world.defenders` (R77: *"those are all spawned
+       * units"*), so she sits with the creatures rather than with the structures — the same
+       * units-first ordering R78 asked for and R83 restated. Below `pickCreature` only because a
+       * creature standing on top of her should still be the thing you clicked.
+       *
+       * `pickRaidableDefender` refuses a TOWER: no pool, so a raid on one would spend a point for
+       * nothing. Refusing to aim at it is the honest behaviour, and it keeps R75 intact.
+       */
+      const defenderId = this.pickRaidableDefender();
+      if (defenderId !== null) {
+        this.dispatchFn({
+          type: 'RAID_TARGET',
+          target: { kind: 'defender', id: defenderId },
+          playerId: this.playerId,
+        });
+        return;
+      }
       const bondId = this.pickBond();
       if (bondId !== null) {
         this.dispatchFn({
@@ -1344,12 +1364,47 @@ export class Controls {
     let bestId: CreatureId | null = null;
     let bestDist = CREATURE_PICK_DIST;
     for (const c of this.world.creatures.values()) {
-      if (c.sourceSpawnerId === null) continue; // chewers only
+      /*
+       * ⭐ S158 A3 (owner) — **THE CHEWERS-ONLY LINE IS GONE FROM THE PICKER TOO.**
+       *
+       * Owner: *"a raid should hit anything, it holds a certain attack strenght and stats of its
+       * own — again ive already explained it when we worked the unit and tower stats."*
+       *
+       * ⛔ S152 P1 removed `sourceSpawnerId !== null` from the REDUCER, recording that *"R78 says
+       * units"* — and left it standing HERE. So the rule was widened where it is enforced and not
+       * where it is aimed: a Voltkin or a free goblin could be damaged by a raid the input layer
+       * would never let you aim at. The published R78 kill table lists voltkin at 7 raids; nobody
+       * could ever have spent the first one.
+       *
+       * A half-widened rule is worse than an un-widened one, because the record says it shipped.
+       */
       if (c.ownerPlayerId === this.playerId) continue; // enemy-only
       const d = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y);
       if (d < bestDist) {
         bestDist = d;
         bestId = c.id;
+      }
+    }
+    return bestId;
+  }
+
+  /**
+   * ⭐ S158 A3 — the nearest ENEMY defender under the cursor that a raid can actually hurt.
+   *
+   * `ehp !== null` is the filter, and it is the same discriminator the damage arm uses rather than
+   * a proxy for it: a TOWER carries `null` (R75 — its durability is its connectors'), so it is
+   * unaimable here and unhurtable there, and the two can never drift apart.
+   */
+  private pickRaidableDefender(): DefenderId | null {
+    let bestId: DefenderId | null = null;
+    let bestDist = CREATURE_PICK_DIST;
+    for (const d of this.world.defenders.values()) {
+      if (d.ehp === null) continue; // a tower — nothing to spend a raid point on
+      if (d.ownerPlayerId === this.playerId) continue; // enemy-only
+      const dist = Math.hypot(this.cursor.x - d.pos.x, this.cursor.y - d.pos.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestId = d.id;
       }
     }
     return bestId;

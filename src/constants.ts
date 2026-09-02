@@ -1331,7 +1331,29 @@ export function waveSpawnMultiplier(waveNumber: number): number {
 }
 
 export const GOBLIN_MAX_GLOBAL = 200;
-export const GOBLIN_MAX_PER_SPAWNER = 60;
+/**
+ * ⭐ S158 B4 (owner playtest) — **TEN GOBLINS PER TOWER. THAT IS THE WHOLE RULE.**
+ *
+ * Owner: *"it makes no sense in building multiple goblin towers because you can just generate
+ * unlimited goblins per tower so we will cap 10 goblins per tower per turn (each build & fight
+ * stage each goblin tower is capped at 10 new towers [goblins]). if you have any left over from
+ * the previous round then the count continues and capped at each tower holding 10 goblins!"*
+ *
+ * ⛔ IT IS A LIVE-POPULATION CAP, NOT A PER-PHASE ALLOWANCE, and the owner's second sentence is
+ * what settles that: *"if you have any left over from the previous round then the count
+ * continues"*. A per-phase allowance would let a player bank 10 a turn and field 40 by the
+ * fourth fight, which is the unlimited-goblins problem with extra steps. Ten LIVE per tower means
+ * four survivors leave room for six more — exactly "the count continues".
+ *
+ * ⭐ AND THAT IS WHY IT NEEDS NO NEW MECHANISM. `underGoblinCaps`'s per-spawner term already
+ * counts LIVE goblins attributed to one spawner and is already re-checked inside
+ * `applySpawnCreature` before the bank is debited (S157 B1). The rule the owner wants was one
+ * number away; it was 60, which no game ever reached, so the tower behaved as uncapped.
+ *
+ * The design consequence the owner is buying: a second tower is now worth building, because the
+ * first one stops at ten.
+ */
+export const GOBLIN_MAX_PER_SPAWNER = 10;
 
 // === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===
 // ONE damage scale across the whole game. Two kinds of destructible thing have HP:
@@ -1659,10 +1681,41 @@ export const SPAWNER_KILL_REWARD = 5;
 // owner-agnostic 240px self-destruct / own drone cap / Codex tile / host-seeded bots.
 // Council R2 carry-forward (#1 post-playtest dial set, Grok balance alt): 20s cadence / 2 drones /
 // 180px self-destruct if the 3-drone 240px-nuke proves too swingy on the owner's live playtest.
-export const LIGHTNING_HUB_DEGREE = 5; // the Dot hub's minimum bond-degree (LOOSENED gate: >=, not ==)
+// ⚠ S158 B2 — THIS COMMENT USED TO SAY "minimum bond-degree (LOOSENED gate: >=, not ==)" AND THE
+// CODE HAS NEVER DONE THAT. `isLightningHubComponent` tests `hub.bonds.size !== LIGHTNING_HUB_DEGREE`
+// — an EXACT match, exactly like the laser turret it is modelled on. What IS loosened is the LEAF
+// rule: leaves may bond to each other, because dense auto-bond does that constantly and it changes
+// neither the hub degree nor the component size. Corrected rather than deleted because a comment
+// describing a gate the code does not implement is how the next author plans around a bug that
+// is not there — and how a player concludes a near-miss build "should have worked".
+export const LIGHTNING_HUB_DEGREE = 5; // the Dot hub's EXACT bond-degree
 export const LIGHTNING_HUB_LEAVES = 5; // 5 Circle leaves
 export const LIGHTNING_HUB_COMPONENT_SIZE = LIGHTNING_HUB_DEGREE + 1; // 1 hub + 5 leaves = 6
-export const DRONE_EMIT_INTERVAL_TICKS = SPAWN_INTERVAL_TICKS; // 900t = 15s — reuse the chewer cadence
+/**
+ * ⭐ S158 B2 (owner playtest) — **THE HUB'S CADENCE WAS INHERITED, NOT CHOSEN, AND IT MADE THE TOWER
+ * READ AS BROKEN.**
+ *
+ * Owner: *"the lighning drone tower is not producing or spawning suicide drones."*
+ *
+ * MEASURED through the real host tick before changing anything: it DOES produce. A hub ignites,
+ * emits at ticks 900 / 1800 / 2700 and self-destructs at 3600. The problem is what those numbers
+ * mean against a 45 s fight (`FIGHT_PHASE_TICKS` = 2700):
+ *
+ *   · the first drone arrives up to 15 s INTO the fight,
+ *   · the second at 30 s, the third AT THE PHASE EDGE,
+ *   · so a six-shape structure yields about TWO briefly-visible drones per fight, each of which
+ *     flies off and detonates within seconds.
+ *
+ * The old value's own comment said it out loud — *"reuse the chewer cadence"*. It was never a
+ * decision about this weapon. That is the same defect S157 B7 fixed for the laser turret, whose note
+ * two hundred lines below still reads *"against a 45 s FIGHT a 30 s cadence is barely one useful
+ * shot"*.
+ *
+ * 5 s delivers all three drones and the self-destruct inside the first 20 s of a fight, so the hub
+ * is a burst weapon you can actually watch happen. ⚠ A DIAL, not a derivation — flagged for the
+ * owner alongside the count (3) and the self-destruct radius, which are theirs from S113.
+ */
+export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — chosen for a 45s fight
 export const STRUCTURE_SELFDESTRUCT_DRONE_COUNT = 3; // emit 3 drones, then self-destruct on the next slot
 export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t = 8s fly-time FUSE (explodes on expiry if it never arrived)
 export const DRONE_EXPLODE_RADIUS = 110; // px — small targeted blast (== the drone's arrival/attack range)
@@ -1899,9 +1952,40 @@ export const STINK_TOWER_ATTACK_RANGE = 260; // short — it lobs, it does not s
 // fractional amount — 15 % of a primitive's 1000 max hp.
 export const STINK_BAG_DAMAGE = 150;
 export const STINK_BAG_RADIUS = 90;
-// DEPLETED (0 bags): the tower stops throwing and becomes a passive area denier on the shared DoT
-// beat. 2 % of max hp per application — integer at PRIMITIVE_MAX_HP 1000, and slow enough that it
-// pressures rather than deletes.
+/**
+ * ⭐ S158 A1 (owner, on review) — **THE AURA IS 0.2 ATK/SEC. IT HAS BEEN 2.4 SINCE S157.**
+ *
+ * Owner, sending me back to the record: *"ive already defined how the towers aura should be when we
+ * first spoke about their aura and everything (i gave you the stats of the aura and everything)"*.
+ * They had. It is in the S151 PDR's list of R77 mechanics deferred for later implementation:
+ * *"the stink tree's **0.2 atk/sec** aura model"*.
+ *
+ * ⛔ THE SHIPPED RATE WAS TWELVE TIMES THAT, MEASURED: `stinkAuraTick` fired every
+ * `DOT_CADENCE_TICKS` (0.5 s) applying `attackFifths(STINK_BAG_ATK 1, STINK_BAG_PEN 1)` = 6 fifths
+ * = 1.2 atk. Twice a second is 2.4 atk/sec.
+ *
+ * ⚠ AND `STINK_AURA_DAMAGE = 20` WAS NEVER AN OWNER NUMBER EITHER. Its own comment said "2 % of max
+ * hp per application" — authored in S141 with nothing behind it. S157 B9 then made the aura
+ * unconditional (a loaded tower stinks too), and S158 P6 handed the same numbers to the landed bag
+ * ON THE ARGUMENT THAT THEY WERE ALREADY OWNER-RULED. The reasoning was sound; the premise was false.
+ * That is the whole reason this constant now carries its provenance in writing.
+ *
+ * ## Why the beat moved to a SECOND
+ *
+ * 0.2 atk is exactly 1 fifth, so the honest expression is **1 fifth per second**. On the shared 0.5 s
+ * DoT beat it would be half a fifth, and `damageEntity` THROWS on a fractional amount by design — the
+ * owner-ruled DoT model is authored in whole units. A one-second beat states the rate exactly and
+ * keeps every amount an integer, which is why the aura now owns its own cadence instead of borrowing
+ * the shared one.
+ */
+export const STINK_AURA_CADENCE_TICKS = PHYSICS_HZ; // 60 — one application per SECOND
+/** ⭐ The owner's rate, in fifths: 0.2 atk = 1 fifth, applied once per second. */
+export const STINK_AURA_UNIT_FIFTHS = 1;
+/**
+ * The same correction on the 1000-per-shape scale. The old pairing was 20 per half-second (40/sec);
+ * holding the ratio to the unit damage the owner set gives 20 per second — half the old rate, so a
+ * shape still takes 50 s of continuous exposure to fall to the smell alone rather than 25 s.
+ */
 export const STINK_AURA_DAMAGE = 20;
 export const STINK_AURA_RADIUS = 120;
 // Death blast — the owner's "bigger cooler explosion", scaling with the bags left unthrown. A tower

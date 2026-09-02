@@ -97,24 +97,45 @@ describe('applySpawnCreature', () => {
     expect(c.prevPos).toEqual(TARGET_POS); // S26-reserved; zero implicit velocity for S25
   });
 
-  it('max-1-per-player invariant: second spawn for same owner is silent no-op', () => {
-    applySpawnCreature(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'voltkin',
-      ownerPlayerId: asPlayerId(0),
-      pos: TARGET_POS,
-      targetPos: STUB_TARGET,
-    });
-    applySpawnCreature(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'voltkin',
-      ownerPlayerId: asPlayerId(0),
-      pos: { x: 999, y: 999 }, // would-be-different pos, ignored
-      targetPos: STUB_TARGET,
-    });
-    expect(world.creatures.size).toBe(1);
-    // nextCreatureId not bumped on the rejected spawn — sole spawn took id 0.
-    expect(world.nextCreatureId).toBe(1);
+  /*
+   * ⭐ S158 B3 (owner playtest) — THIS TEST PINNED A RULE THE OWNER HAS NOW OVERRULED, and it is
+   * INVERTED rather than deleted so the change is visible in the file that used to guarantee it.
+   *
+   * Owner: *"you could also make one voltkin per account... not fair. i told you already you should
+   * be able to build as many voltkins as you wish."* S157 B4 removed the once-per-MATCH lock and
+   * argued the pacing survived because this per-seat gate kept one Voltkin alive at a time. That
+   * argument is what the owner has now played and rejected — B4 moved the cap from the match to
+   * the seat rather than removing it.
+   */
+  it('⭐ a seat may field AS MANY VOLTKINS AS IT BUILDS (owner B3, inverting the old max-1 rule)', () => {
+    for (let i = 0; i < 3; i++) {
+      applySpawnCreature(world, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'voltkin',
+        ownerPlayerId: asPlayerId(0),
+        pos: { x: 100 * i, y: 100 * i },
+        targetPos: STUB_TARGET,
+      });
+    }
+    expect(world.creatures.size).toBe(3);
+    expect(world.nextCreatureId, 'every one of them minted an id').toBe(3);
+  });
+
+  it('⛔ but the gate REMAINS for every other null-spawner creature — the free starter units', () => {
+    // The blueprint Q10 invariant still protects the units a seat is GRANTED: without it a
+    // re-grant would silently double a seat's army. The owner's ruling is about the Voltkin they
+    // BUILD, not about the goblins they are given.
+    for (let i = 0; i < 3; i++) {
+      applySpawnCreature(world, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'goblinMelee',
+        ownerPlayerId: asPlayerId(0),
+        pos: { x: 100 * i, y: 100 * i },
+        targetPos: STUB_TARGET,
+      });
+    }
+    expect(world.creatures.size, 'the second and third are silent no-ops').toBe(1);
+    expect(world.nextCreatureId, 'and a rejected spawn mints no id').toBe(1);
   });
 
   it('1v1: both players can each have 1 creature alive simultaneously', () => {

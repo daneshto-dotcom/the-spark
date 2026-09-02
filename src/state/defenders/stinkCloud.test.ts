@@ -5,6 +5,7 @@
  *
  * 1. **The cloud itself** — a thrown bag leaves a hazard behind, it stinks on the shared DoT beat,
  *    it spares its owner, and it expires. The art for this shipped in S157 and nothing drew it.
+ *    ⚠ Its rate is the owner's 0.2 atk/sec since S158 A1 — see the block at the bottom of this file.
  *
  * 2. ⛔ **THE BLIND LOB, WHICH HAD NEVER ONCE FIRED.** S157 B9 implemented the owner's untargeted
  *    throw (*"he should not target any enemies but shoot our at random areas in a radius"*) by
@@ -26,6 +27,7 @@ import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import { applyRadialDamage } from '../damage.ts';
+import { applySpawnCreature } from '../creatures/creatureLifecycle.ts';
 import {
   makeStinkCloud,
   stinkCloudExpiryTick,
@@ -37,7 +39,9 @@ import { asPlayerId, asPrimitiveId, asStinkCloudId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Controls } from '../../input/controls.ts';
 import {
-  DOT_CADENCE_TICKS,
+  PHYSICS_HZ,
+  STINK_AURA_CADENCE_TICKS,
+  STINK_AURA_UNIT_FIFTHS,
   PRIMITIVE_MAX_HP,
   SparkType,
   STINK_AURA_DAMAGE,
@@ -93,12 +97,21 @@ function landCloud(w: World, owner = P0, idNum = 0) {
   return c;
 }
 
+
+/** A Voltkin (pool 64 fifths) so an aura beat DAMAGES rather than kills — measurable, not absent. */
+function plantVoltkinAt(w: World, x: number, y: number) {
+  applySpawnCreature(w, {
+    type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: P1,
+    pos: { x, y }, targetPos: { x, y }, sourceSpawnerId: null,
+  });
+  return [...w.creatures.values()].at(-1)!;
+}
 describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
   it('⭐ damages an ENEMY shape inside the radius on its cadence tick', () => {
     const w = make1v1();
     const victim = addPrimAt(w, 1, 520, 500); // 20 px from the cloud centre
     const c = landCloud(w);
-    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS; // land exactly on this cloud's phase
+    w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS; // land exactly on this cloud's phase
     expect(stinkCloudTick(w, c, applyRadialDamage), 'this must be a cadence tick').toBe(true);
     expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP - STINK_AURA_DAMAGE);
   });
@@ -107,7 +120,7 @@ describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
     const w = make1v1();
     const victim = addPrimAt(w, 1, 520, 500);
     const c = landCloud(w);
-    w.tick = ((c.id as unknown as number) % DOT_CADENCE_TICKS) + 1;
+    w.tick = ((c.id as unknown as number) % STINK_AURA_CADENCE_TICKS) + 1;
     expect(stinkCloudTick(w, c, applyRadialDamage)).toBe(false);
     expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP);
   });
@@ -116,7 +129,7 @@ describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
     const w = make1v1();
     const mine = addPrimAt(w, 0, 520, 500);
     const c = landCloud(w, P0);
-    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS;
     stinkCloudTick(w, c, applyRadialDamage);
     expect(w.primitives.get(mine.id)!.hp).toBe(PRIMITIVE_MAX_HP);
   });
@@ -126,7 +139,7 @@ describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
     const inside = addPrimAt(w, 1, 500 + STINK_BAG_RADIUS - 5, 500);
     const outside = addPrimAt(w, 1, 500 + STINK_BAG_RADIUS + 5, 500);
     const c = landCloud(w);
-    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS;
     stinkCloudTick(w, c, applyRadialDamage);
     expect(w.primitives.get(inside.id)!.hp).toBeLessThan(PRIMITIVE_MAX_HP);
     expect(w.primitives.get(outside.id)!.hp).toBe(PRIMITIVE_MAX_HP);
@@ -280,8 +293,60 @@ describe('S158 P6 — teardown', () => {
     const w = make1v1();
     const theirs = addPrimAt(w, 1, 505, 500);
     const c = landCloud(w, P1); // owned by the OTHER seat this time
-    w.tick = (c.id as unknown as number) % DOT_CADENCE_TICKS;
+    w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS;
     stinkCloudTick(w, c, applyRadialDamage);
     expect(w.primitives.get(theirs.id)!.hp, 'P1 owns this shape and owns the cloud').toBe(PRIMITIVE_MAX_HP);
+  });
+});
+
+describe('S158 A1 — the aura is the OWNER\u2019S 0.2 atk/sec, and the shipped rate was 12\u00d7 it', () => {
+  /**
+   * Owner, reviewing the batch: *"ive already defined how the towers aura should be when we first
+   * spoke about their aura and everything (i gave you the stats of the aura and everything)."*
+   *
+   * They had. `.claude/plans-archive/2026-08-22_PDR_S151_BATCH_COMPLETED.md`, in the list of R77
+   * mechanics deferred for later implementation: *"the stink tree's **0.2 atk/sec** aura model"*.
+   *
+   * ⛔ THE SHIPPED RATE WAS 2.4 atk/sec. `stinkAuraTick` fired on the shared 0.5 s DoT beat for
+   * `attackFifths(1,1)` = 6 fifths = 1.2 atk, twice a second. S158 P6 then handed the same numbers to
+   * the landed bag ARGUING they were already owner-ruled. They were not. This test is the carrier
+   * that argument should have had.
+   */
+  it('\u2b50 one fifth per second \u2014 0.2 atk/sec exactly, in the units the ladder uses', () => {
+    // 1 fifth = 0.2 atk by construction (FIFTHS = 5), so this pins the owner's number itself rather
+    // than a constant that happens to equal it today.
+    expect(STINK_AURA_UNIT_FIFTHS / 5).toBeCloseTo(0.2);
+    expect(STINK_AURA_CADENCE_TICKS).toBe(PHYSICS_HZ); // ...per SECOND
+  });
+
+  it('\u2b50 the rate is INTEGRAL, which is why the beat is a second and not the shared half-second', () => {
+    // `damageEntity` throws on a fractional amount by design. Half a fifth per half-second is the
+    // same rate and is not expressible, so the cadence had to move rather than the number.
+    expect(Number.isInteger(STINK_AURA_UNIT_FIFTHS)).toBe(true);
+    expect(STINK_AURA_UNIT_FIFTHS).toBeGreaterThan(0);
+  });
+
+  it('\u2b50 a landed bag applies exactly that, once a second \u2014 not the old 6 fifths twice a second', () => {
+    const w = make1v1();
+    const enemy = plantVoltkinAt(w, 500, 500);
+    const c = landCloud(w);
+    const before = enemy.ehp;
+    // Sweep two full seconds and count what actually lands.
+    let applications = 0;
+    for (let t = 0; t < 2 * PHYSICS_HZ; t++) {
+      w.tick = t;
+      if (stinkCloudTick(w, c, applyRadialDamage)) applications++;
+    }
+    expect(applications, 'twice in two seconds, not four times').toBe(2);
+    expect(
+      before - w.creatures.get(enemy.id)!.ehp,
+      'and two seconds of standing in it costs 2 fifths, not 24',
+    ).toBe(2 * STINK_AURA_UNIT_FIFTHS);
+  });
+
+  it('\u26d4 CONTROL \u2014 the old rate would have been 12\u00d7 this, so the fix is not cosmetic', () => {
+    const OLD_FIFTHS_PER_SECOND = 6 * 2; // attackFifths(1,1) on the 0.5 s DoT beat
+    const nowPerSecond = STINK_AURA_UNIT_FIFTHS * (PHYSICS_HZ / STINK_AURA_CADENCE_TICKS);
+    expect(OLD_FIFTHS_PER_SECOND / nowPerSecond).toBe(12);
   });
 });

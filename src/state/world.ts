@@ -29,7 +29,7 @@ import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
-import { asPlayerId, type BondId, type CreatureId, type PlayerId } from '../types.ts';
+import { asPlayerId, type BondId, type CreatureId, type DefenderId, type PlayerId } from '../types.ts';
 import {
   applyBenchOfflinePlayer,
   applyReturnToTitle,
@@ -277,6 +277,9 @@ export type GameAction =
       readonly type: 'RAID_TARGET';
       readonly target:
         | { readonly kind: 'creature'; readonly id: CreatureId }
+        // ⭐ S158 A3 (owner) — *"a raid should hit anything"*. A UNIT-class defender (Helga); a
+        // tower carries no pool and the reducer refuses it, so R75 is untouched.
+        | { readonly kind: 'defender'; readonly id: DefenderId }
         | { readonly kind: 'bond'; readonly id: BondId };
       readonly playerId: PlayerId;
     }
@@ -645,6 +648,31 @@ export function dispatch(world: World, action: GameAction): World {
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
         const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player');
+        world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
+        return world;
+      }
+
+      /*
+       * ⭐ S158 A3 (owner) — A UNIT-CLASS DEFENDER, i.e. HELGA.
+       *
+       * Owner: *"a raid should hit anything, it holds a certain attack strenght and stats of its
+       * own — again ive already explained it when we worked the unit and tower stats."* They had:
+       * the R78 kill table in `constants.ts` has published *"HELGA(54, needs 6)"* since S152. The
+       * ruling always covered her; it could not be implemented because defenders had no pool.
+       * S158 P7 gave them one, so this arm is the ruling finally reaching its own table.
+       *
+       * NO NEW NUMBER: `attackFifths(RAID_ATK, RAID_PEN)` = 10 fifths against her 54 ⇒ six raids,
+       * exactly as published. A TOWER has `ehp === null`, `damageEntity` returns false and the
+       * point is NOT spent — the same atomicity every other arm here holds.
+       */
+      if (action.target.kind === 'defender') {
+        const target = world.defenders.get(action.target.id);
+        if (target === undefined) return world;
+        if (target.ownerPlayerId === action.playerId) return world; // enemy-only
+        if (target.ehp === null) return world; // a tower — refuse rather than take the point
+        const pos = { x: target.pos.x, y: target.pos.y };
+        raider.raidPoints--;
+        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player');
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }

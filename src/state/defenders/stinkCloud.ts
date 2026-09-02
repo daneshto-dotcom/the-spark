@@ -13,18 +13,23 @@
  *
  * It is the tower's own aura, moved to where the bag fell and given an end. Same beat, same numbers:
  *
- *   | | tower aura (S157 B9) | landed cloud (here) |
+ *   | | tower aura | landed cloud (here) |
  *   |---|---|---|
- *   | cadence | `DOT_CADENCE_TICKS` | `DOT_CADENCE_TICKS` |
- *   | shapes | `STINK_AURA_DAMAGE` | `STINK_AURA_DAMAGE` |
- *   | units | `attackFifths(STINK_BAG_ATK, STINK_BAG_PEN)` | the same |
+ *   | cadence | `STINK_AURA_CADENCE_TICKS` (1 s) | the same |
+ *   | shapes | `STINK_AURA_DAMAGE` | the same |
+ *   | units | `STINK_AURA_UNIT_FIFTHS` (0.2 atk/sec) | the same |
  *   | radius | `STINK_AURA_RADIUS` 120 | `STINK_BAG_RADIUS` 90 |
  *   | lifetime | the tower's | `STINK_CLOUD_LIFETIME_TICKS` |
  *
- * ⚠ ONE new constant, and no new balance economy. Every damage number here is one the owner already
- * ruled on for this same weapon; a cloud is simply that smell, somewhere else, for a while. The
- * impact splash is also UNCHANGED — the bag still hits for `STINK_BAG_DAMAGE` on arrival and the
- * cloud is what it leaves behind — so nothing about the shipped tower balance moves.
+ * ⛔ THE ROW ABOVE USED TO SAY SOMETHING FALSE, AND THE OWNER CAUGHT IT. P6 justified reusing the
+ * tower's numbers on the grounds that they were "numbers the owner already ruled on". They were
+ * not: `STINK_AURA_DAMAGE` was authored in S141 as "2 % of max hp" with nothing behind it, and the
+ * unit rate worked out at 2.4 atk/sec against the owner's stated **0.2**. S158 A1 corrected both.
+ * The two are still deliberately identical — a landed bag is the same smell — but they are now
+ * identical to the OWNER'S number instead of to each other's invented one.
+ *
+ * ⚠ The impact splash is UNCHANGED: the bag still hits for `STINK_BAG_DAMAGE` on arrival and the
+ * cloud is only what it leaves behind. 0.2 atk/sec is a ruling about the AURA.
  *
  * ## Determinism
  *
@@ -35,14 +40,12 @@
  */
 
 import {
-  DOT_CADENCE_TICKS,
+  STINK_AURA_CADENCE_TICKS,
   STINK_AURA_DAMAGE,
-  STINK_BAG_ATK,
-  STINK_BAG_PEN,
+  STINK_AURA_UNIT_FIFTHS,
   STINK_CLOUD_LIFETIME_TICKS,
 } from '../../constants.ts';
 import type { PlayerId, StinkCloudId, Vec2 } from '../../types.ts';
-import { attackFifths } from '../stats.ts';
 import type { World } from '../worldTypes.ts';
 import type { RadialDamageFn } from './stinkTower.ts';
 
@@ -100,11 +103,14 @@ export function stinkCloudProgress(c: StinkCloud, tick: number): number {
  * pulse on one tick, which spikes the frame and reads as a stutter rather than a smell.
  */
 export function stinkCloudTick(world: World, c: StinkCloud, radialDamage: RadialDamageFn): boolean {
-  const phase = (c.id as unknown as number) % DOT_CADENCE_TICKS;
-  if (world.tick % DOT_CADENCE_TICKS !== phase) return false;
+  // ⭐ S158 A1 — the owner's 0.2 atk/sec, on the aura's own one-second beat. P6 shipped this at the
+  // tower's then-current rate ARGUING it was an owner number; it was not, and the owner's review
+  // caught it. The two are still deliberately identical — a landed bag is the same smell.
+  const phase = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS;
+  if (world.tick % STINK_AURA_CADENCE_TICKS !== phase) return false;
   radialDamage(
     world, c.pos.x, c.pos.y, c.radius,
-    STINK_AURA_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    STINK_AURA_DAMAGE, STINK_AURA_UNIT_FIFTHS,
     'aura', c.ownerPlayerId,
   );
   return true;

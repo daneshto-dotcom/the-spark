@@ -30,7 +30,8 @@
  */
 
 import {
-  DOT_CADENCE_TICKS,
+  STINK_AURA_CADENCE_TICKS,
+  STINK_AURA_UNIT_FIFTHS,
   STINK_AURA_DAMAGE,
   STINK_AURA_RADIUS,
   STINK_BAG_DAMAGE,
@@ -257,11 +258,18 @@ export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDam
    * Depletion still MEANS something: a spent tower keeps only this aura, while a loaded one has the
    * aura AND its bags AND the death blast. The aura is what it IS, not what it becomes.
    */
-  const phase = (d.id as unknown as number) % DOT_CADENCE_TICKS;
-  if (world.tick % DOT_CADENCE_TICKS !== phase) return false;
+  /*
+   * ⭐ S158 A1 (owner, on review) — 0.2 ATK/SEC, WHICH IS 1 FIFTH ONCE A SECOND.
+   *
+   * This used to fire on the shared half-second DoT beat for `attackFifths(1,1)` = 6 fifths, i.e.
+   * 2.4 atk/sec — TWELVE TIMES the rate the owner set in R77. The cadence is the aura's own now,
+   * because half a fifth per half-second is not expressible: `damageEntity` throws on fractions.
+   */
+  const phase = (d.id as unknown as number) % STINK_AURA_CADENCE_TICKS;
+  if (world.tick % STINK_AURA_CADENCE_TICKS !== phase) return false;
   radialDamage(
     world, d.pos.x, d.pos.y, STINK_AURA_RADIUS,
-    STINK_AURA_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    STINK_AURA_DAMAGE, STINK_AURA_UNIT_FIFTHS,
     'aura', d.ownerPlayerId,
   );
   return true;

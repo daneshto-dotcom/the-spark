@@ -23,14 +23,13 @@
  * still match the recipe shape — extra attached primitive fails, missing triangle fails).
  */
 
-import { SPAWN_INTERVAL_TICKS } from '../../constants.ts';
 import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
 import { isGoblinTowerComponent } from '../goblinKinds.ts';
 import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
 import type { World } from '../worldTypes.ts';
-import { makeSpawner, type CreatureSpawner } from './spawner.ts';
+import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterSpawnerAction {
@@ -68,7 +67,9 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       anchorPrimitiveId: action.anchorPrimitiveId,
       recipeId: action.recipeId,
       ignitedAtTick: world.tick,
-      nextSpawnTick: world.tick + SPAWN_INTERVAL_TICKS,
+      // ⭐ S158 B2 — the recipe's OWN cadence, not the chewer's. A lightning hub seeded here at the
+      // chewer's 15 s spent the first quarter of its fight silent before it emitted anything.
+      nextSpawnTick: world.tick + spawnerIntervalTicks(action.recipeId),
     }),
   );
   return world;

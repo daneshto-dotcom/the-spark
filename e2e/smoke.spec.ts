@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 36; // S158 P7 — 35 → 36 (HELGA IS KILLABLE: ehp on SerializedDefender, additive-optional, unit-class defenders only)
+const LOCAL_PROTO_V = 37; // S158 A3 — 36 → 37 (A RAID HITS ANYTHING: RAID_TARGET.target gains the 'defender' discriminant)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**
