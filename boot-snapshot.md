@@ -1,7 +1,7 @@
 # Boot Snapshot (auto-generated at handoff)
 Generated: 2026-09-02 | Session: S159 | Commit: `5e682ac` | PROTOCOL 38 (unchanged all session)
 
-State at close: `tsc` 0 · **3393/3393** unit tests / 216 files · `e2e:gating` exit 0, 62 passed (run
+State at close: `tsc` 0 · **3393/3393** unit tests / 217 files · `e2e:gating` exit 0, 62 passed (run
 twice) · bundle **763.9 / 900 KiB** · `verify-deploy` **PASS 4/4** with content-hash equality · MCV
 **88 bindings, exit 0** · real context **599,683 / 1,000,000 (60.0 % YELLOW)**.
 
