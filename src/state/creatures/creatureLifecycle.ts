@@ -38,7 +38,7 @@ import {
   type CreatureType,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, enemyCastleInReach, engageRange, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
+import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -616,7 +616,10 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       unitInReach ||
       structureInReach ||
       castleInReach ||
-      defenderInReach)
+      defenderInReach ||
+      // S158 A2 — and a landed stink bag, for the same reason as the four clauses above: it is
+      // none of bond, unit, shape or castle, so without this a unit stands in one forever.
+      enemyStinkCloudInReach(world, creature, engageRange(config)) !== null)
   ) {
     creature.state = 'ATTACKING';
     creature.ticksInState = 0;
@@ -754,12 +757,38 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
      * every test green.
      */
     const castleValid = enemyCastleInReach(world, creature, engageRange(config)) !== null;
+    /*
+     * ⭐ S158 — A FIFTH AND SIXTH ARM, AND THE WARNING FOUR LINES UP CAUGHT ME TWICE IN ONE SESSION.
+     *
+     * That note says it plainly: *"adding a new THING TO ATTACK means touching FOUR sites, not one —
+     * the engage predicate, the abort predicate HERE, the host-tick fire gate, and the strike. Miss
+     * any one and the unit plays a full attack animation that does nothing, with every test green."*
+     *
+     * S158 P7 added HELGA and S158 A2 added the landed stink bag. Both got the engage predicate, the
+     * fire gate and the strike. **Neither got this one.**
+     *
+     * ⛔ AND P7'S TESTS STAYED GREEN, which is exactly what the note predicts. Helga stands on her own
+     * hub, an enemy PRIMITIVE, so `primitiveValid` happened to hold and carried her through the
+     * window. Move her off it — which she does, she WALKS to her victims — and a goblin beside her
+     * would have bounced ATTACKING/SEEKING forever with her at full health. The bag has no such
+     * accident: it is never a primitive, so it failed immediately and a probe caught it (state
+     * ATTACKING with `ticksInState` pinned at 0 while the bag sat at full pool, then drifting away).
+     *
+     * Four for four became six for six. The sites are now enumerated in one place, and every one of
+     * these predicates is the SAME function the engage clause uses — not a re-implementation.
+     */
+    const defenderValid =
+      killableDefenderInReach(world, creature, engageRange(config)) !== null;
+    const stinkCloudValid =
+      enemyStinkCloudInReach(world, creature, engageRange(config)) !== null;
     const targetGoneEarly =
       creature.ticksInState <= config.attackFireTick &&
       !bondValid &&
       !creatureValid &&
       !primitiveValid &&
-      !castleValid;
+      !castleValid &&
+      !defenderValid &&
+      !stinkCloudValid;
     /*
      * ⭐ S154 P2 — WHY THERE IS NO "RE-ARM IN PLACE" HERE, THOUGH I BUILT ONE FIRST AND IT MEASURED
      * WORSE.

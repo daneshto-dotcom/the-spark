@@ -38,7 +38,7 @@
 import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
-import { bondMidpoint, distSq, enemyCastleInReach, killableDefenderInReach } from './creatureAI.ts';
+import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
@@ -335,6 +335,27 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
    * castle is what a unit hits when there is nothing else left — which is also the only reading under
    * which S154's *"a castle in reach is a reason to engage"* does not cannibalise a siege.
    */
+  /*
+   * ⭐ S158 A2 (owner R77) — A LANDED BAG, struck after the princess and before the castle.
+   *
+   * It sits here because a bag is an obstacle on the ground rather than a soldier or a wall: a unit
+   * deals with the enemy in front of it first (the arms above), and a keep is what it is marching AT.
+   * Popping the bag it is standing in comes between the two.
+   *
+   * The hit is the attacker's own stats, like every other arm — there is no bespoke anti-bag number.
+   */
+  const cloudId = enemyStinkCloudInReach(world, creature, attackerConfig.attackRange);
+  if (cloudId !== null) {
+    const killed = damageEntity(
+      world,
+      { kind: 'stinkCloud', id: cloudId },
+      attackFifths(attackerConfig.atk, attackerConfig.pen),
+      'creature',
+    );
+    if (killed) creature.killCount += 1;
+    return world;
+  }
+
   const castleSeat = enemyCastleInReach(world, creature, getCreatureConfig(creature.type).attackRange);
   if (castleSeat !== null) {
     damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');

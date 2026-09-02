@@ -29,6 +29,7 @@ import { mulberry32 } from '../rng.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import { applyRadialDamage, damageEntity } from '../damage.ts';
 import { makeDefender } from './defender.ts';
+import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { killableDefenderInReach } from '../creatures/creatureAI.ts';
 import { applySpawnCreature } from '../creatures/creatureLifecycle.ts';
 import { unitPoolFifths, attackFifths } from '../stats.ts';
@@ -327,6 +328,71 @@ describe('S158 P7 — end to end, through the real host tick', () => {
     expect(
       engaged,
       'with no shape in reach, ONLY the defender engage term can put the goblin into ATTACKING',
+    ).toBe(true);
+  });
+
+  it('⭐ and actually DAMAGES her away from her hub — the abort arm P7 missed', () => {
+    /*
+     * ⛔ P7 SHIPPED A LATENT HOLE AND ITS OWN TESTS STAYED GREEN, exactly as creatureLifecycle's
+     * four-sites warning predicts. Adding a new thing to attack means touching the engage predicate,
+     * the ABORT predicate, the host-tick fire gate and the strike. P7 did three.
+     *
+     * It passed because every fixture planted Helga ON her own hub — an enemy PRIMITIVE — so
+     * `primitiveValid` held and carried the goblin through the abort window by accident. She WALKS to
+     * her victims, so in a real fight she is routinely off it, and there a goblin beside her bounced
+     * ATTACKING/SEEKING forever with her at full health.
+     *
+     * The sibling test above asserts only that he ENGAGES, which is all it could honestly assert
+     * before this arm existed. This one asserts he HURTS her.
+     */
+    const w = make1v1();
+    const farAnchor = addPrimAt(w, 1, 700, 500); // her hub, outside a melee goblin's 35 px engage
+    const d0 = makeDefender({
+      id: asDefenderId(w.nextDefenderId++),
+      kind: 'princess',
+      ownerPlayerId: P1,
+      anchorPrimitiveId: farAnchor.id,
+      recipeId: 'helga',
+      pos: { x: 520, y: 500 }, // …but SHE is here, mid-pursuit
+      registeredAtTick: w.tick,
+    });
+    w.defenders.set(d0.id, d0);
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P0,
+      pos: { x: 505, y: 500 }, targetPos: { x: 505, y: 500 }, sourceSpawnerId: null,
+    });
+
+    const d = deps();
+    const st = makeHostTickState(w);
+    /*
+     * ⚠ THE ASSERTION IS THAT HIS WIND-UP SURVIVES, NOT THAT HE WINS. Measured: she one-shots a 2 hp
+     * goblin at 4 atk / 4 pierce, so "he damages her" is asserting the outcome of a duel she wins and
+     * says nothing about the arm under test. What the abort arm controls is precisely whether
+     * `ticksInState` can GROW past `attackFireTick` instead of being reset to 0 every tick — which is
+     * the exact signature S139 P2 and S154 AMENDMENT C both traced, and the exact thing my probe saw
+     * on the stink bag.
+     *
+     * ⚠ HONEST LIMIT, MEASURED: deleting the `defenderValid` arm does NOT turn this test red, and the
+     * reason is worth writing down. `primitiveValid` checks only that the committed shape EXISTS, not
+     * that it is in range — and a structure-attacker commits to the nearest enemy shape wherever it
+     * is. So with any enemy shape anywhere on the board, that arm already carries the wind-up and
+     * `defenderValid` is belt-and-braces. It is kept because it is correct and free, and because a
+     * creature with NO primitive target (a Voltkin, a chewer) has no such accident to rely on — but
+     * this test pins the BEHAVIOUR, not that one arm, and saying otherwise would be a false claim.
+     * The stink-bag end-to-end next door IS arm-sensitive, because a bag is never a primitive.
+     * The wave test above is what proves she dies.
+     */
+    const fireTick = getCreatureConfig('goblinMelee').attackFireTick;
+    let reachedFire = false;
+    for (let t = 0; t < 300 && !reachedFire; t++) {
+      runHostTick(w, d, st);
+      for (const c of w.creatures.values()) {
+        if (c.state === 'ATTACKING' && c.ticksInState >= fireTick) reachedFire = true;
+      }
+    }
+    expect(
+      reachedFire,
+      'with no shape in reach his wind-up was reset to 0 every tick — a full animation, no strike',
     ).toBe(true);
   });
 

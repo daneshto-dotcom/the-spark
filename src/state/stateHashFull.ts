@@ -291,7 +291,9 @@ type PoopHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'spawnedAtTick' | 'landedAtTick' | 'fouledPrimId';
 // S158 P6 — every field a landed stink bag carries is projected; it has no presentation-only ones.
 type StinkCloudHashed =
-  | 'id' | 'pos' | 'ownerPlayerId' | 'landedAtTick' | 'radius';
+  // S158 A2 — `ehp` joins them: a bag is destructible now, so its remaining pool decides
+  // whether it is still on the ground, which every later tick branches on.
+  | 'id' | 'pos' | 'ownerPlayerId' | 'landedAtTick' | 'radius' | 'ehp';
 // V6-1.1 — the cosmetic shapeshift is NOT here because it is NOT world state (renderer-only,
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
 type GathererHashed =
@@ -578,7 +580,7 @@ export function determinismParts(world: World): string[] {
   // S158 P6 — landed stink bags. Sorted by id so Map insertion order cannot leak into the digest.
   const clouds = [...world.stinkClouds.values()].sort((a, b) => Number(a.id) - Number(b.id));
   for (const c of clouds) {
-    parts.push(`sc${n(c.id)}:${c.pos.x},${c.pos.y}:o${n(c.ownerPlayerId)}:la${o(c.landedAtTick)}:r${o(c.radius)}`);
+    parts.push(`sc${n(c.id)}:${c.pos.x},${c.pos.y}:o${n(c.ownerPlayerId)}:la${o(c.landedAtTick)}:r${o(c.radius)}:eh${o(c.ehp)}`);
   }
 
   parts.push(`fo:${idSet(world.fouledPrimitives)}`);

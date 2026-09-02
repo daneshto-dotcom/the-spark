@@ -26,7 +26,7 @@ import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
-import { applyRadialDamage } from '../damage.ts';
+import { applyRadialDamage, damageEntity } from '../damage.ts';
 import { applySpawnCreature } from '../creatures/creatureLifecycle.ts';
 import {
   makeStinkCloud,
@@ -36,6 +36,8 @@ import {
   sweepExpiredStinkClouds,
 } from './stinkCloud.ts';
 import { asPlayerId, asPrimitiveId, asStinkCloudId } from '../../types.ts';
+import { enemyStinkCloudInReach } from '../creatures/creatureAI.ts';
+import { attackFifths, unitPoolFifths } from '../stats.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Controls } from '../../input/controls.ts';
 import {
@@ -45,6 +47,10 @@ import {
   PRIMITIVE_MAX_HP,
   SparkType,
   STINK_AURA_DAMAGE,
+  STINK_BAG_ATK,
+  STINK_BAG_DEF,
+  STINK_BAG_HP,
+  STINK_BAG_PEN,
   STINK_BAG_RADIUS,
   STINK_CLOUD_LIFETIME_TICKS,
 } from '../../constants.ts';
@@ -348,5 +354,126 @@ describe('S158 A1 — the aura is the OWNER\u2019S 0.2 atk/sec, and the shipped 
     const OLD_FIFTHS_PER_SECOND = 6 * 2; // attackFifths(1,1) on the 0.5 s DoT beat
     const nowPerSecond = STINK_AURA_UNIT_FIFTHS * (PHYSICS_HZ / STINK_AURA_CADENCE_TICKS);
     expect(OLD_FIFTHS_PER_SECOND / nowPerSecond).toBe(12);
+  });
+});
+
+describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when killed', () => {
+  /**
+   * R77's deferred-mechanics list, verbatim: *"destructible stink bags as entities with aggro and
+   * on-destroy damage"*, and `STINK_BAG_ATK`'s own comment carries the owner's other half — a bag
+   * deals *"1atk 1pierce when destroyed"*. S158 P6 shipped the entity and left it PASSIVE; these are
+   * the two properties that were missing.
+   */
+  it('⭐ a fresh bag carries a real pool off the shared ladder', () => {
+    const w = make1v1();
+    expect(landCloud(w).ehp).toBe(unitPoolFifths(STINK_BAG_HP, STINK_BAG_DEF));
+  });
+
+  it('⭐ damage subtracts, and the kill is reported only on the blow that lands it', () => {
+    const w = make1v1();
+    const c = landCloud(w);
+    const pool = c.ehp;
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, pool - 1, 'creature')).toBe(false);
+    expect(w.stinkClouds.get(c.id)!.ehp).toBe(1);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 1, 'creature')).toBe(true);
+    expect(w.stinkClouds.has(c.id), 'and the arm REMOVES it — the contract in full').toBe(false);
+  });
+
+  it('⭐ BURSTS when destroyed, for the owner’s 1 atk / 1 pierce', () => {
+    const w = make1v1();
+    const victim = plantVoltkinAt(w, 520, 500); // inside the 90 px bag radius
+    const c = landCloud(w); // owned by P0; the Voltkin is P1's
+    const before = victim.ehp;
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    expect(
+      w.creatures.get(victim.id)!.ehp,
+      'the unit standing in it eats the burst',
+    ).toBe(before - attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+  });
+
+  it('⭐ the burst spares the BAG’S OWNER, not the killer — you cannot safely clear your own', () => {
+    const w = make1v1();
+    // A P0 unit standing on a P0 bag: popping it must not hurt P0.
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: P0,
+      pos: { x: 520, y: 500 }, targetPos: { x: 520, y: 500 }, sourceSpawnerId: null,
+    });
+    const mine = [...w.creatures.values()].at(-1)!;
+    const before = mine.ehp;
+    const c = landCloud(w, P0);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    expect(w.creatures.get(mine.id)!.ehp).toBe(before);
+  });
+
+  it('emits ONE visible burst at the bag’s own radius', () => {
+    const w = make1v1();
+    const c = landCloud(w);
+    w.effects.length = 0;
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    const bursts = w.effects.filter((e) => e.kind === 'BOMB_EXPLODE');
+    expect(bursts).toHaveLength(1);
+    expect((bursts[0] as { radius: number }).radius).toBe(STINK_BAG_RADIUS);
+  });
+
+  it('is idempotent on a bag already gone', () => {
+    const w = make1v1();
+    const c = landCloud(w);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 999, 'creature')).toBe(false);
+  });
+
+  it('⭐ a UNIT finds an enemy bag in reach — and never its own side’s', () => {
+    const w = make1v1();
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 510, y: 500 }, targetPos: { x: 510, y: 500 }, sourceSpawnerId: null,
+    });
+    const g = [...w.creatures.values()].at(-1)!;
+    const theirs = landCloud(w, P0); // P0's bag, so P1's goblin may hit it
+    expect(enemyStinkCloudInReach(w, g, 60)).toBe(theirs.id);
+    w.stinkClouds.clear();
+    landCloud(w, P1); // its OWN side's bag
+    expect(enemyStinkCloudInReach(w, g, 60)).toBeNull();
+  });
+
+  it('reach is measured to the BAG, not to the edge of its smell', () => {
+    // Otherwise an archer pops bags from outside the thing that makes them dangerous, which removes
+    // the trade the owner asked for.
+    const w = make1v1();
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 500 + STINK_BAG_RADIUS - 5, y: 500 }, targetPos: { x: 0, y: 0 }, sourceSpawnerId: null,
+    });
+    const g = [...w.creatures.values()].at(-1)!;
+    landCloud(w, P0);
+    expect(enemyStinkCloudInReach(w, g, 35), 'inside the cloud, but not at the bag').toBeNull();
+  });
+
+  it('⭐ END TO END — a goblin standing on an enemy bag pops it through the real host tick', () => {
+    const w = make1v1();
+    const c = landCloud(w, P0); // P0's bag
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 505, y: 500 }, targetPos: { x: 505, y: 500 }, sourceSpawnerId: null,
+    });
+    const d = deps();
+    const st = makeHostTickState(w);
+    /*
+     * ⛔ THE WINDOW IS SHORTER THAN THE BAG'S OWN LIFETIME, AND THE FIRST VERSION WAS NOT.
+     *
+     * It ran 400 ticks against a 240-tick lifetime, so the bag vanished on its own timer and the
+     * assertion passed whatever the goblin did — a mutation test proved it by deleting the strike
+     * arm entirely and staying green. Stopping well short of expiry means only a KILL can end it.
+     */
+    const beforeExpiry = STINK_CLOUD_LIFETIME_TICKS - 40;
+    let gone = false;
+    for (let t = 0; t < beforeExpiry && !gone; t++) {
+      runHostTick(w, d, st);
+      gone = !w.stinkClouds.has(c.id);
+    }
+    // BEFORE A2 the bag was passive: no pool, no strike clause, nothing to hit. A unit could stand
+    // in it until it expired on its own timer.
+    expect(gone, 'a unit must be able to clear the ground it needs to walk over').toBe(true);
+    expect(w.tick, 'and it must be a KILL, not the bag timing out').toBeLessThan(STINK_CLOUD_LIFETIME_TICKS);
   });
 });

@@ -33,7 +33,7 @@
 
 import type { Bond } from '../../physics/bonds.ts';
 import { ARMY_RETREAT_LEAD_TICKS, PLAYER_COLORS } from '../../constants.ts';
-import type { DefenderId, BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
+import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
@@ -589,6 +589,34 @@ export function killableDefenderInReach(
     if (d.ehp === null) continue; // a TOWER — nothing to subtract from, so nothing to attack
     if (distSq(creature.pos, d.pos) > reach * reach) continue;
     if (best === null || (d.id as unknown as number) < (best as unknown as number)) best = d.id;
+  }
+  return best;
+}
+
+/**
+ * ⭐ S158 A2 (owner R77) — **AN ENEMY STINK BAG IN REACH.**
+ *
+ * *"destructible stink bags as entities with aggro and on-destroy damage"*. A bag on the ground is
+ * now something a unit can deal with rather than only something it dies in, and this is how a unit
+ * finds one it is already standing at.
+ *
+ * ⚠ REACH IS MEASURED TO THE BAG, NOT TO ITS CLOUD EDGE. A unit inside the smell but out of arm's
+ * length has not reached the bag; making the whole radius targetable would let an archer pop bags
+ * from outside the thing that makes them dangerous, which removes the trade the owner asked for.
+ *
+ * Deterministic: LOWEST id wins ties, mirroring `killableDefenderInReach` — a distance comparison
+ * between two equidistant bags would be settled by float noise, and float noise desyncs.
+ */
+export function enemyStinkCloudInReach(
+  world: World,
+  creature: Creature,
+  reach: number,
+): StinkCloudId | null {
+  let best: StinkCloudId | null = null;
+  for (const c of world.stinkClouds.values()) {
+    if (c.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    if (distSq(creature.pos, c.pos) > reach * reach) continue;
+    if (best === null || (c.id as unknown as number) < (best as unknown as number)) best = c.id;
   }
   return best;
 }

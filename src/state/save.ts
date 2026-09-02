@@ -894,6 +894,8 @@ interface SerializedStinkCloud {
   readonly ownerPlayerId: PlayerId;
   readonly landedAtTick: number;
   readonly radius: number;
+  /** ⭐ S158 A2 — remaining pool in fifths. A bag that has been hit must not heal on a snapshot. */
+  readonly ehp: number;
 }
 
 export function snapshot(
@@ -2382,6 +2384,7 @@ function serializeStinkCloud(c: StinkCloud): SerializedStinkCloud {
     ownerPlayerId: c.ownerPlayerId,
     landedAtTick: c.landedAtTick,
     radius: c.radius,
+    ehp: c.ehp,
   };
 }
 
@@ -2393,6 +2396,10 @@ function deserializeStinkCloud(s: SerializedStinkCloud): StinkCloud {
     ownerPlayerId: s.ownerPlayerId,
     landedAtTick: s.landedAtTick,
     radius: s.radius,
+    // ⛔ NOT a default: reading a fresh pool here would HEAL every damaged bag on every
+    // snapshot apply, i.e. on every client frame — the refund defect S152 P1 records for raid
+    // points and S151 P2 shipped into the bond deserializer.
+    ehp: s.ehp,
   });
 }
 

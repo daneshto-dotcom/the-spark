@@ -35,10 +35,10 @@
  * `true` iff the target died, so a caller can award a reward / retarget.
  */
 
-import { PRIMITIVE_MAX_HP } from '../constants.ts';
+import { PRIMITIVE_MAX_HP, STINK_BAG_ATK, STINK_BAG_PEN } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
-import { connectorCapacityFifths } from './stats.ts';
-import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
+import { attackFifths, connectorCapacityFifths, primitiveDamageForAtk } from './stats.ts';
+import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
@@ -73,7 +73,14 @@ export type DamageTarget =
    * It honours the contract in full, unlike the castle arm above: a defender that reaches zero IS
    * removed here, so `true` means what it means everywhere else.
    */
-  | { readonly kind: 'defender'; readonly id: DefenderId };
+  | { readonly kind: 'defender'; readonly id: DefenderId }
+  /**
+   * ⭐ S158 A2 (owner R77) — A LANDED STINK BAG. *"destructible stink bags as entities with aggro
+   * and on-destroy damage"*. It honours the contract in full: a bag that reaches zero is removed
+   * here, and it BURSTS on the way out for `STINK_BAG_ATK`/`PEN` — the owner's *"1atk 1pierce when
+   * destroyed"*.
+   */
+  | { readonly kind: 'stinkCloud'; readonly id: StinkCloudId };
 /*
  * ⛔ S151 P2 (owner R75) — THE `'defender'` ARM IS GONE. A tower has no hit points of its own, so
  * there is nothing here to subtract from. Its durability is its connectors' — damage a tower by
@@ -145,6 +152,38 @@ export function damageEntity(
       // standing as unkillable clutter. Same rule as the sever path; review caught that fixing only
       // the sever site would miss this door.
       razePrimitives(world, [target.id], undefined, true);
+      return true;
+    }
+
+    case 'stinkCloud': {
+      /*
+       * ⭐ S158 A2 — shoot the bag, wear the burst.
+       *
+       * ⚠ THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER. Every area effect in this game spares
+       * the side that created it, and a bag is no different just because someone else set it off —
+       * otherwise a player could clear their own minefield by shooting it and be hurt for it. The
+       * unit that popped it eats the blast precisely because it is standing there.
+       *
+       * ⛔ REMOVED BEFORE THE BURST, which is the opposite of the suicide goblin's order and is
+       * deliberate: `applyRadialDamage` walks `world.stinkClouds`? It does not — but a burst that
+       * killed a NEIGHBOURING bag would re-enter this arm while this one is still in the map, and
+       * removing first makes that chain terminate. A bag cannot detonate itself twice.
+       */
+      const cloud = world.stinkClouds.get(target.id);
+      if (cloud === undefined) return false;
+      cloud.ehp -= amount;
+      if (cloud.ehp > 0) return false;
+      const at = { x: cloud.pos.x, y: cloud.pos.y };
+      const owner = cloud.ownerPlayerId;
+      const radius = cloud.radius;
+      world.stinkClouds.delete(target.id);
+      world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
+      applyRadialDamage(
+        world, at.x, at.y, radius,
+        primitiveDamageForAtk(STINK_BAG_ATK),
+        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+        'hazard', owner,
+      );
       return true;
     }
 

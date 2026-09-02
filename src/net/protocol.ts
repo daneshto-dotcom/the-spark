@@ -437,7 +437,21 @@ export type { NetSnapshot };
  * A silent divergence on an intent is precisely the failure this file's own notes call the more
  * dangerous half, which is why the payload RESHAPE at 30→31 took a bump for the same reason.
  */
-export const PROTOCOL_VERSION = 37 as const;
+// S158 A2 — bumped 37->38: A LANDED STINK BAG IS DESTRUCTIBLE. `SerializedStinkCloud.ehp` is a
+// REQUIRED new field: a bag that has been hit must arrive damaged, not whole.
+/*
+ * ⭐ S158 A2 (owner R77) — BUMPED 37 → 38: `SerializedStinkCloud.ehp`.
+ *
+ * R77's deferred list: *"destructible stink bags as entities with aggro and on-destroy damage"*.
+ * S158 P6 shipped the entity passive; it now carries a pool and BURSTS when killed.
+ *
+ * ⛔ REQUIRED, NOT ADDITIVE-OPTIONAL, AND THAT IS THE POINT. A v37 peer has no field, so it would
+ * rehydrate every bag at FULL pool — a bag one hit from popping would show as untouched, and the two
+ * sides would disagree about whether the ground is about to explode. Making it optional with a
+ * default would ship exactly that bug on our own side too: `deserializeStinkCloud` reads it straight
+ * rather than defaulting, for the same reason S152 P1 records for raid points.
+ */
+export const PROTOCOL_VERSION = 38 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -606,6 +620,10 @@ export interface HelloMsg {
    * discriminant. Not additive-optional: a v36 host accepts the intent, misroutes it to the
    * connector arm, and drops it silently — same class as the 30->31 payload reshape.)
    *
+   * S158 A2: 37->38 (DESTRUCTIBLE STINK BAGS — owner R77. `ehp` on `SerializedStinkCloud`, and
+   * REQUIRED rather than additive-optional: a v37 peer would rehydrate every damaged bag at full
+   * pool and disagree about whether the ground is about to burst.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -638,7 +656,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 37;
+  readonly protoVersion: 38;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

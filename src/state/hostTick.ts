@@ -73,6 +73,7 @@ import {
   findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
   killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
+  enemyStinkCloudInReach, // S158 A2 — the sixth: a destructible landed bag (R77)
   distSq, // S158 P3 — the goblin bomber's arrival test (shape or acquired unit)
 } from './creatures/creatureAI.ts';
 import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
@@ -1059,7 +1060,11 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           // a goblin standing next to her would enter ATTACKING, run its whole cadence and never
           // hit anything. `killableDefenderInReach` filters to defenders with a POOL, so a turret
           // still cannot be engaged — towers die by recipe-break (R75), unchanged.
-          killableDefenderInReach(world, after, getCreatureConfig(after.type).attackRange) !== null)
+          killableDefenderInReach(world, after, getCreatureConfig(after.type).attackRange) !== null ||
+          // S158 A2 — a SIXTH clause, same reason as the third, fourth and fifth: a landed stink
+          // bag is none of the four target families, so without this a unit enters ATTACKING against
+          // it and runs its whole cadence hitting nothing.
+          enemyStinkCloudInReach(world, after, getCreatureConfig(after.type).attackRange) !== null)
       ) {
         // S103 #8 — creature-FIRST: a Voltkin zaps an in-range enemy creature this cycle if
         // it has one (the chewer right next to it is the immediate threat), else severs its

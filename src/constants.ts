@@ -2080,6 +2080,21 @@ export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;
  */
 export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS; // 240 — 4 s
 
+/**
+ * ⭐ S158 A2 (owner R77) — **A LANDED BAG CAN BE DESTROYED.**
+ *
+ * R77's deferred-mechanics list, verbatim: *"destructible stink bags as entities with aggro and
+ * on-destroy damage"*, and `STINK_BAG_ATK` already records the other half in the owner's words — a bag
+ * deals *"1atk 1pierce when destroyed"*. S158 P6 shipped the entity and left it PASSIVE.
+ *
+ * ⚠ THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS. R77 gives the bag's on-destroy ATK and
+ * PEN but never its durability. 1 hp / 0 def means most of the roster pops it in one hit, which is
+ * the reading that makes it a TACTICAL object rather than a wall: you can clear the ground you need
+ * to walk over, and you eat the burst for doing it. Say the word if it should take more killing.
+ */
+export const STINK_BAG_HP = 1;
+export const STINK_BAG_DEF = 0;
+
 export const STINK_TOWER_SPRITE_BASE_SCALE = 0.42;
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===

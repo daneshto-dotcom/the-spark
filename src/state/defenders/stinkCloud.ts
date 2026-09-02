@@ -43,9 +43,12 @@ import {
   STINK_AURA_CADENCE_TICKS,
   STINK_AURA_DAMAGE,
   STINK_AURA_UNIT_FIFTHS,
+  STINK_BAG_DEF,
+  STINK_BAG_HP,
   STINK_CLOUD_LIFETIME_TICKS,
 } from '../../constants.ts';
 import type { PlayerId, StinkCloudId, Vec2 } from '../../types.ts';
+import { unitPoolFifths } from '../stats.ts';
 import type { World } from '../worldTypes.ts';
 import type { RadialDamageFn } from './stinkTower.ts';
 
@@ -65,6 +68,14 @@ export interface StinkCloud {
   /** Tick the bag landed. Drives both the expiry and the renderer's atlas frame. */
   readonly landedAtTick: number;
   readonly radius: number;
+  /**
+   * ⭐ S158 A2 (owner R77) — REMAINING POOL, IN FIFTHS. A landed bag is DESTRUCTIBLE.
+   *
+   * Mutable, and the only mutable field on this record — everything else about a bag is fixed the
+   * moment it lands. Named `ehp` for the reason `Creature.ehp` and `Defender.ehp` record: the ladder
+   * is `hp × (1 + 0.2·DEF)`, so a reader who assumed hit points would be wrong by a factor of five.
+   */
+  ehp: number;
 }
 
 /** Factory. `pos` is copied — the caller's vector is usually a live entity's own position. */
@@ -74,6 +85,8 @@ export function makeStinkCloud(args: {
   ownerPlayerId: PlayerId;
   landedAtTick: number;
   radius: number;
+  /** Omitted for a fresh bag; supplied only when rehydrating one that has already been hit. */
+  ehp?: number;
 }): StinkCloud {
   return {
     id: args.id,
@@ -81,6 +94,8 @@ export function makeStinkCloud(args: {
     ownerPlayerId: args.ownerPlayerId,
     landedAtTick: args.landedAtTick,
     radius: args.radius,
+    // S158 A2 — off the shared ladder, so a retune of the bag's stats moves this with it.
+    ehp: args.ehp ?? unitPoolFifths(STINK_BAG_HP, STINK_BAG_DEF),
   };
 }
 
