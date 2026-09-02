@@ -11,6 +11,11 @@
 
 ## 0. HOW TO USE THIS FILE
 
+⭐ **THE EXECUTION WRAPPER IS `.claude/plans/2026-09-02_PDR_RACES_W1_PREAPPROVED.md`** — an
+OWNER-PRE-APPROVED PDR. Design is closed, the Council is done, three review agents have already run.
+**Do not re-council the design and do not re-derive the site lists.** Verifying line numbers against
+your local checkout is welcome; re-deliberating is not.
+
 This is a **spec, not a proposal**. Every ruling in §1 came from the owner directly and is not to be
 re-litigated. Everything in §5 is a MEASURED statement about the current code with a `file:line`
 you can check. Everything in §6–§8 is the execution ladder, in dependency order.
