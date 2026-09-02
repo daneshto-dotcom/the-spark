@@ -62,14 +62,45 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
    linear lever, count = 2700/interval, so 450 t → 6 and 600 t → 4 — then `DRONE_MAX_CONNECTORS`
    (damage per drone, one reader), then the cap.**
 
-3. ⛔ **FOUR MORE OWNER DECISIONS from the main batch**, each flagged at its constant, none blocking:
-   (a) drone cadence 5 s; (b) stink-bag HP 1; (c) **chain-lightning hop range 120 px and NO falloff** —
-   33 fifths one-shots any connector in a structure of ≤ 29 connectors, so a full bolt can take SIX
-   connectors off a base in one strike (R77 as written: *"max6"*, no decay mentioned; falloff is the
-   obvious first dial); (d) the stink aura is a **12× nerf** since S158 A1.
-   Plus **recipe OVERLAP**, measured rather than guessed: two goblin towers can chain hub-to-hub
-   (8 Circles instead of 10) and a stink tower can share leaves with a lightning hub (7 instead of 10)
-   — and it is PAID FOR, since eating one shared Circle drops BOTH towers in the same tick.
+3. ✅ **THE FOUR NUMBERS — S160 P3 RULED AND RE-DERIVED ALL OF THEM.** Every ruling is KEEP; what
+   changed is that four of the five *statements* about them were wrong, and this list was carrying
+   three of the errors.
+   (a) **drone cadence 5 s — KEPT**, and it is now the documented FIRST dial in both directions
+       (see §2 for why the cap is not). 9 emits/fight is asserted, not commented.
+   (b) **stink-bag HP 1 — KEPT.** ⚠ Its constant said *"most of the roster pops it in one hit"*.
+       Measured: **ALL of it does**, and the floor has **ZERO margin** — a cloud dies to any amount
+       ≥ 5 fifths and the weakest unit on the board, the goblin shield at 1 ATK / 0 PEN, deals
+       exactly 5. Any shield nerf or any `+1` to `STINK_BAG_DEF` makes a stink carpet impassable to
+       it. Documented **and now pinned** (`stinkCloud.test.ts`).
+   (c) **chain-lightning hop 120 px and NO falloff — KEPT.** R77 gives atk/pen and the target count
+       and says nothing about decay; adding a decay curve would be balance the owner never asked for
+       on a mechanic they have not yet played. Falloff is still the obvious first dial.
+       ⭐ **"≤ 29 connectors" is EXACT** — 33 fifths vs capacity `n+4`, inclusive `>=`, boundary
+       checked both sides (n=29 severs, n=30 holds). **Now asserted** (`voltkinChain.test.ts`).
+       ⚠ **But "SIX connectors" is a CEILING, not a typical case** — creatures and bonds compete for
+       the same six link slots in one nearest-first contest and a creature WINS an exact tie, so any
+       defender nearer than the next connector eats a link. Say **"up to six"**. Also pinned.
+       ⛔ Two errors in my own docblock, both fixed: the R77 citation pointed at
+       `SPARK_TD_SESSION_SPECS.md`, where `grep max6` returns **zero** hits (the ruling is in
+       `.claude/session-state.json`); and four sites quoted the owner as *"maybe we do max6"* when
+       they typed *"maywe"* — a silent typo-fix inside quotation marks. Also, the docblock's second
+       justification for 120 **contradicted its own evidence** (it cited "~90 px apart" to argue
+       120 does not reach the next structure over; 120 > 90, so it does). Withdrawn — 120 now has
+       one reason, not two, and no containment guarantee.
+   (d) **the stink aura — the "12× nerf" is HALF RIGHT and this line overstated it.** 12× is exact
+       for the **unit** half (2.4 → 0.2 atk/sec); the **shape** half went 40 → 20 per second, which
+       is **2×**. Repeating "12×" unqualified mis-models structure attrition by 6×. The constant
+       itself always said both correctly; only the handoff flattened it. **Correct one-liner: units
+       12× weaker, shapes 2× weaker.**
+   **Recipe OVERLAP — the design stands, two of its sentences did not.**
+   Two goblin towers chaining hub-to-hub (8 Circles instead of 10) is right.
+   ⚠ The stink+lightning **"7 instead of 10"** described one lattice and priced another: sharing
+   **one** Circle — what the sentence actually says — costs **9** (a 10 % discount); **7** requires
+   sharing **all three** stink leaves (30 %). The honest single figure is the 20–30 % range.
+   ⚠ And **"drops BOTH towers in the same tick"** is true of the *predicates* and false of the
+   *teardown*: the spawner poll and the defender poll run on two unaligned schedules, so both towers
+   fall within **≤ 30 ticks (0.5 s)** on slots that coincide only by accident. The "it is paid for"
+   argument survives untouched; the timing sentence was the half a balance discussion would lean on.
 
 4. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already owner-ruled.**
    `SPARK_TD_SESSION_SPECS.md:59` Q4: *"castle attacks any enemy units that attack it"* ⇒

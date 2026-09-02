@@ -3,7 +3,7 @@
  *
  * Owner R77, describing the unit: *"voltkin - 3 atk (chain lightning …) 6 pierce. 8hp, and 3 def"*,
  * and on the mechanic itself: *"multiple connectors/targets that are within range of one another …
- * maybe we do max6"*. `VOLTKIN_CHAIN_MAX_TARGETS` has held that 6 since S151 as a number waiting for
+ * maywe we do max6"*. `VOLTKIN_CHAIN_MAX_TARGETS` has held that 6 since S151 as a number waiting for
  * an implementation, and `constants.ts` carried *"⚠ CHAIN LIGHTNING IS NOT IMPLEMENTED"* beside it
  * for the eight sessions since. This is the implementation.
  *

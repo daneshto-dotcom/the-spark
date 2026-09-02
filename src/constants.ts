@@ -1602,7 +1602,7 @@ export const PRINCESS_DEF = 4;
  * (unchanged at 8 since owner R71).
  * ⭐ S159 P2 — CHAIN LIGHTNING IS IMPLEMENTED. It was recorded here as unbuilt scope for eight
  * sessions: the owner describes it hitting *"multiple connectors/targets that are within range of
- * one another … maybe we do max6"*, and a Voltkin zapped exactly one thing. It now walks up to
+ * one another … maywe we do max6"*, and a Voltkin zapped exactly one thing. It now walks up to
  * `VOLTKIN_CHAIN_MAX_TARGETS` links — see `state/creatures/voltkinChain.ts`, and read
  * `VOLTKIN_CHAIN_HOP_RANGE` below for the two numbers in it that are MINE.
  */
@@ -1617,25 +1617,43 @@ export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
 /**
  * ⭐ S159 P2 — **HOW FAR THE BOLT JUMPS FROM ONE LINK TO THE NEXT.**
  *
- * Owner R77: *"multiple connectors/targets that are within range of one another … maybe we do
- * max6"*. The count was recorded above eight sessions ago; *"within range of one another"* needed a
- * number, and this is it.
+ * Owner R77, verbatim including the typo: *"chain lightning hitting multiple connectors/targets that
+ * are within range of one another. i dont remember how many targets it is currently maywe we do
+ * max6 or something"*. ⛔ **THE RULING LIVES IN `.claude/session-state.json` (S160 P3 found it at
+ * `:3534`), NOT in `SPARK_TD_SESSION_SPECS.md`** — an earlier version of this docblock cited that
+ * file, where `grep max6` returns ZERO hits. And it wrote *"maybe we do max6"*: a silent typo-fix
+ * INSIDE quotation marks, against this project's own rule that a ruling is quoted verbatim at the
+ * constant it governs. Corrected on both counts. The count was recorded eight sessions ago;
+ * *"within range of one another"* needed a number, and this is it.
  *
- * ⚠ IT IS MINE, NOT THE OWNER'S. Sized from two things already on the board rather than picked:
- *   · the Voltkin's own `attackRange` is **180**, and a hop must be SHORTER than that or the chain
- *     stops being a chain — at equal range each jump could re-acquire anything the Voltkin could
- *     have zapped directly, and 6 targets anywhere in a 180 px bubble is a different mechanic;
- *   · `constants.ts:708` records that *"three structures arranged ~90 px apart"* is the shape of a
- *     built cluster, so 120 reliably walks a structure's neighbouring connectors and a bunched
- *     squad, and reliably does NOT reach the next structure over.
+ * ⚠ IT IS MINE, NOT THE OWNER'S — and S160 P3 had to withdraw half of its stated derivation.
+ *   · STANDS: the Voltkin's own `attackRange` is **180**, and a hop must be SHORTER than that or the
+ *     chain stops being a chain — at equal range each jump could re-acquire anything the Voltkin
+ *     could have zapped directly, and 6 targets anywhere in a 180 px bubble is a different mechanic.
+ *   · ⛔ WITHDRAWN — IT CONTRADICTED ITS OWN EVIDENCE. This used to argue that because
+ *     `constants.ts:708` records *"three structures arranged ~90 px apart"* as the shape of a built
+ *     cluster, 120 *"reliably does NOT reach the next structure over"*. The citation is accurate and
+ *     the conclusion is backwards: **120 > 90**, so a hop DOES reach the next structure over, and
+ *     bond MIDPOINTS (`voltkinChain.ts`, `bondMidpoint`) sit closer still. There is therefore NO
+ *     measured containment guarantee here, and the six victims of one bolt need not belong to one
+ *     base. 120 may still be the right dial; what it does not have is a second reason.
  *
- * ⚠ AND NO DAMAGE FALLOFF, WHICH IS ALSO MINE. Every link takes the Voltkin's full
- * `attackFifths(VOLTKIN_ATK, VOLTKIN_PEN)`. R77 gives the unit's atk/pen and the target count and
- * says nothing about decay, and a decay curve would be balance the owner never asked for. The
- * consequence is worth stating plainly because they will feel it before they read it: 33 fifths
- * against a connector capacity of `count + 4` means a full bolt can take SIX connectors off a
- * structure in one strike. That is the mechanic as described; if it plays too strong the dial is
- * here, and falloff is the obvious first thing to add.
+ * ⚠ AND NO DAMAGE FALLOFF, WHICH IS ALSO MINE — KEPT AT S160 P3. Every link takes the Voltkin's full
+ * `attackFifths(VOLTKIN_ATK, VOLTKIN_PEN)`, computed once outside the loop. R77 gives the unit's
+ * atk/pen and the target count and says nothing about decay, so a decay curve would be balance the
+ * owner never asked for, on a mechanic they have not yet played.
+ *
+ * ⭐ THE CONSEQUENCE, RE-DERIVED AT S160 P3 RATHER THAN REPEATED. `attackFifths(3, 6) = 3 × (5+6) =
+ * 33` fifths; `connectorCapacityFifths(n) = n + 4`; the sever test is inclusive `>=`. So 33 ≥ n + 4
+ * iff **n ≤ 29** — verified on both sides of the boundary (n=29 capacity 33 severs; n=30 capacity 34
+ * holds). "≤ 29 connectors" is EXACT.
+ *
+ * ⚠ BUT "SIX CONNECTORS IN ONE STRIKE" IS A CEILING, NOT A TYPICAL CASE, and the earlier wording did
+ * not say so. Creatures and bonds compete for the SAME six link slots in one nearest-first contest,
+ * and a creature WINS an exact tie — so any defender standing nearer than the next connector
+ * consumes a link. Six connectors requires a base with no units near it. Phrase it to the owner as
+ * **"up to six"**. (In the other direction it is understated: a sever can cascade when it splits a
+ * topology.) If it plays too strong the dial is here, and falloff is the obvious first thing to add.
  */
 export const VOLTKIN_CHAIN_HOP_RANGE = 120;
 /**
@@ -2050,9 +2068,19 @@ export const STINK_TOWER_BAGS = 5;
  *
  * Owner: *"Stink tower should visibly shoot out all 5 stink bags"*. At 8 s × `STINK_TOWER_BAGS` 5 the
  * magazine took 40 s against a 45 s FIGHT — and that was the BEST case, reachable only if an enemy
- * creature stayed inside 260 px for the whole phase. At 4 s all five land in 20 s, leaving the tower
- * visibly spent (it sags — `stinkTowerRenderer` already draws that) for the rest of the fight, which
- * is the tactical read the death blast depends on.
+ * creature stayed inside 260 px for the whole phase.
+ *
+ * ⭐ S160 P2(a) — MEASURED, because "all five land in 20 s" was arithmetic, not observation. Driving
+ * the real FSM (`stinkReload.test.ts`) puts the throws at ticks **254, 538, 822, 1106, 1390** into a
+ * 2700-tick fight: gaps of **284**, not 240, because WINDUP+FIRE+RECOVER cost 44 ticks a throw. So
+ * the magazine empties at **23.2 s**, not 20, and the tower stands DRY for the last 22 of every 45
+ * seconds. That idle tail is the tactical read the death blast depends on — and it is a consequence
+ * of the owner's own `STINK_TOWER_BAGS = 5`, so the dial is theirs.
+ *
+ * ⛔ AND THE PARENTHESIS THAT STOOD HERE WAS FALSE: *"it sags — `stinkTowerRenderer` already draws
+ * that"*. The per-bag rack is in `drawTower`, which runs ONLY in the `atlas === null` fallback, and
+ * the atlas ships. The live tell is one alpha step, `0.72 → 1`. Same false claim as the one S160
+ * P2(a) removed from `hostTick.ts`'s reload docblock — it had been copied to two places.
  */
 export const STINK_THROW_INTERVAL_TICKS = 4 * PHYSICS_HZ; // 240 — was 480 (8 s)
 export const STINK_TOWER_WINDUP_TICKS = 20; // a visible lob wind-up
@@ -2197,7 +2225,12 @@ export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS; // 240 —
  * deals *"1atk 1pierce when destroyed"*. S158 P6 shipped the entity and left it PASSIVE.
  *
  * ⚠ THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS. R77 gives the bag's on-destroy ATK and
- * PEN but never its durability. 1 hp / 0 def means most of the roster pops it in one hit, which is
+ * PEN but never its durability. 1 hp / 0 def means EVERY attacker in the game pops it in one hit
+ * (S160 P3 measured the whole roster; the old wording said "most of the roster" and understated it),
+ * ⚠ and the floor has ZERO margin: a cloud dies to any amount >= 5 fifths, and the weakest unit on
+ * the board — the goblin shield at 1 ATK / 0 PEN — deals `attackFifths(1,0)` = exactly 5. So any
+ * future nerf to the shield, or any +1 to `STINK_BAG_DEF`, flips that boundary, and no test pins it.
+ * Which is
  * the reading that makes it a TACTICAL object rather than a wall: you can clear the ground you need
  * to walk over, and you eat the burst for doing it. Say the word if it should take more killing.
  */

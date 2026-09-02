@@ -56,17 +56,30 @@
  *   · **two goblin towers chained hub-to-hub** — each hub is the other's leaf, since they share the
  *     Circle leaf type: **8 Circles for two towers** instead of 10;
  *   · **a stink tower and a lightning hub sharing Circle leaves** — one Circle can be a leaf of both,
- *     because a leaf's other bonds are unconstrained: **7 shapes for two towers** instead of 10.
+ *     because a leaf's other bonds are unconstrained.
+ *     ⛔ S160 P3 — THE MECHANISM SENTENCE AND THE PRICE DESCRIBED TWO DIFFERENT LATTICES, one shape
+ *     apart. Sharing **one** Circle (what the sentence says) costs 1 Square + 1 Dot + (3+5−1) = **9**,
+ *     a 10 % discount. **7 shapes** is real but needs ALL THREE stink leaves shared — the maximal
+ *     lattice, a 30 % discount. Both are true of different builds; only one was true of the sentence.
+ *     The honest single figure is the range already stated at the foot of this docblock.
  *     ⚠ This one is NEW as of S159 P6: the stink tower was the fourth site of the B2b bug and its
  *     component clause had been forbidding every overlap involving it;
  *   · **not the laser turret, ever** — Spiral leaves share no type with the Circle-leaved stars, so
  *     two of the four recipes cannot participate at all.
  *
  * ⭐ AND THE ARGUMENT FOR LEAVING IT ALONE, which the first version of this flag did not have: the
- * saving is PAID FOR. A shared leaf is a shared weakness — eat one Circle and BOTH towers fall in the
- * same tick, which the test also asserts. Dense building buys a discount and a single point of
- * failure at the same time, and that is a trade a player can see and an opponent can aim at. It reads
- * as the game rewarding a good build rather than as an exploit.
+ * saving is PAID FOR. A shared leaf is a shared weakness — eat one Circle and BOTH towers fall.
+ * Dense building buys a discount and a single point of failure at the same time, and that is a trade
+ * a player can see and an opponent can aim at. It reads as the game rewarding a good build rather
+ * than as an exploit.
+ *
+ * ⚠ S160 P3 — "IN THE SAME TICK" WAS A CLAIM ABOUT THE PREDICATES, WORDED AS A CLAIM ABOUT THE GAME.
+ * `starOverlap.test.ts` deletes a shared Circle and both component predicates flip in the eating
+ * tick — that part is exact. But the TEARDOWN is throttled on two UNALIGNED schedules: the spawner
+ * poll compares `world.tick - sp.lastValidatedTick`, seeded to each hub's OWN ignition tick, while
+ * the defender poll uses `world.tick % REVALIDATE_INTERVAL_TICKS`. Both towers do fall, within
+ * **≤ 30 ticks (0.5 s)**, but on slots that coincide only by accident. The design argument survives
+ * untouched; the timing sentence was the half a balance discussion would have leaned on.
  *
  * Say the word and the leaves can be required to belong to exactly one star — but the number to weigh
  * is a 20-30 % shape discount on the second tower, not "a lattice sprouting towers nobody planned".

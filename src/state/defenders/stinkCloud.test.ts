@@ -47,6 +47,8 @@ import {
   PRIMITIVE_MAX_HP,
   SparkType,
   STINK_AURA_DAMAGE,
+  GOBLIN_SHIELD_ATK,
+  GOBLIN_SHIELD_PEN,
   STINK_BAG_ATK,
   STINK_BAG_DEF,
   STINK_BAG_HP,
@@ -475,5 +477,48 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     // in it until it expired on its own timer.
     expect(gone, 'a unit must be able to clear the ground it needs to walk over').toBe(true);
     expect(w.tick, 'and it must be a KILL, not the bag timing out').toBeLessThan(STINK_CLOUD_LIFETIME_TICKS);
+  });
+});
+
+describe('S160 P3 — the landed bag dies to EVERYTHING, and the floor has zero margin', () => {
+  /**
+   * ⛔ WHY THIS EXISTS. `STINK_BAG_DEF`'s docblock used to say *"1 hp / 0 def means most of the
+   * roster pops it in one hit"*. S160 P3 measured the whole roster: it is not most, it is ALL — and
+   * the weakest attacker in the game clears it with EXACTLY zero margin.
+   *
+   * A cloud's pool is `unitPoolFifths(1, 0)` = 5, the kill test is `ehp -= amount; if (ehp > 0)
+   * return false`, so any amount >= 5 kills. The goblin shield is 1 ATK / 0 PEN, and
+   * `attackFifths(1, 0)` = 1 x (5 + 0) = **5**. Exactly lethal.
+   *
+   * That boundary was documented and unpinned, which is the combination this project keeps paying
+   * for. Any nerf to the shield, or any +1 to `STINK_BAG_DEF`, silently turns "every unit can clear
+   * the ground it walks over" into "the weakest unit cannot" — a stink carpet the shield goblin can
+   * no longer path through, with nothing red anywhere.
+   */
+  it('⭐ the WEAKEST attacker in the roster one-shots a bag, with exactly nothing to spare', () => {
+    const pool = unitPoolFifths(STINK_BAG_HP, STINK_BAG_DEF);
+    const weakest = attackFifths(GOBLIN_SHIELD_ATK, GOBLIN_SHIELD_PEN);
+    expect(pool, 'a landed bag is a 5-fifth pool').toBe(5);
+    expect(weakest, 'the goblin shield deals exactly 5').toBe(5);
+    expect(
+      weakest >= pool,
+      `the shield deals ${weakest} into a ${pool} pool. If this ever goes false the weakest unit ` +
+        'can no longer clear a bag, and a stink carpet becomes impassable to it.',
+    ).toBe(true);
+    expect(weakest - pool, 'and the margin is ZERO — this is a boundary, not a comfortable kill').toBe(0);
+  });
+
+  it('a real strike by the weakest unit actually removes the cloud', () => {
+    // The arithmetic above is necessary but not sufficient: it says nothing about the damage PATH.
+    const w = make1v1();
+    const c = landCloud(w);
+    const killed = damageEntity(
+      w,
+      { kind: 'stinkCloud', id: c.id },
+      attackFifths(GOBLIN_SHIELD_ATK, GOBLIN_SHIELD_PEN),
+      'creature',
+    );
+    expect(killed, 'the killing blow reports true').toBe(true);
+    expect(w.stinkClouds.has(c.id), 'and the cloud is gone').toBe(false);
   });
 });

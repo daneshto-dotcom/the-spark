@@ -1,7 +1,9 @@
 /**
  * SPARK — S159 P2 (owner R77): **VOLTKIN CHAIN LIGHTNING.**
  *
- * Owner: *"multiple connectors/targets that are within range of one another … maybe we do max6"*.
+ * Owner: *"multiple connectors/targets that are within range of one another … maywe we do max6"*.
+ * (⚠ "maywe" is the owner's own typing, kept verbatim — S160 P3 found four sites had silently
+ * corrected it to "maybe" INSIDE quotation marks. A ruling is quoted, not tidied.)
  *
  * ## The test the Council asked for by name
  *
@@ -23,7 +25,16 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP, VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
+import {
+  PLAYER_COLORS,
+  SparkType,
+  PRIMITIVE_MAX_HP,
+  VOLTKIN_ATK,
+  VOLTKIN_CHAIN_HOP_RANGE,
+  VOLTKIN_CHAIN_MAX_TARGETS,
+  VOLTKIN_PEN,
+} from '../../constants.ts';
+import { attackFifths, connectorCapacityFifths } from '../stats.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId } from '../../types.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
@@ -332,3 +343,62 @@ describe('S159 P2 — the chain FIRES: damage, arcs and who gets one', () => {
 
 /** Bond ids used above, kept for readability of the ladder assertions. */
 export type _BondIdAlias = BondId;
+
+describe('S160 P3 — the ≤ 29 CONNECTOR CEILING, the number the owner is quoted', () => {
+  /**
+   * ⛔ WHY THIS EXISTS. Three documents tell the owner that a Voltkin bolt "one-shots any connector in
+   * a structure of <= 29 connectors, so a full bolt can take SIX connectors off a base in one
+   * strike". S160 P3 re-derived it and it is EXACT — but nothing in the suite asserted it, so the
+   * whole claim rested on arithmetic written in a handoff. This project's own rule is that a handoff
+   * number is a claim, not a measurement.
+   *
+   * The derivation, in one line each:
+   *   attackFifths(VOLTKIN_ATK 3, VOLTKIN_PEN 6) = 3 x (5 + 6)      = 33 fifths
+   *   connectorCapacityFifths(n)                  = n + 4
+   *   the sever test is INCLUSIVE (`>=`), so 33 >= n + 4  <=>  n <= 29
+   *
+   * Written against the constants rather than the literal 29, so a deliberate retune moves the
+   * boundary instead of reddening for no reason — while an ACCIDENTAL change to atk, pen or the
+   * capacity curve still shows up as a moved ceiling.
+   */
+  it('⭐ the ceiling is exactly 29, and it is a boundary on both sides', () => {
+    const bolt = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
+    expect(bolt, 'a bolt is 33 fifths').toBe(33);
+
+    // Largest structure whose connectors still fall to one bolt.
+    let ceiling = 0;
+    for (let n = 1; n <= 200; n++) if (bolt >= connectorCapacityFifths(n)) ceiling = n;
+    expect(ceiling, `${bolt} fifths against a capacity of n + 4`).toBe(29);
+
+    // And prove it is a BOUNDARY, not merely a number that happens to satisfy the inequality.
+    expect(bolt >= connectorCapacityFifths(29), 'n=29: capacity 33, severs').toBe(true);
+    expect(bolt >= connectorCapacityFifths(30), 'n=30: capacity 34, HOLDS').toBe(false);
+  });
+
+  it('⚠ and the SIX is a ceiling, not a typical case — units compete for the same slots', () => {
+    /*
+     * The six-connector figure assumes all six links land on bonds. They do not, in general:
+     * creatures and bonds are scanned in ONE nearest-first contest against a shared best-distance,
+     * and a creature WINS an exact tie. So any defender nearer than the next connector consumes a
+     * link. This asserts the tie-break that makes "up to six" the honest phrasing, which is the
+     * wording S160 P3 put at the constant.
+     */
+    const w = baseWorld();
+    const v = voltkin(w, 0, 0);
+    const seed = chewer(w, 1, 40, 0);
+    // A chewer and a bond midpoint at the SAME distance from the seed.
+    const other = chewer(w, 2, 40 + 60, 0);
+    const a = prim(10, PLAYER_COLORS[1]!, 40 + 60, -30);
+    const b = prim(11, PLAYER_COLORS[1]!, 40 + 60, 30);
+    bondBetween(w, 20, a, b); // midpoint is (100, 0) — identical distance to `other`
+
+    const links = voltkinChainFrom(w, v, seedOf(seed));
+    const first = links[0];
+    expect(first, 'the chain jumped somewhere').toBeDefined();
+    expect(
+      first!.kind,
+      'at an exact tie the CREATURE wins, so a nearby unit eats a link a connector would have had',
+    ).toBe('creature');
+    expect(first!.id).toBe(other.id);
+  });
+});

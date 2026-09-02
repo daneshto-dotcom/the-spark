@@ -217,7 +217,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       });
       /*
        * ⭐ S159 P2 (owner R77) — AND THEN THE BOLT WALKS. *"multiple connectors/targets that are
-       * within range of one another … maybe we do max6"*. The victim just struck is the SEED, so it
+       * within range of one another … maywe we do max6"*. The victim just struck is the SEED, so it
        * is never hit twice, and the arc above is the first segment of the same bolt.
        *
        * ⚠ SEEDED WITH `arcEnd`, WHICH WAS CAPTURED BEFORE THE DAMAGE LANDED. The victim may have
