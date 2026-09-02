@@ -30,6 +30,7 @@ import {
   STARTING_VICTORY_POINTS,
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
+import { defaultRaceForSeat, type RaceId } from './races.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -46,7 +47,13 @@ export type StartGameAction = {
   // omitted for solo and for legacy 2-player test dispatches (which fall back to
   // the historical seat-P1-at-right path). State only needs seat+color; the wire
   // RosterEntry's peerId is consumed net-side (client self-identification).
-  readonly roster?: readonly { readonly seat: number; readonly color: number }[];
+  // ⭐ W1-A (S160) — `raceId` is OPTIONAL here but REQUIRED on `Player`. Absence means "this caller
+  // did not choose", which is what keeps the ~10 test dispatch sites and solo/vs-bots compiling.
+  readonly roster?: readonly {
+    readonly seat: number;
+    readonly color: number;
+    readonly raceId?: RaceId;
+  }[];
   // S87 — seats driven by AI bots (mode 'bots' only; subset of roster seats,
   // never seat 0). Host-local action — START_GAME is not a client intent and
   // the StartGameMsg wire envelope is unrelated, so no protocol surface.
@@ -245,10 +252,28 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     const total = action.roster.length;
     for (const entry of action.roster) {
       const pid = asPlayerId(entry.seat);
+      // ⭐ W1-A (S160) — resolve ONCE, so the two arms below cannot disagree.
+      const raceId = entry.raceId ?? defaultRaceForSeat(entry.seat);
       if (!world.players.has(pid)) {
-        const p = makeIdlePlayer(pid, entry.color, radialSpawnPos(entry.seat, total));
+        const p = makeIdlePlayer(pid, entry.color, radialSpawnPos(entry.seat, total), raceId);
         world.players.set(p.id, p);
         world.scoreByPlayer.set(p.id, 0);
+      } else {
+        /*
+         * ⛔ W1-A (S160) — THIS ARM IS THE SPEC'S B7, AND WITHOUT IT THE HOST'S OWN RACE IS DROPPED.
+         *
+         * The idempotent guard above exists because `makeWorld` already built seat 0, so **seat 0
+         * ALWAYS already exists** and the `if` never runs for the host. Before this arm, `entry.color`
+         * and `entry.raceId` therefore never reached the host at all: every JOINER would see the
+         * host as (say) vampires while the host itself rendered whatever `makeWorld` defaulted to.
+         *
+         * ⚠ A ONE-SIDED, HOST-ONLY, NEVER-RED DESYNC. Colour is not hashed (`FIELD_COVERAGE` marks
+         * `players: 'acknowledged'`), so no oracle and no test that only checks joiners would ever
+         * have caught it — which is exactly why the spec found it by reading rather than by running.
+         */
+        const existing = world.players.get(pid)!;
+        existing.raceId = raceId;
+        existing.color = entry.color;
       }
     }
   } else if (action.mode === '1v1') {

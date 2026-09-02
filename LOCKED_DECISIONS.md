@@ -1653,12 +1653,21 @@ suite. This section is the human-readable index; the test is the thing that fail
 3. The compact list on `HelloMsg` — **in chronological order, at its neighbours' indentation.** ✅ *gated*
 4. The `protoVersion` type literal immediately below it (a deliberate tsc tripwire). ✅ *tsc*
 5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
-   `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`. ✅ *gated*
+   `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`. ✅ *gated*, ⚠ **but only two of the
+   three.** S160 measured what `protocolVersionSync.test.ts` actually reads: `e2e/smoke.spec.ts` and
+   `protocol.ts`. The **pin** is self-enforcing because it IS an assertion; the **TEST TITLE** is
+   ungated prose that nothing anywhere reads — precisely the drift `protocol.test.ts` records
+   against itself (*"it read 'is 30' while asserting 31"*). Left as prose knowingly; the bare
+   `✅ gated` here used to over-claim it.
 6. ⭐ **THE SESSION LABEL.** State which SESSION shipped it whenever that differs from the spec id
    being cited. Thirteen files label the 26→27 work `S152` — its roadmap spec name in
    `SPARK_TD_SESSION_SPECS.md` — while the session was **S149** (commit `s149-p6`). The labels are
    deliberately left alone, because they are the feature's traceable spec name; the mapping is
    recorded so nobody reconstructs a session that never happened.
+
+   **38 → 39 is labelled `W1-A`, and the SESSION was S160.** `W1-A` is a spec id from
+   `SPARK_RACES_SPEC.md` §6, not a session — exactly the case this item exists for. Written as
+   `W1-A (S160)` at every site.
 
 ### The criterion for whether to bump at all
 

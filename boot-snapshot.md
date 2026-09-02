@@ -102,12 +102,34 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
    fall within **≤ 30 ticks (0.5 s)** on slots that coincide only by accident. The "it is paid for"
    argument survives untouched; the timing sentence was the half a balance discussion would lean on.
 
-4. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already owner-ruled.**
-   `SPARK_TD_SESSION_SPECS.md:59` Q4: *"castle attacks any enemy units that attack it"* ⇒
-   retaliation-only against anything that damaged this castle within 300 ticks; `:208-230` costs it as
-   a reuse of the defender FSM. A grep for `castleGun|keepGun|castleTurret` returns NOTHING in `src/`.
-   Castle HP and elimination both shipped — this is the half that makes them matter, and it is the same
-   ground as the owner's elemental-keeps idea. Needs its own PDR (Rule 16).
+4. ✅ **CASTLE GUNS — SHIPPED S160 P4b, AND THE OWNER RULED ITS TARGETING.**
+   ⛔ **THE RULING: NEAREST ENEMY IN RANGE, which SUPERSEDES Q4.** `SPARK_TD_SESSION_SPECS.md:59` Q4
+   said *"castle attacks any enemy units that attack it"* ⇒ retaliation-only, 300-tick window; the
+   races spec's §3.2 instead described wave-1 targeting as *"nearest enemy creature in range"*. Shown
+   both, the owner chose nearest-in-range. Recorded as a REVERSAL at the constant. ⇒ There is no
+   retaliation bookkeeping anywhere: no `lastDamagedByTick`, nothing serialized.
+   · **No stored fire timer, by design.** The schedule is `world.tick % interval === seat % interval`
+     — nothing to serialize, nothing to hash, no bump. A `nextFireTick` on `Player` would have put a
+     MUTABLE sim input outside the wide oracle with no tsc tripwire (the races spec's B5 hazard;
+     `Defender.nextFireTick` IS hashed, so copying it onto `Player` would have been wrong).
+     ⭐ It also pays for W1-B: per-race attack VFX needs **no new wire field**, because a renderer can
+     re-derive when each castle fires and at what.
+   · ⚠ **THE NUMBER THE OWNER MUST RULE ON — Q3's 45-tick cadence was MEASURED AND REJECTED.** A shot
+     is 8 fifths and a melee goblin's pool is 7, so the castle one-shots every melee unit in the game;
+     at 45 ticks it killed one every 0.75 s and **silently deleted the castle-kill win condition**
+     (ten goblins wiped in 450 ticks having dealt ~250 of 1500). Ten existing tests went red, which is
+     how it was found. Shipped at **240 ticks (4 s)** — MY number — and here is what it costs,
+     measured through the real host tick and now pinned in `castleGuns.test.ts`:
+     **1 goblin → ZERO damage** (shot before its first swing) · 5 → castle holds at 1284 ·
+     **10 → castle HOLDS at 474**, so the shipped tuning's figure is no longer enough ·
+     **15 → castle FALLS at tick 1342.**
+     ⇒ **A sustained push now needs ~15 goblins where `GOBLIN_DAMAGE_VS_CASTLE` assumed 10.** Which
+     constant should move — the cadence or the goblin damage — is the OWNER'S call. ⚠ 60 ticks is a
+     hard floor: below it an attacker dies before it swings once.
+   · ⭐ **And the design intent is now literally true rather than merely slow.**
+     `GOBLIN_DAMAGE_VS_CASTLE` always said a lone leaker is *"far too slow to matter alone… the
+     castle falls to a SUSTAINED ARMY"*. Before the gun that was arithmetic; now a lone attacker is
+     actively killed.
 
 5. **DRONE AoE — the last unbuilt R77 mechanic, and P9 raised its stakes.** `DRONE_ATK` 5 /
    `DRONE_PEN` 1 reach the config and stop: `applyDroneExplode` severs bonds and never reads either,

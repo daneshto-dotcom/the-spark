@@ -20,6 +20,7 @@ import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
 // Begin signal can carry the host's SuccessionWarrant additively. Shape is validated at the wire below.
 import type { SuccessionWarrant } from './successionWarrant.ts';
 import { MAX_PLAYERS } from '../constants.ts';
+import { isRaceId, type RaceId } from '../state/races.ts';
 
 // NetSnapshot is defined in save.ts (alongside its producer netSnapshot()
 // + consumer applyNetSnapshot()). Re-export so protocol callers can refer
@@ -451,7 +452,28 @@ export type { NetSnapshot };
  * default would ship exactly that bug on our own side too: `deserializeStinkCloud` reads it straight
  * rather than defaulting, for the same reason S152 P1 records for raid points.
  */
-export const PROTOCOL_VERSION = 38 as const;
+// W1-A (S160) — bumped 38->39: THE SEAT'S RACE REACHES EVERY PEER. `RosterEntry.raceId` and
+// `SerializedPlayer.raceId`, both additive-optional in shape — and bumped BECAUSE they are.
+/*
+ * ⭐ W1-A (S160) — BUMPED 38 → 39: `RosterEntry.raceId` + `SerializedPlayer.raceId`.
+ *
+ * Six races, one per player colour (`SPARK_RACES_SPEC.md` §2, owner-ruled R93–R126). `raceId` is the
+ * one identity token: it selects the castle art, the unit the castle emits and the race tower a seat
+ * may build, and `Player.color` is derived from it AT CONSTRUCTION.
+ *
+ * ⛔ ADDITIVE-OPTIONAL AND IT STILL BUMPS — the S150 rule, and this is its cleanest instance:
+ * *"a field a stale peer can silently DROP is more dangerous than one it cannot parse."* A v38 joiner
+ * parses the roster fine, drops the unknown key, falls back to its own `defaultRaceForSeat`, and then
+ * paints every castle a different colour from the host FOR THE WHOLE MATCH — no error, no desync
+ * report, nothing red on either side, because colour is not hashed. The `Primitive.origin` 26→27
+ * class. Refusing the peer at HELLO is the safe failure.
+ *
+ * ⚠ Deliberately NOT in this bump: `CLAIM_RACE`. The lobby has no client-intent path before Begin
+ * (`hostSync` is null, `hostSeats` is empty and drops intents fail-closed, and `world.players` holds
+ * only seat 0), so the claim message has to follow the `LOBBY_READY` precedent as a top-level
+ * `NetMessage` kind. That ships with the selection UI, and it will carry its own bump.
+ */
+export const PROTOCOL_VERSION = 39 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -624,6 +646,11 @@ export interface HelloMsg {
    * REQUIRED rather than additive-optional: a v37 peer would rehydrate every damaged bag at full
    * pool and disagree about whether the ground is about to burst.)
    *
+   * W1-A (S160): 38->39 (CASTLE RACES — owner R93-R126. `RosterEntry.raceId` +
+   * `SerializedPlayer.raceId`. Additive-optional in shape and bumped BECAUSE of it: a v38 peer drops
+   * the key, falls back to its own default, and paints every castle a different colour from the host
+   * for the whole match with nothing red — colour is not hashed.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -655,8 +682,13 @@ export interface HelloMsg {
    *      id you are citing. Thirteen files label the 26→27 work `S152` (its roadmap spec name) while
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
-   * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 38;
+   * ⚠ CORRECTED S160 — this line said *"enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose +
+ * tsc"* and was STALE BY ONE SITE. Site 3 IS gated: `protocolVersionSync.test.ts` asserts the
+ * HelloMsg list documents an unbroken chain up to `PROTOCOL_VERSION`, plus a chronological-order
+ * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
+ * marked site 3 gated — this comment was the only one still under-claiming.
+ * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
+  readonly protoVersion: 39;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -814,6 +846,18 @@ export interface RosterEntry {
    * AUTHORITATIVE gate is host-side (isQuickmatchAllReady).
    */
   readonly ready?: boolean;
+  /**
+   * ⭐ W1-A (S160) — THE SEAT'S RACE, chosen in the lobby and resolved by the host.
+   *
+   * Additive-optional in SHAPE: absent means "this peer did not choose", and the receiver falls back
+   * to `defaultRaceForSeat(seat)`. ⛔ It is precisely that graceful fallback which makes it need a
+   * PROTOCOL BUMP rather than excusing one — see the 38→39 note above the const. A v38 peer drops the
+   * key and paints every castle a different colour from the host, all match, with nothing red.
+   *
+   * ⚠ ONE VALIDATOR COVERS BOTH CARRIERS. `START_GAME_SIGNAL` and `LOBBY_PRESENCE` share
+   * `isValidRoster` by design, so the single check added there guards each of them.
+   */
+  readonly raceId?: RaceId;
 }
 
 export interface StartGameMsg {
@@ -1213,6 +1257,9 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     // S87 P4 — optional readiness flag: absent is fine; present-but-not-boolean
     // rejects the message (fail-closed, mirrors the hostAttest posture).
     if (r.ready !== undefined && typeof r.ready !== 'boolean') return false;
+    // ⭐ W1-A (S160) — same fail-closed posture: absent is fine, present-but-not-a-race rejects the
+    // whole message. An unvalidated string here would reach `RACE_COLORS[...]` and paint `undefined`.
+    if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;
   }
   return true;
 }

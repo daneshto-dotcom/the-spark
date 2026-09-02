@@ -96,6 +96,8 @@ import {
   tickGathererShelter,
 } from './gatherers/gathererLifecycle.ts';
 import { underDroneCaps } from './droneLifecycle.ts';
+// S160 P4b — the castle's own weapon. No stored timer: the schedule derives from `world.tick`.
+import { castleGunsTick } from './castleGuns.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -1232,6 +1234,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * order cannot change the outcome), and the field is nulled so no snapshot, save or hash can ever
    * observe a non-null value at a tick boundary.
    */
+  /*
+   * ⭐ S160 P4b — THE CASTLES FIRE, and they fire INSIDE the deferral window on purpose.
+   *
+   * Placed here rather than beside the stink block above because the deferral is what makes a
+   * lethal blow behave the same whoever landed it: a creature killed by a castle is added to
+   * `pendingCreatureDeaths` and removed by the sweep below, exactly like one killed by a goblin or a
+   * tower. Firing before the window opened would delete the victim immediately instead, so a castle
+   * kill would silently rob whatever else was mid-exchange with that creature this tick — a
+   * one-source-of-truth violation of precisely the kind S155 N1 was about.
+   *
+   * FIGHT-gating, the fallen-castle guard, seat ordering and target selection all live in
+   * `castleGuns.ts`; this call site deliberately holds no policy.
+   */
+  if (world.gameState === 'PLAYING') castleGunsTick(world);
+
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
     world.pendingCreatureDeaths = null;

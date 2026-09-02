@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 38 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 39 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -90,7 +90,7 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // paragraphs up ("all three of the others said 'is 17' while asserting 18"). Site 5 of the
     // checklist says "this number **and its test title**" for exactly this reason. A title is what a
     // human reads when deciding whether the pin is current, so a stale one is worse than none.
-    expect(PROTOCOL_VERSION).toBe(38);
+    expect(PROTOCOL_VERSION).toBe(39);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {
@@ -422,5 +422,35 @@ describe('S55 P2 — buildHello send-side protoVersion override seam (DEV/E2E)',
     expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
     g.window = {}; // window present, override absent (the common DEV-without-seam case)
     expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
+  });
+});
+
+describe('W1-A (S160) — RosterEntry.raceId crosses the validator, fail-closed', () => {
+  /**
+   * ⭐ ONE EDIT COVERS BOTH CARRIERS. `START_GAME_SIGNAL` and `LOBBY_PRESENCE` share `isValidRoster`
+   * by design, so the single check added there guards each of them — asserted here in both, because
+   * "they share a validator" is the kind of claim that stops being true without anyone noticing.
+   */
+  const entry = (extra: Record<string, unknown>) => ({ seat: 0, peerId: 'h', color: 0xff3b6b, ...extra });
+  const start = (e: unknown) => ({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: [e] });
+  const presence = (e: unknown) => ({ kind: 'LOBBY_PRESENCE', roster: [e] });
+
+  it('ABSENT is accepted — additive-optional, so a v38-shaped roster still parses', () => {
+    expect(parseNetMessage(start(entry({})))).not.toBeNull();
+    expect(parseNetMessage(presence(entry({})))).not.toBeNull();
+  });
+
+  it('a VALID race is accepted on both carriers', () => {
+    expect(parseNetMessage(start(entry({ raceId: 'demons' })))).not.toBeNull();
+    expect(parseNetMessage(presence(entry({ raceId: 'nagas' })))).not.toBeNull();
+  });
+
+  it('⭐ present-but-not-a-race REJECTS THE WHOLE MESSAGE, on both carriers', () => {
+    // An unvalidated string here would reach RACE_COLORS[...] and paint `undefined`. Fail-closed
+    // mirrors the `ready` flag's posture directly above it in the validator.
+    for (const bad of ['ELVES', '', 'Vampires', 'vampire', 0, true, null, {}, []]) {
+      expect(parseNetMessage(start(entry({ raceId: bad }))), `start/${String(bad)}`).toBeNull();
+      expect(parseNetMessage(presence(entry({ raceId: bad }))), `presence/${String(bad)}`).toBeNull();
+    }
   });
 });

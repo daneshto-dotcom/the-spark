@@ -14,6 +14,7 @@ import {
   CASTLE_MAX_HP,
 } from '../constants.ts';
 import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
+import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -55,6 +56,27 @@ interface PlayerCommon {
    * adding a family. That is the same reasoning S152 P1 recorded for `raidPoints`/`raidProgress`.
    */
   castleHp: number;
+  /**
+   * ⭐ W1-A (S160) — **WHO THIS SEAT IS.** The race, and therefore the castle art, the unit its
+   * castle emits, and the one race tower it may build. `SPARK_RACES_SPEC.md` §4 is the authority.
+   *
+   * ⛔ RACE IS PRIMARY, COLOUR IS DERIVED — *at construction*, not by a getter, and
+   * **`color` is NOT deleted.** `applyTriggerRainbow` permutes `player.color` in place for eight
+   * seconds (`rainbowLifecycle.ts`), and the B4 ruling is that the shuffle moves `color` and NEVER
+   * `raceId`: `color` is "what this seat looks like right now", `raceId` is "who this seat is". A
+   * getter would drag the race along with the shuffle and swap races mid-match.
+   *
+   * ⚠ MUTABLE, and only in one window: the host may reassign it during race arbitration before
+   * Begin (one player per race, R110). After `applyStartGame` stamps it, nothing writes it again —
+   * which is exactly the immutability the B5 no-hash decision rests on. See `state/races.ts`.
+   *
+   * ⚠ SERIALIZED BUT NOT HASHED. Additive-optional in `SerializedPlayer`, emitted only when it is
+   * not this seat's default, so every pre-existing save still loads. ⛔ Do NOT read the
+   * `raidPoints` docblock above as the precedent for the *not hashed* half — that is a currency
+   * nothing simulates from, and `raceId` is a real sim input. The argument is written out in full at
+   * `state/races.ts`, and it does not transfer to the tech perks.
+   */
+  raceId: RaceId;
   /**
    * Accrual progress toward the next raid point, in TENTHS. See `RAID_PROGRESS_PER_POINT`.
    * A tower is worth 5, a hand-made connection 2, and 10 tenths is a point — so "2 towers OR 5
@@ -131,7 +153,25 @@ export type CarryingPlayer = PlayerCommon & {
 };
 export type Player = IdlePlayer | CarryingPlayer;
 
-export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { x: 0, y: 0 }): IdlePlayer {
+/**
+ * ⚠ W1-A (S160) — `raceId` IS THE FOURTH PARAMETER AND IT IS DEFAULTED, DELIBERATELY. The default is
+ * `defaultRaceForSeat(id)` — R45's *"`PLAYER_COLORS[seat]` is only ever a DEFAULT assignment"*,
+ * restated in race terms. That is what lets solo, vs-bots, a stale peer's roster and every one of the
+ * **117** `makeIdlePlayer(` call sites in `src/` compile and behave identically with zero UI.
+ * (Measured at S160: 171 grep hits across 54 files, of which 52 are imports; the spec's "106 hits /
+ * 51 files" was written against an older tree and understates the first figure by 61 %. Do not use
+ * either number as a completion checklist.)
+ *
+ * Only THREE call sites are production, and two of them need no argument because their default is
+ * already correct: `world.ts` seat 0 → vampires/crimson, and `gameMode.ts`'s legacy no-roster 1v1
+ * seat 1 → nagas/cyan. The third is `applyStartGame`'s roster path, which passes the chosen race.
+ */
+export function makeIdlePlayer(
+  id: PlayerId,
+  color: number,
+  avatarPos: Vec2 = { x: 0, y: 0 },
+  raceId: RaceId = defaultRaceForSeat(id as unknown as number),
+): IdlePlayer {
   return {
     id,
     color,
@@ -142,6 +182,7 @@ export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { 
     // S152 P1 — a new seat starts with no raid points and no progress toward one.
     raidPoints: 0,
     castleHp: CASTLE_MAX_HP,
+    raceId,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     godlyCooldownEndsAtTick: null,
@@ -177,6 +218,11 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
     // spark is unwinnable, and nothing would have gone red.
     castleHp: player.castleHp,
+    // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
+    // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
+    // player picked up or dropped a spark. tsc catches it because the field is required — the
+    // line goes in anyway, because the two fields above are here for exactly the same reason.
+    raceId: player.raceId,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
@@ -216,6 +262,11 @@ export function drop(player: Player): IdlePlayer {
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
     // spark is unwinnable, and nothing would have gone red.
     castleHp: player.castleHp,
+    // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
+    // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
+    // player picked up or dropped a spark. tsc catches it because the field is required — the
+    // line goes in anyway, because the two fields above are here for exactly the same reason.
+    raceId: player.raceId,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,

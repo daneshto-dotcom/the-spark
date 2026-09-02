@@ -32,9 +32,9 @@ import { makeGameStateExtras } from '../gameState.ts';
 import { applySpawnCreature } from './creatureLifecycle.ts';
 import { isRetreatWindow, ownHomePos } from './creatureAI.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { asPlayerId } from '../../types.ts';
+import { asPlayerId, asSpawnerId } from '../../types.ts';
 import type { Controls } from '../../input/controls.ts';
-import { ARMY_RETREAT_LEAD_TICKS, phaseDurationTicks } from '../../constants.ts';
+import { ARMY_RETREAT_LEAD_TICKS, CASTLE_ATTACK_RANGE, phaseDurationTicks } from '../../constants.ts';
 
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
 
@@ -60,17 +60,37 @@ function fightWorld(): World {
   return w;
 }
 
-/** Put one goblin deep in the OTHER seat's half of the board. */
-function spawnInEnemyGround(w: World, seat: 0 | 1) {
+/**
+ * Put one goblin deep in the OTHER seat's half of the board.
+ *
+ * ⚠ S160 P4b — IT NO LONGER STANDS *ON* THE ENEMY KEEP, and the offset is load-bearing. The castle
+ * now has a weapon (`state/castleGuns.ts`, `CASTLE_ATTACK_RANGE` 300) and it shoots the nearest
+ * enemy unit in range, so a goblin parked on the anchor is killed and these cases died with a
+ * `undefined.pos`. The property under test is *"deep in enemy ground"*, which an offset just outside
+ * the keep's own guns satisfies exactly as well — it is still the far half of the board, still
+ * hundreds of px from home. Weakening an assertion to accommodate the gun would have been the wrong
+ * repair; moving the fixture off the one tile the gun defends is the right one.
+ */
+function spawnInEnemyGround(w: World, seat: 0 | 1, count = 1) {
   const enemy = castleAnchor(seat === 0 ? 1 : 0, w.layout);
-  applySpawnCreature(w, {
-    type: 'SPAWN_CREATURE',
-    creatureType: 'goblinMelee',
-    ownerPlayerId: asPlayerId(seat),
-    pos: { x: enemy.x, y: enemy.y },
-    targetPos: { x: enemy.x, y: enemy.y },
-    sourceSpawnerId: null,
-  });
+  const mine = castleAnchor(seat, w.layout);
+  // Step back from the enemy keep TOWARD home, just past its weapon range.
+  const away = Math.sign(mine.x - enemy.x) || 1;
+  const standoff = CASTLE_ATTACK_RANGE + 40;
+  for (let i = 0; i < count; i++) {
+    const pos = { x: enemy.x + away * (standoff + i * 12), y: enemy.y };
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinMelee',
+      ownerPlayerId: asPlayerId(seat),
+      pos,
+      targetPos: { ...pos },
+      // ⛔ DISTINCT ids, and `null` would NOT work for `count > 1`: `applySpawnCreature` silently
+      // drops a second creature with the same `(owner, type)` when `sourceSpawnerId === null` (the
+      // races spec's B1). A single-unit call keeps `null` for byte-identical legacy behaviour.
+      sourceSpawnerId: count === 1 ? null : asSpawnerId(seat * 100 + i + 1),
+    });
+  }
   return [...w.creatures.values()].find((c) => (c.ownerPlayerId as unknown as number) === seat)!;
 }
 
@@ -208,14 +228,42 @@ describe('S154 P4 — ⛔ THE DEADLINE: at BUILD nobody is left in enemy ground'
   });
 
   it('⭐ THE OWNER INVARIANT: after a full FIGHT, every creature is nearer its OWN castle', () => {
-    // The screenshot, as an assertion. Two armies, both sent into each other's ground, run the whole
-    // phase out, and at BUILD each one must be closer to its own keep than to the enemy's.
+    /*
+     * The screenshot, as an assertion. Two armies, both sent into each other's ground, run the whole
+     * phase out, and at BUILD each one must be closer to its own keep than to the enemy's.
+     *
+     * ⚠ S160 P4b — IT IS NOW AN ACTUAL ARMY PER SEAT, and that is MORE faithful to the owner's
+     * screenshot than the single unit that stood here (the comment always said "two armies"). The
+     * castle has a weapon now, and a `targetsStructures` goblin with no enemy shapes left marches on
+     * the enemy keep — so over a full 2700-tick FIGHT one lone unit per seat is shot dead in enemy
+     * ground, `world.creatures` empties, and the anti-vacuity guard below correctly refuses to let
+     * the invariant pass on an empty board. An army outlives the attrition, so what is measured is
+     * the RECALL, which is what this test is for.
+     *
+     * ⭐ Worth stating because it is a real change and not a test artefact: a LONE unit sent into
+     * enemy ground now dies there. The owner invariant is satisfied by two mechanisms rather than
+     * one — the recall, and the keep defending itself.
+     *
+     * ⚠ AND THE PHASE IS SHORTENED, which is the part that needed thinking about rather than tuning.
+     * A keep kills one attacker every `CASTLE_FIRE_INTERVAL_TICKS`, so over a full 2700-tick FIGHT it
+     * grinds down ~11 — more than any army small enough to leave the castle standing. Sizing the
+     * fixture UP does not fix that: at ~15 the castle FALLS instead, the first-castle-at-0 gate ends
+     * the match for everyone (the races spec's B2), and `matchPhase` never reaches BUILD at all.
+     * Both failure modes are about the length of the exposure, not about the recall.
+     *
+     * The recall is an edge mechanism: it fires when FIGHT→BUILD flips, whatever the phase length.
+     * So the phase is shortened to 600 ticks — long enough for the armies to be well inside enemy
+     * ground when the whistle goes, short enough that the keeps have taken only ~2 of the 8 each.
+     * That measures the recall and nothing else, which is what the test is named for.
+     */
     const w = fightWorld();
-    spawnInEnemyGround(w, 0);
-    spawnInEnemyGround(w, 1);
+    spawnInEnemyGround(w, 0, 8);
+    spawnInEnemyGround(w, 1, 8);
     const d = deps();
     const st = makeHostTickState(w);
-    for (let i = 0; i <= phaseDurationTicks('FIGHT') + 2; i++) runHostTick(w, d, st);
+    const SHORT_FIGHT = 600;
+    w.phaseEndsAtTick = w.tick + SHORT_FIGHT;
+    for (let i = 0; i <= SHORT_FIGHT + 2; i++) runHostTick(w, d, st);
 
     expect(w.matchPhase).toBe('BUILD');
     expect(w.creatures.size, 'anti-vacuity: there are creatures to check').toBeGreaterThan(0);

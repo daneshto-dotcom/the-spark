@@ -34,8 +34,11 @@
  * Lobby seating is real-time presence and is NOT part of save.replay determinism.
  */
 
-import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
+// ⭐ W1-A (S160) — `PLAYER_COLORS` is GONE from this file, exactly as the spec predicted: every
+// colour here now derives from a race. `noUnusedLocals` is on, so tsc enforces that.
+import { MAX_PLAYERS } from '../constants.ts';
 import type { RosterEntry } from './protocol.ts';
+import { RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
 
 // Host is always seat 0; remote peers occupy seats 1..MAX_PLAYERS-1.
 const FIRST_REMOTE_SEAT = 1;
@@ -87,6 +90,31 @@ export function reconcileLobbySeats(
 }
 
 /**
+ * ⭐ W1-A (S160) — the ONE place a `RosterEntry`'s identity is assembled, so the two builders cannot
+ * drift apart on how colour is derived. `color` is `RACE_COLORS[raceId]` and nothing else: race is
+ * primary, colour is derived (`SPARK_RACES_SPEC.md` §4).
+ *
+ * ⛔ `raceId` IS EMITTED ONLY WHEN A RACE WAS ACTUALLY CLAIMED, and the rule is deliberately NOT
+ * "omit when it equals the seat default". Getting this wrong breaks one of the two contracts, and
+ * S160 broke it the first way before the existing suite caught it:
+ *
+ *   · **Always emit** → an all-default lobby beacon grows a key it never had, so the pre-W1-A
+ *     byte-identity §15.6 promises is gone. (This is what five `lobbyRoster.test.ts` cases caught.)
+ *   · **Omit when equal to the default** → looks tidier and is WRONG, because it is the *receiver*
+ *     that re-derives the default — from the **dense** seat. A peer who claimed vampires (seat 0's
+ *     default) and is then compacted to dense seat 2 would have the key omitted and be re-derived as
+ *     mummies. That is B6 exactly, reintroduced by an optimisation.
+ *   · **Omit only when unclaimed** → both hold. An unclaimed seat is byte-identical to pre-W1-A
+ *     (`RACE_COLORS[defaultRaceForSeat(seat)]` IS `PLAYER_COLORS[seat]`, pinned in `races.test.ts`),
+ *     and a claimed race is always transmitted, so compaction can never re-derive it away.
+ */
+function rosterEntryFor(peerId: string, seat: number, claimed: RaceId | undefined): RosterEntry {
+  const raceId = claimed ?? defaultRaceForSeat(seat);
+  const base = { seat, peerId, color: RACE_COLORS[raceId] };
+  return claimed === undefined ? base : { ...base, raceId: claimed };
+}
+
+/**
  * S73 P1 — STABLE lobby-preview projection of the seat-map. seat 0 = host (selfId),
  * plus one entry per seated peer ORDERED BY SEAT ascending. Seats may be
  * NON-CONTIGUOUS (a HOLE left by a departed peer); the client rack renders a missing
@@ -94,14 +122,22 @@ export function reconcileLobbySeats(
  * (PLAYER_COLORS[seat]) so a survivor keeps its colour across other peers' departures.
  * Drives LOBBY_PRESENCE + the host's own rack.
  */
+/**
+ * ⭐ W1-A (S160) — `raceByPeer` / `selfRace` are DEFAULTED, and an EMPTY MAP REPRODUCES THE PRE-W1-A
+ * ROSTER BYTE FOR BYTE (`lobbyRoster.test.ts` asserts exactly that). `RACE_COLORS[defaultRaceForSeat(
+ * seat)]` IS `PLAYER_COLORS[seat]` by construction — `races.test.ts` pins the two palettes as equal
+ * — so the colour a seat gets does not move until a peer actually claims a race.
+ */
 export function buildLobbyRoster(
   seatByPeer: ReadonlyMap<string, number>,
   selfId: string,
+  raceByPeer: ReadonlyMap<string, RaceId> = new Map(),
+  selfRace?: RaceId,
 ): RosterEntry[] {
   const remotes = [...seatByPeer.entries()]
     .sort((a, b) => a[1] - b[1])
-    .map(([peerId, seat]) => ({ seat, peerId, color: PLAYER_COLORS[seat] }));
-  return [{ seat: 0, peerId: selfId, color: PLAYER_COLORS[0] }, ...remotes];
+    .map(([peerId, seat]) => rosterEntryFor(peerId, seat, raceByPeer.get(peerId)));
+  return [rosterEntryFor(selfId, 0, selfRace), ...remotes];
 }
 
 /**
@@ -118,15 +154,34 @@ export function buildLobbyRoster(
  * the compaction shifts higher seats down one — the documented one-time match-start
  * colour shift (PDR §3 accepted tradeoff).
  */
+/**
+ * ⛔ W1-A (S160) — **THE RACE FOLLOWS THE PEER, NOT THE DENSE SEAT.** This is the spec's B6, and it is
+ * the whole reason this function needed touching rather than inheriting the new field for free.
+ *
+ * The docblock above accepts *"the documented one-time match-start colour shift"* when an unfilled
+ * hole compacts the seats. That is harmless while colour is just a seat's paint. **With races the
+ * same shift is a RACE change** — a player who locked vampires in the lobby would begin the match as
+ * nagas. So a CLAIMED race is looked up by `peerId` and survives compaction untouched; only an
+ * UNCLAIMED seat falls back to `defaultRaceForSeat(denseSeat)`, which is the pre-W1-A behaviour
+ * exactly.
+ *
+ * ⚠ AND THE FAILURE MODE IF THIS WERE LEFT ALONE IS SILENT. Adding `raceId` to `RosterEntry` while
+ * leaving this function building `color: PLAYER_COLORS[denseSeat]` means the field is simply NEVER
+ * POPULATED on the authoritative Begin roster — **and every lobby-side test still passes**, because
+ * the lobby rack is built by the OTHER function. That is why the test for this one asserts a claimed
+ * race survives dense compaction, rather than asserting the field merely exists.
+ */
 export function buildMatchRoster(
   seatByPeer: ReadonlyMap<string, number>,
   selfId: string,
+  raceByPeer: ReadonlyMap<string, RaceId> = new Map(),
+  selfRace?: RaceId,
 ): RosterEntry[] {
   const orderedRemotes = [...seatByPeer.entries()].sort((a, b) => a[1] - b[1]);
-  const roster: RosterEntry[] = [{ seat: 0, peerId: selfId, color: PLAYER_COLORS[0] }];
+  const roster: RosterEntry[] = [rosterEntryFor(selfId, 0, selfRace)];
   orderedRemotes.forEach(([peerId], i) => {
-    const denseSeat = i + 1;
-    roster.push({ seat: denseSeat, peerId, color: PLAYER_COLORS[denseSeat] });
+    // ⛔ `raceByPeer` is keyed on peerId; the dense seat is read ONLY by the fallback.
+    roster.push(rosterEntryFor(peerId, i + 1, raceByPeer.get(peerId)));
   });
   return roster;
 }

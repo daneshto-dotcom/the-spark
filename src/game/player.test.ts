@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { asPlayerId, asSparkId } from '../types.ts';
+import { defaultRaceForSeat } from '../state/races.ts';
 import {
   CarryViolation,
   drop,
@@ -63,5 +64,39 @@ describe('player accumulators', () => {
     const p = makeIdlePlayer(asPlayerId(0), 0xff3b6b);
     for (let i = 0; i < 50; i++) tickBuildAction(p);
     expect(p.disruptionCharges).toBe(2);
+  });
+});
+
+describe('W1-A (S160) — the carry FSM preserves raceId', () => {
+  /**
+   * ⛔ `pickup` and `drop` REBUILD the player wholesale, and this file's own subject carries a
+   * standing warning that a field omitted from those literals is silently RESET. For `raceId` that
+   * would re-race a seat the instant its player touched a spark — the castle would change colour
+   * mid-match, with nothing red, because colour is not hashed.
+   *
+   * tsc catches a straight omission because the field is required. It does NOT catch a literal that
+   * writes a *default* instead of copying, which is the shape the `raidPoints` deserializer defect
+   * took, so these assert the COPY rather than merely the presence.
+   */
+  it('⭐ pickup then drop round-trips a NON-DEFAULT race unchanged', () => {
+    const seat = asPlayerId(0);
+    // Deliberately not seat 0's default, so "reset to default" is distinguishable from "preserved".
+    const p = makeIdlePlayer(seat, 0xff3b6b, { x: 0, y: 0 }, 'demons');
+    expect(p.raceId).toBe('demons');
+    expect(p.raceId, 'the fixture must differ from the default or this proves nothing').not.toBe(
+      defaultRaceForSeat(0),
+    );
+
+    const carrying = pickup(p, asSparkId(1));
+    expect(carrying.raceId, 'pickup rebuilds the player — the race must come along').toBe('demons');
+
+    const idle = drop(carrying);
+    expect(idle.raceId, 'and so must drop').toBe('demons');
+  });
+
+  it('the factory defaults the race from the SEAT when none is given', () => {
+    for (const seat of [0, 1, 2, 3]) {
+      expect(makeIdlePlayer(asPlayerId(seat), 0x000000).raceId).toBe(defaultRaceForSeat(seat));
+    }
   });
 });

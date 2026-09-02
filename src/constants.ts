@@ -1504,6 +1504,101 @@ export const ARMY_RETREAT_LEAD_TICKS = 180;
 export const CASTLE_MAX_HP = 1500;
 
 /**
+ * ⭐ S160 P4b — **THE CASTLE SHOOTS BACK.** The other half of a castle that can be destroyed, and the
+ * mechanic the races spec has been quietly assuming exists.
+ *
+ * ⛔ **OWNER RULING, 2026-09-02: TARGETING IS NEAREST-ENEMY-IN-RANGE. THIS SUPERSEDES Q4.**
+ * `SPARK_TD_SESSION_SPECS.md:59` Q4 ruled *"castle attacks any enemy units that attack it"* ⇒
+ * retaliation-only inside a 300-tick window. The races spec's §3.2 instead described wave-1 targeting
+ * as *"nearest enemy creature in range"*. Shown both, the owner chose **nearest-in-range**. Recorded
+ * as a REVERSAL at the constant rather than resolved silently, the way S159 P9 recorded the drone
+ * hub's: a retaliation-only castle watches an army walk past to eat its towers and never fires, and
+ * the owner wanted a real defensive emplacement.
+ * ⇒ **Consequence: there is no retaliation bookkeeping at all.** No `lastDamagedByTick`, no attacker
+ * ledger, nothing to serialize. The rejected design needed both.
+ *
+ * ⛔ **AND EVERY CASTLE IS STAT-IDENTICAL, FOREVER (R94, narrowing R88).** Owner: *"it won't be fair
+ * if one castle is seven hundred, especially in the beginning."* Races differ in **how the attack
+ * looks and travels**, never in what it does — so ⛔ NOTHING BELOW MAY EVER BE KEYED OFF `raceId`.
+ * Per-race attack VFX is W1-B and is cosmetic by construction (races spec §3.2); real hit geometry
+ * (cone / chain / arc) is a balance-wave question, and a "cosmetic" change that alters acquisition,
+ * damage, range or cadence is not cosmetic.
+ *
+ * ⚠ THE THREE NUMBERS ARE Q3's, AND Q3 MARKS ITSELF `[CLAUDE — overridable, first pass]`. Q3's fourth
+ * number, HP 3000, was already superseded by the owner's 1500 (R89) — so treat these as MY first pass
+ * awaiting a playtest, not as owner figures.
+ */
+export const CASTLE_ATTACK_RANGE = 300; // px — Q3. Shorter than the laser turret's 420.
+/**
+ * Q3 said *"damage 8 per shot"*, written before the fifths ladder existed. Expressed ON the ladder it
+ * is exact rather than approximate: `attackFifths(1, 3)` = 1 × (5 + 3) = **8 fifths**, so Q3's number
+ * survives verbatim and the castle is finally comparable with every other attacker in the game.
+ *
+ * What 8 fifths does, from `state/stats.ts` (so the reader does not have to derive it): it one-shots
+ * a pencil chewer (5), a race unit (6), a ranged goblin (6), a hound (5) and a melee goblin (7); it
+ * does NOT one-shot a shield goblin (16). A castle punishes leakers and loses to a real push, which
+ * is the shape the owner asked for.
+ */
+export const CASTLE_ATK = 1;
+export const CASTLE_PEN = 3;
+/**
+ * ⭐ NO STORED TIMER, AND THAT IS THE DESIGN — the castle's fire schedule is a pure function of
+ * `world.tick` and the seat index: it fires when `world.tick % interval === seat % interval`.
+ *
+ * ⛔ WHY NOT A `nextFireTick` FIELD, WHICH IS WHAT `Defender` USES. Because per-seat state lives on
+ * `Player`, and `FIELD_COVERAGE` marks `players: 'acknowledged'` — NOT hashed, by design, so client
+ * prediction is not read as desync. `Defender.nextFireTick` IS hashed (`stateHashFull.ts`), so
+ * copying that pattern onto `Player` would put a MUTABLE sim input — one that decides creature damage
+ * — outside the wide oracle with no tsc tripwire. That is the spec's B5 hazard exactly, and unlike
+ * `raceId` the immutability argument is unavailable here: a fire timer changes every 45 ticks.
+ *
+ * Deriving from `world.tick` dissolves the problem instead of managing it: there is no field to
+ * diverge, no field to serialize, and no bump. It is also what this project's own rule asks for —
+ * *"cadences are tested against `world.tick`; phase-spread by entity id, never by an accumulated
+ * remainder"* — with the seat index as the spread, the shipped `hostTick.ts:1024` idiom.
+ *
+ * ⚠ Two consequences worth knowing. (1) A castle does not "arm" with a fresh cooldown at the FIGHT
+ * edge; it becomes eligible at its next absolute slot, so it opens fire within ≤ 45 ticks (0.75 s).
+ * (2) There is no insta-fire-on-load hazard for `loadRephaseDefenders` to correct, because the
+ * schedule is absolute rather than relative to when the world was restored.
+ *
+ * ⭐ AND IT PAYS FOR W1-B: because the schedule is derivable, per-race attack VFX needs **no new wire
+ * field** — a renderer re-derives when each castle fires and at what, which is this codebase's
+ * standing preference (a one-shot `world.effects` push is lost ~5/6 of the time: effects are sampled
+ * at 10 Hz and the renderer wipes them at 60).
+ */
+export const CASTLE_FIRE_INTERVAL_TICKS = 240; // 4 s — NOT Q3's 45. See the ruling below.
+/*
+ * ⛔ S160 P4b — **Q3's 45 TICKS WAS MEASURED AND REJECTED. IT SILENTLY DELETED A SHIPPED WIN
+ * CONDITION.** This is the one Q3 number I did not keep, and the reason is arithmetic, not taste.
+ *
+ * A castle shot is 8 fifths. A melee goblin's pool is `unitPoolFifths(1, 2)` = **7**. So the castle
+ * ONE-SHOTS every melee unit in the game — and at a 45-tick cadence it kills one every 0.75 s.
+ * Against that, `GOBLIN_DAMAGE_VS_CASTLE`'s whole tuning collapses: its docblock is written around
+ * *"ten goblins bring it inside a couple of FIGHT phases"* (10 × 6 dmg per 60 ticks = 1 HP/tick, so
+ * 1500 ticks of contact), but a castle killing one attacker per 45 ticks wipes a ten-goblin push in
+ * 450 ticks having taken roughly 250 damage. **The castle would have become unkillable, and
+ * `PHASE_1_WIN_SCORE` the only real win condition** — with nothing red anywhere, because no test in
+ * the repo pitted the two mechanics against each other. Ten did go red, which is how this was found.
+ *
+ * ⚠ 60 TICKS IS A HARD FLOOR, not a preference: `GOBLIN_ATTACK_CADENCE_TICKS` is 60, so at any
+ * cadence ≤ 60 an attacker dies before it swings even once and *"a goblin that reaches the keep
+ * actually hits it"* — an owner report, with a test named after it — becomes false.
+ *
+ * ⭐ 240 (4 s) IS MINE, AND HERE IS WHAT IT COSTS, MEASURED not estimated (`castleGuns.test.ts`
+ * finds the threshold by running the real host tick): a sustained push now needs about **15 goblins
+ * where the shipped tuning assumed 10**, and an attacker lands ~4 swings before it dies. That is a
+ * REAL balance change to the owner's headline win condition, and it is unavoidable — ANY working
+ * castle gun makes the castle-kill path harder. The dial is here; the alternative dial is
+ * `GOBLIN_DAMAGE_VS_CASTLE`, and which of the two should move is the OWNER'S call, not mine.
+ *
+ * ⭐ AND THE DESIGN INTENT IS NOW LITERALLY TRUE RATHER THAN MERELY SLOW. `GOBLIN_DAMAGE_VS_CASTLE`
+ * says a lone leaked unit is *"far too slow to matter alone, which is the point: the castle falls to
+ * a SUSTAINED ARMY"*. Before the gun that was a statement about arithmetic (250 swings ≈ 4 minutes);
+ * now a lone attacker is actively killed, so it is a statement about the mechanic.
+ */
+
+/**
  * How much damage one goblin strike does to a castle.
  *
  * At 1500 HP and `GOBLIN_ATTACK_CADENCE_TICKS` of 60, a single goblin needs 1500 / 6 = 250 swings ≈

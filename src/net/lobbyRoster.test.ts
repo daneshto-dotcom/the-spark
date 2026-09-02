@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { reconcileLobbySeats, buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
+import { RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
 
 const HOST = 'host-self-id';
 
@@ -187,5 +188,82 @@ describe('S73 P1 — no-hole canary: STABLE preview == DENSE Begin (S70 invarian
   it('a BACK-FILLED hole also yields stable==dense (contiguous again → no shift at Begin)', () => {
     const m = fold([['A', 'B', 'C'], ['A', 'C'], ['A', 'C', 'D']]); // D fills hole → {1,2,3}
     expect(buildMatchRoster(m, HOST)).toEqual(buildLobbyRoster(m, HOST));
+  });
+});
+
+describe('W1-A (S160) — ⛔ B6: THE RACE FOLLOWS THE PEER, NOT THE DENSE SEAT', () => {
+  /**
+   * The docblock on `buildMatchRoster` accepts *"the documented one-time match-start colour shift"*
+   * when an unfilled hole compacts the seats. Harmless while colour is a seat's paint. **With races
+   * that same shift is a RACE change** — a player who locked vampires in the lobby would begin the
+   * match as nagas.
+   *
+   * ⚠ AND THE FAILURE IS SILENT IN BOTH AVAILABLE DIRECTIONS, which is why these assert behaviour
+   * rather than the field's presence:
+   *   · leave `buildMatchRoster` building `PLAYER_COLORS[denseSeat]` and `raceId` is simply NEVER
+   *     POPULATED on the authoritative Begin roster — and every case above still passes, because
+   *     the lobby rack is built by the OTHER function;
+   *   · "optimise" the emit to omit a race equal to the seat default, and a claimed race gets
+   *     re-derived from the DENSE seat on the receiving side. S160 wrote that bug and this caught it.
+   */
+  const claim = (pairs: ReadonlyArray<readonly [string, RaceId]>): Map<string, RaceId> =>
+    new Map(pairs.map(([p, r]) => [p, r]));
+
+  it('⭐ a claimed race SURVIVES dense compaction, while the colour still shifts', () => {
+    // The exact scenario the docblock's tradeoff describes: C is stable seat 3, compacts to dense 2.
+    const m = fold([['A', 'B', 'C'], ['A', 'C']]); // hole at 2; stable A1 C3
+    const r = buildMatchRoster(m, HOST, claim([['C', 'demons'], ['A', 'orcs']]), 'zombies');
+
+    const c = r.find((e) => e.peerId === 'C');
+    expect(c?.seat, 'C still compacts 3 -> 2').toBe(2);
+    expect(c?.raceId, 'but its RACE is the one it claimed, not dense seat 2 default').toBe('demons');
+    expect(c?.color, 'and colour is derived from the race, so it follows too').toBe(RACE_COLORS.demons);
+    // The claim is what moved; the seat compaction is unchanged from the case above.
+    expect(c?.raceId).not.toBe(defaultRaceForSeat(2));
+
+    expect(r.find((e) => e.peerId === 'A')?.raceId).toBe('orcs');
+    expect(r.find((e) => e.peerId === HOST)?.raceId, "the host's own claim").toBe('zombies');
+  });
+
+  it('⭐ an UNCLAIMED roster is byte-identical to the pre-W1-A one (no key at all)', () => {
+    // This is the contract that keeps a v38 beacon parseable and every existing case above green.
+    const m = fold([['A', 'B', 'C'], ['A', 'C']]);
+    expect(buildMatchRoster(m, HOST, new Map())).toEqual([
+      { seat: 0, peerId: HOST, color: PLAYER_COLORS[0] },
+      { seat: 1, peerId: 'A', color: PLAYER_COLORS[1] },
+      { seat: 2, peerId: 'C', color: PLAYER_COLORS[2] },
+    ]);
+    for (const e of buildMatchRoster(m, HOST, new Map())) {
+      expect(Object.prototype.hasOwnProperty.call(e, 'raceId')).toBe(false);
+    }
+  });
+
+  it('a PARTIALLY claimed roster carries the key only for the peers that chose', () => {
+    const m = fold([['A', 'C']]);
+    const r = buildMatchRoster(m, HOST, claim([['C', 'mummies']]));
+    expect(r.find((e) => e.peerId === 'C')?.raceId).toBe('mummies');
+    expect(Object.prototype.hasOwnProperty.call(r.find((e) => e.peerId === 'A')!, 'raceId')).toBe(false);
+    // The unclaimed peer's colour is still exactly its seat's palette entry.
+    expect(r.find((e) => e.peerId === 'A')?.color).toBe(PLAYER_COLORS[1]);
+  });
+
+  it('⚠ a claim EQUAL to the dense-seat default is STILL transmitted', () => {
+    // The receiver cannot tell "claimed vampires" from "did not choose", and after a compaction the
+    // default it would re-derive is a DIFFERENT race. So an explicit claim is never elided.
+    const m = fold([['A', 'B', 'C'], ['A', 'C']]);
+    const sameAsDense2 = defaultRaceForSeat(2);
+    const r = buildMatchRoster(m, HOST, claim([['C', sameAsDense2]]));
+    const c = r.find((e) => e.peerId === 'C')!;
+    expect(c.seat).toBe(2);
+    expect(Object.prototype.hasOwnProperty.call(c, 'raceId'), 'an explicit claim is always sent').toBe(true);
+    expect(c.raceId).toBe(sameAsDense2);
+  });
+
+  it('the lobby preview carries claims too, keyed on peer', () => {
+    const m = reconcileLobbySeats(new Map(), ['A', 'B']);
+    const r = buildLobbyRoster(m, HOST, claim([['B', 'nagas']]), 'demons');
+    expect(r.find((e) => e.peerId === HOST)?.raceId).toBe('demons');
+    expect(r.find((e) => e.peerId === 'B')?.raceId).toBe('nagas');
+    expect(r.find((e) => e.peerId === 'B')?.color).toBe(RACE_COLORS.nagas);
   });
 });

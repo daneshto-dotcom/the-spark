@@ -24,7 +24,7 @@ import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 import { damageEntity } from './damage.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { pickup } from '../game/player.ts';
-import { asPlayerId, asSparkId } from '../types.ts';
+import { asPlayerId, asSparkId, asSpawnerId } from '../types.ts';
 import type { Controls } from '../input/controls.ts';
 import { CASTLE_MAX_HP, GOBLIN_DAMAGE_VS_CASTLE, phaseDurationTicks } from '../constants.ts';
 
@@ -86,21 +86,62 @@ describe('S154 AMENDMENT C — the castle starts at 1500 and takes damage', () =
 });
 
 describe('S154 AMENDMENT C — ⭐ a goblin that reaches the keep ACTUALLY HITS IT', () => {
-  it('the owner report, as an assertion: castle HP falls while a goblin stands there', () => {
+  /**
+   * ⚠ S160 P4b — THIS IS AN ARMY NOW, AND THE CHANGE IS THE POINT RATHER THAN AN ACCOMMODATION.
+   *
+   * The keep has a weapon (`state/castleGuns.ts`). Measured through the real host tick: **one goblin
+   * parked on an enemy keep now deals ZERO damage and dies** — the castle's first shot lands before
+   * its first swing. Five goblins land their first hit at tick 61 and take it to 1284; ten reach
+   * 474; **fifteen bring it down at tick 1342.**
+   *
+   * So the owner's report is still covered — a goblin that reaches the keep DOES hit it — but the
+   * subject of the sentence is now an army, which is exactly what `GOBLIN_DAMAGE_VS_CASTLE`'s own
+   * docblock always claimed the design wanted (*"the castle falls to a SUSTAINED ARMY, not to one
+   * leaked unit"*). Before the gun that was a statement about arithmetic being slow; now it is a
+   * statement about the mechanic. The lone-goblin case is asserted directly below, so the new
+   * behaviour is pinned rather than merely accommodated.
+   *
+   * ⛔ `sourceSpawnerId` must be DISTINCT per goblin: `applySpawnCreature` silently drops a second
+   * creature with the same `(owner, type)` when it is `null` (the races spec's B1), so a `null`
+   * army is secretly one unit — which is how the first cut of this repair "passed" at n=20.
+   */
+  it('the owner report, as an assertion: castle HP falls while an ARMY stands there', () => {
     const w = fightWorld();
     const enemy = castleAnchor(1, w.layout);
-    // Park a goblin ON the enemy keep with nothing else to attack — the exact state the owner
+    // Park five goblins ON the enemy keep with nothing else to attack — the state the owner
     // photographed after S153 P1 shipped the walk.
-    applySpawnCreature(w, {
-      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(0),
-      pos: { x: enemy.x, y: enemy.y }, targetPos: { x: enemy.x, y: enemy.y }, sourceSpawnerId: null,
-    });
+    for (let i = 0; i < 5; i++) {
+      applySpawnCreature(w, {
+        type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(0),
+        pos: { x: enemy.x + i * 3, y: enemy.y }, targetPos: { x: enemy.x, y: enemy.y },
+        sourceSpawnerId: asSpawnerId(i + 1),
+      });
+    }
     const before = w.players.get(asPlayerId(1))!.castleHp;
     const d = deps();
     const st = makeHostTickState(w);
     for (let t = 0; t < 300; t++) runHostTick(w, d, st);
     const after = w.players.get(asPlayerId(1))!.castleHp;
-    expect(after, 'the castle took damage from a goblin standing on it').toBeLessThan(before);
+    expect(after, 'the castle took damage from goblins standing on it').toBeLessThan(before);
+  });
+
+  it('⛔ S160 P4b — and a LONE goblin now deals NOTHING: the keep kills it first', () => {
+    // The other half of the same change, pinned so it cannot regress into "one leaker grinds a
+    // castle down over four minutes" — which is what the arithmetic allowed before the gun existed.
+    const w = fightWorld();
+    const enemy = castleAnchor(1, w.layout);
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(0),
+      pos: { x: enemy.x, y: enemy.y }, targetPos: { x: enemy.x, y: enemy.y }, sourceSpawnerId: null,
+    });
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let t = 0; t < 600; t++) runHostTick(w, d, st);
+    expect(
+      w.players.get(asPlayerId(1))!.castleHp,
+      'a single leaked unit cannot scratch a defended keep',
+    ).toBe(CASTLE_MAX_HP);
+    expect(w.creatures.size, 'and it was shot down').toBe(0);
   });
 
   it('and it does NOT hit its OWN castle', () => {

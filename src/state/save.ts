@@ -63,6 +63,7 @@ import {
 import { type GameMode, type GameState, type MatchPhase, type World } from './world.ts';
 import type { ZoneLayout } from './zones.ts';
 import { type Player } from '../game/player.ts';
+import { defaultRaceForSeat, isRaceId, type RaceId } from './races.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
@@ -439,6 +440,18 @@ interface SerializedPlayer {
    * full-health castle it has no field for and disagree about the exact hit that ends the match.
    */
   castleHp?: number;
+  /**
+   * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
+   * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
+   * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
+   *
+   * ⛔ IT STILL EARNS A PROTOCOL BUMP DESPITE BEING ADDITIVE-OPTIONAL, and that is the whole reason:
+   * S150's rule is that *"a field a stale peer can silently DROP is more dangerous than one it cannot
+   * parse"*. A v38 joiner would drop the key, fall back to its own `defaultRaceForSeat`, and paint
+   * every castle a different colour from the host for the entire match with nothing red on either
+   * side. Refusing the peer outright is the safe failure.
+   */
+  raceId?: RaceId;
   raidProgress?: number;
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
@@ -1593,6 +1606,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // Precisely the defect S151 P2 shipped into the bond deserializer and caught only by audit.
       raidPoints: p.raidPoints ?? 0,
       castleHp: p.castleHp ?? CASTLE_MAX_HP,
+      // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
+      // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
+      // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
+      // NetSnapshot apply, so a wrong default would re-race every player on every client frame —
+      // the same defect shape the `raidPoints` comment above was written for.
+      raceId: isRaceId(p.raceId) ? p.raceId : defaultRaceForSeat(p.id as unknown as number),
       raidProgress: p.raidProgress ?? 0,
       // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
       benchedUntilTick: p.benchedUntilTick,
@@ -1761,6 +1780,9 @@ function serializePlayer(p: Player): SerializedPlayer {
     // byte-identical to pre-S152 (the `damageFifths` / `carriedPotatoId` precedent above).
     ...(p.raidPoints > 0 ? { raidPoints: p.raidPoints } : {}),
     ...(p.castleHp < CASTLE_MAX_HP ? { castleHp: p.castleHp } : {}),
+    // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
+    // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
+    ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // S82 P1 — emit the cruiser-slow debuff fields only when set (byte-identical pre-S82).
     ...(p.poopedUntilTick !== undefined

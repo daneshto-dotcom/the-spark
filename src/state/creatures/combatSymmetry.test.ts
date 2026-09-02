@@ -98,6 +98,36 @@ function duelWorld(): World {
 }
 
 /**
+ * ⛔ S160 P4b — RUN THE DUEL TO ITS RESOLUTION, NOT FOR A FIXED 30 SECONDS.
+ *
+ * These cases used to tick a flat `60 * 30` and then count survivors. That conflated two different
+ * questions, and the castle's new weapon separated them: the duel resolves in a second or two, then
+ * the WINNER — a `targetsStructures` goblin with no enemy shapes left — marches on the enemy keep,
+ * walks into `CASTLE_ATTACK_RANGE`, and is shot. Thirty seconds later both are dead and "a duel has
+ * a winner" fails for a reason that has nothing to do with loop order.
+ *
+ * ⚠ THE FIRST REPAIR I TRIED WAS WORSE AND IS RECORDED SO NOBODY RETRIES IT: zeroing both castles to
+ * silence the guns ALSO trips the win gate (`gameState.ts` ends the match for everyone the moment the
+ * first castle reaches 0 — the races spec's B2), which stops combat entirely and made both goblins
+ * survive instead.
+ *
+ * ⭐ This is not vacuous. It stops at the tick the duel RESOLVES — the first tick on which either
+ * duellist is gone — and the caller then asserts that exactly one is. Mutual annihilation still
+ * fails (both absent on the same tick), and the survivor's identity is still fully determined by the
+ * id pair, so the loop-order property this file exists for is measured exactly as before, just
+ * without thirty seconds of unrelated aftermath.
+ */
+function runToDuelResolution(w: World, d: HostTickDeps, st: ReturnType<typeof makeHostTickState>,
+  idA: number, idB: number): void {
+  for (let t = 0; t < 60 * 30; t++) {
+    runHostTick(w, d, st);
+    const a = w.creatures.has(asCreatureId(idA));
+    const b = w.creatures.has(asCreatureId(idB));
+    if (!a || !b) return; // resolved, one way or the other
+  }
+}
+
+/**
  * Two melee goblins, one per seat, 4 px apart so RANGE can never be the variable. `bFirst` controls
  * the `creatures` INSERTION order — which is what the host-tick loop follows, and which was the
  * actual bug. `idA`/`idB` vary the creature ids independently, to rule those out too.
@@ -151,7 +181,7 @@ describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop
       seedDuel(w, idA, idB, bFirst);
       const d = deps();
       const st = makeHostTickState(w);
-      for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
+      runToDuelResolution(w, d, st, idA, idB);
 
       const aAlive = w.creatures.has(asCreatureId(idA));
       const bAlive = w.creatures.has(asCreatureId(idB));
@@ -171,7 +201,7 @@ describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop
       seedDuel(w, 1, 2, bFirst);
       const d = deps();
       const st = makeHostTickState(w);
-      for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
+      runToDuelResolution(w, d, st, 1, 2);
       return w.creatures.has(asCreatureId(1)) ? 1 : 2;
     }
     expect(survivor(false)).toBe(survivor(true));
@@ -188,7 +218,7 @@ describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop
       seedDuel(w, idA, idB, false);
       const d = deps();
       const st = makeHostTickState(w);
-      for (let t = 0; t < 60 * 30; t++) runHostTick(w, d, st);
+      runToDuelResolution(w, d, st, idA, idB);
       return w.creatures.has(asCreatureId(idA)) ? 'A' : 'B';
     }
     expect(survivingSeat(1, 2)).not.toBe(survivingSeat(2, 1));
@@ -206,8 +236,21 @@ describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop
     }
   });
 
-  it('a LONE creature with no enemy is untouched — the deferral adds no incidental deaths', () => {
-    // Anti-vacuity: the cases above would also pass if the fix simply killed everything.
+  it('a LONE creature with no enemy UNIT is untouched — the deferral adds no incidental deaths', () => {
+    /*
+     * Anti-vacuity: the cases above would also pass if the fix simply killed everything.
+     *
+     * ⚠ S160 P4b — THE WINDOW IS 2 SECONDS, NOT 10, AND THE REASON IS A REAL CHANGE IN THE GAME.
+     * This ran `60 * 10`, and "no enemy" is no longer true over that span: the castle has a weapon
+     * now, so the enemy KEEP is an opponent — a `targetsStructures` goblin with no enemy shapes left
+     * marches on it, enters `CASTLE_ATTACK_RANGE` and is legitimately shot. The subject here is the
+     * one-tick DEATH DEFERRAL, which either adds an incidental death immediately or never, so a short
+     * window is strictly more on-point than a long one; ten seconds was only ever measuring the
+     * march. The title now says "no enemy UNIT", because that is what is actually being set up.
+     *
+     * Verified against the defect it guards: the goblin starts 780 px from the nearest castle and the
+     * assertion below still checks EHP as well as existence, so a deferral that nicked it would fail.
+     */
     const w = duelWorld();
     const pos = { x: 900, y: 540 };
     const solo = makeCreature(GOBLIN_MELEE_CONFIG, {
@@ -218,9 +261,9 @@ describe('S155 N1 + S156 P4 — a duel is decided by the ROLL, never by the loop
     w.creatures.set(solo.id, solo);
     const d = deps();
     const st = makeHostTickState(w);
-    for (let t = 0; t < 60 * 10; t++) runHostTick(w, d, st);
+    for (let t = 0; t < 60 * 2; t++) runHostTick(w, d, st);
     const alive = w.creatures.get(asCreatureId(9));
-    expect(alive, 'a goblin with nothing to fight must still be alive').not.toBeUndefined();
+    expect(alive, 'a goblin with no enemy UNIT must still be alive').not.toBeUndefined();
     expect(alive?.ehp).toBe(solo.ehp);
   });
 });

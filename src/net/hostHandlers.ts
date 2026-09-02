@@ -505,7 +505,10 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       type: 'START_GAME',
       mode: '1v1',
       isHost: true,
-      roster: roster.map((e) => ({ seat: e.seat, color: e.color })),
+      // ⛔ W1-A (S160) — `raceId` MUST be carried here. tsc will NOT complain if it is dropped,
+      // because the target field is optional — the spec calls this projection and its twin in
+      // clientHandlers the single likeliest place for the whole feature to half-land.
+      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId })),
     });
   }
 }
