@@ -1,168 +1,127 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-02 | Session: S159 | Commit: `5e682ac` | PROTOCOL 38 (unchanged all session)
+Generated: 2026-09-02 | Session: S159 | Commit: `c90b444` | PROTOCOL 38 (unchanged all session)
 
-State at close: `tsc` 0 · **3393/3393** unit tests / 217 files · `e2e:gating` exit 0, 62 passed (run
-twice) · bundle **763.9 / 900 KiB** · `verify-deploy` **PASS 4/4** with content-hash equality · MCV
-**88 bindings, exit 0** · real context **599,683 / 1,000,000 (60.0 % YELLOW)**.
+State at close: `tsc` 0 · **3399/3399** unit tests / 218 files · `e2e:gating` exit 0, 62 passed (run
+THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 900 KiB** ·
+`verify-deploy` **PASS 4/4** with content-hash equality · MCV **110 bindings, exit 0** · real context
+**768,770 / 1,000,000 (76.9 % ORANGE)**.
+
+> **S159 ran NINE priorities.** Seven were the planned batch; then the owner played the build and sent
+> back two tower faults, which were fixed the same session under a scope amendment. Both are live.
 
 ## Next Steps
 
-> ⭐ **THE OWNER PLAYTESTED S159 AND REPORTED TWO TOWER BUGS. They are the TOP TWO priorities for the
-> next session, ahead of everything below, and each already has its mechanism identified at the code.
-> One is an unambiguous bug; the other is the owner REVERSING their own earlier ruling, which needs a
-> single question answered before any code is written. Do not conflate them.**
+1. ⛔ **OWNER ACTION — PROVISION TURN. It is the ONLY thing between you and cross-country
+   multiplayer.** Sign up at **metered.ca/stun-turn** (free, 50 GB/month), then in the repo:
+   **Settings → Secrets and variables → Actions → New repository secret**, three times:
+   `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then push anything (or Actions →
+   Deploy to GitHub Pages → Run workflow). `TURN_SETUP.md` is the runbook and carries the owner's own
+   two-workstation measurement.
+   · **B1 is CLOSED.** Their screenshot: room `KFU2AR`, 2 players connected, `sync 3/3`, "Matchmaking:
+     All 7 answered". No split between the two machines, nothing wrong with the router — S158's
+     firewall/VPN hypothesis is disproved.
+   · **`torrent:fail` is fixed** (two of three trackers were dead and the code asked for all of them).
 
-1. ⛔⭐ **THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT — AND IT IS AN UNAMBIGUOUS BUG, MECHANISM FOUND.**
-   Owner, verbatim: *"stink tower only plays on his first fight cycle (throwing 5 poop bags to random
-   locations at random intervals) and then the next fight he does nothing! Need to restart him each
-   round."*
-   **Cause, located and grep-verified at S159 close (no fix attempted — this is the next session's
-   priority, and Rule 16 wants an amendment first):** `bagsRemaining` is a MAGAZINE that is filled
-   exactly once, at construction — `defender.ts:368` (`bagsRemaining: config.bags`) — and thereafter
-   only ever DECREMENTED, at `stinkTower.ts:194` (`d.bagsRemaining--`). **Nothing anywhere refills it.**
-   There is no `matchPhase` handling in `state/defenders/` at all, so no phase boundary resets it. After
-   five bags `stinkIsDepleted()` is permanently true, the tower drops to aura-plus-taunt forever, and
-   re-building it is the only way to get a fresh magazine — exactly what the owner is doing by hand.
-   **The question the fix must answer (and it is a design question, so ASK IT):** does the magazine
-   refill *fully at every FIGHT start* (5 bags per fight — the reading that matches "each round"), or
-   *slowly during BUILD* (a reload the player can watch), or *on a feed gesture* like the goblin tower?
-   The constant `STINK_TOWER_BAGS = 5` and the owner's *"visibly shoot out all 5 stink bags"* are not in
-   dispute; only the refill rule is missing, because nobody ever specified it.
-   ⚠ Also in that sentence and worth a separate look: *"random locations at random intervals"*. The lob
-   target is `stinkLobTarget` and the cadence is `STINK_THROW_INTERVAL_TICKS` (4 s, fixed) — nothing in
-   the sim may use RNG, so "random" is either the blind-lob fallback picking a spread position with no
-   target in range, or a real defect in target selection. Measure it before assuming it is cosmetic.
+2. ⛔ **PLAY THE TWO TOWER FIXES AND RULE ON THEIR NUMBERS.** Both shipped this session, and both
+   created a decision that is MINE, not the owner's:
+   (a) **the stink tower refills its 5 bags on every BUILD edge** — one magazine per round, the
+       reading that matches *"restart him each round"*. If that is too strong: a slow reload spread
+       across BUILD (visible progress, punishes a short build), or a FEED gesture like the goblin
+       tower's (a real cost, but a tower can then be starved).
+   (b) **the drone hub's lightning storm MOVED to the hub's death rather than being deleted** — they
+       objected to the tower disappearing, not to it having a blast. One branch to strike if they want
+       it gone; the FEED-row is the precedent if they want it on a player trigger.
+   ⚠ **AND FEEL THE P9 UPLIFT:** the hub now delivers **9 drones in a 45 s fight** (measured) instead
+   of 3, with at most `DRONE_MAX_PER_SPAWNER` = 3 in the air. That is a large buff to a structure they
+   already found strong. The cap is the first dial, the 5 s cadence the second.
 
-2. ⛔⭐ **THE LIGHTNING DRONE TOWER "DISAPPEARS" AFTER 3 DRONES — AND THIS ONE IS NOT A BUG, IT IS THE
-   OWNER REVERSING AN S113 RULING. Get the ruling before writing code.**
-   Owner, verbatim: *"lightning drone tower spawns like 3 drones and then dissapears! wtf? it should not
-   be so. he should continuously spawn them at the equal intervals."*
-   **What the code does, and why:** `hostTick.ts:491-520` — the hub emits
-   `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` (**3**) drones on the cadence and then, on the NEXT cadence slot,
-   **self-destructs on purpose**: a `STRUCTURE_SELFDESTRUCT` AoE at the anchor plus `razePrimitives` on
-   its own component. That is the shipped design from **S113 Batch C**, whose PDR calls the hub a
-   *"glass-cannon"* and records the owner choosing the owner-agnostic blast
-   (`.claude/plans-archive/2026-06-28_PDR_S113_Batch_C_Lightning_Drone_COMPLETED.md`, R3: *"INTENDED
-   (owner chose owner-agnostic)"*). S157 P0 then refined it to spare the owner's OTHER structures while
-   still consuming its own component.
-   **So "it disappears" is the feature, and the owner now wants a different unit.** That is entirely
-   their call — but the fix deletes or repurposes a whole mechanic, so ONE question must be answered
-   first: **does the self-destruct survive at all?**
-   (a) *Delete it* — the hub becomes a permanent drone factory on `DRONE_EMIT_INTERVAL_TICKS`. Then
-       `DRONE_MAX_PER_SPAWNER` (currently `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, i.e. 3) becomes the
-       live-population cap and needs its own number, and the lightning-storm AoE leaves the game.
-   (b) *Keep it as an option* — continuous production, with the self-destruct on a player trigger
-       (a button on the structure popover, beside FIX/SCRAP — the FEED-row precedent).
-   (c) *Keep it on a condition* — e.g. it blows when destroyed, which is the stink tower's own
-       `stinkDeathBlast` shape and would preserve the "glass cannon" flavour without ending the tower.
-   ⚠ Whichever is chosen, the S113 PDR and `STRUCTURE_SELFDESTRUCT_DRONE_COUNT`'s docblock both say the
-   3 and the radius are the OWNER'S numbers — so the reversal must be recorded AT the constant, the way
-   S158 A1 recorded the aura correction. Do not quietly re-purpose an owner number.
+3. ⛔ **FOUR MORE OWNER DECISIONS from the main batch**, each flagged at its constant, none blocking:
+   (a) drone cadence 5 s; (b) stink-bag HP 1; (c) **chain-lightning hop range 120 px and NO falloff** —
+   33 fifths one-shots any connector in a structure of ≤ 29 connectors, so a full bolt can take SIX
+   connectors off a base in one strike (R77 as written: *"max6"*, no decay mentioned; falloff is the
+   obvious first dial); (d) the stink aura is a **12× nerf** since S158 A1.
+   Plus **recipe OVERLAP**, measured rather than guessed: two goblin towers can chain hub-to-hub
+   (8 Circles instead of 10) and a stink tower can share leaves with a lightning hub (7 instead of 10)
+   — and it is PAID FOR, since eating one shared Circle drops BOTH towers in the same tick.
 
-3. ⛔ **OWNER ACTION — PROVISION TURN. It is now the ONLY thing between you and cross-country
-   multiplayer, and this session removed the last doubt about that.** Sign up at **metered.ca/stun-turn**
-   (free, 50 GB/month), then in the repo: **Settings → Secrets and variables → Actions → New repository
-   secret**, three times: `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then push
-   anything (or Actions → Deploy to GitHub Pages → Run workflow). `TURN_SETUP.md` is the runbook and now
-   carries your own two-workstation measurement.
-   · **B1 is CLOSED.** Your screenshot showed room `KFU2AR`, 2 players connected, `sync 3/3`,
-     "Matchmaking: All 7 answered". There is no split between your machines and nothing wrong with the
-     router — S158's firewall/VPN hypothesis is disproved.
-   · **`torrent:fail` is fixed and was never related.** Two of three BitTorrent trackers were dead, and
-     because the code asks for *all* of them, two dead entries failed the whole backup strategy. It
-     should read `torrent:✓` now.
+4. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already owner-ruled.**
+   `SPARK_TD_SESSION_SPECS.md:59` Q4: *"castle attacks any enemy units that attack it"* ⇒
+   retaliation-only against anything that damaged this castle within 300 ticks; `:208-230` costs it as
+   a reuse of the defender FSM. A grep for `castleGun|keepGun|castleTurret` returns NOTHING in `src/`.
+   Castle HP and elimination both shipped — this is the half that makes them matter, and it is the same
+   ground as the owner's elemental-keeps idea. Needs its own PDR (Rule 16).
 
-4. ⛔ **SIX OWNER DECISIONS, all of them numbers or trades that are MINE, each flagged at its constant.**
-   None blocks play — they are calibration after you have felt them:
-   (a) **drone cadence 5 s** — chosen so all three drones land inside a 45 s fight;
-   (b) **stink-bag HP = 1** — R77 gives the bag's on-destroy atk/pen, never its durability;
-   (c) **chain-lightning hop range 120 px and NO falloff** — ⚠ expect this to feel strong: 33 fifths
-       one-shots any connector in a structure of ≤ 29 connectors, so a full bolt can take SIX
-       connectors off a base in one strike. That is R77 as written ("max6", no decay mentioned).
-       Falloff is the obvious first dial if it is too much;
-   (d) **the stink aura is a 12× nerf** (S158 A1) — the tower will feel very different;
-   (e) **recipe OVERLAP** — measured this session rather than guessed. Two goblin towers can chain
-       hub-to-hub (8 Circles instead of 10) and a stink tower can share leaves with a lightning hub
-       (7 shapes instead of 10). It is PAID FOR: eat one shared Circle and both towers fall in the same
-       tick. Say the word if leaves should belong to exactly one star;
-   (f) **an accidental stink tower no longer self-heals** — see step 3. SCRAP returns the survivors.
+5. **DRONE AoE — the last unbuilt R77 mechanic, and P9 raised its stakes.** `DRONE_ATK` 5 /
+   `DRONE_PEN` 1 reach the config and stop: `applyDroneExplode` severs bonds and never reads either,
+   so *"5 damage and 1 pierce in an area of effect"* describes a mechanic the game does not have.
+   `pinnedDeadStats.test.ts` asserts the gap and is designed to fail when it closes;
+   `state/creatures/suicideBlast.ts` is the ready-made generalisation. ⚠ Now that a hub produces
+   FOREVER rather than three times, the drone's damage model matters far more than it did.
+   ⚠ Still a balance change: 30 fifths breaks a connector up to a 26-connector structure and then
+   stops, so a drone gets WEAKER against big fortresses.
 
-5. ⭐ **CASTLE GUNS — the top BUILD recommendation, and it is already yours.** `SPARK_TD_SESSION_SPECS.md:59`
-   Q4 carries your ruling — *"castle attacks any enemy units that attack it"* ⇒ retaliation-only against
-   anything that damaged this castle within 300 ticks — and `:208-230` costs it as a reuse of the defender
-   FSM. A grep for `castleGun|keepGun|castleTurret` returns NOTHING in `src/`. Castle HP and elimination
-   both shipped; this is the half that makes them matter, and it is the same ground as your elemental-keeps
-   idea. Needs its own PDR (Rule 16), which is why S159 carried it instead of building it.
-
-6. **DRONE AoE — the last unbuilt R77 mechanic, and its stats are currently DEAD.** `DRONE_ATK` 5 /
-   `DRONE_PEN` 1 reach the config and stop: `applyDroneExplode` severs bonds and never reads either, so
-   your *"5 damage and 1 pierce in an area of effect"* describes a mechanic the game does not have.
-   `pinnedDeadStats.test.ts` asserts the gap and is designed to fail when it closes.
-   `state/creatures/suicideBlast.ts` (the terrorist goblin, S158 P3) is the ready-made generalisation.
-   ⚠ NOT done silently because it is a balance change: 30 fifths breaks a connector up to a 26-connector
-   structure and then stops, so a drone would get WEAKER against big fortresses.
-   ⚠ AND IT NOW DEPENDS ON PRIORITY 2: if the hub becomes a continuous factory, a drone's blast is no
-   longer a once-per-hub event and its damage model matters far more than it did as a 3-shot burst.
-
-7. **N2 raid parity across seats** — still needs an OWNER OBSERVATION, not a fix. The reducers are
+6. **N2 raid parity across seats** — needs an OWNER OBSERVATION, not a fix. The reducers are
    seat-agnostic and `grantRaidProgress` fires on both build paths. If it still looks wrong in a real
    game, the next place to look is the input layer.
 
-8. **Held debt (not a bug):** `Creature` now carries four parallel nullable committed-target fields.
+7. **Held debt (not a bug):** `Creature` carries four parallel nullable committed-target fields.
    `creature.ts:237` records why a discriminated union was rejected (a new hash encoding + ~18 sites),
    and S159 P1 deliberately did NOT add a fifth. Revisit only as its own amendment.
 
 ## Blockers
 
-- ⛔ **TURN provisioning (owner action).** Everything on the code side is complete and verified. This is
-  an account plus three repository secrets.
+- ⛔ **TURN provisioning (owner action).** Code side complete and verified. An account plus three
+  repository secrets.
 - Nothing else external. Live and verified: `verify-deploy` PASS 4/4 with content-hash equality.
 - `origin/gh-pages` still exists as a legacy remote branch, left alone deliberately for the third
   session running: deleting it could disturb Pages, and `verify-deploy` ignores it in favour of the
-  deployments API. Not a blocker — recorded so nobody "cleans" it.
+  deployments API. Recorded so nobody "cleans" it.
+- **OS-level, diagnosed not fixed:** `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` fails 1 of 12,
+  identically before and after this session's `json_helpers` fix (verified by swapping the helper
+  back). Closing it needs a RULE decision — does user approval waive deliberation for a Micro
+  priority? — so it is left for a session with that authority.
 
 ## Pending Backlog
 
-- (BACKLOG.md has no open `- [ ]` items)
+- **T1/T2 are DONE.** BACKLOG.md's "NEXT SESSION'S TOP TWO" block now records them as shipped
+  (P8/P9, `c90b444`) rather than pending. No other open `- [ ]` items in BACKLOG.md.
 
 ## Recent Reflexion (last 2 sessions)
 
-### S159 (2026-09-02) — seven priorities: two R77 mechanics, two lying gates, and a sweep that found the owner's own bug still live in a fourth place
+### S159 (2026-09-02) — nine priorities: two R77 mechanics, two lying gates, a sweep that found the owner's own bug in a fourth place, and then two more from the owner's playtest
 
-- **The cheapest version of a carried-forward plan can be a different plan.** Two handoffs carried bag
-  aggro as needing a new hashed `Creature` field and a protocol bump, by analogy with the tower taunt.
-  The analogy imported the cost without re-testing its premise; the codebase's own two tests for when a
-  target must be stored and when it needs hysteresis both fail for a bag. **A handoff's SHAPE is a claim
-  too, not just its numbers.**
-- **A negative control is worth more than the assertion it protects.** With the wiring removed the bag
-  still disappeared — it expired — so "the bag is gone" passes on a broken build. `killCount` is what
-  separates a strike from rot.
-- **The four-sites warning caught S158 twice, and then S158 shipped three of four.** The stink tower kept
-  the defective clause for another session — the owner's own reported bug, live in the FIRST tower a
-  player builds. **Counting the sites you fixed is not counting the sites.**
+- **P8 — a field with one writer and one decrementer is a COUNTDOWN, not a resource, and no
+  single-fight test can see it.** The stink magazine was filled at construction and never again. Every
+  stink test lived inside one fight, where that is indistinguishable from working. The owner found it
+  by playing two rounds. **When a feature has a per-round rhythm, a test has to cross the boundary.**
+- **P9 — "wtf, it should not be so" can mean "I changed my mind".** The hub vanishing after three
+  drones was the owner's own S113 glass-cannon design. Treating it as a bug would have deleted the
+  lightning storm they never complained about; checking the archive turned it into a reversal with one
+  narrow question, and the answer was to MOVE the blast, not remove it.
+- **The four-sites warning caught S158 twice, and then S158 shipped three of four.** The stink tower
+  kept the defective component clause for another session — the owner's own reported bug, live in the
+  FIRST tower a player builds.
 - **A stale ⛔ is worse than no comment, and the loudest ones go stale first.** One file opened with
   "READ THIS BEFORE ASSUMING THE FEATURE IS LIVE" for seven sessions after the feature shipped.
-- **A gate that reads a hardcoded key list is a gate with an expiry date** — and a stale gate output is a
-  bug report about the gate, not a note for the reader.
-- **A probe must perform the operation the product performs.** The relay probe graded WebSocket endpoints
-  by an HTTPS GET and accused the only living tracker.
-- **I broke "never read an exit code through a pipe" in the command that was checking compliance** — and
-  all three binding failures were over-strict `file_lacks` needles catching the docblock that explains
-  the removed thing.
-- **Before asking the owner to rule, check the case exists.** The overlap flag described a lattice that
-  cannot be built.
-- **Take the external seats' QUESTIONS, re-derive their ANSWERS.** Four of their criticals did not survive
-  an empirical check, including both seats' top-ranked one — and they still earned their cost every round.
+- **A gate that reads a hardcoded key list has an expiry date**, and a stale gate output is a bug
+  report about the gate, not a note for the reader. Four gates lied this session; all four are fixed.
+- **A probe must perform the operation the product performs.** The relay probe graded WebSocket
+  endpoints with an HTTPS GET and accused the only living tracker.
+- **A negative control is worth more than the assertion it protects** — the bag vanished either way,
+  and only `killCount` told the truth.
+- **I broke "never read an exit code through a pipe" in the command that was checking compliance**, and
+  four figures in my own paperwork were written before being measured. All caught, all corrected.
+- **Take the external seats' QUESTIONS, re-derive their ANSWERS.** Four of their criticals did not
+  survive an empirical check, including both seats' top-ranked one — and they earned their cost anyway.
 
 ### S158 (2026-09-01/02) — sixteen priorities; the owner reviewed the batch and sent me back to the record twice
 
-- **The fix for a fix was a dead end nobody would have found.** S157's TURN runbook told the owner to put
-  three values in a gitignored `.env`; CI builds from a clean checkout. When the last mile of a fix is an
-  OWNER ACTION, trace that action through the machinery that actually ships.
-- **A handoff number is a claim, not a measurement**, and *turning a limit off by raising its constant is
-  a performance change in disguise*.
-- **The owner sent me back to the record and the record was right, twice.** Both rulings already existed;
-  the shipped aura was 12× their number and I had propagated it into new code.
+- **The fix for a fix was a dead end nobody would have found.** S157's TURN runbook told the owner to
+  put three values in a gitignored `.env`; CI builds from a clean checkout. When the last mile of a fix
+  is an OWNER ACTION, trace that action through the machinery that actually ships.
+- **A handoff number is a claim, not a measurement**, and *turning a limit off by raising its constant
+  is a performance change in disguise*.
+- **The owner sent me back to the record and the record was right, twice.**
 - **My fixture is not their board.** An isolated hub on an empty board proved a tower "worked" that one
   bonded shape deleted within half a second on a real board.
 - **My own fix broke a gate and only that gate noticed.** A gate that cries wolf is worse than no gate.

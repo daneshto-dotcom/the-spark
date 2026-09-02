@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3885,
+  "tool_calls_session_total": 3903,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
   "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S159_BATCH.md",
-  "session_status": "S159 IN-PROGRESS (scope amendment: the owner's two playtest tower faults)",
+  "session_status": "S159 CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -851,7 +851,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "exit 0, 62 passed (S159, run twice)",
-  "closed": false,
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -919,11 +919,11 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 599683,
-  "real_context_pct_at_close": 59.97,
-  "checkpoint_commit": "a83b867",
+  "real_context_tokens_at_close": 768770,
+  "real_context_pct_at_close": 76.9,
+  "checkpoint_commit": "c90b444",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": false,
+  "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered $(VAR) placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -3318,7 +3318,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "YELLOW",
+  "real_context_level_at_close": "ORANGE",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -3690,7 +3690,7 @@
     "deploy": "verify-deploy PASS 4/4 at 400b9df8 — live entry asset hash equals the local build, so all three priorities are live."
   },
   "gate_hygiene_note_s152": "PROSE string values here must avoid literal braces: pdca-final-gate reads the in-progress priority via an AWK BRACE COUNTER (json_helpers.sh), and a brace inside any string corrupts its depth count - it returned EMPTY for every field and blocked every Edit with 'Deliberation not completed' while the flags were all correctly set. BUT verification[] needle/pattern/path are EXEMPT and must keep their braces verbatim: they assert against real source. Scrubbing them turned 7 true assertions into false ones (hard_fail 0 -> 7). Correctness of the assertions outranks the parser's grammar.",
-  "handoff_doc": "HANDOFF_2026-09-02_S159.md (+ .handoff-archive/)",
+  "handoff_doc": "HANDOFF_S159.md (+ .handoff-archive/HANDOFF_2026-09-02_S159.md)",
   "rule22_audit_s152_amend": "Runtime re-scan of the amendment diff: 0 unrendered placeholders in comments, 0 references to non-existent files, 0 documented-but-unimplemented flags. A1 and A4 each shipped WITH the assertion that would have caught them (goblinTowerCadence.test.ts drives the real host tick; modal-layering.spec.ts asserts the title is inert behind a modal AND returns on close). CI: the only red run this session is the weekly 2-browser harness, diagnosed as CF-S152-a and NOT a regression. Deploy verified 4/4.",
   "owner_rulings_s153": {
     "R79": {
@@ -5027,9 +5027,11 @@
     }
   },
   "carry_forward_s159": [
-    "⭐ T1 (OWNER PLAYTEST, TOP PRIORITY) — THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT. Owner: \"stink tower only plays on his first fight cycle ... and then the next fight he does nothing! Need to restart him each round.\" UNAMBIGUOUS BUG, cause located: bagsRemaining is filled once at defender.ts:368 and only decremented at stinkTower.ts:194 — nothing refills it, and state/defenders/ has no matchPhase handling at all. Needs ONE design answer: refill at FIGHT start / reload during BUILD / reload on a feed gesture. Second thread in the same report: \"random locations at random intervals\" — the sim has no RNG, so measure whether that is the blind-lob fallback or a real targeting defect.",
-    "⭐ T2 (OWNER PLAYTEST, TOP PRIORITY) — THE DRONE HUB \"DISAPPEARS\" AFTER 3 DRONES, AND IT IS A RULING REVERSAL RATHER THAN A BUG. Owner: \"he should continuously spawn them at the equal intervals.\" What ships is the S113 design: hostTick.ts:491 emits STRUCTURE_SELFDESTRUCT_DRONE_COUNT (3) then self-destructs (AoE + razePrimitives on its own component); the S113 PDR calls the hub a glass-cannon and records the owner choosing the owner-agnostic blast. ASK BEFORE CODING: does the self-destruct survive — deleted, moved to a player trigger, or moved to on-death? Deleting it also orphans DRONE_MAX_PER_SPAWNER, which is currently an alias of the count. Record the reversal AT the constant.",
-    "N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix. S158 probed the sim and found no asymmetry (reducers are seat-agnostic; grantRaidProgress fires on both build paths). If it still looks wrong in a real game, the next place to look is the input layer."
+    "⭐ TWO DECISIONS THE FIXES CREATED, both numbers/trades that are MINE. (a) P8: the stink tower now refills its 5 bags on every BUILD edge — one full magazine per round, the reading that matches \"restart him each round\". The alternatives, if that is too strong: a slow reload spread across BUILD, or a FEED gesture like the goblin tower's. (b) P9: the drone hub's lightning storm was MOVED to its death rather than deleted, because the owner objected to the tower disappearing and not to it having a blast — one branch to strike if they want it gone, or the FEED-row precedent if they want it on a player trigger.",
+    "⚠ P9 BALANCE TO FEEL: the hub now delivers 9 drones in a 45 s fight (measured) instead of 3, with at most DRONE_MAX_PER_SPAWNER = 3 in the air. That is a large uplift to a structure the owner already described as strong. The cap is the first dial; the cadence (DRONE_EMIT_INTERVAL_TICKS, 5 s) is the second.",
+    "N2 raid parity across seats — needs an OWNER OBSERVATION, not a fix. S158 probed the sim and found no asymmetry (reducers are seat-agnostic; grantRaidProgress fires on both build paths). If it still looks wrong in a real game, the next place to look is the input layer.",
+    "⭐ CASTLE GUNS remain the top BUILD recommendation: owner-ruled at SPARK_TD_SESSION_SPECS.md:59 Q4 (retaliation-only, 300-tick window), specced at :208-230, and a grep finds nothing in src/. Castle HP and elimination both shipped; this is the half that makes them matter.",
+    "DRONE AoE shape — the last unbuilt R77 mechanic. DRONE_ATK/PEN are still declared-but-dead and pinned by pinnedDeadStats.test.ts. ⚠ P9 RAISED ITS STAKES: a hub that produces forever makes the drone's damage model matter far more than it did as a 3-shot burst."
   ],
   "owner_measurement_s159_b1": {
     "source": "owner screenshot + message, 2026-09-02, both workstations on the same network",
@@ -5096,19 +5098,27 @@
     ],
     "what_would_have_caught_the_big_find_earlier": "A grep for the CLAUSE instead of for the file names. S158's own note claimed it had replaced FOUR component tests; counting `isStarAt` call sites (3) against that claim (4) takes one command and would have found the stink tower a session earlier. Promotion candidate: at any priority that removes a defective pattern, grep for the pattern and count the sites BEFORE writing how many were fixed.",
     "reflexion_entries": 12,
-    "completed_priorities": 7
+    "completed_priorities": 7,
+    "amendment_calibration": {
+      "predicted": "the amendment scoped T1 as a bug and T2 as a ruling reversal, and both held",
+      "missed": "THREE tests pinned the retired hub design, not one — including the anti-vacuity test in spawnerPhaseGate, whose detonation coverage had to be RELOCATED to the new death path rather than dropped. The amendment named only lightningHubDelivers.",
+      "fixture_cost": "the P8 fixture failed twice before it worked, both times for reasons worth keeping: the recipe registry is a side-effect import, and runDefenderIgnition is BUILD-gated by S157 B6 — so a fixture that sets FIGHT before igniting gets a world with no tower in it.",
+      "own_numbers": "a FIFTH figure in my own paperwork was written before being measured (the handoff diff stat again: claimed 35 files/4,477, measured 36/4,386). Caught by re-measuring before archiving, which is now the habit the earlier four earned."
+    }
   },
-  "reflexion_s159_archived_count": 12,
+  "reflexion_s159_archived_count": 14,
   "close_gates_s159": {
     "tsc": "exit 0",
-    "vitest": "3393/3393 across 217 files (file count re-measured at close: an earlier reading said 216; every one of the 217 contains at least one it()/test(), checked)",
-    "e2e_gating": "exit 0, 62 passed — run TWICE (before and after the stink-tower sim change), exit code read from a file, not a pipe",
-    "bundle": "763.9 / 900 KiB",
-    "verify_deploy": "PASS 4/4 with content-hash equality at 5e682ac",
-    "mcv": "88 bindings, hard_fail=0, exit 0",
-    "review_gate": "card regenerated, BLOCKED at exit 2, APPROVED under the owner's explicit mid-turn instruction to run the handoff, then cleared at STEP 6",
+    "vitest": "3399/3399 across 218 files",
+    "e2e_gating": "exit 0, 62 passed — run THREE times (after P1/P2, after the stink-tower star fix, after P8/P9); exit code read from a FILE each time, never a pipe",
+    "bundle": "764.0 / 900 KiB",
+    "verify_deploy": "PASS 4/4 with content-hash equality at c90b444",
+    "mcv": "110 bindings, hard_fail=0, exit 0",
+    "review_gate": "regenerated twice (the second time after the HELD list was updated to post-fix reality), approved under the owner instruction, cleared at STEP 6",
     "push": "ahead 0 / behind 0; remote credential verified live with ls-remote",
-    "branches": "master + origin/master + origin/gh-pages (legacy, left alone deliberately for the third session — deleting could disturb Pages and verify-deploy ignores it)"
+    "branches": "master + origin/master + origin/gh-pages (legacy, left alone deliberately — deleting could disturb Pages and verify-deploy ignores it)",
+    "worktrees": "one, the project root itself; nothing to prune",
+    "port": "no .claude/session-port.json at close and nothing listening on 19836"
   },
   "self_audit_s159_own_numbers": "FOUR figures in my own paperwork were written before being measured, and all four were caught and corrected from a real reading: the CHANGED FILES diff stat (claimed 31 files/4,214 insertions, actual 27/3,264), the test-FILE count twice (216 vs the measured 217), and the archive-form counts in the handoff's own closing note (30/17 vs the measured 44/134). Zero of the four were in the CODE or in a verification binding — the MCV verifier and the negative controls caught those before they landed. The pattern worth carrying: the numbers I am most likely to invent are the ones in prose about the work, not the ones the tooling checks.",
   "owner_playtest_s159_close": {
@@ -5123,5 +5133,12 @@
     "t1b_random_locations": "INVESTIGATED, NOT A DEFECT, AND IT IS THE OWNER'S OWN RULING. The report's phrase 'throwing 5 poop bags to random locations at random intervals' describes S157 B9, which they asked for verbatim: 'he should not target any enemies but shoot our at random areas in a radius'. stinkLobTarget is DETERMINISTIC (mix32 keyed on defenderId+tick, never Math.random — a real draw would desync the ?worker=1 mirror) and uniform over the disc via sqrt. The INTERVAL is the fixed STINK_THROW_INTERVAL_TICKS (4 s) plus a wind-up, so it is regular rather than random. Nothing changed; recorded so a future session does not 'fix' a feature the owner specified."
   },
   "amendment_file_s159": ".claude/plans/2026-09-02_SCOPE_AMENDMENT_S159_PLAYTEST_TOWERS.md",
-  "unlock_evidence_s159_amendment": "Owner verbatim, 2026-09-02 after playing the S159 build: \"make sure to fix them THIS SESSION and only then close off the session systematically running a FULL /handoff as i expect you didnt run the whole skill as you should have so the session is not closed and now those two bugs are extra last priorities to complete! do it\""
+  "unlock_evidence_s159_amendment": "Owner verbatim, 2026-09-02 after playing the S159 build: \"make sure to fix them THIS SESSION and only then close off the session systematically running a FULL /handoff as i expect you didnt run the whole skill as you should have so the session is not closed and now those two bugs are extra last priorities to complete! do it\"",
+  "carry_forward_s159_closed_by_amendment": {
+    "note": "T1 and T2 were carried as the next session's top two for about twenty minutes, then the owner said \"make sure to fix them THIS SESSION ... do it\". Both shipped under the scope amendment (P8/P9, commit c90b444, deploy verified 4/4). Their entries are retired from the live HELD list so the review card stops asking for a decision that has been made — which is the whole point of the P3 fix that made the card readable in the first place.",
+    "items": [
+      "T1 stink-tower magazine never refilled — FIXED (P8)",
+      "T2 drone hub 3-then-self-destruct — RE-RULED and FIXED (P9)"
+    ]
+  }
 }

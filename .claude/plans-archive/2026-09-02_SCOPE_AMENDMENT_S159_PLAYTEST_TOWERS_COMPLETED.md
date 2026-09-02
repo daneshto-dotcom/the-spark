@@ -113,3 +113,27 @@ blast survive?* and *what cadence?*) are answered in §4 and flagged for the own
   carry a negative control.
 - **Materially better than the first draft?** Yes: the first draft deleted the self-destruct outright
   and would have thrown away an owner-chosen mechanic they had not complained about.
+
+
+---
+
+## STATUS: COMPLETED (stamped at the S159 handoff)
+
+Both priorities shipped, committed and pushed at `c90b444`; the live site is verified by content-hash
+equality (`verify-deploy` PASS 4/4). Gates: `tsc` 0 · **3399/3399** unit tests across 218 files ·
+`e2e:gating` exit 0 with 62 passed (exit code read FROM A FILE) · bundle 764.0 / 900 KiB · MCV
+**110 bindings, hard_fail=0**.
+
+**What the amendment got right:** it refused to treat T2 as a bug. A.0 E5/E6 found the shipped S113
+design and the owner's own R3 ruling behind it, so the fix became a recorded reversal that MOVED the
+blast instead of deleting a mechanic nobody complained about.
+
+**What it did not predict:** THREE tests pinned the retired design, not one — including the
+anti-vacuity test in `spawnerPhaseGate`, whose detonation coverage had to be RELOCATED to the new
+death path rather than dropped. And the P8 fixture failed twice before it worked, both times for
+reasons worth keeping: the recipe registry is a side-effect import, and `runDefenderIgnition` is
+BUILD-gated by S157 B6, so a fixture that sets FIGHT first gets a world with no tower in it.
+
+**T1b closed as NOT A DEFECT:** *"random locations at random intervals"* is the owner's own S157 B9
+ruling, implemented deterministically with `mix32` (never `Math.random`, which would desync the
+worker mirror) and uniform over the disc. Recorded so nobody "fixes" it later.

@@ -5,14 +5,18 @@
 
 ---
 
-# ⚑ NEXT SESSION'S TOP TWO — OWNER PLAYTEST OF S159, 2026-09-02
+# ⚑ DONE THE SAME SESSION — THE OWNER'S S159 PLAYTEST, 2026-09-02
 
-The owner played the S159 build and reported two tower faults. **These are the top two priorities and
-they outrank everything else in this file.** Both mechanisms were located at the code before the
-session closed; neither was fixed, because one needs a design answer and the other needs an owner
-ruling, and Rule 16 wants the amendment first.
+The owner played the S159 build and reported two tower faults. They were carried as the next session's
+top two for about twenty minutes, then the owner said *"make sure to fix them THIS SESSION ... do it"*
+— so **both shipped the same session** under a scope amendment (P8/P9, commit `c90b444`, deploy
+verified 4/4). Kept here with their diagnoses because the two DECISIONS they created are the owner's,
+and because how each was mis-classified at first sight is the reusable part.
 
-- [ ] **T1 — THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT.** Owner: *"stink tower only plays on his
+- [x] **T1 — THE STINK TOWER FIRES ONLY IN ITS FIRST FIGHT. ✅ FIXED (P8):** it now refills its
+      magazine on every BUILD edge. Measured: drained to 0 in fight one, back to 5 after the edge,
+      and `5 -> 4` in fight two. ⚠ THE REFILL CADENCE IS MINE — see boot-snapshot §2(a).
+      **Original diagnosis, kept because it is the reusable part:** Owner: *"stink tower only plays on his
       first fight cycle (throwing 5 poop bags to random locations at random intervals) and then the
       next fight he does nothing! Need to restart him each round."*
       **Unambiguous bug, cause found:** `bagsRemaining` is filled once at construction
@@ -24,7 +28,11 @@ ruling, and Rule 16 wants the amendment first.
       **Second, smaller thread in the same sentence:** *"random locations at random intervals"* — the
       sim has no RNG, so this is either the blind-lob fallback or a real target-selection defect.
       Measure before assuming cosmetic.
-- [ ] **T2 — THE DRONE HUB "DISAPPEARS" AFTER 3 DRONES — A RULING REVERSAL, NOT A BUG.** Owner: *"it
+- [x] **T2 — THE DRONE HUB "DISAPPEARS" AFTER 3 DRONES. ✅ FIXED (P9) — AND IT WAS NEVER A BUG:**
+      it was the owner's own S113 design, so the fix is a RECORDED REVERSAL. The hub produces
+      continuously (measured: 9 drones per 45 s fight, ≤3 in the air) and its lightning storm MOVED
+      to the hub's death rather than being deleted. ⚠ BOTH OF THOSE ARE MY CALLS — boot-snapshot §2(b).
+      **Original diagnosis:** Owner: *"it
       should not be so. he should continuously spawn them at the equal intervals."*
       **What ships today is the S113 design:** `hostTick.ts:491` emits
       `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` (3) drones, then self-destructs — AoE at the anchor plus
