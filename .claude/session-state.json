@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3905,
+  "tool_calls_session_total": 3908,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -688,7 +688,7 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "title": "T2 — the drone hub produces continuously and keeps its blast as a death throe; the 3-drones-then-self-destruct was the shipped S113 design, so this is a recorded ruling reversal",
-      "check_method": "RALPH:PATROL + empirical, and the FIRST finding was that it is not a bug. (1) hostTick.ts emitted STRUCTURE_SELFDESTRUCT_DRONE_COUNT (3) drones and then deliberately self-destructed; the S113 Batch C PDR calls the hub a 'glass-cannon' and its R3 records 'Structure self-destruct kills your own build: INTENDED (owner chose owner-agnostic)'. So the owner is reversing their own ruling — recorded AT the code, the S158 A1 precedent, rather than quietly re-purposed. (2) I ALSO PROBED FOR A SECOND CAUSE and found none: lightningHub re-validates through isLightningHubComponent, which S158 B2b already converted to isStarAt, so the self-destruct was the sole reason it vanished. (3) MY CALL, FLAGGED: the blast is NOT deleted, it MOVED to the hub's death (the recipe-break branch, whose own comment proves teardownSpawners never reaches it — so no blast on a win screen or title return, the same property awardSpawnerKillReward already relies on). They objected to the tower disappearing, not to it having a blast. (4) The cadence now advances on EVERY due slot, emitted or skipped, so emits stay on the exact grid — 'equal intervals' in their words — instead of banking blocked slots and bursting three at once when a drone dies. (5) DRONE_MAX_PER_SPAWNER de-aliased: it was `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, a restatement of a burst that no longer exists, and is now its own 3 with the provenance kept. The dead constant is DELETED rather than left as a one-valued relic. (6) MEASURED: 9 drones in one 45 s fight with the hub still standing (was 3 then gone), peak 2 live against the cap of 3 — matching the 5 s-cadence / 8 s-lifetime arithmetic exactly. (7) NEGATIVE CONTROL RUN: restoring the self-destruct gives selfDestructedAt=1199 and the test goes red. (8) THREE tests pinned the retired design and all three were INVERTED, not deleted (the B2b treatment) — including the anti-vacuity test in spawnerPhaseGate, whose detonation coverage was RELOCATED to the new death path rather than dropped. (9) The frozen pre-S119 differential reference kept its own local constant, with a note that importing a live constant into a frozen reference let a production retune silently rewrite history. 3399/3399 across 218 files, tsc 0, bundle 764.0/900 KiB. ⚠ BINDING NOTE: the `file_lacks`/count-0 form fails on the bare constant NAME because the block comment QUOTES the retired constant to record the reversal — so the bindings assert the EXECUTABLE form is gone (`>= STRUCTURE_SELFDESTRUCT_DRONE_COUNT` count 0) and the name survives exactly once, as history. Fourth instance of that lesson this session, and now a habit.",
+      "check_method": "RALPH:PATROL + empirical, and the FIRST finding was that it is not a bug. (1) hostTick.ts emitted STRUCTURE_SELFDESTRUCT_DRONE_COUNT (3) drones and then deliberately self-destructed; the S113 Batch C PDR calls the hub a 'glass-cannon' and its R3 records 'Structure self-destruct kills your own build: INTENDED (owner chose owner-agnostic)'. So the owner is reversing their own ruling — recorded AT the code, the S158 A1 precedent, rather than quietly re-purposed. (2) I ALSO PROBED FOR A SECOND CAUSE and found none: lightningHub re-validates through isLightningHubComponent, which S158 B2b already converted to isStarAt, so the self-destruct was the sole reason it vanished. (3) MY CALL, FLAGGED: the blast is NOT deleted, it MOVED to the hub's death (the recipe-break branch, whose own comment proves teardownSpawners never reaches it — so no blast on a win screen or title return, the same property awardSpawnerKillReward already relies on). They objected to the tower disappearing, not to it having a blast. (4) The cadence now advances on EVERY due slot, emitted or skipped, so emits stay on the exact grid — 'equal intervals' in their words — instead of banking blocked slots and bursting three at once when a drone dies. (5) DRONE_MAX_PER_SPAWNER de-aliased: it was `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, a restatement of a burst that no longer exists, and is now its own 3 with the provenance kept. The dead constant is DELETED rather than left as a one-valued relic. (6) MEASURED: 9 drones in one 45 s fight with the hub still standing (was 3 then gone), peak 2 live against the cap of 3 — matching the 5 s-cadence / 8 s-lifetime arithmetic exactly. (7) NEGATIVE CONTROL RUN: restoring the self-destruct gives selfDestructedAt=1199 and the test goes red. (8) THREE tests pinned the retired design and all three were INVERTED, not deleted (the B2b treatment) — including the anti-vacuity test in spawnerPhaseGate, whose detonation coverage was RELOCATED to the new death path rather than dropped. (9) The frozen pre-S119 differential reference kept its own local constant, with a note that importing a live constant into a frozen reference let a production retune silently rewrite history. 3399/3399 across 218 files, tsc 0, bundle 764.0/900 KiB. ⚠ BINDING NOTE: the `file_lacks`/count-0 form fails on the bare constant NAME because the block comment QUOTES the retired constant to record the reversal — so the bindings assert the EXECUTABLE form is gone (`>= STRUCTURE_SELFDESTRUCT_DRONE_COUNT` count 0) and the name survives exactly once, as history. Fourth instance of that lesson this session, and now a habit. ⛔ MCV CAUGHT ME AT THE STOP GATE, and it was right. Two of these bindings pinned the wording of BACKLOG.md's to-do block AS IT STOOD WHILE T1/T2 WERE PENDING (`- [ ] **T1 …` and the 'NEXT SESSION'S TOP TWO' heading). The handoff then legitimately rewrote that block to record both as SHIPPED — so my own assertions described a state the file deliberately no longer had, and the verifier reported 2 hard fails. THE LESSON IS DISTINCT FROM THE EARLIER FOUR: never bind a CODE claim to the transient STATUS TEXT of a planning document, because closing the work is exactly what changes it. Re-pointed at the stable substance — both items recorded as `- [x]` with their commit.",
       "verification": [
         {
           "type": "file_lacks",
@@ -760,16 +760,21 @@
           "value": 1
         },
         {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "NEXT SESSION'S TOP TWO — OWNER PLAYTEST OF S159"
-        },
-        {
           "type": "grep_count",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "pattern": "^- \\[ \\] \\*\\*T[12] ",
+          "pattern": "^- \\[x\\] \\*\\*T[12] ",
           "op": "==",
           "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "DONE THE SAME SESSION — THE OWNER'S S159 PLAYTEST"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "commit `c90b444`, deploy"
         }
       ]
     }
@@ -844,6 +849,11 @@
       "priority": "S159-P9",
       "lesson": "**\"WTF, IT SHOULD NOT BE SO\" CAN MEAN \"I CHANGED MY MIND\", AND TREATING IT AS A BUG WOULD HAVE DELETED THEIR OWN MECHANIC.** The drone hub vanishing after three drones was the S113 design the owner chose, glass-cannon and all, recorded in that PDR's R3. The cheap read was 'fix the disappearing tower' — which would have quietly binned the lightning storm they never complained about. Checking the archive first turned a bug fix into a RULING REVERSAL with one narrow question (does the blast survive?), and the answer was to MOVE it rather than remove it. **Before fixing what a player reports, find out whether they specified it.**",
       "tag": "#they-may-have-specified-it"
+    },
+    {
+      "priority": "S159-P9",
+      "lesson": "**NEVER BIND A CODE CLAIM TO THE STATUS TEXT OF A PLANNING DOCUMENT — CLOSING THE WORK IS WHAT CHANGES IT.** Two P9 bindings asserted BACKLOG.md's wording as it stood while the two faults were PENDING (`- [ ] **T1 …`, and a 'NEXT SESSION'S TOP TWO' heading). The handoff then correctly rewrote that block to record both as shipped, and the Stop gate reported 2 hard fails against my own claims. Distinct from the session's four earlier binding lessons, which were all about over-strict `file_lacks` needles catching a docblock: this one is about binding to something whose whole purpose is to change. **Bind to the substance that survives the work being finished** — here, both items recorded as `[x]` with their commit. And the gate earning its keep at the very last step is the argument for it.",
+      "tag": "#never-bind-to-planning-status-text"
     }
   ],
   "totals": {
@@ -5106,7 +5116,7 @@
       "own_numbers": "a FIFTH figure in my own paperwork was written before being measured (the handoff diff stat again: claimed 35 files/4,477, measured 36/4,386). Caught by re-measuring before archiving, which is now the habit the earlier four earned."
     }
   },
-  "reflexion_s159_archived_count": 14,
+  "reflexion_s159_archived_count": 15,
   "close_gates_s159": {
     "tsc": "exit 0",
     "vitest": "3399/3399 across 218 files",
