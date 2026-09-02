@@ -1,5 +1,11 @@
 /**
- * SPARK — S158 B2b: **THE ONE STAR TEST, AND WHY IT REPLACED FOUR COMPONENT TESTS.**
+ * SPARK — S158 B2b: **THE ONE STAR TEST, AND WHY IT REPLACED THE COMPONENT TESTS.**
+ *
+ * ⚠ S159 P6 — THIS TITLE SAID *"FOUR"* AND IT REPLACED **THREE**. B2b's own commit message names
+ * them: *"the goblin tower, the laser turret and the lightning hub"*. The **stink tower** — the
+ * first tower a player builds, per `constants.ts` — was still on the component test for a further
+ * session, so the bug the owner reported twice was still live in the recipe most likely to hit it.
+ * It joined at S159 P6. Counting the sites you fixed is not the same as counting the sites.
  *
  * ## The bug, measured
  *
@@ -35,12 +41,35 @@
  * `(hub type, degree)`. A sixth shape bonded to the HUB itself does change the shape you built, so it
  * still un-makes the tower. Only the LEAVES are now allowed to have a life of their own.
  *
- * ⚠ **AND ONE CONSEQUENCE THE OWNER SHOULD RULE ON, FLAGGED RATHER THAN ABSORBED.** Dropping the
- * component-size clause means recipes may now OVERLAP: a Circle that is a leaf of a lightning hub can
- * simultaneously be the hub of a goblin tower if it has three Circle neighbours of its own. Before,
- * the size gate made that impossible. It reads as a reward for dense building — *"build the shape,
- * get the tower"* taken literally — but it also means a big lattice can sprout towers nobody planned.
- * Say the word and the leaves can be required to belong to exactly one star.
+ * ⚠ **AND ONE CONSEQUENCE THE OWNER SHOULD RULE ON — RE-MEASURED IN S159 P7, BECAUSE THE VERSION OF
+ * THIS PARAGRAPH THAT ASKED FOR THE RULING DESCRIBED SOMETHING THAT CANNOT HAPPEN.**
+ *
+ * It said: *"a Circle that is a leaf of a lightning hub can simultaneously be the hub of a goblin
+ * tower if it has three Circle neighbours of its own"*. It cannot. A goblin-tower hub requires EVERY
+ * neighbour to be a Circle, and a leaf of a lightning hub is bonded to that hub — a **Dot** — so the
+ * all-Circle test fails on that arm. (The degree was wrong too: the goblin hub is 4, not 3.)
+ * `starOverlap.test.ts` constructs that exact lattice and asserts the refusal.
+ *
+ * The overlaps that ARE real come from **shared LEAVES**, and they are these, each one constructed
+ * and costed in that test file:
+ *
+ *   · **two goblin towers chained hub-to-hub** — each hub is the other's leaf, since they share the
+ *     Circle leaf type: **8 Circles for two towers** instead of 10;
+ *   · **a stink tower and a lightning hub sharing Circle leaves** — one Circle can be a leaf of both,
+ *     because a leaf's other bonds are unconstrained: **7 shapes for two towers** instead of 10.
+ *     ⚠ This one is NEW as of S159 P6: the stink tower was the fourth site of the B2b bug and its
+ *     component clause had been forbidding every overlap involving it;
+ *   · **not the laser turret, ever** — Spiral leaves share no type with the Circle-leaved stars, so
+ *     two of the four recipes cannot participate at all.
+ *
+ * ⭐ AND THE ARGUMENT FOR LEAVING IT ALONE, which the first version of this flag did not have: the
+ * saving is PAID FOR. A shared leaf is a shared weakness — eat one Circle and BOTH towers fall in the
+ * same tick, which the test also asserts. Dense building buys a discount and a single point of
+ * failure at the same time, and that is a trade a player can see and an opponent can aim at. It reads
+ * as the game rewarding a good build rather than as an exploit.
+ *
+ * Say the word and the leaves can be required to belong to exactly one star — but the number to weigh
+ * is a 20-30 % shape discount on the second tower, not "a lattice sprouting towers nobody planned".
  */
 
 import type { SparkType } from '../../constants.ts';

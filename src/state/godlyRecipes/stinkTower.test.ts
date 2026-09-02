@@ -109,12 +109,37 @@ describe('S141 P1 — the stink-tower predicate', () => {
     expect(isStinkTowerComponent(w, hub.id)).toBe(true);
   });
 
-  it('rejects an extra shape attached anywhere on the component', () => {
+  it('⭐ S159 P6 — TOLERATES an extra shape attached to a LEAF (was: rejected it)', () => {
+    // INVERTED, not deleted — the S158 B2b treatment. This test used to assert the defect: bonding
+    // one ordinary shape onto one leaf grew the component past `STINK_TOWER_SIZE`, the predicate
+    // returned false, and the 0.5 s re-validation poll tore the tower down silently. The owner
+    // reported exactly that about the drone tower, twice. B2b fixed the three recipes it knew about
+    // and this was the fourth. On a real board you build things next to each other.
     const w = setup();
     const hub = buildStink(w, 1);
     const leaf = w.primitives.get(asPrimitiveId(2))!;
-    bond(w, leaf, addPrim(w, 99, SparkType.Dot, 400, 400)); // component size now 5
-    expect(isStinkTowerComponent(w, hub)).toBe(false);
+    bond(w, leaf, addPrim(w, 99, SparkType.Dot, 400, 400)); // component size now 5 — irrelevant now
+    expect(isStinkTowerComponent(w, hub)).toBe(true);
+  });
+
+  it('⭐ S159 P6 — and still DIES when its own star breaks', () => {
+    // The other half of the same ruling: the star at the anchor is what matters, so a fourth shape
+    // on the HUB (degree 3 -> 4) un-makes the tower, and so does losing a leaf.
+    const wHub = setup();
+    const hubA = buildStink(wHub, 1);
+    bond(wHub, wHub.primitives.get(hubA)!, addPrim(wHub, 98, STINK_LEAF_TYPE, 420, 420));
+    expect(isStinkTowerComponent(wHub, hubA)).toBe(false);
+
+    const wLeaf = setup();
+    const hubB = buildStink(wLeaf, 1);
+    const eaten = asPrimitiveId(2);
+    const bondIds = [...wLeaf.primitives.get(eaten)!.bonds];
+    for (const b of bondIds) {
+      wLeaf.bonds.delete(b);
+      wLeaf.primitives.get(hubB)!.bonds.delete(b);
+    }
+    wLeaf.primitives.delete(eaten);
+    expect(isStinkTowerComponent(wLeaf, hubB)).toBe(false);
   });
 
   it('skips an anchor that already carries a live defender of ANY kind', () => {
@@ -197,16 +222,23 @@ describe('S141 P1 — MID-BUILD DISJOINTNESS SWEEP (the top risk both Council se
     expect([SparkType.Dot, SparkType.Triangle, SparkType.Line]).not.toContain(STINK_HUB_TYPE);
   });
 
-  it('⚠ ACCIDENTAL CONSTRUCTION IS REAL AND IS DOCUMENTED, NOT DENIED', () => {
-    // A Square dropped among three loose Circles DOES build a tower. This test exists so the
-    // behaviour is recorded as known rather than discovered in playtest — and so that the two
-    // mitigations (exact-size self-heal, and no blast on deconstruction) are provably load-bearing.
+  it('⚠ ACCIDENTAL CONSTRUCTION IS REAL, DOCUMENTED, AND SINCE S159 P6 IT NO LONGER SELF-HEALS', () => {
+    // A Square dropped among three loose Circles DOES build a tower. Recorded so the behaviour is
+    // known rather than discovered in playtest.
+    //
+    // ⛔ AND ONE OF THE TWO S141 MITIGATIONS IS GONE ON PURPOSE. S141 listed "the exact-size
+    // self-heal" — the accidental tower vanished as soon as the player kept building — and that
+    // self-heal WAS the component clause S158 B2b identified as a bug. It cannot be both. Under the
+    // star test an accidental stink tower is PERMANENT until its own star breaks, and that is the
+    // right trade: a windfall tower costs the player nothing (the shapes were already on the board),
+    // whereas the old behaviour destroyed towers they built ON PURPOSE, which is what the owner
+    // actually complained about. The second mitigation — no death blast on deconstruction — stands.
     const w = setup();
     const hub = buildStink(w, 1);
     expect(isStinkTowerComponent(w, hub)).toBe(true);
-    // …and it self-heals the moment the player keeps building.
+    // Building on: the tower SURVIVES now. This assertion is the inversion.
     const leaf = w.primitives.get(asPrimitiveId(2))!;
     bond(w, leaf, addPrim(w, 50, SparkType.Dot, 500, 500));
-    expect(isStinkTowerComponent(w, hub)).toBe(false);
+    expect(isStinkTowerComponent(w, hub)).toBe(true);
   });
 });

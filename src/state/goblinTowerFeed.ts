@@ -27,22 +27,26 @@
  * re-checks ownership, the spawner's recipe and affordability, so a modified client can at worst ask
  * for something it already owns and can already pay for.
  *
- * ## ⛔ THE ONE THING S151 P3 DID NOT SHIP — READ THIS BEFORE ASSUMING THE FEATURE IS LIVE
+ * ## ✅ THE GESTURE LANDED IN S152 P2 — this section used to say the opposite, and stayed wrong
  *
- * **Nothing dispatches this action yet.** The tower can be BUILT (it is in `ALL_BLUEPRINT_IDS`, and
- * `blueprints.test.ts` stamps it through the live reducer and matcher), it IGNITES, it TEARS DOWN
- * when its star breaks (`recipeStillSatisfied`), its six outputs exist with owner-supplied stats,
- * and this reducer is fully gated and tested. What is missing is the PLAYER GESTURE: a way to pick
- * a shape and hand it over.
+ * It read *"⛔ THE ONE THING S151 P3 DID NOT SHIP — READ THIS BEFORE ASSUMING THE FEATURE IS LIVE …
+ * Nothing dispatches this action yet"*, and every word of that was true when it was written. **S152
+ * P2 shipped the missing half one session later and nobody came back to this file**, so for seven
+ * sessions the loudest comment in it told the next reader that a live, player-reachable mechanic was
+ * unreachable. That is worse than no comment: a stale ⛔ invites someone to re-implement a shipped
+ * gesture, or to "fix" a feature that works.
  *
- * The natural home is the S152 FIX/SCRAP structure popover — a player already clicks a structure and
- * gets a panel — so this wants a FEED row of six shape buttons alongside those two. That is UI work
- * (panel layout, hit-testing, the affordability readout), deliberately deferred rather than
- * half-wired at the end of a session.
+ * The gesture is the **FEED row** in the structure popover — six shape buttons under FIX/SCRAP
+ * (`render/structurePanel.ts`, the home this file originally nominated), hit-tested in
+ * `input/controls.ts` and dispatched at `main.ts:817`. `FEED_TOWER` is on the protocol allowlist
+ * (`protocol.ts:979`) so a client's intent reaches the host. All six goblin kinds are therefore
+ * reachable in play: the row shows all six buttons always, never only the affordable ones, so a
+ * player can learn that Square makes the shield goblin while holding no Squares.
  *
- * ⚠ Until it lands, this reducer is REACHABLE ONLY BY A DIRECT DISPATCH (tests, or a peer sending
- * the intent). It is not dead code and it is not wired — say so plainly rather than letting a reader
- * infer either.
+ * ⚠ WHAT IS STILL TRUE: the reducer is also reachable by DIRECT DISPATCH (tests, or a peer sending
+ * the intent), and its gates are what make that safe rather than a hole. Read them as the authority
+ * on legality — the panel mirrors them (it counts `bankCountOf`, exactly what Gate 4 checks) but the
+ * panel is not the enforcement.
  */
 
 import { SparkType } from '../constants.ts';

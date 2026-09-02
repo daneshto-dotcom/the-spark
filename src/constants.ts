@@ -1546,9 +1546,16 @@ export const GOBLIN_BAT_PEN = 3;
 /**
  * SUICIDE (Dot) — the owner's "terrorist goblin": *"only one attack that deals 4atk and 0 pierce in
  * an area of effect."*
- * ⚠ THE AoE SHAPE IS NOT IMPLEMENTED IN P3 — it detonates on arrival like the lightning drone, and
- * the drone's own AoE is likewise still a bond-sever rather than a stat-driven blast. Recorded as
- * deferred scope so the number is here when the blast lands, not invented later.
+ * ⭐ S158 P3 — THE AoE LANDED, and this note used to say it had not. `state/creatures/suicideBlast.ts`
+ * spends these numbers: `attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN)` against units and
+ * `primitiveDamageForAtk(GOBLIN_SUICIDE_ATK)` (S158 P3b, the owner's ruling that 4 atk applies to
+ * units AND structures AND connectors) inside `GOBLIN_SUICIDE_BLAST_RADIUS`. Before that fix this
+ * unit was flying the lightning drone's mission entirely — wrong radius, wrong target family, and
+ * 4 ATK applied to nothing.
+ *
+ * ⚠ THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE. See `DRONE_ATK` below: its explosion severs
+ * bonds outright and never reads its own atk/pen, so those two numbers remain declared-but-dead.
+ * `suicideBlast.ts` is the ready-made generalisation when that lands.
  */
 export const GOBLIN_SUICIDE_HP = 2;
 export const GOBLIN_SUICIDE_DEF = 0;
@@ -1559,9 +1566,23 @@ export const GOBLIN_SUICIDE_BLAST_RADIUS = 70;
 
 /**
  * Electric drone — "5 damage(atk) and 1 pierce in an area of effect (suicide drones) … 2hp, 0 def".
- * ⚠ THE AoE SHAPE OF ITS ATTACK IS NOT IMPLEMENTED YET — today the drone detonates via DRONE_EXPLODE,
- * which SEVERS bonds outright rather than dealing this atk in a radius. Recorded as scope, not
- * silently absorbed: see the S151 P2 close-out notes.
+ *
+ * ⛔ **`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD, RE-MEASURED S159 P6.** Their only consumers
+ * are `LIGHTNING_DRONE_CONFIG.atk/pen`, and the drone's one and only attack path
+ * (`droneLifecycle.ts applyDroneExplode`) SEVERS enemy bonds outright inside `DRONE_EXPLODE_RADIUS`
+ * — it never reads atk or pen. So the owner's dictated *"5 damage and 1 pierce in an area of effect"*
+ * currently describes a mechanic the game does not have, while the radius (110) is real and live.
+ *
+ * This is the last unbuilt item on R77's deferred-mechanics list, and it is a SHAPE change, not the
+ * "sizing" question two handoffs called it. `pinnedDeadStats.test.ts` asserts the gap so the codebase
+ * states it rather than relying on this comment, and `state/creatures/suicideBlast.ts` (S158 P3) is
+ * the ready-made generalisation: same shared ladder, same unit-and-structure split.
+ *
+ * ⚠ IT IS LEFT UNBUILT ON PURPOSE, because converting a bond-SEVER into stat damage is a balance
+ * change the owner should see before it ships: 5 atk / 1 pen is 30 fifths, which breaks a connector
+ * of capacity `count + 4` up to a 26-connector structure and then stops — so a drone would get
+ * WEAKER against big fortresses and keep its bite against small ones. That may well be the right
+ * game; it is not mine to decide silently.
  */
 export const DRONE_HP = 2;
 export const DRONE_ATK = 5;

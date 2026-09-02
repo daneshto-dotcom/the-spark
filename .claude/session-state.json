@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3808,
+  "tool_calls_session_total": 3810,
   "session_id": "S159",
   "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
   "session_start": "2026-09-01T23:05:00+02:00",
@@ -318,7 +318,7 @@
       "unlock_source": "user",
       "title": "stale plan naming - three archived plans still carried a STATUS: IN-PROGRESS line, so the boot pre-flight warned about all three every session; stamped with their shipped evidence",
       "tier": "Micro",
-      "check_method": "Traced the fix through the machinery that actually fires, which is S158 P1's whole lesson. pre-flight.sh:86 greps plans-archive/*.md for a STATUS LINE, so RENAMING the files would have silenced NOTHING - the STATUS line inside each file is what changed and the rename is cosmetic on top. Verified by re-running that exact grep over the directory: zero matches. Every stamp is evidence re-probed at stamp time rather than inherited from the plan's own claims: goblinMelee is recorded as a FREE STARTER at creatureLifecycle.ts:143, GOBLIN_ARCHER_CONFIG is registered at voltkin-config.ts:728, the stink tower's recipe is blueprints.ts:183; zones.ts (11 KB) plus zoneCastleAnchor, buildLegalityGates.test.ts and the measured 1.9->2.6 re-tune at constants.ts:513 (gatherers/zoneEconomy.test.ts, five seeds); CASTLE_MAX_HP 1500 plus the fallen/survivors win gate at gameState.ts:76. AND ONE PART DID NOT SHIP: castle GUNS. A grep for castleGun|keepGun|castleTurret returns nothing in src/. It is specced WITH an owner ruling already attached (SPARK_TD_SESSION_SPECS.md:59 Q4 - retaliation-only against anything that damaged this castle within 300 ticks; :208-230 costs it as a defender-FSM reuse) and it is the same ground as the owner's elemental-keeps idea. Carried forward as the top recommendation rather than closed, and the stamp says so in as many words so that no future reader takes the word CLOSED to mean the work was dropped.",
+      "check_method": "Traced the fix through the machinery that actually fires, which is S158 P1's whole lesson. pre-flight.sh:86 greps plans-archive/*.md for a STATUS LINE, so RENAMING the files would have silenced NOTHING - the STATUS line inside each file is what changed and the rename is cosmetic on top. Verified by re-running that exact grep over the directory: zero matches. Every stamp is evidence re-probed at stamp time rather than inherited from the plan's own claims: goblinMelee is live and fully tested (P6 CORRECTED THIS LINE: P4 first cited creatureLifecycle.ts:143 as recording it a FREE STARTER granted per seat, and that comment had itself gone stale — seedStartingUnits was deleted under R49 and S148 PA made the empty opening a ruling. All three starter units are obtained by FEEDING THE GOBLIN TOWER. Both the source comment and the plan stamp are fixed), GOBLIN_ARCHER_CONFIG is registered at voltkin-config.ts:728, the stink tower's recipe is blueprints.ts:183; zones.ts (11 KB) plus zoneCastleAnchor, buildLegalityGates.test.ts and the measured 1.9->2.6 re-tune at constants.ts:513 (gatherers/zoneEconomy.test.ts, five seeds); CASTLE_MAX_HP 1500 plus the fallen/survivors win gate at gameState.ts:76. AND ONE PART DID NOT SHIP: castle GUNS. A grep for castleGun|keepGun|castleTurret returns nothing in src/. It is specced WITH an owner ruling already attached (SPARK_TD_SESSION_SPECS.md:59 Q4 - retaliation-only against anything that damaged this castle within 300 ticks; :208-230 costs it as a defender-FSM reuse) and it is the same ground as the owner's elemental-keeps idea. Carried forward as the top recommendation rather than closed, and the stamp says so in as many words so that no future reader takes the word CLOSED to mean the work was dropped.",
       "verification": [
         {
           "type": "file_exists",
@@ -467,21 +467,162 @@
       "id": "P6",
       "priority_id": "S159-P6",
       "name": "coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence",
-      "status": "in_progress",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "coherence sweep (owner mandate) - found and fixed the FOURTH site of the S158 B2b tower bug, six stale claims that had gone false, and pinned the one real declared-but-dead stat",
+      "tier": "Standard",
+      "check_method": "Systematic sweep on two grep passes (unbuilt/dead/NOT-IMPLEMENTED markers, then deferred/unwired/no-caller claims), each hit verified against the code rather than trusted. SEVEN findings, all fixed:\n(1) ⭐ THE REAL BUG: the STINK TOWER was the FOURTH site of the S158 B2b defect and was missed. B2b's commit message names the three it fixed ('the goblin tower, the laser turret and the lightning hub') while starShape.ts's title claimed it replaced FOUR component tests. isStinkTowerComponent still ran the whole-component clause, so bonding ONE ordinary shape onto ONE LEAF of a stink tower made the 0.5 s re-validation poll tear it down silently and permanently - the owner's own reported bug, live in the recipe most likely to hit it, because constants.ts records the stink tower as the FIRST tower a player builds and the opening BUILD is funded for exactly its four shapes. Converted to the shared isStarAt. Exactly two tests failed, both of which deliberately pinned the old behaviour, and both were INVERTED not deleted (the B2b treatment) plus a third added for the other half of the ruling (a fourth shape on the HUB, and a leaf eaten, both still tear it down). One S141 mitigation is knowingly lost: an accidental stink tower no longer self-heals, because that self-heal WAS the buggy clause - stated in the code and in the test, with the argument for the trade.\n(2) goblinTowerFeed.ts opened with a ⛔ 'READ THIS BEFORE ASSUMING THE FEATURE IS LIVE - nothing dispatches this action yet'. S152 P2 shipped the FEED row one session later and nobody came back: for seven sessions the loudest comment in the file told the next reader that a live, player-reachable mechanic was unreachable. Verified live end to end (structurePanel row -> controls hit-test -> main.ts:817 dispatch -> protocol allowlist) and corrected.\n(3) gameMode.ts said goblins come from the tower 'which is S153 and unbuilt' - built since S151 P3 + S152 P2.\n(4) constants.ts said the terrorist goblin's AoE was NOT IMPLEMENTED - it landed in S158 P3/P3b and suicideBlast.ts spends both owner numbers.\n(5) voltkin-config.ts still described the S158 P3 BUG as the unit's design ('selfExplode routes it down the lightning drone's detonate-on-arrival path').\n(6) creatureLifecycle.ts justified its null-spawner gate as 'protecting the FREE STARTER units - each seat is granted one goblin of each kind'. No seat is granted anything: seedStartingUnits was deleted under R49 and S148 PA made the empty opening a ruling. The gate is live for a DIFFERENT reason (it bounds SPAWN_CREATURE as a client intent, which is on the protocol allowlist) and now says so. This one also invalidated a claim in P4's own check_method, which is corrected in place rather than left.\n(7) THE ONE REAL declared-but-dead stat: DRONE_ATK/DRONE_PEN reach LIGHTNING_DRONE_CONFIG and stop - applyDroneExplode severs bonds and never reads either, so the owner's '5 damage and 1 pierce in an area of effect' describes a mechanic the game does not have. NOT silently converted: turning a bond-sever into stat damage is a balance change the owner should see (30 fifths breaks a connector up to a 26-connector structure and then stops, so a drone gets WEAKER against fortresses). Pinned by pinnedDeadStats.test.ts, which is DESIGNED TO FAIL when the gap closes and says so in its message.\nA.0 E1 CLOSED: the 3352-vs-3353 delta is unreproducible. The count is deterministic on this machine across five runs (3353 -> 3360 -> 3374 -> 3381 -> 3385 -> 3391, every delta matching my own additions), the file count matched at 212, no conditional test registration exists (the only env-sniffing test varies DURATION, not count), and the S158 figure was recorded in the last code commit's own message. Read as a transcription slip, recorded rather than explained away.\nGates: tsc 0 - 3391/3391 across 216 files - e2e:gating exit 0, 62 passed (read from a file, not a pipe). ⚠ BINDING NOTE (third instance this session, so it is now a rule): a binding for a CORRECTED COMMENT cannot be `file_lacks` on the old wording — a correction QUOTES what it corrects. The shape that works is `file_contains` the correction marker plus `grep_count == 1` on the old phrase, i.e. 'it survives only as history, never as an assertion'.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
+          "needle": "return isStarAt(world, squareId, STINK_HUB_TYPE, STINK_LEAF_TYPE, STINK_TOWER_HUB_DEGREE);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
+          "needle": "comp.primitiveIds.size !== STINK_TOWER_SIZE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
+          "needle": "THE FOURTH SITE OF THE S158 B2b BUG"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
+          "pattern": "THIS TITLE SAID",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.test.ts",
+          "needle": "TOLERATES an extra shape attached to a LEAF (was: rejected it)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.test.ts",
+          "needle": "SINCE S159 P6 IT NO LONGER SELF-HEALS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
+          "needle": "THE GESTURE LANDED IN S152 P2"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
+          "needle": "**Nothing dispatches this action yet.**"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "THE AoE SHAPE IS NOT IMPLEMENTED IN P3"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
+          "needle": "S158 P3 — IT HAS ITS OWN BLAST NOW"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
+          "needle": "No seat is granted"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\pinnedDeadStats.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\pinnedDeadStats.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameMode.ts",
+          "needle": "S159 P6: that clause used to end"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameMode.ts",
+          "pattern": "which is S153 and unbuilt",
+          "op": "==",
+          "value": 1
+        }
+      ]
     },
     {
       "id": "P7",
       "priority_id": "S159-P7",
       "name": "the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "title": "the four numbers that are mine - three were already flagged at their constants; the fourth (recipe OVERLAP) was a real design question whose flagged example was impossible",
+      "tier": "Micro",
+      "check_method": "Each of the four checked at its constant, then the one that was a real question was MEASURED instead of asked. (a) drone cadence 5 s - already flagged 'A DIAL, not a derivation', with the 45 s-fight arithmetic and the owner's own numbers (count 3, self-destruct radius) named as theirs. (b) stink-bag HP 1 - already flagged 'THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS'. (d) the 12x aura nerf - already carries its full provenance at STINK_AURA_CADENCE_TICKS, including the measurement that the shipped rate was 2.4 atk/sec against the owner's 0.2 and that STINK_AURA_DAMAGE was never an owner number either. All three need nothing but the owner's eye.\n(c) RECIPE OVERLAP was different: the paragraph asking the owner to rule described something that CANNOT HAPPEN. It said a Circle leaf of a lightning hub could simultaneously be a goblin-tower hub. A goblin hub requires EVERY neighbour to be a Circle, and that leaf is bonded to the lightning hub's DOT - so the all-Circle test fails on that arm. The degree was wrong too (4, not 3). Asking for a ruling on it would have wasted the owner's time on a non-existent case, which is the mirror of S158's lesson about asking for rulings that already exist.\nThe overlaps that ARE real are shared LEAVES, and each is now constructed and COSTED in starOverlap.test.ts: two goblin towers chained hub-to-hub = 8 Circles instead of 10; a stink tower and a lightning hub sharing Circle leaves = 7 shapes instead of 10 (NEW as of P6, since the stink tower's component clause had been forbidding every overlap involving it); and the laser turret cannot participate at all because Spiral leaves share no type with the Circle-leaved stars. The fifth test is the argument for leaving it alone: a shared leaf is a shared WEAKNESS - eat one Circle and BOTH towers fall in the same tick. The discount is paid for, which reads as the game rewarding a dense build rather than as an exploit. So the owner now rules on a 20-30 % shape discount with a matching single point of failure, not on 'a lattice sprouting towers nobody planned'.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
+          "needle": "the flagged example is IMPOSSIBLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
+          "needle": "a shared leaf still un-makes BOTH towers when it is eaten"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
+          "needle": "RE-MEASURED IN S159 P7"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
+          "needle": "if it has three Circle neighbours of its own. Before,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "A DIAL, not a derivation"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "THE AURA IS 0.2 ATK/SEC. IT HAS BEEN 2.4 SINCE S157"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -529,6 +670,21 @@
       "priority": "S159-P5",
       "lesson": "**I BROKE THE 'NEVER READ AN EXIT CODE THROUGH A PIPE' RULE IN THE COMMAND THAT WAS CHECKING COMPLIANCE.** `verify-session-claims.py ... | tail -2 && git commit` reads TAIL's status, not the verifier's, so a hard_fail=2 verdict scrolled past and the commit went through anyway. The project has this rule written down for `e2e:gating` and I applied it there and nowhere else. **A rule about exit codes is about EVERY gate, not the one it was first written for** — redirect to a file and echo `$?`. Second half of the same lesson: both times a binding failed this session it was an OVER-STRICT `file_lacks` catching the docblock that EXPLAINS the removed thing. A behaviour claim belongs on the executable form (the quoted array entry), never on the prose.",
       "tag": "#exit-code-through-a-pipe"
+    },
+    {
+      "priority": "S159-P6",
+      "lesson": "**THE FOUR-SITES WARNING CAUGHT S158 TWICE AND THEN S158 ITSELF SHIPPED THREE OF FOUR.** B2b removed the whole-component clause from the goblin tower, the laser turret and the lightning hub, and `starShape.ts` announced that it had replaced FOUR component tests. The stink tower - the FIRST tower a player builds, on the most crowded ground they will ever build on - kept the clause for another session, so the bug the owner reported twice stayed live in the recipe most likely to hit it. **Counting the sites you fixed is not the same as counting the sites**; grep for the CLAUSE, not for the file names you remember touching.",
+      "tag": "#count-the-sites-not-your-edits"
+    },
+    {
+      "priority": "S159-P6",
+      "lesson": "**A STALE ⛔ IS WORSE THAN NO COMMENT, AND THE LOUDEST ONES GO STALE FIRST.** `goblinTowerFeed.ts` opened with *'READ THIS BEFORE ASSUMING THE FEATURE IS LIVE - nothing dispatches this action yet'*. The gesture shipped ONE SESSION LATER and nobody came back, so for seven sessions the first thing a reader saw was an instruction to distrust a working mechanic. Five more comments in this sweep had gone false the same way - each written carefully, each true when written, none owned by the session that made it false. **When you make a feature real, grep for the comments that said it was not.**",
+      "tag": "#stale-warnings-outlive-their-truth"
+    },
+    {
+      "priority": "S159-P7",
+      "lesson": "**BEFORE ASKING THE OWNER TO RULE, CHECK THE CASE EXISTS.** The flag asking them to rule on recipe overlap described a lattice that cannot be built: a lightning hub's Circle leaf cannot be a goblin-tower hub, because the goblin hub needs EVERY arm to be a Circle and that leaf is bonded to a Dot. The degree in the sentence was wrong too. S158's lesson was 'grep the archive before asking for a ruling that already exists'; this is its mirror - **construct the case before asking for a ruling on it.** Three lines of test turned a vague warning into a costed trade (20-30 % fewer shapes, paid for by a shared point of failure).",
+      "tag": "#construct-the-case-before-asking"
     }
   ],
   "totals": {

@@ -1,7 +1,8 @@
 # SCOPE AMENDMENT (Rule 16) — S137: the three free starter designs
 
 **STATUS: COMPLETED** (stamped S159 P4) — all three starter designs SHIPPED, across S138–S158 rather than in the single "Session A" this document planned for, which is why its own STATUS line went stale and the SessionStart pre-flight warned about it every boot for weeks. Evidence, re-probed at the stamp:
-· **Goblin Swordsman** — `goblinMelee`, and `creatureLifecycle.ts:143` records it as a FREE STARTER protected by the blueprint Q10 invariant (*"each seat is granted one goblin of each kind"*).
+· **Goblin Swordsman** — `goblinMelee`, live and fully tested.
+  ⚠ CORRECTED WITHIN S159 (P6 caught P4's own stamp): the first version of this line cited `creatureLifecycle.ts:143` as recording it a FREE STARTER *"granted one per seat"*. That comment had gone stale — `seedStartingUnits` was DELETED under R49 and S148 PA made the empty opening a ruling (one gatherer, one castle, zero creatures). **All three units are obtained by FEEDING THE GOBLIN TOWER** (R18/R24: one goblin per shape, the shape choosing which of six kinds) — reducer S151 P3, FEED-row gesture S152 P2. The comment in `creatureLifecycle.ts` has been re-stated to describe what its gate actually bounds today, which is the `SPAWN_CREATURE` client intent.
 · **Goblin Archer** — `goblinArcher`, `GOBLIN_ARCHER_CONFIG` registered at `voltkin-config.ts:728`, stats at `constants.ts:1433-1439`, and he has had a real arrow since S153 P2 (`render/creatureProjectile.ts`).
 · **Stink Tower** — `DefenderKind` includes `'stinkTower'`, its recipe is `blueprints.ts:183 star('stinkTower')` at `STINK_TOWER_SIZE`, and S157/S158 took it all the way to landed bags that are destructible and burst.
 ⚠ The S138 amendment box below ("THE CONSEQUENCE ABOVE WAS FALSE FOR 2 OF THE 3 UNITS") is the reason this took ten sessions instead of one, and it is worth reading before costing any "it is just config + art" claim.

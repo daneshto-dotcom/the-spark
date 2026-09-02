@@ -139,10 +139,18 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
      * one-per-account cap they are objecting to, and B4 only ever moved it from the match to the
      * seat.
      *
-     * ⚠ THE GATE STAYS FOR EVERY OTHER null-spawner CREATURE, and that is not timidity. It is the
-     * blueprint Q10 invariant protecting the FREE STARTER units — each seat is granted one goblin
-     * of each kind, and without it a re-grant would silently double a seat's army. The owner's
-     * ruling is about the Voltkin they BUILD, not about the units they are given.
+     * ⚠ THE GATE STAYS FOR EVERY OTHER null-spawner CREATURE, and that is not timidity — but S159 P6
+     * had to re-state WHY, because the reason written here had gone false. It said the gate protects
+     * *"the FREE STARTER units — each seat is granted one goblin of each kind"*. **No seat is granted
+     * anything any more.** `seedStartingUnits` was deleted under R49 (see the ⛔ note in
+     * `gameMode.ts`), and S148 PA made the empty opening a ruling: a fresh match holds one gatherer,
+     * one castle and ZERO creatures per seat. Goblins are obtained by FEEDING the goblin tower.
+     *
+     * What the gate actually does now is bound `SPAWN_CREATURE` **as a client intent**: it is on the
+     * protocol allowlist (`protocol.ts:1009`), so a peer can send it, and without this a client could
+     * ask for an army of null-spawner units. One live unit per (owner, type) is that bound. Same
+     * blueprint-Q10 shape, a live reason instead of a retired one — and the owner's B3 ruling is
+     * still about the Voltkin they BUILD.
      */
     if (action.creatureType !== 'voltkin') {
       for (const c of world.creatures.values()) {

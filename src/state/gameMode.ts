@@ -295,7 +295,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
    *
    *   ⛔ `seedStartingUnits(world)` — granted every seat one `goblinMelee`. R49: goblins are produced
    *      by the GOBLIN TOWER (R18/R24 — feed it shapes, one goblin per shape, the shape choosing which
-   *      of six kinds), which is S153 and unbuilt. This explicitly reverses the owner's own S139
+   *      of six kinds). ⭐ S159 P6: that clause used to end *"which is S153 and unbuilt"* and it is
+   *      BUILT — the reducer landed in S151 P3 (`goblinTowerFeed.ts`) and the player gesture, the FEED
+   *      row of six shape buttons in the structure popover, landed in S152 P2 (dispatched at
+   *      `main.ts:817`). So the sentence's premise — goblins come from the tower — is now load-bearing
+   *      rather than aspirational, which is exactly what makes removing the free grant coherent.
+   *      This explicitly reverses the owner's own S139
    *      ruling ("each player starts with one goblin of every kind"), which predates the tower-defence
    *      pivot; the owner confirmed the reversal. The `goblinMelee` creature type is RETAINED and still
    *      fully tested — only the seeding is gone, so its tower can mint it unchanged.

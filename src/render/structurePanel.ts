@@ -269,8 +269,10 @@ export function structureActionModel(
    *
    * `applyFeedTower` was built, gated and covered by 13 tests, and NOTHING DISPATCHED IT — so the
    * goblin tower could be built, could ignite and could tear down, while its entire mechanic was
-   * unreachable in play. `goblinTowerFeed.ts` says so at the top of the file and names this panel
-   * as the intended home.
+   * unreachable in play. `goblinTowerFeed.ts` nominated this panel as the intended home — and note
+   * that its docblock went on describing the mechanic as unwired for seven sessions after this row
+   * shipped, until S159 P6 corrected it. If you change this row, change that docblock with it: it is
+   * the first thing a reader of the reducer sees.
    *
    * Six buttons, always all six, never only the affordable ones — the standing contract in this
    * codebase for a refused control (`castleStructuresModel`: a disabled tile must SAY why, never

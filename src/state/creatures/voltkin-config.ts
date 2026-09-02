@@ -691,10 +691,25 @@ export const GOBLIN_BAT_CONFIG: CreatureConfig = {
 
 /**
  * SUICIDE (Dot) — the owner's "terrorist goblin": one attack, 4 ATK, in an area of effect.
- * ⚠ `selfExplode: true` routes it down the lightning drone's detonate-on-arrival path, so it DOES
- * die on contact today. The AoE SHAPE of the blast is deferred with the drone's own — see
- * GOBLIN_SUICIDE_BLAST_RADIUS, which is deliberately smaller than DRONE_EXPLODE_RADIUS per owner
- * R77 (*"the area of effect on the drones is larger then terrorist goblin"*).
+ *
+ * ⭐ S158 P3 — IT HAS ITS OWN BLAST NOW, and this note used to describe the bug rather than the unit.
+ * It read *"`selfExplode: true` routes it down the lightning drone's detonate-on-arrival path … The
+ * AoE SHAPE of the blast is deferred with the drone's own"*, and that was literally what happened:
+ * because this config sets BOTH `selfExplode` and `targetsStructures`, the drone branch in
+ * `hostTick` claimed it first and it flew the drone's entire mission — enemy CONNECTORS instead of
+ * shapes, `applyDroneExplode` (which severs and never reads atk/pen, so its 4 ATK hit NOTHING), and
+ * the drone's 110 px radius instead of its own 70. S158 P3 narrowed that branch with a conjunct;
+ * S158 P3b then applied the owner's ruling that 4 atk lands on units AND structures AND connectors.
+ * The blast lives in `state/creatures/suicideBlast.ts` and spends both of the owner's numbers.
+ *
+ * `GOBLIN_SUICIDE_BLAST_RADIUS` stays deliberately smaller than `DRONE_EXPLODE_RADIUS` per owner R77
+ * (*"the area of effect on the drones is larger then terrorist goblin"*) — a relationship, not two
+ * independent dials, and `suicideGoblin.test.ts` asserts the ordering.
+ *
+ * ⚠ THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE: its explosion severs bonds and never reads
+ * `DRONE_ATK`/`DRONE_PEN`. See the ⛔ block above `DRONE_ATK` in constants.ts, pinned by
+ * `pinnedDeadStats.test.ts`.
+ *
  * Stats are owner R77, transcribed verbatim; see the constants for the sentence each came from.
  */
 export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {

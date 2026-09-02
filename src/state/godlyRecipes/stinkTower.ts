@@ -82,12 +82,15 @@
  * REGISTER_DEFENDER. Registered via side-effect import.
  */
 
-import { SparkType, STINK_TOWER_HUB_DEGREE, STINK_TOWER_SIZE } from '../../constants.ts';
-import { componentOf } from '../../game/structure.ts';
+// ⭐ S159 P6 — `STINK_TOWER_SIZE` and `componentOf` are no longer imported here: the size clause
+// they served WAS the S158 B2b defect. The constant still drives the BLUEPRINT's bill, which is
+// the right place for it — what a recipe costs and what keeps it standing are different questions.
+import { SparkType, STINK_TOWER_HUB_DEGREE } from '../../constants.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
+import { isStarAt } from './starShape.ts';
 
 /**
  * The two shape choices, named so a retune is one edit and so tests can assert the RELATIONSHIP
@@ -97,25 +100,43 @@ export const STINK_HUB_TYPE = SparkType.Square;
 export const STINK_LEAF_TYPE = SparkType.Circle;
 
 /**
- * Read-only check: is the component anchored at `squareId` a 1-Square(deg3) + 3-Circle star?
+ * Read-only check: is `squareId` the hub of a 1-Square(deg3) + 3-Circle STAR?
+ *
+ * ⭐ S159 P6 — **THE FOURTH SITE OF THE S158 B2b BUG. IT WAS MISSED, AND THIS IS THE FIX.**
+ *
+ * Until now this was the only recipe still validating its whole CONNECTED COMPONENT:
+ *
+ *     hub is a Square · hub has exactly 3 bonds · **the component is exactly 4 primitives** ·
+ *     every non-hub member is a Circle
+ *
+ * The third clause is the defect S158 B2b measured and removed — the owner reported it twice about
+ * the drone tower (*"drone tower was NOT producing"*), and the root cause was that bonding ONE
+ * ordinary shape onto ONE LEAF grew the component, failed the predicate, and made the 0.5 s
+ * re-validation poll tear the tower down silently and permanently. B2b's own commit message names
+ * where the identical clause sat: *"the goblin tower, the laser turret and the lightning hub"* —
+ * three recipes. There were FOUR. `starShape.ts` even claims it replaced four component tests; it
+ * replaced three, and this is the one it walked past.
+ *
+ * ⚠ THE CONSEQUENCE IS THE OWNER'S OPENING TOWER. `constants.ts` records that *"the first tower is
+ * the Stink Tower"* and that the opening BUILD is funded for exactly its four shapes — so the tower
+ * a player builds FIRST, on the most crowded ground they will ever build on, was the one that
+ * evaporated when they built next to it.
+ *
+ * ⚠ AND ONE MITIGATION IS LOST BY DESIGN, SAID OUT LOUD BECAUSE IT WAS LOAD-BEARING. S141 P1
+ * documented that a Square dropped among three loose Circles builds a tower nobody planned, and
+ * listed *"the exact-size self-heal"* as one of two mitigations — i.e. the accidental tower
+ * disappeared as soon as the player kept building, precisely BECAUSE of the component clause. Under
+ * the star test an accidental stink tower is now PERMANENT until its own star breaks. That is the
+ * right trade and it is not a close call: a windfall tower costs the player nothing (the shapes were
+ * already on the board), whereas the old behaviour destroyed towers they built on purpose. The other
+ * S141 mitigation — no death blast on deconstruction — is untouched.
+ *
  * Exported so `defenderLifecycle.recipeStillSatisfied` (via the recipe's `stillValid`) can
- * re-validate a live tower's CURRENT component each poll — a chewer eating a Circle leaf, or the
- * player bonding a fourth shape on, drops the size/degree and the tower tears down.
+ * re-validate a live tower each poll: a chewer eating a Circle leaf, a severed arm, or a fourth
+ * shape bonded to the HUB itself all still tear it down, because all three break the star.
  */
 export function isStinkTowerComponent(world: World, squareId: PrimitiveId): boolean {
-  const hub = world.primitives.get(squareId);
-  if (hub === undefined) return false;
-  if (hub.type !== STINK_HUB_TYPE) return false;
-  if (hub.bonds.size !== STINK_TOWER_HUB_DEGREE) return false;
-  const comp = componentOf(hub, world.primitives, world.bonds);
-  if (comp.primitiveIds.size !== STINK_TOWER_SIZE) return false;
-  for (const id of comp.primitiveIds) {
-    if (id === squareId) continue;
-    const p = world.primitives.get(id);
-    if (p === undefined) return false;
-    if (p.type !== STINK_LEAF_TYPE) return false; // every non-hub member must be a Circle
-  }
-  return true;
+  return isStarAt(world, squareId, STINK_HUB_TYPE, STINK_LEAF_TYPE, STINK_TOWER_HUB_DEGREE);
 }
 
 /**
