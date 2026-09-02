@@ -25,14 +25,14 @@ you can check. Everything in §6–§8 is the execution ladder, in dependency or
 
 ---
 
-## 1. OWNER RULINGS — R93 THROUGH R106
+## 1. OWNER RULINGS — R93 THROUGH R115
 
 Ruling numbers continue from R92, the highest on record at authoring time.
 **R101–R106 govern the TECH DRAFT and live in §9**, next to the mechanics they constrain.
 
 | # | Ruling |
 |---|---|
-| **R93** | **THE RACE ROSTER IS SIX, KEYED TO THE SIX PLAYER COLOURS.** Crimson = vampires · Cyan = nagas · Yellow = mummies · Green = zombies · Orange = orcs · Magenta = demons. **Ghosts and ice giants are PARKED, not deleted** — they are races 7 and 8 if the palette ever grows. |
+| **R93** | **THE RACE ROSTER IS SIX, KEYED TO THE SIX PLAYER COLOURS.** Crimson = vampires · Cyan = nagas · Yellow = mummies · Green = zombies · Orange = orcs · Magenta = demons. ⚠ Ghosts and ice giants were displaced when the owner assigned nagas and orcs; **R114 later deleted them outright.** |
 | **R94** | **R88 NARROWED — STATS IDENTICAL, DELIVERY DIFFERS.** Every castle starts at `CASTLE_MAX_HP = 1500` with identical DEF / ATK / range / cadence. Owner: *"it won't be fair if one castle is seven hundred, especially in the beginning."* Races differ in **how the attack looks and travels**, not in what it does. |
 | **R95** | **THE TOWER ROSTER IS ADDITIVE.** Owner: *"there's already the current global towers that everyone can build, but we're adding race towers too which are unique to the player's race."* Every race builds all 7 existing towers. Race towers are EXTRA, and visible only to their owner. |
 | **R96** | **CASTLE UPGRADES ARE BOUGHT WITH VICTORY POINTS. ⚠ THIS AMENDS R29.** R29 said *"shapes may later be spent to raise them"*; the owner's 2026-09-02 wording is *"if you use your victory point to upgrade that."* Victory points win, following the gatherer precedent (`GATHERER_PRICE` / `GATHERER_SPEED_UPGRADE_PRICE` are paid the same way). Recorded as an amendment, not a silent drift. |
@@ -40,6 +40,15 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 | **R98** | **WAVE SIZING: ONE SIGNATURE TOWER PER RACE FIRST.** Owner: *"I do accept starting with one unique tower per race (in the beginning)."* Six towers, not thirty. The full per-tier grid is Wave 3. |
 | **R99** | **ZOMBIES AND MUMMIES MUST NOT CONVERGE.** Both are shambling undead. Zombies = NUMBERS (cheap, fast, disposable — the hound is a pack animal). Mummies = DURABILITY AND DECAY (slow, tanky, curse/debuff). Same stat ceiling, opposite feel. |
 | **R100** | **WHITE IS NOT AVAILABLE AS A PLAYER COLOUR.** `0xe6e6f0` (near-white) means UNOWNED — it is what free shapes are painted. A white castle would read as neutral rubble. `SPARK_COLORS[Dot] = 0xffffff` is the primitive-type LEGEND palette and does not tint anything on the board (`LOCKED_DECISIONS.md:329`). |
+| **R107** | **THE CASTLE EMITS ITS RACE UNIT FREE, ON A TIMER** (~30 s, a dial). ⚠ The owner **reversed himself mid-answer** and this is the later, final version: he first said the castle must be FED like the goblin tower, then *"you know what? maybe we'll do the opposite… your castle always generates spawn, and the tower can [make more]."* Recorded as a reversal so the earlier reading is not resurrected from the transcript. |
+| **R108** | **THE RACE TOWER IS TIER 3 AND IT IS FED, goblin-tower style.** A new tier BELOW the current floor — *"we don't have tier three. we start from tier four."* It produces **the same unit the castle emits**, on demand, by being fed. Owner: *"that's easy to implement"* — and it is, because `goblinTowerFeed.ts` is the working precedent. |
+| **R109** | **ONE FEED SHAPE PER RACE, TAKEN FROM THE PRIMITIVE COLOUR LEGEND.** Owner: *"we already have on the bottom left all the primitives with their colors, so just take from that."* Matching `SPARK_COLORS` to `PLAYER_COLORS` by hue gives the map in §2. ⚠ **Orange→Dot is forced by elimination**, not by hue — there is no orange primitive, and Dot (white) is the only shape left. |
+| **R110** | **A RACE IS EXCLUSIVE — ONE PLAYER PER RACE PER MATCH.** First to choose locks it. Owner's reason, and it is the right one: *"the only way to differentiate them is the colors… it'll be hard to know who's who."* Revisit only if players ever get a second identity marker. |
+| **R111** | **THE GENERAL DRAFT TRACK WALKS THE FOUR STAT AXES**, in this order: wave 5 = ATK · wave 10 = DEF · wave 15 = HP (of spawned units) · wave 20 = PEN. ⚠ The owner said *"10%"* for each; **percentages do not exist in this stat system** — see §9.8. The ORDER is ruled; the magnitude is not yet expressible. |
+| **R112** | **BUILD ONLY WAVE 5 FIRST.** The race perks for waves 10/15/20 are deliberately deferred: *"let's first do level five, and then as we go… Claude can ask me, okay what is for the next tier."* **This is a named trigger, not an oversight** — ask once wave 5 ships. |
+| **R113** | **BUFFS RENDER BESIDE THE PLAYER NAME**, one icon per drafted wave, stacking left to right — *"player one, this is the buff he got for this, this is the buff he got for level ten."* Each buff needs its own generated icon. |
+| **R114** | **GHOSTS AND ICE GIANTS ARE OUT** — not parked. *"There's no more ghost and ice giants."* A 7th/8th colour is possible someday (*"we might add thirty colors, who cares"*) but is explicitly NOT now. |
+| **R115** | **VAMPIRE CHEWERS LOOK VAMPIRIC** — red teeth and/or blood dripping where they walk. The chewer renderer must therefore know its owner's race. Render-only (race already rides on `Player`), and **scoped to vampires only** — this is not a licence to re-skin every shared unit per race. |
 
 ### Standing rulings this spec depends on (do not re-derive)
 
@@ -53,14 +62,17 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 
 ## 2. THE RACE ROSTER — LOCKED
 
-| Colour | Hex | Race | Passive castle spawn | Art status |
-|---|---|---|---|---|
-| Crimson | `0xff3b6b` | **Vampires** | bats | `goblin-batrider` atlas exists and already reads vampiric |
-| Cyan | `0x3bd7ff` | **Nagas** | — | none |
-| Yellow | `0xffe23b` | **Mummies** | — | none |
-| Green | `0x44ff5e` | **Zombies** | **zombie hound** | ✅ `assets-source/zombie-castle/` — idle + walk clips + still. **Attack clip failed twice on veo backpressure (CF-S153-c) and is still missing.** |
-| Orange | `0xff8c1a` | **Orcs** | — | none |
-| Magenta | `0xd73bff` | **Demons** | — | none |
+| Colour | Hex | Race | Race unit | Feed shape (R109) | Art status |
+|---|---|---|---|---|---|
+| Crimson | `0xff3b6b` | **Vampires** | bats | **Triangle** `#FF3B3B` | `goblin-batrider` atlas exists and already reads vampiric |
+| Cyan | `0x3bd7ff` | **Nagas** | — | **Square** `#3B5BFF` | none |
+| Yellow | `0xffe23b` | **Mummies** | — | **Line** `#FFE066` | none |
+| Green | `0x44ff5e` | **Zombies** | **zombie hound** | **Circle** `#3BFF7A` | ✅ `assets-source/zombie-castle/` — idle + walk clips + still. **Attack clip failed twice on veo backpressure (CF-S153-c) and is still missing.** |
+| Orange | `0xff8c1a` | **Orcs** | — | **Dot** `#FFFFFF` | none |
+| Magenta | `0xd73bff` | **Demons** | — | **Spiral** `#A23BFF` | none |
+
+**Each race has ONE unit.** The castle emits it free on a timer (R107); the race tower is fed that
+race's shape to make more of it (R108). Same unit from both sources.
 
 Default seat assignment (`buildMatchRoster`, `net/lobbyRoster.ts:126`) hands out
 `PLAYER_COLORS[denseSeat]`, so today it only ever reaches seats 0–3. **The selection screen (W1-A)
@@ -80,13 +92,15 @@ already on disk under `public/godly/goblin-*`. A rename is a protocol bump for z
 1. **A castle** — per-race art, replacing the placeholder battlemented box in
    `render/gathererRenderer.ts` `drawKeep()`.
 2. **Three castle states** — attacking / damaged / destroyed. Three, not one.
-3. **A passive spawn** — the castle itself produces units over time, distinct from the goblin tower's
-   *fed* spawns. This is the single highest-value mechanical differentiator and it is ONE unit per
-   race, not five towers.
+3. **A free passive spawn** (R107) — the castle emits the race's unit on a ~30 s timer, no feeding.
+   This is the single highest-value mechanical differentiator and it is ONE unit per race.
 4. **A distinct attack delivery** — see R94 and §3.2.
-5. **One signature tower** (Wave 2), then one per tier (Wave 3).
+5. **One tier-3 tower** (R108) — fed the race's shape, makes more of the same unit. Then one per
+   tier (Wave 3).
 6. **A race upgrade branch** (§3.3).
 7. **Per-race gatherer silhouettes** — render-only, zero wire cost, cheapest identity win available.
+8. **Race-flavoured shared units where the owner names one** — currently vampires only, whose chewers
+   get red teeth / blood trails (R115). Scoped deliberately; not a per-race re-skin of everything.
 
 ---
 
@@ -346,7 +360,7 @@ save + wire.
 
 ---
 
-## 7. WAVE 2 — SIX SIGNATURE TOWERS (R98)
+## 7. WAVE 2 — SIX RACE TOWERS, ALL AT A NEW TIER 3 (R98 · R108)
 
 **One tower per race. One protocol bump for all six.** Do not dribble them — each `GodlyId` is a
 serialized literal, so six separate landings cost six bumps.
@@ -370,11 +384,42 @@ band inherits the filter for free (it derives from `castleStructuresModel`).
 still build all seven global towers. The second half is the regression that proves additive-not-
 replacing actually held.
 
-**Tier placement is a design choice, not a rule.** Put each race's signature tower at whatever shape
-count suits its fantasy. §11 records that the owner has not assigned these yet.
+### ⭐ ALL SIX ARE TIER 3, AND TIER 3 DOES NOT EXIST YET (R108)
 
-**Exit gate.** Six race towers, each buildable only by its race, each igniting and surviving
-re-validation; all seven global towers still buildable by everyone; one bump, six sites, green.
+The signature tower is **a new tier below the current floor**. Today the footer runs 4·5·6·7·8; this
+adds a **3** chip on its left. Because the footer is derived from `blueprintCost`
+(`render/footerBandModel.ts`), **the chip appears on its own** — no hardcoded list to edit. That is
+the design paying off.
+
+**All six race towers are the SAME shape and the SAME mechanic**, differing only in what they emit:
+
+- **3 shapes, 2 bonds.** Under R66 the footer number is the SHAPE count, so "tier 3" = 3 shapes.
+  Geometry: a 1-hub + 2-leaf mini-star of that race's feed shape (§2). Needs a blueprint, but they
+  are six instances of one pattern, not six designs.
+- **Fed, goblin-tower style** — put in the race's shape, get one of the race's units. Reuse
+  `state/goblinTowerFeed.ts`; do not write a second feed path.
+- **Unlike the goblin tower, it accepts exactly ONE shape** — its race's. The goblin tower maps all
+  six shapes to six outputs; this maps one shape to one output.
+- **The unit must be weak.** Owner: *"obviously it has to be a pretty weak unit for all of them
+  because if it's only three connectors."*
+
+This collapses "six bespoke towers" into **one tower pattern instantiated six times.** It is by far
+the cheapest version of Wave 2 and it is the owner's own design.
+
+### ⚠ A 3-SHAPE TOWER MOVES THE OPENING ECONOMY — say so before it surprises someone
+
+`zoneEconomy.test.ts` measures a full 5400-tick BUILD with one un-upgraded gatherer: 8–9 shapes
+banked, and the cheapest tower today is the 4-shape stink tower. **A 3-shape tower is cheaper than
+anything that has ever existed in this game**, so every race will open with it, every match, from
+wave 1.
+
+That is probably what the owner wants — immediate race identity — but it is a real shift in the
+opening, and it makes the race tower the new tutorial build rather than the stink tower. **Re-run
+`zoneEconomy.test.ts` after it lands** and report what the opening actually looks like.
+
+**Exit gate.** Six race towers at tier 3, each buildable only by its race, each fed by exactly its
+race's shape, each emitting that race's unit; the footer grows a 3 chip with no hardcoded edit; all
+seven global towers still buildable by everyone; one bump, six sites, green.
 
 ---
 
@@ -446,8 +491,22 @@ is a tuning input for the owner — not a licence to redesign the feature.
 | **Zombies** | Each dead spawned unit **comes back to life once** at 1 HP (R105) | the creature death path | **real work** |
 | **Demons** | Voltkin becomes **DEMONIC VOLTKIN** — **×2 ATK**, and its lightning renders **red and black** | `VOLTKIN` atk + the arc-flash palette | one constant + a palette |
 
-**The general track** is one option per draft, identical for every race. The owner's example is
-*"increase all spawned unit ATK by 10%"*. Later drafts need their own general options — §11 open.
+**The general track (R111)** is one option per draft, identical for every race, walking the four stat
+axes in order:
+
+| Wave | General option |
+|---|---|
+| 5 | **ATTACK** up, for all spawned units |
+| 10 | **DEFENCE** up |
+| 15 | **HP** up |
+| 20 | **PENETRATION** up |
+
+⛔ The owner said "+10%" for each. **Percentages are not representable in this stat system** — see
+§9.8, which is a live blocker with three options for the owner to pick from. The ORDER above is ruled
+and can be built against; the magnitude cannot, yet.
+
+**The race track past wave 5 is deliberately unwritten (R112).** Build wave 5, then ask. This is a
+named trigger, not a gap.
 
 ⭐ **Every perk buffs a GLOBAL tower** — pentagram, stink tower, lightning hub, goblin tower, Voltkin.
 That is what makes the system shippable early. **The deliberate consequence: each race is pulled
@@ -477,16 +536,16 @@ convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
 
 - **WHEN it fires** `[owner-ruled]` — at the **BUILD edge** following wave 5/10/15's FIGHT. Never
   mid-fight: you choose during the sealed, calm build stage, which is also where the walls are up.
-- **VISIBILITY** `[CLAUDE — overridable]` — **public.** Every player sees what every other player
-  took, on the HUD beside the wave counter. Hidden asymmetric power inside a 90-second fight is
-  unreadable, and the whole point of races is that opponents adapt to them.
-- **NO-CHOICE** `[CLAUDE — overridable, and R106 makes it non-negotiable in principle]` — a player
+- **VISIBILITY** `[owner-ruled, R113]` — **public, beside the player's NAME on the leaderboard row**,
+  one icon per drafted wave, stacking left to right so the whole history reads at a glance. Each buff
+  needs a generated icon — **an art dependency, not just a layout.**
+- **NO-CHOICE** `[owner-ruled, R106]` — a player
   who has not chosen when BUILD ends is auto-assigned the **general** option. The sim must never wait
   on a human: an AFK seat, a dropped peer mid-migration, or a bot with no handler would otherwise
   stall every other player's match.
-- **BOTS CHOOSE TOO** `[CLAUDE — overridable]` — a bot picks its race option by default. A bot that
+- **BOTS CHOOSE TOO** `[owner-ruled]` — a bot picks its race option by default. A bot that
   never drafts falls permanently behind and makes VS-BOTS progressively meaningless.
-- **STACKING** `[CLAUDE — overridable]` — perks are **cumulative and permanent for the match**. Wave
+- **STACKING** `[owner-ruled]` — perks are **cumulative and permanent for the match**. Wave
   10's pick does not replace wave 5's. With a recurring interval and no ceiling, this is the only
   reading that makes late waves matter.
 
@@ -531,6 +590,31 @@ convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
   drone detonation and a demonic Voltkin zap all firing.
 - Tripwire: **no tech perk modifies a castle stat** (R104), mirroring the R97 tripwire in §3.3.
 
+### 9.8 ⛔ BLOCKER — "+10%" IS NOT EXPRESSIBLE IN THIS STAT SYSTEM
+
+R111 rules the general track walks ATK → DEF → HP → PEN. The **order is settled**. The **magnitude is
+not**, and it cannot be, because this is the same wall §9.4 hit:
+
+- **HP and ATK are integer POINTS** on a flat ladder, design range 1..12 (`state/stats.ts`).
+- **DEF and PEN are integer points** indexing the multiplier ladder `1 + 0.2n` — pinned twice by the
+  owner as **1.4, not 1.44**, i.e. linear, not compounding.
+- Everything is carried in **fifths** so it is exactly integer, because `damageEntity` **throws** on a
+  fractional amount and the host must match the `?worker=1` mirror bit-for-bit.
+
+So "+10% attack" on a chewer (`CHEWER_ATK = 1`) is 1.1 — which does not exist. And the smallest legal
+step is coarse: **+1 ATK point on a 1-ATK unit is +100%**, and one DEF/PEN point is a flat **+20%**.
+
+**Three ways out. The owner picks; do not choose one silently.**
+
+| Option | What the draft grants | Granularity | Verdict |
+|---|---|---|---|
+| **A** | **+1 point** on the axis | +100% for a 1-point unit; +20% on DEF/PEN | Honest to the system, zero new machinery — but brutal on 1-HP units |
+| **B** | **Widen the ladder** — re-express units in fifths so a "point" is 5× finer, then +10% becomes a legal integer step | fine | Correct long-term, but it is a **rewrite of every unit stat in the game** and belongs in the balance pass, not here |
+| **C** | The draft grants a **flat +1 PEN point** regardless of the named axis (a uniform ×1.2 on damage) | +20% | Cheapest, integer-exact, but collapses R111's four distinct axes into one |
+
+⚠ **Do not implement a float multiplier and round it.** That is the exact defect the fifths system
+exists to prevent, and the rounding would differ nowhere visibly until a host and a worker disagreed.
+
 ---
 
 ## 10. THE TRAPS — every one of these has already cost this project a session
@@ -573,32 +657,42 @@ convention (`SPARK_TD_SESSION_SPECS.md` Q3 is the precedent).
 
 ## 11. STILL GENUINELY OPEN — ASK, DO NOT GUESS
 
-Each of these has a workable default above, but the owner has not ruled. `CASTLE_BUILD_SPACE_DESIGN.md`
-already carries a ⚠ ASK marker for exactly this class of question, and it was honoured — honour it here.
+Most of the original list was closed by the owner on 2026-09-02. What remains, ranked by when it bites.
 
-1. **The five missing passive spawns.** Zombies get the hound (art exists). What do vampires (bats?),
-   nagas, mummies, orcs and demons emit?
-2. **The six Layer 2 upgrade branches.** §3.3 sketches one per race as an illustration only. Each
-   needs an owner ruling, and each must obey the "never a Layer 1 axis" rule.
-3. **Layer 1 numbers.** Owner said HP "maybe as high as five thousand" — an explicit dial, not a
-   ruling. Prices, step sizes and caps for all four axes are unset.
-4. **Signature tower identity.** Which tier does each race's Wave 2 tower sit at, and what does it do?
-5. **Do race towers eventually REPLACE a global tower at that tier?** R95 says additive *for now*.
-   If the answer is ever "replace", every race needs all five uniques before any race is playable —
-   a hard blocking dependency worth knowing about early.
-6. **Does the castle attack shape ever genuinely diverge** (cone / chain / AoE), or does it stay
-   cosmetic forever? §3.2 defers this to the balance wave; confirm that is what the owner wants.
-7. **Ghosts and ice giants** — parked as races 7 and 8. Does the palette ever grow to seven or eight
-   colours, given `PLAYER_COLORS` is already six max-saturation hues and the docs note green/orange
-   collisions at 4–6 players? R100 rules white out.
-8. **Can a race be picked twice** in a match (two zombie players), or is it exclusive? W1-A assumes
-   **exclusive**; say so if that is wrong, because it changes the claim protocol.
-9. **The GENERAL track beyond the first draft.** The owner gave one: *"increase all spawned unit ATK
-   by 10%."* Waves 10, 15, 20… each need their own general option. Does the general track repeat the
-   same +10% (compounding), or is it a distinct list?
-10. **The RACE track beyond the first draft.** R102 gives one perk per race. A recurring draft with no
-    ceiling needs a perk per race per draft — or the race option runs out and the choice collapses to
-    "general or nothing". **This is the one that bites soonest**: it becomes real at wave 10.
+### ⛔ BLOCKS BUILDING SOMETHING
+
+1. **The "+10%" magnitude (§9.8).** The general draft track's ORDER is ruled (R111) but percentages
+   are not representable in an integer-fifths stat system. Three options are laid out in §9.8 —
+   **the owner picks one.** Blocks the tech draft's general option, nothing else.
+
+### ⚠ NEEDED BEFORE THE WAVE THAT USES IT
+
+2. **The five missing race units.** Zombies have the hound. Vampires are named as bats (the
+   `goblin-batrider` atlas exists). **Nagas, mummies, orcs and demons have no unit at all** — and each
+   race's unit is now needed TWICE over (the castle emits it, the tier-3 tower makes more). Blocks
+   W1-C and W2.
+3. **The castle spawn cadence and its phase gate.** "~30 s" is a dial. But also: does the castle emit
+   during BUILD, during FIGHT, or both? The phase split already stops the quarry in FIGHT and holds
+   defenders outside it, so this is a real mechanical choice, not a number. Blocks W1-C.
+4. **Race perks for waves 10, 15, 20.** Deliberately deferred by R112 with a named trigger: **ask once
+   wave 5 ships.** Not a gap.
+
+### 🕓 LATE — the owner has explicitly said "one of the last phases"
+
+5. **The six race castle-upgrade branches (Layer 2).** Owner: *"don't worry about them right now."*
+6. **Layer 1 upgrade numbers.** HP starts at 1500; the ceiling, the step costs, and the DEF/ATK/range
+   caps are all unset. Owner: *"this will be, like, the last step."*
+7. **Whether castle attack shapes genuinely diverge.** They must LOOK different (R94) and the owner is
+   already sketching them — *"maybe the mummy one shoots a ball of mummy wrap, maybe the naga one
+   shoots lightnings"* — but whether the hit geometry itself differs (cone / chain / arc) stays with
+   the balance pass. §3.2.
+8. **A 7th/8th colour.** Possible someday, explicitly not now (R114).
+
+### ✅ CLOSED on 2026-09-02 — do not re-ask
+
+Race roster · additive-not-replacing · race exclusivity · the tier and mechanic of the signature tower ·
+the feed-shape map · castle emits vs. tower feeds · the general track order · draft visibility ·
+the no-choice default · bots drafting · perk stacking · the vampire perk · ghosts and ice giants.
 
 ---
 
