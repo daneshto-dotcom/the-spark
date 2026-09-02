@@ -119,7 +119,9 @@ function rosterEntryFor(peerId: string, seat: number, claimed: RaceId | undefine
  * plus one entry per seated peer ORDERED BY SEAT ascending. Seats may be
  * NON-CONTIGUOUS (a HOLE left by a departed peer); the client rack renders a missing
  * seat as an empty cell (lobbyView's `bySeat.get(i)`). Colour tracks the stable seat
- * (PLAYER_COLORS[seat]) so a survivor keeps its colour across other peers' departures.
+ * (`RACE_COLORS[raceId]`, whose default is the seat's) so a survivor keeps its colour across other
+ * peers' departures. ⚠ W1-A (S160) corrected this line: it said colour tracks the stable SEAT via
+ * `PLAYER_COLORS[seat]`, which is now only the DEFAULT — race is primary and colour is derived.
  * Drives LOBBY_PRESENCE + the host's own rack.
  */
 /**
@@ -145,7 +147,9 @@ export function buildLobbyRoster(
  * CONTIGUOUS seats 0..N-1 (host = seat 0; remotes re-densified in ASCENDING
  * stable-seat order) so the in-game radialSpawnPos(seat, total=N) — which assumes
  * contiguous seats — places N players without overlap, and the N-player determinism
- * contract holds. Colour tracks the DENSE seat (PLAYER_COLORS[denseSeat]); peerId is
+ * contract holds. ⚠ W1-A (S160): colour no longer tracks the DENSE seat — it is
+ * `RACE_COLORS[raceId]`, and only an UNCLAIMED seat falls back to the dense seat's default (that
+ * distinction is B6, and it is the whole point of the note below). peerId is
  * carried for the host's hostSeats freeze (anti-spoof intent stamping) + each client's
  * self-identification (peerId === selfId). Drives START_GAME_SIGNAL.
  *

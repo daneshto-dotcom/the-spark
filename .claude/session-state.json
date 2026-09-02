@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3959,
+  "tool_calls_session_total": 3976,
   "session_id": "S160",
   "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -46,7 +46,66 @@
       "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/iceConfig.ts",
+          "needle": "import.meta.env.VITE_TURN_URLS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/iceConfig.ts",
+          "needle": "import.meta.env.VITE_TURN_CREDENTIAL"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/iceConfig.ts",
+          "pattern": "const env = \\(import\\.meta",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/iceConfig.ts",
+          "needle": "urls.length === 0 || username === '' || credential === ''"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/ci.deployGate.test.ts",
+          "needle": "S160 P1 — the DOTTED read matches the define"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/ci.deployGate.test.ts",
+          "pattern": "it\\('",
+          "op": ">=",
+          "value": 10
+        },
+        {
+          "type": "file_lacks",
+          "path": "boot-snapshot.md",
+          "needle": "Then push anything"
+        },
+        {
+          "type": "file_contains",
+          "path": "boot-snapshot.md",
+          "needle": "Actions → Deploy to"
+        },
+        {
+          "type": "file_contains",
+          "path": "boot-snapshot.md",
+          "needle": "workflow_dispatch"
+        },
+        {
+          "type": "grep_count",
+          "path": ".github/workflows/deploy.yml",
+          "pattern": "VITE_TURN_(URLS|USERNAME|CREDENTIAL)",
+          "op": ">=",
+          "value": 6
+        }
+      ],
+      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
     },
     {
       "id": "P2",
@@ -58,7 +117,72 @@
       "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "it sags — `stinkTowerRenderer` already draws that"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "254, 538, 822, 1106, 1390"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkReload.test.ts",
+          "needle": "the five bags really do fit inside a REAL fight"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "THIS CAP IS NOT A DIAL. IT IS SLACK"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "5 s delivers all three drones and the self-destruct"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/lightningHubDelivers.test.ts",
+          "needle": "the arithmetic the owner was quoted"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/lightningHubDelivers.test.ts",
+          "needle": "peak must sit strictly below it"
+        },
+        {
+          "type": "file_contains",
+          "path": "boot-snapshot.md",
+          "needle": "DRONE_EMIT_INTERVAL_TICKS` first"
+        },
+        {
+          "type": "file_contains",
+          "path": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
+          "needle": "CORRECTED BY S160 P2(b)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "I DELETED A REASON THAT WAS FALSE"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "the player WATCHES the tower re-arm",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runs ONLY in the `atlas === null` fallback"
+        }
+      ],
+      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
     },
     {
       "id": "P3",
@@ -70,7 +194,91 @@
       "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.ts",
+          "needle": "maywe we do max6"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "maywe we do max6"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.test.ts",
+          "needle": "maywe we do max6"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkinChain.ts",
+          "pattern": "maybe we do max6",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "WITHDRAWN — IT CONTRADICTED ITS OWN EVIDENCE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.test.ts",
+          "needle": "the ceiling is exactly 29"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.test.ts",
+          "needle": "units compete for the same slots"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "EVERY attacker in the game pops it in one hit"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkCloud.test.ts",
+          "needle": "the floor has zero margin"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/starShape.ts",
+          "needle": "THE MECHANISM SENTENCE AND THE PRICE DESCRIBED TWO DIFFERENT LATTICES"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/starShape.ts",
+          "needle": "WAS A CLAIM ABOUT THE PREDICATES"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/godlyRecipes/starShape.ts",
+          "needle": "eat one Circle and BOTH towers fall in the\n * same tick"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "maywe we do",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "maybe we do max6",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "a silent typo-fix"
+        }
+      ],
+      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
     },
     {
       "id": "P4",
@@ -82,7 +290,270 @@
       "checkpoint_commit": "3f3737c",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/races.ts",
+          "needle": "export function defaultRaceForSeat"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/races.ts",
+          "needle": "export function isRaceId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/races.ts",
+          "needle": "B5 — THE HASHING DECISION, MADE AND RECORDED"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/races.ts",
+          "pattern": "from '\\./godlyRecipes",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/player.ts",
+          "needle": "raceId: RaceId;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "raceId: player\\.raceId",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "raceId: isRaceId(p.raceId) ? p.raceId : defaultRaceForSeat"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "p.raceId !== defaultRaceForSeat"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly raceId?: RaceId;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 39 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 39;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "bumped 38->39",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "W1-A \\(S160\\): 38->39",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "PROTOCOL_VERSION is 39"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(39);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 39;"
+        },
+        {
+          "type": "file_contains",
+          "path": "LOCKED_DECISIONS.md",
+          "needle": "W1-A (S160)"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const NEWER_PEER_V = LOCAL_PROTO_V + 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/lobbyRoster.ts",
+          "needle": "THE RACE FOLLOWS THE PEER, NOT THE DENSE SEAT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/lobbyRoster.test.ts",
+          "needle": "a claimed race SURVIVES dense compaction"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameMode.ts",
+          "needle": "existing.raceId = raceId;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameMode.ts",
+          "needle": "THIS ARM IS THE SPEC"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/hostHandlers.ts",
+          "needle": "raceId: e.raceId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/clientHandlers.ts",
+          "needle": "raceId: e.raceId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/raceWire.test.ts",
+          "needle": "survives a HOST MIGRATION"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/raceWire.test.ts",
+          "needle": "BYTE-IDENTICAL on the wire"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.ts",
+          "needle": "export function castleGunsTick"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "castleNextFireTick",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "TARGETING IS NEAREST-ENEMY-IN-RANGE. THIS SUPERSEDES Q4"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_FIRE_INTERVAL_TICKS = 240;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "Q3's 45 TICKS WAS MEASURED AND REJECTED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_ATTACK_RANGE = 300;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "castleGunsTick(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "they fire INSIDE the deferral window"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "ONE leaker cannot scratch it, but FIFTEEN bring it down"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "no castle stat may ever be keyed off the race (R94)"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_RACES_SPEC.md",
+          "needle": "OWNER RULINGS — R93 THROUGH R126"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-09-02_PDR_RACES_W1_PREAPPROVED.md",
+          "needle": "OWNER PRE-APPROVED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/races.ts",
+          "needle": "export type RaceId = 'vampires'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/raceWire.test.ts",
+          "needle": "describe('W1-A"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.ts",
+          "needle": "export function castleFiresOnTick"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/lobbyRoster.ts",
+          "pattern": "^import .*PLAYER_COLORS",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/lobbyRoster.ts",
+          "pattern": "^(?!\\s*\\*)(?!\\s*//).*color: PLAYER_COLORS\\[",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/lobbyRoster.ts",
+          "needle": "color: RACE_COLORS[raceId]"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/castleGuns.ts",
+          "pattern": "\\.raceId",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/castleGuns.ts",
+          "pattern": "RACE_COLORS|RACE_FEED_SHAPE|from .*races",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/castleGuns.ts",
+          "pattern": "\\.nextFireTick",
+          "op": "==",
+          "value": 0
+        }
+      ],
+      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
     }
   ],
   "reflexion_entries_to_archive": [
