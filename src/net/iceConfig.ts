@@ -158,12 +158,30 @@ const STUN_ONLY: RTCIceServer[] = [
  * Parsed defensively: a half-filled config (urls but no credential) is IGNORED rather than shipped,
  * because a malformed ICE server is another silent `400 allocate error` — the precise failure this
  * whole change exists to end.
+ *
+ * ⛔ S160 P1 — THE READS ARE DOTTED (`import.meta.env.VITE_TURN_URLS`) AND THAT IS LOAD-BEARING.
+ * DO NOT alias `import.meta.env` into a local object and read keys off it.
+ *
+ * `vite.config.ts` defines the three DOTTED keys — `define: { 'import.meta.env.VITE_TURN_URLS': … }`
+ * — so a dotted read is replaced by the explicit define and nothing else has to be true. The
+ * previous form (`const env = import.meta.env; env.VITE_TURN_URLS`) had no textual match for that
+ * define and worked only because Vite ALSO merges user `import.meta.env.*` defines into its
+ * whole-object env replacement. That is Vite-internal behaviour, not a documented contract.
+ *
+ * S160 P1 measured the emitted bundle to prove it worked (`dist/assets/index-BwUxSBIv.js` carried
+ * `{VITE_TURN_CREDENTIAL:"",VITE_TURN_URLS:"",VITE_TURN_USERNAME:""}` with no `.env` on disk, so the
+ * define was the only possible carrier) — and that is exactly the problem: it was true by
+ * measurement, not by construction. Had a Vite major dropped that merge, this would emit `{}`,
+ * every build would ship STUN-only, and the deploy would stay green with nothing red anywhere.
+ * `ci.deployGate.test.ts` now pins the dotted form against `vite.config.ts`'s define keys.
  */
 function turnFromEnv(): RTCIceServer[] {
-  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-  const urls = (env.VITE_TURN_URLS ?? '').split(',').map((u) => u.trim()).filter(Boolean);
-  const username = (env.VITE_TURN_USERNAME ?? '').trim();
-  const credential = (env.VITE_TURN_CREDENTIAL ?? '').trim();
+  const rawUrls = String(import.meta.env.VITE_TURN_URLS ?? '');
+  const rawUsername = String(import.meta.env.VITE_TURN_USERNAME ?? '');
+  const rawCredential = String(import.meta.env.VITE_TURN_CREDENTIAL ?? '');
+  const urls = rawUrls.split(',').map((u) => u.trim()).filter(Boolean);
+  const username = rawUsername.trim();
+  const credential = rawCredential.trim();
   if (urls.length === 0 || username === '' || credential === '') return [];
   return [{ urls, username, credential }];
 }

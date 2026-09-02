@@ -325,6 +325,57 @@ describe('S158 P1 — the TURN credentials reach the production build', () => {
   });
 });
 
+describe('S160 P1 — the DOTTED read matches the define, so the inlining is true by construction', () => {
+  /**
+   * ⛔ WHY THIS EXISTS. `vite.config.ts` defines the three DOTTED keys
+   * (`'import.meta.env.VITE_TURN_URLS'`), but `iceConfig.ts` used to alias the object first
+   * (`const env = import.meta.env; env.VITE_TURN_URLS`) — which has NO textual match for that
+   * define. It worked only because Vite additionally merges user `import.meta.env.*` defines into
+   * its whole-object env replacement: internal behaviour, not a documented contract.
+   *
+   * S160 P1 proved it worked by reading the emitted bundle — and that is the problem. It was true
+   * by measurement, not by construction. Had a Vite major dropped the merge, `turnFromEnv` would
+   * read `{}`, every build would ship STUN-only, the deploy would stay green, and the only symptom
+   * would be the owner's cross-country match failing exactly as it did before any of this shipped.
+   *
+   * These two assertions make the explicit define load-bearing on its own.
+   */
+  const VITE_CONFIG_SRC = readFileSync(
+    fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('CONTROL — vite.config.ts really does define the dotted `import.meta.env.<KEY>` form', () => {
+    // If this ever stops being true the test below is vacuous rather than failing, so assert it.
+    expect(VITE_CONFIG_SRC).toMatch(/import\.meta\.env\.\$\{k\}|['"]import\.meta\.env\./);
+    expect(VITE_CONFIG_SRC).toContain('VITE_TURN_URLS');
+  });
+
+  it('⭐ every name iceConfig reads is read in the DOTTED form, never off an aliased env object', () => {
+    for (const name of ICE_CONFIG_ENV_NAMES) {
+      expect(
+        ICE_CONFIG_SRC,
+        `${name} must be read as import.meta.env.${name} so vite.config.ts's define is what replaces it`,
+      ).toContain(`import.meta.env.${name}`);
+    }
+  });
+
+  it('iceConfig does NOT alias import.meta.env into a local binding', () => {
+    // The specific regression: `const env = (import.meta as …).env ?? {}`. An alias re-introduces
+    // the dependency on Vite's whole-object merge, and it would defeat the test above by leaving a
+    // dotted mention in a comment while the real read goes through the alias.
+    //
+    // ⚠ SCAN THE CODE, NOT THE PROSE. The first cut of this assertion failed on iceConfig's own
+    // docblock, which quotes the banned form verbatim in order to explain it — so the guard was
+    // reading the explanation as the defect. Comments are stripped first, and the CONTROL below
+    // proves the stripping did not simply empty the haystack.
+    const code = ICE_CONFIG_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code, 'comment-stripping must not have eaten the module').toContain('function turnFromEnv');
+    expect(code).toMatch(/import\.meta\.env\.VITE_TURN_URLS/);
+    expect(code).not.toMatch(/(?:const|let|var)\s+\w+\s*=\s*\(?\s*import\.meta\b[^;]*\.env\b/);
+  });
+});
+
 describe('S158 P8 — the build is REPRODUCIBLE, so verify-deploy can mean something', () => {
   /**
    * ⛔ THIS GUARD EXISTS BECAUSE S158 P1 BROKE THE DEPLOY VERIFIER AND ONLY THE VERIFIER NOTICED.

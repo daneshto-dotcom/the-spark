@@ -1,26 +1,27 @@
 {
-  "tool_calls_session_total": 3910,
-  "session_id": "S159",
-  "session_kind": "PDCA batch, OWNER PRE-APPROVED autonomous run (mid-turn 2026-09-02): P1 bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property); P2 Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred); P3 the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward; P4 stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence; P5 B1 closure from the owner two-workstation measurement + the torrent:fail strategy; P6 coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence; P7 the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
-  "session_start": "2026-09-01T23:05:00+02:00",
-  "prior_session_note": "S157 shipped 9 priorities (N1 TURN diagnosis, P0 spawner phase gate, B1/B2/B4/B5/B6/B7/B8/B9). Its handoff is HANDOFF_2026-08-29_S157.md.",
-  "prior_session_archive": ".handoff-archive/HANDOFF_2026-08-27_S154.md",
-  "phase": "ANALYZE",
+  "tool_calls_session_total": 3958,
+  "session_id": "S160",
+  "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
+  "session_start": "2026-09-02T17:30:00+02:00",
+  "prior_session_note": "S159 shipped 9 priorities. Handoff HANDOFF_S159.md, boot-snapshot.md at c90b444.",
+  "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-02_PDR_S159_BATCH.md",
-  "session_status": "S159 CLOSED",
+  "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
+  "session_status": "S160 IN PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 33,
+  "protocol_version": 38,
   "boot_preflight": {
-    "build": "PASS entry index-BijPc2IZ.js 727.6 KiB cap 900 KiB headroom 172.4",
-    "vitest": "2940 passed / 176 files",
-    "e2e_gating": "44 passed, e2e_exit=0 read from a redirect not a pipe",
-    "deploy_verify": "PASS 4/4 at 85495f1",
-    "ci_conclusions": "15/15 success, zero cancelled, zero open issues",
-    "art_pipeline_deps": "ffmpeg 8.1 + ffprobe 8.1 + numpy 2.4.4 + scipy 1.17.1 + Pillow 12.2.0 all present",
-    "unpushed_commits": 0
+    "typecheck": "PASS exit 0",
+    "vitest": "PASS exit 0 — 3399 passed / 218 files",
+    "build": "PASS exit 0 — entry index-BwUxSBIv.js 764.0 KiB, cap 900, headroom 136.0",
+    "deploy_verify": "PASS 4/4 content-hash equality at eb1958f",
+    "ci_conclusions": "12/12 success, zero cancelled, zero open issues",
+    "npm_ci": "exit 0",
+    "unpushed_commits": 0,
+    "stale_plans": "none IN-PROGRESS; S159 PDR + amendment archived COMPLETED"
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -29,754 +30,47 @@
     "build_space_scope": "EVERYTHING including the R4 keep-ring move (~R420). Warning accepted: C2 measured this nearly doubles the haul (150->295px), so throughput drops while the bank grows — needs re-measurement and gatherer retuning in the same session. This is a LATER session, not S138."
   },
   "bump_allowance_analysis": "28->29 REQUIRED and paid ONCE for P2+P3 together. Drivers: (a) six new CreatureType wire discriminants with no unknown-value guard in getCreatureConfig; (b) creature hp constants are shared constants both peers compute from (serializeCreature omits hp when undamaged - the R71 mechanism); (c) Defender.hp REMOVED from SerializedDefender/DefenderHashed; (d) new required hashed Bond damage field; (e) new FEED_TOWER client intent. Splitting P2/P3 would cost TWO bumps.",
-  "a0_state_discovery": [
-    "METHOD: Workflow sweep, 10 parallel on-disk probes, 422 tool calls, 1.95M subagent tokens. 105 claims checked: 65 CONFIRMED / 19 PARTIAL / 17 REFUTED / 4 NOT_FOUND. The adversarial re-check + synthesis stages DIED on a spend limit; probe payloads survived in journal.jsonl and were triaged by Claude directly. STATED AS A DEVIATION: the 24 planned independent re-checks did NOT run, so single-probe findings carry one source unless marked SELF-VERIFIED.",
-    "*** SELF-VERIFIED, HIGHEST CONSEQUENCE *** damageEntity IS DEAD CODE. grep for damageEntity( over src/ excluding tests returns EXACTLY ONE LINE: its own definition at src/state/damage.ts:56. Zero production call sites; the only importer in the repo is src/state/damage.test.ts:55. Meanwhile THREE live damage callers bypass it and call damageCreature directly: creatures/creatureAttack.ts:103 (Voltkin zap), defenders/defenderLifecycle.ts:245 (turret beam / HELGA slap), world.ts:559 (RAID_CREATURE). CONSEQUENCE: boot-snapshot.md:29 'The blocker is GONE (P1 built it)' is true only in the sense that the function EXISTS. S139 is not building on a live substrate - it is switching the substrate ON for the first time, and becomes the first real play-validation of PRIMITIVE_MAX_HP / TURRET_DEFENDER_MAX_HP=3000 / PRINCESS_DEFENDER_MAX_HP=2000 (constants.ts:1197-1199 admits these are unvalidated). The integer guard at damage.ts:63-68 has never fired in production.",
-    "*** SELF-VERIFIED *** CI IS RED AND NOTHING WOULD HAVE RE-RUN IT. e2e.yml newest run 31366201100 (schedule, 2026-08-10) conclusion=FAILURE with ALL THREE lanes red including the GATING lane. Its headSha e76d504 is 33 commits BEHIND HEAD (git rev-list --count e76d504..HEAD = 33) and predates both 1bffad1 (s136 drag-helper re-base) and the s137-p0 gating fix, so the red is plausibly already fixed in source - local e2e:gating is 32/0. But e2e.yml has NO push trigger (schedule Mon + pull_request + workflow_dispatch only), so nothing re-runs it. A cancelled run is also visible (30248805897, 2026-07-27) - the exact silent-death pattern already in memory. ACTION TAKEN: dispatched a fresh run on current HEAD, run 31509968212.",
-    "FOUR PATH/NAME ERRORS THAT WILL BREAK GREPS AND IMPORTS. src/defenders/ DOES NOT EXIST -> real dir is src/state/defenders/ (all S137 amendment refs stale). src/godlyRecipes/ DOES NOT EXIST -> src/state/godlyRecipes/. src/state/creatureLifecycle.ts DOES NOT EXIST -> src/state/creatures/creatureLifecycle.ts (S138's OWN session-state a0 entry records the wrong path). Field is walkTargetPos not walkTarget (defender.ts:84). Panel field is selected not selectedSeat (castlePanel.ts:208). Recipe id is 'helga' not 'princessHelga'. REMOVE_DEFENDER is dispatched at hostTick.ts:311, NOT in godlyMatcherCore as the amendment claims - ignition is event-driven, teardown is poll-driven, and they are NOT co-located.",
-    "DEFENDERKIND WIDENING: THE COMPILER WILL NOT HELP, AND THE FAILURE IS SILENT. Only 2 tsc-FORCED sites: Record<DefenderKind,DefenderConfig> (defender.ts:150) and a SECOND, DUPLICATED inline union at godlyRecipes/types.ts:138 that NO design doc mentions (deliberately inlined to break an import cycle, types.ts:132-133). 10 sites tsc will NOT catch: defenderLifecycle.ts:126,138,152,188,229,253,261 + turretRenderer.ts:63 + princessRenderer.ts:142 + audioManager.ts:624. THREE SILENT CONSEQUENCES: (a) both renderers are EXCLUSION filters (if d.kind !== 'turret' continue), and main.ts wires two concrete instances with no registry - so new kinds RENDER AS NOTHING with no compile error; (b) defenderLifecycle.ts:126 pins/freezes only turret and :229/:253/:261 freeze only princess, so a THIRD kind is neither pinned nor frozen - its Verlet prevPos is never reset while striking so it DRIFTS through WINDUP/FIRE/RECOVER, and prevPos IS hashed (stateHashFull.ts:384) => replay/desync-visible; (c) audioManager.ts:557 takes kind:string so it silently accepts anything. Contrast: adding a new FSM STATE is compiler-enforced in MORE places than adding a KIND (helgaPose/helgaCell are default-less switches over DefenderState with declared non-void returns).",
-    "A CHEAPER, SHIPPED PRECEDENT REFUTES THE DESIGN'S OWN TARGET-UNION PLAN. Amendment 2b Q1 proposes widening the serialized Defender.targetCreatureId into a target union: that is 18 call sites (8 writes / 10 reads) + a NEW hash encoding at stateHashFull.ts:386 (currently :tc$(n(...)) where n() expects a numeric id) + ~69 LOC of serialized surface. But Creature ALREADY carries TWO PARALLEL NULLABLE TARGET FIELDS side by side - targetBondId (creature.ts:188) AND targetCreatureId (creature.ts:204) - each independently serialized and hashed (stateHashFull.ts:218-219, :366). Adding targetPrimitiveId: PrimitiveId | null follows the SHIPPED precedent, is additive-optional on the wire, needs no new hash encoding, and touches 2 fewer files. RECOMMEND the parallel field over the union.",
-    "'NEAREST ENEMY STRUCTURE' - the amendment says findNearestEnemyCreatureFrom cannot be reused; that OVERSTATES it. Signature is creatureAI.ts:303-309 and its INPUTS are deliberately position-based (docblock :295-296 says so precisely so a non-creature caller can use it, and defenderLifecycle.ts:164 does). It is creature-bound in exactly TWO places in the BODY: the world.creatures iteration (:312) and the CreatureId return (:309). So the work is a NEW ~25-LOC sibling over world.primitives, NOT a refactor - and refactoring the original would perturb tested Voltkin replay guards (creatureAI.test.ts:263-301, hostTick.differential.test.ts:266, save.replay.test.ts:385).",
-    "THE ART CLAIM 'CONFIG + PLACEHOLDER ART' IS REFUTED FOR ALL THREE UNITS. There is NO generic character renderer and NO shared atlas loader: 5 files each hand-roll Assets.load. princessRenderer.ts is 285 LOC and bespoke; per existing kind the shipped art-code cost is ~326 LOC (turretRenderer 153 + princessRenderer 285 + helgaPose 144 + helgaFrame 70 = 652 for two kinds). A naive 3x copy = ~855 LOC of near-duplicate renderer against 88.6 KiB of entry headroom, and ZERO test coverage exists for the atlas path (no princessRenderer.test.ts, no turretRenderer.test.ts) so the copies inherit an untested loader. BOTH procedural puppet rigs are hardcoded to one character - helgaPose.ts:26-43 has beerArmAngle and skirtSway IN THE TYPE; voltkinPose is keyed to CreatureState not DefenderState. AtlasManifest.states is typed Record<HelgaAnimState,...> i.e. the manifest TYPE is Helga-shaped with no death/attack generality.",
-    "TWO ART FINDINGS THAT CHANGE THE PLAN FAVOURABLY. (a) THE STINK TOWER PROBABLY NEEDS NO ATLAS AT ALL: turretRenderer.ts is a COMPLETE procedural defender renderer in 153 LOC with no texture, no manifest, no async load, no fallback branch. A static emplacement with a sway/burp idle fits that shape far better than a veo atlas - zero binary bytes, zero load-failure surface. Only the two goblins genuinely need character atlases. (b) THE MOST REUSABLE ATLAS CODE IN THE REPO IS DEAD CODE: voltkinFrames.ts (382 LOC, ZERO production importers) is strictly MORE general than the live Helga path - the manifest is a PARAMETER not a Helga-typed cfg, clips are flat start+len so unequal per-state frame counts are free, and it already models the three things the goblins need and Helga's schema lacks: death clips, an apex frame for impact alignment, and nativeFacing for left-facing art. Covered by 17.2 KB of existing tests. Reviving it re-keyed to DefenderState beats copying helgaCell 3x.",
-    "NO DEATH STATE EXISTS TO ANIMATE. DefenderState is 5 arms, none terminal (defender.ts:59); defender death is a same-tick world.defenders.delete (damage.ts:125). Amendment 4b D wants an explicit death animation per goblin. Adding a DYING state is a SERIALIZED state literal a stale peer cannot parse - the exact change that forced PROTOCOL_VERSION 12->13 for 'WALK' (defender.ts:56-58 records this verbatim). ZERO-WIRE ALTERNATIVE ALREADY SHIPPED: the renderer-side death-watcher at creatureRenderer.ts:288-306 (14 LOC) diffs lastSeenPos/lastSeenState against the live id set and pops an effect for an entity that vanished.",
-    "THE CAP RAISE COLLIDES WITH A STANDING OWNER PROHIBITION IN THE CODE. constants.ts:410-414 carries the B4b instruction verbatim: THE PAIRING IS THE POINT - NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW... At 5 slots only the PENTAGRAM is directly assemblable, with the recipe table at :416-424 (pentagram 5, lightningHub 6, Helga 7, Voltkin 8, laserTurret 8, NONET 9). At the R2-ruled cap of 12-13 ALL SIX become directly assemblable, which deletes the carve-down tactic the v0.6 pivot exists to protect. :429-431 adds MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own. So R2 (2026-08-10) and B4b (S134) are TWO OWNER RULINGS POINTING OPPOSITE WAYS and nobody noticed. Needs an explicit override, not a silent constant edit.",
-    "C1's PANEL REGRID DOES NOT FIT, AND THERE IS A SECOND CAP-DEPENDENT GEOMETRY SITE NO DOC MENTIONS. Width checks out (5*40+4*6 = 224 <= ROW_INNER_W 248), but HEIGHT does not: 3*40+2*6 = 132 vs BANK_STRIP_H = SLOT_H+12 = 52, over by 80px. BANK_STRIP_H must go 52->144, making panelHeight(2) go 194->286 (+92px). Also 5x3 = 15 slots against a ruled cap of 12-13 => 2-3 permanently dead boxes unless slotOrigin stops deriving row width from CASTLE_BANK_CAP. 6-wide is impossible (270 > PANEL_W 268). THE UNMENTIONED SITE: gathererRenderer.ts:194 draws banked shapes ON THE KEEP as pitch=(KEEP_W-14)/CASTLE_BANK_CAP; at cap 13 the glyph radius becomes 1.754px - sub-2px and illegible. AND castlePanel.test.ts (246 LOC) has ZERO bank-strip coverage (no hits for CASTLE_BANK_CAP|slotOrigin|panelHeight|PANEL_W), so a regrid can overflow the plate with every test green - precisely the failure the file's own docblock at :55-58 records for the first PANEL_W cut.",
-    "R6's 'a third control costs one entry' IS REFUTED BY ITS OWN FILE. castlePanel.ts:228 comment says the list is data, so a third costs one entry. Only the MODEL is data-driven; the class is hard-wired to two rows at FOUR sites: :229 for(let i=0;i<2;i++) (literal, not model.length), :299 idx===0 ? this.onBuyGatherer : this.onUpgradeSpeed (positional dispatch), :370 const keys = ['buyGatherer','upgradeSpeed'], plus per-control setters :288/:293 - and e2e/castle-panel.spec.ts:81 asserts the exact array. PanelControl.onActivate (:92) is NEVER assigned or read anywhere in the repo. So R6 costs 5 sites, not 1.",
-    "R7 IS NOT 'CLOSE TO FREE' - AND AS RULED IT CONTAINS AN ARCHITECTURAL CONTRADICTION. The unlock-store half is genuine (codexStore.ts = 43 LOC, already wired, 6 call sites). The template-loader half is 100% UNBUILT and so is its data: (a) NO machine-readable layout exists for ANY recipe - EmblemSpec (codexPresentation.ts:100) is a DECORATIVE polar approximation sized for a 240x320 codex tile at radius 40-46px with no SparkId, no placement order and no relation to AUTO_BOND_RADIUS=60; only 3 of 6 CODEX_COPY entries even have one, and the TWO the owner named as capacity targets (Voltkin=8, NONET=9) are exactly the two with NONE; (b) every recipe runs the WRONG DIRECTION - RecipePredicate is world->match (a detector), nothing is spec->primitives (a generator); (c) NO multi-primitive placement action exists, and placeFromFree.ts:26-32 records that placePrimitive CANNOT REJECT by contract once reached, which an N-shape loop would violate on shape 2..N; (d) *** THE CONTRADICTION ***: the library is per-browser localStorage, never serialized/hashed/wired, so in a 2-peer match the peers hold DIFFERENT libraries and the host cannot validate 'I own this design' - which directly contradicts the design's own section 5 non-negotiable host-validation contract. R8's 'free every match regardless of unlocks' cannot be expressed in a per-browser unlock set at all. This is a DESIGN decision, not an implementation task.",
-    "THE DESIGN CITES THE WRONG PURITY PRECEDENT FOR THE BURST. Amendment 4b rule 6 says to follow gathererMorphShape / keepRainbowTint. Both are RENDER-ONLY, live in src/render/, are 2-arg not (id,tick,index), and their own docblocks rest the purity argument on being cosmetic-only. If burst directions affect the SIM (they will - they aim/place), those are the wrong model. The correct SIM-side precedents are pseudoRand(seed,index) at state/rng.ts:61-67 (whose index param is documented as exactly the multi-direction differentiator) and mix32, whose shipped sim consumer is poopDropIntervalTicks. NOTE mix32 already exists as TWO byte-identical copies (seagullLifecycle.ts:68-77, creatureAI.ts:49-58) and creatureAI.ts:42-43 knowingly documents the duplication - a third copy would be the third; consolidating into rng.ts is guarded by save.replay.test.ts for byte-exact math.",
-    "NO RADIUS-DAMAGE HELPER EXISTS, AND THE OBVIOUS ONE IS A TRAP. applyRadialClear (potatoLifecycle.ts:215-291, 77 LOC) is a radial ITERATE+DELETE helper: it never reads or writes .hp and never calls damageEntity - calling it would ONE-SHOT every primitive in radius regardless of hp. The tower must write the bridge (radial collect -> per-target damageEntity), reusing its sorted-id iteration discipline but not its body. Related: the potato blast still deletes creatures with NO hp arithmetic (potatoLifecycle.ts:230), so 'primitives now have hp' does not mean the blast respects hp - a 1000-hp primitive still evaporates.",
-    "THE SLOW HAS THREE INDEPENDENT APPLICATION SITES WITH THREE DIFFERENT MATHEMATICAL FORMS - there is NO shared apply-slow helper to extend: creatureVerlet.ts:145-148 (accel scalar, applied AFTER the maxAccel clamp so it is not re-clamped, called 8x/tick per substep), controlsCore.ts:112-116 (a LERP RATE on the carried spark), defenderLifecycle.ts:152-156 (a RECIPROCAL tick-stretch gated on world.fouledPrimitives, not on a timer). And the 'cruiser variant too' phrase conflates two unrelated mechanisms: the cruiser slow is a HARD 7px/tick cap inside a cursor-chase model with DIFFERENT field names (poopedUntilTick/poopedCursorTarget vs poopyUntilTick), whose gate is the TARGET FIELD not the timer (gameMode.ts:485-488, a deliberate float-free-termination choice). There are FOUR debuff-state representations in flight (tick-until fields / a Set membership / a target field as gate / an auto-expiry timer) - the PDR must pick one for stink and say why.",
-    "THE 30-TICK CADENCE IS ALREADY SPECIFIED IN CODE AS A COMMENT WITH NO IMPLEMENTATION. constants.ts:1184-1191 states the percent-of-max-HP-on-a-0.5s-cadence model verbatim and why 1000 was chosen, but NO DOT_CADENCE_TICKS / DAMAGE_INTERVAL_TICKS constant exists anywhere (grep returns only spawn-cadence constants). stinkUntilTick / lastStinkApplyTick / StinkTower / stinkTower are ALL NOT_FOUND in src/ and e2e/ - greenfield, no migration risk, no precedent to copy verbatim. ALSO: PRIMITIVE_MAX_HP=1000 is load-bearing for the integer-DoT invariant but is NOT in constants.lock.test.ts (which is 24 LOC and locks exactly one constant, MEMORY_FOG_COLOR) - adding it is the cheapest available regression guard and that file exists for exactly this.",
-    "RECIPE PATH: AUTHOR THE STARTERS AS *DEFENDER* RECIPES - the two paths differ radically and no doc says so. DEFENDER is switch-free and fully generic: findDefenderMatches (index.ts:130-140) iterates the registry by kind and recipeStillSatisfied (defenderLifecycle.ts:283-287) delegates to recipe.stillValid, so registration + GodlyId widening + a CODEX_COPY entry is the WHOLE wiring; runDefenderIgnition needs NO change. SPAWNER is NOT generic: findSpawnerMatch (index.ts:112-122) is DEAD CODE (stated at pentagram.ts:170-173), real ignition hardcodes per-recipe anchor finders at godlyMatcherCore.ts:145-146, and it needs a new case arm at spawnerLifecycle.ts:108. Also: ZERO exhaustive Record<GodlyId,...> exists anywhere, so widening GodlyId 5->6 produces NO tsc cascade - and CODEX_COPY is string-keyed (codexPresentation.ts:44) so tsc will NOT catch a missing copy entry; the fallback renders the id uppercased with recipe text '???'.",
-    "FOUR RECIPE-PATH TRAPS. (a) runDefenderIgnition passes a HARDCODED dummy (x:0,y:0) as bondPos (godlyMatcherCore.ts:163) and both shipped predicates ignore it - a new recipe using bondPos for locality silently reads the origin, while DefenderRecipePredicate (types.ts:83) still advertises the parameter. (b) runDefenderIgnition has NO break (:163-177), so a BATCH of new starter recipes can ALL ignite on a single bond - relevant if starters should feel like discrete discoveries. (c) lightningHub.ts is the shortest recipe (98 LOC) and the closest hub+leaves template, and it is the ONLY recipe with NO test file. (d) constants.ts:1146's comment says LIGHTNING_HUB_DEGREE is a LOOSENED gate >= not == but lightningHub.ts:40 reads !== (strict equality) - stale comment that would mislead anyone copying the documented pattern. LIGHTNING_HUB_LEAVES=5 (constants.ts:1147) has ZERO consumers - dead constant.",
-    "4-SHAPE RECIPE SPACE IS GENUINELY FREE (confirmed) BUT LANDS ON A DESIGN AXIS. ComboKey is strictly a 2-shape pair (combos.ts:20, 36-entry TABLE runtime-asserted at :216-218, MAGICAL 14 rows) and godly recipes occupy 5-9 shapes, so 3- and 4-shape space is structurally unoccupied - zero collision risk, as claimed. EmblemSpec needs no widening either (a 4-shape fits kind:star nodes:3 or kind:ring nodes:4). BUT a 4-shape recipe would be the FIRST recipe strictly BELOW the bank cap even at 5, i.e. assemblable from one inventory load with a slot to spare - the exact axis constants.ts:407-438 defends. JUDGMENT CALL TAKEN (flagged, not blocking): free/simple/non-godly starters are consistent with being easy to assemble; the B4b concern is about GODLY recipes becoming trivial. Surfaced for owner override.",
-    "MCV IS NOW STRICTER THAN THE STANDING MENTAL MODEL. verify-session-claims.py TEETH_DATE 2026-07-15 has PASSED, so :312/:327/:339 all resolve to hard FAIL: UNCOVERED (0 assertions), WEAK (no PASSING binding assertion) and UNBOUND BACKLOG.md are three separate exit-1 conditions per completed priority. Verifier is 351 LOC, 8 assertion types (7 binding), watch scope = exactly 1 watch_root (BACKLOG.md). S138 precedent density: 19 assertions on P1, 14 on P2, all absolute forward-slash paths. ALSO mcv_session_nonce is ABSENT from session-state, so any nonce_match assertion authored this session hard-fails with 'no session nonce recorded' - use file_contains/file_lacks/grep_count/json_field only.",
-    "BUDGET REALITY. Entry bundle 677,253 B = 661.4 KiB vs CAP 768,000 B => 90,747 B / 88.6 KiB hard headroom, but WARN_HEADROOM_KIB=60 (check-bundle-size.mjs:26) means only 28.6 KiB of QUIET growth before every local build starts shouting. The naive 3x renderer copy (~855 LOC) eats materially into that. CHEAPEST PLACE TO ADD BYTES: the gate parses only the entry script tag + modulepreloads from dist/index.html (0 modulepreloads today), so the 127.13 kB simWorker chunk and ALL atlases are budget-EXEMPT - dist/godly is already 5.10 MiB uncounted. But 3 more Helga-weight atlases = ~+7.5 MiB to the repo AND the Pages artifact. vitest 142 files / 2,148 tests / 30.1s. 185 non-test .ts / 46,353 LOC.",
-    "THE 500-LOC ANTI-BLOAT CHARTER HAS ZERO TEETH AND ITS FIGURES ARE STALE. Prose exists (LOCKED_DECISIONS.md:380, SPARK_Blueprint.md:796-800) but there is NO enforcement anywhere: no eslint/prettier/biome in devDependencies, no LOC script in scripts/, no non-sample .git/hooks, no LOC step in either workflow. S128 claimed 16 modules over 500; actual on disk is 20 (main.ts 2616 not 2519, save.ts 1985 not 1658, placePrimitive.ts 681 - it DECREASED from 699). BACKLOG.md's own R22 figures are stale in the document that will be used to size this work. Net: 500 LOC is an aspiration, NOT a budget this session must fit inside.",
-    "TWO STALE E2E PROTOCOL LITERALS, AND ONE IS A RECURRENCE OF A FIXED DEFECT. e2e/smoke.spec.ts:643 asserts toContain('v15') while PROTOCOL_VERSION is 17 - stale across TWO bumps - even though :642 says A FUTURE PROTOCOL_VERSION BUMP MUST UPDATE THIS LINE AND THE TWO BELOW. Worse, :667 sets __TEST_PROTO_VERSION_OVERRIDE__ = 16 for a test titled 'Newer-version joiner (v16)' - but 16 < 17, so it now exercises the OLDER-peer branch, i.e. the exact defect S133 P2 fixed has RECURRED. Both survive because the describe is tagged @quarantine-flaky (:595) and e2e:gating grep-inverts that tag - so the ONLY runtime coverage of the version gate STILL cannot fail the build. A 17->18 bump this session must fix all three literals.",
-    "TWO LATENT HOLES ANY NEW SPARK CONTAINER INHERITS. (a) MIGRATION SparkId COLLISION: migrationClaim.ts:147-165 rebuildAuthorityAllocators computes maxSparkId from world.freeSparks ONLY (:157-158), but banked sparks are DELIBERATELY out of freeSparks (castleBank.ts:56-60), so a successor whose highest free spark is 40 while a bank holds 57 re-mints 41..57 and COLLIDES with a banked shape (main.ts:2089). The fix belongs in rebuildAuthorityAllocators, not in a new container. (b) castleBanks is marked hashed (stateHashFull.ts:91) but has NO per-element field guard - there is no BankF = keyof ElemOf<World['castleBanks']> because the container is Map<PlayerId, Spark[]> so the ElemOf trick cannot reach the Spark. The bank projection (:410) hashes only id/type, so adding a field to Spark fires the SparkHashed guard for freeSparks but NOTHING forces the bank projection to carry it - a divergence in a banked spark's new field is invisible to the wide oracle.",
-    "A NEW WorldSnapshot FIELD IS WIRE-VISIBLE BY DEFAULT. NetSnapshot = Omit<WorldSnapshot, 5 keys> (save.ts:853-858), so adding a field puts it on the 10 Hz wire automatically; keeping it host-only requires editing that Omit list AND the destructure in netSnapshot() (:866-876), and nothing warns either way. For a new serialized container only 1 of 6 required edits is tsc-forced (FIELD_COVERAGE row) - the other 5 are silent: determinismParts (165 LOC), WorldSnapshot field, snapshot() emit (127 LOC), applySnapshotCore rehydrate (320 LOC), structuralSignature term, positions buffer. Plus 5 teardown clear() sites and 7 id-allocator resets. For a new INTENT, 3 of 6 are forced (union root, dispatch arm TS2366, KNOWN record TS2741) and 3 are not - and the unforced CLIENT_INTENT_TYPES_RECORD is the dangerous one: it is Partial<...> + satisfies, so a forgotten row COMPILES CLEAN, passes every test, works in solo/host, and is SILENTLY DROPPED for a networked joiner at hostHandlers.ts:321 and main.ts:2161.",
-    "FOUR MORE STALE-DOC FINDINGS (the pattern this sweep exists for). (a) voltkinFrames.ts:255-258 says public/godly/voltkin/anim/* was deleted in S107 P3 and is not loaded at runtime - both PNGs EXIST (273KB + 285KB), are git-tracked, ship in dist/, and are loaded EVERY match by creatureRenderer.ts:84-85 -> ensureTextures():177. S110 P5 re-filled the path and nobody amended the prose. (b) stateHash.ts:42 and :70 both cite a symbol FAMILY_COVERAGE that DOES NOT EXIST - the real export is FIELD_COVERAGE; a session grepping the documented name finds nothing and may conclude the forcing function is absent. (c) Three docblocks (stateHash.ts:24,:77 and stateHashFull.ts:23) cite main.ts:1706 as the hashWorldState call site; the real call is main.ts:1761. (d) comboCodexStore.ts:12 points at comboCodexOverlay.ts, deleted in S104 P3 - a stale docblock inside the exact module C4 cites as evidence.",
-    "TWO MORE TRAPS. (a) package.json test script is still bare vitest = WATCH MODE, never exits; deploy.yml:107-108 works around it with npx vitest run. So npm test in CI or a subagent hangs to the 15m timeout and reports cancelled, NOT failure - the silent-death class already in memory. (b) UPGRADE_GATHERER_SPEED is FLEET-WIDE (gathererLifecycle.ts:101-119 charges once and steps EVERY owned gatherer), and its docblock justifies that by 'there is no unit-selection UI (that is V6-1.4)'. If R3 introduces per-gatherer selection, that justification EXPIRES and a submenu with a SPEED row would silently upgrade the whole fleet.",
-    "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
-  ],
+  "a0_state_discovery": {
+    "method": "Workflow s160-batch-probe — 12 read-only probes + 20 adversarial re-checks, 32 agents, 0 errors",
+    "key_delta": "owner branch claude/castle-races-unique-towers-xb9uzi is docs-only, based on 1e5b261, 21 commits behind master; its baseline 3353/212 is stale vs measured 3399/218",
+    "transcript": "subagents/workflows/wf_06fcfd35-36a/journal.jsonl"
+  },
   "priorities": [
     {
       "id": "P1",
-      "priority_id": "S159-P1",
-      "name": "bag navigation aggro — Creature.targetStinkCloudId, host-only, no protocol bump (R77 last bag property)",
-      "status": "completed",
-      "check_completed": true,
+      "title": "TURN — prove the code path end to end, correct the runbook",
+      "tier": "Micro",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "bag navigation aggro — R77's last unbuilt bag property, shipped as a DERIVED scan with no new Creature field, no serialization, no hash change and no protocol bump",
-      "tier": "Standard",
-      "check_method": "RALPH:PATROL + empirical. (1) MEASURED end-to-end, not asserted: a goblinMelee placed exactly one STINK_BAG_AGGRO_RADIUS (220 px) from an enemy bag walks to it and KILLS it at tick 184 of the bag's 240-tick life, with killCount 1 proving a strike rather than an expiry. (2) NEGATIVE CONTROL RUN: with the four-line steering insert removed, the bag EXPIRED instead at tick 210 with killCount 0 and TWO tests went red — so the test bites, and note that a naive 'the bag is gone' assertion would have passed the broken build. (3) The nearest-vs-lowest-id test asserts BOTH scans in one place (nearestEnemyStinkCloudWithin -> the near bag, enemyStinkCloudInReach -> the far one), so it can never degrade into a tautology. (4) Determinism: two identically-built worlds compared with hashWorldStateFull every tick for 240 ticks. (5) Full suite 3360/3360 across 213 files (was 3353/212) and tsc -b --noEmit exit 0 — the goblin navigation chain is shared by every goblin test, so a regression there would have surfaced. (6) DESIGN CLAIM VERIFIED BY ABSENCE: the carried-forward plan called for a new committed-target field on Creature (wire + hash + protocol bump). Two docblocks in the codebase decide it against that — targetPrimitiveId's ('several sites must agree within one tick') and GOBLIN_UNIT_LEASH_RADIUS's ('the target MOVES'). Neither holds for a bag: engagement and the strike both re-derive from position (S158 A2), and a bag does not move. So Creature is byte-identical and PROTOCOL_VERSION stays 38 — bound below as a file_lacks on creature.ts. ⭐ CHECK ADDED TWO TESTS, both from external seats and both PASSING on the shipped code: GROK's exact-distance TIE case (two bags equidistant, inserted highest-id first — the lowest id wins and KEEPS winning for 30 ticks as the unit closes, so the pick is stable rather than alternating at 60 Hz), and GEMINI's stalling bound (it argued that placing BAG above the committed shape lets a defender peel an army off a castle indefinitely; the bound already existed — this navigation branch runs ONLY in SEEKING, so a unit that has closed and entered ATTACKING is not re-steered at all, and that is now pinned). GROK also caught a loose claim in the docblock — 'this scan cannot oscillate' is too strong, since a moving unit CAN hand off between two bags when its path crosses their bisector — narrowed to the claim that is true and testable (it cannot CYCLE).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STINK_BAG_AGGRO_RADIUS = GOBLIN_UNIT_ACQUIRE_RADIUS;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "A bag lives\n * `STINK_CLOUD_LIFETIME_TICKS` = **4 seconds**"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "export function nearestEnemyStinkCloudWithin("
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "pattern": "nearestEnemyStinkCloudWithin",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAI.ts",
-          "needle": "LOWEST ID WINS OUTRIGHT HERE, NOT MERELY ON A TIE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "const bagId = nearestEnemyStinkCloudWithin(world, creature, STINK_BAG_AGGRO_RADIUS);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "if (steerTo === null && bagId !== null) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "goingHome === null && (navUnit !== null || bagId !== null || nextPrim !== null)"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "pattern": "\\bbagId\\b",
-          "op": ">=",
-          "value": 4
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts",
-          "needle": "expect(g.killCount).toBeGreaterThanOrEqual(1); // KILLED, not expired"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\stinkBagAggro.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 9
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creature.ts",
-          "needle": "targetStinkCloudId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 38 as const;"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "priority_id": "S159-P2",
-      "name": "Voltkin chain lightning — one pure predicate, render-derived arcs, no bump (R77 deferred)",
-      "status": "completed",
-      "check_completed": true,
+      "title": "Rule on the two tower dials that are mine (stink reload, drone hub uplift)",
+      "tier": "Micro",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "Voltkin chain lightning — the bolt walks up to 6 links over enemy units AND connectors, three-phase (compute / damage / sever), no new effect kind and no protocol bump",
-      "tier": "Standard",
-      "check_method": "RALPH:PATROL + empirical. (1) GEMINI's R1 prescription implemented verbatim: seven enemies in a line 100 px apart (inside the 120 px hop), the Voltkin zaps the first, and the test asserts WHICH one lives rather than how many died — survivor id 16 = the far end of the line, killCount exactly 6. A broken tie-break leaves a different survivor. (2) NEGATIVE CONTROLS RUN, two at once: both call sites unwired AND the creature tie-break's id compare replaced with `false` -> 4 of 14 tests red, including the seven-in-a-line case. (3) A CAUGHT DEFECT, not a hypothetical: the first cut hand-rolled the enemy test as `anchor.placedBy === attacker.ownerPlayerId`. The shipped discriminant is endpoint `placerColor` vs the owner's LIVE colour — `findNearestEnemyPrimitiveFrom` records that a territory-captured shape keeps its original allegiance for targeting, and a rainbow colour shuffle remaps colours without touching `placedBy`. Replaced with the exported `isEnemyBond` and pinned by a captured-shape test that FAILS on the hand-rolled version. (4) 14 tests: cap, hop-range gate, no-revisit, enemy-only, within-kind tie-break with reversed insertion order, cross-kind order (creature beats bond at equal distance), connector chaining, chewer-does-not-chain (asserted via the neighbour's damageFifths staying 0, so not even banked damage leaks), purity (twice on one world = same answer, world.effects still empty), and the single-zap case still emitting exactly ONE arc. (5) 3374/3374 across 214 files, tsc 0, build 764.2/900 KiB. ⚠ HONEST NOTE ON THE REPLAY GUARDS: creatureAI/hostTick.differential/save.replay pin Voltkin behaviour but they are DIFFERENTIAL (two sims against each other), so they pass a deliberate behaviour change without noticing it. Nothing in the suite holds a golden Voltkin value — stated rather than presented as proof of byte-equivalence, because the behaviour DID change, by owner request.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "needle": "export function voltkinChainFrom("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "needle": "export function applyVoltkinChain("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "needle": "if (!isEnemyBond(world, attacker, b)) continue;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "needle": "if (anchor.placedBy"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "pattern": "ARC_FLASH",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const VOLTKIN_CHAIN_HOP_RANGE = 120;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "S159 P2 — CHAIN LIGHTNING IS IMPLEMENTED"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "CHAIN LIGHTNING IS NOT IMPLEMENTED"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureAttack.ts",
-          "pattern": "applyVoltkinChain\\(world, creature",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 14
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.test.ts",
-          "needle": "expect(alive[0].id).toBe(line[6].id);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 38 as const;"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkinChain.ts",
-          "pattern": "isEnemyBond",
-          "op": ">=",
-          "value": 2
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P3",
-      "priority_id": "S159-P3",
-      "name": "the HELD-card root cause — pre-handoff-review.py newest-key resolution + archive the stale carry_forward",
-      "status": "completed",
-      "check_completed": true,
+      "title": "Rule on the four numbers + record the recipe-overlap finding",
+      "tier": "Micro",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "the HELD-card root cause - the review gate resolved from a hardcoded S150-S152 key chain and fell through to a stale generic key; fixed in the script AND in this project's record",
-      "tier": "Micro",
-      "check_method": "Empirical, both halves. (1) ROOT CAUSE, not a symptom: pre-handoff-review.py:148 resolved HELD as carry_forward_from_S152 or _S151 or _S150 or carry_forward. None of the first three keys exist in this project; the generic key still held the S155 list; the live list was carry_forward_s158_deferred. Two handoffs had warned the reader BY HAND not to trust their own review gate. (2) It now resolves by SESSION NUMBER, takes EVERY key at the newest session (a session filing under two keys must not lose half its items), and PRINTS THE KEY on the card so provenance is visible - verified live, the card now reads '[from carry_forward_s159 + carry_forward_s159_debt]' and lists both items. Ordering is NUMERIC, not lexical: a string sort picks s99 over s158, and there is an assertion for exactly that. (3) 8 assertions in scripts/tests/test-pre-handoff-review-held.py, incl. the live regression, history-key exclusion, the legacy fallback and the old chain's own key shape still resolving. NEGATIVE CONTROL RUN: 3 of 8 fail against the pre-patch script. (4) Also fixed the row that printed 'PP1' - the id already carries its P. (5) Project side: the stale generic key is ARCHIVED so nothing can fall back onto it, and CF-S157-g is closed as MOOT with the reason recorded - HAZARD_SPAWN_ENABLED=false means there are no area hazards, so there was never a ruling for the owner to make. Committed in the ~/.claude repo at 61aa853.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
-          "needle": "def held_source(d):"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
-          "needle": "d.get(\"carry_forward_from_S152\")"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
-          "needle": "\"HELD / NEEDS A HUMAN DECISION:%s\""
-        },
-        {
-          "type": "syntax_ok",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\pre-handoff-review.py",
-          "lang": "python"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\tests\\test-pre-handoff-review-held.py"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\.claude\\scripts\\tests\\test-pre-handoff-review-held.py",
-          "needle": "numeric-order"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
-          "needle": "\"carry_forward\": ["
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
-          "needle": "carry_forward_legacy_s155_archived_s159"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
-          "needle": "carry_forward_s158_deferred_closed_s159"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P4",
-      "priority_id": "S159-P4",
-      "name": "stale plan naming — stamp the 3 archived *_IN-PROGRESS plans with their shipped evidence",
-      "status": "completed",
-      "check_completed": true,
+      "title": "Races W1-A: race token + wire (PROTOCOL 38->39) + the castle weapon on the same bump",
+      "tier": "Full",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "stale plan naming - three archived plans still carried a STATUS: IN-PROGRESS line, so the boot pre-flight warned about all three every session; stamped with their shipped evidence",
-      "tier": "Micro",
-      "check_method": "Traced the fix through the machinery that actually fires, which is S158 P1's whole lesson. pre-flight.sh:86 greps plans-archive/*.md for a STATUS LINE, so RENAMING the files would have silenced NOTHING - the STATUS line inside each file is what changed and the rename is cosmetic on top. Verified by re-running that exact grep over the directory: zero matches. Every stamp is evidence re-probed at stamp time rather than inherited from the plan's own claims: goblinMelee is live and fully tested (P6 CORRECTED THIS LINE: P4 first cited creatureLifecycle.ts:143 as recording it a FREE STARTER granted per seat, and that comment had itself gone stale — seedStartingUnits was deleted under R49 and S148 PA made the empty opening a ruling. All three starter units are obtained by FEEDING THE GOBLIN TOWER. Both the source comment and the plan stamp are fixed), GOBLIN_ARCHER_CONFIG is registered at voltkin-config.ts:728, the stink tower's recipe is blueprints.ts:183; zones.ts (11 KB) plus zoneCastleAnchor, buildLegalityGates.test.ts and the measured 1.9->2.6 re-tune at constants.ts:513 (gatherers/zoneEconomy.test.ts, five seeds); CASTLE_MAX_HP 1500 plus the fallen/survivors win gate at gameState.ts:76. AND ONE PART DID NOT SHIP: castle GUNS. A grep for castleGun|keepGun|castleTurret returns nothing in src/. It is specced WITH an owner ruling already attached (SPARK_TD_SESSION_SPECS.md:59 Q4 - retaliation-only against anything that damaged this castle within 300 ticks; :208-230 costs it as a defender-FSM reuse) and it is the same ground as the owner's elemental-keeps idea. Carried forward as the top recommendation rather than closed, and the stamp says so in as many words so that no future reader takes the word CLOSED to mean the work was dropped.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md"
-        },
-        {
-          "type": "file_absent",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_IN-PROGRESS.md"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md",
-          "needle": "STATUS: IN-PROGRESS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-10_SCOPE_AMENDMENT_S137_starter_designs_COMPLETED.md",
-          "needle": "blueprints.ts:183"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md"
-        },
-        {
-          "type": "file_absent",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_IN-PROGRESS.md"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md",
-          "needle": "STATUS: IN-PROGRESS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_COMPLETED.md",
-          "needle": "zoneCastleAnchor"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md"
-        },
-        {
-          "type": "file_absent",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_IN-PROGRESS.md"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md",
-          "needle": "STATUS: IN-PROGRESS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans-archive\\2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_CLOSED.md",
-          "needle": "THE ONE PART THAT NEVER SHIPPED, CARRIED FORWARD RATHER THAN CLOSED: CASTLE GUNS"
-        }
-      ]
-    },
-    {
-      "id": "P5",
-      "priority_id": "S159-P5",
-      "name": "B1 closure from the owner two-workstation measurement + the torrent:fail strategy",
-      "status": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "B1 closed by the owner's own measurement - there is no two-workstation split; and the torrent:fail beside it was a real bug: two of three trackers were dead",
-      "tier": "Micro",
-      "check_method": "Owner measurement + empirical probes. (1) B1 IS ANSWERED, and the S158 hypothesis is DISPROVED: the owner pressed TEST CONNECTION on both workstations on one network and sent the screenshot - room KFU2AR, 2 players connected, sync 3/3, 'Matchmaking: All 7 answered', [nostr:7/7 torrent:fail], and the single red line 'No relay server'. S158 predicted the second machine might report 0/7 relays, which would have meant a firewall/VPN/extension on that machine. It reports 7/7. Nothing is wrong with either machine or the router; TURN is the only thing left. Recorded in TURN_SETUP.md as its own section so the owner reads the answer where they read the runbook. (2) torrent:fail WAS A REAL BUG, and the first probe nearly hid it. npm run probe-relays graded WSS endpoints by rewriting them to https:// and reading the HTTP status: it reported tracker.openwebtorrent.com as [CHECK] on an HTTP 404 - a 404 to a plain GET is NORMAL for a WebSocket endpoint. A real WebSocket handshake (Node's built-in WebSocket) measured the truth: openwebtorrent OPEN, btorrent.xyz ERROR, files.fm:7073 ERROR, and tracker.webtorrent.dev OPEN as a replacement. (3) WHY TWO DEAD ENTRIES KILLED THE WHOLE STRATEGY instead of degrading it: transport.ts passes `redundancy: relayUrls.length`, so the list length IS the requirement - the 'uncorrelated failure domain' fallback the S44 Council added has therefore been contributing NOTHING while showing red beside the real blocker. (4) Fixed: dead hosts out, live one in, probe rewritten to handshake. Re-run reads 9/9 configured relays OPEN and confirms both removed hosts are still dead. (5) 7 tests in src/net/relayLists.test.ts, and they deliberately do NOT assert the hosts are alive - that would make the suite depend on free public infrastructure. They assert what stays true: a host measured dead is never re-added, the probe script's hand-copied lists EQUAL iceConfig's (a probe reporting on a different list than the game uses is worse than no probe), no duplicates, wss:// only, and that the probe still handshakes rather than GETs. 3381/3381 across 215 files, tsc 0. ⚠ BINDING CORRECTION, LOGGED RATHER THAN QUIETLY REDONE: the first cut asserted `file_lacks` on the dead hostnames, which FAILED — they appear in the docblock's measurement table, which is exactly where they should appear. The behaviour claim is about the ARRAY LITERAL, so it is now a grep_count of the QUOTED form (0 for each dead host, 2 entries total). Same over-strict-needle mistake P2 hit; and it was caught late because the verifier ran through a PIPE, so the `&&` chain read tail's exit status instead of the verifier's — the project's own 'read the exit code directly, never through a pipe' rule, broken in the very command that was checking compliance.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "'wss://tracker.webtorrent.dev',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "TWO OF THE THREE WERE DEAD, WHICH IS WHY THE OWNER'S LOBBY SAID"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
-          "needle": "new WebSocket(wssUrl)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
-          "needle": "replace(/^wss:/, 'https:')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\probe-relays.mjs",
-          "needle": "const KNOWN_DEAD = ["
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 7
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\relayLists.test.ts",
-          "needle": "never re-adds a tracker measured dead"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
-          "needle": "There is no split between your two workstations."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
-          "needle": "Room KFU2AR"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "pattern": "'wss://tracker\\.btorrent\\.xyz'",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "pattern": "'wss://tracker\\.files\\.fm[^']*'",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "pattern": "'wss://tracker\\.[a-z.]+(:\\d+)?(/[a-z]*)?'",
-          "op": "==",
-          "value": 2
-        }
-      ]
-    },
-    {
-      "id": "P6",
-      "priority_id": "S159-P6",
-      "name": "coherence sweep (owner mandate) — no unfinished/open pathways, inconsistencies, incoherence",
-      "status": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "coherence sweep (owner mandate) - found and fixed the FOURTH site of the S158 B2b tower bug, six stale claims that had gone false, and pinned the one real declared-but-dead stat",
-      "tier": "Standard",
-      "check_method": "Systematic sweep on two grep passes (unbuilt/dead/NOT-IMPLEMENTED markers, then deferred/unwired/no-caller claims), each hit verified against the code rather than trusted. SEVEN findings, all fixed:\n(1) ⭐ THE REAL BUG: the STINK TOWER was the FOURTH site of the S158 B2b defect and was missed. B2b's commit message names the three it fixed ('the goblin tower, the laser turret and the lightning hub') while starShape.ts's title claimed it replaced FOUR component tests. isStinkTowerComponent still ran the whole-component clause, so bonding ONE ordinary shape onto ONE LEAF of a stink tower made the 0.5 s re-validation poll tear it down silently and permanently - the owner's own reported bug, live in the recipe most likely to hit it, because constants.ts records the stink tower as the FIRST tower a player builds and the opening BUILD is funded for exactly its four shapes. Converted to the shared isStarAt. Exactly two tests failed, both of which deliberately pinned the old behaviour, and both were INVERTED not deleted (the B2b treatment) plus a third added for the other half of the ruling (a fourth shape on the HUB, and a leaf eaten, both still tear it down). One S141 mitigation is knowingly lost: an accidental stink tower no longer self-heals, because that self-heal WAS the buggy clause - stated in the code and in the test, with the argument for the trade.\n(2) goblinTowerFeed.ts opened with a ⛔ 'READ THIS BEFORE ASSUMING THE FEATURE IS LIVE - nothing dispatches this action yet'. S152 P2 shipped the FEED row one session later and nobody came back: for seven sessions the loudest comment in the file told the next reader that a live, player-reachable mechanic was unreachable. Verified live end to end (structurePanel row -> controls hit-test -> main.ts:817 dispatch -> protocol allowlist) and corrected.\n(3) gameMode.ts said goblins come from the tower 'which is S153 and unbuilt' - built since S151 P3 + S152 P2.\n(4) constants.ts said the terrorist goblin's AoE was NOT IMPLEMENTED - it landed in S158 P3/P3b and suicideBlast.ts spends both owner numbers.\n(5) voltkin-config.ts still described the S158 P3 BUG as the unit's design ('selfExplode routes it down the lightning drone's detonate-on-arrival path').\n(6) creatureLifecycle.ts justified its null-spawner gate as 'protecting the FREE STARTER units - each seat is granted one goblin of each kind'. No seat is granted anything: seedStartingUnits was deleted under R49 and S148 PA made the empty opening a ruling. The gate is live for a DIFFERENT reason (it bounds SPAWN_CREATURE as a client intent, which is on the protocol allowlist) and now says so. This one also invalidated a claim in P4's own check_method, which is corrected in place rather than left.\n(7) THE ONE REAL declared-but-dead stat: DRONE_ATK/DRONE_PEN reach LIGHTNING_DRONE_CONFIG and stop - applyDroneExplode severs bonds and never reads either, so the owner's '5 damage and 1 pierce in an area of effect' describes a mechanic the game does not have. NOT silently converted: turning a bond-sever into stat damage is a balance change the owner should see (30 fifths breaks a connector up to a 26-connector structure and then stops, so a drone gets WEAKER against fortresses). Pinned by pinnedDeadStats.test.ts, which is DESIGNED TO FAIL when the gap closes and says so in its message.\nA.0 E1 CLOSED: the 3352-vs-3353 delta is unreproducible. The count is deterministic on this machine across five runs (3353 -> 3360 -> 3374 -> 3381 -> 3385 -> 3391, every delta matching my own additions), the file count matched at 212, no conditional test registration exists (the only env-sniffing test varies DURATION, not count), and the S158 figure was recorded in the last code commit's own message. Read as a transcription slip, recorded rather than explained away.\nGates: tsc 0 - 3391/3391 across 216 files - e2e:gating exit 0, 62 passed (read from a file, not a pipe). ⚠ BINDING NOTE (third instance this session, so it is now a rule): a binding for a CORRECTED COMMENT cannot be `file_lacks` on the old wording — a correction QUOTES what it corrects. The shape that works is `file_contains` the correction marker plus `grep_count == 1` on the old phrase, i.e. 'it survives only as history, never as an assertion'.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
-          "needle": "return isStarAt(world, squareId, STINK_HUB_TYPE, STINK_LEAF_TYPE, STINK_TOWER_HUB_DEGREE);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
-          "needle": "comp.primitiveIds.size !== STINK_TOWER_SIZE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.ts",
-          "needle": "THE FOURTH SITE OF THE S158 B2b BUG"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
-          "pattern": "THIS TITLE SAID",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.test.ts",
-          "needle": "TOLERATES an extra shape attached to a LEAF (was: rejected it)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\stinkTower.test.ts",
-          "needle": "SINCE S159 P6 IT NO LONGER SELF-HEALS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
-          "needle": "THE GESTURE LANDED IN S152 P2"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\goblinTowerFeed.ts",
-          "needle": "**Nothing dispatches this action yet.**"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "THE AoE SHAPE IS NOT IMPLEMENTED IN P3"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\voltkin-config.ts",
-          "needle": "S158 P3 — IT HAS ITS OWN BLAST NOW"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\creatureLifecycle.ts",
-          "needle": "No seat is granted"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\pinnedDeadStats.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\creatures\\pinnedDeadStats.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 4
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameMode.ts",
-          "needle": "S159 P6: that clause used to end"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameMode.ts",
-          "pattern": "which is S153 and unbuilt",
-          "op": "==",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": "P7",
-      "priority_id": "S159-P7",
-      "name": "the four numbers that are mine — make each coherent; settle the recipe-OVERLAP design question",
-      "status": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "the four numbers that are mine - three were already flagged at their constants; the fourth (recipe OVERLAP) was a real design question whose flagged example was impossible",
-      "tier": "Micro",
-      "check_method": "Each of the four checked at its constant, then the one that was a real question was MEASURED instead of asked. (a) drone cadence 5 s - already flagged 'A DIAL, not a derivation', with the 45 s-fight arithmetic and the owner's own numbers (count 3, self-destruct radius) named as theirs. (b) stink-bag HP 1 - already flagged 'THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS'. (d) the 12x aura nerf - already carries its full provenance at STINK_AURA_CADENCE_TICKS, including the measurement that the shipped rate was 2.4 atk/sec against the owner's 0.2 and that STINK_AURA_DAMAGE was never an owner number either. All three need nothing but the owner's eye.\n(c) RECIPE OVERLAP was different: the paragraph asking the owner to rule described something that CANNOT HAPPEN. It said a Circle leaf of a lightning hub could simultaneously be a goblin-tower hub. A goblin hub requires EVERY neighbour to be a Circle, and that leaf is bonded to the lightning hub's DOT - so the all-Circle test fails on that arm. The degree was wrong too (4, not 3). Asking for a ruling on it would have wasted the owner's time on a non-existent case, which is the mirror of S158's lesson about asking for rulings that already exist.\nThe overlaps that ARE real are shared LEAVES, and each is now constructed and COSTED in starOverlap.test.ts: two goblin towers chained hub-to-hub = 8 Circles instead of 10; a stink tower and a lightning hub sharing Circle leaves = 7 shapes instead of 10 (NEW as of P6, since the stink tower's component clause had been forbidding every overlap involving it); and the laser turret cannot participate at all because Spiral leaves share no type with the Circle-leaved stars. The fifth test is the argument for leaving it alone: a shared leaf is a shared WEAKNESS - eat one Circle and BOTH towers fall in the same tick. The discount is paid for, which reads as the game rewarding a dense build rather than as an exploit. So the owner now rules on a 20-30 % shape discount with a matching single point of failure, not on 'a lattice sprouting towers nobody planned'.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
-          "needle": "the flagged example is IMPOSSIBLE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starOverlap.test.ts",
-          "needle": "a shared leaf still un-makes BOTH towers when it is eaten"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
-          "needle": "RE-MEASURED IN S159 P7"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\godlyRecipes\\starShape.ts",
-          "needle": "if it has three Circle neighbours of its own. Before,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "A DIAL, not a derivation"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "THE HP IS MINE, AND IT IS THE ONLY NUMBER HERE THAT IS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "THE AURA IS 0.2 ATK/SEC. IT HAS BEEN 2.4 SINCE S157"
-        }
-      ]
-    },
-    {
-      "id": "P8",
-      "priority_id": "S159-P8",
-      "name": "T1 — the stink tower re-arms between fights (bagsRemaining was filled once at construction and never refilled)",
-      "status": "completed",
-      "check_completed": true,
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "T1 — the stink tower re-arms between fights: bagsRemaining was filled once at construction and NEVER refilled, so the tower fired in fight one and never again",
-      "check_method": "RALPH:PATROL + empirical, on the owner's own report. (1) CAUSE, grep-verified before any code: `bagsRemaining` had exactly TWO writes in src/ — filled at defender.ts:368 from config.bags, decremented at stinkTower.ts:194 — and `state/defenders/` had NO matchPhase handling at all, so no boundary reset it. Rebuilding was the only reload, which is exactly what the owner was doing by hand. (2) FIX: one loop on the existing BUILD phase-edge beside standDownDefenders ('walls up, guns cold, doors open' — and magazines refilled). Chosen over the FIGHT edge because stinkTowerRenderer draws the hanging bag count from this field, so the player WATCHES it re-arm during BUILD; and because that branch is already documented idempotent and double-flip-safe. It assigns a constant, so any number of NONET-freeze flips lands on the same 5. config.bags is 0 for every magazine-less kind, so it is a no-op for the turret and HELGA — asserted. (3) MEASURED end-to-end through the REAL host tick across a real phase flip: 'started 5, drained to 0, after the BUILD edge: 5' and then 'fight two: 5 -> 4' — the second fight throws, which is the exact thing the owner could not get without rebuilding. (4) NEGATIVE CONTROL RUN: with the loop removed the log reads 'after the BUILD edge: 0' and 3 of 5 tests go red — the owner's bug reproduced on demand. (5) A FIXTURE TRAP CAUGHT AND RECORDED: the first cut set matchPhase='FIGHT' before igniting and got a world with no tower, because runDefenderIgnition opens with `if (world.matchPhase !== 'BUILD') return` (S157 B6, the owner's 'only next turn' rule). The fixture now ignites in BUILD then crosses on the real clock, which is also the faithful order. (6) 3399/3399 across 218 files, tsc 0.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "d.bagsRemaining = getDefenderConfig(d.kind).bags;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "THE STINK TOWER ONLY EVER FIRED"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "pattern": "getDefenderConfig",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
-          "pattern": "^  it\\(",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
-          "needle": "and the round change re-arms it"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\defenders\\stinkReload.test.ts",
-          "needle": "AND IT MUST BE IN **BUILD** TO IGNITE AT ALL"
-        }
-      ]
-    },
-    {
-      "id": "P9",
-      "priority_id": "S159-P9",
-      "name": "T2 — the drone hub produces continuously and keeps its blast as a death throe (the 3-drone self-destruct was the shipped S113 design)",
-      "status": "completed",
-      "check_completed": true,
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "title": "T2 — the drone hub produces continuously and keeps its blast as a death throe; the 3-drones-then-self-destruct was the shipped S113 design, so this is a recorded ruling reversal",
-      "check_method": "RALPH:PATROL + empirical, and the FIRST finding was that it is not a bug. (1) hostTick.ts emitted STRUCTURE_SELFDESTRUCT_DRONE_COUNT (3) drones and then deliberately self-destructed; the S113 Batch C PDR calls the hub a 'glass-cannon' and its R3 records 'Structure self-destruct kills your own build: INTENDED (owner chose owner-agnostic)'. So the owner is reversing their own ruling — recorded AT the code, the S158 A1 precedent, rather than quietly re-purposed. (2) I ALSO PROBED FOR A SECOND CAUSE and found none: lightningHub re-validates through isLightningHubComponent, which S158 B2b already converted to isStarAt, so the self-destruct was the sole reason it vanished. (3) MY CALL, FLAGGED: the blast is NOT deleted, it MOVED to the hub's death (the recipe-break branch, whose own comment proves teardownSpawners never reaches it — so no blast on a win screen or title return, the same property awardSpawnerKillReward already relies on). They objected to the tower disappearing, not to it having a blast. (4) The cadence now advances on EVERY due slot, emitted or skipped, so emits stay on the exact grid — 'equal intervals' in their words — instead of banking blocked slots and bursting three at once when a drone dies. (5) DRONE_MAX_PER_SPAWNER de-aliased: it was `= STRUCTURE_SELFDESTRUCT_DRONE_COUNT`, a restatement of a burst that no longer exists, and is now its own 3 with the provenance kept. The dead constant is DELETED rather than left as a one-valued relic. (6) MEASURED: 9 drones in one 45 s fight with the hub still standing (was 3 then gone), peak 2 live against the cap of 3 — matching the 5 s-cadence / 8 s-lifetime arithmetic exactly. (7) NEGATIVE CONTROL RUN: restoring the self-destruct gives selfDestructedAt=1199 and the test goes red. (8) THREE tests pinned the retired design and all three were INVERTED, not deleted (the B2b treatment) — including the anti-vacuity test in spawnerPhaseGate, whose detonation coverage was RELOCATED to the new death path rather than dropped. (9) The frozen pre-S119 differential reference kept its own local constant, with a note that importing a live constant into a frozen reference let a production retune silently rewrite history. 3399/3399 across 218 files, tsc 0, bundle 764.0/900 KiB. ⚠ BINDING NOTE: the `file_lacks`/count-0 form fails on the bare constant NAME because the block comment QUOTES the retired constant to record the reversal — so the bindings assert the EXECUTABLE form is gone (`>= STRUCTURE_SELFDESTRUCT_DRONE_COUNT` count 0) and the name survives exactly once, as history. Fourth instance of that lesson this session, and now a habit. ⛔ MCV CAUGHT ME AT THE STOP GATE, and it was right. Two of these bindings pinned the wording of BACKLOG.md's to-do block AS IT STOOD WHILE T1/T2 WERE PENDING (`- [ ] **T1 …` and the 'NEXT SESSION'S TOP TWO' heading). The handoff then legitimately rewrote that block to record both as SHIPPED — so my own assertions described a state the file deliberately no longer had, and the verifier reported 2 hard fails. THE LESSON IS DISTINCT FROM THE EARLIER FOUR: never bind a CODE claim to the transient STATUS TEXT of a planning document, because closing the work is exactly what changes it. Re-pointed at the stable substance — both items recorded as `- [x]` with their commit.",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const STRUCTURE_SELFDESTRUCT_DRONE_COUNT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const DRONE_MAX_PER_SPAWNER = 3;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "HOW MANY DRONES ONE HUB KEEPS IN THE AIR"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "THE HUB IS A FACTORY NOW, NOT A THREE-SHOT BURST"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "sp.nextSpawnTick += DRONE_EMIT_INTERVAL_TICKS;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "if (sp.recipeId === 'lightningHub') {\n            const dying = world.primitives.get(sp.anchorPrimitiveId);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
-          "needle": "KEEPS PRODUCING all fight and does NOT self-destruct"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\lightningHubDelivers.test.ts",
-          "needle": "never exceeds DRONE_MAX_PER_SPAWNER in the air at once"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawnerPhaseGate.test.ts",
-          "needle": "the hub survives its own production now"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\spawnerPhaseGate.test.ts",
-          "needle": "and the death blast consumed its own component"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.differential.test.ts",
-          "needle": "A FROZEN CONSTANT FOR A FROZEN REFERENCE"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "pattern": ">= STRUCTURE_SELFDESTRUCT_DRONE_COUNT",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "pattern": "STRUCTURE_SELFDESTRUCT_DRONE_COUNT",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "pattern": "^- \\[x\\] \\*\\*T[12] ",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "DONE THE SAME SESSION — THE OWNER'S S159 PLAYTEST"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "commit `c90b444`, deploy"
-        }
-      ]
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -5150,5 +4444,10 @@
       "T1 stink-tower magazine never refilled — FIXED (P8)",
       "T2 drone hub 3-then-self-destruct — RE-RULED and FIXED (P9)"
     ]
+  },
+  "owner_rulings_s160": {
+    "castle_targeting": "NEAREST ENEMY CREATURE IN RANGE — supersedes SPARK_TD_SESSION_SPECS.md:59 Q4 retaliation-only. Owner ruled 2026-09-02 when shown both documents. Record as a reversal AT the constant.",
+    "batch_shape": "Go — all four priorities in order",
+    "council_waiver": "races W1-A design: Council WAIVED by owner (pre-approved PDR says do not re-council)"
   }
 }

@@ -14,9 +14,22 @@ THREE times — exit code read from a file, never a pipe) · bundle **764.0 / 90
 1. ⛔ **OWNER ACTION — PROVISION TURN. It is the ONLY thing between you and cross-country
    multiplayer.** Sign up at **metered.ca/stun-turn** (free, 50 GB/month), then in the repo:
    **Settings → Secrets and variables → Actions → New repository secret**, three times:
-   `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then push anything (or Actions →
-   Deploy to GitHub Pages → Run workflow). `TURN_SETUP.md` is the runbook and carries the owner's own
+   `VITE_TURN_URLS`, `VITE_TURN_USERNAME`, `VITE_TURN_CREDENTIAL`. Then go **Actions → Deploy to
+   GitHub Pages → Run workflow**. `TURN_SETUP.md` is the runbook and carries the owner's own
    two-workstation measurement.
+   · ⛔ **S160 P1 CORRECTED A TRAP IN THIS VERY LINE.** It used to say *"then push anything"*. That is
+     FALSE: `deploy.yml:26-34` gates the push trigger on a paths allowlist (`src/**`, `public/**`,
+     `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json`,
+     `.github/workflows/deploy.yml`). **Adding repository secrets changes no file at all**, and a
+     push of docs / `.claude/` / `HANDOFF_*` matches none of those paths — so the owner would add the
+     secrets, push, see NO run, and reasonably conclude the wiring was broken. `workflow_dispatch` is
+     the only route that works from a secret change. `TURN_SETUP.md:119-121` already worded it right;
+     this file did not. Same class as S158's gitignored-`.env` defect, one document over.
+   · ✅ **The code side is PROVEN, not asserted** (S160 P1). `deploy.yml:149-156` passes all three
+     into the build env (URLS also accepting a repo *variable*); it is the only build/deploy path in
+     the repo; `iceConfig.ts:162-186` reads them, comma-splits the URL list, refuses a half-filled
+     config, and feeds `RTCConfiguration.iceServers` at both join sites (`transport.ts:376-379`,
+     `quickmatch.ts:173`). Verified out of the **emitted bundle**, not from the comments.
    · **B1 is CLOSED.** Their screenshot: room `KFU2AR`, 2 players connected, `sync 3/3`, "Matchmaking:
      All 7 answered". No split between the two machines, nothing wrong with the router — S158's
      firewall/VPN hypothesis is disproved.
