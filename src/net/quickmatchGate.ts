@@ -70,10 +70,28 @@ export function qmReadyCount(roster: readonly RosterEntry[]): { ready: number; t
  */
 export function broadcastQmPresence(
   session: NetSession,
-  transport: NetTransport,
+  transport: NetTransport | null,
   onPresence: (roster: readonly RosterEntry[]) => void,
 ): void {
-  session.lobbySeats = reconcileLobbySeats(session.lobbySeats, transport.peerIds());
+  // ⭐ S162 P1 — **THE TRANSPORT MAY LEGITIMATELY BE NULL, AND THE REPAINT STILL HAS TO HAPPEN.**
+  //
+  // Owner: *"i cant seem to change my player color(race) i click on it and it shows but it doesnt
+  // change"*. `onPickRace` set `session.selfRace` and then skipped this function entirely behind a
+  // `session.netTransport !== null` guard, so nothing ever called `onPresence` and the rack kept
+  // painting `defaultRaceForSeat(0)` from `lobbyStateMachine`'s count-based fallback. The pick was
+  // recorded and invisible — the worst of both.
+  //
+  // A host has no transport more often than it looks: before a room is opened, and after a failed
+  // one (S162 P0 had `joinRoom` THROWING on a malformed ICE url, so `hostHandlers` never reached
+  // its `session.netTransport = transport` line at all).
+  //
+  // ⛔ THE RECONCILE IS SKIPPED, NOT PASSED AN EMPTY LIST. `reconcileLobbySeats(prev, [])` is
+  // documented as "departed peers fall away" — handing it `[]` because we happen to have no
+  // transport handle would WIPE a live seat map. With no transport there are no peers to reconcile
+  // against, so the previous map is already the truth.
+  if (transport !== null) {
+    session.lobbySeats = reconcileLobbySeats(session.lobbySeats, transport.peerIds());
+  }
   // ⭐ S161 P6 — the race claims ride the ONE presence path. `broadcastQmPresence` is documented
   // above as "The SINGLE presence-broadcast path for the host", which is precisely why the claims
   // are attached here and nowhere else: every route that tells peers about seats (join, leave,
@@ -88,7 +106,10 @@ export function broadcastQmPresence(
   const roster = session.quickmatch
     ? rosterWithReady(base, session.qmReadyPeers, session.qmSelfReady, selfId)
     : base;
-  transport.send({ kind: 'LOBBY_PRESENCE', roster });
+  // Only the WIRE half is conditional. `onPresence` is the local repaint and always runs, which is
+  // what keeps the documented invariant honest: the rack is still painted from a roster and never
+  // from an optimistic local guess — there is simply no wire to send it down.
+  if (transport !== null) transport.send({ kind: 'LOBBY_PRESENCE', roster });
   onPresence(roster);
 }
 

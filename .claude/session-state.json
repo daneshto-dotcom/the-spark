@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4156,
-  "session_id": "S161",
-  "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
+  "tool_calls_session_total": 4193,
+  "session_id": "S162",
+  "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
   "prior_session_note": "S160 shipped 5 priorities; TURN live and verified. Handoff HANDOFF_2026-09-02_S160.md at b854173.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "CLOSED (handoff run) — open findings carried",
-  "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S161 CLOSED at 3ea5518 — six priorities shipped and live, plus four bug fixes at the end. The close-out hunt ran 3 of 5 lanes; lanes 2 (dead ends) and 4 (doc drift) did NOT complete. SEVEN findings remain OPEN and unfixed — see open_findings_s161.",
+  "phase": "DO",
+  "tier": "FULL",
+  "plan_file": ".claude/plans/2026-09-03_PDR_S162_BATCH.md",
+  "session_status": "IN_PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -32,402 +32,71 @@
   },
   "priorities": [
     {
+      "id": "P0",
+      "title": "TURN config sanitise+validate - end the live outage (RTCPeerConnection threw at construction)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P1",
-      "tier": "Full",
-      "status": "completed",
-      "check_completed": true,
-      "title": "W1-B — the castle becomes its race: six generated castles, three states each, per-race gatherer marks and castle attack VFX",
-      "checkpoint_commit": "25ec707",
-      "check_method": "Generated 18 castle stills through the SHIPPED pipeline (gen-character-design.mjs -> build-sprite-atlas.mjs), spec retained in-tree. Three judgement calls each measured rather than assumed: (a) STILLS not veo clips — a castle has conditions, not actions, and the two failure modes veo has already cost this project (seed drift S152, outright failure CF-S153-c) buy nothing here; added an additive `still` knob so a castle goes through the same matte, union bbox and foot-anchored paste as every goblin. (b) GREY ART TINTED AT RENDER — GathererRenderer tints from the LIVE player.color (S135) and S136 P3 cycles it for the rainbow, so crimson art multiplied by cyan is mud; the race is the SILHOUETTE and the seat is the TINT. Also why every prompt forbids near-white: the matte kills enclosed near-white above 0.3%% of frame, so a bone-white wall would have been deleted by its own pipeline. (c) refImages on -damaged ONLY, from a CONTROLLED PAIR — zombies-destroyed generated both ways; unconditioned it is a rubble heap, conditioned on its own intact keep it came back as the standing shack. nagas and orcs failed identically. TWO CORRECTIONS THE FIRST PASS EARNED: the initial six baked a ground shadow and two DETACHED it, which would have made the SHADOW the foot-anchor for those races (each atlas measures its own bbox, so the guarantee does not span races) and tinted the ground crimson — regenerated all six. CODE: castleFrames.ts holds every decision so it is drivable in vitest (a draw path is not, S130); the damage threshold IS the HP bar amber boundary and a test pins the pair. raceMotifs.ts holds three procedural marks; the gatherer mark draws no CIRCLE because three concentric circles already mean unit STATE. ticksSinceCastleShot sits next to castleFiresOnTick so the VFX cannot drift from the weapon, and because the schedule is pure (seat, tick) the shot needs no world.effects push and therefore NO protocol bump. A test caught the demon horns reaching 2.09r, two pixels short of the r+14 WAITING ring — fixed the mark, not the assertion. CAPTURED AND LOOKED AT through Playwright per the exit gate: all six render tinted and distinct, damaged shows both the wounded art and the HP bar. The DESTROYED column captured EMPTY — not an art fault, the shipped win rule put the renderer on the win screen the moment HP hit zero. Captured properly in P2, which removes that rule. typecheck 0 / vitest 3488 (223 files) / build 770.5 KiB headroom 129.5",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/castleFrames.ts",
-          "needle": "export function castleStateForHp"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castleFrames.ts",
-          "needle": "vampires: '/art/castles/castle-vampires'"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castleFrames.ts",
-          "pattern": "'/art/castles/castle-",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "drawRaceKeepFallback("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "drawRaceGathererMark(g, x, y, r, color, raceId)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.ts",
-          "needle": "export function ticksSinceCastleShot"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/castleGuns.ts",
-          "pattern": "\\.raceId",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/build-sprite-atlas.mjs",
-          "needle": "const still = spec.states[st].still;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/castleGuns.ts",
-          "pattern": "castleFiresOnTick",
-          "op": ">=",
-          "value": 2
-        }
-      ]
-    },
-    {
+      "title": "Race pick does not repaint - host presence rebuild with no transport",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P2",
-      "tier": "Full",
-      "status": "completed",
-      "check_completed": true,
-      "title": "B2 seat elimination on owner ruling R127 — last one standing, economy gate, spectator, placings. PROTOCOL 39->40",
-      "checkpoint_commit": "8b64984",
-      "check_method": "R127 contains three mechanics and state/elimination.ts owns the policy for all three. DELETED: tickGameState ended the match for EVERYONE on the first castle to reach 0 and awarded victory to survivors[0] — the first entry of a Map-order filter. Right by accident at two seats; at three or more it is the S155 N1 defect sitting on the match result. AND THE WHOLE SUITE STAYED GREEN THROUGH THE REWRITE (3488 tests, nothing red) because every fixture that reaches the castle gate has one or two seats, where the old rule and the new one agree — the bug was unreachable from the suite and so was its fix. elimination.test.ts is that gap: 33 tests, including one that re-inserts seat 3 first so Map order and seat order genuinely disagree, plus separate pins for SOLO and 1v1 so a later edit cannot collapse the three cases. TWO PLACES I CHOSE NOT TO ADD STATE: castleHp <= 0 IS the predicate (a second boolean would be a second thing that can go stale, and it would be the one nothing else reads); eliminatedAtTick carries only the ORDER, which HP cannot. The economy gate is a line in applyGathererTick, NOT only the dispatch gate — GATHERER_TICK is host-internal and absent from CLIENT_INTENT_TYPES, so the owner own stated mechanic would have been the one thing elimination did not do. ELIMINATION_INTENT_POLICY is the S86 bench gate twin but STRICTER and deliberately a SECOND dispatch clause: a bench lifts so it allows standing orders, an elimination does not so it denies them; merging would force one ruling wrong. eliminatedAtTick is preserved across pickup()/drop() and is the FIRST field in that pair tsc cannot protect (optional, so omitting it compiles and silently un-eliminates a spectator who drops a spark). BUMP 39->40 six sites, and the bump is for the RULE not the field: a v39 peer ends the match the instant any castle hits zero while a v40 host plays on — the 32->33 castleHp precedent with the sign reversed. AND IT UNBLOCKED P1 MISSING CAPTURE: all six ruins photographed on a 3-seat board with gameState staying PLAYING at 0 HP. typecheck 0 / vitest 3521 (224 files) / build 772.0 KiB headroom 128.0",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/elimination.ts",
-          "needle": "export function isEliminated"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/elimination.ts",
-          "needle": "export function matchPlacings"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "isEliminationDeniedIntent(action.type)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "needle": "if (owner !== undefined && isEliminated(owner)) return world;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gameState.ts",
-          "needle": "markFallenSeats(world);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/gameState.ts",
-          "needle": "survivors.length > 0 ? survivors[0]"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 40 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "  readonly protoVersion: 40;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(40);"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 40;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "eliminatedAtTick?: number;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/game/player.ts",
-          "pattern": "eliminatedAtTick: player\\.eliminatedAtTick",
-          "op": "==",
-          "value": 2
-        }
-      ]
-    },
-    {
+      "title": "OF-1 two seats can hold the same race+colour (7 recipe resolvers identify owners by colour)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P3",
-      "tier": "Full",
-      "status": "completed",
-      "check_completed": true,
-      "title": "OWNER SCOPE AMENDMENT — four of six live-match bugs, three of which turned out to be ONE bug",
-      "checkpoint_commit": "191d4e4",
-      "check_method": "Owner reported six bugs mid-session and directed two agents per report. 12 agents, 0 errors. HEADLINE, converged on independently by both lenses: BUG-4, BUG-5 and BUG-6 share ONE root cause. voltkinPredicate was declared (world) => and threw bondPos away, running a global DFS; runGodlyMatcherCore fires on ANY BOND_FORMED / player BOND_SEVERED, and unlike its two siblings in the same file (igniteOneSpawnerRecipe de-dups by anchor against creatureSpawners, runDefenderIgnition against defenders) the cinematic arm has no de-dup and nothing consumes a matched chain. So once one chain stood every later placement re-matched it: another Voltkin each time (applySpawnCreature exempts the type) = \"a dozen voltkins\"; activeCinematicPlayerId re-armed each time and castlePanel.ts:300 reads that as `locked`, which SHADOWS the shape maths = every build card printed a bare LOCKED for 4.8 s, silently (a repeat cutscene takes the silent branch), then healed, then died = the flicker; including the stink tower card = \"locked at 2 towers\". VERIFIED MYSELF at castlePanel.ts:284-300, voltkin.ts:145 and godlyMatcherCore.ts:60-95 before acting, and swept every *MAX*/*CAP*/*LIMIT* constant: there is NO per-kind tower cap anywhere. FIX: a topology-change gate requiring the matched chain to contain a primitive within AUTO_BOND_RADIUS of the event. The radius is not a tuning choice — at exactly AUTO_BOND_RADIUS the two sets coincide, because a placement near enough to re-trigger a standing chain is near enough to have auto-bonded to it and broken the isolation check anyway. THE TEST MOVED THE FIX: written first as a filter on the RESULT it passed five cases and broke the six-tower board, because findVoltkinChain returns the FIRST chain it finds — completing a SECOND chain tested the first one position and never fired. The filter had to go INSIDE the search. (The pre-fix code fired there with the WRONG chain identity, so multi-chain boards were never handled at all.) BUG-1: the raid was implemented TWICE. S152 P1 converted the human right-click to a 2-ATK hit and rewrote ONE dispatch site; botController still emitted SEVER_BOND {cause:\"player\"} — the last producer of that cause in the tree — which deletes a connector outright. Bots also paid in disruptionCharges while banking unspendable raidPoints. Extracted botRaidAction as a pure exported function precisely because the defect was an ACTION TYPE that took a live world and twenty ticks to reach. S158 had CLOSED this as \"no asymmetry found in the sim\" and every word of that probe was true — the accrual and the reducer are seat-agnostic; the bot was never reaching the reducer. New tests assert the OUTCOME OF AN ACTOR ACTION, never the seat-agnosticism of a function. Six fixtures moved to raidPoints; one had its assertion RESHAPED rather than repointed, because \"the bond is gone after one raid\" WAS the bug. BUG-2 (owner ruling superseding max-5): the tower throws all fight and bags last 1 s longer. The magazine is DEMOTED not deleted — bagsRemaining has three readers and only one was the ammo gate; the other two are the dry-tower taunt (S157 B9) and the decaying death blast. Measured: 9 bags land where 5 did, the counter still floors at 0 at tick 1390, the BUILD edge still re-arms it. typecheck 0 / vitest 3538 (225 files) / build 772.2 KiB headroom 127.8",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/voltkin.ts",
-          "needle": "nearPos?: { x: number; y: number },"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/voltkin.ts",
-          "needle": "const chain = findVoltkinChain(world, bondPos);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/voltkin.ts",
-          "needle": "if (result !== null && touchesNearPos(result)) return result;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "export function botRaidAction"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botController.ts",
-          "needle": "type: 'RAID_TARGET', target: { kind: 'bond', id: bondId }"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botController.ts",
-          "pattern": "type: 'SEVER_BOND'",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "me.raidPoints >= 1 && rng() < cfg.severChance"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/defenders/stinkTower.ts",
-          "needle": "if (d.bagsRemaining > 0) d.bagsRemaining--;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS + PHYSICS_HZ;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botController.ts",
-          "pattern": "botRaidAction\\(this\\.seat",
-          "op": "==",
-          "value": 1
-        }
-      ]
-    },
-    {
+      "title": "MED-3 picker reappears over the lobby - close() in setVisible(false)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P4",
-      "tier": "Standard",
-      "status": "completed",
-      "check_completed": true,
-      "title": "BUG-3 — bots build every kind of tower and save for the next one",
-      "checkpoint_commit": "0dd8046",
-      "check_method": "Two halves forming a closed loop. chooseTowerPlan was first-affordable-wins over a cheapest-first list and the stink tower is the cheapest thing in the registry, so the instant a bot could pay for one it built one — and it could always pay, because chooseTowerOrder was hauling exactly its bill. The orderer own gate was `if (planBlueprintPayment(cheapest) !== null) return null`, so a bot that could afford a stink tower ordered NOTHING AT ALL and was structurally incapable of accumulating past four shapes. That is why an IMBA bot with towerTiers 7 played the same match as a MID bot with 2. FIX: one shared target, chooseTargetBlueprint — the cheapest rung this seat has never raised (read off Primitive.origin.blueprintId), or the dearest rung in tier once all are raised. Builder and orderer both ask it, so the set a bot HOLDS is the set it ORDERS is the thing it BUILDS; the file already stated that principle at towerBillNeeds and it was true of those two functions relative to each other and false of both relative to what got stamped. Cheapest-unowned rather than dearest-unowned deliberately: variety AND a natural climb, where always reaching for the top rung leaves a fresh bot idle through the opening. TWO ESCAPES, deliberately NOT the same condition (collapsing them restores first-affordable-wins): unaffordable => SAVE, affordable-but-unplaceable => SUBSTITUTE, plus a seat with nothing standing always takes what it can get. NO RNG ADDED — the TOWER branch sits above pickTargetSpark draw, so one extra draw would break every seeded replay, the worker-sim differential and the same-seed stream test. WHY botTowers.test.ts STAYED GREEN: it pins \"a tower EXISTS after a driven run\" and the difficulty floor, both true the whole time — the bot really was building a tower, the same tower, forever. The new file asserts the SET of blueprints a seat pursues. typecheck 0 / vitest 3550 (226 files) / build 772.2 KiB headroom 127.8",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "export function chooseTargetBlueprint"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "export function ownedBlueprintIds"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "const needs = towerBillNeeds(world, seat, cfg);"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botBrain.ts",
-          "pattern": "planBlueprintPayment\\(world, seat, id\\) !== null\\) return null",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/botBrain.ts",
-          "pattern": "planBlueprintPayment\\(world, seat, target\\) !== null\\) return null",
-          "op": "==",
-          "value": 1
-        }
-      ]
-    },
-    {
+      "title": "OF-2 a dropped peer intact castle blocks the last-one-standing win",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P5",
-      "tier": "Full",
-      "status": "completed",
-      "check_completed": true,
-      "title": "OWNER ART REVIEW — the castles get real colour and obey gravity; the lobby gets a race picker",
-      "checkpoint_commit": "99e5e56",
-      "check_method": "Owner reviewed the shipped castles and returned two art notes plus two feature asks. COLOUR: *\"the colors need to not look so weird ... they need to have their player color as the main colour but it doesnt mean thats the only color they will have ... this looks like we took each castle and just completely filled them with their one color - pretty lazy work.\"* ⛔ RIGHT AS ARITHMETIC, NOT TASTE, and that is the finding: P1 drew the castles GREY and let Sprite.tint supply the colour, but tint is a MULTIPLY — grey art is R=G=B=v so the product is (v.r, v.g, v.b) and THE HUE IS CONSTANT ON EVERY PIXEL. A monochrome image by definition; \"filled with one colour\" is literally what the pipeline did, and no prompt could have fixed it because the flatness was in the RENDER PATH. All 18 regenerated in each race own colour with real materials; syncCastleSprite now passes them UNTINTED. Ownership still reads because Player.color derives from raceId and races.test.ts pins RACE_COLORS === PLAYER_COLORS. keepRainbowSpriteTint returns null outside the celebration window because \"no tint\" and \"your colour\" are different instructions and keepRainbowTint could only say the latter. VAMPIRES WENT ROUND TWICE, for VALUE not hue: the first crimson pass was a deep oxblood keep that vanished on a black board — the brief now pins brightness, because the model honours \"crimson\" at any value. GRAVITY: *\"there is broken tower, pillar, and pole. those are supposed to be on the ground ... suspended in the air for like 2 rounds ... looks weird.\"* Sharper than it reads — a -damaged castle is a state the board HOLDS, so anything mid-fall is mid-fall forever. Rule added to sharedStyle so it binds all eighteen, plus a named landing site per damaged prompt. THE LOBBY PICKER: click your own seat, choose one of six; six new banners behind the seat tiles; label is now \"P1 HOST (VAMPIRES)\" with (you) dropped because the clickable tile IS the marker. ⛔ NO PROTOCOL BUMP, and S160 predicted one IN WRITING above PROTOCOL_VERSION. That note reasoned by analogy to LOBBY_READY (7->8); the analogy fails — LOBBY_READY bumped for GATING THE MATCH, not for being a new lobby kind. CLAIM_RACE is client->host only, gates nothing, and its ANSWER rides RosterEntry.color/.raceId, on the wire since v39. Stale note corrected in place. THREE THINGS THE WORK TURNED UP: (a) the banner did not show on the first capture — update() runs on STATE CHANGE, the texture resolves after it, and a host alone in a room never changes state again; adopted in the ticker the rack already runs, and it re-runs the WHOLE projection because the colour swatch alpha depends on whether a banner is present. (b) seatLabelText survived its own replacement as a dead export with four passing tests — deleted, coverage relocated. (c) my own raceClaim.test.ts passed JSON.stringify to parseNetMessage, which takes the decoded object, so the fail-closed case rejected everything for the wrong reason. typecheck 0 / vitest 3572 (228 files) / build 776.8 KiB headroom 123.2",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "src/render/gathererRenderer.ts",
-          "pattern": "sp\\.tint = rainbowTint \\?\\? 0xffffff",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "export function keepRainbowSpriteTint"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/raceBanners.ts",
-          "needle": "export function seatRaceLabel"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/raceBanners.ts",
-          "pattern": "'/art/banners/banner-",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/racePicker.ts",
-          "needle": "export function makeRacePicker"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/hostHandlers.ts",
-          "needle": "export function raceIsFree"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/protocol.ts",
-          "pattern": "case 'CLAIM_RACE'",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 40 as const;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/seatRack.ts",
-          "pattern": "export function seatLabelText",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-castles/design-spec.json",
-          "pattern": "GREYSCALE ONLY",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-castles/design-spec.json",
-          "needle": "GRAVITY. Every broken, snapped or detached piece"
-        }
-      ]
-    },
-    {
+      "title": "Hunt lanes 2 (dead ends) + 4 (doc/claim drift) BY HAND - never ran in S161",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
       "id": "P6",
-      "tier": "Standard",
-      "status": "completed",
-      "check_completed": true,
-      "title": "vs-bots picks races too — the same menu, one race per seat",
-      "checkpoint_commit": "b95abcd",
-      "check_method": "Owner: *\"and same for the play with bots, but only there you can chose the bot race and color\"*. THE SAME PICKER, NOT A MATCHING ONE — makeRacePicker is shared with the multiplayer lobby, because \"same\" has to still be true a year from now and a copy drifts the first time either surface is retuned. A ROW FOR THE HUMAN ABOVE THE BOTS: the note is about the bots, but a screen where you may recolour every opponent and not yourself is the odd one out, and multiplayer already lets you pick your own. ONE RACE PER SEAT enforced locally — multiplayer gets this from the host, solo has no arbiter, so the taken-set is every other row race. Without it a vs-bots match could open with two crimson castles. TWO PLACES THE SEAT COLOUR STOPPED TRACKING THE SEAT, and missing either ships a visible contradiction rather than a crash: the bot row swatch reads RACE_COLORS[race], and the vs-bots roster sends color: RACE_COLORS[raceId] instead of PLAYER_COLORS[seat] — applyStartGame takes the colour verbatim from the entry and the race from the field beside it. onStart now carries two arrays of DIFFERENT LENGTHS (difficulties per BOT, races per SEAT), documented at the callback because mixing them up hands the human a bot race silently. CAUGHT BY LOOKING: the first layout tucked the YOU row above the rack origin and it landed on the \"N BOTS\" counter. typecheck 0 / vitest 3572 (228 files) / e2e 62 passed exit 0 / build 776.9 KiB headroom 123.1 / verify-deploy 4/4",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/botSetupOverlay.ts",
-          "needle": "private makeRaceButton(seat: number, cx: number): Container {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/botSetupOverlay.ts",
-          "needle": "onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[]): void;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/botSetupOverlay.ts",
-          "pattern": "PLAYER_COLORS",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "return { seat, color: RACE_COLORS[raceId], raceId };"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/botSetupOverlay.ts",
-          "pattern": "makeRacePicker",
-          "op": ">=",
-          "value": 1
-        }
-      ]
+      "title": "Remaining findings OF-4..OF-11 triaged",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "title": "Landing proof - 5 gates by direct exit code, Rule 22 audit, deploy verified, /handoff",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    "S161 — I WROTE THREE VERIFICATION BINDINGS THAT READ MY OWN DOCBLOCKS, IN THE SESSION AFTER S160 LOGGED THAT EXACT FAILURE FIVE TIMES. `raceId == 0` in castleGuns.ts matched the sentence *\"Nothing in this file reads `raceId`\"*; `cause: 'player' == 0` in botController matched the paragraph explaining why that cause was removed; `already affordable == 1` counted three comment mentions. The MCV caught all three. ⭐ The pattern is sharper than \"assert code shapes\": THE BETTER THE DOCBLOCK, THE MORE LIKELY IT CONTAINS THE EXACT STRING THAT PROVES ITS OWN CLAIM — writing a good explanation of what was removed CREATES the false positive. Rebound onto property accesses and dispatch literals (`\\.raceId`, `type: 'SEVER_BOND'`), each with a positive control so a rename cannot make the zero pass vacuously.",
-    "S161 — MY tail -25 SHOWED \"61 passed\" AND A TRAILING \"[exited with code 0]\", AND THE GATE HAD FAILED. The real line was `E2E_EXIT=1`, printed before the tail and scrolled off the top of the window. This project's CLAUDE.md carries the rule *\"read every gate's exit code DIRECTLY, never through a pipe\"* because S159 shipped past a hard_fail exactly that way, and S160 read a stale log from S153. ⭐ The new half: I DID redirect to a file and DID echo `$?` — the failure was reading the TAIL of the log instead of grepping for the exit line. A wrapper's own \"[exited with code 0]\" sits where a human eye looks for a verdict. Grep for the token you printed; never trust position.",
-    "S161 — TWO INDEPENDENT INVESTIGATORS CONVERGED ON SOMETHING NEITHER REPORT ASKED FOR: THREE OF THE OWNER'S SIX BUGS WERE ONE BUG. \"A dozen voltkins\", the build cards flickering LOCKED, and \"stink tower locked at 2 towers\" are all `voltkinPredicate` discarding `bondPos` and re-matching a standing chain on every placement — the extra creature, and `activeCinematicPlayerId` re-arming, which `castlePanel.ts:300` renders as a bare LOCKED that SHADOWS the shape maths. ⭐ Fixing them in report order would have cost three investigations and produced at least one wrong fix: BUG-4 reads as a per-kind tower cap, and there is no such cap anywhere in the codebase — I swept every *MAX*/*CAP*/*LIMIT* constant. Two lenses per report is what surfaced the shared cause; ONE lens would have \"fixed\" the cap that does not exist.",
-    "S161 — A TEST I WROTE TO PIN THE FIX CHANGED THE FIX. The voltkin gate, written as a filter on the RESULT of `findVoltkinChain`, passed five cases and broke the six-tower board: the function returns the FIRST chain it finds, so completing a SECOND chain tested the FIRST one's position and never fired. The filter had to move INSIDE the search. ⚠ And the pre-fix code was not merely different there — it fired with the wrong chain's identity, spawning the Voltkin at another structure's centroid. Multi-chain boards had never been handled at all. **Write the case that is one step past the reported symptom; that is where the design decision actually lives.**",
-    "S161 P2 — THE WHOLE SUITE STAYED GREEN THROUGH A WIN-CONDITION REWRITE. 3488 tests, nothing red, while `tickGameState` went from \"the first castle to fall ends it, winner = survivors[0]\" to \"last one standing\". Every fixture that reaches the castle gate has ONE or TWO seats, and at two seats the old rule and the new one agree — so the Map-order bug was unreachable from the suite and so was its fix. ⭐ GREEN THROUGH A REWRITE IS A COVERAGE REPORT, NOT A SAFETY REPORT: when nothing reddens, ask which arity or mode the fixtures never construct, and build that fixture first.",
-    "S161 P1 — THE ART PIPELINE'S MATTE CONSTRAINS THE ART BRIEF, and the second-order effects were the ones that mattered. Three prompt decisions were forced by downstream code, not taste: mid-grey stone (the matte deletes enclosed near-white above 0.3%% of frame, so a bone-white wall erases itself), no ground shadow (a DETACHED oval becomes the union-bbox foot-anchor, and each atlas measures its own bbox so the mismatch only appears with two races on the board — and a baked shadow tints crimson with the castle), and identity refs on -damaged but NOT on -destroyed. That last one came from a CONTROLLED PAIR: zombies-destroyed generated both ways, unconditioned a rubble heap and conditioned the standing shack again. **Generate one spike, measure it against the consumer, and only then commit to the batch.**",
-    "S161 P3 — S158 CLOSED A REAL BUG AS \"no asymmetry found in the sim\" AND EVERY WORD OF ITS PROBE WAS TRUE. It checked that the raid ACCRUAL is seat-agnostic and that the raid REDUCER is seat-agnostic. Both are. The bot was never reaching the reducer — it dispatched `SEVER_BOND` while the human dispatched `RAID_TARGET`. The false negative then rode three handoffs as \"needs an owner observation, not a fix\", and the owner supplied the observation by playing. ⭐ **A parity probe that examines what two actors SHARE cannot see what they DISPATCH.** Every test in the replacement file asserts the outcome of an actor's action; none asserts that a function is seat-agnostic.",
-    "S161 P4 — botTowers.test.ts PINNED \"a tower EXISTS after a driven run\" AND WAS TRUE THROUGHOUT. The bot really was building a tower — the same tower, forever. A test that asks \"did it happen?\" cannot see \"is it always the same one?\", and one that hands the bot exactly one bill cannot see that it never accumulates past it. ⭐ **For any behaviour with VARIETY as the requirement, assert the SET, not the existence.** Same shape as the S159 magazine finding: a per-round rhythm needs a test that crosses the round boundary.",
-    "S161 — THE OWNER'S BUG REPORT NAMED THE SYMPTOM IN THE UI'S OWN VOCABULARY, AND THAT WAS THE CLUE. \"stink tower locked at 2 towers\" quotes the literal word `LOCKED` from the card, and that string has exactly one producer — `castlePanel.ts:300`, reachable only from sudoku, cinematic or bench. Reading the report as a balance complaint would have sent me to the economy constants; reading it as a QUOTE sent me to the one branch that can print it. **When a report quotes UI text, grep for the string before theorising about the mechanic.**",
-    "S161 P5 — THE OWNER SAID THE ART LOOKED LAZY AND THE DEFECT WAS IN THE RENDER PATH, NOT THE PROMPT. I generated the castles in neutral grey so `Sprite.tint` could paint them the seat colour. Tint is a MULTIPLY: grey is R=G=B=v, so the product is (v·r, v·g, v·b) and the HUE IS IDENTICAL ON EVERY PIXEL — a monochrome image, by definition. *\"Completely filled them with their one color\"* was a literal description of the arithmetic. ⭐ No amount of detail in the source could have survived it, so no amount of re-prompting would have fixed it either. **When a visual complaint is about a whole class of asset rather than one of them, price the RENDER OPERATION before touching the generator.**",
-    "S161 P5 — A CONSTRAINT INHERITED FROM ONE ASSET FAMILY QUIETLY GOVERNED A DIFFERENT ONE. The castle prompts forbid near-white because `build-sprite-atlas.mjs` mattes near-white and would erase a pale wall. I carried that habit toward the lobby BANNERS, which never touch the atlas at all — full-bleed art, no alpha, no matte — where white is simply a colour. Writing the banner spec meant explicitly INVERTING four rules (white background, near-white ban, no ground shadow, subject isolation) rather than adapting them. **Ask what the pipeline actually does to THIS asset; a rule with a good reason is still wrong one directory over.**",
-    "S161 P5 — THE OWNER'S \"GRAVITY\" NOTE WAS A STATE-MACHINE OBSERVATION WEARING AN ART COMPLAINT. *\"imagine if they are just suspended in the air for like 2 rounds while being broken\"* — the point is not that a falling spire looks wrong, it is that a -damaged castle is a state the board HOLDS for minutes, so anything mid-fall is mid-fall forever. That reframing is what made the fix a rule in `sharedStyle` binding all eighteen rather than three re-rolls. **A player describing a visual usually knows something about the mechanic; read the sentence for the mechanic first.**",
-    "S161 P5 — I SHIPPED A LAZY-LOADED IMAGE INTO A SURFACE THAT ONLY REDRAWS ON STATE CHANGE, AND ONLY THE CAPTURE CAUGHT IT. `GathererRenderer.sync` runs every frame, so its lazy atlas appears the instant it resolves; the seat rack's `update()` runs on presence beacons, so a host alone in a fresh room never redrew and the tile kept its flat swatch. ⚠ AND THE FIRST FIX WAS ALSO WRONG — assigning the texture from the ticker left the opaque colour swatch drawn OVER it, so it would have looked identically broken. Re-running the whole projection was the fix. **Copying a lazy-load pattern means copying its redraw cadence too, and \"the asset is now present\" is not the same as \"the frame is now correct\".**",
-    "S161 P6 — S160 WROTE A PREDICTION INTO A DOCBLOCK AND IT WAS WRONG, WHICH IS WHY IT HAD TO BE CORRECTED IN PLACE RATHER THAN JUST NOT FOLLOWED. The note above `PROTOCOL_VERSION` said CLAIM_RACE *\"will carry its own bump\"*, reasoning by analogy to LOBBY_READY. But LOBBY_READY bumped for GATING THE MATCH (auto-Begin), not for being a new lobby kind — a distinction LOBBY_PRESENCE's own docblock states explicitly. CLAIM_RACE is client→host only and its answer rides fields already on the wire, so a stale peer degrades gracefully. **A forward-looking claim in a docblock is a claim; the session that reaches it owes the next reader a verdict, not silence.**",
-    "S161 P6 — DELETING A FUNCTION IS NOT ENOUGH IF ITS TESTS STILL PASS. `seatLabelText` was replaced by `seatRaceLabel` and survived as an unused export with four green tests — the shape that most convinces the next reader a thing is live. The full suite could not see it, because a dead export is not a failure. **After a replacement, grep for the OLD symbol outside its own test file; if the only non-test hit is its own definition, it is dead.**",
-    "S161 CLOSE-OUT — THE OWNER HAD TO TELL ME TWICE THAT A DEAD HUNT IS NOT A DONE HUNT, AND THE SECOND TELLING PAID FOR ITSELF IMMEDIATELY. When the five-lane sweep died to the usage limit I wrote \"the sweep produced nothing\" and moved to handoff. Re-run as five SEPARATE agents, three lanes returned — and lane 1 found a CRITICAL defect my own P2 had introduced: an eliminated seat could still win by score, because removing the first-castle-ends-it exit let a corpse keep accruing tower income into a MAX-over-all-seats progress bar. ⭐ The lesson is not \"run the agents again\". It is that REMOVING A TERMINATION CONDITION opens every path that condition was silently truncating — and those paths need enumerating, not assuming.",
-    "S161 CLOSE-OUT — I WROTE THE FIX BEFORE I COULD REPRODUCE THE BUG, TWICE, AND BOTH TIMES THE REPRO CHANGED THE FIX. For the drone I floated three hypotheses (placedBy unset, race-picker colour drift, self-destruct by design) and all three were REFUTED by reading the code. Only writing a failing test found it: `isEnemyBond` is an OR, so a MIXED bond reads as enemy and cutting it breaks the owner's own structure. Then my first fix keyed on `placedBy` and two shipped tests went red because their fixture defaults `placedBy` to the owner — the reproduction and the existing suite between them forced the predicate to colour. **A hypothesis that survives only because you did not test it is not evidence; write the failing case first.**",
-    "S161 CLOSE-OUT — MY OWN TEST FIXTURE FAILED FOR THREE DIFFERENT WRONG REASONS BEFORE IT FAILED FOR THE RIGHT ONE, and each looked exactly like a product bug. `parseNetMessage` takes a decoded object not JSON text; `makeCreature` takes (config, args) not one blob; `isHarvestable` requires the spark to be INSIDE the quarry radius, so sparks placed beside the keep were invisible to the picker. Every one of those printed a plausible product-shaped failure (`expected null to be 1`). ⭐ **When a brand-new fixture fails on the FIRST assertion, suspect the fixture; when it fails on the LAST one, suspect the product.**",
-    "S161 CLOSE-OUT — THE RUNTIME LANE CLOSED A WORRY I HAD BEEN CARRYING AS A RISK, WITH EVIDENCE I HAD NOT THOUGHT TO GATHER. I flagged asset case-sensitivity (Windows dev, Linux Pages) as the one with teeth and filed it as unverifiable without a browser. The agent verified it properly: 18/18 assets fetched 200 FROM PRODUCTION with byte sizes matching disk, plus a grep of the live bundle proving the code references them. **\"I cannot check this from here\" is often \"I have not thought of the right probe\" — a deployed site answers questions a local tree cannot.**",
-    "S161 CLOSE-OUT — THREE OF THIS SESSION'S OWN FEATURES CREATED THE FINDINGS THAT CLOSED IT. P2 (elimination) created the score-leak and the rematch brick; P6 (the race picker) created the duplicate-race hole because `raceIsFree` reasons about CLAIMS while an unclaimed seat still occupies its DEFAULT. All three are the same shape: a new mechanism reasoning over a NARROWER set than the one the game actually has. ⭐ When adding a chooser, ask what the un-chosen state already occupies."
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -4977,5 +4646,417 @@
       "title": "The voltkin re-fire gate may have a cross-colour hole",
       "detail": "The gate rests on \"near enough to re-trigger ⇒ near enough to have auto-bonded ⇒ isolation breaks\". But auto-bond is COLOUR-SCOPED (`placePrimitive.ts:619` skips a different placerColor), so an ENEMY-coloured primitive placed within 60px forms no bond, leaves isolation intact, and could still re-fire the chain. Lane 1 did not establish whether territory permits that placement. Cheap to check."
     }
-  ]
+  ],
+  "unlock_evidence_s162": {
+    "owner_message": "boot the session correctly and completely ... then look at what i just said about the connection and races. and start working methodically to close of all the gaps",
+    "approval": "AskUserQuestion -> \"Go - full batch, ship P0+P1 first\"",
+    "ruling_cf_s161_a": "Keep fighting (status quo) - a fallen seat towers/creatures/spawners keep acting until razed. OF-3 therefore closes as ruled-intentional: the castle gun is silent because the castle is DESTROYED, not because the seat is eliminated.",
+    "deviation": "FULL tier normally mandates a 3-way Council before the gate. Owner gave an explicit go with a LIVE outage in flight; per Rule 0 the deliberation must not delay the fix. Council-grade adversarial review is run as a Workflow over the RISKIER later priorities (P2 colour-identity, P4, P5 lanes) while P0+P1 deploy."
+  },
+  "baseline_s162": {
+    "typecheck_exit": 0,
+    "vitest": "3581/3581 passed, 230 files",
+    "live_asset": "index-8UqrIHaf.js",
+    "commit": "9259c06"
+  },
+  "priorities_s161_archived": [
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P1",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "W1-B — the castle becomes its race: six generated castles, three states each, per-race gatherer marks and castle attack VFX",
+      "checkpoint_commit": "25ec707",
+      "check_method": "Generated 18 castle stills through the SHIPPED pipeline (gen-character-design.mjs -> build-sprite-atlas.mjs), spec retained in-tree. Three judgement calls each measured rather than assumed: (a) STILLS not veo clips — a castle has conditions, not actions, and the two failure modes veo has already cost this project (seed drift S152, outright failure CF-S153-c) buy nothing here; added an additive `still` knob so a castle goes through the same matte, union bbox and foot-anchored paste as every goblin. (b) GREY ART TINTED AT RENDER — GathererRenderer tints from the LIVE player.color (S135) and S136 P3 cycles it for the rainbow, so crimson art multiplied by cyan is mud; the race is the SILHOUETTE and the seat is the TINT. Also why every prompt forbids near-white: the matte kills enclosed near-white above 0.3%% of frame, so a bone-white wall would have been deleted by its own pipeline. (c) refImages on -damaged ONLY, from a CONTROLLED PAIR — zombies-destroyed generated both ways; unconditioned it is a rubble heap, conditioned on its own intact keep it came back as the standing shack. nagas and orcs failed identically. TWO CORRECTIONS THE FIRST PASS EARNED: the initial six baked a ground shadow and two DETACHED it, which would have made the SHADOW the foot-anchor for those races (each atlas measures its own bbox, so the guarantee does not span races) and tinted the ground crimson — regenerated all six. CODE: castleFrames.ts holds every decision so it is drivable in vitest (a draw path is not, S130); the damage threshold IS the HP bar amber boundary and a test pins the pair. raceMotifs.ts holds three procedural marks; the gatherer mark draws no CIRCLE because three concentric circles already mean unit STATE. ticksSinceCastleShot sits next to castleFiresOnTick so the VFX cannot drift from the weapon, and because the schedule is pure (seat, tick) the shot needs no world.effects push and therefore NO protocol bump. A test caught the demon horns reaching 2.09r, two pixels short of the r+14 WAITING ring — fixed the mark, not the assertion. CAPTURED AND LOOKED AT through Playwright per the exit gate: all six render tinted and distinct, damaged shows both the wounded art and the HP bar. The DESTROYED column captured EMPTY — not an art fault, the shipped win rule put the renderer on the win screen the moment HP hit zero. Captured properly in P2, which removes that rule. typecheck 0 / vitest 3488 (223 files) / build 770.5 KiB headroom 129.5",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/castleFrames.ts",
+          "needle": "export function castleStateForHp"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castleFrames.ts",
+          "needle": "vampires: '/art/castles/castle-vampires'"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castleFrames.ts",
+          "pattern": "'/art/castles/castle-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "drawRaceKeepFallback("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "drawRaceGathererMark(g, x, y, r, color, raceId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.ts",
+          "needle": "export function ticksSinceCastleShot"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/castleGuns.ts",
+          "pattern": "\\.raceId",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "const still = spec.states[st].still;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/castleGuns.ts",
+          "pattern": "castleFiresOnTick",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P2",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "B2 seat elimination on owner ruling R127 — last one standing, economy gate, spectator, placings. PROTOCOL 39->40",
+      "checkpoint_commit": "8b64984",
+      "check_method": "R127 contains three mechanics and state/elimination.ts owns the policy for all three. DELETED: tickGameState ended the match for EVERYONE on the first castle to reach 0 and awarded victory to survivors[0] — the first entry of a Map-order filter. Right by accident at two seats; at three or more it is the S155 N1 defect sitting on the match result. AND THE WHOLE SUITE STAYED GREEN THROUGH THE REWRITE (3488 tests, nothing red) because every fixture that reaches the castle gate has one or two seats, where the old rule and the new one agree — the bug was unreachable from the suite and so was its fix. elimination.test.ts is that gap: 33 tests, including one that re-inserts seat 3 first so Map order and seat order genuinely disagree, plus separate pins for SOLO and 1v1 so a later edit cannot collapse the three cases. TWO PLACES I CHOSE NOT TO ADD STATE: castleHp <= 0 IS the predicate (a second boolean would be a second thing that can go stale, and it would be the one nothing else reads); eliminatedAtTick carries only the ORDER, which HP cannot. The economy gate is a line in applyGathererTick, NOT only the dispatch gate — GATHERER_TICK is host-internal and absent from CLIENT_INTENT_TYPES, so the owner own stated mechanic would have been the one thing elimination did not do. ELIMINATION_INTENT_POLICY is the S86 bench gate twin but STRICTER and deliberately a SECOND dispatch clause: a bench lifts so it allows standing orders, an elimination does not so it denies them; merging would force one ruling wrong. eliminatedAtTick is preserved across pickup()/drop() and is the FIRST field in that pair tsc cannot protect (optional, so omitting it compiles and silently un-eliminates a spectator who drops a spark). BUMP 39->40 six sites, and the bump is for the RULE not the field: a v39 peer ends the match the instant any castle hits zero while a v40 host plays on — the 32->33 castleHp precedent with the sign reversed. AND IT UNBLOCKED P1 MISSING CAPTURE: all six ruins photographed on a 3-seat board with gameState staying PLAYING at 0 HP. typecheck 0 / vitest 3521 (224 files) / build 772.0 KiB headroom 128.0",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "export function isEliminated"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "export function matchPlacings"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "isEliminationDeniedIntent(action.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "if (owner !== undefined && isEliminated(owner)) return world;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameState.ts",
+          "needle": "markFallenSeats(world);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/gameState.ts",
+          "needle": "survivors.length > 0 ? survivors[0]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 40 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "  readonly protoVersion: 40;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(40);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 40;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/player.ts",
+          "needle": "eliminatedAtTick?: number;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "eliminatedAtTick: player\\.eliminatedAtTick",
+          "op": "==",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P3",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "OWNER SCOPE AMENDMENT — four of six live-match bugs, three of which turned out to be ONE bug",
+      "checkpoint_commit": "191d4e4",
+      "check_method": "Owner reported six bugs mid-session and directed two agents per report. 12 agents, 0 errors. HEADLINE, converged on independently by both lenses: BUG-4, BUG-5 and BUG-6 share ONE root cause. voltkinPredicate was declared (world) => and threw bondPos away, running a global DFS; runGodlyMatcherCore fires on ANY BOND_FORMED / player BOND_SEVERED, and unlike its two siblings in the same file (igniteOneSpawnerRecipe de-dups by anchor against creatureSpawners, runDefenderIgnition against defenders) the cinematic arm has no de-dup and nothing consumes a matched chain. So once one chain stood every later placement re-matched it: another Voltkin each time (applySpawnCreature exempts the type) = \"a dozen voltkins\"; activeCinematicPlayerId re-armed each time and castlePanel.ts:300 reads that as `locked`, which SHADOWS the shape maths = every build card printed a bare LOCKED for 4.8 s, silently (a repeat cutscene takes the silent branch), then healed, then died = the flicker; including the stink tower card = \"locked at 2 towers\". VERIFIED MYSELF at castlePanel.ts:284-300, voltkin.ts:145 and godlyMatcherCore.ts:60-95 before acting, and swept every *MAX*/*CAP*/*LIMIT* constant: there is NO per-kind tower cap anywhere. FIX: a topology-change gate requiring the matched chain to contain a primitive within AUTO_BOND_RADIUS of the event. The radius is not a tuning choice — at exactly AUTO_BOND_RADIUS the two sets coincide, because a placement near enough to re-trigger a standing chain is near enough to have auto-bonded to it and broken the isolation check anyway. THE TEST MOVED THE FIX: written first as a filter on the RESULT it passed five cases and broke the six-tower board, because findVoltkinChain returns the FIRST chain it finds — completing a SECOND chain tested the first one position and never fired. The filter had to go INSIDE the search. (The pre-fix code fired there with the WRONG chain identity, so multi-chain boards were never handled at all.) BUG-1: the raid was implemented TWICE. S152 P1 converted the human right-click to a 2-ATK hit and rewrote ONE dispatch site; botController still emitted SEVER_BOND {cause:\"player\"} — the last producer of that cause in the tree — which deletes a connector outright. Bots also paid in disruptionCharges while banking unspendable raidPoints. Extracted botRaidAction as a pure exported function precisely because the defect was an ACTION TYPE that took a live world and twenty ticks to reach. S158 had CLOSED this as \"no asymmetry found in the sim\" and every word of that probe was true — the accrual and the reducer are seat-agnostic; the bot was never reaching the reducer. New tests assert the OUTCOME OF AN ACTOR ACTION, never the seat-agnosticism of a function. Six fixtures moved to raidPoints; one had its assertion RESHAPED rather than repointed, because \"the bond is gone after one raid\" WAS the bug. BUG-2 (owner ruling superseding max-5): the tower throws all fight and bags last 1 s longer. The magazine is DEMOTED not deleted — bagsRemaining has three readers and only one was the ammo gate; the other two are the dry-tower taunt (S157 B9) and the decaying death blast. Measured: 9 bags land where 5 did, the counter still floors at 0 at tick 1390, the BUILD edge still re-arms it. typecheck 0 / vitest 3538 (225 files) / build 772.2 KiB headroom 127.8",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "nearPos?: { x: number; y: number },"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "const chain = findVoltkinChain(world, bondPos);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "if (result !== null && touchesNearPos(result)) return result;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "export function botRaidAction"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "type: 'RAID_TARGET', target: { kind: 'bond', id: bondId }"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botController.ts",
+          "pattern": "type: 'SEVER_BOND'",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "me.raidPoints >= 1 && rng() < cfg.severChance"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkTower.ts",
+          "needle": "if (d.bagsRemaining > 0) d.bagsRemaining--;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS + PHYSICS_HZ;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botController.ts",
+          "pattern": "botRaidAction\\(this\\.seat",
+          "op": "==",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P4",
+      "tier": "Standard",
+      "status": "completed",
+      "check_completed": true,
+      "title": "BUG-3 — bots build every kind of tower and save for the next one",
+      "checkpoint_commit": "0dd8046",
+      "check_method": "Two halves forming a closed loop. chooseTowerPlan was first-affordable-wins over a cheapest-first list and the stink tower is the cheapest thing in the registry, so the instant a bot could pay for one it built one — and it could always pay, because chooseTowerOrder was hauling exactly its bill. The orderer own gate was `if (planBlueprintPayment(cheapest) !== null) return null`, so a bot that could afford a stink tower ordered NOTHING AT ALL and was structurally incapable of accumulating past four shapes. That is why an IMBA bot with towerTiers 7 played the same match as a MID bot with 2. FIX: one shared target, chooseTargetBlueprint — the cheapest rung this seat has never raised (read off Primitive.origin.blueprintId), or the dearest rung in tier once all are raised. Builder and orderer both ask it, so the set a bot HOLDS is the set it ORDERS is the thing it BUILDS; the file already stated that principle at towerBillNeeds and it was true of those two functions relative to each other and false of both relative to what got stamped. Cheapest-unowned rather than dearest-unowned deliberately: variety AND a natural climb, where always reaching for the top rung leaves a fresh bot idle through the opening. TWO ESCAPES, deliberately NOT the same condition (collapsing them restores first-affordable-wins): unaffordable => SAVE, affordable-but-unplaceable => SUBSTITUTE, plus a seat with nothing standing always takes what it can get. NO RNG ADDED — the TOWER branch sits above pickTargetSpark draw, so one extra draw would break every seeded replay, the worker-sim differential and the same-seed stream test. WHY botTowers.test.ts STAYED GREEN: it pins \"a tower EXISTS after a driven run\" and the difficulty floor, both true the whole time — the bot really was building a tower, the same tower, forever. The new file asserts the SET of blueprints a seat pursues. typecheck 0 / vitest 3550 (226 files) / build 772.2 KiB headroom 127.8",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function chooseTargetBlueprint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function ownedBlueprintIds"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "const needs = towerBillNeeds(world, seat, cfg);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "planBlueprintPayment\\(world, seat, id\\) !== null\\) return null",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "planBlueprintPayment\\(world, seat, target\\) !== null\\) return null",
+          "op": "==",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P5",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "OWNER ART REVIEW — the castles get real colour and obey gravity; the lobby gets a race picker",
+      "checkpoint_commit": "99e5e56",
+      "check_method": "Owner reviewed the shipped castles and returned two art notes plus two feature asks. COLOUR: *\"the colors need to not look so weird ... they need to have their player color as the main colour but it doesnt mean thats the only color they will have ... this looks like we took each castle and just completely filled them with their one color - pretty lazy work.\"* ⛔ RIGHT AS ARITHMETIC, NOT TASTE, and that is the finding: P1 drew the castles GREY and let Sprite.tint supply the colour, but tint is a MULTIPLY — grey art is R=G=B=v so the product is (v.r, v.g, v.b) and THE HUE IS CONSTANT ON EVERY PIXEL. A monochrome image by definition; \"filled with one colour\" is literally what the pipeline did, and no prompt could have fixed it because the flatness was in the RENDER PATH. All 18 regenerated in each race own colour with real materials; syncCastleSprite now passes them UNTINTED. Ownership still reads because Player.color derives from raceId and races.test.ts pins RACE_COLORS === PLAYER_COLORS. keepRainbowSpriteTint returns null outside the celebration window because \"no tint\" and \"your colour\" are different instructions and keepRainbowTint could only say the latter. VAMPIRES WENT ROUND TWICE, for VALUE not hue: the first crimson pass was a deep oxblood keep that vanished on a black board — the brief now pins brightness, because the model honours \"crimson\" at any value. GRAVITY: *\"there is broken tower, pillar, and pole. those are supposed to be on the ground ... suspended in the air for like 2 rounds ... looks weird.\"* Sharper than it reads — a -damaged castle is a state the board HOLDS, so anything mid-fall is mid-fall forever. Rule added to sharedStyle so it binds all eighteen, plus a named landing site per damaged prompt. THE LOBBY PICKER: click your own seat, choose one of six; six new banners behind the seat tiles; label is now \"P1 HOST (VAMPIRES)\" with (you) dropped because the clickable tile IS the marker. ⛔ NO PROTOCOL BUMP, and S160 predicted one IN WRITING above PROTOCOL_VERSION. That note reasoned by analogy to LOBBY_READY (7->8); the analogy fails — LOBBY_READY bumped for GATING THE MATCH, not for being a new lobby kind. CLAIM_RACE is client->host only, gates nothing, and its ANSWER rides RosterEntry.color/.raceId, on the wire since v39. Stale note corrected in place. THREE THINGS THE WORK TURNED UP: (a) the banner did not show on the first capture — update() runs on STATE CHANGE, the texture resolves after it, and a host alone in a room never changes state again; adopted in the ticker the rack already runs, and it re-runs the WHOLE projection because the colour swatch alpha depends on whether a banner is present. (b) seatLabelText survived its own replacement as a dead export with four passing tests — deleted, coverage relocated. (c) my own raceClaim.test.ts passed JSON.stringify to parseNetMessage, which takes the decoded object, so the fail-closed case rejected everything for the wrong reason. typecheck 0 / vitest 3572 (228 files) / build 776.8 KiB headroom 123.2",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/render/gathererRenderer.ts",
+          "pattern": "sp\\.tint = rainbowTint \\?\\? 0xffffff",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "export function keepRainbowSpriteTint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceBanners.ts",
+          "needle": "export function seatRaceLabel"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/raceBanners.ts",
+          "pattern": "'/art/banners/banner-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/racePicker.ts",
+          "needle": "export function makeRacePicker"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/hostHandlers.ts",
+          "needle": "export function raceIsFree"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "case 'CLAIM_RACE'",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 40 as const;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/seatRack.ts",
+          "pattern": "export function seatLabelText",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-castles/design-spec.json",
+          "pattern": "GREYSCALE ONLY",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-castles/design-spec.json",
+          "needle": "GRAVITY. Every broken, snapped or detached piece"
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P6",
+      "tier": "Standard",
+      "status": "completed",
+      "check_completed": true,
+      "title": "vs-bots picks races too — the same menu, one race per seat",
+      "checkpoint_commit": "b95abcd",
+      "check_method": "Owner: *\"and same for the play with bots, but only there you can chose the bot race and color\"*. THE SAME PICKER, NOT A MATCHING ONE — makeRacePicker is shared with the multiplayer lobby, because \"same\" has to still be true a year from now and a copy drifts the first time either surface is retuned. A ROW FOR THE HUMAN ABOVE THE BOTS: the note is about the bots, but a screen where you may recolour every opponent and not yourself is the odd one out, and multiplayer already lets you pick your own. ONE RACE PER SEAT enforced locally — multiplayer gets this from the host, solo has no arbiter, so the taken-set is every other row race. Without it a vs-bots match could open with two crimson castles. TWO PLACES THE SEAT COLOUR STOPPED TRACKING THE SEAT, and missing either ships a visible contradiction rather than a crash: the bot row swatch reads RACE_COLORS[race], and the vs-bots roster sends color: RACE_COLORS[raceId] instead of PLAYER_COLORS[seat] — applyStartGame takes the colour verbatim from the entry and the race from the field beside it. onStart now carries two arrays of DIFFERENT LENGTHS (difficulties per BOT, races per SEAT), documented at the callback because mixing them up hands the human a bot race silently. CAUGHT BY LOOKING: the first layout tucked the YOU row above the rack origin and it landed on the \"N BOTS\" counter. typecheck 0 / vitest 3572 (228 files) / e2e 62 passed exit 0 / build 776.9 KiB headroom 123.1 / verify-deploy 4/4",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "private makeRaceButton(seat: number, cx: number): Container {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[]): void;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/botSetupOverlay.ts",
+          "pattern": "PLAYER_COLORS",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "return { seat, color: RACE_COLORS[raceId], raceId };"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/botSetupOverlay.ts",
+          "pattern": "makeRacePicker",
+          "op": ">=",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "reflexion_s161_archived": [
+    "S161 — I WROTE THREE VERIFICATION BINDINGS THAT READ MY OWN DOCBLOCKS, IN THE SESSION AFTER S160 LOGGED THAT EXACT FAILURE FIVE TIMES. `raceId == 0` in castleGuns.ts matched the sentence *\"Nothing in this file reads `raceId`\"*; `cause: 'player' == 0` in botController matched the paragraph explaining why that cause was removed; `already affordable == 1` counted three comment mentions. The MCV caught all three. ⭐ The pattern is sharper than \"assert code shapes\": THE BETTER THE DOCBLOCK, THE MORE LIKELY IT CONTAINS THE EXACT STRING THAT PROVES ITS OWN CLAIM — writing a good explanation of what was removed CREATES the false positive. Rebound onto property accesses and dispatch literals (`\\.raceId`, `type: 'SEVER_BOND'`), each with a positive control so a rename cannot make the zero pass vacuously.",
+    "S161 — MY tail -25 SHOWED \"61 passed\" AND A TRAILING \"[exited with code 0]\", AND THE GATE HAD FAILED. The real line was `E2E_EXIT=1`, printed before the tail and scrolled off the top of the window. This project's CLAUDE.md carries the rule *\"read every gate's exit code DIRECTLY, never through a pipe\"* because S159 shipped past a hard_fail exactly that way, and S160 read a stale log from S153. ⭐ The new half: I DID redirect to a file and DID echo `$?` — the failure was reading the TAIL of the log instead of grepping for the exit line. A wrapper's own \"[exited with code 0]\" sits where a human eye looks for a verdict. Grep for the token you printed; never trust position.",
+    "S161 — TWO INDEPENDENT INVESTIGATORS CONVERGED ON SOMETHING NEITHER REPORT ASKED FOR: THREE OF THE OWNER'S SIX BUGS WERE ONE BUG. \"A dozen voltkins\", the build cards flickering LOCKED, and \"stink tower locked at 2 towers\" are all `voltkinPredicate` discarding `bondPos` and re-matching a standing chain on every placement — the extra creature, and `activeCinematicPlayerId` re-arming, which `castlePanel.ts:300` renders as a bare LOCKED that SHADOWS the shape maths. ⭐ Fixing them in report order would have cost three investigations and produced at least one wrong fix: BUG-4 reads as a per-kind tower cap, and there is no such cap anywhere in the codebase — I swept every *MAX*/*CAP*/*LIMIT* constant. Two lenses per report is what surfaced the shared cause; ONE lens would have \"fixed\" the cap that does not exist.",
+    "S161 — A TEST I WROTE TO PIN THE FIX CHANGED THE FIX. The voltkin gate, written as a filter on the RESULT of `findVoltkinChain`, passed five cases and broke the six-tower board: the function returns the FIRST chain it finds, so completing a SECOND chain tested the FIRST one's position and never fired. The filter had to move INSIDE the search. ⚠ And the pre-fix code was not merely different there — it fired with the wrong chain's identity, spawning the Voltkin at another structure's centroid. Multi-chain boards had never been handled at all. **Write the case that is one step past the reported symptom; that is where the design decision actually lives.**",
+    "S161 P2 — THE WHOLE SUITE STAYED GREEN THROUGH A WIN-CONDITION REWRITE. 3488 tests, nothing red, while `tickGameState` went from \"the first castle to fall ends it, winner = survivors[0]\" to \"last one standing\". Every fixture that reaches the castle gate has ONE or TWO seats, and at two seats the old rule and the new one agree — so the Map-order bug was unreachable from the suite and so was its fix. ⭐ GREEN THROUGH A REWRITE IS A COVERAGE REPORT, NOT A SAFETY REPORT: when nothing reddens, ask which arity or mode the fixtures never construct, and build that fixture first.",
+    "S161 P1 — THE ART PIPELINE'S MATTE CONSTRAINS THE ART BRIEF, and the second-order effects were the ones that mattered. Three prompt decisions were forced by downstream code, not taste: mid-grey stone (the matte deletes enclosed near-white above 0.3%% of frame, so a bone-white wall erases itself), no ground shadow (a DETACHED oval becomes the union-bbox foot-anchor, and each atlas measures its own bbox so the mismatch only appears with two races on the board — and a baked shadow tints crimson with the castle), and identity refs on -damaged but NOT on -destroyed. That last one came from a CONTROLLED PAIR: zombies-destroyed generated both ways, unconditioned a rubble heap and conditioned the standing shack again. **Generate one spike, measure it against the consumer, and only then commit to the batch.**",
+    "S161 P3 — S158 CLOSED A REAL BUG AS \"no asymmetry found in the sim\" AND EVERY WORD OF ITS PROBE WAS TRUE. It checked that the raid ACCRUAL is seat-agnostic and that the raid REDUCER is seat-agnostic. Both are. The bot was never reaching the reducer — it dispatched `SEVER_BOND` while the human dispatched `RAID_TARGET`. The false negative then rode three handoffs as \"needs an owner observation, not a fix\", and the owner supplied the observation by playing. ⭐ **A parity probe that examines what two actors SHARE cannot see what they DISPATCH.** Every test in the replacement file asserts the outcome of an actor's action; none asserts that a function is seat-agnostic.",
+    "S161 P4 — botTowers.test.ts PINNED \"a tower EXISTS after a driven run\" AND WAS TRUE THROUGHOUT. The bot really was building a tower — the same tower, forever. A test that asks \"did it happen?\" cannot see \"is it always the same one?\", and one that hands the bot exactly one bill cannot see that it never accumulates past it. ⭐ **For any behaviour with VARIETY as the requirement, assert the SET, not the existence.** Same shape as the S159 magazine finding: a per-round rhythm needs a test that crosses the round boundary.",
+    "S161 — THE OWNER'S BUG REPORT NAMED THE SYMPTOM IN THE UI'S OWN VOCABULARY, AND THAT WAS THE CLUE. \"stink tower locked at 2 towers\" quotes the literal word `LOCKED` from the card, and that string has exactly one producer — `castlePanel.ts:300`, reachable only from sudoku, cinematic or bench. Reading the report as a balance complaint would have sent me to the economy constants; reading it as a QUOTE sent me to the one branch that can print it. **When a report quotes UI text, grep for the string before theorising about the mechanic.**",
+    "S161 P5 — THE OWNER SAID THE ART LOOKED LAZY AND THE DEFECT WAS IN THE RENDER PATH, NOT THE PROMPT. I generated the castles in neutral grey so `Sprite.tint` could paint them the seat colour. Tint is a MULTIPLY: grey is R=G=B=v, so the product is (v·r, v·g, v·b) and the HUE IS IDENTICAL ON EVERY PIXEL — a monochrome image, by definition. *\"Completely filled them with their one color\"* was a literal description of the arithmetic. ⭐ No amount of detail in the source could have survived it, so no amount of re-prompting would have fixed it either. **When a visual complaint is about a whole class of asset rather than one of them, price the RENDER OPERATION before touching the generator.**",
+    "S161 P5 — A CONSTRAINT INHERITED FROM ONE ASSET FAMILY QUIETLY GOVERNED A DIFFERENT ONE. The castle prompts forbid near-white because `build-sprite-atlas.mjs` mattes near-white and would erase a pale wall. I carried that habit toward the lobby BANNERS, which never touch the atlas at all — full-bleed art, no alpha, no matte — where white is simply a colour. Writing the banner spec meant explicitly INVERTING four rules (white background, near-white ban, no ground shadow, subject isolation) rather than adapting them. **Ask what the pipeline actually does to THIS asset; a rule with a good reason is still wrong one directory over.**",
+    "S161 P5 — THE OWNER'S \"GRAVITY\" NOTE WAS A STATE-MACHINE OBSERVATION WEARING AN ART COMPLAINT. *\"imagine if they are just suspended in the air for like 2 rounds while being broken\"* — the point is not that a falling spire looks wrong, it is that a -damaged castle is a state the board HOLDS for minutes, so anything mid-fall is mid-fall forever. That reframing is what made the fix a rule in `sharedStyle` binding all eighteen rather than three re-rolls. **A player describing a visual usually knows something about the mechanic; read the sentence for the mechanic first.**",
+    "S161 P5 — I SHIPPED A LAZY-LOADED IMAGE INTO A SURFACE THAT ONLY REDRAWS ON STATE CHANGE, AND ONLY THE CAPTURE CAUGHT IT. `GathererRenderer.sync` runs every frame, so its lazy atlas appears the instant it resolves; the seat rack's `update()` runs on presence beacons, so a host alone in a fresh room never redrew and the tile kept its flat swatch. ⚠ AND THE FIRST FIX WAS ALSO WRONG — assigning the texture from the ticker left the opaque colour swatch drawn OVER it, so it would have looked identically broken. Re-running the whole projection was the fix. **Copying a lazy-load pattern means copying its redraw cadence too, and \"the asset is now present\" is not the same as \"the frame is now correct\".**",
+    "S161 P6 — S160 WROTE A PREDICTION INTO A DOCBLOCK AND IT WAS WRONG, WHICH IS WHY IT HAD TO BE CORRECTED IN PLACE RATHER THAN JUST NOT FOLLOWED. The note above `PROTOCOL_VERSION` said CLAIM_RACE *\"will carry its own bump\"*, reasoning by analogy to LOBBY_READY. But LOBBY_READY bumped for GATING THE MATCH (auto-Begin), not for being a new lobby kind — a distinction LOBBY_PRESENCE's own docblock states explicitly. CLAIM_RACE is client→host only and its answer rides fields already on the wire, so a stale peer degrades gracefully. **A forward-looking claim in a docblock is a claim; the session that reaches it owes the next reader a verdict, not silence.**",
+    "S161 P6 — DELETING A FUNCTION IS NOT ENOUGH IF ITS TESTS STILL PASS. `seatLabelText` was replaced by `seatRaceLabel` and survived as an unused export with four green tests — the shape that most convinces the next reader a thing is live. The full suite could not see it, because a dead export is not a failure. **After a replacement, grep for the OLD symbol outside its own test file; if the only non-test hit is its own definition, it is dead.**",
+    "S161 CLOSE-OUT — THE OWNER HAD TO TELL ME TWICE THAT A DEAD HUNT IS NOT A DONE HUNT, AND THE SECOND TELLING PAID FOR ITSELF IMMEDIATELY. When the five-lane sweep died to the usage limit I wrote \"the sweep produced nothing\" and moved to handoff. Re-run as five SEPARATE agents, three lanes returned — and lane 1 found a CRITICAL defect my own P2 had introduced: an eliminated seat could still win by score, because removing the first-castle-ends-it exit let a corpse keep accruing tower income into a MAX-over-all-seats progress bar. ⭐ The lesson is not \"run the agents again\". It is that REMOVING A TERMINATION CONDITION opens every path that condition was silently truncating — and those paths need enumerating, not assuming.",
+    "S161 CLOSE-OUT — I WROTE THE FIX BEFORE I COULD REPRODUCE THE BUG, TWICE, AND BOTH TIMES THE REPRO CHANGED THE FIX. For the drone I floated three hypotheses (placedBy unset, race-picker colour drift, self-destruct by design) and all three were REFUTED by reading the code. Only writing a failing test found it: `isEnemyBond` is an OR, so a MIXED bond reads as enemy and cutting it breaks the owner's own structure. Then my first fix keyed on `placedBy` and two shipped tests went red because their fixture defaults `placedBy` to the owner — the reproduction and the existing suite between them forced the predicate to colour. **A hypothesis that survives only because you did not test it is not evidence; write the failing case first.**",
+    "S161 CLOSE-OUT — MY OWN TEST FIXTURE FAILED FOR THREE DIFFERENT WRONG REASONS BEFORE IT FAILED FOR THE RIGHT ONE, and each looked exactly like a product bug. `parseNetMessage` takes a decoded object not JSON text; `makeCreature` takes (config, args) not one blob; `isHarvestable` requires the spark to be INSIDE the quarry radius, so sparks placed beside the keep were invisible to the picker. Every one of those printed a plausible product-shaped failure (`expected null to be 1`). ⭐ **When a brand-new fixture fails on the FIRST assertion, suspect the fixture; when it fails on the LAST one, suspect the product.**",
+    "S161 CLOSE-OUT — THE RUNTIME LANE CLOSED A WORRY I HAD BEEN CARRYING AS A RISK, WITH EVIDENCE I HAD NOT THOUGHT TO GATHER. I flagged asset case-sensitivity (Windows dev, Linux Pages) as the one with teeth and filed it as unverifiable without a browser. The agent verified it properly: 18/18 assets fetched 200 FROM PRODUCTION with byte sizes matching disk, plus a grep of the live bundle proving the code references them. **\"I cannot check this from here\" is often \"I have not thought of the right probe\" — a deployed site answers questions a local tree cannot.**",
+    "S161 CLOSE-OUT — THREE OF THIS SESSION'S OWN FEATURES CREATED THE FINDINGS THAT CLOSED IT. P2 (elimination) created the score-leak and the rematch brick; P6 (the race picker) created the duplicate-race hole because `raceIsFree` reasons about CLAIMS while an unclaimed seat still occupies its DEFAULT. All three are the same shape: a new mechanism reasoning over a NARROWER set than the one the game actually has. ⭐ When adding a chooser, ask what the un-chosen state already occupies."
+  ],
+  "reflexion_s161_archived_count": 20,
+  "state_recovery_s162": "S162 overwrote `priorities` (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) when staging its own priority list, WITHOUT reading the target first. Caught by the commit diffstat showing -404 lines, recovered verbatim from `git show HEAD:.claude/session-state.json` BEFORE the commit, and archived here as `priorities_s161_archived` / `reflexion_s161_archived`. Neither had ever been archived by S161 itself. Rule re-learned: look at what you are overwriting."
 }

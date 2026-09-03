@@ -425,3 +425,49 @@ describe('S158 P8 — the build is REPRODUCIBLE, so verify-deploy can mean somet
     expect(VITE_CONFIG).toMatch(/^\s*define:\s*turnDefines\s*,?\s*$/m);
   });
 });
+
+describe('S162 P0 — the wiring report and iceConfig share ONE definition of a usable TURN value', () => {
+  /**
+   * ⛔ WHY THIS EXISTS. `turn-wiring-report.mjs` printed `✅ RELAY WILL BE SHIPPED` for the build
+   * whose ICE config THREW, because it validated `v.trim() !== ''` and nothing else — the same
+   * insufficient test as the code it was watching. **A watchdog that shares the watched code's blind
+   * spot is not a watchdog.** The owner lost multiplayer on every network, same-LAN included, behind
+   * a green deploy and a green report.
+   *
+   * The two now run the same shape rules. These assertions are what stop them drifting apart again.
+   */
+  const REPORT_SRC = readFileSync(
+    fileURLToPath(new URL('../scripts/turn-wiring-report.mjs', import.meta.url)),
+    'utf8',
+  );
+
+  const iceUrlRe = (src: string): string | undefined =>
+    /const ICE_URL_RE = (\/.*\/[a-z]*);/.exec(src)?.[1];
+
+  it('CONTROL — both files declare an ICE_URL_RE (else the comparison below is vacuous)', () => {
+    expect(iceUrlRe(ICE_CONFIG_SRC)).toBeDefined();
+    expect(iceUrlRe(REPORT_SRC)).toBeDefined();
+  });
+
+  it('⭐ the two ICE_URL_RE literals are byte-identical', () => {
+    expect(iceUrlRe(REPORT_SRC)).toBe(iceUrlRe(ICE_CONFIG_SRC));
+  });
+
+  it('the report validates SHAPE, not merely presence — the S162 regression cannot return', () => {
+    expect(REPORT_SRC).toContain('unwrapPastedSecret');
+    expect(REPORT_SRC).toContain('cleanUrlToken');
+    // It must be ABLE to say the words for "all three set, none of them usable" — the state that
+    // previously rendered as a green tick.
+    expect(REPORT_SRC).toMatch(/ALL THREE SECRETS ARE SET BUT NO RELAY/);
+  });
+
+  it('iceConfig degrades to STUN-only rather than shipping a config that can throw', () => {
+    expect(ICE_CONFIG_SRC).toContain('export function parseTurnConfig');
+    expect(ICE_CONFIG_SRC).toMatch(/ICE_URL_RE\.test/);
+  });
+
+  it('the runbook documents the paste shape the report points readers at', () => {
+    const doc = readFileSync(fileURLToPath(new URL('../TURN_SETUP.md', import.meta.url)), 'utf8');
+    expect(doc).toContain('The shape of the values');
+  });
+});

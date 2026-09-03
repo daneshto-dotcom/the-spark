@@ -98,7 +98,13 @@ import { formatStrategySummary } from './net/strategySummary.ts';
 import { makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
-import { HAS_TURN_CONFIGURED, ICE_SERVERS, NOSTR_RELAYS, STRATEGY_FLAGS } from './net/iceConfig.ts';
+import {
+  HAS_TURN_CONFIGURED,
+  ICE_SERVERS,
+  NOSTR_RELAYS,
+  STRATEGY_FLAGS,
+  TURN_CONFIG_NOTE,
+} from './net/iceConfig.ts';
 // S158 P1 — the connection self-test the TEST CONNECTION button runs.
 import { probeIce, summarizeIce } from './net/iceProbe.ts';
 // S158 B1 — the matchmaking half: the layer the owner's two workstations actually differ on.
@@ -1364,9 +1370,14 @@ async function bootstrap(): Promise<void> {
   const onPickRace = (raceId: RaceId): void => {
     if (world.isHost) {
       if (raceIsFree(session, raceId, selfId)) session.selfRace = raceId;
-      if (session.netTransport !== null) {
-        broadcastQmPresence(session, session.netTransport, onPresence);
-      }
+      // ⭐ S162 P1 — UNCONDITIONAL. `broadcastQmPresence` now tolerates a null transport and does the
+      // local repaint regardless; the old `!== null` guard here is what made the owner's pick
+      // invisible in a lobby that had no live room. See that function's docblock.
+      //
+      // ⚠ `onToggleReady` directly above KEEPS its guard deliberately: readiness only means
+      // something to peers in a room, so there is nothing local to show, whereas seeing your own
+      // race change is the entire point of the menu.
+      broadcastQmPresence(session, session.netTransport, onPresence);
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_RACE', raceId });
     }
@@ -1445,10 +1456,20 @@ Network routes: ${v.detail}`;
           lobbyScreen?.showConnectionTestResult(ok, headline, detail);
         })
         .catch((err: unknown) => {
+          // ⛔ S162 P0 — THIS BLAMED THE BROWSER FOR A FAULT THAT WAS ENTIRELY OURS. The owner's
+          // screenshot showed "WebRTC is disabled by an extension or a policy" printed underneath a
+          // `SyntaxError` thrown by a malformed TURN url THIS BUILD shipped. `iceConfig` can no
+          // longer emit one, but the ordering here is the lesson: when we have a note about our own
+          // configuration, it leads — the extension theory is the fallback, not the headline.
           lobbyScreen?.showConnectionTestResult(
             false,
             'The connection test could not run',
-            'This browser refused to open a test connection at all, which usually means WebRTC is ' +
+            (TURN_CONFIG_NOTE !== null
+              ? `⚠ Your TURN settings needed fixing up — ${TURN_CONFIG_NOTE}.
+
+`
+              : '') +
+              'The browser refused to open a test connection, which usually means WebRTC is ' +
               `disabled by an extension or a policy. (${String(err)})`,
           );
         });

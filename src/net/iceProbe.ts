@@ -175,7 +175,21 @@ export async function probeIce(
   const errors = new Set<string>();
   let complete = false;
 
-  const pc = makePc({ iceServers: [...iceServers], iceCandidatePoolSize: 0 });
+  // ⛔ S162 P0 — CONSTRUCTION IS ITS OWN FAILURE MODE, AND IT IS THE TOTAL ONE. A single malformed
+  // ICE url makes `new RTCPeerConnection` throw SYNCHRONOUSLY, before one candidate is gathered, so
+  // every route dies at once — including the same-LAN `host` pair that needs no STUN and no TURN.
+  // `iceConfig.parseTurnConfig` now validates, so this should be unreachable; it is kept because the
+  // consequence of being wrong is a dead lobby, and because naming the config in the message is what
+  // stops the next occurrence being mis-blamed on a browser extension.
+  let pc: RTCPeerConnection;
+  try {
+    pc = makePc({ iceServers: [...iceServers], iceCandidatePoolSize: 0 });
+  } catch (err) {
+    throw new Error(
+      `RTCPeerConnection refused the ICE configuration (${iceServers.length} server ` +
+        `entries): ${String(err)}`,
+    );
+  }
   try {
     await new Promise<void>((resolve) => {
       const done = (): void => {

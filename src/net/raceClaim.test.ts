@@ -14,6 +14,9 @@ import { parseNetMessage, PROTOCOL_VERSION } from './protocol.ts';
 import { raceIsFree } from './hostHandlers.ts';
 import { makeNetSession } from './session.ts';
 import { buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
+import { broadcastQmPresence } from './quickmatchGate.ts';
+import type { RosterEntry } from './protocol.ts';
+import type { NetTransport } from './transport.ts';
 import { ALL_RACES, RACE_COLORS, defaultRaceForSeat } from '../state/races.ts';
 
 const sess = () => makeNetSession();
@@ -115,5 +118,68 @@ describe('the session ledger', () => {
     s.raceByPeer.set('PEER-A', 'orcs');
     s.selfRace = 'demons';
     expect(typeof teardownNet).toBe('function');
+  });
+});
+
+/**
+ * ⭐ S162 P1 — **THE PICK WAS BEING RECORDED AND NEVER SHOWN.**
+ *
+ * Owner: *"i cant seem to change my player color(race) i click on it and it shows but it doesnt
+ * change"*. `onPickRace` set `session.selfRace` and then skipped the presence rebuild behind a
+ * `session.netTransport !== null` guard, so `onPresence` never fired and `lobbyStateMachine` kept
+ * painting its count-based fallback — `defaultRaceForSeat(0)`, i.e. vampires, forever.
+ *
+ * A host has no transport more often than it looks: before it opens a room, and after a failed one
+ * (S162 P0 had `joinRoom` throwing on a malformed ICE url, so `hostHandlers` never reached its
+ * `session.netTransport = transport` assignment at all).
+ */
+describe('S162 P1 — broadcastQmPresence repaints locally with no transport', () => {
+  it('⭐ a null transport STILL repaints, and the roster carries the picked race', () => {
+    const s = sess();
+    s.selfRace = 'demons';
+    const seen: RosterEntry[][] = [];
+    broadcastQmPresence(s, null, (r) => { seen.push([...r]); });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]![0]!.raceId).toBe('demons');
+  });
+
+  it('⛔ a null transport does NOT wipe a live seat map', () => {
+    // `reconcileLobbySeats(prev, [])` is documented as "departed peers fall away", so handing it an
+    // empty list merely because we have no transport HANDLE would evict real peers. The reconcile
+    // is skipped instead.
+    const s = sess();
+    s.lobbySeats.set('PEER-A', 1);
+    broadcastQmPresence(s, null, () => {});
+    expect(s.lobbySeats.get('PEER-A')).toBe(1);
+  });
+
+  it('an UNPICKED seat 0 omits `raceId` but still carries the default race COLOUR', () => {
+    // ⚠ Not a defect — the documented §15.6 byte-identity contract at `rosterEntryFor`: `raceId` is
+    // emitted only when a race was actually CLAIMED, so an all-default beacon stays byte-identical
+    // to pre-W1-A. `color` is always the EFFECTIVE race's colour, and `lobbyStateMachine` re-derives
+    // the missing id with `entry.raceId ?? defaultRaceForSeat(i)`.
+    //
+    // ⭐ This asymmetry is worth pinning because it is exactly what OF-1 turns on: a seat that never
+    // picked still OCCUPIES its default race, while carrying no `raceId` for a taken-set to see.
+    const s = sess();
+    const seen: RosterEntry[][] = [];
+    broadcastQmPresence(s, null, (r) => { seen.push([...r]); });
+    expect(seen[0]![0]!.raceId).toBeUndefined();
+    expect(seen[0]![0]!.color).toBe(RACE_COLORS[defaultRaceForSeat(0)]);
+  });
+
+  it('WITH a transport the wire send is unchanged — the local repaint is additive', () => {
+    const s = sess();
+    s.selfRace = 'orcs';
+    const sent: { kind: string }[] = [];
+    const transport = {
+      peerIds: () => [],
+      send: (m: { kind: string }) => { sent.push(m); },
+    } as unknown as NetTransport;
+    const seen: RosterEntry[][] = [];
+    broadcastQmPresence(s, transport, (r) => { seen.push([...r]); });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.kind).toBe('LOBBY_PRESENCE');
+    expect(seen[0]![0]!.raceId).toBe('orcs');
   });
 });

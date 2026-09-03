@@ -114,6 +114,32 @@ Go to the repository → **Settings** → **Secrets and variables** → **Action
 > `VITE_TURN_URLS` is not really a secret, so you may instead add it under the **Variables** tab if
 > you prefer to be able to read it back — the workflow accepts either.
 
+### ⛔ The shape of the values — THIS IS WHAT BROKE MULTIPLAYER ON 2026-09-03
+
+Paste **only the bare value**. Metered's dashboard shows you a *JavaScript snippet*, and copying a
+line out of it brings the code along with it:
+
+| | |
+|---|---|
+| ⛔ WRONG | `urls: "turn:standard.relay.metered.ca:80"` |
+| ⛔ WRONG | `{ urls: "turn:…", username: "…" }` |
+| ⛔ WRONG | `"turn:standard.relay.metered.ca:80"` (quoted) |
+| ✅ RIGHT | `turn:standard.relay.metered.ca:80` |
+
+No key name, no quotes, no braces, no trailing comma. The same applies to the other two —
+`username: "abc"` is wrong, `abc` is right.
+
+**Why this matters more than it looks.** A malformed url does not degrade the game, it *stops* it:
+`new RTCPeerConnection` rejects the entire ICE configuration **synchronously**, before gathering a
+single candidate, so every route dies at once — including two machines on the same LAN, which need
+no STUN and no TURN at all. **A dead TURN server costs you the hostile-NAT pairs; a malformed one
+costs you everybody.**
+
+That is precisely what happened on 2026-09-03: three secrets pasted with their wrappers, a green
+deploy, a green wiring report, and a completely dead lobby on every network. Since S162 the game
+**repairs** this shape at runtime and the deploy log calls it out with a `⛔` line, so a dashboard
+paste is no longer fatal — but fix the secrets anyway, so the intent is explicit rather than rescued.
+
 ## Step 3 — redeploy
 
 Any push to `master` that touches the game rebuilds and redeploys. If nothing needs changing, use

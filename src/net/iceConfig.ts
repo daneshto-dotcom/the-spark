@@ -175,21 +175,159 @@ const STUN_ONLY: RTCIceServer[] = [
  * every build would ship STUN-only, and the deploy would stay green with nothing red anywhere.
  * `ci.deployGate.test.ts` now pins the dotted form against `vite.config.ts`'s define keys.
  */
-function turnFromEnv(): RTCIceServer[] {
-  const rawUrls = String(import.meta.env.VITE_TURN_URLS ?? '');
-  const rawUsername = String(import.meta.env.VITE_TURN_USERNAME ?? '');
-  const rawCredential = String(import.meta.env.VITE_TURN_CREDENTIAL ?? '');
-  const urls = rawUrls.split(',').map((u) => u.trim()).filter(Boolean);
-  const username = rawUsername.trim();
-  const credential = rawCredential.trim();
-  if (urls.length === 0 || username === '' || credential === '') return [];
-  return [{ urls, username, credential }];
+/**
+ * ⭐ S162 P0 — **THE "DEFENSIVE PARSE" ABOVE WAS NOT DEFENSIVE ENOUGH, AND IT TOOK MULTIPLAYER DOWN
+ * COMPLETELY — INCLUDING TWO MACHINES ON THE SAME LAN.**
+ *
+ * Owner: *"me and my friend cant connect to eachother and neither can my other workstation on the
+ * same network!"*, with a screenshot of the lobby reading
+ * `SyntaxError: Failed to construct 'RTCPeerConnection': 'urls: "turn:global.relay.metered.ca:80"'
+ * is not a valid stun or turn URL`.
+ *
+ * ## What had happened
+ *
+ * The three secrets had been set that morning (`gh secret list` → 2026-09-03T06:10Z) by pasting
+ * lines straight off **metered.ca's dashboard, which hands you a JavaScript snippet**. Each value
+ * therefore arrived carrying its own object-literal wrapper. Measured in the LIVE bundle
+ * `index-8UqrIHaf.js`, all three:
+ *
+ *     VITE_TURN_URLS        'urls: "turn:global.relay.metered.ca:80"'
+ *     VITE_TURN_USERNAME    'username: "…"'
+ *     VITE_TURN_CREDENTIAL  ' credential: "…"'
+ *
+ * The old parse trimmed and dropped empties and nothing else, so all three passed the non-empty
+ * test, `HAS_TURN_CONFIGURED` went **true**, and the garbage URL was handed to the browser.
+ *
+ * ⛔ **A BAD ICE URL DOES NOT DEGRADE — IT THROWS.** `new RTCPeerConnection` rejects the entire
+ * config synchronously, before gathering a single candidate. That is why even the same-LAN pair
+ * failed, where plain `host` candidates connect with no STUN and no TURN at all: the failure was at
+ * CONSTRUCTION, upstream of every route. **A dead TURN server costs you the hostile-NAT pairs; a
+ * malformed one costs you everybody.** That asymmetry is the whole reason this code exists.
+ *
+ * ## The rule this encodes
+ *
+ * Each value is unwrapped (the dashboard-paste shape is recognised and stripped), each URL must
+ * match a real ICE scheme, and anything failing is DROPPED with a warning rather than shipped.
+ * `urls` empty after validation ⇒ no TURN entry, which is exactly the pre-S157 STUN-only behaviour.
+ *
+ * ⚠ THE UNWRAP REPAIRS A KNOWN-BAD PASTE RATHER THAN MERELY REJECTING IT, because rejecting it
+ * leaves the owner with a green deploy and a dead lobby — the outcome this family of bugs keeps
+ * producing. `TURN_CONFIG_NOTE` records what was repaired so the lobby can say so out loud instead
+ * of blaming the browser, which is what S162 found it doing (`main.ts` — "disabled by an extension
+ * or a policy" was printed for a fault that was entirely ours).
+ *
+ * ⚠ AND `parseTurnConfig` IS PURE, taking the three raw strings, so the matrix of bad pastes is
+ * unit-testable without a WebRTC stack or an `import.meta.env` shim. Only `turnFromEnv` reads env.
+ */
+
+/**
+ * Every scheme `RTCPeerConnection` accepts, plus a host portion that cannot contain the punctuation
+ * a pasted snippet leaves behind. Deliberately permissive about the rest (ports, `?transport=tcp`,
+ * bracketed IPv6) and strict about quotes / commas / braces / whitespace, which is what actually
+ * distinguishes a URL from a fragment of code.
+ */
+const ICE_URL_RE = /^(?:stun|stuns|turn|turns):[^\s"'`,{}]+$/i;
+
+/**
+ * Strip a `key: "value"` wrapper off a secret pasted from a provider dashboard's JS snippet, plus a
+ * trailing comma and matched surrounding quotes. Idempotent, and a NO-OP on a clean value.
+ */
+export function unwrapPastedSecret(raw: string, key: string): string {
+  let s = raw.trim();
+  const labelled = new RegExp(`^${key}\s*:\s*`, 'i');
+  if (labelled.test(s)) s = s.replace(labelled, '').trim();
+  s = s.replace(/,+$/, '').trim();
+  const quoted = /^(['"`])([\s\S]*)\1$/.exec(s);
+  if (quoted !== null) s = quoted[2]!.trim();
+  return s;
 }
 
-/** True when a relay is even possible — consumed by the join preflight to explain a failure. */
-export const HAS_TURN_CONFIGURED: boolean = turnFromEnv().length > 0;
+/** Strip array brackets, quotes and stray commas off ONE url token out of a pasted list. */
+function cleanUrlToken(tok: string): string {
+  return tok
+    .trim()
+    .replace(/^[[\s"'`]+/, '')
+    .replace(/[\]\s"'`,]+$/, '')
+    .trim();
+}
 
-export const ICE_SERVERS: RTCIceServer[] = [...STUN_ONLY, ...turnFromEnv()];
+export interface TurnParse {
+  readonly servers: RTCIceServer[];
+  /** What had to be repaired or dropped; `null` when the config was already clean (or absent). */
+  readonly note: string | null;
+}
+
+/**
+ * PURE. Given the three raw env values, produce the TURN `RTCIceServer` list actually safe to hand
+ * to a browser, plus a note describing any repair. Never throws, and never returns a server whose
+ * urls could throw.
+ */
+export function parseTurnConfig(
+  rawUrls: string,
+  rawUsername: string,
+  rawCredential: string,
+): TurnParse {
+  const urlsField = unwrapPastedSecret(rawUrls, 'urls');
+  const username = unwrapPastedSecret(rawUsername, 'username');
+  const credential = unwrapPastedSecret(rawCredential, 'credential');
+
+  const tokens = urlsField.split(',').map(cleanUrlToken).filter(Boolean);
+  const urls = tokens.filter((u) => ICE_URL_RE.test(u));
+  const rejected = tokens.filter((u) => !ICE_URL_RE.test(u));
+
+  const wasWrapped =
+    urlsField !== rawUrls.trim() ||
+    username !== rawUsername.trim() ||
+    credential !== rawCredential.trim();
+
+  const problems: string[] = [];
+  if (wasWrapped) {
+    problems.push(
+      'the TURN settings looked pasted from a provider dashboard (a `key: "value"` snippet rather ' +
+        'than the bare value) and were unwrapped automatically',
+    );
+  }
+  if (rejected.length > 0) {
+    problems.push(`${rejected.length} TURN url(s) were not valid ICE urls and were ignored`);
+  }
+  if (urls.length === 0 && rawUrls.trim() !== '') {
+    problems.push('no usable TURN url survived, so the game is running STUN-only');
+  }
+  if (urls.length > 0 && (username === '' || credential === '')) {
+    problems.push('a TURN url was set but its username or credential was empty, so TURN was ignored');
+  }
+  const note = problems.length > 0 ? problems.join('; ') : null;
+
+  if (urls.length === 0 || username === '' || credential === '') return { servers: [], note };
+  return { servers: [{ urls, username, credential }], note };
+}
+
+function turnFromEnv(): TurnParse {
+  return parseTurnConfig(
+    String(import.meta.env.VITE_TURN_URLS ?? ''),
+    String(import.meta.env.VITE_TURN_USERNAME ?? ''),
+    String(import.meta.env.VITE_TURN_CREDENTIAL ?? ''),
+  );
+}
+
+/**
+ * Evaluated ONCE. Three consumers read this (`HAS_TURN_CONFIGURED`, `ICE_SERVERS`, and the lobby's
+ * diagnosis); a per-call parse printed the same warning at every read.
+ */
+const TURN_PARSE: TurnParse = turnFromEnv();
+
+/**
+ * Non-null when the operator's TURN settings were repaired or partly rejected. The lobby reports it
+ * verbatim, so a bad paste is visible rather than silently patched over.
+ */
+export const TURN_CONFIG_NOTE: string | null = TURN_PARSE.note;
+
+/** True when a relay is even possible — consumed by the join preflight to explain a failure. */
+export const HAS_TURN_CONFIGURED: boolean = TURN_PARSE.servers.length > 0;
+
+export const ICE_SERVERS: RTCIceServer[] = [...STUN_ONLY, ...TURN_PARSE.servers];
+
+if (TURN_CONFIG_NOTE !== null) console.warn(`[net] TURN configuration: ${TURN_CONFIG_NOTE}`);
 
 export const HANDSHAKE_TIMEOUT_MS = 30000;
 export const ICE_POLL_INTERVAL_MS = 1000;
