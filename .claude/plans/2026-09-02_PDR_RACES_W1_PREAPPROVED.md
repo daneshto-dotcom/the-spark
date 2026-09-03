@@ -4,7 +4,43 @@
 ═══════════════════════════════════════════════════════════
 
 Status: **APPROVED — EXECUTE. DO NOT RE-COUNCIL.**
-**STATUS: IN-PROGRESS — P1 SHIPPED S160. P2/P3/P4 REMAIN. THIS IS THE NEXT SESSION'S ENTRY POINT.**
+**STATUS: IN-PROGRESS — P1 (S160) + P2 + P3 SHIPPED. ONLY P4 (W1-C) REMAINS, AND IT IS STILL
+BLOCKED BY B1. THIS IS STILL THE NEXT SESSION'S ENTRY POINT.**
+
+> ## ⭐ WHERE S161 LEFT THIS (read this block FIRST — it supersedes the S160 block below)
+>
+> **✅ P3 — W1-B, THE CASTLE BECOMES ITS RACE: SHIPPED.** Six castles × three states generated and
+> wired (`public/art/castles/`), per-race gatherer silhouettes, per-race castle attack VFX. No
+> protocol bump — the VFX re-derives the shot from `ticksSinceCastleShot`, exactly as the S160 block
+> below predicted it could.
+> ⚠ **THE ART WENT ROUND TWICE AND THE SECOND PASS IS THE ONE THAT COUNTS.** The first pass drew the
+> castles GREY and tinted them at render; the owner rejected it and was right as a matter of
+> arithmetic — `Sprite.tint` is a multiply, so grey art yields ONE HUE on every pixel. The castles
+> are now painted in their own colour and `syncCastleSprite` does not tint. Do not "restore" the
+> tint; read its docblock first.
+>
+> **✅ P2 — THE SELECTION UI: SHIPPED, and B3 was not the obstacle it looked like.** Click your own
+> lobby seat → a six-tile race menu over generated per-race banner art; the same picker also runs in
+> the vs-bots setup, per seat, including a row for the human. `CLAIM_RACE` follows the `LOBBY_READY`
+> precedent as a top-level NetMessage.
+> ⛔ **AND IT NEEDED NO BUMP** — the S160 note above `PROTOCOL_VERSION` predicting one was WRONG and
+> has been corrected in place. `LOBBY_READY` bumped for GATING THE MATCH; a race claim gates nothing
+> and its answer rides `RosterEntry.color`/`.raceId`, on the wire since v39.
+>
+> **✅ B2 — SEAT ELIMINATION: SHIPPED on owner ruling R127.** `state/elimination.ts`; last one
+> standing; economy gate; spectator; placings. **PROTOCOL 39 → 40.** So the "B2 needs an owner
+> ruling" warning in the S160 block below is DISCHARGED.
+>
+> **⛔ WHAT IS ACTUALLY LEFT: P4 — W1-C (the castle produces its race's unit), STILL BLOCKED BY B1.**
+> B1 is unchanged and still real: `applySpawnCreature` silently returns the world UNCHANGED for a
+> creature with `sourceSpawnerId === null` when one of that (owner, type) already lives, and only
+> voltkin is exempt. Decide null-vs-sentinel AT THE GATE before writing the emitter. W1-D (castle
+> upgrades) is untouched and unblocked.
+>
+> **⚠ ONE ITEM THE SESSION ADDED RATHER THAN CLOSED (CF-S161-a, owner question):** R127 says a fallen
+> seat stops earning and spectates; it does NOT say whether its standing towers and creatures are
+> swept. S161 left them standing, so a dead seat's defences can still decide the match between two
+> living players. That needs a ruling before 4-player balance means anything.
 
 > ## ⭐ WHERE S160 LEFT THIS (read before planning anything)
 >

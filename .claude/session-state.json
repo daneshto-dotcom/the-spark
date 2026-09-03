@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4135,
+  "tool_calls_session_total": 4143,
   "session_id": "S161",
   "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S161 COMPLETE — P1-P6 shipped and LIVE at b95abcd. The pre-approved races roadmap (W1-B), B2 seat elimination, all six live-match bug reports, and the owner's art review + lobby race picker.",
+  "session_status": "S161 PAUSED AT THE 5-HOUR LIMIT — P1-P6 shipped and LIVE at b95abcd (deploy verified 4/4). THREE NEW OWNER BUG REPORTS ARE OPEN AND UNFIXED, captured below with first evidence. The 5-lane close-out sweep was STOPPED mid-flight and produced NOTHING.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -4808,6 +4808,68 @@
       "id": "CF-S161-e",
       "severity": "filed",
       "text": "A JOINER CANNOT SEE ITS OWN RACE BEFORE THE FIRST PRESENCE BEACON. `lobbyView`'s count-based fallback shows `defaultRaceForSeat(i)` for every seat, which is right for the host and a guess for a joiner (it does not know its seat yet — the S69 P2 limitation the roster path exists to fix). Self-corrects on the first beacon, typically within a second of joining."
+    },
+    {
+      "id": "CF-S161-f",
+      "severity": "process",
+      "text": "THE 5-LANE CLOSE-OUT SWEEP NEVER RAN TO COMPLETION and the session therefore closed WITHOUT its Rule 22 runtime audit and without an independent read over the S161 delta. What DID get done by hand: git clean + pushed + deploy verified 4/4, zero open issues, zero cancelled CI runs, secret scan clean over the whole session delta, and the races PDR restamped. What did NOT: the delta defect hunt, the dead-export sweep, the cross-mode coherence table, the doc-drift pass and the asset/case-sensitivity check. ⚠ THE CASE-SENSITIVITY CHECK IS THE ONE WITH TEETH: the dev box is Windows (case-insensitive) and GitHub Pages is Linux (case-SENSITIVE), and S161 added 18 new asset paths. They demonstrably load in the local dev server; nobody has proven they load from the deployed site."
+    }
+  ],
+  "sweep_status_s161": {
+    "what": "Workflow s161-close-sweep — 5 hunters + 5 verifiers over everything S161 shipped",
+    "run_id": "wf_36b4cb21-e4e",
+    "outcome": "⛔ NO RESULTS. Stopped at the 5-hour limit. journal.jsonl holds 5 `started` lines and ZERO `result` lines, so there is nothing to harvest — this is the S140/S141 fan-out loss shape, checked rather than assumed (the memory note says check the journal before declaring total loss; I checked, and it is total).",
+    "rerun": "Workflow({scriptPath: '.../workflows/scripts/s161-close-sweep-wf_36b4cb21-e4e.js'}) — the script is on disk and re-runnable as-is. ⚠ Consider running the five lanes as separate smaller invocations rather than one fan-out, so a limit hit loses one lane and not all five.",
+    "lanes": [
+      "delta defects",
+      "dead ends / unfinished pathways",
+      "cross-mode coherence",
+      "doc + claim drift",
+      "runtime (Rule 22 boot-then-smoke)"
+    ]
+  },
+  "open_owner_bugs_s161": [
+    {
+      "id": "OPEN-1",
+      "severity": "HIGH — owner-reported, REGRESSION OF A FIX THIS SESSION CLAIMED",
+      "owner_words": "\"Enemy bots one shoot using raid connectors instead of inflicting damage - i thought you fixed it??\"",
+      "status": "UNFIXED. Investigation started, not concluded.",
+      "what_s161_did": "P3 changed `botController.ts` to dispatch RAID_TARGET instead of SEVER_BOND{cause:'player'}, and moved the bot's gate from `disruptionCharges` to `raidPoints`. `raidParity.test.ts` proves the bot and the human now put the SAME `damageFifths` on the same connector and that one bot raid does NOT sever an 11-primitive chain.",
+      "so_why_might_it_still_one_shot": [
+        "⭐ HYPOTHESIS A — IT IS NOT ASYMMETRY, IT IS SMALL COMPONENTS, AND IT IS TRUE FOR THE HUMAN TOO. `connectorCapacityFifths(n) = n + 4` (stats.ts:201) and a raid is `attackFifths(RAID_ATK=2, RAID_PEN=0)` = 10 fifths. So ANY component with n <= 6 connectors is severed by ONE raid, by anybody. Bots build small/loose structures, so a bot raiding a small player structure looks like a one-shot while the player raiding a big bot fortress does not. ⇒ CHECK THIS FIRST: it may be the shipped design meeting an asymmetric board, not a code defect. If so it is a BALANCE ruling (RAID_ATK, or a floor on capacity), not a bug fix.",
+        "HYPOTHESIS B — A SECOND BOT PATH STILL SEVERS. S161 fixed the `case 'SEVER'` errand arm. Sweep for any OTHER route by which a bot-owned entity removes a connector: `creatureAttack.ts:410` (`damageConnector`, stat-gated — legitimate), `suicideBlast.ts:150`, `voltkinChain.ts:192`, and `droneLifecycle.ts:153` (SEVER_BOND{cause:'drone'} — UNCONDITIONAL, no damage gate, by the S113 count ruling). ⚠ A bot with a lightning hub therefore DOES still destroy connectors outright, legitimately, and that would look exactly like the reported symptom."
+      ],
+      "first_check_next_session": "Reproduce with the debug overlay: raid one bot connector as the human and read `bond.damageFifths` before/after; then let a bot raid one of yours and read the same field. If both move by 10, the mechanic is symmetric and the complaint is about capacity/board size, not parity."
+    },
+    {
+      "id": "OPEN-2",
+      "severity": "HIGH — owner-reported, RECURRENCE of something believed settled",
+      "owner_words": "\"My own lightning drone destroyed his own tower when fight started and he spawned! same issue as we had before and i thought you fixed? why???\"",
+      "status": "UNFIXED. Two concrete hypotheses, evidence gathered, not yet distinguished.",
+      "evidence": [
+        "⚠ TWO DIFFERENT OWNERSHIP TESTS RUN INSIDE ONE EXPLOSION, and that is the sharpest lead. `applyRadialDamage` spares by PLAYER ID — `p.placedBy === sparePlayerId` (damage.ts:462), `c.ownerPlayerId` (:448), `dd.ownerPlayerId` (:455). The SEVER loop beside it filters by COLOUR — `isEnemyBond` → `creatureOwnerColor` → `player.color` vs the bond endpoints (creatureAI.ts:89-111). Those two agree in normal play and are NOT the same predicate. Anything that moves colour without moving placedBy — the rainbow shuffle (`applyTriggerRainbow`), an ownership STEAL (`ownerColor`/`lastOwnershipChange`) — desynchronises them, and then the colour-keyed sever can cut a bond the id-keyed damage would have spared.",
+        "⭐ HYPOTHESIS B, AND CHECK IT FIRST BECAUSE IT MAY NOT BE A BUG AT ALL: the lightning hub is DESIGNED to be consumed. S113 shipped it glass-cannon, the hub vanishing after three drones; the owner queried exactly this at S159 (\"wtf, it should not be so\") and the S159 P9 ruling was to MOVE the blast, not to remove the self-destruct. So \"my drone destroyed his own tower\" may be STRUCTURE_SELFDESTRUCT working as ruled. ⛔ Before writing any fix, read the S159 P9 entry in the reflexion log and the S113 PDR R3 — S159 records that treating this as a bug would have deleted a mechanic the owner chose.",
+        "If it IS the drone rather than the self-destruct: a drone that finds no enemy bond explodes on its FUSE, at or near its own hub. The sever loop should skip its own bonds via `isEnemyBond`, so a confirmed friendly sever points straight at the colour-vs-id split above."
+      ],
+      "files": [
+        "src/state/droneLifecycle.ts:118-160",
+        "src/state/damage.ts:436-465",
+        "src/state/creatures/creatureAI.ts:89-111",
+        "src/state/potatoLifecycle.ts (STRUCTURE_SELFDESTRUCT)"
+      ]
+    },
+    {
+      "id": "OPEN-3",
+      "severity": "MEDIUM — owner-reported gameplay feel; CAUSE IS CONFIRMED IN CODE",
+      "owner_words": "\"the gatherer is not collecting always what is in queue! when he leaves to gather, and there is none of the shapes in queue and then it appears and he is still on the way, then he should switch targets and go for it immedietly! ... also still about the gatherer it takes him time to aquire or change the target while it should be immediate\"",
+      "status": "UNFIXED — but the mechanism is IDENTIFIED and the fix is small.",
+      "root_cause": "⭐ CONFIRMED, and the code says so out loud. The SEEKING branch of `applyGathererTick` re-picks ONLY when the current target has gone invalid:\n    const current = g.targetSparkId !== null ? world.freeSparks.get(g.targetSparkId) : undefined;\n    if (current === undefined || !isHarvestable(current)) g.targetSparkId = pickGathererTarget(world, g);\nand `pickGathererTarget`'s own docblock (gathererLifecycle.ts:308-310) states it: *\"pickGathererTarget is only called when the current target has become invalid, so mid-walk thrash was already bounded.\"* That bounded thrash IS the owner's complaint: a unit already walking to a nearest-of-any-type shape will never notice that its QUEUED type has just spawned.",
+      "fix_direction": "Re-evaluate while SEEKING and PREEMPT on a strict improvement: if `orderForGatherer` (or `preferredType`) now has a harvestable candidate and the current target does NOT match that wanted type, retarget immediately. ⚠ MUST STAY DETERMINISTIC — reuse `pickGathererTarget`'s existing total order (preferred-first, then squared distance, then id) rather than writing a second comparison. ⚠ AND GUARD THE THRASH the docblock was protecting against: only preempt when the new target is a strictly better CLASS (wanted-type beats non-wanted-type), never merely nearer, or two shapes appearing alternately will make a gatherer oscillate and deliver nothing.",
+      "files": [
+        "src/state/gatherers/gathererLifecycle.ts (SEEKING branch, ~:533-545)",
+        "src/state/gatherers/gathererLifecycle.ts:316-326 orderForGatherer",
+        "src/state/gatherers/gathererLifecycle.ts:385+ pickGathererTarget"
+      ]
     }
   ]
 }
