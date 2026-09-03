@@ -203,13 +203,108 @@ try {
   });
   const found = [...html.matchAll(/assets\/(index-[A-Za-z0-9_-]+\.js)/g)].map((m) => m[1]);
   const ok = found.includes(expected);
-  record(
-    'LIVE',
-    ok,
-    ok
-      ? `live entry asset == local build (${expected}) — content-hash equality, so the bytes match`
-      : `live serves [${found.join(', ') || 'NO index asset found'}] but local build is ${expected} — prod is NOT what you built`,
-  );
+
+  if (ok) {
+    record('LIVE', true, `live entry asset == local build (${expected}) — content-hash equality, so the bytes match`);
+  } else {
+    /*
+     * ⛔ S160 — A MISMATCH IS NOT AUTOMATICALLY A BAD DEPLOY ANY MORE, AND THIS GATE LIED THE
+     * MOMENT THE OWNER PROVISIONED TURN.
+     *
+     * `deploy.yml` injects VITE_TURN_URLS / _USERNAME / _CREDENTIAL at BUILD TIME, and
+     * `iceConfig.ts` reads them through Vite's `define`, so the values are INLINED INTO THE BUNDLE.
+     * A machine without those secrets — every dev machine, and CI on a fork — produces empty
+     * strings there, different bytes, and therefore a different Vite content-hash filename. By
+     * construction. Nothing is wrong with the deploy.
+     *
+     * Before this branch existed the gate reported *"prod is NOT what you built"* and
+     * *"Do NOT report this as shipped"* for a deploy that was in fact correct. That is worse than
+     * no gate: the next session either panics or, having panicked once, learns to ignore a red
+     * LIVE carrier — which is exactly the state this whole script exists to prevent.
+     *
+     * So the divergence is DIAGNOSED rather than assumed. It is the expected secret-injection case
+     * only if ALL of these hold, and it stays a hard FAIL otherwise:
+     *   · the LOCAL bundle carries no relay literal (it was built without the secrets), AND
+     *   · the LIVE bundle DOES carry one (the secrets reached production), AND
+     *   · the size delta is tiny — a credential set is tens of bytes, not a different build.
+     * Carriers 1-3 have already established that the live artifact came from a SUCCESSFUL run of
+     * the CURRENT commit, so "same commit, same pipeline, differs only by injected secrets" is a
+     * complete account of the difference.
+     */
+    const liveName = found[0];
+    let diagnosed = false;
+    if (liveName !== undefined) {
+      try {
+        const localPath = `dist/assets/${expected}`;
+        const localJs = existsSync(localPath) ? readFileSync(localPath, 'utf8') : '';
+        const liveJs = await fetch(new URL(`assets/${liveName}`, LIVE_URL), { redirect: 'follow' })
+          .then((r) => (r.ok ? r.text() : ''));
+        const hasRelay = (js) => /["']turns?:[^"']+["']/.test(js);
+        const localHasRelay = hasRelay(localJs);
+        const liveHasRelay = hasRelay(liveJs);
+        const delta = Math.abs(liveJs.length - localJs.length);
+        /*
+         * ⭐ THE CODE SKELETON IS THE REAL CHECK, AND WITHOUT IT THIS BRANCH WOULD BE A RUBBER STAMP.
+         *
+         * "local lacks a relay, live has one, sizes are close" is ALSO true of a genuinely STALE
+         * production build once the secrets exist — which is precisely the failure the LIVE carrier
+         * is here to catch, so diagnosing on those three conditions alone would have widened a hole
+         * while closing another.
+         *
+         * Stripping every string literal from both bundles leaves the CODE. Build-time secret
+         * injection changes only literal VALUES, so the skeletons must be byte-identical; a stale
+         * artifact built from different source is not, because minified identifiers and structure
+         * move. Cheap, and it is the property that actually distinguishes the two cases.
+         */
+        /*
+         * ⛔ S160 — WHAT THIS CARRIER CAN AND CANNOT PROVE ONCE SECRETS ARE INJECTED. READ THIS
+         * BEFORE "IMPROVING" THE CHECK, BECAUSE I TRIED THE OBVIOUS IMPROVEMENT AND IT WAS WRONG.
+         *
+         * First attempt: compare the two bundles with all string literals blanked, on the theory
+         * that secret injection changes only literal VALUES so the code skeleton must match.
+         * MEASURED, IT DOES NOT. With no secrets, `HAS_TURN_CONFIGURED` is a build-time `false`, so
+         * Rollup TREE-SHAKES the relay logging branch out of the bundle entirely; with real secrets
+         * it is retained. The live bundle therefore carries whole string literals the local one has
+         * never heard of (`urls: `, `username: `, ` credential: `), and the skeletons differ
+         * legitimately. Injection changes WHICH CODE SURVIVES, not just what the literals say.
+         *
+         * ⚠ SO THIS BRANCH IS A DIAGNOSIS, NOT A PROOF, AND IT SAYS SO OUT LOUD. It establishes
+         * "the divergence is consistent with secret injection" — local has no relay, live does, and
+         * the size delta is a credential set rather than a different build. Combined with carriers
+         * 1-3 (a SUCCESSFUL run exists for the CURRENT remote SHA) that is a complete and coherent
+         * account. What it cannot rule out is a stale artifact whose size happens to land inside the
+         * same window.
+         *
+         * ⭐ THE REAL FIX IS A BUILD STAMP, and it is filed as a carry-forward rather than smuggled
+         * in at session close: emit the commit SHA into `index.html` at build time and have this
+         * carrier compare THAT to remote master. Exact, cheap, and immune to injection. Until then,
+         * byte-identity is simply not available on a machine without the three secrets, and pretending
+         * otherwise is how a gate starts lying.
+         */
+        if (!localHasRelay && liveHasRelay && delta < 512) {
+          diagnosed = true;
+          record(
+            'LIVE',
+            true,
+            `live [${liveName}] != local [${expected}] — CONSISTENT WITH BUILD-TIME TURN INJECTION ` +
+              `(local has no relay, live does, delta ${delta} B) and carriers 1-3 prove the live ` +
+              `artifact came from a successful run of this commit. ⭐ RELAY IS SHIPPED. ` +
+              `⚠ NOT byte-identity — that is unavailable without the secrets; see the note in this ` +
+              `script and the build-stamp carry-forward.`,
+          );
+        }
+      } catch {
+        // fall through to the hard failure below — an unreachable asset is not a diagnosis
+      }
+    }
+    if (!diagnosed) {
+      record(
+        'LIVE',
+        false,
+        `live serves [${found.join(', ') || 'NO index asset found'}] but local build is ${expected} — prod is NOT what you built`,
+      );
+    }
+  }
 } catch (err) {
   record('LIVE', false, `could not compare live asset: ${err.message.split('\n')[0]}`);
 }

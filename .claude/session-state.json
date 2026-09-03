@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3994,
+  "tool_calls_session_total": 4018,
   "session_id": "S160",
   "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -85,19 +85,8 @@
         {
           "type": "file_lacks",
           "path": "boot-snapshot.md",
-          "needle": "Then push anything"
-        },
-        {
-          "type": "file_contains",
-          "path": "boot-snapshot.md",
-          "needle": "Actions → Deploy to",
-          "ephemeral_target_note": "boot-snapshot.md is REGENERATED every handoff (protocol STEP 2.95). A file_contains on it is a binding with an expiry date — kept here only because the substance is ALSO asserted against a durable file in the same priority."
-        },
-        {
-          "type": "file_contains",
-          "path": "boot-snapshot.md",
-          "needle": "workflow_dispatch",
-          "ephemeral_target_note": "boot-snapshot.md is REGENERATED every handoff (protocol STEP 2.95). A file_contains on it is a binding with an expiry date — kept here only because the substance is ALSO asserted against a durable file in the same priority."
+          "needle": "Then push anything",
+          "ephemeral_target_note": "⛔ file_LACKS only. `boot-snapshot.md` is regenerated every handoff (STEP 2.95), so a file_contains on it is a claim with an expiry date — S160 had TWO of them fire at close, on two separate occasions. A file_lacks survives regeneration by construction and still catches a real regression."
         },
         {
           "type": "grep_count",
@@ -105,6 +94,21 @@
           "pattern": "VITE_TURN_(URLS|USERNAME|CREDENTIAL)",
           "op": ">=",
           "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "TURN_SETUP.md",
+          "needle": "Secrets and variables"
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/deploy.yml",
+          "needle": "workflow_dispatch"
+        },
+        {
+          "type": "file_contains",
+          "path": ".handoff-archive/HANDOFF_2026-09-02_S160.md",
+          "needle": "push anything\"* — false, because `deploy.yml`"
         }
       ],
       "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
@@ -669,7 +673,10 @@
     "META — THE OWNER CAUGHT ME STATING A FIXTURE READING AS A LAW OF THE GAME. \"A push needs 15 goblins instead of 10\" is true of one board: melee goblins spawned onto the keep in continuous contact with nothing else alive. Their objection — *\"what kind of goblins in how long?? it is all dynamic\"* — is the correct standard. The ORDERING was the finding; the integer was an artefact, and I presented the artefact.",
     "META — AND I OVERSTATED \"DRY\" AS \"IDLE\" ON THE STINK TOWER. The owner knew their own design better than my measurement did: a spent tower keeps its aura and GAINS its taunt, so emptying is a mode change rather than an off-switch. The code said so in a docblock I had already read this session (\"the aura is what it IS, not what it becomes\").",
     "TOOLING — GIT NORMALISES THE WORKING COPY TO CRLF ON COMMIT, so a multi-line \\n-only patch anchor that worked earlier in a session silently stops matching later. Detect the file's line ending and translate the anchor; a single-line anchor hides the problem rather than avoiding it.",
-    "S160 (caught at the Stop gate, SECOND time) — I BOUND A CLAIM TO boot-snapshot.md, A FILE THE HANDOFF PROTOCOL REGENERATES FROM SCRATCH AT STEP 2.95. It was guaranteed to break at close, and it did. This is the identical lesson S159 P9 learned about BACKLOG.md status text — \"never bind a code claim to a document whose whole purpose is to change\" — which I had READ and RE-APPENDED to the reflexion log an hour earlier in this same session. Knowing a lesson and applying it are different acts. ⇒ Before writing any binding, ask what REGENERATES the target: ephemeral (boot-snapshot, plans/, status blocks) vs durable (src/, LOCKED_DECISIONS, .handoff-archive). And the failure surfaced a second, bigger miss: the regeneration had silently dropped the corrected drone dial order out of the next session's PRIMARY boot file, so the fix was not just to rebind but to put the substance into carry_forward_s160 where the regeneration will carry it."
+    "S160 (caught at the Stop gate, SECOND time) — I BOUND A CLAIM TO boot-snapshot.md, A FILE THE HANDOFF PROTOCOL REGENERATES FROM SCRATCH AT STEP 2.95. It was guaranteed to break at close, and it did. This is the identical lesson S159 P9 learned about BACKLOG.md status text — \"never bind a code claim to a document whose whole purpose is to change\" — which I had READ and RE-APPENDED to the reflexion log an hour earlier in this same session. Knowing a lesson and applying it are different acts. ⇒ Before writing any binding, ask what REGENERATES the target: ephemeral (boot-snapshot, plans/, status blocks) vs durable (src/, LOCKED_DECISIONS, .handoff-archive). And the failure surfaced a second, bigger miss: the regeneration had silently dropped the corrected drone dial order out of the next session's PRIMARY boot file, so the fix was not just to rebind but to put the substance into carry_forward_s160 where the regeneration will carry it.",
+    "S160 POST-HANDOFF — PROVISIONING A SECRET BROKE A GATE, AND THE GATE WAS RIGHT TO NOTICE. The moment TURN secrets existed, verify-deploy's LIVE carrier began reporting \"prod is NOT what you built / Do NOT report this as shipped\" for a deploy that was correct: build-time injection changes the bytes, so a secret-less local build can never match production's content hash. A gate that cries wolf teaches the next session to ignore it, which is worse than having no gate. ⇒ When a build starts consuming secrets, audit every check that compares LOCAL output to PRODUCTION output — the check did not change, but what it was capable of proving did.",
+    "S160 POST-HANDOFF — MY OBVIOUS FIX WAS WRONG, AND ONLY MEASURING IT SHOWED WHY. I replaced byte-equality with a code-skeleton comparison (blank every string literal; injection only changes literal VALUES, so the code must match). It reported DIFFERENT. Cause: with empty secrets `HAS_TURN_CONFIGURED` is a build-time constant `false`, so Rollup TREE-SHAKES the relay logging branch out entirely — the live bundle carries whole literals the local one never had. **Secret injection changes which code SURVIVES, not just what the literals say.** The honest landing was a diagnosis that names what it cannot prove, plus a filed carry-forward for the real fix (a build stamp). Shipping the clever version would have produced a confident false positive.",
+    "S160 POST-HANDOFF — I READ A STALE /tmp LOG A SECOND TIME, THE SAME SESSION I WROTE THE REFLEXION ENTRY ABOUT IT. `node --check … && npm run verify-deploy > /tmp/vd3.log` — the syntax check failed, `&&` short-circuited so the gate never ran, and `tail` then printed a PASS from a previous session against commit c90b4443. I caught it only because the commit SHA was S159's. Writing the lesson down did not stop me repeating the mechanism an hour later. ⇒ The habit has to be structural, not remembered: FRESH unique log path every time, and never put a gate behind `&&`."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4974,7 +4981,8 @@
     "stink_bags": "LEAVE AT 5. The owner counted the tower art and agreed: five hanging bags in assets-source/godly-goblins/clips/stink-tower/idle.mp4 (I extracted a frame and counted independently — five).",
     "stink_dry_vs_idle": "OWNER CORRECTION, and they were right: *\"it doesnt sit idle because it also has his aura around him that damages enemies and taunts any close by units.\"* Verified in code both ways — stinkAuraTick is UNCONDITIONAL since S157 B9, and stinkAggroTargets returns early UNLESS depleted, so the taunt exists ONLY when empty. Running out is a MODE CHANGE, not an off-switch: a spent tower keeps the aura and GAINS a taunt, becoming bait. My \"sits idle\" framing was the error.",
     "chain_falloff": "LEAVE AS IS, play it first. No change shipped.",
-    "b2_elimination_R127": "RULED 2026-09-02, verbatim: \"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he should stay as spectator until there is one player left!\" Recorded as R127 in SPARK_RACES_SPEC.md. The owner supplied the MECHANISM, not just the verdict: losing the castle severs the ECONOMY (no gathering => no primitives => nothing buildable), which is why the seat is out. Supersedes the shipped first-castle-ends-it-for-everyone behaviour. Unblocks every 4-player scenario in the races spec."
+    "b2_elimination_R127": "RULED 2026-09-02, verbatim: \"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he should stay as spectator until there is one player left!\" Recorded as R127 in SPARK_RACES_SPEC.md. The owner supplied the MECHANISM, not just the verdict: losing the castle severs the ECONOMY (no gathering => no primitives => nothing buildable), which is why the seat is out. Supersedes the shipped first-castle-ends-it-for-everyone behaviour. Unblocks every 4-player scenario in the races spec.",
+    "turn_provisioned_2026_09_03": "DONE. Owner created the Metered account and added VITE_TURN_URLS / _USERNAME / _CREDENTIAL as repository secrets; I dispatched \"Deploy to GitHub Pages\" via workflow_dispatch (run 33722139847, success) and verified the relay in the LIVE bundle. Owner instruction at close: \"update the /handoff with everything weve done post handoff so he doesnt think we still need to do it next session\"."
   },
   "gates_at_close": {
     "typecheck": "exit 0",
@@ -5000,7 +5008,7 @@
     ]
   },
   "carry_forward_s160": [
-    "⛔ OWNER ACTION — PROVISION TURN. Still the ONLY thing blocking cross-country multiplayer. Three repository secrets (VITE_TURN_URLS / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL), then **Actions → Deploy to GitHub Pages → Run workflow**. ⚠ S160 P1 CORRECTED THE INSTRUCTION: the old \"then push anything\" was FALSE — deploy.yml gates its push trigger on a paths allowlist and adding secrets changes no file, so a docs push triggers NO run. workflow_dispatch is the only route. The code side is now PROVEN from the emitted bundle, not asserted.",
+    "✅ **TURN IS PROVISIONED AND THE RELAY IS LIVE — closed 2026-09-03, post-handoff.** The owner created a Metered account, added the three repository secrets, and I dispatched the deploy. VERIFIED FROM THE LIVE BYTES, not from the build log: the shipped bundle carries `turn:global.relay.metered.ca:80` plus a non-empty username and credential, and the build's own wiring report printed \"RELAY WILL BE SHIPPED\". ⇒ **Multiplayer can now cross strict networks. This is no longer a blocker and must not be re-listed as one.** ⚠ TWO SMALL FOLLOW-UPS, neither blocking: (1) only ONE url made it into the secret — the `turns:...:443?transport=tcp` variant is the one that punches through restrictive corporate and mobile firewalls, so widening `VITE_TURN_URLS` to all four is worth doing; (2) the free tier is **500 MB/month**, not the 50 GB I originally told the owner — enough to prove the feature, thin for real traffic, and Metered has a separate always-free Open Relay tier if it bites.",
     "⛔ OWNER TO PLAY AND RULE — the castle cadence. Ruled KEEP-and-play-first at S160. Which constant later moves, CASTLE_FIRE_INTERVAL_TICKS (240) or GOBLIN_DAMAGE_VS_CASTLE (6), is the owner's call after a real match. ⚠ 60 ticks is a hard floor: below it an attacker dies before it swings once. ⚠ And read the fixture number as an ORDERING, not a law — the owner was right that \"15 goblins\" is abstract; it is one board (melee goblins spawned onto the keep, continuous contact, nothing else alive).",
     "⛔ OWNER TO PLAY AND RULE — chain-lightning falloff. Ruled leave-at-full-power-and-play-first. One constant to change. Phrase the consequence as \"UP TO six connectors\": creatures and bonds compete for the same six link slots and a creature wins an exact tie.",
     "⚠ IF THE DRONE HUB FEELS TOO STRONG, THE DIAL ORDER IS `DRONE_EMIT_INTERVAL_TICKS` FIRST, then `DRONE_MAX_CONNECTORS` (damage per drone, one reader), then `DRONE_MAX_PER_SPAWNER` — which is THIRD and blunt, because it does nothing until 1. S159's handoff had this backwards in three documents and S160 measured it: occupancy at every due slot is 1, so 3→2 changes NOTHING and peak live is 2 against a ceiling of 3. The cadence is the only linear lever (count = 2700/interval, so 450 t → 6 and 600 t → 4). Written in full at the constant; both the 9-per-fight and the cap's slack are asserted in `lightningHubDelivers.test.ts`.",
@@ -5014,6 +5022,7 @@
     "⭐ THE TECH DRAFT (§9) — the spec calls it the highest identity-per-effort item in the document: it needs ONLY raceId (which now exists), four of its six perks are one-constant changes, and every perk buffs content that already ships. Offer it BEFORE Wave 2's six towers if the schedule slips. ⚠ Its wave trigger is off by one in the spec: waveNumber increments on ENTRY INTO BUILD, so \"the BUILD edge after wave 5's FIGHT\" is waveNumber === 6.",
     "B8-B14 — bound to the waves that use them. Live line-number corrections measured at S160 are in the S160 handoff's drift table; the 14.5 archetype fan-out moved ~80-110 lines from the spec's citations, which is real S159 drift and the one place the spec's numbers genuinely rotted.",
     "HELD DEBT (unchanged, amendment-only): Creature's four parallel nullable committed-target fields (creature.ts:237 records why a discriminated union was rejected). And the OS-level hook test s96-p2-state-inject fails 1 of 12, identically before and after — closing it needs a RULE decision (does user approval waive deliberation for a Micro priority?) that a project session lacks authority for.",
-    "RECORDED SO NOBODY \"CLEANS\" IT: origin/gh-pages still exists as a legacy remote branch, left alone deliberately for the fourth session running — deleting it could disturb Pages, and verify-deploy ignores it in favour of the deployments API."
+    "RECORDED SO NOBODY \"CLEANS\" IT: origin/gh-pages still exists as a legacy remote branch, left alone deliberately for the fourth session running — deleting it could disturb Pages, and verify-deploy ignores it in favour of the deployments API.",
+    "⭐ **BUILD STAMP FOR `verify-deploy`'s LIVE CARRIER — the honest fix, filed 2026-09-03.** Now that TURN secrets are injected at build time, a machine WITHOUT them cannot reproduce production's bytes, so content-hash equality is permanently unavailable and the LIVE carrier fell back to a DIAGNOSIS (local has no relay + live does + delta < 512 B + carriers 1-3 green). That is coherent but it is not a proof, and the script says so out loud. ⛔ DO NOT \"fix\" it by comparing code skeletons — S160 tried exactly that and MEASURED it wrong: with empty secrets `HAS_TURN_CONFIGURED` is a build-time `false`, so Rollup TREE-SHAKES the relay logging branch away entirely, and the live bundle legitimately carries string literals the local one has never heard of (`urls: `, `username: `, ` credential: `). Injection changes WHICH CODE SURVIVES, not just literal values. ⇒ THE FIX: emit the commit SHA into `index.html` at build time (a `<meta>` tag or `build-info.json`) and have the LIVE carrier compare that to remote master. Exact, cheap, immune to secret injection, and it restores a real proof instead of a plausible story. ~10 lines in `vite.config.ts` + ~8 in `scripts/verify-deploy.mjs`."
   ]
 }
