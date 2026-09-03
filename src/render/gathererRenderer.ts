@@ -110,6 +110,30 @@ export function keepRainbowTint(
   return PLAYER_COLORS[((step % PLAYER_COLORS.length) + PLAYER_COLORS.length) % PLAYER_COLORS.length]!;
 }
 
+/**
+ * ⭐ S161 — THE RAINBOW TINT FOR A SPRITE, WHICH NEEDS A THIRD ANSWER `keepRainbowTint` CANNOT GIVE.
+ *
+ * `keepRainbowTint` returns the seat's OWN colour outside the celebration window, which is exactly
+ * right for a procedural keep drawn in that colour. A castle SPRITE is different: outside the window
+ * it must not be tinted AT ALL (the art is already painted in the race's colour — see
+ * `syncCastleSprite`), so "no tint" and "your colour" are different instructions and the caller has
+ * to be able to tell them apart. Returning `null` says "leave the art alone".
+ *
+ * ⚠ DERIVED FROM `keepRainbowTint`, NOT REIMPLEMENTED. Re-deriving the window boundary would give
+ * two places for the eight seconds to be defined and one of them would eventually be wrong. The
+ * sentinel below is safe because `keepRainbowTint` is documented to return `ownColor` unchanged
+ * outside the window, and no palette entry can equal the sentinel.
+ */
+export function keepRainbowSpriteTint(
+  tick: number,
+  switchTick: number | undefined,
+  seat: number,
+): number | null {
+  const SENTINEL = -1;
+  const tinted = keepRainbowTint(tick, switchTick, seat, SENTINEL);
+  return tinted === SENTINEL ? null : tinted;
+}
+
 const seatColor = (seat: number): number => PLAYER_COLORS[seat % PLAYER_COLORS.length]!;
 
 /** One race's loaded atlas: exactly three textures, one per state, sliced out of the sheet. */
@@ -193,20 +217,35 @@ export class GathererRenderer {
   }
 
   /**
-   * Position, scale, tint and frame one seat's castle sprite. Returns false when the atlas is not
-   * (yet) available, which is the caller's signal to draw the procedural keep instead.
+   * Position, scale and frame one seat's castle sprite. Returns false when the atlas is not (yet)
+   * available, which is the caller's signal to draw the procedural keep instead.
    *
-   * ⚠ THE SPRITE IS TINTED FROM THE SAME `color` THE BOX WOULD HAVE USED. The art is deliberately
-   * drawn in neutral grey (see `assets-source/race-castles/design-spec.json`) precisely so that a
-   * multiply tint by the LIVE player colour produces the seat's castle — which keeps ownership
-   * legible and keeps S136 P3's rainbow celebration working on the art instead of only on a box.
+   * ⛔ THE SPRITE IS **NOT** TINTED IN NORMAL PLAY, AND THE FIRST VERSION OF THIS FUNCTION WAS.
+   *
+   * S161 P1 generated the castles in neutral grey and multiplied them by the live `player.color`,
+   * reasoning that the race would be the silhouette and the seat would be the tint. The owner played
+   * it and rejected it — *"this looks like we took each castle and just completely filled them with
+   * their one color - pretty lazy work"* — and that is arithmetically what it was. `Sprite.tint` is a
+   * MULTIPLY: grey art has R=G=B=v, so the product is (v·r, v·g, v·b) and THE HUE IS CONSTANT ON
+   * EVERY PIXEL. Only the value varied. No amount of detail in the source art could have survived it;
+   * the flatness lived here, not in the prompt.
+   *
+   * The art is now drawn in each race's own colour with real materials, and this passes it through
+   * untinted. Ownership still reads, because `Player.color` is DERIVED from `raceId` at construction
+   * (W1-A) and `races.test.ts` pins `RACE_COLORS === PLAYER_COLORS` — race → colour is a bijection,
+   * so a castle painted in its race's colour is painted in its owner's colour by construction.
+   *
+   * ⭐ THE ONE SURVIVING TINT IS THE RAINBOW, and it is deliberate. For those eight seconds
+   * `keepRainbowSpriteTint` returns a cycling palette entry and the castle IS distorted — that is
+   * the celebration (S136 P3, owner item 6), not an ownership signal, and a castle that sat the
+   * party out was the original complaint that feature was written to fix.
    */
   private syncCastleSprite(
     seat: number,
     raceId: RaceId,
-    color: number,
     layout: ZoneLayout,
     hpFrac: number,
+    rainbowTint: number | null,
   ): boolean {
     this.ensureCastleAtlas(raceId);
     const atlas = this.atlases.get(raceId);
@@ -226,7 +265,8 @@ export class GathererRenderer {
     sp.y = y + KEEP_H / 2;
     sp.width = CASTLE_SPRITE_PX;
     sp.height = CASTLE_SPRITE_PX;
-    sp.tint = color;
+    // ⛔ WHITE means "show the art as painted" — see the docblock. Only the rainbow tints.
+    sp.tint = rainbowTint ?? 0xffffff;
     sp.visible = true;
     return true;
   }
@@ -268,7 +308,13 @@ export class GathererRenderer {
       const seatN = seat as unknown as number;
       const hpFrac = player.castleHp / CASTLE_MAX_HP;
       liveSeats.add(seatN);
-      const hasSprite = this.syncCastleSprite(seatN, player.raceId, keepColor, world.layout, hpFrac);
+      const hasSprite = this.syncCastleSprite(
+        seatN,
+        player.raceId,
+        world.layout,
+        hpFrac,
+        keepRainbowSpriteTint(world.tick, world.rainbowSwitchTick, seatN),
+      );
       this.drawKeep(g, seatN, keepColor, world.layout, hpFrac, player.raceId, hasSprite);
       this.drawCastleShot(world, seat, player.raceId, keepColor);
       // S136 P1 — the shapes HELD INSIDE this castle, drawn in its doorway. Owner item 4 asked for

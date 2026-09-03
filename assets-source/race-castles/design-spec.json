@@ -6,45 +6,69 @@
     "unrebuildable, which is why 'redo the stink tower' needed a full regeneration).",
     "",
     "⛔ WHY THESE ARE STILLS AND NOT veo CLIPS. A castle is a STRUCTURE: it has no gait, no swing",
-    "and no idle bob. The three things that have to read from across the board are its SILHOUETTE",
-    "and its DAMAGE STATE, both of which a still carries completely. Going through veo would buy",
-    "nothing and cost the two failure modes this project has already paid for twice — seed drift",
-    "over a clip (S152, the bat rider went spindly by the later frames) and outright generation",
-    "failure (CF-S153-c, the zombie hound attack clip failed twice on backpressure).",
+    "and no idle bob. The two things that have to read from across the board are its SILHOUETTE and",
+    "its DAMAGE STATE, both of which a still carries completely. Going through veo would buy nothing",
+    "and cost the two failure modes this project has already paid for twice — seed drift over a clip",
+    "(S152, the bat rider went spindly by the later frames) and outright generation failure",
+    "(CF-S153-c, the zombie hound attack clip failed twice on backpressure).",
     "build-sprite-atlas.mjs grew a `still` knob for this; absent ⇒ byte-identical clip behaviour.",
     "",
-    "⛔ WHY THE ART IS GREY AND NOT IN THE RACE'S COLOUR. `GathererRenderer` tints the keep from the",
-    "LIVE `player.color`, not from the static palette — the S135 ownership audit made that a rule,",
-    "and S136 P3 layered the rainbow celebration on top of it (`keepRainbowTint` cycles the palette",
-    "for eight seconds). A sprite drawn in crimson multiplied by cyan is mud. Drawn in neutral grey",
-    "it tints to any palette entry cleanly, ownership stays legible, and the rainbow keeps working.",
-    "⇒ The RACE is carried by the SILHOUETTE; the SEAT is carried by the tint. That split is the",
-    "whole design and it is why every prompt below forbids saturated colour.",
+    "⭐ THE ART IS FULL-COLOUR, IN EACH RACE'S OWN SEAT COLOUR — AND THE FIRST PASS WAS NOT.",
     "",
-    "⛔ AND NOTHING IN THE STRUCTURE MAY BE NEAR-WHITE. build-sprite-atlas.mjs mattes by finding",
-    "near-white (min(rgb) > 205) and killing it when it is border-connected OR enclosed-and-large.",
-    "A bone-white castle wall is a large enclosed near-white region — the matte would delete the",
-    "castle and leave its outline. Mid-grey stone is not a stylistic preference here, it is what",
-    "keeps the building from being erased by its own pipeline.",
+    "S161 P1 generated these in neutral GREY and let the renderer tint them, reasoning that the RACE",
+    "would be the silhouette and the SEAT would be the tint. The owner played it and rejected it:",
+    "*\"the colors need to not look so weird ... they need to have their player color as the main color",
+    "but it doesnt mean thats the only color they will have... they can still have some shading,",
+    "fillers, outlines, etc... this looks like we took each castle and just completely filled them with",
+    "their one color - pretty lazy work.\"*",
     "",
-    "ORIGINAL DESIGNS ONLY. Every race is built from generic mythic architecture (gothic spires,",
-    "reef coral, stepped sandstone, rotted timber, lashed logs, volcanic glass). No recognisable",
-    "franchise silhouette, per the standing art rule."
+    "⛔ AND THEY WERE RIGHT AS A MATTER OF ARITHMETIC, NOT TASTE. Pixi's `Sprite.tint` is a MULTIPLY.",
+    "Grey art is R=G=B=v, so tinting by (r,g,b) yields (v·r, v·g, v·b) — the HUE IS CONSTANT ACROSS",
+    "EVERY PIXEL and only the value varies. That is the definition of a monochrome image, so \"filled",
+    "them with their one color\" is literally what the pipeline was doing. No prompt could have fixed",
+    "it; the flatness was in the render path.",
+    "",
+    "⇒ Each castle is now drawn IN its race's colour with real material variety: shadow in a deeper,",
+    "cooler shade of the same hue, highlights in a lighter one, and one or two SUPPORTING materials",
+    "(iron, timber, bone, chain) that are not the race hue at all. The renderer no longer tints —",
+    "`sprite.tint` is white in normal play. The rainbow celebration still tints, deliberately, because",
+    "for those eight seconds a distorted castle IS the effect.",
+    "",
+    "⚠ OWNERSHIP LEGIBILITY IS UNCHANGED, and it is worth writing down why baking a colour into the",
+    "art is safe here. `Player.color` is DERIVED FROM `raceId` at construction (W1-A), and",
+    "`races.test.ts` pins RACE_COLORS === PLAYER_COLORS as a tripwire. Race → colour is a bijection,",
+    "so painting a castle in its race's colour paints it in its owner's colour by construction.",
+    "",
+    "⛔ NOTHING IN THE STRUCTURE MAY BE NEAR-WHITE — THIS SURVIVES THE COLOUR CHANGE UNCHANGED.",
+    "build-sprite-atlas.mjs mattes by finding near-white (min(rgb) > 205, max−min < 28) and killing it",
+    "when it is border-connected OR enclosed-and-large. A white highlight, a bleached linen banner or a",
+    "bone-white palisade is a large enclosed near-white region and the matte would punch a hole",
+    "straight through the castle. Highlights are therefore PALE TINTS OF THE HUE, never white.",
+    "",
+    "ORIGINAL DESIGNS ONLY. Every race is built from generic mythic architecture (gothic spires, reef",
+    "coral, stepped sandstone, rotted timber, lashed logs, volcanic glass). No recognisable franchise",
+    "silhouette, per the standing art rule."
   ],
   "outDir": "assets-source/race-castles",
   "sharedStyle": [
     "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
     "and a few crisp highlight streaks — the drawing language of a hand-inked tabletop game piece.",
-    "⛔ GREYSCALE ONLY. Draw the entire structure in warm neutral GREYS: mid-grey stone, darker grey",
-    "shadow, near-black ink lines, a few pale grey highlights. Absolutely no saturated colour",
-    "anywhere — no red, blue, green, gold, purple, orange or brown.",
-    "⛔ NOTHING IN THE STRUCTURE MAY BE WHITE OR NEAR-WHITE: even the brightest highlight must still",
-    "read as clearly grey against a white page. The background is the only white in the image.",
+    "FULL COLOUR, with real material variety: deeper cooler shades of the main hue for shadow, lighter",
+    "tints of it for lit faces, visible texture in the stone or timber, and one or two supporting",
+    "materials (dark iron, weathered timber, dull bronze, tarnished chain) that are NOT the main hue.",
+    "⛔ NEVER a single flat fill: the structure must read as a built object made of materials, not as a",
+    "silhouette filled with one colour.",
+    "⛔ NOTHING IN THE STRUCTURE MAY BE WHITE OR NEAR-WHITE. Even the brightest highlight must stay a",
+    "clearly tinted colour, never a white or near-grey. The background is the only white in the image.",
+    "⛔ GRAVITY. Every broken, snapped or detached piece must have COME TO REST ON THE GROUND at the",
+    "base of the structure — lying flat, leaning against the wall, or half-buried in its own rubble.",
+    "Nothing detached may float, hang in mid-air, dangle unsupported or sit at a mid-fall angle. This",
+    "is a state the board holds for minutes, not a photograph of the instant it broke.",
     "Symmetrical straight-on FRONT ELEVATION, no perspective, the entire structure inside the frame,",
     "filling most of the frame height.",
-    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no",
-    "ground plane, no base platform — nothing beneath the structure at all. The lowest ink in the",
-    "image must be the bottom of the building itself, sitting flat.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no ground",
+    "plane, no base platform — nothing beneath the structure. The lowest ink in the image must be the",
+    "bottom of the building itself (or of the rubble at its foot), sitting flat.",
     "Centered on a plain pure white background.",
     "No text, no lettering, no words, no logo, no border, no frame, no white outline around the",
     "silhouette, no die-cut sticker edge, no drop-shadow behind the structure, no background scenery,",
@@ -55,12 +79,12 @@
     {
       "name": "vampires-intact",
       "_race": "crimson 0xff3b6b — gothic spire keep",
-      "prompt": "A tall narrow gothic vampire castle keep in pristine condition. Three slender pointed spires of different heights topped with thin iron finials, tall lancet windows with pointed arches, flying buttresses shaped like folded bat wings bracing the central tower, and a heavy iron portcullis gate under a pointed archway. A carved stone bat with spread wings is set into the stonework above the gate as a keystone. Narrow, vertical, elegant and severe."
+      "prompt": "A tall narrow gothic vampire castle keep in pristine condition. Three slender pointed spires of different heights topped with thin iron finials, tall lancet windows with pointed arches, flying buttresses shaped like folded bat wings bracing the central tower, and a heavy iron portcullis gate under a pointed archway. A carved stone bat with spread wings is set into the stonework above the gate as a keystone. Narrow, vertical, elegant and severe. COLOUR: bright saturated crimson and warm scarlet stone as the dominant colour — LIGHT ENOUGH TO READ AGAINST A BLACK BACKGROUND, never dark oxblood or near-black. Strongly lit faces in a vivid rose-red, mid crimson for the body, plum-violet only in the deepest recesses, and dark iron for the finials, portcullis and window bars. Keep the overall value BRIGHT: this is a red castle lit from the front, not a black castle with red edges."
     },
     {
       "name": "vampires-damaged",
       "_race": "crimson — same keep, battle-damaged",
-      "prompt": "The same tall narrow gothic vampire castle keep, now battle-damaged. The tallest of its three pointed spires is snapped off halfway and leaning, its iron finial hanging bent. Long jagged cracks run down the central tower, two lancet windows are shattered open, a section of the bat-wing buttress has broken away, and rubble is heaped at the base. The iron portcullis is buckled inward. Thin wisps of smoke rise from the broken spire. The carved stone bat keystone above the gate is chipped but still readable. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same tall narrow gothic vampire castle keep, now battle-damaged. The tallest of its three pointed spires is snapped off halfway and leaning, its iron finial hanging bent. Long jagged cracks run down the central tower, two lancet windows are shattered open, a section of the bat-wing buttress has broken away, and rubble is heaped at the base. The iron portcullis is buckled inward. Thin wisps of smoke rise from the broken spire. The carved stone bat keystone above the gate is chipped but still readable. Clearly the same building as before, clearly wounded. COLOUR: bright saturated crimson and warm scarlet stone as the dominant colour — LIGHT ENOUGH TO READ AGAINST A BLACK BACKGROUND, never dark oxblood or near-black. Strongly lit faces in a vivid rose-red, mid crimson for the body, plum-violet only in the deepest recesses, and dark iron for the finials, portcullis and window bars. Keep the overall value BRIGHT: this is a red castle lit from the front, not a black castle with red edges. The snapped-off top of the tallest spire has FALLEN and now lies on the ground at the foot of the building, tipped on its side among the rubble with its bent iron finial resting against the wall. Nothing is left hanging in the air. Rubble is heaped at the base.",
       "refImages": [
         "assets-source/race-castles/vampires-intact.png"
       ]
@@ -68,17 +92,17 @@
     {
       "name": "vampires-destroyed",
       "_race": "crimson — ruin",
-      "prompt": "The ruin of a tall narrow gothic vampire castle keep. All three spires are gone; only a broken jagged stump of the central tower remains standing about a third of its old height, with one intact pointed lancet window arch still framed in the surviving wall. The pointed archway of the gate has collapsed into a heap of shattered blocks, and one snapped iron finial lies among the rubble. A large mound of broken masonry spreads across the base. Dead and cold, no smoke, no fire. Still recognisably the remains of a gothic spire keep."
+      "prompt": "The ruin of a tall narrow gothic vampire castle keep. All three spires are gone; only a broken jagged stump of the central tower remains standing about a third of its old height, with one intact pointed lancet window arch still framed in the surviving wall. The pointed archway of the gate has collapsed into a heap of shattered blocks, and one snapped iron finial lies among the rubble. A large mound of broken masonry spreads across the base. Dead and cold, no smoke, no fire. Still recognisably the remains of a gothic spire keep. COLOUR: bright saturated crimson and warm scarlet stone as the dominant colour — LIGHT ENOUGH TO READ AGAINST A BLACK BACKGROUND, never dark oxblood or near-black. Strongly lit faces in a vivid rose-red, mid crimson for the body, plum-violet only in the deepest recesses, and dark iron for the finials, portcullis and window bars. Keep the overall value BRIGHT: this is a red castle lit from the front, not a black castle with red edges."
     },
     {
       "name": "nagas-intact",
       "_race": "cyan 0x3bd7ff — coral reef fortress",
-      "prompt": "A naga sea-serpent castle keep in pristine condition, built from coral and shell rather than cut stone. A broad rounded fortress whose walls are formed of great fluted scallop shells and branching brain coral, with three scalloped shell arches for windows and a wide low doorway shaped like an open clam. Two carved serpentine stone snakes coil up the flanks of the building, their heads meeting above the door. Tide-worn columns, barnacle texture, small streams of water spilling from openings low in the wall. Wide, rounded, organic and flowing."
+      "prompt": "A naga sea-serpent castle keep in pristine condition, built from coral and shell rather than cut stone. A broad rounded fortress whose walls are formed of great fluted scallop shells and branching brain coral, with three scalloped shell arches for windows and a wide low doorway shaped like an open clam. Two carved serpentine stone snakes coil up the flanks of the building, their heads meeting above the door. Tide-worn columns, barnacle texture, small streams of water spilling from openings low in the wall. Wide, rounded, organic and flowing. COLOUR: bright aqua-cyan and turquoise shell as the dominant colour, with pale seafoam lit faces, deep teal shadows inside the arches, and supporting dull sand-grey barnacles and muted olive-grey coral. Water in a paler cyan than the shell."
     },
     {
       "name": "nagas-damaged",
       "_race": "cyan — same fortress, battle-damaged",
-      "prompt": "The same naga coral-and-shell castle keep, now battle-damaged. The largest scallop-shell wall panel is cracked clean through and half of it has broken away, exposing hollow chambers behind. Two branches of the brain coral are snapped off, one scalloped shell arch has collapsed into a jagged hole, and one of the two carved serpent snakes has lost its head, leaving a broken neck stump. Shards of shell and coral litter the base. Water gushes hard from the broken wall instead of trickling. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same naga coral-and-shell castle keep, now battle-damaged. The largest scallop-shell wall panel is cracked clean through and half of it has broken away, exposing hollow chambers behind. Two branches of the brain coral are snapped off, one scalloped shell arch has collapsed into a jagged hole, and one of the two carved serpent snakes has lost its head, leaving a broken neck stump. Shards of shell and coral litter the base. Water gushes hard from the broken wall instead of trickling. Clearly the same building as before, clearly wounded. COLOUR: bright aqua-cyan and turquoise shell as the dominant colour, with pale seafoam lit faces, deep teal shadows inside the arches, and supporting dull sand-grey barnacles and muted olive-grey coral. Water in a paler cyan than the shell. The broken half of the scallop-shell panel has SLID DOWN and lies flat on the ground against the base of the fortress, and the severed serpent head rests on the ground beside it among scattered shards. Nothing is suspended.",
       "refImages": [
         "assets-source/race-castles/nagas-intact.png"
       ]
@@ -86,17 +110,17 @@
     {
       "name": "nagas-destroyed",
       "_race": "cyan — ruin",
-      "prompt": "The ruin of a naga coral-and-shell castle keep. The rounded fortress has collapsed to a low broken ring of wall about a third its old height. One great fluted scallop shell still stands upright, cracked, at one side, and the coiled body of one carved stone serpent lies broken in three pieces across the rubble with its head face-down. Shattered coral branches and shell fragments are heaped everywhere. Dry and dead — no water flowing. Still recognisably the remains of a coral reef fortress."
+      "prompt": "The ruin of a naga coral-and-shell castle keep. The rounded fortress has collapsed to a low broken ring of wall about a third its old height. One great fluted scallop shell still stands upright, cracked, at one side, and the coiled body of one carved stone serpent lies broken in three pieces across the rubble with its head face-down. Shattered coral branches and shell fragments are heaped everywhere. Dry and dead — no water flowing. Still recognisably the remains of a coral reef fortress. COLOUR: bright aqua-cyan and turquoise shell as the dominant colour, with pale seafoam lit faces, deep teal shadows inside the arches, and supporting dull sand-grey barnacles and muted olive-grey coral. Water in a paler cyan than the shell."
     },
     {
       "name": "mummies-intact",
       "_race": "yellow 0xffe23b — stepped sandstone mastaba",
-      "prompt": "A mummy dynasty castle keep in pristine condition: a squat stepped sandstone pyramid of four receding tiers with a narrow vertical slot doorway at the centre of the lowest tier. Two tall square obelisks flank the doorway, each carved with abstract geometric bands. A broad carved stone scarab beetle spans the lintel above the slot door. Narrow linen banners hang either side of the entrance in stiff vertical folds. Heavy blocky masonry, crisp horizontal courses, wide and low and monumental."
+      "prompt": "A mummy dynasty castle keep in pristine condition: a squat stepped sandstone pyramid of four receding tiers with a narrow vertical slot doorway at the centre of the lowest tier. Two tall square obelisks flank the doorway, each carved with abstract geometric bands. A broad carved stone scarab beetle spans the lintel above the slot door. Narrow linen banners hang either side of the entrance in stiff vertical folds. Heavy blocky masonry, crisp horizontal courses, wide and low and monumental. COLOUR: warm golden-yellow sandstone as the dominant colour, with pale amber lit faces, deep umber-brown shadows in every joint and course line, and supporting dull bronze for the scarab and dusty tan (NOT white) linen."
     },
     {
       "name": "mummies-damaged",
       "_race": "yellow — same mastaba, battle-damaged",
-      "prompt": "The same stepped sandstone mummy castle keep, now battle-damaged. The top tier of the four-tier pyramid has been blown apart and its blocks have slid down the face of the tiers below. One of the two flanking obelisks is snapped in half with its top section lying across the steps. Deep cracks split the second tier, the slot doorway is partly choked with fallen blocks, and the carved scarab lintel is cracked through the middle. The hanging linen banners are torn to ribbons. Dust drifts from the broken tier. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same stepped sandstone mummy castle keep, now battle-damaged. The top tier of the four-tier pyramid has been blown apart and its blocks have slid down the face of the tiers below. One of the two flanking obelisks is snapped in half with its top section lying across the steps. Deep cracks split the second tier, the slot doorway is partly choked with fallen blocks, and the carved scarab lintel is cracked through the middle. The hanging linen banners are torn to ribbons. Dust drifts from the broken tier. Clearly the same building as before, clearly wounded. COLOUR: warm golden-yellow sandstone as the dominant colour, with pale amber lit faces, deep umber-brown shadows in every joint and course line, and supporting dull bronze for the scarab and dusty tan (NOT white) linen. The snapped top half of the obelisk has FALLEN and lies flat along the ground at the base of the steps, and the blocks from the blown-apart top tier have tumbled all the way down and are piled on the ground at the foot of the pyramid. Nothing is balanced mid-slide or hanging in the air.",
       "refImages": [
         "assets-source/race-castles/mummies-intact.png"
       ]
@@ -104,17 +128,17 @@
     {
       "name": "mummies-destroyed",
       "_race": "yellow — ruin",
-      "prompt": "The ruin of a stepped sandstone mummy castle keep. Only the lowest tier survives as a broken rectangular platform, its courses of blocks tumbled and gap-toothed. Both obelisks are down: one lies snapped in two across the rubble, the other is a jagged stump. The carved stone scarab from the lintel lies upside down and cracked in the debris, still clearly a scarab. Drifted sand has piled against the broken masonry. Dead and still. Still recognisably the remains of a stepped sandstone tomb-fortress."
+      "prompt": "The ruin of a stepped sandstone mummy castle keep. Only the lowest tier survives as a broken rectangular platform, its courses of blocks tumbled and gap-toothed. Both obelisks are down: one lies snapped in two across the rubble, the other is a jagged stump. The carved stone scarab from the lintel lies upside down and cracked in the debris, still clearly a scarab. Drifted sand has piled against the broken masonry. Dead and still. Still recognisably the remains of a stepped sandstone tomb-fortress. COLOUR: warm golden-yellow sandstone as the dominant colour, with pale amber lit faces, deep umber-brown shadows in every joint and course line, and supporting dull bronze for the scarab and dusty tan (NOT white) linen."
     },
     {
       "name": "zombies-intact",
       "_race": "green 0x44ff5e — rotted patchwork stronghold",
-      "prompt": "A zombie castle keep in its best condition, which is still a wreck by design: a crooked patchwork stronghold of warped rotted timber planks nailed haphazardly over cracked masonry, leaning noticeably to one side. A sagging roof of mismatched boards, boarded-over windows with gaps between the planks, and a wide gaping doorway with no door, framed by two leaning posts so it reads as an open mouth. A crooked palisade of sharpened stakes and long bones is lashed across the front. Lopsided, slumped, held together by nails and spite."
+      "prompt": "A zombie castle keep in its best condition, which is still a wreck by design: a crooked patchwork stronghold of warped rotted timber planks nailed haphazardly over cracked masonry, leaning noticeably to one side. A sagging roof of mismatched boards, boarded-over windows with gaps between the planks, and a wide gaping doorway with no door, framed by two leaning posts so it reads as an open mouth. A crooked palisade of sharpened stakes and long bones is lashed across the front. Lopsided, slumped, held together by nails and spite. COLOUR: sickly moss-green and lichen as the dominant colour over the timber and masonry, with pale yellow-green lit faces, deep swamp-green and brown-black shadows, and supporting grey-brown weathered planks, rusted nails and dull grey-tan bone."
     },
     {
       "name": "zombies-damaged",
       "_race": "green — same stronghold, battle-damaged",
-      "prompt": "The same crooked zombie patchwork stronghold, now battle-damaged. The sagging plank roof has caved in over one half of the building, several wall planks have been torn away leaving ragged holes into the dark interior, and the whole structure leans much further over, propped on a single splintered beam. Half the bone-and-stake palisade is smashed flat. The gaping doorway has partly collapsed inward. Loose planks and snapped bones lie scattered at the base. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same crooked zombie patchwork stronghold, now battle-damaged. The sagging plank roof has caved in over one half of the building, several wall planks have been torn away leaving ragged holes into the dark interior, and the whole structure leans much further over, propped on a single splintered beam. Half the bone-and-stake palisade is smashed flat. The gaping doorway has partly collapsed inward. Loose planks and snapped bones lie scattered at the base. Clearly the same building as before, clearly wounded. COLOUR: sickly moss-green and lichen as the dominant colour over the timber and masonry, with pale yellow-green lit faces, deep swamp-green and brown-black shadows, and supporting grey-brown weathered planks, rusted nails and dull grey-tan bone. The torn-off roof boards and wall planks have FALLEN and lie scattered flat on the ground around the base, and the propping beam rests solidly against the ground. Nothing hangs in mid-air.",
       "refImages": [
         "assets-source/race-castles/zombies-intact.png"
       ]
@@ -122,17 +146,17 @@
     {
       "name": "zombies-destroyed",
       "_race": "green — ruin",
-      "prompt": "The ruin of a crooked zombie patchwork stronghold. The building has collapsed into a low heap of splintered planks, snapped beams and broken masonry, with one leaning doorway post still standing upright at an angle over the pile like a marker. A few sharpened stakes and long bones from the smashed palisade jut out of the debris. Nails and torn boards everywhere. Dead and still. Still recognisably the remains of a nailed-together timber stronghold."
+      "prompt": "The ruin of a crooked zombie patchwork stronghold. The building has collapsed into a low heap of splintered planks, snapped beams and broken masonry, with one leaning doorway post still standing upright at an angle over the pile like a marker. A few sharpened stakes and long bones from the smashed palisade jut out of the debris. Nails and torn boards everywhere. Dead and still. Still recognisably the remains of a nailed-together timber stronghold. COLOUR: sickly moss-green and lichen as the dominant colour over the timber and masonry, with pale yellow-green lit faces, deep swamp-green and brown-black shadows, and supporting grey-brown weathered planks, rusted nails and dull grey-tan bone."
     },
     {
       "name": "orcs-intact",
       "_race": "orange 0xff8c1a — log-and-iron war stockade",
-      "prompt": "An orc war-fort keep in pristine condition: a squat brutal stockade of enormous vertical logs, their tops hewn to blunt points, lashed together with thick rope and banded with crude riveted iron plates. A heavy reinforced gate of horizontal timbers barred with an iron beam sits at the centre, flanked by two angled log ram-guards. A short square watchtower rises from the left side with a huge war drum mounted under its open roof. Two crossed axe-heads are mounted as a trophy above the gate. Broad, heavy, aggressive, built for hitting things."
+      "prompt": "An orc war-fort keep in pristine condition: a squat brutal stockade of enormous vertical logs, their tops hewn to blunt points, lashed together with thick rope and banded with crude riveted iron plates. A heavy reinforced gate of horizontal timbers barred with an iron beam sits at the centre, flanked by two angled log ram-guards. A short square watchtower rises from the left side with a huge war drum mounted under its open roof. Two crossed axe-heads are mounted as a trophy above the gate. Broad, heavy, aggressive, built for hitting things. COLOUR: burnt-orange and rust-red lashed logs as the dominant colour, with warm amber lit faces showing the wood grain, deep brown shadows between the logs, and supporting blackened iron bands and rivets and dark ochre rope."
     },
     {
       "name": "orcs-damaged",
       "_race": "orange — same stockade, battle-damaged",
-      "prompt": "The same orc log-and-iron war-fort keep, now battle-damaged. Three of the great vertical logs are splintered off at half height and one has fallen outward, opening a gap in the wall. The reinforced gate hangs off one hinge with its iron bar snapped. The watchtower's roof is gone and the war drum is split open and sagging in its mount. Several iron bands have torn free and curl outward, and the lashing ropes hang loose. One of the two crossed trophy axes has been knocked away. Smoke curls from the broken logs. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same orc log-and-iron war-fort keep, now battle-damaged. Three of the great vertical logs are splintered off at half height and one has fallen outward, opening a gap in the wall. The reinforced gate hangs off one hinge with its iron bar snapped. The watchtower's roof is gone and the war drum is split open and sagging in its mount. Several iron bands have torn free and curl outward, and the lashing ropes hang loose. One of the two crossed trophy axes has been knocked away. Smoke curls from the broken logs. Clearly the same building as before, clearly wounded. COLOUR: burnt-orange and rust-red lashed logs as the dominant colour, with warm amber lit faces showing the wood grain, deep brown shadows between the logs, and supporting blackened iron bands and rivets and dark ochre rope. The three splintered logs have FALLEN COMPLETELY and lie flat on the ground in front of the wall, and the broken watchtower roof and the split war drum have come down and rest on the ground at the foot of the tower. Nothing is left leaning unsupported in the air.",
       "refImages": [
         "assets-source/race-castles/orcs-intact.png"
       ]
@@ -140,17 +164,17 @@
     {
       "name": "orcs-destroyed",
       "_race": "orange — ruin",
-      "prompt": "The ruin of an orc log-and-iron war-fort keep. The stockade has been broken down to a row of jagged log stumps no higher than a man, with two logs still leaning against each other over the collapsed gateway. The watchtower is completely down, its square frame lying smashed across the rubble, and the split war drum lies on its side in the debris with its skin burst. Torn iron bands, cut ropes and one broken axe head lie among the splinters. Dead and cold. Still recognisably the remains of a log stockade fort."
+      "prompt": "The ruin of an orc log-and-iron war-fort keep. The stockade has been broken down to a row of jagged log stumps no higher than a man, with two logs still leaning against each other over the collapsed gateway. The watchtower is completely down, its square frame lying smashed across the rubble, and the split war drum lies on its side in the debris with its skin burst. Torn iron bands, cut ropes and one broken axe head lie among the splinters. Dead and cold. Still recognisably the remains of a log stockade fort. COLOUR: burnt-orange and rust-red lashed logs as the dominant colour, with warm amber lit faces showing the wood grain, deep brown shadows between the logs, and supporting blackened iron bands and rivets and dark ochre rope."
     },
     {
       "name": "demons-intact",
       "_race": "magenta 0xd73bff — jagged obsidian citadel",
-      "prompt": "A demon citadel keep in pristine condition, built from jagged volcanic glass: an asymmetric cluster of sharp angular shards of obsidian thrusting upward at different angles, faceted like broken glass, with the tallest shard leaning slightly. A wide horned archway forms the entrance, its two curved horns sweeping up and outward from the doorframe. Heavy chains hang in loops between the shards, with two hanging braziers suspended from them. Thin fissure lines crack across the faces of the shards. Sharp, angular, unbalanced and hostile."
+      "prompt": "A demon citadel keep in pristine condition, built from jagged volcanic glass: an asymmetric cluster of sharp angular shards of obsidian thrusting upward at different angles, faceted like broken glass, with the tallest shard leaning slightly. A wide horned archway forms the entrance, its two curved horns sweeping up and outward from the doorframe. Heavy chains hang in loops between the shards, with two hanging braziers suspended from them. Thin fissure lines crack across the faces of the shards. Sharp, angular, unbalanced and hostile. COLOUR: violet-magenta obsidian as the dominant colour, faceted like broken glass, with hot magenta lit facets, near-black purple shadows in the cracks, and supporting dull dark iron chains and braziers."
     },
     {
       "name": "demons-damaged",
       "_race": "magenta — same citadel, battle-damaged",
-      "prompt": "The same jagged obsidian demon citadel, now battle-damaged. The tallest shard has shattered off at the midpoint and its broken top has embedded itself point-first in the ground beside the building. Two other shards are cracked through, spilling glassy debris. One of the two curved horns of the archway is snapped clean off and the arch sags. Several chains have parted and hang loose, and one brazier has fallen and lies overturned. The fissure lines have widened into open cracks. Clearly the same building as before, clearly wounded.",
+      "prompt": "The same jagged obsidian demon citadel, now battle-damaged. The tallest shard has shattered off at the midpoint and its broken top has embedded itself point-first in the ground beside the building. Two other shards are cracked through, spilling glassy debris. One of the two curved horns of the archway is snapped clean off and the arch sags. Several chains have parted and hang loose, and one brazier has fallen and lies overturned. The fissure lines have widened into open cracks. Clearly the same building as before, clearly wounded. COLOUR: violet-magenta obsidian as the dominant colour, faceted like broken glass, with hot magenta lit facets, near-black purple shadows in the cracks, and supporting dull dark iron chains and braziers. The shattered top of the tallest shard has COME DOWN and lies on the ground at the base, embedded point-first in its own glassy debris, and the fallen brazier lies overturned on the ground. Nothing floats.",
       "refImages": [
         "assets-source/race-castles/demons-intact.png"
       ]
@@ -158,7 +182,7 @@
     {
       "name": "demons-destroyed",
       "_race": "magenta — ruin",
-      "prompt": "The ruin of a jagged obsidian demon citadel. Every shard is down: a field of broken glassy fragments and angular splinters heaped where the citadel stood, with one waist-high stump of the central shard still rooted upright and one snapped curved horn from the archway lying across the pile, unmistakably a horn. Lengths of broken chain are tangled through the debris and both braziers lie crushed and cold. Dead and dark, no fire, no glow. Still recognisably the remains of an obsidian shard citadel."
+      "prompt": "The ruin of a jagged obsidian demon citadel. Every shard is down: a field of broken glassy fragments and angular splinters heaped where the citadel stood, with one waist-high stump of the central shard still rooted upright and one snapped curved horn from the archway lying across the pile, unmistakably a horn. Lengths of broken chain are tangled through the debris and both braziers lie crushed and cold. Dead and dark, no fire, no glow. Still recognisably the remains of an obsidian shard citadel. COLOUR: violet-magenta obsidian as the dominant colour, faceted like broken glass, with hot magenta lit facets, near-black purple shadows in the cracks, and supporting dull dark iron chains and braziers."
     }
   ],
   "_identity_refs": [
@@ -196,5 +220,27 @@
     "     the ground under a vampire keep would be crimson and under a naga keep cyan.",
     "The board draws no shadow under the placeholder keep today, so removing it is also the smaller",
     "change. Regenerated all six intacts rather than keeping the four that happened to attach it."
+  ],
+  "_gravity": [
+    "⛔ GRAVITY, ADDED AFTER THE OWNER PLAYED THE FIRST PASS.",
+    "Owner: *\"in the damaged version of the vampires, mummies, and orcs. there is broken tower, pillar,",
+    "and pole. those are supposed to be on the ground. imagine if they are just suspended in the air for",
+    "like 2 rounds while being broken its non consistent with laws of gravity lol and looks weird.\"*",
+    "",
+    "It is a sharper note than it first reads. A -damaged castle is not a freeze-frame of the moment it",
+    "broke — it is a STATE THE BOARD SITS IN for the rest of the match, and possibly for several rounds.",
+    "Anything mid-fall is therefore mid-fall forever. Every detached piece must have LANDED.",
+    "",
+    "The rule is in `sharedStyle` so it binds all eighteen, and each -damaged prompt additionally names",
+    "WHERE its own broken piece came to rest, because a generic instruction produced a generic pile."
+  ],
+  "_vampire_value": [
+    "⚠ VAMPIRES WAS REGENERATED ONCE MORE, FOR VALUE RATHER THAN HUE. The first colour pass produced a",
+    "beautiful deep-oxblood keep that all but vanished on SPARK's black board — captured beside the",
+    "other five it was the only one that did not read. The board is the constraint the reference art",
+    "does not share: a dark castle on a dark field is a silhouette of nothing. The brief now pins the",
+    "VALUE ('light enough to read against a black background', 'a red castle lit from the front, not a",
+    "black castle with red edges') as well as the hue, because the model will happily honour 'crimson'",
+    "at any brightness."
   ]
 }

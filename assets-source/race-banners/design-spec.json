@@ -1,0 +1,83 @@
+{
+  "_comment": [
+    "SPARK — S161 P6. The six RACE SEAT BANNERS: the artwork behind a lobby seat tile.",
+    "",
+    "Owner, 2026-09-03: *\"the popup menue should have a color with an artistic background that shows",
+    "the race and color. so instead of P1 Host (you) its going to be background that has a cool art",
+    "that defines the race and color - we'll need to generate it). and it will say P1 HOST (Race name)",
+    "without the \"(you)\" because only your own will be clickable so players will know its them.\"*",
+    "",
+    "⛔ THESE ARE NOT SPRITES, AND EVERY CONSTRAINT THE CASTLES CARRY IS INVERTED HERE.",
+    "A castle still is matted to transparency by build-sprite-atlas.mjs and pasted into a square cell,",
+    "which is why those prompts demand a pure white background, forbid near-white anywhere in the",
+    "subject, and forbid a ground shadow. A banner is the opposite kind of object: it is FULL-BLEED",
+    "art that fills a 380 x 150 seat tile edge to edge, it never touches the atlas builder, and it is",
+    "masked to a rounded rectangle at draw time. So: no white background, no matte, no near-white",
+    "hazard, and detail is wanted right up to the edges.",
+    "",
+    "⭐ THE CENTRE IS DELIBERATELY THE QUIET PART. `seatRack.ts` centres the seat label over this art",
+    "— \"P1  HOST  (VAMPIRES)\" — so a busy or bright middle would swallow it. Each prompt asks for the",
+    "focal detail at the LEFT and RIGHT and a darker, calmer centre band. The renderer also lays a",
+    "scrim behind the text, but a scrim heavy enough to rescue a bright centre would hide the art it",
+    "is drawn over, so the composition does the work and the scrim only finishes it.",
+    "",
+    "⚠ ASPECT. The tile is 380 x 150 = 2.53:1 and the widest ratio the model offers is 16:9 = 1.78:1,",
+    "so the banner is centre-cropped vertically at draw time. Nothing load-bearing may sit in the top",
+    "or bottom fifth of the frame — that band does not survive to the screen.",
+    "",
+    "⭐ COLOUR IS THE POINT. A seat tile used to be a flat swatch of PLAYER_COLORS[seat] and nothing",
+    "else; that is what the owner is replacing. Each banner is dominated by its race's own seat colour",
+    "so the tile still answers \"which colour am I?\" at a glance, and the art answers \"who am I?\".",
+    "",
+    "ORIGINAL DESIGNS ONLY, and the same drawing language as the castles and the goblin roster: bold",
+    "black ink outline, flat cel shading, crisp highlights. No recognisable franchise imagery."
+  ],
+  "outDir": "assets-source/race-banners",
+  "aspectRatio": "16:9",
+  "sharedStyle": [
+    "Cartoon vector game-art illustration in a bold black ink outline style with flat cel shading and",
+    "crisp highlight streaks — the drawing language of a hand-inked tabletop game box.",
+    "A WIDE CINEMATIC BANNER that fills the whole frame edge to edge. No white background, no border,",
+    "no frame, no margin, no vignette box — the art bleeds off all four sides.",
+    "⛔ COMPOSITION: the focal detail sits at the LEFT and RIGHT thirds. The CENTRE THIRD is a calmer,",
+    "DARKER, low-detail band — deep shadow, dark sky, dark water or dark stone — because large text is",
+    "overlaid there and must stay readable.",
+    "⛔ Keep everything important out of the TOP FIFTH and the BOTTOM FIFTH of the frame; those bands",
+    "are cropped away.",
+    "Overall value is MID-TO-DARK so light text reads over it. Rich saturated colour, deep shadows, a",
+    "few bright accents — never a pale or washed-out image.",
+    "No text, no lettering, no words, no numbers, no logo, no watermark, no UI, and no human faces."
+  ],
+  "characters": [
+    {
+      "name": "banner-vampires",
+      "_race": "crimson 0xff3b6b",
+      "prompt": "A gothic vampire stronghold at night. On the left, the silhouette of a tall narrow keep with three pointed spires; on the right, a thorned wrought-iron gate and a swarm of small bats wheeling upward. Between them a dark crimson night sky. COLOUR: dominated by deep crimson and oxblood red — a crimson sky, blood-red clouds, dusty rose rim-light on the stonework, near-black iron and silhouettes, cool violet-plum shadows. The central band is the darkest part of the sky."
+    },
+    {
+      "name": "banner-nagas",
+      "_race": "cyan 0x3bd7ff",
+      "prompt": "A sunken naga reef fortress underwater. On the left, branching coral columns and great fluted scallop shells; on the right, the coiled body and raised head of a carved stone sea serpent. Shafts of light slanting down through the water between them. COLOUR: dominated by bright aqua-cyan and turquoise — glowing cyan water, pale seafoam highlights on the coral, deep teal and navy shadows, dull sand-grey barnacles as the one non-cyan material. The central band is deep dark teal water."
+    },
+    {
+      "name": "banner-mummies",
+      "_race": "yellow 0xffe23b",
+      "prompt": "A mummy dynasty tomb complex at desert dusk. On the left, the stepped tiers of a sandstone pyramid; on the right, a tall obelisk and a great carved scarab beetle in relief. Drifting sand and a low burning horizon between them. COLOUR: dominated by warm golden yellow and amber — a gold-ochre sky, sunlit amber sandstone, deep umber-brown shadows in every joint, dull bronze for the scarab. The central band is deep shadowed umber."
+    },
+    {
+      "name": "banner-zombies",
+      "_race": "green 0x44ff5e",
+      "prompt": "A rotting zombie graveyard swamp under sickly fog. On the left, a crooked patchwork shack of warped nailed planks leaning badly; on the right, a palisade of sharpened stakes and long bones with clawed hands breaking the mud. Low green mist between them. COLOUR: dominated by sickly moss green and lichen — a poisonous green fog, pale yellow-green glow low down, deep swamp-green and brown-black shadows, grey-brown rotted timber and dull grey-tan bone. The central band is the darkest, thickest fog."
+    },
+    {
+      "name": "banner-orcs",
+      "_race": "orange 0xff8c1a",
+      "prompt": "An orc war camp at dusk. On the left, a stockade wall of enormous lashed logs banded with crude iron; on the right, a pair of crossed axes mounted on a post beside a burning brazier throwing embers. Smoke and firelight between them. COLOUR: dominated by burnt orange and rust red — an ember-orange sky, hot amber firelight on the wood grain, deep brown and charcoal shadows, blackened iron bands and dark ochre rope. The central band is dark smoke."
+    },
+    {
+      "name": "banner-demons",
+      "_race": "magenta 0xd73bff",
+      "prompt": "A demon citadel of jagged volcanic glass. On the left, a cluster of sharp faceted obsidian shards thrusting upward; on the right, a wide horned archway with heavy chains looped between hanging braziers. A glowing fissure runs across the ground between them. COLOUR: dominated by violet-magenta — hot magenta glow from the fissure and the braziers, bright magenta highlights on the glassy facets, near-black purple shadows, dull dark iron for the chains. The central band is near-black purple glass."
+    }
+  ]
+}

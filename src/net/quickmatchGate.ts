@@ -74,7 +74,17 @@ export function broadcastQmPresence(
   onPresence: (roster: readonly RosterEntry[]) => void,
 ): void {
   session.lobbySeats = reconcileLobbySeats(session.lobbySeats, transport.peerIds());
-  const base = buildLobbyRoster(session.lobbySeats, selfId);
+  // ⭐ S161 P6 — the race claims ride the ONE presence path. `broadcastQmPresence` is documented
+  // above as "The SINGLE presence-broadcast path for the host", which is precisely why the claims
+  // are attached here and nowhere else: every route that tells peers about seats (join, leave,
+  // readiness, and now a race pick) already funnels through this function, so there is no second
+  // place a claim could be forgotten.
+  const base = buildLobbyRoster(
+    session.lobbySeats,
+    selfId,
+    session.raceByPeer,
+    session.selfRace ?? undefined,
+  );
   const roster = session.quickmatch
     ? rosterWithReady(base, session.qmReadyPeers, session.qmSelfReady, selfId)
     : base;

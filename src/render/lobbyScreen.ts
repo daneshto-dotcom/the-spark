@@ -32,6 +32,8 @@ import {
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
 
+import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
+import type { RaceId } from '../state/races.ts';
 // S60 P4 — the pure geometry/validation helpers + layout/validation constants
 // moved to lobbyGeometry.ts (§XV de-hypertrophy). The class imports what it needs;
 // the public helpers are re-exported below so external callers (controls.ts's
@@ -88,6 +90,15 @@ export interface LobbyScreenCallbacks {
    * this screen owns only the button and the panel it prints into.
    */
   onTestConnection(): void;
+  /**
+   * ⭐ S161 P6 (owner) — this player picked a race in the seat-rack popup.
+   *
+   * The screen owns the menu; `main.ts` owns what a pick MEANS, because that differs by role: the
+   * HOST applies it to its own session and rebroadcasts presence, a JOINER sends `CLAIM_RACE` and
+   * waits to be told. Keeping that split here would drag `net/` imports into the lobby shell, which
+   * is the same Council Fork C boundary the presence digest is kept out of this file for.
+   */
+  onPickRace(raceId: RaceId): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -117,6 +128,7 @@ export class LobbyScreen {
   private codeText: Text;
   // S69 P2 — 6-seat rack (shown in-room) + "Room N/6" count line.
   private readonly seatRack: SeatRackHandle;
+  private readonly racePicker: RacePickerHandle;
   private countText: Text;
   private hostPane: Container;
   private joinPane: Container;
@@ -249,10 +261,17 @@ export class LobbyScreen {
     this.codeText.visible = false;
     this.container.addChild(this.codeText);
 
-    // S69 P2 — the 6-seat rack (extracted to seatRack.ts). Visible once in a room.
-    this.seatRack = makeSeatRack();
+    /*
+     * ⭐ S161 P6 — CLICKING YOUR OWN SEAT OPENS THE RACE MENU.
+     *
+     * The rack decides WHICH seats are clickable (only `isYou`, per frame), so this handler never
+     * has to check identity. It reads the taken-set off the CURRENT view rather than off any cached
+     * copy, because a race can be claimed by somebody else between two opens.
+     */
+    this.seatRack = makeSeatRack(() => this.openRacePicker());
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
+    this.racePicker = makeRacePicker((raceId) => callbacks.onPickRace(raceId));
 
     // S69 P2 — "Room N/6" (+ FULL) count line, below the rack, in-room only.
     this.countText = new Text({
@@ -480,6 +499,12 @@ export class LobbyScreen {
       callbacks.onReturnFromConnectionLost,
     );
 
+    // ⭐ S161 P6 — the race menu mounts LAST, so the modal scrim covers every lobby surface. It is
+    // added to `this.container` rather than to the stage so `setVisible(false)` takes it down with
+    // the rest of the screen — a menu that survived a return-to-title would be unreachable and
+    // permanently on top.
+    this.container.addChild(this.racePicker.container);
+
     app.stage.addChild(this.container);
     this.setVisible(false);
 
@@ -553,6 +578,24 @@ export class LobbyScreen {
    * churn-guard short-circuit as updatePeerStatus (applyView only on an actual
    * roster change). null falls back to the count-based rack (e.g. teardown).
    */
+  /**
+   * ⭐ S161 P6 — open the race menu for THIS player's seat.
+   *
+   * ⚠ THE TAKEN SET EXCLUDES YOUR OWN SEAT, which is what makes re-opening the menu show your
+   * current race as `YOURS` rather than as `TAKEN` — and it matches the host's `raceIsFree`, whose
+   * claimant check does exactly the same thing. Two predicates disagreeing about whether you may
+   * keep what you already have would make the menu refuse a no-op.
+   */
+  private openRacePicker(): void {
+    const seats = lobbyView(this.state).seats;
+    const mine = seats.find((s) => s.isYou && s.occupied);
+    const taken = new Set<RaceId>();
+    for (const s of seats) {
+      if (s.occupied && !s.isYou && s.raceId !== undefined) taken.add(s.raceId);
+    }
+    this.racePicker.open(taken, mine?.raceId);
+  }
+
   updatePresence(presence: readonly SeatPresence[] | null): void {
     const next = lobbyReduce(this.state, { type: 'PRESENCE', roster: presence });
     if (next === this.state) return;

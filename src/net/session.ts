@@ -24,6 +24,7 @@ import { triggerReset as triggerAudioCursorReset } from '../state/audioCursor.ts
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
 
+import type { RaceId } from '../state/races.ts';
 export interface NetSession {
   netTransport: NetTransport | null;
   hostSync: HostSync | null;
@@ -89,6 +90,29 @@ export interface NetSession {
    * can never wedge or trip the gate. Cleared on teardown.
    */
   qmReadyPeers: Map<string, boolean>;
+  /**
+   * ⭐ S161 P6 (owner) — HOST-SIDE RACE CLAIMS, keyed by TRANSPORT peerId.
+   *
+   * Owner: *"in multiplayer you should be able to click on your player with its assigned color
+   * (based on lobby log in order) and then there should be a menu where you can chose one of the
+   * other six colors!"* — and in this game colour IS race: `Player.color` is derived from `raceId`
+   * (W1-A) and `races.test.ts` pins RACE_COLORS === PLAYER_COLORS, so picking a colour is picking a
+   * race and there is exactly one thing to store.
+   *
+   * ⛔ KEYED BY peerId, NEVER BY SEAT, and that is the same reasoning `buildMatchRoster` records for
+   * reading `raceByPeer` by peer: a departure compacts the dense seats, and a claim keyed on seat
+   * would hand a survivor somebody else's race at Begin.
+   *
+   * ⛔ AND BY THE TRANSPORT'S peerId, never a wire-claimed identity — the anti-spoof posture
+   * `qmReadyPeers` above uses, and the same one INTENT seat-stamping uses. A peer can only ever
+   * claim for itself.
+   *
+   * Host-only: a client's own choice lives in its `LobbyScreen`, and the host's answer comes back
+   * through LOBBY_PRESENCE like every other seat fact.
+   */
+  raceByPeer: Map<string, RaceId>;
+  /** The HOST's own claim (it has no peerId entry in `lobbySeats` — it is always seat 0). */
+  selfRace: RaceId | null;
   /** S87 P4 — this peer's own readiness (host: gates auto-Begin; client: mirrors the last sent LOBBY_READY). */
   qmSelfReady: boolean;
   /**
@@ -156,6 +180,8 @@ export function makeNetSession(): NetSession {
     roomCode: null,
     quickmatch: false,
     qmReadyPeers: new Map(),
+    raceByPeer: new Map(),
+    selfRace: null,
     qmSelfReady: false,
     // S118 P1 (host-migration D2) — succession detection state (dormant until a peer proves a pubkey).
     peerPubkeys: new Map(),
@@ -205,6 +231,10 @@ export function teardownNet(
   // S73 P1 — clear the stable lobby seat-map so a fresh Host/Join (after lobby Back /
   // peer-drop / postgame) starts with no inherited seats (mirror of hostSeats.clear()).
   session.lobbySeats.clear();
+  // S161 P6 — a fresh Host/Join must not inherit the previous room's race claims, or seat 0 would
+  // open the next lobby already wearing whatever it picked in the last one.
+  session.raceByPeer.clear();
+  session.selfRace = null;
   // S79 P4 — clear the latched host identity so a rejoin re-latches fresh (a new room may
   // have a different host; a stale latch would drop ALL of the new host's messages).
   session.hostPeerId = null;

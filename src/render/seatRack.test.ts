@@ -7,25 +7,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS } from '../constants.ts';
-import { seatCellStyle, seatLabelText } from './seatRack.ts';
+import { seatCellStyle } from './seatRack.ts';
 
-describe('S82 P5 — seatLabelText', () => {
-  it('plain occupied seat: P{n} only', () => {
-    expect(seatLabelText(2, false, false)).toBe('P3');
-  });
-
-  it('host seat: P1  HOST', () => {
-    expect(seatLabelText(0, true, false)).toBe('P1  HOST');
-  });
-
-  it('own non-host seat: P{n}  (you)', () => {
-    expect(seatLabelText(3, false, true)).toBe('P4  (you)');
-  });
-
-  it('host + you (the hosting player): P1  HOST  (you)', () => {
-    expect(seatLabelText(0, true, true)).toBe('P1  HOST  (you)');
-  });
-});
 
 describe('S82 P5 — seatCellStyle (A5 you-emphasis)', () => {
   it('own seat: full alpha + 5px white glow stroke', () => {

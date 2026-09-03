@@ -36,6 +36,7 @@
 import { isValidRoomCode } from './lobbyGeometry.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
+import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 // Status-line colours — exported so the shell + tests share the exact values
@@ -289,6 +290,12 @@ export interface SeatPresence {
   /** S87 P4 — QUICKMATCH readiness (undefined in friends lobbies). Drives the
    *  "ready k/n" line + per-seat ready tick. */
   readonly ready?: boolean;
+  /**
+   * ⭐ S161 P6 — the seat's chosen race, carried through from `RosterEntry.raceId`. Additive-
+   * optional exactly as it is on the wire: absent means "never chose", and `lobbyView` resolves
+   * that to `defaultRaceForSeat` rather than leaving the tile blank.
+   */
+  readonly raceId?: RaceId;
 }
 
 /**
@@ -308,6 +315,17 @@ export interface SeatView {
   /** S89 P1 — QUICKMATCH per-seat readiness (undefined in friends lobbies / the
    *  count-based pre-roster fallback). Drives the seat-rack ✓ tick. */
   readonly ready?: boolean;
+  /**
+   * ⭐ S161 P6 — WHICH RACE THIS SEAT IS WEARING. Drives the tile's banner art and the "(VAMPIRES)"
+   * half of its label.
+   *
+   * ⚠ ALWAYS DEFINED FOR AN OCCUPIED SEAT, even when the roster entry omits `raceId` — the field is
+   * additive-optional on the wire and absent means "this seat never chose", which resolves to
+   * `defaultRaceForSeat`. Leaving it undefined here instead would give a seat that has not picked NO
+   * banner and no name, i.e. the pre-S161 blank tile, for the majority of lobbies where nobody
+   * touches the picker.
+   */
+  readonly raceId?: RaceId;
 }
 
 export interface LobbyView extends LobbyState {
@@ -352,6 +370,8 @@ export function lobbyView(state: LobbyState): LobbyView {
         // S89 P1 — surface the synced quickmatch readiness per seat (undefined in
         // friends lobbies where SeatPresence.ready is never set).
         ready: entry !== undefined ? entry.ready : undefined,
+        // ⭐ S161 P6 — absent on the wire means "never chose", which IS this seat's default race.
+        raceId: entry !== undefined ? (entry.raceId ?? defaultRaceForSeat(i)) : undefined,
       });
     }
     // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).
@@ -369,6 +389,8 @@ export function lobbyView(state: LobbyState): LobbyView {
         occupied,
         isHost: occupied && i === 0,
         isYou: state.mode === 'hosting' && i === 0,
+        // The count-based fallback has no roster to read, so every seat shows its default race.
+        raceId: occupied ? defaultRaceForSeat(i) : undefined,
       });
     }
   }

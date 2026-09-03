@@ -471,7 +471,14 @@ export type { NetSnapshot };
  * ⚠ Deliberately NOT in this bump: `CLAIM_RACE`. The lobby has no client-intent path before Begin
  * (`hostSync` is null, `hostSeats` is empty and drops intents fail-closed, and `world.players` holds
  * only seat 0), so the claim message has to follow the `LOBBY_READY` precedent as a top-level
- * `NetMessage` kind. That ships with the selection UI, and it will carry its own bump.
+ * `NetMessage` kind.
+ *
+ * ⛔ S161 P6 CORRECTION — THE SENTENCE THAT USED TO END THIS PARAGRAPH SAID IT *"will carry its own
+ * bump"*, AND IT SHIPPED WITHOUT ONE. The prediction reasoned by analogy to `LOBBY_READY`; the
+ * analogy is wrong, because `LOBBY_READY` bumped for GATING THE MATCH (auto-Begin), not for being a
+ * new lobby kind. `CLAIM_RACE` is client→host only, gates nothing, and its ANSWER rides
+ * `RosterEntry.color`/`.raceId`, which this very bump put on the wire — so a peer one build behind
+ * reads the resolved roster and agrees with the host. Full argument at `ClaimRaceMsg` below.
  */
 // S161 P2 — bumped 39->40: SEAT ELIMINATION. The match no longer ends on the first castle to fall.
 /*
@@ -977,6 +984,41 @@ interface LobbyReadyMsg {
   readonly ready: boolean;
 }
 
+/**
+ * ⭐ S161 P6 — A PLAYER PICKS ITS RACE (and therefore its colour) IN THE LOBBY. CLIENT→HOST.
+ *
+ * Owner, 2026-09-03: *"in multiplayer you should be able to click on your player with its assigned
+ * color (based on lobby log in order) and then there should be a menu where you can chose one of the
+ * other six colors!"*
+ *
+ * The host records it per SENDER peerId (never a wire-claimed identity — the `LOBBY_READY` posture),
+ * refuses a race another peer already holds, and mirrors the resolved assignment back through
+ * `LOBBY_PRESENCE`. There is no reply message: the presence beacon IS the answer, so a refused claim
+ * simply leaves the rack showing what the host still believes, which is the truth.
+ *
+ * ## ⛔ NO PROTOCOL BUMP — AND S160 PREDICTED OTHERWISE, IN WRITING, ABOVE `PROTOCOL_VERSION`
+ *
+ * That note said the claim *"will carry its own bump"*, reasoning by analogy to `LOBBY_READY`
+ * (7→8). The analogy does not hold, and the distinction is stated in `LOBBY_PRESENCE`'s own
+ * docblock: *"the LOBBY_PRESENCE no-bump precedent covers cosmetic kinds, not match-gating"*.
+ * `LOBBY_READY` bumped because it GATES THE MATCH — it feeds `maybeQmAutoBegin`, so a peer that
+ * could not send one would hang a quickmatch room forever. This kind gates nothing:
+ *
+ *   · it is CLIENT→HOST only, so no peer ever has to parse one;
+ *   · a peer that cannot SEND one keeps its default race and plays a completely normal match;
+ *   · the host's answer rides `RosterEntry.color` and `RosterEntry.raceId`, both of which have been
+ *     on the wire since v39 — so a peer one build behind reads the resolved roster correctly and
+ *     agrees with the host about every seat.
+ *
+ * ⇒ A stale peer degrades gracefully rather than desyncing, which is exactly the Council Fork B
+ * case `LOBBY_PRESENCE` was granted. Bumping anyway would hard-reject peers at HELLO for a lobby
+ * convenience, which is the cost the no-bump rule exists to avoid.
+ */
+interface ClaimRaceMsg {
+  readonly kind: 'CLAIM_RACE';
+  readonly raceId: RaceId;
+}
+
 export type NetMessage =
   | HelloMsg
   | IntentMsg
@@ -986,6 +1028,7 @@ export type NetMessage =
   | GodlyTriggerMsg
   | LobbyPresenceMsg
   | LobbyReadyMsg
+  | ClaimRaceMsg
   | MigrationClaimMsg;
 
 /**
@@ -1377,6 +1420,13 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // S87 P4 — quickmatch readiness toggle (client→host). Boolean-strict.
       if (typeof obj.ready !== 'boolean') return null;
       return obj as unknown as LobbyReadyMsg;
+    }
+    case 'CLAIM_RACE': {
+      // S161 P6 — lobby race pick (client→host). ⛔ `isRaceId` FIRST: this crosses a trust boundary
+      // as a bare string, and an unvalidated one would reach `RACE_COLORS[...]` and paint
+      // `undefined`. Fail-closed like every other validator here.
+      if (!isRaceId(obj.raceId)) return null;
+      return obj as unknown as ClaimRaceMsg;
     }
     case 'ENDGAME':
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;

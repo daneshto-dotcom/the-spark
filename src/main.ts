@@ -65,7 +65,7 @@ import { Controls, type ControlsDispatchFn } from './input/controls.ts';
 import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
-import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
+import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
 import {
   computeAliveSeats,
@@ -249,6 +249,7 @@ import { asPlayerId } from './types.ts';
 // moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
+import type { RaceId } from './state/races.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1188,7 +1189,16 @@ async function bootstrap(): Promise<void> {
     lobbyScreen.updatePresence(
       // S87 P4 — carry the quickmatch ready flag through to the seat presence
       // (undefined in friends lobbies → no UI change there).
-      roster.map((e) => ({ seat: e.seat, color: e.color, isYou: e.peerId === selfId, ready: e.ready })),
+      // ⭐ S161 P6 — `raceId` rides the same digest, so the seat rack can paint the race banner
+      // and print the race name. Absent on the wire ⇒ absent here ⇒ lobbyView falls back to the
+      // seat's default race; it is never invented at this layer.
+      roster.map((e) => ({
+        seat: e.seat,
+        color: e.color,
+        isYou: e.peerId === selfId,
+        ready: e.ready,
+        raceId: e.raceId,
+      })),
     );
   };
   // S82 P4(a) — resolve the boot-time identity (started before Pixi init; in practice
@@ -1327,7 +1337,35 @@ async function bootstrap(): Promise<void> {
     }
   };
 
+  /*
+   * ⭐ S161 P6 (owner) — A RACE / COLOUR PICK FROM THE LOBBY SEAT MENU.
+   *
+   * Deliberately shaped as `onToggleReady`'s twin directly above: the HOST mutates its own session
+   * and rebroadcasts, a JOINER sends and waits. That split is the reason this lives in main.ts at
+   * all — `lobbyScreen` owns the menu and must stay free of `net/` imports (Council Fork C).
+   *
+   * ⛔ THE HOST CHECKS `raceIsFree` TOO. It is tempting to let seat 0 take whatever it likes since
+   * it is the arbiter, but then the host could silently steal a race a joiner already holds and the
+   * joiner would be re-coloured by the next beacon with no explanation. One rule, applied to
+   * everyone, including the player enforcing it.
+   *
+   * ⚠ NO LOCAL OPTIMISM ON EITHER PATH. Neither branch paints the rack; both wait for
+   * LOBBY_PRESENCE. That is what makes a refused claim self-correcting rather than a UI that has to
+   * be rolled back.
+   */
+  const onPickRace = (raceId: RaceId): void => {
+    if (world.isHost) {
+      if (raceIsFree(session, raceId, selfId)) session.selfRace = raceId;
+      if (session.netTransport !== null) {
+        broadcastQmPresence(session, session.netTransport, onPresence);
+      }
+    } else if (session.netTransport !== null) {
+      session.netTransport.send({ kind: 'CLAIM_RACE', raceId });
+    }
+  };
+
   lobbyScreen = new LobbyScreen(app, {
+    onPickRace,
     // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
     // the flag so a deliberate friends room never inherits quickmatch gating.
     onHostStart: () => {

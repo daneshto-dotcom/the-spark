@@ -136,9 +136,25 @@ for (const ch of spec.characters) {
     });
   }
   reqParts.push({ text: `${ch.prompt} ${styleBlock(spec)}` });
+  /*
+   * ⭐ S161 — `spec.aspectRatio`, the THIRD additive knob, and `absent ⇒ '1:1'` keeps every existing
+   * spec byte-identical.
+   *
+   * Every subject before now was a sprite destined for a square atlas cell, so 1:1 was not a choice
+   * anyone had to make. The lobby's RACE BANNERS are not sprites: they fill a 380 x 150 seat tile
+   * edge-to-edge and never touch `build-sprite-atlas.mjs`, so a square generation would be cropped
+   * to a third of its height and lose whatever the model put at the top and bottom.
+   *
+   * ⚠ Ask for the WIDEST ratio the model offers rather than the tile's true 2.53:1 — 16:9 is 1.78:1,
+   * so the banner is still cropped vertically, but from 1.78 rather than from 1.0. The prompts
+   * therefore keep their subject matter away from the top and bottom edges.
+   */
   const body = {
     contents: [{ parts: reqParts }],
-    generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
+    generationConfig: {
+      responseModalities: ['IMAGE'],
+      imageConfig: { aspectRatio: spec.aspectRatio ?? '1:1' },
+    },
   };
   const bodyFile = join(outDir, `.req-${ch.name}.json`);
   writeFileSync(bodyFile, JSON.stringify(body));

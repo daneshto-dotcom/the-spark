@@ -28,30 +28,43 @@
  * (unit-tested); occupancy DATA (getSeats) is untouched — e2e contracts intact.
  */
 
-import { Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker } from 'pixi.js';
 import { MAX_PLAYERS } from '../constants.ts';
 import { getSeatRect, SEAT_H, SEAT_W } from './lobbyGeometry.ts';
 import type { SeatView } from './lobbyStateMachine.ts';
+import { RACE_BANNER_SRC, seatRaceLabel } from './raceBanners.ts';
+import type { RaceId } from '../state/races.ts';
 
 const EMPTY_OUTLINE = 0x555555;
 const EMPTY_GLYPH = 0x777777;
 const YOU_GLOW = 0xffffff;
-// Dark label reads with high contrast on the max-saturation bright PLAYER_COLORS.
-const LABEL_FILL = 0x0a0a0a;
+/*
+ * ⭐ S161 P6 — THE LABEL WENT FROM NEAR-BLACK TO NEAR-WHITE, AND IT HAD TO.
+ *
+ * It was `0x0a0a0a`, and the comment beside it explained why: *"Dark label reads with high contrast
+ * on the max-saturation bright PLAYER_COLORS"* — correct, when a seat tile was a flat swatch of one
+ * bright colour. The tile is now a mid-to-dark painted banner (the owner's *"cool art that defines
+ * the race and color"*), so dark-on-bright has become dark-on-dark. Light text plus a dark shadow
+ * reads on all six banners, which is also why the banner briefs ask for a darker centre band.
+ */
+const LABEL_FILL = 0xf4f4f4;
+/** Dimmed swatch under the banner: the colour still shows through where the art is dark. */
 const CORNER = 12;
+/** How much of the flat seat colour survives on top of the banner — enough to tint, not to hide. */
+const SWATCH_OVER_BANNER_ALPHA = 0.22;
 
 /* ── S82 P5 — pure projection helpers (extracted for seatRack.test.ts; the Council
  *    REVISED SCOPE DELTA's missing unit-test item). The Pixi code below consumes
  *    EXACTLY these, so the test file locks the label/style contract without
  *    instantiating a renderer. ── */
 
-/** Occupied-seat label: "P{n}" + HOST badge + "(you)" marker, double-space joined. */
-export function seatLabelText(seatIndex: number, isHost: boolean, isYou: boolean): string {
-  const parts = [`P${seatIndex + 1}`];
-  if (isHost) parts.push('HOST');
-  if (isYou) parts.push('(you)');
-  return parts.join('  ');
-}
+/*
+ * ⛔ `seatLabelText` WAS DELETED HERE, NOT LEFT BEHIND. S161 P6 replaced it with `seatRaceLabel`
+ * (raceBanners.ts), which prints the RACE instead of the `(you)` marker on the owner's ruling. The
+ * old function survived the swap with its four tests still green and nothing calling it — a dead
+ * export with a passing test, which is the shape that convinces the next reader it is live. Its
+ * coverage moved to `raceBanners.test.ts` rather than being dropped.
+ */
 
 export interface OccupiedSeatStyle {
   readonly fillAlpha: number;
@@ -107,6 +120,9 @@ export function seatAnimPose(kind: SeatAnimKind, elapsedMs: number): SeatAnimPos
 }
 
 interface SeatCell {
+  /** S161 P6 — the race this cell should be showing, so a late banner load can still land. */
+  wantRace: RaceId | null;
+  readonly banner: Sprite;
   readonly cell: Container;
   readonly bg: Graphics;
   readonly label: Text;
@@ -125,10 +141,33 @@ export interface SeatRackHandle {
   update(seats: readonly SeatView[]): void;
 }
 
-export function makeSeatRack(): SeatRackHandle {
+/**
+ * ⭐ S161 P6 — LAZY, CACHED, PER-RACE. Six banners is 524 KiB and a lobby shows at most four of
+ * them, so they load on first use rather than at mount. The `started` set is what stops `update`
+ * — which runs on every presence beacon — from queueing a fresh fetch each time before the first
+ * one resolves; the same guard, for the same reason, as `GathererRenderer.ensureCastleAtlas`.
+ */
+const bannerCache = new Map<RaceId, Texture>();
+const bannerStarted = new Set<RaceId>();
+function bannerTexture(raceId: RaceId): Texture | null {
+  const hit = bannerCache.get(raceId);
+  if (hit !== undefined) return hit;
+  if (!bannerStarted.has(raceId)) {
+    bannerStarted.add(raceId);
+    void Assets.load(RACE_BANNER_SRC[raceId])
+      .then((t: Texture) => bannerCache.set(raceId, t))
+      // A missing banner is cosmetic: the tile falls back to the flat colour swatch it always had.
+      .catch(() => {});
+  }
+  return null;
+}
+
+export function makeSeatRack(onSeatClick?: (seatIndex: number) => void): SeatRackHandle {
   const container = new Container();
   const cells: SeatCell[] = [];
   let baselineSet = false;
+  /** The last projection applied, so a late banner load can re-run it. See the ticker. */
+  let lastSeats: readonly SeatView[] | null = null;
 
   for (let i = 0; i < MAX_PLAYERS; i++) {
     const rect = getSeatRect(i);
@@ -136,6 +175,23 @@ export function makeSeatRack(): SeatRackHandle {
     // S85 P4c — center pivot so the pop-in scale grows from the cell middle.
     cell.pivot.set(SEAT_W / 2, SEAT_H / 2);
     cell.position.set(rect.x + SEAT_W / 2, rect.y + SEAT_H / 2);
+
+    /*
+     * ⭐ S161 P6 — THE BANNER SITS UNDER EVERYTHING, MASKED TO THE TILE'S OWN ROUNDED RECT.
+     *
+     * Order matters and is the whole layout: banner → swatch tint → outline → label. The swatch is
+     * the SAME `seat.color` the tile used to be filled with, now at low alpha over the art, so the
+     * tile still answers "which colour am I?" from across the screen while the art answers "who am
+     * I?" — which is exactly the split the owner asked for.
+     */
+    const bannerMask = new Graphics().roundRect(0, 0, SEAT_W, SEAT_H, CORNER).fill(0xffffff);
+    const banner = new Sprite();
+    banner.width = SEAT_W;
+    banner.height = SEAT_H;
+    banner.visible = false;
+    banner.mask = bannerMask;
+    cell.addChild(banner);
+    cell.addChild(bannerMask);
 
     const bg = new Graphics();
     cell.addChild(bg);
@@ -148,6 +204,8 @@ export function makeSeatRack(): SeatRackHandle {
         fill: LABEL_FILL,
         letterSpacing: 2,
         align: 'center',
+        // Light text on painted art needs the shadow to survive a bright patch behind it.
+        dropShadow: { color: 0x000000, alpha: 0.9, blur: 4, distance: 2, angle: Math.PI / 2 },
       }),
     });
     label.anchor.set(0.5);
@@ -173,8 +231,17 @@ export function makeSeatRack(): SeatRackHandle {
     readyTick.visible = false;
     cell.addChild(readyTick);
 
+    /*
+     * ⭐ S161 P6 — YOUR OWN SEAT IS A BUTTON. Only ever your own: `update` sets `eventMode` per
+     * frame from `seat.isYou`, so an enemy tile is inert and there is nothing to spoof by clicking.
+     * That gating is also what let the label drop its `(you)` marker — the clickable tile IS the
+     * marker.
+     */
+    cell.on('pointertap', () => {
+      if (cell.eventMode === 'static') onSeatClick?.(i);
+    });
     container.addChild(cell);
-    cells.push({ cell, bg, label, glyph, readyTick, occupied: false, animKind: null, animStartMs: 0 });
+    cells.push({ cell, banner, bg, label, glyph, readyTick, wantRace: null, occupied: false, animKind: null, animStartMs: 0 });
   }
 
   // S85 P4c — per-frame cosmetic animation pass. Cheap no-op when no cell is
@@ -183,6 +250,24 @@ export function makeSeatRack(): SeatRackHandle {
   Ticker.shared.add(() => {
     const now = performance.now();
     for (const c of cells) {
+      /*
+       * ⭐ S161 P6 — ADOPT A BANNER THAT ARRIVED AFTER THE LAST `update()`.
+       *
+       * ⚠ THIS IS THE BUG THE FIRST CAPTURE CAUGHT. `update()` runs only when the lobby STATE
+       * changes — a join, a leave, a presence beacon — while `bannerTexture` returns null on its
+       * first call and resolves milliseconds later. On a host sitting alone in a fresh room there is
+       * no further state change, so the texture landed in the cache and nothing ever applied it: the
+       * tile kept the flat swatch and looked exactly like the pre-S161 rack. `GathererRenderer` has
+       * no equivalent problem because its `sync` runs every frame; this rack does not, so the poll
+       * belongs here — in the ticker it already runs for the join/leave animations.
+       */
+      if (c.wantRace !== null && !c.banner.visible && bannerTexture(c.wantRace) !== null) {
+        // ⛔ RE-RUN THE WHOLE PROJECTION, don't just assign the texture. The colour swatch is drawn
+        // OVER the banner and its alpha depends on whether a banner is present (opaque without one,
+        // a 0.22 wash with one) — so patching the sprite alone would leave a solid swatch sitting on
+        // top of the art and the tile would look exactly as broken as before.
+        if (lastSeats !== null) update(lastSeats);
+      }
       if (c.animKind === null) continue;
       const pose = seatAnimPose(c.animKind, now - c.animStartMs);
       c.cell.alpha = pose.alpha;
@@ -192,6 +277,7 @@ export function makeSeatRack(): SeatRackHandle {
   });
 
   function update(seats: readonly SeatView[]): void {
+    lastSeats = seats;
     for (let i = 0; i < cells.length; i++) {
       const seat = seats[i];
       const c = cells[i];
@@ -206,19 +292,31 @@ export function makeSeatRack(): SeatRackHandle {
       if (nowOccupied) {
         // S82 P5 — style + label derivation through the exported pure helpers.
         const style = seatCellStyle(seat.color, seat.isYou);
+        // ⭐ S161 P6 — the banner replaces the flat fill; the colour survives as a wash over it.
+        c.wantRace = seat.raceId ?? null;
+        const tex = seat.raceId !== undefined ? bannerTexture(seat.raceId) : null;
+        c.banner.visible = tex !== null;
+        if (tex !== null) c.banner.texture = tex;
         bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).fill({
           color: seat.color,
-          alpha: style.fillAlpha,
+          alpha: tex !== null ? SWATCH_OVER_BANNER_ALPHA : style.fillAlpha,
         });
         bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).stroke({
           width: style.strokeWidth,
           color: style.strokeColor,
           alpha: style.strokeAlpha,
         });
-        label.text = seatLabelText(i, seat.isHost, seat.isYou);
+        label.text = seatRaceLabel(i, seat.isHost, seat.raceId);
         label.visible = true;
         glyph.visible = false;
+        // Only your own occupied seat accepts a click (see the handler's docblock).
+        c.cell.eventMode = seat.isYou ? 'static' : 'none';
+        c.cell.cursor = seat.isYou ? 'pointer' : 'default';
       } else {
+        c.wantRace = null;
+        c.banner.visible = false;
+        c.cell.eventMode = 'none';
+        c.cell.cursor = 'default';
         bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).stroke({
           width: 2,
           color: EMPTY_OUTLINE,

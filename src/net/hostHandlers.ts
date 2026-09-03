@@ -38,7 +38,8 @@ import { stampOrReject } from './intentStamp.ts';
 import type { IntentRateLimiter } from './intentRateLimiter.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
-
+
+import type { RaceId } from '../state/races.ts';
 /**
  * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
  * host (hostHandlers.ts) and joiner (clientHandlers.ts) wire the same
@@ -391,11 +392,49 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         broadcastQmPresence(deps.session, transport, deps.onPresence);
         maybeQmAutoBegin(deps.session, deps.onAutoBegin);
       }
+      /*
+       * ⭐ S161 P6 (owner) — A JOINER PICKS ITS RACE. Host-authoritative, one race per player.
+       *
+       * ⛔ RECORDED AGAINST THE TRANSPORT peerId, never anything the message claims — the
+       * `LOBBY_READY` arm above and INTENT seat-stamping take the same posture, and it is what makes
+       * "a peer can only ever claim for itself" true by construction rather than by validation.
+       *
+       * ⚠ THE BROADCAST IS NOT OPTIONAL AND IT IS NOT AUTOMATIC. Presence otherwise fires only from
+       * `onPeerChange`, so without this call the host would record the claim and NOBODY would be
+       * told — the claimer's own rack would sit on its old colour until the next join or leave
+       * happened to shake a beacon loose. It is also how a REFUSED claim corrects the claimer: there
+       * is no reply message, so the presence beacon carrying the host's unchanged view IS the "no".
+       */
+      if (msg.kind === 'CLAIM_RACE' && deps.world.gameState === 'LOBBY') {
+        if (raceIsFree(deps.session, msg.raceId, peerId)) {
+          deps.session.raceByPeer.set(peerId, msg.raceId);
+        }
+        broadcastQmPresence(deps.session, transport, deps.onPresence);
+      }
       // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
       // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
     });
     return code;
   };
+}
+
+
+/**
+ * ⭐ S161 P6 — IS THIS RACE AVAILABLE TO `claimant`? Host-side arbitration, one race per player
+ * (R110). Exported so `hostHandlers.test.ts` can drive it without a transport, and so the lobby UI
+ * can grey out a taken tile using THE SAME predicate the host will judge the claim by — a picker
+ * that offers a race the host then refuses is the "surface says yes, reducer says no" defect this
+ * codebase calls out at `footerBandModel.ts`.
+ *
+ * ⚠ RE-CLAIMING YOUR OWN CURRENT RACE IS FREE (`holder === claimant`), so a double-click is a no-op
+ * rather than a refusal.
+ */
+export function raceIsFree(session: NetSession, raceId: RaceId, claimant: string): boolean {
+  if (session.selfRace === raceId) return false; // the host holds it
+  for (const [peer, held] of session.raceByPeer) {
+    if (held === raceId && peer !== claimant) return false;
+  }
+  return true;
 }
 
 export interface BeginMatchDeps {
@@ -440,7 +479,14 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // byte-identical to the preview when no hole persisted to Begin. hostSeats freezes
     // from the DENSE roster so anti-spoof intent stamping keys peerId→in-game seat.
     deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, allPeers);
-    const roster = buildMatchRoster(deps.session.lobbySeats, selfId);
+    // ⭐ S161 P6 — the lobby's claims become the MATCH's races. `buildMatchRoster` reads them by
+    // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
+    const roster = buildMatchRoster(
+      deps.session.lobbySeats,
+      selfId,
+      deps.session.raceByPeer,
+      deps.session.selfRace ?? undefined,
+    );
     const seatedRemotes = roster.length - 1;
     if (allPeers.length > seatedRemotes) {
       console.warn(
