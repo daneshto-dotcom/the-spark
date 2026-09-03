@@ -502,6 +502,11 @@ export interface World {
    *   - actorBenched: intent rejected by the S86 P3 central dispatch-entry
    *     bench gate — the actor was benched (eaten / potato-bench) and the
    *     action type is 'deny' in BENCH_INTENT_POLICY (benchGate.ts)
+   *   - actorEliminated: intent rejected by the S161 P2 elimination gate — the
+   *     actor's castle has fallen (`castleHp <= 0`, owner R127) and the action
+   *     type is 'deny' in ELIMINATION_INTENT_POLICY (elimination.ts). Distinct
+   *     from actorBenched on purpose: a bench lifts, an elimination does not,
+   *     so the two policies differ and so must their counters.
    * Surfaced in debugOverlay (?debug=1) so 2-peer smoke tests can pinpoint
    * the rejection path in real time.
    */
@@ -514,6 +519,7 @@ export interface World {
       pickupPoopedTooFar: number;
       placeTargetMissing: number;
       actorBenched: number;
+      actorEliminated: number;
     };
     /**
      * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected

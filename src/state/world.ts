@@ -25,6 +25,7 @@
 import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_PEN, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { attackFifths } from './stats.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
+import { isEliminated, isEliminationDeniedIntent } from './elimination.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
@@ -445,6 +446,7 @@ export function makeWorld(rngSeed: number): World {
         pickupPoopedTooFar: 0,
         placeTargetMissing: 0,
         actorBenched: 0,
+        actorEliminated: 0,
       },
       territoryBlockRejects: 0,
       intentThrottled: 0,
@@ -482,6 +484,30 @@ export function dispatch(world: World, action: GameAction): World {
     if (actor !== undefined && isBenched(actor.benchedUntilTick, world.tick)) {
       world.diagnostics.raceRejects++;
       world.diagnostics.rejectReasons.actorBenched++;
+      return world;
+    }
+  }
+  /*
+   * ⭐ S161 P2 (owner R127) — THE ELIMINATION GATE, deliberately the S86 bench gate's twin.
+   *
+   * *"when a castle is destroyed a player cant gather anymore primitives so yes he is out!"* The
+   * same argument that put the bench here puts this here: an input-layer lock leaves the host
+   * applying a dead seat's remote intents verbatim, and per-verb enumeration drifts. ONE choke
+   * point, covering local input, optimistic joiner prediction and remote intents alike.
+   *
+   * ⚠ SECOND, NOT MERGED WITH THE BENCH CLAUSE. The two policies genuinely differ — the bench
+   * ALLOWS standing orders because it lifts, and elimination denies them because it does not — so
+   * folding them into one lookup would force one of those two rulings to be wrong. See
+   * `elimination.ts`'s policy docblock.
+   *
+   * Pure fn of a synced field (`castleHp` rides the NetSnapshot), so optimistic and authoritative
+   * dispatch reject identically by construction.
+   */
+  if (isEliminationDeniedIntent(action.type) && 'playerId' in action) {
+    const actor = world.players.get(action.playerId);
+    if (actor !== undefined && isEliminated(actor)) {
+      world.diagnostics.raceRejects++;
+      world.diagnostics.rejectReasons.actorEliminated++;
       return world;
     }
   }

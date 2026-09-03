@@ -26,6 +26,7 @@ import { teardownGatherers } from './gatherers/gathererLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
+import { livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
 
@@ -73,12 +74,41 @@ export function tickGameState(
        * fairer one: whoever finishes a wounded castle should not out-rank the seat that did the work.
        * Flagged rather than silently chosen.
        */
-      const fallen = [...world.players.values()].filter((p) => p.castleHp <= 0);
-      if (fallen.length > 0) {
-        const survivors = [...world.players.values()].filter((p) => p.castleHp > 0);
-        const winnerId: PlayerId = survivors.length > 0 ? survivors[0]!.id : primaryPlayerId;
+      /*
+       * ⭐ S161 P2 (owner R127) — **LAST ONE STANDING**, replacing "the first castle to fall ends it
+       * for everyone".
+       *
+       * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but
+       * > he should stay as spectator until there is one player left!"*
+       *
+       * ⛔ WHAT THIS DELETES, AND WHY IT HAD TO GO. The old rule awarded the win to `survivors[0]` —
+       * the first entry of a `[...world.players.values()]` filter, i.e. **`Map` insertion order**. In
+       * a 1v1 that is right by accident, because there is exactly one survivor. In any FFA it is the
+       * S155 N1 defect (`Map` order silently deciding an outcome) sitting on the match result itself:
+       * three seats alive, one castle falls, and the game ends handing victory to whichever of the
+       * two remaining seats happened to be inserted first.
+       *
+       * ⚠ THE ELIMINATION STAMP IS WRITTEN BEFORE THE WIN IS TESTED, always, even on the tick the
+       * match ends. `matchPlacings` derives 1st-4th from it (R10/R20), and a seat that fell on the
+       * final tick without a stamp would sort as a survivor and out-place the seat that actually won.
+       *
+       * ⚠ SOLO IS EXPLICITLY UNCHANGED. With one seat there is nobody to be "last standing", so a
+       * razed castle would otherwise leave a solo player in a match with no exit. One seat keeps the
+       * old behaviour verbatim — the fall ends it — and `gameState.test.ts` pins that separately from
+       * the multi-seat rule so a future edit cannot collapse the two.
+       */
+      markFallenSeats(world);
+      const living = livingSeats(world);
+      const soloBoard = world.players.size <= 1;
+      const fallenCount = world.players.size - living.length;
+      if (fallenCount > 0 && (soloBoard || living.length <= 1)) {
+        // With ≥2 seats the winner is the ONE seat still alive. A zero-survivor board (a
+        // simultaneous wipe) has no such seat, and neither does solo — both fall back to the
+        // primary, which is the old behaviour for the only cases that ever reached it.
+        const winnerId: PlayerId = !soloBoard && living.length === 1 ? living[0]! : primaryPlayerId;
         console.info(
           `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
+            `placings=${matchPlacings(world).map((id) => `P${(id as number) + 1}`).join('>')} | ` +
             [...world.players.values()].map((p) => `P${(p.id as number) + 1}:${p.castleHp}hp`).join(' '),
         );
         // Same exit the score gate uses — one WIN path, so the dwell timer, the banner and every

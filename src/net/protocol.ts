@@ -473,7 +473,28 @@ export type { NetSnapshot };
  * only seat 0), so the claim message has to follow the `LOBBY_READY` precedent as a top-level
  * `NetMessage` kind. That ships with the selection UI, and it will carry its own bump.
  */
-export const PROTOCOL_VERSION = 39 as const;
+// S161 P2 — bumped 39->40: SEAT ELIMINATION. The match no longer ends on the first castle to fall.
+/*
+ * ⭐ S161 P2 — BUMPED 39 → 40: **LAST ONE STANDING** (owner R127).
+ *
+ * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
+ * > should stay as spectator until there is one player left!"*
+ *
+ * ⛔ THE BUMP IS FOR THE RULE, NOT FOR THE FIELD, and that is what makes it unusual on this list.
+ * `SerializedPlayer.eliminatedAtTick` is additive-optional and carries only the ELIMINATION ORDER
+ * (R10/R20's placings); on its own it would be a `raidProgress`-class field and would not have
+ * earned a bump. What earns it is `tickGameState`: a v39 peer ends the match the instant ANY castle
+ * reaches zero, while a v40 host plays on with two seats still alive. Both peers run that function
+ * (`main.ts:2132`), so the two would sit in different `gameState`s for the rest of the match — one
+ * showing a winner, one still playing.
+ *
+ * ⚠ THAT IS THE `castleHp` PRECEDENT WITH THE SIGN REVERSED. 32→33 was bumped because *"a stale
+ * peer would keep playing a match the host has already ended"*; this is a stale peer ENDING a match
+ * the host is still running. Same divergence, opposite direction, same answer — refuse at HELLO.
+ *
+ * ⚠ Still deliberately NOT in this bump: `CLAIM_RACE`, for the reason given above.
+ */
+export const PROTOCOL_VERSION = 40 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -651,6 +672,12 @@ export interface HelloMsg {
    * the key, falls back to its own default, and paints every castle a different colour from the host
    * for the whole match with nothing red — colour is not hashed.)
    *
+   * S161 P2: 39->40 (SEAT ELIMINATION — owner R127. `SerializedPlayer.eliminatedAtTick`, additive-
+   * optional and emitted only once a seat is out — but the bump is for the RULE, not the field:
+   * `tickGameState` no longer ends the match on the first castle to fall, so a v39 peer would
+   * declare a winner and stop while a v40 host plays on with two seats alive. The 32->33 break with
+   * the sign reversed.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -688,7 +715,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 39;
+  readonly protoVersion: 40;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

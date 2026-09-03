@@ -42,6 +42,7 @@ import { asSparkId } from '../../types.ts';
 import { spendScore } from '../gameMode.ts';
 import type { World } from '../worldTypes.ts';
 import { castleAnchor, gathererSpeed, makeGatherer, type Gatherer } from './gatherer.ts';
+import { isEliminated } from '../elimination.ts';
 
 export interface BuyGathererAction {
   readonly type: 'BUY_GATHERER';
@@ -451,6 +452,24 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
   // (R6/R12) and are released by `releaseShelteredGatherers` at the next BUILD edge. Placed FIRST
   // so no later branch can move, retarget or re-cargo a unit that is supposed to be off the field.
   if (g.state === 'SHELTERED') return world;
+
+  /*
+   * ⭐ S161 P2 (owner R127) — **THE ECONOMY GATE. THIS LINE IS THE RULING.**
+   *
+   * *"when a castle is destroyed a player cant gather anymore primitives so yes he is out!"*
+   *
+   * ⛔ IT HAS TO BE HERE AND NOT ONLY AT THE DISPATCH GATE. `GATHERER_TICK` is HOST-INTERNAL — it is
+   * not in `CLIENT_INTENT_TYPES`, so `elimination.ts`'s policy never sees it. A dead seat's haulers
+   * would have gone right on walking to the quarry and filling a bank nobody can spend, and the
+   * owner's own stated mechanic would have been the one thing elimination did not do.
+   *
+   * ⚠ THE UNITS ARE NOT DESTROYED, they simply stop. Removing them would mean reaping entities that
+   * other families hold ids into, and R127 does not ask for it — it asks that the seat stop earning.
+   * What happens to a fallen seat's standing towers and creatures is a SEPARATE owner question,
+   * filed rather than guessed at.
+   */
+  const owner = world.players.get(g.ownerPlayerId);
+  if (owner !== undefined && isEliminated(owner)) return world;
 
   if (g.state === 'HAULING') {
     const carried = g.carriedSparkId !== null ? world.freeSparks.get(g.carriedSparkId) : undefined;

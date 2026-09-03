@@ -209,6 +209,7 @@ export function createDebugOverlay(): DebugOverlayHandle {
       `  pickupPoopedTooFar:  ${rr.pickupPoopedTooFar}`,
       `  placeTargetMissing:  ${rr.placeTargetMissing}`,
       `  actorBenched:        ${rr.actorBenched}`,
+      `  actorEliminated:     ${rr.actorEliminated}`,
       `  territoryBlock:      ${world.diagnostics.territoryBlockRejects}`,
       ``,
       `=== TERRITORY (S49 Sym F) ===`,

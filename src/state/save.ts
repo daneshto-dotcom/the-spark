@@ -452,6 +452,20 @@ interface SerializedPlayer {
    * side. Refusing the peer outright is the safe failure.
    */
   raceId?: RaceId;
+  /**
+   * ⭐ S161 P2 (owner R127) — the tick this seat's castle fell; the ELIMINATION ORDER, from which
+   * R10/R20's 1st-4th placings are derived. Additive-optional and emitted only once set, so a board
+   * where nobody has been eliminated stays **byte-identical** to a v39 snapshot.
+   *
+   * ⛔ IT STILL EARNS 39->40, and for a sharper reason than `raceId`'s. The bump is not really about
+   * THIS FIELD at all — it is about the WIN RULE that reads it. `tickGameState` no longer ends the
+   * match on the first castle to fall, and both peers run it (`main.ts:2132`). A v39 peer would
+   * therefore declare a winner and stop playing while a v40 host runs on with two seats still alive.
+   * That is the precedent `castleHp` set at 32->33: *"a NEW VICTORY CONDITION in tickGameState: a
+   * stale peer would keep playing a match the host has already ended"* — this is the same break with
+   * the sign reversed.
+   */
+  eliminatedAtTick?: number;
   raidProgress?: number;
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
@@ -1613,6 +1627,10 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // the same defect shape the `raidPoints` comment above was written for.
       raceId: isRaceId(p.raceId) ? p.raceId : defaultRaceForSeat(p.id as unknown as number),
       raidProgress: p.raidProgress ?? 0,
+      // ⭐ S161 P2 — READ FROM THE WIRE, and note there is no `?? 0`: `undefined` is the MEANING
+      // here ("this seat is still in the match"), not a missing value to be defaulted. Coercing it
+      // to 0 would mark every living player as having been eliminated on tick zero.
+      eliminatedAtTick: p.eliminatedAtTick,
       // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
       benchedUntilTick: p.benchedUntilTick,
       // S72 P3 — rehydrate the carried potato slot; undefined for pre-S72-P3 saves.
@@ -1784,6 +1802,9 @@ function serializePlayer(p: Player): SerializedPlayer {
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
+    // S161 P2 — emit the elimination stamp only once a seat is actually out, so a live board stays
+    // byte-identical to v39. `save.test.ts` asserts that byte-identity.
+    ...(p.eliminatedAtTick !== undefined ? { eliminatedAtTick: p.eliminatedAtTick } : {}),
     // S82 P1 — emit the cruiser-slow debuff fields only when set (byte-identical pre-S82).
     ...(p.poopedUntilTick !== undefined
       ? { poopedUntilTick: p.poopedUntilTick }

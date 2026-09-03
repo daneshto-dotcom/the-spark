@@ -57,6 +57,27 @@ interface PlayerCommon {
    */
   castleHp: number;
   /**
+   * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
+   *
+   * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
+   * > should stay as spectator until there is one player left!"*
+   *
+   * ⛔ THIS IS NOT THE ELIMINATION FLAG — `castleHp <= 0` IS. Read `state/elimination.ts` before
+   * using this field for anything. A second boolean saying what `castleHp` already says is a second
+   * thing that can go stale, and it would be the one nothing else reads (`castleGuns.ts` and the win
+   * gate both test the HP directly). What this field carries is the one thing the HP number cannot:
+   * the ORDER seats went out in, which is what R10/R20's 1st–4th placings are derived from.
+   *
+   * ⚠ WRITE-ONCE, HOST-ONLY, via `markFallenSeats`. Overwriting it each tick would collapse every
+   * placing to "everyone died at the end"; writing it on a client would let two peers disagree about
+   * who lost first.
+   *
+   * ⚠ SERIALIZED BUT NOT HASHED, and additive-optional — emitted only once set, so every
+   * pre-existing save still loads. It follows `benchedUntilTick`'s shape exactly (an optional tick
+   * stamp whose absence means "never"), which is also why it needs no default in `makeIdlePlayer`.
+   */
+  eliminatedAtTick?: number;
+  /**
    * ⭐ W1-A (S160) — **WHO THIS SEAT IS.** The race, and therefore the castle art, the unit its
    * castle emits, and the one race tower it may build. `SPARK_RACES_SPEC.md` §4 is the authority.
    *
@@ -223,6 +244,11 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // player picked up or dropped a spark. tsc catches it because the field is required — the
     // line goes in anyway, because the two fields above are here for exactly the same reason.
     raceId: player.raceId,
+    // ⛔ S161 P2 — AND THE FOURTH, AND THIS ONE tsc CANNOT CATCH. `eliminatedAtTick` is
+    // additive-OPTIONAL, so omitting it here compiles cleanly and silently UN-ELIMINATES a seat
+    // the moment its spectating player drops the spark it happened to be holding when its castle
+    // fell. The three fields above are required and would have gone red; this one would not.
+    eliminatedAtTick: player.eliminatedAtTick,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
@@ -267,6 +293,11 @@ export function drop(player: Player): IdlePlayer {
     // player picked up or dropped a spark. tsc catches it because the field is required — the
     // line goes in anyway, because the two fields above are here for exactly the same reason.
     raceId: player.raceId,
+    // ⛔ S161 P2 — AND THE FOURTH, AND THIS ONE tsc CANNOT CATCH. `eliminatedAtTick` is
+    // additive-OPTIONAL, so omitting it here compiles cleanly and silently UN-ELIMINATES a seat
+    // the moment its spectating player drops the spark it happened to be holding when its castle
+    // fell. The three fields above are required and would have gone red; this one would not.
+    eliminatedAtTick: player.eliminatedAtTick,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
