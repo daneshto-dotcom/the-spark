@@ -39,7 +39,7 @@ import type { IntentRateLimiter } from './intentRateLimiter.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
 
-import type { RaceId } from '../state/races.ts';
+import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 /**
  * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
  * host (hostHandlers.ts) and joiner (clientHandlers.ts) wire the same
@@ -430,10 +430,41 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
  * rather than a refusal.
  */
 export function raceIsFree(session: NetSession, raceId: RaceId, claimant: string): boolean {
-  if (session.selfRace === raceId) return false; // the host holds it
-  for (const [peer, held] of session.raceByPeer) {
-    if (held === raceId && peer !== claimant) return false;
+  // ⭐ S162 P2 (OF-1) — **A SEAT THAT NEVER PICKED STILL OCCUPIES ITS DEFAULT RACE.**
+  //
+  // The old body knew only about CLAIMS, so with the host still unpicked (`selfRace === null`) a
+  // joiner could claim seat 0's default and two seats would share a race — and therefore a COLOUR,
+  // which is how seven recipe resolvers identify a tower's owner (`p.color === anchorPrim.placerColor`
+  // at pentagram.ts and six siblings). Two seats on one colour hands every such tower to whichever
+  // is first in `Map` order.
+  //
+  // ⚠ THE FINDING AS INHERITED WAS HALF WRONG, AND THE OTHER HALF MATTERED. It also claimed the
+  // lobby's taken-set was defective. It is not: `lobbyView` already resolves an absent `raceId` to
+  // `defaultRaceForSeat(i)` on BOTH of its paths (lobbyStateMachine's roster branch and its
+  // count-based fallback), so the picker greys the right tiles today. Only THIS predicate — the
+  // host's wire authority — was wrong, which drops the exposure from "happens in normal play" to
+  // "reachable by any peer that sends CLAIM_RACE without going through the UI", i.e. a stale build or
+  // a hand-made message. Still worth closing: this function IS the authority, and `botSetupOverlay`
+  // already counted effective races correctly.
+  //
+  // ⛔ `claimant === selfId` SKIPS THE HOST CHECK, so the host's own pick is never refused by its
+  // own occupancy. Without that, a host whose `selfRace` is still null could not pick vampires — the
+  // very race its tile is already showing.
+  if (claimant !== selfId && (session.selfRace ?? defaultRaceForSeat(0)) === raceId) return false;
+
+  // Every SEATED peer occupies its claim, or its seat's default when it never chose.
+  for (const [peer, seat] of session.lobbySeats) {
+    if (peer === claimant) continue;
+    if ((session.raceByPeer.get(peer) ?? defaultRaceForSeat(seat)) === raceId) return false;
   }
+
+  // ⚠ AND A CLAIM CAN ARRIVE BEFORE A SEAT. `raceByPeer` is written by this handler while
+  // `lobbySeats` is written by the join/leave reconcile, so a peer mid-join can have an entry in one
+  // and not the other. Redundant for seated peers by construction; load-bearing for the rest.
+  for (const [peer, held] of session.raceByPeer) {
+    if (peer !== claimant && held === raceId) return false;
+  }
+
   return true;
 }
 

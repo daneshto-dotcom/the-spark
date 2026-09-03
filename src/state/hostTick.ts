@@ -39,6 +39,7 @@ import {
   DRONE_EMIT_INTERVAL_TICKS,
   HUNTER_TRIGGER_SCORE,
   PEER_DROP_BENCH_TICKS,
+  PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
   phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
@@ -415,7 +416,17 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT') {
     tickScoring(world);
   }
-  tickGameState(world, deps.gameStateExtras, P1);
+  // ⭐ S162 P4 (OF-2) — the host is the only party that knows who is absent, so it is the only party
+  // that passes this. Reads the SAME `peerAbsentSinceTick` clock the drop-bench sweep below keeps, so
+  // the two can never disagree about who is gone, and both self-heal on the peer's first present tick.
+  tickGameState(world, deps.gameStateExtras, P1, (seat) => {
+    for (const [peerId, s] of deps.hostSeats) {
+      if (s !== seat) continue;
+      const since = state.peerAbsentSinceTick.get(peerId);
+      return since !== undefined && world.tick - since >= PEER_DROP_FORFEIT_TICKS;
+    }
+    return false; // the host's own seat, or a seat with no peer — never absent
+  });
 
   // S94 — NONET trigger sweep (host-only, once/match): a connected component of EXACTLY 9
   // shapes of ONE type summons the trial. Per-tick sweep (cheap — comparable to tickScoring's

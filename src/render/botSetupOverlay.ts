@@ -159,7 +159,15 @@ export class BotSetupOverlay {
     this.container.addChild(close);
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.visible) this.callbacks.onClose();
+      if (e.key !== 'Escape' || !this.visible) return;
+      // ⭐ S162 — INNERMOST MODAL FIRST. With the race menu up, Escape means "close the menu", not
+      // "abandon bot setup". Handled in one listener rather than two so the outcome cannot depend on
+      // registration order.
+      if (this.racePicker.isOpen()) {
+        this.racePicker.close();
+        return;
+      }
+      this.callbacks.onClose();
     });
 
     if (import.meta.env.DEV) {
@@ -194,6 +202,9 @@ export class BotSetupOverlay {
   getState?: () => { botCount: number; difficulties: readonly BotDifficulty[] };
 
   setVisible(visible: boolean): void {
+    // ⭐ S162 P3 (MED-3) — the picker mounts inside this container; without this it stayed flagged
+    // visible and reappeared over the overlay the next time it was opened. Same defect as lobbyScreen.
+    if (!visible) this.racePicker.close();
     if (visible) {
       // S22 codexOverlay pattern — this overlay is constructed BEFORE
       // titleScreen in boot order, so re-addChild moves it topmost.

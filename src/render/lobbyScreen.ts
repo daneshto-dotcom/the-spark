@@ -272,6 +272,15 @@ export class LobbyScreen {
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
     this.racePicker = makeRacePicker((raceId) => callbacks.onPickRace(raceId));
+    // ⭐ S162 (CF-S161-d) — ESCAPE CLOSES THE MENU. It was mouse-only: the scrim swallows every
+    // click, so with the menu up the BACK TO MAIN button could not even be reached — a keyboard user
+    // had no way out at all. Nothing competes for this key in the lobby: main.ts's leave gesture is
+    // gated on `world.gameState === 'PLAYING'` and every other Escape listener is scoped to its own
+    // overlay. Checked here rather than inside `makeRacePicker` so the bot-setup overlay's picker
+    // keeps ITS own layering (below) instead of two listeners racing over one keypress.
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isShown && this.racePicker.isOpen()) this.racePicker.close();
+    });
 
     // S69 P2 — "Room N/6" (+ FULL) count line, below the rack, in-room only.
     this.countText = new Text({
@@ -540,6 +549,14 @@ export class LobbyScreen {
   }
 
   setVisible(visible: boolean): void {
+    // ⭐ S162 P3 (MED-3) — TAKE THE PICKER DOWN WITH THE LOBBY. The menu mounts inside
+    // `this.container`, so hiding the lobby hid it too — but left `container.visible === true` on the
+    // picker itself, so the next time the lobby was shown the menu was ALREADY OPEN over it.
+    //
+    // ⚠ Reachable without any user action: `main.ts` calls `setVisible(showLobby)` every frame, so a
+    // quickmatch auto-begin (or a migration, or a connection loss) can hide the lobby while the menu
+    // is up. Nobody has to press anything.
+    if (!visible) this.racePicker.close();
     this.container.visible = visible;
     this.isShown = visible;
     this.updateInputVisibility();

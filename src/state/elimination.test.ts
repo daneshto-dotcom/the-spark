@@ -420,3 +420,91 @@ describe('the elimination stamp crosses the wire and the disk', () => {
     expect(livingSeats(peer)).toEqual([P(0), P(1)]);
   });
 });
+
+/**
+ * ⭐ S162 P4 (OF-2) — **A DROPPED PEER'S INTACT CASTLE USED TO BLOCK THE MATCH FROM ENDING.**
+ *
+ * `livingSeats` filters on `castleHp <= 0` alone, so a seat whose peer simply vanished counted as a
+ * living contender forever. After R127 removed the first-castle-ends-it exit, the survivors had to
+ * raze an absent player's keep — which was still shooting back — before anyone could win. A new way
+ * for a match to HANG, opened by fixing something else.
+ *
+ * ⛔ THE PREDICATE IS HOST-ONLY AND OPTIONAL, and these tests pin both halves of that: passing it
+ * subtracts a contender, and OMITTING it must reproduce the old behaviour byte for byte — because
+ * `main.ts`'s client call omits it, and a client that reached a different verdict than the host
+ * would be a divergence.
+ */
+describe('S162 P4 (OF-2) — an absent peer stops blocking the last-one-standing win', () => {
+  it('⛔ CONTROL — with NO predicate the match still hangs, which is the bug as reported', () => {
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 2); // one castle down; seat 1's peer has "left" but its castle stands
+    tickGameState(w, ex, P(0));
+    expect(w.gameState).toBe('PLAYING'); // two "living" seats — nobody can win
+  });
+
+  it('⭐ with the host predicate the SURVIVOR wins, and it is not primaryPlayerId by luck', () => {
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 2);
+    tickGameState(w, ex, P(0), (seat) => seat === P(1)); // seat 1's peer is long gone
+    expect(w.gameState).toBe('WIN');
+    expect(w.lastWinnerId).toBe(P(0));
+  });
+
+  it('⭐ …and the same board awards it to seat 1 when it is seat 0 that vanished', () => {
+    // Anti-vacuity: proves the winner tracks the predicate rather than falling back to seat 0,
+    // which is `primaryPlayerId` here and would pass the test above for the wrong reason.
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 2);
+    tickGameState(w, ex, P(0), (seat) => seat === P(0));
+    expect(w.gameState).toBe('WIN');
+    expect(w.lastWinnerId).toBe(P(1));
+  });
+
+  it('⛔ an absence ALONE never ends a match — no castle has fallen, so this is abandonment', () => {
+    // `fallenCount` is deliberately derived from `living`, not from `contenders`. Ending a 1v1 the
+    // moment the opponent's connection blinked would be a game-design decision nobody has ruled on.
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    tickGameState(w, ex, P(0), (seat) => seat === P(1) || seat === P(2));
+    expect(w.gameState).toBe('PLAYING');
+  });
+
+  it('an absent seat is NOT eliminated — it keeps its castle, its HP and no stamp', () => {
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 2);
+    tickGameState(w, ex, P(0), (seat) => seat === P(1));
+    const gone = w.players.get(P(1))!;
+    expect(gone.castleHp).toBe(CASTLE_MAX_HP);
+    expect(gone.eliminatedAtTick).toBeUndefined(); // it left; it was never destroyed
+    expect(livingSeats(w)).toContain(P(1)); // `living` is untouched, only `contenders` shrank
+  });
+
+  it('a predicate that says nobody is absent behaves exactly like omitting it', () => {
+    const withNone = boardOf(3);
+    const withOmit = boardOf(3);
+    const exA = makeGameStateExtras();
+    const exB = makeGameStateExtras();
+    raze(withNone, 2);
+    raze(withOmit, 2);
+    tickGameState(withNone, exA, P(0), () => false);
+    tickGameState(withOmit, exB, P(0));
+    expect(withNone.gameState).toBe(withOmit.gameState);
+    expect(withNone.lastWinnerId).toBe(withOmit.lastWinnerId);
+  });
+
+  it('⭐ a still-standing absent seat cannot WIN either — it is subtracted, not favoured', () => {
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 0);
+    raze(w, 1); // both present seats are dead; only the ABSENT seat 2 still has a castle
+    tickGameState(w, ex, P(0), (seat) => seat === P(2));
+    // contenders is empty, so this falls back to primaryPlayerId rather than crowning the peer who
+    // walked away. Pinned so a future edit cannot quietly hand a match to a disconnected player.
+    expect(w.gameState).toBe('WIN');
+    expect(w.lastWinnerId).toBe(P(0));
+  });
+});

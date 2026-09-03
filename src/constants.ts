@@ -2377,6 +2377,27 @@ export const STINK_TOWER_SPRITE_BASE_SCALE = 0.42;
 export const PEER_DROP_GRACE_TICKS = 3 * PHYSICS_HZ; // 3s of absence before benching (blip tolerance)
 export const PEER_DROP_BENCH_TICKS = 2 * PHYSICS_HZ; // rolling bench window; expiry = rejoin lag bound
 
+/**
+ * ⭐ S162 P4 (OF-2) — HOW LONG AN ABSENT PEER'S CASTLE CAN BLOCK THE MATCH FROM ENDING.
+ *
+ * `livingSeats` filters on `castleHp <= 0` alone, and a dropped peer keeps a full-HP castle. So
+ * after R127 removed the first-castle-ends-it exit, a seat that simply vanished left the survivors
+ * unable to win — they had to raze an absent player's keep, which was still shooting back. A new way
+ * for a match to HANG, opened by fixing something else.
+ *
+ * ⚠ THIS NUMBER IS MINE, NOT THE OWNER'S. 20s, reasoned from the two neighbours above rather than
+ * measured: it must be far longer than `PEER_DROP_GRACE_TICKS` (3s) so an ordinary network blip can
+ * never forfeit a castle, and short enough that the survivors are not left staring at a dead board.
+ * The drop-bench self-heals the instant the peer returns, and so does this — it reads the same
+ * `peerAbsentSinceTick` clock, which is cleared on the first present tick.
+ *
+ * ⛔ IT ONLY EVER SUBTRACTS A CONTENDER; it never awards a win on its own. `fallenCount > 0` still
+ * gates the whole check, so a 1v1 where the opponent merely disconnects (no castle destroyed) does
+ * NOT end — that is abandonment, a different rule, and inventing it here would be a silent
+ * game-design decision. Filed for the owner instead.
+ */
+export const PEER_DROP_FORFEIT_TICKS = 20 * PHYSICS_HZ;
+
 // === S89 P6 (G1b) — Vortex anchor-pull (the first MECHANICAL magic-combo behavior) ===
 // A Vortex (Dot→Spiral, its own table description: "Pulls nearby free sparks toward it") exerts a
 // capped attraction on nearby FREE sparks, host-side, once per physics tick (pulled positions ride

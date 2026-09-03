@@ -42,6 +42,22 @@ export function tickGameState(
   world: World,
   extras: GameStateExtras,
   primaryPlayerId: PlayerId,
+  /**
+   * ⭐ S162 P4 (OF-2) — HOST-ONLY. True when this seat's peer has been gone past
+   * `PEER_DROP_FORFEIT_TICKS`, so its intact castle must stop blocking the last-one-standing win.
+   *
+   * ⛔ PASSED BY THE HOST AND NOBODY ELSE, and that is what keeps this determinism-safe. Absence is
+   * host knowledge (`hostTick`'s `peerAbsentSinceTick`) and is NOT part of `world`, so a client that
+   * evaluated it would reach a different answer than the host — a divergence. Omitting the argument
+   * reproduces the pre-S162 behaviour EXACTLY, which is why `main.ts`'s client call is unchanged:
+   * per its own comment there, the client runs this only for local transitions and the authoritative
+   * WIN/POSTGAME edge arrives by snapshot.
+   *
+   * Adding a synced `offlineSinceTick` field to `Player` would be the alternative, and it would cost
+   * the four-sites treatment (factory + serialize + hash + worker) plus a protocol bump, to make a
+   * fact the host already knows travel to a peer that only needs the CONCLUSION.
+   */
+  isSeatOffline?: (seat: PlayerId) => boolean,
 ): GameState {
   switch (world.gameState) {
     case 'TITLE':
@@ -99,13 +115,23 @@ export function tickGameState(
        */
       markFallenSeats(world);
       const living = livingSeats(world);
+      // ⭐ S162 P4 (OF-2) — a seat whose peer has been absent past the forfeit window is no longer a
+      // CONTENDER for the win, even though its castle still stands. `living` itself is untouched:
+      // `matchPlacings` and the elimination stamps must keep counting it, because it was never
+      // eliminated — it left.
+      const contenders =
+        isSeatOffline === undefined ? living : living.filter((id) => !isSeatOffline(id));
       const soloBoard = world.players.size <= 1;
+      // ⚠ STILL DERIVED FROM `living`, NOT `contenders`. A departure is not a destroyed castle, so an
+      // absent seat must not satisfy "at least one castle has fallen" all by itself — otherwise a
+      // 1v1 disconnect would end the match, which is abandonment and nobody has ruled on it.
       const fallenCount = world.players.size - living.length;
-      if (fallenCount > 0 && (soloBoard || living.length <= 1)) {
+      if (fallenCount > 0 && (soloBoard || contenders.length <= 1)) {
         // With ≥2 seats the winner is the ONE seat still alive. A zero-survivor board (a
         // simultaneous wipe) has no such seat, and neither does solo — both fall back to the
         // primary, which is the old behaviour for the only cases that ever reached it.
-        const winnerId: PlayerId = !soloBoard && living.length === 1 ? living[0]! : primaryPlayerId;
+        const winnerId: PlayerId =
+          !soloBoard && contenders.length === 1 ? contenders[0]! : primaryPlayerId;
         console.info(
           `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
             `placings=${matchPlacings(world).map((id) => `P${(id as number) + 1}`).join('>')} | ` +

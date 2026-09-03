@@ -16,7 +16,7 @@ import { makeNetSession } from './session.ts';
 import { buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
 import { broadcastQmPresence } from './quickmatchGate.ts';
 import type { RosterEntry } from './protocol.ts';
-import type { NetTransport } from './transport.ts';
+import { selfId, type NetTransport } from './transport.ts';
 import { ALL_RACES, RACE_COLORS, defaultRaceForSeat } from '../state/races.ts';
 
 const sess = () => makeNetSession();
@@ -51,9 +51,45 @@ describe('the CLAIM_RACE wire shape', () => {
 });
 
 describe('raceIsFree — one race per player, host included', () => {
-  it('every race is free in an empty lobby', () => {
+  it('⭐ S162 P2 (OF-1) — a JOINER may take any race EXCEPT the host seat default', () => {
+    // ⚠ THIS CASE CHANGED MEANING, AND THE CHANGE *IS* THE FIX. It used to assert that every race
+    // was free to any claimant in an empty lobby — true only because `raceIsFree` could not see that
+    // seat 0 already OCCUPIES `defaultRaceForSeat(0)` while `selfRace` is still null. A joiner taking
+    // that race put two seats on one COLOUR, which is how seven recipe resolvers identify an owner.
+    // S161 reddened this case and ran out of budget before finishing it.
     const s = sess();
-    for (const r of ALL_RACES) expect(raceIsFree(s, r, 'anyone')).toBe(true);
+    const hostDefault = defaultRaceForSeat(0);
+    for (const r of ALL_RACES) expect(raceIsFree(s, r, 'JOINER'), r).toBe(r !== hostDefault);
+  });
+
+  it('⭐ the HOST may still take any race, including the one its own tile already shows', () => {
+    // Without the `claimant !== selfId` guard a host whose selfRace is null could not pick vampires.
+    const s = sess();
+    for (const r of ALL_RACES) expect(raceIsFree(s, r, selfId), r).toBe(true);
+  });
+
+  it('⛔ OF-1 — an UNPICKED PEER seat default is occupied too, not just the host seat', () => {
+    const s = sess();
+    s.lobbySeats.set('PEER-A', 1); // seated, never chose
+    expect(raceIsFree(s, defaultRaceForSeat(1), 'PEER-B')).toBe(false);
+    // …and PEER-A may still re-affirm the default it is already showing.
+    expect(raceIsFree(s, defaultRaceForSeat(1), 'PEER-A')).toBe(true);
+  });
+
+  it('a peer that HAS chosen RELEASES its seat default for someone else', () => {
+    const s = sess();
+    s.lobbySeats.set('PEER-A', 1);
+    s.raceByPeer.set('PEER-A', 'demons');
+    expect(raceIsFree(s, defaultRaceForSeat(1), 'PEER-B')).toBe(true); // seat 1's default is freed
+    expect(raceIsFree(s, 'demons', 'PEER-B')).toBe(false); // its actual pick is held
+  });
+
+  it('a claim that arrives BEFORE the seat reconcile is still honoured', () => {
+    // `raceByPeer` is written by the claim handler, `lobbySeats` by the join reconcile — a peer
+    // mid-join has an entry in one and not the other.
+    const s = sess();
+    s.raceByPeer.set('PEER-A', 'orcs');
+    expect(raceIsFree(s, 'orcs', 'PEER-B')).toBe(false);
   });
 
   it('a race held by another peer is refused', () => {

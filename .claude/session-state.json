@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4193,
+  "tool_calls_session_total": 4215,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -34,42 +34,54 @@
     {
       "id": "P0",
       "title": "TURN config sanitise+validate - end the live outage (RTCPeerConnection threw at construction)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
+      "check_method": "P0 VERIFIED LIVE IN A REAL BROWSER against https://spark-online.space after deploy. (1) live console printed \"[net] TURN configuration: the TURN settings looked pasted from a provider dashboard ... unwrapped automatically\" -> the shipped repair path executed. (2) reconstructed the OLD config in-page: threw SyntaxError verbatim matching the owner screenshot. (3) repaired config: CONSTRUCTED OK, gathered host:1 srflx:1 RELAY:1, iceErrors []. relay>0 is the FIRST working TURN relay measured in this project (S157 measured relay:0). (4) the real TEST CONNECTION button now reports \"Connection test passed - you can play with anyone / Found 1 relay route\". Gates: typecheck 0, vitest 3608/3608, e2e:gating 62 passed exit 0, build 778.6/900 KiB, verify-deploy PASS 4/4 with RELAY IS SHIPPED."
     },
     {
       "id": "P1",
       "title": "Race pick does not repaint - host presence rebuild with no transport",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
+      "check_method": "P1 VERIFIED LIVE: hosted room JLJPG8 on the deployed site, clicked the own-seat tile, picked DEMONS. Tile changed from \"P1 HOST (VAMPIRES)\" (crimson art) to \"P1 HOST (DEMONS)\" (magenta art), picker closed, and re-opening the picker showed DEMONS as YOURS -> the pick persisted through the roster path. 4 new unit tests in raceClaim.test.ts cover null-transport repaint, no seat-map wipe, the unclaimed raceId/color asymmetry, and unchanged wire behaviour with a transport."
     },
     {
       "id": "P2",
       "title": "OF-1 two seats can hold the same race+colour (7 recipe resolvers identify owners by colour)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P2 (OF-1) VERIFIED: raceIsFree now judges EFFECTIVE races (claimed ?? defaultRaceForSeat(seat)) for the host seat and every seated peer, plus a pre-reconcile raceByPeer pass. 5 new/rewritten cases in raceClaim.test.ts (20 pass). THE INHERITED FINDING WAS HALF WRONG: lobbyView already default-fills raceId on BOTH paths (lobbyStateMachine 374 roster + 393 count-fallback), so the picker greyed correctly all along and only the host wire authority was defective, dropping the exposure from \"normal play\" to \"a CLAIM_RACE that bypasses the UI\". Rewrote the case S161 reddened (\"every race is free in an empty lobby\"), whose meaning had to change because the fix is exactly that seat 0 occupies its default."
     },
     {
       "id": "P3",
       "title": "MED-3 picker reappears over the lobby - close() in setVisible(false)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P3 (MED-3) VERIFIED: setVisible(false) closes the race picker in BOTH lobbyScreen and botSetupOverlay. Reachable with no user action: main.ts calls setVisible(showLobby) every frame, so a quickmatch auto-begin/migration/connection-loss hides the lobby with the menu up. ALSO closed CF-S161-d (keyboard escape): Escape now closes the picker in the lobby, and in the bot overlay it closes the INNERMOST modal first (one listener, so the outcome cannot depend on registration order). Confirmed live that Escape previously did nothing and the scrim swallows every click, so the menu had no keyboard exit whatsoever."
     },
     {
       "id": "P4",
       "title": "OF-2 a dropped peer intact castle blocks the last-one-standing win",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P4 (OF-2) VERIFIED: tickGameState takes an OPTIONAL host-only isSeatOffline predicate; a seat absent past the new PEER_DROP_FORFEIT_TICKS (20s, MY number, reasoned at the constant) is subtracted from the win CONTENDERS while staying in livingSeats. No new serialized field and NO protocol bump: absence is host knowledge and the client already takes the authoritative WIN edge from snapshots (main.ts:2196). fallenCount stays derived from living, so an absence alone never ends a match; abandonment is a separate unruled rule, filed. 7 new cases in elimination.test.ts (40 pass), including an anti-vacuity case that flips which seat vanished and one pinning that a disconnected seat can never WIN."
     },
     {
       "id": "P5",
@@ -96,7 +108,52 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P0",
+      "lesson": "A WATCHDOG THAT SHARES THE WATCHED CODE’S BLIND SPOT IS NOT A WATCHDOG. turn-wiring-report.mjs existed specifically to catch a silent TURN misconfiguration and printed \"RELAY WILL BE SHIPPED\" for a build whose ICE config threw — because it asked \"is it set\" (v.trim()!==''), the same insufficient question as the code. When writing a guard, ask what QUESTION it asks, not whether it exists."
+    },
+    {
+      "priority": "P0",
+      "lesson": "READ THE ERROR TEXT LITERALLY. The screenshot quoted 'urls: \"turn:...\"' and the UI blamed a browser extension. Chrome quotes the WHOLE offending token, so the token itself was a JS object-literal fragment — the root cause was legible in the owner’s first message. The same-LAN failure was the tell: host candidates need no STUN and no TURN, so a failure there means CONSTRUCTION, not routing."
+    },
+    {
+      "priority": "P0",
+      "lesson": "DEGRADE, NEVER THROW, ON OPERATOR INPUT. A dead TURN server costs the hostile-NAT pairs; a MALFORMED one costs everybody, because new RTCPeerConnection rejects the whole config synchronously. Config parsed from a human paste must be validated and repaired, and must fall back to the last known-good posture (STUN-only) rather than propagating a value that can throw."
+    },
+    {
+      "priority": "P1",
+      "lesson": "A GUARD ON A HANDLE IS NOT A GUARD ON THE INTENT. onPickRace skipped the whole presence rebuild behind `session.netTransport !== null`, so the local repaint — which needs no transport at all — was lost together with the wire send. Split the two: make only the part that genuinely needs the resource conditional."
+    },
+    {
+      "priority": "P1",
+      "lesson": "MY OWN TEST CAUGHT MY OWN WRONG ASSUMPTION, AND THE CODE WAS RIGHT. Asserting seat 0 falls back to defaultRaceForSeat exposed that rosterEntryFor deliberately OMITS raceId when unclaimed (the §15.6 byte-identity contract) while always carrying the effective colour. Read the docblock before \"fixing\" a surprise."
+    },
+    {
+      "priority": "P2",
+      "lesson": "AN INHERITED FINDING IS A LEAD, NOT A VERDICT. OF-1 claimed BOTH the lobby taken-set and raceIsFree were wrong. lobbyStateMachine lines 374/393 already default-fill raceId on both paths, so the picker was correct and only the host-side wire authority was not — which also drops the severity from \"two crimson castles in normal play\" to \"reachable only off-UI\". Verify the claim before writing the fix it asks for."
+    },
+    {
+      "priority": "P0",
+      "lesson": "I OVERWROTE session-state.json’s `priorities` array (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) without reading the target first, and only caught it from a -404 line diffstat just before committing. Recovered verbatim from `git show HEAD:.claude/session-state.json`. Look at what you are about to overwrite, especially in an append-only ledger."
+    },
+    {
+      "priority": "P0",
+      "lesson": "AN UNQUOTED HEREDOC RAN MY PROSE AS SHELL. Writing these very entries with `<<PYEOF` instead of `<<'PYEOF'` made bash treat every backtick span in the lesson text as a command substitution: three commands failed with \"command not found\" and their EMPTY output was spliced into the Python source, silently deleting words from two entries. Caught only because the project rule says every non-zero exit is a finding until ruled benign — it was not benign, it was data loss. ⛔ Quote the heredoc unless a variable genuinely needs expanding; if one does, pass it via argv or an env var rather than unquoting the whole document."
+    },
+    {
+      "priority": "P3",
+      "lesson": "A CHILD THAT MOUNTS INSIDE A PARENT CONTAINER STILL NEEDS ITS OWN TEARDOWN. Hiding the parent hid the picker visually but left its own visible flag true, so it was already open the next time the parent appeared. \"It is inside the container so setVisible takes it down\" was true of the pixels and false of the state."
+    },
+    {
+      "priority": "P4",
+      "lesson": "PUT THE DECISION WHERE THE KNOWLEDGE ALREADY IS. The tempting fix for OF-2 was a synced offlineSinceTick on Player (four sites plus a protocol bump) to ship the host a fact it already had, for a peer that only needs the CONCLUSION. An optional host-only predicate cost one parameter and left the client path byte-identical, which is also what keeps it determinism-safe."
+    },
+    {
+      "priority": "P4",
+      "lesson": "WHEN A FIX COULD INVENT A GAME RULE, STOP AND FILE IT. Deriving fallenCount from contenders instead of living would have ended a 1v1 the moment the opponent blinked. That is abandonment, a design decision rather than a bug fix, so the guard stays and the question goes to the owner."
+    }
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -5058,5 +5115,23 @@
     "S161 CLOSE-OUT — THREE OF THIS SESSION'S OWN FEATURES CREATED THE FINDINGS THAT CLOSED IT. P2 (elimination) created the score-leak and the rematch brick; P6 (the race picker) created the duplicate-race hole because `raceIsFree` reasons about CLAIMS while an unclaimed seat still occupies its DEFAULT. All three are the same shape: a new mechanism reasoning over a NARROWER set than the one the game actually has. ⭐ When adding a chooser, ask what the un-chosen state already occupies."
   ],
   "reflexion_s161_archived_count": 20,
-  "state_recovery_s162": "S162 overwrote `priorities` (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) when staging its own priority list, WITHOUT reading the target first. Caught by the commit diffstat showing -404 lines, recovered verbatim from `git show HEAD:.claude/session-state.json` BEFORE the commit, and archived here as `priorities_s161_archived` / `reflexion_s161_archived`. Neither had ever been archived by S161 itself. Rule re-learned: look at what you are overwriting."
+  "state_recovery_s162": "S162 overwrote `priorities` (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) when staging its own priority list, WITHOUT reading the target first. Caught by the commit diffstat showing -404 lines, recovered verbatim from `git show HEAD:.claude/session-state.json` BEFORE the commit, and archived here as `priorities_s161_archived` / `reflexion_s161_archived`. Neither had ever been archived by S161 itself. Rule re-learned: look at what you are overwriting.",
+  "live_verification_s162": {
+    "url": "https://spark-online.space",
+    "live_asset": "index-CBNGPGsa.js",
+    "ice_probe": {
+      "host": 1,
+      "srflx": 1,
+      "relay": 1,
+      "iceErrors": [],
+      "verdict": "RELAY WORKS"
+    },
+    "old_config_error": "SyntaxError: Failed to construct 'RTCPeerConnection': 'urls: \"turn:global.relay.metered.ca:80\"' is not a valid stun or turn URL.",
+    "ui_test_connection": "Connection test passed - you can play with anyone. Found 1 relay route (plus 1 public and 1 local). Matchmaking: All 7 answered.",
+    "race_pick": "room JLJPG8 - VAMPIRES -> DEMONS, art+colour+label all changed, persisted on re-open",
+    "observed_side_findings": [
+      "matchmaking strip reads [nostr:7/7 torrent:1/2] - ONE OF THE TWO TORRENT TRACKERS IS DOWN. transport.ts passes redundancy: relayUrls.length, so a 2-entry list demands 2 working trackers and the strategy fails as a unit (the S159 P5 failure shape, recurring). Needs a probe-relays re-measure.",
+      "CF-S161-d CONFIRMED and WORSE than filed: Escape does not close the picker AND does not reach the lobby leave gesture while the picker is up - the modal can only be dismissed by mouse."
+    ]
+  }
 }
