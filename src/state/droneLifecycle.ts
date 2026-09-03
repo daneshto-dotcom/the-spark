@@ -21,10 +21,11 @@
 
 import type { World } from './world.ts';
 import { dispatch } from './world.ts';
-import type { BondId, CreatureId, SpawnerId, Vec2 } from '../types.ts';
+import type { BondId, CreatureId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import { bondMidpoint, isEnemyBond } from './creatures/creatureAI.ts';
 import {
   DRONE_ATK,
+  PLAYER_COLORS,
   DRONE_EXPLODE_RADIUS,
   DRONE_MAX_CONNECTORS,
   DRONE_MAX_GLOBAL,
@@ -81,10 +82,47 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
   const cx = drone.pos.x;
   const cy = drone.pos.y;
 
+  /*
+   * ⛔ S161 OPEN-2 (owner) — **A DRONE MUST NOT CUT A BOND THAT TOUCHES ITS OWNER'S OWN STRUCTURE.**
+   *
+   * Owner, playing: *"My own lightning drone destroyed his own tower when fight started and he
+   * spawned!"* Reproduced in `droneFriendlyFire.test.ts` before this line existed.
+   *
+   * `isEnemyBond` is an **OR** — `primA.placerColor !== ownerColor || primB.placerColor !== ownerColor`
+   * — so a MIXED bond, one end yours and one end theirs, reads as enemy. For a chewer gnawing at the
+   * seam between two empires that is the right reading. For the drone it is fatal: cutting a mixed
+   * bond changes the OWNER'S OWN topology, so the hub's star degree drops, its recipe breaks, and the
+   * recipe-break branch in `hostTick.ts` fires `STRUCTURE_SELFDESTRUCT`, which razes the hub's whole
+   * component. The player's own drone deletes the player's own tower.
+   *
+   * ⭐ AND THIS FUNCTION ALREADY DISAGREED WITH ITSELF. Thirty lines below, `applyRadialDamage` is
+   * called with `drone.ownerPlayerId` under the comment *"spares the side that sent it — the contract
+   * every area hazard here holds"*. The blast honoured owner-sparing and the sever beside it did not.
+   * This restores the contract to both halves rather than inventing a new rule.
+   *
+   * ⚠ BY COLOUR, THE SAME NOTION `isEnemyBond` USES — and the first attempt got this wrong. It
+   * tested `placedBy` (player id) to match the radial-damage call, and two shipped drone tests went
+   * red: `lightningDrone.test.ts` builds enemy prims with an enemy COLOUR while leaving `placedBy`
+   * defaulted to the owner (its own comment at :60 records that default), so an id-keyed guard
+   * spared genuinely-enemy bonds and disarmed the drone. Reading the same field the enemy test reads
+   * makes this an exact AND-tightening of that predicate rather than a second, disagreeing one.
+   *
+   * ⚠ THE DRONE IS NOT DISARMED: a wholly-enemy bond still severs, which both the shipped tests and
+   * `droneFriendlyFire.test.ts`'s control assert. What it can no longer do is cut a connector that
+   * touches its own side.
+   */
+  const ownerColor =
+    world.players.get(drone.ownerPlayerId)?.color
+    ?? PLAYER_COLORS[drone.ownerPlayerId as unknown as number];
+  const sparesOwn = (bond: { aId: PrimitiveId; bId: PrimitiveId }): boolean =>
+    world.primitives.get(bond.aId)?.placerColor !== ownerColor &&
+    world.primitives.get(bond.bId)?.placerColor !== ownerColor;
+
   // Collect candidate ENEMY bonds within radius (squared dist; reuse the locked isEnemyBond rule).
   const candidates: { bondId: BondId; dSq: number }[] = [];
   for (const [bondId, bond] of world.bonds) {
     if (!isEnemyBond(world, drone, bond)) continue;
+    if (!sparesOwn(bond)) continue; // ⛔ never a bond attached to the side that sent this drone
     const mid = bondMidpoint(bond);
     const dx = mid.x - cx;
     const dy = mid.y - cy;

@@ -51,6 +51,7 @@ import {
 import type { PlayerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
 
+import { isEliminated } from './elimination.ts';
 // Complexity weights derived from the per-element scoring weights so standing complexity
 // reproduces the old S9 accumulator for a finished tree (see constants.ts comment).
 const PRIM_WEIGHT = SCORE_ANCHOR; // 1 — every placed primitive is worth its anchor value
@@ -285,13 +286,35 @@ export function tickScoring(world: World): void {
   // as before; the per-tick cost drops from O(P×(prims+bonds)) to O(prims+bonds+P) on the host.
   const complexities = computeAllComplexities(world);
 
+  /*
+   * ⛔ S161 CLOSE-OUT (lane 1, CRITICAL) — **A FALLEN SEAT MUST NOT EARN, AND MUST NOT LEAD.**
+   *
+   * S161 P2 removed the early exit that used to end the match on the first castle to fall. That
+   * opened a hole nothing here was written for: an eliminated seat's TOWERS ARE DELIBERATELY LEFT
+   * STANDING (see the note in `gathererLifecycle.ts` — what happens to them is an open owner
+   * question), so they keep accruing complexity income every FIGHT tick. `world.scoreProgress` is
+   * the MAX over all seats, so a corpse could drive it across `PHASE_1_WIN_SCORE` and the score gate
+   * — which resolves the winner by scanning `scoreByPlayer` for the maximum — would hand the match
+   * to the dead player.
+   *
+   * ⚠ THE SKIP IS ON BOTH HALVES, and it has to be. Not accruing is not enough: a seat eliminated
+   * while already holding the top score would still be returned as leader by the comparison below.
+   *
+   * ⚠ AND THE TIE-BREAK IS NOW EXPLICIT. `next > max` alone leaves a tie to `players` Map order,
+   * which is the S155 N1 defect shape sitting on the win attribution. Lowest seat id wins a tie.
+   */
   let leaderId: PlayerId | null = null;
   let max = 0;
   for (const player of world.players.values()) {
+    if (isEliminated(player)) continue;
     const complexity = complexities.get(player.id) ?? 0;
     const next = (world.scoreByPlayer.get(player.id) ?? 0) + complexity * perTickFactor;
     world.scoreByPlayer.set(player.id, next);
-    if (leaderId === null || next > max) {
+    const better =
+      leaderId === null ||
+      next > max ||
+      (next === max && (player.id as unknown as number) < (leaderId as unknown as number));
+    if (better) {
       max = next;
       leaderId = player.id;
     }

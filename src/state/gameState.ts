@@ -26,7 +26,7 @@ import { teardownGatherers } from './gatherers/gathererLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
-import { livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
+import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
 
@@ -121,9 +121,15 @@ export function tickGameState(
       if (Math.floor(world.scoreProgress) >= PHASE_1_WIN_SCORE) {
         let winnerId: PlayerId = primaryPlayerId;
         if (isNetworked(world)) {
+          // ⛔ S161 CLOSE-OUT — SKIP ELIMINATED SEATS. `scoreByPlayer` retains a fallen seat's
+          // banked score forever, so without this the highest number on the board could belong to a
+          // player who is already out. Mirrors the same skip in `tickScoring`, and takes the same
+          // explicit lowest-id tie-break rather than leaving a tie to Map order.
           let maxScore = -1;
           for (const [pid, score] of world.scoreByPlayer.entries()) {
-            if (score > maxScore) {
+            const p = world.players.get(pid);
+            if (p === undefined || isEliminated(p)) continue;
+            if (score > maxScore || (score === maxScore && (pid as unknown as number) < (winnerId as unknown as number))) {
               maxScore = score;
               winnerId = pid;
             }

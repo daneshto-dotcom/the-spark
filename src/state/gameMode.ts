@@ -36,7 +36,8 @@ import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
-
+
+import { CASTLE_MAX_HP } from '../constants.ts';
 /* ────────────────────────── Action types ───────────────────────────── */
 
 export type StartGameAction = {
@@ -176,6 +177,22 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     player.benchedUntilTick = undefined;
     // S72 P3 — a fresh match starts with no carried potato (start-of-match invariant).
     player.carriedPotatoId = undefined;
+    /*
+     * ⛔ S161 CLOSE-OUT (lane 1) — **A REMATCH STARTS WITH A STANDING CASTLE.**
+     *
+     * `castleHp` is assigned in exactly one place outside save-rehydration — `makeIdlePlayer` — and
+     * seat 0 is never re-created (the roster arm takes the `else` branch for an existing seat), so a
+     * player who lost their castle re-entered the next match at 0 HP. Pre-S161 that merely ended the
+     * new match instantly: wrong, but loud. S161 made it silent and much worse — the dispatch gate
+     * denies EVERY intent for an eliminated seat and the economy gate freezes its haulers, so the
+     * host would play a whole round unable to gather, build, place or raid, and in a 3+ seat rematch
+     * the last-one-standing rule would not even end it.
+     *
+     * ⚠ `eliminatedAtTick` MUST be cleared alongside it, or `markFallenSeats`' write-once guard
+     * keeps last match's stamp and `matchPlacings` ranks the new match by the old one's deaths.
+     */
+    player.castleHp = CASTLE_MAX_HP;
+    player.eliminatedAtTick = undefined;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter

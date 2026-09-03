@@ -534,6 +534,34 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
   const current = g.targetSparkId !== null ? world.freeSparks.get(g.targetSparkId) : undefined;
   if (current === undefined || !isHarvestable(current)) {
     g.targetSparkId = pickGathererTarget(world, g);
+  } else {
+    /*
+     * ⭐ S161 OPEN-3 (owner) — **PREEMPT MID-WALK WHEN THE QUEUED SHAPE APPEARS.**
+     *
+     * Owner, playing: *"the gatherer is not collecting always what is in queue! when he leaves to
+     * gather, and there is none of the shapes in queue and then it appears and he is still on the
+     * way, then he should switch targets and go for it immedietly! ... it takes him time to aquire
+     * or change the target while it should be immediate."*
+     *
+     * ⛔ THE CAUSE WAS THIS `if`, AND THE CODE SAID SO OUT LOUD. `pickGathererTarget`'s own docblock
+     * recorded it as a virtue: *"pickGathererTarget is only called when the current target has become
+     * invalid, so mid-walk thrash was already bounded."* That bound IS the complaint — a unit already
+     * walking to a nearest-of-any-type spark could never notice its ORDERED type had just spawned.
+     * The picker itself was always right (*"preferred type wins at any distance"*); it was simply
+     * never asked again.
+     *
+     * ⚠ AND THE THRASH THAT COMMENT WAS GUARDING AGAINST IS REAL, so this preempts ONLY on a strict
+     * CLASS improvement: the new candidate must actually BE the wanted type. Re-picking whenever the
+     * picker merely returns something else would re-target on distance as the unit moves, and two
+     * shapes either side of it would make it oscillate and deliver nothing. Once locked onto a
+     * wanted-type target `current.type === wanted`, so this branch stops firing entirely.
+     */
+    const wanted = orderForGatherer(world, g) ?? g.preferredType;
+    if (wanted !== null && current.type !== wanted) {
+      const upgrade = pickGathererTarget(world, g);
+      const cand = upgrade !== null ? world.freeSparks.get(upgrade) : undefined;
+      if (cand !== undefined && cand.type === wanted) g.targetSparkId = upgrade;
+    }
   }
   if (g.targetSparkId === null) return world; // nothing to fetch this tick — hold position
   const target = world.freeSparks.get(g.targetSparkId);
