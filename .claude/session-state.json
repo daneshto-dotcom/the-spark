@@ -1,27 +1,23 @@
 {
-  "tool_calls_session_total": 4021,
-  "session_id": "S160",
-  "session_kind": "PDCA batch, OWNER-APPROVED 2026-09-02: P1 TURN code-path proof; P2 the two tower dials that are mine; P3 the four numbers + recipe overlap; P4 races W1-A (race token + wire, PROTOCOL 38->39) + the castle weapon riding the same bump. Castle targeting ruled NEAREST-ENEMY-IN-RANGE by the owner, superseding Q4 retaliation-only.",
+  "tool_calls_session_total": 4064,
+  "session_id": "S161",
+  "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
-  "prior_session_note": "S159 shipped 9 priorities. Handoff HANDOFF_S159.md, boot-snapshot.md at c90b444.",
+  "prior_session_note": "S160 shipped 5 priorities; TURN live and verified. Handoff HANDOFF_2026-09-02_S160.md at b854173.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S160 CLOSED — 5/5 priorities + post-handoff: TURN live and verified, R127 ruled, verify-deploy fixed",
+  "session_status": "S161 IN PROGRESS — P1..P4 committed, gates green, e2e running",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 39,
+  "protocol_version": 40,
   "boot_preflight": {
     "typecheck": "PASS exit 0",
-    "vitest": "PASS exit 0 — 3399 passed / 218 files",
-    "build": "PASS exit 0 — entry index-BwUxSBIv.js 764.0 KiB, cap 900, headroom 136.0",
-    "deploy_verify": "PASS 4/4 content-hash equality at eb1958f",
-    "ci_conclusions": "12/12 success, zero cancelled, zero open issues",
-    "npm_ci": "exit 0",
+    "vitest": "PASS exit 0 — 3458 passed / 221 files",
     "unpushed_commits": 0,
-    "stale_plans": "none IN-PROGRESS; S159 PDR + amendment archived COMPLETED"
+    "note": "matched boot-snapshot exactly"
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -31,511 +27,53 @@
   },
   "bump_allowance_analysis": "28->29 REQUIRED and paid ONCE for P2+P3 together. Drivers: (a) six new CreatureType wire discriminants with no unknown-value guard in getCreatureConfig; (b) creature hp constants are shared constants both peers compute from (serializeCreature omits hp when undamaged - the R71 mechanism); (c) Defender.hp REMOVED from SerializedDefender/DefenderHashed; (d) new required hashed Bond damage field; (e) new FEED_TOWER client intent. Splitting P2/P3 would cost TWO bumps.",
   "a0_state_discovery": {
-    "method": "Workflow s160-batch-probe — 12 read-only probes + 20 adversarial re-checks, 32 agents, 0 errors",
-    "key_delta": "owner branch claude/castle-races-unique-towers-xb9uzi is docs-only, based on 1e5b261, 21 commits behind master; its baseline 3353/212 is stale vs measured 3399/218",
-    "transcript": "subagents/workflows/wf_06fcfd35-36a/journal.jsonl"
+    "method": "Workflow s161-a0-probe — 15 read-only probes + 14 adversarial re-checks, 30 agents (1 lost to the org spend limit, since reset)",
+    "transcript": "subagents/workflows/wf_3a0f7250-8eb/journal.jsonl"
   },
   "priorities": [
     {
-      "id": "P1",
-      "title": "TURN — proved the code path end to end; corrected a FALSE deploy instruction and hardened the vite define read",
-      "tier": "Micro",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "Traced VITE_TURN_* from deploy.yml:149-156 -> vite.config define -> iceConfig.turnFromEnv -> RTCConfiguration.iceServers (transport.ts:376-379, quickmatch.ts:173). Proved the inlining EMPIRICALLY from the emitted bundle: compiled turnFromEnv is const n=\"\".split(\",\"), with the key names absent, i.e. the dotted define fired textually. Fixed boot-snapshot.md \"push anything\" — deploy.yml gates the push trigger on a paths allowlist, so a secret-only change triggers NO run and workflow_dispatch is the only route. Three new ci.deployGate assertions pin the dotted form and forbid re-aliasing; the anti-alias guard strips comments after its first cut matched iceConfig own docblock.",
-      "checkpoint_commit": "10c0c0b",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "id": "P1",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "W1-B — the castle becomes its race: six generated castles, three states each, per-race gatherer marks and castle attack VFX",
+      "checkpoint_commit": "25ec707",
+      "check_method": "Generated 18 castle stills through the SHIPPED pipeline (gen-character-design.mjs -> build-sprite-atlas.mjs), spec retained in-tree. Three judgement calls each measured rather than assumed: (a) STILLS not veo clips — a castle has conditions, not actions, and the two failure modes veo has already cost this project (seed drift S152, outright failure CF-S153-c) buy nothing here; added an additive `still` knob so a castle goes through the same matte, union bbox and foot-anchored paste as every goblin. (b) GREY ART TINTED AT RENDER — GathererRenderer tints from the LIVE player.color (S135) and S136 P3 cycles it for the rainbow, so crimson art multiplied by cyan is mud; the race is the SILHOUETTE and the seat is the TINT. Also why every prompt forbids near-white: the matte kills enclosed near-white above 0.3%% of frame, so a bone-white wall would have been deleted by its own pipeline. (c) refImages on -damaged ONLY, from a CONTROLLED PAIR — zombies-destroyed generated both ways; unconditioned it is a rubble heap, conditioned on its own intact keep it came back as the standing shack. nagas and orcs failed identically. TWO CORRECTIONS THE FIRST PASS EARNED: the initial six baked a ground shadow and two DETACHED it, which would have made the SHADOW the foot-anchor for those races (each atlas measures its own bbox, so the guarantee does not span races) and tinted the ground crimson — regenerated all six. CODE: castleFrames.ts holds every decision so it is drivable in vitest (a draw path is not, S130); the damage threshold IS the HP bar amber boundary and a test pins the pair. raceMotifs.ts holds three procedural marks; the gatherer mark draws no CIRCLE because three concentric circles already mean unit STATE. ticksSinceCastleShot sits next to castleFiresOnTick so the VFX cannot drift from the weapon, and because the schedule is pure (seat, tick) the shot needs no world.effects push and therefore NO protocol bump. A test caught the demon horns reaching 2.09r, two pixels short of the r+14 WAITING ring — fixed the mark, not the assertion. CAPTURED AND LOOKED AT through Playwright per the exit gate: all six render tinted and distinct, damaged shows both the wounded art and the HP bar. The DESTROYED column captured EMPTY — not an art fault, the shipped win rule put the renderer on the win screen the moment HP hit zero. Captured properly in P2, which removes that rule. typecheck 0 / vitest 3488 (223 files) / build 770.5 KiB headroom 129.5",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/net/iceConfig.ts",
-          "needle": "import.meta.env.VITE_TURN_URLS"
+          "path": "src/render/castleFrames.ts",
+          "needle": "export function castleStateForHp"
         },
         {
           "type": "file_contains",
-          "path": "src/net/iceConfig.ts",
-          "needle": "import.meta.env.VITE_TURN_CREDENTIAL"
+          "path": "src/render/castleFrames.ts",
+          "needle": "vampires: '/art/castles/castle-vampires'"
         },
         {
           "type": "grep_count",
-          "path": "src/net/iceConfig.ts",
-          "pattern": "const env = \\(import\\.meta",
+          "path": "src/render/castleFrames.ts",
+          "pattern": "'/art/castles/castle-",
           "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/iceConfig.ts",
-          "needle": "urls.length === 0 || username === '' || credential === ''"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/ci.deployGate.test.ts",
-          "needle": "S160 P1 — the DOTTED read matches the define"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/ci.deployGate.test.ts",
-          "pattern": "it\\('",
-          "op": ">=",
-          "value": 10
-        },
-        {
-          "type": "file_lacks",
-          "path": "boot-snapshot.md",
-          "needle": "Then push anything",
-          "ephemeral_target_note": "⛔ file_LACKS only. `boot-snapshot.md` is regenerated every handoff (STEP 2.95), so a file_contains on it is a claim with an expiry date — S160 had TWO of them fire at close, on two separate occasions. A file_lacks survives regeneration by construction and still catches a real regression."
-        },
-        {
-          "type": "grep_count",
-          "path": ".github/workflows/deploy.yml",
-          "pattern": "VITE_TURN_(URLS|USERNAME|CREDENTIAL)",
-          "op": ">=",
           "value": 6
         },
         {
           "type": "file_contains",
-          "path": "TURN_SETUP.md",
-          "needle": "Secrets and variables"
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "drawRaceKeepFallback("
         },
         {
           "type": "file_contains",
-          "path": ".github/workflows/deploy.yml",
-          "needle": "workflow_dispatch"
-        },
-        {
-          "type": "file_contains",
-          "path": ".handoff-archive/HANDOFF_2026-09-02_S160.md",
-          "needle": "push anything\"* — false, because `deploy.yml`"
-        }
-      ],
-      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
-    },
-    {
-      "id": "P2",
-      "title": "Ruled both tower dials KEEP; corrected three pieces of my own S159 paperwork",
-      "tier": "Micro",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "STINK: kept the BUILD-edge refill. Measured the drain through the real FSM — throws at ticks 254/538/822/1106/1390, gaps 284 not 240 because WINDUP+FIRE+RECOVER cost 44 per throw, so the tower is DRY for the last 22 of every 45 s. Deleted a FALSE justification (the per-bag rack runs only in the atlas-null fallback and the atlas ships, so the live tell is one alpha step 0.72->1), which re-prices the slow-reload alternative. DRONE: kept the death blast. My handoff dial advice was BACKWARDS in three documents — DRONE_MAX_PER_SPAWNER 3->2 changes nothing (occupancy at every due slot is 1, peak live 2 against a ceiling of 3); the cadence is the only linear lever. The 9/fight and the cap slack are now ASSERTED, having lived in a comment and a console.log. DRONE_EMIT_INTERVAL_TICKS docblock still described the retired burst design — rewritten.",
-      "checkpoint_commit": "3f3737c",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "it sags — `stinkTowerRenderer` already draws that"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "254, 538, 822, 1106, 1390"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/defenders/stinkReload.test.ts",
-          "needle": "the five bags really do fit inside a REAL fight"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "THIS CAP IS NOT A DIAL. IT IS SLACK"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "5 s delivers all three drones and the self-destruct"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/lightningHubDelivers.test.ts",
-          "needle": "the arithmetic the owner was quoted"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/lightningHubDelivers.test.ts",
-          "needle": "peak must sit strictly below it"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "Correct order for \"too strong\": `DRONE_EMIT_INTERVAL_TICKS` first"
-        },
-        {
-          "type": "file_contains",
-          "path": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-          "needle": "CORRECTED BY S160 P2(b)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "I DELETED A REASON THAT WAS FALSE"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/hostTick.ts",
-          "pattern": "the player WATCHES the tower re-arm",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "runs ONLY in the `atlas === null` fallback"
-        }
-      ],
-      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
-    },
-    {
-      "id": "P3",
-      "title": "Ruled all four numbers KEEP; four of the five statements about them were wrong",
-      "tier": "Micro",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "CHAIN LIGHTNING: <=29 re-derived EXACT (33 fifths vs capacity n+4, inclusive >=, boundary checked both sides) and now asserted; SIX connectors re-framed as a CEILING (creatures and bonds share the six link slots and a creature wins an exact tie) and pinned. Fixed the R77 citation — the ruling is in session-state.json, not SPARK_TD_SESSION_SPECS.md where grep max6 returns zero hits — and four sites that silently typo-fixed the owner quote maywe->maybe inside quotation marks. WITHDREW the hop-range second justification: it cited ~90 px structure spacing to argue 120 does not reach the next structure over, but 120 > 90 so it does. STINK BAG: the constant said \"most of the roster\", measured ALL of it with ZERO margin (goblin shield deals exactly 5 into a 5 pool) — pinned. AURA: 12x is the UNIT half only; shapes are 2x. OVERLAP: 7-instead-of-10 described one lattice and priced another (one shared Circle is 9, a 10% discount; 7 needs all three leaves), and same-tick teardown is true of the PREDICATES only — two unaligned polls, <=30 ticks.",
-      "checkpoint_commit": "3f3737c",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.ts",
-          "needle": "maywe we do max6"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "maywe we do max6"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.test.ts",
-          "needle": "maywe we do max6"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/voltkinChain.ts",
-          "pattern": "maybe we do max6",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "WITHDRAWN — IT CONTRADICTED ITS OWN EVIDENCE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.test.ts",
-          "needle": "the ceiling is exactly 29"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.test.ts",
-          "needle": "units compete for the same slots"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "EVERY attacker in the game pops it in one hit"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/defenders/stinkCloud.test.ts",
-          "needle": "the floor has zero margin"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/starShape.ts",
-          "needle": "THE MECHANISM SENTENCE AND THE PRICE DESCRIBED TWO DIFFERENT LATTICES"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/starShape.ts",
-          "needle": "WAS A CLAIM ABOUT THE PREDICATES"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/godlyRecipes/starShape.ts",
-          "needle": "eat one Circle and BOTH towers fall in the\n * same tick"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/constants.ts",
-          "pattern": "maywe we do",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "grep_count",
-          "path": "src/constants.ts",
-          "pattern": "maybe we do max6",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "a silent typo-fix"
-        }
-      ],
-      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
-    },
-    {
-      "id": "P4",
-      "title": "Races W1-A (race token + wire, PROTOCOL 38->39) + THE CASTLE SHOOTS BACK",
-      "tier": "Full",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "Executed the owner pre-approved PDR from SPARK_RACES_SPEC.md §15 with every line number re-verified first (32-agent read-only drift workflow, 0 errors). B5 DECIDED AND RECORDED: raceId is NOT hashed because it is IMMUTABLE AFTER BEGIN — explicitly not the raidPoints precedent the spec forbids, and the argument does not transfer to the tech perks. B6 (race follows the peer, not the dense seat) and B7 (the else arm, or the host own race is discarded at Begin) both built. I got the emit rule wrong first and the existing suite caught it: always-emit broke byte-identity, and omit-when-equal-to-default silently reintroduces B6 because the RECEIVER re-derives from the dense seat, so it must be omit-only-when-unclaimed. CASTLE GUNS: owner ruled NEAREST-IN-RANGE, superseding Q4 retaliation-only; NO stored timer (schedule derived from world.tick, so nothing to hash, no bump, and it pays for W1-B VFX with no wire field); fires inside the death-deferral window; seats visited in explicit id order. Q3 45-tick cadence MEASURED AND REJECTED — it one-shots every melee unit and deleted the castle-kill win condition, which is why ten unrelated tests went red. Shipped at 240 with the price pinned: 1 goblin ZERO damage, 10 HOLDS at 474, 15 FALLS at tick 1342, so a push needs ~15 where the tuning assumed 10. All ten red tests fixed honestly rather than accommodated; my first repair was worse and is recorded, because zeroing the castles trips the B2 win gate. B1 bit my own fixtures twice.",
-      "checkpoint_commit": "3f3737c",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "export function defaultRaceForSeat"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "export function isRaceId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "B5 — THE HASHING DECISION, MADE AND RECORDED"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/races.ts",
-          "pattern": "from '\\./godlyRecipes",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "raceId: RaceId;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/game/player.ts",
-          "pattern": "raceId: player\\.raceId",
-          "op": "==",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "raceId: isRaceId(p.raceId) ? p.raceId : defaultRaceForSeat"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "p.raceId !== defaultRaceForSeat"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly raceId?: RaceId;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 39 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 39;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/protocol.ts",
-          "pattern": "bumped 38->39",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/protocol.ts",
-          "pattern": "W1-A \\(S160\\): 38->39",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "PROTOCOL_VERSION is 39"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(39);"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 39;"
-        },
-        {
-          "type": "file_contains",
-          "path": "LOCKED_DECISIONS.md",
-          "needle": "W1-A (S160)"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const NEWER_PEER_V = LOCAL_PROTO_V + 1;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/lobbyRoster.ts",
-          "needle": "THE RACE FOLLOWS THE PEER, NOT THE DENSE SEAT"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/lobbyRoster.test.ts",
-          "needle": "a claimed race SURVIVES dense compaction"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gameMode.ts",
-          "needle": "existing.raceId = raceId;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gameMode.ts",
-          "needle": "THIS ARM IS THE SPEC"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/hostHandlers.ts",
-          "needle": "raceId: e.raceId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/clientHandlers.ts",
-          "needle": "raceId: e.raceId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/raceWire.test.ts",
-          "needle": "survives a HOST MIGRATION"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/raceWire.test.ts",
-          "needle": "BYTE-IDENTICAL on the wire"
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "drawRaceGathererMark(g, x, y, r, color, raceId)"
         },
         {
           "type": "file_contains",
           "path": "src/state/castleGuns.ts",
-          "needle": "export function castleGunsTick"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/game/player.ts",
-          "pattern": "castleNextFireTick",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "TARGETING IS NEAREST-ENEMY-IN-RANGE. THIS SUPERSEDES Q4"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_FIRE_INTERVAL_TICKS = 240;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "Q3's 45 TICKS WAS MEASURED AND REJECTED"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_ATTACK_RANGE = 300;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "castleGunsTick(world)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "they fire INSIDE the deferral window"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.test.ts",
-          "needle": "ONE leaker cannot scratch it, but FIFTEEN bring it down"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.test.ts",
-          "needle": "no castle stat may ever be keyed off the race (R94)"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_RACES_SPEC.md",
-          "needle": "OWNER RULINGS — R93 THROUGH R126"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-02_PDR_RACES_W1_PREAPPROVED.md",
-          "needle": "OWNER PRE-APPROVED"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "export type RaceId = 'vampires'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/raceWire.test.ts",
-          "needle": "describe('W1-A"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.ts",
-          "needle": "export function castleFiresOnTick"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/lobbyRoster.ts",
-          "pattern": "^import .*PLAYER_COLORS",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/lobbyRoster.ts",
-          "pattern": "^(?!\\s*\\*)(?!\\s*//).*color: PLAYER_COLORS\\[",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/lobbyRoster.ts",
-          "needle": "color: RACE_COLORS[raceId]"
+          "needle": "export function ticksSinceCastleShot"
         },
         {
           "type": "grep_count",
@@ -545,114 +83,205 @@
           "value": 0
         },
         {
-          "type": "grep_count",
-          "path": "src/state/castleGuns.ts",
-          "pattern": "RACE_COLORS|RACE_FEED_SHAPE|from .*races",
-          "op": "==",
-          "value": 0
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "const still = spec.states[st].still;"
         },
         {
           "type": "grep_count",
           "path": "src/state/castleGuns.ts",
-          "pattern": "\\.nextFireTick",
-          "op": "==",
-          "value": 0
+          "pattern": "castleFiresOnTick",
+          "op": ">=",
+          "value": 2
         }
-      ],
-      "verification_notes": "S160 close: the MCV Stop gate first fired UNCOVERED (0 assertions) on all four priorities — bindings had simply not been authored. Then it caught 8 of the 78 I wrote. SEVEN were binding defects, not code defects, and all seven were the SAME mistake: the assertion scanned PROSE rather than code, because these docblocks deliberately NAME the thing they forbid. (The eighth was a line-wrapped quote a one-line needle could never match.) Corrected to assert code shapes — import lines, property accesses — and the bad PLAYER_COLORS binding earned its keep by surfacing two genuinely stale sentences in lobbyRoster.ts that still said colour tracks the seat."
+      ]
     },
     {
-      "id": "P5",
-      "title": "DRONE AoE — the last unbuilt R77 mechanic, closed ADDITIVELY so no shipped behaviour weakens",
-      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P2",
+      "tier": "Full",
       "status": "completed",
       "check_completed": true,
-      "check_method": "R77 (*\"5 damage(atk) and 1 pierce in an area of effect (suicide drones)\"*) had reached LIGHTNING_DRONE_CONFIG and stopped for six sessions: applyDroneExplode severed bonds and never read atk or pen. Now spends both through the SHARED helper, following suicideBlast.ts exactly as that file advertised itself: units attackFifths(5,1) = 30 fifths, shapes primitiveDamageForAtk(5) = 418 of 1000 (so three drones fell one), owner spared. ⛔ THE DESIGN DECISION: the connector sever is left UNCONDITIONAL and additive rather than converted, because constants.ts had warned — correctly — that stat-gating it would make the drone WEAKER against big fortresses (30 fifths cuts a connector only while the component has <= 26, so a 30-connector base would take ZERO where today it always loses 3). R77 gives a separate COUNT ruling for connectors (\"3 connectors per lightning\") and only a damage sentence for the AoE, so spending the damage on units and shapes closes the gap with no balance regression and no owner ruling needed. The asymmetry with suicideBlast.ts (whose connector arm IS stat-gated) is deliberate and written at both sites. pinnedDeadStats.test.ts was INVERTED, not deleted (the S158 B2b treatment) — it went red exactly as designed when the gap closed, and now guards that the numbers stay spent; its constants.ts assertion inverted too, since the DECLARED-BUT-DEAD note is now false. Six new tests including a regression guard that builds a 39-connector component and asserts the drone still bites.",
-      "checkpoint_commit": "afc63de",
+      "title": "B2 seat elimination on owner ruling R127 — last one standing, economy gate, spectator, placings. PROTOCOL 39->40",
+      "checkpoint_commit": "8b64984",
+      "check_method": "R127 contains three mechanics and state/elimination.ts owns the policy for all three. DELETED: tickGameState ended the match for EVERYONE on the first castle to reach 0 and awarded victory to survivors[0] — the first entry of a Map-order filter. Right by accident at two seats; at three or more it is the S155 N1 defect sitting on the match result. AND THE WHOLE SUITE STAYED GREEN THROUGH THE REWRITE (3488 tests, nothing red) because every fixture that reaches the castle gate has one or two seats, where the old rule and the new one agree — the bug was unreachable from the suite and so was its fix. elimination.test.ts is that gap: 33 tests, including one that re-inserts seat 3 first so Map order and seat order genuinely disagree, plus separate pins for SOLO and 1v1 so a later edit cannot collapse the three cases. TWO PLACES I CHOSE NOT TO ADD STATE: castleHp <= 0 IS the predicate (a second boolean would be a second thing that can go stale, and it would be the one nothing else reads); eliminatedAtTick carries only the ORDER, which HP cannot. The economy gate is a line in applyGathererTick, NOT only the dispatch gate — GATHERER_TICK is host-internal and absent from CLIENT_INTENT_TYPES, so the owner own stated mechanic would have been the one thing elimination did not do. ELIMINATION_INTENT_POLICY is the S86 bench gate twin but STRICTER and deliberately a SECOND dispatch clause: a bench lifts so it allows standing orders, an elimination does not so it denies them; merging would force one ruling wrong. eliminatedAtTick is preserved across pickup()/drop() and is the FIRST field in that pair tsc cannot protect (optional, so omitting it compiles and silently un-eliminates a spectator who drops a spark). BUMP 39->40 six sites, and the bump is for the RULE not the field: a v39 peer ends the match the instant any castle hits zero while a v40 host plays on — the 32->33 castleHp precedent with the sign reversed. AND IT UNBLOCKED P1 MISSING CAPTURE: all six ruins photographed on a 3-seat board with gameState staying PLAYING at 0 HP. typecheck 0 / vitest 3521 (224 files) / build 772.0 KiB headroom 128.0",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "DRONE_ATK"
+          "path": "src/state/elimination.ts",
+          "needle": "export function isEliminated"
         },
         {
           "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "DRONE_PEN"
+          "path": "src/state/elimination.ts",
+          "needle": "export function matchPlacings"
         },
         {
           "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "applyRadialDamage("
+          "path": "src/state/world.ts",
+          "needle": "isEliminationDeniedIntent(action.type)"
         },
         {
           "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "primitiveDamageForAtk(DRONE_ATK)"
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "if (owner !== undefined && isEliminated(owner)) return world;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "DRONE_BLAST_UNIT_FIFTHS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "DRONE_MAX_CONNECTORS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "type: 'SEVER_BOND'"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/droneLifecycle.ts",
-          "pattern": "damageConnector",
-          "op": "==",
-          "value": 0
+          "path": "src/state/gameState.ts",
+          "needle": "markFallenSeats(world);"
         },
         {
           "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "`DRONE_ATK` AND `DRONE_PEN` ARE DECLARED BUT DEAD"
+          "path": "src/state/gameState.ts",
+          "needle": "survivors.length > 0 ? survivors[0]"
         },
         {
           "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "THESE NUMBERS ARE SPENT"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "THE DRONE'S HALF OF THAT OLD SENTENCE IS STILL TRUE"
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 40 as const;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/creatures/pinnedDeadStats.test.ts",
-          "needle": "the drone SPENDS both numbers now"
+          "path": "src/net/protocol.ts",
+          "needle": "  readonly protoVersion: 40;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(40);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 40;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/player.ts",
+          "needle": "eliminatedAtTick?: number;"
         },
         {
           "type": "grep_count",
-          "path": "src/state/creatures/pinnedDeadStats.test.ts",
-          "pattern": "NOTHING SPENDS THEM",
+          "path": "src/game/player.ts",
+          "pattern": "eliminatedAtTick: player\\.eliminatedAtTick",
           "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/lightningDrone.test.ts",
-          "needle": "the drone finally spends its 5 atk / 1 pen"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/lightningDrone.test.ts",
-          "needle": "the CONNECTOR SEVER IS STILL UNCONDITIONAL"
+          "value": 2
         }
-      ],
+      ]
+    },
+    {
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "id": "P3",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "OWNER SCOPE AMENDMENT — four of six live-match bugs, three of which turned out to be ONE bug",
+      "checkpoint_commit": "191d4e4",
+      "check_method": "Owner reported six bugs mid-session and directed two agents per report. 12 agents, 0 errors. HEADLINE, converged on independently by both lenses: BUG-4, BUG-5 and BUG-6 share ONE root cause. voltkinPredicate was declared (world) => and threw bondPos away, running a global DFS; runGodlyMatcherCore fires on ANY BOND_FORMED / player BOND_SEVERED, and unlike its two siblings in the same file (igniteOneSpawnerRecipe de-dups by anchor against creatureSpawners, runDefenderIgnition against defenders) the cinematic arm has no de-dup and nothing consumes a matched chain. So once one chain stood every later placement re-matched it: another Voltkin each time (applySpawnCreature exempts the type) = \"a dozen voltkins\"; activeCinematicPlayerId re-armed each time and castlePanel.ts:300 reads that as `locked`, which SHADOWS the shape maths = every build card printed a bare LOCKED for 4.8 s, silently (a repeat cutscene takes the silent branch), then healed, then died = the flicker; including the stink tower card = \"locked at 2 towers\". VERIFIED MYSELF at castlePanel.ts:284-300, voltkin.ts:145 and godlyMatcherCore.ts:60-95 before acting, and swept every *MAX*/*CAP*/*LIMIT* constant: there is NO per-kind tower cap anywhere. FIX: a topology-change gate requiring the matched chain to contain a primitive within AUTO_BOND_RADIUS of the event. The radius is not a tuning choice — at exactly AUTO_BOND_RADIUS the two sets coincide, because a placement near enough to re-trigger a standing chain is near enough to have auto-bonded to it and broken the isolation check anyway. THE TEST MOVED THE FIX: written first as a filter on the RESULT it passed five cases and broke the six-tower board, because findVoltkinChain returns the FIRST chain it finds — completing a SECOND chain tested the first one position and never fired. The filter had to go INSIDE the search. (The pre-fix code fired there with the WRONG chain identity, so multi-chain boards were never handled at all.) BUG-1: the raid was implemented TWICE. S152 P1 converted the human right-click to a 2-ATK hit and rewrote ONE dispatch site; botController still emitted SEVER_BOND {cause:\"player\"} — the last producer of that cause in the tree — which deletes a connector outright. Bots also paid in disruptionCharges while banking unspendable raidPoints. Extracted botRaidAction as a pure exported function precisely because the defect was an ACTION TYPE that took a live world and twenty ticks to reach. S158 had CLOSED this as \"no asymmetry found in the sim\" and every word of that probe was true — the accrual and the reducer are seat-agnostic; the bot was never reaching the reducer. New tests assert the OUTCOME OF AN ACTOR ACTION, never the seat-agnosticism of a function. Six fixtures moved to raidPoints; one had its assertion RESHAPED rather than repointed, because \"the bond is gone after one raid\" WAS the bug. BUG-2 (owner ruling superseding max-5): the tower throws all fight and bags last 1 s longer. The magazine is DEMOTED not deleted — bagsRemaining has three readers and only one was the ammo gate; the other two are the dry-tower taunt (S157 B9) and the decaying death blast. Measured: 9 bags land where 5 did, the counter still floors at 0 at tick 1390, the BUILD edge still re-arms it. typecheck 0 / vitest 3538 (225 files) / build 772.2 KiB headroom 127.8",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "nearPos?: { x: number; y: number },"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "const chain = findVoltkinChain(world, bondPos);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkin.ts",
+          "needle": "if (result !== null && touchesNearPos(result)) return result;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "export function botRaidAction"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "type: 'RAID_TARGET', target: { kind: 'bond', id: bondId }"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botController.ts",
+          "pattern": "type: 'SEVER_BOND'",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "me.raidPoints >= 1 && rng() < cfg.severChance"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkTower.ts",
+          "needle": "if (d.bagsRemaining > 0) d.bagsRemaining--;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS + PHYSICS_HZ;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botController.ts",
+          "pattern": "botRaidAction\\(this\\.seat",
+          "op": "==",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P4",
+      "tier": "Standard",
+      "status": "completed",
+      "check_completed": true,
+      "title": "BUG-3 — bots build every kind of tower and save for the next one",
+      "checkpoint_commit": "0dd8046",
+      "check_method": "Two halves forming a closed loop. chooseTowerPlan was first-affordable-wins over a cheapest-first list and the stink tower is the cheapest thing in the registry, so the instant a bot could pay for one it built one — and it could always pay, because chooseTowerOrder was hauling exactly its bill. The orderer own gate was `if (planBlueprintPayment(cheapest) !== null) return null`, so a bot that could afford a stink tower ordered NOTHING AT ALL and was structurally incapable of accumulating past four shapes. That is why an IMBA bot with towerTiers 7 played the same match as a MID bot with 2. FIX: one shared target, chooseTargetBlueprint — the cheapest rung this seat has never raised (read off Primitive.origin.blueprintId), or the dearest rung in tier once all are raised. Builder and orderer both ask it, so the set a bot HOLDS is the set it ORDERS is the thing it BUILDS; the file already stated that principle at towerBillNeeds and it was true of those two functions relative to each other and false of both relative to what got stamped. Cheapest-unowned rather than dearest-unowned deliberately: variety AND a natural climb, where always reaching for the top rung leaves a fresh bot idle through the opening. TWO ESCAPES, deliberately NOT the same condition (collapsing them restores first-affordable-wins): unaffordable => SAVE, affordable-but-unplaceable => SUBSTITUTE, plus a seat with nothing standing always takes what it can get. NO RNG ADDED — the TOWER branch sits above pickTargetSpark draw, so one extra draw would break every seeded replay, the worker-sim differential and the same-seed stream test. WHY botTowers.test.ts STAYED GREEN: it pins \"a tower EXISTS after a driven run\" and the difficulty floor, both true the whole time — the bot really was building a tower, the same tower, forever. The new file asserts the SET of blueprints a seat pursues. typecheck 0 / vitest 3550 (226 files) / build 772.2 KiB headroom 127.8",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function chooseTargetBlueprint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function ownedBlueprintIds"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "const needs = towerBillNeeds(world, seat, cfg);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "planBlueprintPayment\\(world, seat, id\\) !== null\\) return null",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "planBlueprintPayment\\(world, seat, target\\) !== null\\) return null",
+          "op": "==",
+          "value": 1
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -5024,5 +4653,10 @@
     "HELD DEBT (unchanged, amendment-only): Creature's four parallel nullable committed-target fields (creature.ts:237 records why a discriminated union was rejected). And the OS-level hook test s96-p2-state-inject fails 1 of 12, identically before and after — closing it needs a RULE decision (does user approval waive deliberation for a Micro priority?) that a project session lacks authority for.",
     "RECORDED SO NOBODY \"CLEANS\" IT: origin/gh-pages still exists as a legacy remote branch, left alone deliberately for the fourth session running — deleting it could disturb Pages, and verify-deploy ignores it in favour of the deployments API.",
     "⭐ **BUILD STAMP FOR `verify-deploy`'s LIVE CARRIER — the honest fix, filed 2026-09-03.** Now that TURN secrets are injected at build time, a machine WITHOUT them cannot reproduce production's bytes, so content-hash equality is permanently unavailable and the LIVE carrier fell back to a DIAGNOSIS (local has no relay + live does + delta < 512 B + carriers 1-3 green). That is coherent but it is not a proof, and the script says so out loud. ⛔ DO NOT \"fix\" it by comparing code skeletons — S160 tried exactly that and MEASURED it wrong: with empty secrets `HAS_TURN_CONFIGURED` is a build-time `false`, so Rollup TREE-SHAKES the relay logging branch away entirely, and the live bundle legitimately carries string literals the local one has never heard of (`urls: `, `username: `, ` credential: `). Injection changes WHICH CODE SURVIVES, not just literal values. ⇒ THE FIX: emit the commit SHA into `index.html` at build time (a `<meta>` tag or `build-info.json`) and have the LIVE carrier compare that to remote master. Exact, cheap, immune to secret injection, and it restores a real proof instead of a plausible story. ~10 lines in `vite.config.ts` + ~8 in `scripts/verify-deploy.mjs`."
-  ]
+  ],
+  "owner_bug_sweep": {
+    "method": "Workflow s161-owner-bug-sweep — 6 reports x 2 independent investigators, 12 agents, 0 errors",
+    "headline": "BUG-4, BUG-5 and BUG-6 share ONE root cause (voltkinPredicate discarded bondPos), converged on independently by both lenses",
+    "transcript": "subagents/workflows/wf_bdd9b9fd-cfd/journal.jsonl"
+  }
 }

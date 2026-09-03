@@ -240,14 +240,29 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       procedural because they are STATE READOUTS, not character art.
       '_Container', //  11 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
       '_Graphics',  //  12 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  13 — gathererRenderer             (main.ts:506, V6-1.1/S135)
-      '_Graphics',  //  14 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  //  15 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  //  16 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', //  17 — rainbowFlyoverRenderer.char
-      '_Graphics',  //  18 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  //  19 — poopRenderer                 (main.ts:520, S77 P3)
-      '_Graphics',  //  20 — stinkCloudRenderer.haze      (S158 P6) ⭐ NEW — a LANDED stink bag.
+      '_Graphics',  //  13 — gathererRenderer.graphics   (main.ts:506, V6-1.1/S135) — the gatherers,
+                    //       their race silhouettes, and the RACE-SHAPED PROCEDURAL KEEP that draws
+                    //       only when a castle atlas fails to load (S161 P1).
+      '_Container', //  14 — gathererRenderer.spriteLayer  (S161 P1) ⭐ NEW — the six race castles.
+                    //       ⚠ A SECOND CHILD FROM ONE RENDERER, the goblin/stink-tower pattern
+                    //       exactly: a Sprite cannot live inside a Graphics, so the keep art needs
+                    //       its own Container, ABOVE the procedural rig so a fallback keep can
+                    //       never overdraw a real castle.
+      '_Graphics',  //  15 — gathererRenderer.overlay      (S161 P1) ⭐ NEW — and a THIRD, which is
+                    //       load-bearing rather than tidy. A castle sprite stands CASTLE_SPRITE_PX
+                    //       (96 px) above its own foot, far higher than the HP bar at `top - 7` and
+                    //       far higher than the bank glyphs in the keep's doorway. Both were drawn
+                    //       into the Graphics at index 13, so once the sprite layer went in above
+                    //       them, a damaged castle would have hidden the bar reporting its own
+                    //       health and every castle would have hidden its own inventory. They move
+                    //       here, above the art. The castle SHOT VFX rides the same layer.
+      '_Graphics',  //  16 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  //  17 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  //  18 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', //  19 — rainbowFlyoverRenderer.char
+      '_Graphics',  //  20 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  //  21 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  22 — stinkCloudRenderer.haze      (S158 P6) ⭐ NEW — a LANDED stink bag.
                     //       ⚠ ABOVE THE FOG, and that is the whole reason it is declared here: a
                     //       cloud DEALS DAMAGE, and its damage does not care whether the ground is
                     //       fogged. Hiding the marker would let a player lose units to a patch of
@@ -256,7 +271,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       The haze draws the TRUE damage radius, so the edge is readable; it is
                     //       also the load-failure fallback for the atlas, exactly as the goblins'
                     //       procedural puppet is for theirs.
-      '_Container', //  21 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
+      '_Container', //  23 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
                     //       which shipped a session ago with ZERO references anywhere in src/.
                     //       Above its own haze, for the same reason the goblin sprites sit above
                     //       their puppet: the fallback must never overdraw the real art.
