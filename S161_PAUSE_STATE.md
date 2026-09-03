@@ -1,11 +1,21 @@
-# SPARK — HANDOFF S161 (2026-09-03)
+# SPARK — S161 **PAUSE STATE** (2026-09-03) — ⛔ THIS IS NOT A HANDOFF
 
-**HEAD `0ab0fa6` · deployed code `b95abcd` · `verify-deploy` PASS 4/4 · PROTOCOL 40**
+**HEAD is pushed · deployed code `b95abcd` · `verify-deploy` PASS 4/4 · PROTOCOL 40**
 Everything is committed, pushed and live. Working tree clean.
 
-> ⛔ **THE SESSION WAS PAUSED AT THE 5-HOUR LIMIT, NOT FINISHED.** Six priorities shipped and are live.
-> **THREE OWNER BUG REPORTS ARE OPEN AND UNFIXED**, and the 5-lane close-out sweep was stopped
-> mid-flight having produced nothing. Start at §1.
+> ⛔ **THE SESSION IS STILL OPEN. DO NOT TREAT THIS AS A HANDOFF AND DO NOT START A NEW SESSION.**
+>
+> The owner asked to PAUSE and SAVE at the 5-hour limit — not to hand off. `/handoff` has NOT been
+> run, and the owner's instruction is that it is not to be run until the work below is finished:
+>
+> **RESUME CHECKLIST, in the owner's order:**
+> 1. **Continue the hunt** — the five lanes below, and *"make sure there are no failed passes"*:
+>    every non-zero exit gets investigated or explicitly ruled benign with its reason.
+> 2. **Fix all the bugs** — OPEN-1..OPEN-4 in §1, plus anything the completed hunt turns up.
+> 3. **Verify they landed** — not just green tests; confirm the behaviour in a real frame/match.
+> 4. **Only then** run a methodical `/handoff` (the skill, properly).
+>
+> Six priorities shipped this session and are live; that part is done. §1 is what is not.
 
 ---
 

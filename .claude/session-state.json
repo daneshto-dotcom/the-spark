@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4154,
+  "tool_calls_session_total": 4155,
   "session_id": "S161",
   "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
   "prior_session_note": "S160 shipped 5 priorities; TURN live and verified. Handoff HANDOFF_2026-09-02_S160.md at b854173.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "CHECK",
+  "phase": "OPEN — hunt incomplete, bugs unfixed",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S161 PAUSED AT THE 5-HOUR LIMIT — P1-P6 shipped and LIVE at b95abcd (deploy verified 4/4). THREE NEW OWNER BUG REPORTS ARE OPEN AND UNFIXED, captured below with first evidence. The 5-lane close-out sweep was STOPPED mid-flight and produced NOTHING.",
+  "session_status": "⛔ S161 IS STILL OPEN — PAUSED AT THE 5-HOUR LIMIT, NOT HANDED OFF. The owner asked to pause and save only; /handoff has NOT been run and must not be until: (1) the hunt is completed with NO unexplained failed passes, (2) OPEN-1..OPEN-4 are fixed, (3) the fixes are verified to have LANDED. P1-P6 are shipped and live at b95abcd (verify-deploy 4/4).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -4775,14 +4775,6 @@
     "headline": "BUG-4, BUG-5 and BUG-6 share ONE root cause (voltkinPredicate discarded bondPos), converged on independently by both lenses",
     "transcript": "subagents/workflows/wf_bdd9b9fd-cfd/journal.jsonl"
   },
-  "final_gates": {
-    "typecheck": "PASS exit 0",
-    "vitest": "PASS exit 0 — 3572 passed / 228 files (+114 this session)",
-    "e2e_gating": "PASS exit 0 — 62 passed",
-    "build": "PASS exit 0 — 776.9 KiB / 900 cap, headroom 123.1",
-    "verify_deploy": "PASS 4/4 at b95abcd",
-    "deploy_run": "33764132783 success"
-  },
   "carry_forwards": [
     {
       "id": "CF-S161-a",
@@ -4886,5 +4878,12 @@
       "title": "Friend-or-foe for creatures is decided by COLOUR, while radial damage spares by PLAYER ID",
       "detail": "`isEnemyBondWithColor` (creatureAI.ts:120-125) returns `primA.placerColor !== ownerColor || primB.placerColor !== ownerColor`, while `applyRadialDamage` (damage.ts:448-462) spares by `ownerPlayerId` / `placedBy`. ONE drone explosion runs BOTH. They agree today — verified: every placerColor write uses the live `player.color`. ⚠ But S161 P6 weakened the invariant they rest on: `player.color` is no longer `PLAYER_COLORS[seat]` once a race is picked. Anything that moves colour without moving id — a STEAL writes `ownerColor` and leaves `placerColor`; the rainbow remaps both but through one bijection — is one edit away from splitting them. ⇒ Worth a tripwire test asserting the two predicates agree for every (player, primitive) pair in a fixture, rather than a rewrite."
     }
+  ],
+  "resume_checklist": [
+    "1. Finish the 5-lane hunt BY HAND if the agents fail again. No lane closes without a verdict.",
+    "2. ⛔ Investigate EVERY failed command — owner: \"there shouldnt be any fails that we dont investigate further! ... this is how we have persistent bugs!\" Each gets resolved, or ruled benign WITH the reason.",
+    "3. Fix OPEN-1 (drone unconditional sever — ASK the owner which of the three options), OPEN-2 (drone vs own tower — read S159 P9 first), OPEN-3 (gatherer queue preemption — cause confirmed), OPEN-4 (tripwire).",
+    "4. Verify each fix LANDED in a real match/frame, not only in a green suite.",
+    "5. THEN run /handoff as a skill, methodically."
   ]
 }
