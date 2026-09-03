@@ -54,6 +54,31 @@ import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
 import type { BotDifficulty } from './botTypes.ts';
 
+
+/**
+ * ⭐ S161 P3 (BUG-1) — THE BOT'S RAID, AS A PURE FUNCTION, AND THAT SHAPE IS THE POINT.
+ *
+ * The defect the owner found was not a wrong NUMBER, it was a wrong ACTION TYPE buried inside a
+ * method that needs a live `World`, a `BotManager` and twenty ticks to reach. Nine sessions of tests
+ * asserted that the raid REDUCER is seat-agnostic — which it is, and which is why they all passed
+ * while the bot never called it. Lifting the construction out means `raidParity.test.ts` can assert
+ * the one thing that was actually wrong, in one line, with no world at all.
+ *
+ * ⛔ IT MUST STAY IDENTICAL TO THE HUMAN'S. `input/controls.ts` emits exactly this for a right-click
+ * on an enemy connector. If the two ever diverge again, they diverge in a place a test is looking.
+ */
+export function botRaidAction(seat: PlayerId, bondId: BondId): GameAction {
+  return { type: 'RAID_TARGET', target: { kind: 'bond', id: bondId }, playerId: seat };
+}
+
+/**
+ * A one-line statement of the parity contract, asserted by `raidParity.test.ts`. Deliberately a
+ * STRING rather than a comment: this repo has shipped five test bindings that matched a docblock
+ * instead of code, and a comment cannot be asserted at all.
+ */
+export const BOT_INTENT_PARITY_NOTE =
+  'bots raid with RAID_TARGET and pay in raidPoints, exactly as a human does (S161 P3, owner BUG-1)';
+
 /** Verb range — how close the avatar must be before claiming/placing. Inside
  *  POOP_PICKUP_ARRIVAL_RADIUS (36) so a debuffed bot's verbs pass the arrival
  *  gates the moment its slowed avatar truly arrives. */
@@ -465,15 +490,35 @@ export class BotController {
     if (s.kind === 'ERRAND') {
       switch (s.verb) {
         case 'SEVER': {
-          // Stand-off check is built into arrival; cut only if still hostile-
-          // valid and charged (reducer re-validates — this avoids waste).
-          if (me.disruptionCharges >= 1 && world.bonds.has(s.refId as BondId)) {
-            send({
-              type: 'SEVER_BOND',
-              bondId: s.refId as BondId,
-              playerId: this.seat,
-              cause: 'player',
-            });
+          /*
+           * ⭐ S161 P3 (BUG-1) — THE BOT NOW RAIDS THE WAY A PLAYER DOES. Owner, playing
+           * 2026-09-03: *"its not fair but the bots can destroy one connector per raid and mine
+           * does damage and leave a cloud … we changed that raid destroys a connector into certain
+           * atk power a while ago but you didnt implement it throughout it seems."*
+           *
+           * ⛔ THE MECHANIC WAS IMPLEMENTED TWICE. S152 P1 (owner R78) converted the human's
+           * right-click from a guaranteed cut into a 2-ATK hit on the shared fifths ladder — but it
+           * rewrote ONE dispatch site, `input/controls.ts`. This was the second, and it was left
+           * emitting `SEVER_BOND { cause: 'player' }`, which runs `applySeverTopology` and DELETES
+           * the connector unconditionally: it never reads `bond.damageFifths`, never calls
+           * `damageConnector`, never checks `connectorCapacityFifths`, and emits no RAIDED cloud.
+           * So a bot cut any connector outright while the owner's own raid had to chew through it.
+           *
+           * ⚠ AND THE CURRENCY WAS WRONG TOO, in both directions. Bots spent `disruptionCharges`
+           * (2 max, refilled every 5 build actions) on a mechanic S152 moved to `raidPoints` (3
+           * max, earned per tower/connection) — so bots banked raid points they could never spend
+           * while paying for raids out of a pool humans no longer have a sever to spend on.
+           *
+           * ⚠ The S152 PDR logged this as a carry-forward and it was then wrongly CLOSED at S158
+           * ("N2 raid parity … reducers are seat-agnostic; no asymmetry found in the sim"). That
+           * probe checked the ACCRUAL and the REDUCER — both genuinely seat-agnostic — and never
+           * checked what the bot DISPATCHES. The owner found it by playing.
+           *
+           * No protocol bump: `RAID_TARGET` is already in both allowlists and the bot's `send` is a
+           * LOCAL dispatch (`botManager.ts:36`), never the wire.
+           */
+          if (me.raidPoints >= 1 && world.bonds.has(s.refId as BondId)) {
+            send(botRaidAction(this.seat, s.refId as BondId));
           }
           this.state = { kind: 'IDLE' };
           return;

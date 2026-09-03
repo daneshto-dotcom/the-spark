@@ -100,11 +100,22 @@ describe('S87 P3 — disruptive/reactive bot behaviors (real pipeline)', () => {
     expect(enemyBonds.length).toBeGreaterThanOrEqual(1);
     // Arm the bot with a charge; no free sparks → BUILD can't outprioritize.
     const manager = new BotManager(['IMBA'], 0xabc);
-    world.players.get(BOT)!.disruptionCharges = 1;
+    /*
+     * ⭐ S161 P3 (BUG-1) — THIS FIXTURE NOW FUNDS `raidPoints`, AND ITS ASSERTION CHANGED SHAPE
+     * BECAUSE THE MECHANIC DID. The bot dispatches RAID_TARGET now, so a raid is a 2-ATK hit on the
+     * connector's fifths ladder, not a purchase that deletes it: one point buys 10 fifths against a
+     * capacity of `connectorCount + 4`, so a single raid severs only a connector in a small
+     * component. Asserting "the bond is gone after one raid" would re-pin the exact bot-only
+     * outright-cut this fix removes. What must be true is that the bot SPENT the right currency and
+     * put real damage on a real enemy connector.
+     */
+    world.players.get(BOT)!.raidPoints = 1;
+    const damagedBefore = enemyBonds.filter((b) => (world.bonds.get(b.id)?.damageFifths ?? 0) > 0).length;
     run(world, manager, 60 * 20);
-    const survivingEnemyBonds = enemyBonds.filter((b) => world.bonds.has(b.id));
-    expect(survivingEnemyBonds.length).toBeLessThan(enemyBonds.length);
-    expect(world.players.get(BOT)!.disruptionCharges).toBe(0); // paid for it
+    const damagedAfter = enemyBonds.filter((b) => (world.bonds.get(b.id)?.damageFifths ?? 0) > 0).length;
+    const severed = enemyBonds.filter((b) => !world.bonds.has(b.id)).length;
+    expect(damagedAfter + severed).toBeGreaterThan(damagedBefore);
+    expect(world.players.get(BOT)!.raidPoints).toBe(0); // paid for it, out of the right pool
   });
 
   it('an uncharged bot never severs (the charge economy binds bots)', () => {

@@ -189,7 +189,7 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
     world.matchPhase = 'FIGHT';
     world.phaseEndsAtTick = world.tick + FIGHT_PHASE_TICKS;
     const me = world.players.get(SEAT)!;
-    me.disruptionCharges = 1;
+    me.raidPoints = 1;
     // IMBA severChance 0.9 — first mulberry32(7) draw is < 0.9.
     const goal = chooseGoal(world, SEAT, BOT_CONFIGS.IMBA, mulberry32(7), true);
     expect(goal.kind).toBe('SEVER');

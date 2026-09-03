@@ -164,7 +164,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     buildStructure(world, asPlayerId(3), 210);
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 }); // rung above 10 is seat 3
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
     enterFight(world);
     // Stand ON seat 2's structure, so seat 2 is unambiguously the NEAREST enemy.
     const near = ownZonePoint(2, L);
@@ -189,7 +189,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     buildStructure(world, asPlayerId(2), 220);
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
     enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
@@ -201,7 +201,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     const world = board();
     buildStructure(world, asPlayerId(2), 230);
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
     enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
@@ -216,7 +216,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
       buildStructure(world, asPlayerId(3), 250);
       if (scored) score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
       const me = world.players.get(ME)!;
-      me.disruptionCharges = 2;
+      me.raidPoints = 2;
       enterFight(world);
       let n = 0;
       const counting = (): number => {
@@ -236,7 +236,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     buildStructure(world, asPlayerId(3), 260);
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 0;
+    me.raidPoints = 0;
     enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, alwaysSever, false);
@@ -248,7 +248,7 @@ describe('S156 P1 — chooseGoal raids the ladder, not the neighbour', () => {
     buildStructure(world, asPlayerId(3), 270);
     score(world, { 0: 0, 1: 10, 2: 90, 3: 20 });
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
     enterFight(world);
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.NOOB, alwaysSever, false);

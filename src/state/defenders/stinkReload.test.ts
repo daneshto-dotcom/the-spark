@@ -25,6 +25,8 @@ import {
   FIGHT_PHASE_TICKS,
   PRIMITIVE_MAX_HP,
   SparkType,
+  PHYSICS_HZ,
+  STINK_CLOUD_LIFETIME_TICKS,
   STINK_THROW_INTERVAL_TICKS,
   STINK_TOWER_BAGS,
   STINK_TOWER_HUB_DEGREE,
@@ -271,5 +273,98 @@ describe('S160 P2(a) — the five bags really do fit inside a REAL fight', () =>
       drain,
       'the FSM adds windup + fire + recover per throw, so the real drain exceeds the naive product',
     ).toBeGreaterThan(naive - STINK_THROW_INTERVAL_TICKS);
+  });
+});
+
+/**
+ * SPARK — S161 P3 (BUG-2): **THE OWNER'S RULING THAT THE TOWER THROWS FOR THE WHOLE FIGHT.**
+ *
+ * > Owner, playing 2026-09-03: *"stink tower should continuously throw out poop bags throughout the
+ * > fight stage. i know we said max 5 but lets make it throughout. also lets make the bags last 1 sec
+ * > longer before dissapearing."*
+ *
+ * ⚠ THE MEASUREMENT ABOVE IS THE REASON THIS WAS A BUG AND NOT A PREFERENCE. S160 P2(a) printed the
+ * real drain: five throws, done by ~1390 of 2700 ticks, so the tower spent 22 of every 45 seconds
+ * miming — playing the attack row and the lob arc, burning the same 284-tick cycle, emitting no bag.
+ * The owner watched that and asked for it to stop.
+ *
+ * ⛔ AND THE MODE CHANGE MUST SURVIVE IT. `bagsRemaining` still walks 5 → 0 on the same schedule
+ * because two OTHER readers depend on it: the depleted tower gains a taunt (`stinkAggroTargets`,
+ * S157 B9) and its death blast decays (`stinkBlastFor`). S160's own correction — *"emptying is a
+ * MODE CHANGE, not an off-switch"* — is what makes deleting the counter the wrong fix.
+ */
+describe('S161 P3 (BUG-2) — the tower throws for the WHOLE fight, and the magazine still means something', () => {
+  it('⭐ keeps throwing after the magazine reads zero', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    const t = igniteThenFight(w, d, st);
+    const fightStart = w.tick;
+    w.phaseEndsAtTick = fightStart + FIGHT_PHASE_TICKS;
+
+    // Count LANDED BAGS, not decrements — the decrement is exactly what stops meaning "a throw".
+    let landed = 0;
+    let seen = new Set(w.stinkClouds.keys());
+    let dryAtTick: number | null = null;
+    let lowest = t.bagsRemaining;
+    while (w.matchPhase === 'FIGHT') {
+      run(w, 1, d, st);
+      for (const id of w.stinkClouds.keys()) {
+        if (!seen.has(id)) { landed++; seen.add(id); }
+      }
+      if (dryAtTick === null && t.bagsRemaining === 0) dryAtTick = w.tick - fightStart;
+      // ⚠ SAMPLE THE FLOOR INSIDE THE LOOP. Reading `bagsRemaining` after it exits reads the value
+      // the BUILD edge just RELOADED (S159 P8's per-round refill), not the value the fight reached —
+      // which is how the first version of this assertion managed to expect 0 and find 5.
+      if (t.bagsRemaining < lowest) lowest = t.bagsRemaining;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[S161 P3] ${landed} bags landed across ${FIGHT_PHASE_TICKS} FIGHT ticks; ` +
+        `magazine read zero at tick ${dryAtTick ?? -1}`,
+    );
+
+    expect(dryAtTick, 'the magazine still empties — the mode change is intact').not.toBeNull();
+    expect(landed, 'more bags land than the magazine ever held').toBeGreaterThan(STINK_TOWER_BAGS);
+    expect(lowest, 'and the counter floors at zero rather than going negative').toBe(0);
+    expect(t.bagsRemaining, 'the BUILD edge still re-arms it — S159 P8 intact').toBe(STINK_TOWER_BAGS);
+  });
+
+  it('the throws keep their cadence — this is continuous, not a burst', () => {
+    const w = worldWithStinkTower();
+    const d = deps();
+    const st = makeHostTickState(w);
+    igniteThenFight(w, d, st);
+    const fightStart = w.tick;
+    w.phaseEndsAtTick = fightStart + FIGHT_PHASE_TICKS;
+
+    const landTicks: number[] = [];
+    const seen = new Set(w.stinkClouds.keys());
+    while (w.matchPhase === 'FIGHT') {
+      run(w, 1, d, st);
+      for (const id of w.stinkClouds.keys()) {
+        if (!seen.has(id)) { seen.add(id); landTicks.push(w.tick - fightStart); }
+      }
+    }
+    const gaps = landTicks.slice(1).map((v, i) => v - landTicks[i]!);
+    // Every gap is the FSM's real cycle, not a stampede and not a stall.
+    for (const g of gaps) {
+      expect(g, `gap ${g} out of range — gaps were ${gaps.join(', ')}`)
+        .toBeGreaterThanOrEqual(STINK_THROW_INTERVAL_TICKS);
+    }
+    expect(gaps.length, 'several throws, so there are gaps to check').toBeGreaterThan(4);
+  });
+
+  it('a landed bag now lasts exactly one second longer than its throw interval', () => {
+    // The owner asked for "+1 sec". Written as INTERVAL + PHYSICS_HZ so a retune of the throw rate
+    // carries the overlap with it, and so the +1 s stays visible as +1 s rather than as a bare 300.
+    expect(STINK_CLOUD_LIFETIME_TICKS).toBe(STINK_THROW_INTERVAL_TICKS + PHYSICS_HZ);
+    expect(STINK_CLOUD_LIFETIME_TICKS - STINK_THROW_INTERVAL_TICKS).toBe(PHYSICS_HZ);
+  });
+
+  it('⇒ consecutive clouds OVERLAP, so the ground is never briefly clean between bags', () => {
+    // The consequence the owner actually asked for, stated as a property rather than a number.
+    expect(STINK_CLOUD_LIFETIME_TICKS).toBeGreaterThan(STINK_THROW_INTERVAL_TICKS);
   });
 });

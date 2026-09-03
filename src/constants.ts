@@ -2329,7 +2329,21 @@ export const GOBLIN_SPRITE_BASE_SCALE = 0.2975;
  * stays foul until the next bag lands.** It also self-limits the population — a tower holds at most
  * one or two live clouds — which is why this needs no cap constant of its own.
  */
-export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS; // 240 — 4 s
+/*
+ * ⭐ S161 P3 (BUG-2) — **+1 SECOND, ON THE OWNER'S RULING.** Playing 2026-09-03: *"also lets make the
+ * bags last 1 sec longer before dissapearing."*
+ *
+ * ⚠ THE SENTENCE ABOVE — *"the ground a bag hits stays foul until the next bag lands"* — IS NOW
+ * FALSE AS AN EQUALITY AND TRUE AS AN INEQUALITY, and that is the point of writing the constant this
+ * way instead of as a bare 300. A cloud now outlives its own throw interval by exactly one second,
+ * so consecutive clouds OVERLAP by a second rather than tiling edge to edge. Combined with the
+ * tower now throwing for the whole FIGHT (see `stinkThrowBag`), a tower holds two live clouds during
+ * that overlap instead of one — which is the intended consequence, not a side effect.
+ *
+ * Kept as `INTERVAL + PHYSICS_HZ` rather than 300 so that retuning the throw rate carries the
+ * overlap with it, and so the "+1 s" the owner asked for stays visible as +1 s.
+ */
+export const STINK_CLOUD_LIFETIME_TICKS = STINK_THROW_INTERVAL_TICKS + PHYSICS_HZ; // 300 — 5 s
 
 /**
  * ⭐ S158 A2 (owner R77) — **A LANDED BAG CAN BE DESTROYED.**

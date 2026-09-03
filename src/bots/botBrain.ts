@@ -373,7 +373,13 @@ export function chooseGoal(
   // why this does not touch the owner's settled raid BUDGET (§10 Q2: *"dont change raid rate or
   // number of allowed raids"*). Targeting and rate are orthogonal — `MAX_DISRUPTION_CHARGES` and
   // `severChance` are untouched, and this branch still draws exactly ONE rng value.
-  if (cfg.canSever && me.disruptionCharges >= 1 && rng() < cfg.severChance) {
+  // ⭐ S161 P3 (BUG-1) — `raidPoints`, not `disruptionCharges`. The actuator now dispatches
+  // RAID_TARGET (see botController's `case 'SEVER'`), so the DECISION has to read the currency the
+  // reducer will actually charge, or the bot walks across the map to a raid it cannot pay for.
+  // ⚠ `cfg.severChance` and the `rng()` draw are deliberately untouched: this branch must still
+  // draw exactly ONE rng value in the same position, or every seeded replay, the worker-sim
+  // differential and botController's same-seed test all diverge.
+  if (cfg.canSever && me.raidPoints >= 1 && rng() < cfg.severChance) {
     const rung = ladderTargetSeat(world, seat);
     const target =
       (rung === null ? null : nearestEnemySpawnerBond(world, seat, me.avatarPos, vision, rung)) ??

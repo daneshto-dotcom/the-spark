@@ -19,7 +19,7 @@
  * import. main.ts imports this module to wire it up.
  */
 
-import { SparkType } from '../../constants.ts';
+import { AUTO_BOND_RADIUS, SparkType } from '../../constants.ts';
 import type { World } from '../world.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
@@ -51,7 +51,34 @@ function otherEndpoint(bond: Bond, id: PrimitiveId): PrimitiveId {
  * whose primitive types match EXPECTED_CHAIN in order. Returns the 8-prim path
  * or null. Exported for vitest path-shape regression coverage.
  */
-export function findVoltkinChain(world: World): ReadonlyArray<PrimitiveId> | null {
+export function findVoltkinChain(
+  world: World,
+  /*
+   * ⭐ S161 P3 — WHEN GIVEN, ONLY A CHAIN TOUCHING THIS POINT COUNTS, and the filter lives INSIDE
+   * the search rather than after it. That placement is not cosmetic: this function returns the
+   * FIRST chain its start-primitive loop finds, so filtering the RESULT would mean that with two
+   * chains standing, completing the second one tests the FIRST one's position, fails, and never
+   * fires. `voltkin.test.ts`'s "a SECOND chain built elsewhere still fires" case found exactly that
+   * — the after-the-fact version of this gate passed five tests and broke the six-tower board.
+   *
+   * ⚠ Note what the pre-fix code did in that same situation: it fired, but it fired with the FIRST
+   * chain's identity, spawning the Voltkin at the wrong chain's centroid. So this is not a new
+   * constraint on multi-chain boards; it is the first time they are handled at all.
+   */
+  nearPos?: { x: number; y: number },
+): ReadonlyArray<PrimitiveId> | null {
+  const rSq = AUTO_BOND_RADIUS * AUTO_BOND_RADIUS;
+  const touchesNearPos = (path: readonly PrimitiveId[]): boolean => {
+    if (nearPos === undefined) return true;
+    for (const id of path) {
+      const p = world.primitives.get(id);
+      if (p === undefined) continue;
+      const dx = p.pos.x - nearPos.x;
+      const dy = p.pos.y - nearPos.y;
+      if (dx * dx + dy * dy <= rSq) return true;
+    }
+    return false;
+  };
   const walk = (
     currentId: PrimitiveId,
     nextDepth: number,
@@ -85,7 +112,9 @@ export function findVoltkinChain(world: World): ReadonlyArray<PrimitiveId> | nul
     const visited = new Set<PrimitiveId>([prim.id]);
     const path: PrimitiveId[] = [prim.id];
     const result = walk(prim.id, 1, visited, path);
-    if (result !== null) return result;
+    // ⚠ `continue`, NOT `return`: a chain that does not touch `nearPos` is not this event's chain,
+    // and another start primitive may still reach the one that is.
+    if (result !== null && touchesNearPos(result)) return result;
   }
   return null;
 }
@@ -142,10 +171,58 @@ function isVoltkinDebug(): boolean {
   } catch { return false; }
 }
 
-export const voltkinPredicate: RecipePredicate = (world) => {
-  const chain = findVoltkinChain(world);
+/*
+ * ⭐ S161 P3 — **THE TOPOLOGY-CHANGE GATE. THIS IS THE FIX FOR THREE SEPARATE OWNER REPORTS.**
+ *
+ * Owner, playing 2026-09-03: *"voltkin seemed to split into like a dozen voltkins and instead of him
+ * doing one chain lightning per attack it split him into like 10 voltkins and they all attacked -
+ * WTF"*, *"it shows that they are locked, then after a few seconds it shows me i can build some of
+ * them … and then … it goes back to being locked!!?! why? BUG!!!"*, and *"stink tower locked at 2
+ * towers - why?"*. All three are this one defect.
+ *
+ * ## What was wrong
+ *
+ * `runGodlyMatcherCore` fires on ANY `BOND_FORMED` or player `BOND_SEVERED` anywhere on the board.
+ * Its two sibling arms in that same file are idempotent by construction — `igniteOneSpawnerRecipe`
+ * de-dups against `world.creatureSpawners` by anchor (`godlyMatcherCore.ts:118-124`) and
+ * `runDefenderIgnition` against `world.defenders` (`:212-217`). The CINEMATIC arm has no equivalent,
+ * and nothing consumes a matched chain: `targetComponentPrimitiveIds` rides the event and no
+ * destruction path reads it. This predicate then took `(world)` and threw `bondPos` away, running a
+ * GLOBAL DFS over every primitive.
+ *
+ * ⇒ Once ONE voltkin chain stood, every later placement anywhere re-matched it. Each re-match
+ * spawned another Voltkin (`applySpawnCreature` exempts the type from its uniqueness gate) — the
+ * dozen Voltkins — AND set `world.activeCinematicPlayerId`, which `castlePanel.ts:300` reads as
+ * `locked` and which SHADOWS the shape maths, so every build card in the footer printed a bare
+ * `LOCKED` instead of its real shortfall for 4.8 s at a stretch. On a repeat the cutscene takes its
+ * silent branch (`godlyOrchestration.ts:169`), so the player saw no cinematic either — just a dead
+ * build UI that healed and died again. Including the stink tower's card, which is why "locked at 2
+ * towers" was never a cap: there is no per-kind tower cap anywhere in the codebase.
+ *
+ * ## Why a proximity test is the whole fix, and why the radius is `AUTO_BOND_RADIUS`
+ *
+ * The event has to have TOUCHED the chain. All three production emitters put `pos` on or inside the
+ * structure — `placePrimitive` uses the placed primitive itself, `applyBuildBlueprint` and
+ * `applyRepairStructure` use the stamp centre, which for this blueprint is 20 px from its nearest
+ * node (8 nodes, `CHAIN_STEP` 40, centred).
+ *
+ * ⭐ AND THE RADIUS IS NOT A TUNING CHOICE. At exactly `AUTO_BOND_RADIUS` the two sets coincide: a
+ * placement near enough to re-trigger a standing chain is a placement near enough to have AUTO-BONDED
+ * to it — which breaks the strict-isolation check below and returns null anyway. Anything further
+ * away cannot bond, and now cannot re-fire either. So the only placement that can still satisfy this
+ * predicate is the one that CLOSES a chain, which is precisely the intended semantics.
+ *
+ * ⚠ HOST-ONLY, so it costs nothing on the wire. `runGodlyMatcherCore` returns early for a client
+ * (`godlyMatcherCore.ts:63`), no field is added, no hash changes, no PROTOCOL bump.
+ */
+export const voltkinPredicate: RecipePredicate = (world, bondPos) => {
+  // ⛔ THE TOPOLOGY-CHANGE GATE — see the docblock above. `bondPos` is passed THROUGH to the search
+  // so a board with two chains resolves the one this event actually touched.
+  const chain = findVoltkinChain(world, bondPos);
   if (chain === null) {
-    if (isVoltkinDebug()) console.log('[voltkin] predicate: findVoltkinChain returned null');
+    if (isVoltkinDebug()) {
+      console.log('[voltkin] predicate: no chain touching this topology change');
+    }
     return null;
   }
 

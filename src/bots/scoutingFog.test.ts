@@ -129,7 +129,7 @@ describe('S156 P2 — the fog is no longer a human-only mask', () => {
     buildStructure(world, FAR_ENEMY, 320);
     stayHome(world);
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
 
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, () => 0, false);
     expect(goal.kind).not.toBe('SEVER');
@@ -144,7 +144,7 @@ describe('S156 P2 — the fog is no longer a human-only mask', () => {
     expect(fogActive(world)).toBe(false);
 
     const me = world.players.get(ME)!;
-    me.disruptionCharges = 2;
+    me.raidPoints = 2;
     const goal = chooseGoal(world, ME, BOT_CONFIGS.IMBA, () => 0, false);
     expect(goal.kind).toBe('SEVER');
   });

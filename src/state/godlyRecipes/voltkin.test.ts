@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
-import { PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
+import { AUTO_BOND_RADIUS, PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial } from './voltkin.ts';
@@ -428,5 +428,66 @@ describe('S31 P0-1: Voltkin spawn timing covers full overlay-active window', () 
       VOLTKIN_RECIPE.cinematicMs + VOLTKIN_RECIPE.sustainedEffectMs + FADE_MS,
     );
     expect(spawnDelayTicks).toBeGreaterThanOrEqual(overlayClearTicks);
+  });
+});
+
+describe('S161 P3 — a STANDING chain must not re-fire on a topology change elsewhere', () => {
+  /*
+   * ⛔ THE REGRESSION FOR THREE OWNER REPORTS AT ONCE (2026-09-03): "voltkin seemed to split into
+   * like a dozen voltkins", the footer cards flickering between LOCKED and a real shortfall, and
+   * "stink tower locked at 2 towers".
+   *
+   * Before the fix this predicate took `(world)` and ran a GLOBAL DFS, so once any chain stood,
+   * EVERY later BOND_FORMED anywhere on the board re-matched it — spawning another Voltkin and
+   * re-arming `activeCinematicPlayerId`, which `castlePanel.ts:300` renders as a bare `LOCKED` on
+   * every build card for 4.8 s. Every assertion below passed trivially before the fix.
+   */
+  let world: World;
+  let p0Color: number;
+
+  beforeEach(() => {
+    world = makeWorld(1);
+    p0Color = world.players.get(asPlayerId(0))!.color;
+    // A standing, isolated, valid chain at x = 0..350, y = 0.
+    for (let i = 0; i < 4; i++) addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    for (let i = 4; i < 8; i++) addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    for (let i = 0; i < 7; i++) addBond(world, makeBond(i, i, i + 1));
+  });
+
+  it('still fires for the placement that CLOSES the chain', () => {
+    // The completing primitive IS a chain member, so the event lands on it.
+    expect(voltkinPredicate(world, { x: 350, y: 0 })).not.toBeNull();
+  });
+
+  it('⛔ does NOT fire for a bond formed across the board', () => {
+    expect(voltkinPredicate(world, { x: 2000, y: 1500 })).toBeNull();
+  });
+
+  it('⛔ does NOT fire for a bond formed just outside auto-bond range of the chain', () => {
+    // 61 px past the last node: too far to have auto-bonded to the chain, so it cannot have
+    // changed it — and must therefore not re-trigger it.
+    expect(voltkinPredicate(world, { x: 350 + AUTO_BOND_RADIUS + 1, y: 0 })).toBeNull();
+  });
+
+  it('fires from the blueprint STAMP CENTRE, which is what applyBuildBlueprint emits', () => {
+    // A menu-built voltkin emits BOND_FORMED at `action.centre`, not at a node. The stamp puts 8
+    // nodes at CHAIN_STEP 40 centred on that point, so the centre is 20 px from its nearest node —
+    // inside AUTO_BOND_RADIUS. Here the chain spans 0..350, so its centre is 175.
+    expect(voltkinPredicate(world, { x: 175, y: 0 })).not.toBeNull();
+  });
+
+  it('the radius that gates it is AUTO_BOND_RADIUS, not a tuned number', () => {
+    // Inside the radius passes, outside fails — and the boundary is exactly the distance at which
+    // a placement would have auto-bonded to the chain and broken its isolation anyway.
+    expect(voltkinPredicate(world, { x: 350 + AUTO_BOND_RADIUS - 1, y: 0 })).not.toBeNull();
+    expect(voltkinPredicate(world, { x: 350 + AUTO_BOND_RADIUS + 1, y: 0 })).toBeNull();
+  });
+
+  it('a SECOND chain built elsewhere still fires on its own completion', () => {
+    // The fix must not make the board single-Voltkin — it makes it one Voltkin PER CHAIN BUILT.
+    for (let i = 0; i < 4; i++) addPrim(world, makePrim(100 + i, p0Color, 3000 + i * 50, 900, SparkType.Square));
+    for (let i = 4; i < 8; i++) addPrim(world, makePrim(100 + i, p0Color, 3000 + i * 50, 900, SparkType.Triangle));
+    for (let i = 0; i < 7; i++) addBond(world, makeBond(100 + i, 100 + i, 101 + i));
+    expect(voltkinPredicate(world, { x: 3150, y: 900 })).not.toBeNull();
   });
 });

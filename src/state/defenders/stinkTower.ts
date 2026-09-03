@@ -185,13 +185,30 @@ export function stinkLobTarget(d: Defender, tick: number): Vec2 {
 /**
  * THE THROW — one bag at the current target. Called from the FSM's FIRE entry.
  *
- * Returns true if a bag was actually thrown, so the caller can decide the FSM consequence rather
- * than having it decided here. Decrements the magazine; a depleted tower throws nothing and simply
- * falls through to the aura.
+ * ⭐ S161 P3 (BUG-2) — **IT THROWS FOR THE WHOLE FIGHT NOW.** Owner, playing 2026-09-03: *"stink
+ * tower should continuously throw out poop bags throughout the fight stage. i know we said max 5 but
+ * lets make it throughout."* This ruling SUPERSEDES the max-5 magazine.
+ *
+ * ⛔ THE MAGAZINE IS NOT DELETED, IT IS DEMOTED — and that is the whole care in this change.
+ * `bagsRemaining` has THREE readers, and only one of them was the ammo gate:
+ *   · this line (the gate) — the owner's ruling removes it;
+ *   · `stinkIsDepleted` → `stinkAggroTargets`, which starts TAUNTING once the tower is dry (S157 B9);
+ *   · `stinkBlastFor`, which decays the death blast from 400/240 down to 100/110 as it empties.
+ * S160 measured and recorded that emptying is *"a MODE CHANGE, not an off-switch"* — the owner's own
+ * correction, after I had wrongly called the spent tower "idle". Deleting the counter would delete
+ * that mode change with it. So the count still walks 5 → 0 on the same schedule and still flips the
+ * tower from bomber to bait; it simply no longer stops the bag.
+ *
+ * ⚠ Which means the FLOOR matters: `if (d.bagsRemaining > 0)` rather than a bare decrement, or the
+ * counter runs negative for the rest of the fight and `stinkBlastFor`'s interpolation walks off the
+ * bottom of its range.
+ *
+ * Determinism untouched: the cadence is `nextFireTick = world.tick + fireInterval`, tick-derived,
+ * and `stinkLobTarget` is already `mix32(d.id, tick)`. Return type kept `boolean` (now always true)
+ * because the FSM discards it either way and narrowing it would be churn.
  */
 export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage: RadialDamageFn): boolean {
-  if (d.bagsRemaining <= 0) return false;
-  d.bagsRemaining--;
+  if (d.bagsRemaining > 0) d.bagsRemaining--;
   world.effects.push({
     kind: 'BOMB_EXPLODE',
     tick: world.tick,
