@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4065,
+  "tool_calls_session_total": 4135,
   "session_id": "S161",
   "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "S161 COMPLETE — P1-P4 shipped and LIVE at 2f778fe. All six of the owner's live-match bug reports addressed; three of them turned out to be one bug.",
+  "session_status": "S161 COMPLETE — P1-P6 shipped and LIVE at b95abcd. The pre-approved races roadmap (W1-B), B2 seat elimination, all six live-match bug reports, and the owner's art review + lobby race picker.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -282,6 +282,128 @@
           "value": 1
         }
       ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P5",
+      "tier": "Full",
+      "status": "completed",
+      "check_completed": true,
+      "title": "OWNER ART REVIEW — the castles get real colour and obey gravity; the lobby gets a race picker",
+      "checkpoint_commit": "99e5e56",
+      "check_method": "Owner reviewed the shipped castles and returned two art notes plus two feature asks. COLOUR: *\"the colors need to not look so weird ... they need to have their player color as the main colour but it doesnt mean thats the only color they will have ... this looks like we took each castle and just completely filled them with their one color - pretty lazy work.\"* ⛔ RIGHT AS ARITHMETIC, NOT TASTE, and that is the finding: P1 drew the castles GREY and let Sprite.tint supply the colour, but tint is a MULTIPLY — grey art is R=G=B=v so the product is (v.r, v.g, v.b) and THE HUE IS CONSTANT ON EVERY PIXEL. A monochrome image by definition; \"filled with one colour\" is literally what the pipeline did, and no prompt could have fixed it because the flatness was in the RENDER PATH. All 18 regenerated in each race own colour with real materials; syncCastleSprite now passes them UNTINTED. Ownership still reads because Player.color derives from raceId and races.test.ts pins RACE_COLORS === PLAYER_COLORS. keepRainbowSpriteTint returns null outside the celebration window because \"no tint\" and \"your colour\" are different instructions and keepRainbowTint could only say the latter. VAMPIRES WENT ROUND TWICE, for VALUE not hue: the first crimson pass was a deep oxblood keep that vanished on a black board — the brief now pins brightness, because the model honours \"crimson\" at any value. GRAVITY: *\"there is broken tower, pillar, and pole. those are supposed to be on the ground ... suspended in the air for like 2 rounds ... looks weird.\"* Sharper than it reads — a -damaged castle is a state the board HOLDS, so anything mid-fall is mid-fall forever. Rule added to sharedStyle so it binds all eighteen, plus a named landing site per damaged prompt. THE LOBBY PICKER: click your own seat, choose one of six; six new banners behind the seat tiles; label is now \"P1 HOST (VAMPIRES)\" with (you) dropped because the clickable tile IS the marker. ⛔ NO PROTOCOL BUMP, and S160 predicted one IN WRITING above PROTOCOL_VERSION. That note reasoned by analogy to LOBBY_READY (7->8); the analogy fails — LOBBY_READY bumped for GATING THE MATCH, not for being a new lobby kind. CLAIM_RACE is client->host only, gates nothing, and its ANSWER rides RosterEntry.color/.raceId, on the wire since v39. Stale note corrected in place. THREE THINGS THE WORK TURNED UP: (a) the banner did not show on the first capture — update() runs on STATE CHANGE, the texture resolves after it, and a host alone in a room never changes state again; adopted in the ticker the rack already runs, and it re-runs the WHOLE projection because the colour swatch alpha depends on whether a banner is present. (b) seatLabelText survived its own replacement as a dead export with four passing tests — deleted, coverage relocated. (c) my own raceClaim.test.ts passed JSON.stringify to parseNetMessage, which takes the decoded object, so the fail-closed case rejected everything for the wrong reason. typecheck 0 / vitest 3572 (228 files) / build 776.8 KiB headroom 123.2",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/render/gathererRenderer.ts",
+          "pattern": "sp\\.tint = rainbowTint \\?\\? 0xffffff",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "export function keepRainbowSpriteTint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceBanners.ts",
+          "needle": "export function seatRaceLabel"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/raceBanners.ts",
+          "pattern": "'/art/banners/banner-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/racePicker.ts",
+          "needle": "export function makeRacePicker"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/hostHandlers.ts",
+          "needle": "export function raceIsFree"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "case 'CLAIM_RACE'",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 40 as const;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/seatRack.ts",
+          "pattern": "export function seatLabelText",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-castles/design-spec.json",
+          "pattern": "GREYSCALE ONLY",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-castles/design-spec.json",
+          "needle": "GRAVITY. Every broken, snapped or detached piece"
+        }
+      ]
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P6",
+      "tier": "Standard",
+      "status": "completed",
+      "check_completed": true,
+      "title": "vs-bots picks races too — the same menu, one race per seat",
+      "checkpoint_commit": "b95abcd",
+      "check_method": "Owner: *\"and same for the play with bots, but only there you can chose the bot race and color\"*. THE SAME PICKER, NOT A MATCHING ONE — makeRacePicker is shared with the multiplayer lobby, because \"same\" has to still be true a year from now and a copy drifts the first time either surface is retuned. A ROW FOR THE HUMAN ABOVE THE BOTS: the note is about the bots, but a screen where you may recolour every opponent and not yourself is the odd one out, and multiplayer already lets you pick your own. ONE RACE PER SEAT enforced locally — multiplayer gets this from the host, solo has no arbiter, so the taken-set is every other row race. Without it a vs-bots match could open with two crimson castles. TWO PLACES THE SEAT COLOUR STOPPED TRACKING THE SEAT, and missing either ships a visible contradiction rather than a crash: the bot row swatch reads RACE_COLORS[race], and the vs-bots roster sends color: RACE_COLORS[raceId] instead of PLAYER_COLORS[seat] — applyStartGame takes the colour verbatim from the entry and the race from the field beside it. onStart now carries two arrays of DIFFERENT LENGTHS (difficulties per BOT, races per SEAT), documented at the callback because mixing them up hands the human a bot race silently. CAUGHT BY LOOKING: the first layout tucked the YOU row above the rack origin and it landed on the \"N BOTS\" counter. typecheck 0 / vitest 3572 (228 files) / e2e 62 passed exit 0 / build 776.9 KiB headroom 123.1 / verify-deploy 4/4",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "private makeRaceButton(seat: number, cx: number): Container {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[]): void;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/botSetupOverlay.ts",
+          "pattern": "PLAYER_COLORS",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "return { seat, color: RACE_COLORS[raceId], raceId };"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/botSetupOverlay.ts",
+          "pattern": "makeRacePicker",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -293,7 +415,13 @@
     "S161 P1 — THE ART PIPELINE'S MATTE CONSTRAINS THE ART BRIEF, and the second-order effects were the ones that mattered. Three prompt decisions were forced by downstream code, not taste: mid-grey stone (the matte deletes enclosed near-white above 0.3%% of frame, so a bone-white wall erases itself), no ground shadow (a DETACHED oval becomes the union-bbox foot-anchor, and each atlas measures its own bbox so the mismatch only appears with two races on the board — and a baked shadow tints crimson with the castle), and identity refs on -damaged but NOT on -destroyed. That last one came from a CONTROLLED PAIR: zombies-destroyed generated both ways, unconditioned a rubble heap and conditioned the standing shack again. **Generate one spike, measure it against the consumer, and only then commit to the batch.**",
     "S161 P3 — S158 CLOSED A REAL BUG AS \"no asymmetry found in the sim\" AND EVERY WORD OF ITS PROBE WAS TRUE. It checked that the raid ACCRUAL is seat-agnostic and that the raid REDUCER is seat-agnostic. Both are. The bot was never reaching the reducer — it dispatched `SEVER_BOND` while the human dispatched `RAID_TARGET`. The false negative then rode three handoffs as \"needs an owner observation, not a fix\", and the owner supplied the observation by playing. ⭐ **A parity probe that examines what two actors SHARE cannot see what they DISPATCH.** Every test in the replacement file asserts the outcome of an actor's action; none asserts that a function is seat-agnostic.",
     "S161 P4 — botTowers.test.ts PINNED \"a tower EXISTS after a driven run\" AND WAS TRUE THROUGHOUT. The bot really was building a tower — the same tower, forever. A test that asks \"did it happen?\" cannot see \"is it always the same one?\", and one that hands the bot exactly one bill cannot see that it never accumulates past it. ⭐ **For any behaviour with VARIETY as the requirement, assert the SET, not the existence.** Same shape as the S159 magazine finding: a per-round rhythm needs a test that crosses the round boundary.",
-    "S161 — THE OWNER'S BUG REPORT NAMED THE SYMPTOM IN THE UI'S OWN VOCABULARY, AND THAT WAS THE CLUE. \"stink tower locked at 2 towers\" quotes the literal word `LOCKED` from the card, and that string has exactly one producer — `castlePanel.ts:300`, reachable only from sudoku, cinematic or bench. Reading the report as a balance complaint would have sent me to the economy constants; reading it as a QUOTE sent me to the one branch that can print it. **When a report quotes UI text, grep for the string before theorising about the mechanic.**"
+    "S161 — THE OWNER'S BUG REPORT NAMED THE SYMPTOM IN THE UI'S OWN VOCABULARY, AND THAT WAS THE CLUE. \"stink tower locked at 2 towers\" quotes the literal word `LOCKED` from the card, and that string has exactly one producer — `castlePanel.ts:300`, reachable only from sudoku, cinematic or bench. Reading the report as a balance complaint would have sent me to the economy constants; reading it as a QUOTE sent me to the one branch that can print it. **When a report quotes UI text, grep for the string before theorising about the mechanic.**",
+    "S161 P5 — THE OWNER SAID THE ART LOOKED LAZY AND THE DEFECT WAS IN THE RENDER PATH, NOT THE PROMPT. I generated the castles in neutral grey so `Sprite.tint` could paint them the seat colour. Tint is a MULTIPLY: grey is R=G=B=v, so the product is (v·r, v·g, v·b) and the HUE IS IDENTICAL ON EVERY PIXEL — a monochrome image, by definition. *\"Completely filled them with their one color\"* was a literal description of the arithmetic. ⭐ No amount of detail in the source could have survived it, so no amount of re-prompting would have fixed it either. **When a visual complaint is about a whole class of asset rather than one of them, price the RENDER OPERATION before touching the generator.**",
+    "S161 P5 — A CONSTRAINT INHERITED FROM ONE ASSET FAMILY QUIETLY GOVERNED A DIFFERENT ONE. The castle prompts forbid near-white because `build-sprite-atlas.mjs` mattes near-white and would erase a pale wall. I carried that habit toward the lobby BANNERS, which never touch the atlas at all — full-bleed art, no alpha, no matte — where white is simply a colour. Writing the banner spec meant explicitly INVERTING four rules (white background, near-white ban, no ground shadow, subject isolation) rather than adapting them. **Ask what the pipeline actually does to THIS asset; a rule with a good reason is still wrong one directory over.**",
+    "S161 P5 — THE OWNER'S \"GRAVITY\" NOTE WAS A STATE-MACHINE OBSERVATION WEARING AN ART COMPLAINT. *\"imagine if they are just suspended in the air for like 2 rounds while being broken\"* — the point is not that a falling spire looks wrong, it is that a -damaged castle is a state the board HOLDS for minutes, so anything mid-fall is mid-fall forever. That reframing is what made the fix a rule in `sharedStyle` binding all eighteen rather than three re-rolls. **A player describing a visual usually knows something about the mechanic; read the sentence for the mechanic first.**",
+    "S161 P5 — I SHIPPED A LAZY-LOADED IMAGE INTO A SURFACE THAT ONLY REDRAWS ON STATE CHANGE, AND ONLY THE CAPTURE CAUGHT IT. `GathererRenderer.sync` runs every frame, so its lazy atlas appears the instant it resolves; the seat rack's `update()` runs on presence beacons, so a host alone in a fresh room never redrew and the tile kept its flat swatch. ⚠ AND THE FIRST FIX WAS ALSO WRONG — assigning the texture from the ticker left the opaque colour swatch drawn OVER it, so it would have looked identically broken. Re-running the whole projection was the fix. **Copying a lazy-load pattern means copying its redraw cadence too, and \"the asset is now present\" is not the same as \"the frame is now correct\".**",
+    "S161 P6 — S160 WROTE A PREDICTION INTO A DOCBLOCK AND IT WAS WRONG, WHICH IS WHY IT HAD TO BE CORRECTED IN PLACE RATHER THAN JUST NOT FOLLOWED. The note above `PROTOCOL_VERSION` said CLAIM_RACE *\"will carry its own bump\"*, reasoning by analogy to LOBBY_READY. But LOBBY_READY bumped for GATING THE MATCH (auto-Begin), not for being a new lobby kind — a distinction LOBBY_PRESENCE's own docblock states explicitly. CLAIM_RACE is client→host only and its answer rides fields already on the wire, so a stale peer degrades gracefully. **A forward-looking claim in a docblock is a claim; the session that reaches it owes the next reader a verdict, not silence.**",
+    "S161 P6 — DELETING A FUNCTION IS NOT ENOUGH IF ITS TESTS STILL PASS. `seatLabelText` was replaced by `seatRaceLabel` and survived as an unused export with four green tests — the shape that most convinces the next reader a thing is live. The full suite could not see it, because a dead export is not a failure. **After a replacement, grep for the OLD symbol outside its own test file; if the only non-test hit is its own definition, it is dead.**"
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4649,12 +4777,11 @@
   },
   "final_gates": {
     "typecheck": "PASS exit 0",
-    "vitest": "PASS exit 0 — 3550 passed / 226 files (+92 this session)",
-    "e2e_gating": "PASS exit 0 — 62 passed (first run was 61/1: the fog roll call, fixed)",
-    "build": "PASS exit 0 — 772.2 KiB / 900 cap, headroom 127.8",
-    "verify_deploy": "PASS 4/4 at 2f778fe",
-    "mcv": "hard_fail=0 over 33 bindings (3 rebound onto code shapes after they matched my own docblocks)",
-    "deploy_run": "33755749262 success"
+    "vitest": "PASS exit 0 — 3572 passed / 228 files (+114 this session)",
+    "e2e_gating": "PASS exit 0 — 62 passed",
+    "build": "PASS exit 0 — 776.9 KiB / 900 cap, headroom 123.1",
+    "verify_deploy": "PASS 4/4 at b95abcd",
+    "deploy_run": "33764132783 success"
   },
   "carry_forwards": [
     {
@@ -4671,6 +4798,16 @@
       "id": "CF-S160-carried",
       "severity": "filed",
       "text": "BUILD STAMP FOR verify-deploy's LIVE CARRIER — unchanged from S160 and still the honest fix: emit the commit SHA into index.html at build time so the LIVE carrier compares that to remote master, instead of the current coherent-but-not-proof diagnosis. ⛔ Do NOT \"fix\" it by comparing code skeletons; S160 measured that wrong (empty secrets make HAS_TURN_CONFIGURED a build-time false, so Rollup tree-shakes the logging branch away)."
+    },
+    {
+      "id": "CF-S161-d",
+      "severity": "observation",
+      "text": "THE PICKER HAS NO KEYBOARD ESCAPE. It closes on a scrim click or a tile pick; Esc does nothing. Every other modal in this game is mouse-driven too, so it is consistent rather than broken — noted because it is the first thing a keyboard user will try."
+    },
+    {
+      "id": "CF-S161-e",
+      "severity": "filed",
+      "text": "A JOINER CANNOT SEE ITS OWN RACE BEFORE THE FIRST PRESENCE BEACON. `lobbyView`'s count-based fallback shows `defaultRaceForSeat(i)` for every seat, which is right for the host and a guess for a joiner (it does not know its seat yet — the S69 P2 limitation the roster path exists to fix). Self-corrects on the first beacon, typically within a second of joining."
     }
   ]
 }
