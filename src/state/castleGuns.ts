@@ -62,6 +62,29 @@ export function castleFiresOnTick(seat: number, tick: number): boolean {
 }
 
 /**
+ * ⭐ S161 W1-B — HOW LONG AGO THIS SEAT'S CASTLE FIRED, in ticks, always in `[0, interval)`.
+ *
+ * The muzzle flash for W1-B's per-race attack VFX. `castleFiresOnTick` answers "is it firing on THIS
+ * tick", which is the only question the SIM has; a renderer needs the other one, because a shot has
+ * to stay on screen for longer than the single tick it was dealt on.
+ *
+ * ⛔ THIS EXISTS SO THE VFX CANNOT DRIFT FROM THE WEAPON. The two are one expression apart and they
+ * are deliberately adjacent: `castleFiresOnTick(s, t)` is exactly `ticksSinceCastleShot(s, t) === 0`,
+ * and `castleGuns.test.ts` asserts that identity over a full interval for several seats. Re-deriving
+ * the phase independently inside a renderer is how a flash ends up on a tick the gun did not fire.
+ *
+ * ⚠ AND IT IS WHY W1-B COSTS NO WIRE FIELD. The file docblock's *"no `world.effects` push"* note is
+ * the other half of this: a one-shot effect is lost ~5/6 of the time because effects are sampled at
+ * 10 Hz and the renderer wipes them at 60. A schedule that is a pure function of `(seat, tick)` is
+ * re-derivable on every peer at 60 Hz from state they already have, so the shot is never dropped and
+ * `PROTOCOL_VERSION` does not move.
+ */
+export function ticksSinceCastleShot(seat: number, tick: number): number {
+  const i = CASTLE_FIRE_INTERVAL_TICKS;
+  return (((tick - Math.trunc(seat)) % i) + i) % i;
+}
+
+/**
  * Host-side, once per tick. A no-op outside FIGHT — the weapon arms at BUILD→FIGHT and stands down
  * at FIGHT→BUILD, which falls out of this gate rather than needing two phase-edge hooks.
  *

@@ -35,10 +35,15 @@
  * The spec names the output and lists one clip per state:
  *   { "name": "goblin-melee", "cellW": 200, "cellH": 200, "framesPerState": 12,
  *     "states": { "idle": {"clip": "...", "ticksPerFrame": 7}, ... } }
+ *
+ * S161 — a state may name a `still` PNG instead of a `clip`, for a subject with conditions rather
+ * than actions (the six race castles). See the knob's docblock in section 1.
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import {
+  copyFileSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -58,7 +63,42 @@ const stateNames = Object.keys(spec.states);
 for (const st of stateNames) {
   const dir = join(work, st);
   mkdirSync(dir, { recursive: true });
+  /*
+   * ⭐ S161 W1-B — `still`: A STATE MAY BE ONE PNG INSTEAD OF A CLIP.
+   *
+   * The six race castles are STRUCTURES with three CONDITIONS (intact / damaged / destroyed), not
+   * characters with three ACTIONS. A building has no gait, no swing and no idle bob, so a clip
+   * would spend veo's whole budget re-drawing a static subject — and buy back the two failure modes
+   * this pipeline has already paid for twice: seed drift over the length of a clip (S152, the bat
+   * rider went spindly and washed out by the later frames) and outright generation failure
+   * (CF-S153-c, the zombie hound's attack clip failed twice on backpressure).
+   *
+   * ⭐ EVERYTHING DOWNSTREAM IS UNCHANGED, AND THAT IS THE POINT. The still lands in the same work
+   * dir under the same `f_%03d.png` name, so it goes through the same matte, the same ONE-union-bbox
+   * measurement and the same foot-anchored cell paste as a clip's frames. A castle therefore cannot
+   * disagree with a goblin about where the ground is, and the shipped manifest format does not fork.
+   *
+   * ⚠ `framesPerState: 1` is the natural pairing and the states become single-frame rows, which the
+   * renderer reads as a static sprite. Nothing here enforces 1 — a spec asking for N copies of one
+   * still is legal and simply yields N identical frames.
+   *
+   * ABSENT ⇒ the clip path below runs untouched, so no shipped atlas can regress if it is rebuilt.
+   */
+  const still = spec.states[st].still;
+  if (still !== undefined) {
+    if (spec.states[st].clip !== undefined) {
+      throw new Error(`${st}: has BOTH 'clip' and 'still' — a state is one or the other`);
+    }
+    const src = resolve(still);
+    if (!existsSync(src)) throw new Error(`${st}: still missing: ${src}`);
+    for (let i = 1; i <= spec.framesPerState; i++) {
+      copyFileSync(src, join(dir, `f_${String(i).padStart(3, '0')}.png`));
+    }
+    console.log(`  ${st}: still ${still} -> ${spec.framesPerState} frame(s)`);
+    continue;
+  }
   const clip = spec.states[st].clip;
+  if (clip === undefined) throw new Error(`${st}: needs either 'clip' or 'still'`);
   // Count frames first so the sampling stride is derived rather than assumed — a clip at a
   // different length or fps would otherwise silently yield too few frames and pad with duplicates.
   const probe = execFileSync('ffprobe', [

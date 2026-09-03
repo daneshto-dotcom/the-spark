@@ -1,0 +1,200 @@
+{
+  "_comment": [
+    "SPARK — S161 W1-B. The six RACE CASTLES, three states each (SPARK_RACES_SPEC.md §6 W1-B).",
+    "RETAINED IN-TREE so the art is rebuildable from the repo alone — the S151 lesson recorded in",
+    "assets-source/godly-goblins/design-spec.json (three atlases shipped with no spec and became",
+    "unrebuildable, which is why 'redo the stink tower' needed a full regeneration).",
+    "",
+    "⛔ WHY THESE ARE STILLS AND NOT veo CLIPS. A castle is a STRUCTURE: it has no gait, no swing",
+    "and no idle bob. The three things that have to read from across the board are its SILHOUETTE",
+    "and its DAMAGE STATE, both of which a still carries completely. Going through veo would buy",
+    "nothing and cost the two failure modes this project has already paid for twice — seed drift",
+    "over a clip (S152, the bat rider went spindly by the later frames) and outright generation",
+    "failure (CF-S153-c, the zombie hound attack clip failed twice on backpressure).",
+    "build-sprite-atlas.mjs grew a `still` knob for this; absent ⇒ byte-identical clip behaviour.",
+    "",
+    "⛔ WHY THE ART IS GREY AND NOT IN THE RACE'S COLOUR. `GathererRenderer` tints the keep from the",
+    "LIVE `player.color`, not from the static palette — the S135 ownership audit made that a rule,",
+    "and S136 P3 layered the rainbow celebration on top of it (`keepRainbowTint` cycles the palette",
+    "for eight seconds). A sprite drawn in crimson multiplied by cyan is mud. Drawn in neutral grey",
+    "it tints to any palette entry cleanly, ownership stays legible, and the rainbow keeps working.",
+    "⇒ The RACE is carried by the SILHOUETTE; the SEAT is carried by the tint. That split is the",
+    "whole design and it is why every prompt below forbids saturated colour.",
+    "",
+    "⛔ AND NOTHING IN THE STRUCTURE MAY BE NEAR-WHITE. build-sprite-atlas.mjs mattes by finding",
+    "near-white (min(rgb) > 205) and killing it when it is border-connected OR enclosed-and-large.",
+    "A bone-white castle wall is a large enclosed near-white region — the matte would delete the",
+    "castle and leave its outline. Mid-grey stone is not a stylistic preference here, it is what",
+    "keeps the building from being erased by its own pipeline.",
+    "",
+    "ORIGINAL DESIGNS ONLY. Every race is built from generic mythic architecture (gothic spires,",
+    "reef coral, stepped sandstone, rotted timber, lashed logs, volcanic glass). No recognisable",
+    "franchise silhouette, per the standing art rule."
+  ],
+  "outDir": "assets-source/race-castles",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks — the drawing language of a hand-inked tabletop game piece.",
+    "⛔ GREYSCALE ONLY. Draw the entire structure in warm neutral GREYS: mid-grey stone, darker grey",
+    "shadow, near-black ink lines, a few pale grey highlights. Absolutely no saturated colour",
+    "anywhere — no red, blue, green, gold, purple, orange or brown.",
+    "⛔ NOTHING IN THE STRUCTURE MAY BE WHITE OR NEAR-WHITE: even the brightest highlight must still",
+    "read as clearly grey against a white page. The background is the only white in the image.",
+    "Symmetrical straight-on FRONT ELEVATION, no perspective, the entire structure inside the frame,",
+    "filling most of the frame height.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no",
+    "ground plane, no base platform — nothing beneath the structure at all. The lowest ink in the",
+    "image must be the bottom of the building itself, sitting flat.",
+    "Centered on a plain pure white background.",
+    "No text, no lettering, no words, no logo, no border, no frame, no white outline around the",
+    "silhouette, no die-cut sticker edge, no drop-shadow behind the structure, no background scenery,",
+    "no sky, and no living characters or animals standing in the scene. Carved stone motifs on the",
+    "building itself are wanted and are not characters."
+  ],
+  "characters": [
+    {
+      "name": "vampires-intact",
+      "_race": "crimson 0xff3b6b — gothic spire keep",
+      "prompt": "A tall narrow gothic vampire castle keep in pristine condition. Three slender pointed spires of different heights topped with thin iron finials, tall lancet windows with pointed arches, flying buttresses shaped like folded bat wings bracing the central tower, and a heavy iron portcullis gate under a pointed archway. A carved stone bat with spread wings is set into the stonework above the gate as a keystone. Narrow, vertical, elegant and severe."
+    },
+    {
+      "name": "vampires-damaged",
+      "_race": "crimson — same keep, battle-damaged",
+      "prompt": "The same tall narrow gothic vampire castle keep, now battle-damaged. The tallest of its three pointed spires is snapped off halfway and leaning, its iron finial hanging bent. Long jagged cracks run down the central tower, two lancet windows are shattered open, a section of the bat-wing buttress has broken away, and rubble is heaped at the base. The iron portcullis is buckled inward. Thin wisps of smoke rise from the broken spire. The carved stone bat keystone above the gate is chipped but still readable. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/vampires-intact.png"
+      ]
+    },
+    {
+      "name": "vampires-destroyed",
+      "_race": "crimson — ruin",
+      "prompt": "The ruin of a tall narrow gothic vampire castle keep. All three spires are gone; only a broken jagged stump of the central tower remains standing about a third of its old height, with one intact pointed lancet window arch still framed in the surviving wall. The pointed archway of the gate has collapsed into a heap of shattered blocks, and one snapped iron finial lies among the rubble. A large mound of broken masonry spreads across the base. Dead and cold, no smoke, no fire. Still recognisably the remains of a gothic spire keep."
+    },
+    {
+      "name": "nagas-intact",
+      "_race": "cyan 0x3bd7ff — coral reef fortress",
+      "prompt": "A naga sea-serpent castle keep in pristine condition, built from coral and shell rather than cut stone. A broad rounded fortress whose walls are formed of great fluted scallop shells and branching brain coral, with three scalloped shell arches for windows and a wide low doorway shaped like an open clam. Two carved serpentine stone snakes coil up the flanks of the building, their heads meeting above the door. Tide-worn columns, barnacle texture, small streams of water spilling from openings low in the wall. Wide, rounded, organic and flowing."
+    },
+    {
+      "name": "nagas-damaged",
+      "_race": "cyan — same fortress, battle-damaged",
+      "prompt": "The same naga coral-and-shell castle keep, now battle-damaged. The largest scallop-shell wall panel is cracked clean through and half of it has broken away, exposing hollow chambers behind. Two branches of the brain coral are snapped off, one scalloped shell arch has collapsed into a jagged hole, and one of the two carved serpent snakes has lost its head, leaving a broken neck stump. Shards of shell and coral litter the base. Water gushes hard from the broken wall instead of trickling. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/nagas-intact.png"
+      ]
+    },
+    {
+      "name": "nagas-destroyed",
+      "_race": "cyan — ruin",
+      "prompt": "The ruin of a naga coral-and-shell castle keep. The rounded fortress has collapsed to a low broken ring of wall about a third its old height. One great fluted scallop shell still stands upright, cracked, at one side, and the coiled body of one carved stone serpent lies broken in three pieces across the rubble with its head face-down. Shattered coral branches and shell fragments are heaped everywhere. Dry and dead — no water flowing. Still recognisably the remains of a coral reef fortress."
+    },
+    {
+      "name": "mummies-intact",
+      "_race": "yellow 0xffe23b — stepped sandstone mastaba",
+      "prompt": "A mummy dynasty castle keep in pristine condition: a squat stepped sandstone pyramid of four receding tiers with a narrow vertical slot doorway at the centre of the lowest tier. Two tall square obelisks flank the doorway, each carved with abstract geometric bands. A broad carved stone scarab beetle spans the lintel above the slot door. Narrow linen banners hang either side of the entrance in stiff vertical folds. Heavy blocky masonry, crisp horizontal courses, wide and low and monumental."
+    },
+    {
+      "name": "mummies-damaged",
+      "_race": "yellow — same mastaba, battle-damaged",
+      "prompt": "The same stepped sandstone mummy castle keep, now battle-damaged. The top tier of the four-tier pyramid has been blown apart and its blocks have slid down the face of the tiers below. One of the two flanking obelisks is snapped in half with its top section lying across the steps. Deep cracks split the second tier, the slot doorway is partly choked with fallen blocks, and the carved scarab lintel is cracked through the middle. The hanging linen banners are torn to ribbons. Dust drifts from the broken tier. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/mummies-intact.png"
+      ]
+    },
+    {
+      "name": "mummies-destroyed",
+      "_race": "yellow — ruin",
+      "prompt": "The ruin of a stepped sandstone mummy castle keep. Only the lowest tier survives as a broken rectangular platform, its courses of blocks tumbled and gap-toothed. Both obelisks are down: one lies snapped in two across the rubble, the other is a jagged stump. The carved stone scarab from the lintel lies upside down and cracked in the debris, still clearly a scarab. Drifted sand has piled against the broken masonry. Dead and still. Still recognisably the remains of a stepped sandstone tomb-fortress."
+    },
+    {
+      "name": "zombies-intact",
+      "_race": "green 0x44ff5e — rotted patchwork stronghold",
+      "prompt": "A zombie castle keep in its best condition, which is still a wreck by design: a crooked patchwork stronghold of warped rotted timber planks nailed haphazardly over cracked masonry, leaning noticeably to one side. A sagging roof of mismatched boards, boarded-over windows with gaps between the planks, and a wide gaping doorway with no door, framed by two leaning posts so it reads as an open mouth. A crooked palisade of sharpened stakes and long bones is lashed across the front. Lopsided, slumped, held together by nails and spite."
+    },
+    {
+      "name": "zombies-damaged",
+      "_race": "green — same stronghold, battle-damaged",
+      "prompt": "The same crooked zombie patchwork stronghold, now battle-damaged. The sagging plank roof has caved in over one half of the building, several wall planks have been torn away leaving ragged holes into the dark interior, and the whole structure leans much further over, propped on a single splintered beam. Half the bone-and-stake palisade is smashed flat. The gaping doorway has partly collapsed inward. Loose planks and snapped bones lie scattered at the base. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/zombies-intact.png"
+      ]
+    },
+    {
+      "name": "zombies-destroyed",
+      "_race": "green — ruin",
+      "prompt": "The ruin of a crooked zombie patchwork stronghold. The building has collapsed into a low heap of splintered planks, snapped beams and broken masonry, with one leaning doorway post still standing upright at an angle over the pile like a marker. A few sharpened stakes and long bones from the smashed palisade jut out of the debris. Nails and torn boards everywhere. Dead and still. Still recognisably the remains of a nailed-together timber stronghold."
+    },
+    {
+      "name": "orcs-intact",
+      "_race": "orange 0xff8c1a — log-and-iron war stockade",
+      "prompt": "An orc war-fort keep in pristine condition: a squat brutal stockade of enormous vertical logs, their tops hewn to blunt points, lashed together with thick rope and banded with crude riveted iron plates. A heavy reinforced gate of horizontal timbers barred with an iron beam sits at the centre, flanked by two angled log ram-guards. A short square watchtower rises from the left side with a huge war drum mounted under its open roof. Two crossed axe-heads are mounted as a trophy above the gate. Broad, heavy, aggressive, built for hitting things."
+    },
+    {
+      "name": "orcs-damaged",
+      "_race": "orange — same stockade, battle-damaged",
+      "prompt": "The same orc log-and-iron war-fort keep, now battle-damaged. Three of the great vertical logs are splintered off at half height and one has fallen outward, opening a gap in the wall. The reinforced gate hangs off one hinge with its iron bar snapped. The watchtower's roof is gone and the war drum is split open and sagging in its mount. Several iron bands have torn free and curl outward, and the lashing ropes hang loose. One of the two crossed trophy axes has been knocked away. Smoke curls from the broken logs. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/orcs-intact.png"
+      ]
+    },
+    {
+      "name": "orcs-destroyed",
+      "_race": "orange — ruin",
+      "prompt": "The ruin of an orc log-and-iron war-fort keep. The stockade has been broken down to a row of jagged log stumps no higher than a man, with two logs still leaning against each other over the collapsed gateway. The watchtower is completely down, its square frame lying smashed across the rubble, and the split war drum lies on its side in the debris with its skin burst. Torn iron bands, cut ropes and one broken axe head lie among the splinters. Dead and cold. Still recognisably the remains of a log stockade fort."
+    },
+    {
+      "name": "demons-intact",
+      "_race": "magenta 0xd73bff — jagged obsidian citadel",
+      "prompt": "A demon citadel keep in pristine condition, built from jagged volcanic glass: an asymmetric cluster of sharp angular shards of obsidian thrusting upward at different angles, faceted like broken glass, with the tallest shard leaning slightly. A wide horned archway forms the entrance, its two curved horns sweeping up and outward from the doorframe. Heavy chains hang in loops between the shards, with two hanging braziers suspended from them. Thin fissure lines crack across the faces of the shards. Sharp, angular, unbalanced and hostile."
+    },
+    {
+      "name": "demons-damaged",
+      "_race": "magenta — same citadel, battle-damaged",
+      "prompt": "The same jagged obsidian demon citadel, now battle-damaged. The tallest shard has shattered off at the midpoint and its broken top has embedded itself point-first in the ground beside the building. Two other shards are cracked through, spilling glassy debris. One of the two curved horns of the archway is snapped clean off and the arch sags. Several chains have parted and hang loose, and one brazier has fallen and lies overturned. The fissure lines have widened into open cracks. Clearly the same building as before, clearly wounded.",
+      "refImages": [
+        "assets-source/race-castles/demons-intact.png"
+      ]
+    },
+    {
+      "name": "demons-destroyed",
+      "_race": "magenta — ruin",
+      "prompt": "The ruin of a jagged obsidian demon citadel. Every shard is down: a field of broken glassy fragments and angular splinters heaped where the citadel stood, with one waist-high stump of the central shard still rooted upright and one snapped curved horn from the archway lying across the pile, unmistakably a horn. Lengths of broken chain are tangled through the debris and both braziers lie crushed and cold. Dead and dark, no fire, no glow. Still recognisably the remains of an obsidian shard citadel."
+    }
+  ],
+  "_identity_refs": [
+    "⭐ refImages ON -damaged ONLY, AND THAT SPLIT WAS MEASURED, NOT ASSUMED.",
+    "The exit gate for W1-B is that the three states read as the SAME BUILDING wounded and then",
+    "broken. For -damaged that needs the intact keep as an IDENTITY reference — a text description of",
+    "a gothic keep yields *a* gothic keep, the actual pixels yield THAT keep. Same reasoning as the",
+    "stink bag (gen-character-design.mjs §S157 knob 2). All six damaged states landed first time.",
+    "",
+    "⛔ FOR -destroyed THE SAME REFERENCE IS ACTIVELY HARMFUL, and the evidence is a controlled pair.",
+    "zombies-destroyed was generated TWICE: once with no reference (the first spike) and once with",
+    "zombies-intact.png attached. The unconditioned one is a proper heap of splintered planks and",
+    "bones; the conditioned one came back as the leaning shack again, barely distinguishable from",
+    "zombies-damaged. nagas and orcs failed the same way and to the same degree. The reference",
+    "anchors the SILHOUETTE, and a ruin is precisely the state whose silhouette must be gone.",
+    "⇒ Identity in the ruin is carried by the PROMPT instead: each -destroyed prompt names the",
+    "race's own material and ONE surviving recognisable motif (the lancet arch, the serpent head,",
+    "the scarab, the doorway post, the war drum, the horn).",
+    "",
+    "⇒ GENERATION IS STILL ORDERED: every -intact first, because -damaged reads from it.",
+    "The reference is the project's own art and the prompt asks for a NEW drawing of the same",
+    "structure in a new condition — never a copy."
+  ],
+  "_no_shadow": [
+    "⛔ WHY THE PROMPT FORBIDS A GROUND SHADOW, MEASURED ON THE FIRST PASS.",
+    "The first six intacts were generated WITH \"a small soft dark grey oval shadow on the ground\" —",
+    "the goblin roster's wording, correct for a character standing in a scene. Two of the six (nagas,",
+    "orcs) put the oval DETACHED below the building, and that breaks two things at once:",
+    "  1. build-sprite-atlas.mjs measures ONE union bbox and pastes foot-anchored to the cell bottom.",
+    "     A detached oval makes the SHADOW the foot, so that race's castle floats above the anchor and",
+    "     renders smaller than a race without one. Each race is its own atlas, so the union-bbox",
+    "     anti-jitter guarantee does not span them — the mismatch is invisible until two castles are",
+    "     on the board together.",
+    "  2. The sprite is TINTED by the owning seat. A baked grey shadow tints with everything else, so",
+    "     the ground under a vampire keep would be crimson and under a naga keep cyan.",
+    "The board draws no shadow under the placeholder keep today, so removing it is also the smaller",
+    "change. Regenerated all six intacts rather than keeping the four that happened to attach it."
+  ]
+}

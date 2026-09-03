@@ -1,0 +1,106 @@
+{
+  "_comment": [
+    "SPARK — S161 W1-B castle atlas specs, one entry per RACE, consumed by scripts/build-sprite-atlas.mjs.",
+    "RETAINED IN-TREE for the same reason design-spec.json is: S151 shipped three atlases and kept no",
+    "spec, so they could not be rebuilt or retuned.",
+    "",
+    "⭐ `framesPerState: 1` AND `still` INSTEAD OF `clip`. A castle has three CONDITIONS, not three",
+    "ACTIONS — see the `still` knob's docblock in build-sprite-atlas.mjs for why that is not a",
+    "shortcut. Each state is therefore a one-frame row and `ticksPerFrame` is inert; it is set to 1",
+    "rather than omitted because the manifest schema is shared with the animated characters and a",
+    "missing key there would read as a builder bug rather than as a deliberate constant.",
+    "",
+    "⛔ `fit: 'box'` AND NOT THE DEFAULT `'height'`, WHICH IS THE ONE JUDGEMENT CALL IN THIS FILE.",
+    "Height-fit exists because CHARACTERS are compared by how tall they look, and it lets a prop",
+    "widen the cell (the archer's bow). Castles are not compared that way: they sit at FIXED anchors,",
+    "they are a click target sized KEEP_W x KEEP_H, and the six differ enormously in aspect —",
+    "measured on the shipped art, the vampire spire is 622x976 and the naga reef fort is 979x806.",
+    "Height-fitting those two makes the naga nearly a third wider than the board slot while the",
+    "vampire stays narrow. Box-fit puts every race inside the SAME square and lets each keep its own",
+    "aspect: a spire is tall and thin, a reef fort is wide and squat, and neither overruns its seat.",
+    "",
+    "The union bbox is measured per ATLAS, so a race's three states share one ground line and one",
+    "scale — an intact keep and its own ruin cannot jump. It does NOT span races, which is exactly",
+    "why the square cell above matters: it is what keeps six separately-built atlases comparable."
+  ],
+  "specs": [
+    {
+      "name": "castle-vampires",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/vampires-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/vampires-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/vampires-destroyed.png", "ticksPerFrame": 1 }
+      }
+    },
+    {
+      "name": "castle-nagas",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/nagas-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/nagas-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/nagas-destroyed.png", "ticksPerFrame": 1 }
+      }
+    },
+    {
+      "name": "castle-mummies",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/mummies-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/mummies-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/mummies-destroyed.png", "ticksPerFrame": 1 }
+      }
+    },
+    {
+      "name": "castle-zombies",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/zombies-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/zombies-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/zombies-destroyed.png", "ticksPerFrame": 1 }
+      }
+    },
+    {
+      "name": "castle-orcs",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/orcs-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/orcs-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/orcs-destroyed.png", "ticksPerFrame": 1 }
+      }
+    },
+    {
+      "name": "castle-demons",
+      "outDir": "public/art/castles",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": { "still": "assets-source/race-castles/demons-intact.png", "ticksPerFrame": 1 },
+        "damaged": { "still": "assets-source/race-castles/demons-damaged.png", "ticksPerFrame": 1 },
+        "destroyed": { "still": "assets-source/race-castles/demons-destroyed.png", "ticksPerFrame": 1 }
+      }
+    }
+  ]
+}
