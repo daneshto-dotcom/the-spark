@@ -66,6 +66,56 @@ broken). This has bitten three separate sessions, twice in one session. Two rule
   told the owner to fill in a gitignored `.env` that CI never reads; S159's stale-plan WARN is
   matched on a STATUS line inside the file, not on the filename.
 
+## ⛔ A HUNT THAT RETURNS NOTHING IS NOT A COMPLETED HUNT (S161, owner)
+
+Written after S161 closed a session claiming an audit it had not performed.
+
+A five-lane bug sweep was dispatched to subagents, hit the usage limit, and returned **zero** results.
+The session recorded *"the sweep produced nothing"*, wrote the handoff and stopped. The owner then
+found two real bugs in ten minutes, and a hand-run grep immediately surfaced a third
+(`droneLifecycle.ts:153` severs connectors unconditionally). **Every one of those was findable the
+whole time.** The failure was not bad verification — it was treating the AGENT RUN as the audit
+instead of as an accelerator for an audit that was owed either way.
+
+**THE RULE.** Delegated investigation is a speed-up, never the deliverable. If a hunt is dispatched
+and does not return usable findings — limit, crash, timeout, empty result — the lanes fall back to
+THIS session, by hand, before any handoff is written. A lane may be closed in exactly three ways:
+
+1. an agent returned findings and they were verified against the tree;
+2. the lane was run BY HAND and its verdict recorded;
+3. it is explicitly listed as **NOT DONE** in the handoff's own summary line, not only in a
+   carry-forward the next session may not reach.
+
+⛔ *"The sweep produced nothing"* is not a verdict on the code. It is a verdict on the sweep.
+
+⚠ AND SIZE THE FAN-OUT SO ONE FAILURE IS NOT TOTAL. S161 lost all five lanes to a single limit hit
+because they rode one invocation. Dispatch lanes as separate smaller runs; a limit then costs one
+lane, and the other four still have verdicts.
+
+⭐ CHEAPEST HAND-RUN LANE, and it is the one that has repeatedly paid: enumerate every production
+call site of the mechanic under suspicion and ask who can reach each one. Three greps
+(`grep -rn "type: 'SEVER_BOND'" src --include=*.ts | grep -v test` and its siblings) found what five
+agents did not, because the agents never got to run.
+
+### ⛔ AND NO FAILED COMMAND IS PASSED OVER — owner, S161: *"this is how we have persistent bugs!"*
+
+A non-zero exit is a FINDING until proven otherwise. Every failed command gets one of two outcomes,
+recorded: **investigated and resolved**, or **explicitly ruled benign with the reason**. Never
+silence, and never "it probably didn't matter".
+
+⚠ THIS CUTS BOTH WAYS AND S161 GOT IT WRONG IN BOTH DIRECTIONS IN ONE SESSION:
+· a gate that FAILED and was read as passing — `npm run e2e:gating` printed *"61 passed"* and a
+  trailing `[exited with code 0]` from the wrapper while the real line, scrolled off the top, was
+  `E2E_EXIT=1`;
+· commands that failed and were left unexamined — five subagent shells died when their workflow was
+  stopped, and the session moved on without asking what they had been about to check.
+
+⭐ THE BENIGN CASES ARE REAL AND MUST STILL BE NAMED, because "benign" is a verdict, not a shrug.
+The recurring ones here: `grep -c` returning 1 on zero matches and short-circuiting a trailing `&&`
+(this is why the project rule says never chain a gate behind `&&`); a deliberate wrapper timeout
+(exit 143) on a polling loop; `pgrep` not existing in git-bash. Each is a one-line verdict, and
+writing the line is what proves the check happened.
+
 ## Protocol version
 
 `PROTOCOL_VERSION` lives in `src/net/protocol.ts` (38 at S159) and a mismatched peer is REFUSED —

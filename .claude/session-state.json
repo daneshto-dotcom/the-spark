@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4145,
+  "tool_calls_session_total": 4154,
   "session_id": "S161",
   "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -4831,15 +4831,24 @@
   "open_owner_bugs_s161": [
     {
       "id": "OPEN-1",
-      "severity": "HIGH — owner-reported, REGRESSION OF A FIX THIS SESSION CLAIMED",
+      "severity": "HIGH — owner-reported. ⭐ ROOT CAUSE NOW IDENTIFIED BY HAND (S161 close).",
       "owner_words": "\"Enemy bots one shoot using raid connectors instead of inflicting damage - i thought you fixed it??\"",
-      "status": "UNFIXED. Investigation started, not concluded.",
+      "status": "⭐ CAUSE FOUND. The bot's RAID is symmetric — a by-hand enumeration of EVERY production connector-removal path proves it. The one-shot the owner saw is the LIGHTNING DRONE.",
       "what_s161_did": "P3 changed `botController.ts` to dispatch RAID_TARGET instead of SEVER_BOND{cause:'player'}, and moved the bot's gate from `disruptionCharges` to `raidPoints`. `raidParity.test.ts` proves the bot and the human now put the SAME `damageFifths` on the same connector and that one bot raid does NOT sever an 11-primitive chain.",
       "so_why_might_it_still_one_shot": [
         "⭐ HYPOTHESIS A — IT IS NOT ASYMMETRY, IT IS SMALL COMPONENTS, AND IT IS TRUE FOR THE HUMAN TOO. `connectorCapacityFifths(n) = n + 4` (stats.ts:201) and a raid is `attackFifths(RAID_ATK=2, RAID_PEN=0)` = 10 fifths. So ANY component with n <= 6 connectors is severed by ONE raid, by anybody. Bots build small/loose structures, so a bot raiding a small player structure looks like a one-shot while the player raiding a big bot fortress does not. ⇒ CHECK THIS FIRST: it may be the shipped design meeting an asymmetric board, not a code defect. If so it is a BALANCE ruling (RAID_ATK, or a floor on capacity), not a bug fix.",
         "HYPOTHESIS B — A SECOND BOT PATH STILL SEVERS. S161 fixed the `case 'SEVER'` errand arm. Sweep for any OTHER route by which a bot-owned entity removes a connector: `creatureAttack.ts:410` (`damageConnector`, stat-gated — legitimate), `suicideBlast.ts:150`, `voltkinChain.ts:192`, and `droneLifecycle.ts:153` (SEVER_BOND{cause:'drone'} — UNCONDITIONAL, no damage gate, by the S113 count ruling). ⚠ A bot with a lightning hub therefore DOES still destroy connectors outright, legitimately, and that would look exactly like the reported symptom."
       ],
-      "first_check_next_session": "Reproduce with the debug overlay: raid one bot connector as the human and read `bond.damageFifths` before/after; then let a bot raid one of yours and read the same field. If both move by 10, the mechanic is symmetric and the complaint is about capacity/board size, not parity."
+      "first_check_next_session": "Reproduce with the debug overlay: raid one bot connector as the human and read `bond.damageFifths` before/after; then let a bot raid one of yours and read the same field. If both move by 10, the mechanic is symmetric and the complaint is about capacity/board size, not parity.",
+      "RESOLVED_INVESTIGATION": [
+        "⭐ THE BOT RAID FIX DID LAND. `grep -rn \"SEVER_BOND\\|damageConnector\\|RAID_TARGET\" src/bots` returns NO dispatch of SEVER_BOND anywhere in the bot tree — `botRaidAction` -> RAID_TARGET is the bot's only connector-removal origin, and it runs the same reducer, the same `damageConnector`, the same capacity gate and the same RAIDED cloud as the human. So P3 is not regressed.",
+        "⛔ THE ACTUAL ONE-SHOT IS `droneLifecycle.ts:153`. `applyDroneExplode` dispatches SEVER_BOND{cause:'drone'} for up to DRONE_MAX_CONNECTORS bonds — UNCONDITIONALLY. No damageFifths, no `connectorCapacityFifths` check, no RAIDED cloud. Its own docblock says so and calls it deliberate: *\"THE CONNECTOR SEVER BELOW IS DELIBERATELY LEFT UNCONDITIONAL\"*, on the grounds that the owner ruled a COUNT (\"3 connectors per lightning\") rather than a damage figure. ⇒ A bot with a lightning hub destroys connectors outright while the player's raid only damages them. That is EXACTLY the owner's sentence — *\"bots one shoot ... instead of inflicting damage\"* — and it is the shipped design, not a defect.",
+        "⇒ THIS IS AN OWNER BALANCE RULING, NOT A BUG FIX. Three options, and they are genuinely different: (a) leave it — the count ruling stands and the answer is \"kill the hub\"; (b) stat-gate the drone sever like `suicideBlast.ts` does — ⚠ `constants.ts` already measured that this makes the drone WEAKER against big fortresses (30 fifths cuts only while the component has <=26 connectors), which is the opposite of what it exists for; (c) keep the count but make it damage-first, severing only what the damage would have severed. Do not pick one without asking.",
+        "⚠ SECOND CONTRIBUTOR, ALSO NOT A DEFECT: `connectorCapacityFifths(n) = n + 4` vs a 10-fifth raid means ANY component with <=6 connectors is one-shot BY ANYBODY. Bots build small loose structures."
+      ],
+      "refuted_hypotheses": [
+        "⛔ REFUTED — \"the race picker desynchronised colour-based friend/foe\". S161 P6 made `player.color` stop being a pure function of seat, and `isEnemyBondWithColor` (creatureAI.ts:124) decides friend-or-foe by COLOUR. But all three production writes stamp `placerColor: player.color` — the LIVE colour (blueprintBuild.ts:287, placePrimitive.ts:223, structureRepair.ts:344) — so they stay coherent. Recorded because it is a plausible-sounding claim that a future session might re-derive and act on."
+      ]
     },
     {
       "id": "OPEN-2",
@@ -4870,6 +4879,12 @@
         "src/state/gatherers/gathererLifecycle.ts:316-326 orderForGatherer",
         "src/state/gatherers/gathererLifecycle.ts:385+ pickGathererTarget"
       ]
+    },
+    {
+      "id": "OPEN-4",
+      "severity": "MEDIUM — latent fragility, no live symptom, found while investigating OPEN-1/2",
+      "title": "Friend-or-foe for creatures is decided by COLOUR, while radial damage spares by PLAYER ID",
+      "detail": "`isEnemyBondWithColor` (creatureAI.ts:120-125) returns `primA.placerColor !== ownerColor || primB.placerColor !== ownerColor`, while `applyRadialDamage` (damage.ts:448-462) spares by `ownerPlayerId` / `placedBy`. ONE drone explosion runs BOTH. They agree today — verified: every placerColor write uses the live `player.color`. ⚠ But S161 P6 weakened the invariant they rest on: `player.color` is no longer `PLAYER_COLORS[seat]` once a race is picked. Anything that moves colour without moving id — a STEAL writes `ownerColor` and leaves `placerColor`; the rainbow remaps both but through one bijection — is one edit away from splitting them. ⇒ Worth a tripwire test asserting the two predicates agree for every (player, primitive) pair in a fixture, rather than a rewrite."
     }
   ]
 }
