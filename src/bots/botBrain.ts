@@ -185,15 +185,90 @@ const TOWER_SITE_ANGLES: readonly number[] = [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1
  * outlying nodes are off-canvas or inside a spawner zone. `buildLegalityGates.test.ts` pins the
  * six-gate agreement sweep on the footprint-aware predicate, so this is the one to ask.
  */
+/**
+ * ⭐ S161 P3 (BUG-3) — WHICH BLUEPRINT IS THIS SEAT WORKING TOWARDS. One answer, used by the
+ * builder AND by the shape orderer.
+ *
+ * > Owner, playing 2026-09-03: *"bots (even on imba) only build stink towers … other than that they
+ * > just always build loose structures … they need to actually play the game and build all types of
+ * > towers and save more."*
+ *
+ * ## Why the bot could only ever build stink towers
+ *
+ * `TOWERS_BY_COST` is cheapest-first and the stink tower is the cheapest thing in the registry (4
+ * shapes). `chooseTowerPlan` was FIRST-AFFORDABLE-WINS over that list, so the moment a bot could pay
+ * for a stink tower it built one — and it could always pay for a stink tower, because
+ * `chooseTowerOrder` was busy fetching exactly its bill. The two halves formed a closed loop: order
+ * four Circles, raise a stink tower, order four Circles. Nothing in it could ever reach rung two,
+ * which is why an IMBA bot with `towerTiers: 7` played the same match as a MEDIUM bot with 2.
+ *
+ * ⛔ AND THE ORDERER WAS THE HALF THAT MADE IT PERMANENT. `chooseTowerOrder` / `towerBillNeeds` both
+ * did `if (planBlueprintPayment(cheapest) !== null) return null; // already affordable` — so a bot
+ * that could afford a stink tower ordered NOTHING AT ALL. That is the *"save more"* half of the
+ * owner's sentence: the bot was structurally incapable of accumulating past four shapes.
+ *
+ * ## The rule
+ *
+ * The CHEAPEST rung this seat has never raised; if it has raised them all, the most expensive rung
+ * in its tier. Cheapest-unowned rather than most-expensive-unowned on purpose — it gives the variety
+ * the owner asked for AND a natural climb, where "always reach for the top rung" would leave a fresh
+ * bot idle for most of the opening saving for a voltkin.
+ *
+ * ⚠ PURE, AND IT DRAWS NO RNG. The TOWER branch of `chooseGoal` sits ABOVE `pickTargetSpark`'s draw,
+ * so adding a draw here would shift every later draw and break every seeded replay, the worker-sim
+ * differential and botController's same-seed test. It reads only `world.primitives` and the config.
+ */
+export function ownedBlueprintIds(world: World, seat: PlayerId): ReadonlySet<GodlyId> {
+  const owned = new Set<GodlyId>();
+  for (const p of world.primitives.values()) {
+    if (p.placedBy === seat && p.origin !== null) owned.add(p.origin.blueprintId);
+  }
+  return owned;
+}
+
+export function chooseTargetBlueprint(world: World, seat: PlayerId, cfg: BotConfig): GodlyId | null {
+  if (!cfg.buildsTowers) return null;
+  const rungs = TOWERS_BY_COST.slice(0, cfg.towerTiers);
+  if (rungs.length === 0) return null;
+  const owned = ownedBlueprintIds(world, seat);
+  for (const id of rungs) if (!owned.has(id)) return id;
+  return rungs[rungs.length - 1]!; // every rung raised — build another of the best one it can climb
+}
+
 export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): TowerPlan | null {
   if (!cfg.buildsTowers) return null;
   // Cheapest of all the gates and true of the whole board at once — `stampRefusalAt`'s own first
   // check. Asking it here means the candidate loop is skipped entirely for the whole FIGHT phase.
   if (world.matchPhase !== 'BUILD') return null;
 
+  const target = chooseTargetBlueprint(world, seat, cfg);
+  if (target === null) return null;
+
+  /*
+   * ⭐ THE TARGET, THEN A BOUNDED FALLBACK — and the fallback's condition is the whole "save more".
+   *
+   * If the target is affordable and placeable, build it. If it is NOT affordable, the bot SAVES: it
+   * builds nothing this think and `chooseTowerOrder` (same target) keeps hauling toward it. That is
+   * the behaviour the owner asked for, and it is only safe because of the two escapes below.
+   *
+   * ESCAPE 1 — a seat with NOTHING standing always takes what it can get. An opening bot must not
+   * spend the first minutes empty-handed saving for rung two.
+   * ESCAPE 2 — a target that is affordable but has no legal site (all ten angles refused) must not
+   * deadlock the seat forever, so an affordable target that cannot be PLACED falls through to the
+   * other rungs. ⚠ The two escapes are deliberately different: unaffordable ⇒ save, unplaceable ⇒
+   * substitute. Collapsing them into one condition restores first-affordable-wins.
+   */
+  const targetAffordable = planBlueprintPayment(world, seat, target) !== null;
+  const candidates: GodlyId[] = [];
+  if (targetAffordable) candidates.push(target);
+  if (targetAffordable || !hasStampedStructure(world, seat)) {
+    for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
+      if (id !== target) candidates.push(id);
+    }
+  }
+
   const anchor = castleAnchor(seat as unknown as number, world.layout);
-  // ⭐ AMENDMENT A — only the rungs this tier climbs. See `towerTiers`.
-  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
+  for (const id of candidates) {
     if (planBlueprintPayment(world, seat, id) === null) continue;
     for (const a of TOWER_SITE_ANGLES) {
       const centre = {
@@ -245,30 +320,28 @@ export function towerBillNeeds(
   seat: PlayerId,
   cfg: BotConfig,
 ): ReadonlySet<SparkType> | null {
-  if (!cfg.buildsTowers) return null;
-  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
-    if (planBlueprintPayment(world, seat, id) !== null) return null; // already affordable
-    const bill = blueprintBill(id);
-    const needs = new Set<SparkType>();
-    for (const t of ALL_SPARK_TYPES) {
-      const want = bill.get(t) ?? 0;
-      if (want > 0 && bankCountOf(world.castleBanks, seat, t) < want) needs.add(t);
-    }
-    if (needs.size > 0) return needs;
+  // ⭐ S161 P3 (BUG-3) — THE SAME TARGET THE BUILDER IS AIMING AT. Previously this walked the
+  // cheapest-first list and bailed the instant the CHEAPEST rung was affordable, so a bot that could
+  // pay for a stink tower hoarded nothing and could never climb. See `chooseTargetBlueprint`.
+  const target = chooseTargetBlueprint(world, seat, cfg);
+  if (target === null) return null;
+  if (planBlueprintPayment(world, seat, target) !== null) return null; // already affordable
+  const bill = blueprintBill(target);
+  const needs = new Set<SparkType>();
+  for (const t of ALL_SPARK_TYPES) {
+    const want = bill.get(t) ?? 0;
+    if (want > 0 && bankCountOf(world.castleBanks, seat, t) < want) needs.add(t);
   }
-  return null;
+  return needs.size > 0 ? needs : null;
 }
 
 export function chooseTowerOrder(world: World, seat: PlayerId, cfg: BotConfig): SparkType | null {
-  if (!cfg.buildsTowers) return null;
-  for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
-    if (planBlueprintPayment(world, seat, id) !== null) return null; // already affordable
-    const bill = blueprintBill(id);
-    for (const t of ALL_SPARK_TYPES) {
-      const want = bill.get(t) ?? 0;
-      if (want > 0 && bankCountOf(world.castleBanks, seat, t) < want) return t;
-    }
-  }
+  // ⭐ S161 P3 (BUG-3) — one target behind both answers, so the set a bot HOLDS is the set it
+  // ORDERS. This file already states that principle at `towerBillNeeds`; before this it was true of
+  // the two functions relative to each other and false of both relative to what got BUILT.
+  const needs = towerBillNeeds(world, seat, cfg);
+  if (needs === null) return null;
+  for (const t of ALL_SPARK_TYPES) if (needs.has(t)) return t;
   return null;
 }
 
