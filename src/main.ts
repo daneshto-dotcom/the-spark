@@ -37,7 +37,6 @@ import {
   INTENT_BUCKET_REFILL_PER_SEC,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
-  PLAYER_COLORS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -249,7 +248,7 @@ import { asPlayerId } from './types.ts';
 // moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
-import type { RaceId } from './state/races.ts';
+import { defaultRaceForSeat, RACE_COLORS, type RaceId } from './state/races.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1111,16 +1110,25 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (difficulties) => {
+          onStart: (difficulties, races) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
               const mod = await import('./bots/botManager.ts');
               const totalSeats = difficulties.length + 1;
-              const roster = Array.from({ length: totalSeats }, (_, seat) => ({
-                seat,
-                color: PLAYER_COLORS[seat],
-              }));
+              /*
+               * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
+               *
+               * ⛔ AND THE COLOUR NOW COMES FROM THE RACE, NOT FROM THE SEAT. Leaving
+               * `PLAYER_COLORS[seat]` here while passing `raceId` would ship the exact
+               * contradiction W1-A's B6 note warns about: a seat wearing one race's castle and
+               * another race's colour, with nothing red in the suite, because `applyStartGame`
+               * takes the colour verbatim from this entry and the race from the field beside it.
+               */
+              const roster = Array.from({ length: totalSeats }, (_, seat) => {
+                const raceId = races[seat] ?? defaultRaceForSeat(seat);
+                return { seat, color: RACE_COLORS[raceId], raceId };
+              });
               const botSeats = difficulties.map((_, i) => i + 1);
               // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND
               // seeds the bot AI streams from the same draw, so both the shapes you get and the bots'
