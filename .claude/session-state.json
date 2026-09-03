@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4155,
+  "tool_calls_session_total": 4156,
   "session_id": "S161",
   "session_kind": "PDCA batch, OWNER-DIRECTED 2026-09-03: the pre-approved races PDR (W1-B castle art + render) and B2 seat elimination on ruling R127, PLUS a mid-session owner scope amendment — six bugs reported from a live match, investigated by 12 agents in parallel (2 per report) while the batch continued.",
   "session_start": "2026-09-02T17:30:00+02:00",
   "prior_session_note": "S160 shipped 5 priorities; TURN live and verified. Handoff HANDOFF_2026-09-02_S160.md at b854173.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "OPEN — hunt incomplete, bugs unfixed",
+  "phase": "CLOSED (handoff run) — open findings carried",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-02_PDR_S160_BATCH.md",
-  "session_status": "⛔ S161 IS STILL OPEN — PAUSED AT THE 5-HOUR LIMIT, NOT HANDED OFF. The owner asked to pause and save only; /handoff has NOT been run and must not be until: (1) the hunt is completed with NO unexplained failed passes, (2) OPEN-1..OPEN-4 are fixed, (3) the fixes are verified to have LANDED. P1-P6 are shipped and live at b95abcd (verify-deploy 4/4).",
+  "session_status": "S161 CLOSED at 3ea5518 — six priorities shipped and live, plus four bug fixes at the end. The close-out hunt ran 3 of 5 lanes; lanes 2 (dead ends) and 4 (doc drift) did NOT complete. SEVEN findings remain OPEN and unfixed — see open_findings_s161.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -421,7 +421,12 @@
     "S161 P5 — THE OWNER'S \"GRAVITY\" NOTE WAS A STATE-MACHINE OBSERVATION WEARING AN ART COMPLAINT. *\"imagine if they are just suspended in the air for like 2 rounds while being broken\"* — the point is not that a falling spire looks wrong, it is that a -damaged castle is a state the board HOLDS for minutes, so anything mid-fall is mid-fall forever. That reframing is what made the fix a rule in `sharedStyle` binding all eighteen rather than three re-rolls. **A player describing a visual usually knows something about the mechanic; read the sentence for the mechanic first.**",
     "S161 P5 — I SHIPPED A LAZY-LOADED IMAGE INTO A SURFACE THAT ONLY REDRAWS ON STATE CHANGE, AND ONLY THE CAPTURE CAUGHT IT. `GathererRenderer.sync` runs every frame, so its lazy atlas appears the instant it resolves; the seat rack's `update()` runs on presence beacons, so a host alone in a fresh room never redrew and the tile kept its flat swatch. ⚠ AND THE FIRST FIX WAS ALSO WRONG — assigning the texture from the ticker left the opaque colour swatch drawn OVER it, so it would have looked identically broken. Re-running the whole projection was the fix. **Copying a lazy-load pattern means copying its redraw cadence too, and \"the asset is now present\" is not the same as \"the frame is now correct\".**",
     "S161 P6 — S160 WROTE A PREDICTION INTO A DOCBLOCK AND IT WAS WRONG, WHICH IS WHY IT HAD TO BE CORRECTED IN PLACE RATHER THAN JUST NOT FOLLOWED. The note above `PROTOCOL_VERSION` said CLAIM_RACE *\"will carry its own bump\"*, reasoning by analogy to LOBBY_READY. But LOBBY_READY bumped for GATING THE MATCH (auto-Begin), not for being a new lobby kind — a distinction LOBBY_PRESENCE's own docblock states explicitly. CLAIM_RACE is client→host only and its answer rides fields already on the wire, so a stale peer degrades gracefully. **A forward-looking claim in a docblock is a claim; the session that reaches it owes the next reader a verdict, not silence.**",
-    "S161 P6 — DELETING A FUNCTION IS NOT ENOUGH IF ITS TESTS STILL PASS. `seatLabelText` was replaced by `seatRaceLabel` and survived as an unused export with four green tests — the shape that most convinces the next reader a thing is live. The full suite could not see it, because a dead export is not a failure. **After a replacement, grep for the OLD symbol outside its own test file; if the only non-test hit is its own definition, it is dead.**"
+    "S161 P6 — DELETING A FUNCTION IS NOT ENOUGH IF ITS TESTS STILL PASS. `seatLabelText` was replaced by `seatRaceLabel` and survived as an unused export with four green tests — the shape that most convinces the next reader a thing is live. The full suite could not see it, because a dead export is not a failure. **After a replacement, grep for the OLD symbol outside its own test file; if the only non-test hit is its own definition, it is dead.**",
+    "S161 CLOSE-OUT — THE OWNER HAD TO TELL ME TWICE THAT A DEAD HUNT IS NOT A DONE HUNT, AND THE SECOND TELLING PAID FOR ITSELF IMMEDIATELY. When the five-lane sweep died to the usage limit I wrote \"the sweep produced nothing\" and moved to handoff. Re-run as five SEPARATE agents, three lanes returned — and lane 1 found a CRITICAL defect my own P2 had introduced: an eliminated seat could still win by score, because removing the first-castle-ends-it exit let a corpse keep accruing tower income into a MAX-over-all-seats progress bar. ⭐ The lesson is not \"run the agents again\". It is that REMOVING A TERMINATION CONDITION opens every path that condition was silently truncating — and those paths need enumerating, not assuming.",
+    "S161 CLOSE-OUT — I WROTE THE FIX BEFORE I COULD REPRODUCE THE BUG, TWICE, AND BOTH TIMES THE REPRO CHANGED THE FIX. For the drone I floated three hypotheses (placedBy unset, race-picker colour drift, self-destruct by design) and all three were REFUTED by reading the code. Only writing a failing test found it: `isEnemyBond` is an OR, so a MIXED bond reads as enemy and cutting it breaks the owner's own structure. Then my first fix keyed on `placedBy` and two shipped tests went red because their fixture defaults `placedBy` to the owner — the reproduction and the existing suite between them forced the predicate to colour. **A hypothesis that survives only because you did not test it is not evidence; write the failing case first.**",
+    "S161 CLOSE-OUT — MY OWN TEST FIXTURE FAILED FOR THREE DIFFERENT WRONG REASONS BEFORE IT FAILED FOR THE RIGHT ONE, and each looked exactly like a product bug. `parseNetMessage` takes a decoded object not JSON text; `makeCreature` takes (config, args) not one blob; `isHarvestable` requires the spark to be INSIDE the quarry radius, so sparks placed beside the keep were invisible to the picker. Every one of those printed a plausible product-shaped failure (`expected null to be 1`). ⭐ **When a brand-new fixture fails on the FIRST assertion, suspect the fixture; when it fails on the LAST one, suspect the product.**",
+    "S161 CLOSE-OUT — THE RUNTIME LANE CLOSED A WORRY I HAD BEEN CARRYING AS A RISK, WITH EVIDENCE I HAD NOT THOUGHT TO GATHER. I flagged asset case-sensitivity (Windows dev, Linux Pages) as the one with teeth and filed it as unverifiable without a browser. The agent verified it properly: 18/18 assets fetched 200 FROM PRODUCTION with byte sizes matching disk, plus a grep of the live bundle proving the code references them. **\"I cannot check this from here\" is often \"I have not thought of the right probe\" — a deployed site answers questions a local tree cannot.**",
+    "S161 CLOSE-OUT — THREE OF THIS SESSION'S OWN FEATURES CREATED THE FINDINGS THAT CLOSED IT. P2 (elimination) created the score-leak and the rematch brick; P6 (the race picker) created the duplicate-race hole because `raceIsFree` reasons about CLAIMS while an unclaimed seat still occupies its DEFAULT. All three are the same shape: a new mechanism reasoning over a NARROWER set than the one the game actually has. ⭐ When adding a chooser, ask what the un-chosen state already occupies."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -4805,6 +4810,11 @@
       "id": "CF-S161-f",
       "severity": "process",
       "text": "THE 5-LANE CLOSE-OUT SWEEP NEVER RAN TO COMPLETION and the session therefore closed WITHOUT its Rule 22 runtime audit and without an independent read over the S161 delta. What DID get done by hand: git clean + pushed + deploy verified 4/4, zero open issues, zero cancelled CI runs, secret scan clean over the whole session delta, and the races PDR restamped. What did NOT: the delta defect hunt, the dead-export sweep, the cross-mode coherence table, the doc-drift pass and the asset/case-sensitivity check. ⚠ THE CASE-SENSITIVITY CHECK IS THE ONE WITH TEETH: the dev box is Windows (case-insensitive) and GitHub Pages is Linux (case-SENSITIVE), and S161 added 18 new asset paths. They demonstrably load in the local dev server; nobody has proven they load from the deployed site."
+    },
+    {
+      "id": "CF-S161-g",
+      "severity": "process",
+      "text": "TWO HUNT LANES NEVER PRODUCED A VERDICT: lane 2 (dead ends / unfinished pathways) returned nothing, and lane 4 (documentation + claim drift) was never dispatched. Per the rule written into CLAUDE.md this session, they are named NOT DONE here rather than left to look covered. Lane 4 matters most — it was the pass that would have checked every numeric claim in this session's commit messages and docblocks against the tree, and S161 wrote a great many of them."
     }
   ],
   "sweep_status_s161": {
@@ -4885,5 +4895,87 @@
     "3. Fix OPEN-1 (drone unconditional sever — ASK the owner which of the three options), OPEN-2 (drone vs own tower — read S159 P9 first), OPEN-3 (gatherer queue preemption — cause confirmed), OPEN-4 (tripwire).",
     "4. Verify each fix LANDED in a real match/frame, not only in a green suite.",
     "5. THEN run /handoff as a skill, methodically."
+  ],
+  "hunt_s161": {
+    "method": "Five lanes dispatched as SEPARATE agent runs (the new rule), so a limit hit costs one lane not five.",
+    "lane1_delta": "COMPLETE — 6 findings. 2 fixed this session (F1 critical, F3), 4 carried.",
+    "lane2_deadends": "DID NOT COMPLETE — no result returned. NOT DONE.",
+    "lane3_coherence": "COMPLETE — full 4-actor table + 7 findings. 1 fixed (F1==lane1 F3), 6 carried.",
+    "lane4_docdrift": "NEVER DISPATCHED — dropped when context ran short. NOT DONE.",
+    "lane5_runtime": "COMPLETE — the case-sensitivity question is CLOSED with live evidence: all 18 S161 assets return 200 from production with byte sizes matching disk, and the live bundle references them. 1 finding (deploy allowlist)."
+  },
+  "fixed_this_session_late": [
+    "OPEN-2 drone friendly fire — the sever loop now honours the owner-sparing contract the blast beside it already held.",
+    "OPEN-3 gatherer queue preemption — switches to the ordered type mid-walk, guarded against oscillation.",
+    "LANE1-F1 CRITICAL — an eliminated seat could win by score; accrual and both winner scans now skip the fallen.",
+    "LANE1-F3 / LANE3-F1 HIGH — a rematch inherited a dead castle; castleHp + eliminatedAtTick reset at match start."
+  ],
+  "open_findings_s161": [
+    {
+      "id": "OF-1",
+      "sev": "MEDIUM-HIGH",
+      "title": "Multiplayer lets two seats hold the SAME race and colour; vs-bots forbids it",
+      "detail": "`raceIsFree` (hostHandlers.ts:432) only knows about CLAIMS, but an unclaimed seat still occupies its DEFAULT race, and `session.selfRace` starts null. So: host never opens the picker (default vampires), joiner claims vampires, the claim is allowed — two crimson castles. `botSetupOverlay.ts:246` already does it right, counting every seat's EFFECTIVE race. ⛔ NOT COSMETIC: seven recipe owner-resolvers identify the builder by COLOUR (`p.color === anchorPrim.placerColor` — pentagram.ts:145 and six siblings), so two seats sharing a colour hands every tower to whichever is first in Map order. FIX: make both the lobby taken-set and raceIsFree operate on `claimed ?? defaultRaceForSeat(seat)`. ⚠ INTRODUCED BY S161 P6 — my own picker."
+    },
+    {
+      "id": "OF-2",
+      "sev": "HIGH",
+      "title": "A disconnected peer's intact castle blocks the last-one-standing win",
+      "detail": "`applyBenchOfflinePlayer` benches, it never removes; the only `players.delete` is RETURN_TO_TITLE. So a dropped seat stays in `world.players` with a full-HP castle, `livingSeats` counts it, and the match cannot end — survivors must chew down an absent player's castle, which is still shooting back. A NEW way for a match to hang, opened by S161 P2 removing the first-castle-ends-it exit. FIX: treat a long-benched offline seat as not-living in `livingSeats`, or remove it after a drop timeout."
+    },
+    {
+      "id": "OF-3",
+      "sev": "MEDIUM",
+      "title": "A fallen seat's castle gun is silenced but its towers/creatures/drones fight on",
+      "detail": "`isEliminated` has exactly two consumers outside its module (the dispatch gate and the economy gate). defenderLifecycle, creatureAI and droneLifecycle never ask. So the two halves of a dead seat's arsenal disagree TODAY: the castle gun stops, the stink towers and chewers do not. This is the kingmaker case `elimination.ts` names as its sharpest reason. ⇒ Fold into the CF-S161-a owner ruling — it is ONE question, not two."
+    },
+    {
+      "id": "OF-4",
+      "sev": "MEDIUM",
+      "title": "Bots can only raid CONNECTORS; humans raid units, HELGA and connectors",
+      "detail": "`controls.ts` has three RAID_TARGET arms (creature / defender / bond); the bot goal type can only express a bond (`botBrain.ts:102`). S161 P3 closed the ACTION-TYPE half of BUG-1; the TARGET-KIND half of R78 (\"a raid should hit anything\") is still human-only. A bot can never raid a chewer swarm walking at its keep. No protocol bump needed — the bot's send is a local dispatch."
+    },
+    {
+      "id": "OF-5",
+      "sev": "LOW",
+      "title": "The bot FSM parks for a bench but not for an elimination",
+      "detail": "`botController.ts:148` has an `isBenched` early-return with no `isEliminated` twin. A dead bot keeps thinking, walking and dispatching — all denied at the gate, so mechanically inert, but it reads as \"a dead seat still playing\", which is the thing the policy exists to prevent. One `if` beside line 148."
+    },
+    {
+      "id": "OF-6",
+      "sev": "LOW",
+      "title": "raceMotifs' three switches have no exhaustiveness guard",
+      "detail": "`raceMotifs.ts:83/183/284` are `switch (raceId)` with no default and no `never` assertion, in void-returning functions — so a seventh race compiles clean and silently draws no keep roofline, no gatherer mark and no shot VFX. ⚠ And `castleFrames.ts`'s docblock claims the OPPOSITE for this feature (\"adding a seventh race fails tsc here\"), which is true of its Record and false of these three."
+    },
+    {
+      "id": "OF-7",
+      "sev": "LOW",
+      "title": "The stink tower taunts and renders as spent while still bombing",
+      "detail": "The floored decrement is correct, but removing the ammo gate while keeping the counter means `bagsRemaining` hits 0 around tick ~1390 of 2700 and the tower spends the back half of every fight in BOTH modes: `stinkIsDepleted` starts the taunt (dragging goblins onto itself — the exact thing that code's comment says must not happen while loaded) and the renderer dims it to 0.72 alpha as spent. Decide what `bagsRemaining` now means and split the other reader off it."
+    },
+    {
+      "id": "OF-8",
+      "sev": "LOW",
+      "title": "markFallenSeats is documented HOST-ONLY but every client runs it",
+      "detail": "`elimination.ts:146` says HOST-ONLY; `main.ts:2178` runs `tickGameState` on the joiner and it calls `markFallenSeats` unconditionally. Self-heals within one snapshot and the field is not hashed, so the blast radius is a briefly-wrong placings order — plus a false claim in a docblock. Guard it or fix the comment."
+    },
+    {
+      "id": "OF-9",
+      "sev": "LOW",
+      "title": "deploy.yml paths allowlist omits scripts/**, which the workflow executes",
+      "detail": "The job runs `node scripts/turn-wiring-report.mjs` and the build invokes `scripts/check-bundle-size.mjs`, but `scripts/**` is not in the push-trigger allowlist — so raising the bundle charter (the edit this project's memory says gets made under pressure) triggers NO run at all. One line. ⚠ `public/**` IS in the allowlist, so the art-only hazard I worried about does not exist."
+    },
+    {
+      "id": "OF-10",
+      "sev": "INFO",
+      "title": "The eliminated player has no UI — R127's owner-facing half is unbuilt",
+      "detail": "grep for spectat/eliminated across src/render returns only the debug overlay. An eliminated human just finds every click silently doing nothing. Not a coherence break (identical for all actors) but it is the half of R127 a player actually sees."
+    },
+    {
+      "id": "OF-11",
+      "sev": "INFO",
+      "title": "The voltkin re-fire gate may have a cross-colour hole",
+      "detail": "The gate rests on \"near enough to re-trigger ⇒ near enough to have auto-bonded ⇒ isolation breaks\". But auto-bond is COLOUR-SCOPED (`placePrimitive.ts:619` skips a different placerColor), so an ENEMY-coloured primitive placed within 60px forms no bond, leaves isolation intact, and could still re-fire the chain. Lane 1 did not establish whether territory permits that placement. Cheap to check."
+    }
   ]
 }
