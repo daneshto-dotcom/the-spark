@@ -165,9 +165,19 @@ describe('the session ledger', () => {
  * `session.netTransport !== null` guard, so `onPresence` never fired and `lobbyStateMachine` kept
  * painting its count-based fallback — `defaultRaceForSeat(0)`, i.e. vampires, forever.
  *
- * A host has no transport more often than it looks: before it opens a room, and after a failed one
- * (S162 P0 had `joinRoom` throwing on a malformed ICE url, so `hostHandlers` never reached its
- * `session.netTransport = transport` assignment at all).
+ * A host has no transport more often than it looks: before it opens a room, and in the vs-bots
+ * setup, which has none at all.
+ *
+ * ⛔ S163 P2 — **AND THE ROOT CAUSE THIS DOCBLOCK USED TO NAME WAS WRONG.** It said S162 P0's
+ * `joinRoom` throw left `session.netTransport` unassigned. It cannot: `hostHandlers.ts` assigns the
+ * transport ~25 lines BEFORE it calls `transport.connect(code)` (`clientHandlers.ts` likewise), and
+ * `connect()` swallows a `joinFn` throw anyway — `transport.ts` wraps it in a `try` whose `catch`
+ * calls `markStrategyFailed`. A failed strategy is a diagnostics row, not an exception.
+ *
+ * ⭐ WHAT THE CASES BELOW ACTUALLY PIN IS THE CONTRACT, NOT THAT OUTAGE. `session.netTransport` is
+ * `NetTransport | null`, so `broadcastQmPresence` must repaint locally whenever it is null for ANY
+ * reason. The live mechanism behind the owner's report was the ghost race claim (`raceByPeer` never
+ * pruned on departure), fixed separately in S162's post-audit.
  */
 describe('S162 P1 — broadcastQmPresence repaints locally with no transport', () => {
   it('⭐ a null transport STILL repaints, and the roster carries the picked race', () => {

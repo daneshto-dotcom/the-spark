@@ -82,8 +82,26 @@ export function broadcastQmPresence(
   // recorded and invisible — the worst of both.
   //
   // A host has no transport more often than it looks: before a room is opened, and after a failed
-  // one (S162 P0 had `joinRoom` THROWING on a malformed ICE url, so `hostHandlers` never reached
-  // its `session.netTransport = transport` line at all).
+  // one.
+  //
+  // ⛔ S163 P2 — **THE EXAMPLE THAT STOOD HERE NAMED A CAUSE THAT CANNOT HAPPEN**, and it is
+  // corrected in place rather than deleted, because a wrong root cause in a docblock is what the
+  // next session reasons from. It said S162 P0's `joinRoom` throw left `session.netTransport`
+  // unassigned. Both halves are false, independently:
+  //
+  //   · THE ASSIGNMENT PRECEDES THE CONNECT. `hostHandlers.ts` sets `deps.session.netTransport =
+  //     transport` ~25 lines BEFORE it calls `transport.connect(code)`; `clientHandlers.ts` does the
+  //     same. A throw inside the join could not unwind an assignment that had already happened.
+  //   · AND `connect()` DOES NOT THROW ANYWAY. `transport.ts` wraps `joinFn` in a `try` whose
+  //     `catch` calls `markStrategyFailed` — a failed strategy is a diagnostics row, not an
+  //     exception.
+  //
+  // ⭐ THE FIX ABOVE IS STILL CORRECT AND THE REPAINT IS STILL REAL; only the stated mechanism was
+  // wrong. The live cause of the owner's *"it shows but it doesnt change"* was the GHOST RACE CLAIM
+  // — `raceByPeer` was never pruned on departure, so a departed peer's claim locked a race while the
+  // picker (built from `seatByPeer`) still drew the tile free and clickable. That is fixed by the
+  // prune below, not by this guard. The genuine null-transport cases are the ordinary ones: before a
+  // room is opened, and in the vs-bots setup, which has no transport at all.
   //
   // ⛔ THE RECONCILE IS SKIPPED, NOT PASSED AN EMPTY LIST. `reconcileLobbySeats(prev, [])` is
   // documented as "departed peers fall away" — handing it `[]` because we happen to have no
