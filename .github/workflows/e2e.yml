@@ -1,25 +1,32 @@
 # S46 P1 (BUG-CRITICAL-5) — Playwright 2-browser E2E harness CI workflow.
 #
-# ⛔ S142 — CORRECTED. This line used to read "Runs on every push to master + every PR",
-# which the S127 note DIRECTLY BELOW already contradicted: S110 removed the per-push trigger.
-# The file disagreed with itself six lines apart, and the wrong half came first.
-# ACTUAL triggers (see the `on:` block): schedule + pull_request + workflow_dispatch.
+# ⭐ S163 P7 — THE PER-PUSH TRIGGER IS BACK, for master only and behind a paths filter.
+# ACTUAL triggers (see the `on:` block): push(master, paths) + schedule + pull_request +
+# workflow_dispatch.
 #
-# CONSEQUENCE, WORTH STATING PLAINLY BECAUSE IT BIT ON 2026-08-13: a push to master does NOT
-# run these lanes, so the GATING `e2e` job can sit RED for an unbounded time with nobody
-# notified. It was in fact red on clean master that day (worker-bots, 3/3 attempts) and the
-# only reason anyone found out was a manual `gh workflow run`. If you change nothing else
-# here, know that green-on-your-last-PR is not evidence that master is green now.
+# WHY IT CAME BACK. Without it a push to master ran no lanes, so the GATING `e2e` job could sit
+# RED for an unbounded time with nobody notified. That is not hypothetical: it was red on clean
+# master on 2026-08-13 (worker-bots, 3/3 attempts) and the only reason anyone found out was a
+# manual `gh workflow run`. S161 and S162 then shipped a combined ~20 commits of net/sim work
+# with ZERO e2e CI coverage until a hand-triggered run at S162's close. Green-on-your-last-PR is
+# not evidence that master is green now.
+#
+# ⛔ AND WHY S110's REMOVAL NO LONGER APPLIES. It was removed to stop a ~35 min per-push drain on
+# the repo's Actions minutes. Probed 2026-07-28 and re-read S163: the repo is PUBLIC, so standard-
+# runner minutes are FREE AND UNLIMITED. The minute argument has been dead since then and is
+# recorded as dead in the `on:` block below — this trigger is restored on that measurement, not
+# on a hunch. The gating lane is also no longer the 35 min job it was: the soak work was split
+# off in S126 and it now runs ~4 min.
 #
 # Spec at e2e/smoke.spec.ts drives 2 separate Chromium contexts (= 2 WebRTC peers over real
 # Trystero/Nostr signaling) and asserts the full lobby → match-start → place → bond flow.
 #
-# S127 — STALE DOC CORRECTED. This block used to claim "Path filter mirrors deploy.yml — skip
-# e2e on session-bookkeeping commits (.claude/, HANDOFF_*.md, etc)". There is NO `paths:` key in
-# the `on:` block below and there has not been one since S110 removed the per-push trigger: the
-# triggers are schedule + pull_request + workflow_dispatch, none of which a bookkeeping commit
-# fires. The filter is unnecessary rather than missing — but the comment described machinery that
-# does not exist, which is exactly the stale-reference class a Rule-22 runtime audit scans for.
+# ⭐ S163 P7 — AND THE PATHS FILTER IS REAL AGAIN. This block once claimed a filter that did not
+# exist; S127 correctly deleted the claim because S110 had removed the per-push trigger with it.
+# Now that push is back the filter is back WITH it, mirroring deploy.yml, so a session-bookkeeping
+# commit (.claude/, HANDOFF_*.md, boot-snapshot.md) does not burn a 4-minute run. ⚠ The filter
+# applies to the `push` trigger ONLY — schedule, pull_request and workflow_dispatch are unfiltered
+# by design, so the weekly sweep still covers everything regardless of what changed.
 #
 # S98 P1 — FLAKE QUARANTINE, split into separate JOBS (was two steps in one job).
 # S126 — now THREE lanes: a slow SOAK lane was split off the gating lane (see below).
@@ -82,6 +89,22 @@ on:
   # round as a decisive argument for deleting the soak lane before the probe caught it. The real
   # remaining costs are wall-clock feedback latency, the 6h per-job ceiling, runner concurrency and
   # artifact storage — the weekly cadence above is retained on those grounds, not on minutes.
+  # ⭐ S163 P7 — per-push on master, paths mirroring deploy.yml. See the header for why this is
+  # back and why S110's minute argument no longer holds (public repo → free unlimited minutes).
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'e2e/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'playwright.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/e2e.yml'
   schedule:
     - cron: '0 7 * * 1'  # Mondays 07:00 UTC — weekly regression sweep
   pull_request:
@@ -89,11 +112,20 @@ on:
   workflow_dispatch:
 
 # E2E is independent of deploy; no shared concurrency group needed.
-# Cancel in-progress runs on rapid pushes to save CI minutes. Both jobs share
-# this group, so a new push cancels the whole in-progress run (cancelled != failed).
+#
+# ⛔ S163 P7 — `cancel-in-progress` IS NOW FALSE ON master, AND THAT IS THE WHOLE POINT OF THIS
+# EDIT. Restoring the push trigger under an unconditional `cancel-in-progress: true` would have
+# re-armed the exact failure this file already documents twice: a cancelled run is `cancelled`,
+# NOT `failure` — no email, no artifacts, no red — so two pushes a minute apart would silently
+# leave master with no e2e signal at all, which is the "three weeks with no E2E signal" incident
+# recorded at the gating lane below. Adding a trigger whose signal the concurrency group then
+# throws away is worse than having no trigger, because it LOOKS like coverage.
+#
+# So master runs are never cancelled; they queue and every one reports. PR branches keep the old
+# behaviour, where a rapid re-push genuinely is superseded work and the author is watching anyway.
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   # GATING lane — the FAST regression net: everything EXCEPT @quarantine-flaky, @soak,
