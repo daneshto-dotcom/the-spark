@@ -40,7 +40,58 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
-      "check_method": "P0 VERIFIED LIVE IN A REAL BROWSER against https://spark-online.space after deploy. (1) live console printed \"[net] TURN configuration: the TURN settings looked pasted from a provider dashboard ... unwrapped automatically\" -> the shipped repair path executed. (2) reconstructed the OLD config in-page: threw SyntaxError verbatim matching the owner screenshot. (3) repaired config: CONSTRUCTED OK, gathered host:1 srflx:1 RELAY:1, iceErrors []. relay>0 is the FIRST working TURN relay measured in this project (S157 measured relay:0). (4) the real TEST CONNECTION button now reports \"Connection test passed - you can play with anyone / Found 1 relay route\". Gates: typecheck 0, vitest 3608/3608, e2e:gating 62 passed exit 0, build 778.6/900 KiB, verify-deploy PASS 4/4 with RELAY IS SHIPPED."
+      "check_method": "P0 VERIFIED LIVE IN A REAL BROWSER against https://spark-online.space after deploy. (1) live console printed \"[net] TURN configuration: the TURN settings looked pasted from a provider dashboard ... unwrapped automatically\" -> the shipped repair path executed. (2) reconstructed the OLD config in-page: threw SyntaxError verbatim matching the owner screenshot. (3) repaired config: CONSTRUCTED OK, gathered host:1 srflx:1 RELAY:1, iceErrors []. relay>0 is the FIRST working TURN relay measured in this project (S157 measured relay:0). (4) the real TEST CONNECTION button now reports \"Connection test passed - you can play with anyone / Found 1 relay route\". Gates: typecheck 0, vitest 3608/3608, e2e:gating 62 passed exit 0, build 778.6/900 KiB, verify-deploy PASS 4/4 with RELAY IS SHIPPED.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "export function parseTurnConfig"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "pattern": "ICE_URL_RE\\.test",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "export const TURN_CONFIG_NOTE"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 15
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
+          "needle": "ALL THREE SECRETS ARE SET BUT NO RELAY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
+          "needle": "unwrapPastedSecret"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
+          "needle": "The shape of the values"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "TURN_CONFIG_NOTE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.ts",
+          "needle": "RTCPeerConnection refused the ICE configuration"
+        }
+      ]
     },
     {
       "id": "P1",
@@ -51,7 +102,31 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
-      "check_method": "P1 VERIFIED LIVE: hosted room JLJPG8 on the deployed site, clicked the own-seat tile, picked DEMONS. Tile changed from \"P1 HOST (VAMPIRES)\" (crimson art) to \"P1 HOST (DEMONS)\" (magenta art), picker closed, and re-opening the picker showed DEMONS as YOURS -> the pick persisted through the roster path. 4 new unit tests in raceClaim.test.ts cover null-transport repaint, no seat-map wipe, the unclaimed raceId/color asymmetry, and unchanged wire behaviour with a transport."
+      "check_method": "P1 VERIFIED LIVE: hosted room JLJPG8 on the deployed site, clicked the own-seat tile, picked DEMONS. Tile changed from \"P1 HOST (VAMPIRES)\" (crimson art) to \"P1 HOST (DEMONS)\" (magenta art), picker closed, and re-opening the picker showed DEMONS as YOURS -> the pick persisted through the roster path. 4 new unit tests in raceClaim.test.ts cover null-transport repaint, no seat-map wipe, the unclaimed raceId/color asymmetry, and unchanged wire behaviour with a transport.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
+          "needle": "transport: NetTransport | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
+          "needle": "if (transport !== null) transport.send"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "broadcastQmPresence\\(session, session\\.netTransport, onPresence\\)",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
+          "needle": "broadcastQmPresence repaints locally with no transport"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -61,7 +136,31 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P2 (OF-1) VERIFIED: raceIsFree now judges EFFECTIVE races (claimed ?? defaultRaceForSeat(seat)) for the host seat and every seated peer, plus a pre-reconcile raceByPeer pass. 5 new/rewritten cases in raceClaim.test.ts (20 pass). THE INHERITED FINDING WAS HALF WRONG: lobbyView already default-fills raceId on BOTH paths (lobbyStateMachine 374 roster + 393 count-fallback), so the picker greyed correctly all along and only the host wire authority was defective, dropping the exposure from \"normal play\" to \"a CLAIM_RACE that bypasses the UI\". Rewrote the case S161 reddened (\"every race is free in an empty lobby\"), whose meaning had to change because the fix is exactly that seat 0 occupies its default."
+      "check_method": "P2 (OF-1) VERIFIED: raceIsFree now judges EFFECTIVE races (claimed ?? defaultRaceForSeat(seat)) for the host seat and every seated peer, plus a pre-reconcile raceByPeer pass. 5 new/rewritten cases in raceClaim.test.ts (20 pass). THE INHERITED FINDING WAS HALF WRONG: lobbyView already default-fills raceId on BOTH paths (lobbyStateMachine 374 roster + 393 count-fallback), so the picker greyed correctly all along and only the host wire authority was defective, dropping the exposure from \"normal play\" to \"a CLAIM_RACE that bypasses the UI\". Rewrote the case S161 reddened (\"every race is free in an empty lobby\"), whose meaning had to change because the fix is exactly that seat 0 occupies its default.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "pattern": "defaultRaceForSeat",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "needle": "session.raceByPeer.get(peer) ?? defaultRaceForSeat(seat)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
+          "needle": "a JOINER may take any race EXCEPT the host seat default"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "needle": "if (session.selfRace === raceId) return false; // the host holds it"
+        }
+      ]
     },
     {
       "id": "P3",
@@ -71,7 +170,29 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P3 (MED-3) VERIFIED: setVisible(false) closes the race picker in BOTH lobbyScreen and botSetupOverlay. Reachable with no user action: main.ts calls setVisible(showLobby) every frame, so a quickmatch auto-begin/migration/connection-loss hides the lobby with the menu up. ALSO closed CF-S161-d (keyboard escape): Escape now closes the picker in the lobby, and in the bot overlay it closes the INNERMOST modal first (one listener, so the outcome cannot depend on registration order). Confirmed live that Escape previously did nothing and the scrim swallows every click, so the menu had no keyboard exit whatsoever."
+      "check_method": "P3 (MED-3) VERIFIED: setVisible(false) closes the race picker in BOTH lobbyScreen and botSetupOverlay. Reachable with no user action: main.ts calls setVisible(showLobby) every frame, so a quickmatch auto-begin/migration/connection-loss hides the lobby with the menu up. ALSO closed CF-S161-d (keyboard escape): Escape now closes the picker in the lobby, and in the bot overlay it closes the INNERMOST modal first (one listener, so the outcome cannot depend on registration order). Confirmed live that Escape previously did nothing and the scrim swallows every click, so the menu had no keyboard exit whatsoever.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
+          "needle": "if (!visible) this.racePicker.close();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
+          "needle": "if (!visible) this.racePicker.close();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
+          "needle": "if (this.racePicker.isOpen()) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
+          "needle": "this.racePicker.isOpen()) this.racePicker.close()"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -81,7 +202,34 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P4 (OF-2) VERIFIED: tickGameState takes an OPTIONAL host-only isSeatOffline predicate; a seat absent past the new PEER_DROP_FORFEIT_TICKS (20s, MY number, reasoned at the constant) is subtracted from the win CONTENDERS while staying in livingSeats. No new serialized field and NO protocol bump: absence is host knowledge and the client already takes the authoritative WIN edge from snapshots (main.ts:2196). fallenCount stays derived from living, so an absence alone never ends a match; abandonment is a separate unruled rule, filed. 7 new cases in elimination.test.ts (40 pass), including an anti-vacuity case that flips which seat vanished and one pinning that a disconnected seat can never WIN."
+      "check_method": "P4 (OF-2) VERIFIED: tickGameState takes an OPTIONAL host-only isSeatOffline predicate; a seat absent past the new PEER_DROP_FORFEIT_TICKS (20s, MY number, reasoned at the constant) is subtracted from the win CONTENDERS while staying in livingSeats. No new serialized field and NO protocol bump: absence is host knowledge and the client already takes the authoritative WIN edge from snapshots (main.ts:2196). fallenCount stays derived from living, so an absence alone never ends a match; abandonment is a separate unruled rule, filed. 7 new cases in elimination.test.ts (40 pass), including an anti-vacuity case that flips which seat vanished and one pinning that a disconnected seat can never WIN.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const PEER_DROP_FORFEIT_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "isSeatOffline?: (seat: PlayerId) => boolean"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "isSeatOffline === undefined ? living : living.filter"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "PEER_DROP_FORFEIT_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\elimination.test.ts",
+          "needle": "an absent peer stops blocking the last-one-standing win"
+        }
+      ]
     },
     {
       "id": "P5",
@@ -91,7 +239,64 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P5 VERIFIED. Lanes 2 and 4 (the two S161 never finished) were dispatched as ONE small workflow; both FIND agents completed, then 9 of the VERIFY agents died on the org monthly spend limit. Per the CLAUDE.md rule that a hunt returning nothing is not a completed hunt, ALL NINE unverified findings were then hand-verified in this session with direct greps against the tree, and every one CONFIRMED. Doc drift then FIXED: SPARK_RACES_SPEC.md (status line, the six-row art column, W1-C's already-spent PROTOCOL 39->40, and the whole B2 section that read 'SEAT ELIMINATION DOES NOT EXIST' a day after it shipped), boot-snapshot.md (items 7/8/9 + a SUPERSEDED header), README.md (739 tests/41 files -> 3621/231, 'six players' -> four against MAX_PLAYERS=4, wrong typecheck+build commands, and five stale tech-table versions), LOCKED_DECISIONS.md (the bundle charter's one NORMATIVE sentence said 750 KiB while its own heading, the S145 paragraph and CAP_KIB all said 900)."
+      "check_method": "P5 VERIFIED. Lanes 2 and 4 (the two S161 never finished) were dispatched as ONE small workflow; both FIND agents completed, then 9 of the VERIFY agents died on the org monthly spend limit. Per the CLAUDE.md rule that a hunt returning nothing is not a completed hunt, ALL NINE unverified findings were then hand-verified in this session with direct greps against the tree, and every one CONFIRMED. Doc drift then FIXED: SPARK_RACES_SPEC.md (status line, the six-row art column, W1-C's already-spent PROTOCOL 39->40, and the whole B2 section that read 'SEAT ELIMINATION DOES NOT EXIST' a day after it shipped), boot-snapshot.md (items 7/8/9 + a SUPERSEDED header), README.md (739 tests/41 files -> 3621/231, 'six players' -> four against MAX_PLAYERS=4, wrong typecheck+build commands, and five stale tech-table versions), LOCKED_DECISIONS.md (the bundle charter's one NORMATIVE sentence said 750 KiB while its own heading, the S145 paragraph and CAP_KIB all said 900).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "RACE_ZONES_AND_BOSS_TOWERS.md"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "THE OWNER'S ART-DIRECTION BRIEF, 2026-09-03"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "739 tests across 41 files"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "Up to six players"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "6-player FFA"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "3622 tests across 231 files"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\LOCKED_DECISIONS.md",
+          "needle": "must stay **≤ 750 KiB raw**"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "NOT IMPLEMENTED · ready to execute"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "PROTOCOL 40 → 41"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "SEAT ELIMINATION DOES NOT EXIST. ONE CASTLE AT 0 HP"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\boot-snapshot.md",
+          "needle": "SUPERSEDED"
+        }
+      ]
     },
     {
       "id": "P6",
@@ -101,7 +306,43 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P6 VERIFIED. OF-6 CONFIRMED and FIXED: raceMotifs' three switches over RaceId are void with no default and no never-assertion, so a seventh race compiled clean and drew no roofline, no gatherer mark and no shot VFX. Same defect found and fixed in sparkGlyph.ts for SparkType. PROVED NON-VACUOUS: temporarily widening RaceId with a 7th member made tsc fail at raceMotifs.ts 157/260/362 - the three new guards - alongside the pre-existing Record errors; those three lines did not appear before. races.ts restored and typecheck re-run at 0. OF-8 CONFIRMED and GATED (not merely re-worded): markFallenSeats was documented HOST-ONLY in three docblocks and gated in none, and tickGameState runs on every peer. Now gated on world.isHost, which is SAFE because isHost defaults true (solo + vs-bots untouched) and eliminatedAtTick rides the wire additive-optional - it is the field that earned the 39->40 bump - so a joiner receives the host's authoritative stamp. 2 new tests. CF-S161-a closed as RULED by the owner (a fallen seat's board keeps fighting), which also closes OF-3 as intentional: the castle gun is silent because the castle is destroyed."
+      "check_method": "P6 VERIFIED. OF-6 CONFIRMED and FIXED: raceMotifs' three switches over RaceId are void with no default and no never-assertion, so a seventh race compiled clean and drew no roofline, no gatherer mark and no shot VFX. Same defect found and fixed in sparkGlyph.ts for SparkType. PROVED NON-VACUOUS: temporarily widening RaceId with a 7th member made tsc fail at raceMotifs.ts 157/260/362 - the three new guards - alongside the pre-existing Record errors; those three lines did not appear before. races.ts restored and typecheck re-run at 0. OF-8 CONFIRMED and GATED (not merely re-worded): markFallenSeats was documented HOST-ONLY in three docblocks and gated in none, and tickGameState runs on every peer. Now gated on world.isHost, which is SAFE because isHost defaults true (solo + vs-bots untouched) and eliminatedAtTick rides the wire additive-optional - it is the field that earned the 39->40 bump - so a joiner receives the host's authoritative stamp. 2 new tests. CF-S161-a closed as RULED by the owner (a fallen seat's board keeps fighting), which also closes OF-3 as intentional: the castle gun is silent because the castle is destroyed.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\raceMotifs.ts",
+          "pattern": "const unhandled: never",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\sparkGlyph.ts",
+          "pattern": "const unhandled: never",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "if (world.isHost) markFallenSeats(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "needle": "- 'scripts/**'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.ts",
+          "needle": "if (isEliminated(me)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.test.ts",
+          "needle": "an ELIMINATED bot parks too"
+        }
+      ]
     },
     {
       "id": "P7",
@@ -111,7 +352,33 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P7 LANDING PROOF. Three commits shipped and each deploy verified 4/4 with RELAY IS SHIPPED: 7241473 (P0+P1), 9703a7a (P2-P4) + 4ae9b1a cleanup, f8607fd (P5+P6). CI concluded success on each; no cancelled runs. Gates at close, every exit code read DIRECTLY and never through a pipe: typecheck 0, vitest 3621/3621 across 231 files, e2e:gating SHELL_EXIT 0 with 62 passed and no E2E_EXIT line, build 779.0/900 KiB under charter. RULE 22 RUNTIME AUDIT: reloaded the LIVE site, zero console errors, live asset index-Czy5Epzb.js matches verify-deploy, and the P0 repair is provably present IN THE SHIPPED BUNDLE (parseTurnConfig prose, the ICE scheme validation and the TURN_CONFIG_NOTE string all found), with the raw secrets still wrapped - so the runtime repair is what is carrying multiplayer."
+      "check_method": "P7 LANDING PROOF. Three commits shipped and each deploy verified 4/4 with RELAY IS SHIPPED: 7241473 (P0+P1), 9703a7a (P2-P4) + 4ae9b1a cleanup, f8607fd (P5+P6). CI concluded success on each; no cancelled runs. Gates at close, every exit code read DIRECTLY and never through a pipe: typecheck 0, vitest 3621/3621 across 231 files, e2e:gating SHELL_EXIT 0 with 62 passed and no E2E_EXIT line, build 779.0/900 KiB under charter. RULE 22 RUNTIME AUDIT: reloaded the LIVE site, zero console errors, live asset index-Czy5Epzb.js matches verify-deploy, and the P0 repair is provably present IN THE SHIPPED BUNDLE (parseTurnConfig prose, the ICE scheme validation and the TURN_CONFIG_NOTE string all found), with the raw secrets still wrapped - so the runtime repair is what is carrying multiplayer.",
+      "verification": [
+        {
+          "type": "json_field",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "key": "gates_at_close_s162.typecheck_exit",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "json_field",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "key": "checkpoint_commit",
+          "op": "!=",
+          "value": ""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans\\2026-09-03_PDR_S162_BATCH.md",
+          "needle": "A.0 STATE-DISCOVERY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\RACE_ZONES_AND_BOSS_TOWERS.md",
+          "needle": "THE ONE COLLISION I FOUND"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -186,6 +453,10 @@
     {
       "priority": "P6",
       "lesson": "THE CHEAPEST LANE PAID AGAIN. OF-11 was filed as \"may have a cross-colour hole, cheap to check\". Two greps closed it: the territory hard-block minimum radius (72px) is strictly larger than AUTO_BOND_RADIUS (60px), and constants.ts had already written that argument down in S51. Reading the constant beat reasoning about the mechanic."
+    },
+    {
+      "priority": "P7",
+      "lesson": "THE MCV STOP HOOK CAUGHT A CLAIM I HAD JUST WRITTEN MYSELF. Authoring verification[] bindings is not bookkeeping - the act of writing a machine-checkable assertion is what surfaced that README said 3619 tests while the suite had grown to 3622, a drift I introduced DURING the very priority that was fixing drift. Write the binding, then RUN the verifier and require exit 0; prose in check_method proves nothing."
     }
   ],
   "totals": {
@@ -263,7 +534,7 @@
   },
   "real_context_tokens_at_close": 532567,
   "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "f8607fd",
+  "checkpoint_commit": "15b714d",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -5255,7 +5526,7 @@
   },
   "gates_at_close_s162": {
     "typecheck_exit": 0,
-    "vitest": "3621/3621 passed, 231 files",
+    "vitest": "3622/3622 passed, 231 files",
     "e2e_gating": "exit 0, 62 passed",
     "build": "779.0 / 900 KiB under charter",
     "verify_deploy": "PASS 4/4 (f8607fd) - RELAY IS SHIPPED",
