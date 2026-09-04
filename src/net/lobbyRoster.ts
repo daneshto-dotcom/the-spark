@@ -38,7 +38,7 @@
 // colour here now derives from a race. `noUnusedLocals` is on, so tsc enforces that.
 import { MAX_PLAYERS } from '../constants.ts';
 import type { RosterEntry } from './protocol.ts';
-import { RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
+import { ALL_RACES, RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
 
 // Host is always seat 0; remote peers occupy seats 1..MAX_PLAYERS-1.
 const FIRST_REMOTE_SEAT = 1;
@@ -187,5 +187,65 @@ export function buildMatchRoster(
     // ⛔ `raceByPeer` is keyed on peerId; the dense seat is read ONLY by the fallback.
     roster.push(rosterEntryFor(peerId, i + 1, raceByPeer.get(peerId)));
   });
-  return roster;
+  return resolveRosterRaceCollisions(roster);
+}
+
+/**
+ * ⭐ S162 POST-AUDIT (F1) — **THE LAST PLACE TWO SEATS COULD STILL SHARE ONE COLOUR.**
+ *
+ * S162 P2 taught `raceIsFree` that an unclaimed seat occupies its DEFAULT race — but it judged the
+ * **stable** lobby seat, while the line above derives an unclaimed peer's default from its **dense**
+ * seat. Those two disagree the moment the lobby has a HOLE, and a hole is ordinary: `reconcileLobbySeats`
+ * keeps present peers at their existing seat and lets departed ones fall away.
+ *
+ * The reachable trace, entirely through the normal UI: seats {A:1, B:2, C:3}, host unpicked. A leaves,
+ * leaving a hole at 1. C claims `defaultRaceForSeat(1)`; `raceIsFree` allows it, because at stable
+ * seat 2 B is holding `defaultRaceForSeat(2)`. At Begin, B compacts to DENSE seat 1 and is re-derived
+ * as `defaultRaceForSeat(1)` — the race C just claimed. Two players, one `RACE_COLORS` value, and
+ * SEVEN recipe resolvers identify a tower's owner by `p.color === placerColor`, so `Map` order picks.
+ *
+ * ⛔ SO THE COLLISION IS RESOLVED HERE, AT THE ONE PLACE THAT SEES THE FINAL SEATING, rather than by
+ * trying to keep two seat bases in agreement. A CLAIM always wins — a player chose it. An unclaimed
+ * seat keeps its default when that default is free, and otherwise takes the lowest free race in
+ * `ALL_RACES` order (never `Map` order — S155 N1).
+ *
+ * ⚠ THE §15.6 BYTE-IDENTITY CONTRACT SURVIVES: an unclaimed seat whose default is free comes back
+ * with `raceId` still omitted, so an all-default roster is byte-identical to pre-W1-A. Only a seat
+ * that had to MOVE gains an explicit `raceId`, which it must, or the receiver would re-derive the
+ * collision from its own seat number.
+ *
+ * ⚠ A duplicate CLAIM (which `raceIsFree` should already refuse) is treated as unclaimed rather than
+ * honoured twice — fail-closed, because shipping two identical colours is the one outcome this
+ * function exists to prevent.
+ */
+function resolveRosterRaceCollisions(roster: readonly RosterEntry[]): RosterEntry[] {
+  const taken = new Set<RaceId>();
+  const out: RosterEntry[] = new Array<RosterEntry>(roster.length);
+  const pending: number[] = [];
+
+  roster.forEach((e, i) => {
+    if (e.raceId !== undefined && !taken.has(e.raceId)) {
+      taken.add(e.raceId);
+      out[i] = e;
+    } else {
+      pending.push(i);
+    }
+  });
+
+  for (const i of pending) {
+    const e = roster[i]!;
+    const dflt = defaultRaceForSeat(e.seat);
+    const pick = taken.has(dflt) ? ALL_RACES.find((r) => !taken.has(r)) : dflt;
+    if (pick === undefined) {
+      // Unreachable while MAX_PLAYERS (4) < ALL_RACES.length (6); fail open rather than throw.
+      out[i] = e;
+      continue;
+    }
+    taken.add(pick);
+    out[i] =
+      pick === dflt && e.raceId === undefined
+        ? { ...e, color: RACE_COLORS[pick] } // byte-identical shape: `raceId` stays omitted
+        : { ...e, raceId: pick, color: RACE_COLORS[pick] };
+  }
+  return out;
 }

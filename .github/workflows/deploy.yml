@@ -72,7 +72,14 @@ jobs:
     # job timeout (PW_GLOBAL_TIMEOUT_MIN), so the TOOL ends the overrun and exits non-zero. Vitest
     # has no global-suite-timeout flag to do the same with, so this bounds the WASTE without fixing
     # the silent-signal class. Audit run CONCLUSIONS, not just the absence of failure mail.
-    timeout-minutes: 15
+    # ⚠ S162 POST-AUDIT — RAISED 15 → 30. The old value's justification ("15 min is ~7x the
+    # observed run of ~2 min") went stale on 2026-09-03: `Install dependencies` jumped from 4-7
+    # SECONDS to 7m02s and 7m01s on consecutive runs — with the npm cache HITTING and
+    # package-lock unchanged, so registry/runner slowness, not a repo change — pushing whole jobs
+    # to 8m57s, i.e. 60% of the budget. The failure mode is the reason this matters: per the note
+    # below, a timeout concludes the run `cancelled`, NOT `failure` — no email, no artifacts, the
+    # silent death this repo has already logged twice.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v6

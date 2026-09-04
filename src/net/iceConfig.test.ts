@@ -19,8 +19,40 @@ import {
   unwrapPastedSecret,
 } from './iceConfig.ts';
 
-/** The same shape `RTCPeerConnection` accepts. Mirrored here so the test is not the code. */
-const VALID_ICE_URL = /^(?:stun|stuns|turn|turns):[^\s"'`,{}]+$/i;
+/**
+ * ⛔ S162 POST-AUDIT — THE OLD ORACLE HERE WAS A BYTE-IDENTICAL COPY OF `ICE_URL_RE`, so the
+ * "no input can produce a url RTCPeerConnection would reject" invariant below could only ever prove
+ * that the filter had filtered. Its own comment said *"Mirrored here so the test is not the code"* —
+ * it WAS the code. A review lane measured five inputs that passed it and still throw in libwebrtc.
+ *
+ * The oracle is now an explicit, hand-written census: urls a browser genuinely accepts, and urls it
+ * genuinely rejects. Independent of the implementation, so tightening or loosening `ICE_URL_RE` moves
+ * these tests rather than silently agreeing with itself.
+ */
+const BROWSER_ACCEPTS = [
+  'stun:stun.l.google.com:19302',
+  'stun:global.stun.twilio.com:3478',
+  'turn:global.relay.metered.ca:80',
+  'turn:standard.relay.metered.ca:443?transport=tcp',
+  'turns:a.example:5349?transport=tcp',
+  'turn:a.example', // portless is legal - the browser defaults it
+  'turn:[2001:db8::1]', // bracketed IPv6, portless
+  'turn:[2001:db8::1]:3478',
+  'turn:host:65535', // the top of the port range
+] as const;
+
+const BROWSER_REJECTS = [
+  'turn::3478', // empty host
+  'turn:?transport=tcp', // empty host
+  'turn:host:99999', // port out of range
+  'turn:host:0', // port zero
+  'turn:host:abc', // non-numeric port
+  'turn:host?transport=quic', // transport must be udp or tcp
+  'turn:[2001:db8::1', // unbalanced bracket - what the old cleanUrlToken PRODUCED from good input
+  'https://not-a-turn-server.example',
+  'javascript:alert(1)',
+  '',
+] as const;
 
 function allUrls(servers: readonly RTCIceServer[]): string[] {
   return servers.flatMap((s) => (typeof s.urls === 'string' ? [s.urls] : [...s.urls]));
@@ -149,16 +181,54 @@ describe('parseTurnConfig', () => {
     for (const raw of nasty) {
       const r = parseTurnConfig(raw, 'u', 'p');
       for (const u of allUrls(r.servers)) {
-        expect(u, `input ${JSON.stringify(raw)} produced an unsafe url`).toMatch(VALID_ICE_URL);
+        expect(
+          BROWSER_REJECTS as readonly string[],
+          `input ${JSON.stringify(raw)} produced an unsafe url`,
+        ).not.toContain(u);
+        expect(u, `input ${JSON.stringify(raw)} produced a non-ICE url`).toMatch(/^(?:stuns?|turns?):/i);
       }
     }
+  });
+
+  /**
+   * ⭐ S162 POST-AUDIT — the census, run against the real parser rather than against a mirror.
+   * Every url a browser accepts must survive; every url it rejects must be dropped.
+   */
+  it('⭐ every url a BROWSER ACCEPTS survives the parser intact', () => {
+    for (const good of BROWSER_ACCEPTS) {
+      const r = parseTurnConfig(good, 'u', 'p');
+      expect(allUrls(r.servers), `${good} was wrongly dropped`).toEqual([good]);
+    }
+  });
+
+  it('⛔ every url a BROWSER REJECTS is dropped, so nothing that throws is ever shipped', () => {
+    for (const bad of BROWSER_REJECTS) {
+      const r = parseTurnConfig(bad, 'u', 'p');
+      expect(allUrls(r.servers), `${bad} was wrongly kept`).toEqual([]);
+    }
+  });
+
+  it('⛔ a VALID portless IPv6 url is not corrupted into one that throws', () => {
+    // The regression this exists for: cleanUrlToken stripped the trailing `]` unconditionally,
+    // turning good input into `turn:[2001:db8::1` - which then PASSED the old check and would have
+    // been handed to RTCPeerConnection. A total outage caused by a correct paste.
+    const r = parseTurnConfig('turn:[2001:db8::1]', 'u', 'p');
+    expect(allUrls(r.servers)).toEqual(['turn:[2001:db8::1]']);
+  });
+
+  it('⛔ the unwrapper handles whitespace BEFORE the colon, which the \\s typo could not', () => {
+    // `new RegExp(`^${key}\\s*:\\s*`)` written with ONE backslash compiles to `^urlss*:s*` - no
+    // whitespace class at all. The watchdog .mjs had it right, so production and CI disagreed.
+    const r = parseTurnConfig('urls : "turn:a.example:3478"', 'user', 'pass');
+    expect(allUrls(r.servers)).toEqual(['turn:a.example:3478']);
+    expect(r.note).toContain('provider dashboard');
   });
 });
 
 describe('the shipped module-level constants', () => {
   it('⛔ every url in the REAL ICE_SERVERS is a valid ICE url', () => {
     expect(ICE_SERVERS.length).toBeGreaterThan(0);
-    for (const u of allUrls(ICE_SERVERS)) expect(u).toMatch(VALID_ICE_URL);
+    for (const u of allUrls(ICE_SERVERS)) expect(u).toMatch(/^(?:stuns?|turns?):/i);
   });
 
   it('HAS_TURN_CONFIGURED agrees with whether a turn/turns url is actually present', () => {

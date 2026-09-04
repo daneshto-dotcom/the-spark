@@ -226,7 +226,26 @@ const STUN_ONLY: RTCIceServer[] = [
  * bracketed IPv6) and strict about quotes / commas / braces / whitespace, which is what actually
  * distinguishes a URL from a fragment of code.
  */
-const ICE_URL_RE = /^(?:stun|stuns|turn|turns):[^\s"'`,{}]+$/i;
+/**
+ * ⛔ S162 POST-AUDIT (C) — THIS WAS A PUNCTUATION FILTER, NOT A URL VALIDATOR, AND THE INVARIANT
+ * TEST COULD NOT SEE IT because the test's oracle was a byte-identical copy of this regex.
+ *
+ * The old form accepted anything after the scheme that carried no whitespace, quote, comma or brace.
+ * Measured as PASSING, each of them a libwebrtc parse failure and therefore a CONSTRUCTION THROW —
+ * the total-outage class this whole priority exists to end:
+ *
+ *     turn::3478            turn:?transport=tcp      (empty host)
+ *     turn:host:99999       turn:host:abc            (port out of range / non-numeric)
+ *     turn:host?transport=quic                       (transport must be udp or tcp)
+ *
+ * So it now validates shape properly: a bracketed IPv6 literal OR a hostname, an OPTIONAL port
+ * constrained to 1-65535, and an OPTIONAL `?transport=udp|tcp`. Deliberately still permissive about
+ * hostname characters — rejecting a host a provider actually issued would be its own outage.
+ *
+ * ⚠ MUST STAY BYTE-IDENTICAL to the copy in `scripts/turn-wiring-report.mjs`; `ci.deployGate.test.ts`
+ * pins the two literals against each other.
+ */
+const ICE_URL_RE = /^(?:stuns?|turns?):(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._~%+-]+)(?::(?:[1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5]))?(?:\?transport=(?:udp|tcp))?$/i;
 
 /**
  * Strip a `key: "value"` wrapper off a secret pasted from a provider dashboard's JS snippet, plus a
@@ -234,7 +253,16 @@ const ICE_URL_RE = /^(?:stun|stuns|turn|turns):[^\s"'`,{}]+$/i;
  */
 export function unwrapPastedSecret(raw: string, key: string): string {
   let s = raw.trim();
-  const labelled = new RegExp(`^${key}\s*:\s*`, 'i');
+  // ⛔ S162 POST-AUDIT (A) — THE BACKSLASH MUST BE DOUBLED HERE. Inside a TEMPLATE LITERAL `\s` is
+  // not a regex escape, it is the plain letter `s`, so the first cut of this line compiled to the
+  // runtime source `^urlss*:s*` — no whitespace class at all. It matched the owner's actual paste by
+  // luck (`urls:` needs no whitespace before the colon) and would have missed `urls : "…"`.
+  //
+  // ⚠ AND THE WATCHDOG DID NOT SHARE THE TYPO. `scripts/turn-wiring-report.mjs` had the correct
+  // `\\s` throughout, so CI would have unwrapped a spaced paste, printed
+  // "✅ RELAY WILL BE SHIPPED", and production would have shipped STUN-only — a green watchdog over a
+  // silently relay-less game, which is precisely the failure S162 P0 was written to abolish.
+  const labelled = new RegExp(`^${key}\\s*:\\s*`, 'i');
   if (labelled.test(s)) s = s.replace(labelled, '').trim();
   s = s.replace(/,+$/, '').trim();
   const quoted = /^(['"`])([\s\S]*)\1$/.exec(s);
@@ -242,13 +270,34 @@ export function unwrapPastedSecret(raw: string, key: string): string {
   return s;
 }
 
-/** Strip array brackets, quotes and stray commas off ONE url token out of a pasted list. */
+/**
+ * Strip array brackets, quotes and stray commas off ONE url token out of a pasted list.
+ *
+ * ⛔ S162 POST-AUDIT (B) — IT USED TO BREAK A VALID IPv6 URL AND HAND BACK ONE THAT THROWS.
+ * `turn:[2001:db8::1]` is legal and portless; the old unconditional trailing-`]` strip turned it
+ * into `turn:[2001:db8::1`, which then PASSED the url check and would have been handed to
+ * `RTCPeerConnection` — a total outage produced by GOOD input, which is worse than the bad-input
+ * case this file was written for. A closing bracket is now only stripped when it is unbalanced.
+ */
 function cleanUrlToken(tok: string): string {
-  return tok
-    .trim()
-    .replace(/^[[\s"'`]+/, '')
-    .replace(/[\]\s"'`,]+$/, '')
-    .trim();
+  // ⭐ A URL ALWAYS BEGINS WITH ITS SCHEME, so a LEADING `[` is always an array bracket and never a
+  // bracketed IPv6 host — that one can only appear after `scheme:`. Only a TRAILING `]` is ambiguous,
+  // and only when it is unbalanced.
+  //
+  // ⚠ Stripped to a FIXED POINT rather than in one pass: an array element arrives as `"turn:x"]`,
+  // where the quote hides behind the bracket and the bracket behind the quote, so a single pass peels
+  // one and leaves the other.
+  let s = tok.trim();
+  let prev = '';
+  while (s !== prev) {
+    prev = s;
+    s = s.replace(/^[[\s"'`]+/, '').replace(/[\s"'`,]+$/, '');
+    const opens = (s.match(/\[/g) ?? []).length;
+    const closes = (s.match(/\]/g) ?? []).length;
+    if (closes > opens) s = s.replace(/\]+$/, '');
+    s = s.trim();
+  }
+  return s;
 }
 
 export interface TurnParse {

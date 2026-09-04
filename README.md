@@ -9,7 +9,7 @@ Real-time multiplayer game of geometric emergence — TypeScript + Pixi.js, P2P 
 ```bash
 npm install
 npm run dev        # vite dev server (random port via $SESSION_PORT)
-npm test           # vitest — 3622 tests across 231 files
+npm test           # vitest — 3627 tests across 231 files
 npm run typecheck  # tsc -b --noEmit
 npm run build      # tsc -b && vite build + bundle-size charter gate → dist/
 ```
@@ -18,11 +18,11 @@ Dev server opens a browser automatically. P2P 1v1 needs two browsers/devices and
 
 ## What it is
 
-Up to four players place geometric primitives onto a shared canvas, bond them into structures, and bring those structures to life when the geometry matches a named recipe — cinematic "godly" creatures, chewer spawners, laser turrets, suicide drone hubs. Score accrues from standing structure complexity; first to the threshold wins.
+Up to four players place geometric primitives onto a shared canvas, bond them into structures, and bring those structures to life when the geometry matches a named recipe — cinematic "godly" creatures, chewer spawners, laser turrets, suicide drone hubs. Score accrues from standing structure complexity. A match ends when one seat is left standing (destroy a castle and that player is out, spectating — owner ruling R127), or when a living seat reaches the score threshold.
 
 **Shipped today:** 4-player FFA over P2P WebRTC (`MAX_PLAYERS = 4`, owner ruling R41) · 36 combos / 14 magic names · 5 godly recipes · 5 hazard systems · bots at four difficulties · host migration · NONET sudoku minigame.
 
-**In design (v0.6):** the economy pivot — a castle emits worker sparks that collect on your directives into a capped bank, and you build and sculpt from the bank instead of hauling. Two economy blockers (the material faucet, and whether a capped bank destroys the carve-down tactic) are open owner rulings gating Phase 1. See [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) and the roadmap in [BACKLOG.md](BACKLOG.md).
+**Shipped since (v0.6 economy):** the economy pivot LANDED — a castle emits worker sparks that gatherers collect on your directives into a castle bank, and you build from the bank instead of hauling (`src/state/gatherers/`). ⚠ The bank is **not** capped: `CASTLE_BANK_CAP` was deleted in S146 (*"THE CASTLE INVENTORY IS LIMITLESS"*, `src/constants.ts`), which also settled the second of the two blockers this line used to list. Per-race castles, a race picker and seat elimination have shipped on top. See [SPARK_RACES_SPEC.md](SPARK_RACES_SPEC.md) and the roadmap in [BACKLOG.md](BACKLOG.md).
 
 ## Architecture
 

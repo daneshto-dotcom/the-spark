@@ -496,14 +496,35 @@ describe('S162 P4 (OF-2) — an absent peer stops blocking the last-one-standing
     expect(withNone.lastWinnerId).toBe(withOmit.lastWinnerId);
   });
 
-  it('⭐ a still-standing absent seat cannot WIN either — it is subtracted, not favoured', () => {
+  it('⛔ ZERO contenders ends NOTHING — and never crowns an eliminated seat', () => {
+    /*
+     * ⚠ THIS CASE USED TO ASSERT THE OPPOSITE, AND THE ASSERTION WAS THE BUG. The first cut of P4
+     * left the gate at `contenders.length <= 1`, so an EMPTY contender list fell through to
+     * `primaryPlayerId` — seat 0 — and this test pinned that as intended. A review lane read it back:
+     * in a 1v1 where YOUR castle is razed and your opponent then drops, the match was awarded to you,
+     * a seat at 0 HP, while `matchPlacings` in the same log line sorted you last.
+     *
+     * Crowning a dead player is a bigger invented rule than the abandonment rule P4 deliberately
+     * refused to invent. So zero contenders now ends nothing at all.
+     */
     const w = boardOf(3);
     const ex = makeGameStateExtras();
     raze(w, 0);
-    raze(w, 1); // both present seats are dead; only the ABSENT seat 2 still has a castle
+    raze(w, 1); // both PRESENT seats are dead; only the ABSENT seat 2 still holds a castle
     tickGameState(w, ex, P(0), (seat) => seat === P(2));
-    // contenders is empty, so this falls back to primaryPlayerId rather than crowning the peer who
-    // walked away. Pinned so a future edit cannot quietly hand a match to a disconnected player.
+    expect(w.gameState).toBe('PLAYING');
+    expect(w.lastWinnerId).not.toBe(P(0)); // the eliminated host is emphatically not the winner
+  });
+
+  it('⭐ a GENUINE wipe still ends the match — the pre-S162 behaviour is preserved', () => {
+    // The case `contenders.length <= 1` was originally written for, and the only one that should
+    // reach the primaryPlayerId fallback: nobody is alive at all, so no seat can be "last standing".
+    const w = boardOf(3);
+    const ex = makeGameStateExtras();
+    raze(w, 0);
+    raze(w, 1);
+    raze(w, 2);
+    tickGameState(w, ex, P(0));
     expect(w.gameState).toBe('WIN');
     expect(w.lastWinnerId).toBe(P(0));
   });

@@ -11,6 +11,7 @@
  * separately (main.ts, net/*, render/sudoku/*).
  */
 
+import { recomputeScoreProgress } from './gameMode.ts';
 import { componentOf } from '../game/structure.ts';
 import type { PlayerId, PrimitiveId } from '../types.ts';
 import { generateSudoku, isSolved } from './sudoku.ts';
@@ -116,15 +117,7 @@ export function resolveSudoku(world: World, winnerId: PlayerId | null): void {
         pid === winnerId ? score * NONET_WINNER_MULT : score * NONET_LOSER_MULT,
       );
     }
-    let max = 0;
-    let any = false;
-    for (const v of world.scoreByPlayer.values()) {
-      if (!any || v > max) {
-        max = v;
-        any = true;
-      }
-    }
-    world.scoreProgress = any ? max : 0;
+    recomputeScoreProgress(world);
   }
   ev.resolvedTick = world.tick;
 }

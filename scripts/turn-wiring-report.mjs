@@ -38,7 +38,7 @@
 const NAMES = ['VITE_TURN_URLS', 'VITE_TURN_USERNAME', 'VITE_TURN_CREDENTIAL'];
 
 /** ⚠ MUST MATCH `ICE_URL_RE` in src/net/iceConfig.ts — pinned by src/ci.deployGate.test.ts. */
-const ICE_URL_RE = /^(?:stun|stuns|turn|turns):[^\s"'`,{}]+$/i;
+const ICE_URL_RE = /^(?:stuns?|turns?):(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._~%+-]+)(?::(?:[1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5]))?(?:\?transport=(?:udp|tcp))?$/i;
 
 /** ⚠ MUST MATCH `unwrapPastedSecret` in src/net/iceConfig.ts. */
 const unwrapPastedSecret = (raw, key) => {
@@ -52,12 +52,19 @@ const unwrapPastedSecret = (raw, key) => {
 };
 
 /** ⚠ MUST MATCH `cleanUrlToken` in src/net/iceConfig.ts. */
-const cleanUrlToken = (tok) =>
-  tok
-    .trim()
-    .replace(/^[[\s"'`]+/, '')
-    .replace(/[\]\s"'`,]+$/, '')
-    .trim();
+const cleanUrlToken = (tok) => {
+  let s = tok.trim();
+  let prev = '';
+  while (s !== prev) {
+    prev = s;
+    s = s.replace(/^[[\s"'`]+/, '').replace(/[\s"'`,]+$/, '');
+    const opens = (s.match(/\[/g) ?? []).length;
+    const closes = (s.match(/\]/g) ?? []).length;
+    if (closes > opens) s = s.replace(/\]+$/, '');
+    s = s.trim();
+  }
+  return s;
+};
 
 const raw = (name) => {
   const v = process.env[name];

@@ -52,7 +52,7 @@ Each seat's quarter of the board is painted in its race's world instead of deep 
 **Art direction, from the brief:**
 
 - Same style as the **race banner tiles already generated for the picker** (`RACE_BANNER_SRC`,
-  `public/art/race-banners/`), which the owner calls out as the reference — *"we have already
+  `public/art/banners/banner-<race>.jpg`), which the owner calls out as the reference — *"we have already
   generated cool looking player tags for the lobbies"*.
 - **Less colourful than those banners.** *"a little more realistic with some details in the color of
   the player."* So: desaturated ground, with the seat's identity colour surviving as accents.
@@ -147,7 +147,8 @@ one word when this gets built. Only **Q4** is left genuinely open, and even that
 ### ✅ Q1 — Vampires' zone. ANSWERED: the grounds of the castle already in the picker.
 
 Every other race got its home terrain, and the vampire race banner already shipped: a crimson gothic
-keep with bats and an iron gate under a red sky (`public/art/race-banners/`, visible in the picker).
+keep with bats and an iron gate under a red sky (`public/art/banners/banner-vampires.jpg`, visible in
+the picker — note `assets-source/race-banners/` is the SOURCE folder, not the shipped one).
 The zone is the ground that castle stands on — **Carpathian mountain night: mist, dead trees, iron
 fencing, a blood moon, bats.** No new decision was needed; the art direction already exists.
 

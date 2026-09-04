@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4249,
+  "tool_calls_session_total": 4263,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -269,7 +269,7 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
-          "needle": "3622 tests across 231 files"
+          "needle": "3627 tests across 231 files"
         },
         {
           "type": "file_lacks",
@@ -457,6 +457,26 @@
     {
       "priority": "P7",
       "lesson": "THE MCV STOP HOOK CAUGHT A CLAIM I HAD JUST WRITTEN MYSELF. Authoring verification[] bindings is not bookkeeping - the act of writing a machine-checkable assertion is what surfaced that README said 3619 tests while the suite had grown to 3622, a drift I introduced DURING the very priority that was fixing drift. Write the binding, then RUN the verifier and require exit 0; prose in check_method proves nothing."
+    },
+    {
+      "priority": "P7",
+      "lesson": "A PUSH IS NOT A DEPLOY, AND I WALKED AWAY FROM ONE. I pushed 9703a7a and moved to the next priority without reading its conclusion; the run FAILED. A workflow agent had written a scratch test into my tree between my last typecheck and my commit, git add -A swept it in, and it broke tsc on noUnusedLocals - so a subagent side effect broke a DEPLOY, not just a commit. It self-healed two minutes later, which is exactly why it stayed invisible. Two rules, both already written down and both ignored in the same minute: audit run CONCLUSIONS, and stage explicitly while agents are live."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "THE AUDIT FOUND MORE IN MY SAME-DAY WORK THAN I HAD FOUND IN THE INHERITED WORK. Five lanes over S161+S162 surfaced three defects inside the P0 TURN fix alone - a template-literal `\\s` that silently disabled the whitespace class, a bracket strip that corrupted valid IPv6 into a throwing url, and a 'validator' that was a punctuation filter. Fresh code is not safer code; it is merely less examined."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "I WROTE A TEST THAT PINNED A BUG AS INTENDED BEHAVIOUR. The zero-contender branch crowned an ELIMINATED host, and my own case asserted `lastWinnerId` was that host, complete with a confident comment explaining why. A test is only evidence if its EXPECTATION was reasoned about separately from the code; writing both in one motion just records what the code does."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "AN ORACLE COPIED FROM THE IMPLEMENTATION PROVES NOTHING. The ICE invariant test mirrored ICE_URL_RE byte-for-byte and even said 'mirrored here so the test is not the code' - it WAS the code, and five throwing urls passed it. Replaced with a hand-written census of what a browser actually accepts."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "A POINT FIX ON A SHARED PREDICATE LEAVES THE OTHER CALLERS BROKEN. S161 fixed the drone's sever against the OR in isEnemyBond but not the selector both the drone and the chewer share - so the owner's own bug (my creature destroyed my tower) stayed live through the chewer for a whole session. Fix the predicate, or enumerate its callers; never just the one that was reported."
     }
   ],
   "totals": {
@@ -5526,9 +5546,9 @@
   },
   "gates_at_close_s162": {
     "typecheck_exit": 0,
-    "vitest": "3622/3622 passed, 231 files",
+    "vitest": "3627/3627 passed, 231 files",
     "e2e_gating": "exit 0, 62 passed",
-    "build": "779.0 / 900 KiB under charter",
+    "build": "779.8 / 900 KiB under charter",
     "verify_deploy": "PASS 4/4 (f8607fd) - RELAY IS SHIPPED",
     "ci": "completed/success, no cancelled runs",
     "rule22_runtime_audit": "clean - live reload, 0 console errors",
@@ -5546,5 +5566,50 @@
     "OF-9": "FIXED S162 - deploy.yml push allowlist now includes scripts/**, which the job executes.",
     "OF-10": "OPEN - an eliminated human has no spectator UI; every click silently does nothing. R127 owner-facing half. Carried.",
     "OF-11": "REFUTED BY HAND. The premise needs an enemy-coloured primitive placed within AUTO_BOND_RADIUS (60px) of the voltkin structure. constants.ts:845 documents, and placePrimitive.ts:131 enforces, a territory hard-block whose MINIMUM radius is 60 + 12*log2(2) = 72px - strictly greater than 60. The placement is impossible in normal play, so the isolation-break assumption the re-fire gate rests on holds."
+  },
+  "ci_failure_investigated_s162": {
+    "run": "33793560936 (commit 9703a7a) - completed/FAILURE",
+    "found_how": "Not by polling - I pushed 9703a7a and moved straight on. Caught later while auditing run CONCLUSIONS in a gh run list, which is exactly what the project memory says to do at boot and close.",
+    "root_cause": "src/render/zz_refute_tmp.test.ts(1,20): error TS6133: expect is declared but its value is never read. The file was a workflow VERIFIER AGENT scratch probe for the OF-6 seventh-race claim; git add -A swept it into my commit and it failed tsc under noUnusedLocals.",
+    "why_local_gates_missed_it": "The agent created the file AFTER my last typecheck ran and BEFORE the commit. No local gate could have seen it; only CI checked out the committed tree.",
+    "resolution": "ALREADY RESOLVED before it was noticed: commit 4ae9b1a (about two minutes later) removed the file, its run concluded success, and that is the artifact that deployed. Every later commit is green.",
+    "severity_correction": "My 4ae9b1a commit message called the stray file \"real work, wrong place\". That UNDERSTATED it - the file BROKE A DEPLOY BUILD, it did not merely pollute a commit.",
+    "verdict": "INVESTIGATED AND RESOLVED. Not benign, but fully explained, self-healed, and no code of mine was implicated."
+  },
+  "post_audit_s162": {
+    "what": "Owner-requested: 5 agents, dispatched as SEPARATE runs, auditing whether everything from S161 and S162 actually landed. All 5 completed - no spend-limit deaths this time.",
+    "outcome": "They found real defects IN WORK SHIPPED THE SAME DAY, including two in my own P0 fix. Every finding was re-verified by hand against the tree before acting on it.",
+    "fixed": [
+      "A HIGH (my own P0 bug) - unwrapPastedSecret used `\\s` inside a TEMPLATE LITERAL, where it is not a regex escape: the runtime source was `^urlss*:s*`, with no whitespace class at all. It matched the owner's paste by luck. The watchdog .mjs had the correct `\\\\s`, so production and CI had DIFFERENT blind spots - the exact class of bug P0 existed to end. Both now double-escaped and byte-verified equal.",
+      "B MED (my own P0 bug) - cleanUrlToken stripped a trailing `]` unconditionally, corrupting the VALID portless `turn:[2001:db8::1]` into an unbalanced url that then PASSED validation and would throw at construction: a total outage caused by GOOD input. Corrected rule: a url always begins with its scheme, so a LEADING `[` is always an array bracket; only a TRAILING `]` is ambiguous. Stripped to a fixed point so `\"turn:x\"]` peels in either order.",
+      "C MED (my own P0 bug) - ICE_URL_RE was a punctuation filter, not a validator: turn::3478, turn:host:99999, turn:host:abc and turn:host?transport=quic all passed and all throw. Replaced with a real validator (bracketed IPv6 or hostname, optional port 1-65535, optional ?transport=udp|tcp). 18/18 census cases correct.",
+      "C2 - the invariant test's oracle was a BYTE-IDENTICAL COPY of ICE_URL_RE, so it could only prove the filter had filtered. Replaced with a hand-written census of what a browser accepts and rejects.",
+      "F1 HIGH (my own P2 fix, incomplete) - raceIsFree judges STABLE lobby seats while buildMatchRoster derives an unclaimed seat's default from the DENSE seat. A lobby HOLE therefore re-raced a seat at Begin and could still put two players on one colour - the exact consequence P2 existed to prevent. Resolved at buildMatchRoster, the one place that sees the final seating: claims always win, an unclaimed seat keeps its default when free, else takes the lowest free race in ALL_RACES order. The 15.6 byte-identity contract survives.",
+      "F2 HIGH (my own P4 fix) - `contenders.length <= 1` included ZERO, falling back to primaryPlayerId. In a 1v1 where YOUR castle is razed and your opponent then drops, the match was awarded to YOU, a seat at 0 HP. MY OWN TEST PINNED THAT AS INTENDED. Zero contenders now ends nothing; a genuine wipe (living.length === 0) still ends it as before. The test was rewritten to assert the truth.",
+      "F3 MED - raceByPeer was never pruned on departure, so a ghost claim locked a race for the rest of the room while the picker (built from seatByPeer) drew the tile FREE and clickable: click, host refuses, tile does not change. A lane flagged this as reproducing the owner's exact words. Now pruned against the transport's live peer list in broadcastQmPresence.",
+      "S161-F1 HIGH - awardSpawnerKillReward paid ELIMINATED seats (its only filter was 'not the owner'), against scoring.ts's own invariant 'A FALLEN SEAT MUST NOT EARN'. It also diluted living raiders' share. Fixed.",
+      "S161-F2 MED/HIGH - only 2 of 5 scoreProgress derivations skipped eliminated seats. Combined with the above this RE-OPENED S161's CRITICAL bug: a corpse's score was not frozen after all, so it could accrue past the win threshold and fire the gate during BUILD, when the corrective recompute (FIGHT-only) cannot run. All three duplicate max-loops replaced by ONE recomputeScoreProgress that skips the fallen.",
+      "S161-F3 MED - THE OWNER'S ORIGINAL BUG WAS STILL REACHABLE VIA THE CHEWER. S161 fixed the drone's sever but not the shared target selector, and isEnemyBondWithColor is an OR, so a MIXED bond read as enemy: a chewer could select it, walk to it and chew it through, dropping the owner's own hub degree and self-destructing the recipe. Tightened the enemyOnly branch of findNearestBondTarget, which closes the chewer AND the drone's target selection at one point. Voltkin deliberately untouched (enemyOnly:false; its own-bond cut is a documented feature).",
+      "OF-5/OF-6/OF-8/OF-9/OF-11 - as previously recorded.",
+      "Lane5 - deploy.yml timeout-minutes 15 -> 30. Its justification went stale: npm install jumped from ~5s to 7m02s on 2026-09-03 with the cache HITTING, pushing jobs to 60% of budget, and a timeout concludes `cancelled` (silent, no email, no artifacts).",
+      "Doc drift lane 4 found in MY OWN doc fixes: README still advertised a 'capped bank' economy as 'in design' when it had shipped and CASTLE_BANK_CAP was DELETED, and still gave 'first to the threshold wins' as the win condition after last-one-standing shipped. Both corrected. The RACE_ZONES doc cited public/art/race-banners/ (the SOURCE folder) instead of public/art/banners/."
+    ],
+    "verified_clean_by_the_lanes": [
+      "CASE-SENSITIVITY: all 61 asset URLs referenced from src/ return HTTP 200 from the live Linux host with byte sizes matching disk - and the lane ran a CONTROL (a deliberately mis-cased URL 404s), so the 200s are proof of correct casing rather than a permissive server. This closes CF-S161-f, the carry-forward S161 called 'the one with teeth'.",
+      "All six castle atlases + anim JSONs wired end-to-end, 256x768 = 3 rows, no silent fallback.",
+      "Economy gate has two enforcement points and the intent policy is exhaustive with a deny default.",
+      "Gatherer preempt fires only on a strict class improvement - no oscillation, no escrow leak.",
+      "Omitting isSeatOffline reproduces pre-S162 behaviour EXACTLY; the client takes the authoritative WIN edge from snapshots (save.ts applySnapshotCore).",
+      "world.isHost defaults true, so gating markFallenSeats leaves solo and vs-bots stamping.",
+      "Zero cancelled CI runs across the last 25; exactly one failure, already investigated and resolved."
+    ],
+    "still_open": [
+      "Lane5: NO E2E CI RUN HAS EVER EXERCISED S161 OR S162 CODE - e2e.yml is schedule+PR+dispatch only and last ran 2026-08-31, before any of this work. Locally `npm run e2e:gating` passes 62/62 at every commit, so this is a CI-coverage gap, not a known failure. Triggered manually at close.",
+      "Lane2-F4 MED: a host whose own uplink dies can crown itself after PEER_DROP_FORFEIT_TICKS (20s) while its peers, seeing host loss, run the migration ladder and keep playing - two live outcomes for one match. The margin over the 15s client reconnect grace is thin. Needs a design decision (probably: the host must not self-crown while a migration window is open).",
+      "Lane2-F5 LOW: isSeatOffline's seat->peer scan returns on the first Map hit with no uniqueness assertion. Correct today by construction; a Map-order scan on the match-ending path.",
+      "Lane2-F6 LOW: a test claiming to cover the claimant !== selfId branch passes a literal that is not selfId, so it takes the non-host path. Behaviour is right; the symmetry claim is unproven.",
+      "Lane2-F7/F8, Lane1-#3 (TURN_CONFIG_NOTE has no reachable UI path on the SUCCESS branch), Lane1-#6 (the shipped-constants tests are vacuous with no .env), Lane1-#8/#9 (send-before-repaint ordering; rostersEqual does not compare raceId, so race repaint depends on RACE_COLORS being injective), Lane3-F4..F7 (drone target asymmetry, a stale 'unconditional' comment, actorEliminated never reset, raidPoints not reset on rematch for seat 0).",
+      "Lane1-#7: a justification I wrote in two places is FALSE - `joinRoom` throwing does NOT prevent `session.netTransport` being assigned (the assignment precedes connect(), and transport.ts wraps joinFn in try). The P1 FIX IS STILL CORRECT and the repaint is real, but the stated root cause is wrong; the true live mechanism is the ghost claim (F3), now fixed. Comments to correct next session."
+    ]
   }
 }

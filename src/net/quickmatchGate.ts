@@ -90,7 +90,26 @@ export function broadcastQmPresence(
   // transport handle would WIPE a live seat map. With no transport there are no peers to reconcile
   // against, so the previous map is already the truth.
   if (transport !== null) {
-    session.lobbySeats = reconcileLobbySeats(session.lobbySeats, transport.peerIds());
+    const peerIds = transport.peerIds();
+    session.lobbySeats = reconcileLobbySeats(session.lobbySeats, peerIds);
+    // ⭐ S162 POST-AUDIT (F3) — PRUNE GHOST CLAIMS. `raceByPeer` had exactly one eraser in the whole
+    // codebase (`resetNetSession`'s `clear()`), so a departed peer's claim went on locking its race
+    // for the rest of the room — while `buildLobbyRoster` iterates `seatByPeer` only, so that peer
+    // vanished from the rack and the picker drew its tile FREE and clickable. Click it and the host
+    // refuses, silently: the "surface says yes, reducer says no" defect `racePicker.ts` and
+    // `raceIsFree` both open by declaring must not exist.
+    //
+    // ⚠ KEYED ON THE TRANSPORT'S PEER LIST, NOT ON `lobbySeats`. A peer mid-join is connected but not
+    // yet seated, and `raceIsFree`'s third loop exists precisely to honour a claim that arrives before
+    // its seat — pruning by seat would delete the very claims that loop was written for.
+    //
+    // This mirrors `qmReadyPeers`, whose own docblock says a departed peer's stale flag "can never
+    // wedge or trip the gate" because the auto-begin check intersects with the CURRENT lobbySeats.
+    // `raceByPeer` had no such intersection; now it has an explicit one.
+    const present = new Set(peerIds);
+    for (const peer of [...session.raceByPeer.keys()]) {
+      if (!present.has(peer)) session.raceByPeer.delete(peer);
+    }
   }
   // ⭐ S161 P6 — the race claims ride the ONE presence path. `broadcastQmPresence` is documented
   // above as "The SINGLE presence-broadcast path for the host", which is precisely why the claims

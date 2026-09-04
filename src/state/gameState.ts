@@ -139,10 +139,24 @@ export function tickGameState(
       // absent seat must not satisfy "at least one castle has fallen" all by itself — otherwise a
       // 1v1 disconnect would end the match, which is abandonment and nobody has ruled on it.
       const fallenCount = world.players.size - living.length;
-      if (fallenCount > 0 && (soloBoard || contenders.length <= 1)) {
-        // With ≥2 seats the winner is the ONE seat still alive. A zero-survivor board (a
-        // simultaneous wipe) has no such seat, and neither does solo — both fall back to the
-        // primary, which is the old behaviour for the only cases that ever reached it.
+      // ⛔ S162 POST-AUDIT (F2) — **A ZERO-CONTENDER BOARD MUST NOT CROWN ANYBODY.**
+      //
+      // This read `contenders.length <= 1`, and the zero case fell through to `primaryPlayerId` —
+      // seat 0, the host. That was defensible while zero could only mean a SIMULTANEOUS WIPE, and the
+      // comment said exactly that. P4 made it false in the same commit that wrote it: `contenders`
+      // now also empties when every living seat is merely OFFLINE.
+      //
+      // The consequence was a 1v1 in which YOUR castle is razed, your opponent then drops for 20 s,
+      // and the match is awarded to you — a seat at 0 HP — while `matchPlacings` in the very same log
+      // line sorts you last. An eliminated player winning is a worse invented rule than the
+      // abandonment rule P4 refused to invent.
+      //
+      // So a genuine wipe is now named explicitly, and "everyone alive has left" ends nothing.
+      const wipe = living.length === 0;
+      if (fallenCount > 0 && (soloBoard || wipe || contenders.length === 1)) {
+        // With ≥2 seats the winner is the ONE seat still alive. A true zero-survivor board and solo
+        // both fall back to the primary — the pre-S162 behaviour, now reachable only by the cases
+        // that genuinely reached it before.
         const winnerId: PlayerId =
           !soloBoard && contenders.length === 1 ? contenders[0]! : primaryPlayerId;
         console.info(

@@ -31,6 +31,7 @@ import {
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { defaultRaceForSeat, type RaceId } from './races.ts';
+import { isEliminated } from './elimination.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -663,9 +664,34 @@ export function addScore(world: World, playerId: PlayerId, delta: number): void 
   // rule, and this matches state/scoring.ts:tickScoring's per-tick recompute. addScore
   // remains for tests + any manual one-shot adjustment; production point-gain accrues in
   // tickScoring (complexity-income), not here.
+  recomputeScoreProgress(world);
+}
+
+/**
+ * ⭐ S162 POST-AUDIT — **`scoreProgress` IS THE MAX OVER LIVING SEATS, AND IT IS COMPUTED IN ONE PLACE.**
+ *
+ * S161 P2 wrote the rule at `scoring.ts` — *"A FALLEN SEAT MUST NOT EARN, AND MUST NOT LEAD"* — and
+ * taught two of the five sites that decide it. Three identical copies of this loop were left counting
+ * corpses: `addScore`, `spendScore` and `resolveSudoku`.
+ *
+ * ⛔ AND THAT RE-OPENED THE CRITICAL BUG S161 THOUGHT IT HAD CLOSED. Its reasoning was that a dead
+ * seat's banked score is FROZEN and therefore stuck below the threshold. It was not frozen —
+ * `awardSpawnerKillReward` went on paying eliminated seats — so a corpse could accrue PAST
+ * `PHASE_1_WIN_SCORE`, and the corrective recompute lives in `tickScoring`, which is FIGHT-only. One
+ * gatherer purchase during BUILD was enough to publish a corpse's score as the leader's and fire the
+ * win gate, which then correctly hands the match to the top LIVING seat — a seat that may be nowhere
+ * near winning.
+ *
+ * ⚠ The `>` comparison makes `Map` order irrelevant here: the result is a NUMBER, not a choice of
+ * player, so ties cannot be decided by insertion order (the S155 N1 class). The seat SELECTION scans
+ * that do care live in `scoring.ts` and `gameState.ts`, and each carries its own explicit id tie-break.
+ */
+export function recomputeScoreProgress(world: World): void {
   let max = 0;
   let any = false;
-  for (const v of world.scoreByPlayer.values()) {
+  for (const [pid, v] of world.scoreByPlayer) {
+    const p = world.players.get(pid);
+    if (p !== undefined && isEliminated(p)) continue; // a corpse does not lead
     if (!any || v > max) {
       max = v;
       any = true;
@@ -687,15 +713,7 @@ export function addScore(world: World, playerId: PlayerId, delta: number): void 
 export function spendScore(world: World, playerId: PlayerId, cost: number): void {
   const prev = world.scoreByPlayer.get(playerId) ?? 0;
   world.scoreByPlayer.set(playerId, Math.max(0, prev - cost));
-  let max = 0;
-  let any = false;
-  for (const v of world.scoreByPlayer.values()) {
-    if (!any || v > max) {
-      max = v;
-      any = true;
-    }
-  }
-  world.scoreProgress = any ? max : 0;
+  recomputeScoreProgress(world);
 }
 
 /**
@@ -732,7 +750,12 @@ export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): 
   if (world.matchPhase !== 'FIGHT') return;
   const enemies: PlayerId[] = [];
   for (const player of world.players.values()) {
-    if (player.id !== spawner.ownerPlayerId) enemies.push(player.id);
+    // ⛔ S162 POST-AUDIT — A FALLEN SEAT IS NOT A RAIDER. The only filter here was "not the owner",
+    // so an eliminated seat kept collecting kill bounties — flatly against the invariant `scoring.ts`
+    // states, and against R127's own mechanic (no castle, no earning). It also DILUTED the living
+    // raiders' share, because corpses inflated `enemies.length`.
+    if (player.id === spawner.ownerPlayerId || isEliminated(player)) continue;
+    enemies.push(player.id);
   }
   if (enemies.length === 0) return; // solo / no raider — nothing to award
   const share = SPAWNER_KILL_REWARD / enemies.length;

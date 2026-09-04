@@ -207,10 +207,29 @@ export function findNearestBondTarget(
   // per-bond test below is a pure colour compare (no Map.get per bond for the owner).
   const ownerColor = creatureOwnerColor(world, creature);
 
+  /**
+   * ⛔ S162 POST-AUDIT — **`isEnemyBondWithColor` IS AN OR, SO A *MIXED* BOND READS AS ENEMY.**
+   *
+   * S161 fixed exactly this for the drone's SEVER loop, after the owner watched *"my own creature
+   * destroy my own tower"*: cutting a connector with one endpoint of your own colour drops your hub
+   * star's degree, breaks the recipe, and fires `STRUCTURE_SELFDESTRUCT`. But the fix was applied at
+   * the drone's sever and NOT here, so the identical chain stayed reachable through the CHEWER — it
+   * could still SELECT a mixed bond, walk to it, and chew it through.
+   *
+   * Tightening the `enemyOnly` branch closes the chewer AND the drone's target selection at one
+   * point, and is an exact AND-tightening of the same predicate rather than a second, disagreeing one.
+   *
+   * ⭐ VOLTKIN IS DELIBERATELY UNTOUCHED. It passes `enemyOnly: false`, and its ability to cut its
+   * own bonds is a documented feature (see the fallback note below), not an oversight.
+   */
+  const strictlyEnemy = (bond: { aId: PrimitiveId; bId: PrimitiveId }): boolean =>
+    world.primitives.get(bond.aId)?.placerColor !== ownerColor &&
+    world.primitives.get(bond.bId)?.placerColor !== ownerColor;
+
   for (const [bondId, bond] of world.bonds) {
     const mid = bondMidpoint(bond);
     const dSq = distSq(creature.pos, mid);
-    if (isEnemyBondWithColor(world, ownerColor, bond)) {
+    if (isEnemyBondWithColor(world, ownerColor, bond) && (!enemyOnly || strictlyEnemy(bond))) {
       if (
         dSq < bestEnemyDistSq ||
         // Tie-break: lower BondId wins (deterministic). Map iteration order in
