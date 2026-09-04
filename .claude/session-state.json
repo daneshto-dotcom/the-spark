@@ -182,6 +182,10 @@
     {
       "priority": "P6",
       "lesson": "A CI PATHS ALLOWLIST MUST INCLUDE EVERYTHING THE JOB EXECUTES, NOT JUST WHAT IT BUILDS. deploy.yml listed src/ and public/ but not scripts/, while the job itself runs node scripts/turn-wiring-report.mjs and the build ends in node scripts/check-bundle-size.mjs. So the one edit this project is instructed to make under deploy pressure - raising the bundle charter - would have queued no run at all, and the author would have sat waiting on a deploy that never existed."
+    },
+    {
+      "priority": "P6",
+      "lesson": "THE CHEAPEST LANE PAID AGAIN. OF-11 was filed as \"may have a cross-colour hole, cheap to check\". Two greps closed it: the territory hard-block minimum radius (72px) is strictly larger than AUTO_BOND_RADIUS (60px), and constants.ts had already written that argument down in S51. Reading the constant beat reasoning about the mechanic."
     }
   ],
   "totals": {
@@ -5258,5 +5262,18 @@
     "ci": "completed/success, no cancelled runs",
     "rule22_runtime_audit": "clean - live reload, 0 console errors",
     "live_ice_probe": "host:1 srflx:1 relay:1, iceErrors [] - first working TURN relay in project history"
+  },
+  "s161_open_findings_disposition": {
+    "OF-1": "FIXED S162 P2 - raceIsFree now judges effective races. NOTE: the finding was HALF WRONG; the lobby taken-set was already correct.",
+    "OF-2": "FIXED S162 P4 - host-only isSeatOffline predicate subtracts a long-absent seat from the win contenders.",
+    "OF-3": "CLOSED AS RULED - owner ruled CF-S161-a: a fallen seat board keeps fighting. The castle gun is silent because the castle is DESTROYED, not because the seat is out, so the four actor kinds are coherent.",
+    "OF-4": "OPEN - bots can only raid CONNECTORS while humans can raid units, HELGA and connectors. Feature gap, needs a bot goal-type widening. Carried.",
+    "OF-5": "FIXED S162 - BotController.tick now parks on isEliminated as it already did on isBenched. Test added.",
+    "OF-6": "FIXED S162 - never-guards on raceMotifs three switches AND on sparkGlyph. PROVED by temporarily widening RaceId to 7 members: tsc then failed at raceMotifs 157/260/362.",
+    "OF-7": "OPEN - the stink tower taunts and renders as spent while still bombing. Needs a decision on what bagsRemaining MEANS now, then split the second reader off it. Carried.",
+    "OF-8": "FIXED S162 - markFallenSeats gated on world.isHost, making the three HOST-ONLY docblocks true rather than re-wording them.",
+    "OF-9": "FIXED S162 - deploy.yml push allowlist now includes scripts/**, which the job executes.",
+    "OF-10": "OPEN - an eliminated human has no spectator UI; every click silently does nothing. R127 owner-facing half. Carried.",
+    "OF-11": "REFUTED BY HAND. The premise needs an enemy-coloured primitive placed within AUTO_BOND_RADIUS (60px) of the voltkin structure. constants.ts:845 documents, and placePrimitive.ts:131 enforces, a territory hard-block whose MINIMUM radius is 60 + 12*log2(2) = 72px - strictly greater than 60. The placement is impossible in normal play, so the isolation-break assumption the re-fire gate rests on holds."
   }
 }

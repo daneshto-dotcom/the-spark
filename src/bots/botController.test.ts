@@ -177,6 +177,27 @@ describe('S87 BotManager — bots actually play', () => {
     expect(world.primitives.size).toBeGreaterThan(primsAtBench); // back to work
   });
 
+  it('⭐ S162 (OF-5) — an ELIMINATED bot parks too, not only a benched one', () => {
+    // `isBenched` had an early-return here and `isEliminated` had no twin, so a dead bot went on
+    // thinking, walking and dispatching. Every verb was refused at the elimination gate, so it was
+    // mechanically inert — but it READ as a dead seat still playing, which is the thing owner ruling
+    // R127's spectator rule exists to prevent.
+    //
+    // ⚠ `run` drives ONLY the bot manager, never tickGameState, so razing this castle cannot end the
+    // match and make the assertions pass for the wrong reason.
+    const world = botsWorld(1);
+    seedSparks(world, 8);
+    const manager = new BotManager(['IMBA'], 0xbeef);
+    const seat = asPlayerId(1);
+    run(world, manager, 60); // get it moving first — anti-vacuity
+    const movedTo = { ...world.players.get(seat)!.avatarPos };
+    world.players.get(seat)!.castleHp = 0; // its castle falls: R127 says it is out
+    const primsAtDeath = world.primitives.size;
+    run(world, manager, 60 * 5);
+    expect(world.players.get(seat)!.avatarPos).toEqual(movedTo); // parked, and permanently
+    expect(world.primitives.size).toBe(primsAtDeath); // and it builds nothing more
+  });
+
   it('debugStates exposes seat/difficulty/state for the e2e probe', () => {
     const manager = new BotManager(['NOOB', 'IMBA'], 1);
     const states = manager.debugStates();

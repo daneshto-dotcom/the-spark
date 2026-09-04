@@ -45,6 +45,7 @@ import { componentOf } from '../game/structure.ts';
 import type { Player } from '../game/player.ts';
 import { pickRedundantBondTargets } from '../input/redundantBondTargets.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
+import { isEliminated } from '../state/elimination.ts';
 import { ALL_SPARK_TYPES } from '../constants.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
@@ -147,6 +148,20 @@ export class BotController {
     // Benched (eaten / offline-bench): every meaningful verb is gate-denied
     // anyway; park the FSM so we re-decide fresh on release.
     if (isBenched(me.benchedUntilTick, world.tick)) {
+      this.state = { kind: 'IDLE' };
+      this.vel = 0;
+      return;
+    }
+
+    // ⭐ S162 P6 (OF-5) — AND THE SAME FOR AN ELIMINATED SEAT. `isBenched` had no `isEliminated`
+    // twin here, so a dead bot went on thinking, walking and dispatching. Every verb it can reach is
+    // refused at the elimination gate, so it was mechanically inert — but it READ as a dead seat
+    // still playing, which is precisely what owner ruling R127's spectator rule exists to prevent.
+    //
+    // ⚠ NOT IN TENSION WITH THE CF-S161-a RULING that a fallen seat's board keeps fighting. That
+    // governs the seat's STANDING towers, creatures and spawners; this governs its PLAYER. The board
+    // fights on without a mind behind it, which is exactly what the owner described.
+    if (isEliminated(me)) {
       this.state = { kind: 'IDLE' };
       this.vel = 0;
       return;
