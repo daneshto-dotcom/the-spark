@@ -2226,7 +2226,15 @@ Network routes: ${v.detail}`;
         session.netTransport !== null &&
         world.lastWinnerId !== null
       ) {
-        session.netTransport.send({ kind: 'ENDGAME', winnerId: world.lastWinnerId });
+        // ⭐ S163 P1 — STAMP THE TERM. Without it every ENDGAME reads as epoch 0 at the receiver
+        // and the new fence in `clientHandlers` can never discriminate a live host from a deposed
+        // one. Same source as the snapshot path (`hostSync.buildSnapshotMessage(world,
+        // session.currentEpoch)` below), so the verdict and the state it describes carry one term.
+        session.netTransport.send({
+          kind: 'ENDGAME',
+          winnerId: world.lastWinnerId,
+          epoch: session.currentEpoch,
+        });
       }
       // S18 P1 — start background music on transition to PLAYING. Covers
       // solo + 1v1 host + 1v1 client paths (client transitions via snapshot

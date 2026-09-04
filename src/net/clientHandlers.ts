@@ -83,6 +83,25 @@ export interface JoinAttemptDeps {
  * (= host-migration, deferred carry-forward). Returns true = process, false = drop.
  * Pure w.r.t. everything except the latch write; exported for unit tests.
  */
+/**
+ * ⛔ S163 P1 — **IS THIS VERDICT FROM A DEAD TERM?** `hostAuthFilter` below asks only *"are you the
+ * latched host peer?"*, and a DEPOSED host still satisfies that on any survivor whose own latch has
+ * not moved yet. `NETSNAPSHOT` has been fenced on the term since D2 (`sync.ts`), so a zombie's
+ * world-state was already inert — but ENDGAME was not, and ENDGAME is the message that ends the
+ * match. The live path: a host whose uplink died crowned itself (see `hostTick.ts`) and its verdict
+ * ended a game the survivors were still playing under a new host.
+ *
+ * Pure and exported so the fence is provable rather than merely written — the `succession.ts`
+ * posture. Mirrors `sync.ts`'s gate including the `?? 0`, so a pre-S163 host with no `epoch` reads
+ * 0 against a pre-migration `currentEpoch` of 0 and passes exactly as before.
+ *
+ * ⚠ `parseNetMessage` rejects a present-but-non-integer `epoch` upstream, which matters here: `NaN`
+ * would slip this gate silently, because `NaN < n` is false.
+ */
+export function endgameIsStale(msgEpoch: number | undefined, currentEpoch: number): boolean {
+  return (msgEpoch ?? 0) < currentEpoch;
+}
+
 export function hostAuthFilter(
   session: Pick<NetSession, 'hostPeerId' | 'hostVerifiedPeerId'>,
   msg: NetMessage,
@@ -492,7 +511,18 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // WIN_TRIGGER while already in WIN/POSTGAME is a noop because the
       // reducer is pure-assignment + the world is host-state-overwritten
       // by the next snapshot.
+      /*
+       * ⛔ S163 P1 — **THE EPOCH FENCE.** `hostAuthFilter` above asks only *"are you the latched
+       * host peer?"*. It cannot ask *"are you still the host?"*, because after a migration the
+       * deposed host is STILL the latched `hostPeerId` on any peer whose own latch has not moved.
+       * `NETSNAPSHOT` has been fenced on this since D2 (`sync.ts`); ENDGAME never was, so the one
+       * message that ENDS the match was the only host-authored kind a zombie term could still land.
+       *
+       * Mirrors `sync.ts` byte-for-byte, including the `?? 0`, so a pre-S163 host (no `epoch`) is
+       * treated exactly as before: `0 < 0` is false and the verdict applies.
+       */
       if (msg.kind === 'ENDGAME') {
+        if (endgameIsStale(msg.epoch, deps.session.currentEpoch)) return;
         dispatch(deps.world, { type: 'WIN_TRIGGER', winnerId: msg.winnerId });
       }
     };

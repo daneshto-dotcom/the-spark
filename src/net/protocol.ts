@@ -935,9 +935,31 @@ interface LobbyPresenceMsg {
   readonly roster: readonly RosterEntry[];
 }
 
+/**
+ * ⛔ S163 P1 — **THE ONLY HOST-AUTHORED OUTCOME KIND THAT WAS NOT EPOCH-FENCED.**
+ *
+ * `clientHandlers`' own threat docblock lists *"fake a win via ENDGAME"* among the things the
+ * host-auth gate exists to stop, and that gate is `peerId`-only: it asks *"are you the latched
+ * host?"*, never *"are you STILL the host?"*. `NETSNAPSHOT` has always asked the second question
+ * (`sync.ts` drops `(msg.epoch ?? 0) < currentEpoch`), so a deposed host's world-state was already
+ * inert — but its one-shot verdict was not, and a verdict is the more consequential message.
+ *
+ * The live path that needed it: a host whose uplink dies is still `hostPeerId` on every peer that
+ * has not yet completed migration, so when it crowned itself (S163 P1, `hostTick.ts`) its ENDGAME
+ * ended a match the survivors were still playing under a NEW host. The crown fix stops that host
+ * from reaching this send; the fence stops the message from being *believed* if any other path ever
+ * reaches it.
+ *
+ * ⭐ ADDITIVE-OPTIONAL, SO NO `PROTOCOL_VERSION` BUMP — per this project's protocol rules, and
+ * PROVABLY INERT against a stale peer exactly as the `sync.ts` gate was in D2: an absent `epoch`
+ * reads 0, `currentEpoch` is 0 before any migration, and `0 < 0` is false. A pre-S163 peer simply
+ * keeps today's peerId-only gate.
+ */
 interface EndGameMsg {
   readonly kind: 'ENDGAME';
   readonly winnerId: PlayerId;
+  /** The sender's term. Absent from a pre-S163 host; see the docblock above. */
+  readonly epoch?: number;
 }
 
 /**
@@ -1429,6 +1451,16 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       return obj as unknown as ClaimRaceMsg;
     }
     case 'ENDGAME':
+      // ⭐ S163 P1 — `epoch` is additive-optional: absent is fine, present-but-not-a-non-negative
+      // integer rejects the whole message. Same fail-closed posture as `ready`/`raceId` in
+      // `isValidRoster` and as MIGRATION_CLAIM's bounds check — a garbage epoch must not reach the
+      // fence in `clientHandlers` and be silently coerced there.
+      if (
+        obj.epoch !== undefined &&
+        (typeof obj.epoch !== 'number' || !Number.isInteger(obj.epoch) || obj.epoch < 0)
+      ) {
+        return null;
+      }
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;
     case 'GODLY_TRIGGER': {
       if (obj.event === null || typeof obj.event !== 'object') return null;

@@ -416,17 +416,58 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT') {
     tickScoring(world);
   }
-  // ⭐ S162 P4 (OF-2) — the host is the only party that knows who is absent, so it is the only party
-  // that passes this. Reads the SAME `peerAbsentSinceTick` clock the drop-bench sweep below keeps, so
-  // the two can never disagree about who is gone, and both self-heal on the peer's first present tick.
-  tickGameState(world, deps.gameStateExtras, P1, (seat) => {
-    for (const [peerId, s] of deps.hostSeats) {
-      if (s !== seat) continue;
-      const since = state.peerAbsentSinceTick.get(peerId);
-      return since !== undefined && world.tick - since >= PEER_DROP_FORFEIT_TICKS;
-    }
-    return false; // the host's own seat, or a seat with no peer — never absent
-  });
+  /*
+   * ⭐ S162 P4 (OF-2) — the host is the only party that knows who is absent, so it is the only party
+   * that passes this. Reads the SAME `peerAbsentSinceTick` clock the drop-bench sweep below keeps, so
+   * the two can never disagree about who is gone, and both self-heal on the peer's first present tick.
+   *
+   * ⛔ S163 P1 — **A FORFEIT-PATH WIN NOW REQUIRES A WITNESS, because a partitioned host was
+   * crowning ITSELF.** `peerAbsentSinceTick` is fed from `deps.alivePeerIds`, i.e. Trystero's
+   * `onPeerLeave`, which fires identically whether the peers left or THIS MACHINE's uplink died —
+   * the host has no discriminator. So a host whose own connection dropped saw every peer go absent,
+   * and 20 s later (`PEER_DROP_FORFEIT_TICKS`) it was the sole contender and fired `WIN_TRIGGER`,
+   * while those same peers — seeing host loss — ran the migration ladder and kept playing. Two live
+   * outcomes for one match, and the host's own CONNECTION LOST overlay was replaced by a clean
+   * "PLAYER 1 WINS" at the moment it crowned itself.
+   *
+   * ⚠ THE MARGIN IS HALF A SECOND AT THE DEEP END, WHICH IS WHY A TIMING TWEAK IS NOT THE FIX.
+   * A peer promotes at `RECONNECT_GRACE_MS + rank·CLAIM_LADDER_MS` (`main.ts` 15 000 +
+   * `succession.ts` 1 500) = 15.0 s at rank 0 and 19.5 s at rank 3, against this 20 s. Widening the
+   * forfeit window only moves a race that should not exist. ⚠ Do NOT read the peers' deadline off
+   * `HOST_STARVATION_MS` (6 s) — that gates DETECTION, not promotion; S163's A.0 got this wrong
+   * first and the correction is what re-ranked the fix.
+   *
+   * THE RULE: at least one peer must still be connected to US before absence may decide a match.
+   * With no live peer the argument is omitted entirely, which `gameState.ts` documents as
+   * byte-identical pre-S162 behaviour — so this can only ever REFUSE a win, never invent one, and
+   * solo / vs-bots (no transport, `alivePeerIds === null`) are untouched by construction.
+   */
+  const hasWitness = deps.alivePeerIds !== null && deps.alivePeerIds.size > 0;
+  tickGameState(
+    world,
+    deps.gameStateExtras,
+    P1,
+    hasWitness
+      ? (seat) => {
+          /*
+           * ⭐ S163 P1 (Lane2-F5) — ACCUMULATE, THEN DECIDE. This used to `return` inside the loop on
+           * the first `Map` hit, so a duplicated seat let INSERTION ORDER pick which peer's absence
+           * clock decided the match. `isValidRoster` now rejects duplicate seats at the wire (P4), so
+           * this is unreachable — and it stays fail-closed anyway, because "correct by construction
+           * elsewhere" is exactly the reasoning this codebase keeps paying for on the match-ending
+           * path.
+           */
+          let absent: boolean | undefined;
+          for (const [peerId, s] of deps.hostSeats) {
+            if (s !== seat) continue;
+            if (absent !== undefined) return false; // ambiguous seat → never forfeit
+            const since = state.peerAbsentSinceTick.get(peerId);
+            absent = since !== undefined && world.tick - since >= PEER_DROP_FORFEIT_TICKS;
+          }
+          return absent ?? false; // the host's own seat, or a seat with no peer — never absent
+        }
+      : undefined,
+  );
 
   // S94 — NONET trigger sweep (host-only, once/match): a connected component of EXACTLY 9
   // shapes of ONE type summons the trial. Per-tick sweep (cheap — comparable to tickScoring's

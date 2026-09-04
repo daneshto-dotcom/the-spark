@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { NetMessage } from './protocol.ts';
-import { hostAuthFilter } from './clientHandlers.ts';
+import { endgameIsStale, hostAuthFilter } from './clientHandlers.ts';
 
 const HOST = 'peer-host';
 const EVIL = 'peer-evil';
@@ -108,5 +108,37 @@ describe('S82 P4(a) — hostAuthFilter crypto-preconditioned latch', () => {
     const s: LatchState = { hostPeerId: HOST, hostVerifiedPeerId: HOST };
     expect(hostAuthFilter(s, lobbyPresence(EVIL), EVIL)).toBe(false);
     expect(s.hostPeerId).toBe(HOST);
+  });
+});
+
+/*
+ * ⭐ S163 P1 — THE ENDGAME EPOCH FENCE. `hostAuthFilter` above is a peerId gate: it asks "are you
+ * the latched host?", never "are you STILL the host?". After a migration the DEPOSED host is still
+ * the latched `hostPeerId` on any survivor whose latch has not moved, so it passed that gate and its
+ * ENDGAME ended a match the survivors were playing under a new host. NETSNAPSHOT has been fenced on
+ * the term since D2; this was the one host-authored kind that was not — and it is the one that ends
+ * the match.
+ */
+describe('S163 P1 — endgameIsStale', () => {
+  it('⛔ drops a verdict from an OLDER term', () => {
+    expect(endgameIsStale(1, 2)).toBe(true);
+    expect(endgameIsStale(0, 5)).toBe(true);
+  });
+
+  it('accepts the CURRENT term and any future one', () => {
+    expect(endgameIsStale(2, 2)).toBe(false);
+    expect(endgameIsStale(3, 2)).toBe(false);
+  });
+
+  it('⭐ PROVABLY INERT for a pre-S163 host — absent epoch before any migration', () => {
+    // The sync.ts posture: absent reads 0, currentEpoch is 0 until a migration, 0 < 0 is false.
+    // So a stale peer keeps exactly today's peerId-only behaviour rather than losing its verdict.
+    expect(endgameIsStale(undefined, 0)).toBe(false);
+  });
+
+  it('⛔ …but an absent epoch IS dropped once we have migrated', () => {
+    // This is the half that has teeth: the deposed host is pre-S163 or simply did not stamp, and we
+    // have already advanced. Without the `?? 0` reading as term zero this case would be accepted.
+    expect(endgameIsStale(undefined, 1)).toBe(true);
   });
 });

@@ -208,6 +208,27 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
     expect(parseNetMessage({ kind: 'ENDGAME', winnerId: '0' })).toBeNull();
     expect(parseNetMessage({ kind: 'ENDGAME' })).toBeNull();
   });
+
+  /*
+   * ⭐ S163 P1 — ENDGAME's optional `epoch`. It is the fence that stops a DEPOSED host from ending
+   * a match its survivors are still playing under a new host: `hostAuthFilter` only asks "are you
+   * the latched host peer?", which a zombie term still satisfies. NETSNAPSHOT has been fenced since
+   * D2; this was the one host-authored kind that was not, and it is the one that ENDS the match.
+   */
+  it('⭐ S163 — ENDGAME accepts an absent epoch (a pre-S163 host) and a valid one', () => {
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 1 })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 1, epoch: 0 })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 1, epoch: 7 })).not.toBeNull();
+  });
+
+  it('⛔ S163 — ENDGAME rejects a present-but-garbage epoch rather than coercing it', () => {
+    // Fail-closed, matching `ready`/`raceId` in isValidRoster and MIGRATION_CLAIM's bounds check.
+    // A NaN or a negative reaching the `(msg.epoch ?? 0) < currentEpoch` fence would silently
+    // compare as a live term — NaN < n is false, so a NaN epoch would PASS the fence.
+    for (const bad of ['3', 1.5, -1, NaN, null, {}]) {
+      expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 1, epoch: bad })).toBeNull();
+    }
+  });
 });
 
 describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snapshot)', () => {
