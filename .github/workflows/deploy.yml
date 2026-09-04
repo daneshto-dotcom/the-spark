@@ -26,6 +26,13 @@ on:
     paths:
       - 'src/**'
       - 'public/**'
+      # ⭐ S162 P6 (OF-9) — THIS JOB EXECUTES scripts/, so scripts/ MUST be able to trigger it.
+      # `npm run build` ends in `node scripts/check-bundle-size.mjs` and the step above runs
+      # `node scripts/turn-wiring-report.mjs`. Without this line, RAISING THE BUNDLE CHARTER — the
+      # edit this project makes under deploy pressure, by its own charter's instruction — changes
+      # only scripts/ and therefore triggers NO RUN AT ALL, leaving the author waiting on a deploy
+      # that was never queued.
+      - 'scripts/**'
       - 'index.html'
       - 'vite.config.ts'
       - 'tsconfig.json'
