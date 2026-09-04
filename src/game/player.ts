@@ -119,7 +119,6 @@ interface PlayerCommon {
    * after dispatch). null = never triggered. Authoritative tick-based per
    * Battle Ledger row 4 Solomon split (UI converts to seconds for display).
    */
-  godlyCooldownEndsAtTick: number | null;
   /**
    * S49 P1 (Sym F) — territorial radius shrink debuff expiry tick. When
    * SHRINK_TERRITORY targets this player, set to world.tick +
@@ -206,7 +205,6 @@ export function makeIdlePlayer(
     raceId,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
-    godlyCooldownEndsAtTick: null,
     territorialShrinkUntilTick: null,
   };
 }
@@ -250,7 +248,6 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // fell. The three fields above are required and would have gone red; this one would not.
     eliminatedAtTick: player.eliminatedAtTick,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
-    godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
     // S72 P2 — preserve the hunter bench across the carry-FSM reconstruction
     // (a benched player can still be holding a spark when caught).
@@ -299,7 +296,6 @@ export function drop(player: Player): IdlePlayer {
     // fell. The three fields above are required and would have gone red; this one would not.
     eliminatedAtTick: player.eliminatedAtTick,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
-    godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
     // S72 P2 — preserve the hunter bench when the caught player drops their spark
     // (applyHunterCatch sets benchedUntilTick BEFORE calling DROP_SPARK -> fsmDrop).

@@ -12,7 +12,6 @@ import {
   blinkPulse,
   floodAlpha,
   resolveFloodColor,
-  solveArpeggio,
 } from './nonetJuice.ts';
 
 describe('S95 — floodAlpha', () => {
@@ -58,14 +57,6 @@ describe('S95 — resolveFloodColor', () => {
 
   it('falls back to a neutral slate on a no-solver timeout (undefined)', () => {
     expect(resolveFloodColor(undefined)).toBe(0x7c8694);
-  });
-});
-
-describe('S95 — solveArpeggio', () => {
-  it('is a strictly ascending 4-note run', () => {
-    const notes = solveArpeggio();
-    expect(notes).toHaveLength(4);
-    for (let i = 1; i < notes.length; i++) expect(notes[i]).toBeGreaterThan(notes[i - 1]);
   });
 });
 

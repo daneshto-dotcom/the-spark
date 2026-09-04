@@ -231,8 +231,9 @@ export type GameAction =
   | BenchOfflinePlayerAction
   // S22 P3 — godly-trigger action. Host dispatches locally on matcher match,
   // client dispatches on receiving GodlyTriggerMsg over the network. Reducer
-  // sets activeCinematicPlayerId (or queues if one is already active) and
-  // starts the godly cooldown. S27 P0 — DELETED the synchronous SEVER_BOND
+  // sets activeCinematicPlayerId (or queues if one is already active).
+  // S163 P5 — it does NOT start a cooldown; that module was dead and is deleted.
+  // S27 P0 — DELETED the synchronous SEVER_BOND
   // cascade that previously fired here; bond severance is now creature-driven
   // (autonomous Voltkin actor severs ~7 bonds at 1/sec over its 8-second
   // active window — see reducer body for full migration commentary).

@@ -200,7 +200,11 @@ export function firstFreePorchSlot(
   return null;
 }
 
-/** Clear every seat's inventory (teardown parity with the other entity families). */
-export function teardownCastleBanks(banks: Map<PlayerId, CastleBank>): void {
-  banks.clear();
-}
+/*
+ * ⛔ S163 P5 — `teardownCastleBanks` DELETED. One grep hit repo-wide: its own definition. Its
+ * docblock claimed "teardown parity with the other entity families" and delivered none — neither
+ * teardown orchestrator called it. No coverage gap: both reach the banks transitively via
+ * `teardownGatherers`. If a named helper is ever wanted here, it must take `world` the way
+ * `teardownGatherers` does — taking a bare Map is why nothing adopted this one; all five real
+ * sites already hold `world`.
+ */

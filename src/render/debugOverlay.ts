@@ -119,14 +119,13 @@ export function createDebugOverlay(): DebugOverlayHandle {
     }
     const longest = findLongestVoltkinPartial(world);
 
-    // Build per-player cooldown summary.
+    // S163 P5 — was a "per-player cooldown summary". `godlyCooldownEndsAtTick` was permanently
+    // null (nothing ever wrote it: `setCooldown` had no callers), so the '(ACTIVE)' branch below
+    // was unreachable and every line read `cd=none`. The field and its module are deleted.
     const playerLines: string[] = [];
     for (const p of world.players.values()) {
-      const cd = p.godlyCooldownEndsAtTick === null
-        ? 'none'
-        : `${p.godlyCooldownEndsAtTick}t${p.godlyCooldownEndsAtTick > world.tick ? ' (ACTIVE)' : ''}`;
       playerLines.push(
-        `  P${p.id}: color=0x${p.color.toString(16).padStart(6, '0')} cd=${cd} kind=${p.kind}`,
+        `  P${p.id}: color=0x${p.color.toString(16).padStart(6, '0')} kind=${p.kind}`,
       );
     }
 

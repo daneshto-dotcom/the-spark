@@ -1607,10 +1607,6 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       avatarPos: p.avatarPos !== undefined
         ? { x: p.avatarPos.x, y: p.avatarPos.y }
         : { x: 0, y: 0 },
-      // S22 P3 — godly cooldown is not yet network-serialized (HostSync emits
-      // NetSnapshot subset; cooldown is host-authoritative anyway). Reconstruct
-      // as null on snapshot apply; cooldown re-applies via GODLY_TRIGGER reducer.
-      godlyCooldownEndsAtTick: null,
       // S49 P1 (Sym F) — rehydrate debuff tick; null for pre-S49 saves.
       territorialShrinkUntilTick: p.territorialShrinkUntilTick ?? null,
       // ⛔ S152 P1 — READ FROM THE WIRE. The `?? 0` is the additive-optional rehydrate for a save

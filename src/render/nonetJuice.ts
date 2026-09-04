@@ -32,11 +32,6 @@ export function resolveFloodColor(winnerColor: number | undefined): number {
   return winnerColor ?? 0x7c8694;
 }
 
-/** Ascending pentatonic arpeggio (Hz) for the solve fanfare. Pure (deterministic). */
-export function solveArpeggio(): readonly number[] {
-  return [660, 880, 990, 1320];
-}
-
 /** S97 P4 — triumphant two-octave major run (Hz) for the winner-only JACKPOT fanfare. Pure. */
 export function jackpotRun(): readonly number[] {
   return [523, 659, 784, 1047, 1319, 1568, 2093];
@@ -90,11 +85,6 @@ function blip(
   osc.stop(t + dur);
 }
 
-/** Cell-place "pip" — bright quick up-chirp on each digit entry. */
-export function playNonetPop(): void {
-  blip(680, 1040, 0.07, 'triangle', 0.18);
-}
-
 /**
  * S102 #6 — CORRECT cell: a chipmunk "yey!" — two fast, very high, bright up-chirps
  * (an excited rodent squeak) so you instantly know the digit was right. ORIGINAL synth.
@@ -127,15 +117,13 @@ export function playNonetAppear(): void {
   blip(1100, 1500, 0.14, 'sine', 0.1, 0.16);
 }
 
-/** Solve (you won) — a kawaii ascending pentatonic bell arpeggio. */
-export function playNonetSolve(): void {
-  solveArpeggio().forEach((f, i) => blip(f, f, 0.28, 'triangle', 0.16, i * 0.09));
-}
-
 /**
  * S97 P4 — WINNER-ONLY jackpot fanfare: a triumphant ascending major run + high bell sparkles over
- * the top + a warm low swell for body. Bigger + more celebratory than playNonetSolve (which it
- * replaces in the winner branch). Layers stay modest-gain so the sum doesn't clip the SFX bus.
+ * the top + a warm low swell for body. Layers stay modest-gain so the sum doesn't clip the SFX bus.
+ *
+ * ⛔ S163 P5 — this used to say it replaced `playNonetSolve` "in the winner branch". That
+ * replacement completed long ago: `playNonetSolve`, `playNonetPop` and the `solveArpeggio` they
+ * shared had ZERO production callers and are deleted. This is the only solve fanfare.
  */
 export function playNonetJackpot(): void {
   jackpotRun().forEach((f, i) => blip(f, f, 0.22, 'triangle', 0.14, i * 0.07));

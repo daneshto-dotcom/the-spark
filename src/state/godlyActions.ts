@@ -11,9 +11,12 @@
  * PURE reducer helpers: each mutates `world` in place and returns it (CQS — no
  * re-dispatch from inside; main.ts owns the pending-queue shift). Determinism-
  * critical (replay path) — mutation order is preserved EXACTLY as the original
- * inline switch bodies. `setCooldown` lives in godlyCooldown.ts (imported here
- * directly, so there is no world.ts <-> godlyActions.ts runtime cycle; `World`
- * is a type-only import).
+ * inline switch bodies. `World` is a type-only import, so there is no
+ * world.ts <-> godlyActions.ts runtime cycle.
+ *
+ * ⛔ S163 P5 — this used to say `setCooldown` was "imported here directly". It never was:
+ * the file's only imports are two TYPE-only ones. The whole godlyCooldown module had zero
+ * production importers and was deleted — superseded by `godlyFiredThisMatch` in S97 P5.
  */
 
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
@@ -28,7 +31,8 @@ import type { World } from './world.ts';
  *
  * S27 P0 — the pre-S27 26-line synchronous SEVER_BOND cascade (cause='godly')
  * was DELETED (Council R1 Q5 UNANIMOUS creature-only); GODLY_TRIGGER now sets
- * cinematic + cooldown ONLY, and the autonomous Voltkin creature pipeline
+ * cinematic + the per-match TYPE record ONLY (S163 P5: it never set a cooldown —
+ * `setCooldown` had no callers), and the autonomous Voltkin creature pipeline
  * (SPAWN_CREATURE at cinematic end -> CREATURE_TICK FSM -> CREATURE_ATTACK
  * severs target bonds at ~1/sec) does the destruction.
  */

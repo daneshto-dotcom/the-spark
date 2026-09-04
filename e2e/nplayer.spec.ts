@@ -217,7 +217,6 @@ test.describe('S63 / S147 R41 - FULL-TABLE render: MAX_PLAYERS seated + avatars/
           buildActions: 0,
           disruptionCharges: 0,
           avatarPos: radial(seat, 6),
-          godlyCooldownEndsAtTick: null,
           territorialShrinkUntilTick: null,
         });
         w.scoreByPlayer.set(seat, seat); // distinct scores so the leaderboard ranks all 6

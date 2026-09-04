@@ -220,7 +220,6 @@ export const PHYSICS_HZ = 60;
 export const PHYSICS_SUBSTEPS = 8;
 export const VELOCITY_DAMPING = 0.998;
 export const POSITION_CORRECTION_CLAMP_RATIO = 0.5;
-export const COLLISION_ITERATIONS = 8;
 
 export type StiffnessTier = 'LOW' | 'MID' | 'HIGH';
 
@@ -1871,7 +1870,6 @@ export const SPAWNER_KILL_REWARD = 5;
 // describing a gate the code does not implement is how the next author plans around a bug that
 // is not there — and how a player concludes a near-miss build "should have worked".
 export const LIGHTNING_HUB_DEGREE = 5; // the Dot hub's EXACT bond-degree
-export const LIGHTNING_HUB_LEAVES = 5; // 5 Circle leaves
 export const LIGHTNING_HUB_COMPONENT_SIZE = LIGHTNING_HUB_DEGREE + 1; // 1 hub + 5 leaves = 6
 /**
  * ⭐ S158 B2 (owner playtest) — **THE HUB'S CADENCE WAS INHERITED, NOT CHOSEN, AND IT MADE THE TOWER

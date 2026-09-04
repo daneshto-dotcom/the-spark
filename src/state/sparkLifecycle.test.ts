@@ -154,7 +154,6 @@ describe('applyPickupSpark', () => {
       buildActions: 0,
       disruptionCharges: 0,
       avatarPos: { x: 700, y: 400 }, // joiner's authoritative avatarPos
-      godlyCooldownEndsAtTick: null,
     } as never);
     const spark = makeTestSpark(7);
     spark.pos = { x: 500, y: 300 };
@@ -183,7 +182,6 @@ describe('applyPickupSpark', () => {
       id: joinerId, color: 0x3bd7ff, kind: 'Idle',
       energy: 0, buildActions: 0, disruptionCharges: 0,
       avatarPos: { x: 700, y: 400 },
-      godlyCooldownEndsAtTick: null,
     } as never);
     const spark = makeTestSpark(8);
     world.freeSparks.set(spark.id, spark);
@@ -207,7 +205,6 @@ describe('applyPickupSpark', () => {
       id: joinerId, color: 0x3bd7ff, kind: 'Idle',
       energy: 0, buildActions: 0, disruptionCharges: 0,
       avatarPos: { x: 100, y: 100 },
-      godlyCooldownEndsAtTick: null,
     } as never);
     const spark = makeTestSpark(9);
     world.freeSparks.set(spark.id, spark);

@@ -17,10 +17,18 @@
  *
  * ## Render-only, and phase-driven
  *
- * Reads `world`, never mutates it. Presence is `wallsAreUp(world)` — the SAME predicate the sim's
- * movement clamp uses, so the wall cannot be drawn in a phase where it does not block, or block in
- * a phase where it is not drawn. One shared `Graphics`, cleared and redrawn each frame (the
- * BombRenderer / SpawnerZoneRenderer idiom), and a cheap no-op during FIGHT.
+ * Reads `world`, never mutates it. Presence is `wallsAreUp(world)`, the same predicate
+ * `clampAcrossWalls` would use IF it were ever wired into the sim.
+ *
+ * ⛔ S163 P5 — IT IS NOT, and this docblock used to assert that it was ("the SAME predicate the
+ * sim's movement clamp uses, so the wall cannot be drawn in a phase where it does not block").
+ * The clamp has no sim consumer — a measured finding, written up at `clampAcrossWalls` in
+ * `walls.ts`; that is the one place for it, so do not restate it here. The wall is therefore a
+ * VISIBLE rule: the sealing players feel comes from build legality and BUILD-phase dormancy, not
+ * from a movement barrier.
+ *
+ * One shared `Graphics`, cleared and redrawn each frame (the BombRenderer / SpawnerZoneRenderer
+ * idiom), and a cheap no-op during FIGHT.
  */
 
 import { Application, Container, Graphics } from 'pixi.js';

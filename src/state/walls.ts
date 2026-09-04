@@ -99,8 +99,13 @@ export function wallSegments(layout: ZoneLayout): readonly WallSegment[] {
 /**
  * ⭐ ARE THE WALLS UP? Up for the whole BUILD stage, down for the whole FIGHT (R5).
  *
- * Read this rather than testing `matchPhase` inline, so "when is a wall up" has one answer that
- * the sim, the movement clamp and the renderer all share — the drift lesson P1 and P2 both paid for.
+ * Read this rather than testing `matchPhase` inline, so "when is a wall up" has ONE answer — the
+ * drift lesson P1 and P2 both paid for.
+ *
+ * ⛔ S163 P5 — this used to say the answer was shared by "the sim, the movement clamp and the
+ * renderer". Today the only consumer is the RENDERER: `clampAcrossWalls` below has no sim caller,
+ * which is a MEASURED finding rather than an oversight — read its own docblock before assuming
+ * otherwise. So the wall is a VISIBLE rule, not a barrier.
  */
 export function wallsAreUp(world: World): boolean {
   return world.matchPhase === 'BUILD';
