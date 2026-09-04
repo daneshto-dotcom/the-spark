@@ -114,9 +114,17 @@ describe('raceIsFree — one race per player, host included', () => {
   it('⛔ and the host does not get to rob a joiner — the rule is symmetric', () => {
     // main.ts runs the host's own pick through this same predicate. Without that, seat 0 could
     // silently take a race a joiner already held and the joiner would be recoloured with no cause.
+    //
+    // ⛔ S163 P6 — THIS PASSED A LITERAL `'HOST-SELF-ID'`, WHICH IS NOT `selfId`. So it took the
+    // `claimant !== selfId` branch — the ordinary peer path — and proved nothing about the host.
+    // The behaviour was right all along; the CLAIM in the title was simply unproven. `selfId` is
+    // imported at the top of this file and is what main.ts actually passes.
     const s = sess();
     s.raceByPeer.set('PEER-A', 'zombies');
-    expect(raceIsFree(s, 'zombies', 'HOST-SELF-ID')).toBe(false);
+    expect(raceIsFree(s, 'zombies', selfId)).toBe(false);
+    // Anti-vacuity: the guard must not degenerate into "refuse the host everything". A race nobody
+    // holds is still free to seat 0 — which is the whole point of the `claimant === selfId` skip.
+    expect(raceIsFree(s, 'orcs', selfId)).toBe(true);
   });
 });
 

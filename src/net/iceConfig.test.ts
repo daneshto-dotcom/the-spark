@@ -237,6 +237,15 @@ describe('the shipped module-level constants', () => {
   });
 
   it('TURN_CONFIG_NOTE is null or a non-empty string — never an empty string', () => {
-    if (TURN_CONFIG_NOTE !== null) expect(TURN_CONFIG_NOTE.length).toBeGreaterThan(0);
+    /*
+     * ⛔ S163 P6 — THIS RAN ZERO ASSERTIONS AND PASSED. The body was
+     * `if (TURN_CONFIG_NOTE !== null) expect(...)`, and with no `.env` — the LOCAL AND CI DEFAULT —
+     * the note IS null, so the `if` was false and the case asserted nothing at all. A green tick
+     * for a code path never executed is worse than no test: it is a test that reports coverage it
+     * does not have. Restated as a total assertion over both worlds, plus `expect.hasAssertions()`
+     * so an assertion-free pass becomes impossible here again.
+     */
+    expect.hasAssertions();
+    expect(TURN_CONFIG_NOTE === null || TURN_CONFIG_NOTE.length > 0).toBe(true);
   });
 });

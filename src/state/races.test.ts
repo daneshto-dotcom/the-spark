@@ -53,6 +53,23 @@ describe('W1-A — the roster is six, and it matches the palette', () => {
     }
   });
 
+  it('⛔ the six RACE_COLORS are DISTINCT — a shared hue would put two seats on one identity', () => {
+    /*
+     * ⛔ S163 P6 — PINNED BECAUSE THINGS SILENTLY DEPEND ON IT. Colour is not decoration here: it
+     * is how SEVEN recipe resolvers identify a tower's owner (`p.color === anchorPrim.placerColor`
+     * at pentagram.ts and six siblings), so two races sharing a hue hands every such tower to
+     * whichever seat comes first in `Map` order — the exact defect S162 P2 (OF-1) closed from the
+     * other direction, by stopping two seats taking one RACE.
+     *
+     * The lobby used to depend on this too: `rostersEqual` compared colour and not `raceId`, so a
+     * race change repainted only because the colour moved with it. That dependency was removed in
+     * the same priority (it now compares the field), but the SIM's dependency is real and stays —
+     * hence a test rather than a comment.
+     */
+    const colors = ALL_RACES.map((r) => RACE_COLORS[r]);
+    expect(new Set(colors).size, 'two races sharing a colour would make tower ownership ambiguous').toBe(6);
+  });
+
   it('the feed shapes are the six DISTINCT primitives (R109) — one race, one shape', () => {
     const shapes = ALL_RACES.map((r) => RACE_FEED_SHAPE[r]);
     expect(new Set(shapes).size, 'two races sharing a feed shape would make the tower ambiguous').toBe(6);

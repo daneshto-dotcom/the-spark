@@ -456,6 +456,34 @@ describe('S70 P1 — PRESENCE event (roster store + churn-guard + gating)', () =
     expect(lobbyReduce(s1, { type: 'PRESENCE', roster: moved })).not.toBe(s1);
   });
 
+  it('⛔ S163 P6 — a RACE change repaints, and not merely because the colour moved with it', () => {
+    /*
+     * `rostersEqual` compared seat/color/isYou/ready and NOT `raceId`. It still repainted a race
+     * pick — but only as a side effect of `RACE_COLORS` being injective, so the colour changed too
+     * and the colour WAS compared. That made the lobby silently dependent on a property of an
+     * unrelated table: give two races one hue and picking between them would stop repainting, with
+     * nothing anywhere to explain why.
+     *
+     * This case holds the colour FIXED and moves only the race, which is precisely the situation
+     * injectivity hides. Before the fix it returned the same reference and the rack kept the old
+     * race. Mutating the new `raceId` comparison back out makes this the only case that reddens.
+     */
+    const withRace: SeatPresence[] = [
+      { seat: 0, color: PLAYER_COLORS[0], isYou: true, raceId: 'orcs' },
+    ];
+    const s1 = lobbyReduce(hosting, { type: 'PRESENCE', roster: withRace });
+    const sameColorNewRace: SeatPresence[] = [
+      { seat: 0, color: PLAYER_COLORS[0], isYou: true, raceId: 'nagas' },
+    ];
+    expect(lobbyReduce(s1, { type: 'PRESENCE', roster: sameColorNewRace })).not.toBe(s1);
+    // Control: identical content INCLUDING the race is still a same-ref no-op, so the guard was
+    // tightened rather than defeated.
+    const identical: SeatPresence[] = [
+      { seat: 0, color: PLAYER_COLORS[0], isYou: true, raceId: 'orcs' },
+    ];
+    expect(lobbyReduce(s1, { type: 'PRESENCE', roster: identical })).toBe(s1);
+  });
+
   it('PRESENCE in select mode is a no-op (same ref) — defense-in-depth with the recv gate', () => {
     const init = initialLobbyState();
     expect(lobbyReduce(init, { type: 'PRESENCE', roster: roster2 })).toBe(init);

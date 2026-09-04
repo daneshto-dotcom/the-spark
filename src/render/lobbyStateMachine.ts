@@ -122,8 +122,15 @@ export function initialLobbyState(): LobbyState {
 /**
  * S70 P1 — content equality for the presence roster, powering the PRESENCE
  * same-ref churn-guard. null === null (both "no beacon yet"); otherwise length +
- * per-entry (seat/color/isYou) compare. ≤ MAX_PLAYERS entries, so this is
+ * per-entry (seat/color/isYou/ready/raceId) compare. ≤ MAX_PLAYERS entries, so this is
  * trivially cheap relative to the Pixi re-render it prevents.
+ *
+ * ⛔ S163 P6 — `raceId` WAS MISSING, so a race change repainted only because `RACE_COLORS`
+ * happens to be injective: the colour moved with the race and the colour WAS compared. That is a
+ * silent dependency of the lobby on a property of an unrelated table — give two races the same
+ * hue and picking between them would stop repainting, with nothing anywhere to say why. Comparing
+ * the field removes the dependency instead of documenting it, at nil cost; `races.test.ts` pins
+ * the injectivity separately, for the SIM's sake rather than this one's.
  */
 function rostersEqual(
   a: readonly SeatPresence[] | null,
@@ -137,7 +144,8 @@ function rostersEqual(
       a[i].seat !== b[i].seat ||
       a[i].color !== b[i].color ||
       a[i].isYou !== b[i].isYou ||
-      a[i].ready !== b[i].ready // S87 P4 — re-render on a readiness change
+      a[i].ready !== b[i].ready || // S87 P4 — re-render on a readiness change
+      a[i].raceId !== b[i].raceId // S163 P6 — re-render on a RACE change, not via its colour
     ) {
       return false;
     }
