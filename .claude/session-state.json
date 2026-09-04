@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4290,
+  "tool_calls_session_total": 4293,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -293,8 +293,8 @@
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\boot-snapshot.md",
-          "needle": "SUPERSEDED"
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.handoff-archive\\HANDOFF_2026-09-04_S162.md",
+          "needle": "Doc drift repaired across `SPARK_RACES_SPEC.md`, `boot-snapshot.md`"
         }
       ]
     },
@@ -477,6 +477,10 @@
     {
       "priority": "POST-AUDIT",
       "lesson": "A POINT FIX ON A SHARED PREDICATE LEAVES THE OTHER CALLERS BROKEN. S161 fixed the drone's sever against the OR in isEnemyBond but not the selector both the drone and the chewer share - so the owner's own bug (my creature destroyed my tower) stayed live through the chewer for a whole session. Fix the predicate, or enumerate its callers; never just the one that was reported."
+    },
+    {
+      "priority": "P7",
+      "lesson": "I BOUND A CLAIM TO boot-snapshot.md FOR THE THIRD TIME IN THIS PROJECT, AND IT BROKE AT CLOSE FOR THE THIRD TIME. The /handoff protocol REGENERATES that file from scratch at STEP 2.95, so a needle placed in it is guaranteed to vanish. The lesson was already in the reflexion log - I appended it to the log MYSELF an hour before authoring the binding. Reading a lesson, re-filing it, and then repeating it in the same session is the pattern to break. ⛔ THE STRUCTURAL RULE: before writing any verification binding, ask WHAT REGENERATES THE TARGET. Ephemeral (boot-snapshot.md, .claude/plans/, BACKLOG status blocks, root HANDOFF_*.md) vs durable (src/, LOCKED_DECISIONS.md, .handoff-archive/, git history). Bind only to the durable set. Rebound to the ARCHIVED handoff, which is tracked and never regenerated."
     }
   ],
   "totals": {
