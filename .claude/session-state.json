@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4492,
+  "tool_calls_session_total": 4498,
   "session_id": "S163",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-04T19:30:00+02:00",
@@ -41,12 +41,17 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "b75472f5ca3c5a182ff33da727f9e502162e967c",
-      "check_method": "P1 CHECK. (a) GATES, exit codes read DIRECTLY (never piped): typecheck 0; vitest 0 = 3638/3638 across 232 files (was 3627/231, so +11 new and zero regressions); build 0 = 780.0/900 KiB, headroom 120.0; e2e:gating 0 = 62 passed in 3.6m. (b) MUTATION PROOF, per the project rule that a guard is proven by breaking what it guards: forcing hasWitness=true (the pre-fix behaviour) makes the bug case FAIL with exit 1, and only that case — 1 failed / 4 passed. Restored and re-verified byte-identical. (c) THE FENCE IS PURE AND TESTED, not merely written: extracted endgameIsStale() and pinned four cases including the two that have teeth — absent epoch before migration must PASS (pre-S163 host, provably inert) and absent epoch AFTER migration must DROP. (d) parseNetMessage rejects a present-but-garbage epoch (string/float/negative/NaN/null/object) — NaN specifically, because NaN < n is false and it would otherwise slip the fence silently. (e) NO PROTOCOL BUMP and that was verified, not assumed: epoch is additive-optional on ENDGAME, which this project rules costs no bump.",
+      "check_method": "P1 CHECK. (a) GATES, exit codes read DIRECTLY (never piped): typecheck 0; vitest 0 = 3638/3638 across 232 files (was 3627/231, so +11 new and zero regressions); build 0 = 780.0/900 KiB, headroom 120.0; e2e:gating 0 = 62 passed in 3.6m. (b) MUTATION PROOF, per the project rule that a guard is proven by breaking what it guards: forcing hasWitness=true (the pre-fix behaviour) makes the bug case FAIL with exit 1, and only that case — 1 failed / 4 passed. Restored and re-verified byte-identical. (c) THE FENCE IS PURE AND TESTED, not merely written: extracted endgameIsStale() and pinned four cases including the two that have teeth — absent epoch before migration must PASS (pre-S163 host, provably inert) and absent epoch AFTER migration must DROP. (d) parseNetMessage rejects a present-but-garbage epoch (string/float/negative/NaN/null/object) — NaN specifically, because NaN < n is false and it would otherwise slip the fence silently. (e) NO PROTOCOL BUMP and that was verified, not assumed: epoch is additive-optional on ENDGAME, which this project rules costs no bump. | ⚠ S163 MCV RECONCILE: two of this priority's bindings hard-failed at the Stop gate and BOTH were my own drift, not code defects. (a) the hasWitness needle described the pre-CHECK line, which the A-F1 fix rewrote to add the present-peer test — the binding was pinning superseded code. (b) the grep_count regex lost a backslash through the shell quoting layers (the verifier reported \"bad regex: missing )\"), and its expected count of 5 had also gone stale at 9 once CHECK added the heal-tick, partial-heal and fixture cases. Both rebound to measured reality and the verifier re-run to exit 0. The process failure is that I authored bindings at each priority close but did not RUN the verifier there — which is precisely what the standing note on this says to do.",
       "verification": [
         {
           "type": "file_contains",
           "path": "src/state/hostTick.ts",
-          "needle": "const hasWitness = deps.alivePeerIds !== null && deps.alivePeerIds.size > 0;"
+          "needle": "const hasWitness = present !== null && present.size > 0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "const since = present.has(peerId) ? undefined : state.peerAbsentSinceTick.get(peerId);"
         },
         {
           "type": "file_contains",
@@ -66,9 +71,9 @@
         {
           "type": "grep_count",
           "path": "src/state/hostSelfCrown.test.ts",
-          "pattern": "^  it(",
+          "pattern": "^  it\\(",
           "op": "==",
-          "value": 5
+          "value": 9
         }
       ]
     },
@@ -275,7 +280,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "a8783ba8c91c5faecb3217b1f6b08738e907bbe3",
-      "check_method": "P8 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files. The send/repaint swap is behaviour-neutral on the happy path by construction (same roster object, synchronous local call, no peer response can race it) and the full suite confirms zero movement. Its VALUE is structural: the unconditional repaint is no longer downstream of a network call, so the docblock claim that onPresence always runs is now true by shape rather than by nothing-throws. The elimination.ts change is a comment correction only - the return ordering is genuinely used by nothing today, and the note now says so while recording why the ordering is kept.",
+      "check_method": "P8 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files. The send/repaint swap is behaviour-neutral on the happy path by construction (same roster object, synchronous local call, no peer response can race it) and the full suite confirms zero movement. Its VALUE is structural: the unconditional repaint is no longer downstream of a network call, so the docblock claim that onPresence always runs is now true by shape rather than by nothing-throws. The elimination.ts change is a comment correction only - the return ordering is genuinely used by nothing today, and the note now says so while recording why the ordering is kept. | ⚠ S163 MCV RECONCILE: this priority's elimination.ts binding hard-failed because the needle spanned a line break — the text IS present, but wrapped across a \" * \" continuation, and the verifier does a literal substring match. Rebound to a single-line fragment. A binding that cannot match wrapped prose is an authoring bug, not a missing change.",
       "verification": [
         {
           "type": "file_contains",
@@ -285,7 +290,7 @@
         {
           "type": "file_contains",
           "path": "src/state/elimination.ts",
-          "needle": "no production site consumes the return value"
+          "needle": "describing a caller that has never existed"
         }
       ]
     }
@@ -299,7 +304,8 @@
     "S163 CHECK - TWO FAILED ATTEMPTS TO RESTORE A TEST WERE THE ANSWER, NOT AN OBSTACLE. Trying to make the over-cap roster case meaningful failed twice, and the second failure proved WHY: range + uniqueness make an over-cap roster impossible by pigeonhole, so the length bound is subsumed and cannot be independently pinned. Writing that down beats a third attempt at a test that cannot exist.",
     "S163 CHECK - A REORDER IS NOT AN ISOLATION. Swapping send-before-repaint to repaint-before-send removed one throw path and created its mirror: the Pixi repaint can throw too, and it would then have swallowed the whole room broadcast instead of one local rack. Removing the only way this can break is a claim to be suspicious of; two try/catches were what the invariant actually needed.",
     "S163 CHECK - I ASSERTED A PLATFORM BEHAVIOUR I HAD NOT CHECKED. Claiming that cancel-in-progress false means runs queue and every one reports is not what GitHub does - a newly-queued run still cancels a PENDING one in the same group, so the silent-cancel hazard P7 existed to kill survived P7. The fix was a per-commit group; the lesson is that a CI claim needs the vendor semantics, not the flag name.",
-    "S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it."
+    "S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it.",
+    "S163 MCV — THE CHECK PHASE IS WHEN EARLIER BINDINGS GO STALE, AND I DID NOT RE-RUN THE VERIFIER THERE. Three claims hard-failed at the Stop gate. None was fabricated work — the code was present and every gate green — but two bindings pinned lines my OWN A-F1 fix had rewritten, one needle spanned a line break so a literal match could never hit it, and one regex lost a backslash through the shell quoting layers. Fixing a defect changes the line a binding pins, so CHECK is precisely the phase most likely to falsify bindings written during DO. Run verify-session-claims.py after CHECK, not only at priority close, and never author a needle that wraps."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -5962,5 +5968,10 @@
     "The NONET collision blocking tier-9 boss towers (RACE_ZONES_AND_BOSS_TOWERS.md).",
     "Hash the seat-outcome scalars? castleHp and eliminatedAtTick decide the match and are covered by NEITHER oracle; widening the wide oracle is a deliberate tripwire change."
   ],
-  "ci_audit_s163_final": "ALL RUNS AUDITED TO CONCLUSION, none assumed. 9/9 Deploy runs SUCCESS. 3/3 push-triggered E2E runs SUCCESS: 33920970225 (P7, 21m - the first push-triggered e2e in this repo since S110), 33921162895 (P8), 33922988997 (CHECK). Zero failures, zero cancellations across the whole session. Every S163 commit now has e2e CI coverage, which is exactly the structural gap S162 filed and P7 closed."
+  "ci_audit_s163_final": "ALL RUNS AUDITED TO CONCLUSION, none assumed. 9/9 Deploy runs SUCCESS. 3/3 push-triggered E2E runs SUCCESS: 33920970225 (P7, 21m - the first push-triggered e2e in this repo since S110), 33921162895 (P8), 33922988997 (CHECK). Zero failures, zero cancellations across the whole session. Every S163 commit now has e2e CI coverage, which is exactly the structural gap S162 filed and P7 closed.",
+  "mcv_reconcile_s163": {
+    "trigger": "Stop-gate MCV hard_fail=3 (verify-session-claims.py exit 1) — the S149 fabrication class.",
+    "verdict": "ALL THREE WERE BINDING DRIFT, NOT FABRICATED WORK. The code each one described is present and correct, and every gate was green: typecheck 0, vitest 3649/3649, build 780.2/900 KiB, e2e:gating 62 passed, verify-deploy 4/4. Two bindings were invalidated by MY OWN CHECK-phase fixes (the A-F1 predicate rewrite), one was an unmatchable needle that spanned a line break, and one carried a regex whose escaping collapsed through the shell.",
+    "lesson": "The gate did its job and I had not done mine: bindings were authored at each priority close but the verifier was never RUN there, so drift introduced by the CHECK phase went unnoticed until Stop. Worse, the CHECK phase is exactly when bindings written earlier are most likely to be falsified — fixing a defect changes the line the binding pins. Re-run the verifier after CHECK, not only after DO."
+  }
 }
