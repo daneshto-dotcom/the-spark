@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4237,
+  "tool_calls_session_total": 4241,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -106,10 +106,12 @@
     {
       "id": "P7",
       "title": "Landing proof - 5 gates by direct exit code, Rule 22 audit, deploy verified, /handoff",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P7 LANDING PROOF. Three commits shipped and each deploy verified 4/4 with RELAY IS SHIPPED: 7241473 (P0+P1), 9703a7a (P2-P4) + 4ae9b1a cleanup, f8607fd (P5+P6). CI concluded success on each; no cancelled runs. Gates at close, every exit code read DIRECTLY and never through a pipe: typecheck 0, vitest 3621/3621 across 231 files, e2e:gating SHELL_EXIT 0 with 62 passed and no E2E_EXIT line, build 779.0/900 KiB under charter. RULE 22 RUNTIME AUDIT: reloaded the LIVE site, zero console errors, live asset index-Czy5Epzb.js matches verify-deploy, and the P0 repair is provably present IN THE SHIPPED BUNDLE (parseTurnConfig prose, the ICE scheme validation and the TURN_CONFIG_NOTE string all found), with the raw secrets still wrapped - so the runtime repair is what is carrying multiplayer."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -253,7 +255,7 @@
   },
   "real_context_tokens_at_close": 532567,
   "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "c90b444",
+  "checkpoint_commit": "f8607fd",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -5226,5 +5228,31 @@
       "severity": "process",
       "text": "THE ORG MONTHLY SPEND LIMIT WAS REACHED during S162's audit workflow - 9 of 18 agents died on it. No further subagents can run until it resets. Everything after that point in S162 was done by hand, and the 9 orphaned findings were all hand-verified rather than dropped."
     }
-  ]
+  ],
+  "owner_brief_s162_art_direction": {
+    "received": "2026-09-03, mid-session, unprompted",
+    "scheduling": "OWNER-SET: not this session, not the next one, 'maybe for the one after'.",
+    "spec_file": "RACE_ZONES_AND_BOSS_TOWERS.md (brief quoted verbatim + 6 open questions)",
+    "feature_a": "Per-race zone backgrounds, partially transparent, toggleable, in the race-banner art style but less colourful and more realistic. Five of six settings named; VAMPIRES NOT STATED.",
+    "feature_b": "Tier-9 boss tower per race: 9 of the race shape -> spawns 1 boss -> tower crumbles in a <=8s in-game video effect, explicitly NOT a Voltkin cutscene. Bosses have 2 unique skills, persist across FIGHT phases, return to castle between them.",
+    "blocker_found": "NONET COLLISION, verified at hostTick.ts:431 - the sudoku trial already fires on 'a connected component of EXACTLY 9 shapes of ONE type', host-only and once per match. The first boss tower of every match would also summon sudoku. Four resolutions offered; owner must pick before this is buildable.",
+    "open_questions": [
+      "Q1 vampires' zone setting (unstated)",
+      "Q2 confirm the tier-9 shape is RACE_FEED_SHAPE",
+      "Q3 boss persistence - heal at castle or keep damage; one per match or rebuildable",
+      "Q4 which NONET resolution",
+      "Q5 background toggle - per-viewer local or match-wide",
+      "Q6 is the boss attackable immediately on release, during the 8s crumble"
+    ]
+  },
+  "gates_at_close_s162": {
+    "typecheck_exit": 0,
+    "vitest": "3621/3621 passed, 231 files",
+    "e2e_gating": "exit 0, 62 passed",
+    "build": "779.0 / 900 KiB under charter",
+    "verify_deploy": "PASS 4/4 (f8607fd) - RELAY IS SHIPPED",
+    "ci": "completed/success, no cancelled runs",
+    "rule22_runtime_audit": "clean - live reload, 0 console errors",
+    "live_ice_probe": "host:1 srflx:1 relay:1, iceErrors [] - first working TURN relay in project history"
+  }
 }

@@ -5,6 +5,38 @@
 
 ---
 
+# ⚑ QUEUED — THE OWNER'S ART-DIRECTION BRIEF, 2026-09-03 (S162)
+
+**Full spec: [RACE_ZONES_AND_BOSS_TOWERS.md](RACE_ZONES_AND_BOSS_TOWERS.md)** — the brief is quoted
+verbatim there, with my open questions.
+
+⚠ **NOT FOR THE NEXT SESSION.** The owner scheduled it themselves: *"this is not for the current
+session and not for the next one but maybe for the one after"*. Captured now so it cannot be lost.
+
+- [ ] **A — PER-RACE ZONE BACKGROUNDS.** Each seat's quarter painted in its race's world instead of
+      deep black space — zombies ruins/swamp, orcs barracks in badlands, demons hell, nagas *"atlantis
+      but more military and cruel looking cuz they all mean"*, mummies desert. Style reference is the
+      race-banner art already generated for the picker, but *"a little more realistic"* and less
+      colourful, with the seat colour surviving as accents. **Partially transparent** so towers,
+      structures, connectors and creatures stay readable. Toggleable back to the black board.
+      ⚠ Vampires' setting was not stated — Q1.
+
+- [ ] **B — TIER-9 BOSS TOWERS, one per race.** Nine of the race's own shape (`RACE_FEED_SHAPE`)
+      builds it; it releases ONE boss and then crumbles in a generated video effect. ⛔ Explicitly
+      **NOT a Voltkin-style cutscene** — the sim keeps running underneath. ≤ 8 s for the whole
+      sequence. Vampires → Vlad, mummies → Pharaoh, rest TBD. Two unique attacks/skills each; the
+      boss lives until killed, and if it survives the FIGHT phase it returns to the castle and comes
+      back next phase. Owner will supply boss specs later.
+
+- [ ] ⛔ **BLOCKER FOUND IN S162, NEEDS AN OWNER DECISION FIRST (Q4).** *"Nine of one shape"* is
+      already a trigger: `hostTick.ts` summons the NONET sudoku trial on *"a connected component of
+      EXACTLY 9 shapes of ONE type"*, host-only, once per match. As specced, **building your first
+      boss tower would also summon sudoku** — and because NONET is once-per-match, it would collide
+      for the FIRST boss of every match and not for later ones, which reads as a bug. Four options
+      are written out in the spec; the owner picks one before this is buildable.
+
+---
+
 # ⚑ DONE THE SAME SESSION — THE OWNER'S S159 PLAYTEST, 2026-09-02
 
 The owner played the S159 build and reported two tower faults. They were carried as the next session's
