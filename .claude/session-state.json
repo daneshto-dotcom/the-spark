@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4287,
+  "tool_calls_session_total": 4289,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -5552,7 +5552,8 @@
     "verify_deploy": "PASS 4/4 (f8607fd) - RELAY IS SHIPPED",
     "ci": "completed/success, no cancelled runs",
     "rule22_runtime_audit": "clean - live reload, 0 console errors",
-    "live_ice_probe": "host:1 srflx:1 relay:1, iceErrors [] - first working TURN relay in project history"
+    "live_ice_probe": "host:1 srflx:1 relay:1, iceErrors [] - first working TURN relay in project history",
+    "e2e_ci": "run 33845329713 completed/SUCCESS - the FIRST e2e CI run ever to cover S161/S162 code (e2e.yml is schedule+PR+dispatch only; last prior run 2026-08-31, before any of this work). Lane5 finding CLOSED with evidence."
   },
   "s161_open_findings_disposition": {
     "OF-1": "FIXED S162 P2 - raceIsFree now judges effective races. NOTE: the finding was HALF WRONG; the lobby taken-set was already correct.",
@@ -5604,7 +5605,7 @@
       "Zero cancelled CI runs across the last 25; exactly one failure, already investigated and resolved."
     ],
     "still_open": [
-      "Lane5: NO E2E CI RUN HAS EVER EXERCISED S161 OR S162 CODE - e2e.yml is schedule+PR+dispatch only and last ran 2026-08-31, before any of this work. Locally `npm run e2e:gating` passes 62/62 at every commit, so this is a CI-coverage gap, not a known failure. Triggered manually at close.",
+      "Lane5 E2E-coverage gap: CLOSED at session close - manual run 33845329713 concluded SUCCESS, the first e2e CI coverage of S161/S162. The STRUCTURAL gap remains: e2e.yml is not push-triggered, so master can go red between scheduled runs. Consider adding a push trigger.",
       "Lane2-F4 MED: a host whose own uplink dies can crown itself after PEER_DROP_FORFEIT_TICKS (20s) while its peers, seeing host loss, run the migration ladder and keep playing - two live outcomes for one match. The margin over the 15s client reconnect grace is thin. Needs a design decision (probably: the host must not self-crown while a migration window is open).",
       "Lane2-F5 LOW: isSeatOffline's seat->peer scan returns on the first Map hit with no uniqueness assertion. Correct today by construction; a Map-order scan on the match-ending path.",
       "Lane2-F6 LOW: a test claiming to cover the claimant !== selfId branch passes a literal that is not selfId, so it takes the non-host path. Behaviour is right; the symmetry claim is unproven.",

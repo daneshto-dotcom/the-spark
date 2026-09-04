@@ -67,7 +67,9 @@ RELAY SHIPPED · MCV **47 assertions, hard_fail=0** · Rule 22 runtime audit cle
   a completed hunt.
 - **E2E CI has never exercised S161/S162 code** — `e2e.yml` is schedule+PR+dispatch only and last
   ran 2026-08-31. Locally `npm run e2e:gating` passes 62/62 at every commit. A manual run was
-  triggered at close (run 33845329713); check its conclusion at boot.
+  triggered at close: run 33845329713 concluded **SUCCESS** — first e2e coverage of this work.
+  ⚠ The STRUCTURAL gap remains: `e2e.yml` is not push-triggered, so master can go red between
+  scheduled runs. Consider adding a push trigger.
 
 ## Pending Backlog
 
