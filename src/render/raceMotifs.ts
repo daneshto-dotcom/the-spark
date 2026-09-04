@@ -149,6 +149,15 @@ export function drawRaceKeepFallback(
       }
       break;
     }
+    default: {
+      // ⛔ S162 (OF-6) — EXHAUSTIVENESS. This switch returns void, so before this arm existed a
+      // seventh race compiled clean and silently drew NOTHING here. The `never` binding is what
+      // turns that into a tsc error naming this exact site. The Record-based backstops in races.ts tell an
+      // author to add a COLOUR; only this tells them to add a MOTIF.
+      const unhandled: never = raceId;
+      void unhandled;
+      break;
+    }
   }
 
   // The gate, shared by every race — it is the doorway the bank glyphs are drawn in.
@@ -243,6 +252,15 @@ export function drawRaceGathererMark(
       }
       break;
     }
+    default: {
+      // ⛔ S162 (OF-6) — EXHAUSTIVENESS. This switch returns void, so before this arm existed a
+      // seventh race compiled clean and silently drew NOTHING here. The `never` binding is what
+      // turns that into a tsc error naming this exact site. The Record-based backstops in races.ts tell an
+      // author to add a COLOUR; only this tells them to add a MOTIF.
+      const unhandled: never = raceId;
+      void unhandled;
+      break;
+    }
   }
 }
 
@@ -334,6 +352,15 @@ export function drawCastleShotVfx(
         .stroke({ width: 5, color, alpha: fade * 0.35 });
       g.circle(px, py, 4).stroke({ width: 2, color, alpha: fade });
       g.circle(px, py, 1.6).fill({ color: 0x000000, alpha: fade * 0.8 });
+      break;
+    }
+    default: {
+      // ⛔ S162 (OF-6) — EXHAUSTIVENESS. This switch returns void, so before this arm existed a
+      // seventh race compiled clean and silently drew NOTHING here. The `never` binding is what
+      // turns that into a tsc error naming this exact site. The Record-based backstops in races.ts tell an
+      // author to add a COLOUR; only this tells them to add a MOTIF.
+      const unhandled: never = raceId;
+      void unhandled;
       break;
     }
   }

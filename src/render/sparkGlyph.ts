@@ -59,5 +59,14 @@ export function drawSparkGlyph(
       g.stroke({ width: 2, color, alpha: 0.95 });
       break;
     }
+    default: {
+      // ⛔ S162 (OF-6) — EXHAUSTIVENESS. This switch returns void, so before this arm existed a
+      // seventh primitive compiled clean and silently drew NOTHING here. The `never` binding is what
+      // turns that into a tsc error naming this exact site. SPARK_COLORS in constants.ts is the
+      // Record-based backstop; it does not mention the seven call sites that draw this glyph.
+      const unhandled: never = shape;
+      void unhandled;
+      break;
+    }
   }
 }

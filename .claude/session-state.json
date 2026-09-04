@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4215,
+  "tool_calls_session_total": 4237,
   "session_id": "S162",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-02T17:30:00+02:00",
@@ -86,18 +86,22 @@
     {
       "id": "P5",
       "title": "Hunt lanes 2 (dead ends) + 4 (doc/claim drift) BY HAND - never ran in S161",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P5 VERIFIED. Lanes 2 and 4 (the two S161 never finished) were dispatched as ONE small workflow; both FIND agents completed, then 9 of the VERIFY agents died on the org monthly spend limit. Per the CLAUDE.md rule that a hunt returning nothing is not a completed hunt, ALL NINE unverified findings were then hand-verified in this session with direct greps against the tree, and every one CONFIRMED. Doc drift then FIXED: SPARK_RACES_SPEC.md (status line, the six-row art column, W1-C's already-spent PROTOCOL 39->40, and the whole B2 section that read 'SEAT ELIMINATION DOES NOT EXIST' a day after it shipped), boot-snapshot.md (items 7/8/9 + a SUPERSEDED header), README.md (739 tests/41 files -> 3621/231, 'six players' -> four against MAX_PLAYERS=4, wrong typecheck+build commands, and five stale tech-table versions), LOCKED_DECISIONS.md (the bundle charter's one NORMATIVE sentence said 750 KiB while its own heading, the S145 paragraph and CAP_KIB all said 900)."
     },
     {
       "id": "P6",
       "title": "Remaining findings OF-4..OF-11 triaged",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P6 VERIFIED. OF-6 CONFIRMED and FIXED: raceMotifs' three switches over RaceId are void with no default and no never-assertion, so a seventh race compiled clean and drew no roofline, no gatherer mark and no shot VFX. Same defect found and fixed in sparkGlyph.ts for SparkType. PROVED NON-VACUOUS: temporarily widening RaceId with a 7th member made tsc fail at raceMotifs.ts 157/260/362 - the three new guards - alongside the pre-existing Record errors; those three lines did not appear before. races.ts restored and typecheck re-run at 0. OF-8 CONFIRMED and GATED (not merely re-worded): markFallenSeats was documented HOST-ONLY in three docblocks and gated in none, and tickGameState runs on every peer. Now gated on world.isHost, which is SAFE because isHost defaults true (solo + vs-bots untouched) and eliminatedAtTick rides the wire additive-optional - it is the field that earned the 39->40 bump - so a joiner receives the host's authoritative stamp. 2 new tests. CF-S161-a closed as RULED by the owner (a fallen seat's board keeps fighting), which also closes OF-3 as intentional: the castle gun is silent because the castle is destroyed."
     },
     {
       "id": "P7",
@@ -152,6 +156,26 @@
     {
       "priority": "P4",
       "lesson": "WHEN A FIX COULD INVENT A GAME RULE, STOP AND FILE IT. Deriving fallenCount from contenders instead of living would have ended a 1v1 the moment the opponent blinked. That is abandonment, a design decision rather than a bug fix, so the guard stays and the question goes to the owner."
+    },
+    {
+      "priority": "P5",
+      "lesson": "THE HUNT FAILED THE SAME WAY AS S161 AND IT DID NOT MATTER, BECAUSE THE RULE WAS FOLLOWED. Nine verify agents died on a spend limit. S161 recorded 'the sweep produced nothing' and wrote its handoff; S162 hand-verified all nine orphaned findings with greps and confirmed every one. The delegated run is an accelerator, and the fallback is the deliverable."
+    },
+    {
+      "priority": "P5",
+      "lesson": "DOC DRIFT IS NOT COSMETIC WHEN THE DOC IS THE PLAN. SPARK_RACES_SPEC.md's W1-C line said 'PROTOCOL 39 -> 40' when 40 was already spent, so a session executing it verbatim would have written 40 over 40 - and protocol.test.ts's expect(...).toBe(40) would still have PASSED, making the skipped bump invisible. A stale number in a spec can defeat the test written to catch that exact mistake."
+    },
+    {
+      "priority": "P6",
+      "lesson": "PROVE A GUARD BY BREAKING THE THING IT GUARDS. Adding a `never` arm and seeing tsc stay at 0 proves nothing. Temporarily widening RaceId to seven members and watching tsc fail at exactly the three new lines is the proof - and it also showed WHY the existing Record backstops were not enough: they say 'add a colour', not 'add a motif'."
+    },
+    {
+      "priority": "P6",
+      "lesson": "PREFER MAKING A COMMENT TRUE TO MAKING IT ACCURATE. Three docblocks said markFallenSeats was HOST-ONLY and nothing enforced it. Rewriting them to describe the leak was the cheap option; gating on world.isHost cost one line and made the original claim correct, once I had checked that isHost defaults true and the field crosses the wire."
+    },
+    {
+      "priority": "P5",
+      "lesson": "SUBAGENTS SHARE MY WORKING TREE. A verifier's scratch test (src/render/zz_refute_tmp.test.ts) was swept into a commit by `git add -A` and then deleted by the agent afterwards. Read git status before committing while agents are live, or stage explicitly."
     }
   ],
   "totals": {
@@ -5133,5 +5157,74 @@
       "matchmaking strip reads [nostr:7/7 torrent:1/2] - ONE OF THE TWO TORRENT TRACKERS IS DOWN. transport.ts passes redundancy: relayUrls.length, so a 2-entry list demands 2 working trackers and the strategy fails as a unit (the S159 P5 failure shape, recurring). Needs a probe-relays re-measure.",
       "CF-S161-d CONFIRMED and WORSE than filed: Escape does not close the picker AND does not reach the lobby leave gesture while the picker is up - the modal can only be dismissed by mouse."
     ]
-  }
+  },
+  "hunt_s162": {
+    "method": "ONE small workflow (2 find + 16 verify), sized per the CLAUDE.md rule so a failure could not cost every lane. Both FIND lanes completed.",
+    "run_id": "wf_dc09c1b1-5e0",
+    "outcome": "PARTIAL - 9 of 18 agents errored, every one with: 'You have hit your org's monthly spend limit'. No more agents can run this session.",
+    "recovery": "The 9 unverified findings were hand-verified BY HAND in-session (greps + file reads). All 9 CONFIRMED. This is the S161 failure shape and it was NOT allowed to stand as a verdict on the code.",
+    "lane2_deadends": "COMPLETE - 8 findings. 2 fixed (raceMotifs, sparkGlyph exhaustiveness), 6 carried.",
+    "lane4_docdrift": "COMPLETE - 8 findings + 2 extra verdicts. 6 fixed (all doc drift), 2 carried."
+  },
+  "open_findings_s162": [
+    {
+      "id": "S162-OF-A",
+      "sev": "MEDIUM",
+      "owner_decision_required": true,
+      "title": "The TOWER half of the R72 targeting matrix is declared but DEAD",
+      "detail": "defenderCanTarget (stats.ts:347) has ZERO production callers - hand-verified: the only non-test line in src/ is its own definition. DEFENDER_TARGETS (stats.ts:303) is read by nothing but that dead function. The CREATURE half had the identical defect and was fixed in S161 (hostTick.ts:943 names it: 'A0 measured the R72 targeting matrix as DECLARED BUT DEAD'), so the tower half is the same bug left standing. WIRING IT CHANGES GAMEPLAY (princess/stinkTower become UNITS_ONLY, etc.), so it is an owner decision, not a silent fix."
+    },
+    {
+      "id": "S162-OF-B",
+      "sev": "MEDIUM",
+      "title": "The godly-cooldown module is dead and FOUR comments still describe it as wired",
+      "detail": "Agent-verified with corrections. No production file imports godlyCooldown.ts; setCooldown is the only non-null writer and has no callers, so Player.godlyCooldownEndsAtTick is permanently null and debugOverlay's '(ACTIVE)' branch is unreachable. Stale comments at godlyActions.ts:14 (claims setCooldown is 'imported here directly' - the file's only imports are two type-only ones), godlyActions.ts:31, world.ts:235, save.ts:1612. Replaced by godlyFiredThisMatch in S97 P5. NOT network-serialized and not hashed, so deleting it costs no protocol bump."
+    },
+    {
+      "id": "S162-OF-C",
+      "sev": "LOW",
+      "title": "teardownCastleBanks is an unreferenced export whose docblock claims a parity it does not deliver",
+      "detail": "Agent-verified. One grep hit repo-wide: its own definition (castleBank.ts:204). Neither teardown orchestrator calls it. No coverage gap - both reach the banks transitively via teardownGatherers - so this is harmless dead code plus a false docblock."
+    },
+    {
+      "id": "S162-OF-D",
+      "sev": "LOW",
+      "title": "Two superseded NONET sound effects have no caller",
+      "detail": "playNonetPop and playNonetSolve (nonetJuice.ts) are the only 2 of 9 with zero production callers; both are documented as replaced (S102 #6 pair, and playNonetJackpot's own docblock). solveArpeggio() is dead with them."
+    },
+    {
+      "id": "S162-OF-E",
+      "sev": "LOW",
+      "title": "Two orphan constants",
+      "detail": "COLLISION_ITERATIONS (constants.ts:223) was orphaned by an owner ruling that deleted the spark-spark collision pass (physicsLoop.ts:22-24); resolveCollisions no longer exists. LIGHTNING_HUB_LEAVES (constants.ts:1874) is derived from by nothing - the next line uses DEGREE instead."
+    },
+    {
+      "id": "S162-OF-F",
+      "sev": "LOW",
+      "title": "Two docblocks assert a sim movement clamp for the border walls that has no consumer",
+      "detail": "wallRenderer.ts:20 and walls.ts:103 both describe a clamp the sim shares; grep finds no such consumer and the only production importer of walls.ts is the renderer."
+    }
+  ],
+  "carry_forwards_s162": [
+    {
+      "id": "CF-S162-a",
+      "severity": "owner-action",
+      "text": "THE THREE TURN SECRETS ARE STILL WRAPPED. The game now repairs them at runtime and the deploy log shouts about it, so multiplayer works - but re-paste them clean at GitHub > Settings > Secrets: bare value only, no key name, no quotes, no comma. See TURN_SETUP.md 'The shape of the values'. Also: the credential has been public in the deployed bundle since 06:10Z 2026-09-03 (inherent to browser TURN per the runbook) - rotate at metered.ca if the usage graph looks abused."
+    },
+    {
+      "id": "CF-S162-b",
+      "severity": "owner-question",
+      "text": "ABANDONMENT HAS NO RULE. S162 stopped a long-absent peer's intact castle from blocking the last-one-standing win, but a 1v1 whose opponent simply disconnects still does not end, because no castle fell. Ending it would be a new win condition (forfeit), which is a design decision."
+    },
+    {
+      "id": "CF-S162-c",
+      "severity": "measurement",
+      "text": "THE LIVE MATCHMAKING STRIP READ [nostr:7/7 torrent:1/2] during S162's browser verification - one of the two torrent trackers is down. transport.ts passes redundancy: relayUrls.length, so the list length IS the requirement and a 2-entry list demands 2 working trackers; the strategy then fails as a unit. This is the exact S159 P5 shape recurring. Re-measure with npm run probe-relays."
+    },
+    {
+      "id": "CF-S162-d",
+      "severity": "process",
+      "text": "THE ORG MONTHLY SPEND LIMIT WAS REACHED during S162's audit workflow - 9 of 18 agents died on it. No further subagents can run until it resets. Everything after that point in S162 was done by hand, and the 9 orphaned findings were all hand-verified rather than dropped."
+    }
+  ]
 }

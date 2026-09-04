@@ -1,6 +1,19 @@
 # SPARK — CASTLE RACES & UNIQUE TOWERS: EXECUTION SPEC
 
-**Status:** OWNER-RULED 2026-09-02 · NOT IMPLEMENTED · ready to execute A→Z
+**Status:** OWNER-RULED 2026-09-02 · **PARTIALLY IMPLEMENTED** · corrected S162 (2026-09-03)
+
+> ⚠ **THIS FILE SAID "NOT IMPLEMENTED" FOR A DAY AFTER THREE OF ITS WAVES HAD SHIPPED.** Corrected in
+> S162 by the documentation-drift lane S161 dispatched and never ran. Landed since it was written:
+>
+> | | |
+> |---|---|
+> | **W1-A** — the race token + wire | SHIPPED S160 (PROTOCOL 38 → 39) |
+> | **W1-B** — the castle becomes its race | SHIPPED S161 P1 — six atlases in `public/art/castles/`, three states each |
+> | **The selection UI** (W1-A item 5, the owner's P2) | SHIPPED S161 P5/P6 — `src/render/racePicker.ts` + `CLAIM_RACE`. §14 B3's *"cannot be a client intent"* was answered by making it a top-level `NetMessage` rather than an intent |
+> | **B2** — seat elimination | SHIPPED S161 P2 — `src/state/elimination.ts`; see §14 B2 below |
+> | **W1-C / W1-D** | still unbuilt — these remain the live plan |
+>
+> Read every "does not exist" and "not implemented" below against that table before acting on it.
 **Authored:** from a live owner brainstorm, against a full audit of `src/`, the roadmaps and the handoff record
 **Supersedes:** the `CASTLE_BUILD_SPACE_DESIGN.md` § ADDENDUM race table (2026-08-27) — **that table's colours were wrong** (see §5.1)
 **Baseline (MEASURED 2026-09-02, not inherited):** `PROTOCOL_VERSION 38` · vitest **3353/3353 across 212 files** · typecheck clean · bundle cap 900 KiB
@@ -83,12 +96,12 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 
 | Colour | Hex | Race | Race unit | Feed shape (R109) | Art status |
 |---|---|---|---|---|---|
-| Crimson | `0xff3b6b` | **Vampires** | **Bat** | **Triangle** `#FF3B3B` | ⚠ partial — `goblin-batrider` atlas exists and reads vampiric |
-| Cyan | `0x3bd7ff` | **Nagas** | **Piranha** — porpoises in and out of the ground | **Square** `#3B5BFF` | ❌ none |
-| Yellow | `0xffe23b` | **Mummies** | **Scarab beetle** — Egyptian, brightly coloured | **Line** `#FFE066` | ❌ none |
-| Green | `0x44ff5e` | **Zombies** | **Zombie hound** | **Circle** `#3BFF7A` | ✅ `assets-source/zombie-castle/` — idle + walk. **Attack clip failed twice on veo backpressure (CF-S153-c), still missing.** |
-| Orange | `0xff8c1a` | **Orcs** | **Warband grunt** — twin axes, goblin-shaped role | **Dot** `#FFFFFF` | ❌ none |
-| Magenta | `0xd73bff` | **Demons** | **Soul eater** — dementor-like drifting spirit | **Spiral** `#A23BFF` | ❌ none |
+| Crimson | `0xff3b6b` | **Vampires** | **Bat** | **Triangle** `#FF3B3B` | ✅ `castle-vampires-atlas.png` + anim (S161 P1) |
+| Cyan | `0x3bd7ff` | **Nagas** | **Piranha** — porpoises in and out of the ground | **Square** `#3B5BFF` | ✅ `castle-nagas-atlas.png` + anim (S161 P1) |
+| Yellow | `0xffe23b` | **Mummies** | **Scarab beetle** — Egyptian, brightly coloured | **Line** `#FFE066` | ✅ `castle-mummies-atlas.png` + anim (S161 P1) |
+| Green | `0x44ff5e` | **Zombies** | **Zombie hound** | **Circle** `#3BFF7A` | ✅ `castle-zombies-atlas.png` + anim (S161 P1) |
+| Orange | `0xff8c1a` | **Orcs** | **Warband grunt** — twin axes, goblin-shaped role | **Dot** `#FFFFFF` | ✅ `castle-orcs-atlas.png` + anim (S161 P1) |
+| Magenta | `0xd73bff` | **Demons** | **Soul eater** — dementor-like drifting spirit | **Spiral** `#A23BFF` | ✅ `castle-demons-atlas.png` + anim (S161 P1) |
 
 ⛔ **All six units share ONE stat line and ONE spawn cadence (R117).** Their DIFFERENCE is entirely in
 look and movement — which is where the naga's porpoising and the soul eater's drift do real work.
@@ -347,7 +360,14 @@ have seen it. Capture both a damaged and an undamaged castle through Playwright 
 
 **Exit gate.** Six castles, three states each, visually distinct in a captured frame.
 
-### W1-C · THE CASTLE PRODUCES, AND ITS ARMY SHELTERS — one session · PROTOCOL 39 → 40
+### W1-C · THE CASTLE PRODUCES, AND ITS ARMY SHELTERS — one session · PROTOCOL 40 → 41
+
+> ⚠ **S162 correction: this said `39 → 40`, and 40 IS ALREADY SPENT** — S161 P2 took it for seat
+> elimination (`src/net/protocol.ts`: `PROTOCOL_VERSION = 40`). A session executing the old line
+> verbatim would have written 40 over 40, changing nothing, while `protocol.test.ts`'s
+> `expect(PROTOCOL_VERSION).toBe(40)` still passed and the version-sync chain looked unbroken — a
+> **silently skipped bump**, which is exactly the failure `protocol.ts` says that test exists to
+> catch. Re-read §15.5's bump-site table against the tree before trusting its numbers either.
 
 **Objective.** The one mechanical difference in Wave 1: your castle makes your race's unit, and that
 army obeys the phase rhythm the rest of the game already obeys.
@@ -814,17 +834,36 @@ fixture** — trap 6 verbatim. The alternative, a sentinel `SpawnerId` for the c
 `ownHomePos` (`creatureAI.ts`, spawner lookup first), `underGoblinCaps` and `recipeStillSatisfied`.
 **Decide this before W1-C, and write the decision at the gate.**
 
-### B2 — ⛔ SEAT ELIMINATION DOES NOT EXIST. ONE CASTLE AT 0 HP ENDS THE MATCH FOR EVERYONE.
+### B2 — ✅ RESOLVED. SEAT ELIMINATION SHIPPED IN S161 P2 (owner ruling R127).
 
-`src/state/gameState.ts:76-88`: the **first** castle to fall immediately ends the match and awards
-victory to `survivors[0]` — first in Map iteration order, i.e. arbitrary among three survivors in a
-4-player FFA.
+> ⚠ **THIS SECTION READ "SEAT ELIMINATION DOES NOT EXIST" FOR A DAY AFTER IT SHIPPED**, and cited a
+> line range (`gameState.ts:76-88`) that no longer held the behaviour it described. Rewritten S162.
 
-**§9B case 1 ("two seats down, survivors' armies grow") describes an unreachable board state.** So do
-§9.5's no-choice rule and §9.6's "a joiner mid-match sees every seat's perks". Elimination is a new
-`Player` state, a new win condition, a rewrite of the `castleHp <= 0` gate, and a disposal policy for
-the fallen seat's spawners / defenders / creatures / gatherers / bank. **None of that is in any wave
-of this spec.** Either add a wave or accept that races ship onto a first-castle-ends-it match.
+Owner R127, 2026-09-02: *"when a castle is destroyed a player cant gather anymore primitives so yes
+he is out! but he should stay as spectator until there is one player left!"*
+
+What is now in the tree:
+
+- `src/state/elimination.ts` — `isEliminated` (the single `castleHp <= 0` predicate), `livingSeats`,
+  `markFallenSeats` (the write-once `eliminatedAtTick` stamp that gives placings their order),
+  `matchPlacings`, and `ELIMINATION_INTENT_POLICY`, which forces an explicit allow/deny for every
+  client intent rather than letting a dead seat default back into the match.
+- `src/game/player.ts` — `eliminatedAtTick?: number`.
+- `src/state/gameState.ts` — last-one-standing: the match ends when ONE seat is left, and the winner
+  is that seat rather than `survivors[0]`, which was `Map` insertion order deciding a match outcome.
+
+⛔ **So §9B case 1, §9.5's no-choice rule and §9.6 are REACHABLE board states now.** Anything in this
+spec that was deferred because "two seats down" could not happen should be re-read.
+
+**Still open, deliberately:**
+
+- **CF-S161-a is RULED (owner, S162): a fallen seat's board KEEPS FIGHTING.** Its towers, creatures
+  and spawners are not swept and go on acting until razed — including deciding a match between two
+  living players. Its castle gun is silent only because the castle is destroyed, not because the seat
+  is out, so all four actor kinds are coherent.
+- **Abandonment is NOT elimination, and has no rule.** S162 stopped a long-absent peer's intact castle
+  from blocking the last-one-standing win (`PEER_DROP_FORFEIT_TICKS`), but a 1v1 whose opponent merely
+  disconnects still does not end, because no castle fell. That needs an owner ruling.
 
 ### B3 — ⛔ `CLAIM_RACE` CANNOT BE A CLIENT INTENT. THE LOBBY HAS NO INTENT PATH.
 

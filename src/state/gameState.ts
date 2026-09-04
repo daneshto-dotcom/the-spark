@@ -113,7 +113,20 @@ export function tickGameState(
        * old behaviour verbatim — the fall ends it — and `gameState.test.ts` pins that separately from
        * the multi-seat rule so a future edit cannot collapse the two.
        */
-      markFallenSeats(world);
+      // ⭐ S162 P6 (OF-8) — **THE HOST-ONLY CLAIM IS NOW ENFORCED INSTEAD OF MERELY ASSERTED.**
+      //
+      // `markFallenSeats` is documented HOST-ONLY in THREE places — its own docblock, the file
+      // docblock at `elimination.ts`, and `Player.eliminatedAtTick`, which spells out the hazard:
+      // *"writing it on a client would let two peers disagree about who lost first."* This call site
+      // had no gate whatsoever and `tickGameState` runs on every peer, so every client was writing
+      // the field the comments said only the host may write.
+      //
+      // ⚠ SAFE TO GATE, AND THAT IS WHY IT IS GATED RATHER THAN RE-WORDED: `world.isHost` DEFAULTS
+      // TO TRUE (`world.ts`), so solo and vs-bots are untouched; and `eliminatedAtTick` rides the
+      // wire additive-optional (`save.ts` — it is the field that earned the PROTOCOL 39 → 40 bump),
+      // so a joiner receives the host's authoritative stamp. The client loses nothing but the right
+      // to invent its own ordering.
+      if (world.isHost) markFallenSeats(world);
       const living = livingSeats(world);
       // ⭐ S162 P4 (OF-2) — a seat whose peer has been absent past the forfeit window is no longer a
       // CONTENDER for the win, even though its castle still stands. `living` itself is untouched:

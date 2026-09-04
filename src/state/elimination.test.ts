@@ -508,3 +508,37 @@ describe('S162 P4 (OF-2) — an absent peer stops blocking the last-one-standing
     expect(w.lastWinnerId).toBe(P(0));
   });
 });
+
+/**
+ * ⭐ S162 P6 (OF-8) — **HOST-ONLY WAS ASSERTED IN THREE DOCBLOCKS AND GATED IN NONE.**
+ *
+ * `markFallenSeats` is documented HOST-ONLY at `elimination.ts` (twice) and at
+ * `Player.eliminatedAtTick`, which names the hazard outright: *"writing it on a client would let two
+ * peers disagree about who lost first."* The only production call site had no gate, and
+ * `tickGameState` runs on every peer — so every joiner wrote the field.
+ *
+ * It self-healed on the next snapshot, which is why nothing ever caught it. These two cases are the
+ * gate the comments always described.
+ */
+describe('S162 P6 (OF-8) — only the host stamps eliminatedAtTick', () => {
+  it('⛔ a CLIENT does not write the stamp — it arrives by snapshot instead', () => {
+    const w = boardOf(3);
+    w.isHost = false;
+    const ex = makeGameStateExtras();
+    raze(w, 2);
+    tickGameState(w, ex, P(0));
+    expect(w.players.get(P(2))!.eliminatedAtTick).toBeUndefined();
+    // and the seat is still recognised as fallen — the GATE is on the stamp, not on the predicate
+    expect(livingSeats(w)).toEqual([P(0), P(1)]);
+  });
+
+  it('⭐ the HOST stamps, and isHost DEFAULTS true so solo and vs-bots are untouched', () => {
+    const w = boardOf(3);
+    // The load-bearing default: if this ever flipped, gating the stamp would break single-player.
+    expect(w.isHost).toBe(true);
+    const ex = makeGameStateExtras();
+    raze(w, 2);
+    tickGameState(w, ex, P(0));
+    expect(w.players.get(P(2))!.eliminatedAtTick).toBe(w.tick);
+  });
+});

@@ -9,18 +9,18 @@ Real-time multiplayer game of geometric emergence — TypeScript + Pixi.js, P2P 
 ```bash
 npm install
 npm run dev        # vite dev server (random port via $SESSION_PORT)
-npm test           # vitest — 739 tests across 41 files
-npm run typecheck  # tsc --noEmit
-npm run build      # tsc -b && vite build → dist/
+npm test           # vitest — 3619 tests across 231 files
+npm run typecheck  # tsc -b --noEmit
+npm run build      # tsc -b && vite build + bundle-size charter gate → dist/
 ```
 
 Dev server opens a browser automatically. P2P 1v1 needs two browsers/devices and a 6-char room code.
 
 ## What it is
 
-Up to six players place geometric primitives onto a shared canvas, bond them into structures, and bring those structures to life when the geometry matches a named recipe — cinematic "godly" creatures, chewer spawners, laser turrets, suicide drone hubs. Score accrues from standing structure complexity; first to the threshold wins.
+Up to four players place geometric primitives onto a shared canvas, bond them into structures, and bring those structures to life when the geometry matches a named recipe — cinematic "godly" creatures, chewer spawners, laser turrets, suicide drone hubs. Score accrues from standing structure complexity; first to the threshold wins.
 
-**Shipped today (v0.5.1):** 6-player FFA over P2P WebRTC · 36 combos / 14 magic names · 5 godly recipes · 5 hazard systems · bots at four difficulties · host migration · NONET sudoku minigame.
+**Shipped today:** 4-player FFA over P2P WebRTC (`MAX_PLAYERS = 4`, owner ruling R41) · 36 combos / 14 magic names · 5 godly recipes · 5 hazard systems · bots at four difficulties · host migration · NONET sudoku minigame.
 
 **In design (v0.6):** the economy pivot — a castle emits worker sparks that collect on your directives into a capped bank, and you build and sculpt from the bank instead of hauling. Two economy blockers (the material faucet, and whether a capped bank destroys the carve-down tactic) are open owner rulings gating Phase 1. See [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) and the roadmap in [BACKLOG.md](BACKLOG.md).
 
@@ -59,11 +59,11 @@ src/
 
 | Layer | Choice | Notes |
 |-------|--------|-------|
-| Language | TypeScript 5.4 | strict + noUnusedLocals + noFallthroughCasesInSwitch |
-| Bundler | Vite 5.2 | sourcemap on, target es2022 |
-| Test | Vitest 1.5 | jsdom — no live Pixi/Web Audio |
-| Renderer | Pixi.js 8.5 | WebGL + WebGPU fallback chunks |
-| P2P | Trystero 0.24 | Nostr-primary (no signaling server to operate) |
+| Language | TypeScript 5.9 | strict + noUnusedLocals + noFallthroughCasesInSwitch |
+| Bundler | Vite 6.4 | sourcemap on, target es2022 |
+| Test | Vitest 3.2 | jsdom — no live Pixi/Web Audio |
+| Renderer | Pixi.js 8.19 | WebGL + WebGPU fallback chunks |
+| P2P | Trystero 0.25 | Nostr-primary (no signaling server to operate) |
 | Deploy | GH Pages | actions/deploy-pages@v4 → custom domain via CNAME |
 
 ## Deploy

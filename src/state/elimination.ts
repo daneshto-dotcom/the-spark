@@ -143,7 +143,12 @@ export function livingSeats(world: World): PlayerId[] {
 }
 
 /**
- * HOST-ONLY. Stamp `eliminatedAtTick` on every seat that has fallen and does not carry one yet.
+ * HOST-ONLY — and since S162 P6 (OF-8) that is ENFORCED at the call site (`gameState.ts` gates this
+ * on `world.isHost`) rather than merely asserted here. It was asserted in three docblocks and gated
+ * in none of them, so every joiner ran it; a client's stamp self-healed on the next snapshot, but
+ * the window was real and the comments were false.
+ *
+ * Stamp `eliminatedAtTick` on every seat that has fallen and does not carry one yet.
  * Returns the seats stamped THIS tick, in id order, so a caller can announce them.
  *
  * ⚠ WRITE-ONCE. The `undefined` check is what makes the field an ELIMINATION ORDER rather than a
