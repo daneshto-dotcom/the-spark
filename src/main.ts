@@ -1426,6 +1426,32 @@ async function bootstrap(): Promise<void> {
        * reach them fails at exactly those two things and nothing else. They are probed FIRST and
        * reported FIRST for that reason — a red relay line makes the ICE line beside the point.
        */
+      /*
+       * ⭐ S163 P3 — **THE NOTE HAD NO REACHABLE UI PATH ON THE BRANCH THAT ACTUALLY HAPPENS.**
+       *
+       * `TURN_CONFIG_NOTE` records a TURN configuration THIS BUILD repaired at boot — the owner's
+       * live case, since the three secrets are still pasted as JS object-literal fragments and
+       * `parseTurnConfig` unwraps them every load. Its only consumer was the `.catch()` below, and
+       * `parseTurnConfig` exists precisely so that the probe no longer crashes. So the repaired-paste
+       * warning was reachable only on the branch the repair prevents: in practice it went to devtools
+       * (`iceConfig.ts`) and nowhere a player or the owner would ever see it.
+       *
+       * Hoisted here so BOTH verdicts carry it, built once from one source.
+       *
+       * ⛔ IT DOES NOT TURN THE VERDICT AMBER. `ok` is untouched. When the repair WORKED and a relay
+       * answered, `ok: true` is the truth — the note is advisory hygiene, and the standing owner
+       * action is to re-paste the secrets clean, not to fix a broken game. A panel that reports a
+       * working setup as a failure is the "gate that cries wolf" this project has already been bitten
+       * by once (S160: verify-deploy's LIVE carrier). The genuinely broken cases are still red on
+       * their own merits — with nothing usable `HAS_TURN_CONFIGURED` is false and `summarizeIce`
+       * already returns `ok: false` with NO_TURN_CONFIGURED.
+       */
+      const turnNotePrefix =
+        TURN_CONFIG_NOTE !== null
+          ? `⚠ Your TURN settings needed fixing up — ${TURN_CONFIG_NOTE}.
+
+`
+          : '';
       const relays = STRATEGY_FLAGS.nostr ? NOSTR_RELAYS : [];
       void Promise.all([
         probeRelays(relays),
@@ -1453,7 +1479,7 @@ Matchmaking: ${rv.detail}`
             : `${rv.detail}
 
 Network routes: ${v.detail}`;
-          lobbyScreen?.showConnectionTestResult(ok, headline, detail);
+          lobbyScreen?.showConnectionTestResult(ok, headline, turnNotePrefix + detail);
         })
         .catch((err: unknown) => {
           // ⛔ S162 P0 — THIS BLAMED THE BROWSER FOR A FAULT THAT WAS ENTIRELY OURS. The owner's
@@ -1464,11 +1490,8 @@ Network routes: ${v.detail}`;
           lobbyScreen?.showConnectionTestResult(
             false,
             'The connection test could not run',
-            (TURN_CONFIG_NOTE !== null
-              ? `⚠ Your TURN settings needed fixing up — ${TURN_CONFIG_NOTE}.
-
-`
-              : '') +
+            // S163 P3 — same prefix, now hoisted above so the SUCCESS branch carries it too.
+            turnNotePrefix +
               'The browser refused to open a test connection, which usually means WebRTC is ' +
               `disabled by an extension or a policy. (${String(err)})`,
           );
