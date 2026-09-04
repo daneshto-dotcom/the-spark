@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4293,
-  "session_id": "S162",
+  "tool_calls_session_total": 4487,
+  "session_id": "S163",
   "session_kind": "batch-pdca",
-  "session_start": "2026-09-02T17:30:00+02:00",
-  "prior_session_note": "S160 shipped 5 priorities; TURN live and verified. Handoff HANDOFF_2026-09-02_S160.md at b854173.",
+  "session_start": "2026-09-04T19:30:00+02:00",
+  "prior_session_note": "S162 closed at adedd6a. Its priorities+reflexion are archived in priorities_s162_archived / reflexion_s162_archived.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "FULL",
-  "plan_file": ".claude/plans/2026-09-03_PDR_S162_BATCH.md",
-  "session_status": "IN_PROGRESS",
+  "plan_file": ".claude/plans/2026-09-04_PDR_S163_BATCH.md",
+  "session_status": "OPEN_BY_OWNER_REQUEST",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -32,456 +32,274 @@
   },
   "priorities": [
     {
-      "id": "P0",
-      "title": "TURN config sanitise+validate - end the live outage (RTCPeerConnection threw at construction)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
-      "check_method": "P0 VERIFIED LIVE IN A REAL BROWSER against https://spark-online.space after deploy. (1) live console printed \"[net] TURN configuration: the TURN settings looked pasted from a provider dashboard ... unwrapped automatically\" -> the shipped repair path executed. (2) reconstructed the OLD config in-page: threw SyntaxError verbatim matching the owner screenshot. (3) repaired config: CONSTRUCTED OK, gathered host:1 srflx:1 RELAY:1, iceErrors []. relay>0 is the FIRST working TURN relay measured in this project (S157 measured relay:0). (4) the real TEST CONNECTION button now reports \"Connection test passed - you can play with anyone / Found 1 relay route\". Gates: typecheck 0, vitest 3608/3608, e2e:gating 62 passed exit 0, build 778.6/900 KiB, verify-deploy PASS 4/4 with RELAY IS SHIPPED.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "export function parseTurnConfig"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "pattern": "ICE_URL_RE\\.test",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
-          "needle": "export const TURN_CONFIG_NOTE"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 15
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
-          "needle": "ALL THREE SECRETS ARE SET BUT NO RELAY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
-          "needle": "unwrapPastedSecret"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
-          "needle": "The shape of the values"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "TURN_CONFIG_NOTE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.ts",
-          "needle": "RTCPeerConnection refused the ICE configuration"
-        }
-      ]
-    },
-    {
       "id": "P1",
-      "title": "Race pick does not repaint - host presence rebuild with no transport",
+      "title": "Host self-crown + un-fenced ENDGAME epoch fence",
       "status": "completed",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
-      "check_method": "P1 VERIFIED LIVE: hosted room JLJPG8 on the deployed site, clicked the own-seat tile, picked DEMONS. Tile changed from \"P1 HOST (VAMPIRES)\" (crimson art) to \"P1 HOST (DEMONS)\" (magenta art), picker closed, and re-opening the picker showed DEMONS as YOURS -> the pick persisted through the roster path. 4 new unit tests in raceClaim.test.ts cover null-transport repaint, no seat-map wipe, the unclaimed raceId/color asymmetry, and unchanged wire behaviour with a transport.",
+      "checkpoint_commit": "b75472f5ca3c5a182ff33da727f9e502162e967c",
+      "check_method": "P1 CHECK. (a) GATES, exit codes read DIRECTLY (never piped): typecheck 0; vitest 0 = 3638/3638 across 232 files (was 3627/231, so +11 new and zero regressions); build 0 = 780.0/900 KiB, headroom 120.0; e2e:gating 0 = 62 passed in 3.6m. (b) MUTATION PROOF, per the project rule that a guard is proven by breaking what it guards: forcing hasWitness=true (the pre-fix behaviour) makes the bug case FAIL with exit 1, and only that case — 1 failed / 4 passed. Restored and re-verified byte-identical. (c) THE FENCE IS PURE AND TESTED, not merely written: extracted endgameIsStale() and pinned four cases including the two that have teeth — absent epoch before migration must PASS (pre-S163 host, provably inert) and absent epoch AFTER migration must DROP. (d) parseNetMessage rejects a present-but-garbage epoch (string/float/negative/NaN/null/object) — NaN specifically, because NaN < n is false and it would otherwise slip the fence silently. (e) NO PROTOCOL BUMP and that was verified, not assumed: epoch is additive-optional on ENDGAME, which this project rules costs no bump.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
-          "needle": "transport: NetTransport | null"
+          "path": "src/state/hostTick.ts",
+          "needle": "const hasWitness = deps.alivePeerIds !== null && deps.alivePeerIds.size > 0;"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
-          "needle": "if (transport !== null) transport.send"
+          "path": "src/net/clientHandlers.ts",
+          "needle": "export function endgameIsStale"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly epoch?: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "epoch: session.currentEpoch,"
         },
         {
           "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "pattern": "broadcastQmPresence\\(session, session\\.netTransport, onPresence\\)",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
-          "needle": "broadcastQmPresence repaints locally with no transport"
+          "path": "src/state/hostSelfCrown.test.ts",
+          "pattern": "^  it(",
+          "op": "==",
+          "value": 5
         }
       ]
     },
     {
       "id": "P2",
-      "title": "OF-1 two seats can hold the same race+colour (7 recipe resolvers identify owners by colour)",
+      "title": "The two comments that are FALSE (quickmatchGate, raceClaim.test)",
       "status": "completed",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P2 (OF-1) VERIFIED: raceIsFree now judges EFFECTIVE races (claimed ?? defaultRaceForSeat(seat)) for the host seat and every seated peer, plus a pre-reconcile raceByPeer pass. 5 new/rewritten cases in raceClaim.test.ts (20 pass). THE INHERITED FINDING WAS HALF WRONG: lobbyView already default-fills raceId on BOTH paths (lobbyStateMachine 374 roster + 393 count-fallback), so the picker greyed correctly all along and only the host wire authority was defective, dropping the exposure from \"normal play\" to \"a CLAIM_RACE that bypasses the UI\". Rewrote the case S161 reddened (\"every race is free in an empty lobby\"), whose meaning had to change because the fix is exactly that seat 0 occupies its default.",
+      "checkpoint_commit": "8b886917cf06521b8a472dc8033714f6e0c2bdcb",
+      "check_method": "P2 CHECK. The replacement text was itself verified line-by-line against the tree BEFORE being written, because the failure mode being fixed is a comment that asserts an unverified mechanism. Measured: hostHandlers.ts:220 assigns netTransport, transport.connect(code) is at :245 = 25 lines later (the comment says ~25); clientHandlers.ts:143 / :174 same shape; transport.ts opens try at :366, calls joinFn at :372, catches at :469 into markStrategyFailed. All three claims in the new text are exact. Gates: typecheck 0; raceClaim.test + quickmatch.test 41 passed exit 0. Residual sweep for surviving false claims returns only my own two refutations, which quote the wrong claim in order to correct it.",
       "verification": [
         {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
-          "pattern": "defaultRaceForSeat",
-          "op": ">=",
-          "value": 3
+          "type": "file_contains",
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "NAMED A CAUSE THAT CANNOT HAPPEN"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
-          "needle": "session.raceByPeer.get(peer) ?? defaultRaceForSeat(seat)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
-          "needle": "a JOINER may take any race EXCEPT the host seat default"
+          "path": "src/net/raceClaim.test.ts",
+          "needle": "THE ROOT CAUSE THIS DOCBLOCK USED TO NAME WAS WRONG"
         },
         {
           "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
-          "needle": "if (session.selfRace === raceId) return false; // the host holds it"
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "never reached"
         }
       ]
     },
     {
       "id": "P3",
-      "title": "MED-3 picker reappears over the lobby - close() in setVisible(false)",
+      "title": "TURN_CONFIG_NOTE on the connection-test SUCCESS branch",
       "status": "completed",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P3 (MED-3) VERIFIED: setVisible(false) closes the race picker in BOTH lobbyScreen and botSetupOverlay. Reachable with no user action: main.ts calls setVisible(showLobby) every frame, so a quickmatch auto-begin/migration/connection-loss hides the lobby with the menu up. ALSO closed CF-S161-d (keyboard escape): Escape now closes the picker in the lobby, and in the bot overlay it closes the INNERMOST modal first (one listener, so the outcome cannot depend on registration order). Confirmed live that Escape previously did nothing and the scrim swallows every click, so the menu had no keyboard exit whatsoever.",
+      "checkpoint_commit": "46b148fca43d9b010df02ccc41254078d35fd75a",
+      "check_method": "P3 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 233 files; build 0 = 780.0/900 KiB. MUTATION PROOF: removing turnNotePrefix from the SUCCESS call fails 2 of the canary 4 (exit 1); restored and re-verified (3 occurrences of turnNotePrefix in main.ts = 1 declaration + 2 uses). The canary is a SOURCE-TEXT test by deliberate choice, and the reason is recorded in its docblock: main.ts is the composition root and the branch has no callable seam, while lobbyScreen.getConnectionTestText() is an accessor with zero production callers. It also asserts the negative — that ok is NOT ANDed with the note — so a future author cannot turn a passing verdict amber over hygiene.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
-          "needle": "if (!visible) this.racePicker.close();"
+          "path": "src/main.ts",
+          "needle": "showConnectionTestResult(ok, headline, turnNotePrefix + detail)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/main.ts",
+          "pattern": "turnNotePrefix",
+          "op": "==",
+          "value": 3
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
-          "needle": "if (!visible) this.racePicker.close();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
-          "needle": "if (this.racePicker.isOpen()) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
-          "needle": "this.racePicker.isOpen()) this.racePicker.close()"
+          "path": "src/net/turnNoteSurfaced.test.ts",
+          "needle": "BOTH showConnectionTestResult calls carry the prefix"
         }
       ]
     },
     {
       "id": "P4",
-      "title": "OF-2 a dropped peer intact castle blocks the last-one-standing win",
+      "title": "isValidRoster: seat range + uniqueness at the wire boundary",
       "status": "completed",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P4 (OF-2) VERIFIED: tickGameState takes an OPTIONAL host-only isSeatOffline predicate; a seat absent past the new PEER_DROP_FORFEIT_TICKS (20s, MY number, reasoned at the constant) is subtracted from the win CONTENDERS while staying in livingSeats. No new serialized field and NO protocol bump: absence is host knowledge and the client already takes the authoritative WIN edge from snapshots (main.ts:2196). fallenCount stays derived from living, so an absence alone never ends a match; abandonment is a separate unruled rule, filed. 7 new cases in elimination.test.ts (40 pass), including an anti-vacuity case that flips which seat vanished and one pinning that a disconnected seat can never WIN.",
+      "checkpoint_commit": "1cde4281c1ddfaff782cd886628b3c30335481ef",
+      "check_method": "P4 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files; e2e:gating 0 = 62 passed in 3.5m. MUTATION PROOF: stubbing out BOTH the seat range check and the uniqueness check fails exactly the 2 new cases (exit 1, 2 failed / 47 passed); restored and re-verified zero MUTATION markers remain. Anti-vacuity built in: the tests assert BOTH ends of the valid interval (0 and MAX_PLAYERS-1) still pass, so the range check cannot degenerate into rejecting everything. The peerId asymmetry is pinned by its own case so it reads as a decision rather than an oversight. Confirmed no existing fixture relied on the loose validator - the full suite was green before the new tests were added.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
-          "needle": "export const PEER_DROP_FORFEIT_TICKS"
+          "path": "src/net/protocol.ts",
+          "needle": "if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= MAX_PLAYERS) return false;"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
-          "needle": "isSeatOffline?: (seat: PlayerId) => boolean"
+          "path": "src/net/protocol.ts",
+          "needle": "if (new Set(seats).size !== seats.length) return false;"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
-          "needle": "isSeatOffline === undefined ? living : living.filter"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
-          "needle": "PEER_DROP_FORFEIT_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\elimination.test.ts",
-          "needle": "an absent peer stops blocking the last-one-standing win"
+          "path": "src/net/protocol.test.ts",
+          "needle": "rejects a roster where two entries claim the SAME seat"
         }
       ]
     },
     {
       "id": "P5",
-      "title": "Hunt lanes 2 (dead ends) + 4 (doc/claim drift) BY HAND - never ran in S161",
+      "title": "The dead-code sweep - godlyCooldown, teardownCastleBanks, nonet sfx, 2 constants, wall docblocks",
       "status": "completed",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P5 VERIFIED. Lanes 2 and 4 (the two S161 never finished) were dispatched as ONE small workflow; both FIND agents completed, then 9 of the VERIFY agents died on the org monthly spend limit. Per the CLAUDE.md rule that a hunt returning nothing is not a completed hunt, ALL NINE unverified findings were then hand-verified in this session with direct greps against the tree, and every one CONFIRMED. Doc drift then FIXED: SPARK_RACES_SPEC.md (status line, the six-row art column, W1-C's already-spent PROTOCOL 39->40, and the whole B2 section that read 'SEAT ELIMINATION DOES NOT EXIST' a day after it shipped), boot-snapshot.md (items 7/8/9 + a SUPERSEDED header), README.md (739 tests/41 files -> 3621/231, 'six players' -> four against MAX_PLAYERS=4, wrong typecheck+build commands, and five stale tech-table versions), LOCKED_DECISIONS.md (the bundle charter's one NORMATIVE sentence said 750 KiB while its own heading, the S145 paragraph and CAP_KIB all said 900).",
+      "checkpoint_commit": "96f248851c4b1c96f0e59fb3431c0b7bd1450206",
+      "check_method": "P5 CHECK. Gates read directly: typecheck 0; vitest 0 = 3640/3640 across 232 files; build 0 = 780.0/900 KiB. TEST-COUNT ARITHMETIC RECONCILED EXACTLY rather than merely observed green: 3645 minus 4 (godlyCooldown.test.ts) minus 1 (solveArpeggio describe) = 3640, and 233 minus 1 file = 232. A count that did not reconcile would mean a deletion took something unintended with it. FIELD REMOVAL NOT DRIVEN OFF tsc: 4 of the 17 sites are compiler-invisible (a spread in save.ts, three as-never fixtures in sparkLifecycle.test.ts, e2e/nplayer.spec.ts outside tsconfig) - the clause was grepped to ZERO and the only surviving hits are my own gravestone comments. PROCESS DEFECT FOUND AND RECORDED: git rm staged the two module deletions immediately, so P4 committed them under a message that does not mention them; 1cde428 nonetheless builds and its deploy concluded success, so pushed history was left alone and the misattribution is documented in the P5 message and here.",
       "verification": [
         {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "RACE_ZONES_AND_BOSS_TOWERS.md"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "THE OWNER'S ART-DIRECTION BRIEF, 2026-09-03"
+          "type": "file_lacks",
+          "path": "src/game/player.ts",
+          "needle": "godlyCooldownEndsAtTick"
         },
         {
           "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
-          "needle": "739 tests across 41 files"
+          "path": "src/state/save.ts",
+          "needle": "godlyCooldownEndsAtTick"
         },
         {
           "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
-          "needle": "Up to six players"
+          "path": "src/constants.ts",
+          "needle": "COLLISION_ITERATIONS"
         },
         {
           "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
-          "needle": "6-player FFA"
+          "path": "src/state/castleBank.ts",
+          "needle": "export function teardownCastleBanks"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
-          "needle": "3627 tests across 231 files"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\LOCKED_DECISIONS.md",
-          "needle": "must stay **≤ 750 KiB raw**"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
-          "needle": "NOT IMPLEMENTED · ready to execute"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
-          "needle": "PROTOCOL 40 → 41"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
-          "needle": "SEAT ELIMINATION DOES NOT EXIST. ONE CASTLE AT 0 HP"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.handoff-archive\\HANDOFF_2026-09-04_S162.md",
-          "needle": "Doc drift repaired across `SPARK_RACES_SPEC.md`, `boot-snapshot.md`"
+          "path": "src/render/wallRenderer.ts",
+          "needle": "The clamp has no sim consumer"
         }
-      ]
+      ],
+      "process_defect_s163": "git rm + explicit git add do not compose: git commit commits the INDEX. P4 (1cde428) swept in P5 deletions. Builds clean, deploy success, history left alone after push."
     },
     {
       "id": "P6",
-      "title": "Remaining findings OF-4..OF-11 triaged",
+      "title": "Three tests that prove less than they claim",
       "status": "completed",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P6 VERIFIED. OF-6 CONFIRMED and FIXED: raceMotifs' three switches over RaceId are void with no default and no never-assertion, so a seventh race compiled clean and drew no roofline, no gatherer mark and no shot VFX. Same defect found and fixed in sparkGlyph.ts for SparkType. PROVED NON-VACUOUS: temporarily widening RaceId with a 7th member made tsc fail at raceMotifs.ts 157/260/362 - the three new guards - alongside the pre-existing Record errors; those three lines did not appear before. races.ts restored and typecheck re-run at 0. OF-8 CONFIRMED and GATED (not merely re-worded): markFallenSeats was documented HOST-ONLY in three docblocks and gated in none, and tickGameState runs on every peer. Now gated on world.isHost, which is SAFE because isHost defaults true (solo + vs-bots untouched) and eliminatedAtTick rides the wire additive-optional - it is the field that earned the 39->40 bump - so a joiner receives the host's authoritative stamp. 2 new tests. CF-S161-a closed as RULED by the owner (a fallen seat's board keeps fighting), which also closes OF-3 as intentional: the castle gun is silent because the castle is destroyed.",
+      "checkpoint_commit": "61bcbabe3b297ec77da50e59bb53982d1fde322f",
+      "check_method": "P6 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 232 files; build 0 = 780.0/900 KiB. THE FINDING OF THIS PRIORITY IS THAT MY OWN FIX WAS UNPROVEN: mutating the new rostersEqual raceId comparison to  left the ENTIRE suite green at 3641/3641, because no existing case held colour fixed while changing race - injectivity hid it. Added lobbyStateMachine.test.ts case that does exactly that, plus a same-content control; re-running the mutation now fails exactly that one case (1 failed / 57 passed) and nothing else. Restored, zero MUTATION markers remain. The iceConfig vacuity fix carries expect.hasAssertions() so the zero-assertion pass cannot recur. The raceClaim symmetry case now passes the imported selfId and has an anti-vacuity companion.",
       "verification": [
         {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\raceMotifs.ts",
-          "pattern": "const unhandled: never",
-          "op": "==",
-          "value": 3
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\sparkGlyph.ts",
-          "pattern": "const unhandled: never",
-          "op": "==",
-          "value": 1
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "a[i].raceId !== b[i].raceId"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
-          "needle": "if (world.isHost) markFallenSeats(world);"
+          "path": "src/net/iceConfig.test.ts",
+          "needle": "expect.hasAssertions();"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
-          "needle": "- 'scripts/**'"
+          "path": "src/net/raceClaim.test.ts",
+          "needle": "expect(raceIsFree(s, 'zombies', selfId)).toBe(false);"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.ts",
-          "needle": "if (isEliminated(me)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.test.ts",
-          "needle": "an ELIMINATED bot parks too"
+          "path": "src/state/races.test.ts",
+          "needle": "the six RACE_COLORS are DISTINCT"
         }
       ]
     },
     {
       "id": "P7",
-      "title": "Landing proof - 5 gates by direct exit code, Rule 22 audit, deploy verified, /handoff",
+      "title": "e2e.yml push trigger for the gating lane",
       "status": "completed",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P7 LANDING PROOF. Three commits shipped and each deploy verified 4/4 with RELAY IS SHIPPED: 7241473 (P0+P1), 9703a7a (P2-P4) + 4ae9b1a cleanup, f8607fd (P5+P6). CI concluded success on each; no cancelled runs. Gates at close, every exit code read DIRECTLY and never through a pipe: typecheck 0, vitest 3621/3621 across 231 files, e2e:gating SHELL_EXIT 0 with 62 passed and no E2E_EXIT line, build 779.0/900 KiB under charter. RULE 22 RUNTIME AUDIT: reloaded the LIVE site, zero console errors, live asset index-Czy5Epzb.js matches verify-deploy, and the P0 repair is provably present IN THE SHIPPED BUNDLE (parseTurnConfig prose, the ICE scheme validation and the TURN_CONFIG_NOTE string all found), with the raw secrets still wrapped - so the runtime repair is what is carrying multiplayer.",
+      "checkpoint_commit": "f437e81d5e3617cdbff74f72b83b4a68e337b31a",
+      "check_method": "P7 CHECK. Gates: typecheck 0; vitest 0 = 3645/3645 across 233 files. YAML validated by PARSING it (python yaml.safe_load), not by eyeballing: 4 triggers, push branches [master], 11 path entries, concurrency expression intact, all 5 jobs present. RUNTIME PROOF, the only proof that counts for a CI trigger and one a static parse cannot give: pushing this very commit FIRED run 33920970225 with event=push on master - the first push-triggered e2e run in this repo since S110 removed the trigger. MUTATION PROOF on the hazard: re-arming cancel-in-progress to an unconditional true fails exactly the guard case (1 failed / 2 passed); restored and re-verified. Both stale header blocks were corrected in the same commit because this edit falsified them.",
       "verification": [
         {
-          "type": "json_field",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
-          "key": "gates_at_close_s162.typecheck_exit",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "json_field",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
-          "key": "checkpoint_commit",
-          "op": "!=",
-          "value": ""
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "refs/heads/master"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans\\2026-09-03_PDR_S162_BATCH.md",
-          "needle": "A.0 STATE-DISCOVERY"
+          "path": ".github/workflows/e2e.yml",
+          "needle": "branches: [master]"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\RACE_ZONES_AND_BOSS_TOWERS.md",
-          "needle": "THE ONE COLLISION I FOUND"
+          "path": "src/ci.e2eTriggers.test.ts",
+          "needle": "re-arms the silent-cancel hazard"
+        }
+      ],
+      "runtime_proof": "gh run 33920970225 - E2E (2-browser harness), event=push, master, triggered by f437e81. Conclusion audited before session close."
+    },
+    {
+      "id": "P8",
+      "title": "Send-before-repaint swap + markFallenSeats stale docblock",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "a8783ba8c91c5faecb3217b1f6b08738e907bbe3",
+      "check_method": "P8 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files. The send/repaint swap is behaviour-neutral on the happy path by construction (same roster object, synchronous local call, no peer response can race it) and the full suite confirms zero movement. Its VALUE is structural: the unconditional repaint is no longer downstream of a network call, so the docblock claim that onPresence always runs is now true by shape rather than by nothing-throws. The elimination.ts change is a comment correction only - the return ordering is genuinely used by nothing today, and the note now says so while recording why the ordering is kept.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "REPAINT FIRST, THEN SEND"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "no production site consumes the return value"
         }
       ]
     }
   ],
   "reflexion_entries_to_archive": [
-    {
-      "priority": "P0",
-      "lesson": "A WATCHDOG THAT SHARES THE WATCHED CODE’S BLIND SPOT IS NOT A WATCHDOG. turn-wiring-report.mjs existed specifically to catch a silent TURN misconfiguration and printed \"RELAY WILL BE SHIPPED\" for a build whose ICE config threw — because it asked \"is it set\" (v.trim()!==''), the same insufficient question as the code. When writing a guard, ask what QUESTION it asks, not whether it exists."
-    },
-    {
-      "priority": "P0",
-      "lesson": "READ THE ERROR TEXT LITERALLY. The screenshot quoted 'urls: \"turn:...\"' and the UI blamed a browser extension. Chrome quotes the WHOLE offending token, so the token itself was a JS object-literal fragment — the root cause was legible in the owner’s first message. The same-LAN failure was the tell: host candidates need no STUN and no TURN, so a failure there means CONSTRUCTION, not routing."
-    },
-    {
-      "priority": "P0",
-      "lesson": "DEGRADE, NEVER THROW, ON OPERATOR INPUT. A dead TURN server costs the hostile-NAT pairs; a MALFORMED one costs everybody, because new RTCPeerConnection rejects the whole config synchronously. Config parsed from a human paste must be validated and repaired, and must fall back to the last known-good posture (STUN-only) rather than propagating a value that can throw."
-    },
-    {
-      "priority": "P1",
-      "lesson": "A GUARD ON A HANDLE IS NOT A GUARD ON THE INTENT. onPickRace skipped the whole presence rebuild behind `session.netTransport !== null`, so the local repaint — which needs no transport at all — was lost together with the wire send. Split the two: make only the part that genuinely needs the resource conditional."
-    },
-    {
-      "priority": "P1",
-      "lesson": "MY OWN TEST CAUGHT MY OWN WRONG ASSUMPTION, AND THE CODE WAS RIGHT. Asserting seat 0 falls back to defaultRaceForSeat exposed that rosterEntryFor deliberately OMITS raceId when unclaimed (the §15.6 byte-identity contract) while always carrying the effective colour. Read the docblock before \"fixing\" a surprise."
-    },
-    {
-      "priority": "P2",
-      "lesson": "AN INHERITED FINDING IS A LEAD, NOT A VERDICT. OF-1 claimed BOTH the lobby taken-set and raceIsFree were wrong. lobbyStateMachine lines 374/393 already default-fill raceId on both paths, so the picker was correct and only the host-side wire authority was not — which also drops the severity from \"two crimson castles in normal play\" to \"reachable only off-UI\". Verify the claim before writing the fix it asks for."
-    },
-    {
-      "priority": "P0",
-      "lesson": "I OVERWROTE session-state.json’s `priorities` array (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) without reading the target first, and only caught it from a -404 line diffstat just before committing. Recovered verbatim from `git show HEAD:.claude/session-state.json`. Look at what you are about to overwrite, especially in an append-only ledger."
-    },
-    {
-      "priority": "P0",
-      "lesson": "AN UNQUOTED HEREDOC RAN MY PROSE AS SHELL. Writing these very entries with `<<PYEOF` instead of `<<'PYEOF'` made bash treat every backtick span in the lesson text as a command substitution: three commands failed with \"command not found\" and their EMPTY output was spliced into the Python source, silently deleting words from two entries. Caught only because the project rule says every non-zero exit is a finding until ruled benign — it was not benign, it was data loss. ⛔ Quote the heredoc unless a variable genuinely needs expanding; if one does, pass it via argv or an env var rather than unquoting the whole document."
-    },
-    {
-      "priority": "P3",
-      "lesson": "A CHILD THAT MOUNTS INSIDE A PARENT CONTAINER STILL NEEDS ITS OWN TEARDOWN. Hiding the parent hid the picker visually but left its own visible flag true, so it was already open the next time the parent appeared. \"It is inside the container so setVisible takes it down\" was true of the pixels and false of the state."
-    },
-    {
-      "priority": "P4",
-      "lesson": "PUT THE DECISION WHERE THE KNOWLEDGE ALREADY IS. The tempting fix for OF-2 was a synced offlineSinceTick on Player (four sites plus a protocol bump) to ship the host a fact it already had, for a peer that only needs the CONCLUSION. An optional host-only predicate cost one parameter and left the client path byte-identical, which is also what keeps it determinism-safe."
-    },
-    {
-      "priority": "P4",
-      "lesson": "WHEN A FIX COULD INVENT A GAME RULE, STOP AND FILE IT. Deriving fallenCount from contenders instead of living would have ended a 1v1 the moment the opponent blinked. That is abandonment, a design decision rather than a bug fix, so the guard stays and the question goes to the owner."
-    },
-    {
-      "priority": "P5",
-      "lesson": "THE HUNT FAILED THE SAME WAY AS S161 AND IT DID NOT MATTER, BECAUSE THE RULE WAS FOLLOWED. Nine verify agents died on a spend limit. S161 recorded 'the sweep produced nothing' and wrote its handoff; S162 hand-verified all nine orphaned findings with greps and confirmed every one. The delegated run is an accelerator, and the fallback is the deliverable."
-    },
-    {
-      "priority": "P5",
-      "lesson": "DOC DRIFT IS NOT COSMETIC WHEN THE DOC IS THE PLAN. SPARK_RACES_SPEC.md's W1-C line said 'PROTOCOL 39 -> 40' when 40 was already spent, so a session executing it verbatim would have written 40 over 40 - and protocol.test.ts's expect(...).toBe(40) would still have PASSED, making the skipped bump invisible. A stale number in a spec can defeat the test written to catch that exact mistake."
-    },
-    {
-      "priority": "P6",
-      "lesson": "PROVE A GUARD BY BREAKING THE THING IT GUARDS. Adding a `never` arm and seeing tsc stay at 0 proves nothing. Temporarily widening RaceId to seven members and watching tsc fail at exactly the three new lines is the proof - and it also showed WHY the existing Record backstops were not enough: they say 'add a colour', not 'add a motif'."
-    },
-    {
-      "priority": "P6",
-      "lesson": "PREFER MAKING A COMMENT TRUE TO MAKING IT ACCURATE. Three docblocks said markFallenSeats was HOST-ONLY and nothing enforced it. Rewriting them to describe the leak was the cheap option; gating on world.isHost cost one line and made the original claim correct, once I had checked that isHost defaults true and the field crosses the wire."
-    },
-    {
-      "priority": "P5",
-      "lesson": "SUBAGENTS SHARE MY WORKING TREE. A verifier's scratch test (src/render/zz_refute_tmp.test.ts) was swept into a commit by `git add -A` and then deleted by the agent afterwards. Read git status before committing while agents are live, or stage explicitly."
-    },
-    {
-      "priority": "P6",
-      "lesson": "A CI PATHS ALLOWLIST MUST INCLUDE EVERYTHING THE JOB EXECUTES, NOT JUST WHAT IT BUILDS. deploy.yml listed src/ and public/ but not scripts/, while the job itself runs node scripts/turn-wiring-report.mjs and the build ends in node scripts/check-bundle-size.mjs. So the one edit this project is instructed to make under deploy pressure - raising the bundle charter - would have queued no run at all, and the author would have sat waiting on a deploy that never existed."
-    },
-    {
-      "priority": "P6",
-      "lesson": "THE CHEAPEST LANE PAID AGAIN. OF-11 was filed as \"may have a cross-colour hole, cheap to check\". Two greps closed it: the territory hard-block minimum radius (72px) is strictly larger than AUTO_BOND_RADIUS (60px), and constants.ts had already written that argument down in S51. Reading the constant beat reasoning about the mechanic."
-    },
-    {
-      "priority": "P7",
-      "lesson": "THE MCV STOP HOOK CAUGHT A CLAIM I HAD JUST WRITTEN MYSELF. Authoring verification[] bindings is not bookkeeping - the act of writing a machine-checkable assertion is what surfaced that README said 3619 tests while the suite had grown to 3622, a drift I introduced DURING the very priority that was fixing drift. Write the binding, then RUN the verifier and require exit 0; prose in check_method proves nothing."
-    },
-    {
-      "priority": "P7",
-      "lesson": "A PUSH IS NOT A DEPLOY, AND I WALKED AWAY FROM ONE. I pushed 9703a7a and moved to the next priority without reading its conclusion; the run FAILED. A workflow agent had written a scratch test into my tree between my last typecheck and my commit, git add -A swept it in, and it broke tsc on noUnusedLocals - so a subagent side effect broke a DEPLOY, not just a commit. It self-healed two minutes later, which is exactly why it stayed invisible. Two rules, both already written down and both ignored in the same minute: audit run CONCLUSIONS, and stage explicitly while agents are live."
-    },
-    {
-      "priority": "POST-AUDIT",
-      "lesson": "THE AUDIT FOUND MORE IN MY SAME-DAY WORK THAN I HAD FOUND IN THE INHERITED WORK. Five lanes over S161+S162 surfaced three defects inside the P0 TURN fix alone - a template-literal `\\s` that silently disabled the whitespace class, a bracket strip that corrupted valid IPv6 into a throwing url, and a 'validator' that was a punctuation filter. Fresh code is not safer code; it is merely less examined."
-    },
-    {
-      "priority": "POST-AUDIT",
-      "lesson": "I WROTE A TEST THAT PINNED A BUG AS INTENDED BEHAVIOUR. The zero-contender branch crowned an ELIMINATED host, and my own case asserted `lastWinnerId` was that host, complete with a confident comment explaining why. A test is only evidence if its EXPECTATION was reasoned about separately from the code; writing both in one motion just records what the code does."
-    },
-    {
-      "priority": "POST-AUDIT",
-      "lesson": "AN ORACLE COPIED FROM THE IMPLEMENTATION PROVES NOTHING. The ICE invariant test mirrored ICE_URL_RE byte-for-byte and even said 'mirrored here so the test is not the code' - it WAS the code, and five throwing urls passed it. Replaced with a hand-written census of what a browser actually accepts."
-    },
-    {
-      "priority": "POST-AUDIT",
-      "lesson": "A POINT FIX ON A SHARED PREDICATE LEAVES THE OTHER CALLERS BROKEN. S161 fixed the drone's sever against the OR in isEnemyBond but not the selector both the drone and the chewer share - so the owner's own bug (my creature destroyed my tower) stayed live through the chewer for a whole session. Fix the predicate, or enumerate its callers; never just the one that was reported."
-    },
-    {
-      "priority": "P7",
-      "lesson": "I BOUND A CLAIM TO boot-snapshot.md FOR THE THIRD TIME IN THIS PROJECT, AND IT BROKE AT CLOSE FOR THE THIRD TIME. The /handoff protocol REGENERATES that file from scratch at STEP 2.95, so a needle placed in it is guaranteed to vanish. The lesson was already in the reflexion log - I appended it to the log MYSELF an hour before authoring the binding. Reading a lesson, re-filing it, and then repeating it in the same session is the pattern to break. ⛔ THE STRUCTURAL RULE: before writing any verification binding, ask WHAT REGENERATES THE TARGET. Ephemeral (boot-snapshot.md, .claude/plans/, BACKLOG status blocks, root HANDOFF_*.md) vs durable (src/, LOCKED_DECISIONS.md, .handoff-archive/, git history). Bind only to the durable set. Rebound to the ARCHIVED handoff, which is tracked and never regenerated."
-    }
+    "S163 P1 - A GUARD EVALUATED AT THE TOP OF A FUNCTION AND CLEARED AT THE BOTTOM IS NOT A GUARD. The witness rule read peerAbsentSinceTick a thousand lines before the sweep that clears it, so the instant a partition HEALED the stamps were still stale and the host crowned itself on the very tick its opponents returned - t+20s became t+heal, which is worse. My mutation test passed because it only ever ran ONE tick. State that spans ticks needs a test that spans ticks.",
+    "S163 P1 - I GOT THE ARITHMETIC WRONG IN THE DIRECTION THAT WOULD HAVE CHANGED THE FIX. I read the peers promotion deadline off HOST_STARVATION_MS (6s) and concluded they were safely 11-14s ahead of the 20s forfeit. Promotion is actually RECONNECT_GRACE_MS + rank*CLAIM_LADDER_MS = 15-18s, a 2-5s margin. Had I not re-derived it from the call site, the belief that the peers always win the race would have justified doing nothing at all.",
+    "S163 P5 - git rm STAGES IMMEDIATELY, AND git commit COMMITS THE INDEX, NOT THE PATHS YOU JUST ADDED. P4 silently shipped two P5 deletions under a message that does not mention them. It built and deployed green, so nothing caught it but a diffstat that did not match what I had staged. Stage removals last, or commit with explicit pathspecs.",
+    "S163 P6 - MY OWN FIX WAS UNPROVEN AND ONLY MUTATION SHOWED IT. Stubbing out the new rostersEqual raceId comparison left the ENTIRE suite green at 3641/3641: no case held colour fixed while moving race, because RACE_COLORS being injective hid it. A green suite after a fix is not evidence the fix does anything.",
+    "S163 CHECK - THE AUDIT FOUND MORE IN TODAY WORK THAN TODAY WORK FOUND IN THE INHERITED WORK, for the second session running. Three lanes over my own eight commits returned a HIGH inside the flagship fix and fourteen overstated claims. Fresh code is not safer code; it is merely less examined - and the author is the worst-placed person to notice.",
+    "S163 CHECK - TWO FAILED ATTEMPTS TO RESTORE A TEST WERE THE ANSWER, NOT AN OBSTACLE. Trying to make the over-cap roster case meaningful failed twice, and the second failure proved WHY: range + uniqueness make an over-cap roster impossible by pigeonhole, so the length bound is subsumed and cannot be independently pinned. Writing that down beats a third attempt at a test that cannot exist.",
+    "S163 CHECK - A REORDER IS NOT AN ISOLATION. Swapping send-before-repaint to repaint-before-send removed one throw path and created its mirror: the Pixi repaint can throw too, and it would then have swallowed the whole room broadcast instead of one local rack. Removing the only way this can break is a claim to be suspicious of; two try/catches were what the invariant actually needed.",
+    "S163 CHECK - I ASSERTED A PLATFORM BEHAVIOUR I HAD NOT CHECKED. Claiming that cancel-in-progress false means runs queue and every one reports is not what GitHub does - a newly-queued run still cancels a PENDING one in the same group, so the silent-cancel hazard P7 existed to kill survived P7. The fix was a per-commit group; the lesson is that a CI claim needs the vendor semantics, not the flag name.",
+    "S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -5616,5 +5434,532 @@
       "Lane2-F7/F8, Lane1-#3 (TURN_CONFIG_NOTE has no reachable UI path on the SUCCESS branch), Lane1-#6 (the shipped-constants tests are vacuous with no .env), Lane1-#8/#9 (send-before-repaint ordering; rostersEqual does not compare raceId, so race repaint depends on RACE_COLORS being injective), Lane3-F4..F7 (drone target asymmetry, a stale 'unconditional' comment, actorEliminated never reset, raidPoints not reset on rematch for seat 0).",
       "Lane1-#7: a justification I wrote in two places is FALSE - `joinRoom` throwing does NOT prevent `session.netTransport` being assigned (the assignment precedes connect(), and transport.ts wraps joinFn in try). The P1 FIX IS STILL CORRECT and the repaint is real, but the stated root cause is wrong; the true live mechanism is the ghost claim (F3), now fixed. Comments to correct next session."
     ]
-  }
+  },
+  "priorities_s162_archived": [
+    {
+      "id": "P0",
+      "title": "TURN config sanitise+validate - end the live outage (RTCPeerConnection threw at construction)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
+      "check_method": "P0 VERIFIED LIVE IN A REAL BROWSER against https://spark-online.space after deploy. (1) live console printed \"[net] TURN configuration: the TURN settings looked pasted from a provider dashboard ... unwrapped automatically\" -> the shipped repair path executed. (2) reconstructed the OLD config in-page: threw SyntaxError verbatim matching the owner screenshot. (3) repaired config: CONSTRUCTED OK, gathered host:1 srflx:1 RELAY:1, iceErrors []. relay>0 is the FIRST working TURN relay measured in this project (S157 measured relay:0). (4) the real TEST CONNECTION button now reports \"Connection test passed - you can play with anyone / Found 1 relay route\". Gates: typecheck 0, vitest 3608/3608, e2e:gating 62 passed exit 0, build 778.6/900 KiB, verify-deploy PASS 4/4 with RELAY IS SHIPPED.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "export function parseTurnConfig"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "pattern": "ICE_URL_RE\\.test",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.ts",
+          "needle": "export const TURN_CONFIG_NOTE"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceConfig.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 15
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
+          "needle": "ALL THREE SECRETS ARE SET BUT NO RELAY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\scripts\\turn-wiring-report.mjs",
+          "needle": "unwrapPastedSecret"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\TURN_SETUP.md",
+          "needle": "The shape of the values"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "TURN_CONFIG_NOTE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\iceProbe.ts",
+          "needle": "RTCPeerConnection refused the ICE configuration"
+        }
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "Race pick does not repaint - host presence rebuild with no transport",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "7241473ca87c26e07bd6f73a164e76ba05987262",
+      "check_method": "P1 VERIFIED LIVE: hosted room JLJPG8 on the deployed site, clicked the own-seat tile, picked DEMONS. Tile changed from \"P1 HOST (VAMPIRES)\" (crimson art) to \"P1 HOST (DEMONS)\" (magenta art), picker closed, and re-opening the picker showed DEMONS as YOURS -> the pick persisted through the roster path. 4 new unit tests in raceClaim.test.ts cover null-transport repaint, no seat-map wipe, the unclaimed raceId/color asymmetry, and unchanged wire behaviour with a transport.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
+          "needle": "transport: NetTransport | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\quickmatchGate.ts",
+          "needle": "if (transport !== null) transport.send"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "broadcastQmPresence\\(session, session\\.netTransport, onPresence\\)",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
+          "needle": "broadcastQmPresence repaints locally with no transport"
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "OF-1 two seats can hold the same race+colour (7 recipe resolvers identify owners by colour)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P2 (OF-1) VERIFIED: raceIsFree now judges EFFECTIVE races (claimed ?? defaultRaceForSeat(seat)) for the host seat and every seated peer, plus a pre-reconcile raceByPeer pass. 5 new/rewritten cases in raceClaim.test.ts (20 pass). THE INHERITED FINDING WAS HALF WRONG: lobbyView already default-fills raceId on BOTH paths (lobbyStateMachine 374 roster + 393 count-fallback), so the picker greyed correctly all along and only the host wire authority was defective, dropping the exposure from \"normal play\" to \"a CLAIM_RACE that bypasses the UI\". Rewrote the case S161 reddened (\"every race is free in an empty lobby\"), whose meaning had to change because the fix is exactly that seat 0 occupies its default.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "pattern": "defaultRaceForSeat",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "needle": "session.raceByPeer.get(peer) ?? defaultRaceForSeat(seat)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\raceClaim.test.ts",
+          "needle": "a JOINER may take any race EXCEPT the host seat default"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\hostHandlers.ts",
+          "needle": "if (session.selfRace === raceId) return false; // the host holds it"
+        }
+      ],
+      "checkpoint_commit": "9703a7ad69f66a032a1766f2e872a3aaf2aeda56",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    },
+    {
+      "id": "P3",
+      "title": "MED-3 picker reappears over the lobby - close() in setVisible(false)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P3 (MED-3) VERIFIED: setVisible(false) closes the race picker in BOTH lobbyScreen and botSetupOverlay. Reachable with no user action: main.ts calls setVisible(showLobby) every frame, so a quickmatch auto-begin/migration/connection-loss hides the lobby with the menu up. ALSO closed CF-S161-d (keyboard escape): Escape now closes the picker in the lobby, and in the bot overlay it closes the INNERMOST modal first (one listener, so the outcome cannot depend on registration order). Confirmed live that Escape previously did nothing and the scrim swallows every click, so the menu had no keyboard exit whatsoever.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
+          "needle": "if (!visible) this.racePicker.close();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
+          "needle": "if (!visible) this.racePicker.close();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\botSetupOverlay.ts",
+          "needle": "if (this.racePicker.isOpen()) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\lobbyScreen.ts",
+          "needle": "this.racePicker.isOpen()) this.racePicker.close()"
+        }
+      ],
+      "checkpoint_commit": "9703a7ad69f66a032a1766f2e872a3aaf2aeda56",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    },
+    {
+      "id": "P4",
+      "title": "OF-2 a dropped peer intact castle blocks the last-one-standing win",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P4 (OF-2) VERIFIED: tickGameState takes an OPTIONAL host-only isSeatOffline predicate; a seat absent past the new PEER_DROP_FORFEIT_TICKS (20s, MY number, reasoned at the constant) is subtracted from the win CONTENDERS while staying in livingSeats. No new serialized field and NO protocol bump: absence is host knowledge and the client already takes the authoritative WIN edge from snapshots (main.ts:2196). fallenCount stays derived from living, so an absence alone never ends a match; abandonment is a separate unruled rule, filed. 7 new cases in elimination.test.ts (40 pass), including an anti-vacuity case that flips which seat vanished and one pinning that a disconnected seat can never WIN.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\constants.ts",
+          "needle": "export const PEER_DROP_FORFEIT_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "isSeatOffline?: (seat: PlayerId) => boolean"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "isSeatOffline === undefined ? living : living.filter"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\hostTick.ts",
+          "needle": "PEER_DROP_FORFEIT_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\elimination.test.ts",
+          "needle": "an absent peer stops blocking the last-one-standing win"
+        }
+      ],
+      "checkpoint_commit": "9703a7ad69f66a032a1766f2e872a3aaf2aeda56",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    },
+    {
+      "id": "P5",
+      "title": "Hunt lanes 2 (dead ends) + 4 (doc/claim drift) BY HAND - never ran in S161",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P5 VERIFIED. Lanes 2 and 4 (the two S161 never finished) were dispatched as ONE small workflow; both FIND agents completed, then 9 of the VERIFY agents died on the org monthly spend limit. Per the CLAUDE.md rule that a hunt returning nothing is not a completed hunt, ALL NINE unverified findings were then hand-verified in this session with direct greps against the tree, and every one CONFIRMED. Doc drift then FIXED: SPARK_RACES_SPEC.md (status line, the six-row art column, W1-C's already-spent PROTOCOL 39->40, and the whole B2 section that read 'SEAT ELIMINATION DOES NOT EXIST' a day after it shipped), boot-snapshot.md (items 7/8/9 + a SUPERSEDED header), README.md (739 tests/41 files -> 3621/231, 'six players' -> four against MAX_PLAYERS=4, wrong typecheck+build commands, and five stale tech-table versions), LOCKED_DECISIONS.md (the bundle charter's one NORMATIVE sentence said 750 KiB while its own heading, the S145 paragraph and CAP_KIB all said 900).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "RACE_ZONES_AND_BOSS_TOWERS.md"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "THE OWNER'S ART-DIRECTION BRIEF, 2026-09-03"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "739 tests across 41 files"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "Up to six players"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "6-player FFA"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\README.md",
+          "needle": "3627 tests across 231 files"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\LOCKED_DECISIONS.md",
+          "needle": "must stay **≤ 750 KiB raw**"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "NOT IMPLEMENTED · ready to execute"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "PROTOCOL 40 → 41"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\SPARK_RACES_SPEC.md",
+          "needle": "SEAT ELIMINATION DOES NOT EXIST. ONE CASTLE AT 0 HP"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.handoff-archive\\HANDOFF_2026-09-04_S162.md",
+          "needle": "Doc drift repaired across `SPARK_RACES_SPEC.md`, `boot-snapshot.md`"
+        }
+      ],
+      "checkpoint_commit": "f8607fd0e3a7c506ba14d675e235cd94887358eb",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    },
+    {
+      "id": "P6",
+      "title": "Remaining findings OF-4..OF-11 triaged",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P6 VERIFIED. OF-6 CONFIRMED and FIXED: raceMotifs' three switches over RaceId are void with no default and no never-assertion, so a seventh race compiled clean and drew no roofline, no gatherer mark and no shot VFX. Same defect found and fixed in sparkGlyph.ts for SparkType. PROVED NON-VACUOUS: temporarily widening RaceId with a 7th member made tsc fail at raceMotifs.ts 157/260/362 - the three new guards - alongside the pre-existing Record errors; those three lines did not appear before. races.ts restored and typecheck re-run at 0. OF-8 CONFIRMED and GATED (not merely re-worded): markFallenSeats was documented HOST-ONLY in three docblocks and gated in none, and tickGameState runs on every peer. Now gated on world.isHost, which is SAFE because isHost defaults true (solo + vs-bots untouched) and eliminatedAtTick rides the wire additive-optional - it is the field that earned the 39->40 bump - so a joiner receives the host's authoritative stamp. 2 new tests. CF-S161-a closed as RULED by the owner (a fallen seat's board keeps fighting), which also closes OF-3 as intentional: the castle gun is silent because the castle is destroyed.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\raceMotifs.ts",
+          "pattern": "const unhandled: never",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\sparkGlyph.ts",
+          "pattern": "const unhandled: never",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\gameState.ts",
+          "needle": "if (world.isHost) markFallenSeats(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.github\\workflows\\deploy.yml",
+          "needle": "- 'scripts/**'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.ts",
+          "needle": "if (isEliminated(me)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\bots\\botController.test.ts",
+          "needle": "an ELIMINATED bot parks too"
+        }
+      ],
+      "checkpoint_commit": "15b714daf0e01cc3a7fb4cae7fd5969d1085e8cf",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    },
+    {
+      "id": "P7",
+      "title": "Landing proof - 5 gates by direct exit code, Rule 22 audit, deploy verified, /handoff",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "P7 LANDING PROOF. Three commits shipped and each deploy verified 4/4 with RELAY IS SHIPPED: 7241473 (P0+P1), 9703a7a (P2-P4) + 4ae9b1a cleanup, f8607fd (P5+P6). CI concluded success on each; no cancelled runs. Gates at close, every exit code read DIRECTLY and never through a pipe: typecheck 0, vitest 3621/3621 across 231 files, e2e:gating SHELL_EXIT 0 with 62 passed and no E2E_EXIT line, build 779.0/900 KiB under charter. RULE 22 RUNTIME AUDIT: reloaded the LIVE site, zero console errors, live asset index-Czy5Epzb.js matches verify-deploy, and the P0 repair is provably present IN THE SHIPPED BUNDLE (parseTurnConfig prose, the ICE scheme validation and the TURN_CONFIG_NOTE string all found), with the raw secrets still wrapped - so the runtime repair is what is carrying multiplayer.",
+      "verification": [
+        {
+          "type": "json_field",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "key": "gates_at_close_s162.typecheck_exit",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "json_field",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\session-state.json",
+          "key": "checkpoint_commit",
+          "op": "!=",
+          "value": ""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\.claude\\plans\\2026-09-03_PDR_S162_BATCH.md",
+          "needle": "A.0 STATE-DISCOVERY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\RACE_ZONES_AND_BOSS_TOWERS.md",
+          "needle": "THE ONE COLLISION I FOUND"
+        }
+      ],
+      "checkpoint_commit": "26c37271535db8b258e3810699de34a1a371f142",
+      "checkpoint_backfilled_s163": "SHA recovered from git log by matching the priority to its landing commit; not invented."
+    }
+  ],
+  "reflexion_s162_archived": [
+    {
+      "priority": "P0",
+      "lesson": "A WATCHDOG THAT SHARES THE WATCHED CODE’S BLIND SPOT IS NOT A WATCHDOG. turn-wiring-report.mjs existed specifically to catch a silent TURN misconfiguration and printed \"RELAY WILL BE SHIPPED\" for a build whose ICE config threw — because it asked \"is it set\" (v.trim()!==''), the same insufficient question as the code. When writing a guard, ask what QUESTION it asks, not whether it exists."
+    },
+    {
+      "priority": "P0",
+      "lesson": "READ THE ERROR TEXT LITERALLY. The screenshot quoted 'urls: \"turn:...\"' and the UI blamed a browser extension. Chrome quotes the WHOLE offending token, so the token itself was a JS object-literal fragment — the root cause was legible in the owner’s first message. The same-LAN failure was the tell: host candidates need no STUN and no TURN, so a failure there means CONSTRUCTION, not routing."
+    },
+    {
+      "priority": "P0",
+      "lesson": "DEGRADE, NEVER THROW, ON OPERATOR INPUT. A dead TURN server costs the hostile-NAT pairs; a MALFORMED one costs everybody, because new RTCPeerConnection rejects the whole config synchronously. Config parsed from a human paste must be validated and repaired, and must fall back to the last known-good posture (STUN-only) rather than propagating a value that can throw."
+    },
+    {
+      "priority": "P1",
+      "lesson": "A GUARD ON A HANDLE IS NOT A GUARD ON THE INTENT. onPickRace skipped the whole presence rebuild behind `session.netTransport !== null`, so the local repaint — which needs no transport at all — was lost together with the wire send. Split the two: make only the part that genuinely needs the resource conditional."
+    },
+    {
+      "priority": "P1",
+      "lesson": "MY OWN TEST CAUGHT MY OWN WRONG ASSUMPTION, AND THE CODE WAS RIGHT. Asserting seat 0 falls back to defaultRaceForSeat exposed that rosterEntryFor deliberately OMITS raceId when unclaimed (the §15.6 byte-identity contract) while always carrying the effective colour. Read the docblock before \"fixing\" a surprise."
+    },
+    {
+      "priority": "P2",
+      "lesson": "AN INHERITED FINDING IS A LEAD, NOT A VERDICT. OF-1 claimed BOTH the lobby taken-set and raceIsFree were wrong. lobbyStateMachine lines 374/393 already default-fill raceId on both paths, so the picker was correct and only the host-side wire authority was not — which also drops the severity from \"two crimson castles in normal play\" to \"reachable only off-UI\". Verify the claim before writing the fix it asks for."
+    },
+    {
+      "priority": "P0",
+      "lesson": "I OVERWROTE session-state.json’s `priorities` array (6 completed S161 entries) and `reflexion_entries_to_archive` (20 entries) without reading the target first, and only caught it from a -404 line diffstat just before committing. Recovered verbatim from `git show HEAD:.claude/session-state.json`. Look at what you are about to overwrite, especially in an append-only ledger."
+    },
+    {
+      "priority": "P0",
+      "lesson": "AN UNQUOTED HEREDOC RAN MY PROSE AS SHELL. Writing these very entries with `<<PYEOF` instead of `<<'PYEOF'` made bash treat every backtick span in the lesson text as a command substitution: three commands failed with \"command not found\" and their EMPTY output was spliced into the Python source, silently deleting words from two entries. Caught only because the project rule says every non-zero exit is a finding until ruled benign — it was not benign, it was data loss. ⛔ Quote the heredoc unless a variable genuinely needs expanding; if one does, pass it via argv or an env var rather than unquoting the whole document."
+    },
+    {
+      "priority": "P3",
+      "lesson": "A CHILD THAT MOUNTS INSIDE A PARENT CONTAINER STILL NEEDS ITS OWN TEARDOWN. Hiding the parent hid the picker visually but left its own visible flag true, so it was already open the next time the parent appeared. \"It is inside the container so setVisible takes it down\" was true of the pixels and false of the state."
+    },
+    {
+      "priority": "P4",
+      "lesson": "PUT THE DECISION WHERE THE KNOWLEDGE ALREADY IS. The tempting fix for OF-2 was a synced offlineSinceTick on Player (four sites plus a protocol bump) to ship the host a fact it already had, for a peer that only needs the CONCLUSION. An optional host-only predicate cost one parameter and left the client path byte-identical, which is also what keeps it determinism-safe."
+    },
+    {
+      "priority": "P4",
+      "lesson": "WHEN A FIX COULD INVENT A GAME RULE, STOP AND FILE IT. Deriving fallenCount from contenders instead of living would have ended a 1v1 the moment the opponent blinked. That is abandonment, a design decision rather than a bug fix, so the guard stays and the question goes to the owner."
+    },
+    {
+      "priority": "P5",
+      "lesson": "THE HUNT FAILED THE SAME WAY AS S161 AND IT DID NOT MATTER, BECAUSE THE RULE WAS FOLLOWED. Nine verify agents died on a spend limit. S161 recorded 'the sweep produced nothing' and wrote its handoff; S162 hand-verified all nine orphaned findings with greps and confirmed every one. The delegated run is an accelerator, and the fallback is the deliverable."
+    },
+    {
+      "priority": "P5",
+      "lesson": "DOC DRIFT IS NOT COSMETIC WHEN THE DOC IS THE PLAN. SPARK_RACES_SPEC.md's W1-C line said 'PROTOCOL 39 -> 40' when 40 was already spent, so a session executing it verbatim would have written 40 over 40 - and protocol.test.ts's expect(...).toBe(40) would still have PASSED, making the skipped bump invisible. A stale number in a spec can defeat the test written to catch that exact mistake."
+    },
+    {
+      "priority": "P6",
+      "lesson": "PROVE A GUARD BY BREAKING THE THING IT GUARDS. Adding a `never` arm and seeing tsc stay at 0 proves nothing. Temporarily widening RaceId to seven members and watching tsc fail at exactly the three new lines is the proof - and it also showed WHY the existing Record backstops were not enough: they say 'add a colour', not 'add a motif'."
+    },
+    {
+      "priority": "P6",
+      "lesson": "PREFER MAKING A COMMENT TRUE TO MAKING IT ACCURATE. Three docblocks said markFallenSeats was HOST-ONLY and nothing enforced it. Rewriting them to describe the leak was the cheap option; gating on world.isHost cost one line and made the original claim correct, once I had checked that isHost defaults true and the field crosses the wire."
+    },
+    {
+      "priority": "P5",
+      "lesson": "SUBAGENTS SHARE MY WORKING TREE. A verifier's scratch test (src/render/zz_refute_tmp.test.ts) was swept into a commit by `git add -A` and then deleted by the agent afterwards. Read git status before committing while agents are live, or stage explicitly."
+    },
+    {
+      "priority": "P6",
+      "lesson": "A CI PATHS ALLOWLIST MUST INCLUDE EVERYTHING THE JOB EXECUTES, NOT JUST WHAT IT BUILDS. deploy.yml listed src/ and public/ but not scripts/, while the job itself runs node scripts/turn-wiring-report.mjs and the build ends in node scripts/check-bundle-size.mjs. So the one edit this project is instructed to make under deploy pressure - raising the bundle charter - would have queued no run at all, and the author would have sat waiting on a deploy that never existed."
+    },
+    {
+      "priority": "P6",
+      "lesson": "THE CHEAPEST LANE PAID AGAIN. OF-11 was filed as \"may have a cross-colour hole, cheap to check\". Two greps closed it: the territory hard-block minimum radius (72px) is strictly larger than AUTO_BOND_RADIUS (60px), and constants.ts had already written that argument down in S51. Reading the constant beat reasoning about the mechanic."
+    },
+    {
+      "priority": "P7",
+      "lesson": "THE MCV STOP HOOK CAUGHT A CLAIM I HAD JUST WRITTEN MYSELF. Authoring verification[] bindings is not bookkeeping - the act of writing a machine-checkable assertion is what surfaced that README said 3619 tests while the suite had grown to 3622, a drift I introduced DURING the very priority that was fixing drift. Write the binding, then RUN the verifier and require exit 0; prose in check_method proves nothing."
+    },
+    {
+      "priority": "P7",
+      "lesson": "A PUSH IS NOT A DEPLOY, AND I WALKED AWAY FROM ONE. I pushed 9703a7a and moved to the next priority without reading its conclusion; the run FAILED. A workflow agent had written a scratch test into my tree between my last typecheck and my commit, git add -A swept it in, and it broke tsc on noUnusedLocals - so a subagent side effect broke a DEPLOY, not just a commit. It self-healed two minutes later, which is exactly why it stayed invisible. Two rules, both already written down and both ignored in the same minute: audit run CONCLUSIONS, and stage explicitly while agents are live."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "THE AUDIT FOUND MORE IN MY SAME-DAY WORK THAN I HAD FOUND IN THE INHERITED WORK. Five lanes over S161+S162 surfaced three defects inside the P0 TURN fix alone - a template-literal `\\s` that silently disabled the whitespace class, a bracket strip that corrupted valid IPv6 into a throwing url, and a 'validator' that was a punctuation filter. Fresh code is not safer code; it is merely less examined."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "I WROTE A TEST THAT PINNED A BUG AS INTENDED BEHAVIOUR. The zero-contender branch crowned an ELIMINATED host, and my own case asserted `lastWinnerId` was that host, complete with a confident comment explaining why. A test is only evidence if its EXPECTATION was reasoned about separately from the code; writing both in one motion just records what the code does."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "AN ORACLE COPIED FROM THE IMPLEMENTATION PROVES NOTHING. The ICE invariant test mirrored ICE_URL_RE byte-for-byte and even said 'mirrored here so the test is not the code' - it WAS the code, and five throwing urls passed it. Replaced with a hand-written census of what a browser actually accepts."
+    },
+    {
+      "priority": "POST-AUDIT",
+      "lesson": "A POINT FIX ON A SHARED PREDICATE LEAVES THE OTHER CALLERS BROKEN. S161 fixed the drone's sever against the OR in isEnemyBond but not the selector both the drone and the chewer share - so the owner's own bug (my creature destroyed my tower) stayed live through the chewer for a whole session. Fix the predicate, or enumerate its callers; never just the one that was reported."
+    },
+    {
+      "priority": "P7",
+      "lesson": "I BOUND A CLAIM TO boot-snapshot.md FOR THE THIRD TIME IN THIS PROJECT, AND IT BROKE AT CLOSE FOR THE THIRD TIME. The /handoff protocol REGENERATES that file from scratch at STEP 2.95, so a needle placed in it is guaranteed to vanish. The lesson was already in the reflexion log - I appended it to the log MYSELF an hour before authoring the binding. Reading a lesson, re-filing it, and then repeating it in the same session is the pattern to break. ⛔ THE STRUCTURAL RULE: before writing any verification binding, ask WHAT REGENERATES THE TARGET. Ephemeral (boot-snapshot.md, .claude/plans/, BACKLOG status blocks, root HANDOFF_*.md) vs durable (src/, LOCKED_DECISIONS.md, .handoff-archive/, git history). Bind only to the durable set. Rebound to the ARCHIVED handoff, which is tracked and never regenerated."
+    }
+  ],
+  "reflexion_s162_archived_count": 25,
+  "owner_approval_s163": {
+    "quote": "i pre approve top priority session batch and full autonomous run! you already know what to do we have a backlog of top predefined priorities. work in the absolute best interests of this project and vision to produce the highest quality of output possible.",
+    "received": "2026-09-04, in-conversation, mid-turn",
+    "scope": "the 8-priority S163 batch in .claude/plans/2026-09-04_PDR_S163_BATCH.md, plus CHECK/ANALYZE and deploy",
+    "do_not_close": "Owner: \"do not close of session when your done i would like to see it in the morning\" - NO /handoff this session."
+  },
+  "deliberation_waiver_s163": "Owner PRE-APPROVED the batch explicitly before execution (user-path). A.0 STATE-DISCOVERY was run in full and is recorded in the PDR; it changed the plan three times (self-crown margin arithmetic, the un-fenced ENDGAME, the isValidRoster root cause). Council rounds not run: the adversarial-verify layer and any further subagents are dead on the org monthly spend limit until 22:30 Europe/Paris, and CLAUDE.md Rule 0 puts finishing the owner-approved work above ceremony. Recorded as a deviation, not skipped silently.",
+  "a0_state_discovery_s163": {
+    "gates": {
+      "typecheck": 0,
+      "vitest": "0 (3627/3627, 231 files)",
+      "build": "0 (779.8/900 KiB)",
+      "verify_deploy": "0 (4/4 at e3ba437)",
+      "probe_relays": "0 (9/9)"
+    },
+    "ci": "last 15 conclusions audited: 14 success, 1 failure = S162 scratch-test break, already investigated",
+    "fanout": "4/4 PROBE lanes completed; 19 of 25 agents died on the org spend limit (whole verify layer). Every load-bearing claim hand-verified in-session per the CLAUDE.md hunt rule.",
+    "new_findings": [
+      "self-crown margin is 0.5-5s not 11-14s (promotion = RECONNECT_GRACE_MS 15s + rank*CLAIM_LADDER_MS, NOT HOST_STARVATION_MS) - corrected my own mid-session arithmetic",
+      "EndGameMsg has NO epoch fence while sync.ts:127 fences NETSNAPSHOT - un-fenced win injection",
+      "isValidRoster never range-checks or de-duplicates seat - the shared root of Lane2-F5 and HAND-3"
+    ],
+    "closed": "CF-S162-c: relays re-measured 9/9, the torrent:1/2 reading was transient."
+  },
+  "do_not_close_s163": "Owner asked to leave the session open to review in the morning. NO /handoff was run. boot-snapshot.md carries an S163-supersedes banner so a future boot is not misled by S162 next-steps.",
+  "gates_at_close_s163": {
+    "typecheck": 0,
+    "vitest": "0 - 3649/3649 across 233 files",
+    "build": "0 - 780.2/900 KiB, headroom 119.8",
+    "e2e_gating": "0 - 62 passed (3.4m)",
+    "verify_deploy": "0 - PASS 4/4 at 588c8070, RELAY SHIPPED",
+    "probe_relays": "0 - 9/9"
+  },
+  "ci_audit_s163": "All 9 S163 deploys concluded SUCCESS. Zero failures, zero cancellations. RUNTIME PROOF FOR P7: e2e run 33920970225, event=push, concluded SUCCESS in 21m - the first push-triggered e2e run in this repo since S110 removed the trigger.",
+  "rule22_audit_s163": "Clean. Two flagged items, both examined and ruled BENIGN with reasons rather than shrugged off: (1) the TURN_CONFIG_NOTE hit is a JS template literal in TS source, not an unrendered env/YAML placeholder; (2) the two missing-file hits are src/state/godlyCooldown.ts and .test.ts, which P5 deliberately DELETED - the checker listed them because git diff --name-only includes deletions.",
+  "check_analyze_s163": {
+    "method": "3-lane adversarial workflow over this session own 8 commits (b75472f..a8783ba). All 3 lanes returned; 25 findings. Every one re-verified by hand before action.",
+    "headline": "THE AUDIT FOUND MORE IN THE SAME-DAY WORK THAN THE SESSION FOUND IN THE INHERITED WORK - the S162 lesson recurring, including a HIGH bug inside P1 own fix.",
+    "fixed": [
+      "A-F1 HIGH - P1 only DEFERRED the self-crown. hasWitness is read at the top of runHostTick; the sweep clearing peerAbsentSinceTick runs ~1000 lines later in the same function, so on the HEAL tick alivePeerIds was repopulated while the stamps were still stale and the host crowned itself exactly when its opponents returned. Predicate now tests present.has(peerId). Two-tick regression test written FIRST and confirmed failing before the fix.",
+      "A-F2/A-F3 MED - the ENDGAME fence CANNOT FIRE (hostPeerId and currentEpoch are always written together, so hostAuthFilter drops first). Kept as one-line defence-in-depth; every claim corrected, including that it is NOT the sync.ts gate (that reads ClientSync own epoch, which advances passively from snapshots).",
+      "C6 MED - P8 reorder swapped one violation path for its mirror: onPresence is a Pixi repaint that can throw, which would have swallowed the whole room broadcast. Both halves now independently wrapped.",
+      "C5 MED - P7 concurrency claim was wrong about GitHub: a newly-queued run cancels a PENDING one in the same group, so bursts still produced a silent cancelled. Group is now per-commit for pushes.",
+      "B2 MED - P4 made the over-cap test vacuous, and TWO restore attempts failed. The second failure IS the result: range+uniqueness make an over-cap roster impossible by PIGEONHOLE, so the length bound is subsumed. Recorded honestly as defence-in-depth rather than faked.",
+      "A-F6 LOW - P1 solo/vs-bots test seeded no stamps so it could not fail, and its title described a solo board while running a networked one. Both fixed.",
+      "B1, B4, C1, C3, C4, C7, C9, C10, C11 - nine further overstated or falsified claims corrected, plus the README/CLAUDE.md test counts this session falsified."
+    ],
+    "accepted_not_fixed": [
+      "A-F4/A-F5 MED - the host cannot distinguish my-uplink-died from everyone-else-quit, so the witness guard also refuses a LEGITIMATE forfeit when every peer genuinely leaves (>=3 seats, >=1 castle down). Accepted deliberately: a wrongly-refused win is recoverable (BACK TO MAIN), a wrongly-granted win corrupts the result for everybody. PINNED BY A TEST that states it is a limitation, so it goes red and says so when the owner rules on abandonment."
+    ],
+    "filed_not_fixed": [
+      "C3 - GODLY_TRIGGER is the one host-authored kind that is both UNFENCED and UNGATED (LOBBY_PRESENCE/START_GAME_SIGNAL are gated on gameState===LOBBY, which no migration can be in flight during). It dispatches into the world and writes godlyFiredThisMatch, a once-per-match record. Different message, different consequences - does not belong inside the ENDGAME guard."
+    ]
+  },
+  "owner_rulings_requested_s163": [
+    "ABANDONMENT (inherited CF-S162-b, now sharper): what should happen when every other peer leaves? Same question as A-F4 - the witness guard trades a hang for correctness and only a ruling settles it.",
+    "Should a WIN be reversible by a verified higher-epoch migration claim? hostHandlers gates demotion on gameState===PLAYING, so a crowned host cannot be unwound.",
+    "The R72 TOWER targeting matrix (S162-OF-A) - defenderCanTarget has zero production callers; wiring it makes princess/stinkTower UNITS_ONLY, i.e. it changes gameplay.",
+    "The NONET collision blocking tier-9 boss towers (RACE_ZONES_AND_BOSS_TOWERS.md).",
+    "Hash the seat-outcome scalars? castleHp and eliminatedAtTick decide the match and are covered by NEITHER oracle; widening the wide oracle is a deliberate tripwire change."
+  ]
 }
