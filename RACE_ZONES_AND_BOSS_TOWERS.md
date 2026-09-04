@@ -47,7 +47,7 @@ Each seat's quarter of the board is painted in its race's world instead of deep 
 | Demons | hell | magenta `0xd73bff` |
 | Nagas | *"atlantis but more military and cruel looking cuz they all mean"* | cyan `0x3bd7ff` |
 | Mummies | desert | yellow `0xffe23b` |
-| Vampires | **not stated — see Q1** | crimson `0xff3b6b` |
+| Vampires | *not stated by the owner* — **deduced in §D Q1: Carpathian mountain night, mist, dead trees, iron fencing, a blood moon** (the grounds of the keep already in the picker banner) | crimson `0xff3b6b` |
 
 **Art direction, from the brief:**
 
@@ -58,7 +58,7 @@ Each seat's quarter of the board is painted in its race's world instead of deep 
   the player."* So: desaturated ground, with the seat's identity colour surviving as accents.
 - *"epic and sick and really intense"*, true to each race's lore.
 - ⛔ **Partially transparent**, so towers, structures, connectors and creatures stay readable on top.
-  This is a legibility constraint, not a style note — see D2.
+  This is a legibility constraint, not a style note.
 - **Toggleable**: *"or at least so they can turn in on and off between their race's background and
   the black space we have now."* The black board must remain a first-class option.
 
@@ -133,30 +133,69 @@ Four ways out, for the owner to pick (Q4):
 
 ---
 
-## D · MY OPEN QUESTIONS
+## D · THE QUESTIONS, MOSTLY ANSWERED BY DEDUCTION
 
-**Q1 — Vampires' zone.** Every other race got a setting; vampires did not. Carpathian castle grounds /
-crypt / blood moon? Say the word and I will match the rest.
+The owner's instruction when handing this over: *"if you have any questions for me about the 2
+artistic directions i gave you earlier keep them for when we will be building those two things in a
+few sessions - and also if tyhose questions are dumb then just think about it. you might be able to
+deduce your own answer."*
 
-**Q2 — Is the tier-9 shape count exactly the race shape?** The table above assumes `RACE_FEED_SHAPE`
-(vampires=Triangle, nagas=Square, mummies=Line, zombies=Circle, orcs=Dot, demons=Spiral), which is
-already the "one race, one shape, one unit" mapping. Confirm, because that constant is load-bearing
-elsewhere.
+Five of the six were deducible from the brief or from the tree. They are answered here as
+**working assumptions** — they are MINE, not owner rulings, and any of them can be overridden with
+one word when this gets built. Only **Q4** is left genuinely open, and even that has a recommendation.
 
-**Q3 — Boss persistence details.** When it *"goes back to castle and attacks again next phase"*:
-does it keep its damage (return at current HP), or heal at the castle? And is it one boss per race
-per **match**, or may a seat build the tier-9 tower again once its boss is dead?
+### ✅ Q1 — Vampires' zone. ANSWERED: the grounds of the castle already in the picker.
 
-**Q4 — The NONET collision above.** Which of the four?
+Every other race got its home terrain, and the vampire race banner already shipped: a crimson gothic
+keep with bats and an iron gate under a red sky (`public/art/race-banners/`, visible in the picker).
+The zone is the ground that castle stands on — **Carpathian mountain night: mist, dead trees, iron
+fencing, a blood moon, bats.** No new decision was needed; the art direction already exists.
 
-**Q5 — Background toggle scope.** Per-viewer local preference (like a settings toggle, costs nothing
-on the wire), or a match-wide setting the host controls? Local is far cheaper and cannot desync.
+### ✅ Q2 — Is the tier-9 shape `RACE_FEED_SHAPE`? ANSWERED: yes.
 
-**Q6 — Boss on-screen during the 8 seconds.** Since it is explicitly *not* a cutscene, the sim keeps
-ticking — so the crumble is a renderer effect over live play. Confirm the boss becomes attackable
-immediately on release, rather than after the 8 s finishes.
+The owner said *"9 of the same shape - the race shape"*. `RACE_FEED_SHAPE` in `src/state/races.ts` is
+documented as exactly that — *"one race, one shape, one unit"* — and is the only race→shape mapping in
+the codebase. Vampires Triangle, nagas Square, mummies Line, zombies Circle, orcs Dot, demons Spiral.
+There was nothing to ask.
 
----
+### ✅ Q3a — Does a returning boss heal? ANSWERED: no, it keeps its damage.
+
+*"they will live until they die"* and *"go back to castle and attack again next phase until they die"*.
+If it healed at the castle each phase, *"until they die"* would be unreachable for anything the
+defender can out-damage in one phase — the boss would be effectively immortal, which contradicts the
+same sentence. **Damage persists across phases.**
+
+### ⚠ Q3b — One boss per match, or rebuildable? WORKING ASSUMPTION: rebuildable, one ALIVE at a time.
+
+The tower crumbles after releasing the boss, so a second boss already costs a fresh nine of the race
+shape — a real price, which is the natural cap the design already contains. Assumption:
+**a seat may build it again, but may not have two of its bosses alive at once.** Flagging rather than
+asserting, because it is a balance lever and the owner has boss specs coming.
+
+### ⚠ Q4 — THE NONET COLLISION. STILL OPEN, but with a recommendation.
+
+The one thing here that is not deducible, because it changes a SHIPPED feature and only the owner
+gets to do that. See §C for the collision.
+
+**My recommendation: option 3 — the boss recipe wins; NONET only fires on a 9-component that is not a
+boss recipe.** It is the only option that honours the brief *verbatim* (nine of the race shape, no
+extra qualifier bolted on) while keeping the sudoku trial reachable through the other five shapes.
+Option 1 is cleaner in the abstract but edits the owner's own recipe, and option 2 silently kills
+NONET for whichever race you happen to be playing.
+
+### ✅ Q5 — Toggle scope. ANSWERED: per-viewer, local.
+
+*"so they can turn in on and off"* — the subject is the player looking at the screen, not the room.
+A local preference costs nothing on the wire, cannot desync two peers, and needs no protocol bump. A
+match-wide setting would need all three and buys nothing.
+
+### ✅ Q6 — Is the boss attackable during the 8-second crumble? ANSWERED: yes.
+
+The owner ruled it directly: *"the effect should not be a cutscene like voltkin but in-game tower
+that spawns-releases the boss"*. Not a cutscene means the sim never stops, so the boss is a live
+entity from the moment it is released and the crumble is a renderer effect over continuing play.
+⛔ This is the load-bearing constraint of feature B: it rules out the `godlyOrchestration` freeze +
+vignette path entirely, and it means the 8 seconds is an ART budget, never a sim pause.
 
 ## E · WHAT ALREADY EXISTS THAT THESE BUILD ON
 
