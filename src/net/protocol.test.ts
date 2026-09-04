@@ -338,6 +338,48 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
+  /*
+   * ⛔ S163 P4 — **`seat` WAS TYPE-CHECKED AND NOTHING ELSE.** Both writers of `hostSeats`
+   * (`main.ts`, `hostHandlers.ts`) do `hostSeats.set(e.peerId, asPlayerId(e.seat))` straight off
+   * this roster, and `asPlayerId` is a BRAND CAST, not a check — so a garbage seat was laundered
+   * into a `PlayerId` at the two places a successor rebuilds its seat map after a migration.
+   */
+  it('⛔ S163 — rejects an out-of-range, negative, fractional or NaN seat', () => {
+    const withSeat = (seat: unknown): unknown => ({
+      kind: 'LOBBY_PRESENCE',
+      roster: [{ seat, peerId: 'p0', color: 0x111111 }],
+    });
+    for (const bad of [-1, MAX_PLAYERS, MAX_PLAYERS + 5, 1.5, NaN, Infinity]) {
+      expect(parseNetMessage(withSeat(bad))).toBeNull();
+    }
+    // Anti-vacuity: the in-range ends of the interval must still pass.
+    expect(parseNetMessage(withSeat(0))).not.toBeNull();
+    expect(parseNetMessage(withSeat(MAX_PLAYERS - 1))).not.toBeNull();
+  });
+
+  it('⛔ S163 — rejects a roster where two entries claim the SAME seat', () => {
+    // The shared root of two S162 findings: the hostSeats seat->peer scan returning on its first
+    // Map hit (insertion order deciding whose absence clock could end a match), and the successor
+    // rebuilding hostSeats from unchecked wire data. Closed once, here, at the boundary.
+    const dup = [
+      { seat: 1, peerId: 'p1', color: 0x111111 },
+      { seat: 1, peerId: 'p2', color: 0x222222 },
+    ];
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: dup })).toBeNull();
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: dup })).toBeNull();
+  });
+
+  it('⭐ S163 — a REPEATED peerId is still accepted, and that is deliberate', () => {
+    // `reconcileLobbySeats` is keyed by peerId, so a repeated peer is last-write-wins on a Map
+    // rather than an ambiguity. Rejecting it would fail-closed on a benign retransmit. Seat is the
+    // field an OUTCOME is derived from; peer is not.
+    const sharedPeer = [
+      { seat: 0, peerId: 'same', color: 0x111111 },
+      { seat: 1, peerId: 'same', color: 0x222222 },
+    ];
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: sharedPeer })).not.toBeNull();
+  });
+
   // S133 P2 — title said "PROTOCOL_VERSION is 14 after the S113 lightning-drone bump" while the
   // constant has been 15 since S124 P1 (`80f1058`, host-migration D4 production-ON). The
   // assertion below reads the constant, so the test was never wrong — only its name was, and a

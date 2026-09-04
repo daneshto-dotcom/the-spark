@@ -1352,7 +1352,30 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     // ⭐ W1-A (S160) — same fail-closed posture: absent is fine, present-but-not-a-race rejects the
     // whole message. An unvalidated string here would reach `RACE_COLORS[...]` and paint `undefined`.
     if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;
+    /*
+     * ⛔ S163 P4 — **`seat` WAS CHECKED FOR ITS TYPE AND NOTHING ELSE**, so `-1`, `99`, `1.5` and
+     * `NaN` all passed a validator whose whole job is to make the wire safe to trust. Both writers
+     * of `hostSeats` feed straight off this roster — `main.ts` and `hostHandlers.ts`, each doing
+     * `hostSeats.set(e.peerId, asPlayerId(e.seat))` — and `asPlayerId` is a BRAND CAST, not a
+     * check, so a garbage seat was laundered into a `PlayerId` at the two places a successor
+     * rebuilds its seat map after a migration.
+     */
+    if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= MAX_PLAYERS) return false;
   }
+  /*
+   * ⛔ S163 P4 — **AND TWO ENTRIES COULD CLAIM THE SAME SEAT.** That is the shared root of two
+   * findings filed separately in S162's audit: the `hostSeats` seat→peer scan returning on its
+   * first `Map` hit (so INSERTION ORDER picked whose absence clock could end a match), and the
+   * successor rebuilding `hostSeats` from unchecked wire data. Fixed once, at the boundary, rather
+   * than at the four consumers — after which `asPlayerId` at the rebuild sites is coercing a value
+   * the wire has already proven, and the bare cast stops being load-bearing.
+   *
+   * ⚠ `peerId` is deliberately NOT de-duplicated here: `reconcileLobbySeats` is keyed by peerId, so
+   * a repeated peer is last-write-wins on a Map rather than an ambiguity, and rejecting it would
+   * fail-closed on a benign retransmit. Seat is the field an outcome is derived from; peer is not.
+   */
+  const seats = roster.map((e) => (e as RosterEntry).seat);
+  if (new Set(seats).size !== seats.length) return false;
   return true;
 }
 
