@@ -149,7 +149,13 @@ export function livingSeats(world: World): PlayerId[] {
  * the window was real and the comments were false.
  *
  * Stamp `eliminatedAtTick` on every seat that has fallen and does not carry one yet.
- * Returns the seats stamped THIS tick, in id order, so a caller can announce them.
+ *
+ * Returns the seats stamped THIS tick, in id order. ⚠ S163 P8 — that used to read "so a caller
+ * can announce them", describing a caller that has never existed: no production site consumes the
+ * return value. Restated as INTENT rather than deleted, because the ordering is real and the
+ * surface it is waiting for is already scheduled — an elimination toast plus the postgame board
+ * off `matchPlacings`. The data, the wire field and the total-ordered derivation are all shipped
+ * and tested, so that work is render-only when it comes.
  *
  * ⚠ WRITE-ONCE. The `undefined` check is what makes the field an ELIMINATION ORDER rather than a
  * running clock: without it every subsequent tick would overwrite it with `world.tick` and all

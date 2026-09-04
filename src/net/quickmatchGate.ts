@@ -143,11 +143,21 @@ export function broadcastQmPresence(
   const roster = session.quickmatch
     ? rosterWithReady(base, session.qmReadyPeers, session.qmSelfReady, selfId)
     : base;
-  // Only the WIRE half is conditional. `onPresence` is the local repaint and always runs, which is
-  // what keeps the documented invariant honest: the rack is still painted from a roster and never
-  // from an optimistic local guess — there is simply no wire to send it down.
-  if (transport !== null) transport.send({ kind: 'LOBBY_PRESENCE', roster });
+  /*
+   * Only the WIRE half is conditional. `onPresence` is the local repaint and always runs, which is
+   * what keeps the documented invariant honest: the rack is still painted from a roster and never
+   * from an optimistic local guess — there is simply no wire to send it down.
+   *
+   * ⭐ S163 P8 — REPAINT FIRST, THEN SEND, so "always runs" is true STRUCTURALLY and not just
+   * true today. The send used to come first, which meant the unconditional local repaint sat
+   * downstream of a network call: any throw out of `transport.send` would have skipped it and
+   * reproduced the exact S162 P1 symptom this function exists to prevent (*"i click on it and it
+   * shows but it doesnt change"*). The roster object is identical and already built, and no peer
+   * response can race a synchronous local call, so the swap costs nothing on the happy path and
+   * removes the only way the invariant could be violated.
+   */
   onPresence(roster);
+  if (transport !== null) transport.send({ kind: 'LOBBY_PRESENCE', roster });
 }
 
 /** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */
