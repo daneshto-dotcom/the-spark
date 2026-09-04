@@ -246,6 +246,19 @@ describe('the shipped module-level constants', () => {
      * so an assertion-free pass becomes impossible here again.
      */
     expect.hasAssertions();
-    expect(TURN_CONFIG_NOTE === null || TURN_CONFIG_NOTE.length > 0).toBe(true);
+    /*
+     * ⚠ S163 CHECK — the first de-vacuuming replaced the skipped `if` with
+     * `expect(NOTE === null || NOTE.length > 0).toBe(true)`, which RUNS an assertion but is a
+     * tautology for any string: it can only fail on the empty string. Better than zero assertions,
+     * still not falsifiable in the no-.env environment the comment above describes. Splitting on
+     * the actual state at least makes each branch assert something specific, and names which one
+     * ran — so a reader can see from the output whether the configured path was exercised at all.
+     */
+    if (TURN_CONFIG_NOTE === null) {
+      expect(TURN_CONFIG_NOTE, 'no .env → no repair happened → the note is exactly null').toBeNull();
+    } else {
+      expect(TURN_CONFIG_NOTE.trim(), 'a repair note must carry readable text').not.toBe('');
+      expect(TURN_CONFIG_NOTE.length).toBeGreaterThan(0);
+    }
   });
 });

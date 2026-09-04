@@ -85,15 +85,40 @@ export interface JoinAttemptDeps {
  */
 /**
  * ⛔ S163 P1 — **IS THIS VERDICT FROM A DEAD TERM?** `hostAuthFilter` below asks only *"are you the
- * latched host peer?"*, and a DEPOSED host still satisfies that on any survivor whose own latch has
- * not moved yet. `NETSNAPSHOT` has been fenced on the term since D2 (`sync.ts`), so a zombie's
- * world-state was already inert — but ENDGAME was not, and ENDGAME is the message that ends the
- * match. The live path: a host whose uplink died crowned itself (see `hostTick.ts`) and its verdict
- * ended a game the survivors were still playing under a new host.
+ * latched host peer?"*, never *"are you STILL the host?"*. `NETSNAPSHOT` has been fenced on the term
+ * since D2 (`sync.ts`); ENDGAME was not, and ENDGAME is the message that ENDS the match.
  *
- * Pure and exported so the fence is provable rather than merely written — the `succession.ts`
- * posture. Mirrors `sync.ts`'s gate including the `?? 0`, so a pre-S163 host with no `epoch` reads
- * 0 against a pre-migration `currentEpoch` of 0 and passes exactly as before.
+ * ⚠ S163 CHECK — ENDGAME IS NOT THE ONLY UNFENCED KIND, and an earlier draft here said it was. Of
+ * the five host-authored kinds, `NETSNAPSHOT` and now `ENDGAME` carry a term; `LOBBY_PRESENCE` and
+ * `START_GAME_SIGNAL` do not but are both gated on `gameState === 'LOBBY'`, which no migration can
+ * be in flight during. **`GODLY_TRIGGER` is unfenced AND ungated** — it dispatches straight into the
+ * world below, and `applyGodlyTrigger` writes `godlyFiredThisMatch`, a once-per-match record. That
+ * is a real residual, filed rather than fixed here because it is a different message with different
+ * consequences and does not belong inside this one's guard.
+ *
+ * ⚠ **DEFENCE IN DEPTH, AND IT CANNOT FIRE TODAY — SAID PLAINLY BECAUSE THE FIRST VERSION OF THIS
+ * DOCBLOCK CLAIMED OTHERWISE.** An S163 audit of the same commit established that every production
+ * write to `session.hostPeerId` is paired, in the same function, with a write to
+ * `session.currentEpoch`: `main.ts` (demote, :1992/:2002) and `clientHandlers.ts` (claim-accept,
+ * :484/:486); self-promotion nulls the latch AND `hostVerifiedPeerId`, so nothing re-latches. So
+ * the two move in lockstep, and a message that reaches this gate came from a peer whose term IS
+ * `currentEpoch` — the comparison is `0 < 0` for the un-migrated survivor and the migrated one
+ * dropped the sender at `hostAuthFilter` before ever getting here.
+ *
+ * It is kept, at one line, because it costs nothing and it fails safe if that coupling is ever
+ * broken — which is a refactor away, since nothing enforces it. ⛔ But do NOT cite it as the thing
+ * that closes the deposed-host hole: what closes that today is the crown guard in `hostTick.ts`,
+ * which stops such a host reaching the send at all.
+ *
+ * ⚠ AND IT IS NOT `sync.ts`'S GATE, though the expression matches. `sync.ts` compares against
+ * `ClientSync`'s OWN epoch, which advances PASSIVELY on every accepted snapshot; this compares
+ * against `session.currentEpoch`, which advances only when this peer takes part in a migration.
+ * That difference is exactly why the snapshot fence has teeth and this one does not. Reading the
+ * `ClientSync` term here would make it real — filed rather than done, because no reachable
+ * scenario needs it today.
+ *
+ * Pure and exported so it is provable rather than merely written — the `succession.ts` posture.
+ * The `?? 0` keeps a pre-S163 host (no `epoch`) passing exactly as before.
  *
  * ⚠ `parseNetMessage` rejects a present-but-non-integer `epoch` upstream, which matters here: `NaN`
  * would slip this gate silently, because `NaN < n` is false.
@@ -511,16 +536,9 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // WIN_TRIGGER while already in WIN/POSTGAME is a noop because the
       // reducer is pure-assignment + the world is host-state-overwritten
       // by the next snapshot.
-      /*
-       * ⛔ S163 P1 — **THE EPOCH FENCE.** `hostAuthFilter` above asks only *"are you the latched
-       * host peer?"*. It cannot ask *"are you still the host?"*, because after a migration the
-       * deposed host is STILL the latched `hostPeerId` on any peer whose own latch has not moved.
-       * `NETSNAPSHOT` has been fenced on this since D2 (`sync.ts`); ENDGAME never was, so the one
-       * message that ENDS the match was the only host-authored kind a zombie term could still land.
-       *
-       * Mirrors `sync.ts` byte-for-byte, including the `?? 0`, so a pre-S163 host (no `epoch`) is
-       * treated exactly as before: `0 < 0` is false and the verdict applies.
-       */
+      // ⛔ S163 P1 — the ENDGAME term fence. Read `endgameIsStale`'s docblock before relying on
+      // it: it is DEFENCE IN DEPTH and cannot fire under today's latch/epoch coupling. The thing
+      // that actually stops a deposed host ending this match is the crown guard in `hostTick.ts`.
       if (msg.kind === 'ENDGAME') {
         if (endgameIsStale(msg.epoch, deps.session.currentEpoch)) return;
         dispatch(deps.world, { type: 'WIN_TRIGGER', winnerId: msg.winnerId });

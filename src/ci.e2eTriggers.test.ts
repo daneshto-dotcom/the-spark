@@ -15,8 +15,12 @@
  * apart would leave master with no e2e signal while LOOKING like it had coverage. That is strictly
  * worse than no trigger. This test makes re-arming it fail here first.
  *
- * Assertions are on the PARSED yaml, not on the file text, so a comment that merely mentions
- * `cancel-in-progress: true` (this docblock's own sibling in the yml, for instance) cannot trip it.
+ * ⚠ S163 CHECK — AN EARLIER DRAFT OF THIS LINE CLAIMED "assertions are on the PARSED yaml". They
+ * are not, and the repo has no yaml dependency to make that true. What they are: a hand-rolled
+ * scanner over the `on:` block for the trigger names, and regexes for the rest. That is good enough
+ * for the property being defended and it is stated accurately rather than dressed up — but it means
+ * a COMMENT containing `cancel-in-progress: true` could trip the second case, so the yml keeps such
+ * text out of its comments deliberately.
  */
 
 import { describe, it, expect } from 'vitest';

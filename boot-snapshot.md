@@ -15,6 +15,12 @@ RELAY SHIPPED · MCV **47 assertions, hard_fail=0** · Rule 22 runtime audit cle
 > and three in S161. All fixed in `e3ba437`. Read `post_audit_s162` in session-state before
 > trusting any S162 claim — several of my own were wrong and are corrected there.
 
+> ⚠ **S163 HAS SUPERSEDED PARTS OF THIS FILE.** It is regenerated at handoff, and S163 did NOT
+> close (the owner asked to leave the session open), so the list below is S162's. Already done by
+> S163: the e2e PUSH trigger (item 3), the two false comments (item 4), TURN_CONFIG_NOTE on the
+> success branch (item 5), and LANE2-F4 the host self-crown (item 2). Still open and still correct:
+> the TURN re-paste (item 1, owner action) and every OWNER RULING.
+
 ## Next Steps
 
 1. ⚠ **OWNER ACTION — re-paste the three TURN secrets clean** (bare value; no key name, no quotes,

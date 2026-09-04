@@ -115,11 +115,6 @@ interface PlayerCommon {
    */
   avatarPos: Vec2;
   /**
-   * S22 P3 D7 — godly-trigger cooldown end tick (60s @ 60Hz = 3600 ticks
-   * after dispatch). null = never triggered. Authoritative tick-based per
-   * Battle Ledger row 4 Solomon split (UI converts to seconds for display).
-   */
-  /**
    * S49 P1 (Sym F) — territorial radius shrink debuff expiry tick. When
    * SHRINK_TERRITORY targets this player, set to world.tick +
    * TERRITORY_SHRINK_DURATION_TICKS (300 = 5s at 60Hz). While

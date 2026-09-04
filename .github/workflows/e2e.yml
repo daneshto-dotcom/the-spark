@@ -73,6 +73,11 @@
 name: E2E (2-browser harness)
 
 on:
+  # ⛔ S163 P7 — READ THIS FIRST: THE PARAGRAPH BELOW IS HISTORY, NOT THE CURRENT STATE. The
+  # per-push trigger it describes as removed was RESTORED in S163 and is declared a few lines down.
+  # It is kept because its reasoning is the reason the restore is safe (the minute argument it rests
+  # on was measured dead in S127: public repo → free unlimited minutes).
+  #
   # S110 — REMOVED the per-push trigger. This 2-job Playwright harness ran ~35 min on EVERY push to
   # master and exhausted the repo's free GitHub Actions minutes — the spending-limit cap that
   # blocked all S110 deploys (startup_failure / 0 jobs) AND spammed failure emails (two per push: this
@@ -121,10 +126,20 @@ on:
 # recorded at the gating lane below. Adding a trigger whose signal the concurrency group then
 # throws away is worse than having no trigger, because it LOOKS like coverage.
 #
-# So master runs are never cancelled; they queue and every one reports. PR branches keep the old
-# behaviour, where a rapid re-push genuinely is superseded work and the author is watching anyway.
+# ⛔ S163 CHECK — AND `cancel-in-progress: false` ALONE WOULD NOT HAVE DELIVERED THAT. This block
+# first said "master runs are never cancelled; they queue and every one reports", which is not what
+# GitHub does: `false` stops a QUEUED run from cancelling the RUNNING one, but a newly-queued run
+# still cancels any run already PENDING in the same group. With one group per ref, three master
+# pushes inside one ~4-minute run give A running, B pending, C queued — and B concludes `cancelled`,
+# the exact silent non-signal this whole block exists to prevent.
+#
+# So the GROUP is per-commit for pushes. Every master push then owns its own slot and can neither
+# cancel nor be cancelled by another; schedule and workflow_dispatch keep sharing the ref-level slot
+# (there is only ever one of each in flight, and a manual re-dispatch superseding an older manual
+# one is the behaviour you want). PR branches are unchanged: a rapid re-push there genuinely is
+# superseded work and the author is watching.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'shared' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:

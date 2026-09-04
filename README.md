@@ -9,7 +9,7 @@ Real-time multiplayer game of geometric emergence — TypeScript + Pixi.js, P2P 
 ```bash
 npm install
 npm run dev        # vite dev server (random port via $SESSION_PORT)
-npm test           # vitest — 3627 tests across 231 files
+npm test           # vitest — 3646 tests across 233 files
 npm run typecheck  # tsc -b --noEmit
 npm run build      # tsc -b && vite build + bundle-size charter gate → dist/
 ```

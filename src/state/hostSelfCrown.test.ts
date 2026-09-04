@@ -31,6 +31,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState }
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import { mulberry32 } from './rng.ts';
 import { makeGameStateExtras } from './gameState.ts';
+import { isNetworked } from './gameMode.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId } from '../types.ts';
 import type { Controls } from '../input/controls.ts';
@@ -73,6 +74,21 @@ function deps(alivePeerIds: ReadonlySet<string> | null, hostSeats: Map<string, R
 }
 
 describe('S163 P1 — a forfeit-path win requires a witness', () => {
+  it('⭐ THE FIXTURE ITSELF — networked, hosting, 3 seats, past the forfeit window', () => {
+    /*
+     * Anti-vacuity for every case below. `tickGameState`'s offline path only runs for a NETWORKED
+     * world (`gameMode !== 'solo'`) and `markFallenSeats` is gated on `world.isHost`, so a fixture
+     * that quietly failed either condition would make all five cases pass for the wrong reason —
+     * the S163 audit asked exactly this question of this file.
+     */
+    const { w, hostSeats } = board();
+    expect(isNetworked(w)).toBe(true);
+    expect(w.isHost).toBe(true);
+    expect(w.players.size).toBe(3);
+    expect(hostSeats.size).toBe(2);
+    expect(w.tick).toBeGreaterThanOrEqual(PEER_DROP_FORFEIT_TICKS);
+  });
+
   it('⛔ THE BUG — with the host’s OWN uplink dead (no live peers) it must NOT crown itself', () => {
     const { w, state, hostSeats } = board();
     w.players.get(P(2))!.castleHp = 0; // a castle really did fall, so fallenCount > 0
@@ -107,13 +123,69 @@ describe('S163 P1 — a forfeit-path win requires a witness', () => {
     expect(w.lastWinnerId).toBe(P(0));
   });
 
-  it('solo / vs-bots (alivePeerIds === null) is untouched — no transport, no guard', () => {
-    // `world.isHost` defaults true and a bot seat has no peer, so the offline path was never
-    // reachable there. The guard must not change that in either direction.
+  it('⛔ alivePeerIds === null OMITS the predicate — the pre-S162 path, byte for byte', () => {
+    /*
+     * ⛔ S163 CHECK — THIS CASE COULD NOT FAIL AND ITS TITLE WAS WRONG. It seeded NO absence
+     * stamps, so the predicate returned false for every seat whether it was passed or omitted; it
+     * held identically with `hasWitness` forced true, forced false, or the guard deleted. And it
+     * called itself "solo / vs-bots — no transport" while running a 3-seat networked board with a
+     * populated `hostSeats`.
+     *
+     * Now it seeds an EXPIRED stamp, so the assertion depends on the predicate genuinely being
+     * omitted: pass the predicate here and seat 1 forfeits and the match ends. That is the real
+     * `alivePeerIds === null` contract — no transport means no absence knowledge, which is exactly
+     * the pre-S162 behaviour solo and vs-bots have always had.
+     */
     const { w, state, hostSeats } = board();
     w.players.get(P(2))!.castleHp = 0;
+    state.peerAbsentSinceTick.set('p1', 0); // long expired — and must be IGNORED
     runHostTick(w, deps(null, hostSeats), state);
-    expect(w.gameState).toBe('PLAYING'); // two living seats, no predicate, nobody can win
+    expect(w.gameState).toBe('PLAYING');
+    expect(w.lastWinnerId).toBeNull();
+  });
+
+  it('⛔ THE HEAL TICK — a partition that RECOVERS must not crown the host either', () => {
+    /*
+     * ⛔ S163 CHECK — THE FIRST CUT OF THIS GUARD ONLY DEFERRED THE BUG, and an adversarial audit
+     * of the same day's work caught it. `hasWitness` is evaluated at the TOP of `runHostTick`, but
+     * the sweep that CLEARS `peerAbsentSinceTick` for a present peer runs at the very END of the
+     * same function, a thousand lines later. So on the tick a partition heals, `alivePeerIds` is
+     * already non-empty again — main.ts rebuilds it from `netTransport.peerIds()` every frame —
+     * while the stamps still hold the partition-era values. The predicate then read every
+     * reconnecting seat as absent, `contenders` collapsed to the host, and WIN_TRIGGER fired on
+     * the very tick the opponents came back.
+     *
+     * The guard had moved the self-crown from t+20s to t+heal, which is arguably worse: it fires
+     * exactly when the peers are present to see it.
+     *
+     * Two ticks, one state object, because that is the only way to express it: tick 1 partitioned,
+     * tick 2 healed.
+     */
+    const { w, state, hostSeats } = board();
+    w.players.get(P(2))!.castleHp = 0;
+    state.peerAbsentSinceTick.set('p1', 0);
+    state.peerAbsentSinceTick.set('p2', 0);
+
+    // Tick 1 — fully partitioned. Already covered above, asserted here as the precondition.
+    runHostTick(w, deps(new Set<string>(), hostSeats), state);
+    expect(w.gameState).toBe('PLAYING');
+
+    // Tick 2 — the peers are BACK. The stamps are still stale at the moment the win check runs.
+    runHostTick(w, deps(new Set(['p1', 'p2']), hostSeats), state);
+    expect(w.gameState, 'a reconnecting peer is present, not absent').toBe('PLAYING');
+    expect(w.lastWinnerId).toBeNull();
+  });
+
+  it('⭐ …and a peer that is STILL gone after a partial heal is still a forfeit', () => {
+    // Anti-vacuity for the case above: the fix must key on "is this peer present NOW", not on
+    // "ignore the stamps whenever anyone reconnects". p1 comes back, p2 stays gone and its castle
+    // is the one standing, so seat 0 vs seat 1 resolves legitimately.
+    const { w, state, hostSeats } = board();
+    w.players.get(P(1))!.castleHp = 0;
+    state.peerAbsentSinceTick.set('p2', 0);
+    runHostTick(w, deps(new Set(['p1']), hostSeats), state);
+    expect(w.gameState).toBe('WIN');
+    expect(w.lastWinnerId).toBe(P(0));
   });
 
   it('⛔ an empty peer set with NO castle down still ends nothing — this is not abandonment', () => {
@@ -124,5 +196,34 @@ describe('S163 P1 — a forfeit-path win requires a witness', () => {
     state.peerAbsentSinceTick.set('p2', 0);
     runHostTick(w, deps(new Set<string>(), hostSeats), state);
     expect(w.gameState).toBe('PLAYING');
+  });
+});
+
+/**
+ * ⛔ S163 CHECK — **THE ACCEPTED COST OF THE GUARD, PINNED SO IT IS VISIBLE RATHER THAN SILENT.**
+ *
+ * The host cannot distinguish "my uplink died" from "everyone else quit": both empty
+ * `alivePeerIds`. The guard therefore refuses a forfeit win in BOTH, which re-opens — for the
+ * narrow all-peers-gone case — the match-hang S162 P4 closed.
+ *
+ * This is deliberate, and the reasoning is at the guard in `hostTick.ts`: the two failures are not
+ * equal. A wrongly-refused win strands one player on a board they can leave with BACK TO MAIN. A
+ * wrongly-GRANTED win produces two live outcomes for one match and corrupts the result for
+ * everyone. Refusing is the recoverable direction.
+ *
+ * ⚠ This test asserts the LIMITATION, not a desirable behaviour. If the owner rules on abandonment
+ * (the standing question this shares a root with), this case is the one that should change — and it
+ * will go red and say so, which is the entire point of writing it down.
+ */
+describe('S163 CHECK — the known limitation the witness rule buys', () => {
+  it('⚠ ACCEPTED: every peer genuinely quitting leaves the match un-winnable, not won', () => {
+    const { w, state, hostSeats } = board();
+    w.players.get(P(2))!.castleHp = 0; // seat 2 was eliminated, then everyone left
+    state.peerAbsentSinceTick.set('p1', 0);
+    state.peerAbsentSinceTick.set('p2', 0);
+    runHostTick(w, deps(new Set<string>(), hostSeats), state);
+    // Pre-S163 this was a WIN for seat 0 after 20 s. It is now a hang — knowingly.
+    expect(w.gameState).toBe('PLAYING');
+    expect(w.lastWinnerId).toBeNull();
   });
 });

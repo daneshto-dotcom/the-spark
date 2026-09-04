@@ -92,9 +92,11 @@ export function broadcastQmPresence(
   //   · THE ASSIGNMENT PRECEDES THE CONNECT. `hostHandlers.ts` sets `deps.session.netTransport =
   //     transport` ~25 lines BEFORE it calls `transport.connect(code)`; `clientHandlers.ts` does the
   //     same. A throw inside the join could not unwind an assignment that had already happened.
-  //   · AND `connect()` DOES NOT THROW ANYWAY. `transport.ts` wraps `joinFn` in a `try` whose
-  //     `catch` calls `markStrategyFailed` — a failed strategy is a diagnostics row, not an
-  //     exception.
+  //   · AND THE JOIN ITSELF CANNOT THROW OUT OF `connect()`. `transport.ts` wraps the `joinFn`
+  //     call in a `try` whose `catch` calls `markStrategyFailed` — a failed strategy is a
+  //     diagnostics row, not an exception. (⚠ S163 CHECK: that is the JOIN half only. `connect()`
+  //     is not blanket non-throwing, and `send()` throws outright when disconnected — which is
+  //     why both halves at the bottom of this function are wrapped.)
   //
   // ⭐ THE FIX ABOVE IS STILL CORRECT AND THE REPAINT IS STILL REAL; only the stated mechanism was
   // wrong. The live cause of the owner's *"it shows but it doesnt change"* was the GHOST RACE CLAIM
@@ -148,16 +150,34 @@ export function broadcastQmPresence(
    * what keeps the documented invariant honest: the rack is still painted from a roster and never
    * from an optimistic local guess — there is simply no wire to send it down.
    *
-   * ⭐ S163 P8 — REPAINT FIRST, THEN SEND, so "always runs" is true STRUCTURALLY and not just
-   * true today. The send used to come first, which meant the unconditional local repaint sat
-   * downstream of a network call: any throw out of `transport.send` would have skipped it and
-   * reproduced the exact S162 P1 symptom this function exists to prevent (*"i click on it and it
-   * shows but it doesnt change"*). The roster object is identical and already built, and no peer
-   * response can race a synchronous local call, so the swap costs nothing on the happy path and
-   * removes the only way the invariant could be violated.
+   * ⭐ S163 P8 — REPAINT FIRST, THEN SEND, and EACH HALF IS ISOLATED. The send used to come
+   * first, which put the unconditional local repaint downstream of a network call: `transport.send`
+   * genuinely throws when the transport is disconnected (`transport.ts` — and `session.netTransport`
+   * stays non-null across a `disconnect()` during a reconnect cycle), so a throw there skipped the
+   * repaint and reproduced the exact S162 P1 symptom this function exists to prevent (*"i click on
+   * it and it shows but it doesnt change"*).
+   *
+   * ⛔ S163 CHECK — REORDERING ALONE WAS NOT ENOUGH, AND THE FIRST VERSION OF THIS COMMENT CLAIMED
+   * IT WAS ("removes the only way the invariant could be violated"). It removed one way and created
+   * its mirror: `onPresence` is the host's Pixi rack repaint, so a throw THERE would have swallowed
+   * the `LOBBY_PRESENCE` broadcast for the whole room — every remote rack freezing, which is worse
+   * than the local-only loss it replaced. Two independent try/catches is the shape that actually
+   * makes "both halves always run" true; the ORDER then only decides which one gets the fresher
+   * frame, and local-first is right because it is the half with no dependency.
    */
-  onPresence(roster);
-  if (transport !== null) transport.send({ kind: 'LOBBY_PRESENCE', roster });
+  try {
+    onPresence(roster);
+  } catch (err) {
+    console.error('[lobby] presence repaint threw — the wire broadcast still goes out', err);
+  }
+  if (transport !== null) {
+    try {
+      transport.send({ kind: 'LOBBY_PRESENCE', roster });
+    } catch (err) {
+      // Disconnected mid-cycle is the ordinary case here; the local rack is already correct.
+      console.warn('[net] LOBBY_PRESENCE broadcast failed — local rack already repainted', err);
+    }
+  }
 }
 
 /** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */

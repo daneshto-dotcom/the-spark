@@ -432,17 +432,51 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    *
    * ⚠ THE MARGIN IS HALF A SECOND AT THE DEEP END, WHICH IS WHY A TIMING TWEAK IS NOT THE FIX.
    * A peer promotes at `RECONNECT_GRACE_MS + rank·CLAIM_LADDER_MS` (`main.ts` 15 000 +
-   * `succession.ts` 1 500) = 15.0 s at rank 0 and 19.5 s at rank 3, against this 20 s. Widening the
-   * forfeit window only moves a race that should not exist. ⚠ Do NOT read the peers' deadline off
-   * `HOST_STARVATION_MS` (6 s) — that gates DETECTION, not promotion; S163's A.0 got this wrong
-   * first and the correction is what re-ranked the fix.
+   * `succession.ts` 1 500) = 15.0 s at rank 0, and at most 18.0 s at rank 2 — `MAX_PLAYERS` is 4, so
+   * a host plus three remote seats gives ranks 0..2 and no more. Against this 20 s that is a 2-5 s
+   * margin. (⚠ S163 CHECK: this line first said "19.5 s at rank 3", a rank that cannot occur.)
+   * Widening the forfeit window only moves a race that should not exist. ⚠ Do NOT read the peers'
+   * deadline off `HOST_STARVATION_MS` (6 s) — that gates DETECTION, not promotion; S163's A.0 got
+   * this wrong first and the correction is what re-ranked the fix.
    *
    * THE RULE: at least one peer must still be connected to US before absence may decide a match.
    * With no live peer the argument is omitted entirely, which `gameState.ts` documents as
    * byte-identical pre-S162 behaviour — so this can only ever REFUSE a win, never invent one, and
    * solo / vs-bots (no transport, `alivePeerIds === null`) are untouched by construction.
+   *
+   * ⛔ WHAT IT COSTS, STATED PLAINLY BECAUSE IT IS A REAL TRADE AND NOT A FREE FIX (S163 CHECK).
+   * The host cannot tell "my uplink died" from "everyone else quit" — both empty `alivePeerIds`.
+   * So in a ≥3-seat match where one castle has already fallen and then EVERY remaining peer
+   * genuinely leaves, the host can no longer win by forfeit and the match sits in PLAYING. That
+   * re-opens, for that narrow case, the hang S162 P4 closed. It is accepted deliberately, because
+   * the two failures are not equal: a wrongly-refused win leaves one player looking at a board they
+   * can exit with BACK TO MAIN, whereas a wrongly-GRANTED win produces two live outcomes for one
+   * match and corrupts the result for everybody. Refusing is the recoverable direction.
+   *
+   * ⚠ AND A WITNESS IS NOT A CLEAN BILL OF HEALTH either: it proves SOME link is alive, not that
+   * we are reachable by the seats we are about to forfeit. A partial partition can still crown this
+   * host. Closing that needs a genuine uplink-health signal, which is a new trust surface and an
+   * owner decision — filed with the abandonment ruling, which is the same question wearing a
+   * different hat: what SHOULD happen when everyone else is gone?
    */
-  const hasWitness = deps.alivePeerIds !== null && deps.alivePeerIds.size > 0;
+  /*
+   * ⛔ S163 CHECK — **AND THE PRESENT-PEER TEST IS LOAD-BEARING, not belt-and-braces.** The first
+   * cut of this guard used `hasWitness` alone and an adversarial audit of the same day's work
+   * caught that it only DEFERRED the bug. This predicate is evaluated HERE, at the top of the tick;
+   * the sweep that clears `peerAbsentSinceTick` for a peer that has come back lives at the very END
+   * of this same function, a thousand lines down. So on the tick a partition heals, `alivePeerIds`
+   * is already repopulated — `main.ts` rebuilds it from `netTransport.peerIds()` every frame —
+   * while the stamps still hold their partition-era values. `hasWitness` flipped true, every
+   * reconnecting seat still read as absent, and the host crowned itself on the very tick its
+   * opponents returned. t+20s became t+heal, which is worse: it fires when they are there to see it.
+   *
+   * Asking `present.has(peerId)` makes the predicate self-consistent regardless of where the sweep
+   * runs, rather than depending on statement order inside a 1500-line function. It is also the
+   * honest reading of the question being asked: a peer we can see RIGHT NOW is not absent, whatever
+   * a stale clock says.
+   */
+  const present = deps.alivePeerIds;
+  const hasWitness = present !== null && present.size > 0;
   tickGameState(
     world,
     deps.gameStateExtras,
@@ -450,18 +484,22 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     hasWitness
       ? (seat) => {
           /*
-           * ⭐ S163 P1 (Lane2-F5) — ACCUMULATE, THEN DECIDE. This used to `return` inside the loop on
-           * the first `Map` hit, so a duplicated seat let INSERTION ORDER pick which peer's absence
-           * clock decided the match. `isValidRoster` now rejects duplicate seats at the wire (P4), so
-           * this is unreachable — and it stays fail-closed anyway, because "correct by construction
-           * elsewhere" is exactly the reasoning this codebase keeps paying for on the match-ending
-           * path.
+           * ⭐ S163 P1 (Lane2-F5) — SCAN EVERY ENTRY BEFORE DECIDING. This used to `return` on the
+           * FIRST `Map` hit, so a duplicated seat let INSERTION ORDER pick which peer's absence clock
+           * decided the match. It still returns early — but only on the AMBIGUITY itself, never on a
+           * match, so the answer no longer depends on which duplicate came first. (⚠ S163 CHECK: an
+           * earlier wording called this "accumulate, then decide", which described a loop shape this
+           * is not.) `isValidRoster` now rejects duplicate seats at the wire (P4), so the ambiguous
+           * branch is unreachable — and it stays fail-closed anyway, because "correct by construction
+           * elsewhere" is the reasoning this codebase keeps paying for on the match-ending path.
            */
           let absent: boolean | undefined;
           for (const [peerId, s] of deps.hostSeats) {
             if (s !== seat) continue;
             if (absent !== undefined) return false; // ambiguous seat → never forfeit
-            const since = state.peerAbsentSinceTick.get(peerId);
+            // ⛔ PRESENT NOW BEATS ANY STAMP — see the block above. Without this the stale-stamp
+            // window makes the heal tick a self-crown.
+            const since = present.has(peerId) ? undefined : state.peerAbsentSinceTick.get(peerId);
             absent = since !== undefined && world.tick - since >= PEER_DROP_FORFEIT_TICKS;
           }
           return absent ?? false; // the host's own seat, or a seat with no peer — never absent

@@ -944,11 +944,11 @@ interface LobbyPresenceMsg {
  * (`sync.ts` drops `(msg.epoch ?? 0) < currentEpoch`), so a deposed host's world-state was already
  * inert — but its one-shot verdict was not, and a verdict is the more consequential message.
  *
- * The live path that needed it: a host whose uplink dies is still `hostPeerId` on every peer that
- * has not yet completed migration, so when it crowned itself (S163 P1, `hostTick.ts`) its ENDGAME
- * ended a match the survivors were still playing under a NEW host. The crown fix stops that host
- * from reaching this send; the fence stops the message from being *believed* if any other path ever
- * reaches it.
+ * ⚠ THE FENCE IS DEFENCE IN DEPTH AND CANNOT FIRE TODAY — an S163 audit of this same commit
+ * showed `hostPeerId` and `currentEpoch` are always written together, so `hostAuthFilter` has
+ * already dropped anything the fence would have caught. What actually stops a deposed host ending
+ * a match the survivors are still playing is the crown guard in `hostTick.ts`, which stops it
+ * reaching this send at all. Full reasoning at `endgameIsStale` in `clientHandlers.ts`.
  *
  * ⭐ ADDITIVE-OPTIONAL, SO NO `PROTOCOL_VERSION` BUMP — per this project's protocol rules, and
  * PROVABLY INERT against a stale peer exactly as the `sync.ts` gate was in D2: an absent `epoch`
@@ -1355,10 +1355,16 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     /*
      * ⛔ S163 P4 — **`seat` WAS CHECKED FOR ITS TYPE AND NOTHING ELSE**, so `-1`, `99`, `1.5` and
      * `NaN` all passed a validator whose whole job is to make the wire safe to trust. Both writers
-     * of `hostSeats` feed straight off this roster — `main.ts` and `hostHandlers.ts`, each doing
-     * `hostSeats.set(e.peerId, asPlayerId(e.seat))` — and `asPlayerId` is a BRAND CAST, not a
-     * check, so a garbage seat was laundered into a `PlayerId` at the two places a successor
-     * rebuilds its seat map after a migration.
+     * of `hostSeats` do `hostSeats.set(e.peerId, asPlayerId(e.seat))`, and `asPlayerId` is a BRAND
+     * CAST, not a check — so a garbage seat was laundered straight into a `PlayerId`.
+     *
+     * ⚠ S163 CHECK — ONLY ONE OF THE TWO ACTUALLY READS THE WIRE, and the first version of this
+     * paragraph implied both did. `main.ts` (the migration-successor rebuild) iterates
+     * `session.lastRoster`, which IS wire data — written from `msg.roster` in `clientHandlers.ts`
+     * — so THAT is the site this validator protects, and it is the one that matters: it runs on a
+     * peer promoting itself mid-match. `hostHandlers.ts`'s Begin path builds its roster LOCALLY
+     * from `lobbySeats`/`raceByPeer` via `buildMatchRoster` and never sees a peer's bytes, so it
+     * needs no wire validation — its seats are already the reconciler's own output.
      */
     if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= MAX_PLAYERS) return false;
   }

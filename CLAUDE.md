@@ -23,7 +23,7 @@ the code in the session that wrote it, not copied from a handoff.
 
 ```bash
 npm run typecheck        # tsc -b --noEmit
-npx vitest run           # the unit suite — 3391 tests / 216 files at S159
+npx vitest run           # the unit suite — 3646 tests / 233 files at S163
 npm run e2e:gating       # Playwright, the deploy-gating subset — 62 tests
 npm run build            # includes the bundle-size charter check
 npm run verify-deploy    # 4/4 with content-hash equality

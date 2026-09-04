@@ -322,6 +322,23 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
   });
 
   it('CHECK GROK-ANALYST fix: rejects an OVER-CAP roster (> MAX_PLAYERS) for BOTH kinds (fail-closed length bound)', () => {
+    /*
+     * ⛔ S163 CHECK — **THE LENGTH BOUND IS NOW SUBSUMED AND CANNOT BE PINNED INDEPENDENTLY.**
+     * Stated here rather than faked, because two attempts to "restore" this test both failed and
+     * the second failure is the actual result.
+     *
+     * P4 added `0 <= seat < MAX_PLAYERS` AND cross-entry seat uniqueness. Those two together make
+     * an over-cap roster impossible by PIGEONHOLE: more than MAX_PLAYERS entries drawn from
+     * MAX_PLAYERS distinct legal seats must repeat one. So every over-cap fixture is now rejected
+     * by the range check (distinct seats 0..6) or by the dup check (cycled seats) BEFORE the length
+     * bound is consulted — verified by mutation: deleting `roster.length > MAX_PLAYERS` leaves this
+     * whole file green either way.
+     *
+     * The bound is KEPT anyway: it is a cheap O(1) short-circuit ahead of the loop, and it is the
+     * one check that still holds if a future edit relaxes seat uniqueness. But it is defence in
+     * depth, not an independently-tested guard, and pretending otherwise is what this session spent
+     * eight priorities removing.
+     */
     const tooMany = Array.from({ length: MAX_PLAYERS + 3 }, (_, i) => ({
       seat: i,
       peerId: `p${i}`,
@@ -336,6 +353,9 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
       color: 0x111111,
     }));
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
+    // ⭐ S163 CHECK — the pigeonhole argument above, asserted rather than only claimed: a roster of
+    // exactly MAX_PLAYERS uses every legal seat, so there is no legal seat left for a further entry.
+    expect(new Set(exactlyMax.map((e) => e.seat)).size).toBe(MAX_PLAYERS);
   });
 
   /*
