@@ -1,0 +1,252 @@
+{
+  "_comment": [
+    "SPARK — S165 P4: the SIX TIER-3 RACE TOWERS, four states each = 24 pieces.",
+    "",
+    "⭐ THE OWNER'S BRIEF, VERBATIM: *\"for the tier 3 we need the towers themselves to be generated",
+    "too in healthy form, damaged, spawning, and destroyed where they blow up or crumble or whatever",
+    "depending on the species... for zombies its a zombie kennel, for vampls its a vampire bat cave,",
+    "for mummies is a small pyramid, etc etc. and they all get destroyed with different cinematic,.",
+    "pyramid dissapears in a sand storm/sand devil. kennel turns to ooze. etc etc.... be super creative",
+    "and work in the style feel and vision of this project.\"*",
+    "",
+    "⚠ THREE OF THE SIX BUILDINGS ARE THE OWNER'S AND THREE ARE MINE. He named the zombie kennel, the",
+    "vampire bat cave and the mummy pyramid. The naga spawning-pool, the orc war-drum hut and the demon",
+    "summoning obelisk are MINE, chosen to match each race's already-shipped castle and zone. Flagged",
+    "here rather than buried so they are cheap to overrule — this project's rule is that a choice which",
+    "is mine says so.",
+    "",
+    "⭐ WHAT THE BUILDING IS FOR, so the art reads correctly: R119 builds it from THREE of the race's",
+    "own shape closed in a triangle, and R134/R116 make it emit that race's CREATURE — bats, piranhas,",
+    "scarabs, the hound, a twin-axe warband raider, soul-eaters. So each tower must look like a PLACE",
+    "THAT PRODUCES THAT ANIMAL: a roost, a pool, a hatchery, a kennel, a mustering hut, a rift.",
+    "It is NOT a gun emplacement and must not read as one.",
+    "",
+    "⛔ THE FOUR STATES ARE NOT FOUR PICTURES OF A BUILDING. They are the four things the board needs",
+    "to say, and each has a job:",
+    "  · intact    — the resting state, the silhouette the player learns.",
+    "  · spawning  — the SAME building mid-emission: apertures open, light spilling, the creature just",
+    "                clearing the opening. The silhouette must stay recognisably the intact one.",
+    "  · damaged   — a state the board HOLDS FOR MINUTES. See the gravity rule below.",
+    "  · destroyed — the aftermath the race's own destruction leaves behind, per the owner's",
+    "                per-species list. NOT a generic rubble pile: sand for the pyramid, ooze for the",
+    "                kennel, and so on down the table in `_destruction`.",
+    "",
+    "⛔ GENERATION IS ORDERED: every `-intact` FIRST, because the other three seed off it via refImages.",
+    "The reference is this project's own art and each prompt asks for a NEW drawing of the SAME",
+    "structure in a new condition — never a copy.",
+    "",
+    "⚠ THE DESTRUCTION *CINEMATICS* ARE NOT IN THIS FILE. The owner asked for the towers to \"get",
+    "destroyed with different cinematic\". These 24 are the STILL states; the transition clips need veo,",
+    "which is quota-blocked as of this session (429 RESOURCE_EXHAUSTED on the AI Studio key). The",
+    "`-destroyed` prompts are written so each one already reads as the END FRAME of its own cinematic,",
+    "so the clips can be seeded straight off them when quota returns."
+  ],
+  "_no_shadow": [
+    "⛔ NO GROUND SHADOW — lifted verbatim from race-castles/design-spec.json `_no_shadow`, where this",
+    "exact defect was measured and fixed. A DETACHED oval makes the shadow the foot the atlas builder",
+    "anchors to, so that race's tower floats and renders small; and the sprite is TINTED by the owning",
+    "seat, so baked grey ground turns crimson under a vampire and cyan under a naga."
+  ],
+  "_gravity": [
+    "⛔ GRAVITY, the owner's own note on the castles, and it binds all six `-damaged` states here:",
+    "*\"those are supposed to be on the ground. imagine if they are just suspended in the air for like 2",
+    "rounds while being broken its non consistent with laws of gravity lol and looks weird.\"*",
+    "A damaged tower is not a freeze-frame of the instant it broke — it is a STATE THE BOARD SITS IN.",
+    "Anything mid-fall is mid-fall forever. Every detached piece must have LANDED, and each -damaged",
+    "prompt names WHERE its own broken piece came to rest, because a generic instruction produced a",
+    "generic pile."
+  ],
+  "_destruction": [
+    "THE PER-SPECIES DESTRUCTION TABLE. Owner-given: pyramid -> sand devil; kennel -> ooze.",
+    "Mine, in the same spirit: bat cave -> the crag collapses and the roost empties in a burst of bats;",
+    "naga pool -> the water drains away into a sinkhole leaving cracked dry coral; orc hut -> burns down",
+    "to a charred frame and embers; demon obelisk -> implodes into a shrinking rift and cooling slag."
+  ],
+  "outDir": "assets-source/race-tier3-towers",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks — the drawing language of a hand-inked tabletop game piece.",
+    "FULL COLOUR, with real material variety: deeper cooler shades of the main hue for shadow, lighter",
+    "tints of it for lit faces, visible texture in the stone, timber, bone or coral, and one or two",
+    "supporting materials (dark iron, weathered timber, dull bronze, tarnished chain) that are NOT the",
+    "main hue.",
+    "⛔ NEVER a single flat fill: the structure must read as a built object made of materials, not as a",
+    "silhouette filled with one colour.",
+    "⛔ NOTHING IN THE STRUCTURE MAY BE WHITE OR NEAR-WHITE. Every light tone must carry a visible",
+    "colour cast a painter would name — bone-yellow, dull ochre, sea-green, warm tan, steel-blue, cold",
+    "lavender-grey. Even the brightest highlight stays clearly tinted, never a white or a neutral",
+    "near-grey. The background is the only white in the image.",
+    "⛔ GRAVITY. Every broken, snapped or detached piece must have COME TO REST ON THE GROUND at the",
+    "base of the structure — lying flat, leaning against the wall, or half-buried in its own rubble.",
+    "Nothing detached may float, hang in mid-air, dangle unsupported or sit at a mid-fall angle.",
+    "Symmetrical straight-on FRONT ELEVATION, no perspective, the entire structure inside the frame,",
+    "filling most of the frame height.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no ground",
+    "plane, no base platform — nothing beneath the structure. The lowest ink in the image must be the",
+    "bottom of the building itself, or of the rubble at its foot, sitting flat.",
+    "Centered on a plain pure white background.",
+    "No text, no lettering, no words, no logo, no border, no frame, no white outline around the",
+    "silhouette, no die-cut sticker edge, no drop-shadow behind the structure, no background scenery,",
+    "no sky, and no human characters standing in the scene. Carved motifs on the building itself are",
+    "wanted and are not characters."
+  ],
+  "characters": [
+    {
+      "name": "t3-vampires-intact",
+      "_race": "vampires — crimson 0xff3b6b — THE BAT CAVE (owner-named)",
+      "prompt": "A vampire bat-roost tower, THE WHOLE STRUCTURE SHOWN COMPLETE FROM ITS BASE TO ITS VERY TOP with clear empty margin above it: a SQUAT, WIDE crag of grey-violet rock, wider than it is tall, with a peaked broken summit that is fully visible inside the frame. An arched cave mouth is cut into its face, ringed by a crumbling gothic stone frame with narrow lancet arches and iron spikes along the top edge. Ragged bats hang in rows in the shadowed cave mouth. Dark violet-grey stone with weathered black iron banding and dull bronze fittings. Crimson accents: a deep red glow from within the cave mouth and crimson stained-glass slivers set in the arch. Brooding and still. The entire tower including its summit fits well inside the frame and nothing is cropped by any edge.",
+      "_regen_note": "S165: the first pass drew a TALL cylindrical tower whose top was CROPPED by the frame edge. sharedStyle already says 'the entire structure inside the frame', and it was not obeyed — for a front-elevation sprite a cut-off summit is a real defect, because build-sprite-atlas.mjs foot-anchors to a union bbox and would ship the tower truncated. Reworked to a SQUAT, WIDE crag with the summit named as something that must be visible, plus an explicit margin instruction."
+    },
+    {
+      "name": "t3-vampires-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-vampires-intact.png"
+      ],
+      "prompt": "The SAME vampire bat-roost tower, mid-emission. Its silhouette is unchanged and clearly the same building, but the cave mouth is now blazing with crimson light spilling out across the stone frame, the iron spikes are lit from beneath, and a single large bat is just clearing the arch with wings spread. The bats in the shadows behind are stirring. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-vampires-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-vampires-intact.png"
+      ],
+      "prompt": "The SAME vampire bat-roost tower, badly damaged but still standing. The gothic arch over the cave mouth has cracked and its keystone has FALLEN AND IS LYING FLAT ON THE GROUND at the tower's foot among broken stone; a section of the iron spike row has snapped off and is LEANING AGAINST the base of the crag. A deep fissure runs down the rock face. The cave mouth's crimson glow is dimmer and guttering. Every broken piece has come to rest on the ground — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-vampires-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-vampires-intact.png"
+      ],
+      "prompt": "The RUIN left where the vampire bat-roost tower stood: the crag has collapsed inward and the roost is empty. A low mound of shattered violet-grey rock and broken gothic stonework lies flat on the ground, ONE lancet arch still recognisable and half-buried on its side, twisted black iron spikes tangled in the rubble. A last few ragged bats scatter away low over the debris. Only a dying crimson ember-glow remains deep in the collapsed cavity. Everything is settled on the ground."
+    },
+    {
+      "name": "t3-nagas-intact",
+      "_race": "nagas — cyan 0x3bd7ff — THE SPAWNING POOL (⚠ MINE, not owner-named)",
+      "prompt": "A naga spawning pool: a raised circular basin of dark teal basalt and ribbed coral, its rim carved with serpent-scale relief and four small bronze serpent-head spouts trickling water inward. The pool is brimming with deep still water and clusters of translucent eggs cling to the coral just below the surface. Deep blue-green stone with pale sea-green coral and tarnished bronze fittings. Cyan accents: a cold cyan luminescence rising from beneath the water and glinting on the spouts. Cold, disciplined and military in its stonework."
+    },
+    {
+      "name": "t3-nagas-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-nagas-intact.png"
+      ],
+      "prompt": "The SAME naga spawning pool, mid-emission. Its silhouette is unchanged and clearly the same basin, but the water is now churning and doming upward, brilliant cyan light blazing from beneath it, spray flung over the carved rim, and a single armoured piranha is breaking the surface mid-leap. The bronze spouts run hard. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-nagas-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-nagas-intact.png"
+      ],
+      "prompt": "The SAME naga spawning pool, badly damaged but still holding. A section of the carved basalt rim has broken away and the broken slab is LYING FLAT ON THE GROUND beside the basin; one bronze serpent-head spout has snapped off and is RESTING half-submerged in the shallows. Water leaks from a crack in the basin wall and pools on the ground. The water level has dropped and the cyan light beneath is faint. Every broken piece has come to rest — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-nagas-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-nagas-intact.png"
+      ],
+      "prompt": "The RUIN left where the naga spawning pool stood: the basin has split and DRAINED COMPLETELY AWAY into a dark sinkhole at its centre. The cracked dry bowl is lined with grey dead coral and burst empty egg-cases; the carved rim is broken into three pieces lying flat on the ground around it; a bronze serpent-head lies on its side in the dry silt. Only a damp cyan stain remains at the sinkhole's lip. Everything is settled on the ground."
+    },
+    {
+      "name": "t3-mummies-intact",
+      "_race": "mummies — yellow 0xffe23b — THE SMALL PYRAMID (owner-named)",
+      "prompt": "A small stepped sandstone pyramid, roughly two storeys, with a low dark doorway at its base flanked by carved scarab reliefs and a gold-and-lapis banded lintel. Weathered ochre and tan sandstone blocks with visible courses and wind-scour, dull bronze door fittings, deep lapis-blue inlay in the carvings. Amber-gold accents: gilding along the lintel and a warm amber glow in the doorway's dark. Squat, heavy and ancient."
+    },
+    {
+      "name": "t3-mummies-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-mummies-intact.png"
+      ],
+      "prompt": "The SAME small stepped pyramid, mid-emission. Its silhouette is unchanged and clearly the same building, but the doorway is now blazing with amber-gold light that throws the scarab reliefs into relief, fine sand streams down the steps on both sides, and a single big lapis-and-gold scarab beetle is just scuttling out over the threshold. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-mummies-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-mummies-intact.png"
+      ],
+      "prompt": "The SAME small stepped pyramid, badly damaged but still standing. The top two courses have collapsed and those blocks are LYING FLAT ON THE GROUND at the pyramid's foot, half-buried in spilled sand; the gold-and-lapis lintel has cracked and one half has SLID DOWN and come to rest LEANING AGAINST the doorway's jamb. A long crack zigzags up one face and sand trickles from it. The amber glow within is dim. Every broken piece has come to rest — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-mummies-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-mummies-intact.png"
+      ],
+      "prompt": "The RUIN left where the small pyramid stood after a SAND DEVIL took it: almost nothing remains but a low drift of ochre sand in the pyramid's footprint, with only the broken lower courses of two walls and the cracked lapis lintel still showing above the dune, half-buried. A few scattered blocks lie flat around the edge. A faint spiralling wisp of settling dust hangs low over the drift. Everything is settled on the ground."
+    },
+    {
+      "name": "t3-zombies-intact",
+      "_race": "zombies — green 0x44ff5e — THE KENNEL (owner-named)",
+      "prompt": "A rotting zombie kennel: a long low hovel of warped grey timber planks and rusted corrugated sheet, its roof sagging, with a dark arched opening at the front hung with torn sacking and a heavy chewed chain and broken collar lying at the threshold. Mossy green-grey rotten wood, rusted brown iron, patches of wet mould. Sickly green accents: a faint swamp-glow leaking from the opening and green slime in the timber joints. Squalid and foul."
+    },
+    {
+      "name": "t3-zombies-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-zombies-intact.png"
+      ],
+      "prompt": "The SAME rotting kennel, mid-emission. Its silhouette is unchanged and clearly the same hovel, but the opening is now flooded with sickly green light, the sacking is flung aside, the chain snaps taut, and a gaunt rotting hound is just clearing the threshold at a run, head low. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-zombies-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-zombies-intact.png"
+      ],
+      "prompt": "The SAME rotting kennel, badly damaged but still standing. Half the corrugated roof sheet has torn free and is LYING FLAT ON THE GROUND beside the hovel, bent and rusted; two wall planks have snapped and are LEANING AGAINST the frame. The roofline sags deeper and the sacking hangs in shreds. The green glow inside is weak. Every broken piece has come to rest — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-zombies-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-zombies-intact.png"
+      ],
+      "prompt": "The RUIN left where the zombie kennel stood after it DISSOLVED INTO OOZE: the timber has slumped and liquefied into a wide flat pool of thick sickly green-brown sludge, with only a few softened plank stubs and the rusted chain still recognisable, half-sunk and sagging into the ooze. The pool has spread and settled level on the ground, its surface glossy and faintly bubbling with a sickly green glow. Everything is settled and flat."
+    },
+    {
+      "name": "t3-orcs-intact",
+      "_race": "orcs — orange 0xff8c1a — THE WAR-DRUM HUT (⚠ MINE, not owner-named)",
+      "prompt": "An orc mustering hut: a crude heavy shelter of lashed timber posts and stretched hide, with a huge war-drum of stretched skin and iron rim mounted on a frame above its open front, two notched axes driven into the doorposts, and a rack of crude spears leaning at one side. Weathered brown timber, dark stretched hide, rusted iron banding and rope lashings. Burnt-orange accents: war-paint stripes daubed across the hide and a low fire glow inside the opening. Brutal, functional and loud."
+    },
+    {
+      "name": "t3-orcs-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-orcs-intact.png"
+      ],
+      "prompt": "The SAME orc mustering hut, mid-emission. Its silhouette is unchanged and clearly the same shelter, but the war-drum is struck and visibly ringing, burnt-orange firelight blazes out of the open front, the hide walls are lit from within, and a heavy twin-axe orc raider is just striding out through the opening. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-orcs-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-orcs-intact.png"
+      ],
+      "prompt": "The SAME orc mustering hut, badly damaged but still standing. The war-drum has been split and has FALLEN FROM ITS FRAME to LIE FLAT ON THE GROUND beside the hut, its skin burst and its iron rim buckled; one corner post has snapped and the hide wall it held now sags, its torn edge RESTING ON THE GROUND. The spear rack has toppled and the spears lie scattered flat. Every broken piece has come to rest — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-orcs-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-orcs-intact.png"
+      ],
+      "prompt": "The RUIN left where the orc mustering hut BURNED DOWN: a low blackened heap of charred timber stubs and collapsed ash-grey hide, the iron drum rim lying warped and soot-black flat on the ground among it, one axe head still buried in a charred post stump. Thin smoke rises from the heap and a few burnt-orange embers still glow deep in the ash. Everything is settled and flat on the ground."
+    },
+    {
+      "name": "t3-demons-intact",
+      "_race": "demons — magenta 0xd73bff — THE SUMMONING OBELISK (⚠ MINE, not owner-named)",
+      "prompt": "A demonic summoning obelisk: a tall cracked basalt monolith leaning slightly, its face carved with jagged sigils, standing over a narrow vertical rift in the ground at its base from which violet light escapes. A ring of small blackened bone-and-iron stakes surrounds it and a heavy chain is wound around its middle. Volcanic near-black basalt with dark iron and grey bone. Vivid magenta accents: the sigils and the rift glow magenta-violet. Ominous and humming."
+    },
+    {
+      "name": "t3-demons-spawning",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-demons-intact.png"
+      ],
+      "prompt": "The SAME demonic obelisk, mid-emission. Its silhouette is unchanged and clearly the same monolith, but every carved sigil is blazing magenta, the rift at its base has widened and is pouring violet light and dark smoke upward, the surrounding stakes are lit from below, and a hooded faceless wraith is just rising clear of the rift. Everything else about the structure is identical."
+    },
+    {
+      "name": "t3-demons-damaged",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-demons-intact.png"
+      ],
+      "prompt": "The SAME demonic obelisk, badly damaged but still standing. Its upper third has snapped off and that broken shard is LYING FLAT ON THE GROUND beside the base, sigils still faintly lit; the chain has burst and its loose end LIES COILED ON THE GROUND. Several bone stakes are broken and lying flat. The monolith leans further and the rift beneath it is narrowed and guttering. Every broken piece has come to rest — nothing is falling or suspended."
+    },
+    {
+      "name": "t3-demons-destroyed",
+      "refImages": [
+        "assets-source/race-tier3-towers/t3-demons-intact.png"
+      ],
+      "prompt": "The RUIN left where the demonic obelisk IMPLODED: the monolith has been crushed inward into a low ring of shattered black basalt lying flat around a sealed scar in the ground where the rift has collapsed shut. Broken bone stakes lie flattened outward from the centre; the iron chain is fused into a slagged lump. Only a dull magenta ember-light remains in the cracks of the sealed scar, cooling. Everything is settled flat on the ground."
+    }
+  ]
+}
