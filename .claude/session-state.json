@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 4832,
-  "session_id": "S164",
+  "tool_calls_session_total": 4839,
+  "session_id": "S165",
   "session_kind": "batch-pdca",
-  "session_start": "2026-09-05T00:30:00+02:00",
-  "prior_session_note": "S163 closed its work at eaf85e2 but was left OPEN at owner request. Its priorities+reflexion are archived in priorities_s163_archived / reflexion_s163_archived.",
+  "session_start": "2026-09-05T14:00:00+02:00",
+  "prior_session_note": "S164 shipped V6-2.4 (castle regen, PROTOCOL 40->41) plus two real bugs found in already-shipped code. P5 delivered race-unit ART only; nothing in src/ referenced it. P6 not started. Both carried forward at owner instruction.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "CLOSED",
-  "tier": "FULL",
-  "plan_file": ".claude/plans/2026-09-05_PDR_S164_BATCH.md",
-  "session_status": "S164 HANDED OFF — 4/6 priorities shipped and deployed; P5 (art delivered, wiring not started) and P6 carried forward at owner instruction",
+  "phase": "DO",
+  "tier": "Full",
+  "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
+  "session_status": "S165 IN PROGRESS - owner pre-approved full batch + full autonomous run",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 40,
+  "protocol_version": 41,
   "boot_preflight": {
     "typecheck": "PASS exit 0",
     "vitest": "PASS exit 0 — 3458 passed / 221 files",
@@ -32,182 +32,79 @@
   },
   "priorities": [
     {
-      "id": "P1",
-      "title": "Castle regen upgrade (R128-R131) - the unbuilt half of V6-2.4",
-      "status": "completed",
+      "id": 1,
+      "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white on the character",
+      "status": "in_progress",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "641783cf4d0f3a75018cd29b7c1438e4027d1c9e",
-      "check_method": "P1 CHECK. Gates read directly: typecheck 0; vitest 0 = 3668/3668 across 234 files (+19 new); build 0 = 781.7/900 KiB; e2e:gating 0 = 62 passed in 3.4m (mandatory here - the protocol bumped 40->41). MUTATION PROOF on all four guards: stubbing never-from-zero, the overheal clamp, the reducer cap, and level-0-is-nothing each makes its own case fail (exit 1); file restored and diffed BYTE-IDENTICAL against a pre-mutation copy. THE REQUIRED-FIELD DECISION PAID: making castleRegenLevel required rather than additive-optional made tsc enumerate all four construction sites including the two carry-FSM rebuilds that eliminatedAtTick documents as the ones tsc CANNOT catch when optional - and a runtime pickup/drop test pins them anyway against a future refactor. THE BUMP WAS SIX SITES and the chain gate caught me on one: protocolVersionSync.test.ts failed until the lowercase one-line `bumped 40->41` summary was added alongside the narrative block, which is exactly the drift that test exists to stop. THE RATE WAS RULED, NOT READ: per-tick would have been 900 HP/s = 150 goblins out-healed = castle unkillable at lv1; the arithmetic went to the owner and per-second was chosen.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/castleRegen.ts",
-          "needle": "export function castleRegenPerSecond"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleRegen.ts",
-          "needle": "if (p.castleHp <= 0) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleRegen.ts",
-          "needle": "p.castleHp = Math.min(CASTLE_MAX_HP, p.castleHp + gain);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 41 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "castleRegenLevel: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/elimination.ts",
-          "needle": "UPGRADE_CASTLE_REGEN: 'deny',"
-        },
-        {
-          "type": "grep_count",
-          "path": "e2e/smoke.spec.ts",
-          "pattern": "LOCAL_PROTO_V = 41",
-          "op": "==",
-          "value": 1
-        }
-      ]
+      "check_completed": false,
+      "scope": "Fix BOTH shadow sites (design-spec.json sharedStyle + gen-character-design.mjs SHARED_STYLE default). Add a constructive colour-cast clause that names each character's pale colour. Regenerate 6 designs -> 24 clips -> 6 atlases. Measure the leak census; retire the orc's per-character override only if the measurement supports it."
     },
     {
-      "id": "P2",
-      "title": "A2 - the castle strike preempts the bond arm",
-      "status": "completed",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "0e39f745c72cd59a670ab89a726a2f6dff7472eb",
-      "check_method": "P2 CHECK. Gates read directly: typecheck 0; vitest 0 = 3671/3671 across 234 files (+3); build 0 = 781.7/900 KiB. MUTATION PROOF: reinstating the pre-S164 order (castle block above the bond resolution) fails exactly the new bond case and nothing else (exit 1, 1 failed / 6 passed); restored, 0 MUTATION markers remain. TWO THINGS WORTH RECORDING: (1) the full suite was GREEN both before and after the reorder - nothing anywhere pinned the documented ordering, which is why the regression test is the deliverable rather than the reorder; (2) my first assertion (damageFifths > 0) FAILED AGAINST CORRECT BEHAVIOUR because a 2-primitive component has capacity count+4 = 5 fifths and one chewer strike severs it outright, removing the bond from world.bonds - the test now accepts damaged-or-severed and records why. Also caught by reading gates separately: vitest was GREEN while tsc was RED on a bad StiffnessTier literal.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "THE CASTLE STRIKE IS NOW GENUINELY LAST"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "// No connector to work on"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/strikeOrderAndRecall.test.ts",
-          "needle": "no longer preempts the BOND strike either"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "title": "C5 + C4 - close the damageEntity heal vector, clamp overheal",
-      "status": "completed",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "e54aeabac7c7dc9332b901fd81f2f7a9f8578fc0",
-      "check_method": "P3 CHECK. Gates read directly: typecheck 0; vitest 0 = 3675/3675 across 234 files (+4); build 0 = 781.7/900 KiB. MUTATION PROOF: reopening the hole (moving the guard back below the castle arm) fails exactly the two new cases (exit 1, 2 failed / 11 passed); file restored and diffed BYTE-IDENTICAL. The fix is one statement reordering, but the reasoning is the deliverable: the castle was the ONLY target that bypassed validation, and it is the one whose HP ends the match - combined with save.ts emitting castleHp only when below max, an over-max value would have been a SILENT wire divergence that neither hash oracle could see.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/damage.ts",
-          "needle": "THE VALIDATION MOVED ABOVE THE CASTLE ARM"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleHp.test.ts",
-          "needle": "a NEGATIVE amount THROWS for a castle"
-        }
-      ]
-    },
-    {
-      "id": "P4",
-      "title": "R132 - NONET 9 -> 12, stays off the footer menu",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "a4585a648b80e7f8bb0bfe4da63903b7f48063b5",
-      "check_method": "P4 CHECK. Gates read directly: typecheck 0; vitest 0 = 3679/3679 across 234 files (+4); build 0 under charter. The behaviour is pinned at BOTH edges (NONET_SHAPE_COUNT-1 and +1 both return null) plus the literal 9 explicitly, so the boss-tower count can never silently start firing the trial again. The footer-menu half of R132 was verified to be already true by construction and pinned against the LIVE castleStructuresModel rather than a file grep, with an anti-vacuity assertion that the model is non-empty. One authoring slip caught and fixed: an unasserted .replace silently failed to add an import, so the first run of the new test errored - the lesson is the same one this session keeps paying, assert the match count on every patch.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.ts",
-          "needle": "export const NONET_SHAPE_COUNT = 12;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.test.ts",
-          "needle": "NINE no longer fires a NONET"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.test.ts",
-          "needle": "NEVER APPEARS IN THE FOOTER TOWER MENU"
-        }
-      ]
-    },
-    {
-      "id": "P5",
-      "title": "W1-C - the castle produces its race unit (R133 castle sentinel SpawnerId)",
-      "status": "awaiting_owner_art_review",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "6a14f2973d714c84ee5c45a9879d2d62ce6f180a",
-      "progress_s164": "ART SPIKE DELIVERED, NOT WIRED — the owner chose art-first for this slot and the standing rule is spike-and-show-before-wiring. Six race-unit design seeds generated through the existing pipeline and committed with their spec (reproducible from the repo alone, per the S152 rule). Naga regenerated once: the first pass floated with a detached shadow and out-sprawled every bipedal sibling, which would have broken the stat-identical parity R94/R117 requires.",
-      "blockers_resolved_s164": [
-        "B1 (the emitter cap) — RESOLVED by owner R133: a castle sentinel SpawnerId, so race units take the normal spawner population path instead of widening the voltkin exemption.",
-        "BLOCKER 8 (creatures have no SHELTERED state) — DISSOLVED, not worked around. recallArmies already teleports every creature home on the FIGHT->BUILD edge (hostTick.ts:395) and the whole creature fan-out is FIGHT-gated, so born-at-the-anchor + the existing gate + the existing recall IS the shelter/release/recall cycle. Its docblock explicitly forbids a new CreatureState (a hard wire parse break, and goblinRenderer would draw it as idle), so needing none is the correct outcome rather than a shortcut."
-      ],
-      "remaining_s164": "Once the owner approves the art: atlas + clips (build-sprite-atlas.mjs / gen-character-clips.mjs), then castleEmitter.ts — per-seat, cadence on world.tick only (~30s per R120), units born at the castle anchor with the sentinel SpawnerId. PROTOCOL is already at 41 from P1, so W1-C rides that bump rather than owing its own."
-    },
-    {
-      "id": "P6",
-      "title": "The art-direction brief - per-race zones + tier-9 boss towers",
+      "id": 2,
+      "title": "P2 - W1-C: wire the castle race-unit emitter (R133 castle sentinel SpawnerId)",
       "status": "pending",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": false,
+      "scope": "Castle sentinel SpawnerId; cadence on world.tick (~30s, R120); stats 1/1/1/1 (R125); sentinel backstop cap (R123/R124); RACE_UNIT table + creatureRenderer wiring for the six atlases. No protocol bump owed - rides 41."
+    },
+    {
+      "id": 3,
+      "title": "P3 - tier-3 tower unit art: bat, piranha, scarab beetle, hound, orc-warband grunt, soul-eater (R116/R134)",
+      "status": "pending",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "scope": "ART ONLY. R135's varied stat numbers are NOT ruled and are not written this session."
+    },
+    {
+      "id": 4,
+      "title": "P4 - tier-3 race tower art: 6 towers x {healthy, damaged, spawning, destroyed} + per-species destruction cinematics",
+      "status": "pending",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "scope": "Owner: 'zombies its a zombie kennel, for vampls its a vampire bat cave, for mummies is a small pyramid ... they all get destroyed with different cinematic, pyramid dissapears in a sand storm/sand devil. kennel turns to ooze.' The GRAVITY rule from race-castles binds every damaged state."
+    },
+    {
+      "id": 5,
+      "title": "P5 - twelve zone backgrounds, one per race per board (R137)",
+      "status": "pending",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "scope": "QUADRANTS_4P zone is 960x540 landscape, PITCH_2P zone is 960x1080 portrait. Generate the 4P landscape first and seed the 2P off it."
+    },
+    {
+      "id": 6,
+      "title": "P6 - final audit: gates green, everything committed, pushed, deployed; fix anything broken",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "scope": "Owner explicit: 'check and analyze the work making sure it all landed is commited pushed and deployed as it should be. nothing is broken and if it is fix it.' Exit codes read directly, never through a pipe. verify-deploy content-hash equality."
     }
   ],
-  "reflexion_entries_to_archive": [
-    "S164 P1 #owner-number-checked-not-obeyed — THE OWNER GAVE A NUMBER THAT WOULD HAVE DELETED A WIN CONDITION, and the only reason it did not ship is that I did the arithmetic before writing code. \"+1% hp reg per tick\" is 1% x 1500 x 60 = 900 HP/s against a goblin's 6 — it out-heals 150 attackers, so the castle becomes unkillable at level 1 and the second victory condition stops existing. Putting the two columns (per-tick vs per-second) in front of the owner took one question and got a ruling. A brief is an intent, not a spec; the unit is the spec.",
-    "S164 P1 #required-not-optional — MAKING THE NEW FIELD REQUIRED IS WHAT MADE tsc FIND THE TRAPS. castleRegenLevel could have been additive-optional like eliminatedAtTick, and eliminatedAtTick's own docblock records that an optional field omitted at the two carry-FSM rebuilds compiles clean and is silently reset on every spark pickup. Required turned that invisible class into four compile errors, one per construction site. Optional is the default reflex and it is the wrong one when a field must never be absent.",
-    "S164 P1 #integers-are-the-design — THE RATE LANDING ON WHOLE HP IS NOT A COINCIDENCE, IT IS WHY THE DESIGN IS SAFE. 1500 x (1.0,1.2,1.4,1.6,1.8)% = 15,18,21,24,27 exactly, so regen is integer HP on a per-second tick cadence instead of a fractional per-tick accumulator this sim forbids. When a rate comes out clean, check whether that is load-bearing before treating it as luck — here it removed a whole class of determinism risk and a rounding rule that could have been got wrong.",
-    "S164 P2 #docblock-as-bug-report — A COMMENT THAT CONTRADICTS ITS OWN CODE IS A BUG REPORT NOBODY FILED. creatureAttack said TWICE that the castle strike was \"Ordered LAST, after bond / creature / shape\" while the castle block returned above the bond branch. S157 F1 had fixed the SHAPE arm and stopped, leaving the connector family — exactly the family admitted to castle attacks — still underneath. The full suite was green before AND after the reorder, so nothing anywhere pinned the documented order; the regression test is the deliverable, not the reorder.",
-    "S164 P3 #the-unvalidated-arm-is-the-important-one — damageEntity's castle arm returned ABOVE the integer/non-negative guard, so the ONE target that bypassed validation was the one whose HP ends the match: a negative amount added HP, unclamped. Worse, save.ts emits castleHp only when BELOW max, so any over-max value would have been emitted as nothing and read as 1500 by every peer — a silent divergence neither hash oracle can see. When a function has an early-returning special case, check what it is skipping on the way out.",
-    "S164 P4 #separate-by-count-not-precedence — the boss tower (\"nine of the race shape\") collided with the NONET sweep (\"exactly 9 of one type\"), and the obvious fix was an ordering rule. The owner picked a better one: move NONET to 12. Neither trigger now needs to know the other exists, there is no precedence to get wrong, and both stay reachable. Prefer making two mechanisms disjoint over teaching one to defer to the other.",
-    "S164 P5 #measure-the-art-do-not-eyeball-it — the owner reported white background in two units; a per-cell census found ~21,500 leaked pixels across ALL SIX, with nagas and demons worse than the two he spotted. The same census then proved the fix (94.2% removed) and caught the regression it caused (orc head-band light pixels 2267 -> 386, i.e. eyes going with the leaks). Art defects are as measurable as code defects, and offering to take screenshots instead of measuring would have been slower and less complete.",
-    "S164 P5 #no-knee-means-fix-it-upstream — for the orc, leaked pockets and eye whites are the SAME SIZE (43..320px vs eyes to 38px, overlapping), and the measured curve across five thresholds moved both together monotonically with no knee. That is the signal that the lever is wrong, not mis-tuned: the real fix is at generation (stop producing eye-sized white pockets, stop baking a shadow the renderer already draws in the owner tint). Took the balance point, filed the source fix, said so plainly rather than pretending the knob solved it.",
-    "S164 P5 #the-tool-already-knew — every art defect this session was one the pipeline had already documented for a previous character: the sampleWindow docblock describes veo drifting after ~1s (the naga's size incoherence), and the matte docblock describes sub-threshold enclosed pockets shipping as blobs (the wing gaps, \"one size band down\" for the bat rider). Reading the script's own comments before retuning it would have predicted all three. Check whether the tool has already met this bug.",
-    "S164 SESSION #reversal-can-be-coherent — the owner asked for varied tier-3 unit stats, which directly reverses R117 (his own ruling, which killed that idea once). Rather than either obeying silently or objecting, the right move was to find WHY R117 existed: it rests on the castle and the tower emitting the same creature, and the owner's new split makes them different creatures, so the exploit R117 guarded against is gone by construction. A reversal that dissolves its predecessor's premise is not a contradiction — but it has to be written down as one, at the ruling."
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
   "e2e_gating_status": "exit 0, 62 passed (S159, run twice)",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -6249,5 +6146,59 @@
     }
   ],
   "close_gate_note_s164": "⛔ THE CLOSE GATE CAUGHT AN OVERCLAIM AND IT WAS RIGHT. session_status was set to \"S164 CLOSED\", which CONST-4 CLAIM-B reads as the assertion that EVERY priority is status=completed. Two are not: P5 is art-only (wiring not started) and P6 never began, both carried forward at the owner explicit instruction to move the rest to next session. The claim was withdrawn rather than the priorities being relabelled - marking them completed to satisfy a gate is precisely the fabrication class the gate exists to stop.",
-  "finding_close_gate_glob_mismatch": "⚠ DURABLE TOOLING MISMATCH, worth fixing globally rather than per-session. constitution-close-gate.sh CLAIM-B globs the project root for HANDOFF_S*.md, but this project switched its handoff naming to HANDOFF_<date>_S<n>.md at S143 (the archive shows both conventions: HANDOFF_S107..S142 and S159 use the old shape, S143+ use the dated one). So the freshness check has been silently unsatisfiable here for roughly twenty sessions - it can only ever have passed for sessions that never set the CLOSED status. S164 satisfies it by naming the ROOT copy HANDOFF_S164.md (root handoffs are gitignored and ephemeral) while the ARCHIVE copy keeps the dated convention. The real fix is to widen the glob to HANDOFF_*S*.md in the hook."
+  "finding_close_gate_glob_mismatch": "⚠ DURABLE TOOLING MISMATCH, worth fixing globally rather than per-session. constitution-close-gate.sh CLAIM-B globs the project root for HANDOFF_S*.md, but this project switched its handoff naming to HANDOFF_<date>_S<n>.md at S143 (the archive shows both conventions: HANDOFF_S107..S142 and S159 use the old shape, S143+ use the dated one). So the freshness check has been silently unsatisfiable here for roughly twenty sessions - it can only ever have passed for sessions that never set the CLOSED status. S164 satisfies it by naming the ROOT copy HANDOFF_S164.md (root handoffs are gitignored and ephemeral) while the ARCHIVE copy keeps the dated convention. The real fix is to widen the glob to HANDOFF_*S*.md in the hook.",
+  "owner_approval_verbatim": "I pre approve full priority batch. we have carry-forward priorities from last session that we did not finish. lets run those and then all the other top recomended priorities including Wire the W1-C castle emitter. ... i approve full priority batch and full autonomous run! in the end check and analyze the work making sure it all landed is commited pushed and deployed as it should be. nothing is broken and if it is fix it. do not close off session when youre done i would like to check your work before handoff",
+  "owner_constraints_this_session": [
+    "ART CONSISTENCY IS AN EXPLICIT REQUIREMENT: 'make sure everything is consistent (the video and all the image cutouts have the same character/same size etc. make sure when you cut them out you dont leave white background space or take out eyes or anything like that'.",
+    "SHOW THE WORK AS IT LANDS: 'paste the the images as you go so when i get back i can see what have been done'.",
+    "DO NOT CLOSE THE SESSION. No /handoff. The owner reviews first."
+  ],
+  "a0_state_discovery_s165": {
+    "method": "Empirical probes run BEFORE the PDR was locked (Rule 21). Every row measured against the live tree, not read from the handoff.",
+    "rows": [
+      {
+        "check": "race-unit atlases on disk",
+        "expected": "6",
+        "actual": "6, each with idle/walk/attack/die x 12 frames",
+        "verdict": "CONFIRMED"
+      },
+      {
+        "check": "src/ references the atlases",
+        "expected": "none",
+        "actual": "none - grep for unit-vampires|RACE_UNIT across src/ returns empty",
+        "verdict": "CONFIRMED"
+      },
+      {
+        "check": "OWNER CLAIM: only vampires, orcs and nagas were generated",
+        "expected": "3 of 6",
+        "actual": "ALL SIX - 6 design PNGs, 24 clips, 6 atlases on disk",
+        "verdict": "REFUTED - it was a presentation gap in S164, not a generation gap. All six are shown to the owner this session."
+      },
+      {
+        "check": "how many places ask for a baked ground shadow",
+        "expected": "1 (design-spec.json, per the S164 handoff)",
+        "actual": "2 - also scripts/gen-character-design.mjs:78, the DEFAULT every future spec inherits",
+        "verdict": "DELTA - fixing only the file the handoff named would have left the defect live for the tier-3 units generated later in this same batch"
+      },
+      {
+        "check": "does the bundle charter count public/ assets",
+        "expected": "unknown",
+        "actual": "NO - check-bundle-size.mjs gates the entry JS chunk only, parsed out of dist/index.html",
+        "verdict": "CONFIRMED - the six ~1.5MB atlases are free of the 900 KiB cap"
+      },
+      {
+        "check": "is there a proven no-shadow wording already in-tree",
+        "expected": "unknown",
+        "actual": "YES - assets-source/race-castles/design-spec.json _no_shadow, already owner-accepted one wave earlier",
+        "verdict": "REUSED verbatim rather than invented"
+      }
+    ]
+  },
+  "baseline_at_boot": {
+    "commit": "48b9475",
+    "typecheck": "exit 0",
+    "vitest": "exit 0 - 3679 passed / 234 files",
+    "protocol_version": 41,
+    "ci": "all S164 deploys concluded success; no failures at boot"
+  }
 }

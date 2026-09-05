@@ -1008,13 +1008,26 @@ export function nearestEnemySpawnerBond(
 
 /**
  * S100 P1 (TD Phase 1a) — nearest CHEWER position within CHEWER_AVOID_RADIUS of a point,
- * or null. Only chewers (sourceSpawnerId !== null) — a Voltkin isn't a swarm threat. Used
- * by the light chewer-avoid in chooseGoal. Deterministic: nearest wins, Map-order tie-break.
+ * or null. Used by the light chewer-avoid in chooseGoal. Deterministic: nearest wins,
+ * Map-order tie-break.
+ *
+ * ⛔ S165 — THE FILTER USED TO BE `sourceSpawnerId !== null` AND THAT HAD SILENTLY STOPPED
+ * MEANING "CHEWER". When this was written at S100 the chewer was the ONLY spawner-sourced
+ * creature, so "has a spawner" and "is a chewer" were the same predicate and the docblock said so.
+ * S151 P3 then gave the goblin tower six outputs and `goblinTowerFeed.ts:154` stamps every one of
+ * them with `sourceSpawnerId: action.spawnerId`. From that commit on, EVERY GOBLIN matched this
+ * filter, so `chooseGoal`'s chewer-avoid steered bots away from their OWN goblins — a live
+ * behavioural bug, not a latent one, and invisible because the function still returned a plausible
+ * position. `lightningDrone` matched too.
+ *
+ * The fix is to test the thing the name and the docblock already claimed. Keep it as a TYPE check:
+ * a provenance check is what drifted, and it will drift again the moment another spawner-sourced
+ * creature is added — which W1-C's castle race unit is about to be.
  */
 export function nearestChewer(world: World, from: Vec2): Vec2 | null {
   let best: { pos: Vec2; d: number } | null = null;
   for (const c of world.creatures.values()) {
-    if (c.sourceSpawnerId === null) continue; // Voltkin — not a chew-swarm threat
+    if (c.type !== 'chewer') continue; // not a chew-swarm threat
     const dx = c.pos.x - from.x;
     const dy = c.pos.y - from.y;
     const d = dx * dx + dy * dy;

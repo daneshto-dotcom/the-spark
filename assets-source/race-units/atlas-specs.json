@@ -31,7 +31,7 @@
   "specs": [
     {
       "name": "unit-vampires",
-      "outDir": "public/godly/unit-vampires/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -57,7 +57,7 @@
     },
     {
       "name": "unit-nagas",
-      "outDir": "public/godly/unit-nagas/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -88,7 +88,7 @@
     },
     {
       "name": "unit-mummies",
-      "outDir": "public/godly/unit-mummies/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -114,7 +114,7 @@
     },
     {
       "name": "unit-zombies",
-      "outDir": "public/godly/unit-zombies/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -140,7 +140,7 @@
     },
     {
       "name": "unit-orcs",
-      "outDir": "public/godly/unit-orcs/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -166,7 +166,7 @@
     },
     {
       "name": "unit-demons",
-      "outDir": "public/godly/unit-demons/anim",
+      "outDir": "public/art/race-units",
       "cellW": 200,
       "cellH": 200,
       "framesPerState": 12,
@@ -190,5 +190,45 @@
       },
       "enclosedWhiteLimitPct": 4e-05
     }
+  ],
+  "_outdir_convention": [
+    "⛔ public/art/race-units/, NOT public/godly/ — corrected in S165.",
+    "S164 wrote these six atlases to public/godly/unit-*/anim/. render/castleFrames.ts:83-87 states the",
+    "rule explicitly and it was already load-bearing when those were written: \"Every existing atlas sits",
+    "under /godly/ because every existing atlas IS a godly combo's art. A castle is not a godly — it is",
+    "the board furniture every seat has from tick zero — and filing it under /godly/ would make the one",
+    "directory that currently means 'a combo shipped this' stop meaning that.\"",
+    "A castle-SPAWNED race unit is the same category as the castle: board furniture every seat has, not",
+    "a combo output. Moved while nothing in src/ referenced it yet, which is the cheap moment.",
+    "",
+    "⚠ The builder writes <outDir>/<name>-atlas.png and <outDir>/<name>-anim.json, so the per-unit",
+    "'/anim/' subdirectory S164 used was never required by the tool — it was copied from the goblin",
+    "layout, where it IS required because each goblin owns a directory."
+  ],
+  "_S165_INCOMPLETE_ROWS": [
+    "⛔ TWO ROWS IN THIS FOLDER ARE STILL S164 ART AND DO NOT MATCH THEIR SIBLINGS. Named here rather",
+    "than left to be discovered, because a mixed atlas is precisely the defect the owner asked to prevent:",
+    "*\"make sure everything is consistent (the video and all the image cutouts have the same",
+    "character/same size etc.\"*",
+    "",
+    "   unit-vampires / attack   — S164 clip: OLD pale-skinned design AND a baked ground shadow.",
+    "   unit-demons   / die      — S164 clip: OLD design.",
+    "",
+    "The other 22 clips are S165: regenerated off the new no-shadow, named-pallor designs.",
+    "",
+    "WHY THEY ARE STILL OLD: veo went hard quota-blocked mid-session — 429 RESOURCE_EXHAUSTED on the",
+    "AI Studio key (generativelanguage.googleapis.com), which is a DIFFERENT product from the Google",
+    "Cloud project and does not draw on GCP credit. Three reroll attempts were made. The vampire ATTACK",
+    "additionally needs a reroll on its own merits: veo drifted a WEAPON into it on three separate",
+    "generations across two sessions, under a bare negative, a stronger negative, and a positive",
+    "\"both hands empty in every frame\" instruction. The fourth attempt re-choreographs it as a BITE",
+    "(jaws are the weapon, arms explicitly parked at his sides) and is written into the reroll spec.",
+    "",
+    "⭐ NOTHING RENDERS THESE YET, which is why shipping the mismatch is safe rather than sloppy: no",
+    "file in src/ references public/art/race-units/ — W1-C's wiring is not written. The rows are inert",
+    "art in the repo. They must be regenerated BEFORE the emitter is wired, not after.",
+    "",
+    "TO FINISH: re-run gen-character-clips.mjs for those two states, then rebuild those two atlases.",
+    "Everything needed is in-tree — design-spec.json, clip-spec.json and this file."
   ]
 }
