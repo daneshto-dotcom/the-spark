@@ -1,0 +1,101 @@
+{
+  "_comment": [
+    "SPARK — S165 P5: the TWELVE per-race ZONE BACKGROUNDS (owner ruling R137).",
+    "",
+    "⛔ TWELVE, NOT SIX, AND THE REASON IS GEOMETRIC RATHER THAN COSMETIC. Owner R137: *\"we would",
+    "need to generate 2 backgrounds for each race (one for the 2 player map and one for the 4 player",
+    "map). they should be very similar but still a tad different\"*. Measured against src/state/zones.ts:",
+    "SPLIT_X = CANVAS_WIDTH/2 = 960 and SPLIT_Y = CANVAS_HEIGHT/2 = 540, so",
+    "  · PITCH_2P splits on ONE VERTICAL line  -> a zone is 960 x 1080, PORTRAIT (8:9)",
+    "  · QUADRANTS_4P splits on a CROSS        -> a zone is 960 x  540, LANDSCAPE (16:9)",
+    "One image cannot serve both: stretched it distorts, letterboxed it leaves dead ground, cropped it",
+    "loses the composition. AND the castle anchor sits differently — 2P keeps are in the GOALMOUTHS at",
+    "mid-height against the touchline, 4P keeps are in the OUTER CORNERS — so the focal point belongs",
+    "in a different part of the frame on each board.",
+    "",
+    "⭐ GENERATION IS ORDERED, AND THE ORDER IS THE POINT (R137's own method). Every `-4p` LANDSCAPE",
+    "is generated FIRST from its race banner; every `-2p` PORTRAIT is then seeded off its own `-4p`",
+    "via refImages. That is the same identity-anchoring that ties each race unit to its banner, and it",
+    "is what makes the pair SIBLINGS rather than cousins — which is exactly what \"very similar but",
+    "still a tad different\" asks for.",
+    "",
+    "⛔ THESE ARE BACKDROPS, NOT ILLUSTRATIONS. The board is PURE BLACK today and every piece of",
+    "gameplay — towers, structures, connectors, creatures, sparks — is drawn ON TOP. The owner's",
+    "requirement is that the art be *\"partially transparent so towers, structures, connectors and",
+    "creatures stay readable\"*. Alpha is the RENDERER'S job (draw at reduced opacity, and the toggle",
+    "back to the black board is a render setting). What the ART must do is carry its own half of that",
+    "contract: DARK, LOW-CONTRAST, LOW-DETAIL, no bright passages, nothing that competes with a sprite.",
+    "A background that is beautiful on its own and unreadable under a battle has failed.",
+    "",
+    "⚠ AND LESS COLOURFUL THAN THE BANNERS, DELIBERATELY. Owner: the banner art is the style reference",
+    "but *\"a little more realistic\"* and less colourful, *\"with the seat colour surviving as accents\"*.",
+    "So each prompt keeps its race's hue as ACCENT ONLY — a rim light, a glow, a stain — over a muted",
+    "near-monochrome ground.",
+    "",
+    "⚠ VAMPIRES' SETTING WAS NEVER RULED (the brief's open Q1). Carpathian mountain night is taken",
+    "from assets-source/race-units/design-spec.json, where it is already this race's recorded setting,",
+    "so the choice is at least CONSISTENT with shipped art rather than invented here. It is MINE, not",
+    "the owner's, and it is flagged so he can overrule it cheaply.",
+    "",
+    "⚠ ASPECT RATIOS ARE THE NEAREST THE MODEL OFFERS, NOT THE EXACT ZONE RATIO. 16:9 is exact for the",
+    "4P zone. The 2P zone is 8:9 (0.889) and the generator's portrait options do not include it, so 3:4",
+    "is used and the renderer covers-and-crops. Recorded because a later session measuring 3:4 against",
+    "960x1080 will otherwise read it as a bug."
+  ],
+  "outDir": "assets-source/race-zones",
+  "aspectRatio": "16:9",
+  "sharedStyle": [
+    "A DARK, MOODY, LOW-CONTRAST environment backdrop for a game board — a wide empty landscape with",
+    "no characters and no foreground clutter.",
+    "Painted in a stylised cartoon-illustration style with soft ink linework and flat shading, a little",
+    "more realistic and less saturated than a poster — muted, near-monochrome, atmospheric.",
+    "⛔ IT MUST STAY DARK AND QUIET. Overall value is deep and shadowed, like a scene lit only by",
+    "moonlight or distant embers. NO bright passages, no white or near-white areas, no strong",
+    "highlights, no hard focal point, no busy detail, nothing that would compete with brightly coloured",
+    "game pieces drawn on top of it. Think of it as a faded mural seen through darkness.",
+    "⛔ EMPTY MIDDLE GROUND. The centre of the frame must stay open, plain and uncluttered — structures",
+    "and terrain features belong around the EDGES of the frame. Nothing may occupy or draw the eye to",
+    "the middle.",
+    "No characters, no people, no creatures, no animals, no vehicles.",
+    "No text, no lettering, no words, no logo, no border, no frame, no vignette, no UI, no map markers.",
+    "Fills the entire frame edge to edge with no margin and no letterboxing."
+  ],
+  "characters": [
+    {
+      "name": "zone-vampires-4p",
+      "_race": "vampires — crimson 0xff3b6b — Carpathian mountain night (⚠ SETTING IS MINE, owner Q1 open)",
+      "refImages": ["public/art/banners/banner-vampires.jpg"],
+      "prompt": "A Carpathian mountain valley at night, seen from a distance. Black jagged pine forest along the lower edges, steep bare crags rising at the far left and right, a thin cold mist lying in the hollow, a sliver of moon behind torn cloud. Everything is deep blue-black and charcoal. Faint CRIMSON accents only: a dull red glow in a handful of distant windows on a far crag, and a cold crimson rim light along the topmost cloud edge. The centre of the valley floor is open, empty and featureless."
+    },
+    {
+      "name": "zone-nagas-4p",
+      "_race": "nagas — cyan 0x3bd7ff — cruel military atlantis",
+      "refImages": ["public/art/banners/banner-nagas.jpg"],
+      "prompt": "A drowned military citadel on the deep sea floor, seen from a distance. Toppled basalt columns and the ribbed hull of a sunken war-galley along the lower edges, harsh angular fortress walls and a broken sea-god statue at the far left and right, silt drifting in slow currents, the water above almost black. Everything is deep teal-black and slate. Faint CYAN accents only: a cold cyan glow leaking from arrow-slits in the far walls and a thin cyan shimmer on the drifting silt. The centre of the sea floor is open, empty and featureless."
+    },
+    {
+      "name": "zone-mummies-4p",
+      "_race": "mummies — yellow 0xffe23b — desert tomb",
+      "refImages": ["public/art/banners/banner-mummies.jpg"],
+      "prompt": "A moonlit desert necropolis, seen from a distance. Low dunes and half-buried sandstone blocks along the lower edges, a weathered step-pyramid silhouette at the far left and a colossal broken statue's legs at the far right, wind-blown sand hazing the air. Everything is deep umber-black and cold grey-brown. Faint AMBER-GOLD accents only: a dull gold glimmer on one distant carved lintel and a warm amber haze low on the horizon. The centre of the sand flat is open, empty and featureless."
+    },
+    {
+      "name": "zone-zombies-4p",
+      "_race": "zombies — green 0x44ff5e — rotting swamp ruins",
+      "refImages": ["public/art/banners/banner-zombies.jpg"],
+      "prompt": "A rotting swamp of ruined cottages at night, seen from a distance. Black still water and dead reeds along the lower edges, collapsed timber cottages and leaning gravestones at the far left and right, bare dead trees, a low clinging fog. Everything is deep bog-green-black and wet grey. Faint SICKLY GREEN accents only: a dull swamp-glow rising off the water in two or three patches and a faint green phosphorescence on the rotten timber. The centre of the water is open, empty and featureless."
+    },
+    {
+      "name": "zone-orcs-4p",
+      "_race": "orcs — orange 0xff8c1a — badlands barracks",
+      "refImages": ["public/art/banners/banner-orcs.jpg"],
+      "prompt": "A badlands war-camp at dusk, seen from a distance. Cracked red-brown hardpan and scattered bones along the lower edges, crude timber palisades, hide tents and a rough watchtower at the far left and right, mesa cliffs behind, dust hanging in the air. Everything is deep rust-black and dull brown. Faint BURNT-ORANGE accents only: two or three low banked cook-fires glowing dully behind the palisade and a thin orange band on the horizon. The centre of the hardpan is open, empty and featureless."
+    },
+    {
+      "name": "zone-demons-4p",
+      "_race": "demons — magenta 0xd73bff — hell",
+      "refImages": ["public/art/banners/banner-demons.jpg"],
+      "prompt": "An infernal wasteland, seen from a distance. Cracked black basalt and cooling lava fissures along the lower edges, jagged obsidian spires and a ruined bone-and-iron arch at the far left and right, ash falling slowly, a sky of black smoke. Everything is deep charcoal and volcanic near-black. Faint MAGENTA accents only: a violet-magenta glow deep inside the fissures and a magenta cast on the underside of the smoke. The centre of the basalt plain is open, empty and featureless."
+    }
+  ]
+}

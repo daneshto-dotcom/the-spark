@@ -1,0 +1,90 @@
+{
+  "_comment": [
+    "SPARK — S165 P5b: the PORTRAIT half of R137's twelve zone backgrounds, for PITCH_2P.",
+    "",
+    "⭐ EVERY ONE IS SEEDED OFF ITS OWN `-4p` LANDSCAPE via refImages, which is R137's stated method:",
+    "*\"they should be very similar but still a tad different\"*. Seeding off the sibling rather than off",
+    "the banner is what makes them a PAIR — same palette, same landmarks, same time of night — while the",
+    "recomposition for a tall frame supplies the 'tad different'.",
+    "",
+    "⚠ 3:4 IS THE NEAREST PORTRAIT THE GENERATOR OFFERS. The real PITCH_2P zone is 960x1080 = 8:9",
+    "(0.889); 3:4 is 0.75. The renderer covers-and-crops. Recorded so a later session measuring 3:4",
+    "against 960x1080 does not read it as a bug.",
+    "",
+    "⛔ AND THE RECOMPOSITION IS NOT A CROP. On PITCH_2P the castle sits in the GOALMOUTH — mid-height,",
+    "against the touchline — not in an outer corner, so the frame's weight moves. Each prompt therefore",
+    "asks for the same world stacked VERTICALLY: horizon high, the open empty ground running down the",
+    "tall middle of the frame, landmarks pushed to the top corners and the very bottom edge."
+  ],
+  "outDir": "assets-source/race-zones",
+  "aspectRatio": "3:4",
+  "sharedStyle": [
+    "A DARK, MOODY, LOW-CONTRAST environment backdrop for a game board — a wide empty landscape with",
+    "no characters and no foreground clutter.",
+    "Painted in a stylised cartoon-illustration style with soft ink linework and flat shading, a little",
+    "more realistic and less saturated than a poster — muted, near-monochrome, atmospheric.",
+    "⛔ IT MUST STAY DARK AND QUIET. Overall value is deep and shadowed, like a scene lit only by",
+    "moonlight or distant embers. NO bright passages, no white or near-white areas, no strong",
+    "highlights, no hard focal point, no busy detail, nothing that would compete with brightly coloured",
+    "game pieces drawn on top of it. Think of it as a faded mural seen through darkness.",
+    "⛔ EMPTY MIDDLE GROUND. The centre of the frame must stay open, plain and uncluttered — structures",
+    "and terrain features belong around the EDGES of the frame. Nothing may occupy or draw the eye to",
+    "the middle.",
+    "No characters, no people, no creatures, no animals, no vehicles.",
+    "No text, no lettering, no words, no logo, no border, no frame, no vignette, no UI, no map markers.",
+    "Fills the entire frame edge to edge with no margin and no letterboxing.",
+    "TALL PORTRAIT COMPOSITION: the horizon sits HIGH in the frame, and the open empty ground runs",
+    "down the whole tall middle. Terrain features and structures are pushed to the TOP CORNERS and the",
+    "very BOTTOM EDGE. The vertical centre band of the image stays open, plain and uncluttered."
+  ],
+  "characters": [
+    {
+      "name": "zone-vampires-2p",
+      "_race": "vampires — crimson 0xff3b6b — Carpathian mountain night (⚠ SETTING IS MINE, owner Q1 open)",
+      "refImages": [
+        "assets-source/race-zones/zone-vampires-4p.png"
+      ],
+      "prompt": "A Carpathian mountain valley at night, seen from a distance. Black jagged pine forest along the lower edges, steep bare crags rising at the far left and right, a thin cold mist lying in the hollow, a sliver of moon behind torn cloud. Everything is deep blue-black and charcoal. Faint CRIMSON accents only: a dull red glow in a handful of distant windows on a far crag, and a cold crimson rim light along the topmost cloud edge. The centre of the valley floor is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    },
+    {
+      "name": "zone-nagas-2p",
+      "_race": "nagas — cyan 0x3bd7ff — cruel military atlantis",
+      "refImages": [
+        "assets-source/race-zones/zone-nagas-4p.png"
+      ],
+      "prompt": "A drowned military citadel on the deep sea floor, seen from a distance. Toppled basalt columns and the ribbed hull of a sunken war-galley along the lower edges, harsh angular fortress walls and a broken sea-god statue at the far left and right, silt drifting in slow currents, the water above almost black. Everything is deep teal-black and slate. Faint CYAN accents only: a cold cyan glow leaking from arrow-slits in the far walls and a thin cyan shimmer on the drifting silt. The centre of the sea floor is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    },
+    {
+      "name": "zone-mummies-2p",
+      "_race": "mummies — yellow 0xffe23b — desert tomb",
+      "refImages": [
+        "assets-source/race-zones/zone-mummies-4p.png"
+      ],
+      "prompt": "A moonlit desert necropolis, seen from a distance. Low dunes and half-buried sandstone blocks along the lower edges, a weathered step-pyramid silhouette at the far left and a colossal broken statue's legs at the far right, wind-blown sand hazing the air. Everything is deep umber-black and cold grey-brown. Faint AMBER-GOLD accents only: a dull gold glimmer on one distant carved lintel and a warm amber haze low on the horizon. The centre of the sand flat is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    },
+    {
+      "name": "zone-zombies-2p",
+      "_race": "zombies — green 0x44ff5e — rotting swamp ruins",
+      "refImages": [
+        "assets-source/race-zones/zone-zombies-4p.png"
+      ],
+      "prompt": "A rotting swamp of ruined cottages at night, seen from a distance. Black still water and dead reeds along the lower edges, collapsed timber cottages and leaning gravestones at the far left and right, bare dead trees, a low clinging fog. Everything is deep bog-green-black and wet grey. Faint SICKLY GREEN accents only: a dull swamp-glow rising off the water in two or three patches and a faint green phosphorescence on the rotten timber. The centre of the water is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    },
+    {
+      "name": "zone-orcs-2p",
+      "_race": "orcs — orange 0xff8c1a — badlands barracks",
+      "refImages": [
+        "assets-source/race-zones/zone-orcs-4p.png"
+      ],
+      "prompt": "A badlands war-camp at dusk, seen from a distance. Cracked red-brown hardpan and scattered bones along the lower edges, crude timber palisades, hide tents and a rough watchtower at the far left and right, mesa cliffs behind, dust hanging in the air. Everything is deep rust-black and dull brown. Faint BURNT-ORANGE accents only: two or three low banked cook-fires glowing dully behind the palisade and a thin orange band on the horizon. The centre of the hardpan is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    },
+    {
+      "name": "zone-demons-2p",
+      "_race": "demons — magenta 0xd73bff — hell",
+      "refImages": [
+        "assets-source/race-zones/zone-demons-4p.png"
+      ],
+      "prompt": "An infernal wasteland, seen from a distance. Cracked black basalt and cooling lava fissures along the lower edges, jagged obsidian spires and a ruined bone-and-iron arch at the far left and right, ash falling slowly, a sky of black smoke. Everything is deep charcoal and volcanic near-black. Faint MAGENTA accents only: a violet-magenta glow deep inside the fissures and a magenta cast on the underside of the smoke. The centre of the basalt plain is open, empty and featureless. Recompose this same location as a TALL VERTICAL scene: keep the identical palette, the identical landmarks and the identical time of night as the reference image, but arrange them for a tall portrait frame with the horizon high, the landmarks at the top corners and along the bottom edge, and the open empty ground running down the middle."
+    }
+  ]
+}
