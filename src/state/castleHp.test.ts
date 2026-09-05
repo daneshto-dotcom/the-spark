@@ -187,3 +187,51 @@ describe('S154 AMENDMENT C — the second victory condition', () => {
     expect(w.gameState).toBe('PLAYING');
   });
 });
+
+/**
+ * SPARK — S164 P3: **`damageEntity` WAS A WORKING HEAL VECTOR FOR THE CASTLE, AND ONLY THE CASTLE.**
+ *
+ * An A.0 audit found the castle arm returned ABOVE the integer/non-negative guard, so the one target
+ * whose HP ends the match was the one target that could not be validated. `damageEntity(world,
+ * {kind:'castle'}, -300)` computed `Math.max(0, hp + 300)` — unvalidated, unclamped, no upper bound.
+ *
+ * The harm was not theoretical. `save.ts` emits `castleHp` only when BELOW max and rehydrates an
+ * absent value as `CASTLE_MAX_HP`, so an over-max value would be emitted as nothing and read by
+ * every peer as 1500 — a silent divergence on the match-ending number, invisible to both hash
+ * oracles because `stateHashFull` marks `players:'acknowledged'`.
+ */
+describe('S164 P3 — damageEntity is damage-only, castle included', () => {
+  it('⛔ a NEGATIVE amount THROWS for a castle, where it used to silently heal', () => {
+    const w = fightWorld();
+    const seat = asPlayerId(1);
+    const before = w.players.get(seat)!.castleHp;
+    expect(() => damageEntity(w, { kind: 'castle', seat }, -300, 'creature')).toThrow(
+      /non-negative INTEGER/,
+    );
+    expect(w.players.get(seat)!.castleHp, 'and nothing was healed on the way out').toBe(before);
+  });
+
+  it('⛔ a FRACTIONAL amount throws for a castle too — the guard now covers every target', () => {
+    const w = fightWorld();
+    const seat = asPlayerId(1);
+    expect(() => damageEntity(w, { kind: 'castle', seat }, 2.5, 'creature')).toThrow(
+      /non-negative INTEGER/,
+    );
+  });
+
+  it('⭐ ANTI-VACUITY — ordinary positive integer damage still works exactly as before', () => {
+    const w = fightWorld();
+    const seat = asPlayerId(1);
+    const before = w.players.get(seat)!.castleHp;
+    expect(damageEntity(w, { kind: 'castle', seat }, 10, 'creature')).toBe(false);
+    expect(w.players.get(seat)!.castleHp).toBe(before - 10);
+  });
+
+  it('a zero amount is still a no-op, not a throw', () => {
+    const w = fightWorld();
+    const seat = asPlayerId(1);
+    const before = w.players.get(seat)!.castleHp;
+    expect(damageEntity(w, { kind: 'castle', seat }, 0, 'creature')).toBe(false);
+    expect(w.players.get(seat)!.castleHp).toBe(before);
+  });
+});

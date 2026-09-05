@@ -108,20 +108,36 @@ export function damageEntity(
   source: DamageSource,
 ): boolean {
   void source; // attribution only for now — see DamageSource
+  /*
+   * ⛔ S164 P3 — **THE VALIDATION MOVED ABOVE THE CASTLE ARM, WHICH WAS A HOLE.** This guard used to
+   * sit BELOW the `castle` branch, and the castle branch returns — so the one target that could not
+   * be validated was the one whose HP ENDS THE MATCH. `damageEntity(world, {kind:'castle'}, -300)`
+   * computed `Math.max(0, hp - (-300))` = hp + 300: an unvalidated, unclamped, undocumented HEAL
+   * vector reachable from any caller, with no upper bound.
+   *
+   * That is not theoretical harm. `save.ts` emits `castleHp` only when it is BELOW max and
+   * rehydrates an absent value as `CASTLE_MAX_HP`, so any over-max value a heal produced would be
+   * emitted as NOTHING and read by every peer as 1500 — a silent divergence on the match-ending
+   * number, invisible to both hash oracles because `stateHashFull` marks `players:'acknowledged'`.
+   *
+   * Healing has a real path now (`castleRegen.ts`, owner R128) and it is clamped at both ends. This
+   * function stays what its name says: damage only, non-negative, integer.
+   */
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error(
+      `damageEntity: amount must be a non-negative INTEGER, got ${amount}. Author damage as a ` +
+        `total over seconds (a % of max hp on the 0.5s cadence), not a per-engine-tick fraction.`,
+    );
+  }
   if (target.kind === 'castle') {
     // ⭐ S154 AMENDMENT C — the castle arm. Clamped at zero: HP is read by the win gate and by the
     // HUD, and a negative value would make both lie about how close the match is.
     const seat = world.players.get(target.seat);
     if (seat === undefined) return false;
     if (seat.castleHp <= 0) return false; // already fallen — idempotent, never double-fires the win
+    if (amount === 0) return false;
     seat.castleHp = Math.max(0, seat.castleHp - amount);
     return seat.castleHp === 0;
-  }
-  if (!Number.isInteger(amount) || amount < 0) {
-    throw new Error(
-      `damageEntity: amount must be a non-negative INTEGER, got ${amount}. Author damage as a ` +
-        `total over seconds (a % of max hp on the 0.5s cadence), not a per-engine-tick fraction.`,
-    );
   }
   if (amount === 0) return false;
 
