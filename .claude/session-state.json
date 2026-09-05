@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4827,
+  "tool_calls_session_total": 4832,
   "session_id": "S164",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T00:30:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CLOSED",
   "tier": "FULL",
   "plan_file": ".claude/plans/2026-09-05_PDR_S164_BATCH.md",
-  "session_status": "S164 CLOSED",
+  "session_status": "S164 HANDED OFF — 4/6 priorities shipped and deployed; P5 (art delivered, wiring not started) and P6 carried forward at owner instruction",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -6247,5 +6247,7 @@
       "severity": "known-limitation",
       "text": "THE ORC MATTE IS A COMPROMISE, NOT A FIX. For that character eyes and leaks are the SAME SIZE and the measured curve across five thresholds is monotonic with no knee, so 0.0003 keeps ~55% of eye detail and leaves ~31% of the leak. The real fix is upstream with CF-S164-b."
     }
-  ]
+  ],
+  "close_gate_note_s164": "⛔ THE CLOSE GATE CAUGHT AN OVERCLAIM AND IT WAS RIGHT. session_status was set to \"S164 CLOSED\", which CONST-4 CLAIM-B reads as the assertion that EVERY priority is status=completed. Two are not: P5 is art-only (wiring not started) and P6 never began, both carried forward at the owner explicit instruction to move the rest to next session. The claim was withdrawn rather than the priorities being relabelled - marking them completed to satisfy a gate is precisely the fabrication class the gate exists to stop.",
+  "finding_close_gate_glob_mismatch": "⚠ DURABLE TOOLING MISMATCH, worth fixing globally rather than per-session. constitution-close-gate.sh CLAIM-B globs the project root for HANDOFF_S*.md, but this project switched its handoff naming to HANDOFF_<date>_S<n>.md at S143 (the archive shows both conventions: HANDOFF_S107..S142 and S159 use the old shape, S143+ use the dated one). So the freshness check has been silently unsatisfiable here for roughly twenty sessions - it can only ever have passed for sessions that never set the CLOSED status. S164 satisfies it by naming the ROOT copy HANDOFF_S164.md (root handoffs are gitignored and ephemeral) while the ARCHIVE copy keeps the dated convention. The real fix is to widen the glob to HANDOFF_*S*.md in the hook."
 }
