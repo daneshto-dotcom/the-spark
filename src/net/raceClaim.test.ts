@@ -46,7 +46,7 @@ describe('the CLAIM_RACE wire shape', () => {
     // RosterEntry.color / .raceId, both on the wire since v39 — so a peer one build behind reads
     // the resolved roster correctly. If this number moves, re-read that docblock before assuming
     // the bump was for this feature.
-    expect(PROTOCOL_VERSION).toBe(40);
+    expect(PROTOCOL_VERSION).toBe(41);
   });
 });
 

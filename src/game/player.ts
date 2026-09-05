@@ -57,6 +57,18 @@ interface PlayerCommon {
    */
   castleHp: number;
   /**
+   * ⭐ S164 P1 (owner R128–R131) — **PURCHASED CASTLE-REGEN LEVEL, 0…`CASTLE_MAX_REGEN_LEVEL`.**
+   * 0 (the default) means no regeneration at all; each level is bought for
+   * `CASTLE_REGEN_UPGRADE_PRICE` victory points via `spendScore`, exactly as
+   * `UPGRADE_GATHERER_SPEED` buys `Gatherer.speedLevel`. The rate ladder lives at the constants.
+   *
+   * ⛔ REQUIRED, NOT OPTIONAL, ON PURPOSE — and it rides here for the same reason `castleHp` does,
+   * so read that docblock above first. A required field goes red at every construction site if it is
+   * forgotten; `eliminatedAtTick` below is additive-OPTIONAL and its own comment records that this
+   * is exactly what `tsc` CANNOT catch at the two carry-FSM rebuilds in this file.
+   */
+  castleRegenLevel: number;
+  /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
    * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
@@ -197,6 +209,8 @@ export function makeIdlePlayer(
     // S152 P1 — a new seat starts with no raid points and no progress toward one.
     raidPoints: 0,
     castleHp: CASTLE_MAX_HP,
+    // S164 P1 — 0 = no regeneration until a level is bought (R128).
+    castleRegenLevel: 0,
     raceId,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
@@ -232,6 +246,10 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
     // spark is unwinnable, and nothing would have gone red.
     castleHp: player.castleHp,
+    // ⛔ S164 P1 — AND THE CARRY-FSM REBUILDS, the two sites the `eliminatedAtTick` note
+    // below calls out as the ones tsc cannot catch. Making `castleRegenLevel` REQUIRED is what
+    // turned that trap into a compile error here instead of a silently reset upgrade.
+    castleRegenLevel: player.castleRegenLevel,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -280,6 +298,10 @@ export function drop(player: Player): IdlePlayer {
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
     // spark is unwinnable, and nothing would have gone red.
     castleHp: player.castleHp,
+    // ⛔ S164 P1 — AND THE CARRY-FSM REBUILDS, the two sites the `eliminatedAtTick` note
+    // below calls out as the ones tsc cannot catch. Making `castleRegenLevel` REQUIRED is what
+    // turned that trap into a compile error here instead of a silently reset upgrade.
+    castleRegenLevel: player.castleRegenLevel,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

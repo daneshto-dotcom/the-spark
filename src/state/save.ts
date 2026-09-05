@@ -441,6 +441,18 @@ interface SerializedPlayer {
    */
   castleHp?: number;
   /**
+   * ⭐ S164 P1 (owner R128–R131) — the seat's purchased castle-regen LEVEL. ADDITIVE-OPTIONAL and
+   * emitted only when NON-ZERO, so a board where nobody bought the upgrade stays byte-identical to a
+   * v40 snapshot — the `castleHp` / `raceId` precedent directly above.
+   *
+   * ⛔ AND IT RIDES THE SAME BUMP AS THE INTENT THAT SETS IT (40 → 41). The field alone would be
+   * additive-optional and free; the CLIENT INTENT that buys it is not, because a v40 host has no row
+   * for `UPGRADE_CASTLE_REGEN` in its allowlist and would drop a v41 joiner's purchase SILENTLY while
+   * the host seat's own worked — the seat asymmetry this file's changelog calls the worst kind
+   * "because it looks like lag".
+   */
+  castleRegenLevel?: number;
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -1616,6 +1628,8 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // Precisely the defect S151 P2 shipped into the bond deserializer and caught only by audit.
       raidPoints: p.raidPoints ?? 0,
       castleHp: p.castleHp ?? CASTLE_MAX_HP,
+      // S164 P1 — absent means nobody bought it, i.e. level 0 / no regeneration.
+      castleRegenLevel: p.castleRegenLevel ?? 0,
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -1794,6 +1808,8 @@ function serializePlayer(p: Player): SerializedPlayer {
     // byte-identical to pre-S152 (the `damageFifths` / `carriedPotatoId` precedent above).
     ...(p.raidPoints > 0 ? { raidPoints: p.raidPoints } : {}),
     ...(p.castleHp < CASTLE_MAX_HP ? { castleHp: p.castleHp } : {}),
+    // S164 P1 — emitted only when bought, so an un-upgraded board is byte-identical to v40.
+    ...(p.castleRegenLevel > 0 ? { castleRegenLevel: p.castleRegenLevel } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),

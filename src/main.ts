@@ -717,6 +717,14 @@ async function bootstrap(): Promise<void> {
   castlePanel.setUpgradeSpeedHandler(() => {
     dispatchFn({ type: 'UPGRADE_GATHERER_SPEED', playerId: world.localPlayerId });
   });
+  // ⭐ S164 P1 (owner R128–R131) — buy a castle-regen level. Same `dispatchFn` seam as the two
+  // above, which is what routes it correctly on all three paths: a networked joiner sends it as a
+  // wire INTENT, worker mode posts it, solo/host dispatches directly. ⛔ It is deliberately NOT in
+  // `PREDICTABLE_ACTIONS` — an optimistic local heal would flash the HP bar and the castle art
+  // state, then snap back when the host's snapshot lands.
+  castlePanel.setCastleRegenHandler(() => {
+    dispatchFn({ type: 'UPGRADE_CASTLE_REGEN', playerId: world.localPlayerId });
+  });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
   castlePanel.setPullHandler((sparkType) => {

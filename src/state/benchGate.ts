@@ -72,6 +72,10 @@ export const BENCH_INTENT_POLICY = {
   BUY_GATHERER: 'deny',
   // V6-1.2 — buying speed is the same acquisitive spend as buying a unit: denied while eaten.
   UPGRADE_GATHERER_SPEED: 'deny',
+  // S164 P1 — takes UPGRADE_GATHERER_SPEED's ruling verbatim: it spends a currency and advances the
+  // seat, which is the whole of what the bench exists to stop. ⚠ And elimination.test.ts pins
+  // elimination as STRICTER than the bench, so a bench 'deny' FORCES the elimination 'deny' above.
+  UPGRADE_CASTLE_REGEN: 'deny',
   // V6-1.2 — re-tasking an EXISTING unit costs nothing and gains nothing; it is the economic
   // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
   // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.

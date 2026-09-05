@@ -194,6 +194,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
      */
     player.castleHp = CASTLE_MAX_HP;
     player.eliminatedAtTick = undefined;
+    // S164 P1 — upgrades are per-match, like the score that bought them. Carrying a level across a
+    // rematch would hand the previous match's winner a compounding head start nobody ruled on.
+    player.castleRegenLevel = 0;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter

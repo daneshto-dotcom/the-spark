@@ -66,6 +66,10 @@ export const ELIMINATION_INTENT_POLICY = {
   PLACE_FROM_FREE: 'deny',
   BUY_GATHERER: 'deny',
   UPGRADE_GATHERER_SPEED: 'deny',
+  // S164 P1 — a fallen seat cannot regenerate (R131), so buying the upgrade would be a pure tax;
+  // and allowing it would make elimination self-reversing, which `eliminatedAtTick`'s write-once
+  // stamp cannot survive — a revived seat sorts below every seat it went on to beat.
+  UPGRADE_CASTLE_REGEN: 'deny',
   PULL_FROM_BANK: 'deny',
   BUILD_BLUEPRINT: 'deny',
   FEED_TOWER: 'deny',

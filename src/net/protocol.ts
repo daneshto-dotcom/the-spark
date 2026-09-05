@@ -501,7 +501,26 @@ export type { NetSnapshot };
  *
  * ⚠ Still deliberately NOT in this bump: `CLAIM_RACE`, for the reason given above.
  */
-export const PROTOCOL_VERSION = 40 as const;
+// S164 P1 — bumped 40->41: CASTLE REGEN UPGRADE. A new CLIENT INTENT, which a v40 host drops silently.
+/*
+ * ⭐ S164 P1 — BUMPED 40 → 41: **THE CASTLE REGENERATES, IF YOU BOUGHT IT** (owner R128–R131).
+ *
+ * > *"spend victory points on castle upgrades (same as gatherer upgrades). 100vp on hp
+ * > regeneration. upgrade lv 1 = +1% hp reg, lv 2 = 1.2%, lv 3 1.4%, lv 4 1.6%"*
+ *
+ * ⛔ THE BUMP IS FOR THE INTENT, NOT THE FIELD, which is the `castleHp` shape rather than the S161
+ * one. `SerializedPlayer.castleRegenLevel` is additive-optional and emitted only when non-zero, so
+ * an un-upgraded board stays byte-identical to a v40 snapshot — on its own it would not have earned
+ * a bump. What earns it is `UPGRADE_CASTLE_REGEN` being a CLIENT INTENT: a v40 host has no row for
+ * it in `CLIENT_INTENT_TYPES_RECORD`, so `isClientIntentAllowed` drops a v41 joiner's purchase
+ * SILENTLY while the host seat's own upgrade works. That is seat asymmetry, which this file already
+ * calls the worst kind *"because it looks like lag"* — the joiner spends nothing, receives nothing,
+ * and is told nothing.
+ *
+ * ⚠ The unbroken precedent: `REPAIR_STRUCTURE`/`SCRAP_STRUCTURE` (26→27), `FEED_TOWER` (29→30),
+ * `RAID_TARGET` (30→31) and `ENQUEUE_`/`CANCEL_GATHERER_ORDER` (19→20) each bumped for exactly this.
+ */
+export const PROTOCOL_VERSION = 41 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -685,6 +704,12 @@ export interface HelloMsg {
    * declare a winner and stop while a v40 host plays on with two seats alive. The 32->33 break with
    * the sign reversed.)
    *
+   * S164 P1: 40->41 (CASTLE REGEN UPGRADE — owner R128-R131. `SerializedPlayer.castleRegenLevel`,
+   * additive-optional and emitted only when non-zero — but the bump is for the INTENT, not the
+   * field: `UPGRADE_CASTLE_REGEN` is a CLIENT INTENT absent from a v40 host's allowlist, so a v41
+   * joiner's purchase would be silently dropped while the host's own worked. The `FEED_TOWER` /
+   * `RAID_TARGET` shape.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -722,7 +747,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 40;
+  readonly protoVersion: 41;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -1103,6 +1128,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   BUY_GATHERER: true,
   GATHERER_TICK: true,
   UPGRADE_GATHERER_SPEED: true,
+  // S164 P1 — castle regen upgrade (owner R128). A CLIENT INTENT, so it is in both records.
+  UPGRADE_CASTLE_REGEN: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1270,6 +1297,7 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // V6-1.2 — a joiner can buy speed for their own gatherers and re-task them. Both are
   // ownership- and affordability-gated in the reducer, so the host never trusts the client's view.
   UPGRADE_GATHERER_SPEED: true,
+  UPGRADE_CASTLE_REGEN: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

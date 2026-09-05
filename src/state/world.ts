@@ -173,6 +173,10 @@ import {
   type EnqueueGathererOrderAction,
   type UpgradeGathererSpeedAction,
 } from './gatherers/gathererLifecycle.ts';
+import {
+  applyUpgradeCastleRegen,
+  type UpgradeCastleRegenAction,
+} from './castleRegen.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -346,6 +350,8 @@ export type GameAction =
   // can buy speed and re-task their own unit — both are ownership- and affordability-gated on the host).
   | GathererTickAction
   | UpgradeGathererSpeedAction
+  // S164 P1 — CLIENT INTENT: buy a castle-regen level with victory points (R128).
+  | UpgradeCastleRegenAction
   | SetGathererPreferenceAction
   | EnqueueGathererOrderAction
   | CancelGathererOrderAction
@@ -853,6 +859,11 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'UPGRADE_GATHERER_SPEED':
       return applyUpgradeGathererSpeed(world, action);
+
+    // S164 P1 — same posture as the gatherer upgrade above: client intent, host-authoritative,
+    // no-op-never-throw.
+    case 'UPGRADE_CASTLE_REGEN':
+      return applyUpgradeCastleRegen(world, action);
 
     case 'PULL_FROM_BANK':
       return applyPullFromBank(world, action);

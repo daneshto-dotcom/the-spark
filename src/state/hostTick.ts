@@ -99,6 +99,7 @@ import {
 import { underDroneCaps } from './droneLifecycle.ts';
 // S160 P4b — the castle's own weapon. No stored timer: the schedule derives from `world.tick`.
 import { castleGunsTick } from './castleGuns.ts';
+import { castleRegenTick } from './castleRegen.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -1349,6 +1350,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * `castleGuns.ts`; this call site deliberately holds no policy.
    */
   if (world.gameState === 'PLAYING') castleGunsTick(world);
+  // ⭐ S164 P1 — castle regeneration (owner R128–R131). Beside the guns because they are the two
+  // halves of the same castle: one shoots, one heals. Its own PLAYING gate lives in the function so
+  // this call site holds no policy, exactly as the line above does.
+  castleRegenTick(world);
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);

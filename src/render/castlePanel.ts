@@ -41,6 +41,8 @@ import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
+  CASTLE_MAX_REGEN_LEVEL,
+  CASTLE_REGEN_UPGRADE_PRICE,
   KEEP_H,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
@@ -365,6 +367,25 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
   // A disabled row shows its BLOCKER in place of the price, not in addition to it: "BUY GATHERER
   // 105  NEED 105" prints the same number twice and overflowed the row box. The reason already
   // carries the number in the cases where a number is the answer.
+  /*
+   * ⭐ S164 P1 (owner R128–R131) — THE CASTLE REGEN ROW. Deliberately the same shape as the two
+   * above: one price, one blocker string in place of the price, one dispatch through `dispatchFn`.
+   *
+   * ⚠ NO PHASE BLOCKER, per R129 — *"whenever you want you can upgrade castle regen"*. The only
+   * blockers are the ones that are true of any spend (`locked`), the cap, affordability, and a
+   * fallen castle, which can never regenerate at all (R131) so buying would be a pure tax.
+   */
+  const regenLevel = me?.castleRegenLevel ?? 0;
+  const regenReason = locked
+    ? 'LOCKED'
+    : me !== undefined && me.castleHp <= 0
+      ? 'CASTLE LOST'
+      : regenLevel >= CASTLE_MAX_REGEN_LEVEL
+        ? 'MAX REGEN'
+        : score < CASTLE_REGEN_UPGRADE_PRICE
+          ? `NEED ${CASTLE_REGEN_UPGRADE_PRICE}`
+          : '';
+
   return [
     {
       key: 'buyGatherer',
@@ -380,6 +401,17 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
           : `SPEED  ${upReason}`,
       enabled: upReason === '',
       reason: upReason,
+    },
+    {
+      key: 'castleRegen',
+      // The level is shown because it is the only place a player can read it back, and because the
+      // effect (HP/s) is otherwise invisible until the castle is actually damaged.
+      label:
+        regenReason === ''
+          ? `REGEN ${regenLevel}→${regenLevel + 1}  ${CASTLE_REGEN_UPGRADE_PRICE}`
+          : `REGEN  ${regenReason}`,
+      enabled: regenReason === '',
+      reason: regenReason,
     },
   ];
 }
@@ -529,6 +561,7 @@ export class CastlePanel {
   private layout: ZoneLayout = 'PITCH_2P';
   private onBuyGatherer: (() => void) | null = null;
   private onUpgradeSpeed: (() => void) | null = null;
+  private onCastleRegen: (() => void) | null = null;
   /** Latched per frame from `castleControlsModel`, so a pointertap cannot fire a disabled row. */
   private enabled: boolean[] = [];
   /** Armed on a successful spend so the HUD can withhold its "you were robbed" drop-flash. */
@@ -672,6 +705,11 @@ export class CastlePanel {
     this.onBuyGatherer = fn;
   }
 
+  /** main.ts injects the UPGRADE_CASTLE_REGEN dispatch for the local seat (S164 P1). */
+  setCastleRegenHandler(fn: () => void): void {
+    this.onCastleRegen = fn;
+  }
+
   /** main.ts injects the UPGRADE_GATHERER_SPEED dispatch for the local seat. */
   setUpgradeSpeedHandler(fn: () => void): void {
     this.onUpgradeSpeed = fn;
@@ -800,7 +838,8 @@ export class CastlePanel {
 
   private activate(idx: number): void {
     if (this.enabled[idx] !== true) return;
-    const fn = idx === 0 ? this.onBuyGatherer : this.onUpgradeSpeed;
+    // S164 P1 — a third row; an index chain is fine at three, but the NEXT one should become a map.
+    const fn = idx === 0 ? this.onBuyGatherer : idx === 1 ? this.onUpgradeSpeed : this.onCastleRegen;
     if (fn === null) return;
     this.spendArmed = true;
     fn();
@@ -886,7 +925,7 @@ export class CastlePanel {
     }
     const a = castleAnchor(this.selected, this.layout);
     const o = panelOrigin(a.x, a.y, this.rows.length);
-    const keys = ['buyGatherer', 'upgradeSpeed'];
+    const keys = ['buyGatherer', 'upgradeSpeed', 'castleRegen'];
     return {
       open: true,
       rect: panelRect(o, this.rows.length),

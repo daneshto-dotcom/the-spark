@@ -1502,6 +1502,48 @@ export const ARMY_RETREAT_LEAD_TICKS = 180;
  */
 export const CASTLE_MAX_HP = 1500;
 
+/*
+ * ⭐ S164 P1 (owner R128–R131) — **CASTLE HP REGENERATION, BOUGHT WITH VICTORY POINTS.** This is the
+ * upgrade the R88 note directly above predicted: *"later we will add castle upgrades like we have
+ * for the gatherers"*, following *"the GATHERER precedent (points from `scoreByPlayer`, a level, a
+ * cap)"*. It is built to that description exactly.
+ *
+ * Owner: *"spend victory points on castle upgrades (same as gatherer upgrades). 100vp on hp
+ * regeneration. upgrade lv 1 = +1% hp reg, lv 2 = 1.2%, lv 3 1.4%, lv 4 1.6%"* — and R129,
+ * *"whenever you want you can upgrade castle regen"*, so the PURCHASE has no phase gate.
+ *
+ * ⛔ **IT IS PER SECOND, NOT PER TICK, AND THAT WAS A RULING (R130) RATHER THAN A READING.** The
+ * brief said "per tick". At 1% of max per TICK the castle regains 15 HP × 60 = **900 HP/s**, against
+ * a goblin's 6 HP/s — it would out-heal **150 simultaneous attackers**, making the castle unkillable
+ * at level 1 and deleting the second victory condition outright. The arithmetic was put to the owner
+ * and per-SECOND was chosen. Recorded here because the number looks innocuous and the next reader
+ * deserves to know it was measured.
+ *
+ * ⭐ **THE LADDER IS THE SHIPPED 0.2 STEP.** `stats.ts` documents DEF/PEN as *"integer points indexing
+ * a LINEAR multiplier ladder `1 + 0.2n`"* that *"steps by 0.2 = 1/5"*. R128's 1.0 → 1.2 → 1.4 → 1.6
+ * is that same fifth, so this upgrade is on the same ladder as tower and unit stats — checked against
+ * `stats.ts`, not assumed.
+ *
+ * ⭐ **AND EVERY LEVEL LANDS ON A WHOLE NUMBER OF HP, WHICH IS WHAT KEEPS IT DETERMINISM-SAFE.**
+ * 1500 × (1.0, 1.2, 1.4, 1.6, 1.8)% = **15, 18, 21, 24, 27** HP/s exactly. So regen is applied as
+ * INTEGER HP on a once-per-second `world.tick` cadence, phase-spread by seat — never a fractional
+ * per-tick accumulator, which this project forbids in the sim. There is no rounding rule here to get
+ * wrong because there is no rounding.
+ *
+ * ⛔ **LEVEL 0 IS NO REGEN AT ALL**, not 0.8%. The ladder starts when you buy it: the first 100 VP
+ * buys a real effect rather than a marginal one.
+ */
+/** Flat VP price of ONE castle-regen level (R128). Paid from `scoreByPlayer` via `spendScore`. */
+export const CASTLE_REGEN_UPGRADE_PRICE = 100;
+/** Cap, at gatherer parity (`GATHERER_MAX_SPEED_LEVEL` is also 5) — R131. */
+export const CASTLE_MAX_REGEN_LEVEL = 5;
+/**
+ * Percent of `CASTLE_MAX_HP` regained per SECOND at level L ≥ 1: `0.8 + 0.2·L` → 1.0…1.8 (R130).
+ * Level 0 regenerates nothing. Exported as the two halves so the ladder is legible at the call site.
+ */
+export const CASTLE_REGEN_PCT_BASE = 0.8;
+export const CASTLE_REGEN_PCT_PER_LEVEL = 0.2;
+
 /**
  * ⭐ S160 P4b — **THE CASTLE SHOOTS BACK.** The other half of a castle that can be destroyed, and the
  * mechanic the races spec has been quietly assuming exists.
