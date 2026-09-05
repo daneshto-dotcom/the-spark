@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4814,
+  "tool_calls_session_total": 4823,
   "session_id": "S164",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T00:30:00+02:00",
   "prior_session_note": "S163 closed its work at eaf85e2 but was left OPEN at owner request. Its priorities+reflexion are archived in priorities_s163_archived / reflexion_s163_archived.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "DO",
+  "phase": "CLOSED",
   "tier": "FULL",
   "plan_file": ".claude/plans/2026-09-05_PDR_S164_BATCH.md",
-  "session_status": "IN_PROGRESS",
+  "session_status": "S164 CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -190,7 +190,18 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "S164 P1 #owner-number-checked-not-obeyed — THE OWNER GAVE A NUMBER THAT WOULD HAVE DELETED A WIN CONDITION, and the only reason it did not ship is that I did the arithmetic before writing code. \"+1% hp reg per tick\" is 1% x 1500 x 60 = 900 HP/s against a goblin's 6 — it out-heals 150 attackers, so the castle becomes unkillable at level 1 and the second victory condition stops existing. Putting the two columns (per-tick vs per-second) in front of the owner took one question and got a ruling. A brief is an intent, not a spec; the unit is the spec.",
+    "S164 P1 #required-not-optional — MAKING THE NEW FIELD REQUIRED IS WHAT MADE tsc FIND THE TRAPS. castleRegenLevel could have been additive-optional like eliminatedAtTick, and eliminatedAtTick's own docblock records that an optional field omitted at the two carry-FSM rebuilds compiles clean and is silently reset on every spark pickup. Required turned that invisible class into four compile errors, one per construction site. Optional is the default reflex and it is the wrong one when a field must never be absent.",
+    "S164 P1 #integers-are-the-design — THE RATE LANDING ON WHOLE HP IS NOT A COINCIDENCE, IT IS WHY THE DESIGN IS SAFE. 1500 x (1.0,1.2,1.4,1.6,1.8)% = 15,18,21,24,27 exactly, so regen is integer HP on a per-second tick cadence instead of a fractional per-tick accumulator this sim forbids. When a rate comes out clean, check whether that is load-bearing before treating it as luck — here it removed a whole class of determinism risk and a rounding rule that could have been got wrong.",
+    "S164 P2 #docblock-as-bug-report — A COMMENT THAT CONTRADICTS ITS OWN CODE IS A BUG REPORT NOBODY FILED. creatureAttack said TWICE that the castle strike was \"Ordered LAST, after bond / creature / shape\" while the castle block returned above the bond branch. S157 F1 had fixed the SHAPE arm and stopped, leaving the connector family — exactly the family admitted to castle attacks — still underneath. The full suite was green before AND after the reorder, so nothing anywhere pinned the documented order; the regression test is the deliverable, not the reorder.",
+    "S164 P3 #the-unvalidated-arm-is-the-important-one — damageEntity's castle arm returned ABOVE the integer/non-negative guard, so the ONE target that bypassed validation was the one whose HP ends the match: a negative amount added HP, unclamped. Worse, save.ts emits castleHp only when BELOW max, so any over-max value would have been emitted as nothing and read as 1500 by every peer — a silent divergence neither hash oracle can see. When a function has an early-returning special case, check what it is skipping on the way out.",
+    "S164 P4 #separate-by-count-not-precedence — the boss tower (\"nine of the race shape\") collided with the NONET sweep (\"exactly 9 of one type\"), and the obvious fix was an ordering rule. The owner picked a better one: move NONET to 12. Neither trigger now needs to know the other exists, there is no precedence to get wrong, and both stay reachable. Prefer making two mechanisms disjoint over teaching one to defer to the other.",
+    "S164 P5 #measure-the-art-do-not-eyeball-it — the owner reported white background in two units; a per-cell census found ~21,500 leaked pixels across ALL SIX, with nagas and demons worse than the two he spotted. The same census then proved the fix (94.2% removed) and caught the regression it caused (orc head-band light pixels 2267 -> 386, i.e. eyes going with the leaks). Art defects are as measurable as code defects, and offering to take screenshots instead of measuring would have been slower and less complete.",
+    "S164 P5 #no-knee-means-fix-it-upstream — for the orc, leaked pockets and eye whites are the SAME SIZE (43..320px vs eyes to 38px, overlapping), and the measured curve across five thresholds moved both together monotonically with no knee. That is the signal that the lever is wrong, not mis-tuned: the real fix is at generation (stop producing eye-sized white pockets, stop baking a shadow the renderer already draws in the owner tint). Took the balance point, filed the source fix, said so plainly rather than pretending the knob solved it.",
+    "S164 P5 #the-tool-already-knew — every art defect this session was one the pipeline had already documented for a previous character: the sampleWindow docblock describes veo drifting after ~1s (the naga's size incoherence), and the matte docblock describes sub-threshold enclosed pockets shipping as blobs (the wing gaps, \"one size band down\" for the bat rider). Reading the script's own comments before retuning it would have predicted all three. Check whether the tool has already met this bug.",
+    "S164 SESSION #reversal-can-be-coherent — the owner asked for varied tier-3 unit stats, which directly reverses R117 (his own ruling, which killed that idea once). Rather than either obeying silently or objecting, the right move was to find WHY R117 existed: it rests on the castle and the tower emitting the same creature, and the owner's new split makes them different creatures, so the exploit R117 guarded against is gone by construction. A reversal that dissolves its predecessor's premise is not a contradiction — but it has to be written down as one, at the ruling."
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -6190,5 +6201,51 @@
       "Must NOT be locally predicted - PREDICTABLE_ACTIONS is exactly PICKUP/DROP/UPDATE_AVATAR_POS.",
       "Bots DEFERRED and stated, not buried - no bot emits REPAIR_STRUCTURE or FEED_TOWER either."
     ]
-  }
+  },
+  "gates_at_close_s164": {
+    "typecheck": 0,
+    "vitest": "0 — 3679/3679 across 234 files",
+    "build": "0 — 781.7/900 KiB",
+    "e2e_gating": "0 — 62 passed",
+    "verify_deploy": "0 — PASS 4/4 at d16ce2d",
+    "mcv": "exit 0, hard_fail=0",
+    "probe_relays": "0 — 9/9"
+  },
+  "carry_forwards_spawned_in_s164": [
+    {
+      "id": "CF-S164-a",
+      "severity": "work",
+      "text": "W1-C EMITTER WIRING. Art is done and BOTH blockers are resolved: B1 by owner R133 (castle sentinel SpawnerId), and Blocker 8 DISSOLVED because recallArmies already teleports creatures home on the FIGHT->BUILD edge and the fan-out is FIGHT-gated, so no SHELTERED CreatureState is needed (its docblock forbids one). Cadence on world.tick only (~30s, R120). No protocol bump owed - rides P1 40->41."
+    },
+    {
+      "id": "CF-S164-b",
+      "severity": "work",
+      "text": "REGENERATE THE RACE-UNIT ART WITHOUT A BAKED GROUND SHADOW. goblinRenderer already draws a ring in the OWNER TINT and its docblock records that a black shadow there is a measured no-op on a pure-black board. sharedStyle in design-spec.json still asks for a shadow - that instruction is mine and it is the defect, and it is why one vampire frame kept a grey oval no matte rule can catch. Cost: 6 designs + 24 clips + 6 atlases."
+    },
+    {
+      "id": "CF-S164-c",
+      "severity": "work",
+      "text": "THE ART-DIRECTION BRIEF (#3). NONET collision cleared by R132. R137: TWELVE zone backgrounds, not six - a PITCH_2P zone is 960x1080 portrait and a QUADRANTS_4P zone is 960x540 landscape, and the castle anchor sits in the goalmouth on one board and the outer corner on the other. Generate 4P landscape first, seed 2P off it."
+    },
+    {
+      "id": "CF-S164-d",
+      "severity": "owner-question",
+      "text": "V6-1.6 ENERGY SINKS IS PARKED AT OWNER REQUEST - he wants to discuss it first. Bring this to that conversation: player.energy has exactly ONE production read (ui.ts:1104, the gauge) yet accrues every tick for every player and rides the wire as a MANDATORY serialized field. A fully-built currency that does nothing."
+    },
+    {
+      "id": "CF-S164-e",
+      "severity": "owner-question",
+      "text": "THE TIER-3 UNIT STAT NUMBERS ARE NOT RULED. R135 asks for varied stats and supplies no figures; R125 currently fixes the race unit at 1/1/1/1. Whatever is written will be MINE unless the owner supplies numbers, and per project rule a number that is mine says so at the constant with the measurement behind it. Wave 2 work."
+    },
+    {
+      "id": "CF-S164-f",
+      "severity": "known-limitation",
+      "text": "THE die ROW EXISTS IN ALL SIX ATLASES AND NOTHING PLAYS IT. goblinRenderer maps three FSM states and creatures are removed the instant they are killed, so there is no window. Needs a dying/corpse window in the sim - serialized state, its own work."
+    },
+    {
+      "id": "CF-S164-g",
+      "severity": "known-limitation",
+      "text": "THE ORC MATTE IS A COMPROMISE, NOT A FIX. For that character eyes and leaks are the SAME SIZE and the measured curve across five thresholds is monotonic with no knee, so 0.0003 keeps ~55% of eye detail and leaves ~31% of the leak. The real fix is upstream with CF-S164-b."
+    }
+  ]
 }
