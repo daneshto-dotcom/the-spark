@@ -18,6 +18,7 @@ import {
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { applyCreatureAttack } from './creatureAttack.ts';
 import { asCreatureId, makeCreature } from './creature.ts';
+import { makeBond } from '../placePrimitive.ts';
 import { GOBLIN_MELEE_CONFIG, CHEWER_CONFIG } from './voltkin-config.ts';
 import { recallArmies } from '../hostTick.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
@@ -64,6 +65,112 @@ function prim(world: World, seat: PlayerId, x: number, y: number) {
   world.primitives.set(id, p);
   return p;
 }
+
+describe('S164 P2 — the castle strike no longer preempts the BOND strike either', () => {
+  /*
+   * ⛔ S157 F1 FIXED THIS ONE ARM SHORT. It moved the castle strike past the SHAPE arm and stopped,
+   * leaving the BOND arm still underneath it — while `creatureAttack.ts` claimed in TWO docblocks
+   * that the castle was *"Ordered LAST, after bond / creature / shape"*. The connector-attacking
+   * family is exactly the family S157 B5 admitted to castle attacks, so the gap was live.
+   *
+   * The Voltkin is the sharp case because its reach is 180 px (the chewer's is 35): anywhere inside
+   * that radius of an enemy keep, a Voltkin committed to a connector spent every strike on the keep
+   * and never touched the bond — and never released its `targetBondId`, so it stayed committed to a
+   * connector it could not damage. Same defect as F1, one arm further down.
+   */
+  it('⭐ a creature beside the enemy keep DAMAGES THE CONNECTOR it was sent at', () => {
+    const world = board();
+    const keep = castleAnchor(P1 as unknown as number, world.layout);
+
+    // Two P1 shapes bonded together, sitting right on P1's keep.
+    const a = prim(world, P1, keep.x + 8, keep.y);
+    const b = prim(world, P1, keep.x + 8, keep.y + 24);
+    const bond = makeBond(world, a, b, 'MID');
+    world.bonds.set(bond.id, bond);
+    a.bonds.add(bond.id);
+    b.bonds.add(bond.id);
+
+    const g = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(11),
+      ownerPlayerId: P0,
+      pos: { x: keep.x + 8, y: keep.y + 12 },
+      targetPos: { x: keep.x + 8, y: keep.y + 12 },
+      spawnedAtTick: world.tick,
+      sourceSpawnerId: null,
+      clock: world,
+    });
+    g.state = 'ATTACKING';
+    world.creatures.set(g.id, g);
+
+    const castleBefore = world.players.get(P1)!.castleHp;
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: g.id, bondId: bond.id });
+
+    /*
+     * The connector took the hit — either it absorbed damage, or it gave way outright. Both count,
+     * and BOTH have to be accepted here: a two-primitive component has capacity `count + 4` = 5
+     * fifths, which one chewer strike exceeds, so the bond is severed and REMOVED from `world.bonds`
+     * rather than left carrying a damage number. Asserting only on `damageFifths` would have failed
+     * against correct behaviour — which it did, on the first run of this test.
+     */
+    const after = world.bonds.get(bond.id);
+    const connectorWasStruck = after === undefined || after.damageFifths > 0;
+    expect(
+      connectorWasStruck,
+      'the connector was damaged or severed — the castle branch no longer swallows the strike',
+    ).toBe(true);
+    // ...and the keep did NOT, because the strike was spent on the bond.
+    expect(world.players.get(P1)!.castleHp, 'the keep was not hit this tick').toBe(castleBefore);
+  });
+
+  it('⛔ ANTI-VACUITY — with NO bond committed, the same creature still hits the castle', () => {
+    // Proves the reorder did not simply disable the castle strike for the connector family.
+    const world = board();
+    const keep = castleAnchor(P1 as unknown as number, world.layout);
+    const g = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(12),
+      ownerPlayerId: P0,
+      pos: { x: keep.x + 8, y: keep.y },
+      targetPos: { x: keep.x + 8, y: keep.y },
+      spawnedAtTick: world.tick,
+      sourceSpawnerId: null,
+      clock: world,
+    });
+    g.state = 'ATTACKING';
+    world.creatures.set(g.id, g);
+
+    const castleBefore = world.players.get(P1)!.castleHp;
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: g.id, bondId: null });
+    expect(world.players.get(P1)!.castleHp, 'no bond to work on, so the keep is the target').toBeLessThan(
+      castleBefore,
+    );
+  });
+
+  it('⛔ AND A STALE BOND ID FALLS THROUGH TO THE CASTLE rather than wasting the strike', () => {
+    // A bond can be severed between the FSM committing to it and the strike landing. That must
+    // behave as "no connector target", not as a dropped tick.
+    const world = board();
+    const keep = castleAnchor(P1 as unknown as number, world.layout);
+    const g = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(13),
+      ownerPlayerId: P0,
+      pos: { x: keep.x + 8, y: keep.y },
+      targetPos: { x: keep.x + 8, y: keep.y },
+      spawnedAtTick: world.tick,
+      sourceSpawnerId: null,
+      clock: world,
+    });
+    g.state = 'ATTACKING';
+    world.creatures.set(g.id, g);
+
+    const castleBefore = world.players.get(P1)!.castleHp;
+    applyCreatureAttack(world, {
+      type: 'CREATURE_ATTACK',
+      creatureId: g.id,
+      bondId: 9999 as unknown as BondId, // never existed
+    });
+    expect(world.players.get(P1)!.castleHp).toBeLessThan(castleBefore);
+  });
+});
 
 describe('S157 F1 — the castle strike no longer preempts the shape strike', () => {
   it('⭐ a goblin beside the enemy keep DAMAGES THE SHAPE it is committed to', () => {

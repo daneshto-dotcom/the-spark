@@ -373,19 +373,40 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     return world;
   }
 
-  const castleSeat = enemyCastleInReach(world, creature, getCreatureConfig(creature.type).attackRange);
-  if (castleSeat !== null) {
-    damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
+  /*
+   * ⛔ S164 P2 — **THE CASTLE STRIKE IS NOW GENUINELY LAST, WHICH IS WHAT THIS FILE HAS CLAIMED
+   * TWICE ALL ALONG.** The docblocks above say the castle is *"Ordered LAST, after bond / creature /
+   * shape, so every shipped strike path short-circuits before"* it. It was not: the castle block
+   * `return`ed ABOVE the bond branch, so the bond arm sat underneath the very thing said to be last.
+   *
+   * S157 F1 moved the castle strike past the SHAPE arm and stopped there. The connector-attacking
+   * family is exactly the family S157 B5 admitted to castle attacks, so the gap was live: a Voltkin
+   * (attackRange 180) committed to an enemy connector anywhere within 180 px of an enemy keep spent
+   * every strike on the keep for 6 and returned here — never damaging the bond, and never releasing
+   * its `targetBondId` commit. That is verbatim the symptom S157 F1 was written to kill, one arm
+   * further down.
+   *
+   * ⚠ THIS DOES CHANGE BEHAVIOUR, and the change is the documented intent rather than a new rule: a
+   * creature that has committed to a connector now works on that connector even when a keep is in
+   * range. The keep is a TARGET OF OPPORTUNITY — taken when there is nothing else to hit — which is
+   * what "ordered last" means and what the AI's own target commitment implies.
+   */
+  const bond = action.bondId === null ? undefined : world.bonds.get(action.bondId);
+  const primA = bond === undefined ? undefined : world.primitives.get(bond.aId);
+  const primB = bond === undefined ? undefined : world.primitives.get(bond.bId);
+
+  if (action.bondId === null || bond === undefined || primA === undefined || primB === undefined) {
+    // No connector to work on — NOW the keep is the target.
+    const castleSeat = enemyCastleInReach(
+      world,
+      creature,
+      getCreatureConfig(creature.type).attackRange,
+    );
+    if (castleSeat !== null) {
+      damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
+    }
     return world;
   }
-
-  if (action.bondId === null) return world;
-  const bond = world.bonds.get(action.bondId);
-  if (bond === undefined) return world;
-
-  const primA = world.primitives.get(bond.aId);
-  const primB = world.primitives.get(bond.bId);
-  if (primA === undefined || primB === undefined) return world;
 
   // Capture arc endpoints pre-mutation. bondMidpoint reads bond.a.pos/bond.b.pos
   // which alias world.primitives.get(aId/bId).pos — must snapshot BEFORE
