@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4839,
+  "tool_calls_session_total": 4843,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
-  "session_status": "S165 IN PROGRESS - owner pre-approved full batch + full autonomous run",
+  "session_status": "S165 IN PROGRESS - owner reviewing before handoff. NOT closed at owner instruction: 'do not close off session when youre done i would like to check your work before handoff'.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -34,71 +34,266 @@
     {
       "id": 1,
       "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white on the character",
-      "status": "in_progress",
+      "status": "substantially_complete_two_rows_blocked",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "Fix BOTH shadow sites (design-spec.json sharedStyle + gen-character-design.mjs SHARED_STYLE default). Add a constructive colour-cast clause that names each character's pale colour. Regenerate 6 designs -> 24 clips -> 6 atlases. Measure the leak census; retire the orc's per-character override only if the measurement supports it."
+      "check_completed": true,
+      "checkpoint_commit": "07429b7",
+      "check_method": "BOTH shadow sites fixed, not the one the handoff named: design-spec.json sharedStyle AND scripts/gen-character-design.mjs:78, the default every future spec inherits - verified by assembling the script's SHARED_STYLE array in node and asserting the old clause is absent while facing-RIGHT, pure-white-bg and the sticker-halo negative all survive. Wording lifted verbatim from race-castles/design-spec.json _no_shadow rather than invented. Second clause added constructively (each pale colour NAMED) after measuring that the negative alone failed where the CONCEPT is pale: vampires 31,344 enclosed near-white px / biggest 9,732 and mummies 28,419 / 25,645 under the matte's exact predicate. 22 of 24 clips regenerated and all six atlases rebuilt; every sheet auditioned on PURE BLACK, which is the real board. Naga sampleWindow made per-state on a measured sweep. INCOMPLETE AND RECORDED: unit-vampires/attack and unit-demons/die are still S164 art (veo 429), named in atlas-specs.json _S165_INCOMPLETE_ROWS.",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "assets-source/race-units/design-spec.json",
+          "needle": "oval shadow on the ground"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-units/design-spec.json",
+          "needle": "NO GROUND SHADOW OF ANY KIND"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-units/design-spec.json",
+          "needle": "VISIBLE COLOUR CAST"
+        },
+        {
+          "type": "file_lacks",
+          "path": "scripts/gen-character-design.mjs",
+          "needle": "'Centered on a plain pure white background with a small soft dark oval shadow on the ground',"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/gen-character-design.mjs",
+          "needle": "NO GROUND SHADOW OF ANY KIND"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-units/atlas-specs.json",
+          "needle": "_S165_INCOMPLETE_ROWS"
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-units/atlas-specs.json",
+          "pattern": "public/art/race-units",
+          "op": ">=",
+          "value": 6
+        }
+      ]
     },
     {
       "id": 2,
-      "title": "P2 - W1-C: wire the castle race-unit emitter (R133 castle sentinel SpawnerId)",
-      "status": "pending",
+      "title": "P2 - W1-C castle emitter wiring",
+      "status": "NOT_DONE_emitter_unwired",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "Castle sentinel SpawnerId; cadence on world.tick (~30s, R120); stats 1/1/1/1 (R125); sentinel backstop cap (R123/R124); RACE_UNIT table + creatureRenderer wiring for the six atlases. No protocol bump owed - rides 41."
+      "check_completed": true,
+      "checkpoint_commit": "acac4a1",
+      "check_method": "⛔ THE EMITTER ITSELF IS NOT WIRED AND THIS IS STATED PLAINLY RATHER THAN IMPLIED. What landed: a 43-agent A.0 state-discovery pass (W1C_A0_FINDINGS.md) that contradicts the handoff in six places, two load-bearing - a protocol bump 41->42 IS owed because 41 already shipped to production in 641783c, and the R133 sentinel alone does not make the castle emit at all because the emit loop iterates world.creatureSpawners and a sentinel is by construction absent from it. Also fixed a LIVE bug the pass found: bots/botBrain nearestChewer filtered on provenance, so every goblin has registered as a chewer since S151 and bots have been fleeing their own units. Regression test PROVEN against the old code (2 of 5 fail on revert). Added raceUnitFrames.test.ts as the asset gate the atlases never had, and relocated them to public/art/race-units/ per castleFrames.ts:83-87.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "if (c.type !== 'chewer') continue;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "if (c.sourceSpawnerId === null) continue; // Voltkin"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/nearestChewer.test.ts",
+          "pattern": "\bit\\(",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/raceUnitFrames.test.ts",
+          "pattern": "\bit\\(",
+          "op": ">=",
+          "value": 8
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceUnitFrames.test.ts",
+          "needle": "cellH is IDENTICAL across all six races"
+        },
+        {
+          "type": "file_contains",
+          "path": "W1C_A0_FINDINGS.md",
+          "needle": "A PROTOCOL BUMP **IS** OWED"
+        },
+        {
+          "type": "file_contains",
+          "path": "W1C_A0_FINDINGS.md",
+          "needle": "THE SENTINEL ALONE DOES NOT MAKE THE CASTLE EMIT"
+        }
+      ]
     },
     {
       "id": 3,
-      "title": "P3 - tier-3 tower unit art: bat, piranha, scarab beetle, hound, orc-warband grunt, soul-eater (R116/R134)",
-      "status": "pending",
+      "title": "P3 - tier-3 tower unit art (R116/R134)",
+      "status": "designs_complete_clips_blocked",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "ART ONLY. R135's varied stat numbers are NOT ruled and are not written this session."
+      "check_completed": true,
+      "checkpoint_commit": "07429b7",
+      "check_method": "Six designs generated and looked at: bat, porpoising piranha, lapis scarab, redrawn hound, twin-axe orc warband raider, faceless soul-eater wraith. The hound was REDRAWN rather than reused: the shipped assets-source/zombie-castle/zombie-hound.png carries a large DETACHED black shadow, which is the worst case in the castle spec's own _no_shadow note because the atlas builder foot-anchors to the union bbox and would treat the shadow as the paws. The demon unit is described as a generic hooded wraith, NOT by the spec's 'dementor-like' shorthand, per the standing no-franchise rule. ⚠ NO STAT LINE WRITTEN - R135 asks for varied stats and supplies no figures. The 24 clips are blocked on veo quota.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier3-units/design-spec.json",
+          "pattern": "\"name\": \"t3-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-units/design-spec.json",
+          "needle": "NO GROUND SHADOW OF ANY KIND"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-units/design-spec.json",
+          "needle": "THE NUMBERS ARE NOT RULED"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-tier3-units/design-spec.json",
+          "syntax_type": "json"
+        }
+      ]
     },
     {
       "id": 4,
-      "title": "P4 - tier-3 race tower art: 6 towers x {healthy, damaged, spawning, destroyed} + per-species destruction cinematics",
-      "status": "pending",
+      "title": "P4 - tier-3 race tower art, 6 x {healthy, damaged, spawning, destroyed}",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "Owner: 'zombies its a zombie kennel, for vampls its a vampire bat cave, for mummies is a small pyramid ... they all get destroyed with different cinematic, pyramid dissapears in a sand storm/sand devil. kennel turns to ooze.' The GRAVITY rule from race-castles binds every damaged state."
+      "check_completed": true,
+      "checkpoint_commit": "bc0aae5",
+      "check_method": "24 pieces generated, ordered so every -intact seeds the other three via refImages. Both owner-named destructions landed: the pyramid is taken by a spiralling SAND DEVIL and the kennel LIQUEFIES into a pool of green ooze. The other four destroy in their own species' way. Checked MECHANICALLY, not by eye: zero ink touches any frame edge on all 24 (measured min-channel<200 on the four border rows/columns) - the first bat cave was cropped at the summit and was regenerated, which matters because the atlas builder foot-anchors to a union bbox and would ship a truncated tower. ⚠ Three of the six buildings are MINE, not the owner's, and say so in the spec.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "pattern": "\"name\": \"t3-",
+          "op": "==",
+          "value": 24
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "needle": "SAND DEVIL"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "needle": "DISSOLVED INTO OOZE"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "needle": "GRAVITY"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "syntax_type": "json"
+        }
+      ]
     },
     {
       "id": 5,
-      "title": "P5 - twelve zone backgrounds, one per race per board (R137)",
-      "status": "pending",
+      "title": "P5 - twelve per-race zone backgrounds (R137)",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "QUADRANTS_4P zone is 960x540 landscape, PITCH_2P zone is 960x1080 portrait. Generate the 4P landscape first and seed the 2P off it."
+      "check_completed": true,
+      "checkpoint_commit": "24608ae",
+      "check_method": "Twelve, not six, and the reason measured against src/state/zones.ts: SPLIT_X = CANVAS_WIDTH/2 = 960 and SPLIT_Y = CANVAS_HEIGHT/2 = 540, so a PITCH_2P zone is 960x1080 portrait and a QUADRANTS_4P zone is 960x540 landscape. Generated in R137's stated order - every 4P landscape first from its banner, every 2P portrait then seeded off its OWN 4P sibling. The readability contract is MEASURED rather than asserted: mean max-channel value 21.9-41.1 out of 255 across all twelve and ZERO pixels above 200 in any of them, so they sit under gameplay instead of competing with it. ⚠ The vampires' setting and the 3:4 portrait aspect are MINE and flagged at the spec.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-zones/design-spec.json",
+          "pattern": "\"name\": \"zone-[a-z]+-4p\"",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-zones/design-spec-2p.json",
+          "pattern": "\"name\": \"zone-[a-z]+-2p\"",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-zones/design-spec.json",
+          "needle": "IT MUST STAY DARK AND QUIET"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-zones/design-spec-2p.json",
+          "syntax_type": "json"
+        }
+      ]
     },
     {
       "id": 6,
-      "title": "P6 - final audit: gates green, everything committed, pushed, deployed; fix anything broken",
-      "status": "pending",
+      "title": "P6 - final audit: gates, commit, push, deploy; fix anything broken",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "scope": "Owner explicit: 'check and analyze the work making sure it all landed is commited pushed and deployed as it should be. nothing is broken and if it is fix it.' Exit codes read directly, never through a pipe. verify-deploy content-hash equality."
+      "check_completed": true,
+      "checkpoint_commit": "acac4a1",
+      "check_method": "All four gates read directly: typecheck 0, vitest 0 (3693/3693 across 236), build 0 (781.7/900 KiB), e2e:gating 0 (62 passed). Pushed 48b9475..acac4a1. Both CI lanes concluded SUCCESS. verify-deploy PASS 4/4 at acac4a1. Working tree clean, 24/24 source clips present, ZERO stranded veo .op.json handles (nothing billed and unrecoverable). Two failures investigated rather than passed over: the atlas builder's exit 1 was the wrong input shape (it takes ONE spec, atlas-specs.json is a container of six) and a /tmp path that Python and node resolve differently; the final clip run's exit 124 was my own deliberate `timeout 240` wrapper kill.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "verify_deploy"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "PASS 4/4 carriers at acac4a1"
+        },
+        {
+          "type": "json_field",
+          "path": ".claude/session-state.json",
+          "key": "checkpoint_commit",
+          "op": "==",
+          "value": "acac4a1"
+        }
+      ]
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "#grep-the-clause-not-the-file — the S164 handoff filed the baked-shadow defect against ONE spec file. There were TWO, and the second was the script DEFAULT every future character spec inherits. Fixing only the named one would have shipped the same defect into the tier-3 units generated later in the SAME session. The project rule already says this; obeying it cost one grep.",
+    "#measure-before-you-fix — I labelled six art sheets CATASTROPHIC on the assumption that a large enclosed near-white region must be the character's body. Measuring refuted it: those regions run mean 253-254 with 63-85% pure white against a true background of 254.7/96%, i.e. they are background pockets between limbs and the matte killing them is CORRECT. One measurement stopped a wrong fix.",
+    "#the-negative-is-not-the-mechanism — 'nothing may be white' failed exactly where the character CONCEPT is pale, because a vampire and a mummy are pale by definition and a prohibition gives the model nothing to draw. Naming each pale colour worked. Same lesson three times over on the vampire's phantom weapon: a bare negative, a stronger negative and a positive 'hands empty in every frame' all failed; the fix was to change the VERB to a bite so the jaws are the weapon and the arms are parked.",
+    "#exit-zero-can-hide-a-failure — the clip wrapper exited 0 while its own output said '1 clip(s) FAILED'. Reading only $? would have recorded a complete generation. Both the exit code AND the log body have to be read.",
+    "#never-chain-a-gate-behind-&& — I ran `ls ...op.json && node poll` and the ls failed, so the poll NEVER RAN and I briefly believed two billed operations were lost. The project CLAUDE.md warns about this exact pattern and I did it anyway.",
+    "#a-test-green-both-sides-pins-nothing — the nearestChewer regression test was verified by REVERTING the fix and confirming 2 of 5 fail. Without that step it would have been an assertion about my own belief.",
+    "#the-comment-terminator — a JSDoc line containing a glob path with */ closed the block comment early and produced a parse error 3 lines later that pointed at a template literal. The error location was nowhere near the cause.",
+    "#per-state-knobs-get-applied-globally — S164 answered one owner complaint (naga incoherence) by putting sampleWindow 16 on ALL FOUR states, which sampled attack and die entirely before the action happened. A measured sweep showed widening three of them costs literally nothing (union bbox unchanged at 295x200) while widening the fourth inflates the cell 295->336 for no coherence gain.",
+    "#follow-the-money-not-the-error-string — the owner added Google Cloud credit twice in response to a 429, but the pipeline calls the Gemini Developer API on an AI Studio key, which is a different product with its own quota. Four probes (second key, OAuth scope, model metadata, image endpoint) were needed to say that with evidence instead of guessing.",
+    "#a0-earns-its-cost-on-a-handoff-you-trust — a 43-agent state-discovery pass contradicted the inherited handoff in six places, two load-bearing: the protocol bump was owed after all because 41 had already shipped, and the sentinel alone does not make the castle emit because the emit loop iterates a map the sentinel is absent from. It also surfaced a LIVE bot bug that had been shipping since S151."
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -174,7 +369,7 @@
   },
   "real_context_tokens_at_close": 532567,
   "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "15b714d",
+  "checkpoint_commit": "acac4a1",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -6200,5 +6395,79 @@
     "vitest": "exit 0 - 3679 passed / 234 files",
     "protocol_version": 41,
     "ci": "all S164 deploys concluded success; no failures at boot"
-  }
+  },
+  "gates_at_checkpoint": {
+    "method": "Every exit code read DIRECTLY into $? from a redirected command, never through a pipe (the S159 hard_fail=2 lesson).",
+    "typecheck": "exit 0",
+    "vitest": "exit 0 - 3693 passed / 236 files (+14 vs the 3679/234 boot baseline, exactly the two new test files)",
+    "build": "exit 0 - entry chunk 781.7 KiB against the 900 KiB charter, headroom 118.3",
+    "e2e_gating": "exit 0 - 62 passed. Log independently re-scanned for a hidden E2E_EXIT line and for failure words; the only 'failed' substring is the --grep-invert flag itself.",
+    "verify_deploy": "exit 0 - PASS 4/4 carriers at acac4a1",
+    "ci": "Deploy to GitHub Pages = success (2m29s); E2E 2-browser harness = success (17m59s)"
+  },
+  "veo_quota_blocker": {
+    "symptom": "429 RESOURCE_EXHAUSTED on every veo predictLongRunning call from mid-session onward.",
+    "root_cause": "⛔ THE PIPELINE DOES NOT USE GOOGLE CLOUD BILLING. scripts/gen-character-clips.mjs posts to generativelanguage.googleapis.com - the Gemini DEVELOPER API - authenticated with the AI Studio key in ~/.claude/mcp-servers/gcp-vertex/.env (GEMINI_API_KEY). Its quota is tied to that key's AI Studio plan, NOT to the GCP project the owner topped up twice.",
+    "probes_run": [
+      "GEMINI_API_KEY vs veo predictLongRunning -> 429 RESOURCE_EXHAUSTED (repeatedly, over ~2h).",
+      "The same key vs GET models/veo-3.1-generate-preview -> 200 with full metadata, so the key is VALID and it is a quota wall, not auth.",
+      "GOOGLE_CLOUD_API_KEY vs the same endpoint -> 403 API_KEY_SERVICE_BLOCKED, revealing consumer projects/96122691765.",
+      "OAuth refresh token exchanged successfully but its scope is ONLY https://www.googleapis.com/auth/drive, so it cannot reach Vertex AI where the GCP credit would apply.",
+      "No gcloud CLI on PATH.",
+      "IMAGE generation on the same key -> WORKS (verified with a live 1-image call), which is why P4 and P5 completed in full."
+    ],
+    "owner_action": "Raise the quota on the AI STUDIO key's own project (ai.dev/rate-limit, or enable paid tier at aistudio.google.com/apikey), OR provide a Vertex AI service-account JSON with cloud-platform scope so the pipeline can be pointed at the GCP-billed endpoint the credits actually fund."
+  },
+  "carry_forwards_spawned_in_s165": [
+    {
+      "id": "CF-S165-a",
+      "severity": "work",
+      "text": "TWO CLIP ROWS ARE STILL S164 ART: unit-vampires/attack (old pale design AND a baked shadow) and unit-demons/die. Blocked on veo quota. Nothing renders them - no file in src/ references public/art/race-units/ - so the mismatch is inert, but it MUST be fixed before the emitter is wired. The vampire attack additionally needs its fourth reroll: veo drifted a weapon in on three separate generations under a bare negative, a stronger negative, and a positive 'both hands empty in every frame'. The fourth attempt re-choreographs it as a BITE and is written and ready."
+    },
+    {
+      "id": "CF-S165-b",
+      "severity": "work",
+      "text": "THE 24 TIER-3 UNIT CLIPS AND THE 6 ATLASES are not generated - veo quota. The six designs are done and committed, and clip/atlas specs can be modelled directly on assets-source/race-units/."
+    },
+    {
+      "id": "CF-S165-c",
+      "severity": "work",
+      "text": "THE TOWER DESTRUCTION CINEMATICS are not generated - veo quota. Each -destroyed still is deliberately written to read as the END FRAME of its own cinematic, so clips can seed straight off them."
+    },
+    {
+      "id": "CF-S165-d",
+      "severity": "hazard",
+      "text": "⛔ W1-C OWES A PROTOCOL BUMP 41->42 IF IT MINTS A NEW CreatureType LITERAL. 41 was already spent by S164 P1 and 641783c is an ancestor of origin/master, so v41 peers are live. There is NO switch on creature type anywhere in production - deserializeCreature assigns type: s.type straight through - so a stale peer accepts the unknown literal and then hits CREATURE_CONFIGS[unknown] === undefined on its own mirror. ⭐ The design that avoids six literals: ONE 'raceUnit' type whose race is derived from the owner's player.raceId, which has been on the wire since v39. That still costs the 41->42 bump but adds no new creature field. Full detail in W1C_A0_FINDINGS.md."
+    },
+    {
+      "id": "CF-S165-e",
+      "severity": "hazard",
+      "text": "⛔ THE CASTLE SENTINEL MUST BE PER-SEAT AND MUST NOT RIDE THE GOBLIN CAP FAMILY. underGoblinCaps counts c.sourceSpawnerId === sourceSpawnerId with NO ownerPlayerId term, so ONE shared sentinel turns GOBLIN_MAX_PER_SPAWNER (=10) into a CROSS-SEAT cap - seat 0's tenth race unit would block every other seat's castle - and riding the family at all also starves the goblin towers against GOBLIN_MAX_GLOBAL (=200). Add a third family, RACE_UNIT_MAX_*, on the CHEWER_MAX_* = 10_000 sentinel-backstop shape."
+    },
+    {
+      "id": "CF-S165-f",
+      "severity": "hazard",
+      "text": "⛔ THE FROZEN DIFFERENTIAL GATE BREAKS ON TICK 1 the moment an emitter is added to runHostTick. hostTick.differential.test.ts asserts hashWorldStateFull equality EVERY tick plus a full snapshot() byte-compare against referenceHostTick, a verbatim frozen transcription of the pre-S119 tick. Decide the strategy IN the PDR before writing the emitter."
+    },
+    {
+      "id": "CF-S165-g",
+      "severity": "known-limitation",
+      "text": "'THE WHOLE CREATURE FAN-OUT IS FIGHT-GATED' IS FALSE and Blocker 8's dissolution rests on it. Creature LOCOMOTION is not phase-gated: physicsLoop.ts runs creatureVerletStep on every substep of every BUILD tick with no matchPhase guard. recallArmies also skips any creature whose owner is absent from world.players, and there is no BUILD->FIGHT release edge at all. The conclusion (no SHELTERED state needed) still holds; the argument must be restated correctly."
+    },
+    {
+      "id": "CF-S165-h",
+      "severity": "owner-question",
+      "text": "WHAT HAPPENS TO AN ELIMINATED SEAT'S RACE UNITS? state/elimination.ts contains ZERO references to creature and nothing removes them. With persistent uncapped units a dead seat keeps ~90 autonomous fighters on the board - the exact kingmaker problem elimination was written to prevent. (a) despawn, (b) freeze, or (c) keep fighting?"
+    },
+    {
+      "id": "CF-S165-i",
+      "severity": "owner-question",
+      "text": "IS 'UNCAPPED' (R123) ACCEPTABLE AT ITS MEASURED WIRE COST? constants.ts records ~180 B per creature and states the only guard is a 12-chewer FIXTURE, explicitly 'not a runtime budget'. At NET_SNAPSHOT_HZ = 10 the spec's own population projection is ~65 KB every 100 ms. R123 was ruled without that number in front of the owner."
+    },
+    {
+      "id": "CF-S165-j",
+      "severity": "work",
+      "text": "EAGER ATLAS LOADING WOULD COST 46.9 MB OF DECODED TEXTURE. goblinRenderer.ensureAtlases loads every ATLASES entry unconditionally on first sync; the six race PNGs are 8,970,745 bytes on disk. gathererRenderer already refused this and went lazy per-race - a 1v1 match needs two of the six. Follow that precedent, and note a fourth renderer would get NEITHER the owner-tinted ground fill nor the ring, since creatureLift.ts enforces universality by there being nothing else to call."
+    }
+  ]
 }
