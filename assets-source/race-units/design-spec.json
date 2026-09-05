@@ -32,9 +32,19 @@
     "An ORIGINAL character design — not resembling any existing franchise character.",
     "A lightly-armed rank-and-file foot soldier, small and scrappy rather than a hero or a champion:",
     "modest silhouette, simple gear, no oversized weapons, no elaborate armour, no cape.",
+    "⛔ EVERY LIGHT TONE ON THE CHARACTER MUST CARRY A VISIBLE COLOUR CAST. Not a negative",
+    "instruction — a positive one: every pale area (skin, linen, bone, teeth, tusks, eyes, metal",
+    "glints, highlights) must be a colour a painter would NAME — cold lavender-grey, dull ochre,",
+    "bone-yellow, sea-green, warm tan, steel-blue — and must be clearly more saturated than a",
+    "neutral grey. NOTHING on the character may be white, off-white, cream, bleached, or a",
+    "desaturated near-white grey. The plain background is the ONLY white in the image.",
     "Full body, single character, three-quarter view action pose, facing and moving to the RIGHT.",
-    "Centered on a plain pure white background with a small soft dark oval shadow on the ground",
-    "directly beneath the character.",
+    "Drawn at a consistent scale: the character's full body fills most of the frame height, standing",
+    "squarely on the invisible ground line at the bottom of the frame.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no",
+    "ground plane, no base platform — nothing beneath the character. The lowest ink in the image must",
+    "be the character's own feet, tail or hem, sitting flat.",
+    "Centered on a plain pure white background.",
     "No text, no logo, no border, no frame, no white outline around the silhouette,",
     "no die-cut sticker edge, no drop-shadow behind the character, no background scenery."
   ],
@@ -45,7 +55,7 @@
       "refImages": [
         "public/art/banners/banner-vampires.jpg"
       ],
-      "prompt": "A lean pale-skinned vampire thrall in a tattered crimson-lined black tunic, mid-lunge with clawed hands raised and small fangs bared. Ragged half-formed bat-membrane wings sit folded and stunted at his shoulders, too small to fly. Sunken red-rimmed eyes, slicked dark hair, bare feet with dark claws, a thin iron collar at his throat. Crimson accents on the tunic lining and the collar. A low, hungry, forward-leaning gait."
+      "prompt": "A lean vampire thrall in a tattered crimson-lined black tunic, mid-lunge with clawed hands raised and small fangs bared. His skin is a COLD LAVENDER-GREY corpse pallor with a distinct violet-blue cast in the shadows - clearly a tinted colour, never white, off-white or bleached. Ragged half-formed bat-membrane wings sit folded and stunted at his shoulders, too small to fly. Sunken red-rimmed eyes with dull amber sclera, slicked dark hair, bare feet with dark claws, a thin iron collar at his throat. His fangs are bone-yellow, not white. Crimson accents on the tunic lining and the collar. A low, hungry, forward-leaning gait."
     },
     {
       "name": "unit-nagas",
@@ -53,7 +63,7 @@
       "refImages": [
         "public/art/banners/banner-nagas.jpg"
       ],
-      "prompt": "A serpent-tailed naga warrior slithering forward, gripping a short bronze trident in one hand. His upright scaled torso rises from a thick tail that rests FLAT ALONG THE GROUND and coils compactly beneath and just behind him, clearly touching the ground and bearing his weight - not raised, not floating, not rearing up. Blue-green scaled torso and tail with a paler scaled belly, a bronze scale-mail harness across the chest, a short fin crest on the skull, slit yellow eyes, a hard cruel expression. Cyan accents on the fin crest and the trident binding. Overall height and footprint comparable to a standing foot soldier - compact, not sprawling. Cold disciplined military bearing, mid-slither.",
+      "prompt": "A serpent-tailed naga warrior slithering forward, gripping a short bronze trident in one hand. His upright scaled torso rises from a thick tail that rests FLAT ALONG THE GROUND and coils compactly beneath and just behind him, clearly touching the ground and bearing his weight - not raised, not floating, not rearing up. Deep blue-green scaled torso and tail; the belly scales are a TINTED PALE SEA-GREEN, clearly green-tinged, never cream, white or pale grey. A bronze scale-mail harness across the chest, a short fin crest on the skull, slit amber eyes, a hard cruel expression. Cyan accents on the fin crest and the trident binding. Overall height and footprint comparable to a standing foot soldier - compact, not sprawling. Cold disciplined military bearing, mid-slither.",
       "_regen_note": "S164 P5 REGEN 1: the first pass FLOATED - the coiled tail never touched the ground and the shadow sat detached well below it - and its sprawl was far wider than any bipedal sibling, so at a shared sprite scale it would have read as a much larger unit. R94/R117 make these six stat-identical, so the silhouette budget has to match too. Reworked to keep the tail compact and GROUNDED."
     },
     {
@@ -62,7 +72,7 @@
       "refImages": [
         "public/art/banners/banner-mummies.jpg"
       ],
-      "prompt": "A shambling bandage-wrapped mummy soldier striding forward with both arms outstretched, a short curved bronze khopesh in one wrapped fist. Yellowed grey linen wrappings coming loose and trailing from the forearms, a dented gold-and-lapis pectoral collar over the chest, an empty dark hollow where the eyes should be with two small amber pinpricks of light. Amber-gold accents on the collar and the khopesh. Stiff-legged relentless forward march."
+      "prompt": "A shambling bandage-wrapped mummy soldier striding forward with both arms outstretched, a short curved bronze khopesh in one wrapped fist. His linen wrappings are DULL OCHRE AND DUST-STAINED TAN, deeply yellowed and grubby with age, with darker earth-brown grime in the folds - clearly a warm yellow-brown cloth, never white, cream, bleached or pale grey. Wrappings come loose and trail from the forearms. A dented gold-and-lapis pectoral collar over the chest, an empty dark hollow where the eyes should be with two small amber pinpricks of light. Amber-gold accents on the collar and the khopesh. Stiff-legged relentless forward march."
     },
     {
       "name": "unit-zombies",
@@ -70,7 +80,7 @@
       "refImages": [
         "public/art/banners/banner-zombies.jpg"
       ],
-      "prompt": "A lurching rotted zombie villager staggering forward with one arm hanging limp and the other reaching out, jaw slack. Mottled sickly grey-green skin with darker patches, torn muddy peasant clothes, exposed ribs on one side, one bare foot and one broken boot, milky pale eyes. Sickly bright green accents in the rot patches and a faint swamp-glow at the wounds. Off-balance shambling gait, one shoulder dropped."
+      "prompt": "A lurching rotted zombie villager staggering forward with one arm hanging limp and the other reaching out, jaw slack. Mottled sickly grey-green skin with darker patches, torn muddy peasant clothes in dull brown and moss, exposed ribs on one side in dull BONE-YELLOW (never white), one bare foot and one broken boot. His eyes are milky pale YELLOW-GREEN, clearly tinted, never white. Sickly bright green accents in the rot patches and a faint swamp-glow at the wounds. Off-balance shambling gait, one shoulder dropped."
     },
     {
       "name": "unit-orcs",
@@ -78,7 +88,7 @@
       "refImages": [
         "public/art/banners/banner-orcs.jpg"
       ],
-      "prompt": "A stocky tusked orc grunt charging forward with a short notched cleaver raised in one hand and a small round hide shield strapped to the other forearm. Weathered grey-brown skin, jutting lower tusks, a flat broad nose, a shaved head with a stiff dark topknot, banded leather armour with rusted iron studs over a bare chest, heavy wrapped boots. Burnt-orange accents on the war paint across his face and the shield rim. Heavy aggressive forward charge."
+      "prompt": "A stocky tusked orc grunt charging forward with a short notched cleaver raised in one hand and a small round hide shield strapped to the other forearm. Weathered grey-brown skin, jutting lower tusks in warm BONE-YELLOW (never white), a flat broad nose, a shaved head with a stiff dark topknot, banded leather armour with rusted iron studs over a bare chest, heavy wrapped boots. His eyes are amber-gold with dark pupils, not white. The cleaver blade is dull STEEL-BLUE grey with a clear blue cast, tarnished and notched, never bright silver or white. Burnt-orange accents on the war paint across his face and the shield rim. Heavy aggressive forward charge."
     },
     {
       "name": "unit-demons",
@@ -86,7 +96,58 @@
       "refImages": [
         "public/art/banners/banner-demons.jpg"
       ],
-      "prompt": "A small horned imp scampering forward on hooved legs, brandishing a crooked black iron pitchfork with both clawed hands. Dark violet-red skin, two short curled horns, pointed ears, a thin barbed tail lashing behind, small tattered leathery wings, a mean toothy grin and narrow glowing eyes. Vivid magenta accents glowing at the eyes, the tail barb and the pitchfork tips. Quick low scurrying run, mischievous and vicious."
+      "prompt": "A small horned imp scampering forward on hooved legs, brandishing a crooked black iron pitchfork with both clawed hands. Dark violet-red skin, two short curled horns in dull ochre-bone, pointed ears, a thin barbed tail lashing behind, small tattered leathery wings, a mean toothy grin with bone-yellow teeth (never white) and narrow glowing eyes. Vivid magenta accents glowing at the eyes, the tail barb and the pitchfork tips. Quick low scurrying run, mischievous and vicious."
     }
+  ],
+  "_no_shadow": [
+    "⛔ WHY THE PROMPT NOW FORBIDS A GROUND SHADOW — S165, fixing an S164 defect of mine.",
+    "S164's sharedStyle asked for \"a small soft dark oval shadow on the ground directly beneath the",
+    "character\". Owner, looking at the built sheets: \"the third vampire has a gray shadow while the",
+    "rest have dark shadow - remember the shadow is of the players race color\". He is right and the",
+    "code already agrees — goblinRenderer draws a ring in the OWNER'S TINT at the creature's real",
+    "position, and its docblock records that a BLACK shadow there was a measured no-op because the",
+    "board is pure black. So the GAME supplies the shadow, in the seat colour; the art must not.",
+    "",
+    "⭐ THE WORDING IS NOT NEW — it is lifted verbatim from assets-source/race-castles/design-spec.json",
+    "`_no_shadow`, where the identical defect was found and fixed one wave earlier. That spec measured",
+    "two failure modes worth restating: a DETACHED oval makes the shadow the foot, so the atlas builder",
+    "foot-anchors to the shadow and that character floats and renders small; and a baked grey shadow is",
+    "TINTED with the sprite, so the ground under a vampire reads crimson and under a naga cyan.",
+    "",
+    "⚠ It also removes a class of matte ambiguity no threshold can catch: a mid-grey ellipse is",
+    "neither near-white nor near-black, which is why one S164 vampire frame kept a grey oval."
+  ],
+  "_no_white": [
+    "⭐ THE ORC-EYES FIX, AND IT IS UPSTREAM RATHER THAN IN THE MATTE.",
+    "S164 owner reject 3: \"you have removed the white from the orcs eyes\". The matte keys on near-white",
+    "connected to the frame border and deletes enclosed near-white pockets above a size limit; for the",
+    "orc, eyes and background leaks measured the SAME SIZE across five thresholds with a monotonic curve",
+    "and no knee, so no size rule can separate them. 0.0003 was taken as a compromise that kept ~55% of",
+    "the eye detail and left ~31% of the leak — explicitly filed as a compromise, not a fix.",
+    "",
+    "The real fix is to stop drawing white eyes. If nothing on the CHARACTER is near-white, then every",
+    "near-white pocket in the frame is background by construction, and the aggressive 4e-05 limit can",
+    "run on all six with no eye loss. That is what the new clause buys, and it is why the orc's",
+    "per-character enclosedWhiteLimitPct override should be RETIRED once the regenerated sheet is",
+    "measured — not before."
+  ],
+  "_pallor_measured": [
+    "⭐ S165 - WHY EACH CHARACTER NAMES ITS OWN PALE COLOUR, WITH THE MEASUREMENT BEHIND IT.",
+    "The first S165 pass carried only the NEGATIVE clause (\"nothing may be white\"). It was not enough,",
+    "and the census says so. Measured on the generated 1024x1024 designs with the matte's EXACT",
+    "predicate (min>205 AND max-min<28), counting ENCLOSED near-white pixels and the single biggest",
+    "pocket - which is what build-sprite-atlas.mjs KILLS when it exceeds the limit:",
+    "    vampires 31,344 px enclosed / biggest 9,732 | mummies 28,419 / 25,645 | nagas 2,858 / 1,834",
+    "    zombies 198 / 47 | orcs 1,093 / 485 | demons 1,052 / 406      (limit at 4e-05 = 42 px)",
+    "",
+    "⛔ A 25,645-px pocket is not a leak, it is THE MUMMY'S BODY. `sz > limit` KILLS it, so the linen",
+    "would have been punched fully transparent and the mummy would have shipped as a hole. Same for the",
+    "vampire's 9,732-px pallor. The negative clause failed exactly where the CHARACTER CONCEPT is pale:",
+    "a vampire and a mummy are pale by definition, so 'not white' gives the model nothing to draw.",
+    "",
+    "⭐ The lever is the matte's own SATURATION term, max-min<28. A pale colour with a real cast leaves",
+    "the near-white family entirely and no threshold has to be compromised. So each prompt now NAMES its",
+    "pale colour - lavender-grey vampire, ochre mummy, sea-green naga belly, bone-yellow tusks and teeth,",
+    "steel-blue blades, amber eyes. Constructive, not prohibitive."
   ]
 }

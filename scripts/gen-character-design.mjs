@@ -75,8 +75,21 @@ const SHARED_STYLE = [
   // walk row (row 1, frames 0 and 6) faces right. A left-facing seed ships the character mirrored
   // for its entire life, and every state would be backwards from its siblings.
   'Full body, single character, three-quarter view action pose, facing and moving to the RIGHT.',
-  'Centered on a plain pure white background with a small soft dark oval shadow on the ground',
-  'directly beneath the character.',
+  // ⛔ NO BAKED GROUND SHADOW — THE GAME DRAWS IT, IN THE SEAT'S COLOUR (S165).
+  // This default asked for "a small soft dark oval shadow" for ~13 sessions. It is wrong for every
+  // creature in this game and always was: `goblinRenderer` draws a contact ring in the OWNING
+  // SEAT'S TINT at the creature's real position, and its docblock records that a black shadow there
+  // is a measured no-op because the board is pure black. Owner, S164: "remember the shadow is of the
+  // players race color". A baked oval also breaks two mechanical things, both measured in
+  // `assets-source/race-castles/design-spec.json` `_no_shadow`: a DETACHED oval becomes the foot the
+  // atlas builder anchors to, so that character floats and renders small; and the sprite is TINTED,
+  // so the baked ground under a crimson seat turns crimson. Third, a mid-grey ellipse is neither
+  // near-white nor near-black, so no matte threshold can catch it — which is how one S164 vampire
+  // frame shipped with a grey oval no rule could see.
+  '⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no',
+  'ground plane, no base platform — nothing beneath the character. The lowest ink in the image must',
+  "be the character's own feet, tail or hem, sitting flat.",
+  'Centered on a plain pure white background.',
   'No text, no logo, no border, no frame, no white outline around the silhouette,',
   'no die-cut sticker edge, no drop-shadow behind the character, no background scenery.',
 ].join(' ');

@@ -1,0 +1,96 @@
+{
+  "_comment": [
+    "SPARK — S165 P3: the six TIER-3 TOWER units, one per race.",
+    "",
+    "⛔ THESE ARE NOT THE CASTLE UNITS. Owner ruling R134 splits the two populations apart:",
+    "   *\"remember we have first dicussed making pirhannas for nagas, the already generated zombie",
+    "   hound for zombies, beetles for mummies, bats for vampires. HOWEVER. I do like the designs you",
+    "   have just made so we will use those as the castle spawn. and the ones we have mentioned and",
+    "   defined in the earlier sesison we will use for the tier 3 building\"*",
+    "   ⇒ CASTLE spawns the six humanoid soldiers (assets-source/race-units/).",
+    "   ⇒ THE TIER-3 RACE TOWER spawns THESE six, the R116 roster: bats · piranhas · scarab beetles ·",
+    "     the hound · an orc-warband grunt with TWIN AXES · soul-eaters.",
+    "",
+    "⚠ R135 GIVES THESE VARIED STATS AND THE NUMBERS ARE NOT RULED. Owner: *\"make them slightly",
+    "different stats and more varied! variety is always more interesting.\"* That is a direction, not a",
+    "stat line, and R125 currently fixes the race unit at 1/1/1/1. NO STAT LINE IS WRITTEN THIS",
+    "SESSION — this folder is art only. Whatever numbers eventually land will be MINE unless the owner",
+    "supplies figures, and per the project rule a number that is mine says so at the constant with the",
+    "measurement behind it.",
+    "",
+    "⭐ UNLIKE THE CASTLE SIX, THESE ARE ALLOWED TO DIFFER IN BUILD. The castle units are stat-identical",
+    "siblings (R94/R117) so their silhouette budget had to match. These are a bat, a fish, a beetle, a",
+    "dog, an orc and a spirit — R135 makes them varied on purpose. What still binds them is the HOUSE",
+    "STYLE and the pipeline requirements, not a shared body plan.",
+    "",
+    "⛔ NO BAKED GROUND SHADOW — the same defect this session removed from the castle units, and the",
+    "reason the EXISTING zombie hound has to be redrawn rather than reused. assets-source/zombie-castle/",
+    "zombie-hound.png is a good design carrying a big BLACK ELLIPSE that is DETACHED, floating below the",
+    "paws. That is the worst case in race-castles/design-spec.json `_no_shadow`: the atlas builder",
+    "foot-anchors to the union bbox, so the SHADOW becomes the foot and the hound renders high and small",
+    "against every other creature. The game draws the contact ring itself, in the owning seat's colour.",
+    "",
+    "⛔ ORIGINAL DESIGNS ONLY. The spec's shorthand for the demon unit is \"dementor-like\", which names a",
+    "FRANCHISE character. The prompt below deliberately describes the generic archetype instead — a",
+    "faceless hooded wraith trailing into smoke — and must not reproduce any existing property's",
+    "character. Standing project rule after a Totoro look-alike shipped in S95 and had to be reworked."
+  ],
+  "outDir": "assets-source/race-tier3-units",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks. Muted earthy palette with one saturated accent colour.",
+    "An ORIGINAL creature design — not resembling any existing franchise character or creature.",
+    "⛔ EVERY LIGHT TONE ON THE CREATURE MUST CARRY A VISIBLE COLOUR CAST. Not a negative instruction —",
+    "a positive one: every pale area (fur, chitin, bone, teeth, fangs, claws, eyes, metal glints,",
+    "highlights) must be a colour a painter would NAME — bone-yellow, dull ochre, sea-green, warm tan,",
+    "steel-blue, cold lavender-grey — and must be clearly more saturated than a neutral grey. NOTHING",
+    "on the creature may be white, off-white, cream, bleached, or a desaturated near-white grey. The",
+    "plain background is the ONLY white in the image.",
+    "Full body, single creature, three-quarter view action pose, facing and moving to the RIGHT.",
+    "The creature fills most of the frame height at a consistent scale.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no",
+    "ground plane, no base platform — nothing beneath the creature. The lowest ink in the image must be",
+    "part of the creature itself.",
+    "Centered on a plain pure white background.",
+    "No text, no logo, no border, no frame, no white outline around the silhouette,",
+    "no die-cut sticker edge, no drop-shadow behind the creature, no background scenery."
+  ],
+  "characters": [
+    {
+      "name": "t3-vampires-bat",
+      "_race": "vampires — crimson 0xff3b6b — Triangle feed",
+      "refImages": ["public/art/banners/banner-vampires.jpg"],
+      "prompt": "A large predatory vampire bat in flight, wings spread wide and swept forward, mouth open showing small bone-yellow fangs. Dark charcoal-plum fur across the body with a paler dusty-mauve underside, broad crimson-veined leathery wing membranes stretched between long finger bones, big pointed ears, a squashed snout, small burning crimson eyes, hooked dark claws on the wing thumbs and feet. Crimson accents glowing in the wing veins and the eyes. Fast darting flight, body angled forward and low."
+    },
+    {
+      "name": "t3-nagas-piranha",
+      "_race": "nagas — cyan 0x3bd7ff — Square feed — porpoises in and out of the ground",
+      "refImages": ["public/art/banners/banner-nagas.jpg"],
+      "prompt": "A fat armoured piranha caught MID-LEAP, its body arched in a porpoising dive like a dolphin breaking the surface, head angled down and tail kicked up behind. Deep teal-blue scaled flanks with a tinted pale sea-green belly, heavy overshot jaw crammed with jagged bone-yellow teeth, a blunt snubbed head, small furious amber eyes, spined dorsal fin and stiff bronze-tinted fins. Cyan accents glowing along the fin spines and the gill slits. Compact, muscular and vicious — a projectile with teeth."
+    },
+    {
+      "name": "t3-mummies-scarab",
+      "_race": "mummies — yellow 0xffe23b — Line feed — brightly coloured Egyptian scarab",
+      "refImages": ["public/art/banners/banner-mummies.jpg"],
+      "prompt": "A big armoured Egyptian scarab beetle scuttling forward on six barbed legs. A brilliantly coloured domed carapace in deep lapis blue and turquoise with gold-leaf banding and painted hieroglyph markings, an iridescent green-gold sheen on the wing cases, a heavy ridged head-shield with a forward horn, short jointed antennae, dull amber compound eyes, dark bronze legs with hooked claws. Amber-gold accents on the carapace banding and the horn. Low, fast and purposeful, carapace tilted forward."
+    },
+    {
+      "name": "t3-zombies-hound",
+      "_race": "zombies — green 0x44ff5e — Circle feed — the hound (redrawn, no baked shadow)",
+      "refImages": ["assets-source/zombie-castle/zombie-hound.png", "public/art/banners/banner-zombies.jpg"],
+      "prompt": "A gaunt rotting zombie hound charging forward at a hard run, head low and lips peeled back over jagged bone-yellow teeth. Patchy grey-green mangy fur over a starved ribcage with bare mottled skin showing through, torn ears, a whip-thin tail, cracked dark claws, milky pale yellow-green eyes. It wears a studded brown leather collar with dull bronze spikes and a worn leather harness with tarnished iron buckles across its shoulders. Sickly bright green accents in the rot patches and a faint swamp-glow at the wounds. Predatory low-slung gallop."
+    },
+    {
+      "name": "t3-orcs-warband",
+      "_race": "orcs — orange 0xff8c1a — Dot feed — heavier warband grunt with TWIN AXES",
+      "refImages": ["public/art/banners/banner-orcs.jpg"],
+      "prompt": "A heavy orc warband raider charging forward swinging TWO hand axes, one in each fist, both raised mid-swing. Broader and more heavily built than a common grunt: thick slabbed shoulders, a deep barrel chest, weathered grey-brown hide with old scar ridges, jutting lower tusks in warm bone-yellow, a broad flat nose, a shaved skull with a braided dark topknot and burnt-orange war paint striped across the face. Studded banded-leather shoulder guards and a heavy belt over a bare chest, iron-shod boots. The axe heads are dull steel-blue, tarnished and chipped, with worn timber hafts bound in leather. Burnt-orange accents on the war paint and the haft bindings. Reckless full-tilt charge."
+    },
+    {
+      "name": "t3-demons-souleater",
+      "_race": "demons — magenta 0xd73bff — Spiral feed — a drifting faceless wraith",
+      "refImages": ["public/art/banners/banner-demons.jpg"],
+      "prompt": "An ORIGINAL faceless wraith drifting forward just above the ground, its lower body dissolving into ragged trailing smoke instead of legs. Tattered deep-violet and charcoal robes hang from thin hunched shoulders and stream backwards; a deep empty hood shows no face at all, only two narrow slits of burning magenta light where eyes would be. Long skeletal grasping hands in bruised violet-grey reach forward from ragged sleeves, fingers hooked. Wisps of dark vapour peel off the hem and the sleeves. Vivid magenta accents glowing in the eye slits, at the fingertips and in the smoke. Slow, weightless, menacing forward drift."
+    }
+  ]
+}

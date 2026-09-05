@@ -35,17 +35,17 @@
       "outDir": "assets-source/race-units/clips/unit-vampires",
       "states": {
         "idle": {
-          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic crouches low and waits, breathing shallowly, his clawed hands flexing and his stunted bat wings twitching, head turning slightly as he watches for prey."
+          "prompt": "The lean lavender-grey-skinned vampire thrall in the tattered crimson-lined tunic crouches low and waits, breathing shallowly, his clawed hands flexing and his stunted bat wings twitching, head turning slightly as he watches for prey."
         },
         "walk": {
-          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic stalks steadily to the right in a low predatory crouch, arms held out and clawed hands leading, his stunted bat wings shivering with each step."
+          "prompt": "The lean lavender-grey-skinned vampire thrall in the tattered crimson-lined tunic stalks steadily to the right in a low predatory crouch, arms held out and clawed hands leading, his stunted bat wings shivering with each step."
         },
         "attack": {
-          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic attacks with his BARE CLAWED HANDS ONLY - he carries NO weapon of any kind, no scythe, no sickle, no blade, nothing in either hand. He lunges forward and rakes downward with both empty clawed hands, fangs bared, then recoils back into his low crouch ready to strike again. His stunted bat wings stay small and folded at his shoulders throughout, never opening into full wings. Empty hands in every frame.",
+          "prompt": "The lean lavender-grey-skinned vampire thrall in the tattered crimson-lined tunic attacks with his BARE CLAWED HANDS ONLY - he carries NO weapon of any kind, no scythe, no sickle, no blade, nothing in either hand. He lunges forward and rakes downward with both empty clawed hands, fangs bared, then recoils back into his low crouch ready to strike again. His stunted bat wings stay small and folded at his shoulders throughout, never opening into full wings. Empty hands in every frame.",
           "_regen_note": "S164 REGEN 1: the first attack clip DRIFTED A WEAPON IN — veo gave the thrall a curved scythe/sickle for the back half of the clip, which the design PNG does not have and which made the attack row show a different character from idle/walk. The fix is to state the absence explicitly: a negative in the prompt, because the seed image alone did not hold it."
         },
         "die": {
-          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic is struck, staggers backward clutching his chest, his stunted wings going limp, then crumples down onto the ground and lies still, fully in frame, motionless at the end."
+          "prompt": "The lean lavender-grey-skinned vampire thrall in the tattered crimson-lined tunic is struck, staggers backward clutching his chest, his stunted wings going limp, then crumples down onto the ground and lies still, fully in frame, motionless at the end."
         }
       }
     },
@@ -55,7 +55,7 @@
       "outDir": "assets-source/race-units/clips/unit-nagas",
       "states": {
         "idle": {
-          "prompt": "The blue-green scaled naga warrior rests on his coiled tail holding his bronze trident, torso swaying slowly, tail tip flicking, slit yellow eyes scanning coldly from side to side."
+          "prompt": "The blue-green scaled naga warrior rests on his coiled tail holding his bronze trident, torso swaying slowly, tail tip flicking, slit amber eyes scanning coldly from side to side."
         },
         "walk": {
           "prompt": "The blue-green scaled naga warrior glides steadily to the right on his tail, body undulating smoothly along the ground, his bronze trident carried level at his side, torso upright and disciplined."
@@ -144,5 +144,14 @@
         }
       }
     }
+  ],
+  "_s165_note": [
+    "S165: the six designs were regenerated with NO baked ground shadow and with each pale colour NAMED",
+    "(lavender-grey vampire, dull ochre mummy, sea-green naga belly, bone-yellow tusks and teeth,",
+    "steel-blue blades, amber eyes). Two clip prompts still carried the OLD colour words and were",
+    "corrected here so the text does not pull veo back toward the palette the seed no longer has:",
+    "'pale vampire thrall' -> 'lavender-grey-skinned vampire thrall', 'slit yellow eyes' -> 'slit amber eyes'.",
+    "The SHARED clip instruction in gen-character-clips.mjs already carries 'with the same colours',",
+    "'no shadow cast on anything' and 'constant size' - all three are pipeline requirements, not notes."
   ]
 }

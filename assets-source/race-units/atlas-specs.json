@@ -65,7 +65,7 @@
         "idle": {
           "clip": "assets-source/race-units/clips/unit-nagas/idle.mp4",
           "ticksPerFrame": 7,
-          "sampleWindow": 16
+          "sampleWindow": 48
         },
         "walk": {
           "clip": "assets-source/race-units/clips/unit-nagas/walk.mp4",
@@ -75,15 +75,15 @@
         "attack": {
           "clip": "assets-source/race-units/clips/unit-nagas/attack.mp4",
           "ticksPerFrame": 5,
-          "sampleWindow": 16
+          "sampleWindow": 48
         },
         "die": {
           "clip": "assets-source/race-units/clips/unit-nagas/die.mp4",
           "ticksPerFrame": 5,
-          "sampleWindow": 16
+          "sampleWindow": 48
         }
       },
-      "_why_sampleWindow": "S164 OWNER REJECT 1: the owner looked at the built sheet and said \"naga not coherent ... it looks twice bigger in different states\". Correct, and the cause is the drift this script's own sampleWindow docblock describes: veo holds an image-to-video seed faithfully for roughly the first second and then wanders, and the naga wanders in SCALE because its silhouette can legitimately stretch (coiled and upright vs extended along the ground), so there is nothing in the frame anchoring its size. A serpent has far more freedom to change apparent size than a biped does, which is why this one drifted and the orc did not. 16 frames is the tightest window in the repo (the goblin hound's), taking ~0.67s of a 4s clip.",
+      "_why_sampleWindow": "S165 — PER-STATE, AND THE S164 VALUE WAS RIGHT FOR ONE STATE AND WRONG FOR THE OTHER THREE. S164 answered the owner's \"naga not coherent ... it looks twice bigger in different states\" by putting sampleWindow 16 on ALL FOUR states. 16 frames is ~0.67s of a 4s clip, so attack and die were sampled entirely BEFORE the action happened: measured motion score (mean abs alpha delta between sampled frames) was 0.07 for idle and near-nothing for attack — the rows were frozen stills. The builder's own docblock says this knob is PER-STATE for exactly this reason: \"a slow idle can take the whole clip while a drifting attack takes the front\". MEASURED SWEEP, rebuilding each time: widening idle/attack/die 16 -> 48 left the union bbox EXACTLY unchanged at 295x200 and woke the rows up (idle 0.07 -> 15.90, attack -> 19.24, die -> 13.48), with subject-height spread of only 10px on idle and 13px on die. Widening WALK is the one that costs: 24/48/96 all inflate the cell 295 -> 336 while the height spread stays flat at 46-48px, so a wider walk window buys no coherence and pads every cell with dead space, which renders the naga SMALLER against its siblings. => walk stays at 16 (S164's finding, confirmed); idle, attack and die go to 48.",
       "enclosedWhiteLimitPct": 4e-05
     },
     {
