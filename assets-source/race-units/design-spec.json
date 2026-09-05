@@ -1,0 +1,92 @@
+{
+  "_comment": [
+    "SPARK — S164 P5 (W1-C): the six RACE UNITS, one per race, produced by that race's castle.",
+    "",
+    "RETAINED IN-TREE so the art is reproducible from the repo alone — the S152 rule, written after",
+    "S151 shipped three atlases whose seeds no longer existed and could never be retuned.",
+    "",
+    "⛔ STAT-IDENTICAL, FOREVER (owner R94/R117, and R125 fixes them at 1 HP / 1 DEF / 1 ATK / 1 PEN).",
+    "So these six must read as SIBLINGS: the same weight class, the same silhouette budget, the same",
+    "'basic soldier of this people'. Races differ in LOOK and MOVEMENT, never in what the unit does.",
+    "A design that reads as an elite for one race and a peasant for another would lie about parity.",
+    "",
+    "⭐ EACH ONE IS ANCHORED TO ITS OWN SHIPPED BANNER via refImages. The banners are already the",
+    "race's visual identity in the picker (public/art/banners/), so seeding from them is what keeps a",
+    "vampire unit and the vampire castle looking like one faction rather than two. Identity input,",
+    "never a copy source — the prompt asks for a new character in a new pose.",
+    "",
+    "⚠ sharedStyle REPLACES the default, deliberately. The script's built-in SHARED_STYLE hard-codes",
+    "'olive sage-green goblin skin', which is right for the goblin roster and wrong for six other",
+    "peoples. Everything load-bearing is kept: the ink-outline house look, RIGHT-facing (the renderer",
+    "mirrors with face=1 meaning unmirrored, so a left-facing seed ships backwards for life), the",
+    "plain pure white ground the matte depends on, and the no-sticker-halo negative the owner has",
+    "already rejected once by name.",
+    "",
+    "⚠ ORIGINAL DESIGNS ONLY. No franchise silhouettes, no recognisable character from any existing",
+    "property — a standing project rule after a Totoro look-alike shipped in S95 and had to be reworked."
+  ],
+  "outDir": "assets-source/race-units",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks. Muted earthy palette with one saturated accent colour.",
+    "An ORIGINAL character design — not resembling any existing franchise character.",
+    "A lightly-armed rank-and-file foot soldier, small and scrappy rather than a hero or a champion:",
+    "modest silhouette, simple gear, no oversized weapons, no elaborate armour, no cape.",
+    "Full body, single character, three-quarter view action pose, facing and moving to the RIGHT.",
+    "Centered on a plain pure white background with a small soft dark oval shadow on the ground",
+    "directly beneath the character.",
+    "No text, no logo, no border, no frame, no white outline around the silhouette,",
+    "no die-cut sticker edge, no drop-shadow behind the character, no background scenery."
+  ],
+  "characters": [
+    {
+      "name": "unit-vampires",
+      "_race": "vampires — crimson 0xff3b6b — Triangle feed — Carpathian mountain night",
+      "refImages": [
+        "public/art/banners/banner-vampires.jpg"
+      ],
+      "prompt": "A lean pale-skinned vampire thrall in a tattered crimson-lined black tunic, mid-lunge with clawed hands raised and small fangs bared. Ragged half-formed bat-membrane wings sit folded and stunted at his shoulders, too small to fly. Sunken red-rimmed eyes, slicked dark hair, bare feet with dark claws, a thin iron collar at his throat. Crimson accents on the tunic lining and the collar. A low, hungry, forward-leaning gait."
+    },
+    {
+      "name": "unit-nagas",
+      "_race": "nagas — cyan 0x3bd7ff — Square feed — cruel military atlantis",
+      "refImages": [
+        "public/art/banners/banner-nagas.jpg"
+      ],
+      "prompt": "A serpent-tailed naga warrior slithering forward, gripping a short bronze trident in one hand. His upright scaled torso rises from a thick tail that rests FLAT ALONG THE GROUND and coils compactly beneath and just behind him, clearly touching the ground and bearing his weight - not raised, not floating, not rearing up. Blue-green scaled torso and tail with a paler scaled belly, a bronze scale-mail harness across the chest, a short fin crest on the skull, slit yellow eyes, a hard cruel expression. Cyan accents on the fin crest and the trident binding. Overall height and footprint comparable to a standing foot soldier - compact, not sprawling. Cold disciplined military bearing, mid-slither.",
+      "_regen_note": "S164 P5 REGEN 1: the first pass FLOATED - the coiled tail never touched the ground and the shadow sat detached well below it - and its sprawl was far wider than any bipedal sibling, so at a shared sprite scale it would have read as a much larger unit. R94/R117 make these six stat-identical, so the silhouette budget has to match too. Reworked to keep the tail compact and GROUNDED."
+    },
+    {
+      "name": "unit-mummies",
+      "_race": "mummies — yellow 0xffe23b — Line feed — desert tomb",
+      "refImages": [
+        "public/art/banners/banner-mummies.jpg"
+      ],
+      "prompt": "A shambling bandage-wrapped mummy soldier striding forward with both arms outstretched, a short curved bronze khopesh in one wrapped fist. Yellowed grey linen wrappings coming loose and trailing from the forearms, a dented gold-and-lapis pectoral collar over the chest, an empty dark hollow where the eyes should be with two small amber pinpricks of light. Amber-gold accents on the collar and the khopesh. Stiff-legged relentless forward march."
+    },
+    {
+      "name": "unit-zombies",
+      "_race": "zombies — green 0x44ff5e — Circle feed — rotting swamp ruins",
+      "refImages": [
+        "public/art/banners/banner-zombies.jpg"
+      ],
+      "prompt": "A lurching rotted zombie villager staggering forward with one arm hanging limp and the other reaching out, jaw slack. Mottled sickly grey-green skin with darker patches, torn muddy peasant clothes, exposed ribs on one side, one bare foot and one broken boot, milky pale eyes. Sickly bright green accents in the rot patches and a faint swamp-glow at the wounds. Off-balance shambling gait, one shoulder dropped."
+    },
+    {
+      "name": "unit-orcs",
+      "_race": "orcs — orange 0xff8c1a — Dot feed — badlands barracks",
+      "refImages": [
+        "public/art/banners/banner-orcs.jpg"
+      ],
+      "prompt": "A stocky tusked orc grunt charging forward with a short notched cleaver raised in one hand and a small round hide shield strapped to the other forearm. Weathered grey-brown skin, jutting lower tusks, a flat broad nose, a shaved head with a stiff dark topknot, banded leather armour with rusted iron studs over a bare chest, heavy wrapped boots. Burnt-orange accents on the war paint across his face and the shield rim. Heavy aggressive forward charge."
+    },
+    {
+      "name": "unit-demons",
+      "_race": "demons — magenta 0xd73bff — Spiral feed — hell",
+      "refImages": [
+        "public/art/banners/banner-demons.jpg"
+      ],
+      "prompt": "A small horned imp scampering forward on hooved legs, brandishing a crooked black iron pitchfork with both clawed hands. Dark violet-red skin, two short curled horns, pointed ears, a thin barbed tail lashing behind, small tattered leathery wings, a mean toothy grin and narrow glowing eyes. Vivid magenta accents glowing at the eyes, the tail barb and the pitchfork tips. Quick low scurrying run, mischievous and vicious."
+    }
+  ]
+}
