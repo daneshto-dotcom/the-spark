@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4498,
-  "session_id": "S163",
+  "tool_calls_session_total": 4741,
+  "session_id": "S164",
   "session_kind": "batch-pdca",
-  "session_start": "2026-09-04T19:30:00+02:00",
-  "prior_session_note": "S162 closed at adedd6a. Its priorities+reflexion are archived in priorities_s162_archived / reflexion_s162_archived.",
+  "session_start": "2026-09-05T00:30:00+02:00",
+  "prior_session_note": "S163 closed its work at eaf85e2 but was left OPEN at owner request. Its priorities+reflexion are archived in priorities_s163_archived / reflexion_s163_archived.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "FULL",
-  "plan_file": ".claude/plans/2026-09-04_PDR_S163_BATCH.md",
-  "session_status": "OPEN_BY_OWNER_REQUEST",
+  "plan_file": ".claude/plans/2026-09-05_PDR_S164_BATCH.md",
+  "session_status": "IN_PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -33,280 +33,164 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "Host self-crown + un-fenced ENDGAME epoch fence",
+      "title": "Castle regen upgrade (R128-R131) - the unbuilt half of V6-2.4",
       "status": "completed",
-      "tier": "Standard",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "b75472f5ca3c5a182ff33da727f9e502162e967c",
-      "check_method": "P1 CHECK. (a) GATES, exit codes read DIRECTLY (never piped): typecheck 0; vitest 0 = 3638/3638 across 232 files (was 3627/231, so +11 new and zero regressions); build 0 = 780.0/900 KiB, headroom 120.0; e2e:gating 0 = 62 passed in 3.6m. (b) MUTATION PROOF, per the project rule that a guard is proven by breaking what it guards: forcing hasWitness=true (the pre-fix behaviour) makes the bug case FAIL with exit 1, and only that case — 1 failed / 4 passed. Restored and re-verified byte-identical. (c) THE FENCE IS PURE AND TESTED, not merely written: extracted endgameIsStale() and pinned four cases including the two that have teeth — absent epoch before migration must PASS (pre-S163 host, provably inert) and absent epoch AFTER migration must DROP. (d) parseNetMessage rejects a present-but-garbage epoch (string/float/negative/NaN/null/object) — NaN specifically, because NaN < n is false and it would otherwise slip the fence silently. (e) NO PROTOCOL BUMP and that was verified, not assumed: epoch is additive-optional on ENDGAME, which this project rules costs no bump. | ⚠ S163 MCV RECONCILE: two of this priority's bindings hard-failed at the Stop gate and BOTH were my own drift, not code defects. (a) the hasWitness needle described the pre-CHECK line, which the A-F1 fix rewrote to add the present-peer test — the binding was pinning superseded code. (b) the grep_count regex lost a backslash through the shell quoting layers (the verifier reported \"bad regex: missing )\"), and its expected count of 5 had also gone stale at 9 once CHECK added the heal-tick, partial-heal and fixture cases. Both rebound to measured reality and the verifier re-run to exit 0. The process failure is that I authored bindings at each priority close but did not RUN the verifier there — which is precisely what the standing note on this says to do.",
+      "checkpoint_commit": "641783cf4d0f3a75018cd29b7c1438e4027d1c9e",
+      "check_method": "P1 CHECK. Gates read directly: typecheck 0; vitest 0 = 3668/3668 across 234 files (+19 new); build 0 = 781.7/900 KiB; e2e:gating 0 = 62 passed in 3.4m (mandatory here - the protocol bumped 40->41). MUTATION PROOF on all four guards: stubbing never-from-zero, the overheal clamp, the reducer cap, and level-0-is-nothing each makes its own case fail (exit 1); file restored and diffed BYTE-IDENTICAL against a pre-mutation copy. THE REQUIRED-FIELD DECISION PAID: making castleRegenLevel required rather than additive-optional made tsc enumerate all four construction sites including the two carry-FSM rebuilds that eliminatedAtTick documents as the ones tsc CANNOT catch when optional - and a runtime pickup/drop test pins them anyway against a future refactor. THE BUMP WAS SIX SITES and the chain gate caught me on one: protocolVersionSync.test.ts failed until the lowercase one-line `bumped 40->41` summary was added alongside the narrative block, which is exactly the drift that test exists to stop. THE RATE WAS RULED, NOT READ: per-tick would have been 900 HP/s = 150 goblins out-healed = castle unkillable at lv1; the arithmetic went to the owner and per-second was chosen.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "const hasWitness = present !== null && present.size > 0;"
+          "path": "src/state/castleRegen.ts",
+          "needle": "export function castleRegenPerSecond"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "const since = present.has(peerId) ? undefined : state.peerAbsentSinceTick.get(peerId);"
+          "path": "src/state/castleRegen.ts",
+          "needle": "if (p.castleHp <= 0) continue;"
         },
         {
           "type": "file_contains",
-          "path": "src/net/clientHandlers.ts",
-          "needle": "export function endgameIsStale"
+          "path": "src/state/castleRegen.ts",
+          "needle": "p.castleHp = Math.min(CASTLE_MAX_HP, p.castleHp + gain);"
         },
         {
           "type": "file_contains",
           "path": "src/net/protocol.ts",
-          "needle": "readonly epoch?: number;"
+          "needle": "export const PROTOCOL_VERSION = 41 as const;"
         },
         {
           "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "epoch: session.currentEpoch,"
+          "path": "src/game/player.ts",
+          "needle": "castleRegenLevel: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "UPGRADE_CASTLE_REGEN: 'deny',"
         },
         {
           "type": "grep_count",
-          "path": "src/state/hostSelfCrown.test.ts",
-          "pattern": "^  it\\(",
+          "path": "e2e/smoke.spec.ts",
+          "pattern": "LOCAL_PROTO_V = 41",
           "op": "==",
-          "value": 9
+          "value": 1
         }
       ]
     },
     {
       "id": "P2",
-      "title": "The two comments that are FALSE (quickmatchGate, raceClaim.test)",
+      "title": "A2 - the castle strike preempts the bond arm",
       "status": "completed",
-      "tier": "Micro",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "8b886917cf06521b8a472dc8033714f6e0c2bdcb",
-      "check_method": "P2 CHECK. The replacement text was itself verified line-by-line against the tree BEFORE being written, because the failure mode being fixed is a comment that asserts an unverified mechanism. Measured: hostHandlers.ts:220 assigns netTransport, transport.connect(code) is at :245 = 25 lines later (the comment says ~25); clientHandlers.ts:143 / :174 same shape; transport.ts opens try at :366, calls joinFn at :372, catches at :469 into markStrategyFailed. All three claims in the new text are exact. Gates: typecheck 0; raceClaim.test + quickmatch.test 41 passed exit 0. Residual sweep for surviving false claims returns only my own two refutations, which quote the wrong claim in order to correct it.",
+      "checkpoint_commit": "0e39f745c72cd59a670ab89a726a2f6dff7472eb",
+      "check_method": "P2 CHECK. Gates read directly: typecheck 0; vitest 0 = 3671/3671 across 234 files (+3); build 0 = 781.7/900 KiB. MUTATION PROOF: reinstating the pre-S164 order (castle block above the bond resolution) fails exactly the new bond case and nothing else (exit 1, 1 failed / 6 passed); restored, 0 MUTATION markers remain. TWO THINGS WORTH RECORDING: (1) the full suite was GREEN both before and after the reorder - nothing anywhere pinned the documented ordering, which is why the regression test is the deliverable rather than the reorder; (2) my first assertion (damageFifths > 0) FAILED AGAINST CORRECT BEHAVIOUR because a 2-primitive component has capacity count+4 = 5 fifths and one chewer strike severs it outright, removing the bond from world.bonds - the test now accepts damaged-or-severed and records why. Also caught by reading gates separately: vitest was GREEN while tsc was RED on a bad StiffnessTier literal.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/net/quickmatchGate.ts",
-          "needle": "NAMED A CAUSE THAT CANNOT HAPPEN"
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "THE CASTLE STRIKE IS NOW GENUINELY LAST"
         },
         {
           "type": "file_contains",
-          "path": "src/net/raceClaim.test.ts",
-          "needle": "THE ROOT CAUSE THIS DOCBLOCK USED TO NAME WAS WRONG"
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "// No connector to work on"
         },
         {
-          "type": "file_lacks",
-          "path": "src/net/quickmatchGate.ts",
-          "needle": "never reached"
+          "type": "file_contains",
+          "path": "src/state/creatures/strikeOrderAndRecall.test.ts",
+          "needle": "no longer preempts the BOND strike either"
         }
       ]
     },
     {
       "id": "P3",
-      "title": "TURN_CONFIG_NOTE on the connection-test SUCCESS branch",
+      "title": "C5 + C4 - close the damageEntity heal vector, clamp overheal",
       "status": "completed",
-      "tier": "Micro",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "46b148fca43d9b010df02ccc41254078d35fd75a",
-      "check_method": "P3 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 233 files; build 0 = 780.0/900 KiB. MUTATION PROOF: removing turnNotePrefix from the SUCCESS call fails 2 of the canary 4 (exit 1); restored and re-verified (3 occurrences of turnNotePrefix in main.ts = 1 declaration + 2 uses). The canary is a SOURCE-TEXT test by deliberate choice, and the reason is recorded in its docblock: main.ts is the composition root and the branch has no callable seam, while lobbyScreen.getConnectionTestText() is an accessor with zero production callers. It also asserts the negative — that ok is NOT ANDed with the note — so a future author cannot turn a passing verdict amber over hygiene.",
+      "checkpoint_commit": "e54aeabac7c7dc9332b901fd81f2f7a9f8578fc0",
+      "check_method": "P3 CHECK. Gates read directly: typecheck 0; vitest 0 = 3675/3675 across 234 files (+4); build 0 = 781.7/900 KiB. MUTATION PROOF: reopening the hole (moving the guard back below the castle arm) fails exactly the two new cases (exit 1, 2 failed / 11 passed); file restored and diffed BYTE-IDENTICAL. The fix is one statement reordering, but the reasoning is the deliverable: the castle was the ONLY target that bypassed validation, and it is the one whose HP ends the match - combined with save.ts emitting castleHp only when below max, an over-max value would have been a SILENT wire divergence that neither hash oracle could see.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "showConnectionTestResult(ok, headline, turnNotePrefix + detail)"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/main.ts",
-          "pattern": "turnNotePrefix",
-          "op": "==",
-          "value": 3
+          "path": "src/state/damage.ts",
+          "needle": "THE VALIDATION MOVED ABOVE THE CASTLE ARM"
         },
         {
           "type": "file_contains",
-          "path": "src/net/turnNoteSurfaced.test.ts",
-          "needle": "BOTH showConnectionTestResult calls carry the prefix"
+          "path": "src/state/castleHp.test.ts",
+          "needle": "a NEGATIVE amount THROWS for a castle"
         }
       ]
     },
     {
       "id": "P4",
-      "title": "isValidRoster: seat range + uniqueness at the wire boundary",
+      "title": "R132 - NONET 9 -> 12, stays off the footer menu",
       "status": "completed",
-      "tier": "Standard",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "1cde4281c1ddfaff782cd886628b3c30335481ef",
-      "check_method": "P4 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files; e2e:gating 0 = 62 passed in 3.5m. MUTATION PROOF: stubbing out BOTH the seat range check and the uniqueness check fails exactly the 2 new cases (exit 1, 2 failed / 47 passed); restored and re-verified zero MUTATION markers remain. Anti-vacuity built in: the tests assert BOTH ends of the valid interval (0 and MAX_PLAYERS-1) still pass, so the range check cannot degenerate into rejecting everything. The peerId asymmetry is pinned by its own case so it reads as a decision rather than an oversight. Confirmed no existing fixture relied on the loose validator - the full suite was green before the new tests were added.",
+      "checkpoint_commit": "a4585a648b80e7f8bb0bfe4da63903b7f48063b5",
+      "check_method": "P4 CHECK. Gates read directly: typecheck 0; vitest 0 = 3679/3679 across 234 files (+4); build 0 under charter. The behaviour is pinned at BOTH edges (NONET_SHAPE_COUNT-1 and +1 both return null) plus the literal 9 explicitly, so the boss-tower count can never silently start firing the trial again. The footer-menu half of R132 was verified to be already true by construction and pinned against the LIVE castleStructuresModel rather than a file grep, with an anti-vacuity assertion that the model is non-empty. One authoring slip caught and fixed: an unasserted .replace silently failed to add an import, so the first run of the new test errored - the lesson is the same one this session keeps paying, assert the match count on every patch.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= MAX_PLAYERS) return false;"
+          "path": "src/state/sudokuEvent.ts",
+          "needle": "export const NONET_SHAPE_COUNT = 12;"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "if (new Set(seats).size !== seats.length) return false;"
+          "path": "src/state/sudokuEvent.test.ts",
+          "needle": "NINE no longer fires a NONET"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "rejects a roster where two entries claim the SAME seat"
+          "path": "src/state/sudokuEvent.test.ts",
+          "needle": "NEVER APPEARS IN THE FOOTER TOWER MENU"
         }
       ]
     },
     {
       "id": "P5",
-      "title": "The dead-code sweep - godlyCooldown, teardownCastleBanks, nonet sfx, 2 constants, wall docblocks",
-      "status": "completed",
-      "tier": "Standard",
+      "title": "W1-C - the castle produces its race unit (R133 castle sentinel SpawnerId)",
+      "status": "awaiting_owner_art_review",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "96f248851c4b1c96f0e59fb3431c0b7bd1450206",
-      "check_method": "P5 CHECK. Gates read directly: typecheck 0; vitest 0 = 3640/3640 across 232 files; build 0 = 780.0/900 KiB. TEST-COUNT ARITHMETIC RECONCILED EXACTLY rather than merely observed green: 3645 minus 4 (godlyCooldown.test.ts) minus 1 (solveArpeggio describe) = 3640, and 233 minus 1 file = 232. A count that did not reconcile would mean a deletion took something unintended with it. FIELD REMOVAL NOT DRIVEN OFF tsc: 4 of the 17 sites are compiler-invisible (a spread in save.ts, three as-never fixtures in sparkLifecycle.test.ts, e2e/nplayer.spec.ts outside tsconfig) - the clause was grepped to ZERO and the only surviving hits are my own gravestone comments. PROCESS DEFECT FOUND AND RECORDED: git rm staged the two module deletions immediately, so P4 committed them under a message that does not mention them; 1cde428 nonetheless builds and its deploy concluded success, so pushed history was left alone and the misattribution is documented in the P5 message and here.",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "src/game/player.ts",
-          "needle": "godlyCooldownEndsAtTick"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/save.ts",
-          "needle": "godlyCooldownEndsAtTick"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "COLLISION_ITERATIONS"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/castleBank.ts",
-          "needle": "export function teardownCastleBanks"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/wallRenderer.ts",
-          "needle": "The clamp has no sim consumer"
-        }
+      "checkpoint_commit": "6a14f2973d714c84ee5c45a9879d2d62ce6f180a",
+      "progress_s164": "ART SPIKE DELIVERED, NOT WIRED — the owner chose art-first for this slot and the standing rule is spike-and-show-before-wiring. Six race-unit design seeds generated through the existing pipeline and committed with their spec (reproducible from the repo alone, per the S152 rule). Naga regenerated once: the first pass floated with a detached shadow and out-sprawled every bipedal sibling, which would have broken the stat-identical parity R94/R117 requires.",
+      "blockers_resolved_s164": [
+        "B1 (the emitter cap) — RESOLVED by owner R133: a castle sentinel SpawnerId, so race units take the normal spawner population path instead of widening the voltkin exemption.",
+        "BLOCKER 8 (creatures have no SHELTERED state) — DISSOLVED, not worked around. recallArmies already teleports every creature home on the FIGHT->BUILD edge (hostTick.ts:395) and the whole creature fan-out is FIGHT-gated, so born-at-the-anchor + the existing gate + the existing recall IS the shelter/release/recall cycle. Its docblock explicitly forbids a new CreatureState (a hard wire parse break, and goblinRenderer would draw it as idle), so needing none is the correct outcome rather than a shortcut."
       ],
-      "process_defect_s163": "git rm + explicit git add do not compose: git commit commits the INDEX. P4 (1cde428) swept in P5 deletions. Builds clean, deploy success, history left alone after push."
+      "remaining_s164": "Once the owner approves the art: atlas + clips (build-sprite-atlas.mjs / gen-character-clips.mjs), then castleEmitter.ts — per-seat, cadence on world.tick only (~30s per R120), units born at the castle anchor with the sentinel SpawnerId. PROTOCOL is already at 41 from P1, so W1-C rides that bump rather than owing its own."
     },
     {
       "id": "P6",
-      "title": "Three tests that prove less than they claim",
-      "status": "completed",
-      "tier": "Micro",
+      "title": "The art-direction brief - per-race zones + tier-9 boss towers",
+      "status": "pending",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "61bcbabe3b297ec77da50e59bb53982d1fde322f",
-      "check_method": "P6 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 232 files; build 0 = 780.0/900 KiB. THE FINDING OF THIS PRIORITY IS THAT MY OWN FIX WAS UNPROVEN: mutating the new rostersEqual raceId comparison to  left the ENTIRE suite green at 3641/3641, because no existing case held colour fixed while changing race - injectivity hid it. Added lobbyStateMachine.test.ts case that does exactly that, plus a same-content control; re-running the mutation now fails exactly that one case (1 failed / 57 passed) and nothing else. Restored, zero MUTATION markers remain. The iceConfig vacuity fix carries expect.hasAssertions() so the zero-assertion pass cannot recur. The raceClaim symmetry case now passes the imported selfId and has an anti-vacuity companion.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyStateMachine.ts",
-          "needle": "a[i].raceId !== b[i].raceId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/iceConfig.test.ts",
-          "needle": "expect.hasAssertions();"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/raceClaim.test.ts",
-          "needle": "expect(raceIsFree(s, 'zombies', selfId)).toBe(false);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/races.test.ts",
-          "needle": "the six RACE_COLORS are DISTINCT"
-        }
-      ]
-    },
-    {
-      "id": "P7",
-      "title": "e2e.yml push trigger for the gating lane",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "f437e81d5e3617cdbff74f72b83b4a68e337b31a",
-      "check_method": "P7 CHECK. Gates: typecheck 0; vitest 0 = 3645/3645 across 233 files. YAML validated by PARSING it (python yaml.safe_load), not by eyeballing: 4 triggers, push branches [master], 11 path entries, concurrency expression intact, all 5 jobs present. RUNTIME PROOF, the only proof that counts for a CI trigger and one a static parse cannot give: pushing this very commit FIRED run 33920970225 with event=push on master - the first push-triggered e2e run in this repo since S110 removed the trigger. MUTATION PROOF on the hazard: re-arming cancel-in-progress to an unconditional true fails exactly the guard case (1 failed / 2 passed); restored and re-verified. Both stale header blocks were corrected in the same commit because this edit falsified them.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "refs/heads/master"
-        },
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "branches: [master]"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/ci.e2eTriggers.test.ts",
-          "needle": "re-arms the silent-cancel hazard"
-        }
-      ],
-      "runtime_proof": "gh run 33920970225 - E2E (2-browser harness), event=push, master, triggered by f437e81. Conclusion audited before session close."
-    },
-    {
-      "id": "P8",
-      "title": "Send-before-repaint swap + markFallenSeats stale docblock",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "a8783ba8c91c5faecb3217b1f6b08738e907bbe3",
-      "check_method": "P8 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files. The send/repaint swap is behaviour-neutral on the happy path by construction (same roster object, synchronous local call, no peer response can race it) and the full suite confirms zero movement. Its VALUE is structural: the unconditional repaint is no longer downstream of a network call, so the docblock claim that onPresence always runs is now true by shape rather than by nothing-throws. The elimination.ts change is a comment correction only - the return ordering is genuinely used by nothing today, and the note now says so while recording why the ordering is kept. | ⚠ S163 MCV RECONCILE: this priority's elimination.ts binding hard-failed because the needle spanned a line break — the text IS present, but wrapped across a \" * \" continuation, and the verifier does a literal substring match. Rebound to a single-line fragment. A binding that cannot match wrapped prose is an authoring bug, not a missing change.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/quickmatchGate.ts",
-          "needle": "REPAINT FIRST, THEN SEND"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/elimination.ts",
-          "needle": "describing a caller that has never existed"
-        }
-      ]
+      "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    "S163 P1 - A GUARD EVALUATED AT THE TOP OF A FUNCTION AND CLEARED AT THE BOTTOM IS NOT A GUARD. The witness rule read peerAbsentSinceTick a thousand lines before the sweep that clears it, so the instant a partition HEALED the stamps were still stale and the host crowned itself on the very tick its opponents returned - t+20s became t+heal, which is worse. My mutation test passed because it only ever ran ONE tick. State that spans ticks needs a test that spans ticks.",
-    "S163 P1 - I GOT THE ARITHMETIC WRONG IN THE DIRECTION THAT WOULD HAVE CHANGED THE FIX. I read the peers promotion deadline off HOST_STARVATION_MS (6s) and concluded they were safely 11-14s ahead of the 20s forfeit. Promotion is actually RECONNECT_GRACE_MS + rank*CLAIM_LADDER_MS = 15-18s, a 2-5s margin. Had I not re-derived it from the call site, the belief that the peers always win the race would have justified doing nothing at all.",
-    "S163 P5 - git rm STAGES IMMEDIATELY, AND git commit COMMITS THE INDEX, NOT THE PATHS YOU JUST ADDED. P4 silently shipped two P5 deletions under a message that does not mention them. It built and deployed green, so nothing caught it but a diffstat that did not match what I had staged. Stage removals last, or commit with explicit pathspecs.",
-    "S163 P6 - MY OWN FIX WAS UNPROVEN AND ONLY MUTATION SHOWED IT. Stubbing out the new rostersEqual raceId comparison left the ENTIRE suite green at 3641/3641: no case held colour fixed while moving race, because RACE_COLORS being injective hid it. A green suite after a fix is not evidence the fix does anything.",
-    "S163 CHECK - THE AUDIT FOUND MORE IN TODAY WORK THAN TODAY WORK FOUND IN THE INHERITED WORK, for the second session running. Three lanes over my own eight commits returned a HIGH inside the flagship fix and fourteen overstated claims. Fresh code is not safer code; it is merely less examined - and the author is the worst-placed person to notice.",
-    "S163 CHECK - TWO FAILED ATTEMPTS TO RESTORE A TEST WERE THE ANSWER, NOT AN OBSTACLE. Trying to make the over-cap roster case meaningful failed twice, and the second failure proved WHY: range + uniqueness make an over-cap roster impossible by pigeonhole, so the length bound is subsumed and cannot be independently pinned. Writing that down beats a third attempt at a test that cannot exist.",
-    "S163 CHECK - A REORDER IS NOT AN ISOLATION. Swapping send-before-repaint to repaint-before-send removed one throw path and created its mirror: the Pixi repaint can throw too, and it would then have swallowed the whole room broadcast instead of one local rack. Removing the only way this can break is a claim to be suspicious of; two try/catches were what the invariant actually needed.",
-    "S163 CHECK - I ASSERTED A PLATFORM BEHAVIOUR I HAD NOT CHECKED. Claiming that cancel-in-progress false means runs queue and every one reports is not what GitHub does - a newly-queued run still cancels a PENDING one in the same group, so the silent-cancel hazard P7 existed to kill survived P7. The fix was a per-commit group; the lesson is that a CI claim needs the vendor semantics, not the flag name.",
-    "S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it.",
-    "S163 MCV — THE CHECK PHASE IS WHEN EARLIER BINDINGS GO STALE, AND I DID NOT RE-RUN THE VERIFIER THERE. Three claims hard-failed at the Stop gate. None was fabricated work — the code was present and every gate green — but two bindings pinned lines my OWN A-F1 fix had rewritten, one needle spanned a line break so a literal match could never hit it, and one regex lost a backslash through the shell quoting layers. Fixing a defect changes the line a binding pins, so CHECK is precisely the phase most likely to falsify bindings written during DO. Run verify-session-claims.py after CHECK, not only at priority close, and never author a needle that wraps."
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -5973,5 +5857,313 @@
     "trigger": "Stop-gate MCV hard_fail=3 (verify-session-claims.py exit 1) — the S149 fabrication class.",
     "verdict": "ALL THREE WERE BINDING DRIFT, NOT FABRICATED WORK. The code each one described is present and correct, and every gate was green: typecheck 0, vitest 3649/3649, build 780.2/900 KiB, e2e:gating 62 passed, verify-deploy 4/4. Two bindings were invalidated by MY OWN CHECK-phase fixes (the A-F1 predicate rewrite), one was an unmatchable needle that spanned a line break, and one carried a regex whose escaping collapsed through the shell.",
     "lesson": "The gate did its job and I had not done mine: bindings were authored at each priority close but the verifier was never RUN there, so drift introduced by the CHECK phase went unnoticed until Stop. Worse, the CHECK phase is exactly when bindings written earlier are most likely to be falsified — fixing a defect changes the line the binding pins. Re-run the verifier after CHECK, not only after DO."
+  },
+  "priorities_s163_archived": [
+    {
+      "id": "P1",
+      "title": "Host self-crown + un-fenced ENDGAME epoch fence",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "b75472f5ca3c5a182ff33da727f9e502162e967c",
+      "check_method": "P1 CHECK. (a) GATES, exit codes read DIRECTLY (never piped): typecheck 0; vitest 0 = 3638/3638 across 232 files (was 3627/231, so +11 new and zero regressions); build 0 = 780.0/900 KiB, headroom 120.0; e2e:gating 0 = 62 passed in 3.6m. (b) MUTATION PROOF, per the project rule that a guard is proven by breaking what it guards: forcing hasWitness=true (the pre-fix behaviour) makes the bug case FAIL with exit 1, and only that case — 1 failed / 4 passed. Restored and re-verified byte-identical. (c) THE FENCE IS PURE AND TESTED, not merely written: extracted endgameIsStale() and pinned four cases including the two that have teeth — absent epoch before migration must PASS (pre-S163 host, provably inert) and absent epoch AFTER migration must DROP. (d) parseNetMessage rejects a present-but-garbage epoch (string/float/negative/NaN/null/object) — NaN specifically, because NaN < n is false and it would otherwise slip the fence silently. (e) NO PROTOCOL BUMP and that was verified, not assumed: epoch is additive-optional on ENDGAME, which this project rules costs no bump. | ⚠ S163 MCV RECONCILE: two of this priority's bindings hard-failed at the Stop gate and BOTH were my own drift, not code defects. (a) the hasWitness needle described the pre-CHECK line, which the A-F1 fix rewrote to add the present-peer test — the binding was pinning superseded code. (b) the grep_count regex lost a backslash through the shell quoting layers (the verifier reported \"bad regex: missing )\"), and its expected count of 5 had also gone stale at 9 once CHECK added the heal-tick, partial-heal and fixture cases. Both rebound to measured reality and the verifier re-run to exit 0. The process failure is that I authored bindings at each priority close but did not RUN the verifier there — which is precisely what the standing note on this says to do.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "const hasWitness = present !== null && present.size > 0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "const since = present.has(peerId) ? undefined : state.peerAbsentSinceTick.get(peerId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/clientHandlers.ts",
+          "needle": "export function endgameIsStale"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly epoch?: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "epoch: session.currentEpoch,"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostSelfCrown.test.ts",
+          "pattern": "^  it\\(",
+          "op": "==",
+          "value": 9
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "The two comments that are FALSE (quickmatchGate, raceClaim.test)",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "8b886917cf06521b8a472dc8033714f6e0c2bdcb",
+      "check_method": "P2 CHECK. The replacement text was itself verified line-by-line against the tree BEFORE being written, because the failure mode being fixed is a comment that asserts an unverified mechanism. Measured: hostHandlers.ts:220 assigns netTransport, transport.connect(code) is at :245 = 25 lines later (the comment says ~25); clientHandlers.ts:143 / :174 same shape; transport.ts opens try at :366, calls joinFn at :372, catches at :469 into markStrategyFailed. All three claims in the new text are exact. Gates: typecheck 0; raceClaim.test + quickmatch.test 41 passed exit 0. Residual sweep for surviving false claims returns only my own two refutations, which quote the wrong claim in order to correct it.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "NAMED A CAUSE THAT CANNOT HAPPEN"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/raceClaim.test.ts",
+          "needle": "THE ROOT CAUSE THIS DOCBLOCK USED TO NAME WAS WRONG"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "never reached"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "TURN_CONFIG_NOTE on the connection-test SUCCESS branch",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "46b148fca43d9b010df02ccc41254078d35fd75a",
+      "check_method": "P3 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 233 files; build 0 = 780.0/900 KiB. MUTATION PROOF: removing turnNotePrefix from the SUCCESS call fails 2 of the canary 4 (exit 1); restored and re-verified (3 occurrences of turnNotePrefix in main.ts = 1 declaration + 2 uses). The canary is a SOURCE-TEXT test by deliberate choice, and the reason is recorded in its docblock: main.ts is the composition root and the branch has no callable seam, while lobbyScreen.getConnectionTestText() is an accessor with zero production callers. It also asserts the negative — that ok is NOT ANDed with the note — so a future author cannot turn a passing verdict amber over hygiene.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "showConnectionTestResult(ok, headline, turnNotePrefix + detail)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/main.ts",
+          "pattern": "turnNotePrefix",
+          "op": "==",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/turnNoteSurfaced.test.ts",
+          "needle": "BOTH showConnectionTestResult calls carry the prefix"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "isValidRoster: seat range + uniqueness at the wire boundary",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "1cde4281c1ddfaff782cd886628b3c30335481ef",
+      "check_method": "P4 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files; e2e:gating 0 = 62 passed in 3.5m. MUTATION PROOF: stubbing out BOTH the seat range check and the uniqueness check fails exactly the 2 new cases (exit 1, 2 failed / 47 passed); restored and re-verified zero MUTATION markers remain. Anti-vacuity built in: the tests assert BOTH ends of the valid interval (0 and MAX_PLAYERS-1) still pass, so the range check cannot degenerate into rejecting everything. The peerId asymmetry is pinned by its own case so it reads as a decision rather than an oversight. Confirmed no existing fixture relied on the loose validator - the full suite was green before the new tests were added.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= MAX_PLAYERS) return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "if (new Set(seats).size !== seats.length) return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "rejects a roster where two entries claim the SAME seat"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "The dead-code sweep - godlyCooldown, teardownCastleBanks, nonet sfx, 2 constants, wall docblocks",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "96f248851c4b1c96f0e59fb3431c0b7bd1450206",
+      "check_method": "P5 CHECK. Gates read directly: typecheck 0; vitest 0 = 3640/3640 across 232 files; build 0 = 780.0/900 KiB. TEST-COUNT ARITHMETIC RECONCILED EXACTLY rather than merely observed green: 3645 minus 4 (godlyCooldown.test.ts) minus 1 (solveArpeggio describe) = 3640, and 233 minus 1 file = 232. A count that did not reconcile would mean a deletion took something unintended with it. FIELD REMOVAL NOT DRIVEN OFF tsc: 4 of the 17 sites are compiler-invisible (a spread in save.ts, three as-never fixtures in sparkLifecycle.test.ts, e2e/nplayer.spec.ts outside tsconfig) - the clause was grepped to ZERO and the only surviving hits are my own gravestone comments. PROCESS DEFECT FOUND AND RECORDED: git rm staged the two module deletions immediately, so P4 committed them under a message that does not mention them; 1cde428 nonetheless builds and its deploy concluded success, so pushed history was left alone and the misattribution is documented in the P5 message and here.",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "src/game/player.ts",
+          "needle": "godlyCooldownEndsAtTick"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/save.ts",
+          "needle": "godlyCooldownEndsAtTick"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "COLLISION_ITERATIONS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/castleBank.ts",
+          "needle": "export function teardownCastleBanks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "The clamp has no sim consumer"
+        }
+      ],
+      "process_defect_s163": "git rm + explicit git add do not compose: git commit commits the INDEX. P4 (1cde428) swept in P5 deletions. Builds clean, deploy success, history left alone after push."
+    },
+    {
+      "id": "P6",
+      "title": "Three tests that prove less than they claim",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "61bcbabe3b297ec77da50e59bb53982d1fde322f",
+      "check_method": "P6 CHECK. Gates read directly: typecheck 0; vitest 0 = 3642/3642 across 232 files; build 0 = 780.0/900 KiB. THE FINDING OF THIS PRIORITY IS THAT MY OWN FIX WAS UNPROVEN: mutating the new rostersEqual raceId comparison to  left the ENTIRE suite green at 3641/3641, because no existing case held colour fixed while changing race - injectivity hid it. Added lobbyStateMachine.test.ts case that does exactly that, plus a same-content control; re-running the mutation now fails exactly that one case (1 failed / 57 passed) and nothing else. Restored, zero MUTATION markers remain. The iceConfig vacuity fix carries expect.hasAssertions() so the zero-assertion pass cannot recur. The raceClaim symmetry case now passes the imported selfId and has an anti-vacuity companion.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "a[i].raceId !== b[i].raceId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/iceConfig.test.ts",
+          "needle": "expect.hasAssertions();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/raceClaim.test.ts",
+          "needle": "expect(raceIsFree(s, 'zombies', selfId)).toBe(false);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/races.test.ts",
+          "needle": "the six RACE_COLORS are DISTINCT"
+        }
+      ]
+    },
+    {
+      "id": "P7",
+      "title": "e2e.yml push trigger for the gating lane",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "f437e81d5e3617cdbff74f72b83b4a68e337b31a",
+      "check_method": "P7 CHECK. Gates: typecheck 0; vitest 0 = 3645/3645 across 233 files. YAML validated by PARSING it (python yaml.safe_load), not by eyeballing: 4 triggers, push branches [master], 11 path entries, concurrency expression intact, all 5 jobs present. RUNTIME PROOF, the only proof that counts for a CI trigger and one a static parse cannot give: pushing this very commit FIRED run 33920970225 with event=push on master - the first push-triggered e2e run in this repo since S110 removed the trigger. MUTATION PROOF on the hazard: re-arming cancel-in-progress to an unconditional true fails exactly the guard case (1 failed / 2 passed); restored and re-verified. Both stale header blocks were corrected in the same commit because this edit falsified them.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "refs/heads/master"
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "branches: [master]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/ci.e2eTriggers.test.ts",
+          "needle": "re-arms the silent-cancel hazard"
+        }
+      ],
+      "runtime_proof": "gh run 33920970225 - E2E (2-browser harness), event=push, master, triggered by f437e81. Conclusion audited before session close."
+    },
+    {
+      "id": "P8",
+      "title": "Send-before-repaint swap + markFallenSeats stale docblock",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "a8783ba8c91c5faecb3217b1f6b08738e907bbe3",
+      "check_method": "P8 CHECK. Gates read directly: typecheck 0; vitest 0 = 3645/3645 across 233 files. The send/repaint swap is behaviour-neutral on the happy path by construction (same roster object, synchronous local call, no peer response can race it) and the full suite confirms zero movement. Its VALUE is structural: the unconditional repaint is no longer downstream of a network call, so the docblock claim that onPresence always runs is now true by shape rather than by nothing-throws. The elimination.ts change is a comment correction only - the return ordering is genuinely used by nothing today, and the note now says so while recording why the ordering is kept. | ⚠ S163 MCV RECONCILE: this priority's elimination.ts binding hard-failed because the needle spanned a line break — the text IS present, but wrapped across a \" * \" continuation, and the verifier does a literal substring match. Rebound to a single-line fragment. A binding that cannot match wrapped prose is an authoring bug, not a missing change.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/quickmatchGate.ts",
+          "needle": "REPAINT FIRST, THEN SEND"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "describing a caller that has never existed"
+        }
+      ]
+    }
+  ],
+  "reflexion_s163_archived": [
+    "S163 P1 - A GUARD EVALUATED AT THE TOP OF A FUNCTION AND CLEARED AT THE BOTTOM IS NOT A GUARD. The witness rule read peerAbsentSinceTick a thousand lines before the sweep that clears it, so the instant a partition HEALED the stamps were still stale and the host crowned itself on the very tick its opponents returned - t+20s became t+heal, which is worse. My mutation test passed because it only ever ran ONE tick. State that spans ticks needs a test that spans ticks.",
+    "S163 P1 - I GOT THE ARITHMETIC WRONG IN THE DIRECTION THAT WOULD HAVE CHANGED THE FIX. I read the peers promotion deadline off HOST_STARVATION_MS (6s) and concluded they were safely 11-14s ahead of the 20s forfeit. Promotion is actually RECONNECT_GRACE_MS + rank*CLAIM_LADDER_MS = 15-18s, a 2-5s margin. Had I not re-derived it from the call site, the belief that the peers always win the race would have justified doing nothing at all.",
+    "S163 P5 - git rm STAGES IMMEDIATELY, AND git commit COMMITS THE INDEX, NOT THE PATHS YOU JUST ADDED. P4 silently shipped two P5 deletions under a message that does not mention them. It built and deployed green, so nothing caught it but a diffstat that did not match what I had staged. Stage removals last, or commit with explicit pathspecs.",
+    "S163 P6 - MY OWN FIX WAS UNPROVEN AND ONLY MUTATION SHOWED IT. Stubbing out the new rostersEqual raceId comparison left the ENTIRE suite green at 3641/3641: no case held colour fixed while moving race, because RACE_COLORS being injective hid it. A green suite after a fix is not evidence the fix does anything.",
+    "S163 CHECK - THE AUDIT FOUND MORE IN TODAY WORK THAN TODAY WORK FOUND IN THE INHERITED WORK, for the second session running. Three lanes over my own eight commits returned a HIGH inside the flagship fix and fourteen overstated claims. Fresh code is not safer code; it is merely less examined - and the author is the worst-placed person to notice.",
+    "S163 CHECK - TWO FAILED ATTEMPTS TO RESTORE A TEST WERE THE ANSWER, NOT AN OBSTACLE. Trying to make the over-cap roster case meaningful failed twice, and the second failure proved WHY: range + uniqueness make an over-cap roster impossible by pigeonhole, so the length bound is subsumed and cannot be independently pinned. Writing that down beats a third attempt at a test that cannot exist.",
+    "S163 CHECK - A REORDER IS NOT AN ISOLATION. Swapping send-before-repaint to repaint-before-send removed one throw path and created its mirror: the Pixi repaint can throw too, and it would then have swallowed the whole room broadcast instead of one local rack. Removing the only way this can break is a claim to be suspicious of; two try/catches were what the invariant actually needed.",
+    "S163 CHECK - I ASSERTED A PLATFORM BEHAVIOUR I HAD NOT CHECKED. Claiming that cancel-in-progress false means runs queue and every one reports is not what GitHub does - a newly-queued run still cancels a PENDING one in the same group, so the silent-cancel hazard P7 existed to kill survived P7. The fix was a per-commit group; the lesson is that a CI claim needs the vendor semantics, not the flag name.",
+    "S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it.",
+    "S163 MCV — THE CHECK PHASE IS WHEN EARLIER BINDINGS GO STALE, AND I DID NOT RE-RUN THE VERIFIER THERE. Three claims hard-failed at the Stop gate. None was fabricated work — the code was present and every gate green — but two bindings pinned lines my OWN A-F1 fix had rewritten, one needle spanned a line break so a literal match could never hit it, and one regex lost a backslash through the shell quoting layers. Fixing a defect changes the line a binding pins, so CHECK is precisely the phase most likely to falsify bindings written during DO. Run verify-session-claims.py after CHECK, not only at priority close, and never author a needle that wraps."
+  ],
+  "reflexion_s163_archived_count": 10,
+  "owner_rulings_s164": {
+    "R128": "Castle \"repair\" is a VP-PURCHASED REGEN UPGRADE, not an active repair action. \"spend victory points on castle upgrades (same as gatherer upgrades). 100vp on hp regeneration. upgrade lv 1 = +1% hp reg, lv 2 = 1.2%, lv 3 1.4%, lv 4 1.6%\".",
+    "R129": "Purchasable at any time — \"whenever you want you can upgrade castle regen\".",
+    "R130": "The rate is 1% of max HP per SECOND, not per tick. Ruled after the arithmetic was put in front of the owner: per-TICK is 900 HP/s, out-heals 150 goblins, castle unkillable at lv1, second win condition deleted.",
+    "R131": "Cap 5 (gatherer parity) and NO regen from zero. A fallen castle stays fallen; R127 stands.",
+    "R132": "NONET moves 9 -> 12 same-shape primitives, stays an easter egg, must NOT appear in the footer tower menu. Resolves the boss collision by construction: 9 = boss, 12 = NONET.",
+    "R133": "B1 resolved as a CASTLE SENTINEL SpawnerId — race units take the normal spawner population path rather than widening the voltkin exemption.",
+    "work_order": "V6-2.4 -> W1-C -> art brief. V6-1.6 energy sinks PARKED at owner request pending discussion."
+  },
+  "a0_state_discovery_s164": {
+    "method": "3-lane read-only workflow (shipped-audit / repair-design / hazards). All 3 returned, 0 spend-limit deaths, 36 findings. Load-bearing claims hand-verified.",
+    "plan_changing_findings": [
+      "THE SPEC'S REPAIR MECHANIC IS UNIMPLEMENTABLE: the castle is NOT a bondable entity (bond endpoints are typed PrimitiveId; the castle is one scalar on Player with no geometry in world.primitives). 'Attaching connectors' has nothing to attach to. The owner replaced the model wholesale via R128.",
+      "VP IS ALREADY SPENDABLE and the v0.6 design doc saying otherwise is STALE: applyUpgradeGathererSpeed reads world.scoreByPlayer and calls spendScore (gathererLifecycle.ts:150-151). The owner instinct matched shipped code.",
+      "THE 0.2 LADDER IS THE SHIPPED ONE (stats.ts:41, DEF/PEN '1 + 0.2n', 'steps by 0.2 = 1/5'), so the owner's 'same scaling - right?' is CONFIRMED against the tree rather than agreed from memory.",
+      "THE RATE LANDS ON EXACT INTEGERS: 1500 x 1.0/1.2/1.4/1.6/1.8% = 15/18/21/24/27 HP per second, all whole. So regen is integer HP on a per-second tick cadence, phase-spread by seat - no float accumulator (forbidden in this sim) and no rounding rule to get wrong."
+    ],
+    "shipped_defects_found": [
+      "A2 MED - the castle strike is ordered BEFORE the bond arm while its own docblock says twice it is \"Ordered LAST, after bond / creature / shape\" (creatureAttack.ts:250, :339 vs the return at :376-379 above the bond branch at :382). A Voltkin (range 180) committed to an enemy connector within 180px of an enemy keep never severs it - the S157 F1 symptom, fixed for shapes only.",
+      "C5 HIGH - damageEntity is already a working HEAL vector: the castle arm returns ABOVE the integer/non-negative guard, so a negative amount adds HP unvalidated and unclamped.",
+      "C4 HIGH - overheal would be a SILENT wire divergence: castleHp is emitted only when below max and rehydrated as CASTLE_MAX_HP when absent, and stateHashFull marks players:acknowledged so NEITHER oracle sees it."
+    ],
+    "constraints": [
+      "A new client intent IS a protocol bump (unbroken precedent: REPAIR_STRUCTURE, FEED_TOWER, RAID_TARGET, ENQUEUE_GATHERER_ORDER). 40 -> 41, six edit sites. W1-C owes the same bump, so both share ONE.",
+      "A new Player field costs NINE sites, two of which tsc CANNOT catch (the pickup/drop carry-FSM literals). Verification must include a pickup/drop round-trip.",
+      "ELIMINATION and BENCH policies must both be deny; elimination.test.ts:67 pins elimination as STRICTER than bench, so (bench deny, elimination allow) is structurally impossible.",
+      "Must NOT be locally predicted - PREDICTABLE_ACTIONS is exactly PICKUP/DROP/UPDATE_AVATAR_POS.",
+      "Bots DEFERRED and stated, not buried - no bot emits REPAIR_STRUCTURE or FEED_TOWER either."
+    ]
   }
 }
