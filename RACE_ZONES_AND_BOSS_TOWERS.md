@@ -220,3 +220,39 @@ vignette path entirely, and it means the 8 seconds is an ART budget, never a sim
 - **Clean transparent matte.** The old sprite shipped with a visible square box, worst on attack.
 - **Spike the art and show the owner before wiring it.**
 - Backgrounds are `public/` assets, lazy-loaded per race in play — never bundled.
+
+---
+
+## ⭐ OWNER ADDENDUM, S164 — **TWO BACKGROUNDS PER RACE, ONE PER BOARD** (R137)
+
+> *"for the players zones background art priority that we have defined before we would need to
+> generate 2 backgrounds for each race (one for the 2 player map and one for the 4 player map). they
+> should be very similar but still a tad different."*
+
+**So the count is 12, not 6.** This was missed in the original brief and it is not a cosmetic
+preference — the two boards partition the canvas into **different shapes**, measured against
+`src/state/zones.ts`:
+
+| Board | Split | A zone is | Aspect |
+|---|---|---|---|
+| `PITCH_2P` | one VERTICAL line at x=960 | **960 × 1080** | portrait, 8:9 |
+| `QUADRANTS_4P` | a CROSS at (960, 540) | **960 × 540** | landscape, 16:9 |
+
+A single image cannot serve both: stretched to fit it distorts, letterboxed it leaves dead ground,
+and cropped it loses whatever the composition was built around. **Same world, different framing** —
+which is exactly the owner's *"very similar but still a tad different"*.
+
+⚠ **AND THE CASTLE SITS SOMEWHERE DIFFERENT IN EACH.** `ANCHORS` puts the 2P keeps in the
+GOALMOUTHS (mid-height, hard against the left/right touchline: `{120, 540}` / `{1800, 540}`) and the
+4P keeps in the OUTER CORNERS (`{130,130}`, `{1790,130}`, `{1790,950}`, `{130,950}`). So each
+background's focal point — the race's keep, its gate, its approach — belongs in a different part of
+the frame per board. A 4P background composed for a centred castle will put the keep in a corner of
+dead sky.
+
+⚠ **BOTH MUST STILL READ AS THE SAME PLACE.** The two are one race's homeland seen at two framings,
+not two locations. Generate the 4P (landscape) one FIRST and seed the 2P (portrait) one off it via
+`refImages`, the way the race units were seeded off their banners — that is what makes them siblings
+rather than cousins.
+
+⚠ **PARTIAL TRANSPARENCY IS STILL BINDING** (brief item A): towers, structures, connectors and
+creatures have to stay readable on top, and the seat colour must survive as an accent.

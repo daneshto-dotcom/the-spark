@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4741,
+  "tool_calls_session_total": 4814,
   "session_id": "S164",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T00:30:00+02:00",
@@ -6143,7 +6143,32 @@
     "R131": "Cap 5 (gatherer parity) and NO regen from zero. A fallen castle stays fallen; R127 stands.",
     "R132": "NONET moves 9 -> 12 same-shape primitives, stays an easter egg, must NOT appear in the footer tower menu. Resolves the boss collision by construction: 9 = boss, 12 = NONET.",
     "R133": "B1 resolved as a CASTLE SENTINEL SpawnerId — race units take the normal spawner population path rather than widening the voltkin exemption.",
-    "work_order": "V6-2.4 -> W1-C -> art brief. V6-1.6 energy sinks PARKED at owner request pending discussion."
+    "work_order": "V6-2.4 -> W1-C -> art brief. V6-1.6 energy sinks PARKED at owner request pending discussion.",
+    "R134": {
+      "ruling": "TWO DISTINCT RACE UNIT POPULATIONS, not one. The CASTLE spawns the six humanoid soldiers generated in S164 P5 (vampire thrall, naga warrior, mummy soldier, zombie villager, orc grunt, imp). The TIER-3 RACE TOWER spawns the creatures already specced in R116 — nagas piranhas, mummies scarab beetles, zombies the hound (already generated at assets-source/zombie-castle/zombie-hound.png), vampires bats, orcs an orc-warband grunt with twin axes, demons soul-eaters.",
+      "owner_words": "\"remember we have first dicussed making pirhannas for nagas, the already generated zombie hound for zombies, beetles for mummies, bats for vampires. HOWEVER. I do like the designed you have just made so we will use those as the castle spawn. and the ones we have mentioned and defined in the earlier sesison we will use for the tier 3 building\"",
+      "status": "The art produced this session is ACCEPTED for the castle spawn — the owner said so explicitly, so wiring proceeds."
+    },
+    "R135": {
+      "ruling": "THE TIER-3 TOWER UNITS GET VARIED STATS. Owner: \"make them slightly different stats and more varied! variety is always more interesting.\"",
+      "conflict_flagged": "⛔ THIS REVERSES R117, WHICH THE OWNER HIMSELF SET AND WHICH KILLED THIS EXACT IDEA ONCE. R117 records him floating a big slow troll and then rejecting it on the spot: \"actually that's too complicated because we said there's gonna be a tiered building on each one that will also build those.\" The spec's own note gives the reason as exact: \"the tier-3 tower makes the same unit on demand, so a per-unit spawn-rate balance would be trivially bypassed by building more towers.\"",
+      "why_the_reversal_is_nonetheless_COHERENT": "⭐ R134 DISSOLVES R117'S ARGUMENT rather than overriding it. R117 rests on the castle and the tier-3 tower emitting THE SAME creature — that is stated in the ruling itself. R134 splits them into two different populations, so \"build more towers to bypass the balance\" no longer holds: a second tower yields more PIRANHAS, which does nothing to the castle's soldier line. The exploit R117 guarded against is gone by construction, which is what makes varied tier-3 stats defensible now and was not before. Recorded as a REVERSAL at the ruling rather than resolved silently — the S159 P9 / S160 P4b precedent.",
+      "scope_narrowing": "R117 is hereby NARROWED to the CASTLE-spawn unit: all six castle soldiers keep ONE stat line and ONE cadence (which is also what R94 requires of the castles that emit them). It no longer governs the tier-3 tower output.",
+      "open": "⚠ THE NUMBERS ARE NOT RULED. \"Slightly different and more varied\" is a direction, not a stat line. Six varied units across HP/DEF/ATK/PEN need a balance pass, and R125 currently fixes the race unit at 1/1/1/1. Whatever is written will be MINE unless the owner supplies figures — and per this project's rule a number that is mine says so at the constant, with the measurement behind it. This is Wave 2 work (races spec §7–§8), NOT this session."
+    },
+    "R136": {
+      "ruling": "THE UNITS NEED VIDEO LOOPS FOR MOVING, ATTACKING AND DYING, and they must be consistent — the same creature in every frame, seeded off the generated design image.",
+      "owner_words": "\"we need to generate the video loops of them moving, attacking, and dying ... make sure the videos are consistent throughout and it doesnt show a different character for every frame - important to base them on the same creature image!\"",
+      "how_satisfied": "The shipped pipeline already works exactly this way and its own spec comment records the same requirement from an earlier session (\"Every clip is seeded IMAGE-TO-VIDEO off the character's own design PNG so idle/walk/attack are the SAME character\"). Each of the 24 clips seeds off that unit's own PNG. The prompts additionally re-describe the character, because veo drifts across a 4-second clip and the clips that drift least are the ones whose prompt keeps restating what the character IS.",
+      "new_surface": "⛔ \"DYING\" IS A FOURTH STATE AND NOTHING PLAYS IT YET. goblinRenderer maps only three (ATTACKING->attack, SEEKING->walk, else idle), and creatures are REMOVED the moment they are killed, so there is no window in which a death row could be seen. The atlas builder is generic over the states dict, so building the row is free; making it visible needs a dying/corpse window in the sim, which is serialized state and its own piece of work. Generated now so the art is ready and the wiring is honest and separate."
+    },
+    "R137": {
+      "ruling": "TWO ZONE BACKGROUNDS PER RACE — one for the 2-player map, one for the 4-player map. Very similar, a tad different. So the zone-background count is 12, not 6.",
+      "owner_words": "\"we would need to generate 2 backgrounds for each race (one for the 2 player map and one for the 4 player map). they should be very similar but still a tad different\"",
+      "why_it_is_geometric_not_cosmetic": "Measured against src/state/zones.ts: PITCH_2P splits the canvas on ONE VERTICAL line so a zone is 960x1080 (portrait 8:9); QUADRANTS_4P splits on a CROSS so a zone is 960x540 (landscape 16:9). One image cannot serve both — stretched it distorts, letterboxed it leaves dead ground, cropped it loses the composition. AND the castle anchor sits differently in each: 2P keeps are in the GOALMOUTHS at mid-height against the touchline, 4P keeps are in the OUTER CORNERS, so the focal point belongs in a different part of the frame per board.",
+      "method": "Generate the 4P landscape one FIRST, then seed the 2P portrait one off it via refImages — the same identity-anchoring that kept each race unit tied to its banner. That is what makes the pair siblings rather than cousins.",
+      "recorded_in": "RACE_ZONES_AND_BOSS_TOWERS.md, appended as the S164 owner addendum with the measured table."
+    }
   },
   "a0_state_discovery_s164": {
     "method": "3-lane read-only workflow (shipped-audit / repair-design / hazards). All 3 returned, 0 spend-limit deaths, 36 findings. Load-bearing claims hand-verified.",
