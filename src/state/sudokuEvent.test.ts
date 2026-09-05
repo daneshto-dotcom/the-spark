@@ -16,6 +16,7 @@ import {
   NONET_RESOLVE_DISPLAY_TICKS,
 } from './sudokuEvent.ts';
 import { netSnapshot, applyNetSnapshot } from './save.ts';
+import { castleStructuresModel } from '../render/castlePanel.ts';
 
 const P1 = asPlayerId(0);
 const P2 = asPlayerId(1);
@@ -217,5 +218,48 @@ describe('NONET netcode — snapshot roundtrip (cross-client determinism)', () =
     applyNetSnapshot(netSnapshot(host), client);
     expect(client.sudoku!.solvedBy).toBe(P2);
     expect(client.sudoku!.resolvedTick).not.toBeNull();
+  });
+});
+
+/**
+ * SPARK — S164 P4 (owner R132): **NONET IS TWELVE, BECAUSE NINE BELONGS TO THE BOSS TOWER.**
+ *
+ * The races art-direction brief builds a tier-9 boss tower from "nine of the race's own shape" —
+ * exactly what `detectNonet` swept for. As specced, the FIRST boss tower of every match would also
+ * have summoned the sudoku trial, and since the trial is once-per-match it would have collided for
+ * the first boss and not for later ones: an inconsistency players would read as a bug.
+ *
+ * The ruling separates the triggers by COUNT rather than by precedence, so neither needs to know
+ * about the other and there is no ordering rule to get wrong.
+ */
+describe('S164 P4 — the NONET / boss-tower separation', () => {
+  it('⛔ NINE no longer fires a NONET — that count belongs to the tier-9 boss tower', () => {
+    expect(detectNonet(chainWorld(9, SparkType.Square))).toBeNull();
+  });
+
+  it('⭐ TWELVE fires it', () => {
+    expect(detectNonet(chainWorld(12, SparkType.Square))).toBe(P1);
+  });
+
+  it('the constant and the behaviour agree, so this cannot drift to a stale literal', () => {
+    expect(NONET_SHAPE_COUNT).toBe(12);
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Circle))).toBe(P1);
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT - 1, SparkType.Circle))).toBeNull();
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT + 1, SparkType.Circle))).toBeNull();
+  });
+
+  it('⛔ AND IT NEVER APPEARS IN THE FOOTER TOWER MENU — it stays an easter egg (R132)', () => {
+    /*
+     * The owner asked for it to remain hidden. `footerBand` renders one chip per complexity present
+     * in `castleStructuresModel` — the BUILDABLE structures — and a NONET is a swept TRIGGER, not a
+     * buildable recipe, so it has never had a row there. This asserts the live surface rather than a
+     * file's text, and it is pinned so a future session that formalises the trigger as a recipe has
+     * to notice this ruling before it ships.
+     */
+    const w = chainWorld(NONET_SHAPE_COUNT, SparkType.Square);
+    const names = castleStructuresModel(w).map((r) => r.name.toLowerCase());
+    expect(names.some((n) => n.includes('nonet') || n.includes('sudoku'))).toBe(false);
+    // Anti-vacuity: the model is not simply empty, so the assertion above means something.
+    expect(names.length).toBeGreaterThan(0);
   });
 });

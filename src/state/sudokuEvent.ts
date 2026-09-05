@@ -17,8 +17,30 @@ import type { PlayerId, PrimitiveId } from '../types.ts';
 import { generateSudoku, isSolved } from './sudoku.ts';
 import type { World } from './worldTypes.ts';
 
-/** A NONET fires when a connected component is EXACTLY this many primitives, all the SAME SparkType. */
-export const NONET_SHAPE_COUNT = 9;
+/**
+ * A NONET fires when a connected component is EXACTLY this many primitives, all the SAME SparkType.
+ *
+ * ⭐ S164 P4 (owner R132) — **RAISED 9 → 12 SO THE TIER-9 BOSS TOWER CAN HAVE NINE.** The races
+ * art-direction brief builds a boss tower from *"nine of the race's own shape"*, which is exactly
+ * what this swept for — so as specced, the FIRST boss tower of every match would also have summoned
+ * the sudoku trial, and because the trial is once-per-match it would have collided for the first
+ * boss and not for later ones. An inconsistency players would read as a bug.
+ *
+ * Four resolutions went to the owner. The ruling separates the two triggers by COUNT rather than by
+ * precedence: **9 = boss tower, 12 = NONET.** Nothing needs to know about the other, no ordering
+ * rule exists to get wrong, and both stay reachable.
+ *
+ * ⚠ THE NAME IS NOW A MISNOMER AND IT STAYS. "Nonet" means a set of nine, and this is twelve. The
+ * word is the feature's identity across the audio theme (`nonet-theme.ogg`), the arcade mode
+ * (`makeArcadeNonet`), the save format and the UI — renaming it would touch all of that to fix a
+ * label nobody sees. Recorded so the next reader knows it is deliberate rather than stale.
+ *
+ * ⚠ AND IT COUNTS PRIMITIVES, NOT CONNECTORS. The owner's phrasing was *"12 same-shape-connectors"*,
+ * and the footer band is indexed by connector count — but `detectNonet` has always measured
+ * `comp.primitiveIds.size`, so this is twelve SHAPES in one component. One word flips it if the
+ * intent was twelve bonds.
+ */
+export const NONET_SHAPE_COUNT = 12;
 /** Score multipliers applied on resolve. S106 — loser 0.5 → 0.4 (owner: "things that make you
  *  lose points ... so players can actually compete"): losing a NONET now costs you 60% of your
  *  banked score, not half — a real gut-punch so a runaway leader can be reeled in. Winner stays ×2. */
@@ -30,8 +52,9 @@ export const NONET_RESOLVE_DISPLAY_TICKS = 180; // ~3 s
 export const NONET_TIMEOUT_TICKS = 10800; // ~180 s (S94 — +60 s per user request)
 
 /**
- * Sweep all connected components for a NONET — a component of EXACTLY 9 primitives that are ALL
- * the SAME SparkType (9 squares, OR 9 circles, OR 9 spirals, …). Returns that component's owner
+ * Sweep all connected components for a NONET — a component of EXACTLY `NONET_SHAPE_COUNT` primitives
+ * that are ALL the SAME SparkType (12 squares, OR 12 circles, OR 12 spirals, …). Returns that
+ * component's owner
  * (single-owner — cross-colour bonds are impossible) or null. HOST-ONLY. Pure read of world state.
  * A SWEEP (not a seeded check) so it fires whether the structure is BUILT up to 9 same-type OR
  * ERASED down to 9 of one type (S94 — the user's "build big, erase to 9 of a type" tactic). The

@@ -508,10 +508,12 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       : undefined,
   );
 
-  // S94 — NONET trigger sweep (host-only, once/match): a connected component of EXACTLY 9
+  // S94 — NONET trigger sweep (host-only, once/match): a connected component of EXACTLY
+  // NONET_SHAPE_COUNT (12 since S164 P4 / owner R132 — nine belongs to the tier-9 boss tower)
   // shapes of ONE type summons the trial. Per-tick sweep (cheap — comparable to tickScoring's
   // own per-tick prim/bond walk; the once-per-match guard skips it after firing) so it catches
-  // the structure forming by PLACEMENT or by ERASING down to 9 of a single type (user tactic).
+  // the structure forming by PLACEMENT or by ERASING down to NONET_SHAPE_COUNT of a single type
+  // (user tactic).
   if (
     world.gameState === 'PLAYING' &&
     world.sudoku === null &&
