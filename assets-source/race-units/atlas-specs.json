@@ -1,0 +1,194 @@
+{
+  "_comment": [
+    "SPARK — S164 P5 (W1-C): atlas specs for the six CASTLE-SPAWN race units, one entry per unit,",
+    "consumed by scripts/build-sprite-atlas.mjs.",
+    "",
+    "RETAINED IN-TREE, like every spec in this folder: S151 shipped three atlases and kept no spec, so",
+    "they could not be rebuilt or retuned — which is why a later 'redo the stink tower' needed a full",
+    "regeneration rather than a tweak.",
+    "",
+    "⭐ ticksPerFrame MATCHES THE SHIPPED GOBLIN ROSTER — idle 7, walk 4, attack 5 — so a race unit",
+    "animates at the same cadence as every other creature on the board. These six are stat-identical",
+    "to each other by R94/R117, and matching the roster's cadence is the render-side half of reading",
+    "as peers rather than as a separate game.",
+    "",
+    "⚠ `die` IS A FOURTH ROW AND NOTHING PLAYS IT YET. goblinRenderer maps three FSM states",
+    "(ATTACKING->attack, SEEKING->walk, else idle) and creatures are REMOVED the moment they are",
+    "killed, so there is no window in which a death row is visible. The builder is generic over the",
+    "states dict, so the row costs nothing to bake — it ships ready and the sim-side dying window is",
+    "its own piece of work. ticksPerFrame 5: a death should read deliberately, not snap past.",
+    "",
+    "⚠ cellW/cellH are a FLOOR, not a cap — the builder widens the cell to fit whatever the subject",
+    "needs at full character height. The naga's tail and the orc's cleaver will push theirs wider, the",
+    "way the archer's shipped cell came out 234 rather than 200 because of his bow.",
+    "",
+    "⛔ S164 OWNER REJECT 2 — enclosedWhiteLimitPct 0.003 -> 0.00004 ON EVERY UNIT. The owner looked at the built sheets: \"the vampire is not cut out too well ... look the spaces between the wings, and some other areas - there is white background\", and \"the orc has a few like that\". A census over all six atlases confirmed it and showed it was WIDER than the two he spotted — ~21,500 opaque near-white pixels total, with nagas (8,272) and demons (4,181) worse than vampires (2,591). This is the exact defect the matte's own docblock records for the bat rider one size-band up: enclosed white BELOW the limit is deliberately KEPT so eyes and blade glints survive, so pockets under the threshold ship as opaque blobs. MEASURED on the raw 1280x720 clip frames: the old 0.003 limit is 2,765 px, while the actual leaked pockets are 43..320 px (orcs) and 44..1,302 px (nagas) — every one of them far below it, which is why every unit leaked. 0.00004 puts the limit at ~37 px. ⚠ A SIZE THRESHOLD IS THE ONLY LEVER THAT WORKS HERE, and that was checked rather than assumed: brightness does NOT separate them (leaks measure 216..234 mean-min-channel, real features 220..244) because the leaks are ANTI-ALIASED background where white meets the ink outline, not pure white. Verified by eye on the rebuilt vampire sheet: wing gaps clean, eyes and teeth intact.",
+    "",
+    "⛔ S164 OWNER REJECT 3 — THE ORC NEEDS ITS OWN LIMIT, because for THAT character eyes and leaks are the same size and cannot be separated by a size rule at all. Owner: \"you have removed the white from the orcs eyes\". Measured tradeoff on unit-orcs (leak px / head-band light px, the eye+tusk proxy): 0.00004 -> 42/377 · 0.0001 -> 210/614 · 0.0003 -> 696/1246 · 0.0008 -> 1233/1528 · 0.003 (original) -> 2253/2267. They move together, monotonically — there is no knee. 0.0003 is taken as the balance: ~69% of the leak gone, ~55% of the eye detail kept. ⚠ THE REAL FIX IS AT GENERATION, NOT IN THE MATTE, and it is filed rather than bodged: the design prompts must stop producing white pockets the size of an eye, and — separately — must stop baking a ground shadow at all (see the shadow note below).",
+    "",
+    "⛔ S164 — THE BAKED GROUND SHADOW IS WRONG AND MUST COME OUT OF THE DESIGN PROMPTS. Owner: \"the third vampire has a gray shadow while the rest have dark shadow - remember the shadow is of the players race color\". He is right and the code agrees: goblinRenderer already draws a ring in the OWNER'S TINT at the creature's real position, and its docblock records that a BLACK shadow there was a measured no-op because the board background is pure black. So the game supplies the shadow, in the seat colour — the art must not. `sharedStyle` in design-spec.json currently ASKS for \"a small soft dark oval shadow on the ground directly beneath the character\"; that instruction is mine and it is the defect. Removing it also removes a whole class of matte ambiguity, because a mid-grey ellipse is neither near-white nor near-black and no rule catches it — which is exactly why one vampire frame kept a grey oval. ⚠ Fixing it means regenerating 6 designs + 24 clips + 6 atlases: NEXT SESSION, not a same-turn patch."
+  ],
+  "specs": [
+    {
+      "name": "unit-vampires",
+      "outDir": "public/godly/unit-vampires/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-vampires/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-vampires/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-vampires/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-vampires/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "unit-nagas",
+      "outDir": "public/godly/unit-nagas/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-nagas/idle.mp4",
+          "ticksPerFrame": 7,
+          "sampleWindow": 16
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-nagas/walk.mp4",
+          "ticksPerFrame": 4,
+          "sampleWindow": 16
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-nagas/attack.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 16
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-nagas/die.mp4",
+          "ticksPerFrame": 5,
+          "sampleWindow": 16
+        }
+      },
+      "_why_sampleWindow": "S164 OWNER REJECT 1: the owner looked at the built sheet and said \"naga not coherent ... it looks twice bigger in different states\". Correct, and the cause is the drift this script's own sampleWindow docblock describes: veo holds an image-to-video seed faithfully for roughly the first second and then wanders, and the naga wanders in SCALE because its silhouette can legitimately stretch (coiled and upright vs extended along the ground), so there is nothing in the frame anchoring its size. A serpent has far more freedom to change apparent size than a biped does, which is why this one drifted and the orc did not. 16 frames is the tightest window in the repo (the goblin hound's), taking ~0.67s of a 4s clip.",
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "unit-mummies",
+      "outDir": "public/godly/unit-mummies/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-mummies/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-mummies/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-mummies/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-mummies/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "unit-zombies",
+      "outDir": "public/godly/unit-zombies/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-zombies/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-zombies/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-zombies/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-zombies/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "unit-orcs",
+      "outDir": "public/godly/unit-orcs/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-orcs/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-orcs/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-orcs/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-orcs/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 0.0003
+    },
+    {
+      "name": "unit-demons",
+      "outDir": "public/godly/unit-demons/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-units/clips/unit-demons/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-units/clips/unit-demons/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-units/clips/unit-demons/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-units/clips/unit-demons/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    }
+  ]
+}

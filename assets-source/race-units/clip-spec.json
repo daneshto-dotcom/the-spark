@@ -1,0 +1,148 @@
+{
+  "_comment": [
+    "SPARK — S164 P5 (W1-C): veo clips for the six CASTLE-SPAWN race units.",
+    "",
+    "⭐ EVERY CLIP IS SEEDED IMAGE-TO-VIDEO OFF THAT UNIT'S OWN design PNG. That is the whole",
+    "mechanism behind the owner's binding requirement — *'make sure the videos are consistent",
+    "throughout and it doesnt show a different character for every frame - important to base them on",
+    "the same creature image!'* A text prompt alone yields A vampire thrall per clip; the actual",
+    "pixels of unit-vampires.png yield THAT vampire thrall in all four.",
+    "",
+    "⚠ THE PROMPTS DELIBERATELY RE-DESCRIBE THE CHARACTER as well as the motion. The seed carries the",
+    "identity, but veo drifts across a 4-second clip, and the S152 spec's own clips drift least where",
+    "the prompt keeps restating what the character IS. So each prompt opens by naming the creature.",
+    "",
+    "⛔ FOUR STATES, NOT THREE — the owner asked for 'moving, attacking, and dying'. `idle`, `walk`",
+    "and `attack` are the three `goblinRenderer.syncSprite` maps today (ATTACKING->attack,",
+    "SEEKING->walk, else idle). `die` is NEW: the atlas builder is generic over the states dict so it",
+    "costs nothing to BUILD, but nothing PLAYS it yet — creatures are removed the moment they are",
+    "killed, so a death row needs a dying window in the sim before it can be seen. Generated now so",
+    "the art is ready and the wiring is a separate, honest piece of work.",
+    "",
+    "⛔ THE DEATH CLIP MUST END STILL AND STAY IN FRAME. A death that walks off-frame or dissolves",
+    "gives the atlas builder nothing to matte on the last cells, and the renderer would hold a blank",
+    "final frame. Every `die` prompt therefore ends with the body settled on the ground, in shot.",
+    "",
+    "⚠ RETAINED IN-TREE, like every other spec here: S151 kept neither its specs nor its clips and its",
+    "three atlases could never be retuned. Anything that regenerates art is reproducible from the repo."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "unit-vampires",
+      "seed": "assets-source/race-units/unit-vampires.png",
+      "outDir": "assets-source/race-units/clips/unit-vampires",
+      "states": {
+        "idle": {
+          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic crouches low and waits, breathing shallowly, his clawed hands flexing and his stunted bat wings twitching, head turning slightly as he watches for prey."
+        },
+        "walk": {
+          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic stalks steadily to the right in a low predatory crouch, arms held out and clawed hands leading, his stunted bat wings shivering with each step."
+        },
+        "attack": {
+          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic attacks with his BARE CLAWED HANDS ONLY - he carries NO weapon of any kind, no scythe, no sickle, no blade, nothing in either hand. He lunges forward and rakes downward with both empty clawed hands, fangs bared, then recoils back into his low crouch ready to strike again. His stunted bat wings stay small and folded at his shoulders throughout, never opening into full wings. Empty hands in every frame.",
+          "_regen_note": "S164 REGEN 1: the first attack clip DRIFTED A WEAPON IN — veo gave the thrall a curved scythe/sickle for the back half of the clip, which the design PNG does not have and which made the attack row show a different character from idle/walk. The fix is to state the absence explicitly: a negative in the prompt, because the seed image alone did not hold it."
+        },
+        "die": {
+          "prompt": "The lean pale vampire thrall in the tattered crimson-lined tunic is struck, staggers backward clutching his chest, his stunted wings going limp, then crumples down onto the ground and lies still, fully in frame, motionless at the end."
+        }
+      }
+    },
+    {
+      "name": "unit-nagas",
+      "seed": "assets-source/race-units/unit-nagas.png",
+      "outDir": "assets-source/race-units/clips/unit-nagas",
+      "states": {
+        "idle": {
+          "prompt": "The blue-green scaled naga warrior rests on his coiled tail holding his bronze trident, torso swaying slowly, tail tip flicking, slit yellow eyes scanning coldly from side to side."
+        },
+        "walk": {
+          "prompt": "The blue-green scaled naga warrior glides steadily to the right on his tail, body undulating smoothly along the ground, his bronze trident carried level at his side, torso upright and disciplined."
+        },
+        "attack": {
+          "prompt": "The blue-green scaled naga warrior rears up slightly and thrusts his bronze trident forward in a hard stab, then draws it back and settles onto his coils again."
+        },
+        "die": {
+          "prompt": "The blue-green scaled naga warrior is struck, his trident drops from his hand, his torso sags and topples sideways as his tail uncoils limply, and he comes to rest flat on the ground, fully in frame, motionless at the end."
+        }
+      }
+    },
+    {
+      "name": "unit-mummies",
+      "seed": "assets-source/race-units/unit-mummies.png",
+      "outDir": "assets-source/race-units/clips/unit-mummies",
+      "states": {
+        "idle": {
+          "prompt": "The bandage-wrapped mummy soldier stands stiffly with arms half-raised, loose linen wrappings stirring, the amber pinpricks in its hollow eye sockets flickering slowly."
+        },
+        "walk": {
+          "prompt": "The bandage-wrapped mummy soldier marches stiff-legged to the right with both arms outstretched, loose linen trailing from its forearms, relentless and unhurried."
+        },
+        "attack": {
+          "prompt": "The bandage-wrapped mummy soldier swings its curved bronze khopesh down in a heavy chopping arc, then drags the blade back up to its stiff guard."
+        },
+        "die": {
+          "prompt": "The bandage-wrapped mummy soldier is struck, its wrappings burst loose and unravel, the amber lights in its eye sockets go dark, and it collapses into a heap of linen on the ground, fully in frame, motionless at the end."
+        }
+      }
+    },
+    {
+      "name": "unit-zombies",
+      "seed": "assets-source/race-units/unit-zombies.png",
+      "outDir": "assets-source/race-units/clips/unit-zombies",
+      "states": {
+        "idle": {
+          "prompt": "The rotted zombie villager sways unsteadily in place, head lolling, jaw hanging slack, one arm dangling limp at its side."
+        },
+        "walk": {
+          "prompt": "The rotted zombie villager shambles to the right in an off-balance lurch, one shoulder dropped and one arm reaching forward, dragging its broken boot with each step."
+        },
+        "attack": {
+          "prompt": "The rotted zombie villager lunges forward and claws down with its outstretched hand, biting at the air with its slack jaw, then sags back into its unsteady stance."
+        },
+        "die": {
+          "prompt": "The rotted zombie villager is struck, jerks backward, its knees buckle, and it folds down onto the ground where it lies sprawled and still, fully in frame, motionless at the end."
+        }
+      }
+    },
+    {
+      "name": "unit-orcs",
+      "seed": "assets-source/race-units/unit-orcs.png",
+      "outDir": "assets-source/race-units/clips/unit-orcs",
+      "states": {
+        "idle": {
+          "prompt": "The stocky tusked orc grunt stands braced with his cleaver resting on his shoulder and his round hide shield up, chest heaving, shifting his weight and snorting."
+        },
+        "walk": {
+          "prompt": "The stocky tusked orc grunt charges to the right with heavy pounding strides, shield held forward and cleaver swinging at his side, topknot bouncing."
+        },
+        "attack": {
+          "prompt": "The stocky tusked orc grunt hacks downward with his notched cleaver in a brutal overhead swing, shoves with his shield, then recovers to his braced stance."
+        },
+        "die": {
+          "prompt": "The stocky tusked orc grunt is struck, roars and drops his cleaver and shield, staggers a step, then falls heavily forward onto the ground and lies still, fully in frame, motionless at the end."
+        }
+      }
+    },
+    {
+      "name": "unit-demons",
+      "seed": "assets-source/race-units/unit-demons.png",
+      "outDir": "assets-source/race-units/clips/unit-demons",
+      "states": {
+        "idle": {
+          "prompt": "The small horned imp shifts restlessly on his hooves holding his black iron pitchfork, barbed tail lashing, little leathery wings fluttering, grinning and glancing about."
+        },
+        "walk": {
+          "prompt": "The small horned imp scurries quickly to the right on his hooved legs in a low mischievous run, pitchfork carried in both hands, tail streaming behind him."
+        },
+        "attack": {
+          "prompt": "The small horned imp jabs his black iron pitchfork forward twice in fast vicious stabs, cackling, then hops back into his restless stance."
+        },
+        "die": {
+          "prompt": "The small horned imp is struck, shrieks and flings his pitchfork away, his little wings crumple, and he drops onto the ground in a small heap where he lies still, fully in frame, motionless at the end."
+        }
+      }
+    }
+  ]
+}
