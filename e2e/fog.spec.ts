@@ -211,44 +211,59 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.footerIdx, 'footerBand must be on the stage and labelled').toBeGreaterThanOrEqual(0);
     expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);
     expect(r.aboveFogChildNames).toEqual([
-      '_Graphics',  //   0 — wallRenderer               (S149 P3) — the border walls
-                    //       ⚠ FIRST ON PURPOSE: the walls are ground markings that everything
+      '_Container', //   0 — zoneBackgroundRenderer.layer (S165) ⭐ NEW — the per-race zone art.
+                    //       ⚠ FIRST, AND ABOVE THE FOG, WHICH LOOKS WRONG UNTIL YOU READ WHY.
+                    //       `fogRenderer` paints unexplored ground in FOG_COLOR = 0x000000 — pure
+                    //       black, chosen so fog reads as darkness rather than a tint — and it sits
+                    //       ABOVE the board layers. A backdrop parented to the STAGE was therefore
+                    //       drawn and then painted over: the first cut of this feature rendered a
+                    //       black board in every multiplayer match and showed only on the TITLE
+                    //       screen, where there is no fog.
+                    //       ⭐ Above the fog is also CORRECT, not merely visible: which race owns
+                    //       which quarter is already public (the castle art and the leaderboard both
+                    //       say so) and terrain is static, so it conceals nothing about what an
+                    //       opponent is DOING. Fog hides activity, not geography — the same argument
+                    //       the wall renderer directly below already makes for zone borders.
+                    //       At index 0 so every structure, creature and effect draws on top of it.
+      '_Graphics',  //   1 — wallRenderer               (S149 P3) — the border walls
+                    //       ⚠ FIRST OF THE GAMEPLAY LAYERS ON PURPOSE (index 1 since S165 put the
+                    //       zone backdrop under it): the walls are ground markings that everything
                     //       else draws on top of, and they sit ABOVE THE FOG because a zone
                     //       border is public knowledge derived from `layout` — concealing it
                     //       would reproduce the very complaint P1/P3 exist to fix, in the
                     //       fogged half of the board.
-      '_Graphics',  //    1 — spawnerZoneRenderer          (main.ts:486, S100 P1)
-      '_Container', //    2 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
-      '_Graphics',  //    3 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
-      '_Graphics',  //    4 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //    5 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
-      '_Container', //    6 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
+      '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
+      '_Container', //    3 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
+      '_Graphics',  //    4 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
+      '_Graphics',  //    5 — chewerRenderer               (main.ts:493, S100 P1)
+      '_Graphics',  //    6 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
+      '_Container', //    7 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
                     //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
                     //       count cannot catch and this roll call can: the goblins keep their
                     //       procedural puppet as the load-failure fallback, so the renderer owns
                     //       BOTH a Graphics and a Container, and the atlas layer must sit ABOVE the
                     //       puppet so a fallback frame can never overdraw a real sprite.
-      '_Graphics',  //    7 — goblinRenderer.arrowLayer     (S153 P2) ⭐ NEW — the archer's arrow.
+      '_Graphics',  //    8 — goblinRenderer.arrowLayer     (S153 P2) ⭐ NEW — the archer's arrow.
                     //       ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is drawn from
                     //       synced FSM state rather than pushed as an effect (a new effect KIND
                     //       would cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of
                     //       one-shot pushes anyway), so it needs its own Graphics — ABOVE the
                     //       sprite layer, or an arrow would vanish behind the goblin firing it.
-      '_Graphics',  //    8 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //    9 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  10 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
+      '_Graphics',  //    9 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //    10 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //  11 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
                     //       procedural because they are STATE READOUTS, not character art.
-      '_Container', //  11 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
-      '_Graphics',  //  12 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  13 — gathererRenderer.graphics   (main.ts:506, V6-1.1/S135) — the gatherers,
+      '_Container', //  12 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
+      '_Graphics',  //  13 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  14 — gathererRenderer.graphics   (main.ts:506, V6-1.1/S135) — the gatherers,
                     //       their race silhouettes, and the RACE-SHAPED PROCEDURAL KEEP that draws
                     //       only when a castle atlas fails to load (S161 P1).
-      '_Container', //  14 — gathererRenderer.spriteLayer  (S161 P1) ⭐ NEW — the six race castles.
+      '_Container', //  15 — gathererRenderer.spriteLayer  (S161 P1) ⭐ NEW — the six race castles.
                     //       ⚠ A SECOND CHILD FROM ONE RENDERER, the goblin/stink-tower pattern
                     //       exactly: a Sprite cannot live inside a Graphics, so the keep art needs
                     //       its own Container, ABOVE the procedural rig so a fallback keep can
                     //       never overdraw a real castle.
-      '_Graphics',  //  15 — gathererRenderer.overlay      (S161 P1) ⭐ NEW — and a THIRD, which is
+      '_Graphics',  //  16 — gathererRenderer.overlay      (S161 P1) ⭐ NEW — and a THIRD, which is
                     //       load-bearing rather than tidy. A castle sprite stands CASTLE_SPRITE_PX
                     //       (96 px) above its own foot, far higher than the HP bar at `top - 7` and
                     //       far higher than the bank glyphs in the keep's doorway. Both were drawn
@@ -256,13 +271,13 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       them, a damaged castle would have hidden the bar reporting its own
                     //       health and every castle would have hidden its own inventory. They move
                     //       here, above the art. The castle SHOT VFX rides the same layer.
-      '_Graphics',  //  16 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  //  17 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  //  18 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', //  19 — rainbowFlyoverRenderer.char
-      '_Graphics',  //  20 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  //  21 — poopRenderer                 (main.ts:520, S77 P3)
-      '_Graphics',  //  22 — stinkCloudRenderer.haze      (S158 P6) ⭐ NEW — a LANDED stink bag.
+      '_Graphics',  //  17 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  //  18 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  //  19 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', //  20 — rainbowFlyoverRenderer.char
+      '_Graphics',  //  21 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  //  22 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  23 — stinkCloudRenderer.haze      (S158 P6) ⭐ NEW — a LANDED stink bag.
                     //       ⚠ ABOVE THE FOG, and that is the whole reason it is declared here: a
                     //       cloud DEALS DAMAGE, and its damage does not care whether the ground is
                     //       fogged. Hiding the marker would let a player lose units to a patch of
@@ -271,7 +286,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       The haze draws the TRUE damage radius, so the edge is readable; it is
                     //       also the load-failure fallback for the atlas, exactly as the goblins'
                     //       procedural puppet is for theirs.
-      '_Container', //  23 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
+      '_Container', //  24 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
                     //       which shipped a session ago with ZERO references anywhere in src/.
                     //       Above its own haze, for the same reason the goblin sprites sit above
                     //       their puppet: the fallback must never overdraw the real art.
