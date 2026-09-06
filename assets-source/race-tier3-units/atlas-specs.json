@@ -1,0 +1,125 @@
+{
+  "_comment": [
+    "SPARK — S165 P3: atlas specs for the six TIER-3 TOWER units (R116/R134).",
+    "",
+    "⭐ ticksPerFrame MATCHES THE SHIPPED ROSTER — idle 7, walk 4, attack 5, die 5 — so a tier-3 unit",
+    "animates at the same cadence as every other creature on the board rather than reading as a",
+    "separate game.",
+    "",
+    "⭐ cellH IS UNIFORM AT 200 ACROSS ALL SIX, AND THAT IS A CONTRACT, NOT A CONVENIENCE.",
+    "build-sprite-atlas.mjs HEIGHT-FITS (`scale = cellH / bboxH`), and each race is its own atlas, so",
+    "the union-bbox anti-jitter guarantee does not span them. If one race's cellH differed, that race's",
+    "unit would silently render at a different size from its siblings and nothing would catch it.",
+    "src/render/raceUnitFrames.test.ts pins exactly this invariant for the castle six.",
+    "",
+    "⚠ SO HOW DO A BAT AND AN ORC RAIDER END UP DIFFERENT SIZES ON THE BOARD? Not here. A uniform",
+    "cellH means every unit is drawn at the same CELL height; any per-creature size differentiation is",
+    "a RENDER-TIME scale constant, which is how the shipped goblin roster already does it. That",
+    "constant is deliberately NOT written yet: R135 gives these six varied stats and supplies no",
+    "figures, so a size ladder invented here would be MINE and would have to be redone the moment the",
+    "owner rules. Art first, numbers when they exist.",
+    "",
+    "⚠ cellW is a FLOOR, not a cap — the builder widens the cell to fit the subject. The bat's",
+    "wingspan, the piranha's leap arc and the wraith's trailing smoke will each push theirs wider, the",
+    "way the naga's tail did. Width varies legitimately; height must not.",
+    "",
+    "⛔ `die` IS BUILT AND NOTHING PLAYS IT, same as the castle six. goblinRenderer maps three FSM",
+    "states and creatures are removed the instant they are killed, so there is no window a death row",
+    "could be seen in. The builder is generic over the states dict so the row costs nothing to bake; it",
+    "ships ready and the sim-side dying window is its own piece of work.",
+    "",
+    "⛔ enclosedWhiteLimitPct 4e-05 ON ALL SIX, with no per-character exception. The castle six needed",
+    "an orc-specific 0.0003 override because that character's eyes and the background leaks measured",
+    "the SAME SIZE and no size rule could separate them. These six were generated under the S165",
+    "colour-cast clause — every pale area is a NAMED tinted colour, never a near-white — so by",
+    "construction every near-white pocket in the frame is background and the aggressive limit is safe.",
+    "⚠ VERIFY THAT ON THE BUILT SHEETS rather than trusting it: if a bone-yellow tusk or a magenta eye",
+    "comes out desaturated enough to trip `max-min < 28`, it will be punched out."
+  ],
+  "specs": [
+    {
+      "name": "t3-vampires-bat",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t3-nagas-piranha",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t3-mummies-scarab",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t3-zombies-hound",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t3-orcs-warband",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t3-demons-souleater",
+      "outDir": "public/art/race-tier3-units",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "states": {
+        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/idle.mp4", "ticksPerFrame": 7 },
+        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/walk.mp4", "ticksPerFrame": 4 },
+        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/attack.mp4", "ticksPerFrame": 5 },
+        "die": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/die.mp4", "ticksPerFrame": 5 }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    }
+  ]
+}

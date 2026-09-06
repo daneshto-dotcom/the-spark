@@ -101,6 +101,27 @@ const SHARED = [
   'The character stays centered in frame at a constant size and never walks out of shot.',
   'Plain solid pure white background, empty, no floor, no scenery, no shadow cast on anything,',
   'no text, no watermark, no letterboxing artwork, no vignette.',
+  // ⛔ S165 — THE BACKGROUND MUST BE WHITE, AND "no scenery" WAS NOT ENOUGH TO GET THAT.
+  //
+  // The line above has said "plain solid pure white background... no scenery" since S152, and
+  // veo-3.1-FAST ignored it in 4 of 24 clips: grey stone pillars and arches behind the bat's
+  // attack, grey corner brackets around the scarab's walk, grey slabs behind the orc's death and
+  // the wraith's drift. All four were BORDER-CONNECTED MID-GREY.
+  //
+  // ⭐ WHY THAT SURVIVES THE MATTE WHEN A WHITE BACKGROUND DOES NOT. build-sprite-atlas.mjs keys
+  // the background on NEAR-WHITE connected to the frame border, plus a separate rule for
+  // border-connected near-black SHAPED LIKE A BAR (the letterbox). Mid-grey is neither, so it is
+  // treated as artwork and ships as opaque geometry stuck to the sprite. There is no threshold that
+  // safely eats it either, because mid-grey is also where a steel blade and a stone tusk live.
+  // ⇒ The only cheap place to fix this is HERE, before the pixels exist.
+  //
+  // Naming the specific failures rather than repeating the general rule, because the general rule
+  // is what just failed.
+  'ABSOLUTELY NOTHING may appear behind or beside the character: no walls, no pillars, no columns,',
+  'no arches, no stonework, no doorways, no windows, no floor line, no horizon, no grey panels,',
+  'no grey bars, no grey blocks, no corner brackets, no frame markings and no border decoration of',
+  'any kind. Every single pixel that is not part of the character itself is FLAT PURE WHITE, right',
+  'out to all four edges of the frame.',
   'Smooth loopable motion.',
 ].join(' ');
 
