@@ -178,6 +178,21 @@ export class ZoneBackgroundRenderer {
       this.layer.visible = false;
       return;
     }
+    /*
+     * ⛔ AND HOLDING THE LOAD WAS NOT ENOUGH — THE REAL COST WAS MEMORY, NOT TIMING.
+     *
+     * The hold above was the first fix and CI stayed red. The evidence in the next failing run was
+     * far broader than a slow boot: `browserContext.close: Protocol error ... Failed to find
+     * context`, a 30 s "PLAYING on host" timeout, and 10 s "sparks on joiner" timeouts in specs this
+     * renderer never touches. That is not a stalled frame — it is the BROWSER CONTEXT DYING, and the
+     * 2-browser harness runs two of them plus a dev server on one runner.
+     *
+     * ⭐ SO THE FIX WAS THE ART, NOT THE CODE. At full zone resolution a four-seat board decoded
+     * 23.7 MB of backdrop texture; at HALF the rect it is 5.9 MB. The renderer cover-scales, so a
+     * 480x270 image fills a 960x540 zone at 2x — invisible on a dark, low-contrast image drawn at
+     * 0.55 alpha behind every sprite on the board. A backdrop is the one asset in this stack that
+     * does not need 1:1 pixels, and paying 4x for pixels nobody can resolve is what broke the runner.
+     */
     this.layer.visible = true;
     const layout = world.layout;
 

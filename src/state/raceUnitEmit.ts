@@ -94,9 +94,24 @@ export function isCastleSpawnerId(id: SpawnerId | null): boolean {
 /**
  * How many ticks since this seat's castle last produced, in `[0, interval)`.
  *
- * ⛔ DERIVED FROM `world.tick`, NEVER ACCUMULATED — the project's standing determinism rule. No
- * stored timer means a mid-match host migration cannot skip or double an emission, and there is no
- * float remainder to drift.
+ * ⛔ DERIVED FROM `world.tick`, NEVER ACCUMULATED — the project's standing determinism rule. There
+ * is no stored timer, so no float remainder can drift and a mid-match host migration cannot DOUBLE
+ * an emission: the surviving host recomputes the same predicate from the same clock.
+ *
+ * ⚠ IT CAN, HOWEVER, SKIP ONE — AND THE FIRST VERSION OF THIS PARAGRAPH CLAIMED OTHERWISE. It said a
+ * migration "cannot skip or double an emission". The double half is right; the skip half is not, and
+ * the S165 sweep caught it. The cadence is an EXACT tick equality, not a window, and during a
+ * migration nobody runs `raceUnitEmitTick` while the surviving client's clock keeps advancing
+ * (`main.ts`'s client branch increments `world.tick` unconditionally and never calls `runHostTick`).
+ * The host-less window is `RECONNECT_GRACE_MS = 15_000` plus a claim ladder — roughly 900-1080 ticks
+ * at 60 Hz — against a 1800-tick interval, so a seat whose boundary falls inside it loses that one
+ * unit and resumes normally on the next.
+ *
+ * ⭐ THAT IS ACCEPTED, NOT A BUG TO FIX HERE, and the alternative is worse: catching up would mean
+ * either storing a "last emitted" tick (the accumulator this rule exists to forbid) or dumping a
+ * backlog burst on the first tick after promotion — the exact failure `spawnerPhaseGate.test.ts`
+ * guards the spawner poll against. Losing at most one free unit to a host migration is the cheaper
+ * side of that trade, and it is stated so nobody re-derives the claim from the old sentence.
  *
  * ⭐ PHASE-SPREAD BY SEAT (`- seat`), so four castles do not all emit on the same tick and dump
  * four units into one snapshot. Spread by SEAT ID, not by an accumulated counter — the same idiom

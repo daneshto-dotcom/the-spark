@@ -26,7 +26,7 @@
     "",
     "⛔ S164 OWNER REJECT 3 — THE ORC NEEDS ITS OWN LIMIT, because for THAT character eyes and leaks are the same size and cannot be separated by a size rule at all. Owner: \"you have removed the white from the orcs eyes\". Measured tradeoff on unit-orcs (leak px / head-band light px, the eye+tusk proxy): 0.00004 -> 42/377 · 0.0001 -> 210/614 · 0.0003 -> 696/1246 · 0.0008 -> 1233/1528 · 0.003 (original) -> 2253/2267. They move together, monotonically — there is no knee. 0.0003 is taken as the balance: ~69% of the leak gone, ~55% of the eye detail kept. ⚠ THE REAL FIX IS AT GENERATION, NOT IN THE MATTE, and it is filed rather than bodged: the design prompts must stop producing white pockets the size of an eye, and — separately — must stop baking a ground shadow at all (see the shadow note below).",
     "",
-    "⛔ S164 — THE BAKED GROUND SHADOW IS WRONG AND MUST COME OUT OF THE DESIGN PROMPTS. Owner: \"the third vampire has a gray shadow while the rest have dark shadow - remember the shadow is of the players race color\". He is right and the code agrees: goblinRenderer already draws a ring in the OWNER'S TINT at the creature's real position, and its docblock records that a BLACK shadow there was a measured no-op because the board background is pure black. So the game supplies the shadow, in the seat colour — the art must not. `sharedStyle` in design-spec.json currently ASKS for \"a small soft dark oval shadow on the ground directly beneath the character\"; that instruction is mine and it is the defect. Removing it also removes a whole class of matte ambiguity, because a mid-grey ellipse is neither near-white nor near-black and no rule catches it — which is exactly why one vampire frame kept a grey oval. ⚠ Fixing it means regenerating 6 designs + 24 clips + 6 atlases: NEXT SESSION, not a same-turn patch."
+    "⛔ S164 — THE BAKED GROUND SHADOW IS WRONG AND MUST COME OUT OF THE DESIGN PROMPTS. Owner: \"the third vampire has a gray shadow while the rest have dark shadow - remember the shadow is of the players race color\". He is right and the code agrees: goblinRenderer already draws a ring in the OWNER'S TINT at the creature's real position, and its docblock records that a BLACK shadow there was a measured no-op because the board background is pure black. So the game supplies the shadow, in the seat colour — the art must not. `sharedStyle` in design-spec.json currently ASKS for \"a small soft dark oval shadow on the ground directly beneath the character\"; that instruction is mine and it is the defect. Removing it also removes a whole class of matte ambiguity, because a mid-grey ellipse is neither near-white nor near-black and no rule catches it — which is exactly why one vampire frame kept a grey oval. ✅ DONE IN S165: the instruction was removed from BOTH sites (this spec's sharedStyle AND the script default every future spec inherits), and all 6 designs + 24 clips + 6 atlases were regenerated without it."
   ],
   "specs": [
     {
@@ -167,7 +167,30 @@
         }
       },
       "enclosedWhiteLimitPct": 0.0003,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "_why_orc_limit": [
+        "⭐ S165 — THE ORC KEEPS 0.0003, BUT NOT FOR THE REASON S164 GAVE. RE-MEASURED, NOT ASSUMED.",
+        "",
+        "S164 set this as an explicit COMPROMISE: for that character eyes and background leaks measured",
+        "the SAME SIZE with a monotonic curve and no knee, so 0.0003 kept ~55% of the eye detail and left",
+        "~31% of the leak. It filed the real fix as upstream — stop drawing white eyes.",
+        "",
+        "⭐ THAT UPSTREAM FIX LANDED, AND IT WORKED. The S165 colour-cast clause gives this orc AMBER-GOLD",
+        "eyes and BONE-YELLOW tusks, so they are no longer near-white and the matte cannot see them. The",
+        "eye problem is gone.",
+        "",
+        "⛔ SO WHY NOT TIGHTEN TO 4e-05 LIKE ITS SIBLINGS? Because a rebuild at 4e-05 was measured and",
+        "compared frame by frame, and what it removes is no longer eyes — it is the CLEAVER'S STEEL",
+        "HIGHLIGHT. 545 px less leak, 2,607 px of character lost, and the loss lands on the blade edge,",
+        "leaving it visibly ragged.",
+        "",
+        "⭐ AND THE LEAK IT LEAVES IS NOT WORTH THAT. At 0.0003 the largest surviving near-white pocket on",
+        "the whole sheet is 10 px — far below the 60 px the atlas guard treats as a visible patch, and",
+        "invisible at the 200 px cell. Tightening would trade an invisible defect for a visible one.",
+        "",
+        "⚠ Re-test this if the orc is ever redesigned with a duller blade. The value is empirical, and",
+        "the measurement is the thing to repeat, not the number to inherit."
+      ]
     },
     {
       "name": "unit-demons",

@@ -464,7 +464,10 @@ export class GoblinRenderer {
         this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
       } else {
         // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and
-        // Voltkin precedent), and still the only art for the four kinds landing next session.
+        // Voltkin precedent).
+        // ⚠ S165 — this line used to end "and still the only art for the four kinds landing next
+        // session". Those four landed in S153 P7; ALL SIX goblin kinds are atlas-backed today, and
+        // so is the race unit. The puppet is now purely a load-failure fallback.
         this.dropSprite(c.id);
         this.drawGoblin(g, c.pos.x, c.pos.y, face, alpha, tint, this.swing(c.state, c.ticksInState), nowSec, c.id);
       }

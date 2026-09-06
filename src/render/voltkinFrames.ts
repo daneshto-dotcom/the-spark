@@ -81,8 +81,17 @@ const BASE = '/godly/voltkin/sprites';
  * wire frame-key type that `sync.test.ts` uses to prove a creature's synced
  * (state, ticksInState, killCount) reconstructs the same frame key on host AND
  * client (a determinism cross-check of the wire fields). The URL strings are
- * kept only as stable labels for that type; `voltkin-zap.png` is the one file
- * still on disk (it doubles as the Codex recipe placeholder).
+ * kept only as stable labels for that type.
+ *
+ * ⛔ S165 — AND NONE OF THESE FILES EXISTS ANY MORE. This docblock used to end *"`voltkin-zap.png`
+ * is the one file still on disk (it doubles as the Codex recipe placeholder)"*, which named the
+ * WRONG PATH and kept 280 KB alive on that basis. The Codex placeholder is
+ * `/godly/voltkin/anim/voltkin-zap.png` (`render/codexPresentation.ts`), in the ANIM directory; the
+ * copy under `sprites/` was loaded by nothing and has been deleted.
+ *
+ * ⚠ THAT IS SAFE PRECISELY BECAUSE THESE URLS ARE NEVER FETCHED — nothing outside this module even
+ * reads `VOLTKIN_FRAME_URLS`; only its KEYS are load-bearing. If that ever changes, every one of
+ * these paths is a 404.
  */
 export const VOLTKIN_FRAME_URLS = {
   idle1: `${BASE}/voltkin-idle-1.png`,

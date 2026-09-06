@@ -4,8 +4,38 @@
 ═══════════════════════════════════════════════════════════
 
 Status: **APPROVED — EXECUTE. DO NOT RE-COUNCIL.**
-**STATUS: IN-PROGRESS — P1 (S160) + P2 + P3 SHIPPED. ONLY P4 (W1-C) REMAINS, AND IT IS STILL
-BLOCKED BY B1. THIS IS STILL THE NEXT SESSION'S ENTRY POINT.**
+**STATUS: COMPLETED — ALL FOUR PRIORITIES SHIPPED. P1 (S160) · P2 + P3 (S161) · P4 W1-C (S165,
+`ef944bd`, PROTOCOL 41 -> 42). W1-D (castle upgrades) is untouched and is a SEPARATE wave.**
+
+> ## ⭐ WHERE S165 LEFT THIS — READ THIS BLOCK FIRST, IT SUPERSEDES EVERYTHING BELOW
+>
+> **✅ P4 — W1-C, THE CASTLE PRODUCES ITS RACE'S UNIT: SHIPPED.** Every castle emits one free
+> `raceUnit` every ~30 s in BOTH phases (R120), drawn from the owning seat's race atlas.
+> `src/state/raceUnitEmit.ts`, called from `hostTick.ts`; 12 assertions in `raceUnitEmit.test.ts`.
+>
+> **⛔ B1 IS RESOLVED, AND THIS PLAN'S PRESCRIPTION FOR IT WAS INCOMPLETE.** R133's castle sentinel
+> `SpawnerId` clears the spawn gate and the caps — but it supplies NO CADENCE. The emit loop iterates
+> `world.creatureSpawners`, and a sentinel is by construction absent from that map, so riding that
+> loop would have polled nothing and emitted nothing, silently. The castle needed its own call site.
+> Three more corrections of the same kind are in `W1C_A0_FINDINGS.md`, produced by a 43-agent
+> state-discovery pass run BEFORE any of this code was written:
+>   · the sentinel had to be **PER SEAT** (`-1 - seat`), or `GOBLIN_MAX_PER_SPAWNER` silently became
+>     a CROSS-SEAT cap and seat 0's tenth unit would block every other castle;
+>   · race units needed their **own cap family**, and to be excluded from `underGoblinCaps`' COUNT,
+>     or they would have starved every goblin tower against the shared `GOBLIN_MAX_GLOBAL = 200`;
+>   · **a protocol bump WAS owed** (41 -> 42). "It rides P1's 40 -> 41" held only while P1 and W1-C
+>     landed in the same session; P1 shipped alone, so v41 peers are live knowing nothing of
+>     `raceUnit`, and `deserializeCreature` has no whitelist that would reject it.
+>
+> **✅ AND THE ART IS DONE AND WIRED.** Six castle-spawn units (regenerated S165 with no baked ground
+> shadow), the twelve per-race zone backgrounds (R137, live at `8aff165`), the six tier-3 tower units,
+> and the six tier-3 towers with their per-species destruction cinematics.
+> ⚠ **THE TIER-3 ART IS ART ONLY — Wave 2.** Nothing in `src/` references it, deliberately: the
+> tier-3 tower needs a buildable recipe, and R135's varied stat numbers are still UNRULED.
+>
+> ⚠ **CF-S161-a IS CLOSED.** A fallen seat's towers, creatures and spawners **keep fighting until
+> razed** (owner ruling `cf_s161_a`). The emitter halts when the castle dies; nothing sweeps the army
+> it already made.
 
 > ## ⭐ WHERE S161 LEFT THIS (read this block FIRST — it supersedes the S160 block below)
 >

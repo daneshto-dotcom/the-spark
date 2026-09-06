@@ -107,7 +107,22 @@ Ruling numbers continue from R92, the highest on record at authoring time.
 look and movement — which is where the naga's porpoising and the soul eater's drift do real work.
 
 **Each race has ONE unit.** The castle emits it free on a timer (R107); the race tower is fed that
-race's shape to make more of it (R108). Same unit from both sources.
+race's shape to make more of it (R108).
+
+⛔ **SUPERSEDED BY OWNER R134 (S164) — THEY ARE TWO DIFFERENT POPULATIONS, NOT ONE.** This section
+used to end *"Same unit from both sources"*, and the CODE FOLLOWS R134, not this table. Owner:
+*"I do like the designs you have just made so we will use those as the castle spawn. and the ones we
+have mentioned and defined in the earlier sesison we will use for the tier 3 building."*
+· **The CASTLE** emits the six HUMANOID SOLDIERS — vampire thrall, naga warrior, mummy soldier,
+  zombie villager, orc grunt, imp (`assets-source/race-units/`, wired S165 as `CreatureType`
+  `'raceUnit'`).
+· **The TIER-3 TOWER** emits the creatures listed in the table below — bats, piranhas, scarab
+  beetles, the hound, a twin-axe warband raider, soul-eaters (`assets-source/race-tier3-units/`,
+  ART ONLY as of S165; no recipe, and R135's varied stat numbers are UNRULED).
+⚠ R117's stat-identity is hereby NARROWED to the CASTLE unit. R134 is what makes R135's *varied*
+tier-3 stats coherent at all: two towers now yield more PIRANHAS, which does nothing to the castle's
+soldier line, so the "build more towers to bypass the balance" exploit R117 guarded against is gone
+by construction.
 
 Default seat assignment (`buildMatchRoster`, `net/lobbyRoster.ts:126`) hands out
 `PLAYER_COLORS[denseSeat]`, so today it only ever reaches seats 0–3. **The selection screen (W1-A)
@@ -360,10 +375,21 @@ have seen it. Capture both a damaged and an undamaged castle through Playwright 
 
 **Exit gate.** Six castles, three states each, visually distinct in a captured frame.
 
-### W1-C · THE CASTLE PRODUCES, AND ITS ARMY SHELTERS — one session · PROTOCOL 40 → 41
+### W1-C · THE CASTLE PRODUCES, AND ITS ARMY SHELTERS — ✅ SHIPPED S165 · PROTOCOL 41 → 42
 
-> ⚠ **S162 correction: this said `39 → 40`, and 40 IS ALREADY SPENT** — S161 P2 took it for seat
-> elimination (`src/net/protocol.ts`: `PROTOCOL_VERSION = 40`). A session executing the old line
+> ✅ **SHIPPED S165 at `ef944bd`. The bump was 41 → 42, and `PROTOCOL_VERSION` is now 42.** This
+> heading has now been wrong TWICE in the same way, which is the point of the warning below: it read
+> `39 → 40` until S162 and `40 → 41` until S165, each time naming a version that had already been
+> spent by another feature. ⛔ **Read `src/net/protocol.ts` for the live number. Never this file.**
+>
+> ⚠ **The S164 handoff additionally claimed W1-C owed NO bump because it "rides P1's 40 → 41".** That
+> was true only while P1 and W1-C landed in the same session. P1 shipped alone, so v41 peers went
+> live knowing nothing of the `raceUnit` literal — and `deserializeCreature` writes `type: s.type`
+> with no whitelist, so a stale peer ACCEPTS it and then finds `CREATURE_CONFIGS[...] === undefined`
+> on its own mirror. 42 was owed and was taken.
+>
+> ⚠ **S162 correction, retained for the record: this once said `39 → 40`, and 40 was already spent**
+> by S161 P2 for seat elimination. A session executing the old line
 > verbatim would have written 40 over 40, changing nothing, while `protocol.test.ts`'s
 > `expect(PROTOCOL_VERSION).toBe(40)` still passed and the version-sync chain looked unbroken — a
 > **silently skipped bump**, which is exactly the failure `protocol.ts` says that test exists to
@@ -387,9 +413,19 @@ army obeys the phase rhythm the rest of the game already obeys.
 the instant the phase flips units freeze where they stand. The assertion that matters is the
 invariant — *at BUILD, no creature is in enemy ground* — not the animation.
 
-**Work.** A per-seat emitter on the castle anchor, cadence keyed on nothing but `world.tick`. Units
-produced during BUILD are born SHELTERED. The FIGHT edge releases them; the BUILD edge recalls and
-re-shelters the survivors.
+**Work.** ✅ SHIPPED S165 — `src/state/raceUnitEmit.ts`, a per-seat emitter on the castle anchor with
+its cadence keyed on nothing but `world.tick`.
+
+⛔ **THERE IS NO `SHELTERED` STATE, AND THERE MUST NOT BE ONE.** This paragraph used to say units
+"are born SHELTERED". No such `CreatureState` exists and adding one is forbidden by `recallArmies`'
+own docblock. The cycle falls out of three mechanisms that already shipped: units are BORN AT THE
+CASTLE ANCHOR; the FSM/AI/attack fan-out is FIGHT-gated, so during BUILD they simply stand at the
+keep; and `recallArmies` walks them home on the FIGHT→BUILD edge.
+⚠ One correction to that argument, because the version in the S164 handoff was overstated: the
+creature fan-out is NOT wholly FIGHT-gated — `creatureVerletStep` runs every substep of every BUILD
+tick with no phase guard. Creatures are frozen in DECISION, not in MOTION. The conclusion holds (a
+unit with no target and no acceleration does not wander) but the sentence "the whole fan-out is
+FIGHT-gated" is false and must not be repeated as justification.
 
 ⚠ **Identical cadence and identical unit stats across all six races** (R117). The *unit* differs; its
 numbers do not.
@@ -1310,10 +1346,14 @@ Most of the original list was closed by the owner on 2026-09-02. What remains, r
 
 ### ⚠ NEEDED BEFORE THE WAVE THAT USES IT
 
-1. **The race-unit stat line itself.** R117 says all six share ONE stat line — but nobody has said
-   what it is. HP, ATK, DEF and PEN points, on the `state/stats.ts` ladders. A first pass can be
-   proposed against the existing roster (`CHEWER_HP = 1`, goblins at 1, `VOLTKIN_HP = 8`) and the
-   owner rules on it; it is a number, not a mechanic, so it does not block starting.
+1. ✅ **CLOSED — the CASTLE unit's stat line is RULED and SHIPPED.** Owner R125 fixes it at
+   **1 HP / 1 DEF / 1 ATK / 1 PEN**, and it ships as `RACE_UNIT_HP/DEF/ATK/PEN` in `src/constants.ts`
+   (S165). All six races share it, as R117/R94 require.
+   ⚠ **What is STILL open is the TIER-3 TOWER unit's stat line, which is a different population
+   (R134) and a different question.** R135 asks for *"slightly different stats and more varied"* and
+   supplies no figures. Nothing may be written for it until the owner rules — and per this project's
+   standing rule, any number that ends up being MINE says so at the constant with the measurement
+   behind it.
 2. **Race perks for waves 10, 15, 20.** Eighteen perks — three more per race. The general track is
    already settled (DEF → HP → PEN). Deliberately deferred by R112 with a named trigger: **ask once
    wave 5 ships.** Not a gap.

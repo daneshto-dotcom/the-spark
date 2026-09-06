@@ -24,7 +24,7 @@ import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_T
 import { asPotatoId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { razePrimitives } from './razePrimitives.ts';
-import type { Creature } from './creatures/creature.ts';
+import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
 
@@ -205,7 +205,32 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
   // original inline body, now via the shared `applyRadialClear` so the lightningHub structure
   // self-destruct reuses ONE tested radial clear instead of duplicating it. The potato call site
   // is byte-IDENTICAL (the save.replay.test.ts two-seed gate is the proof).
-  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => c.sourceSpawnerId !== null);
+  /*
+   * ⛔ S165 — THE PREDICATE IS NOW A TYPE TEST, AND THE COMMENT ABOVE HAD BEEN WRONG FOR SEVERAL
+   * SESSIONS. It says "only CHEWERS (sourceSpawnerId !== null)". That stopped being true at S151,
+   * when `goblinTowerFeed` began stamping every goblin with a spawner id: a potato has been
+   * deleting goblins ever since, and W1-C's race unit joined the same silent widening.
+   *
+   * ⚠ THIS CHANGE IS DELIBERATELY BEHAVIOUR-PRESERVING. The list below is exactly the set the old
+   * provenance test already matched, written out — chewer, drone, all six goblins, and the race unit
+   * — so the `save.replay.test.ts` two-seed gate the comment above cites as its proof still holds.
+   * What it buys is that the NEXT spawner-sourced creature has to be added here on purpose instead
+   * of being swept in silently, which is the third time this exact drift has cost something this
+   * session (`botBrain.nearestChewer` and the stink-tower taunt were the other two).
+   *
+   * ⚠ AND THERE IS A BALANCE QUESTION HERE FOR THE OWNER, NOT FOR ME. `applyRadialClear` DELETES
+   * rather than damages, so one potato erases a whole squad of free castle units regardless of their
+   * ehp — while a Voltkin standing in the same blast survives, because it alone has no spawner id.
+   * R123/R124 make race units uncapped and permanent, so a keep accumulates a standing squad that a
+   * single potato wipes. Whether that is the intended counterplay is a ruling; the current answer is
+   * simply what the old predicate already did, preserved.
+   */
+  const POTATO_CLEARS: ReadonlySet<CreatureType> = new Set<CreatureType>([
+    'chewer', 'lightningDrone',
+    'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
+    'raceUnit',
+  ]);
+  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => POTATO_CLEARS.has(c.type));
 }
 
 /**

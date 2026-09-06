@@ -3,13 +3,22 @@
 Produced by a 43-agent probe-then-adversarially-verify pass over the live tree, run **before** any
 W1-C code was written. Every row carries a `file:line` that was opened, not remembered.
 
-> ⛔ **READ THIS BEFORE WIRING THE CASTLE EMITTER.** The S164 handoff described W1-C as "both
-> blockers gone, no protocol bump owed". That description is **materially wrong in six places**, and
-> two of the corrections are the difference between a working feature and a silent one.
+> ✅ **STATUS: ACTED ON. W1-C SHIPPED AT `ef944bd` (S165), PROTOCOL 41 → 42.**
+>
+> This file was written as a pre-flight warning — *"read this before wiring the castle emitter"* —
+> and the emitter has since been wired using it. It is kept as the RECORD OF WHY the implementation
+> looks the way it does, not as an open work list. Every finding below is annotated with what
+> happened to it; the two genuinely open items are in §9.
+>
+> ⛔ **The original warning, retained because it is the reason this file exists:** the S164 handoff
+> described W1-C as "both blockers gone, no protocol bump owed", and that description was
+> **materially wrong in six places**. Two of the corrections were the difference between a working
+> feature and a silent one — the bump WAS owed, and the R133 sentinel on its own would have emitted
+> nothing at all.
 
 ---
 
-## 1. THE PRIOR PLAN'S COORDINATES ARE WRONG — every one of these was a stated edit site
+## 1. ✅ ACTED ON — THE PRIOR PLAN'S COORDINATES WERE WRONG (every edit used the corrected ones) — every one of these was a stated edit site
 
 | The plan said | The tree says |
 |---|---|
@@ -22,7 +31,7 @@ W1-C code was written. Every row carries a `file:line` that was opened, not reme
 
 ---
 
-## 2. ⛔ A PROTOCOL BUMP **IS** OWED — 41 → 42
+## 2. ✅ ACTED ON — A PROTOCOL BUMP WAS OWED, AND 41 → 42 SHIPPED across all six checklist sites
 
 `protocol.ts:523` — `export const PROTOCOL_VERSION = 41 as const;`. The bump commit `641783c`
 (S164 P1, castle regen) is an **ancestor of `origin/master`** with six commits after it, and this
@@ -47,14 +56,14 @@ race in an already-wire-borne field. If a new literal ships, 42 is owed.
 
 ---
 
-## 3. ⛔ THE SENTINEL ALONE DOES NOT MAKE THE CASTLE EMIT
+## 3. ✅ ACTED ON — the emitter got its OWN call site (`hostTick.ts`), not the spawner poll
 
 R133 clears the *gate* and the *caps*. It supplies **no cadence**. The emit loop is
 `hostTick.ts:580-581`, iterating `world.creatureSpawners`; its three arms (`:714/:743/:763`) all read
 `sp.nextSpawnTick` off a **real record**. A sentinel id is by construction absent from that map, so
 **the castle is never polled and never emits.** The emitter needs its own explicit call site.
 
-## 4. ⛔ THE SENTINEL MUST BE PER-SEAT, AND IT MUST NOT RIDE THE GOBLIN CAP
+## 4. ✅ ACTED ON — per-seat sentinel (`-1 - seat`) + its own `RACE_UNIT_MAX_*` family, and `raceUnit` excluded from `underGoblinCaps`' COUNT as well as its routing
 
 `underGoblinCaps` (`creatures/creatureLifecycle.ts:265-278`) counts
 `if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++` **with no `ownerPlayerId` term**, and
@@ -70,7 +79,8 @@ increments a **global** counter with no owner filter either.
   ternary at `creatureLifecycle.ts:236` to a three-way route. This is also what R123/R124 actually
   require — "no per-player cap, but a sentinel backstop".
 
-## 5. ⛔ `nearestChewer` WILL MAKE EVERY BOT FLEE RACE UNITS
+## 5. ✅ ACTED ON — fixed at `acac4a1`, and the fix was PROVEN by reverting it (2 of 5 tests fail).
+⚠ A SECOND consumer of the same drift was later found by the S165 sweep and fixed too: the stink tower's depleted taunt (`defenderLifecycle.ts`) was DEAD CODE for the same reason
 
 `bots/botBrain.ts:1014-1027`. Its docblock claims *"Only chewers (`sourceSpawnerId !== null`)"*, and
 the body's **only** filter is `if (c.sourceSpawnerId === null) continue;` — **no `c.type` check and no
@@ -79,7 +89,7 @@ owner comparison.** Any sentinel-carrying race unit satisfies it and feeds the c
 ⇒ Fix the filter to `if (c.type !== 'chewer') continue;` — which is what the name and docblock
 already assert — and test it.
 
-## 6. ⛔ THE FROZEN DIFFERENTIAL GATE BREAKS ON TICK 1
+## 6. ✅ ACTED ON — it did break, exactly as predicted, and was fixed at the FIXTURE (start tick 900, off the recruit cadence) rather than by touching the frozen reference
 
 `hostTick.differential.test.ts:641-648` asserts `hashWorldStateFull` equality **every tick** and a
 full `snapshot()` byte-compare against `referenceHostTick` — a **verbatim frozen transcription** of
@@ -91,7 +101,7 @@ behind a gate the scenarios leave false.
 
 ---
 
-## 7. "THE WHOLE CREATURE FAN-OUT IS FIGHT-GATED" IS FALSE — Blocker 8's argument is weaker than recorded
+## 7. ✅ ACTED ON — the corrected argument is now written at `raceUnitEmit.ts` and in the spec. "THE WHOLE CREATURE FAN-OUT IS FIGHT-GATED" IS FALSE — Blocker 8's argument is weaker than recorded
 
 The dissolution of Blocker 8 rested on this sentence. It does not survive contact with the tree:
 
@@ -114,7 +124,7 @@ restated correctly** or the next session will rely on a sentence that is not tru
 
 ---
 
-## 8. ART AND RENDER FINDINGS
+## 8. ✅ MOSTLY ACTED ON — ART AND RENDER FINDINGS (art regenerated first, atlases relocated, lazy per-race load)
 
 - ⭐ **REGENERATE THE ART BEFORE TUNING ANY RENDER CONSTANT.** `build-sprite-atlas.mjs:297-306`
   builds ONE union bbox across every frame of every state, `:314-316` sets `scale = (ch/bh)*pad`
