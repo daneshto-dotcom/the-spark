@@ -120,7 +120,23 @@ for path in sys.argv[1:]:
             cell = np.asarray(img.crop((0, info['row'] * ch, cw, (info['row'] + 1) * ch)))
             ys = np.nonzero((cell[:, :, 3] > 40).sum(axis=1))[0]
             heights.append([st, int(ys[-1] - ys[0] + 1) if ys.size else 0])
-    out[path] = [total, largest, heights]
+    # ── check 3: OPAQUE NEAR-WHITE that survived the matte ────────────────────────────────
+    # The owner's words: "some of them have that white background because not cut out too well".
+    # build-sprite-atlas.mjs deliberately KEEPS enclosed near-white BELOW enclosedWhiteLimitPct so
+    # that eyes and blade glints survive, which means a loose limit ships background pockets as
+    # opaque white blobs.
+    #
+    # ⭐ LARGEST POCKET, NOT TOTAL, and that distinction is the whole check. At the tuned 4e-05 the
+    # race units carry 66-768 px of near-white in total while their biggest single pocket is 2-52 px
+    # — eye glints, correctly kept. The castles and towers, which had silently inherited the 0.003
+    # DEFAULT, totalled about the same but had pockets of 113-168 px, and that is a visible patch.
+    # Summing would have called the healthy sheets worse than the broken ones.
+    white = (al > 200) & (mn > 205) & ((mx - mn) < 28)
+    wlab, wn = ndimage.label(white)
+    wbig = 0
+    if wn:
+        wbig = int(ndimage.sum(white, wlab, index=np.arange(1, wn + 1)).max())
+    out[path] = [total, largest, heights, int(white.sum()), wbig]
 print(json.dumps(out))
 `;
 
@@ -140,7 +156,7 @@ const SIZE_TOLERANCE = 0.15;
 let bad = 0;
 let sized = 0;
 
-console.log('[atlas] 1/2 — opaque mid-grey BLOCKS welded to the sprite (the matte cannot remove these)\n');
+console.log('[atlas] 1/3 — opaque mid-grey BLOCKS welded to the sprite (the matte cannot remove these)\n');
 for (const [path, [total, largest]] of Object.entries(res)) {
   const verdict = total <= allowScenery ? 'clean' : 'SCENERY';
   if (total > allowScenery) bad++;
@@ -161,7 +177,23 @@ for (const [path, [, , heights]] of Object.entries(res)) {
   console.log(`  ${(offenders.length === 0 ? 'clean' : 'MISMATCH').padEnd(8)} ${detail}  ${path}`);
 }
 
+/** Largest single opaque near-white pocket allowed. Eye glints measure 2-52 px; leaks measure 113+. */
+const WHITE_POCKET_MAX = 60;
+
+let leaky = 0;
+console.log('\n[atlas] 3/3 — opaque NEAR-WHITE that survived the matte (largest pocket, not total)\n');
+for (const [path, [, , , wtotal, wbig]] of Object.entries(res)) {
+  const over = wbig > WHITE_POCKET_MAX;
+  if (over) leaky++;
+  console.log(`  ${(over ? 'WHITE' : 'clean').padEnd(8)} largest ${String(wbig).padStart(5)} px  (total ${String(wtotal).padStart(6)})  ${path}`);
+}
+
 console.log('');
+if (leaky > 0) {
+  console.error(`[atlas] FAIL — ${leaky} atlas(es) ship a visible white patch. Set`);
+  console.error('        "enclosedWhiteLimitPct": 4e-05 on that spec — the builder DEFAULT of 0.003 is 75x');
+  console.error('        looser and is what lets background pockets through as opaque blobs.');
+}
 if (bad > 0) {
   console.error(`[atlas] FAIL — ${bad} atlas(es) carry background scenery. Re-roll those clips; the matte`);
   console.error('        cannot remove mid-grey. See the SHARED instruction in gen-character-clips.mjs.');
@@ -172,9 +204,9 @@ if (sized > 0) {
   console.error('        FRAME-FILLING re-roll it demanding visible empty margin — a clamped measurement');
   console.error('        makes the normaliser under-estimate and over-shrink the row.');
 }
-if (bad > 0 || sized > 0) process.exit(1);
+if (bad > 0 || sized > 0 || leaky > 0) process.exit(1);
 // ⚠ Say WHICH checks actually ran. "clean on both checks" when only one ran is exactly the kind of
 // false assurance this repo has been bitten by before (a gate that FAILED read as passing, S161).
-const ran = noSize ? 'the scenery check' : 'both checks';
+const ran = noSize ? 'the scenery and white-leak checks' : 'all three checks';
 const tol = allowScenery > 0 ? ` (scenery tolerance ${allowScenery} px)` : '';
 console.log(`[atlas] OK — ${files.length} atlas(es) clean on ${ran}${tol}.`);

@@ -25,7 +25,8 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-vampires/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     },
     {
       "name": "t3destroy-nagas",
@@ -39,7 +40,8 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-nagas/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     },
     {
       "name": "t3destroy-mummies",
@@ -53,7 +55,8 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-mummies/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     },
     {
       "name": "t3destroy-zombies",
@@ -67,7 +70,8 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-zombies/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     },
     {
       "name": "t3destroy-orcs",
@@ -81,7 +85,8 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-orcs/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     },
     {
       "name": "t3destroy-demons",
@@ -95,7 +100,27 @@
           "clip": "assets-source/race-tier3-towers/clips/t3tower-demons/destroy.mp4",
           "ticksPerFrame": 4
         }
-      }
+      },
+      "enclosedWhiteLimitPct": 4e-05
     }
+  ],
+  "_white_limit": [
+    "⛔ enclosedWhiteLimitPct 4e-05 — S165, after the owner spotted white patches: \"some of them have",
+    "that white background because not cut out too well\" and \"look at the tower cut out and destroction",
+    "video some of them still have some white backgrounds small parts too\". He was right on both.",
+    "",
+    "THE CAUSE WAS AN OMISSION, NOT A TUNING ERROR: these specs never set the knob at all, so they took",
+    "build-sprite-atlas.mjs's DEFAULT of 0.003 — which is 75x more permissive than the 4e-05 the race",
+    "units were tuned to in S164. Enclosed near-white BELOW the limit is deliberately KEPT (that is what",
+    "saves eyes and blade glints), so a loose limit ships background pockets as opaque white blobs.",
+    "",
+    "⭐ MEASURED, AND THE METRIC THAT MATTERS IS LARGEST POCKET, NOT TOTAL. At 4e-05 the units carry",
+    "66-768 px of near-white in TOTAL but their biggest single pocket is 2-52 px — eye glints, correctly",
+    "kept. The castles and towers at 0.003 had biggest pockets of 113-168 px, which is a visible patch.",
+    "",
+    "⭐ AND AN AGGRESSIVE LIMIT IS SAFER ON A STRUCTURE THAN ON A CHARACTER. A character has eyes and",
+    "teeth to protect, which is the whole reason the knob exists and why the orc needed its own value.",
+    "sharedStyle here already forbids anything white or near-white ON the building, so by construction",
+    "every near-white pocket in one of these frames is background."
   ]
 }
