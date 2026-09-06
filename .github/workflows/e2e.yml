@@ -143,6 +143,49 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
+  # ⭐ S165 — ATLAS GUARD. Reads the shipped sprite-sheet PNGs for three defect classes the rest of
+  # the suite structurally cannot see: mid-grey scenery welded into the cut-out, cross-row size
+  # drift, and opaque near-white pockets left behind by the matte. Rationale in the script header.
+  #
+  # ⛔ WHY IT IS A JOB HERE AND NOT A STEP IN `npm run build`. S165 wired it into `build`, and the
+  # GitHub Pages deploy immediately went red on `ModuleNotFoundError: No module named 'numpy'` —
+  # the Pages runner is a plain Node image. The consequence was not a caught defect, it was a STALE
+  # SITE: the owner was waiting to see new art and the deploy that carried it never published.
+  #
+  # ⭐ THE PRINCIPLE, already written into the project charter for the bundle cap: an ASSET-QUALITY
+  # OPINION MUST NEVER BLOCK A LIVE DEPLOY. Here that is structural rather than remembered — the
+  # guard lives on a different runner in a different workflow, so it can turn CI red (which is the
+  # point) while the art still ships. Owner sees the flaw AND the warning, instead of neither.
+  #
+  # Cheap: no browsers, no Playwright, ~40s including the pip install.
+  atlas-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # The guard is a Node wrapper around one Python pixel pass. These three are its whole
+      # dependency set; it exits 3 with a named diagnostic if any is absent.
+      - name: Install the pixel toolchain
+        run: pip install numpy scipy Pillow
+
+      # ⚠ NOT chained behind `&&` — the project rule. `npm run check:atlas` is the last command in
+      # the step, so the step's exit code IS the guard's.
+      - name: Atlas guard
+        run: npm run check:atlas
+
   # GATING lane — the FAST regression net: everything EXCEPT @quarantine-flaky, @soak,
   # and @perf-measure. A failure here is a REAL regression and reds the run.
   #

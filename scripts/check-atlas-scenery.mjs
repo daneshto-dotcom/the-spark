@@ -31,8 +31,20 @@
  * ⭐ It also scored ZERO on the piranha, whose defect was CREATURE DRIFT (it grew arms and legs) and
  * not scenery — i.e. it does not fire on things it is not measuring.
  *
+ * ## Where this runs, and where it deliberately does NOT
+ *
+ * ⛔ NOT IN `npm run build`, and that is a correction, not an omission. S165 wired it there and the
+ * GitHub Pages deploy went red on `ModuleNotFoundError: No module named 'numpy'` — the Pages runner
+ * is a Node image with no scientific Python. The site then sat STALE while the owner was waiting to
+ * see the new art, which is the exact failure the project charter already names for the bundle cap:
+ * an asset-quality opinion must never be the thing that stops a live deploy.
+ *
+ * ⭐ It runs instead as its OWN CI job (`atlas-guard` in .github/workflows/e2e.yml) which installs
+ * numpy/scipy/Pillow first. A dirty atlas therefore still turns CI red — it just ships while it
+ * does, so the owner sees the flawed art and the red signal at the same time instead of neither.
+ *
  * Usage:  node scripts/check-atlas-scenery.mjs <dir> [<dir>...]
- * Exit 0 = clean, 1 = scenery found, 2 = bad usage.
+ * Exit 0 = clean, 1 = scenery found, 2 = bad usage, 3 = the Python toolchain is missing.
  */
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -147,7 +159,26 @@ for (const d of dirs) {
 }
 if (files.length === 0) { console.error('[scenery] no *-atlas.png found'); process.exit(2); }
 
-const raw = execFileSync('python', ['-c', PY, ...files], { encoding: 'utf8', maxBuffer: 1 << 24 });
+/*
+ * ⚠ EXIT 3, NAMED, RATHER THAN A RAW TRACEBACK. The first time this ran without numpy it emitted a
+ * 30-line Node/child_process stack whose actual cause — one missing pip package — was four screens
+ * up. A guard that cannot say why it could not run is a guard that gets deleted.
+ */
+let raw;
+try {
+  raw = execFileSync('python', ['-c', PY, ...files], { encoding: 'utf8', maxBuffer: 1 << 24 });
+} catch (err) {
+  const why = String(err?.stderr ?? err?.message ?? err);
+  const missing = /No module named '([^']+)'/.exec(why);
+  if (missing) {
+    console.error(`[scenery] cannot run: Python is missing '${missing[1]}'.`);
+    console.error('[scenery] this guard reads PNG pixels and needs:  pip install numpy scipy Pillow');
+    console.error('[scenery] it is NOT part of `npm run build` by design — see the header of this file.');
+    process.exit(3);
+  }
+  console.error('[scenery] the pixel pass failed:\n' + why);
+  process.exit(3);
+}
 const res = JSON.parse(raw);
 
 /** How far a row's seed-frame height may sit from the median before it reads as a size mismatch. */
