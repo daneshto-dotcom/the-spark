@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5117,
+  "tool_calls_session_total": 5122,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
-  "session_status": "S165 IN PROGRESS - owner reviewing before handoff. NOT closed at owner instruction: 'do not close off session when youre done i would like to check your work before handoff'.",
+  "session_status": "S165 IN PROGRESS - W1-C wired and live, zone backgrounds wired and live. Five-lane sweep running. NOT closed: owner reviews before handoff.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -87,14 +87,14 @@
     {
       "id": 2,
       "title": "P2 - W1-C castle emitter wiring",
-      "status": "NOT_DONE_emitter_unwired",
+      "status": "superseded_by_P7",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "acac4a1",
-      "check_method": "⛔ THE EMITTER ITSELF IS NOT WIRED AND THIS IS STATED PLAINLY RATHER THAN IMPLIED. What landed: a 43-agent A.0 state-discovery pass (W1C_A0_FINDINGS.md) that contradicts the handoff in six places, two load-bearing - a protocol bump 41->42 IS owed because 41 already shipped to production in 641783c, and the R133 sentinel alone does not make the castle emit at all because the emit loop iterates world.creatureSpawners and a sentinel is by construction absent from it. Also fixed a LIVE bug the pass found: bots/botBrain nearestChewer filtered on provenance, so every goblin has registered as a chewer since S151 and bots have been fleeing their own units. Regression test PROVEN against the old code (2 of 5 fail on revert). Added raceUnitFrames.test.ts as the asset gate the atlases never had, and relocated them to public/art/race-units/ per castleFrames.ts:83-87.",
+      "check_method": "⚠ SUPERSEDED BY P7, WHICH SHIPPED THE EMITTER. What P2 itself delivered stands and is still verified below: the 43-agent A.0 pass (W1C_A0_FINDINGS.md), the LIVE nearestChewer bug it found (bots had been fleeing their own goblins since S151, fix proven by reverting it), raceUnitFrames.test.ts as the asset gate the atlases never had, and the move to public/art/race-units/. Its one open item — 'the emitter itself is not wired' — is closed by P7 at ef944bd.",
       "verification": [
         {
           "type": "file_contains",
@@ -265,16 +265,110 @@
           "needle": "verify_deploy"
         },
         {
-          "type": "json_field",
+          "type": "file_contains",
           "path": ".claude/session-state.json",
-          "key": "checkpoint_commit",
-          "op": "==",
-          "value": "6ddadc4"
+          "needle": "veo_blocker_RESOLVED"
         },
         {
           "type": "file_contains",
           "path": ".claude/session-state.json",
-          "needle": "veo_blocker_RESOLVED"
+          "needle": "PASS 4/4"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "P7 - W1-C: the castle produces its race's unit, WIRED and live (PROTOCOL 41 -> 42)",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "ef944bd",
+      "check_method": "Every castle emits one free race soldier every ~30 s and the renderer draws it from that seat's race atlas. ONE `raceUnit` CreatureType for all six races (R94/R117 make them stat-identical, so the race is read off `player.raceId`, on the wire since v39) rather than six literals. PROTOCOL bumped 41->42 across all six checklist sites, and the sync gate caught two real mistakes in my own bump before it passed: I destroyed the 40->41 narrative link by replacing it, and I put the new HelloMsg entry in the wrong chronological position, then in the wrong docblock entirely. Per-seat sentinel SpawnerId (-1 - seat), a third cap family RACE_UNIT_MAX_* with `raceUnit` also EXCLUDED from underGoblinCaps' count, and its own explicit call site because the spawner poll iterates a map the sentinel is absent from. Deterministic spread via spreadTargetPos so units do not stack. The frozen differential gate broke on tick 1 exactly as A.0 predicted and was fixed at the FIXTURE (start tick 900, off the recruit cadence) with the equivalence argument written there - never by transcribing into the frozen reference. Five other test files were adjusted and every one was SHARPENED rather than loosened: four used world.creatures.size as a proxy for 'the spawner emitted nothing' while their own titles said drones/chewers/goblins, and one measured a bot's competence by whether its tower SURVIVED 18,000 ticks. GATES: typecheck 0, vitest 0 (3705/3705 across 237), build 0, e2e:gating 0 (62), CI E2E success, verify-deploy PASS 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 42 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 42;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 'raceUnit';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/raceUnitEmit.ts",
+          "needle": "export function castleSpawnerId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "underRaceUnitCaps(world, action.ownerPlayerId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "raceUnitEmitTick(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "ensureRaceAtlas"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/raceUnitEmit.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 12
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "P8 - the twelve per-race zone backgrounds, WIRED and live (R137)",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "8aff165",
+      "check_method": "Each seat's quarter now shows that race's world, chosen per seat from the synced raceId and per board from world.layout (R137: 2P portrait, 4P landscape). ⛔ TWO DEFECTS FOUND ONLY BY LOOKING AT THE RUNNING APP, neither catchable by any test: (1) the backdrop at the bottom of the STAGE rendered a BLACK BOARD in every multiplayer match, because fogRenderer paints unexplored ground in FOG_COLOR = 0x000000 and sits above the board layers - it showed only on the TITLE screen where there is no fog; moved to index 0 of aboveFogLayer, which is also the correct answer since terrain is static public information and fog exists to hide activity, not geography. (2) It was painting half a Carpathian valley behind the MAIN MENU, because seat 0 exists before a match starts; gated on gameState. VERIFIED VISUALLY: all four quarters render correctly in a live 4-bot match. ⚠ The castle emitter could NOT be confirmed in-browser the same way and this is stated rather than glossed: it fires at tick 1800 and the preview pane, being hidden, has requestAnimationFrame fully paused - MEASURED at zero frames in one second with the HUD clock frozen at 1:30. Covered by raceUnitEmit.test.ts instead. GATES: typecheck 0, vitest 0 (3705/3705), build 0 (784.6/900 KiB), verify-deploy PASS 4/4 at 8aff165.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/zoneBackgroundRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "AT INDEX 0 OF `aboveFogLayer`, NOT OF THE STAGE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "NOT ON THE TITLE SCREEN"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new ZoneBackgroundRenderer(app, aboveFogLayer)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "pattern": "zone-\\$\\{race\\}",
+          "op": ">=",
+          "value": 1
         }
       ]
     }
@@ -364,7 +458,7 @@
   },
   "real_context_tokens_at_close": 532567,
   "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "6ddadc4",
+  "checkpoint_commit": "8aff165",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
