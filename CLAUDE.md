@@ -23,9 +23,10 @@ the code in the session that wrote it, not copied from a handoff.
 
 ```bash
 npm run typecheck        # tsc -b --noEmit
-npx vitest run           # the unit suite — 3646 tests / 233 files at S163
+npx vitest run           # the unit suite — 3715 tests / 239 files at S165
 npm run e2e:gating       # Playwright, the deploy-gating subset — 62 tests
 npm run build            # includes the bundle-size charter check
+npm run check:atlas      # S165 — the sprite-sheet pixel guard. NOT part of `build` (see below)
 npm run verify-deploy    # 4/4 with content-hash equality
 npm run probe-relays     # WebSocket handshake against the matchmaking relays
 ```
@@ -33,9 +34,24 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
 - ⛔ **Read every gate's exit code DIRECTLY, never through a pipe.** `cmd | tail -2 && next` reads
   `tail`'s status, not the gate's. S159 shipped a commit past a `hard_fail=2` verdict exactly that
   way. Redirect to a file and echo `$?`.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (900 KiB; 764 KiB
-  used at S159). It is a design constraint, not a platform limit — if a real feature needs the room,
+- ⛔ **AND `[exited with code 0]` FROM THE WRAPPER IS NOT THE GATE'S EXIT CODE.** S165 hit this
+  again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
+  the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
+  Playwright. Only a captured `$?` is a verdict.
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (900 KiB; 784.8 KiB
+  used at S165). It is a design constraint, not a platform limit — if a real feature needs the room,
   raise the charter with a note. Do not contort code to fit it, and never let it block a live deploy.
+  It also now PRINTS the static-asset payload (62 MiB at S165) — reported, never gated, for the
+  reason in the next bullet.
+- ⛔ **AN ASSET-QUALITY OPINION MUST NEVER BLOCK A LIVE DEPLOY, and S165 proved the rule by breaking
+  it.** `check:atlas` (`scripts/check-atlas-scenery.mjs`) reads shipped sprite-sheet PNGs for three
+  defects the suite structurally cannot see: mid-grey scenery welded into a cut-out, cross-row size
+  drift, and opaque near-white pockets the matte left behind. It was wired into `npm run build`, and
+  the Pages deploy went red on `ModuleNotFoundError: No module named 'numpy'` — the Pages runner is a
+  plain Node image. Nothing was caught; the site just sat STALE while the owner waited on new art.
+  It now runs as its own `atlas-guard` job in `e2e.yml`, which installs the pixel toolchain first —
+  so a dirty atlas still turns CI red, and still ships while it does. Locally it needs
+  `pip install numpy scipy Pillow`; without them it exits **3** with that line, not a stack trace.
 
 ## Determinism is the product
 
@@ -118,7 +134,7 @@ writing the line is what proves the check happened.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (38 at S159) and a mismatched peer is REFUSED —
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (42 at S165) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no
 degraded-play path. Consequences:
 
