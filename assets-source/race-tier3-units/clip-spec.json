@@ -1,0 +1,101 @@
+{
+  "_comment": [
+    "SPARK — S165 P3: veo clips for the six TIER-3 TOWER units (R116/R134).",
+    "",
+    "⭐ EVERY CLIP IS SEEDED IMAGE-TO-VIDEO OFF THAT UNIT'S OWN design PNG. That is the mechanism",
+    "behind the owner's binding requirement — *\"make sure the videos are consistent throughout and it",
+    "doesnt show a different character for every frame - important to base them on the same creature",
+    "image!\"* A text prompt alone yields A bat per clip; the actual pixels of t3-vampires-bat.png yield",
+    "THAT bat in all four.",
+    "",
+    "⚠ THE PROMPTS DELIBERATELY RE-DESCRIBE THE CREATURE as well as the motion, because veo drifts",
+    "across a 4-second clip and the clips that drift least are the ones whose prompt keeps restating",
+    "what the creature IS.",
+    "",
+    "⛔ THE DEATH CLIP MUST END STILL, ON THE GROUND, AND IN FRAME. S165 learned this the expensive",
+    "way on the castle units: 'collapses' alone gave veo four seconds of staggering and no landing, and",
+    "three of six death rows had to be re-rolled. Every `die` prompt below therefore states WHEN the",
+    "body must be down (by the halfway point) and WHAT it looks like at rest.",
+    "",
+    "⛔ AND THE ATTACK VERB IS CHOSEN SO THE CREATURE CANNOT ACQUIRE A PROP. The castle vampire's",
+    "attack clip drifted a blade in on THREE separate generations under a bare negative, a stronger",
+    "negative, and an explicit positive; what finally worked was changing the VERB to a bite so the",
+    "jaws were the weapon and the arms had nothing to do. Four of these six attack unarmed for the same",
+    "reason — the bat bites, the piranha rams, the scarab gores, the hound bites, the wraith claws —",
+    "and only the orc raider, whose whole identity is TWIN AXES, is armed at all.",
+    "",
+    "⚠ TWO OF THESE CREATURES DO NOT WALK. The piranha PORPOISES through the ground like a dolphin",
+    "through water and the soul-eater DRIFTS with no legs at all, so their `walk` rows are locomotion",
+    "cycles of the right kind rather than gaits."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "t3-vampires-bat",
+      "seed": "assets-source/race-tier3-units/t3-vampires-bat.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-vampires-bat",
+      "states": {
+        "idle": { "prompt": "The large dark predatory vampire bat hovers in place, beating its broad crimson-veined wings in a slow steady rhythm, head turning as it scans, ears twitching, body bobbing gently with each wingbeat." },
+        "walk": { "prompt": "The large dark predatory vampire bat flies steadily to the right in fast level flight, wings sweeping in a strong regular beat, body angled forward and low, ears flattened by the airflow." },
+        "attack": { "prompt": "The large dark predatory vampire bat surges forward and BITES, jaws snapping wide open to bare its bone-yellow fangs as it lunges head-first, then folds back and beats its wings to recover its hover. The bite is the attack; its clawed wing-thumbs and feet stay tucked and hold nothing." },
+        "die": { "prompt": "The large dark predatory vampire bat is struck in mid-air. Its wings crumple, it tumbles and FALLS ONTO THE GROUND. It is already fully down by the middle of the clip. For the entire second half it lies CRUMPLED AND MOTIONLESS on the ground, one wing folded under it and the other splayed flat, completely inside the frame. It does not fly again and is not airborne at the end." }
+      }
+    },
+    {
+      "name": "t3-nagas-piranha",
+      "seed": "assets-source/race-tier3-units/t3-nagas-piranha.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-nagas-piranha",
+      "states": {
+        "idle": { "prompt": "The fat armoured teal piranha hovers nose-down in place, tail sculling in small quick strokes, gills flaring, jagged bone-yellow teeth working, small furious amber eyes fixed forward." },
+        "walk": { "prompt": "The fat armoured teal piranha PORPOISES to the right in repeating arcs — diving down out of sight, then bursting back up nose-first into a high arc and diving again, like a dolphin breaking the surface, its body curving through each leap and its stiff fins spread." },
+        "attack": { "prompt": "The fat armoured teal piranha lunges forward and RAMS, its heavy overshot jaw gaping wide to bare rows of jagged bone-yellow teeth, snapping shut hard on the air, then whipping its tail to pull back into its hover. Its jaws are the whole attack and it carries nothing." },
+        "die": { "prompt": "The fat armoured teal piranha is struck. It thrashes once, its fins go limp, and it DROPS ONTO THE GROUND. It is already fully down by the middle of the clip. For the entire second half it lies FLAT AND MOTIONLESS on its side on the ground, mouth slack and gills still, completely inside the frame. It does not swim again." }
+      }
+    },
+    {
+      "name": "t3-mummies-scarab",
+      "seed": "assets-source/race-tier3-units/t3-mummies-scarab.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-mummies-scarab",
+      "states": {
+        "idle": { "prompt": "The big lapis-and-gold armoured scarab beetle sits low in place, antennae probing the air in small sweeps, its six barbed legs shifting its weight slightly, wing-cases twitching with an iridescent green-gold sheen." },
+        "walk": { "prompt": "The big lapis-and-gold armoured scarab beetle scuttles quickly to the right on its six barbed legs in a fast rippling gait, carapace held low and level, antennae streaming back, gold banding catching the light." },
+        "attack": { "prompt": "The big lapis-and-gold armoured scarab beetle rears up onto its back legs and GORES forward with the heavy horn on its head-shield in a hard upward thrust, then drops back down onto all six legs. Its horn is the whole attack and it carries nothing." },
+        "die": { "prompt": "The big lapis-and-gold armoured scarab beetle is struck. Its legs buckle and it ROLLS ONTO ITS BACK ON THE GROUND. It is already fully down by the middle of the clip. For the entire second half it lies UPSIDE DOWN AND MOTIONLESS on the ground, six legs curled stiffly upward and still, completely inside the frame. It does not right itself." }
+      }
+    },
+    {
+      "name": "t3-zombies-hound",
+      "seed": "assets-source/race-tier3-units/t3-zombies-hound.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-zombies-hound",
+      "states": {
+        "idle": { "prompt": "The gaunt rotting zombie hound stands braced in place, head low and swinging slowly side to side, ribs heaving with each breath, torn ears flicking, cracked claws kneading the ground, lips twitching back off its bone-yellow teeth." },
+        "walk": { "prompt": "The gaunt rotting zombie hound charges to the right at a hard low gallop, head down and level with its shoulders, whip-thin tail streaming behind, mangy patchy fur rippling, its studded collar swinging." },
+        "attack": { "prompt": "The gaunt rotting zombie hound lunges forward and BITES, jaws snapping wide open to bare its jagged bone-yellow teeth, head driving forward, then recoiling low into its braced stance ready to lunge again. Its jaws are the whole attack." },
+        "die": { "prompt": "The gaunt rotting zombie hound is struck. It yelps, its legs give way, and it COLLAPSES ONTO THE GROUND. It is already fully down by the middle of the clip. For the entire second half it lies SPRAWLED FLAT AND MOTIONLESS on its side on the ground, legs limp and head resting on the ground, completely inside the frame. It does not get up." }
+      }
+    },
+    {
+      "name": "t3-orcs-warband",
+      "seed": "assets-source/race-tier3-units/t3-orcs-warband.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-orcs-warband",
+      "states": {
+        "idle": { "prompt": "The heavy orc warband raider stands braced in place with a hand axe held ready in each fist, chest heaving, shoulders rolling, shifting his weight from foot to foot, tusks bared and the braided topknot swinging." },
+        "walk": { "prompt": "The heavy orc warband raider charges to the right at a reckless full tilt with heavy pounding strides, both hand axes swinging at his sides, shoulders driving forward, topknot bouncing." },
+        "attack": { "prompt": "The heavy orc warband raider swings BOTH hand axes in a brutal alternating double chop — the right axe hacking down, then the left crossing after it — then recovers to his braced two-axe guard. He keeps a firm grip on both axes throughout and never drops or throws them." },
+        "die": { "prompt": "The heavy orc warband raider is struck. He bellows, both axes fall from his hands and clatter onto the ground, and he PITCHES FORWARD AND FALLS FULL-LENGTH FACE-DOWN ONTO THE GROUND. He is already flat by the middle of the clip. For the entire second half he lies FACE-DOWN, FLAT AND COMPLETELY MOTIONLESS, arms sprawled, both axes lying on the ground beside him, everything inside the frame. He does not get up and is NOT standing at any point in the second half." }
+      }
+    },
+    {
+      "name": "t3-demons-souleater",
+      "seed": "assets-source/race-tier3-units/t3-demons-souleater.png",
+      "outDir": "assets-source/race-tier3-units/clips/t3-demons-souleater",
+      "states": {
+        "idle": { "prompt": "The faceless hooded wraith hovers in place just above the ground, its tattered violet robes stirring and its smoke-trailing lower body coiling slowly beneath it, the two narrow slits of magenta light in its empty hood drifting as it turns, skeletal hands flexing." },
+        "walk": { "prompt": "The faceless hooded wraith DRIFTS steadily to the right just above the ground, weightless and smooth with no walking motion at all, its ragged robes and trailing smoke streaming out behind it, hood tilted forward." },
+        "attack": { "prompt": "The faceless hooded wraith surges forward and CLAWS, both long skeletal hands raking out ahead of it with fingers hooked, the magenta light in its hood flaring bright, then withdrawing into its slow hover. Its bare hands are the whole attack and it holds nothing." },
+        "die": { "prompt": "The faceless hooded wraith is struck. The magenta light in its hood gutters out, its form loses cohesion, and it SINKS DOWN ONTO THE GROUND. It is already fully down by the middle of the clip. For the entire second half it lies COLLAPSED AND MOTIONLESS on the ground, robes settled flat in a heap and the last wisps of smoke thinning away, completely inside the frame. It does not rise again." }
+      }
+    }
+  ]
+}

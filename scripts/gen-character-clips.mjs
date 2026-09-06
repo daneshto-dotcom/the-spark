@@ -57,7 +57,20 @@ import { homedir } from 'node:os';
 
 const PREDICT = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLongRunning';
 const OPERATION = 'https://generativelanguage.googleapis.com/v1beta/{name}';
-const MODEL = 'veo-3.1-generate-preview'; // strongest tier — quality over cost (ALWAYS-STRONGEST)
+/**
+ * ⭐ STRONGEST TIER BY DEFAULT (ALWAYS-STRONGEST), OVERRIDABLE WHEN IT IS EXHAUSTED.
+ *
+ * `veo-3.1-generate-preview` stays the default and should stay the default: quality over cost is
+ * the standing rule. But the three veo variants have SEPARATE quota pools, measured S165 — the full
+ * model answered 429 RESOURCE_EXHAUSTED while `-fast` and `-lite` both accepted the same request on
+ * the same key in the same second. When the strongest tier is exhausted the choice is not
+ * "quality vs cost", it is "a lesser tier or NO CLIP AT ALL", and that is the owner's call to make
+ * with a side-by-side in front of him rather than mine to make silently.
+ *
+ * Set VEO_MODEL to override, e.g. VEO_MODEL=veo-3.1-fast-generate-preview.
+ * Whatever ran is printed at startup, so a clip's provenance is never a guess.
+ */
+const MODEL = process.env.VEO_MODEL ?? 'veo-3.1-generate-preview';
 
 /** Read from the MCP server's env; never written to disk, never logged. */
 function apiKey() {
@@ -264,7 +277,7 @@ function collect(job) {
 /* ── SUBMIT IN BATCHES, POLLING AS SLOTS FREE ─────────────────────────────────────────────────── */
 const queue = [...jobs];
 const inFlight = [];
-console.log(`\n${queue.length} clip(s) to generate, ${CONCURRENCY} at a time...\n`);
+console.log(`\n${queue.length} clip(s) to generate on ${MODEL}, ${CONCURRENCY} at a time...\n`);
 
 for (let round = 0; round < 200 && (queue.length > 0 || inFlight.length > 0); round++) {
   // Fill the free slots.

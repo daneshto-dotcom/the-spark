@@ -142,17 +142,42 @@ restated correctly** or the next session will rely on a sentence that is not tru
 
 ---
 
-## 9. OPEN — OWNER TERRITORY, NOT MINE TO DECIDE
+## 9. WHAT IS ACTUALLY OPEN — AND ONE THAT WAS NOT
 
-1. **What happens to an eliminated seat's race units?** `state/elimination.ts` is intent-policy only
-   and contains **zero** references to `creature`. Nothing removes them. With persistent, uncapped
-   units a dead seat keeps ~90 autonomous fighters on the board — the exact kingmaker problem
-   elimination was written to prevent. (a) despawn, (b) freeze, or (c) keep fighting?
-2. **Is "uncapped" (R123) acceptable at its measured wire cost?** `constants.ts:1263-1267` records
-   ~180 B per creature and states the only guard is a **12-chewer fixture**, explicitly *"not a
-   runtime budget"*. At `NET_SNAPSHOT_HZ = 10` the spec's own population projection is **~65 KB every
-   100 ms**. R123 was ruled without that number in front of the owner.
-3. **The tier-3 stat numbers (R135).** Still unruled. Art only until they exist.
+### ⛔ CLOSED. A dead seat's units KEEP FIGHTING. Already ruled, and I asked anyway.
+
+> `ruling_cf_s161_a` — *"Keep fighting (status quo) — a fallen seat's towers/creatures/spawners keep
+> acting until razed. OF-3 therefore closes as ruled-intentional: the castle gun is silent because
+> the castle is DESTROYED, not because the seat is eliminated."*
+
+The A.0 lane raised this as an open owner question and **I put it to the owner without grepping the
+archive first** — which this project's CLAUDE.md forbids in as many words: *"Before asking for a
+ruling, grep the archive for it."* S158 was pulled up for exactly this and it cost the owner the
+same annoyance twice.
+
+⚠ **And the lane's underlying observation was correct while its conclusion was wrong.**
+`state/elimination.ts` really does contain zero references to `creature`, and `isEliminated` really
+does have only two consumers. But that is not a gap — **it is what "keep fighting" looks like when
+it is implemented.** Nothing needs to reap them because nothing is supposed to. The kingmaker
+consequence was named in the ruling's own discussion and accepted.
+
+⇒ For W1-C this means: the castle emitter must stop emitting when the castle is destroyed (the
+castle is gone), but the units already on the board are **left alone**. No despawn pass, no freeze
+flag, no new state. That is less work, not more.
+
+### Still genuinely open
+
+1. **How big can the network message get before it hurts?** — plain version below.
+   Every 1/10th of a second the host sends every player a full picture of the board, and each
+   creature on it costs about **180 bytes**. Today the only thing guarding that size is a **test
+   fixture with 12 creatures in it** — the constant's own comment says it is *"not a runtime
+   budget"*. R123 says race units are uncapped and live until killed, so a long 4-player match could
+   reach a few hundred creatures, and at that point the ten-times-a-second message is on the order of
+   **65 KB** — roughly 650 KB/s down to every player. That is very likely fine on a desktop and it is
+   NOT a reason to add a cap. It is only worth a number in front of the owner **before** the emitter
+   ships, because R123 was ruled without one, and the cheap answer if it ever does bite is to trim
+   what a creature puts on the wire, not to cap the population.
+2. **The tier-3 stat numbers (R135).** Still unruled. Art only until they exist.
 
 ## 10. THINGS TO BUILD THAT NOBODY HAD LISTED
 
