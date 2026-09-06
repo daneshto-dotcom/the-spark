@@ -240,9 +240,34 @@ describe('S151 P2 — the targeting matrix is ONE table (owner R72)', () => {
     expect(creatureCanTarget(type, 'structures')).toBe(true);
   });
 
-  it('the LASER TURRET attacks BOTH', () => {
+  /**
+   * ⚠ THIS PINS THE RULING, NOT THE CODE, and after S165 that distinction is written down rather
+   * than assumed. R72 says the laser turret *"does both"*; the shipped beam is creature-only (see
+   * the note on DEFENDER_TARGETS). This table is a spec with no production consumer, so the gap
+   * costs nothing at runtime — but the ruling stays recorded here so implementing it later is a
+   * lookup rather than an archaeology exercise.
+   */
+  it('the LASER TURRET attacks BOTH (R72 — ruling, ahead of the beam)', () => {
     expect(defenderCanTarget('turret', 'units')).toBe(true);
     expect(defenderCanTarget('turret', 'structures')).toBe(true);
+  });
+
+  /**
+   * ⛔ S165 — THE ENTRY THIS REPLACES SAID `units` ONLY, AND THE CODE HAS ALWAYS DISAGREED.
+   *
+   * `stinkThrowBag` calls `applyRadialDamage(world, x, y, STINK_BAG_RADIUS, STINK_BAG_DAMAGE, ...)`
+   * — the fifth argument is the PRIMITIVE amount, so every bag does 150 to every structure in the
+   * blast. `defenderLifecycle.ts` states it at the call site too. The table was the only thing in
+   * the repository claiming otherwise, and it claimed it in a sentence beginning "it has never
+   * had a structure-attack path".
+   *
+   * ⭐ Pinned as a TEST rather than only fixed in place, because the thing that went wrong was a
+   * confident comment nobody re-measured. This one fails if the splash ever stops being a
+   * structure-breaker, which is the only way the old sentence could become true.
+   */
+  it('the STINK TOWER attacks BOTH — its bag splash damages primitives', () => {
+    expect(defenderCanTarget('stinkTower', 'units')).toBe(true);
+    expect(defenderCanTarget('stinkTower', 'structures')).toBe(true);
   });
 
   /**

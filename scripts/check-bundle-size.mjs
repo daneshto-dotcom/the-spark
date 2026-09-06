@@ -12,7 +12,7 @@
 // To change the cap: bump CAP_KIB here AND update the bundle clause in LOCKED_DECISIONS.md. Both
 // moving together is the point — the charter is no longer a number that drifts in prose.
 
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -75,4 +75,49 @@ if (headroomKib < WARN_HEADROOM_KIB) {
     + `Per S101 policy, RAISE the charter NOW (CAP_KIB + LOCKED_DECISIONS clause) before it hard-fails a deploy.`,
   );
 }
+/*
+ * ⭐ S165 — THE STATIC PAYLOAD, REPORTED. A sweep asked why a "bundle charter" says nothing about
+ * the 63 MB of `public/` that ships beside the bundle, and the honest answer was that nobody had
+ * ever looked. This prints it.
+ *
+ * ⛔ REPORTED, NOT GATED, AND THAT IS DELIBERATE — the same session learned this the hard way. An
+ * asset guard wired into `npm run build` took the live deploy down over a missing pip package, and
+ * the site sat stale while the owner waited on new art. An art budget must never be able to stop a
+ * ship. This line exists so the number is VISIBLE on every build instead of invisible until it is a
+ * problem; the JS entry chunk remains the only thing with teeth.
+ *
+ * ⚠ AND IT IS NOT AN INITIAL-LOAD NUMBER. Every atlas and backdrop here is fetched on demand — a
+ * player who never sees a mummies zone never downloads one. Read it as total hosted weight (a
+ * Pages-quota and cache-churn figure), never as what the first frame costs.
+ */
+const walk = (dir) => {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, e.name);
+    if (e.isDirectory()) out.push(...walk(full));
+    else out.push([full, statSync(full).size]);
+  }
+  return out;
+};
+try {
+  const all = walk(dist);
+  const isCode = (f) => /\.(js|css|html|map)$/i.test(f);
+  const assets = all.filter(([f]) => !isCode(f));
+  const total = assets.reduce((a, [, b]) => a + b, 0);
+  const mib = (b) => (b / (1024 * 1024)).toFixed(1);
+  const byDir = new Map();
+  for (const [f, b] of assets) {
+    const rel = f.slice(dist.length + 1).split(String.fromCharCode(92)).join('/');
+    const key = rel.split('/').slice(0, 2).join('/');
+    byDir.set(key, (byDir.get(key) ?? 0) + b);
+  }
+  const top = [...byDir].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  console.log(
+    `[bundle] static assets (NOT gated, NOT initial-load): ${mib(total)} MiB across `
+    + `${assets.length} files — ${top.map(([k, b]) => `${k} ${mib(b)}M`).join(', ')}`,
+  );
+} catch {
+  // A missing or unreadable dist subtree is not a reason to fail a build that already passed.
+}
+
 console.log('[bundle] OK — under charter.');

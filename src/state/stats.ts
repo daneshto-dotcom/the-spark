@@ -301,13 +301,34 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
  * The same table for towers. Owner R72 names only the laser turret explicitly (*"does both"*).
  *
  * HELGA is `units` only — she is the one unambiguous entry in the whole ruling.
- * The STINK TOWER is `units` only too, and that is shipped behaviour rather than a new decision: it
- * is the AREA denier, its bags splash creatures, and it has never had a structure-attack path.
+ *
+ * ⛔ S165 — THIS TABLE HAS NO PRODUCTION CONSUMER, AND SAYING SO IS THE POINT. Its accessor
+ * `defenderCanTarget` is called by `stats.test.ts` and by nothing else; the creature half of this
+ * module IS live (`creatureCanTarget` is used by `hostTick.ts`). So this half is a SPEC of what the
+ * roster should do, not a description of what it does — and a swept audit that reads it as
+ * behaviour will be wrong twice, in opposite directions. Both are recorded below.
+ *
+ * ⛔ S165 — THE STINK TOWER ENTRY WAS FACTUALLY WRONG AND IS CORRECTED HERE. It said `units` only
+ * and justified itself with *"it has never had a structure-attack path"*. It has one and it always
+ * did: `stinkThrowBag` calls `applyRadialDamage(..., STINK_BAG_DAMAGE, ...)`, and that argument is
+ * the PRIMITIVE amount — 150 damage to every structure in the blast. `defenderLifecycle.ts` says so
+ * in as many words at the call site (*"unlike the turret beam it damages primitives, so it can chew
+ * an enemy build"*), so the repository has been asserting both facts at once. The call site is
+ * right.
+ *
+ * ⚠ AND THE TURRET ENTRY IS AN OWNER RULING THE CODE HAS NOT CAUGHT UP TO — kept as `BOTH` for
+ * exactly that reason. R72 says the laser turret *"does both"*, but the beam
+ * (`defenderLifecycle.ts`, the `else` arm of the stink branch) calls `damageEntity` with
+ * `{ kind: 'creature' }` and has no structure arm at all. Erasing the ruling to match the code
+ * would delete the owner's decision to make an audit quiet; implementing it is a balance change and
+ * belongs in its own priority. Logged as a carry-forward, NOT silently dropped.
  */
 export const DEFENDER_TARGETS: Readonly<Record<DefenderKind, ReadonlySet<TargetClass>>> = {
   princess: UNITS_ONLY,
+  /** ⚠ R72's ruling. NOT YET IMPLEMENTED — the beam is creature-only today. See above. */
   turret: BOTH,
-  stinkTower: UNITS_ONLY,
+  /** ⭐ S165 — corrected from UNITS_ONLY. The bag splash deals STINK_BAG_DAMAGE to primitives. */
+  stinkTower: BOTH,
 };
 
 /** What each unit is FOR (owner R77's "role"). Exhaustive — a new unit must declare one. */

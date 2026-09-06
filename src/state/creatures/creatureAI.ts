@@ -725,6 +725,21 @@ export function nearestEnemyStinkCloudWithin(
  */
 export function ownHomePos(world: World, creature: Creature): Vec2 | null {
   if (creature.sourceSpawnerId !== null) {
+    /*
+     * ⭐ S165 — AND THE CASTLE SENTINEL FALLS THROUGH HERE, WHICH IS BOTH SAFE AND RIGHT.
+     *
+     * A race unit carries `castleSpawnerId(seat)` = a NEGATIVE id that names no entry in
+     * `creatureSpawners` — it is a provenance marker, not a spawner. So this `get` returns
+     * undefined and the function drops to the castle-anchor branch below, which is exactly where a
+     * castle-born unit should run home to. Worth stating because it reads like an oversight: the
+     * code has no explicit sentinel test and does not need one, and adding an import for
+     * `isCastleSpawnerId` here would make `creatures/` depend on `raceUnitEmit.ts`, which already
+     * depends on THIS file.
+     *
+     * ⚠ The property that makes it safe is that the lookup is TOTAL — every miss has a defined
+     * answer. Any future branch that instead assumes a non-null id names a real spawner will be
+     * wrong for race units, and will be wrong silently.
+     */
     const spawner = world.creatureSpawners.get(creature.sourceSpawnerId);
     if (spawner !== undefined) {
       const anchor = world.primitives.get(spawner.anchorPrimitiveId);

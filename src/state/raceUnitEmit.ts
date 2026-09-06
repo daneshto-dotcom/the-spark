@@ -91,6 +91,24 @@ export function isCastleSpawnerId(id: SpawnerId | null): boolean {
   return id !== null && (id as unknown as number) < 0;
 }
 
+/*
+ * ⚠ S165 — NO PRODUCTION CALLER, AND THAT IS THE HONEST STATUS RATHER THAN AN OVERSIGHT.
+ *
+ * A sweep flagged this as a dead export. It is exercised only by `raceUnitEmit.test.ts`, and it
+ * stays for two reasons worth more than the line costs:
+ *
+ *   1. It is the READABLE INVERSE of `castleSpawnerId` and lives beside it, so the encoding
+ *      (`-1 - seat`) is decided in one place. A future reader who needs the test will find it
+ *      rather than open-coding `< 0` somewhere the sign convention is not visible.
+ *   2. The one production site where a castle sentinel meets a spawner lookup —
+ *      `ownHomePos` in `creatures/creatureAI.ts` — CANNOT call it: that file is upstream of this
+ *      one in the import graph, so using it there would close a cycle. The reasoning lives as a
+ *      comment there instead.
+ *
+ * ⭐ If a consumer ever appears BELOW this module in the graph, this is the predicate to use — do
+ * not re-derive the sign test at the call site.
+ */
+
 /**
  * How many ticks since this seat's castle last produced, in `[0, interval)`.
  *

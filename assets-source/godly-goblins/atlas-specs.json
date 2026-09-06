@@ -1,8 +1,8 @@
 {
   "_comment": [
-    "SPARK — S152 P3 atlas specs, one entry per character, consumed by scripts/build-sprite-atlas.mjs.",
+    "SPARK â€” S152 P3 atlas specs, one entry per character, consumed by scripts/build-sprite-atlas.mjs.",
     "RETAINED IN-TREE: S151 shipped three atlases and kept no spec, so they could not be rebuilt or",
-    "retuned — which is exactly why the owner's 'redo the stink tower' needed a full regeneration.",
+    "retuned â€” which is exactly why the owner's 'redo the stink tower' needed a full regeneration.",
     "ticksPerFrame values match the shipped melee/archer atlases so the new goblins animate at the",
     "same cadence as their siblings: idle 7, walk 4, attack 5 (the stink tower keeps its own 6 / 4).",
     "cellW is a FLOOR, not a cap: the builder widens it to fit a prop at full character height, which",
@@ -66,7 +66,7 @@
         "The FLYER. There is no altitude support in goblinRenderer: footAnchor.y is forced to ~0.995",
         "by the builder and the sprite is planted on c.pos.y, so without help the bat's feet sit on",
         "the ground. S152 P3 adds a per-type LIFT in the renderer rather than trying to bake headroom",
-        "into the cell — the builder's union-bbox crop would remove baked headroom anyway."
+        "into the cell â€” the builder's union-bbox crop would remove baked headroom anyway."
       ],
       "name": "goblin-batrider",
       "outDir": "public/godly/goblin-batrider/anim",
@@ -95,7 +95,7 @@
     {
       "_why_stink": [
         "REBUILT ON OWNER INSTRUCTION ('the currently implemented stink tower is shit'). Same output",
-        "path as the shipped one so stinkTowerRenderer needs no change — this REPLACES the atlas whose",
+        "path as the shipped one so stinkTowerRenderer needs no change â€” this REPLACES the atlas whose",
         "branch count changed between frames. Two states only: the renderer has no walk for a tower.",
         "Cell 240 matches the shipped manifest."
       ],
@@ -154,7 +154,7 @@
   "_sampleWindow_note": [
     "sampleWindow values are MEASURED from contact sheets, not chosen. veo holds an image-to-video seed",
     "for roughly the first second then drifts, and the ATTACK clip is worst in every character because",
-    "the renderer HOLDS an attack's final frame through the recovery half of the cadence — a degraded",
+    "the renderer HOLDS an attack's final frame through the recovery half of the cadence â€” a degraded",
     "last frame is therefore the pose on screen longest. Clips are 4s @ 24fps = 96 frames.",
     "shield/attack 30: it zoomed out AND slid across frame, inflating the shared union bbox to 1187px",
     "and shrinking every other state with it. batrider all 36: the goblin turned spindly and washed out",
@@ -166,5 +166,36 @@
     "chosen: on the bat rider the enclosed BACKGROUND pockets are 446-14291px while every real feature",
     "(eyes, teeth, spear glints) is <=24px - an 18x gap, so any threshold between them is safe.",
     "The builder default stays 0.003 so the shipped melee/archer atlases cannot regress."
+  ],
+  "_unspecced_atlases_note": [
+    "S165 AUDIT — the gap the _comment above admits, now NAMED and MEASURED. It said 'three atlases",
+    "and kept no spec'. It is FOUR, and they are not one problem but two, with different remedies.",
+    "",
+    "SPECCED HERE (rebuildable today): goblin-shield, goblin-sapper, goblin-batrider, goblin-hound,",
+    "stink-tower.",
+    "",
+    "A. UNSPECCED BUT RECOVERABLE - the source clips are still in-tree, so a spec is the only missing",
+    "   piece and writing one restores full reproducibility:",
+    "     helga      -> public/godly/helga/anim/helga-atlas.png  2652x768",
+    "                   clips: assets-source/godly-helga/{idle,slap,walk}.mp4  (3 states)",
+    "                   implied cell 221x256, 12 frames/state - DERIVED from the sheet, NOT verified",
+    "                   by a rebuild, which is exactly why it is recorded rather than committed as a",
+    "                   spec. The matte knobs (enclosedWhiteLimitPct, sampleWindow) are unrecoverable",
+    "                   from the PNG and would be guesses; a guessed spec that silently produces",
+    "                   WORSE art than what shipped is a worse outcome than no spec.",
+    "     stink-bag  -> public/godly/stink-bag/anim/stink-bag-atlas.png  1536x128",
+    "                   clips: assets-source/stink-bag/clips/{stink-bag,stink-bag-breathe,",
+    "                   stink-bag-tight-a,stink-bag-tight-b}  implied cell 128x128, 12 frames, 1 row.",
+    "",
+    "B. UNSPECCED AND UNRECOVERABLE - no source clips exist anywhere under assets-source/, so these",
+    "   two cannot be rebuilt at any effort short of regenerating the character from scratch:",
+    "     goblin-archer -> public/godly/goblin-archer/anim/goblin-archer-atlas.png",
+    "     goblin-melee  -> public/godly/goblin-melee/anim/goblin-melee-atlas.png",
+    "   Treat the shipped PNGs as the masters. Do not delete them, and do not assume a regeneration",
+    "   will match - it will be a NEW character, and the roster's look would drift.",
+    "",
+    "CARRY-FORWARD: write + REBUILD-VERIFY specs for the two in (A). The verification is the work,",
+    "not the JSON: build to a scratch dir and diff cell geometry and alpha coverage against the",
+    "shipped sheet before committing the spec."
   ]
 }
