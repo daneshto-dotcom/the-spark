@@ -38,9 +38,38 @@ import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const dirs = process.argv.slice(2);
+/**
+ * ⛔ SCOPE — THIS GUARD IS FOR **CHARACTER** ATLASES, AND POINTING IT AT STRUCTURES CRIES WOLF.
+ *
+ * Both checks rest on assumptions that only hold for characters, and S165 proved it by running the
+ * guard over the six tier-3 TOWERS and getting two confident false positives:
+ *
+ *   · SCENERY on `t3destroy-orcs` (5,809 px) — that is the SMOKE of a burning hut. Deliberate
+ *     foreground art, and grey, blocky and opaque exactly like a wall. There is no automatic
+ *     discriminator between "veo invented a stone pillar" and "the artist asked for smoke".
+ *   · SIZE MISMATCH `destroyed=0.80x` on two towers — which is CORRECT. Check 2 assumes every row is
+ *     the same pose seeded off one image, so a size difference is veo error. A tower's four rows are
+ *     four separate DRAWINGS of a building in different conditions, and rubble is SUPPOSED to be
+ *     shorter than the intact building.
+ *
+ * A guard that fires on healthy art teaches people to ignore it, which is worse than no guard. So
+ * structures are audited BY EYE on a contact sheet, and the flags below exist to say so explicitly
+ * at the call site rather than silently widening a threshold until the noise stops.
+ *
+ *   --no-size          skip check 2 (rows are conditions, not seeded states)
+ *   --allow-scenery N  tolerate up to N px of grey blocks (deliberate smoke, dust, ash)
+ */
+const argv = process.argv.slice(2);
+const noSize = argv.includes('--no-size');
+const allowIdx = argv.indexOf('--allow-scenery');
+const allowScenery = allowIdx >= 0 ? Number(argv[allowIdx + 1]) : 0;
+if (allowIdx >= 0 && !Number.isFinite(allowScenery)) {
+  console.error('[atlas] --allow-scenery needs a number');
+  process.exit(2);
+}
+const dirs = argv.filter((a, i) => !a.startsWith('--') && !(allowIdx >= 0 && i === allowIdx + 1));
 if (dirs.length === 0) {
-  console.error('usage: node scripts/check-atlas-scenery.mjs <dir> [<dir>...]');
+  console.error('usage: node scripts/check-atlas-scenery.mjs [--no-size] [--allow-scenery N] <dir> [<dir>...]');
   process.exit(2);
 }
 
@@ -113,14 +142,16 @@ let sized = 0;
 
 console.log('[atlas] 1/2 — opaque mid-grey BLOCKS welded to the sprite (the matte cannot remove these)\n');
 for (const [path, [total, largest]] of Object.entries(res)) {
-  const verdict = total === 0 ? 'clean' : 'SCENERY';
-  if (total > 0) bad++;
+  const verdict = total <= allowScenery ? 'clean' : 'SCENERY';
+  if (total > allowScenery) bad++;
   console.log(`  ${verdict.padEnd(8)} ${String(total).padStart(7)} px  (largest ${String(largest).padStart(6)})  ${path}`);
 }
 
-console.log('\n[atlas] 2/2 — cross-row SEED-SIZE consistency (frame 0 is the same pose in every row)\n');
+console.log(noSize
+  ? '\n[atlas] 2/2 — SKIPPED (--no-size: these rows are conditions, not states seeded off one image)\n'
+  : '\n[atlas] 2/2 — cross-row SEED-SIZE consistency (frame 0 is the same pose in every row)\n');
 for (const [path, [, , heights]] of Object.entries(res)) {
-  if (!heights || heights.length === 0) continue;
+  if (noSize || !heights || heights.length === 0) continue;
   const hs = heights.map(([, h]) => h).filter((h) => h > 0).sort((a, b) => a - b);
   if (hs.length === 0) continue;
   const med = hs[Math.floor(hs.length / 2)];
@@ -142,4 +173,8 @@ if (sized > 0) {
   console.error('        makes the normaliser under-estimate and over-shrink the row.');
 }
 if (bad > 0 || sized > 0) process.exit(1);
-console.log(`[atlas] OK — ${files.length} atlas(es) clean on both checks.`);
+// ⚠ Say WHICH checks actually ran. "clean on both checks" when only one ran is exactly the kind of
+// false assurance this repo has been bitten by before (a gate that FAILED read as passing, S161).
+const ran = noSize ? 'the scenery check' : 'both checks';
+const tol = allowScenery > 0 ? ` (scenery tolerance ${allowScenery} px)` : '';
+console.log(`[atlas] OK — ${files.length} atlas(es) clean on ${ran}${tol}.`);

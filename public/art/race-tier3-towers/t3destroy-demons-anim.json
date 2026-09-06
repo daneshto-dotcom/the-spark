@@ -1,0 +1,15 @@
+{
+  "cellW": 256,
+  "cellH": 256,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9961
+  },
+  "states": {
+    "destroy": {
+      "row": 0,
+      "frames": 12,
+      "ticksPerFrame": 4
+    }
+  }
+}

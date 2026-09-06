@@ -1,0 +1,80 @@
+{
+  "_comment": [
+    "SPARK — S165 P4b: the SIX TOWER DESTRUCTION CINEMATICS.",
+    "",
+    "⭐ THE OWNER ASKED FOR THESE BY NAME: *\"they all get destroyed with different cinematic,. pyramid",
+    "dissapears in a sand storm/sand devil. kennel turns to ooze. etc etc.... be super creative and work",
+    "in the style feel and vision of this project.\"*",
+    "",
+    "⭐ EACH CLIP IS SEEDED OFF THAT TOWER'S OWN `-damaged` STILL, not its intact one. The cinematic is",
+    "the transition a player actually sees — the board already holds the damaged state by the time a",
+    "tower dies — so starting there means the first frame of the clip matches the sprite already on",
+    "screen, and the last frame lands on the `-destroyed` still that replaces it. Seeding off intact",
+    "would make the tower visibly repair itself for one frame before collapsing.",
+    "",
+    "⛔ AND THE LAST FRAME MUST BE THE AFTERMATH, HELD STILL. The atlas builder samples evenly across",
+    "the clip, so a cinematic that is still collapsing at the end gives the renderer a final frame that",
+    "does not match the destroyed sprite it hands over to. Every prompt below therefore says the",
+    "collapse is COMPLETE by roughly two thirds in, and the remaining time is the settled aftermath.",
+    "",
+    "⚠ NOT A CUTSCENE. The owner's standing ruling on the boss towers applies to the same surface: the",
+    "sim keeps running underneath, so these are short and local — no camera move, no zoom, no",
+    "letterbox, nothing that implies the game paused.",
+    "",
+    "⚠ THE DESTRUCTION IS THE RACE'S, NOT A GENERIC EXPLOSION. Two are the owner's own words (the",
+    "pyramid's sand devil, the kennel's ooze); the other four follow the table in design-spec.json",
+    "`_destruction` so each species dies in its own material."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "t3tower-vampires",
+      "seed": "assets-source/race-tier3-towers/t3-vampires-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-vampires",
+      "states": {
+        "destroy": { "prompt": "A single cartoon vampire bat-roost tower on a seamless blank sheet of pure white paper that fills the entire frame. The cracked violet-grey crag shudders, its gothic arch splits, and the whole roost COLLAPSES INWARD ON ITSELF, stone folding down into a low mound while a scatter of ragged bats bursts out of the cave mouth and flees away low. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled ruin sits motionless — a low heap of shattered violet stone with one lancet arch half-buried on its side and twisted black iron spikes tangled in it, only a dying crimson ember-glow deep in the cavity. Nothing moves at the end and nothing is mid-fall. Everything that is not the tower is flat white paper." }
+      }
+    },
+    {
+      "name": "t3tower-nagas",
+      "seed": "assets-source/race-tier3-towers/t3-nagas-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-nagas",
+      "states": {
+        "destroy": { "prompt": "A single cartoon naga spawning pool on a seamless blank sheet of pure white paper that fills the entire frame. The cracked basalt basin splits open and the water DRAINS AWAY DOWN INTO A DARK SINKHOLE at its centre, swirling as it goes, while the carved rim breaks into pieces that fall outward and land flat on the ground. The draining is COMPLETE by two thirds of the way through: for the rest of the clip the empty ruin sits motionless — a cracked dry bowl lined with grey dead coral and burst egg-cases, three broken rim pieces lying flat around it, a bronze serpent-head on its side in the silt, and only a damp cyan stain at the sinkhole's lip. Nothing moves at the end. Everything that is not the pool is flat white paper." }
+      }
+    },
+    {
+      "name": "t3tower-mummies",
+      "seed": "assets-source/race-tier3-towers/t3-mummies-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-mummies",
+      "states": {
+        "destroy": { "prompt": "A single cartoon stepped sandstone pyramid on a seamless blank sheet of pure white paper that fills the entire frame. A spiralling SAND DEVIL rises around the pyramid, a whirling column of ochre dust that scours it away course by course, the blocks dissolving into the spinning sand as it turns. The whirlwind dies down by two thirds of the way through: for the rest of the clip only a low settled drift of ochre sand remains, motionless, with the broken lower courses of two walls and the cracked lapis lintel just showing above the dune and a few scattered blocks lying flat around the edge. The air is still at the end and no sand is moving. Everything that is not the pyramid and its sand is flat white paper." }
+      }
+    },
+    {
+      "name": "t3tower-zombies",
+      "seed": "assets-source/race-tier3-towers/t3-zombies-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-zombies",
+      "states": {
+        "destroy": { "prompt": "A single cartoon rotting zombie kennel on a seamless blank sheet of pure white paper that fills the entire frame. The warped timber hovel sags, softens and MELTS DOWNWARD INTO THICK GREEN OOZE, the planks slumping and liquefying as the whole structure runs out flat across the ground in a spreading glossy pool. The melting is COMPLETE by two thirds of the way through: for the rest of the clip the pool lies still and level, a wide flat sheet of sickly green-brown sludge with a few softened plank stubs and the rusted chain half-sunk and sagging into it, faintly glowing. The surface is settled and motionless at the end. Everything that is not the kennel and its ooze is flat white paper." }
+      }
+    },
+    {
+      "name": "t3tower-orcs",
+      "seed": "assets-source/race-tier3-towers/t3-orcs-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-orcs",
+      "states": {
+        "destroy": { "prompt": "A single cartoon orc mustering hut on a seamless blank sheet of pure white paper that fills the entire frame. Fire takes hold in the hide walls and races up the timber posts; the frame BURNS AND COLLAPSES INWARD, the war-drum frame giving way and the whole shelter folding down into a blackened heap. The fire dies back by two thirds of the way through: for the rest of the clip the burnt-out ruin sits motionless — a low heap of charred timber stubs and collapsed ash-grey hide with the iron drum rim lying warped and soot-black among it and one axe head buried in a charred stump, a thin ribbon of smoke rising straight up and a few orange embers still glowing deep in the ash. The heap is settled and still at the end. Everything that is not the hut is flat white paper." }
+      }
+    },
+    {
+      "name": "t3tower-demons",
+      "seed": "assets-source/race-tier3-towers/t3-demons-damaged.png",
+      "outDir": "assets-source/race-tier3-towers/clips/t3tower-demons",
+      "states": {
+        "destroy": { "prompt": "A single cartoon demonic basalt obelisk on a seamless blank sheet of pure white paper that fills the entire frame. The rift at its base flares once, then reverses and drags inward: the leaning monolith is CRUSHED IN ON ITSELF, folding down toward the centre as the rift snaps shut beneath it and the surrounding bone stakes are flattened outward. The implosion is COMPLETE by two thirds of the way through: for the rest of the clip the aftermath sits motionless — a low ring of shattered black basalt lying flat around a sealed scar in the ground, broken bone stakes splayed outward, the iron chain fused into a slagged lump, and only a dull magenta ember-light cooling in the cracks of the scar. Nothing moves at the end. Everything that is not the obelisk is flat white paper." }
+      }
+    }
+  ]
+}

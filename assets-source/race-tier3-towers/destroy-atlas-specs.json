@@ -1,0 +1,101 @@
+{
+  "_comment": [
+    "SPARK — S165 P4b: atlas specs for the six TOWER DESTRUCTION CINEMATICS.",
+    "",
+    "⭐ SEPARATE FROM atlas-specs.json ON PURPOSE. framesPerState is a per-spec value, so one file cannot",
+    "hold both the four STILL conditions (framesPerState 1) and this ANIMATED row (12).",
+    "",
+    "⚠ fit 'box' and cellW/cellH 256 to match the tower stills exactly — the destroy row has to line up",
+    "with the sprite it replaces, and a height-fit would scale a collapsing wide ruin differently from",
+    "the intact building it grew out of.",
+    "",
+    "⚠ normaliseStateScale is NOT set: there is only ONE state here, so there is nothing to normalise",
+    "against, and the whole point of a collapse is that the subject legitimately CHANGES size."
+  ],
+  "specs": [
+    {
+      "name": "t3destroy-vampires",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-vampires/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    },
+    {
+      "name": "t3destroy-nagas",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-nagas/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    },
+    {
+      "name": "t3destroy-mummies",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-mummies/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    },
+    {
+      "name": "t3destroy-zombies",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-zombies/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    },
+    {
+      "name": "t3destroy-orcs",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-orcs/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    },
+    {
+      "name": "t3destroy-demons",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier3-towers/clips/t3tower-demons/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      }
+    }
+  ]
+}

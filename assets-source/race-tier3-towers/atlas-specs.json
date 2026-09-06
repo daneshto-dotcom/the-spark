@@ -1,0 +1,182 @@
+{
+  "_comment": [
+    "SPARK — S165 P4: atlas specs for the six TIER-3 TOWERS, four CONDITIONS each.",
+    "",
+    "⭐ THE CASTLE PATTERN, DELIBERATELY. A tower is a STRUCTURE with conditions, not a character with",
+    "actions: framesPerState 1, fit 'box', and every state a `still` PNG rather than a clip. Copied from",
+    "assets-source/race-castles/atlas-specs.json, whose own note gives the reason — a building has no",
+    "gait, no swing and no idle bob, so a clip would spend veo's whole budget re-drawing a static",
+    "subject and buy back two failure modes this pipeline has already paid for twice (seed drift over",
+    "the length of a clip, and outright generation failure).",
+    "",
+    "⭐ fit 'box', NOT 'height'. Height-fit exists to keep CHARACTERS comparable by how tall they look.",
+    "These six are different shapes on purpose — a squat wide crag, a low basin, a tall obelisk — and",
+    "box-fit keeps each one whole inside its cell instead of scaling a wide building down by its width.",
+    "",
+    "⚠ normaliseStateScale is NOT set here and must not be. It equalises the SEED-FRAME size across",
+    "states, which is right when four clips of one character disagree about zoom. These four states are",
+    "four separate DRAWINGS of a building in different conditions, and a destroyed tower is SUPPOSED to",
+    "be smaller than an intact one — normalising would inflate the rubble back to full height.",
+    "",
+    "⚠ THE DESTRUCTION CINEMATICS ARE A SEPARATE ATLAS (destroy-specs.json), because they are animated",
+    "and these are not: framesPerState is a per-spec value, so one file cannot hold both."
+  ],
+  "specs": [
+    {
+      "name": "t3tower-vampires",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-vampires-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-vampires-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-vampires-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-vampires-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    },
+    {
+      "name": "t3tower-nagas",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-nagas-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-nagas-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-nagas-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-nagas-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    },
+    {
+      "name": "t3tower-mummies",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-mummies-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-mummies-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-mummies-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-mummies-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    },
+    {
+      "name": "t3tower-zombies",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-zombies-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-zombies-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-zombies-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-zombies-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    },
+    {
+      "name": "t3tower-orcs",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-orcs-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-orcs-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-orcs-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-orcs-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    },
+    {
+      "name": "t3tower-demons",
+      "outDir": "public/art/race-tier3-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier3-towers/t3-demons-intact.png",
+          "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/race-tier3-towers/t3-demons-spawning.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier3-towers/t3-demons-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier3-towers/t3-demons-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      }
+    }
+  ]
+}
