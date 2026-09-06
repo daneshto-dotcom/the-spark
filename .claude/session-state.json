@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4946,
+  "tool_calls_session_total": 4955,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -33,20 +33,22 @@
   "priorities": [
     {
       "id": 1,
-      "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white on the character",
-      "status": "substantially_complete_two_rows_blocked",
+      "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white, all rows consistent",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "07429b7",
-      "check_method": "BOTH shadow sites fixed, not the one the handoff named: design-spec.json sharedStyle AND scripts/gen-character-design.mjs:78, the default every future spec inherits - verified by assembling the script's SHARED_STYLE array in node and asserting the old clause is absent while facing-RIGHT, pure-white-bg and the sticker-halo negative all survive. Wording lifted verbatim from race-castles/design-spec.json _no_shadow rather than invented. Second clause added constructively (each pale colour NAMED) after measuring that the negative alone failed where the CONCEPT is pale: vampires 31,344 enclosed near-white px / biggest 9,732 and mummies 28,419 / 25,645 under the matte's exact predicate. 22 of 24 clips regenerated and all six atlases rebuilt; every sheet auditioned on PURE BLACK, which is the real board. Naga sampleWindow made per-state on a measured sweep. INCOMPLETE AND RECORDED: unit-vampires/attack and unit-demons/die are still S164 art (veo 429), named in atlas-specs.json _S165_INCOMPLETE_ROWS.",
+      "checkpoint_commit": "6bce857",
+      "check_method": "All 24 castle-unit clips are S165 art off the new no-shadow, named-pallor designs - the mixed-design atlas is gone. The vampire ATTACK is finally weaponless on the FOURTH attempt: three prior generations drifted a blade in under a bare negative, a stronger negative and an explicit positive ('both hands empty in every frame'); changing the VERB to a BITE fixed it first try, because none of the earlier attempts changed what the hands were DOING. Both shadow sites fixed (spec + the script default every future spec inherits). The naga's sampleWindow is per-state on a measured sweep. ⭐ The atlas guard then caught the NAGA's walk row at 1.29x - a live defect behind the owner's own S164 reject that sampleWindow had never actually fixed - and it was re-rolled with a margin instruction and re-measured to 1.00x. All 6 atlases clean on both guard checks.",
       "verification": [
         {
-          "type": "file_lacks",
+          "type": "grep_count",
           "path": "assets-source/race-units/design-spec.json",
-          "needle": "oval shadow on the ground"
+          "pattern": "\"Centered on a plain pure white background with a small soft dark oval shadow",
+          "op": "==",
+          "value": 0
         },
         {
           "type": "file_contains",
@@ -59,26 +61,26 @@
           "needle": "VISIBLE COLOUR CAST"
         },
         {
-          "type": "file_lacks",
-          "path": "scripts/gen-character-design.mjs",
-          "needle": "'Centered on a plain pure white background with a small soft dark oval shadow on the ground',"
-        },
-        {
           "type": "file_contains",
           "path": "scripts/gen-character-design.mjs",
           "needle": "NO GROUND SHADOW OF ANY KIND"
         },
         {
-          "type": "file_contains",
+          "type": "file_lacks",
           "path": "assets-source/race-units/atlas-specs.json",
           "needle": "_S165_INCOMPLETE_ROWS"
         },
         {
           "type": "grep_count",
           "path": "assets-source/race-units/atlas-specs.json",
-          "pattern": "public/art/race-units",
+          "pattern": "normaliseStateScale",
           "op": ">=",
           "value": 6
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-units/design-spec.json",
+          "syntax_type": "json"
         }
       ]
     },
@@ -137,78 +139,73 @@
     },
     {
       "id": 3,
-      "title": "P3 - tier-3 tower unit art (R116/R134)",
-      "status": "designs_complete_clips_blocked",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "07429b7",
-      "check_method": "Six designs generated and looked at: bat, porpoising piranha, lapis scarab, redrawn hound, twin-axe orc warband raider, faceless soul-eater wraith. The hound was REDRAWN rather than reused: the shipped assets-source/zombie-castle/zombie-hound.png carries a large DETACHED black shadow, which is the worst case in the castle spec's own _no_shadow note because the atlas builder foot-anchors to the union bbox and would treat the shadow as the paws. The demon unit is described as a generic hooded wraith, NOT by the spec's 'dementor-like' shorthand, per the standing no-franchise rule. ⚠ NO STAT LINE WRITTEN - R135 asks for varied stats and supplies no figures. The 24 clips are blocked on veo quota.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-tier3-units/design-spec.json",
-          "pattern": "\"name\": \"t3-",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier3-units/design-spec.json",
-          "needle": "NO GROUND SHADOW OF ANY KIND"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier3-units/design-spec.json",
-          "needle": "THE NUMBERS ARE NOT RULED"
-        },
-        {
-          "type": "syntax_ok",
-          "path": "assets-source/race-tier3-units/design-spec.json",
-          "syntax_type": "json"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "P4 - tier-3 race tower art, 6 x {healthy, damaged, spawning, destroyed}",
+      "title": "P3 - tier-3 tower unit art (R116/R134): 6 designs, 24 clips, 6 atlases",
       "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "bc0aae5",
-      "check_method": "24 pieces generated, ordered so every -intact seeds the other three via refImages. Both owner-named destructions landed: the pyramid is taken by a spiralling SAND DEVIL and the kennel LIQUEFIES into a pool of green ooze. The other four destroy in their own species' way. Checked MECHANICALLY, not by eye: zero ink touches any frame edge on all 24 (measured min-channel<200 on the four border rows/columns) - the first bat cave was cropped at the summit and was regenerated, which matters because the atlas builder foot-anchors to a union bbox and would ship a truncated tower. ⚠ Three of the six buildings are MINE, not the owner's, and say so in the spec.",
+      "checkpoint_commit": "6bce857",
+      "check_method": "Bat, piranha, scarab, redrawn hound, twin-axe warband raider, faceless wraith. 24 clips on veo-3.1-fast after establishing the per-model quota split. Auditioned on pure black across four re-roll rounds: round 1 found background SCENERY in 4 of 24 (the matte structurally cannot remove mid-grey), round 2 found the negative was REPRODUCING the thing it named, round 3 fixed pose defects (a piranha that grew arms and legs), round 4 fixed cross-row scale drift. All six atlases now clean on BOTH guard checks with every row within 1% of its median. ⚠ NO STAT LINE WRITTEN - R135 asks for varied stats and supplies no figures.",
       "verification": [
         {
           "type": "grep_count",
-          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "path": "assets-source/race-tier3-units/clip-spec.json",
           "pattern": "\"name\": \"t3-",
           "op": "==",
-          "value": 24
+          "value": 6
         },
         {
           "type": "file_contains",
-          "path": "assets-source/race-tier3-towers/design-spec.json",
+          "path": "assets-source/race-tier3-units/atlas-specs.json",
+          "needle": "normaliseStateScale"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "THIS GUARD IS FOR **CHARACTER** ATLASES"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "normaliseStateScale"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "P4 - tier-3 race towers: 24 condition stills + 6 destruction cinematics + 12 atlases",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6ddadc4",
+      "check_method": "24 stills (6 towers x intact/spawning/damaged/destroyed) built as t3tower-* on the castle pattern - framesPerState 1, fit box, still states - plus 6 animated destruction cinematics as t3destroy-*, seeded off each tower's DAMAGED still so frame 0 matches the sprite already on the board and the last frame lands on the destroyed sprite. Both owner-named destructions landed: the pyramid's spiralling SAND DEVIL and the kennel LIQUEFYING into ooze. Gravity rule honoured on every damaged state. Zero ink touches any frame edge on all 24 stills (measured). ⭐ The guard gave two FALSE POSITIVES here and that is recorded rather than tuned away: grey SMOKE read as scenery, and destroyed=0.80x is correct because rubble is shorter than the building. The guard is now scoped to CHARACTER atlases with --no-size / --allow-scenery, and its success line names which checks actually ran.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
+          "pattern": "\"name\": \"t3tower-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
           "needle": "SAND DEVIL"
         },
         {
           "type": "file_contains",
-          "path": "assets-source/race-tier3-towers/design-spec.json",
-          "needle": "DISSOLVED INTO OOZE"
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
+          "needle": "MELTS DOWNWARD INTO THICK GREEN OOZE"
         },
         {
           "type": "file_contains",
-          "path": "assets-source/race-tier3-towers/design-spec.json",
-          "needle": "GRAVITY"
-        },
-        {
-          "type": "syntax_ok",
-          "path": "assets-source/race-tier3-towers/design-spec.json",
-          "syntax_type": "json"
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "--allow-scenery"
         }
       ]
     },
@@ -259,8 +256,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": "acac4a1",
-      "check_method": "All four gates read directly: typecheck 0, vitest 0 (3693/3693 across 236), build 0 (781.7/900 KiB), e2e:gating 0 (62 passed). Pushed 48b9475..acac4a1. Both CI lanes concluded SUCCESS. verify-deploy PASS 4/4 at acac4a1. Working tree clean, 24/24 source clips present, ZERO stranded veo .op.json handles (nothing billed and unrecoverable). Two failures investigated rather than passed over: the atlas builder's exit 1 was the wrong input shape (it takes ONE spec, atlas-specs.json is a container of six) and a /tmp path that Python and node resolve differently; the final clip run's exit 124 was my own deliberate `timeout 240` wrapper kill.",
+      "checkpoint_commit": "6ddadc4",
+      "check_method": "All four gates read directly: typecheck 0, vitest 0 (3693/3693 across 236), build 0 (781.7/900 KiB), e2e:gating 0 (62 passed). Pushed 48b9475..6ddadc4. Both CI lanes concluded SUCCESS. verify-deploy PASS 4/4 at 6ddadc4. Working tree clean, 24/24 source clips present, ZERO stranded veo .op.json handles (nothing billed and unrecoverable). Two failures investigated rather than passed over: the atlas builder's exit 1 was the wrong input shape (it takes ONE spec, atlas-specs.json is a container of six) and a /tmp path that Python and node resolve differently; the final clip run's exit 124 was my own deliberate `timeout 240` wrapper kill.",
       "verification": [
         {
           "type": "file_contains",
@@ -268,31 +265,29 @@
           "needle": "verify_deploy"
         },
         {
-          "type": "file_contains",
-          "path": ".claude/session-state.json",
-          "needle": "PASS 4/4 carriers at acac4a1"
-        },
-        {
           "type": "json_field",
           "path": ".claude/session-state.json",
           "key": "checkpoint_commit",
           "op": "==",
-          "value": "acac4a1"
+          "value": "6ddadc4"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "veo_blocker_RESOLVED"
         }
       ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "#grep-the-clause-not-the-file — the S164 handoff filed the baked-shadow defect against ONE spec file. There were TWO, and the second was the script DEFAULT every future character spec inherits. Fixing only the named one would have shipped the same defect into the tier-3 units generated later in the SAME session. The project rule already says this; obeying it cost one grep.",
-    "#measure-before-you-fix — I labelled six art sheets CATASTROPHIC on the assumption that a large enclosed near-white region must be the character's body. Measuring refuted it: those regions run mean 253-254 with 63-85% pure white against a true background of 254.7/96%, i.e. they are background pockets between limbs and the matte killing them is CORRECT. One measurement stopped a wrong fix.",
-    "#the-negative-is-not-the-mechanism — 'nothing may be white' failed exactly where the character CONCEPT is pale, because a vampire and a mummy are pale by definition and a prohibition gives the model nothing to draw. Naming each pale colour worked. Same lesson three times over on the vampire's phantom weapon: a bare negative, a stronger negative and a positive 'hands empty in every frame' all failed; the fix was to change the VERB to a bite so the jaws are the weapon and the arms are parked.",
-    "#exit-zero-can-hide-a-failure — the clip wrapper exited 0 while its own output said '1 clip(s) FAILED'. Reading only $? would have recorded a complete generation. Both the exit code AND the log body have to be read.",
-    "#never-chain-a-gate-behind-&& — I ran `ls ...op.json && node poll` and the ls failed, so the poll NEVER RAN and I briefly believed two billed operations were lost. The project CLAUDE.md warns about this exact pattern and I did it anyway.",
-    "#a-test-green-both-sides-pins-nothing — the nearestChewer regression test was verified by REVERTING the fix and confirming 2 of 5 fail. Without that step it would have been an assertion about my own belief.",
-    "#the-comment-terminator — a JSDoc line containing a glob path with */ closed the block comment early and produced a parse error 3 lines later that pointed at a template literal. The error location was nowhere near the cause.",
-    "#per-state-knobs-get-applied-globally — S164 answered one owner complaint (naga incoherence) by putting sampleWindow 16 on ALL FOUR states, which sampled attack and die entirely before the action happened. A measured sweep showed widening three of them costs literally nothing (union bbox unchanged at 295x200) while widening the fourth inflates the cell 295->336 for no coherence gain.",
-    "#follow-the-money-not-the-error-string — the owner added Google Cloud credit twice in response to a 429, but the pipeline calls the Gemini Developer API on an AI Studio key, which is a different product with its own quota. Four probes (second key, OAuth scope, model metadata, image endpoint) were needed to say that with evidence instead of guessing.",
-    "#a0-earns-its-cost-on-a-handoff-you-trust — a 43-agent state-discovery pass contradicted the inherited handoff in six places, two load-bearing: the protocol bump was owed after all because 41 had already shipped, and the sentinel alone does not make the castle emit because the emit loop iterates a map the sentinel is absent from. It also surfaced a LIVE bot bug that had been shipping since S151."
+    "#grep-the-archive-before-asking-the-owner — I put 'what happens to a dead seat's units?' to the owner as an open question. It had been ruled two sessions earlier (ruling_cf_s161_a, 'keep fighting'). The project CLAUDE.md forbids this in as many words and S158 was pulled up for the same thing. The agent's OBSERVATION was right (elimination.ts has zero creature references) and its CONCLUSION was wrong — that absence IS the implementation of 'keep fighting'.",
+    "#the-tell-was-in-the-thing-that-still-worked — I told the owner twice that his Google top-up went to the wrong product. Image generation on that same key worked all session; an account-wide billing failure would have stopped images too. The real cause was a per-MODEL quota: veo-3.1 was exhausted while veo-3.1-fast and -lite accepted the same request in the same second. Check what still works before concluding what is broken.",
+    "#two-samples-is-not-a-measurement — I compared veo-fast against full on TWO clips, found them indistinguishable at 200px, and said so. Across 24 clips the difference was real and specific: fast invents background scenery. Both statements were measured; the first was measured on too small a sample and stated with too much confidence.",
+    "#a-negation-puts-the-noun-in-the-prompt — 'there is no cave, no stonework, no pillars' produced stonework; the hound's brand-new die clip came back with MORE scenery than the one it replaced. Positive framing ('a seamless blank sheet of pure white paper') fixed both first try. Same lesson as the vampire's phantom weapon, which needed the VERB changed rather than a longer prohibition.",
+    "#fix-the-class-not-the-instance — cross-clip scale drift had been re-rolled by hand in S164 (the naga) and was about to be re-rolled by hand again. Prompting fixed 3 of 5. The durable fix was normaliseStateScale in the builder plus a guard — and the guard immediately found a SIXTH instance in already-shipped castle art that nobody had noticed.",
+    "#a-guard-that-cries-wolf-is-worse-than-none — pointed at structures, my new guard produced two confident false positives (deliberate smoke read as scenery; rubble legitimately shorter than the intact building). Both checks silently assumed CHARACTER semantics. Scoping it explicitly, with those two false positives written up as the reason, is better than widening a threshold until the noise stops.",
+    "#say-which-checks-actually-ran — the guard printed 'clean on both checks' even when --no-size had skipped one. That is the same false-assurance shape as the S161 gate that FAILED and was read as passing.",
+    "#stop-chaining-gates-behind-&& — did it twice in one session after the project rule warns about it explicitly. Once it made a poll never run (and briefly convinced me two billed operations were lost); once it made python's exit code masquerade as tsc's."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -369,7 +364,7 @@
   },
   "real_context_tokens_at_close": 532567,
   "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "acac4a1",
+  "checkpoint_commit": "6ddadc4",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -6469,5 +6464,28 @@
       "severity": "work",
       "text": "EAGER ATLAS LOADING WOULD COST 46.9 MB OF DECODED TEXTURE. goblinRenderer.ensureAtlases loads every ATLASES entry unconditionally on first sync; the six race PNGs are 8,970,745 bytes on disk. gathererRenderer already refused this and went lazy per-race - a 1v1 match needs two of the six. Follow that precedent, and note a fourth renderer would get NEITHER the owner-tinted ground fill nor the ring, since creatureLift.ts enforces universality by there being nothing else to call."
     }
-  ]
+  ],
+  "owner_rulings_s165": {
+    "R138_wire_size": {
+      "owner_words": "about the 65kb question if it ever causes lag then we will talk about what to do but for now we're good",
+      "ruling": "R123's uncapped race units STAND. The ~65 KB per snapshot at 10 Hz is accepted as-is and is NOT a blocker. Do not add a cap and do not defensively trim the creature payload on this account. The conversation reopens only if lag is observed in a real match, and the lever at that point is fewer bytes per creature, not fewer creatures.",
+      "recorded_in": "W1C_A0_FINDINGS.md section 9"
+    },
+    "R139_dead_seat_units_ALREADY_RULED": {
+      "owner_words": "why are you asking me 'what happens to a dead seat's units' we literally decided that like 2 sessions ago",
+      "ruling": "NOT A NEW RULING - a correction. ruling_cf_s161_a already said: 'Keep fighting (status quo) - a fallen seat's towers/creatures/spawners keep acting until razed.' I raised it as an open question without grepping the archive, which this project's CLAUDE.md forbids in as many words. Retracted in W1C_A0_FINDINGS.md.",
+      "consequence_for_w1c": "LESS work, not more: the emitter stops when the castle dies, and units already on the board are left alone. No despawn pass, no freeze flag, no new serialized state."
+    },
+    "R140_art_size_consistency": {
+      "owner_words": "size difference between row one and two not consistent in hounds and lifestealers",
+      "ruling": "Every row of one character must read as the same size. Fixed structurally rather than by re-rolling: normaliseStateScale in build-sprite-atlas.mjs plus a permanent guard.",
+      "measured": "hound/walk was 2.13x its own idle, hound/die 1.98x, scarab/walk 1.91x, souleater/die 2.08x, bat/attack 1.15x - and the guard then found the NAGA, a castle unit already live, at 1.29x."
+    }
+  },
+  "veo_blocker_RESOLVED": {
+    "correction": "My earlier diagnosis was WRONG and the owner was right that he had topped up the correct account. The tell was in front of me all session: IMAGE generation on that same key kept working, and an account-wide billing problem would have stopped images too.",
+    "actual_cause": "The three veo variants have SEPARATE quota pools. veo-3.1-generate-preview answered 429 RESOURCE_EXHAUSTED while veo-3.1-fast AND veo-3.1-lite both accepted the same request, on the same key, in the same second.",
+    "fix": "gen-character-clips.mjs takes a VEO_MODEL override and prints which model ran. Default unchanged (strongest tier).",
+    "tier_cost_measured": "At 2 clips, fast and full were indistinguishable at the 200px cell. Across 24 clips the difference IS real and specific: fast invents background scenery far more readily (4 of 24). That is why check-atlas-scenery.mjs exists. Both statements were measured; the first was measured on too small a sample."
+  }
 }
