@@ -15,6 +15,12 @@
 // only here): simWorker.ts is its own Vite worker chunk, so the S87 "bots are a lazy
 // chunk" entry-bundle charter is untouched. workerSim.ts (imported by main.ts) may only
 // type-import BotManager; this entry injects the concrete class via the factory seam.
+// ⛔ S165 — WITHOUT THIS LINE THE WORKER HAS AN EMPTY RECIPE REGISTRY AND NOTHING IS BUILDABLE.
+// `main.ts` SKIPS the main-thread matcher when the worker is active, so under `?worker=1` this
+// module is the only thing running `runGodlyMatcherCore`. It previously imported no recipes at all,
+// so `findDefenderMatches` returned [] forever: laser turret, Helga, stink tower, goblin tower,
+// pentagram, lightning hub and the Voltkin cinematic were all silently unbuildable in that mode.
+import './state/godlyRecipes/registerAll.ts';
 import { BotManager } from './bots/botManager.ts';
 import {
   applyTickBatch,

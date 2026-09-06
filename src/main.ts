@@ -207,32 +207,11 @@ import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts
 import { listRecipes } from './state/godlyRecipes/index.ts';
 import type { GodlyId } from './state/godlyRecipes/types.ts';
 import { unlockGodly } from './render/codexStore.ts';
-// S22 P4 — side-effect import registers Voltkin recipe in the registry.
-import './state/godlyRecipes/voltkin.ts';
-// S100 P1 (TD Phase 1b, Layer 5) — side-effect import registers the pentagram
-// SPAWNER recipe (a non-cinematic recipe → REGISTER_SPAWNER, not GODLY_TRIGGER).
-import './state/godlyRecipes/pentagram.ts';
-// S113 Batch C — side-effect import registers the lightning-hub SPAWNER recipe (1 Dot + 5 Circles →
-// suicide-drone emitter) so it appears in the Codex TOWERS & STRUCTURES tab + recipeStillSatisfied
-// finds it. (Also imported transitively by godlyOrchestration/spawnerLifecycle; registerRecipe is idempotent.)
-import './state/godlyRecipes/lightningHub.ts';
-// S103 P3 — side-effect import registers the LASER TURRET defender recipe (calls registerRecipe at
-// module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 6 Spiral Whips.)
-import './state/godlyRecipes/laserTurret.ts';
-// S103 P4 — side-effect import registers the HELGA princess defender recipe (#10 — Triangle hub +
-// 3 Warped Anchors + 3 Stars).
-import './state/godlyRecipes/princessHelga.ts';
-// S141 P1 — side-effect import registers the STINK TOWER defender recipe, the first NON-GODLY
-// buildable (1 Square hub deg-3 + 3 Circle 'Capsule' leaves). ⚠ Without this line the module never
-// calls registerRecipe and the failure is SILENT in both directions: findDefenderMatches simply
-// never matches it, AND recipeStillSatisfied falls back to the weaker "anchor exists" rule.
-import './state/godlyRecipes/stinkTower.ts';
-// ⭐ S151 P3 — side-effect import registers the GOBLIN TOWER (owner R70): 1 Circle hub deg-4 + 4
-// Circle leaves, the one structure that decides what it produces at FEED time rather than at build
-// time. ⚠ The same silent double-failure as the line above applies — without this import the recipe
-// never registers, so it never matches AND `recipeStillSatisfied` degrades to "anchor exists",
-// meaning a tower that should have torn down when its star broke would linger forever.
-import './state/godlyRecipes/goblinTower.ts';
+// ⭐ S165 — EVERY RECIPE, FROM ONE PLACE. This used to be seven separate side-effect imports here,
+// and `src/simWorker.ts` had none of them — so under `?worker=1`, where the worker is the sole
+// matcher authority, NO defender or spawner recipe could ever match and nothing was buildable. The
+// aggregator is imported by BOTH entrypoints; see its docblock for the full failure mode.
+import './state/godlyRecipes/registerAll.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
 // godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
 // Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
