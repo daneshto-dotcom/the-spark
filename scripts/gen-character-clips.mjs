@@ -99,6 +99,26 @@ const SHARED = [
   'flat cel-shaded style as the source image, with the same colours.',
   'The camera is COMPLETELY STATIC — no pan, no zoom, no parallax, no camera shake.',
   'The character stays centered in frame at a constant size and never walks out of shot.',
+  // ⛔ S165 — "CONSTANT SIZE" ONLY EVER GOVERNED ONE CLIP. ACROSS CLIPS IT GOVERNED NOTHING.
+  //
+  // Each state is its own veo generation, and veo picks its own framing every time. The line above
+  // stops the subject drifting DURING a clip; nothing tied one clip's zoom to another's. Measured on
+  // the S165 tier-3 units at FRAME 0 — the seed frame, which should be near-identical in every row:
+  // the zombie hound's WALK opened 2.13x the area of its IDLE (36,551 opaque px vs 16,929, filling
+  // the whole 334x188 cell), and hound/die 1.98x, scarab/walk 1.91x, souleater/die 2.08x.
+  //
+  // ⭐ WHY THAT SHOWS UP AS A BUG AND NOT JUST AS VARIETY: build-sprite-atlas.mjs takes ONE union
+  // bbox across every frame of every state and applies ONE scale, so a clip whose subject was drawn
+  // larger renders larger FOREVER. The owner caught it by eye on the contact sheet — "size
+  // difference between row one and two not consistent in hounds and lifestealers" — which is the
+  // same reject the naga earned in S164.
+  //
+  // The reference image is the only common yardstick the four clips share, so the instruction is
+  // anchored to it rather than to a proportion of the frame.
+  'CRITICAL FRAMING: draw the character at EXACTLY the same size as it appears in the reference',
+  'image, filling the same proportion of the frame. Do not zoom in, do not crop closer, do not push',
+  'the camera nearer and do not enlarge or shrink the subject relative to the reference. The framing',
+  'and the subject scale must match the reference image exactly.',
   'Plain solid pure white background, empty, no floor, no scenery, no shadow cast on anything,',
   'no text, no watermark, no letterboxing artwork, no vignette.',
   // ⛔ S165 — THE BACKGROUND MUST BE WHITE, AND "no scenery" WAS NOT ENOUGH TO GET THAT.

@@ -44,12 +44,25 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-vampires-bat/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     },
     {
       "name": "t3-nagas-piranha",
@@ -58,12 +71,25 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-nagas-piranha/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     },
     {
       "name": "t3-mummies-scarab",
@@ -72,12 +98,25 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     },
     {
       "name": "t3-zombies-hound",
@@ -86,12 +125,25 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-zombies-hound/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     },
     {
       "name": "t3-orcs-warband",
@@ -100,12 +152,25 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-orcs-warband/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     },
     {
       "name": "t3-demons-souleater",
@@ -114,12 +179,41 @@
       "cellH": 200,
       "framesPerState": 12,
       "states": {
-        "idle": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/idle.mp4", "ticksPerFrame": 7 },
-        "walk": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/walk.mp4", "ticksPerFrame": 4 },
-        "attack": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/attack.mp4", "ticksPerFrame": 5 },
-        "die": { "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/die.mp4", "ticksPerFrame": 5 }
+        "idle": {
+          "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier3-units/clips/t3-demons-souleater/die.mp4",
+          "ticksPerFrame": 5
+        }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
     }
+  ],
+  "_normalise_note": [
+    "⭐ normaliseStateScale: TRUE on every unit here. Each state is a separate veo generation and veo",
+    "picks its own zoom each time, so the four clips of one character disagreed about how big it is —",
+    "measured at FRAME 0, which is the same seed pose in all four rows and should therefore match:",
+    "hound walk 2.13x its own idle, hound die 1.98x, scarab walk 1.91x, souleater die 2.08x.",
+    "The owner caught it by eye before any measurement did: \"size difference between row one and two",
+    "not consistent in hounds and lifestealers\". The naga earned the same reject in S164.",
+    "",
+    "⛔ PROMPTING ALONE DID NOT FIX IT. Anchoring the framing to the reference image in the SHARED clip",
+    "instruction repaired 3 of 5 rows and left the bat and the scarab at 1.77x and 1.91x, so the",
+    "remaining fix has to be deterministic rather than another dice roll.",
+    "",
+    "The builder now measures frame 0 of each state, takes the median across states as the reference,",
+    "and rescales each state by ONE factor. Never per frame — a bat must still be allowed to spread",
+    "its wings during its own attack row."
   ]
 }

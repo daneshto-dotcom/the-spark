@@ -72,7 +72,26 @@ for path in sys.argv[1:]:
             if s / (h * w) <= 0.62:
                 continue
             total += int(s); largest = max(largest, int(s))
-    out[path] = [total, largest]
+    # ── cross-row SEED-SIZE consistency ───────────────────────────────────────────────────
+    # Every state of a character is seeded image-to-video off the SAME design PNG, so the FIRST
+    # sampled frame of every row is a render of one identical pose. Any height difference there is
+    # veo choosing its own zoom per clip, not art direction — the defect the owner spotted as
+    # "size difference between row one and two not consistent in hounds and lifestealers".
+    #
+    # ⚠ HEIGHT, NOT AREA. The builder height-fits, and area conflates scale with POSE: a bat biting
+    # front-on is legitimately narrower than the same bat gliding side-on at the same size.
+    import os
+    mpath = path.replace('-atlas.png', '-anim.json')
+    heights = []
+    if os.path.exists(mpath):
+        man = json.load(open(mpath))
+        cw, ch = man['cellW'], man['cellH']
+        img = Image.open(path).convert('RGBA')
+        for st, info in man['states'].items():
+            cell = np.asarray(img.crop((0, info['row'] * ch, cw, (info['row'] + 1) * ch)))
+            ys = np.nonzero((cell[:, :, 3] > 40).sum(axis=1))[0]
+            heights.append([st, int(ys[-1] - ys[0] + 1) if ys.size else 0])
+    out[path] = [total, largest, heights]
 print(json.dumps(out))
 `;
 
@@ -86,17 +105,41 @@ if (files.length === 0) { console.error('[scenery] no *-atlas.png found'); proce
 const raw = execFileSync('python', ['-c', PY, ...files], { encoding: 'utf8', maxBuffer: 1 << 24 });
 const res = JSON.parse(raw);
 
+/** How far a row's seed-frame height may sit from the median before it reads as a size mismatch. */
+const SIZE_TOLERANCE = 0.15;
+
 let bad = 0;
-console.log('[scenery] opaque mid-grey BLOCKS welded to the sprite (matte cannot remove these)\n');
+let sized = 0;
+
+console.log('[atlas] 1/2 — opaque mid-grey BLOCKS welded to the sprite (the matte cannot remove these)\n');
 for (const [path, [total, largest]] of Object.entries(res)) {
   const verdict = total === 0 ? 'clean' : 'SCENERY';
   if (total > 0) bad++;
   console.log(`  ${verdict.padEnd(8)} ${String(total).padStart(7)} px  (largest ${String(largest).padStart(6)})  ${path}`);
 }
+
+console.log('\n[atlas] 2/2 — cross-row SEED-SIZE consistency (frame 0 is the same pose in every row)\n');
+for (const [path, [, , heights]] of Object.entries(res)) {
+  if (!heights || heights.length === 0) continue;
+  const hs = heights.map(([, h]) => h).filter((h) => h > 0).sort((a, b) => a - b);
+  if (hs.length === 0) continue;
+  const med = hs[Math.floor(hs.length / 2)];
+  const offenders = heights.filter(([, h]) => h > 0 && Math.abs(h / med - 1) > SIZE_TOLERANCE);
+  if (offenders.length > 0) sized++;
+  const detail = heights.map(([st, h]) => `${st}=${(h / med).toFixed(2)}x`).join(' ');
+  console.log(`  ${(offenders.length === 0 ? 'clean' : 'MISMATCH').padEnd(8)} ${detail}  ${path}`);
+}
+
 console.log('');
 if (bad > 0) {
-  console.error(`[scenery] FAIL — ${bad} atlas(es) carry background scenery. Re-roll those clips; the`);
-  console.error('          matte cannot remove mid-grey. See the SHARED instruction in gen-character-clips.mjs.');
-  process.exit(1);
+  console.error(`[atlas] FAIL — ${bad} atlas(es) carry background scenery. Re-roll those clips; the matte`);
+  console.error('        cannot remove mid-grey. See the SHARED instruction in gen-character-clips.mjs.');
 }
-console.log(`[scenery] OK — ${files.length} atlas(es) clean.`);
+if (sized > 0) {
+  console.error(`[atlas] FAIL — ${sized} atlas(es) have rows that disagree about the character's size.`);
+  console.error('        Set "normaliseStateScale": true on that spec, and if the offending clip is');
+  console.error('        FRAME-FILLING re-roll it demanding visible empty margin — a clamped measurement');
+  console.error('        makes the normaliser under-estimate and over-shrink the row.');
+}
+if (bad > 0 || sized > 0) process.exit(1);
+console.log(`[atlas] OK — ${files.length} atlas(es) clean on both checks.`);

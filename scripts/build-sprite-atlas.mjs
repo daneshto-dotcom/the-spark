@@ -294,6 +294,59 @@ for st in states:
     lo, hi = content_column(raw)
     frames[st] = [matte(a[:, lo:hi]) for a in raw]
 
+# ⭐⭐ S165 — normaliseStateScale: MAKE EVERY STATE AGREE ABOUT HOW BIG THE CHARACTER IS.
+#
+# ⛔ THE DEFECT. Each state is a SEPARATE veo generation, and veo picks its own framing every time.
+# The clip prompt's "constant size" only ever governed drift WITHIN one clip; nothing tied one
+# clip's zoom to another's. Measured on the S165 tier-3 units at FRAME 0 — the seed frame, which is
+# the same source image for all four states and should therefore be near-identical in every row:
+# the zombie hound's WALK opened at 2.13x the area of its IDLE, hound/die 1.98x, scarab/walk 1.91x,
+# souleater/die 2.08x. The owner caught it by eye first — "size difference between row one and two
+# not consistent in hounds and lifestealers" — and the naga earned the same reject in S164.
+#
+# ⛔ AND THE UNION BBOX BELOW CANNOT ABSORB IT; IT PROPAGATES IT. Every frame is cropped to ONE
+# shared box and scaled by ONE factor, so a clip whose subject was drawn twice as large simply
+# occupies twice the box and renders twice as large in the shipped sheet, permanently.
+#
+# ⭐ WHY FRAME 0 IS THE RIGHT YARDSTICK. Every state of a character is seeded image-to-video off the
+# SAME design PNG, so the first sampled frame of every state is a render of one identical pose. Any
+# size difference there is veo error by construction, not art direction. So: measure frame 0 of each
+# state, take the MEDIAN across states as the reference (robust to one wild outlier), and rescale
+# that whole state by one factor.
+#
+# ⚠ ONE FACTOR PER STATE, APPLIED TO ALL ITS FRAMES — never per frame. Per-frame normalisation would
+# destroy real motion: a bat that legitimately spreads its wings during an attack MUST be allowed to
+# grow within its own row. This only equalises the STARTING size the four clips disagreed about.
+#
+# ⚠ Absent ⇒ byte-identical to the previous behaviour, like every other knob in this file.
+if spec.get('normaliseStateScale', False):
+    def _subject_h(a):
+        ys = np.nonzero((a[:, :, 3] > 40).sum(axis=1))[0]
+        return int(ys[-1] - ys[0] + 1) if ys.size else 0
+    h0 = {st: _subject_h(frames[st][0]) for st in states}
+    good = [v for v in h0.values() if v > 0]
+    if good:
+        ref = float(np.median(good))
+        for st in states:
+            if h0[st] <= 0:
+                continue
+            k = ref / h0[st]
+            if abs(k - 1.0) < 0.02:
+                continue
+            print(f'  normaliseStateScale: {st} frame0 h={h0[st]} vs ref {ref:.0f} -> x{k:.3f}')
+            out = []
+            for a in frames[st]:
+                H, W = a.shape[0], a.shape[1]
+                im = Image.fromarray(a)
+                nw, nh = max(1, int(round(W * k))), max(1, int(round(H * k)))
+                im = im.resize((nw, nh), Image.LANCZOS)
+                canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+                # Bottom-centre anchored, matching how the sheet pastes cells: the character keeps
+                # standing on the same ground line instead of drifting vertically when rescaled.
+                canvas.paste(im, ((W - nw) // 2, H - nh), im)
+                out.append(np.array(canvas))
+            frames[st] = out
+
 # ⭐ ONE union bbox across EVERY frame of EVERY state — the anti-jitter guarantee.
 x0 = y0 = 10**9; x1 = y1 = -1
 for st in states:

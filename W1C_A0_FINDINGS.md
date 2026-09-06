@@ -165,19 +165,26 @@ consequence was named in the ruling's own discussion and accepted.
 castle is gone), but the units already on the board are **left alone**. No despawn pass, no freeze
 flag, no new state. That is less work, not more.
 
+### ⛔ ALSO CLOSED. The snapshot size is accepted as-is.
+
+> Owner, 2026-09-06: *"about the 65kb question if it ever causes lag then we will talk about what to
+> do but for now we're good."*
+
+⇒ **R123's uncapped race units stand, and the wire cost is not a blocker.** Do not re-raise it, do
+not add a cap, and do not "defensively" trim the creature payload on this account. If lag is ever
+observed in a real match, the conversation reopens then — and the cheap lever at that point is to
+send fewer bytes per creature, not to limit how many a player may have.
+
+⚠ Recorded here so a later session reading `constants.ts:1263-1267` — where the guard is honestly
+labelled *"FIXTURE-scoped and not a runtime budget"* — does not read that comment as an open
+invitation and re-litigate a settled call.
+
 ### Still genuinely open
 
-1. **How big can the network message get before it hurts?** — plain version below.
-   Every 1/10th of a second the host sends every player a full picture of the board, and each
-   creature on it costs about **180 bytes**. Today the only thing guarding that size is a **test
-   fixture with 12 creatures in it** — the constant's own comment says it is *"not a runtime
-   budget"*. R123 says race units are uncapped and live until killed, so a long 4-player match could
-   reach a few hundred creatures, and at that point the ten-times-a-second message is on the order of
-   **65 KB** — roughly 650 KB/s down to every player. That is very likely fine on a desktop and it is
-   NOT a reason to add a cap. It is only worth a number in front of the owner **before** the emitter
-   ships, because R123 was ruled without one, and the cheap answer if it ever does bite is to trim
-   what a creature puts on the wire, not to cap the population.
-2. **The tier-3 stat numbers (R135).** Still unruled. Art only until they exist.
+1. **The tier-3 stat numbers (R135).** The owner asked for *"slightly different stats and more
+   varied"* and supplied no figures, while R125 fixes the castle unit at 1/1/1/1. Art is done; any
+   stat line written before he rules would be MINE, and per this project's rule a number that is
+   mine has to say so at the constant with the measurement behind it. Wave 2 work.
 
 ## 10. THINGS TO BUILD THAT NOBODY HAD LISTED
 
