@@ -291,6 +291,10 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   goblinHound: BOTH,
   goblinBat: BOTH,
   goblinSuicide: BOTH,
+  // W1-C — the castle's race unit. BOTH, matching the goblin family it fights alongside: it is the
+  // baseline soldier, and a unit that could not touch structures would be unable to press an
+  // advantage its own castle created.
+  raceUnit: BOTH,
 };
 
 /**
@@ -325,6 +329,10 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   goblinBat: 'offence',
   // One attack, and it dies delivering it. Nothing about that holds ground.
   goblinSuicide: 'offence',
+  // ⭐ 'both', and it is the honest answer rather than a shrug. The race unit arrives free and
+  // unbidden every ~30 s wherever the castle is, so in practice it screens the keep it spawned at
+  // AND walks out with the army. R125's flat 1/1/1/1 gives it no lean in either direction.
+  raceUnit: 'both',
 };
 
 /** What each tower is FOR. Exhaustive — a new kind must declare one. */

@@ -38,6 +38,7 @@ import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureL
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
+import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
  *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
@@ -118,9 +119,23 @@ function washTowardsWhite(color: number, t: number): number {
 }
 
 /** Every goblin kind this renderer is responsible for, atlas-backed or procedural. */
+/**
+ * Every kind this renderer is responsible for, atlas-backed or procedural.
+ *
+ * ⭐ S165 W1-C — `raceUnit` JOINS THIS RENDERER RATHER THAN GETTING ITS OWN, and that is deliberate.
+ * `creatureLift.ts` enforces the owner-tinted ground marker by there being nothing else to call
+ * (*"ONE definition, called from all three creature renderers"*), so a FOURTH renderer would have
+ * silently shipped the one creature on the board WITHOUT the seat cue the owner asked to be
+ * universal. It also inherits the HP pips, the facing dead-zone and the tick-derived frame index
+ * for free — all three of which are things a new renderer gets subtly wrong.
+ */
 const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
+  'raceUnit',
 ]);
+
+/** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */
+const RACE_UNIT_ATLAS_BASE = (race: RaceId): string => `/art/race-units/unit-${race}`;
 
 interface AtlasState { row: number; frames: number; ticksPerFrame: number; }
 interface AtlasManifest {
@@ -155,8 +170,15 @@ export class GoblinRenderer {
    */
   private readonly arrowLayer: Graphics;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
-  private readonly atlases: Map<CreatureType, LoadedAtlas> = new Map();
+  /**
+   * ⚠ KEYED BY STRING, NOT BY `CreatureType`. A goblin's art is chosen by its TYPE; a race unit's is
+   * chosen by its OWNER'S RACE, and one `raceUnit` type covers all six. Keys are the CreatureType
+   * for goblins and `raceUnit:<race>` for race units — see `atlasKeyFor`.
+   */
+  private readonly atlases: Map<string, LoadedAtlas> = new Map();
   private atlasLoadStarted = false;
+  /** Races whose atlas load has been kicked off — see `ensureRaceAtlas`. */
+  private readonly raceLoadStarted: Set<RaceId> = new Set();
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -177,29 +199,78 @@ export class GoblinRenderer {
     if (this.atlasLoadStarted) return;
     this.atlasLoadStarted = true;
     for (const [type, base] of Object.entries(ATLASES) as [CreatureType, string][]) {
-      void (async () => {
-        try {
-          const manifest = (await (await fetch(`${base}-anim.json`)).json()) as AtlasManifest;
-          const tex = (await Assets.load(`${base}-atlas.png`)) as Texture;
-          const cells: Record<string, Texture[]> = {};
-          for (const [name, st] of Object.entries(manifest.states)) {
-            const arr: Texture[] = [];
-            for (let i = 0; i < st.frames; i++) {
-              arr.push(new Texture({
-                source: tex.source,
-                frame: new Rectangle(
-                  i * manifest.cellW, st.row * manifest.cellH, manifest.cellW, manifest.cellH,
-                ),
-              }));
-            }
-            cells[name] = arr;
-          }
-          this.atlases.set(type, { cells, manifest });
-        } catch {
-          // Deliberately silent: the procedural puppet keeps this kind visible and playable.
-        }
-      })();
+      this.loadAtlas(type, base);
     }
+  }
+
+  /**
+   * ⭐ S165 W1-C — LAZY, AND PER RACE. Deliberately NOT folded into `ensureAtlases`.
+   *
+   * `ensureAtlases` loads every entry in `ATLASES` unconditionally on first sync. The six race-unit
+   * sheets are 8.55 MiB on disk and roughly 46.9 MB decoded, and a 1v1 match needs TWO of them — so
+   * loading all six eagerly would spend ~31 MB of texture memory on races nobody is playing, a
+   * quarter of it on a `die` row nothing plays yet. `gathererRenderer` already refused exactly this
+   * and went lazy per race; this follows that precedent rather than re-litigating it.
+   *
+   * Called on demand from `sync` the first time a unit of that race is actually on the board.
+   */
+  private ensureRaceAtlas(race: RaceId): void {
+    if (this.raceLoadStarted.has(race)) return;
+    this.raceLoadStarted.add(race);
+    this.loadAtlas(`raceUnit:${race}`, RACE_UNIT_ATLAS_BASE(race));
+  }
+
+  /**
+   * Fetch one atlas pair and slice it into per-state texture rows under `key`.
+   *
+   * ⚠ THE FAILURE ARM IS SILENT ON PURPOSE, and that is a real trade rather than sloppiness: a peer
+   * whose fetch fails keeps the creature VISIBLE through the procedural puppet instead of blanking
+   * it. The cost is that a genuinely broken atlas also ships invisibly, which is why
+   * `raceUnitFrames.test.ts` exists to catch that on disk before it ever reaches a browser.
+   */
+  private loadAtlas(key: string, base: string): void {
+    void (async () => {
+      try {
+        const manifest = (await (await fetch(`${base}-anim.json`)).json()) as AtlasManifest;
+        const tex = (await Assets.load(`${base}-atlas.png`)) as Texture;
+        const cells: Record<string, Texture[]> = {};
+        for (const [name, st] of Object.entries(manifest.states)) {
+          const arr: Texture[] = [];
+          for (let i = 0; i < st.frames; i++) {
+            arr.push(new Texture({
+              source: tex.source,
+              frame: new Rectangle(
+                i * manifest.cellW, st.row * manifest.cellH, manifest.cellW, manifest.cellH,
+              ),
+            }));
+          }
+          cells[name] = arr;
+        }
+        this.atlases.set(key, { cells, manifest });
+      } catch {
+        // Deliberately silent: the procedural puppet keeps this kind visible and playable.
+      }
+    })();
+  }
+
+  /**
+   * Which atlas a creature draws from.
+   *
+   * ⭐ A goblin is keyed by its TYPE; a race unit by its OWNER'S RACE. One `raceUnit` CreatureType
+   * covers all six races (R94/R117 make them stat-identical, so the race is purely cosmetic), and
+   * `player.raceId` has been on the wire since PROTOCOL 39 — so this needs no new synced field.
+   *
+   * ⚠ Falls back to the seat's default race when the player record or the id is missing, which is
+   * the same rule `save.ts` applies when rehydrating a roster. A mirror that is briefly missing a
+   * player must draw SOMETHING rather than drop the unit.
+   */
+  private atlasKeyFor(world: World, type: CreatureType, ownerSeat: number): string {
+    if (type !== 'raceUnit') return type;
+    const owner = world.players.get(ownerSeat as never);
+    const raw = owner?.raceId;
+    const race: RaceId = isRaceId(raw) ? raw : defaultRaceForSeat(ownerSeat);
+    this.ensureRaceAtlas(race);
+    return `raceUnit:${race}`;
   }
 
   /**
@@ -346,7 +417,9 @@ export class GoblinRenderer {
             ? DORMANT_ALPHA
             : 1;
 
-      const atlas = this.atlases.get(c.type);
+      const atlas = this.atlases.get(
+        this.atlasKeyFor(world, c.type, c.ownerPlayerId as unknown as number),
+      );
       if (atlas !== undefined) {
         // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
         const lift = GOBLIN_LIFT[c.type] ?? 0;

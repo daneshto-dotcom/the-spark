@@ -42,6 +42,10 @@
 
 import type { CreatureType } from './creature.ts';
 import {
+  RACE_UNIT_HP,
+  RACE_UNIT_DEF,
+  RACE_UNIT_ATK,
+  RACE_UNIT_PEN,
   CHEWER_HP,
   VOLTKIN_HP,
   DRONE_LIFETIME_TICKS,
@@ -735,6 +739,50 @@ export const GOBLIN_SUICIDE_CONFIG: CreatureConfig = {
   holdsRange: false,
 };
 
+/**
+ * ⭐ W1-C — THE CASTLE'S RACE UNIT (owner R107/R120/R123/R124/R125/R133/R134).
+ *
+ * The free soldier every castle emits on a ~30 s timer. ONE config for all six races: R94/R117 make
+ * them stat-identical forever, so the race is a RENDER concern (read off the owner's
+ * `player.raceId`) and never a stat concern.
+ *
+ * ⭐ EVERY NUMBER HERE IS THE OWNER'S. R125 fixes it at 1 HP / 1 DEF / 1 ATK / 1 PEN — the same
+ * floor as the melee goblin, deliberately, because this unit is free and unlimited and the thing
+ * that balances it is that it dies to anything.
+ *
+ * ⚠ THE NON-STAT FIELDS ARE COPIED FROM `GOBLIN_MELEE_CONFIG` RATHER THAN CHOSEN, and that is the
+ * honest description: cadence, ranges, spawn/despawn timings and the accel ladder are all the
+ * shipped melee goblin's. The owner ruled the STATS and the CADENCE; he did not rule an attack
+ * range or a hop speed for this unit, and inventing a second set of movement numbers would have
+ * been mine, undocumented, and a second thing to keep in sync. If a race unit should feel
+ * different from a goblin in the hand, that is a ruling to ask for, not one to guess.
+ *
+ * ⛔ `persistent: true` IS LOAD-BEARING, NOT COSMETIC. R123/R124: race units live UNTIL KILLED. A
+ * `lifetimeTicks` expiry would quietly re-introduce the cap the owner removed.
+ */
+export const RACE_UNIT_CONFIG: CreatureConfig = {
+  type: 'raceUnit',
+  hp: RACE_UNIT_HP,
+  def: RACE_UNIT_DEF,
+  atk: RACE_UNIT_ATK,
+  pen: RACE_UNIT_PEN,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what actually keeps it alive
+  spawnTicks: 30,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ATTACK_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0,
+  persistent: true,
+  chewsConnectors: false,
+  hopSpeedMul: 0.85,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * 0.85),
+  selfExplode: false,
+  targetsStructures: true,
+  holdsRange: false,
+};
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
@@ -745,6 +793,7 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   goblinHound: GOBLIN_HOUND_CONFIG,
   goblinBat: GOBLIN_BAT_CONFIG,
   goblinSuicide: GOBLIN_SUICIDE_CONFIG,
+  raceUnit: RACE_UNIT_CONFIG,
 };
 
 /**

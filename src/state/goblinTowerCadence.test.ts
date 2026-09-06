@@ -87,7 +87,19 @@ describe('S152 A1 — a FEED-ONLY tower has no passive cadence', () => {
     expect(live).toHaveLength(1);
 
     runPastSeveralCadences(w);
-    expect(w.creatures.size).toBe(0);
+    /*
+     * ⛔ S165 W1-C — COUNT WHAT THE TOWER EMITS, NOT EVERY CREATURE ALIVE.
+     *
+     * This read `w.creatures.size` as a proxy for "the goblin tower emitted nothing", which held
+     * only while the spawner poll was the only thing that could mint a creature. R120 now has every
+     * castle producing a free `raceUnit` on a ~30 s cadence in BOTH phases, and
+     * `runPastSeveralCadences` runs long enough to cross it — so a whole-map count reds this test
+     * for a reason that has nothing to do with the goblin tower.
+     *
+     * ⚠ Narrowed to the family under test rather than widened to a tolerance: the claim is that
+     * a FEED-ONLY tower has no PASSIVE cadence, and it is still asserted exactly.
+     */
+    expect([...w.creatures.values()].filter((c) => c.type !== 'raceUnit')).toEqual([]);
   });
 
   it('⭐ and the PENTAGRAM still does — the fix must not have muted the default recipe', () => {
@@ -98,7 +110,11 @@ describe('S152 A1 — a FEED-ONLY tower has no passive cadence', () => {
     expect(live).toHaveLength(1);
 
     runPastSeveralCadences(w);
-    expect(w.creatures.size).toBeGreaterThan(0);
-    expect([...w.creatures.values()].every((c) => c.type === 'chewer')).toBe(true);
+    // Same narrowing as above, and the `every` check keeps its teeth: of the creatures the SPAWNER
+    // produced, all must be chewers. Race units are excluded because the castle, not the pentagram,
+    // makes them.
+    const spawned = [...w.creatures.values()].filter((c) => c.type !== 'raceUnit');
+    expect(spawned.length).toBeGreaterThan(0);
+    expect(spawned.every((c) => c.type === 'chewer')).toBe(true);
   });
 });

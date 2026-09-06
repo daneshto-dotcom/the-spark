@@ -10,6 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseNetMessage, PROTOCOL_VERSION } from './protocol.ts';
 import { raceIsFree } from './hostHandlers.ts';
 import { makeNetSession } from './session.ts';
@@ -44,9 +46,31 @@ describe('the CLAIM_RACE wire shape', () => {
   it('⭐ ships WITHOUT a protocol bump — the claim is lobby-only and gates nothing', () => {
     // The full argument is at ClaimRaceMsg. The load-bearing fact is that the host's ANSWER rides
     // RosterEntry.color / .raceId, both on the wire since v39 — so a peer one build behind reads
-    // the resolved roster correctly. If this number moves, re-read that docblock before assuming
-    // the bump was for this feature.
-    expect(PROTOCOL_VERSION).toBe(41);
+    // the resolved roster correctly.
+    //
+    // ⛔ S165 — THIS USED TO READ `expect(PROTOCOL_VERSION).toBe(41)` AND THAT WAS THE WRONG SHAPE.
+    // The claim being made here is "CLAIM_RACE did not cause a bump", but an absolute pin asserts
+    // something much stronger and quite different: "no feature has bumped the protocol since". It
+    // duly went red on W1-C's unrelated 41->42, which says nothing whatsoever about CLAIM_RACE.
+    // Its own comment even anticipated the confusion ("if this number moves, re-read that docblock
+    // before assuming the bump was for this feature") — a warning is not a substitute for asserting
+    // the right thing.
+    //
+    // ⭐ So it now asserts the actual claim, against the bump ledger itself: no entry in the
+    // changelog attributes a bump to the race claim. That is drift-proof and STRONGER — an absolute
+    // pin would have stayed green if someone later bumped the protocol FOR this feature and simply
+    // updated the number here too.
+    const changelog = readFileSync(
+      join(process.cwd(), 'src', 'net', 'protocol.ts'),
+      'utf8',
+    );
+    const bumpLines = changelog
+      .split(/\r?\n/)
+      .filter((l) => /bumped\s+\d+\s*->\s*\d+/.test(l) || /\d+\s*->\s*\d+\s*\(/.test(l));
+    expect(bumpLines.length).toBeGreaterThan(20); // anti-vacuity: we really are reading the ledger
+    expect(bumpLines.filter((l) => /CLAIM_RACE|RACE CLAIM/i.test(l))).toEqual([]);
+    // And the version has never gone BACKWARDS past the release CLAIM_RACE shipped in.
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(41);
   });
 });
 

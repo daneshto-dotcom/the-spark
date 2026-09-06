@@ -594,8 +594,42 @@ function buildScenarioWorld(scen: Scenario): World {
   // Safe because PHASE_DURATION_TICKS (5400) exceeds the longest scenario (800 ticks), so no edge
   // can land mid-run and silently flip a scenario back into BUILD.
   world.matchPhase = 'FIGHT';
+
+  /*
+   * ⭐ S165 W1-C — START THE CLOCK OFF THE CASTLE'S ~30 s RECRUIT CADENCE. Same species of fixture
+   * adjustment as the S139 P2 goblin removal and the S147 P1 phase pin above, and for the same
+   * reason: this gate exists to prove the S119 EXTRACTION preserved behaviour, and nothing else.
+   *
+   * The castle now produces a free `raceUnit` when `(world.tick - seat) % 1800 === 0`
+   * (`raceUnitEmit.ts`). From tick 0 that means seat 0 emits on tick 0, seat 1 on tick 1, and so on
+   * — inside every scenario's window. `referenceHostTick` is a FROZEN transcription of the pre-S119
+   * body and can never contain that emitter, so the two sides diverge on the first tick. That says
+   * nothing whatsoever about the extraction.
+   *
+   * ⛔ THE FROZEN REFERENCE IS NOT THE PLACE TO FIX THIS. Its whole value is that it does not move;
+   * the file's own S159 P9 note forbids transcribing new systems into it.
+   *
+   * ⚠ THIS IS AN EQUIVALENCE STATEMENT, NOT A WORKAROUND — and the offset is applied to BOTH worlds
+   * identically, so every other tick-derived cadence in the sim (scoring, the spawner poll, the
+   * castle guns) shifts on both sides together and the comparison is untouched. Starting at 900
+   * with a longest scenario of 800 ticks puts the window at [900, 1700), while a seat emits only at
+   * `tick ≡ seat (mod 1800)` — i.e. ticks 0..3 for the seats that exist. No edge can land inside.
+   * ⭐ It is arguably a STRONGER gate than before: the extraction is now proven from a non-zero
+   * clock rather than only from a fresh world.
+   *
+   * The emitter has its own dedicated coverage in `raceUnitEmit.test.ts`, which is where its
+   * cadence, its caps and its phase behaviour are actually asserted.
+   */
+  world.tick = DIFFERENTIAL_START_TICK;
   return world;
 }
+
+/**
+ * Chosen so `[start, start + 800)` contains no `tick ≡ seat (mod RACE_UNIT_EMIT_INTERVAL_TICKS)`
+ * for any seat the scenarios use. 900 is half the 1800-tick recruit interval, which leaves the
+ * widest margin on both sides of the window.
+ */
+const DIFFERENTIAL_START_TICK = 900;
 
 function runDifferential(scen: Scenario): void {
   const worldNew = buildScenarioWorld(scen);
@@ -661,7 +695,11 @@ describe('S119 P1 — runHostTick vs frozen pre-refactor reference (DIFFERENTIAL
       seed: 0xd1f002,
       ticks: 800,
       botCount: 2,
-      expectAtEnd: (w) => expect(w.tick).toBe(800),
+      // ⚠ RELATIVE TO THE START TICK, NOT ABSOLUTE. This asserted `800` because the fixture used to
+      // begin at 0; S165 W1-C starts it at `DIFFERENTIAL_START_TICK` to sit off the castle's recruit
+      // cadence (see buildScenarioWorld). What this line is actually for is "the loop advanced the
+      // clock once per iteration", so it is written that way now and survives the next offset change.
+      expectAtEnd: (w) => expect(w.tick).toBe(DIFFERENTIAL_START_TICK + 800),
     });
   });
 

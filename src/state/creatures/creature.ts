@@ -175,7 +175,18 @@ export type CreatureType =
   | 'goblinBat'
   /** Owner calls this "the terrorist goblin"; the project's own roadmap (Q1) named it `suicide`,
    *  which is the vocabulary already used for the lightning drone, so that name is kept. */
-  | 'goblinSuicide';
+  | 'goblinSuicide'
+  /* ── W1-C (S165) — THE CASTLE'S RACE UNIT (owner R107/R125/R133/R134) ─────────────────────────
+   * The free soldier every castle emits on a ~30 s timer. ⭐ ONE literal for all SIX races, not
+   * six: R94/R117 make them stat-identical forever, and the RACE is read off the owner's
+   * `player.raceId` — which has been on the wire since PROTOCOL 39 — purely to pick an atlas.
+   * Six stat-identical literals would have been six places for one stat line to drift apart, and
+   * six more entries in every exhaustive Record for no decision gained.
+   * ⛔ SERIALIZED, so it costs a PROTOCOL_VERSION bump (41 -> 42) on the same grounds as
+   * 'lightningDrone' (13->14) and the five goblins (29->30): `deserializeCreature` writes
+   * `type: s.type` with no whitelist, so a stale peer would accept the literal and then find
+   * `CREATURE_CONFIGS[unknown] === undefined` on its own mirror. */
+  | 'raceUnit';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING

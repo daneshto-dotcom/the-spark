@@ -422,23 +422,41 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
     // ⛔ NO PHASE PINNING — that deletion is the point of this test.
     let firstTowerTick = -1;
     const phasesSeen = new Set<string>();
+    let peakStamped = 0;
     for (let t = 0; t < 60 * 300; t++) {
       m.tick(w);
       runHostTick(w, d, st);
       phasesSeen.add(w.matchPhase);
-      if (firstTowerTick < 0) {
-        const any = [...w.primitives.values()].some((p) => p.placedBy === SEAT && p.origin !== null);
-        if (any) firstTowerTick = w.tick;
-      }
+      const stampedNow = [...w.primitives.values()].filter(
+        (p) => p.placedBy === SEAT && p.origin !== null,
+      ).length;
+      if (firstTowerTick < 0 && stampedNow > 0) firstTowerTick = w.tick;
+      peakStamped = Math.max(peakStamped, stampedNow);
     }
 
     // Anti-vacuity: the clock really ran, and the bot really lived through both phases.
     expect(phasesSeen.has('BUILD')).toBe(true);
     expect(phasesSeen.has('FIGHT')).toBe(true);
 
-    const stamped = [...w.primitives.values()].filter((p) => p.placedBy === SEAT && p.origin !== null);
+    /*
+     * ⛔ S165 W1-C — MEASURED AT ITS PEAK, NOT AT THE END, AND THE DIFFERENCE IS THE WHOLE POINT.
+     *
+     * This asserted the END-OF-RUN count, which conflates two different claims: "the bot RAISED a
+     * structure" (the title, and what this file is for) and "the structure SURVIVED 18,000 ticks"
+     * (a balance property of the whole game).
+     *
+     * They came apart the moment W1-C landed. Over 60*300 ticks a four-seat board now sees roughly
+     * ten free `raceUnit` emissions PER SEAT (R120, one every ~30 s, uncapped by R123/R124), every
+     * one of them `targetsStructures: true` — so the bot's tower is raised at tick 2630 exactly as
+     * before and is then razed long before the run ends. The end-state count measures the enemy
+     * army, not the bot's competence.
+     *
+     * ⚠ THAT IS A REAL BALANCE CONSEQUENCE AND IT IS SURFACED TO THE OWNER RATHER THAN BURIED HERE:
+     * free, uncapped, permanent structure-killers will strip a long match's board. It follows
+     * directly from R123/R124 + R125 and is his call, not a defect for a test to paper over.
+     */
     expect(
-      stamped.length,
+      peakStamped,
       `a HARD bot on the REAL clock in a FOUR-SEAT match raised a structure (first tower at tick ${firstTowerTick})`,
     ).toBeGreaterThanOrEqual(blueprintCost(CHEAPEST));
   });

@@ -57,6 +57,36 @@ import { dispatch, makeWorld, type World } from './world.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId, type PlayerId } from '../types.ts';
 import type { Controls } from '../input/controls.ts';
 
+/**
+ * ⭐ S165 W1-C — COUNT THE FAMILY THE TEST IS ABOUT, NOT EVERY CREATURE ON THE BOARD.
+ *
+ * These assertions used `world.creatures.size` as a proxy for "the SPAWNER POLL emitted nothing",
+ * and their own titles say so — "no drones were emitted", "no chewers minted". The proxy held only
+ * while the spawner poll was the ONLY thing that could mint a creature.
+ *
+ * ⛔ IT IS NOT ANY MORE, AND THE NEW EMITTER IS A DELIBERATE EXCEPTION RATHER THAN A REGRESSION.
+ * Owner R120: the castle produces its race unit in BOTH phases — *"every thirty seconds it
+ * produces... And it keeps producing during fight until fight is done"*. So a BUILD-phase world now
+ * legitimately contains `raceUnit`s, and a whole-map count would red these tests for a reason that
+ * has nothing to do with the spawner poll they exist to guard.
+ *
+ * ⚠ The fix is to make each assertion say what its title always claimed. Widening the tolerance, or
+ * suppressing the emitter in the fixture, would have thrown away the guard instead of sharpening it.
+ */
+function countType(world: World, type: string): number {
+  let n = 0;
+  for (const c of world.creatures.values()) if (c.type === type) n++;
+  return n;
+}
+
+/** Race units are exempt from the spawner phase gate BY DESIGN (R120) — see `countType`. */
+function countNonRaceUnits(world: World): number {
+  let n = 0;
+  for (const c of world.creatures.values()) if (c.type !== 'raceUnit') n++;
+  return n;
+}
+
+
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
@@ -173,7 +203,7 @@ describe('S157 P0 — the spawner poll is FIGHT-gated', () => {
     expect(world.matchPhase, 'the fixture must still be in BUILD').toBe('BUILD');
     expect(world.primitives.has(anchor.id), 'the hub anchor survived BUILD').toBe(true);
     expect(world.primitives.has(bystander.id), 'the owner own shape survived BUILD').toBe(true);
-    expect(world.creatures.size, 'no drones were emitted during BUILD').toBe(0);
+    expect(countType(world, 'lightningDrone'), 'no drones were emitted during BUILD').toBe(0);
   });
 
   it('⛔ and the cadence stays ALIGNED, so the FIGHT edge does not dump a backlog burst', () => {
@@ -211,7 +241,27 @@ describe('S157 P0 — the spawner poll is FIGHT-gated', () => {
     let sawDrone = false;
     for (let t = 0; t < 5000; t++) {
       runHostTick(world, d, st);
-      if (world.creatures.size > 0) sawDrone = true;
+      if (countType(world, 'lightningDrone') > 0) sawDrone = true;
+      /*
+       * ⛔ S165 W1-C — SWEEP THE CASTLE'S RACE UNITS OUT OF THIS FIXTURE, and this is a removal of
+       * a THIRD ACTOR rather than a tolerance widened to hide a failure.
+       *
+       * This test's claim is about the SPAWNER POLL: the hub emits, and *nothing detonates while it
+       * is merely working* — with the surviving enemy shape as the evidence. R120 now has every
+       * castle producing a free `raceUnit` in both phases, those units have `targetsStructures:
+       * true`, and over a 5000-tick FIGHT they simply walk over and raze that enemy shape. The
+       * assertion then goes red for a reason that has nothing to do with the hub.
+       *
+       * ⚠ The precedent is the S139 P2 goblin removal in `hostTick.differential.test.ts`, and the
+       * reasoning is identical: a guard must be fed only the actors it is guarding. Removing them
+       * every tick (rather than once at the end) is what stops them reaching the shape at all.
+       *
+       * ⭐ The exception itself is asserted in `raceUnitEmit.test.ts`, so deleting the emitter would
+       * still turn a test red — this sweep hides nothing.
+       */
+      for (const [cid, c] of [...world.creatures]) {
+        if (c.type === 'raceUnit') world.creatures.delete(cid);
+      }
     }
 
     expect(sawDrone, 'the hub emitted at least one drone during FIGHT').toBe(true);
@@ -261,7 +311,7 @@ describe('S157 P0 — the spawner poll is FIGHT-gated', () => {
     const d = deps();
     const st = makeHostTickState(world);
     for (let t = 0; t < 3000; t++) runHostTick(world, d, st);
-    expect(world.creatures.size, 'no chewers minted during BUILD').toBe(0);
+    expect(countType(world, 'chewer'), 'no chewers minted during BUILD').toBe(0);
   });
 });
 
@@ -327,6 +377,6 @@ describe('S157 P0 — the self-destruct spares its owner', () => {
     });
     expect(world.primitives.has(mine.id)).toBe(false);
     expect(world.primitives.has(theirs.id)).toBe(false);
-    expect(world.creatures.size).toBe(0);
+    expect(countNonRaceUnits(world)).toBe(0);
   });
 });

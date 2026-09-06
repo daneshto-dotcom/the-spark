@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 41; // S164 P1 — 40 → 41 (CASTLE REGEN UPGRADE: new client intent, owner R128-R131)
+const LOCAL_PROTO_V = 42; // S165 W1-C — 41 → 42 (THE CASTLE'S RACE UNIT: new serialized CreatureType, owner R107/R125/R133/R134)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

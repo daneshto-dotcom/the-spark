@@ -502,6 +502,26 @@ export type { NetSnapshot };
  * ⚠ Still deliberately NOT in this bump: `CLAIM_RACE`, for the reason given above.
  */
 // S164 P1 — bumped 40->41: CASTLE REGEN UPGRADE. A new CLIENT INTENT, which a v40 host drops silently.
+// S165 W1-C — bumped 41->42: THE CASTLE'S RACE UNIT. A new SERIALIZED CreatureType literal.
+/**
+ * ⭐ S165 W1-C — BUMPED 41 → 42: **THE CASTLE PRODUCES ITS RACE'S UNIT** (owner R107/R125/R133/R134).
+ *
+ * Every castle emits one free `raceUnit` on a ~30 s timer. ONE new `CreatureType` literal serves all
+ * six races — R94/R117 make them stat-identical forever, so the RACE is read off the owner's
+ * `player.raceId` (on the wire since v39) purely to choose an atlas.
+ *
+ * ⛔ WHY THIS EARNS A BUMP, AND WHY THE S164 HANDOFF WAS WRONG TO SAY IT DID NOT. That handoff read
+ * "it rides P1's 40->41" — true only while P1 and W1-C landed in the SAME session. P1 shipped and
+ * W1-C's wiring did not, so 41 went to production alone and v41 peers are live in the wild knowing
+ * nothing of `raceUnit`.
+ *
+ * ⛔ AND THERE IS NO SWITCH TO FALL THROUGH — it is worse than a missing default arm. A repo-wide
+ * grep for `switch (c.type` / `switch (creature.type` / `switch (s.type` in non-test `src/` returns
+ * ZERO hits: `deserializeCreature` assigns `type: s.type` straight through. A stale peer would
+ * therefore ACCEPT the unknown literal and then find `CREATURE_CONFIGS['raceUnit'] === undefined`
+ * on its own mirror. Three unbroken precedents for exactly this class: 13->14 (`lightningDrone`),
+ * 17->18 (`goblinMelee`), 29->30 (the five goblin literals).
+ */
 /*
  * ⭐ S164 P1 — BUMPED 40 → 41: **THE CASTLE REGENERATES, IF YOU BOUGHT IT** (owner R128–R131).
  *
@@ -520,7 +540,7 @@ export type { NetSnapshot };
  * ⚠ The unbroken precedent: `REPAIR_STRUCTURE`/`SCRAP_STRUCTURE` (26→27), `FEED_TOWER` (29→30),
  * `RAID_TARGET` (30→31) and `ENQUEUE_`/`CANCEL_GATHERER_ORDER` (19→20) each bumped for exactly this.
  */
-export const PROTOCOL_VERSION = 41 as const;
+export const PROTOCOL_VERSION = 42 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -710,6 +730,14 @@ export interface HelloMsg {
    * joiner's purchase would be silently dropped while the host's own worked. The `FEED_TOWER` /
    * `RAID_TARGET` shape.)
    *
+   * S165 W1-C: 41->42 (THE CASTLE'S RACE UNIT — owner R107/R125/R133/R134. A new SERIALIZED
+   * `CreatureType` literal `raceUnit`, ONE for all six races because R94/R117 make them
+   * stat-identical and the race is read off `player.raceId`, on the wire since v39. The bump is for
+   * the LITERAL: `deserializeCreature` writes `type: s.type` with no whitelist and there is no
+   * switch on creature type anywhere in production, so a v41 peer would ACCEPT `raceUnit` and then
+   * find `CREATURE_CONFIGS['raceUnit'] === undefined` on its own mirror. The `lightningDrone`
+   * (13->14) / `goblinMelee` (17->18) / five-goblins (29->30) shape.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -747,7 +775,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 41;
+  readonly protoVersion: 42;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

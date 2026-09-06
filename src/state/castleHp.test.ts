@@ -141,7 +141,13 @@ describe('S154 AMENDMENT C — ⭐ a goblin that reaches the keep ACTUALLY HITS 
       w.players.get(asPlayerId(1))!.castleHp,
       'a single leaked unit cannot scratch a defended keep',
     ).toBe(CASTLE_MAX_HP);
-    expect(w.creatures.size, 'and it was shot down').toBe(0);
+    // ⛔ S165 W1-C — the GOBLIN was shot down; the castle's own free race units are not part of
+    // this claim. R120 has every castle producing one every ~30 s in both phases, so a whole-map
+    // count now measures the defender's recruitment as well as its marksmanship.
+    expect(
+      [...w.creatures.values()].filter((c) => c.type !== 'raceUnit'),
+      'and it was shot down',
+    ).toEqual([]);
   });
 
   it('and it does NOT hit its OWN castle', () => {

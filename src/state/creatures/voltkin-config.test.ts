@@ -153,10 +153,13 @@ describe('CREATURE_CONFIGS lookup table', () => {
     // Record<CreatureType,...> exhaustiveness guard and it fired exactly as designed.
     // ⭐ S151 P3 — and it fired exactly as designed AGAIN when the goblin tower's other five
     // outputs landed. That is the whole value of pinning the literal list rather than deriving it.
+    // ⭐ S165 W1-C — and it fired as designed a THIRD time when the castle's race unit landed.
+    // ONE literal covers all six races: R94/R117 make them stat-identical forever, so the race is
+    // read off the owner's `player.raceId` at render time and never reaches this table.
     expect(keys).toEqual([
       'chewer',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
-      'lightningDrone', 'voltkin',
+      'lightningDrone', 'raceUnit', 'voltkin',
     ]);
   });
 

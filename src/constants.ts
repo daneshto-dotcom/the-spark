@@ -1354,6 +1354,59 @@ export const GOBLIN_MAX_GLOBAL = 200;
  */
 export const GOBLIN_MAX_PER_SPAWNER = 10;
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * W1-C — THE CASTLE'S RACE UNIT (owner R107/R120/R123/R124/R125/R133/R134)
+ * ════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⭐ R125, VERBATIM: the race unit is **1 HP / 1 DEF / 1 ATK / 1 PEN**. Four owner numbers, not mine.
+ *
+ * ⛔ AND ALL SIX RACES SHARE THIS ONE LINE, FOREVER (R94/R117). Races differ in LOOK and MOVEMENT,
+ * never in numbers — which is exactly why the emitter mints ONE `raceUnit` CreatureType and reads
+ * the race off the owner's `player.raceId` for rendering, instead of six stat-identical literals.
+ * Six literals would have been six places for the numbers to drift apart.
+ *
+ * ⚠ R135 gives the TIER-3 TOWER's output varied stats. That is a DIFFERENT population (R134) and a
+ * different unit, and its numbers are NOT ruled — nothing here applies to it.
+ */
+export const RACE_UNIT_HP = 1;
+export const RACE_UNIT_DEF = 1;
+export const RACE_UNIT_ATK = 1;
+export const RACE_UNIT_PEN = 1;
+
+/**
+ * ⭐ R120 — THE CASTLE EMITS ONE UNIT EVERY ~30 SECONDS, FREE.
+ *
+ * `1800 = 30 s × PHYSICS_HZ (60)`. Derived from the tick rate rather than typed, so it stays 30
+ * seconds if the tick rate ever moves.
+ *
+ * ⛔ CADENCE IS DERIVED FROM `world.tick`, NEVER ACCUMULATED. No float remainder, no stored timer —
+ * the same rule `castleGuns.ts` follows, and the reason a mid-match host migration cannot skip or
+ * double an emission.
+ */
+export const RACE_UNIT_EMIT_INTERVAL_TICKS = 30 * PHYSICS_HZ;
+
+/**
+ * ⭐ R123/R124 — NO PER-PLAYER CAP. Race units live until killed.
+ *
+ * ⛔ SO THESE ARE SENTINEL BACKSTOPS, NOT BALANCE, and they copy the `CHEWER_MAX_* = 10_000` shape
+ * for exactly that reason — a runaway loop should hit a wall long before it hits the frame budget,
+ * and a number that never binds in a real match is not a design decision.
+ *
+ * ⛔ AND THIS IS WHY THE RACE UNIT MUST NOT RIDE `underGoblinCaps`. That family counts
+ * `c.sourceSpawnerId === sourceSpawnerId` with NO owner term and increments a shared global, so
+ * routing race units through it would do two silent, gameplay-fatal things at once: one shared
+ * castle sentinel would turn `GOBLIN_MAX_PER_SPAWNER = 10` into a CROSS-SEAT cap (seat 0's tenth
+ * unit blocking every other castle), and every race unit would eat into `GOBLIN_MAX_GLOBAL = 200`
+ * and starve the goblin towers. Both would look like "late game, no units" and neither would throw.
+ *
+ * ⚠ The owner has seen the wire cost this implies and accepted it (2026-09-06): *"about the 65kb
+ * question if it ever causes lag then we will talk about what to do but for now we're good."*
+ * Do not add a cap here on that account.
+ */
+export const RACE_UNIT_MAX_GLOBAL = 10_000;
+export const RACE_UNIT_MAX_PER_SEAT = 10_000;
+
 // === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===
 // ONE damage scale across the whole game. Two kinds of destructible thing have HP:
 //   • CONNECTORS (bonds): 5 chews sever a connector (= the owner's "5 chews to destroy a

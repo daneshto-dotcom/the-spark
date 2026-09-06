@@ -100,6 +100,7 @@ import { underDroneCaps } from './droneLifecycle.ts';
 // S160 P4b — the castle's own weapon. No stored timer: the schedule derives from `world.tick`.
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
+import { raceUnitEmitTick } from './raceUnitEmit.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -1356,6 +1357,22 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // halves of the same castle: one shoots, one heals. Its own PLAYING gate lives in the function so
   // this call site holds no policy, exactly as the line above does.
   castleRegenTick(world);
+  /*
+   * ⭐ S165 W1-C — the castle PRODUCES (owner R107/R120/R125/R133/R134). The third half of the same
+   * castle: one shoots, one heals, one recruits.
+   *
+   * ⛔ NOT PHASE-GATED, AND THAT IS R120, NOT AN OVERSIGHT. Owner: *"every thirty seconds it
+   * produces, and they hide inside the [castle], and then they get released during fight stage. And
+   * it keeps producing during fight until fight is done."* Every OTHER emitter in this game is
+   * dormant outside FIGHT and `spawnerPhaseGate.test.ts` pins that invariant, so a future phase
+   * audit will find this line looking wrong. It is the one deliberate exception; `raceUnitEmit.ts`
+   * carries the argument and its test asserts production in BOTH phases so removing the exception
+   * turns a test red rather than quietly halving the unit supply.
+   *
+   * ⚠ The PLAYING gate lives in the function, so this call site holds no policy — same shape as the
+   * two lines above.
+   */
+  raceUnitEmitTick(world);
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);

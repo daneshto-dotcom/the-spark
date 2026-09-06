@@ -50,6 +50,7 @@ import {
 // S113 Batch C — a lightning-drone spawn uses its OWN cap (runtime-only call; the
 // creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
 import { underDroneCaps } from '../droneLifecycle.ts';
+import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -233,10 +234,31 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
    * Each population now answers to its own ceiling — the same separation `underDroneCaps` already
    * established for drones, and for the same stated reason: one hazard class must never block another.
    */
+  /*
+   * ⭐ S165 W1-C — A THIRD FAMILY, AND IT IS THE SAME LESSON THIS TERNARY ALREADY RECORDS.
+   *
+   * The race unit gets `underRaceUnitCaps` rather than riding `underGoblinCaps`, because routing it
+   * through the goblin family would do two silent, gameplay-fatal things at once — exactly the class
+   * of bug the chewer/goblin split above was written to end:
+   *
+   *   1. `underGoblinCaps` increments a SHARED `GOBLIN_MAX_GLOBAL = 200`, so a board full of free
+   *      castle units would starve every goblin tower on it. That is the S157 B1 bug again, one
+   *      population further on.
+   *   2. Its per-spawner term compares `c.sourceSpawnerId === sourceSpawnerId` with NO owner term.
+   *      Race units carry a CASTLE SENTINEL id, so a single shared sentinel would have turned
+   *      `GOBLIN_MAX_PER_SPAWNER = 10` into a CROSS-SEAT cap — seat 0's tenth unit blocking every
+   *      other seat's castle. (The sentinel is per-seat for that reason; this keeps it honest even
+   *      if that ever changes.)
+   *
+   * ⚠ And per R123/R124 the race-unit ceilings are SENTINEL BACKSTOPS at 10_000, not balance — the
+   * owner ruled these uncapped, and accepted the wire cost that implies on 2026-09-06.
+   */
   const capOk =
     action.creatureType === 'chewer'
       ? underChewerCaps(world, sourceSpawnerId, action.victimPlayerId)
-      : underGoblinCaps(world, sourceSpawnerId);
+      : action.creatureType === 'raceUnit'
+        ? underRaceUnitCaps(world, action.ownerPlayerId)
+        : underGoblinCaps(world, sourceSpawnerId);
   if (!capOk) return world;
 
   const id = asCreatureId(world.nextCreatureId++);
@@ -267,7 +289,12 @@ export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boole
   let perSpawner = 0;
   for (const c of world.creatures.values()) {
     if (c.sourceSpawnerId === null) continue; // Voltkin population — its own rule
-    if (c.type === 'chewer' || c.type === 'lightningDrone') continue;
+    // ⛔ S165 W1-C — `raceUnit` JOINS THE EXCLUSION LIST, AND THIS LINE IS THE HALF THAT IS EASY TO
+    // MISS. Routing race units to their own cap function decides which ceiling THEY answer to; it
+    // does nothing about them being COUNTED here when a GOBLIN spawns. Without this, a board of
+    // free castle units would still fill `GOBLIN_MAX_GLOBAL = 200` and starve every goblin tower —
+    // the S157 B1 bug exactly, one population further on, and just as silent.
+    if (c.type === 'chewer' || c.type === 'lightningDrone' || c.type === 'raceUnit') continue;
     global++;
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
   }
