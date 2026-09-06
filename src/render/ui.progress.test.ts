@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatPhaseBanner, progressBarFractions } from './ui.ts';
-import { LEADER_DECAY_THRESHOLD_FRACTION, PHASE_1_WIN_SCORE, PHASE_DURATION_TICKS, PHYSICS_HZ } from '../constants.ts';
+import { LEADER_DECAY_ENABLED, LEADER_DECAY_THRESHOLD_FRACTION, PHASE_1_WIN_SCORE, PHASE_DURATION_TICKS, PHYSICS_HZ } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 import type { World } from '../state/world.ts';
 
@@ -47,9 +47,22 @@ describe('progressBarFractions (S106 P4 — own-score bar + leader ghost)', () =
 });
 
 describe('progressBarFractions.ownDecaying (S107 P1 — anti-coast amber cue)', () => {
-  it('TRUE when the LOCAL player is the leader AND past the decay threshold', () => {
+  /*
+   * ⛔ S165 — PINNED TO THE FLAG, NOT TO `true`, AND THAT CHANGE IS THE POINT.
+   *
+   * This case asserted a literal `true` and so it PASSED THROUGH the whole defect: S147 P1 (R28)
+   * switched `LEADER_DECAY_ENABLED` off, `scoring.ts` stopped bleeding anyone, and the HUD kept
+   * tinting the bar amber to announce a bleed that no longer existed — with a green test standing
+   * behind it. A test that hard-codes one side of a switch cannot notice the switch moving.
+   *
+   * ⭐ Reading the flag makes the case bidirectional: it demands FALSE while decay is off (today)
+   * and demands TRUE the moment the constant is flipped back. The other three cases below stay
+   * literal `false` on purpose — they are about leadership, threshold and solo, none of which the
+   * flag has any business changing.
+   */
+  it('tracks LEADER_DECAY_ENABLED when the LOCAL player leads past the decay threshold', () => {
     const w = mk([[0, DECAY_THRESHOLD + 50], [1, 100]], 0); // you lead, past 75%
-    expect(progressBarFractions(w).ownDecaying).toBe(true);
+    expect(progressBarFractions(w).ownDecaying).toBe(LEADER_DECAY_ENABLED);
   });
 
   it('FALSE when you are NOT the leader (someone else is decaying, not you)', () => {

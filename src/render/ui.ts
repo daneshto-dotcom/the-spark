@@ -21,6 +21,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   FOOTER_TOP_Y,
+  LEADER_DECAY_ENABLED,
   LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   MAX_RAID_POINTS,
@@ -586,7 +587,21 @@ export function progressBarFractions(
   const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
   // Local player is (tied for) the leader when their own score reaches the max-of-all.
   const isLeader = localScore >= world.scoreProgress - 0.001;
+  /*
+   * ⛔ S165 — `LEADER_DECAY_ENABLED` FIRST, AND ITS ABSENCE WAS A HUD THAT LIED.
+   *
+   * This cue exists to explain a score that is visibly receding. S147 P1 (R28) then switched the
+   * decay itself OFF — `scoring.ts` guards `applyLeaderDecay` on that flag — but this predicate was
+   * never told. So any leader past 75% got the amber "you are coasting, your score is bleeding"
+   * tint over a score that was not bleeding at all and never would. A cue for a mechanic that does
+   * not run is worse than no cue: the player changes their play to answer a warning about nothing.
+   *
+   * ⭐ THE FLAG IS THE SINGLE SWITCH, WHICH IS WHAT R28 SAID. `scoring.ts` already reads it as the
+   * one place decay turns on; reading it here too means flipping that constant restores the tint
+   * with the mechanic, in one edit, instead of leaving a second site to remember.
+   */
   const ownDecaying =
+    LEADER_DECAY_ENABLED &&
     world.gameMode !== 'solo' &&
     isLeader &&
     localScore > PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;

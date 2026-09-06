@@ -770,7 +770,25 @@ export async function placeFreeSparkAndConfirm(
 
   // S136 — THE PLAYER'S SHAPE SOURCE IS THE CASTLE PORCH, NOT THE QUARRY. Ensure one is standing
   // there before we try to drag anything (see pullFromBank for the full reasoning).
-  await pullFromBank(page, timeoutMs);
+  //
+  // ⛔ S165 — `Math.max`, AND IT IS A BUG FIX, NOT A RAISED ROPE. This line used to pass `timeoutMs`
+  // straight through, which silently HALVED a budget somebody else had deliberately sized: this
+  // function's 15 s is the DRAG budget (a click, a move, a release — sub-second work with retries),
+  // while `pullFromBank`'s own default is 30 s because it waits on the ECONOMY — gatherers walking
+  // the board, filling a bank, on whatever frame rate the machine can give. Two unrelated
+  // operations were sharing one number, and the smaller one won.
+  //
+  // ⚠ MEASURED, and it is the failure that had CI red: the gating lane threw
+  // `waitForWorld timeout (15000ms): a gatherer banks a shape into the local castle` — the 15 s is
+  // this function's, printed verbatim, on a wait whose author wrote 30. `hunter.spec.ts:68` and
+  // `worker.spec.ts:21` both died there while 60 other tests passed.
+  //
+  // ⭐ AND IT DOES NOT REOPEN THE PHASE-EDGE TRAP DESCRIBED ABOVE. That warning is about drifting
+  // past `PHASE_DURATION_TICKS` (5400 ticks / 90 s of SIM time); the failing runs were at tick
+  // 597 and 680, i.e. roughly a tenth of the way there, so the economy has ample room. A caller
+  // that wants LONGER still gets longer — this only refuses to give the economy less than the
+  // budget it was designed with.
+  await pullFromBank(page, Math.max(timeoutMs, 30_000));
   const hasZoneSpark = (
     w: Awaited<ReturnType<typeof readWorldState>>,
   ): boolean => w.freeSparks.some(isPorchSpark);
