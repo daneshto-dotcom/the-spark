@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5306,
+  "tool_calls_session_total": 5451,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -371,6 +371,141 @@
           "value": 1
         }
       ]
+    },
+    {
+      "id": 9,
+      "title": "P9 - CI + deploy recovery, and the sweep fixes that followed",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "5f2a1fa",
+      "check_method": "CI RECOVERED. E2E had been red on every commit after 8aff165 and is GREEN on 28f6b470 - gating e2e, e2e-protocol, e2e-lobby, e2e-soak and the new atlas-guard job all pass; e2e-quarantine fails as designed under job-level continue-on-error, so the RUN concluded success. ROOT CAUSE was NOT the diagnosis carried into this stretch. The failing line printed 'waitForWorld timeout (15000ms): a gatherer banks a shape into the local castle', and 15000 is not that wait's number: pullFromBank declares 30_000 for the ECONOMY wait, placeFreeSparkAndConfirm declares 15_000 for the DRAG, and it passed its own budget straight down. Two unrelated operations shared one number and the smaller won. Fixed with Math.max(timeoutMs, 30_000). The zone backdrop only thinned the margin (5 straight greens before it, 4 failures + 1 success after) - a budget that was always wrong finally started binding. DEPLOY RECOVERED SEPARATELY: the atlas guard I had wired into `npm run build` took the Pages deploy red on ModuleNotFoundError: numpy. Moved to its own atlas-guard job in e2e.yml with a pip step; build is Node-only again. Deploy green on 7e0294ab and every commit since; verify-deploy 4/4. SWEEP FIXES LANDED: (1) HUD ownDecaying tinted an amber 'your score is bleeding' cue while LEADER_DECAY_ENABLED has been false since S147 R28 - now reads the flag, and its test asserts the FLAG instead of a literal true, which is how it stayed green through the mechanic being switched off. (2) DEFENDER_TARGETS had the two towers BACKWARDS vs the code: stinkTower said units-only while stinkThrowBag passes STINK_BAG_DAMAGE as applyRadialDamage's PRIMITIVE amount (corrected to BOTH + pinned by a new test); turret says BOTH per R72 while the beam is creature-only, so the RULING is kept and logged as a carry-forward rather than erased to quiet an audit. (3) the castle sentinel's fallthrough in ownHomePos documented as safe-and-correct with the reason it cannot call isCastleSpawnerId (import cycle). (4) atlas-spec gap re-measured: FOUR unspecced, split into recoverable (helga, stink-bag - clips in tree) and unrecoverable (goblin-archer, goblin-melee - no clips anywhere). (5) the bundle charter now PRINTS the 62 MiB static payload - reported, never gated, for the reason in (deploy) above; first run surfaced a 9.5 MiB audio file. NEW GUARD FOR THE OWNER'S OWN COMPLAINT: e2e/zone-backdrop.spec.ts asserts the browser FETCHED /art/race-zones/*.png with a 200 during a match - the one observation nothing in the suite made, which is why 'i dont see the backgrounds' could not be answered. NEGATIVE CONTROL RUN: with zoneBackgroundRenderer.sync(world) removed it fails with its own diagnostic; restored, 1/1 in 20.5s, and main.ts verified byte-identical to HEAD via git diff. GATES: typecheck 0 - vitest 0 (3715/3715, 239 files) - build 0 - check:atlas 0 (30 atlases, three checks) - e2e:gating 62/62 local (GATING_EXIT captured, not read off the wrapper's '[exited with code 0]') - CI E2E green - deploy verified 4/4. ONE UNRESOLVED, NOT SILENCED: worker-bots.spec.ts:78 failed ONCE in a full-suite local run (world back at TITLE/solo mid-test), then passed standalone, passed a second full-suite run, and passed on CI. Recorded as an unreproduced suite-context flake - the project CLAUDE.md already documents this spec as historically red - NOT as benign.",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "package.json",
+          "needle": "check-bundle-size.mjs && npm run check:atlas"
+        },
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "\"build\": \"tsc -b && vite build && node scripts/check-bundle-size.mjs\""
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "atlas-guard:"
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "pip install numpy scipy Pillow"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "process.exit(3)"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/helpers.ts",
+          "needle": "await pullFromBank(page, Math.max(timeoutMs, 30_000));"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "    LEADER_DECAY_ENABLED &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.progress.test.ts",
+          "needle": "toBe(LEADER_DECAY_ENABLED)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "stinkTower: BOTH,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "NOT YET IMPLEMENTED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.test.ts",
+          "needle": "the STINK TOWER attacks BOTH"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "THE CASTLE SENTINEL FALLS THROUGH HERE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/raceUnitEmit.ts",
+          "needle": "NO PRODUCTION CALLER"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/godly-goblins/atlas-specs.json",
+          "needle": "_unspecced_atlases_note"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/godly-goblins/atlas-specs.json",
+          "syntax_type": "json"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-bundle-size.mjs",
+          "needle": "static assets (NOT gated, NOT initial-load)"
+        },
+        {
+          "type": "file_exists",
+          "path": "e2e/zone-backdrop.spec.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "/art/race-zones/"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "test.describe('@visual"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "@quarantine-flaky"
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "pattern": "\\bexpect\\(",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "3715 tests / 239 files at S165"
+        },
+        {
+          "type": "file_lacks",
+          "path": "CLAUDE.md",
+          "needle": "3646 tests / 233 files at S163"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "42 at S165"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -381,7 +516,19 @@
     "#fix-the-class-not-the-instance — cross-clip scale drift had been re-rolled by hand in S164 (the naga) and was about to be re-rolled by hand again. Prompting fixed 3 of 5. The durable fix was normaliseStateScale in the builder plus a guard — and the guard immediately found a SIXTH instance in already-shipped castle art that nobody had noticed.",
     "#a-guard-that-cries-wolf-is-worse-than-none — pointed at structures, my new guard produced two confident false positives (deliberate smoke read as scenery; rubble legitimately shorter than the intact building). Both checks silently assumed CHARACTER semantics. Scoping it explicitly, with those two false positives written up as the reason, is better than widening a threshold until the noise stops.",
     "#say-which-checks-actually-ran — the guard printed 'clean on both checks' even when --no-size had skipped one. That is the same false-assurance shape as the S161 gate that FAILED and was read as passing.",
-    "#stop-chaining-gates-behind-&& — did it twice in one session after the project rule warns about it explicitly. Once it made a poll never run (and briefly convinced me two billed operations were lost); once it made python's exit code masquerade as tsc's."
+    "#stop-chaining-gates-behind-&& — did it twice in one session after the project rule warns about it explicitly. Once it made a poll never run (and briefly convinced me two billed operations were lost); once it made python's exit code masquerade as tsc's.",
+    {
+      "priority": "P9",
+      "tag": "#read-the-number-the-error-printed",
+      "lesson": "Three separate diagnoses of the same CI red were wrong before one was right, and the correct one needed no new evidence - it was in the first error string. 'waitForWorld timeout (15000ms)' names a budget; the wait it failed on declares 30_000. The two earlier theories (slow boot, then browser memory exhaustion) were both plausible reconstructions built ON TOP of the message instead of readings OF it. The memory theory even 'worked' - it changed the failure shape from a dying browser context to a clean single-test failure - which made it feel confirmed while the real defect was untouched.",
+      "rule": "When a gate prints a NUMBER, find where that number is declared before theorising about causes. A timeout value that does not match the wait's own default is a bug in the plumbing, not a symptom of the environment."
+    },
+    {
+      "priority": "P9",
+      "tag": "#an-asset-opinion-must-never-block-a-ship",
+      "lesson": "A pixel guard written to protect art quality was wired into `npm run build`, so a missing pip package on the Pages runner took the LIVE DEPLOY down. Net effect: zero defects caught and a stale site while the owner was waiting to see new art. The same charter already said this about the bundle cap - 'never let it block a live deploy' - and I re-made the mistake one file over.",
+      "rule": "Guards that express an OPINION about quality belong on a separate runner from the one that ships. Red CI plus a shipped artifact beats a blocked deploy every time: the owner then sees both the flaw and the warning, instead of neither."
+    }
   ],
   "totals": {
     "budget_remaining": 1000000
