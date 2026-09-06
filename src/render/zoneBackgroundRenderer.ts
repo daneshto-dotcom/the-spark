@@ -48,6 +48,16 @@ import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
  */
 const ZONE_BG_ALPHA = 0.55;
 
+/**
+ * How long a match runs before the backdrop starts loading. 3 s at 60 Hz.
+ *
+ * ⚠ THIS NUMBER IS MINE. Long enough to clear the boot burst that CI showed this renderer was
+ * landing in the middle of (see `sync`), short enough that a player reaching the board has it before
+ * they have finished reading the wave banner. The BUILD phase is 90 s, so it costs 3% of the opening
+ * phase and nothing at all thereafter.
+ */
+const ZONE_BG_HOLD_TICKS = 3 * 60;
+
 /** Where a race's zone art lives, per board. `-4p` is landscape, `-2p` portrait — see R137. */
 function zoneArtUrl(race: RaceId, layout: ZoneLayout): string {
   return `/art/race-zones/zone-${race}-${layout === 'PITCH_2P' ? '2p' : '4p'}.png`;
@@ -143,6 +153,28 @@ export class ZoneBackgroundRenderer {
      * played on, and blanking it mid-ceremony would read as a bug.
      */
     if (world.gameState === 'TITLE') {
+      this.layer.visible = false;
+      return;
+    }
+    /*
+     * ⛔ A BACKDROP MUST NEVER COMPETE WITH THE FIRST SECONDS OF A MATCH, AND CI PROVED THAT THE
+     * HARD WAY. The first cut started `Assets.load` on the very first PLAYING frame. Locally
+     * (Windows, real GPU) that is invisible. On the CI runner (headless Linux, software GL) the
+     * decode-and-upload of a ~900 KB texture lands squarely in match boot, and
+     * `e2e/hunter.spec.ts:68` — a SOLO gating test — began timing out on "a gatherer banks a shape
+     * into the local castle" after 15 s.
+     *
+     * ⚠ THE EVIDENCE IS UNAMBIGUOUS AND IT IS WHY THIS IS NOT GUESSWORK: the E2E lane passed on
+     * every commit up to and including ef944bd (the W1-C wiring) and failed on all three commits
+     * after 8aff165 — every one of which carries this renderer — while `npm run e2e:gating`, the
+     * identical command, stayed green locally on all of them.
+     *
+     * ⭐ So the load is HELD until the match has been running for a moment. This is the right shape
+     * regardless of CI: gameplay owns the opening seconds, and a backdrop appearing a beat late is
+     * unnoticeable, while a stalled first second is not. Until then the board is the black it has
+     * always been.
+     */
+    if (world.tick < ZONE_BG_HOLD_TICKS) {
       this.layer.visible = false;
       return;
     }

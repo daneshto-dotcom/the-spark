@@ -196,21 +196,37 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
     for (const cid of stinkAggroTargets(world, d)) {
       const c = world.creatures.get(cid as unknown as CreatureId);
       if (c === undefined) continue;
-      // ⚠ TWO GATES, AND THE SECOND ONE BOUNDS WHAT THIS FEATURE ACTUALLY DOES TODAY.
-      //
-      // (1) Provenance: a spawner-sourced creature mid-chew is GLUED to its bond by design, and
-      //     overriding that would collide with the 6-attack invariant. Only null-spawner units
-      //     (Voltkin, the free goblin) re-select freely.
-      // (2) `targetsStructures`: `targetPrimitiveId` is only ever READ by the structure-attack path
-      //     (`creatureAttack.ts`), which is gated on this config flag. Writing it on a creature that
-      //     targets BONDS — a Voltkin, a chewer — sets a field nothing will look at. So the taunt
-      //     genuinely pulls GOBLINS and only goblins right now.
-      //
-      // That is a real limitation, not a bug, and it is stated rather than papered over: the goblin
-      // is the unit every seat is granted for free, so "the tower pulls the thing most likely to be
-      // walking past" holds — but a Voltkin will sail straight by, and a playtester should expect it.
-      if (c.sourceSpawnerId !== null) continue;
-      if (!getCreatureConfig(c.type).targetsStructures) continue;
+      /*
+       * ⛔ S165 — THIS TAUNT WAS DEAD CODE, AND THE COMMENT THAT USED TO SIT HERE SAID SO WITHOUT
+       * REALISING IT. It read: *"the taunt genuinely pulls GOBLINS and only goblins right now"* and
+       * called that "a real limitation, not a bug". By S165 it pulled NOTHING AT ALL — the two gates
+       * had become mutually exclusive across the entire production roster, so owner R77's
+       * depleted-tower aggro never fired once.
+       *
+       * The arithmetic, enumerated over every production SPAWN_CREATURE dispatch:
+       *   · the ONLY creature minted with `sourceSpawnerId === null` is the Voltkin;
+       *   · and the Voltkin is `targetsStructures: false`.
+       * Every unit that IS `targetsStructures: true` — all six goblins, and now the race unit —
+       * carries a spawner id, because `goblinTowerFeed` stamps one (S151) and R49 deleted the free
+       * starter goblins that used to be the null-spawner exception this gate was written for.
+       *
+       * ⭐ AND IT IS THE SAME DRIFT THE SAME SESSION FIXED ONE FILE OVER. `bots/botBrain.ts`'s
+       * `nearestChewer` filtered on `sourceSpawnerId !== null` for exactly the same reason and had
+       * silently stopped meaning "chewer" the moment goblins gained spawner ids. Its fix note warned
+       * that "a provenance check is what drifted, and it will drift again the moment another
+       * spawner-sourced creature is added" — and this is that second consumer.
+       *
+       * ⇒ Gate 1 now tests THE PROPERTY IT WAS ALWAYS REACHING FOR. The stated reason was never
+       * provenance; it was that a creature mid-chew is GLUED to its bond and must not be re-aimed.
+       * `chewsConnectors` says that directly, and it is what the Voltkin and the chewer have in
+       * common while the goblins and the race unit do not.
+       * ⚠ Gate 2 is unchanged and is the real discriminator: `targetPrimitiveId` is only ever READ
+       * by the structure-attack path, so writing it on a bond-targeting unit sets a field nothing
+       * looks at.
+       */
+      const cfg = getCreatureConfig(c.type);
+      if (cfg.chewsConnectors) continue;
+      if (!cfg.targetsStructures) continue;
       c.targetPrimitiveId = d.anchorPrimitiveId;
     }
   }
