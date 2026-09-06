@@ -137,6 +137,7 @@ import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
+import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
@@ -577,6 +578,13 @@ async function bootstrap(): Promise<void> {
   // it. On `aboveFogLayer` deliberately — the borders are a cross-player fact everyone must be
   // able to see (you cannot respect a boundary you cannot find), the same rule the spawner
   // aura already follows. Cheap no-op the moment the walls drop for the FIGHT.
+  /*
+   * ⭐ S165 — per-race zone backgrounds (owner brief + R137). On `aboveFogLayer`, and it pins itself
+   * to index 0 of it, so it sits ABOVE the fog (which paints pure black and would otherwise bury it
+   * in every multiplayer match) and BELOW every structure, creature and effect on that layer.
+   * Render-only: reads `world.layout` and each player's synced `raceId`, writes nothing, no wire field.
+   */
+  const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, aboveFogLayer);
   const wallRenderer = new WallRenderer(app, aboveFogLayer);
   // ⭐ S149 P4 (R36) — THE FOOTER BAND. On `app.stage`, NOT `aboveFogLayer`: it is UI chrome
   // rather than a board object, so it must draw over everything including the fog. Contrast the
@@ -3298,6 +3306,8 @@ Network routes: ${v.detail}`;
     // S45 Sym C(a) — pass world for per-frame carrier-color tint resolution
     // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT
     // defensively when world omitted or carrier missing (Battle Ledger C4).
+    // Behind everything, so it is synced before the board layers that paint over it.
+    zoneBackgroundRenderer.sync(world);
     sparkRenderer.sync(freeSparkArr, world);
     structureRenderer.sync(world);
     // S121 P1 (B3) — keystone telegraph pulse, drawn over the freshly-synced bonds.
