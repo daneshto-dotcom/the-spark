@@ -156,15 +156,27 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
 
   // ---- ACKNOWLEDGED, each with its reason ----
   /**
-   * `players` is the one family where main-thread divergence from authority is BY
-   * DESIGN: main.ts's worker-result apply block documents a deliberate drag-preserve restore that
-   * "diverges the locked spark from authority (the S56 client-prediction
-   * posture)". Hashing avatar state would make the oracle report client
-   * prediction as a desync. `scoreByPlayer` (the authoritative per-seat scalar) IS
-   * hashed, so seat scoring stays covered.
-   * ⚠ Re-open when V6-1.5 lands: deleting `CarryingPlayer` reshapes the union.
+   * S165 - PARTIALLY PROJECTED, AND THE OLD EXEMPTION HAD OUTLIVED ITS REASON.
+   *
+   * This was 'acknowledged', justified entirely by AVATAR state: main.ts's worker-apply block keeps
+   * a deliberate drag-preserve restore that "diverges the locked spark from authority (the S56
+   * client-prediction posture)", so hashing avatar position would make the oracle report client
+   * prediction as a desync. That argument is still correct and the avatar is still excluded.
+   *
+   * WHAT CHANGED IS THE FAMILY. `Player` has since grown six SIM-AUTHORITATIVE fields, and one of
+   * them GATES EMISSION: `raceUnitEmit` skips a seat on `castleHp <= 0`, `castleGuns` reads it, and
+   * `elimination` turns the match on it. So a host and a `?worker=1` mirror could disagree about a
+   * castle's HP - about whether a seat is even alive - and NEITHER oracle could see it. Five
+   * separate files already cite that as a known limitation; it stopped being acceptable when the
+   * field became a gate.
+   *
+   * PROJECTED: castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints, raidProgress.
+   * EXCLUDED, deliberately: everything about the avatar (`kind`, `avatarPos`, the carry union) and
+   * `color`, which is derived from raceId. `scoreByPlayer` stays its own hashed scalar.
+   *
+   * The `pl{seat}:` loop is what the family-contribution gate now matches on.
    */
-  players: 'acknowledged',
+  players: 'hashed',
   /**
    * Per-FRAME render telemetry, wiped every frame by `effectsRenderer.sync`
    * (`world.effects.length = 0`). Its lifetime is shorter than a tick, so both
@@ -435,6 +447,21 @@ export function determinismParts(world: World): string[] {
 
   const scores = [...world.scoreByPlayer.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [id, s] of scores) parts.push(`P${n(id)}=${s}`);
+
+  /*
+   * S165 - THE SIM-AUTHORITATIVE HALF OF `players`. See the FIELD_COVERAGE note for why the avatar
+   * is absent and why this stopped being optional (castleHp gates the race-unit emitter).
+   *
+   * Seat-sorted, like every other family here: `world.players` is a Map and its iteration order is
+   * insertion order, which a host and a rehydrating mirror can legitimately build differently.
+   */
+  const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+  for (const [id, pl] of seats) {
+    parts.push(
+      `pl${n(id)}:${pl.castleHp},${pl.castleRegenLevel},${pl.raceId},`
+        + `${n(pl.eliminatedAtTick ?? null)},${pl.raidPoints},${pl.raidProgress}`,
+    );
+  }
 
   const prims = [...world.primitives.values()].sort((a, b) => Number(a.id) - Number(b.id));
   for (const p of prims) {

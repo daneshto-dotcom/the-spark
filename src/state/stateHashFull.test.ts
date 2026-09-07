@@ -23,7 +23,7 @@ import { makePotato } from './potato.ts';
 import { makeRainbow } from './rainbow.ts';
 import { makePoop, makeSeagull } from './seagulls/seagull.ts';
 import { makeStinkCloud } from './defenders/stinkCloud.ts';
-import { makeWorld } from './world.ts';
+import { dispatch, makeWorld } from './world.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { makeSpawner } from './spawners/spawner.ts';
@@ -309,7 +309,11 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         // boundary and there is nothing for a snapshot, a save or either hash to observe. Listed
         // here deliberately rather than dodged, which is exactly what this test exists to force.
         'pendingCreatureDeaths',
-        'players',
+        // S165 - `players` LEFT this set. Six sim-authoritative fields are now projected as the
+        // `pl{seat}:` part (castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints,
+        // raidProgress); the avatar and its carry union stay out, which is what the old
+        // exemption was actually about. `castleHp` GATES emission, so an invisible divergence
+        // there meant the oracles could not see two sims disagree about whether a seat is alive.
       ].sort(),
     );
   });
@@ -385,6 +389,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['seagulls', /^sg\d+:/],
       ['poops', /^pp\d+:/],
       ['stinkClouds', /^sc\d+:/],
+      // S165 - the sim-authoritative half of `players` (castleHp et al). The avatar stays out.
+      ['players', /^pl\d+:/],
       ['fouledPrimitives', /^fo:\d/],
       ['discoveredCombos', /^dc:./],
       ['godlyFiredThisMatch', /^gf:./],
@@ -466,5 +472,69 @@ describe('S165 - no hashed scalar is invisible to the wide oracle', () => {
           + `projection - the wide oracle cannot see it. Add it to determinismParts.`,
       ).not.toBe(before);
     }
+  });
+});
+
+/**
+ * S165 - THE SIM-AUTHORITATIVE HALF OF `players`, FIELD BY FIELD.
+ *
+ * WHAT THIS CLOSES. `players` was 'acknowledged' on an AVATAR argument - hashing a client-predicted
+ * avatar would report prediction as a desync - and that argument is still sound. But the family had
+ * since grown six sim-authoritative fields, and `castleHp` GATES EMISSION: `raceUnitEmit` skips a
+ * seat on `castleHp <= 0`, `castleGuns` reads it, `elimination` ends the match on it. So two sims
+ * could disagree about whether a seat was still alive and neither oracle would notice. Five files
+ * already cited that as a known limitation.
+ *
+ * ENUMERATED, NOT SPOT-CHECKED, for the same reason the hashed-scalar test above is: the defect
+ * class here is a field that is DECLARED covered and silently absent from the projection.
+ *
+ * AND THE AVATAR IS ASSERTED ABSENT in the last case - the exclusion is as load-bearing as the
+ * inclusions, and a future "just hash the whole player" would break client prediction rather than
+ * fix anything.
+ */
+describe('S165 - players: the sim fields are hashed, the avatar is not', () => {
+  const seat0 = () => {
+    const w = makeWorld(7);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'solo', isHost: true });
+    const p = w.players.get(w.localPlayerId);
+    expect(p, 'solo start must seat player 0').toBeDefined();
+    return w;
+  };
+
+  it('every projected sim field moves the hash', () => {
+    const mutations: ReadonlyArray<readonly [string, (p: Record<string, unknown>) => void]> = [
+      ['castleHp', (p) => { p.castleHp = (p.castleHp as number) - 137; }],
+      ['castleRegenLevel', (p) => { p.castleRegenLevel = (p.castleRegenLevel as number) + 3; }],
+      ['raceId', (p) => { p.raceId = p.raceId === 'orcs' ? 'nagas' : 'orcs'; }],
+      ['eliminatedAtTick', (p) => { p.eliminatedAtTick = 4242; }],
+      ['raidPoints', (p) => { p.raidPoints = (p.raidPoints as number) + 5; }],
+      ['raidProgress', (p) => { p.raidProgress = (p.raidProgress as number) + 11; }],
+    ];
+    // Anti-vacuity: an empty list would make the loop pass while asserting nothing.
+    expect(mutations.length).toBe(6);
+
+    for (const [name, mutate] of mutations) {
+      const w = seat0();
+      const before = hashWorldStateFull(w);
+      mutate(w.players.get(w.localPlayerId) as unknown as Record<string, unknown>);
+      expect(
+        hashWorldStateFull(w),
+        `Player.${name} is projected in the pl{seat} part but changing it did not move the wide `
+          + `hash - two sims could disagree about it invisibly.`,
+      ).not.toBe(before);
+    }
+  });
+
+  it('and the AVATAR is deliberately NOT hashed - client prediction must not read as a desync', () => {
+    const w = seat0();
+    const before = hashWorldStateFull(w);
+    const p = w.players.get(w.localPlayerId) as unknown as { avatarPos: { x: number; y: number } };
+    p.avatarPos.x += 250;
+    p.avatarPos.y -= 175;
+    expect(
+      hashWorldStateFull(w),
+      'hashing avatarPos would make the S56 drag-preserve restore look like a divergence',
+    ).toBe(before);
   });
 });
