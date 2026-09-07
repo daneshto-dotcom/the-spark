@@ -33,20 +33,55 @@ import type { GameEffect } from '../game/effects.ts';
 import type { World } from '../state/world.ts';
 import { asCreatureId, asPrimitiveId, asBondId, asSpawnerId } from '../types.ts';
 
+/**
+ * S165 (sweep Lane 5) — THE MOCK NOW RECORDS ARGUMENTS, AND WITHOUT THAT FOUR TESTS HERE COULD NOT
+ * SEE WHAT THEY CLAIMED TO TEST.
+ *
+ * It recorded call NAMES only, so *"different creatureIds scatter the dust differently"* could do no
+ * better than compare call COUNTS — which is satisfied by ignoring `creatureId` entirely — and
+ * *"advances the hop over frames"* could only assert `not.toThrow()`. `raceMotifs.test.ts` already
+ * had a `signature()` helper for exactly this; this file simply never grew one.
+ *
+ * `calls` (names) is UNCHANGED so the existing `toContain('clear')` / `toEqual(['clear'])`
+ * assertions keep working; `ops` is additive.
+ */
 class GraphicsMock {
   readonly calls: string[] = [];
-  moveTo(): this { this.calls.push('moveTo'); return this; }
-  lineTo(): this { this.calls.push('lineTo'); return this; }
-  quadraticCurveTo(): this { this.calls.push('quadraticCurveTo'); return this; }
-  circle(): this { this.calls.push('circle'); return this; }
-  ellipse(): this { this.calls.push('ellipse'); return this; }
-  rect(): this { this.calls.push('rect'); return this; }
-  poly(): this { this.calls.push('poly'); return this; } // S106 P2 — chewer fangs are now g.poly triangles
-  closePath(): this { this.calls.push('closePath'); return this; }
-  fill(): this { this.calls.push('fill'); return this; }
-  stroke(): this { this.calls.push('stroke'); return this; }
-  clear(): this { this.calls.push('clear'); return this; }
-  destroy(): void { this.calls.push('destroy'); }
+  /** Every call with its numeric arguments, so geometry can be compared frame to frame. */
+  readonly ops: Array<{ name: string; args: number[] }> = [];
+  private rec(name: string, args: unknown[]): this {
+    this.calls.push(name);
+    this.ops.push({ name, args: args.filter((a): a is number => typeof a === 'number') });
+    return this;
+  }
+  /**
+   * A stable, comparable fingerprint of everything drawn: call names plus coordinates rounded to
+   * whole pixels. Rounded because sub-pixel float noise is not a behavioural difference — but 6 px
+   * of hop, or a different crumb scatter, is.
+   */
+  /**
+   * S165 - RESET BETWEEN FRAMES, AND FORGETTING THIS MADE MY OWN PRUNE TEST WRONG FIRST TIME.
+   * The mock only ever APPENDS - `clear()` is recorded as a call, not treated as a reset - so
+   * `signature()` after fourteen syncs describes all fourteen frames concatenated. Comparing
+   * that against a one-frame signature can never match, which reads exactly like a real leak.
+   */
+  reset(): void { this.calls.length = 0; this.ops.length = 0; }
+
+  signature(): string {
+    return this.ops.map((o) => `${o.name}(${o.args.map((n) => Math.round(n)).join(',')})`).join('|');
+  }
+  moveTo(...a: unknown[]): this { return this.rec('moveTo', a); }
+  lineTo(...a: unknown[]): this { return this.rec('lineTo', a); }
+  quadraticCurveTo(...a: unknown[]): this { return this.rec('quadraticCurveTo', a); }
+  circle(...a: unknown[]): this { return this.rec('circle', a); }
+  ellipse(...a: unknown[]): this { return this.rec('ellipse', a); }
+  rect(...a: unknown[]): this { return this.rec('rect', a); }
+  poly(...a: unknown[]): this { return this.rec('poly', a); } // S106 P2 — fangs are g.poly triangles
+  closePath(...a: unknown[]): this { return this.rec('closePath', a); }
+  fill(...a: unknown[]): this { return this.rec('fill', a); }
+  stroke(...a: unknown[]): this { return this.rec('stroke', a); }
+  clear(...a: unknown[]): this { return this.rec('clear', a); }
+  destroy(): void { this.rec('destroy', []); }
 }
 
 // One shared mock so the renderer's internal `new Graphics()` is observable
@@ -124,15 +159,36 @@ describe('S100 P1 — drawChewBite', () => {
   });
 
   it('different creatureIds scatter the dust differently (per-emitter jitter)', () => {
-    // Same pos+t, different emitter — the crumb positions differ. We can't read
-    // coords through the call-name mock, but we CAN assert both draw without
-    // throw and emit the same call SHAPE (the jitter is positional only).
+    /*
+     * S165 — THIS ASSERTED `gA.calls.length === gB.calls.length`, WHICH IS A TEST FOR SAMENESS.
+     *
+     * Make `drawChewBite` ignore `creatureId` entirely — every emitter drawing identical crumbs —
+     * and equal call counts are trivially satisfied. The old comment conceded the mock "can't read
+     * coords", which was true and is no longer: `signature()` compares them.
+     *
+     * ⭐ BOTH HALVES MATTER. The shapes must MATCH (the jitter is positional only, so a different id
+     * must not add or drop a crumb) and the coordinates must DIFFER (or there is no jitter).
+     */
     const base = { kind: 'CHEW_BITE' as const, tick: 0, pos: { x: 0, y: 0 } };
     const gA = new GraphicsMock();
     const gB = new GraphicsMock();
     drawChewBite(gA as never, { ...base, creatureId: asCreatureId(1) }, 0.4);
     drawChewBite(gB as never, { ...base, creatureId: asCreatureId(99) }, 0.4);
-    expect(gA.calls.length).toBe(gB.calls.length);
+
+    expect(gA.calls, 'the call SHAPE must not depend on the emitter').toEqual(gB.calls);
+    expect(gA.ops.length, 'anti-vacuity: nothing was drawn at all').toBeGreaterThan(0);
+    expect(
+      gA.signature(),
+      'two different emitters drew IDENTICAL geometry — the per-emitter jitter is not applied. '
+        + 'NOTE there are TWO creatureId terms in drawChewBite: the ring PHASE (idPhase) and the '
+        + 'crumb DISTANCE (far). Neutralising only one still leaves this test passing, which is '
+        + 'how a partial negative control fooled me into calling this test vacuous.',
+    ).not.toBe(gB.signature());
+
+    // ...and it is deterministic: the same id twice is the same scatter, or replays would diverge.
+    const gC = new GraphicsMock();
+    drawChewBite(gC as never, { ...base, creatureId: asCreatureId(1) }, 0.4);
+    expect(gC.signature()).toBe(gA.signature());
   });
 });
 
@@ -151,17 +207,32 @@ describe('S100 P1 — ChewerRenderer', () => {
     r.destroy();
   });
 
-  it('advances the hop over frames as the chewer really moves (no throw)', () => {
+  it('advances the hop over frames as the chewer really moves', () => {
+    /*
+     * S165 — THE ONLY ASSERTION HERE WAS `not.toThrow()`, INSIDE A TEN-FRAME LOOP. Make the hop
+     * offset a constant 0 and it stayed green; the name promised motion and the test could not see
+     * any. Now it compares the drawn geometry between frames.
+     */
     const r = new ChewerRenderer(stubApp(), stubParent());
     const w = makeWorld();
     const c = w.creatures.get(asCreatureId(50)) as { pos: { x: number; y: number }; prevPos: { x: number; y: number } };
+    const frames: string[] = [];
     for (let i = 0; i < 10; i++) {
       c.prevPos = { x: c.pos.x, y: c.pos.y };
       c.pos = { x: c.pos.x + 6, y: c.pos.y + 1 };
       (w as { tick: number }).tick += 1;
-      expect(() => r.sync(w)).not.toThrow();
+      lastGraphics.reset();
+      r.sync(w);
+      frames.push(lastGraphics.signature());
     }
     r.destroy();
+
+    expect(frames[0]!.length, 'anti-vacuity: no geometry was recorded').toBeGreaterThan(0);
+    // A walking chewer must not draw the same picture twice in ten frames.
+    expect(
+      new Set(frames).size,
+      'ten frames of a moving chewer produced identical geometry — the hop is not advancing',
+    ).toBeGreaterThan(1);
   });
 
   it('skips Voltkin (partitions world.creatures by type)', () => {
@@ -182,12 +253,61 @@ describe('S100 P1 — ChewerRenderer', () => {
   });
 
   it('prunes per-chewer hop state when a chewer despawns', () => {
+    /*
+     * S165 — THE ONLY ASSERTION WAS `not.toThrow()`, ON A LEAK GUARD. Delete the prune and let the
+     * per-chewer `Map`s grow unbounded and this stayed green; the only lane that could have caught
+     * the leak is `render-heap.spec.ts`, which is `@soak` and non-gating, so the class had no gating
+     * signal anywhere.
+     *
+     * ⭐ THE MAPS ARE PRIVATE, so this observes the prune through BEHAVIOUR instead: walk the chewer
+     * far enough to build up a hop phase, despawn it, then bring back a chewer with the SAME id at
+     * the ORIGINAL position. If the bookkeeping was pruned it draws exactly what a fresh renderer
+     * draws; if stale phase/facing/last-position survived, it does not.
+     */
+    const fresh = new ChewerRenderer(stubApp(), stubParent());
+    const w0 = makeWorld();
+    lastGraphics.reset();
+    fresh.sync(w0);
+    const firstEverFrame = lastGraphics.signature();
+    fresh.destroy();
+    expect(firstEverFrame.length, 'anti-vacuity: nothing drawn').toBeGreaterThan(0);
+
     const r = new ChewerRenderer(stubApp(), stubParent());
     const w = makeWorld();
-    r.sync(w);
-    // Remove the chewer; next sync must not throw and clears bookkeeping.
+    const c = w.creatures.get(asCreatureId(50)) as {
+      pos: { x: number; y: number }; prevPos: { x: number; y: number };
+    };
+    const home = { x: c.pos.x, y: c.pos.y };
+    // Build up real hop state, moving the OPPOSITE way so facing is dirtied too.
+    for (let i = 0; i < 12; i++) {
+      c.prevPos = { x: c.pos.x, y: c.pos.y };
+      c.pos = { x: c.pos.x - 7, y: c.pos.y };
+      (w as { tick: number }).tick += 1;
+      lastGraphics.reset();
+      r.sync(w);
+    }
+    const walked = lastGraphics.signature();
+    expect(walked, 'the walk did not change anything — the setup is wrong').not.toBe(firstEverFrame);
+
+    // Despawn, sync (this is the tick that must prune), then bring the same id back home.
     w.creatures.clear();
-    expect(() => r.sync(w)).not.toThrow();
+    r.sync(w);
+    const revived = makeWorld();
+    const rc = revived.creatures.get(asCreatureId(50)) as {
+      pos: { x: number; y: number }; prevPos: { x: number; y: number };
+    };
+    rc.pos = { x: home.x, y: home.y };
+    rc.prevPos = { x: home.x, y: home.y };
+    (revived as { tick: number }).tick = 0;
+    lastGraphics.reset();
+    r.sync(revived);
+
+    expect(
+      lastGraphics.signature(),
+      'a re-spawned chewer inherited the despawned one\'s hop state — the per-chewer maps were '
+        + 'not pruned, which is also the unbounded-growth leak',
+    ).toBe(firstEverFrame);
+
     r.clear();
     r.destroy();
   });
