@@ -43,7 +43,7 @@
  * ⚠ RENDER-ONLY. It reads `world.layout` and each player's `raceId`, both already synced, and writes
  * nothing. No new wire field, no protocol bump.
  */
-import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, Sprite, Texture } from 'pixi.js';
 
 import type { World } from '../state/world.ts';
 import {
@@ -81,7 +81,7 @@ const ZONE_BG_ALPHA = 0.55;
  * APPLIED TO BOTH LAYOUTS, not just the 1v1 the owner was playing. QUADRANTS_4P splits the same
  * disc four ways at the same centre, so it has the same defect one seam worse.
  *
- * ⛔ MASKED, NOT DRAWN — AND THE PARAGRAPH THAT USED TO SIT HERE ARGUED THE OPPOSITE, WRONGLY.
+ * ⛔ BAKED, AND THIS CONSTANT HAS NOW BEEN WRONG TWICE. READ BOTH FAILURES BEFORE TOUCHING IT.
  *
  * It said: *"DRAWN, NOT MASKED. Pixi masks are additive - a hole needs an even-odd path, which is
  * fragile and has to be rebuilt whenever the geometry moves. The board is FOG_COLOR black, so
@@ -94,17 +94,39 @@ const ZONE_BG_ALPHA = 0.55;
  *     `CANVAS_HEIGHT`, `SPAWNER_CENTER_X/Y` and `SPAWNER_RADIUS` are all compile-time constants, so
  *     the mask is built ONCE in the constructor and never touched again.
  *
- * ⭐ SO THE HOLE IS A REAL HOLE NOW. `rect(canvas).fill().circle(quarry).cut()` masks the sprite
- * host, so no backdrop pixel is ever rasterised inside the disc and NOTHING is painted on top of
- * gameplay. In the disc you see the plain black board and the sparks at full brightness — which is
- * what the owner asked for in the first place (*"revert it to where it was"*), and what painting
- * black only approximated.
+ * ⛔ AND THE FIX FOR THAT WAS ALSO WRONG — IT WAS A STENCIL MASK, AND IT BROKE CI. S166, measured.
  *
- * ⚠ `cut()`'s one documented precondition is that the hole lie COMPLETELY inside the shape it cuts
- * (*"If a hole is not completely in a shape, it will fail to cut correctly!"*). The quarry disc is
- * concentric with the canvas and its radius is a small fraction of it, so that holds by construction
- * — `zoneBackgroundRenderer.test.ts` pins it as an arithmetic invariant rather than trusting this
- * sentence.
+ * The first repair masked the sprite host with `rect(canvas).fill().circle(quarry).cut()`. It is
+ * visually correct and it was verified in a real browser. It is also a **per-frame stencil pass over
+ * the whole 1920x1080 canvas**, and on the CI runner (headless Linux, SOFTWARE GL) that is
+ * catastrophic: the gating lane went from ~3.7 min to past its 720 s cap, and the sim crawled at
+ * **5.28 ticks/s instead of 60**. Three gating specs died on `waitForWorld timeout: a gatherer banks
+ * a shape into the local castle`.
+ *
+ * ⭐ THAT PREDICATE IS THIS RENDERER'S OWN FINGERPRINT, AND IT IS WHY THE DIAGNOSIS WAS QUICK: the
+ * docblock in `sync` below records `hunter.spec.ts:68` failing on the identical line when the FIRST
+ * cut of this file loaded textures during match boot. Same spec, same predicate, third cause. A
+ * re-run reproduced it, so it was not the runner having a bad day.
+ *
+ * ⭐ SO THE HOLE IS BAKED INTO THE TEXTURE, ONCE, AND NOTHING PER-FRAME PAYS FOR IT. `punchPortal`
+ * draws each backdrop into a 2D canvas at ITS OWN source resolution and erases the disc with
+ * `destination-out`. Steady state is four plain sprites — exactly what shipped before S166, so the
+ * portal now costs the frame budget NOTHING while still being a real hole rather than paint over
+ * gameplay.
+ *
+ * ⚠ BAKED AT SOURCE RESOLUTION, NOT AT ZONE RESOLUTION, AND THAT IS DELIBERATE. Baking at the zone
+ * rect (960x540) would add ~8 MB of texture memory across four seats; the source images are half-rect
+ * by S165's own art fix, so baking there costs ~2 MB. This renderer has already killed a browser
+ * CONTEXT once by decoding 23.7 MB of backdrop (see `sync`), and that is not a budget to spend twice.
+ *
+ * ⚠ A PER-ZONE `cut()` CANNOT WORK, so do not "simplify" this into a Graphics path. `cut()` requires
+ * the hole to lie COMPLETELY inside the shape it cuts, and the quarry sits at the canvas centre —
+ * which is the CORNER of every `QUADRANTS_4P` quadrant and dead on the `PITCH_2P` split line. The
+ * disc straddles every zone rect there is.
+ *
+ * ⚠ FALLS BACK TO THE UNHOLED TEXTURE on any failure (no DOM, no 2D context, a tainted or
+ * undrawable resource). The cost of the fallback is a cosmetic seam across the quarry, which is
+ * where this whole story started — never a crash, and never a black disc over the shape queue.
  */
 const PORTAL_CUT_RADIUS = SPAWNER_RADIUS + 2;
 
@@ -149,6 +171,90 @@ function zoneRect(
   return { x: left ? 0 : hx, y: top ? 0 : hy, w: hx, h: hy };
 }
 
+/**
+ * Return `tex` with the shared quarry erased, for the zone it is about to fill.
+ *
+ * PURE apart from allocating a canvas: it reads `zoneRect` and the spawner constants and touches no
+ * renderer state, which is what lets `zoneBackgroundRenderer.test.ts` reason about the geometry
+ * without a GPU.
+ *
+ * ⭐ THE MAPPING IS THE WHOLE TRICK, and it MIRRORS `sync`'s cover-scale exactly. `sync` scales by
+ * `max(r.w / tex.width, r.h / tex.height)` and centres the overflow, so a world point maps back into
+ * source pixels by undoing precisely that. If `sync`'s placement ever changes, this must change with
+ * it or the hole drifts off the quarry — which is why both live in this one file.
+ */
+export interface PortalInSource {
+  /** Disc centre, in the texture's own pixels. Legitimately negative — see the docblock. */
+  readonly cx: number;
+  readonly cy: number;
+  readonly rad: number;
+  /** Does any of the disc fall on this texture at all? `false` means the bake is a no-op. */
+  readonly intersects: boolean;
+}
+
+/**
+ * Carry the quarry disc from WORLD space into the pixels of the texture that fills `zone`.
+ *
+ * ⭐ EXPORTED PURELY SO IT CAN BE TESTED WITHOUT A GPU, and it is the half of the bake that can be
+ * silently wrong. `punchPortal` degrades to the unholed texture on every failure, so a mapping error
+ * does not throw — it just quietly stops punching, and the symptom is the S165 seam growing back
+ * across the quarry. `intersects` is what a test can assert must be TRUE for every zone on every
+ * layout.
+ *
+ * ⚠ `cx`/`cy` ARE ROUTINELY NEGATIVE AND THAT IS CORRECT, not a bug to clamp. The quarry sits on the
+ * shared corner of the `QUADRANTS_4P` quadrants, so for three of the four zones its centre lies
+ * outside the texture and only an arc of the disc falls on it.
+ *
+ * ⛔ IT MIRRORS `sync`'s COVER-SCALE EXACTLY — `max(r.w / w, r.h / h)` with the overflow centred —
+ * because it is undoing that placement. Change one and you must change the other, which is why both
+ * live in this file.
+ */
+export function portalInSource(
+  texW: number,
+  texH: number,
+  zone: number,
+  layout: ZoneLayout,
+): PortalInSource {
+  const r = zoneRect(zone, layout);
+  const scale = Math.max(r.w / texW, r.h / texH);
+  const spx = r.x + (r.w - texW * scale) / 2;
+  const spy = r.y + (r.h - texH * scale) / 2;
+  const cx = (SPAWNER_CENTER_X - spx) / scale;
+  const cy = (SPAWNER_CENTER_Y - spy) / scale;
+  const rad = PORTAL_CUT_RADIUS / scale;
+  const intersects = !(cx + rad < 0 || cy + rad < 0 || cx - rad > texW || cy - rad > texH);
+  return { cx, cy, rad, intersects };
+}
+
+function punchPortal(tex: Texture, zone: number, layout: ZoneLayout): Texture {
+  const resource = (tex.source as unknown as { resource?: unknown }).resource;
+  if (typeof document === 'undefined' || resource === undefined || resource === null) return tex;
+  const w = Math.trunc(tex.width);
+  const h = Math.trunc(tex.height);
+  if (w <= 0 || h <= 0) return tex;
+
+  const { cx, cy, rad, intersects } = portalInSource(w, h, zone, layout);
+  if (!intersects) return tex;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return tex;
+  try {
+    ctx.drawImage(resource as CanvasImageSource, 0, 0, w, h);
+  } catch {
+    // A resource Pixi can upload to the GPU but the 2D context refuses to draw (a tainted or
+    // detached bitmap). Cosmetic seam beats a thrown renderer.
+    return tex;
+  }
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+  ctx.fill();
+  return Texture.from(canvas);
+}
+
 export class ZoneBackgroundRenderer {
   private readonly layer: Container;
   private readonly sprites: Map<number, Sprite> = new Map();
@@ -160,8 +266,14 @@ export class ZoneBackgroundRenderer {
    * mask would silently apply to that too. One container, one job.
    */
   private readonly spriteHost: Container;
-  /** Canvas rect with the shared quarry cut out of it — the mask that keeps the portal a portal. */
-  private readonly portalMask: Graphics;
+  /**
+   * Hole-punched backdrops, keyed `url|layout|zone`.
+   *
+   * ⛔ THE KEY NEEDS ALL THREE. The same race art is holed DIFFERENTLY per zone (the disc lands in
+   * a different corner) and per layout (the zone rect changes shape), so keying on the url alone
+   * would hand seat 2 the hole punched for seat 0.
+   */
+  private readonly baked: Map<string, Texture> = new Map();
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
 
@@ -197,22 +309,11 @@ export class ZoneBackgroundRenderer {
     this.layer.addChild(this.spriteHost);
 
     /*
-     * The fill colour is irrelevant (a stencil mask reads coverage, not colour); it is white only
-     * because a white-means-keep mask is the convention a reader expects.
+     * ⛔ NO MASK, AND NO GRAPHICS AT ALL ON THIS LAYER. The portal is baked into each texture by
+     * `punchPortal`, so there is nothing here to pay for per frame and nothing opaque that could
+     * ever sit above the sparks again. Both of this constant's past failures are foreclosed by the
+     * same absence — see the `PORTAL_CUT_RADIUS` docblock.
      */
-    this.portalMask = new Graphics();
-    this.portalMask
-      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-      .fill({ color: 0xffffff })
-      .circle(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, PORTAL_CUT_RADIUS)
-      .cut();
-    /*
-     * ⚠ THE MASK MUST BE IN THE DISPLAY LIST, not merely assigned. Pixi computes a mask's world
-     * transform from its place in the scene graph; an orphaned mask has no transform and clips
-     * nothing. It is a sibling of what it masks, which is the shape Pixi's own examples use.
-     */
-    this.layer.addChild(this.portalMask);
-    this.spriteHost.mask = this.portalMask;
     void app;
   }
 
@@ -302,8 +403,17 @@ export class ZoneBackgroundRenderer {
       const race: RaceId = isRaceId(player.raceId) ? player.raceId : defaultRaceForSeat(seat);
       const url = zoneArtUrl(race, layout);
       this.ensureTexture(url);
-      const tex = this.textures.get(url);
-      if (tex === undefined) continue; // still loading — the black board shows meanwhile
+      const raw = this.textures.get(url);
+      if (raw === undefined) continue; // still loading — the black board shows meanwhile
+
+      // ⛔ EVERY PATH BELOW USES THE HOLED TEXTURE. Handing `raw` to either branch is how the
+      // backdrop grows back over the quarry, and it would look exactly like the S165 seam bug.
+      const bakeKey = `${url}|${layout}|${zone}`;
+      let tex = this.baked.get(bakeKey);
+      if (tex === undefined) {
+        tex = punchPortal(raw, zone, layout);
+        this.baked.set(bakeKey, tex);
+      }
 
       let sp = this.sprites.get(zone);
       if (sp === undefined) {
