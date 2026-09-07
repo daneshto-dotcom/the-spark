@@ -122,6 +122,21 @@ export function t3TowerAtlasBase(race: RaceId): string {
   return `/art/race-tier3-towers/t3tower-${race}`;
 }
 
+/**
+ * The tower's DESTRUCTION CINEMATIC atlas base — a separate sheet from the four stills above.
+ *
+ * ⚠ SEPARATE BECAUSE `framesPerState` IS A PER-SPEC VALUE, so one atlas spec cannot hold both the
+ * still conditions (1 frame) and an animated collapse (12). `destroy-atlas-specs.json` in the
+ * tier-3 source folder is the worked example and gives the same reason.
+ *
+ * ⭐ S167 — ADDED WHEN THE CRUMBLE WAS FINALLY WIRED. These six sheets shipped in S165 and had no
+ * accessor at all, which is a sharper version of the same defect `t3TowerAtlasBase` had: not merely
+ * uncalled, but unreachable — there was no function that could name them.
+ */
+export function t3DestroyAtlasBase(race: RaceId): string {
+  return `/art/race-tier3-towers/t3destroy-${race}`;
+}
+
 /** Reverse lookup: the race a tower id belongs to, or `null` for any other recipe. */
 export function raceForTowerId(id: GodlyId): RaceId | null {
   for (const race of ALL_RACES) {

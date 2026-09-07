@@ -1,0 +1,86 @@
+{
+  "_comment": [
+    "SPARK — S167: the SIX TIER-9 TOWER DESTRUCTION CINEMATICS — the owner's crumble.",
+    "",
+    "⭐ OWNER, RACE_ZONES_AND_BOSS_TOWERS.md §B: *\"the tower would spawn 1 boss and then the tower",
+    "would crumble with a cool video generated\"*, and — the load-bearing half — *\"the effect should",
+    "not be a cutscene like voltkin but in-game tower that spawns-releases the boss, and then",
+    "crymbnles down in a cool video cinematic\"*. Not a cutscene means the sim never stops.",
+    "",
+    "⭐ SEEDED OFF THE **DAMAGED** STILL, NOT THE INTACT ONE — the tier-3 destroy spec's own choice.",
+    "The collapse should begin from a building that is already visibly failing, so the cinematic reads",
+    "as the END of the damage the player watched rather than as a separate event.",
+    "",
+    "⛔ THE DEMON ENTRY INVERTS, AND IT IS AN OWNER RULING: *\"for hellmouth is the opposite - it",
+    "closes as it gets destroyed.\"* A hellmouth is a WIDE LOW GROUND FEATURE, not a tower, so a",
+    "collapse-inward would be meaningless for it. It grinds shut instead.",
+    "",
+    "⚠ THE GRAVITY CLAUSE IS CARRIED VERBATIM from the tower design spec, where it exists because",
+    "REV 1 produced rubble floating at mid-fall angles. It is repeated in every prompt rather than",
+    "assumed."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "t9destroy-vampires",
+      "seed": "assets-source/race-tier9-towers/t9-vampires-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-vampires",
+      "states": {
+        "destroy": {
+          "prompt": "The royal vampire's coffin standing upright on its stepped bier from the reference image. The coffin's lid splits and the whole bier COLLAPSES INWARD, timbers folding down into a low heap of splintered wood and iron while a burst of bats scatters out and flees away low. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    },
+    {
+      "name": "t9destroy-nagas",
+      "seed": "assets-source/race-tier9-towers/t9-nagas-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-nagas",
+      "states": {
+        "destroy": {
+          "prompt": "The abyssal pit ringed by its teal stone rampart and four leaning coral pillars from the reference image. The coral pillars snap and the rampart CAVES INWARD into the pit, stone and coral folding down into a low ring of rubble as a gout of black water bursts up and falls back. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    },
+    {
+      "name": "t9destroy-mummies",
+      "seed": "assets-source/race-tier9-towers/t9-mummies-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-mummies",
+      "states": {
+        "destroy": {
+          "prompt": "The cursed pharaoh's tomb entrance, a squat bronze-brown mastaba from the reference image. The lintel cracks and the mastaba COLLAPSES INWARD ON ITSELF, sandstone folding down into a low mound while a great billow of dust and dry sand rolls out across the ground. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    },
+    {
+      "name": "t9destroy-zombies",
+      "seed": "assets-source/race-tier9-towers/t9-zombies-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-zombies",
+      "states": {
+        "destroy": {
+          "prompt": "The filthy flesh-growing tank, a tall cylindrical vat in its riveted frame from the reference image. The glass vat SHATTERS and the frame BUCKLES INWARD, folding down into a low heap of twisted metal and broken glass as a wave of thick green fluid floods out and spreads flat. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    },
+    {
+      "name": "t9destroy-orcs",
+      "seed": "assets-source/race-tier9-towers/t9-orcs-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-orcs",
+      "states": {
+        "destroy": {
+          "prompt": "The orc warlord's war-tent of dark hide stretched over its frame from the reference image. The tent poles snap and the whole war-tent COLLAPSES INWARD, hides and frame folding down into a low crumpled heap while trophies and banners fall flat around it. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    },
+    {
+      "name": "t9destroy-demons",
+      "seed": "assets-source/race-tier9-towers/t9-demons-damaged.png",
+      "outDir": "assets-source/race-tier9-towers/clips/t9destroy-demons",
+      "states": {
+        "destroy": {
+          "prompt": "The hellmouth torn open in the ground, a jagged fissure in a broken slab from the reference image. ⭐ THE HELLMOUTH CLOSES RATHER THAN FALLING. The fissure GRINDS SHUT, its jagged edges dragging together until the ground is a low scar of cracked, cooling stone, the hellfire guttering out as it seals. The structure is shown on a seamless blank sheet of pure WHITE paper filling the entire frame. The collapse is COMPLETE by two thirds of the way through: for the rest of the clip the settled wreckage lies COMPLETELY STILL on the ground, not moving at all. ⛔ GRAVITY: every broken or detached piece must come to REST ON THE GROUND at the base — lying flat, leaning, or half-buried in its own rubble. Nothing floats, hangs, dangles or stops at a mid-fall angle. The camera does not move."
+        }
+      }
+    }
+  ]
+}

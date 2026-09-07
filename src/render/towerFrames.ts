@@ -50,8 +50,8 @@
 import type { RaceId } from '../state/races.ts';
 import { PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { PrimitiveId } from '../types.ts';
-import { raceForTowerId, t3TowerAtlasBase } from '../state/raceTowerIds.ts';
-import { raceForT9TowerId, t9TowerAtlasBase } from '../state/t9BossIds.ts';
+import { raceForTowerId, t3DestroyAtlasBase, t3TowerAtlasBase } from '../state/raceTowerIds.ts';
+import { raceForT9TowerId, t9DestroyAtlasBase, t9TowerAtlasBase } from '../state/t9BossIds.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** The three conditions a tower can be drawn in. Atlas ROW ORDER — see `TOWER_STATE_ROWS`. */
@@ -188,4 +188,68 @@ export function towerArtForRecipe(recipeId: GodlyId): TowerArt | null {
     };
   }
   return null;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE CRUMBLE — the owner's *"cool video cinematic"*, and why it is CLIENT-LOCAL
+ * ═════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⭐ HOW LONG THE COLLAPSE PLAYS, in RENDER FRAMES.
+ *
+ * The owner's whole budget is 8 s for spawn + release + crumble (`RACE_ZONES_AND_BOSS_TOWERS.md`
+ * §B). `T9_RELEASE_DELAY_TICKS` spends 5 s standing; this is the ~2.5 s of collapse after it, which
+ * leaves a little headroom inside the 8.
+ *
+ * ⛔ **FRAMES, NOT TICKS, AND THAT IS THE WHOLE DESIGN OF THIS FEATURE.** The tower is GONE from the
+ * sim before a single frame of this plays — the tier-9 arm dispatches `REMOVE_SPAWNER` and razes the
+ * ring in one tick — so there is no entity left to hang a tick-based animation on. Worse, there
+ * could not be one: `trimMirrorSpawner` strips every tick field from a spawner on the wire and
+ * `deserializeSpawner` re-seeds `ignitedAtTick` from the CURRENT tick, so any client-side animation
+ * clocked off spawner state restarts on every 10 Hz snapshot.
+ *
+ * ⭐ SO THE CRUMBLE IS A PURELY COSMETIC, CLIENT-LOCAL REACTION TO THE SPAWNER DISAPPEARING FROM
+ * THAT PEER'S OWN SNAPSHOT. Every peer sees the removal (it is synced state), so every peer plays
+ * it; they may start up to one snapshot apart, which is invisible and, unlike a synced animation,
+ * cannot desync anything because NOTHING READS IT. That is also exactly what the owner asked for —
+ * *"not a cutscene like voltkin but in-game … the game keeps running underneath"*.
+ *
+ * ⚠ A wall-clock or frame-count driver would be forbidden in the SIM; in a renderer it is the
+ * established idiom (`spawnerZoneRenderer`'s shimmer uses `performance.now()` for the same reason).
+ */
+export const TOWER_CRUMBLE_FRAMES = 150;
+
+/** Frames in a destroy cinematic row, as built by `destroy-atlas-specs.json`. */
+export const TOWER_DESTROY_FRAMES = 12;
+
+/**
+ * PURE — which destroy frame to show `elapsed` frames into a crumble of `total` frames.
+ *
+ * ⚠ CLAMPED AT BOTH ENDS, and the top clamp is the one that matters: `Math.floor` on a completed
+ * crumble yields exactly `frames`, one past the last index, which would read a texture that does
+ * not exist. Holding the final frame is also the right LOOK — the wreckage has settled, and the
+ * sprite fades from there rather than snapping back to frame 0.
+ */
+export function crumbleFrameIndex(elapsed: number, total: number, frames: number): number {
+  if (total <= 0 || frames <= 0) return 0;
+  const t = Math.max(0, Math.min(elapsed / total, 1));
+  return Math.max(0, Math.min(Math.floor(t * frames), frames - 1));
+}
+
+/**
+ * PURE — the crumble's opacity `elapsed` frames in.
+ *
+ * ⚠ FULLY OPAQUE FOR THE FIRST THREE QUARTERS, then a fade. The collapse itself must be plainly
+ * visible — it is the thing the owner asked to be generated — so fading throughout would waste the
+ * art. The tail exists only so the settled wreckage does not pop out of existence.
+ */
+export function crumbleAlpha(elapsed: number, total: number): number {
+  if (total <= 0) return 0;
+  const t = Math.max(0, Math.min(elapsed / total, 1));
+  return t < 0.75 ? 1 : Math.max(0, 1 - (t - 0.75) / 0.25);
+}
+
+/** Where a race's destroy cinematic lives, or `null` if that tier has none built yet. */
+export function destroyAtlasBase(race: RaceId, tier: 3 | 9): string {
+  return tier === 9 ? t9DestroyAtlasBase(race) : t3DestroyAtlasBase(race);
 }

@@ -20,11 +20,16 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ALL_RACES } from '../state/races.ts';
-import { PRIMITIVE_MAX_HP } from '../constants.ts';
+import { PRIMITIVE_MAX_HP, T9_RELEASE_DELAY_TICKS } from '../constants.ts';
 import { RACE_TOWER_IDS } from '../state/raceTowerIds.ts';
 import { T9_TOWER_IDS } from '../state/t9BossIds.ts';
 import { CASTLE_DAMAGED_BELOW } from './castleFrames.ts';
 import {
+  TOWER_CRUMBLE_FRAMES,
+  TOWER_DESTROY_FRAMES,
+  crumbleAlpha,
+  crumbleFrameIndex,
+  destroyAtlasBase,
   T3_TOWER_STATE_ROWS,
   T3_TOWER_SPRITE_PX,
   T9_TOWER_STATE_ROWS,
@@ -170,6 +175,58 @@ describe('S167 — ⛔ the row tables agree with the SHIPPED sheets', () => {
       for (const id of [RACE_TOWER_IDS[race], T9_TOWER_IDS[race]]) {
         const art = towerArtForRecipe(id)!;
         expect(existsSync(join(PUBLIC, `${art.atlasBase}-atlas.png`)), `${art.atlasBase}-atlas.png`).toBe(true);
+      }
+    }
+  });
+});
+
+describe('S167 — the CRUMBLE: the owner’s cinematic, and the clamps that keep it legal', () => {
+  it('walks the destroy row start to end, and HOLDS the last frame', () => {
+    expect(crumbleFrameIndex(0, 150, 12)).toBe(0);
+    expect(crumbleFrameIndex(75, 150, 12)).toBe(6);
+    /*
+     * ⛔ THE TOP CLAMP IS THE ONE THAT MATTERS. `floor(1 * 12)` is 12 — one past the last index —
+     * so an unclamped version reads a texture that does not exist on the very last frame of every
+     * collapse. Holding frame 11 is also the right LOOK: the wreckage has settled.
+     */
+    expect(crumbleFrameIndex(150, 150, 12)).toBe(11);
+    expect(crumbleFrameIndex(999, 150, 12)).toBe(11);
+    expect(crumbleFrameIndex(-5, 150, 12)).toBe(0);
+  });
+
+  it('degenerate inputs do not throw or index off the end', () => {
+    expect(crumbleFrameIndex(10, 0, 12)).toBe(0);
+    expect(crumbleFrameIndex(10, 150, 0)).toBe(0);
+  });
+
+  it('stays FULLY OPAQUE for three quarters, then fades to nothing', () => {
+    // The collapse is the thing the owner asked to be generated; fading throughout would waste it.
+    expect(crumbleAlpha(0, 150)).toBe(1);
+    expect(crumbleAlpha(112, 150)).toBe(1);
+    expect(crumbleAlpha(150, 150)).toBe(0);
+    expect(crumbleAlpha(131, 150)).toBeGreaterThan(0);
+    expect(crumbleAlpha(131, 150)).toBeLessThan(1);
+  });
+
+  it('the whole sequence fits the owner’s 8-second budget at 60 Hz', () => {
+    // 5 s standing (T9_RELEASE_DELAY_TICKS) + this collapse must clear 8 s total.
+    expect((T9_RELEASE_DELAY_TICKS + TOWER_CRUMBLE_FRAMES) / 60).toBeLessThanOrEqual(8);
+  });
+
+  it('every destroy cinematic BOTH tiers name is on disk', () => {
+    /*
+     * The tier-3 six shipped in S165 with no accessor at all — not merely uncalled, unreachable.
+     * This is the assertion that keeps either tier's cinematic from going missing again.
+     */
+    for (const race of ALL_RACES) {
+      for (const tier of [3, 9] as const) {
+        const base = destroyAtlasBase(race, tier);
+        expect(existsSync(join(PUBLIC, `${base}-atlas.png`)), `${base}-atlas.png`).toBe(true);
+        expect(existsSync(join(PUBLIC, `${base}-anim.json`)), `${base}-anim.json`).toBe(true);
+        const m = JSON.parse(readFileSync(join(PUBLIC, `${base}-anim.json`), 'utf8')) as {
+          states: Record<string, { row: number; frames: number }>;
+        };
+        expect(m.states['destroy']?.frames, `${base} frame count`).toBe(TOWER_DESTROY_FRAMES);
       }
     }
   });

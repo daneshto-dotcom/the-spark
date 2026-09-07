@@ -40,9 +40,14 @@ import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
 import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
 import {
+  TOWER_CRUMBLE_FRAMES,
+  TOWER_DESTROY_FRAMES,
   TOWER_SPRITE_ANCHOR,
   type TowerArt,
   type TowerState,
+  crumbleAlpha,
+  crumbleFrameIndex,
+  destroyAtlasBase,
   towerArtForRecipe,
   towerHpFrac,
   towerStateForHp,
@@ -57,11 +62,31 @@ interface TowerAtlasManifest {
 
 type StateTextures = Readonly<Record<TowerState, Texture>>;
 
+/** One tower mid-collapse: the sprite is kept alive after its spawner is gone. */
+interface Crumble {
+  readonly sprite: Sprite;
+  readonly frames: readonly Texture[];
+  elapsed: number;
+}
+
 export class TowerRenderer {
   private readonly layer: Container;
   private readonly sprites = new Map<SpawnerId, Sprite>();
   private readonly atlases = new Map<string, StateTextures | null>();
   private readonly loadStarted = new Set<string>();
+  /** Destroy-cinematic rows, keyed by their own atlas base. */
+  private readonly destroyRows = new Map<string, readonly Texture[] | null>();
+  /**
+   * The last position + art of every live tower, so a crumble can be placed AFTER its spawner and
+   * its ring have both vanished.
+   *
+   * ⛔ THIS CACHE IS THE ONLY REASON THE CRUMBLE CAN BE DRAWN AT ALL. The tier-9 arm dispatches
+   * `REMOVE_SPAWNER` and `razePrimitives(ring)` in the SAME tick, so by the frame the renderer
+   * notices the tower is gone there is no spawner to read and no primitive left to average — the
+   * position would be unrecoverable from world state.
+   */
+  private readonly lastSeen = new Map<SpawnerId, { x: number; y: number; art: TowerArt }>();
+  private readonly crumbles: Crumble[] = [];
 
   constructor(app: Application, parent: Container = app.stage) {
     this.layer = new Container();
@@ -113,6 +138,41 @@ export class TowerRenderer {
   }
 
   /**
+   * One-time lazy load of a race's DESTROY CINEMATIC row (12 frames on a single row).
+   *
+   * ⚠ STARTED WHILE THE TOWER IS STILL ALIVE, not when it falls — a fetch begun at the moment of
+   * collapse would resolve a few hundred milliseconds into a 2.5 s animation, so the first third of
+   * the owner's cinematic would simply not play. Warming it alongside the tower's own atlas costs one
+   * extra sheet per race actually on the board.
+   */
+  private ensureDestroyRow(art: TowerArt): void {
+    const base = destroyAtlasBase(art.race, art.tier);
+    if (this.loadStarted.has(base)) return;
+    this.loadStarted.add(base);
+    void (async () => {
+      try {
+        const manifest = (await (await fetch(`${base}-anim.json`)).json()) as TowerAtlasManifest & {
+          states: Record<string, { row: number; frames: number } | undefined>;
+        };
+        const sheet = (await Assets.load(`${base}-atlas.png`)) as Texture;
+        const row = manifest.states['destroy']?.row ?? 0;
+        const count = manifest.states['destroy']?.frames ?? TOWER_DESTROY_FRAMES;
+        const frames: Texture[] = [];
+        for (let i = 0; i < count; i++) {
+          frames.push(new Texture({
+            source: sheet.source,
+            frame: new Rectangle(i * manifest.cellW, row * manifest.cellH, manifest.cellW, manifest.cellH),
+          }));
+        }
+        this.destroyRows.set(base, frames);
+      } catch {
+        // No cinematic for this race yet — the tower simply vanishes, as it did before S167.
+        this.destroyRows.set(base, null);
+      }
+    })();
+  }
+
+  /**
    * The ring this spawner stands on, or `null` if it is not a race tower (or is mid-teardown).
    *
    * ⚠ RE-WALKED EVERY FRAME rather than cached at ignition, because a ring's nodes can be damaged,
@@ -132,6 +192,7 @@ export class TowerRenderer {
       const art = towerArtForRecipe(sp.recipeId);
       if (art === null) continue; // pentagram / goblin tower / lightning hub have no structure art
       this.ensureAtlas(art);
+      this.ensureDestroyRow(art);
       const atlas = this.atlases.get(art.atlasBase);
       if (atlas === undefined || atlas === null) continue; // still loading, or failed
 
@@ -180,20 +241,76 @@ export class TowerRenderer {
        * reads without a tint by construction.
        */
       live.add(sp.id);
+      // Cached for the crumble, which happens after both the spawner and the ring are gone.
+      this.lastSeen.set(sp.id, { x: cx, y: cy + art.sizePx * 0.5, art });
     }
 
-    // Retire sprites whose spawner is gone — a tier-9 tower REMOVES ITSELF after one release, so
-    // this path runs in normal play rather than only at teardown.
+    /*
+     * ⭐ A TOWER THAT IS GONE CRUMBLES RATHER THAN VANISHING — the owner's *"cool video cinematic"*.
+     *
+     * ⛔ THIS PATH RUNS IN NORMAL PLAY, NOT ONLY AT TEARDOWN, and that is new with tier-9: a boss
+     * tower REMOVES ITSELF one tick after it releases. It also fires when any race tower's ring is
+     * broken by a raid, so the tier-3 destruction cinematics generated back in S165 finally play too.
+     *
+     * ⚠ THE SPRITE IS HANDED OVER, NOT RECREATED. Reusing the live sprite means the collapse starts
+     * from the exact pixel the building occupied, with no one-frame jump between the last intact
+     * frame and the first frame of the fall.
+     */
     for (const [id, sprite] of this.sprites) {
       if (live.has(id)) continue;
-      sprite.destroy();
       this.sprites.delete(id);
+      const seen = this.lastSeen.get(id);
+      this.lastSeen.delete(id);
+      const frames = seen === undefined
+        ? null
+        : this.destroyRows.get(destroyAtlasBase(seen.art.race, seen.art.tier)) ?? null;
+      if (seen === undefined || frames === null || frames.length === 0) {
+        sprite.destroy(); // no cinematic available — the pre-S167 behaviour
+        continue;
+      }
+      sprite.x = seen.x;
+      sprite.y = seen.y;
+      sprite.width = seen.art.sizePx;
+      sprite.height = seen.art.sizePx;
+      sprite.texture = frames[0]!;
+      this.crumbles.push({ sprite, frames, elapsed: 0 });
+    }
+
+    /*
+     * Advance every collapse by ONE RENDER FRAME.
+     *
+     * ⛔ FRAMES, NOT `world.tick`, AND THE REASON IS STRUCTURAL RATHER THAN STYLISTIC. The tower is
+     * already gone from the sim, so there is no entity whose ticks could drive this — and there could
+     * not be one, because `trimMirrorSpawner` strips every tick field from a spawner on the wire and
+     * `deserializeSpawner` re-seeds it from the CURRENT tick, restarting any snapshot-driven
+     * animation ten times a second. Being purely cosmetic and read by nothing, a client-local clock
+     * cannot desync anything; see `TOWER_CRUMBLE_FRAMES`.
+     */
+    for (let i = this.crumbles.length - 1; i >= 0; i--) {
+      const c = this.crumbles[i]!;
+      c.elapsed++;
+      const idx = crumbleFrameIndex(c.elapsed, TOWER_CRUMBLE_FRAMES, c.frames.length);
+      c.sprite.texture = c.frames[idx]!;
+      c.sprite.alpha = crumbleAlpha(c.elapsed, TOWER_CRUMBLE_FRAMES);
+      if (c.elapsed >= TOWER_CRUMBLE_FRAMES) {
+        c.sprite.destroy();
+        this.crumbles.splice(i, 1);
+      }
     }
   }
 
-  /** Drop every sprite — match teardown / title return. Mirrors the other renderers' `clear`. */
+  /**
+   * Drop every sprite — match teardown / title return. Mirrors the other renderers' `clear`.
+   *
+   * ⚠ THE IN-FLIGHT CRUMBLES GO TOO. A collapse is 2.5 s long and a player can leave a match
+   * inside that window, so without this line a tower would finish falling over the title screen —
+   * the same orphan-sprite class every other renderer's `clear` exists to prevent.
+   */
   clear(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
+    this.lastSeen.clear();
+    for (const c of this.crumbles) c.sprite.destroy();
+    this.crumbles.length = 0;
   }
 }

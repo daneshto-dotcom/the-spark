@@ -1,0 +1,107 @@
+{
+  "_comment": [
+    "SPARK — S167: atlas specs for the SIX TIER-9 TOWER DESTRUCTION CINEMATICS.",
+    "",
+    "⭐ SEPARATE FROM atlas-specs.json ON PURPOSE. framesPerState is a per-spec value, so one file",
+    "cannot hold both the three STILL conditions (framesPerState 1) and this ANIMATED row (12).",
+    "",
+    "⚠ fit 'box' and cellW/cellH 256 to match the tower stills EXACTLY — the destroy row replaces the",
+    "sprite it grew out of, and a height-fit would scale a collapsing wide ruin differently from the",
+    "intact building, so the tower would visibly jump size at the moment it starts to fall.",
+    "",
+    "⚠ normaliseStateScale is NOT set: there is only ONE state here, so there is nothing to normalise",
+    "against, and the whole point of a collapse is that the subject legitimately CHANGES size."
+  ],
+  "specs": [
+    {
+      "name": "t9destroy-vampires",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-vampires/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9destroy-nagas",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-nagas/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9destroy-mummies",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-mummies/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9destroy-zombies",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-zombies/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9destroy-orcs",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-orcs/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9destroy-demons",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 12,
+      "states": {
+        "destroy": {
+          "clip": "assets-source/race-tier9-towers/clips/t9destroy-demons/destroy.mp4",
+          "ticksPerFrame": 4
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    }
+  ]
+}
