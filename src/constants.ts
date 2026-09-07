@@ -444,6 +444,35 @@ export const GATHERER_SHELTER_LEAD_TICKS = 1 * PHYSICS_HZ; // 60 ticks = 1 s @ 6
  */
 export const HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false;
 
+/*
+ * S165 (sweep Lane 3) - WHAT `false` ACTUALLY SWITCHES OFF, WRITTEN DOWN HERE BECAUSE NOTHING ELSE
+ * SAYS IT.
+ *
+ * `readTestHazardsEnabled` can only return `true`, and only from `window.__TEST_HAZARDS_ENABLED__`
+ * - a Playwright seam. So in the shipped game this is permanently false, and `physicsLoop` is the
+ * ONLY producer of SPAWN_BOMB / SPAWN_POTATO / SPAWN_RAINBOW / SPAWN_SEAGULL. (The one other
+ * SPAWN_BOMB dispatch, `main.ts`'s `forceBomb`, is inside the `import.meta.env.DEV` block.)
+ *
+ * FOUR WHOLE SUBSYSTEMS ARE THEREFORE UNREACHABLE IN PRODUCTION, and several consequences follow
+ * that read as bugs when met individually:
+ *
+ *   - FIVE client-intent wire types stay on the allowlist for entities that can never exist:
+ *     TRIGGER_BOMB, PICKUP_POTATO, PLACE_POTATO, DROP_POTATO, TRIGGER_RAINBOW. Not a vulnerability
+ *     - each reducer needs a live entity it will never find - but it is live wire surface for
+ *     nothing, and a future audit will flag it again.
+ *   - `controls.ts` and `botController.ts` carry input and bot handling that cannot fire.
+ *   - `world.rainbowSwitchTick` has exactly one writer, the TRIGGER_RAINBOW reducer, so
+ *     `RainbowFlyoverRenderer` is constructed and ticked every frame for a mechanic that cannot
+ *     happen, and its assets load for nobody.
+ *   - The potato's AoE `applyRadialClear` DELETES creatures outright rather than damaging them,
+ *     which would wipe a standing race-unit squad ehp-irrespective. That is a real balance question
+ *     (S165 flagged it) and it is UNREACHABLE while this flag is false - so it is a question for
+ *     whenever hazards come back, not a live defect.
+ *
+ * DEAD BY RULING (R14/R23), not by accident. The point of recording it at the switch is that each
+ * item above looks like an oversight from its own file.
+ */
+
 /**
  * S147 P1 (R28) — *"Anti-coast LEADER SCORE-DECAY is switched OFF (retained, not deleted)."*
  * The S107 rubber-band bled the leader's score once past 75% of the win threshold. Under the
