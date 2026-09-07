@@ -206,6 +206,22 @@ interface AtlasManifest {
 }
 interface LoadedAtlas { cells: Record<string, Texture[]>; manifest: AtlasManifest; }
 
+/**
+ * ⭐ S167 — HOW LONG A CORPSE LIES THERE, in RENDER FRAMES, and how fast its 12 `die` frames play.
+ *
+ * 90 frames is ~1.5 s at 60 Hz: long enough to read as a death rather than a flicker, short enough
+ * that a big melee does not carpet the board in bodies. The 12-frame row plays over the first ~72
+ * frames and holds its last frame while the fade finishes.
+ *
+ * ⚠ FRAMES, NOT TICKS. The creature is GONE from the sim before any of this runs, so there is no
+ * `ticksInState` left to drive it — and nothing reads it, so a client-local clock cannot desync
+ * anything. Same argument, same shape, as `TOWER_CRUMBLE_FRAMES` in `towerFrames.ts`.
+ *
+ * ⚠ MINE, NOT THE OWNER'S. A duration like this can only really be judged by watching a fight.
+ */
+const CORPSE_FRAMES = 90;
+const CORPSE_TICKS_PER_FRAME = 6;
+
 const OUTLINE = 0x2b2b2b;
 const SKIN = 0x7fae4e;
 const SKIN_SHADE = 0x5f8c37;
@@ -231,6 +247,17 @@ export class GoblinRenderer {
    */
   private readonly arrowLayer: Graphics;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
+  /**
+   * The atlas key each live creature is drawing from, so a CORPSE can find its own `die` row after
+   * the creature is gone from `world.creatures` and its type is no longer knowable.
+   *
+   * ⛔ WITHOUT THIS THE DEATH ANIMATION CANNOT BE LOOKED UP AT ALL. By the frame the renderer
+   * notices a unit died, `world.creatures.get(id)` is already `undefined` — there is no type, no
+   * owner and no race left to resolve an atlas from. Same reason `towerRenderer` caches `lastSeen`.
+   */
+  private readonly spriteAtlas: Map<CreatureId, LoadedAtlas> = new Map();
+  /** Corpses mid-fall: a sprite handed over after its creature left the world. */
+  private readonly dying: Array<{ sprite: Sprite; frames: readonly Texture[]; elapsed: number }> = [];
   /**
    * ⚠ KEYED BY STRING, NOT BY `CreatureType`. A goblin's art is chosen by its TYPE; a race unit's is
    * chosen by its OWNER'S RACE, and one `raceUnit` type covers all six. Keys are the CreatureType
@@ -366,6 +393,7 @@ export class GoblinRenderer {
       this.spriteLayer.addChild(sp);
       this.sprites.set(id, sp);
     }
+    this.spriteAtlas.set(id, atlas);
     sp.texture = row[i]!;
     sp.position.set(x, y);
     // Negative X scale mirrors the sprite for facing — the source clips all walk to the right.
@@ -390,10 +418,27 @@ export class GoblinRenderer {
     sp.tint = washTowardsWhite(tint, TINT_WASH);
   }
 
+  /**
+   * The `die` row for the atlas a now-dead creature was using, or `null` if it has none.
+   *
+   * ⚠ `null` IS A NORMAL ANSWER, NOT A FAILURE. The six goblins were authored before the `die` row
+   * existed, so they have no fourth row and simply vanish as they always did. Demanding one from
+   * every atlas would mean re-generating art that is otherwise fine.
+   */
+  private dyingRowFor(id: CreatureId): readonly Texture[] | null {
+    const atlas = this.spriteAtlas.get(id);
+    this.spriteAtlas.delete(id);
+    if (atlas === undefined) return null;
+    const row = atlas.cells['die'];
+    return row !== undefined && row.length > 0 ? row : null;
+  }
+
   /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
   private dropSprite(id: CreatureId): void {
     const sp = this.sprites.get(id);
     if (sp !== undefined) { sp.destroy(); this.sprites.delete(id); }
+    // S167 — and its atlas note, or the map grows for the life of the match.
+    this.spriteAtlas.delete(id);
   }
 
   sync(world: World): void {
@@ -536,8 +581,64 @@ export class GoblinRenderer {
     }
 
     // Sprites for goblins that died this frame must go with them, or they freeze mid-swing forever.
+    /*
+     * ⭐⭐ S167 — **A UNIT THAT DIES NOW FALLS DOWN**, instead of blinking out of existence.
+     *
+     * ## ⛔ THE ART THIS UNLOCKS HAD BEEN UNREACHABLE BY CONSTRUCTION
+     *
+     * Every atlas in this game carries a fourth row — `die`, twelve frames, generated for the six
+     * tier-3 units in S165 and the six bosses in S167. **No code path could ever request it.**
+     * `syncSprite` maps the FSM to `attack | walk | idle` and nothing else, so row 3 was baked,
+     * matted, size-checked and never once drawn. Twenty-four death animations, invisible.
+     *
+     * ## ⛔ AND THE SIM CANNOT BE THE ONE TO FIX IT
+     *
+     * The tempting fix is to route death through the existing `DESPAWNING` state and delete after
+     * `despawningTicks`. That is a SIM change on the death path, and it is genuinely dangerous:
+     * `damageCreature` deletes immediately (or defers to a same-tick sweep) precisely so that
+     * *"nothing reads a 0-ehp creature in between"*. A corpse left in `world.creatures` is a corpse
+     * that occupies population caps, that acquisition scans can still target, and that every
+     * determinism gate must now agree about. The whole point of the instant delete is that it has
+     * no half-state.
+     *
+     * ## ⭐ SO THE CORPSE IS A RENDERER OBJECT, EXACTLY LIKE THE TOWER CRUMBLE
+     *
+     * When a creature leaves `world.creatures`, its sprite is not destroyed — it is handed to a
+     * short client-local death animation at the position it fell, playing the `die` row once and
+     * fading. Both peers see the removal (it is synced state) so both play it; they may start one
+     * snapshot apart, which is invisible and cannot desync anything **because nothing reads it**.
+     * No new field, no protocol bump, no sim risk, and the same mechanism `towerRenderer` already
+     * ships for the boss tower's collapse.
+     *
+     * ⚠ FRAMES, NOT TICKS — the creature is gone from the sim, so there is no `ticksInState` left to
+     * drive it. A renderer-local clock is the established idiom here for exactly this case.
+     *
+     * ⚠ A UNIT WITH NO `die` ROW SIMPLY VANISHES, as it always did. The goblins were authored before
+     * the row existed; this adds a death for whoever has one rather than demanding one from everyone.
+     */
     for (const [id, sp] of [...this.sprites]) {
-      if (!live.has(id)) { sp.destroy(); this.sprites.delete(id); }
+      if (live.has(id)) continue;
+      this.sprites.delete(id);
+      const dieRow = this.dyingRowFor(id);
+      if (dieRow === null) { sp.destroy(); continue; }
+      sp.texture = dieRow[0]!;
+      this.dying.push({ sprite: sp, frames: dieRow, elapsed: 0 });
+    }
+
+    // Advance every corpse by one render frame, then retire it.
+    for (let i = this.dying.length - 1; i >= 0; i--) {
+      const d = this.dying[i]!;
+      d.elapsed++;
+      // Plays ONCE and holds the last frame — a looping death would have the unit die repeatedly.
+      const idx = Math.min(d.frames.length - 1, Math.floor(d.elapsed / CORPSE_TICKS_PER_FRAME));
+      d.sprite.texture = d.frames[idx]!;
+      d.sprite.alpha = d.elapsed < CORPSE_FRAMES * 0.7
+        ? 1
+        : Math.max(0, 1 - (d.elapsed - CORPSE_FRAMES * 0.7) / (CORPSE_FRAMES * 0.3));
+      if (d.elapsed >= CORPSE_FRAMES) {
+        d.sprite.destroy();
+        this.dying.splice(i, 1);
+      }
     }
 
     // Drop bookkeeping for goblins that died, so the Maps cannot grow without bound across a match.
@@ -665,10 +766,31 @@ export class GoblinRenderer {
     }
   }
 
+  /**
+   * Match teardown / title return.
+   *
+   * ⛔ S167 — THE SPRITES AND THE CORPSES ARE DESTROYED HERE NOW, AND OMITTING THEM WOULD HAVE
+   * SHIPPED A FIELD OF DYING GOBLINS ACROSS THE MAIN MENU.
+   *
+   * This used to clear only the Graphics, the arrow layer and two bookkeeping Maps. That was
+   * survivable while a leftover atlas sprite simply waited to be retired on the next `sync` (where
+   * `live` is empty, so every sprite is dropped). With client-local corpses that same path now hands
+   * each one to a 1.5 s death animation instead — so returning to the title would play out an entire
+   * army's deaths over the title screen.
+   *
+   * ⚠ THE SAME CLASS `towerRenderer.clear` GUARDS AGAINST, found the same way: any renderer that
+   * gained a "keep it alive after the entity is gone" behaviour has to be re-checked against
+   * teardown, because teardown is exactly when everything is gone at once.
+   */
   clear(): void {
     this.graphics.clear();
     this.arrowLayer.clear();
     this.lastSeenPos.clear();
     this.facing.clear();
+    for (const sp of this.sprites.values()) sp.destroy();
+    this.sprites.clear();
+    this.spriteAtlas.clear();
+    for (const d of this.dying) d.sprite.destroy();
+    this.dying.length = 0;
   }
 }
