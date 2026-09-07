@@ -63,8 +63,12 @@ tie-break, the invisible hashed scalar, the 4th drifted predicate, the one-pixel
 | 4 | 23 doc/code contradictions — the big ones: `RACE_ZONES_AND_BOSS_TOWERS.md` + `BACKLOG.md` say the NONET collision is still open (R132 settled it), `SPARK_TD_SESSION_SPECS.md` still specs retaliation-only castle guns (superseded) and a `world.castles` model that does not exist, `SPARK_RACES_SPEC.md` says W1-C is unbuilt in its own anti-drift banner, `boot-snapshot.md` contradicted point-by-point, `CASTLE_BANK_CAP` reasoned from in 3 live sites after deletion, `VOLTKIN_HP`'s whole justification is pre-R72 arithmetic, `RELAY_HEALTH.md` says `probe-relays` is unimplemented | doc-truth pass |
 | 5 | 12 `not.toThrow()`-only tests in `audioManager.test.ts` guarding replay-safety they cannot observe — and one test's NAME states a property the code deliberately lacks | HIGH |
 | 5 | `quickmatchGate` ghost-race-claim prune + the two-try/catch isolation have zero coverage; both were owner-bug fixes | HIGH |
-| 5 | `RAIDED_CLOUD_TICKS` referenced by no test — set it to 0 and the raid cloud silently never draws, against R78 | MED |
-| 5 | 4 more vacuous `chewerRenderer` tests; `underRaceUnitCaps` untested | MED |
+| 5 | ~~`RAIDED_CLOUD_TICKS` referenced by no test~~ | ✅ `f2a653a` — lifetime coverage now enumerated from the union; two assertions on RAIDED (the seconds per R78, and that nothing outlives it) |
+| 5 | ~~`underRaceUnitCaps` untested~~ | ✅ `71667d4` — the type filter and the per-owner seat term |
+| 5 | 4 vacuous `chewerRenderer` tests (hop-state prune, per-emitter jitter, hop advance) | MED — still open |
+| 3 | ~~`findSpawnerMatch` dead while `runSpawnerIgnition` hand-enumerates~~ | ✅ `f2a653a` — the two lists pinned against each other, both directions. ⚠ My guard was vacuous TWICE before the negative control made it real (a comment mentioning the id, then a downstream `case` arm) |
+| 5 | ~~12 `not.toThrow()`-only `audioManager` tests~~ | ✅ `71667d4` — the three cursor/replay ones rewritten against `inspectAudioChain().claveCallsTotal`, and one whose NAME asserted the opposite of the shipped rule corrected. The remaining `not.toThrow` cases are the headless-context ones the module genuinely cannot observe |
+| 2 | ~~`players: 'acknowledged'` hid `castleHp`~~ | ✅ `1661166` — six sim fields projected, avatar asserted ABSENT |
 
 ---
 
