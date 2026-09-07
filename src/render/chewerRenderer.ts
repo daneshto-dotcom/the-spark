@@ -440,6 +440,30 @@ export class ChewerRenderer {
   }
 
   /** Drop the chewer graphic (title-return; closes the one-frame orphan window). */
+  /**
+   * S165 - PER-CHEWER BOOKKEEPING SIZES, for tests. The `inspectAudioChain()` idiom.
+   *
+   * WHY A HOOK RATHER THAN AN INFERENCE FROM THE DRAWING. The despawn prune is a LEAK guard - five
+   * `Map`s keyed by CreatureId that must shrink when a chewer dies - and its only test asserted
+   * `not.toThrow()`, so deleting the prune and letting the maps grow unbounded stayed green.
+   *
+   * Trying to observe it through the CANVAS instead cost two wrong attempts and one blocked deploy:
+   * a whole-frame comparison DOES catch stale state but is machine-dependent, because the hop phase
+   * advances by `dtSec * IDLE_HOP_HZ` - real elapsed time - so legs land a pixel or two apart on a
+   * slower runner. Narrowing to the body position is stable but no longer catches the leak, since a
+   * stale `lastSeenPos` perturbs the hop rather than the position. The quantity being tested is a
+   * MAP SIZE; measuring it as one removes both problems.
+   */
+  inspectState(): Readonly<Record<string, number>> {
+    return {
+      lastSeenPos: this.lastSeenPos.size,
+      hopPhase: this.hopPhase.size,
+      facing: this.facing.size,
+      lastSeenState: this.lastSeenState.size,
+      lastChewBucket: this.lastChewBucket.size,
+    };
+  }
+
   clear(): void {
     this.graphics.clear();
     this.lastSeenPos.clear();

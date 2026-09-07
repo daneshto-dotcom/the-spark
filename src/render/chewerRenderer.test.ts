@@ -67,6 +67,23 @@ class GraphicsMock {
    */
   reset(): void { this.calls.length = 0; this.ops.length = 0; }
 
+  /**
+   * S165 - THE BODY'S DRAWN POSITION, rounded. The one part of a chewer frame that is a pure
+   * function of `pos`, so it is stable across machines.
+   *
+   * WHY THIS EXISTS, AND WHY `signature()` IS THE WRONG TOOL FOR A CROSS-INSTANCE COMPARE: the hop
+   * phase advances by `dtSec * IDLE_HOP_HZ` - by REAL ELAPSED TIME between syncs. So leg and lean
+   * geometry differ by a pixel or two depending on how fast the machine got from one sync to the
+   * next. My first prune assertion compared whole frames, passed locally, then failed on CI over
+   * `quadraticCurveTo(288,312,284,317)` vs `(...,286,317)` - two pixels of leg - AND BLOCKED THE
+   * DEPLOY. A test that encodes the speed of the machine it was written on is not a test.
+   */
+  bodyPos(): string {
+    const first = this.ops.find((o) => o.name === 'ellipse');
+    if (first === undefined) return 'NO-BODY';
+    return `${Math.round(first.args[0] ?? 0)},${Math.round(first.args[1] ?? 0)}`;
+  }
+
   signature(): string {
     return this.ops.map((o) => `${o.name}(${o.args.map((n) => Math.round(n)).join(',')})`).join('|');
   }
@@ -254,59 +271,56 @@ describe('S100 P1 — ChewerRenderer', () => {
 
   it('prunes per-chewer hop state when a chewer despawns', () => {
     /*
-     * S165 — THE ONLY ASSERTION WAS `not.toThrow()`, ON A LEAK GUARD. Delete the prune and let the
-     * per-chewer `Map`s grow unbounded and this stayed green; the only lane that could have caught
-     * the leak is `render-heap.spec.ts`, which is `@soak` and non-gating, so the class had no gating
-     * signal anywhere.
+     * S165 - THE ONLY ASSERTION HERE WAS `not.toThrow()`, ON A LEAK GUARD. Five per-chewer `Map`s
+     * are keyed by CreatureId and must shrink when a chewer dies; delete the prune, let them grow
+     * unbounded, and the suite stayed green. The only lane that could have caught the leak is
+     * `render-heap.spec.ts`, which is `@soak` and non-gating - so the class had no gating signal.
      *
-     * ⭐ THE MAPS ARE PRIVATE, so this observes the prune through BEHAVIOUR instead: walk the chewer
-     * far enough to build up a hop phase, despawn it, then bring back a chewer with the SAME id at
-     * the ORIGINAL position. If the bookkeeping was pruned it draws exactly what a fresh renderer
-     * draws; if stale phase/facing/last-position survived, it does not.
+     * MEASURED AS MAP SIZES, and getting here took two wrong attempts worth recording:
+     *
+     *   1. A whole-frame geometry comparison DID catch stale state - and is machine-dependent. The
+     *      hop advances by `dtSec * IDLE_HOP_HZ`, i.e. real elapsed time, so legs land a pixel or
+     *      two apart on a slower box. It passed locally, failed on CI over two pixels of leg, and
+     *      BLOCKED THE DEPLOY.
+     *   2. Narrowing to the body position is machine-stable and no longer catches the leak at all,
+     *      because a stale `lastSeenPos` perturbs the HOP, not the position.
+     *
+     * The thing under test is a map size. `inspectState()` reports it directly - the
+     * `inspectAudioChain()` idiom this repo already uses - and is immune to both problems.
      */
-    const fresh = new ChewerRenderer(stubApp(), stubParent());
-    const w0 = makeWorld();
-    lastGraphics.reset();
-    fresh.sync(w0);
-    const firstEverFrame = lastGraphics.signature();
-    fresh.destroy();
-    expect(firstEverFrame.length, 'anti-vacuity: nothing drawn').toBeGreaterThan(0);
-
     const r = new ChewerRenderer(stubApp(), stubParent());
     const w = makeWorld();
+    r.sync(w);
+
+    const populated = r.inspectState();
+    // Anti-vacuity: if nothing was ever recorded, "it shrank" would be trivially true.
+    expect(Object.keys(populated).length, 'no bookkeeping maps reported').toBeGreaterThan(0);
+    expect(populated.lastSeenPos, 'the live chewer was never recorded').toBe(1);
+
+    // Walk it so hop/facing/state are all genuinely populated, not just the position.
     const c = w.creatures.get(asCreatureId(50)) as {
       pos: { x: number; y: number }; prevPos: { x: number; y: number };
     };
-    const home = { x: c.pos.x, y: c.pos.y };
-    // Build up real hop state, moving the OPPOSITE way so facing is dirtied too.
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 5; i++) {
       c.prevPos = { x: c.pos.x, y: c.pos.y };
       c.pos = { x: c.pos.x - 7, y: c.pos.y };
       (w as { tick: number }).tick += 1;
-      lastGraphics.reset();
       r.sync(w);
     }
-    const walked = lastGraphics.signature();
-    expect(walked, 'the walk did not change anything — the setup is wrong').not.toBe(firstEverFrame);
+    for (const [key, n] of Object.entries(r.inspectState())) {
+      expect(n, `${key} should hold the live chewer before it despawns`).toBeGreaterThan(0);
+    }
 
-    // Despawn, sync (this is the tick that must prune), then bring the same id back home.
+    // The despawn tick. Every map must drop the dead id.
     w.creatures.clear();
     r.sync(w);
-    const revived = makeWorld();
-    const rc = revived.creatures.get(asCreatureId(50)) as {
-      pos: { x: number; y: number }; prevPos: { x: number; y: number };
-    };
-    rc.pos = { x: home.x, y: home.y };
-    rc.prevPos = { x: home.x, y: home.y };
-    (revived as { tick: number }).tick = 0;
-    lastGraphics.reset();
-    r.sync(revived);
-
-    expect(
-      lastGraphics.signature(),
-      'a re-spawned chewer inherited the despawned one\'s hop state — the per-chewer maps were '
-        + 'not pruned, which is also the unbounded-growth leak',
-    ).toBe(firstEverFrame);
+    for (const [key, n] of Object.entries(r.inspectState())) {
+      expect(
+        n,
+        `${key} still holds ${n} entr${n === 1 ? 'y' : 'ies'} after the chewer despawned - this is `
+          + `the unbounded-growth leak, one entry per creature that ever lived`,
+      ).toBe(0);
+    }
 
     r.clear();
     r.destroy();
