@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5993,
+  "tool_calls_session_total": 6001,
   "session_id": "S166",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -900,6 +900,12 @@
       "priority": "P2",
       "title": "The guards caught me twice, and both times the guard was the cheap part",
       "entry": "registerAll.test.ts failed BY NAME on the ignition gap, then its own extraction exposed two further mistakes of mine: the regex is NON-GREEDY, so a race name passed as an argument shadowed the recipe id; and its character class was [A-Za-z]+ with no digits, so every t3TowerN id was invisible to it. Neither would have been found by reading my own diff. THE LESSON IS ABOUT COST ASYMMETRY: these guards took one session each to write and they have now caught a fake CreatureType written by an agent, six towers that would have made pencil chewers, and two of my own errors in one afternoon. The expensive thing is never the guard - it is the silent half-landing it prevents. And when a guard's own shape is wrong (the character class), WIDEN THE GUARD rather than renaming the thing it failed to see: a GodlyId is a serialized wire literal, and letting a test's regex choose the wire format is the tail wagging the dog."
+    },
+    {
+      "session": "S166",
+      "priority": "P3",
+      "title": "Three prompts for three states is three buildings, not one building three times",
+      "entry": "The owner rejected 18 tower images with one observation: \"the second state looks like a shack while the first one looks like a house\". The cause was not a bad roll, it was my METHOD - I wrote three INDEPENDENT text prompts per race, and a text description of a building yields *a* building, not *THAT* building. The fix was a mechanism the generator ALREADY HAD and whose own docblock argues for it better than I could: refImages exists for \"an IDENTITY constraint, not a style one\". Conditioning each damaged/destroyed state on its own intact PNG fixed it outright. TWO TRANSFERABLE LESSONS. (1) When output must be a VARIATION of prior output, the prior output is an INPUT - never re-describe it in words and hope. (2) The owner only reported the zombie set, but the same drift was in the naga set he had APPROVED - his approval of the intact had masked it. A reported defect is a sample, not the population: I re-checked all six and found the second one myself rather than fixing only what was named."
     }
   ],
   "totals": {

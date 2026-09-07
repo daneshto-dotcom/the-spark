@@ -1,4 +1,4 @@
-# PDR — S164 batch — **STATUS: IN-PROGRESS — P1-P4 SHIPPED AND DEPLOYED. P5 art delivered, WIRING NOT STARTED. P6 not started.**
+# PDR — S164 batch — **STATUS: COMPLETED — P1-P4 shipped and deployed in S164. P5 (W1-C, the castle's race unit) shipped in S165 at PROTOCOL 41→42. P6 (the art brief — zones + tier-9 boss towers) closed across S165 (twelve zone backdrops) and S166 (six bosses + eighteen boss-structure states). Marker cleared by S166's /handoff after verifying both.**
 
 Tier: **Full**. Owner selected the priorities directly and ruled on every open design question
 in-session. Baseline `eaf85e2`.

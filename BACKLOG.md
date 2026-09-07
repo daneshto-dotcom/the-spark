@@ -13,7 +13,8 @@ verbatim there, with my open questions.
 ⚠ **NOT FOR THE NEXT SESSION.** The owner scheduled it themselves: *"this is not for the current
 session and not for the next one but maybe for the one after"*. Captured now so it cannot be lost.
 
-- [ ] **A — PER-RACE ZONE BACKGROUNDS.** Each seat's quarter painted in its race's world instead of
+- [x] **A — PER-RACE ZONE BACKGROUNDS. ✅ SHIPPED S165** (twelve backdrops — portrait + landscape per race — plus a settings toggle; the vampires Q1 was answered in-session). S166 then fixed the spawner portal the backdrop had been covering. Kept for the record; not open work.
+      **A — PER-RACE ZONE BACKGROUNDS.** Each seat's quarter painted in its race's world instead of
       deep black space — zombies ruins/swamp, orcs barracks in badlands, demons hell, nagas *"atlantis
       but more military and cruel looking cuz they all mean"*, mummies desert. Style reference is the
       race-banner art already generated for the picker, but *"a little more realistic"* and less
@@ -24,7 +25,7 @@ session and not for the next one but maybe for the one after"*. Captured now so 
 - [ ] **B — TIER-9 BOSS TOWERS, one per race.** Nine of the race's own shape (`RACE_FEED_SHAPE`)
       builds it; it releases ONE boss and then crumbles in a generated video effect. ⛔ Explicitly
       **NOT a Voltkin-style cutscene** — the sim keeps running underneath. ≤ 8 s for the whole
-      sequence. ALL SIX NAMED S166: vampires → Vlad, nagas → Kraken, mummies → Pharaoh, zombies → Whopper (⚠ Burger King trademark — owner to confirm or rename; the RE2 bloated-brute CONCEPT is what he meant and is safe), orcs → Chieftain/Warlord, demons → Lucifer. Owner brief: *"absolutely terrifying and fucking epic"*, unique skills each, with generated graphics for the SKILLS and the MOVEMENTS — a larger art bill than tier-3's four-row sheets. Two unique attacks/skills each; the
+      sequence. ALL SIX NAMED S166: vampires → Vlad, nagas → Kraken, mummies → Pharaoh, zombies → Whopper (⚠ Burger King trademark — owner to confirm or rename; the bloated-undead-brute CONCEPT is what he meant and is safe), orcs → **Warlord**, demons → **Archdemon** (both amended by the owner later in S166 — they had read Chieftain/Warlord and Lucifer). ⭐ **ART IS DONE — S166 shipped 6 boss designs + 18 boss-structure states (whole/damaged/destroyed) to `assets-source/race-tier9-{bosses,towers}/`, owner-approved.** Structures are per-boss, not generic towers: Vlad a royal coffin, Whopper a growth pod, Warlord a war tent, Archdemon a hellmouth that CLOSES as it dies, Pharaoh a cursed tomb, Kraken the abyssal pit. ⛔ WHAT REMAINS: the five clips per boss (idle/moving/dying/basic attack/skill attack), the per-race destroy cinematic, and ALL of the code — nothing in src/ references any of it. Owner brief: *"absolutely terrifying and fucking epic"*, unique skills each, with generated graphics for the SKILLS and the MOVEMENTS — a larger art bill than tier-3's four-row sheets. Two unique attacks/skills each; the
       boss lives until killed, and if it survives the FIGHT phase it returns to the castle and comes
       back next phase. Owner will supply boss specs later.
 
