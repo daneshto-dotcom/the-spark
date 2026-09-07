@@ -1,0 +1,156 @@
+{
+  "_comment": [
+    "SPARK — S167: veo clips for the SIX TIER-9 BOSSES. Four states each (idle / walk / attack / die).",
+    "",
+    "⭐ EVERY CLIP IS SEEDED IMAGE-TO-VIDEO OFF THAT BOSS'S OWN approved PNG. That is the mechanism",
+    "behind the owner's binding requirement — the seed image carries the DESIGN and the prompt carries",
+    "only the MOTION. A text prompt alone yields a different boss per clip. The six seeds here are the",
+    "REV-2 art the owner approved in S166; they are deliberately grounded READY stances precisely so",
+    "one seed can drive all four of these.",
+    "",
+    "⭐ EACH PROMPT IS WRITTEN TO THAT BOSS'S OWNER-GIVEN FEAR AXIS, not to a generic 'scary monster'.",
+    "The owner fixed the axes himself when the art was made: Vlad IMPERIAL, Kraken MONSTROUS, Pharaoh",
+    "ANCIENT & CURSED, Whopper DISGUSTING, Warlord BRUTAL, Archdemon VICIOUS & TERRIFYING. R99 already",
+    "forbids two RACES converging; six bosses that all moved the same way would collapse the same",
+    "distinction at the point the player actually sees it — in motion.",
+    "",
+    "⚠ THE SUBJECT PHRASE IS SHORT ON PURPOSE. Long re-descriptions are what made veo REDRAW the",
+    "subject each frame instead of animating a fixed one — the shipped stink tower melted for exactly",
+    "that reason (see gen-character-clips.mjs). Identity in one clause, motion in the rest.",
+    "",
+    "⛔ NO SKILL CLIPS HERE, AND THAT IS THE OWNER'S OWN SEQUENCING. He gave three of the six skill",
+    "sets mid-session (R138 zombie aura + death explosion, R139 kraken tentacles + sonar cone, R140",
+    "vlad conversion + life sap) and reserved Pharaoh, Warlord and Archdemon: *\"the rest iil think",
+    "about while you give me the stats\"*. Skill art is owed for all six once they are settled — he",
+    "asked for it explicitly: *\"we would need to generate cool graphics for those abilities\"*.",
+    "",
+    "⚠ `die` IS GENERATED EVEN THOUGH NO RENDERER ARM CAN REQUEST ROW 3 TODAY. goblinRenderer's",
+    "syncSprite maps every FSM state to attack/walk/idle, so the die row is currently unreachable —",
+    "the same state the tier-3 units ship in. It is generated now because the seed and the prompt are",
+    "in hand now, and re-generating later costs another full veo pass."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "t9boss-vampires",
+      "_axis": "IMPERIAL",
+      "seed": "assets-source/race-tier9-bosses/boss-vampires-vlad.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-vampires",
+      "states": {
+        "idle": {
+          "prompt": "the tall gaunt vampire voivode in his high-collared crimson-and-black robes stands in place . He shifts his weight slightly and his head turns as he surveys the field. He never hurries and never crouches; every motion is unhurried, upright and contemptuous. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the tall gaunt vampire voivode in his high-collared crimson-and-black robes advances steadily forward toward the viewer , a full walk cycle. He never hurries and never crouches; every motion is unhurried, upright and contemptuous. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the tall gaunt vampire voivode in his high-collared crimson-and-black robes delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. He never hurries and never crouches; every motion is unhurried, upright and contemptuous. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the tall gaunt vampire voivode in his high-collared crimson-and-black robes is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. He never hurries and never crouches; every motion is unhurried, upright and contemptuous."
+        }
+      }
+    },
+    {
+      "name": "t9boss-nagas",
+      "_axis": "MONSTROUS",
+      "seed": "assets-source/race-tier9-bosses/boss-nagas-kraken.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-nagas",
+      "states": {
+        "idle": {
+          "prompt": "the colossal teal-and-violet kraken with its mass of thick tentacles stands in place . He shifts his weight slightly and his head turns as he surveys the field. Everything about it moves with enormous weight and slow inertia, like something far too big to be here. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the colossal teal-and-violet kraken with its mass of thick tentacles advances steadily forward toward the viewer , a full walk cycle. Everything about it moves with enormous weight and slow inertia, like something far too big to be here. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the colossal teal-and-violet kraken with its mass of thick tentacles delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. Everything about it moves with enormous weight and slow inertia, like something far too big to be here. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the colossal teal-and-violet kraken with its mass of thick tentacles is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. Everything about it moves with enormous weight and slow inertia, like something far too big to be here."
+        }
+      }
+    },
+    {
+      "name": "t9boss-mummies",
+      "_axis": "ANCIENT & CURSED",
+      "seed": "assets-source/race-tier9-bosses/boss-mummies-pharaoh.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-mummies",
+      "states": {
+        "idle": {
+          "prompt": "the towering bandaged pharaoh in his gold-and-lapis regalia stands in place . He shifts his weight slightly and his head turns as he surveys the field. He moves with dry, stiff, grinding inevitability, trailing dust from his wrappings. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the towering bandaged pharaoh in his gold-and-lapis regalia advances steadily forward toward the viewer , a full walk cycle. He moves with dry, stiff, grinding inevitability, trailing dust from his wrappings. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the towering bandaged pharaoh in his gold-and-lapis regalia delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. He moves with dry, stiff, grinding inevitability, trailing dust from his wrappings. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the towering bandaged pharaoh in his gold-and-lapis regalia is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. He moves with dry, stiff, grinding inevitability, trailing dust from his wrappings."
+        }
+      }
+    },
+    {
+      "name": "t9boss-zombies",
+      "_axis": "DISGUSTING",
+      "seed": "assets-source/race-tier9-bosses/boss-zombies-whopper.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-zombies",
+      "states": {
+        "idle": {
+          "prompt": "the enormous bloated grey-green undead brute stands in place . He shifts his weight slightly and his head turns as he surveys the field. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the enormous bloated grey-green undead brute advances steadily forward toward the viewer , a full walk cycle. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the enormous bloated grey-green undead brute delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the enormous bloated grey-green undead brute is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong."
+        }
+      }
+    },
+    {
+      "name": "t9boss-orcs",
+      "_axis": "BRUTAL",
+      "seed": "assets-source/race-tier9-bosses/boss-orcs-warlord.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-orcs",
+      "states": {
+        "idle": {
+          "prompt": "the huge scarred orc warlord in his trophy-hung plate and furs stands in place . He shifts his weight slightly and his head turns as he surveys the field. He moves like a very dangerous person rather than a monster: balanced, deliberate, economical. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the huge scarred orc warlord in his trophy-hung plate and furs advances steadily forward toward the viewer , a full walk cycle. He moves like a very dangerous person rather than a monster: balanced, deliberate, economical. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the huge scarred orc warlord in his trophy-hung plate and furs delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. He moves like a very dangerous person rather than a monster: balanced, deliberate, economical. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the huge scarred orc warlord in his trophy-hung plate and furs is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. He moves like a very dangerous person rather than a monster: balanced, deliberate, economical."
+        }
+      }
+    },
+    {
+      "name": "t9boss-demons",
+      "_axis": "VICIOUS & TERRIFYING",
+      "seed": "assets-source/race-tier9-bosses/boss-demons-archdemon.png",
+      "outDir": "assets-source/race-tier9-bosses/clips/t9boss-demons",
+      "states": {
+        "idle": {
+          "prompt": "the immense magenta-and-black horned archdemon wreathed in hellfire stands in place . He shifts his weight slightly and his head turns as he surveys the field. His movements are fast, jagged and cruel, and the fire around him surges with them. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+        },
+        "walk": {
+          "prompt": "the immense magenta-and-black horned archdemon wreathed in hellfire advances steadily forward toward the viewer , a full walk cycle. His movements are fast, jagged and cruel, and the fire around him surges with them. He stays roughly centred in frame the whole time."
+        },
+        "attack": {
+          "prompt": "the immense magenta-and-black horned archdemon wreathed in hellfire delivers one single heavy attack - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. His movements are fast, jagged and cruel, and the fire around him surges with them. He stays in the SAME SPOT and does not travel."
+        },
+        "die": {
+          "prompt": "the immense magenta-and-black horned archdemon wreathed in hellfire is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. His movements are fast, jagged and cruel, and the fire around him surges with them."
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "_comment": [
+    "SPARK — S167: atlas specs for the SIX TIER-9 BOSSES, four states each.",
+    "",
+    "⭐ THE TIER-3 UNIT PATTERN, because a boss is a CHARACTER (actions) and not a structure",
+    "(conditions): framesPerState 12, every state a veo `clip`, and normaliseStateScale ON.",
+    "",
+    "⭐ cellW/cellH 320, NOT the units' 200. A boss must READ as bigger than the army around it, and",
+    "the cell is the budget the union bounding box is fitted into — a boss authored at 200 would be",
+    "matted and scaled to exactly the same on-screen height as a tier-3 bat, because",
+    "GOBLIN_SPRITE_BASE_SCALE is a single global applied to every atlas-backed creature and there is",
+    "no per-type scale lookup. The cell is therefore the ONLY lever that makes a boss look like one,",
+    "and 320/200 = 1.6x.",
+    "",
+    "⚠ normaliseStateScale IS set here, where the tower specs deliberately do NOT set it. It equalises",
+    "the SEED-FRAME size across states, which is exactly right when four CLIPS of one character",
+    "disagree about zoom — veo frames the same boss differently between idle and attack, and without",
+    "this the boss visibly grows and shrinks as he changes state. The towers are four separate",
+    "DRAWINGS of a building whose size legitimately changes, which is the opposite case.",
+    "",
+    "⚠ enclosedWhiteLimitPct 4e-05, set EXPLICITLY. The builder's default is 0.003 — 75x looser — and",
+    "taking that default by omission is precisely the S165 defect the owner reported by eye. A boss is",
+    "a CHARACTER, so the limit is protecting eyes and glints here rather than being free; 4e-05 is the",
+    "value the tier-3 units were tuned to after measurement, and these are the same subject class.",
+    "",
+    "⚠ `die` IS BUILT EVEN THOUGH NO RENDERER ARM CAN REQUEST ROW 3. goblinRenderer.syncSprite maps",
+    "every FSM state to attack/walk/idle, so the die row is unreachable today — the same state the",
+    "tier-3 units ship in. It is built now because the clip exists now."
+  ],
+  "specs": [
+    {
+      "name": "t9boss-vampires",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-vampires/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-vampires/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-vampires/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-vampires/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    },
+    {
+      "name": "t9boss-nagas",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    },
+    {
+      "name": "t9boss-mummies",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-mummies/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-mummies/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-mummies/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-mummies/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    },
+    {
+      "name": "t9boss-zombies",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-zombies/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-zombies/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-zombies/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-zombies/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    },
+    {
+      "name": "t9boss-orcs",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-orcs/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-orcs/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-orcs/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-orcs/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    },
+    {
+      "name": "t9boss-demons",
+      "outDir": "public/art/race-tier9-bosses",
+      "cellW": 320,
+      "cellH": 320,
+      "framesPerState": 12,
+      "states": {
+        "idle": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-demons/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-demons/walk.mp4",
+          "ticksPerFrame": 4
+        },
+        "attack": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-demons/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "clip": "assets-source/race-tier9-bosses/clips/t9boss-demons/die.mp4",
+          "ticksPerFrame": 5
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05,
+      "normaliseStateScale": true
+    }
+  ]
+}

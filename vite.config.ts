@@ -61,5 +61,31 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'e2e'],
+    /*
+     * ⭐ S167 — **20 s, NOT VITEST'S DEFAULT 5 s, AND THIS IS A CORRECTNESS FIX RATHER THAN A
+     * CONVENIENCE ONE.**
+     *
+     * A handful of tests in this suite drive the REAL host tick for thousands of ticks —
+     * `firstTowerSpeed` runs a bot to its first tower (~13 400 ticks for MID), `botTowers` runs four
+     * seats on the real phase clock, and `matchPhase` dynamically imports `save.ts` mid-test. Each
+     * finishes in well under a second of actual work; what they exceed is WALL CLOCK, when 246 test
+     * files are transforming and collecting in parallel on the same machine. The S167 full-suite run
+     * measured `collect 2561 s` cumulative against `tests 26 s` — the work is not the cost.
+     *
+     * ⛔ SO THE 5 s DEFAULT MADE THE SUITE REPORT FAILURES THAT WERE NOT DEFECTS: three separate
+     * runs this session went red on `matchPhase` and on three bot tests, every one of which passed
+     * in isolation seconds later with its own diagnostic already printed (`HARD first tower tick =
+     * 1442`) — i.e. the assertion had ALREADY SUCCEEDED and the clock ran out around it.
+     *
+     * ⛔ AND THAT IS DANGEROUS, WHICH IS THE REAL ARGUMENT. This project's own rule is that no
+     * failed command may be passed over. A gate that fails for a reason unrelated to the code
+     * trains the next session to wave red away as "just the flake", and the first REAL regression
+     * behind that reflex ships. Raising the ceiling costs nothing on a passing run — the timeout is
+     * a bound, not a delay — and it makes a red suite mean something again.
+     *
+     * ⚠ 20 s IS A BOUND ON WALL CLOCK, NOT A LICENCE FOR SLOW TESTS. A test that genuinely needs
+     * more than a second of WORK should be measured and made cheaper, not parked under this number.
+     */
+    testTimeout: 20_000,
   },
 });

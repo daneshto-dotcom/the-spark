@@ -233,11 +233,23 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       would reproduce the very complaint P1/P3 exist to fix, in the
                     //       fogged half of the board.
       '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
-      '_Container', //    3 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
-      '_Graphics',  //    4 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
-      '_Graphics',  //    5 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //    6 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
-      '_Container', //    7 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
+      '_Container', //    3 — towerRenderer.layer          (S167) ⭐ NEW — the race tower BUILDINGS,
+                    //       both tiers. Twelve tier-3 atlases and six tier-9 ones were on disk,
+                    //       matted and disk-tested, and drawn by NOTHING until this layer existed —
+                    //       `t3TowerAtlasBase` had zero production callers for two sessions.
+                    //       ⚠ IMMEDIATELY ABOVE `spawnerZoneRenderer` AND THAT PAIRING IS THE POINT:
+                    //       index 2 is this tower's own aura, so the building stands ON its glow
+                    //       rather than under it. Below the creatures at 4+, so a unit walking past
+                    //       a tower passes IN FRONT of it.
+                    //       ⭐ ABOVE THE FOG, on the same argument index 2 already makes: the aura
+                    //       is a cross-player landmark everyone must see to raid, so the tower's
+                    //       POSITION is already public and hiding only the building would conceal
+                    //       nothing while making the landmark unreadable.
+      '_Container', //    4 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
+      '_Graphics',  //    5 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
+      '_Graphics',  //    6 — chewerRenderer               (main.ts:493, S100 P1)
+      '_Graphics',  //    7 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
+      '_Container', //    8 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
                     //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
                     //       count cannot catch and this roll call can: the goblins keep their
                     //       procedural puppet as the load-failure fallback, so the renderer owns

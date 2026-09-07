@@ -171,6 +171,7 @@ import { TurretRenderer } from './render/turretRenderer.ts';
 import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
+import { TowerRenderer } from './render/towerRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
 import { StructurePanel } from './render/structurePanel.ts';
@@ -608,6 +609,15 @@ async function bootstrap(): Promise<void> {
   let arcadeRun: ArcadeRun | null = null;
   const arcadeRunOverlay = new ArcadeRunOverlay(app, app.stage);
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
+  /*
+   * ⭐ S167 — THE RACE TOWER'S OWN BUILDING, both tiers. Until this existed, twelve tier-3 tower
+   * atlases and six tier-9 ones sat on disk, matted and disk-tested, drawn by nothing.
+   *
+   * ⚠ `aboveFogLayer`, matching the aura it stands in: a race tower is a cross-player landmark and
+   * a raid target, so it must be visible to everyone THROUGH the fog for the same reason
+   * `SpawnerZoneRenderer` is. Constructed AFTER the aura so the building draws on top of its glow.
+   */
+  const towerRenderer = new TowerRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
   const creatureRenderer = new CreatureRenderer(app, aboveFogLayer);
@@ -2355,6 +2365,8 @@ Network routes: ${v.detail}`;
         structurePanel.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
+        // S167 — and the tower buildings with it, or six towers float over the title screen.
+        towerRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
         // clears world.bombs; this closes the one-frame orphan-sprite window).
         bombRenderer.clear();
@@ -3413,6 +3425,9 @@ Network routes: ${v.detail}`;
     // selection when the model comes back null, so there is no stale-selection cleanup here.
     structurePanel.sync(world, world.localPlayerId);
     spawnerZoneRenderer.sync(world);
+    // S167 — the tower sprite sits on its aura. Cheap when no race tower is live: it iterates
+    // world.creatureSpawners and `towerArtForRecipe` returns null for every non-race recipe.
+    towerRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
     // can stack above creatures in S27). Cheap when world.creatures empty.

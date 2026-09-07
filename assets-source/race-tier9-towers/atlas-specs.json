@@ -1,0 +1,184 @@
+{
+  "_comment": [
+    "SPARK — S167: atlas specs for the six TIER-9 BOSS TOWERS, THREE conditions each.",
+    "",
+    "⭐ THE CASTLE / TIER-3-TOWER PATTERN, DELIBERATELY. A tower is a STRUCTURE with conditions, not a",
+    "character with actions: framesPerState 1, fit 'box', every state a `still` PNG rather than a clip.",
+    "A building has no gait, no swing and no idle bob, so a clip would spend veo's budget re-drawing a",
+    "static subject and buy back two failure modes this pipeline has already paid for twice (seed drift",
+    "over the length of a clip, and outright generation failure).",
+    "",
+    "⚠ THREE STATES, NOT THE TIER-3 FOUR. The tier-3 towers carry a `spawning` frame; these do not,",
+    "because the art the owner approved is intact / damaged / destroyed and nothing else was drawn.",
+    "⛔ AND `spawning` WOULD BE UNREACHABLE ANYWAY: `t3TowerAtlasBase` has ZERO renderer consumers in",
+    "src/ — grep it — so the tier-3 tower art has never been drawn at all. Adding a fourth state here",
+    "would be authoring a frame for a code path that does not exist.",
+    "",
+    "⭐ fit 'box', NOT 'height'. Height-fit exists to keep CHARACTERS comparable by how tall they look.",
+    "These six are deliberately different shapes — an upright coffin, a WIDE LOW hellmouth that is not a",
+    "tower at all, a squat mastaba — and box-fit keeps each one whole inside its cell instead of scaling",
+    "a wide ground feature down by its width.",
+    "",
+    "⚠ normaliseStateScale is NOT set and must not be. It equalises the SEED-FRAME size across states,",
+    "which is right when clips of one character disagree about zoom. These are three separate DRAWINGS",
+    "of a building in different conditions, and a destroyed tower is SUPPOSED to be smaller than an",
+    "intact one — normalising would inflate the rubble back to full height. The demons entry is the",
+    "case that proves it: owner ruling, the hellmouth CLOSES as it is destroyed.",
+    "",
+    "⚠ cellW/cellH 256 matches the tier-3 towers exactly, so the two tiers sit at one scale on the board."
+  ],
+  "specs": [
+    {
+      "name": "t9tower-vampires",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-vampires-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-vampires-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-vampires-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9tower-nagas",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-nagas-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-nagas-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-nagas-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9tower-mummies",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-mummies-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-mummies-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-mummies-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9tower-zombies",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-zombies-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-zombies-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-zombies-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9tower-orcs",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-orcs-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-orcs-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-orcs-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    },
+    {
+      "name": "t9tower-demons",
+      "outDir": "public/art/race-tier9-towers",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/race-tier9-towers/t9-demons-intact.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/race-tier9-towers/t9-demons-damaged.png",
+          "ticksPerFrame": 1
+        },
+        "destroyed": {
+          "still": "assets-source/race-tier9-towers/t9-demons-destroyed.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    }
+  ],
+  "_white_limit": [
+    "⛔ enclosedWhiteLimitPct 4e-05, SET EXPLICITLY, and the omission is the whole hazard.",
+    "",
+    "build-sprite-atlas.mjs's DEFAULT is 0.003 — 75x more permissive. The tier-3 tower and castle specs",
+    "never set the knob at all, took that default, and shipped opaque near-white background pockets that",
+    "the owner spotted by eye in S165: \"some of them have that white background because not cut out too",
+    "well\". The cause was an OMISSION, not a tuning error, which is why it is written here rather than",
+    "left to the default a second time.",
+    "",
+    "⭐ AN AGGRESSIVE LIMIT IS SAFER ON A STRUCTURE THAN ON A CHARACTER. Enclosed near-white below the",
+    "limit is deliberately KEPT — that is what saves a character's eyes and blade glints — but the",
+    "sharedStyle for these six already forbids anything white or near-white ON the building, so by",
+    "construction every near-white pocket in one of these frames is background."
+  ]
+}

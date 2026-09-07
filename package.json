@@ -24,7 +24,7 @@
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "probe-relays": "node scripts/probe-relays.mjs",
-    "check:atlas": "node scripts/check-atlas-scenery.mjs public/art/race-units public/art/race-tier3-units && node scripts/check-atlas-scenery.mjs --no-size --allow-scenery 8000 public/art/castles public/art/race-tier3-towers"
+    "check:atlas": "node scripts/check-atlas-scenery.mjs public/art/race-units public/art/race-tier3-units public/art/race-tier9-bosses && node scripts/check-atlas-scenery.mjs --no-size --allow-scenery 8000 public/art/castles public/art/race-tier3-towers public/art/race-tier9-towers"
   },
   "dependencies": {
     "@trystero-p2p/core": "0.25.2",

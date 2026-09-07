@@ -34,16 +34,21 @@
     {
       "id": 1,
       "name": "The tier-9 boss tower - code (PROTOCOL 43->44)",
-      "status": "in-progress",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "0911ac3a49d85c2c4c830916d73e0b8bff78f6e2",
+      "check_method": "Six tsc-forced tables enumerated BY THE COMPILER (added the 12 literals first, read the 5 errors, filled them). ~12 silent sites worked from a 10-lane read-only discovery workflow + a completeness critic, EVERY cited symbol grep-verified against the tree before acting (6/6 confirmed: t3TowerAtlasBase has zero renderer consumers, GOBLIN_KINDS is untested, ATLASES is Partial, R137 is untested, trimMirrorSpawner strips ticks, AUTO_BOND_RADIUS=60). The critic found a REAL DEFECT IN MY OWN NEW CODE: hostTick razed the ring unconditionally while applySpawnCreature silently refuses a second live boss = nine shapes destroyed for nothing (owner S157 B1 verbatim); fixed so the tower WAITS, and pinned by test. 23 new tests in t9BossTower.test.ts incl. both disjointness directions, the chord clearance the tier-3 check is blind to, R137 both ways, and the one-shot contract driven through the REAL runHostTick. Gates from captured $?: typecheck 0, vitest 0 (3987/3987, 245 files; +107), build 0 (801.0 KiB, 99.0 KiB headroom), protocol suite 444/444 after the 43->44 bump across all 6 sites + the 7th prose site.",
+      "protocol_bump": "43 -> 44",
+      "tests_added": 23
     },
     {
       "id": 2,
       "name": "The tier-9 art - tower atlases, boss clips, destroy cinematics",
-      "status": "pending",
+      "status": "in-progress",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -7235,5 +7240,22 @@
       "blueprints.ts needs three tables: BLUEPRINTS(271), ALL_BLUEPRINT_IDS(336), cost map(414)."
     ]
   },
-  "design_decision_s167_race_keyed_literals": "Wire literals are keyed by RACE (t9TowerZombies / t9BossZombies), never by boss name. Spawner.recipeId and Creature.type are serialized, so a name in the literal would weld the unresolved 'Whopper' trademark question into the wire format and cost a protocol bump to change. Boss NAMES live in T9_BOSS_NAMES, a display table changeable for free. Mirrors the shipped RACE_TOWER_IDS vs RACE_TOWER_LABELS split. EFFECT: the Whopper decision no longer blocks anything."
+  "design_decision_s167_race_keyed_literals": "Wire literals are keyed by RACE (t9TowerZombies / t9BossZombies), never by boss name. Spawner.recipeId and Creature.type are serialized, so a name in the literal would weld the unresolved 'Whopper' trademark question into the wire format and cost a protocol bump to change. Boss NAMES live in T9_BOSS_NAMES, a display table changeable for free. Mirrors the shipped RACE_TOWER_IDS vs RACE_TOWER_LABELS split. EFFECT: the Whopper decision no longer blocks anything.",
+  "gates_at_p1_close_s167": {
+    "typecheck": 0,
+    "vitest": "0 (3987/3987, 245 files)",
+    "build": "0 (801.0 KiB, 99.0 KiB headroom)",
+    "protocol_suite": "0 (444/444)",
+    "commit": "0911ac3a49d85c2c4c830916d73e0b8bff78f6e2",
+    "pushed": true,
+    "note": "push to master IS the deploy; verify-deploy owed once Actions finishes"
+  },
+  "owner_rulings_s167": {
+    "R138": "ZOMBIE BOSS - aura damaging enemies around him 3%/s; on death explodes in a huge radius hurting EVERYTHING. Art: stinky deadly aura + explosion. OPEN: 3% of WHOSE health (victim max/current, or boss).",
+    "R139": "KRAKEN - 3 ground tentacles at a time attacking enemies or structures; sonar wave from mouth stunning + pushing back all enemies in a CONE. Stun, knockback and cone are all new verbs.",
+    "R140": "VLAD - on kill the victim revives at full stats as a vampire on Vlad side, sticks to him and targets what he targets; life sap heals 20% of his health, 3 uses, only below 40% health.",
+    "reserved": "Pharaoh, Warlord, Archdemon - owner is thinking; he asked for the full enemy stat list first.",
+    "art_owed": "Every skill needs generated video/art.",
+    "recorded_in": "RACE_ZONES_AND_BOSS_TOWERS.md"
+  }
 }
