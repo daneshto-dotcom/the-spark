@@ -225,12 +225,59 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
    * single potato wipes. Whether that is the intended counterplay is a ruling; the current answer is
    * simply what the old predicate already did, preserved.
    */
-  const POTATO_CLEARS: ReadonlySet<CreatureType> = new Set<CreatureType>([
-    'chewer', 'lightningDrone',
-    'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
-    'raceUnit',
-  ]);
-  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => POTATO_CLEARS.has(c.type));
+  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => potatoClearsType(c.type));
+}
+
+/**
+ * ⭐ S167 — HOISTED OUT OF THE FUNCTION BODY SO A TEST CAN ASK IT QUESTIONS.
+ *
+ * It was a `const` inside `applyPotatoDetonate`, which made it unreachable from vitest — and that is
+ * part of why the omission below went unnoticed for a session. A membership rule nothing can
+ * interrogate is a rule nothing can guard.
+ */
+const POTATO_CLEARS: ReadonlySet<CreatureType> = new Set<CreatureType>([
+  'chewer', 'lightningDrone',
+  'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
+  'raceUnit',
+  /*
+   * ⛔ S167 — THE SIX TIER-3 UNITS WERE MISSING, AND THAT IS THE DRIFT THIS LIST WAS WRITTEN TO
+   * PREVENT — HAPPENING ONE SESSION LATER.
+   *
+   * The set was authored in S165 as a behaviour-preserving spelling-out of the old
+   * `sourceSpawnerId !== null` predicate. S166 then added the tier-3 units, and `applyFeedTower`
+   * stamps every one of them with `sourceSpawnerId: action.spawnerId` — so under the OLD predicate a
+   * potato WOULD have cleared them. Under the explicit list it did not, which left the tier-3 units
+   * UNIQUELY POTATO-IMMUNE among tower units: a goblin hound dies to a blast its tier-3 counterpart
+   * shrugs off, for no stated reason. Restoring them is a consistency fix, not a balance decision.
+   *
+   * ⚠ The irony is the durable lesson: this list exists so the next spawner-sourced creature has to
+   * be added ON PURPOSE, and the very next one was not. An explicit list only helps if something
+   * FAILS when it is incomplete — `potatoClears.test.ts` is now that something.
+   */
+  't3Hound', 't3Scarab', 't3Piranha', 't3Bat', 't3Warband', 't3Souleater',
+  /*
+   * ⛔ AND THE SIX TIER-9 BOSSES ARE DELIBERATELY **ABSENT** — a decision, not the same omission.
+   *
+   * A boss is dispatched with `sourceSpawnerId: null` (`hostTick`'s t9 arm), so the OLD predicate
+   * never covered it either: it sits in the Voltkin's class, which has always been potato-immune for
+   * exactly that reason. Consistency alone settles it.
+   *
+   * ⭐ AND THE CONSEQUENCE WOULD BE INDEFENSIBLE OTHERWISE. `applyRadialClear` **DELETES** rather
+   * than damages, ignoring `ehp` entirely. A boss costs NINE shapes — the most expensive build in
+   * the game — releases once, and takes its whole tower with it. One potato erasing it outright, at
+   * full health, with no damage step, would make the most expensive structure in the game
+   * answerable by the cheapest item. A hard counter to a boss should be something that FIGHTS it.
+   */
+]);
+
+/**
+ * Does a potato blast DELETE this creature type outright?
+ *
+ * ⚠ A PREDICATE RATHER THAN THE `Set`, so a caller cannot mutate the rule — and so the membership
+ * question has one answer at one call site.
+ */
+export function potatoClearsType(type: CreatureType): boolean {
+  return POTATO_CLEARS.has(type);
 }
 
 /**

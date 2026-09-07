@@ -22,12 +22,52 @@ session and not for the next one but maybe for the one after"*. Captured now so 
       structures, connectors and creatures stay readable. Toggleable back to the black board.
       ⚠ Vampires' setting was not stated — Q1.
 
-- [ ] **B — TIER-9 BOSS TOWERS, one per race.** Nine of the race's own shape (`RACE_FEED_SHAPE`)
-      builds it; it releases ONE boss and then crumbles in a generated video effect. ⛔ Explicitly
-      **NOT a Voltkin-style cutscene** — the sim keeps running underneath. ≤ 8 s for the whole
-      sequence. ALL SIX NAMED S166: vampires → Vlad, nagas → Kraken, mummies → Pharaoh, zombies → Whopper (⚠ Burger King trademark — owner to confirm or rename; the bloated-undead-brute CONCEPT is what he meant and is safe), orcs → **Warlord**, demons → **Archdemon** (both amended by the owner later in S166 — they had read Chieftain/Warlord and Lucifer). ⭐ **ART IS DONE — S166 shipped 6 boss designs + 18 boss-structure states (whole/damaged/destroyed) to `assets-source/race-tier9-{bosses,towers}/`, owner-approved.** Structures are per-boss, not generic towers: Vlad a royal coffin, Whopper a growth pod, Warlord a war tent, Archdemon a hellmouth that CLOSES as it dies, Pharaoh a cursed tomb, Kraken the abyssal pit. ⛔ WHAT REMAINS: the five clips per boss (idle/moving/dying/basic attack/skill attack), the per-race destroy cinematic, and ALL of the code — nothing in src/ references any of it. Owner brief: *"absolutely terrifying and fucking epic"*, unique skills each, with generated graphics for the SKILLS and the MOVEMENTS — a larger art bill than tier-3's four-row sheets. Two unique attacks/skills each; the
-      boss lives until killed, and if it survives the FIGHT phase it returns to the castle and comes
-      back next phase. Owner will supply boss specs later.
+- [x] **B — TIER-9 BOSS TOWERS, one per race. ✅ MOSTLY SHIPPED S167 — see the two open items below.**
+
+      **What shipped (S167, PROTOCOL 43→44):**
+      · The recipe, all six towers: nine of the race's own `RACE_FEED_SHAPE` closed in a ring. It
+        releases exactly ONE boss and then CRUMBLES, consuming the nine shapes that built it.
+        ⛔ The consumption is not flavour — `igniteOneSpawnerRecipe` de-dups only against LIVE
+        spawners, so a tower that vanished while its ring still stood would re-ignite on the next
+        bond and mint bosses forever.
+      · Six serialized `GodlyId`s + six boss `CreatureType`s, **keyed by RACE and never by boss
+        name** — which is what de-blocks the "Whopper" trademark question entirely: every name lives
+        in `T9_BOSS_NAMES` and changing one is free, with no protocol bump.
+      · The art: 6 boss atlases (24 veo clips — idle/walk/attack/die), 6 three-state tower atlases
+        from the owner-approved stills, and **6 crumble cinematics** (the demon hellmouth CLOSES,
+        per his ruling). 30 clips, 18 atlases, all clean through `check:atlas`.
+      · ⭐ **AND THE RENDERER THAT DRAWS THEM.** `t3TowerAtlasBase` had ZERO production callers —
+        the twelve tier-3 tower atlases and six destruction cinematics from S165 had never been
+        drawn at all. `towerRenderer.ts` now draws BOTH tiers, and the S165 art finally plays.
+      · Persistence across phases is verified, both halves: the boss survives FIGHT→BUILD→FIGHT and
+        does NOT heal (§D Q3a). Nothing culls creatures at a phase edge.
+
+      ⛔ **STILL OPEN — 1: THE SKILLS.** Owner gave three of six mid-S167 and reserved the rest:
+      **R138** zombie — an aura damaging enemies around him for 3%/s, and on death he explodes in a
+      huge radius hurting *everything*. **R139** kraken — 3 ground tentacles at a time attacking
+      units or structures, plus a sonar cone that STUNS and PUSHES BACK. **R140** vlad — on kill the
+      victim revives at full stats as a vampire on his side and targets what he targets; life sap
+      heals 20%, 3 uses, only below 40% health. *"the rest iil think about while you give me the
+      stats"* — Pharaoh, Warlord and Archdemon are his. Full text at
+      `RACE_ZONES_AND_BOSS_TOWERS.md` §S167.
+      ⚠ Stun, knockback, cone-targeting and owner-conversion are FOUR VERBS the sim does not have,
+      and conversion mutates `ownerPlayerId`, which is serialized and hashed. **The skills owe their
+      own protocol bump (44→45)** and each needs generated art (*"we would need to generate cool
+      graphics for those abilities"*).
+      ⚠ The 3%/s aura would be the first NON-INTEGER damage in the game — `damageEntity` throws on a
+      fraction by design and float accumulators are banned in the sim. Needs a tick-quantised rule.
+      **And 3% of WHOSE health is unstated**: percent-of-current never kills, percent-of-max does.
+
+      ⛔ **STILL OPEN — 2: BOSS STATS ARE MINE, NOT HIS.** They now sit on his own ruled 1..12 scale
+      (HP 9-12 / DEF 3-8 / ATK 4-7 / PEN 0-5, pools 72-130 against voltkin's 64) after the first cut
+      shipped at HP 40-60 and was measured absurd — every boss one-shot everything and the Pharaoh
+      could not be killed inside a FIGHT phase. He asked to settle stats after seeing the full enemy
+      stat list, which was given in S167.
+
+      ⚠ **NOT BUILT, and named rather than buried:** the literal *"returns to the castle"* walk. All
+      creature locomotion advances toward the enemy and there is no retreat mode; the boss stands
+      where the whistle blew and resumes next FIGHT, which satisfies "attacks again the next phase"
+      without the journey.
 
 - [x] ✅ **THE S162 BLOCKER IS CLOSED — owner R132 (S164): NONET moved to 12, the boss keeps 9.**
       `sudokuEvent.ts` reads `NONET_SHAPE_COUNT = 12`. Left in place as history; S165 found this item
