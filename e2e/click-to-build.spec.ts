@@ -213,11 +213,23 @@ test.describe('S150 P4 — click a tower on the FOOTER, place it, keep it (solo,
   test('the tier bar is derived from the registry, and a funded card becomes clickable', async ({ page }) => {
     await bootSolo(page);
 
-    // The five distinct complexities in the shipped registry: stink 4, pentagram 5, lightningHub 6,
-    // laserTurret/helga 7, voltkin 8. Derived, so adding a recipe moves the bar and this assertion
-    // together rather than leaving the bar advertising a complexity with nothing in it.
+    /*
+     * The distinct complexities in the shipped registry: the seat's own tier-3 race tower 3, stink 4,
+     * pentagram 5, lightningHub 6, laserTurret/helga 7, voltkin 8. Derived, so adding a recipe moves
+     * the bar and this assertion together rather than leaving the bar advertising a complexity with
+     * nothing in it.
+     *
+     * ⭐ S166 — THE `3` IS NEW AND IT APPEARED WITH NO HARDCODED LIST EDITED, which is the whole
+     * point of R108's *"a new tier BELOW the current floor"*. `footerBandModel` derives from
+     * `blueprintCost`, so the six tier-3 race towers made the chip show up on their own — this
+     * assertion is the only place that had to learn about it, and it went red exactly as designed.
+     *
+     * ⚠ EXACTLY ONE `3` CHIP, NOT SIX RECIPES' WORTH. R95 filters the panel to the seat's OWN race
+     * tower and the footer inherits that filter, so a solo vampire seat sees one 3-cost recipe. A
+     * bar showing 3 twice would mean the filter had come off.
+     */
     const band = await bandPoints(page);
-    expect(band.chips.map((c) => c.complexity)).toEqual([4, 5, 6, 7, 8]);
+    expect(band.chips.map((c) => c.complexity)).toEqual([3, 4, 5, 6, 7, 8]);
 
     // With an EMPTY bank the card is dim AND names its blocker — an unexplained dim box is
     // indistinguishable from a broken one, which was the original S136 complaint.
