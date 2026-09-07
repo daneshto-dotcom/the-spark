@@ -365,3 +365,84 @@ mutation, not a visual.
 *"their skills need a generated video or art"* — named explicitly so far: the zombie's **explosion**
 and his **stinky deadly aura**. The Kraken's tentacles and sonar cone and Vlad's conversion and life
 sap will each want one too (*"we would need to generate cool graphics for those abilities"*).
+
+---
+
+## ⚙ S167 — GROUNDWORK FOR THE SKILLS: what was measured, and the ONE thing that blocks the easiest
+
+The three skill sets the owner gave (R138/R139/R140) were costed against the shipped tree rather
+than estimated. None of them was built — this section is so the next session starts from the
+measurement instead of repeating it.
+
+### ⭐ THE ZOMBIE DEATH EXPLOSION IS THE CHEAPEST, AND ITS MACHINERY ALREADY EXISTS
+
+*"when he dies he explodes in a huge radius hurting everything"* maps almost exactly onto
+`applyStructureSelfDestruct` (`state/structureSelfDestruct`), which the lightning hub already fires:
+a `BOMB_EXPLODE` effect plus `applyRadialClear` over creatures, primitives and bonds.
+
+⭐ **And the owner's wording picks the right variant for free.** That reducer takes an optional
+`ownerPlayerId` which SPARES the owner's own units and shapes (S157 P0, after he reported hubs
+eating their own base). *"hurting everything"* is unambiguous, so the boss passes **no owner** — the
+pre-S157, owner-agnostic behaviour, which is already the shipped default. No new action, no new
+`GameEffect` kind, **no protocol bump**.
+
+### ⛔ WHAT BLOCKS IT: THERE IS NO SINGLE PLACE THAT KNOWS A CREATURE DIED
+
+This is the finding, and it is why the explosion was NOT bolted on in S167.
+
+`damageCreature` (`state/damage.ts:150` is its only production caller) takes an optional
+`deferDelete` set and behaves in **two different ways**:
+
+| | |
+|---|---|
+| `world.pendingCreatureDeaths` is a Set | the id is deferred and removed later by `sweepDeferredDeaths` |
+| it is `null` | **the creature is deleted immediately, inside the damage call** |
+
+And that set is only open for part of the tick: `hostTick` assigns it at **line 1119**, just before
+the creature fan-out, and nulls it at **1615**. **The defender poll runs at ~1027–1060 — BEFORE the
+batch opens.** So:
+
+- a boss killed by another CREATURE dies on the deferred path, and a hook at the sweep would see it;
+- a boss killed by a **laser turret, Helga, or a stink bag** is deleted immediately, and the same
+  hook would miss it entirely.
+
+⛔ **A death hook placed at the sweep therefore fires for some kills and not others**, which is worse
+than no hook: the explosion would look intermittent and the cause would be invisible.
+
+### The three ways out, costed
+
+1. **Hook inside `damageCreature`'s death branch.** The one place that always knows. ⚠ But it would
+   dispatch an AoE from inside a helper that callers invoke *while iterating* `world.creatures` — a
+   re-entrancy hazard on the sim's hot path, and `applyRadialClear` deletes creatures.
+2. **A pending-explosion list on `World`, drained at a safe point in `hostTick`.** Clean and
+   re-entrancy-free, but a new World field owes the four-sites tax (factory + serialize + hash +
+   worker) and a `FIELD_COVERAGE` entry.
+3. ⭐ **Open `pendingCreatureDeaths` EARLIER** — before the defender poll rather than after it — so
+   every lethal path in the tick defers, and one hook at the sweep covers all of them. Cheapest by
+   far and it needs no new state. ⚠ It changes when defender kills are removed (same tick, later
+   point), so it wants its own test against the mutual-kill behaviour S155 N1 was written for.
+
+**Recommendation: option 3**, with option 2 as the fallback if widening the batch disturbs the
+defender path.
+
+### ⚠ AND THE AURA IS HARDER THAN IT LOOKS, FOR A REASON THAT IS NOT ABOUT THE AURA
+
+*"3% health per second"* would be **the first non-integer damage in this game.** `damageEntity`
+THROWS on a fractional amount by design, and the whole DoT model is authored in whole units on the
+fifths ladder. 3%/s of a 7-fifth goblin is 0.21 fifths — and a float accumulator to carry the
+remainder is banned in the sim. It needs a tick-quantised integer rule (e.g. damage every Nth tick,
+N derived from the target's pool), which is a design decision rather than a line of code.
+
+⛔ **And "3% of WHOSE health" is still unstated.** Percent-of-CURRENT never kills — it approaches
+zero asymptotically. Percent-of-MAX does. The two make completely different mechanics, and the
+difference is not visible from the wording. **This one genuinely needs the owner.**
+
+### The Kraken and Vlad, briefly
+
+- **R139 tentacles / sonar cone** — stun, knockback and cone-targeting are three verbs the sim has
+  none of. Every acquisition scan today is a radius, and nothing applies an impulse to a creature
+  from a non-collision source. Largest surface of the three.
+- **R140 conversion** — the only skill that changes a creature's **owner** mid-life.
+  `ownerPlayerId` is `readonly`, serialized AND hashed, so this is a wire-visible mutation rather
+  than a visual: it needs its own protocol bump and a hash-projection review. It is also the hardest
+  to balance, because its value scales with how many units the OPPONENT fields.

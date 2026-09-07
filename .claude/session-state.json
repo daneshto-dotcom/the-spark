@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6101,
+  "tool_calls_session_total": 6110,
   "session_id": "S167",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -81,15 +81,28 @@
     {
       "id": 4,
       "name": "Backlog sweep — the defect class the boot snapshot calls cheap and durable, plus the findings this session surfaced",
-      "status": "in-progress",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "note": "Owner directive: \"keep working all priorities from backlog and current session priorities until you reach 850k\"."
+      "note": "Owner directive: \"keep working all priorities from backlog and current session priorities until you reach 850k\".",
+      "check_completed": true,
+      "checkpoint_commit": "c313b861621b7e858a3da38a1191c3b2c859b36f",
+      "check_method": "Five backlog items closed, each measured before it was changed. (a) hostTick emit chain INVERTED - the chewer arm is now named 'pentagram' and the default is inert; proven a no-op today by enumerating the registry (15 spawner recipes, 14 named by the four arms above, so pentagram was the ONLY id reaching the else) and backed by a new source-reading guard. (b) The `die` row made playable via client-local corpses in the renderer - the sim death path is untouched, which is what makes it safe. (c) check-atlas's die exclusion re-derived: one of its two reasons went stale, the pose-confound half did not, so the row is now gated ONE-SIDEDLY (taller only), verified against every shipped sheet first - the naga boss at 1.12x sits 0.03 under the ceiling. (d) POTATO_CLEARS: the tier-3 units were silently potato-IMMUNE, restored, bosses deliberately excluded, guard written. (e) Boss phase-persistence PROVEN rather than assumed, and a docblock that under-claimed corrected. Plus a per-type boss sprite scale set FROM A CAPTURED FRAME (S147 lesson), and the whole chain verified end-to-end in a real browser with a screenshot. Gates from captured $?: typecheck 0, vitest 0 (4020/4020, 249 files), build 0, check:atlas 0 (48 clean), e2e:gating 0 (64 passed)."
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "A comment claiming a guard is not a guard. stats.ts had cited statsLadder.test.ts BY NAME since S151; the file never existed. I read it, believed the owner's 1..12 range was enforced, and shipped bosses at five times the ceiling with every gate green.",
+    "A negative control found my own new test vacuous - twice in one session. The 5x-overkill assertion measured against max(pool) OF THE SET IT WAS JUDGING, so an inflated boss raised its own bar. Run a new guard against the REJECTED data before trusting it.",
+    "Art that ships is not art that draws. t3TowerAtlasBase had ZERO production callers for two sessions - 18 atlases matted, scanned, disk-tested and never once on screen. An existence test cannot tell 'present' from 'used'; only building the thing in a browser can.",
+    "The adversarial critic found a real defect IN CODE I HAD JUST WRITTEN: my hostTick arm razed the ring unconditionally while applySpawnCreature silently refuses a second live boss - nine shapes destroyed for nothing, the owner's S157 B1 report verbatim. Delegated review earns its keep on fresh code, not just old code.",
+    "Three flaky-looking failures in one session were one cause: a 5s testTimeout on a loaded machine, with the tests' own diagnostics already printed. Fix the cause - a gate that cries wolf trains the next session to wave red away.",
+    "When a guard's justification is 'nobody can see it', re-derive the guard the moment somebody can. check-atlas excluded the die row partly because no arm could request it; making it playable retired that half and left the pose-confound half standing, which is why it became a ONE-SIDED bound rather than either extreme.",
+    "The client-local pattern solved three different problems this session (tower crumble, unit corpses, and it is why no protocol bump was needed for either): when the entity is GONE from the sim, a renderer-owned animation is not a compromise - it is the only correct place, because nothing reads it and so it cannot desync.",
+    "I under-claimed once and it was as wrong as over-claiming: I wrote that boss phase-persistence was unimplemented without checking. Nothing culls creatures at a phase edge; it already worked.",
+    "Stop when the design needs the owner. The zombie death explosion looked like a free win until I traced the death path and found defender kills bypass the deferred-death batch entirely - so a sweep-time hook would fire for some kills and not others. Recorded the three costed options instead of shipping an intermittent skill."
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -7306,5 +7319,11 @@
     "F3": "stats.ts:101 cites statsLadder.test.ts as enforcing STAT_POINT_MAX=12. THAT FILE DOES NOT EXIST - verified. Nothing enforces the owner ruled 1..12 scale, which is how the S167 provisional boss stats (HP 40-60) shipped 5x outside it.",
     "F4": "potatoLifecycle POTATO_CLEARS omits all six tier-3 units (pre-existing, commit 40e2168 never touched the file) - potatoes clear every goblin and race unit but not tier-3 units.",
     "F5": "An ELIMINATED seat leaves its towers standing (scoring.ts:289-304 calls what happens to them an open owner question). A persistent boss that \"lives until it dies\" and survives phase edges turns that into a unit hitting survivors forever with no owner to punish."
+  },
+  "balance_measurement_s167": {
+    "question": "S166 asked: do tier-3 units starve the goblin economy by sharing GOBLIN_MAX_GLOBAL=200?",
+    "answer": "Arithmetic, not simulation. underGoblinCaps excludes chewer/lightningDrone/raceUnit but COUNTS tier-3 units, so they do share the 200 ceiling. However GOBLIN_MAX_PER_SPAWNER=10 caps EACH tower, so reaching 200 needs ~20 live towers (60 shapes of one type). Real but distant; the \"150 hounds\" scenario needs 15 towers.",
+    "verdict": "NOT changed - it is a balance question and S166 asked for a measurement, not a fix. Reported to the owner.",
+    "note": "Bosses are NOT in this cap at all: sourceSpawnerId:null routes them to the one-live-per-(owner,type) gate instead."
   }
 }
