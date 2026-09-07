@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5937,
+  "tool_calls_session_total": 5976,
   "session_id": "S166",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -708,6 +708,134 @@
         }
       ],
       "check_method": "Built the tier-3 race tower and its six units end to end. R119 already ruled the build cost (three of the race own shape, closed ring), so nothing was asked of the owner that the archive had settled - the S165 handoff's \"ask the build cost first\" was the S158 trap. SIX CreatureTypes rather than one is FORCED, not chosen: the castle mints one `raceUnit` because R125 makes those stat-identical, but R135 varies tier-3 stats per race and `serializeCreature` emits `hp` only when DAMAGED, so an undamaged creature carries no stats and the peer rebuilds them from its OWN CREATURE_CONFIGS keyed by TYPE. FOUR THINGS WOULD HAVE SHIPPED BROKEN. (a) `hostTick.ts:818` is an `else` emitting `chewer` for every unnamed spawner recipe - six towers passively making PENCIL CHEWERS, verbatim the owner-reported S152 A1 defect, and in NONE of the spec's bill or B9-B14. (b) `recipeStillSatisfied`'s default would have kept all six alive forever off one primitive. (c) B12: RING_R=40 gives 69.3 px at n=3, past AUTO_BOND_RADIUS - stampable and UN-BUILDABLE BY HAND; TRI_RING_R=34 gives 58.9 px. (d) B14: botBrain sorts ALL_BLUEPRINT_IDS at module level with no seat, so every bot of every race would queue t3TowerDemons and order Spirals for a tower R137 refuses. THE GUARDS CAUGHT TWO OF MY OWN MISTAKES. `registerAll.test.ts` failed by name, then its extraction regex exposed both: it is NON-GREEDY so `findRaceTowerAnchors(world, 'vampires')` handed it \"vampires\" instead of the id, and its class was `[A-Za-z]+` with NO DIGITS so `t3TowerDemons` was invisible. Fixed by keeping the id the only literal in each ignition call (per-race helper functions) and widening the class - a GodlyId is a serialized wire literal, so a test's character class must not choose the wire format. AND TWO TEST FILES CARRIED COPIES OF THE BRAIN'S RUNG SORT, both of which went stale at once when tier 3 became the cheapest build: `botTowers.test.ts` and `botTowerVariety.test.ts` each derived \"cheapest\" from ALL_BLUEPRINT_IDS and so banked Spirals for a demon tower the NAGAS bot can neither see (R95) nor ignite (R137). Eleven red tests, zero real bugs. `seatTowerRungs` is now EXPORTED and shared, so neither copy can drift again. LINE ENDINGS: src/ is mixed PER FILE (constants/creature/voltkin-config/stats/blueprints/protocol are CRLF; hostTick/goblinRenderer/types/registerAll/spawnerLifecycle/botBrain are LF). An LF anchor matches ZERO times in a CRLF file - which is how this was found - so every edit detected the file's own ending and verified uniformity at the BYTE level after writing. STATS ARE PROVISIONAL AND SAY SO: R135 gives no figures and the owner intends to decide by testing, so T3_STATS marks every number as MINE with its derivation (band 2-4 HP, above the free 1/1/1/1 castle soldier and below every goblin, R99's zombie/mummy poles fixing the spread, totals near-flat). NOT BUILT, stated rather than dropped: R121's submerged naga (an engineering surface across every acquisition path), the `die` atlas row (no renderer arm can request row 3), and the tower's own four-state art + destroy cinematics (the UNITS are wired; the tower art is not). The registry-driven ignition rewrite that would end the hand-written-chain defect class is named at the call site and deliberately left to its own priority - it changes one-spawner-per-topology-change semantics on the sim hot path. GATES, every exit code from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3880 tests / 244 files, +113 tests +2 files over the 3767/242 baseline), BUILD_EXIT=0 (795.0 KiB main entry, 105.0 KiB headroom under the 900 KiB charter)."
+    },
+    {
+      "id": 12,
+      "title": "P3(S166) - SCOPE AMENDMENT: generate the six tier-9 bosses + their towers (24 seeds)",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "e30de2e",
+      "check_method": "Owner amended scope mid-session, reversing his own \"no dont work on tier 9 boss yet\" for the ART only: \"lets at least generate the bosses now and their buildings in whole\", then \"buildings whole damaged and destroyed\". He also amended two names (Lucifer -> Archdemon, Chieftain/Warlord -> Warlord) and asked me to propose the two missing fear axes. SIX AXES, NOT ONE BRIEF, and that is the design decision here: he fixed four himself (Whopper DISGUSTING, Kraken MONSTROUS, Vlad IMPERIAL, Archdemon VICIOUS) and asked for two. Proposed Warlord BRUTAL and Pharaoh ANCIENT & CURSED - deliberately NOT \"regal\", because Vlad already owns aristocratic dread and two regal bosses is the R99 convergence trap. ONE REGEN AND THE REASON IS THE VALUE: the first Vlad came back as a waist-up portrait against a full castle courtyard. Not merely off-brief - build-sprite-atlas.mjs mattes by finding near-white CONNECTED TO THE FRAME BORDER, so scenery makes the image uncuttable. \"Imperial regalia\" read as a throne-room brief. Rewritten and the note kept at the character so the next author does not re-learn it. Verified by EYE, not by exit code: all 24 inspected. 5/6 bosses and the tower sets are clean - white matte, no ground shadow, whole subject in frame, nothing white on the subject, three tower states holding one silhouette and palette with every detached piece resting on the ground. FLAGGED, NOT ACTED ON: \"Whopper\" is a live Burger King trademark (concept safe, word exposed; BLOAT/GLUTTON/THE SWOLLEN/TUMOR offered), and Vlad reads dignified rather than overwhelming - faithful to his axis but offered for a punchier regen. Both are owner calls. NOT DONE, owner-deferred: the per-race destroy cinematic and the five clips (idle, moving, dying, basic attack, skill attack). Skills undecided on purpose, which is why every seed is a grounded READY stance rather than mid-swing - it must drive all five. SEEDS ONLY: assets-source/, nothing in public/, no code references, so a rename costs a file move. AWAITING THE OWNER'S VERDICT before any of it becomes an atlas.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/design-spec.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/design-spec.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-vampires-vlad.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-nagas-kraken.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-mummies-pharaoh.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-zombies-whopper.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-orcs-warlord.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-demons-archdemon.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-destroyed.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier9-bosses/design-spec.json",
+          "needle": "S166 REGEN 1"
+        },
+        {
+          "type": "file_contains",
+          "path": "RACE_ZONES_AND_BOSS_TOWERS.md",
+          "needle": "ALL SIX ARE NOW OWNER-NAMED"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -766,6 +894,12 @@
       "priority": "P0-incident",
       "title": "Distrust agent SIDE EFFECTS, not just agent CLAIMS",
       "entry": "I already treat subagent findings as unverified - the project rule exists because reviewers have fabricated execution claims. What I had not done is treat their WRITES as a hazard. A discovery lane added a fake CreatureType to three source files as an empirical tsc probe, a genuinely good technique, and left it on disk. Only the gates lane had been told read-only. It was caught by an S165 MCV binding pinning the raceUnit union member WITH its semicolon: brittle by design, and that brittleness is exactly what noticed a member appended after it. TWO LESSONS. (1) Every read-only lane must SAY read-only; the instruction is one sentence and its absence cost a reverted tree and a re-run of every gate. (2) When a hook fires, resolve it before continuing - had I filed it as inherited S165 noise, I would have built the tier-3 tower on a mutated tree and measured every gate against a lie."
+    },
+    {
+      "session": "S166",
+      "priority": "P2",
+      "title": "The guards caught me twice, and both times the guard was the cheap part",
+      "entry": "registerAll.test.ts failed BY NAME on the ignition gap, then its own extraction exposed two further mistakes of mine: the regex is NON-GREEDY, so a race name passed as an argument shadowed the recipe id; and its character class was [A-Za-z]+ with no digits, so every t3TowerN id was invisible to it. Neither would have been found by reading my own diff. THE LESSON IS ABOUT COST ASYMMETRY: these guards took one session each to write and they have now caught a fake CreatureType written by an agent, six towers that would have made pencil chewers, and two of my own errors in one afternoon. The expensive thing is never the guard - it is the silent half-landing it prevents. And when a guard's own shape is wrong (the character class), WIDEN THE GUARD rather than renaming the thing it failed to see: a GodlyId is a serialized wire literal, and letting a test's regex choose the wire format is the tail wagging the dog."
     }
   ],
   "totals": {
@@ -843,7 +977,7 @@
   },
   "real_context_tokens_at_close": 309984,
   "real_context_pct_at_close": 31.0,
-  "checkpoint_commit": "40e2168",
+  "checkpoint_commit": "e30de2e",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -7026,10 +7160,13 @@
   },
   "gates_at_close_s166": {
     "typecheck": "TYPECHECK_EXIT=0",
-    "vitest": "VITEST_EXIT=0 (3762 tests / 242 files)",
-    "build": "BUILD_EXIT=0 (main entry 787.6 KiB, cap 900 KiB, headroom 112.4 KiB)",
-    "static_assets_reported_not_gated": "76.0 MiB across 130 files; art/race-tier3-units is 10.2M of it and is still referenced by nothing in src/, e2e/ or index.html",
-    "method": "every exit code read from a captured $?, never through a pipe, never the wrapper trailing [exited with code 0] line"
+    "vitest": "VITEST_EXIT=0 (3880 tests / 244 files)",
+    "build": "BUILD_EXIT=0 (795.0 KiB, 105.0 KiB headroom)",
+    "e2e_gating_local": "GATING_EXIT=0 (62 passed, 3.7m) - S165 baseline, nothing else moved",
+    "e2e_ci_on_e30de2e": "e2e/e2e-races/e2e-soak/e2e-lobby/e2e-protocol/atlas-guard ALL success",
+    "e2e_quarantine": "failure - RULED BENIGN: already red on 6f5510e and 73b6abb before this session touched anything, and carries continue-on-error:true at job level",
+    "verify_deploy": "VERIFY_DEPLOY_EXIT=0, PASS 4/4. No deploy run for e30de2e and none OWED - deploy.yml has a paths filter (S40 P2) and the last three commits touched only e2e/, assets-source/ and docs. Tier-3 is live from 40e2168.",
+    "method": "every exit code from a captured $?, never a pipe, never the wrapper trailing line"
   },
   "owner_approval_s166_tier3": {
     "verbatim": "go on tier 3 - we have already generated all the spawns and videos and cutouts and even the towers in all their states so should be easy. no dont work on tier 9 boss yet. next session",
