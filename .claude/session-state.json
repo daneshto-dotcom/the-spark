@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5781,
+  "tool_calls_session_total": 5885,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -6673,52 +6673,72 @@
     {
       "id": "CF-S165-a",
       "severity": "work",
-      "text": "TWO CLIP ROWS ARE STILL S164 ART: unit-vampires/attack (old pale design AND a baked shadow) and unit-demons/die. Blocked on veo quota. Nothing renders them - no file in src/ references public/art/race-units/ - so the mismatch is inert, but it MUST be fixed before the emitter is wired. The vampire attack additionally needs its fourth reroll: veo drifted a weapon in on three separate generations under a bare negative, a stronger negative, and a positive 'both hands empty in every frame'. The fourth attempt re-choreographs it as a BITE and is written and ready."
+      "text": "TWO CLIP ROWS ARE STILL S164 ART: unit-vampires/attack (old pale design AND a baked shadow) and unit-demons/die. Blocked on veo quota. Nothing renders them - no file in src/ references public/art/race-units/ - so the mismatch is inert, but it MUST be fixed before the emitter is wired. The vampire attack additionally needs its fourth reroll: veo drifted a weapon in on three separate generations under a bare negative, a stronger negative, and a positive 'both hands empty in every frame'. The fourth attempt re-choreographs it as a BITE and is written and ready.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. Both rows regenerated this session (clip mtimes 2026-09-06): unit-vampires/attack and unit-demons/die. The vampire attack needed a fourth reroll and the fix was to change the VERB - re-choreographed as a bite - after a bare negative, a stronger negative and a positive 'hands empty' all failed to stop veo drifting a weapon in."
     },
     {
       "id": "CF-S165-b",
       "severity": "work",
-      "text": "THE 24 TIER-3 UNIT CLIPS AND THE 6 ATLASES are not generated - veo quota. The six designs are done and committed, and clip/atlas specs can be modelled directly on assets-source/race-units/."
+      "text": "THE 24 TIER-3 UNIT CLIPS AND THE 6 ATLASES are not generated - veo quota. The six designs are done and committed, and clip/atlas specs can be modelled directly on assets-source/race-units/.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. All six tier-3 unit atlases exist and are guard-clean: public/art/race-tier3-units/t3-{demons-souleater,mummies-scarab,nagas-piranha,orcs-warband,vampires-bat,zombies-hound}-atlas.png. THE ART IS DONE; the WIRING is not, and is the first priority next session (see S165_OPEN_ITEMS.md)."
     },
     {
       "id": "CF-S165-c",
       "severity": "work",
-      "text": "THE TOWER DESTRUCTION CINEMATICS are not generated - veo quota. Each -destroyed still is deliberately written to read as the END FRAME of its own cinematic, so clips can seed straight off them."
+      "text": "THE TOWER DESTRUCTION CINEMATICS are not generated - veo quota. Each -destroyed still is deliberately written to read as the END FRAME of its own cinematic, so clips can seed straight off them.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. Twelve tower atlases exist - t3tower-<race> and t3destroy-<race> for all six races - i.e. the per-species destruction cinematics the owner asked for. Same split as (b): art done, wiring is next session's first priority."
     },
     {
       "id": "CF-S165-d",
       "severity": "hazard",
-      "text": "⛔ W1-C OWES A PROTOCOL BUMP 41->42 IF IT MINTS A NEW CreatureType LITERAL. 41 was already spent by S164 P1 and 641783c is an ancestor of origin/master, so v41 peers are live. There is NO switch on creature type anywhere in production - deserializeCreature assigns type: s.type straight through - so a stale peer accepts the unknown literal and then hits CREATURE_CONFIGS[unknown] === undefined on its own mirror. ⭐ The design that avoids six literals: ONE 'raceUnit' type whose race is derived from the owner's player.raceId, which has been on the wire since v39. That still costs the 41->42 bump but adds no new creature field. Full detail in W1C_A0_FINDINGS.md."
+      "text": "⛔ W1-C OWES A PROTOCOL BUMP 41->42 IF IT MINTS A NEW CreatureType LITERAL. 41 was already spent by S164 P1 and 641783c is an ancestor of origin/master, so v41 peers are live. There is NO switch on creature type anywhere in production - deserializeCreature assigns type: s.type straight through - so a stale peer accepts the unknown literal and then hits CREATURE_CONFIGS[unknown] === undefined on its own mirror. ⭐ The design that avoids six literals: ONE 'raceUnit' type whose race is derived from the owner's player.raceId, which has been on the wire since v39. That still costs the 41->42 bump but adds no new creature field. Full detail in W1C_A0_FINDINGS.md.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. The bump was owed and was paid: PROTOCOL_VERSION 41 -> 42 across all six checklist sites, shipped at ef944bd. The recommended design was taken - ONE 'raceUnit' type whose race derives from player.raceId - so no new creature field rode along."
     },
     {
       "id": "CF-S165-e",
       "severity": "hazard",
-      "text": "⛔ THE CASTLE SENTINEL MUST BE PER-SEAT AND MUST NOT RIDE THE GOBLIN CAP FAMILY. underGoblinCaps counts c.sourceSpawnerId === sourceSpawnerId with NO ownerPlayerId term, so ONE shared sentinel turns GOBLIN_MAX_PER_SPAWNER (=10) into a CROSS-SEAT cap - seat 0's tenth race unit would block every other seat's castle - and riding the family at all also starves the goblin towers against GOBLIN_MAX_GLOBAL (=200). Add a third family, RACE_UNIT_MAX_*, on the CHEWER_MAX_* = 10_000 sentinel-backstop shape."
+      "text": "⛔ THE CASTLE SENTINEL MUST BE PER-SEAT AND MUST NOT RIDE THE GOBLIN CAP FAMILY. underGoblinCaps counts c.sourceSpawnerId === sourceSpawnerId with NO ownerPlayerId term, so ONE shared sentinel turns GOBLIN_MAX_PER_SPAWNER (=10) into a CROSS-SEAT cap - seat 0's tenth race unit would block every other seat's castle - and riding the family at all also starves the goblin towers against GOBLIN_MAX_GLOBAL (=200). Add a third family, RACE_UNIT_MAX_*, on the CHEWER_MAX_* = 10_000 sentinel-backstop shape.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. Implemented exactly as prescribed: a PER-SEAT negative sentinel castleSpawnerId(seat) = -1 - seat, and a third cap family RACE_UNIT_MAX_GLOBAL/PER_SEAT on the 10_000 sentinel-backstop shape. raceUnit is also excluded from underGoblinCaps' COUNT, not just its routing. Both pinned by tests (raceUnitEmit.test.ts), and the per-owner separation is asserted directly."
     },
     {
       "id": "CF-S165-f",
       "severity": "hazard",
-      "text": "⛔ THE FROZEN DIFFERENTIAL GATE BREAKS ON TICK 1 the moment an emitter is added to runHostTick. hostTick.differential.test.ts asserts hashWorldStateFull equality EVERY tick plus a full snapshot() byte-compare against referenceHostTick, a verbatim frozen transcription of the pre-S119 tick. Decide the strategy IN the PDR before writing the emitter."
+      "text": "⛔ THE FROZEN DIFFERENTIAL GATE BREAKS ON TICK 1 the moment an emitter is added to runHostTick. hostTick.differential.test.ts asserts hashWorldStateFull equality EVERY tick plus a full snapshot() byte-compare against referenceHostTick, a verbatim frozen transcription of the pre-S119 tick. Decide the strategy IN the PDR before writing the emitter.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. Handled by keeping the emitter outside the frozen window rather than by re-freezing the reference: hostTick.differential.test.ts runs [900, 1700) and the cadence is tick == seat mod 1800, so no emit falls inside it. Recorded at the constant, with the standing caveat that the gate's reach shrinks silently as new tick-cadence systems land."
     },
     {
       "id": "CF-S165-g",
       "severity": "known-limitation",
-      "text": "'THE WHOLE CREATURE FAN-OUT IS FIGHT-GATED' IS FALSE and Blocker 8's dissolution rests on it. Creature LOCOMOTION is not phase-gated: physicsLoop.ts runs creatureVerletStep on every substep of every BUILD tick with no matchPhase guard. recallArmies also skips any creature whose owner is absent from world.players, and there is no BUILD->FIGHT release edge at all. The conclusion (no SHELTERED state needed) still holds; the argument must be restated correctly."
+      "text": "'THE WHOLE CREATURE FAN-OUT IS FIGHT-GATED' IS FALSE and Blocker 8's dissolution rests on it. Creature LOCOMOTION is not phase-gated: physicsLoop.ts runs creatureVerletStep on every substep of every BUILD tick with no matchPhase guard. recallArmies also skips any creature whose owner is absent from world.players, and there is no BUILD->FIGHT release edge at all. The conclusion (no SHELTERED state needed) still holds; the argument must be restated correctly.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. The false claim is corrected at its two sites - raceUnitEmit.ts states that creatureVerletStep runs every substep of every BUILD tick with no phase guard - and boot-snapshot.md now carries a STALE banner naming it explicitly, because that file is the first thing a new session reads and it was repeating the claim."
     },
     {
       "id": "CF-S165-h",
       "severity": "owner-question",
-      "text": "WHAT HAPPENS TO AN ELIMINATED SEAT'S RACE UNITS? state/elimination.ts contains ZERO references to creature and nothing removes them. With persistent uncapped units a dead seat keeps ~90 autonomous fighters on the board - the exact kingmaker problem elimination was written to prevent. (a) despawn, (b) freeze, or (c) keep fighting?"
+      "text": "WHAT HAPPENS TO AN ELIMINATED SEAT'S RACE UNITS? state/elimination.ts contains ZERO references to creature and nothing removes them. With persistent uncapped units a dead seat keeps ~90 autonomous fighters on the board - the exact kingmaker problem elimination was written to prevent. (a) despawn, (b) freeze, or (c) keep fighting?",
+      "status": "CLOSED",
+      "resolution": "CLOSED - AND THE RULING ALREADY EXISTED. Owner, when asked: 'we literally decided that like 2 sessions ago!!!! youshould know these things!' The ruling is cf_s161_a - 'Keep fighting (status quo) - a fallen seat's towers/creatures/spawners keep acting until razed' - and it means LESS work for W1-C, not more. Quoted at raceUnitEmit.ts. The lesson is the project's own standing rule: grep the archive before asking for a ruling."
     },
     {
       "id": "CF-S165-i",
       "severity": "owner-question",
-      "text": "IS 'UNCAPPED' (R123) ACCEPTABLE AT ITS MEASURED WIRE COST? constants.ts records ~180 B per creature and states the only guard is a 12-chewer FIXTURE, explicitly 'not a runtime budget'. At NET_SNAPSHOT_HZ = 10 the spec's own population projection is ~65 KB every 100 ms. R123 was ruled without that number in front of the owner."
+      "text": "IS 'UNCAPPED' (R123) ACCEPTABLE AT ITS MEASURED WIRE COST? constants.ts records ~180 B per creature and states the only guard is a 12-chewer FIXTURE, explicitly 'not a runtime budget'. At NET_SNAPSHOT_HZ = 10 the spec's own population projection is ~65 KB every 100 ms. R123 was ruled without that number in front of the owner.",
+      "status": "CLOSED",
+      "resolution": "CLOSED BY THE OWNER, S165: 'about the 65kb question if it ever causes lag then we will talk about what to do but for now we're good. keep working'. He also asked that this kind of question be put in plain language - 'can you use simple language to communicate with me!?' - which is worth carrying forward as a communication note, not a technical one."
     },
     {
       "id": "CF-S165-j",
       "severity": "work",
-      "text": "EAGER ATLAS LOADING WOULD COST 46.9 MB OF DECODED TEXTURE. goblinRenderer.ensureAtlases loads every ATLASES entry unconditionally on first sync; the six race PNGs are 8,970,745 bytes on disk. gathererRenderer already refused this and went lazy per-race - a 1v1 match needs two of the six. Follow that precedent, and note a fourth renderer would get NEITHER the owner-tinted ground fill nor the ring, since creatureLift.ts enforces universality by there being nothing else to call."
+      "text": "EAGER ATLAS LOADING WOULD COST 46.9 MB OF DECODED TEXTURE. goblinRenderer.ensureAtlases loads every ATLASES entry unconditionally on first sync; the six race PNGs are 8,970,745 bytes on disk. gathererRenderer already refused this and went lazy per-race - a 1v1 match needs two of the six. Follow that precedent, and note a fourth renderer would get NEITHER the owner-tinted ground fill nor the ring, since creatureLift.ts enforces universality by there being nothing else to call.",
+      "status": "CLOSED",
+      "resolution": "CLOSED S165. Atlases load LAZILY per race - ensureRaceAtlas fetches only on the first render of that race's unit - so a match decodes what it shows and nothing more. Proven in a real browser by e2e/zone-backdrop.spec.ts, which sees exactly one race-unit atlas requested in a solo match. ⚠ The same class bit twice more this session and both are recorded: the zone backdrop at full resolution decoded 23.7 MB and killed the CI browser context (fixed by halving the art), and decoded AUDIO is 384 KB/s, so an unbounded music cache would have hit ~736 MB (fixed with a 2-buffer cap)."
     }
   ],
   "owner_rulings_s165": {
@@ -6743,5 +6763,6 @@
     "actual_cause": "The three veo variants have SEPARATE quota pools. veo-3.1-generate-preview answered 429 RESOURCE_EXHAUSTED while veo-3.1-fast AND veo-3.1-lite both accepted the same request, on the same key, in the same second.",
     "fix": "gen-character-clips.mjs takes a VEO_MODEL override and prints which model ran. Default unchanged (strongest tier).",
     "tier_cost_measured": "At 2 clips, fast and full were indistinguishable at the 200px cell. Across 24 clips the difference IS real and specific: fast invents background scenery far more readily (4 of 24). That is why check-atlas-scenery.mjs exists. Both statements were measured; the first was measured on too small a sample."
-  }
+  },
+  "carry_forwards_s165_disposition": "ALL TEN carry-forwards spawned earlier in S165 are CLOSED BY S165 ITSELF - eight by code or art, two by owner answers. They are kept with a `resolution` field rather than deleted, because the project has twice been bitten by a next session inheriting resolved work as open work (the NONET blocker presented as open in two files after R132 settled it, and boot-snapshot recommending a design that had already been rebuilt on measurement). Anything genuinely still open for the next session lives in S165_OPEN_ITEMS.md, whose FIRST PRIORITY section is the tier-3 tower."
 }
