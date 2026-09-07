@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5885,
+  "tool_calls_session_total": 5900,
   "session_id": "S165",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -543,6 +543,30 @@
       "tag": "#an-asset-opinion-must-never-block-a-ship",
       "lesson": "A pixel guard written to protect art quality was wired into `npm run build`, so a missing pip package on the Pages runner took the LIVE DEPLOY down. Net effect: zero defects caught and a stale site while the owner was waiting to see new art. The same charter already said this about the bundle cap - 'never let it block a live deploy' - and I re-made the mistake one file over.",
       "rule": "Guards that express an OPINION about quality belong on a separate runner from the one that ships. Red CI plus a shipped artifact beats a blocked deploy every time: the owner then sees both the flaw and the warning, instead of neither."
+    },
+    {
+      "priority": "P9",
+      "tag": "#a-partial-negative-control-accuses-a-working-test",
+      "lesson": "I neutralised `idPhase` in drawChewBite, watched the jitter test keep passing, and concluded the test was vacuous. It was not - the function has TWO creatureId terms (ring PHASE and crumb DISTANCE) and my `grep | head -4` had truncated the second out of sight. With both neutralised it fails exactly as designed. Separately, a control I ran against the spawner-ignition guard silently matched NOTHING, because the goblin-tower line has no `if (...) return;` wrapper like its two siblings - so the 'test' I was validating was never exercised at all.",
+      "rule": "A negative control must be ASSERTED to have applied, and must neutralise EVERY path to the behaviour. A control that cannot fail manufactures confidence; a partial one convicts working code. Print the mutated line, or assert the substitution happened."
+    },
+    {
+      "priority": "P9",
+      "tag": "#never-assert-on-anything-a-wall-clock-touches",
+      "lesson": "A prune test compared whole rendered frames between two renderer instances. It passed locally and failed on CI over `quadraticCurveTo(288,312,284,317)` vs `(...,286,317)` - two pixels of chewer leg - AND BLOCKED THE DEPLOY, because the unit suite gates it. The hop phase advances by `dtSec * IDLE_HOP_HZ`, i.e. real elapsed time, so the geometry encodes how fast the machine got between two syncs. Narrowing to the body position was machine-stable and stopped catching the leak, because a stale entry perturbs the HOP, not the position.",
+      "rule": "Identify what quantity the claim is actually about before choosing what to measure. This one was a MAP SIZE; an inspection hook reporting it directly is immune to both the instability and the insensitivity. Two failed pixel-based attempts cost a blocked deploy."
+    },
+    {
+      "priority": "P9",
+      "tag": "#a-lane-budget-is-a-shared-resource",
+      "lesson": "Two new e2e specs took the shared gating lane from 4.1 to 5.3 min locally - past its 720 s Playwright cap on a 3-5x slower runner. That does NOT read as a failed test; it reads as `Timed out waiting 720s for the test suite to run`, i.e. the whole lane, which this project has already lost three weeks of signal to. My first fix trimmed the tick budget on arithmetic that looked airtight (cadence `(tick - seat) % 1800` implies seat 0 fires at tick 0) and was wrong: a probe showed zero race units at tick 1408, because the emitter needs `gameState === 'PLAYING'` and the transition lands a few ticks in, so every seat misses its opening slot.",
+      "rule": "Adding a slow test to a lane at its ceiling is a change to every other test in it. Split it onto its own runner - the precedent already existed here twice - and prove the cadence with a probe before trusting the arithmetic about when a mechanic first fires."
+    },
+    {
+      "priority": "P10",
+      "tag": "#scout-the-subsystem-before-designing-against-it",
+      "lesson": "Two read-only scouting agents over the settings and audio subsystems, before any code, returned four defects that would otherwise have shipped: decoded PCM is 384 KB/s so an unbounded music cache reaches ~736 MB; NOTHING stopped the music at match end, which is invisible with one track and means 'you hear the previous race all next match' with six; the local race reads a confident, WRONG 'vampires' on the title screen for every player; and a third top-right glyph would have turned the deploy-gating e2e subset red via three separate guards. Each one is a defect I would have written and then debugged.",
+      "rule": "For a feature that threads through an unfamiliar subsystem, spend the read pass first and demand file:line for every claim. The cost is one round trip; the alternative is discovering the same facts from a failing deploy."
     }
   ],
   "totals": {

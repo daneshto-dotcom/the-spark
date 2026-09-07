@@ -1,122 +1,83 @@
 # Boot Snapshot (auto-generated at handoff)
+Generated: 2026-09-07 | Session: S165 | Commit: `bee38a1` | **PROTOCOL 42**
 
-> # ⛔ STALE — THIS IS THE **S164** SNAPSHOT. S165 SUPERSEDED EVERY HEADLINE BELOW.
->
-> It has NOT been regenerated because regeneration is `/handoff`'s job and the owner has not
-> closed the session. Reading it as current is the hazard this banner exists to remove — sweep
-> Lane 4 found it contradicted point-by-point by the very module that implemented its plan.
->
-> **What is actually true at `68cf955`:**
->
-> | This file says | Reality |
-> |---|---|
-> | **PROTOCOL 41** | **42** (S165 W1-C, `ef944bd`) |
-> | 3679 tests / 234 files | **3756 / 241** |
-> | `e2e:gating` 62 passed | 62 in the shared lane **plus a new gating `e2e-races` lane (5)** |
-> | *"NOTHING IN `src/` REFERENCES [the race units] YET"* | The castle emitter is SHIPPED and live — `src/state/raceUnitEmit.ts` |
-> | *"No protocol bump owed — it rides P1's 40→41"* | FALSE. P1 shipped alone, so W1-C owed its own bump, 41→42 |
-> | *"the whole creature fan-out is FIGHT-gated"* | FALSE. `creatureVerletStep` runs every substep of every BUILD tick with no phase guard |
-> | R133's sentinel plan: *"take the normal spawner population path… `underGoblinCaps`"* | Built differently on measurement — a PER-SEAT negative sentinel with its OWN cap family. A shared id would have made `GOBLIN_MAX_PER_SPAWNER` a cross-seat cap |
-> | Next-step 1 (wire W1-C) | ✅ DONE |
-> | Next-step 2 (regenerate art without the baked shadow) | ✅ DONE |
->
-> **⭐ THE LIVE LIST IS `S165_OPEN_ITEMS.md`** — every owner report and sweep finding, each either
-> closed with the commit that closed it or open with what it needs. Read that, not this.
->
-> ⚠ Two items genuinely remain and both need OWNER RULINGS, not code: the **tier-3 towers/units**
-> (18.4 MB of art ships, zero code references it, and R134/R135 stats are unruled) and the
-> **wave-5 tech draft** (R101–R112 fully specced, zero code — and R112 is itself the trigger:
-> *"BUILD ONLY WAVE 5 FIRST… ask once wave 5 ships"*).
+State at close: `tsc` 0 · **3756/3756** unit tests / 241 files · `e2e:gating` exit 0, 62 passed ·
+`e2e:races` exit 0, 5 passed · bundle **784.8 / 900 KiB** · static assets 76.0 MiB (reported, not
+gated) · `check:atlas` 0 (30 atlases) · `verify-deploy` **PASS 4/4** at `843f025` · MCV
+`hard_fail=0` · CI all-green (E2E + Deploy) on the last three commits.
 
-Generated: 2026-09-05 | Session: S164 | Commit: `a8e5e5d` | **PROTOCOL 41**
-
-State at close: `tsc` 0 · **3679/3679** unit tests / 234 files · `e2e:gating` exit 0, 62 passed ·
-bundle **781.7 / 900 KiB** (headroom 118.3) · `verify-deploy` **PASS 4/4** at `d16ce2d` ·
-MCV `hard_fail=0` · 9/9 relays.
-
-> ⭐ **V6-2.4 IS FINISHED AND DEPLOYED.** The castle now regenerates HP as a VP-purchased upgrade
-> (owner R128–R131, PROTOCOL 40→41). Verifying it turned up **two real bugs in already-shipped
-> code**, both fixed: the castle strike preempted the bond arm (so a Voltkin near a keep never
-> severed connectors), and `damageEntity` was a working, unvalidated HEAL vector for the castle.
+> ⭐ **W1-C IS WIRED AND LIVE.** The castle produces its race's unit — `src/state/raceUnitEmit.ts`,
+> PROTOCOL 41→42. The twelve per-race zone backdrops are live, with a settings toggle back to cosmos
+> black. Per-race music shipped with its own toggle.
 >
-> ⭐ **THE SIX RACE UNITS ARE DRAWN, ANIMATED AND ATLASED** — 6 designs, 24 veo clips (idle / walk /
-> attack / **die**), 6 atlases. ⛔ **NOTHING IN `src/` REFERENCES THEM YET.** The owner chose
-> art-first; the emitter is next session's work and both of its old blockers are gone.
+> ⭐ **A FIVE-LANE SWEEP CLOSED 20 FINDINGS**, including a real multiplayer bug: a host takeover
+> could silently OVERWRITE a live spark, because `nextPulledSparkId` was rebuilt by nothing despite
+> a docblock promising the rebuild.
+>
+> ⛔ **THE TIER-3 TOWER AND ITS SIX UNITS ARE STILL ART-ONLY.** 18.4 MB ships and no code references
+> it. The owner stopped the build for context and set it as **first priority next session**.
 
 ## Next Steps
 
-1. ⭐ **W1-C — WIRE THE CASTLE EMITTER.** The art is done and both blockers are resolved:
-   · **B1** → owner **R133**: give the castle a **sentinel `SpawnerId`** so race units take the normal
-     spawner population path (do NOT widen the voltkin exemption — the gate bounds `SPAWN_CREATURE`
-     as a *client intent*). Touches `ownHomePos`, `underGoblinCaps`, `recipeStillSatisfied`.
-   · **Blocker 8 DISSOLVED** — creatures need **no `SHELTERED` state**. `recallArmies`
-     (`hostTick.ts:395`) already teleports every creature home on the FIGHT→BUILD edge, and the whole
-     creature fan-out is FIGHT-gated, so *born at the anchor + existing gate + existing recall* IS the
-     shelter/release/recall cycle. Its docblock explicitly forbids adding a state.
-   · Cadence on `world.tick` only (~30 s, R120). ⭐ **No protocol bump owed** — it rides P1's 40→41.
-   · Then a `RACE_UNIT` table + `creatureRenderer` wiring for the six new atlases.
-
-2. ⛔ **REGENERATE THE ART WITHOUT A BAKED GROUND SHADOW.** Owner: *"the shadow is of the players race
-   color"* — and he is right, the code already agrees: `goblinRenderer` draws a ring in the **owner's
-   tint** at the creature's real position, and its docblock records that a black shadow there was a
-   *measured no-op* because the board is pure black. `sharedStyle` in `design-spec.json` still asks
-   for *"a small soft dark oval shadow"*; **that instruction is mine and it is the defect.** Removing
-   it also kills a whole class of matte ambiguity (a mid-grey ellipse is neither near-white nor
-   near-black, which is why one vampire frame kept a grey oval). Cost: 6 designs + 24 clips + 6
-   atlases.
-
-3. **THE ART-DIRECTION BRIEF (#3)** — per-race zone backgrounds + tier-9 boss towers. The NONET
-   collision is **cleared** (R132: NONET is now 12, the boss keeps 9). ⭐ **R137: TWELVE backgrounds,
-   not six** — one per race *per board*, because a `PITCH_2P` zone is **960×1080 portrait** and a
-   `QUADRANTS_4P` zone is **960×540 landscape**, and the castle anchor sits in the goalmouth on one
-   and the outer corner on the other. Generate the 4P landscape first and seed the 2P off it.
-
-4. **V6-1.6 ENERGY SINKS — PARKED, OWNER WANTS TO DISCUSS FIRST.** Do not start it. Bring this to the
-   conversation: `player.energy` has **exactly ONE production read** (`ui.ts:1104`, the gauge), yet it
-   accrues every tick for every player and rides the wire as a **mandatory** serialized field. It is a
-   fully-built currency that does nothing.
-
-5. **THE TIER-3 RACE TOWER UNITS (R134/R135)** — piranhas · beetles · the hound (already drawn at
-   `assets-source/zombie-castle/`) · bats · orc warband · soul-eaters. ⚠ The owner asked for **varied
-   stats**, which **reverses R117**; that is coherent only because R134 splits castle-spawn from
-   tower-spawn, dissolving R117's "one tower bypasses the balance" premise. **The numbers are NOT
-   ruled** — Wave 2 work, and whatever is written will be mine unless he supplies figures.
+1. ⭐ **BUILD THE TIER-3 TOWER + ITS SIX UNITS — owner's explicit first priority.**
+   *"i want to test all the tier 3 units of all races"* … *"lets close off leave it as first
+   priority next session"*. **Fully scoped in `S165_OPEN_ITEMS.md` → "FIRST PRIORITY NEXT SESSION"**
+   — read that section before planning, it is the research not the summary. Key points:
+   · **R134**: these units come from the TOWER, not the castle. Do not shortcut that for testing.
+   · **R135**: stats UNRULED. The owner intends to decide by TESTING, so ship provisional numbers
+     and mark every one as MINE at the constant — the project's standing convention.
+   · Shape: **ONE recipe, six race-keyed outputs** (goblinTower's precedent, and what R134 says).
+   · A new recipe needs an unoccupied (hub type, hub degree) pair, **re-derived from the live
+     registry** — a collision builds the wrong structure silently.
+   · Owes a **PROTOCOL bump 42→43** (new `CreatureType` discriminant), six sites.
+   · Put its e2e in the **`@races` lane**, never the shared one.
+   · ⚠ Ask the owner the tower's **build cost** first — cheaper than a rework.
+2. **Wave-5 tech draft (R101–R112)** — fully specced, zero code. R112 is itself the trigger:
+   *"BUILD ONLY WAVE 5 FIRST… ask once wave 5 ships."* Needs owner stat rulings.
+3. Two owner decisions surfaced by the new music feature, both named at their code:
+   a **track swap restarts from 0:00** (WebAudio sources are single-use), and **HELGA/NONET still
+   outrank the base track** — which now means they interrupt a player's race identity music.
+4. Residual low-value sweep items, all documented and none load-bearing: dead exports
+   (`CREATURE_HIT_DAMAGE`, `isDebugMode`, `CREATURE_ROLES`, `DEFENDER_ROLES`), the
+   `serializerCompletenessSweep` that is not a sweep, `SLICE_SPEC.md` served publicly, and the
+   9.77 MB `blue-steppe-orbit.mp3` retained as a manual spare (15% of the static payload — its
+   false "Safari fallback" rationale is now corrected in code, deleting it is the owner's call).
 
 ## Blockers
 
-- **OWNER ACTION** — re-paste the three TURN secrets clean (bare value, no key name/quotes/comma).
-  Multiplayer works today via the runtime repair; this is hygiene. `TURN_SETUP.md`.
-- **OWNER RULING** — abandonment/forfeit in 1v1 (inherited, and now sharper: S163's witness guard
-  trades a hang for correctness and only a ruling settles it) · whether a WIN should be reversible by
-  a verified higher-epoch migration claim · the R72 tower targeting matrix (`defenderCanTarget` has
-  zero production callers; wiring it changes gameplay) · whether to hash the seat-outcome scalars.
-- **`origin/gh-pages` still exists.** Left alone deliberately — deleting it is OWNER-GATED per
-  `CLAUDE.md` and must follow the build_type flip, not precede it.
+**None blocking.** Two items need owner RULINGS rather than work: tier-3 stats (R135) and the
+wave-5 perk numbers (R112's named trigger). The tower's build cost is a third, and is the one worth
+asking before writing code.
+
+⚠ **Unreproduced, not benign:** `worker-bots.spec.ts:78` failed ONCE in a full-suite local run
+(world back at TITLE/solo mid-test), then passed standalone, passed a second full-suite run, and
+passed on CI. The project CLAUDE.md already records this spec as historically red. Watch it.
 
 ## Pending Backlog
 
-- [ ] **W1-D — castle upgrades.** The one races slot that is untouched AND unblocked.
-- [ ] **V6-1.5 the hero unit** — load-bearing for Phase 1 but the backlog's own audit calls it
-      mis-tiered and destructive: deleting carry silently makes bomb/rainbow/potato always-grabbable,
-      strips poop's only economic bite, and costs the hunter confiscation until V6-2.2.
-- [ ] **`GODLY_TRIGGER` is unfenced AND ungated** — the one host-authored kind that is both (filed
-      S163). It dispatches into the world and writes `godlyFiredThisMatch`, a once-per-match record.
-- [ ] **A death row exists in every race-unit atlas and NOTHING PLAYS IT.** `goblinRenderer` maps
-      three FSM states and creatures are removed the instant they are killed. Needs a dying window in
-      the sim — serialized state, its own piece of work.
-- [ ] **Orc matte is a compromise, not a fix.** For that character eyes and leaks are the SAME SIZE
-      (measured curve has no knee), so 0.0003 keeps ~55% of eye detail and ~31% of the leak. The real
-      fix is upstream, with item 2 above.
+- [ ] Tier-3 tower + six units (see Next Steps 1 — the live plan is `S165_OPEN_ITEMS.md`)
+- [ ] Wave-5 tech draft, R101–R112 (needs owner rulings)
+- [ ] Race perks for waves 10/15/20 — eighteen perks, deferred by R112
+- [ ] The six race castle-upgrade branches (Layer 2) — owner: *"don't worry about them right now"*
+- [ ] `die` animation rows exist in all 12 unit atlases and CANNOT play — `syncSprite` maps every
+      state to attack/walk/idle. The tower destruction atlases imply the owner wants this; it is a
+      renderer change, and `check-atlas-scenery.mjs`'s deliberate `die` exclusion must move back
+      into the verdict the same day.
 
 ## Recent Reflexion (last 2 sessions)
 
-See `.claude/reflexion_log.md` — S164 and S163 both at the top (49 entries after prune). The two that
-generalise furthest:
+Read `.claude/reflexion_log.md` — S165's fourteen entries are at the top, S164's ten below them.
+The S165 ones worth reading before touching tests or CI:
 
-- **S164 #owner-number-checked-not-obeyed** — the owner gave a number that would have deleted a win
-  condition, and doing the arithmetic before writing code is the only reason it did not ship. A brief
-  is an intent; the *unit* is the spec.
-- **S163 #the-audit-found-more-in-todays-work** — for the second session running, an adversarial pass
-  over the same day's commits found a HIGH bug inside the flagship fix plus fourteen overstated
-  claims. Fresh code is not safer code; it is merely less examined, and the author is worst-placed to
-  notice.
+- `#a-partial-negative-control-accuses-a-working-test` — a control that neutralises one of two code
+  paths convicts working code; one that silently matches nothing manufactures confidence.
+- `#never-assert-on-anything-a-wall-clock-touches` — a frame-comparison test encoded the speed of
+  the machine and blocked the deploy. Identify what quantity the claim is about first.
+- `#a-lane-budget-is-a-shared-resource` — a slow test in a shared lane does not fail, the LANE times
+  out; and prove a cadence with a probe before trusting arithmetic about when it first fires.
+- `#scout-the-subsystem-before-designing-against-it` — two read-only passes caught four defects that
+  would otherwise have shipped, including a ~736 MB audio cache.
+- `#read-the-number-the-error-printed` — three wrong diagnoses of one CI red; the answer was in the
+  first error string all along.
+- `#an-asset-opinion-must-never-block-a-ship` — a quality guard wired into `npm run build` took the
+  live deploy down and caught nothing.

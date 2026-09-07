@@ -1,0 +1,124 @@
+═══════════════════════════════════════════════════════════
+HANDOFF SUMMARY — SPARK
+Generated: 2026-09-02 | Session: S159
+Focus: the two unbuilt R77 mechanics, four gates that had been lying at every boot, the coherence
+sweep the owner asked for — which found the owner's own reported bug still live in a fourth place —
+and then the owner played the build and sent back two tower faults, both fixed the same session
+═══════════════════════════════════════════════════════════
+
+## PROJECT
+- Working directory: `C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark`
+- Branch: `master` · Latest commit: `c90b444` · **0 unpushed** (remote credential verified live)
+- Stack: TypeScript / Vite / Pixi / Trystero WebRTC · deterministic host-authoritative sim
+- **PROTOCOL_VERSION: 38 — unchanged across all NINE priorities, deliberately.** Both new mechanics
+  and both tower fixes were built with zero wire surface.
+
+## CURRENT STATE
+- `tsc -b --noEmit`: **clean** · Unit tests: **3399 / 3399** across **218 files** (+46 tests, +6 files)
+- `e2e:gating`: **exit 0, 62 passed** — run THREE times (after P1/P2, after the stink-tower star fix,
+  and after the two tower fixes), exit code read from a file each time, never through a pipe
+- Bundle: **764.0 / 900 KiB** (136 KiB headroom; four features cost ~1.4 KiB total)
+- Deploy: **`verify-deploy` PASS 4/4 with content-hash equality** at `c90b444`. All eight CI runs this
+  session: `completed success`.
+- MCV claims verifier: **hard_fail=0 warn=0 exit 0**, **110 bindings** across 9 priorities
+- Real context at close: **768,770 / 1,000,000 (76.9 % ORANGE)** — source `cli_session_id`, well under
+  the 900 K hand-off threshold
+
+## SESSION COST
+100 % Opus by ALWAYS-STRONGEST (no routing split to report). 613 messages with usage; **712,557 output
+tokens**. External seats: Grok 3 calls, Gemini 3 calls (2-round Council on the batch + CHECK).
+Cumulative log: `~/.claude/usage-log.csv`.
+
+## THIS SESSION'S WORK
+
+**The planned batch (P1–P7):**
+
+| | | commit |
+|---|---|---|
+| **P1** | **A landed stink bag now PULLS units onto it** — R77's last unbuilt bag property. ⭐ And it cost none of what two handoffs said it would: no new `Creature` field, nothing serialised or hashed, no protocol bump. The codebase's own tests for when a target must be STORED and when it needs HYSTERESIS both fail for a bag. | `538c96e` |
+| **P2** | **Voltkin chain lightning** — the bolt walks up to 6 links over enemy units AND connectors, three phases so every link is priced against the same intact component. One `ARC_FLASH` per hop; no new effect kind, no bump. Caught pre-ship: the first cut hand-rolled enemy-ness as `placedBy` instead of the shipped `placerColor` rule. | `2e0b16d` |
+| **P3** | **The review gate's HELD card had been reading a key it could never update.** Now resolves by session number, takes every key at the newest session, and PRINTS the key it read. | `757e45f` + `~/.claude` `61aa853` |
+| **P4** | **Three archived plans still carried `STATUS: IN-PROGRESS`**, so the boot warned every session. Their work had shipped; each stamp is evidence re-probed at stamp time. ⛔ One part had not: **castle guns**, carried forward. | `757e45f` |
+| **P5** | **B1 closed by the owner's own measurement** — and the `torrent:fail` beside it was a real, separate bug (two of three trackers dead, and `redundancy: relayUrls.length` means the list length IS the requirement). The probe that should have caught it was grading WebSocket endpoints with an HTTPS GET. | `8cda80c` `0c45376` |
+| **P6** | ⭐ **THE FIND OF THE SESSION: the stink tower was the FOURTH site of the S158 B2b bug** — the owner's own reported defect, still live in the FIRST tower a player builds. Plus five stale comments that had gone false, and one genuinely dead stat pinned rather than patched. | `39e50c2` |
+| **P7** | **The four numbers that are mine.** Three were already flagged; the fourth (recipe OVERLAP) had a flagged example that CANNOT HAPPEN, replaced with three measured, costed cases. | `39e50c2` |
+| **CHECK** | Triumvirate on the shipped diff: no code defect. Two loose docblock claims made precise, two tests added, one seat's top-ranked "certain to hit" critical refuted by the code. | `5e682ac` |
+
+**Then the owner played it (P8/P9, scope amendment on their explicit "do it"):**
+
+| | | commit |
+|---|---|---|
+| **P8** | ⭐ **THE STINK TOWER RE-ARMS BETWEEN FIGHTS — a real bug.** *"only plays on his first fight cycle … Need to restart him each round."* `bagsRemaining` had exactly two writes in `src/`: filled at construction, decremented per throw. **Nothing refilled it, ever**, and `state/defenders/` had no phase awareness at all. Fixed with one loop on the existing BUILD edge beside `standDownDefenders`. Measured: drained to 0, back to 5 after the edge, then `5 → 4` in fight two. | `c90b444` |
+| **P9** | ⭐ **THE DRONE HUB IS A FACTORY NOW — and it was never a bug.** *"spawns like 3 drones and then dissapears! wtf?"* That was the S113 design the owner themselves chose (its PDR calls the hub a *"glass-cannon"*; R3 records them picking the owner-agnostic blast), so the fix is a **recorded ruling reversal**. ⚠ The lightning storm was **moved to the hub's death, not deleted** — they objected to the tower disappearing, not to it having a blast. Measured: 9 drones per 45 s fight, ≤3 in the air, hub still standing. | `c90b444` |
+
+## OPEN ISSUES
+- ⚠ **P9 is a large uplift to feel:** 9 drones a fight instead of 3.
+  ⛔ **CORRECTED BY S160 P2(b) — the dial order below was BACKWARDS.** This line used to read
+  *"`DRONE_MAX_PER_SPAWNER` (3) is the first dial, the 5 s cadence the second."* Measured against the
+  shipped constants, the cap does **nothing**: occupancy at every due slot is `ceil(480/300) − 1` = 1,
+  so 3 → 2 leaves the count at 9, and peak live is **2** against a ceiling of 3. Only 3 → 1 bites, and
+  bluntly (5/fight). **The cadence is the only linear lever** — count = 2700/interval, so 450 t → 6,
+  600 t → 4. **Correct order for "too strong": `DRONE_EMIT_INTERVAL_TICKS`, then
+  `DRONE_MAX_CONNECTORS`, then the cap.** Both the 9 and the cap's slack are now asserted in
+  `lightningHubDelivers.test.ts`; before S160 the 9 lived only in a comment and a `console.log`, so a
+  retune could have made it 6 with nothing going red while this document kept quoting 9.
+- ⚠ **Two decisions the fixes created, both MINE:** the stink reload cadence (one magazine per BUILD),
+  and moving the hub's blast to death rather than deleting it. Each is one line to change.
+- ⚠ **The chain is strong by the owner's own numbers:** 33 fifths one-shots any connector in a
+  structure of ≤ 29, so a full bolt can take six connectors off a base. R77 gives the count and the
+  stats and never mentions decay. Falloff is the first dial.
+- ⚠ **An accidental stink tower no longer self-heals** (that self-heal WAS the buggy clause). SCRAP
+  returns the survivors — the explicit affordance it was standing in for.
+- **`DRONE_ATK` / `DRONE_PEN` are declared but dead** — the last unbuilt R77 mechanic, pinned by a test
+  designed to fail when it closes. P9 raised its stakes.
+- **Castle guns never shipped** and are already owner-ruled + specced. Needs its own PDR.
+- `origin/gh-pages` still exists as a legacy remote branch, left alone deliberately (third session
+  recorded): deleting it could disturb Pages, and `verify-deploy` ignores it.
+- **OS-level, diagnosed not fixed:** `~/.claude/hooks/tests/s96-p2-state-inject.test.sh` fails 1 of 12,
+  identically before and after this session's `json_helpers` fix (verified by swapping the helper back).
+  Closing it needs a rule decision, not a code fix.
+
+## BLOCKED ON
+- **The owner: provision TURN.** The only thing left. Their own TEST CONNECTION on both workstations
+  returned room `KFU2AR`, 2 players connected, `sync 3/3`, "Matchmaking: All 7 answered", and one red
+  line — no relay server. **S158's hypothesis (a firewall or VPN on the second machine) is disproved.**
+- **Six owner decisions**, none blocking play — listed with their measurements in `boot-snapshot.md`.
+
+## NEXT STEPS
+See `boot-snapshot.md` — the ordered list with the reasoning, the exact TURN steps, and every decision
+with the measurement behind it.
+
+## CHANGED FILES
+`git diff --stat 1e5b261..HEAD` → **36 files changed, 4386 insertions(+), 765 deletions(-)** (measured,
+not estimated — this line was wrong once already this session and the correction is recorded below).
+
+## SESSION PIPELINE REPORT
+Pipeline: Session PDCA v2 (Full tier + one Standard scope amendment) | Priorities: **9/9 complete** |
+**110 verification bindings** | MCV exit 0
+Council: 2 rounds, 3 seats on the batch — net effect was to **REMOVE** work (the drafted protocol bump
+was unnecessary; a serialized chain list would have been worse than deriving it).
+P1 `538c96e` · P2 `2e0b16d` · P3+P4 `757e45f` (+ `~/.claude` `61aa853`, `7c812df`) · P5 `8cda80c`
+`0c45376` · P6+P7 `39e50c2` · CHECK `5e682ac` · docs `cd4358d` `a83b867` · P8+P9 `c90b444`
+
+## REFLEXION ENTRIES (this session)
+14 staged, 14 appended to `.claude/reflexion_log.md` (log now 39 entries, under the 50 cap). Headlines:
+- The cheapest version of a carried-forward plan can be a different plan — a handoff's SHAPE is a claim.
+- A negative control is worth more than the assertion it protects.
+- The four-sites warning caught S158 twice, and then S158 shipped three of four.
+- A stale ⛔ is worse than no comment, and the loudest ones go stale first.
+- A probe must perform the operation the product performs.
+- P8: a field with one writer and one decrementer is a countdown; no single-fight test can see it.
+- P9: *"wtf, it should not be so"* can mean *"I changed my mind"* — check whether they specified it.
+- I broke "never read an exit code through a pipe" in the command that was checking compliance, and
+  four figures in my own paperwork were written before being measured. All caught, all corrected.
+
+## CARRY-FORWARD PRIORITIES
+1. **Two decisions the P8/P9 fixes created** — the reload cadence and the relocated blast. Both mine.
+2. **Castle guns** — owner-ruled (Q4, retaliation-only, 300-tick window) and specced at
+   `SPARK_TD_SESSION_SPECS.md:208-230`, never built. Top build recommendation. PDR: not started.
+3. **Drone AoE shape** — the last R77 mechanic; stats dead; `suicideBlast.ts` is the generalisation.
+4. **Four more owner numbers** from the main batch, each flagged at its constant.
+5. **N2 raid parity** — needs an owner observation; no sim asymmetry exists to fix.
+6. **Held debt:** four parallel committed-target fields on `Creature` (a fifth was deliberately not
+   added). Revisit only as its own amendment.
+═══════════════════════════════════════════════════════════
