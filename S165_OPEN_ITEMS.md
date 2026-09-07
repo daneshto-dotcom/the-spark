@@ -105,3 +105,78 @@ and "not gating" are different things.
 `worker-bots.spec.ts:78` failed ONCE in a full-suite local run (world back at TITLE/solo mid-test),
 then passed standalone, passed a second full-suite run, and passed on CI. Unreproduced. The project
 CLAUDE.md already records this spec as historically red. **Not** ruled benign — ruled unreproduced.
+
+---
+
+## ⭐ FIRST PRIORITY NEXT SESSION — the tier-3 tower and its six units
+
+**Owner, S165 close:** *"i want to test all the tier 3 units of all races"* … *"well we can build it
+next session we are getting context heavy — lets close off leave it as first priority next session"*.
+
+Scoped and researched in S165 but NOT started — no file was edited. Everything below was read off
+the tree, so the next session starts from measurement rather than from this paragraph.
+
+### What the rulings already settle
+
+- **R134 is the load-bearing one: the tier-3 units come from the TOWER, not the castle.** Owner:
+  *"the ones we have mentioned and defined in the earlier sesison we will use for the tier 3
+  building."* Two populations. Do NOT emit these from the castle to make testing easier — the castle
+  line is `'raceUnit'` and is finished.
+- **R135 asks for *"slightly different stats and more varied"* and supplies NO figures.** The spec
+  says nothing may be written until the owner rules. ⭐ But the standing project convention is the
+  escape hatch and it is the right one here: *a number that is MINE says so at the constant, with
+  the measurement behind it*. The owner intends to decide these BY TESTING, so ship provisional
+  stats, mark every one as mine, and let the playtest produce the ruling.
+
+### The build shape, and why
+
+**ONE recipe, six outputs, keyed on the builder's race** — exactly `goblinTower`'s shipped precedent
+(*"ONE tower, SIX outputs… a single tower covers the whole roster"*), and exactly what R134
+describes. Six separate recipes would be six times the work for the same behaviour.
+
+⛔ **A NEW RECIPE NEEDS AN UNOCCUPIED (hub type, hub degree) PAIR, AND IT MUST BE RE-DERIVED FROM
+THE LIVE REGISTRY.** `goblinTower.ts` records the analysis (`Square@3`, `Triangle@2`, `Dot@≥5`,
+`Line@6`, `Triangle@6`, `Circle@4`, plus voltkin's split) and its own test re-derives it rather than
+trusting the comment — because a colliding recipe does not fail loudly, it builds the OTHER
+structure or neither, and the player just sees a tower that will not build.
+
+### Art inventory — all present, all guard-clean at S165
+
+| | |
+|---|---|
+| units | `public/art/race-tier3-units/t3-{demons-souleater, mummies-scarab, nagas-piranha, orcs-warband, vampires-bat, zombies-hound}-atlas.png` |
+| towers | `public/art/race-tier3-towers/t3tower-<race>-atlas.png` |
+| destruction | `t3destroy-<race>-atlas.png` — the per-species cinematics the owner asked for (pyramid → sand devil, kennel → ooze) |
+
+All 200×200 cells, 12 frames, four rows (idle/walk/attack/**die**). 18.4 MB, shipping in every
+deploy today and referenced by nothing.
+
+### Checklist the next session must not skip
+
+1. **PROTOCOL BUMP 42 → 43.** A new `CreatureType` discriminant is a new value on an existing
+   action — the project rule says that earns a bump, and `detectProtocolMismatch` REFUSES a stale
+   peer, so there is no degraded-play path. Six sites (`LOCKED_DECISIONS.md` § S150).
+2. **THE FOUR SITES**: factory + serialize + hash + worker. Grep for the CLAUSE, not for the files
+   you remember touching.
+3. Exhaustive `Record<CreatureType, …>` tables will fail `tsc` until filled: `CREATURE_CONFIGS`,
+   `CREATURE_TARGETS`, `CREATURE_ROLES`. The three NON-forced collections need hand-checking —
+   `GOBLIN_KINDS` (renderer), `POTATO_CLEARS`, and `GOBLIN_LIFT`/`PROJECTILE_BY_TYPE` (both
+   `Partial`).
+4. **The `die` row cannot play.** `goblinRenderer.syncSprite` maps every state to
+   `attack | walk | idle`; there is no arm that can ask for row 3. If the tier-3 units should die on
+   screen — and the destruction atlases suggest the owner wants exactly that for the TOWERS — that
+   is a renderer change, and `check-atlas-scenery.mjs`'s deliberate `die` exclusion must move back
+   into the verdict the same day.
+5. **Put the e2e coverage in the `@races` lane** (`npm run e2e:races`), not the shared gating lane.
+   S165 learned this the expensive way: an emit-cadence observation costs ~30 s of sim, and two such
+   specs took the shared lane past its 720 s cap — which reads as the whole lane timing out, not as
+   a test failure.
+6. Emit cadence derived from `world.tick` with a per-seat phase spread, never accumulated. Copy
+   `raceUnitEmit.ts`; it is the same problem solved once already, including the negative-sentinel
+   provenance and its own cap family.
+
+### Open question worth putting to the owner FIRST
+
+The tower's **build cost** (which shapes, how many) is a design number of the same kind he has ruled
+on before. Provisional-and-marked is acceptable by convention, but asking is cheaper than a rework
+if he already has a shape in mind.
