@@ -1,0 +1,126 @@
+{
+  "_comment": [
+    "SPARK — S166 P3: the SIX TIER-9 BOSSES, one per race. Seed PNGs for the video stage.",
+    "",
+    "⭐ OWNER, S166, naming all six and then the brief: *\"they all need to look absolutely",
+    "terrifying and fucking epic and we will give them all unique skills and awwesome graphics for",
+    "those skills and for their movements and all!\"* and then, sharpening it per boss:",
+    "*\"whopper is DISGUSTING, Kraken is MONSTROUS, Vlad is EMPIRICAL, Archdemon is VICIOUS and",
+    "TERRYING, Warlord is ? and Pharaos is ?\"*",
+    "",
+    "⭐ SIX DIFFERENT FEAR AXES, WHICH IS THE POINT OF ASKING PER-BOSS RATHER THAN ONCE. R99 already",
+    "forbids zombies and mummies from converging as races; the same trap is worse for bosses, where",
+    "six 'scary monsters' would read as one monster six times. The owner fixed four axes himself and",
+    "asked for two. Proposed and used here:",
+    "  · Vlad       — IMPERIAL. Cold aristocratic command. (Owner wrote 'EMPIRICAL'; imperial is",
+    "                 plainly what the word wants to be for a voivode, and nothing else fits Vlad.)",
+    "  · Kraken     — MONSTROUS. Overwhelming SCALE and mass, the deep.",
+    "  · Pharaoh    — ANCIENT & CURSED. Inevitability, gold and rot. NOT 'regal', because Vlad owns",
+    "                 aristocratic dread and two regal bosses is the convergence R99 warns about.",
+    "  · Whopper    — DISGUSTING. Body horror, bloat, wrongness.",
+    "  · Warlord    — BRUTAL. Earned violence: scars, muscle, trophies. Not monstrous (Kraken) and",
+    "                 not bulk (Whopper) — he is the only one who is simply a very dangerous PERSON.",
+    "  · Archdemon  — VICIOUS & TERRIFYING. Hellfire and malice.",
+    "",
+    "⛔ ORIGINAL DESIGNS, AND TWO OF THESE NAMES MAKE THAT SHARPER THAN USUAL. §F of",
+    "RACE_ZONES_AND_BOSS_TOWERS.md exists because S95 shipped a Totoro look-alike and had to rework",
+    "it. 'Whopper' points at a specific Capcom creature and 'Kraken' at several studios' versions —",
+    "the CONCEPTS (a bloated undead brute; a colossal tentacled sea horror) are generic and safe, the",
+    "renderings are not. Every prompt below describes the concept from scratch and names no studio,",
+    "no film and no game.",
+    "⚠ AND 'Whopper' IS A LIVE BURGER KING TRADEMARK — flagged to the owner as a naming decision",
+    "(BLOAT / GLUTTON / THE SWOLLEN / TUMOR offered). It is the FILENAME here only; renaming later",
+    "costs a file move and nothing else, because no code references these yet.",
+    "",
+    "⚠ SCALE IS THE THING THAT MAKES A BOSS READ AS A BOSS, and a sprite has no size cue of its own.",
+    "Every prompt therefore carries an IN-IMAGE scale cue — hunched under its own mass, armour thick",
+    "enough to have weight, a pose that implies something much larger than the six tier-3 units.",
+    "",
+    "⚠ NEXT SESSION generates the clips: idle, moving, dying, basic attack, skill attack (owner).",
+    "Skills themselves are undecided, deliberately — he said so. These seeds must therefore be",
+    "NEUTRAL-POSE ENOUGH to drive any of those five, which is why each is a grounded ready stance",
+    "rather than mid-swing."
+  ],
+  "outDir": "assets-source/race-tier9-bosses",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks — the same hand-inked tabletop-game drawing language as the",
+    "rest of this roster, at BOSS weight: heavier outlines, deeper shadow, more material detail.",
+    "An ORIGINAL creature design — not resembling any existing franchise, film or game character.",
+    "⭐ THIS IS A BOSS AND IT MUST READ AS ONE INSTANTLY. Massive, imposing, and memorable in",
+    "silhouette alone — a shape you could recognise as a black cut-out. Heavy, planted, and clearly",
+    "far larger and more dangerous than an ordinary soldier.",
+    "⛔ EVERY LIGHT TONE MUST CARRY A VISIBLE COLOUR CAST. Every pale area (skin, bone, teeth, tusks,",
+    "claws, eyes, metal glints, highlights) must be a colour a painter would NAME — bone-yellow, dull",
+    "ochre, sea-green, warm tan, steel-blue, cold lavender-grey — and clearly more saturated than a",
+    "neutral grey. NOTHING on the creature may be white, off-white, cream, bleached or a desaturated",
+    "near-white grey. The plain background is the ONLY white in the image.",
+    "Full body, single creature, three-quarter view, facing and angled to the RIGHT, in a grounded",
+    "menacing READY stance — weight settled, not mid-swing and not mid-air.",
+    "The creature fills most of the frame height, with clear empty margin above its head and below",
+    "its feet, and nothing cropped by any edge.",
+    "⛔ NO GROUND SHADOW OF ANY KIND. No oval on the floor, no cast shadow, no contact shadow, no",
+    "ground plane, no base platform, no rubble underfoot — nothing beneath the creature. The lowest",
+    "ink in the image must be part of the creature itself.",
+    "Centered on a plain pure white background.",
+    "No text, no logo, no border, no frame, no white outline around the silhouette, no die-cut",
+    "sticker edge, no drop-shadow behind the creature, no background scenery, no other characters."
+  ],
+  "characters": [
+    {
+      "name": "boss-vampires-vlad",
+      "_race": "vampires — crimson 0xff3b6b — IMPERIAL",
+      "_axis": "cold aristocratic command; the only boss whose threat is authority rather than bulk",
+      "refImages": [
+        "public/art/banners/banner-vampires.jpg"
+      ],
+      "prompt": "ISOLATED SINGLE FIGURE ON A PLAIN PURE WHITE BACKGROUND, drawn FULL BODY from the top of his crown down to both boots, standing upright with empty white space above his head and below his feet, turned three-quarters to the RIGHT. A towering gaunt vampire lord: severe angular face with high cheekbones, a hard jaw, deep-set burning crimson eyes under a heavy brow, long bone-yellow fangs, and long black hair swept back beneath a thin blackened iron crown of narrow spikes. He wears a high-collared floor-length coat of deep oxblood velvet fastened with tarnished dark-bronze frogging, heavy black-iron shoulder plates shaped like folded bat wings, and tall dark leather boots. A long crimson-lined black cloak hangs close at his back, its lower edge ragged like a bat's wing membrane, falling to his heels. Long grey-violet hands with black talons; one rests on the pommel of a slender dark blade held point-down at his side. Crimson accents in the eyes, the cloak lining and a thin red gleam along the blade. Cold, still and imperious — the composure of something that has never had to hurry. ⛔ ABSOLUTELY NO BACKGROUND OF ANY KIND: no castle, no battlements, no walls, no gate, no fence, no sky, no clouds, no moon, no bats, no floor, no steps, no throne, no fog, no coloured backdrop and no vignette. The area around the figure is flat empty pure white to all four edges of the image.",
+      "_regen_note": "S166 REGEN 1. The first pass drew a WAIST-UP PORTRAIT against a full castle courtyard — battlements, an iron gate, a red sky, bats. Two fatal defects, and the background is the worse one: build-sprite-atlas.mjs mattes by finding near-white CONNECTED TO THE FRAME BORDER, so an image with scenery cannot be cut out at all. The words 'imperial regalia' and a cloak that 'spreads behind him' evidently read as a throne-room brief. Rewritten to lead with the isolation and the full figure, and to name the specific furniture that must not appear."
+    },
+    {
+      "name": "boss-nagas-kraken",
+      "_race": "nagas — cyan 0x3bd7ff — MONSTROUS",
+      "_axis": "overwhelming SCALE; the only boss whose threat is sheer size",
+      "refImages": [
+        "public/art/banners/banner-nagas.jpg"
+      ],
+      "prompt": "A colossal deep-sea horror reared up out of the ground, monstrous in scale. A vast bulbous mantle of dark teal hide streaked with deeper blue-green, crusted with barnacles, coral growths and torn fishing chain. Below it a huge beaked maw ringed with jagged sea-green teeth, and two enormous cold luminous eyes with slit pupils, glowing pale cyan. Eight massive tentacles: two braced forward on the ground taking its weight, thick as tree trunks, the rest coiling and rising behind it, their undersides lined with rows of pale sea-green suckers and hooked barbs. Slick wet hide with mottled sea-green and violet blotches, torn webbing between the tentacle bases. Cyan accents: bioluminescent spots glowing along the mantle and the eyes. Immense, ancient and crushing — the body only partly out of the ground, implying far more still below."
+    },
+    {
+      "name": "boss-mummies-pharaoh",
+      "_race": "mummies — yellow 0xffe23b — ANCIENT & CURSED",
+      "_axis": "inevitability, gold and rot; dread rather than aggression",
+      "refImages": [
+        "public/art/banners/banner-mummies.jpg"
+      ],
+      "prompt": "A towering undead god-king, ancient and cursed. A tall desiccated figure wrapped in grey-ochre burial linen that hangs in long tattered strips, the wrappings split across the chest to show blackened ribs and dry sinew beneath. Over it a broad pectoral collar and deep ceremonial shoulder plates of dull tarnished gold inlaid with lapis-blue and dark carnelian. A tall striped nemes headdress in bone-yellow and faded blue frames a gaunt leathery face; the eye sockets burn with cold amber light and the jaw is set in a hard grim line. One hand grips a long gold-capped crook, the other a heavy flail with dull bronze beads. Trails of fine ochre sand pour continuously from the seams of the wrappings and the joints of the armour. Yellow accents: the amber eye-glow and gold inlay. Slow, inevitable, patient — the menace of something that has already outlasted everything."
+    },
+    {
+      "name": "boss-zombies-whopper",
+      "_race": "zombies — green 0x44ff5e — DISGUSTING",
+      "_axis": "body horror and bloat; the only boss whose threat is wrongness",
+      "refImages": [
+        "public/art/banners/banner-zombies.jpg"
+      ],
+      "prompt": "A grotesquely bloated undead brute, disgusting to look at. An enormous swollen torso of taut shiny greenish-grey flesh stretched to splitting, criss-crossed with dark burst veins and long puckered splits that gape to show raw dull-red meat and yellowed fat beneath. The belly sags forward, vast and distended, hanging over stumpy overloaded legs that buckle under the weight. Arms grossly mismatched — one swollen far past use and dragging, the other withered and clawed. A tiny sunken head almost lost between the shoulders, jaw hanging slack and unhinged, small milky-ochre eyes, blackened gums and broken bone-yellow teeth. Patchy sickly-green mottled skin, weeping sores, loose flaps of hide. Green accents: sickly luminous bile seeping from the splits and pooling in the folds. Hunched under its own mass, wheezing, barely able to hold itself upright."
+    },
+    {
+      "name": "boss-orcs-warlord",
+      "_race": "orcs — orange 0xff8c1a — BRUTAL",
+      "_axis": "earned violence — scars, muscle, trophies; the only boss who is simply a very dangerous PERSON",
+      "refImages": [
+        "public/art/banners/banner-orcs.jpg"
+      ],
+      "prompt": "A monstrous orc warlord, brutal and battle-worn. A hugely muscled figure with slabbed shoulders and a thick corded neck, standing planted and squared up. Deep olive-green hide covered in old pale scar tissue and fresh dark gashes, one eye milky and blind behind a ragged scar, the other small and hot amber. A heavy underslung jaw with two enormous chipped bone-yellow tusks pushing up past the lip. Mismatched looted armour: a dented dark-iron breastplate lashed on with leather straps, one huge spiked pauldron of blackened metal, the other shoulder bare and scarred. A belt and harness hung with trophies — cracked skulls, broken blades, tarnished bronze rings. He grips a massive notched two-handed cleaver-axe, its edge chipped and dark. Braided black topknot, iron rings through the ears and tusks. Orange accents: hot amber eye-glow and rust-orange banding on the iron. Squared, planted, absolutely unafraid."
+    },
+    {
+      "name": "boss-demons-archdemon",
+      "_race": "demons — magenta 0xd73bff — VICIOUS & TERRIFYING",
+      "_axis": "hellfire and malice; the only boss whose threat is active cruelty",
+      "refImages": [
+        "public/art/banners/banner-demons.jpg"
+      ],
+      "prompt": "A vicious archdemon, terrifying and predatory. A tall powerfully built figure of dark charred violet-black hide, cracked all over like cooling lava with searing magenta light burning in the fissures. A long horned skull-like head with a wide grin of jagged bone-yellow fangs, no visible nose, and two blazing magenta eyes set deep under a crown of six curving black horns that sweep back and out. Huge ragged bat wings of blackened membrane, torn and pierced, half-spread and hooked forward. Heavily muscled arms ending in long black claws; hooved digitigrade legs; a long barbed tail lashing behind. Fragments of scorched dark-iron armour fused into the hide at the shoulders and forearms. Magenta accents: the fissure-glow, the eyes, and embers rising from the shoulders and wing edges. Leaning forward, claws flexed, head lowered — mid-snarl, an instant from lunging."
+    }
+  ]
+}

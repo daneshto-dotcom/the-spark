@@ -1,0 +1,157 @@
+{
+  "_comment": [
+    "SPARK — S166 P3: the SIX TIER-9 BOSS TOWERS, three states each = 18 pieces.",
+    "",
+    "⭐ OWNER, S166: *\"lets at least generate the bosses now and their buildings in whole\"* and then",
+    "*\"buildings whole damaged and destroyed (we will think of the destroyed cinematic as we did for",
+    "the tier 3 buildings next session)\"*. So THREE states, not four — the tier-3 towers carry an",
+    "extra 'spawning' state and a separate 12-frame destroy cinematic; both are deferred here.",
+    "",
+    "⭐ THE TOWER MUST READ AS THE PLACE ITS BOSS CAME FROM. That is the whole job of a boss building",
+    "and it is what stops these being six generic ruins: each is built from its race's own material",
+    "and silhouette language, and each one's intact state should make the boss's arrival feel",
+    "inevitable. Nine of the race's own shape builds it (R119's rule at n=9), so these are the",
+    "GRANDEST structure a race owns — visibly a tier above the three-shape tier-3 tower.",
+    "",
+    "⚠ THE THREE STATES ARE ONE STRUCTURE, NOT THREE DESIGNS. Damaged must be recognisably the same",
+    "building as intact, and destroyed recognisably the same building as damaged. Silhouette, palette",
+    "and the placement of every major feature carry across; only the condition changes. Getting this",
+    "wrong reads as the tower being swapped rather than hurt.",
+    "",
+    "⛔ ORIGINAL DESIGNS. §F of RACE_ZONES_AND_BOSS_TOWERS.md exists because S95 shipped a Totoro",
+    "look-alike and had to be reworked. No studio's version of a kraken, a hell-gate or a pyramid.",
+    "",
+    "⚠ NEXT SESSION: the per-race destroy CINEMATIC, the way the tier-3 towers got theirs (pyramid →",
+    "sand devil, kennel → ooze). The 'destroyed' state below is the still END-STATE that cinematic",
+    "must land on, so it is drawn as settled rubble rather than as an explosion."
+  ],
+  "_gravity": [
+    "⛔ GRAVITY. Every broken, snapped or detached piece must have COME TO REST ON THE GROUND at the",
+    "base of the structure — lying flat, leaning against the wall, or half-buried in its own rubble.",
+    "Nothing detached may float, hang in mid-air, dangle unsupported or sit at a mid-fall angle."
+  ],
+  "outDir": "assets-source/race-tier9-towers",
+  "sharedStyle": [
+    "Cartoon vector game-asset illustration in a bold black ink outline style with flat cel shading",
+    "and a few crisp highlight streaks — the drawing language of a hand-inked tabletop game piece,",
+    "at BOSS-BUILDING weight: heavier outlines, deeper shadow, more material detail than an ordinary",
+    "tower.",
+    "FULL COLOUR, with real material variety: deeper cooler shades of the main hue for shadow, lighter",
+    "tints of it for lit faces, visible texture in the stone, timber, bone, coral or iron, and one or",
+    "two supporting materials (dark iron, weathered timber, dull bronze, tarnished chain) that are NOT",
+    "the main hue.",
+    "⛔ NEVER a single flat fill: the structure must read as a built object made of materials, not as",
+    "a silhouette filled with one colour.",
+    "⛔ NOTHING IN THE STRUCTURE MAY BE WHITE OR NEAR-WHITE. Every light tone must carry a visible",
+    "colour cast a painter would name — bone-yellow, dull ochre, sea-green, warm tan, steel-blue, cold",
+    "lavender-grey. Even the brightest highlight stays clearly tinted, never a white or a neutral",
+    "near-grey. The background is the only white in the image.",
+    "⛔ GRAVITY. Every broken, snapped or detached piece must have COME TO REST ON THE GROUND at the",
+    "base of the structure — lying flat, leaning against the wall, or half-buried in its own rubble.",
+    "Nothing detached may float, hang in mid-air, dangle unsupported or sit at a mid-fall angle.",
+    "Symmetrical straight-on FRONT ELEVATION, no perspective. THE WHOLE STRUCTURE FROM ITS BASE TO",
+    "ITS VERY TOP is inside the frame with clear empty margin above it — nothing cropped by any edge.",
+    "⛔ NO GROUND SHADOW, no cast shadow, no ground plane, no base platform, no scenery. The lowest",
+    "ink in the image must be part of the structure or its own fallen rubble.",
+    "Centered on a plain pure white background.",
+    "No text, no logo, no border, no frame, no white outline around the silhouette, no die-cut",
+    "sticker edge, no drop-shadow, no background scenery, no characters."
+  ],
+  "characters": [
+    {
+      "name": "t9-vampires-intact",
+      "_race": "vampires — crimson — Vlad's seat, IMPERIAL",
+      "prompt": "A vampire lord's spire, whole and imposing: a tall narrow gothic tower of dark violet-grey stone, wider at a stepped buttressed base and tapering to a sharp peaked spire fully visible inside the frame. Tall lancet windows glow deep crimson. A ring of black iron spikes crowns the parapet below the spire, and carved bat-winged gargoyles jut from the corners. Weathered black iron banding, dull bronze door fittings, and a heavy arched double door of dark timber bound in iron at the base. Crimson accents: window glow and a thin red banner hanging still. Severe, vertical, aristocratic — a seat of authority rather than a fortress."
+    },
+    {
+      "name": "t9-vampires-damaged",
+      "_race": "vampires — crimson",
+      "prompt": "The SAME vampire lord's spire, now battered but standing: the same tall narrow gothic tower of dark violet-grey stone with the same stepped buttressed base and tapering spire. The spire tip is snapped off and lies fallen at the base among broken masonry. Two lancet windows are shattered, their crimson glow guttering and uneven; a long crack runs down the tower face. Half the iron spike crown is bent or missing, one gargoyle has broken away and rests on its side on the ground at the foot of the wall. The timber door hangs off one hinge, leaning against the frame. Soot streaks up the stonework. Same palette and same silhouette, clearly the same building, hurt."
+    },
+    {
+      "name": "t9-vampires-destroyed",
+      "_race": "vampires — crimson",
+      "prompt": "The SAME vampire lord's spire, destroyed and settled: only the stepped buttressed base and a jagged stump of the tower remain standing, perhaps a third of the original height, its broken top edge ragged. Everything else has come down and lies flat on the ground around the stump — heaped violet-grey masonry, the snapped spire lying on its side, bent iron spikes, a fallen gargoyle half-buried in rubble, splintered dark timber from the door. The crimson window glow is out; only a dull ember light remains deep in the ruin. Same violet-grey stone and iron palette, clearly the same building, finished. Nothing floats; every piece rests on the ground."
+    },
+
+    {
+      "name": "t9-nagas-intact",
+      "_race": "nagas — cyan — the Kraken's pit, MONSTROUS",
+      "prompt": "A naga abyssal spawning pit, whole and imposing: a broad circular rampart of wet dark teal stone blocks, crusted with barnacles and pale sea-green coral growths, enclosing a deep black opening at its centre. Four thick curved coral pillars rise from the rim and lean inward over the pit like ribs, strung with heavy tarnished-bronze chain and torn fishing net. Slick blue-green algae streaks the stone. The whole structure is wide and low, its topmost pillar tips fully inside the frame. Cyan accents: bioluminescent nodes glowing along the coral and a cold cyan light rising out of the pit. Dripping, wet, and clearly a mouth into somewhere much deeper."
+    },
+    {
+      "name": "t9-nagas-damaged",
+      "_race": "nagas — cyan",
+      "prompt": "The SAME naga abyssal pit, now battered but standing: the same broad circular teal rampart and central opening. Two of the four coral pillars are snapped mid-length, their broken upper halves lying across the rampart and on the ground at the base. A section of the stone rim has collapsed inward, spilling blocks and coral fragments. The bronze chain hangs slack and broken, one end coiled on the ground; the netting is torn away on one side. The cyan glow from the pit is uneven and flickering, and the algae is scorched dark in patches. Same palette and same wide low silhouette, clearly the same structure, hurt."
+    },
+    {
+      "name": "t9-nagas-destroyed",
+      "_race": "nagas — cyan",
+      "prompt": "The SAME naga abyssal pit, destroyed and settled: the rampart is broken down to a low uneven ring of teal stone, the central opening choked with collapsed rubble. All four coral pillars are down and lie flat across the ruin and on the ground around it, snapped into lengths. Broken bronze chain lies in loose coils among the blocks; the netting is a torn heap. Barnacles and dead coral scatter the debris. The cyan glow is gone, leaving only a faint sickly green seep in the deepest gap. Same teal stone and coral palette, clearly the same structure, finished. Every piece rests on the ground."
+    },
+
+    {
+      "name": "t9-mummies-intact",
+      "_race": "mummies — yellow — the Pharaoh's tomb, ANCIENT & CURSED",
+      "prompt": "A pharaoh's burial monument, whole and imposing: a broad stepped ziggurat-pyramid of warm tan and ochre sandstone blocks, four clean receding tiers, its flat summit fully visible inside the frame. A tall dark doorway at the base is flanked by two carved jackal-headed statues of dull tarnished gold and dark stone. Deep-carved hieroglyph bands run across each tier, inlaid with lapis-blue and dark carnelian. A gold-capped obelisk stands centred on the summit. Fine drifted sand banks against the lowest tier. Yellow accents: amber light glowing from the doorway and the gold inlay catching the light. Massive, patient and sealed."
+    },
+    {
+      "name": "t9-mummies-damaged",
+      "_race": "mummies — yellow",
+      "prompt": "The SAME pharaoh's burial monument, now battered but standing: the same broad stepped sandstone pyramid with its four tiers. The summit obelisk is snapped off at the base and lies fallen across the upper tiers, its gold cap resting on the ground below. The top tier is caved in on one side, spilling tan blocks down the steps. One jackal statue has toppled and lies on its side at the foot of the doorway; the other is cracked through the shoulder. Long fissures split the hieroglyph bands and several inlay stones are missing. Sand pours from the cracks. The amber doorway glow is dimmer and uneven. Same palette and same stepped silhouette, clearly the same monument, hurt."
+    },
+    {
+      "name": "t9-mummies-destroyed",
+      "_race": "mummies — yellow",
+      "prompt": "The SAME pharaoh's burial monument, destroyed and settled: only the lowest one and a half tiers remain, a broad flattened stump of tan sandstone with a ragged broken top. The upper tiers have come down and lie heaped across and around the base — tumbled ochre blocks, the snapped obelisk lying full length on the ground, its gold cap half-buried, both jackal statues fallen and broken. Hieroglyph fragments and loose lapis inlay scatter the rubble. The doorway is collapsed and choked with sand and stone. The amber glow is out. Same sandstone and gold palette, clearly the same monument, finished. Every piece rests on the ground."
+    },
+
+    {
+      "name": "t9-zombies-intact",
+      "_race": "zombies — green — the Whopper's pen, DISGUSTING",
+      "prompt": "A zombie flesh-pen, whole and imposing: a squat wide slaughterhouse-like structure of dark rotting timber planks and rusted corrugated iron sheeting, lashed together with heavy chain, its uneven peaked roof fully visible inside the frame. A huge sagging double gate of grey-brown boards is barred with a thick iron beam. The walls bulge outward as if something inside is pressing against them, and greenish ooze seeps between the planks and pools in the seams. Hooks, chains and stained tarpaulin hang along the front. Patches of dark moss and rot spread up from the base. Green accents: sickly luminous ooze in the gaps and a bile-green glow leaking under the gate. Swollen, foul and straining."
+    },
+    {
+      "name": "t9-zombies-damaged",
+      "_race": "zombies — green",
+      "prompt": "The SAME zombie flesh-pen, now battered but standing: the same squat wide timber-and-corrugated-iron structure with its peaked roof. A large section of roofing has torn free and lies bent and folded on the ground beside the wall. Several wall planks are snapped and hang inward, opening ragged gaps; the bulge in the wall has split and ooze runs freely down the boards. The iron gate beam is bent and one gate leaf sags open off its hinge, leaning against the frame. Chains hang broken, their loose ends coiled on the ground. Rust and rot have spread. The bile-green glow is brighter through the new gaps. Same palette and same squat silhouette, clearly the same building, hurt."
+    },
+    {
+      "name": "t9-zombies-destroyed",
+      "_race": "zombies — green",
+      "prompt": "The SAME zombie flesh-pen, destroyed and settled: only a low broken frame of dark timber posts and one leaning wall section remain standing. The roof is entirely down, its rusted corrugated sheets lying flat and folded across the wreck and on the ground around it. Snapped planks lie scattered and half-buried; the gate lies flat in the mud with its bent iron beam across it. Broken chain and torn tarpaulin lie in heaps. A wide spreading pool of dull green ooze has run out across the ground and soaked into the debris. The luminous glow is nearly gone, just a dim sickly shine in the pool. Same rotting timber and rust palette, clearly the same building, finished. Every piece rests on the ground."
+    },
+
+    {
+      "name": "t9-orcs-intact",
+      "_race": "orcs — orange — the Warlord's hold, BRUTAL",
+      "prompt": "An orc warlord's stronghold, whole and imposing: a heavy squat blockhouse of rough dark-grey granite blocks and thick weathered timber, banded with riveted black iron, its palisade of sharpened logs and peaked timber roof fully visible inside the frame. A massive iron-studded double door sits under a low stone lintel. Trophy poles flank the entrance, hung with cracked skulls, tarnished bronze rings and captured blades. A crude forge chimney on one side vents dull orange smoke. Rough-hewn, asymmetric and built for war, every joint over-braced with iron. Orange accents: hot forge-light glowing from the door seams and the chimney, rust-orange banding on the ironwork. Brutal, planted and unsubtle."
+    },
+    {
+      "name": "t9-orcs-damaged",
+      "_race": "orcs — orange",
+      "prompt": "The SAME orc stronghold, now battered but standing: the same squat granite-and-timber blockhouse with its palisade and peaked roof. A corner of the roof has collapsed, its timbers snapped and fallen against the wall and onto the ground. Several palisade logs are broken off short or lie flat on the ground. One trophy pole has toppled, its skulls scattered across the rubble at the base. The iron-studded door is buckled inward and hangs crooked. Cracks split the granite and one wall section bulges outward, shedding blocks. The forge chimney is half-collapsed and belching heavier smoke; the forge glow is brighter through the new gaps. Same palette and same squat silhouette, clearly the same building, hurt."
+    },
+    {
+      "name": "t9-orcs-destroyed",
+      "_race": "orcs — orange",
+      "prompt": "The SAME orc stronghold, destroyed and settled: only a broken stub of granite wall and two leaning corner posts remain standing. The roof is entirely down, its snapped timbers lying flat across the ruin and on the ground around it. Palisade logs lie scattered like spilled matchsticks. Both trophy poles are down, skulls and bent blades strewn through the rubble. The iron door lies flat on the ground, buckled and half-buried under fallen blocks. The forge chimney has collapsed into a heap of blackened stone. Only a dull ember glow remains in the wreckage. Same granite, timber and rust-iron palette, clearly the same building, finished. Every piece rests on the ground."
+    },
+
+    {
+      "name": "t9-demons-intact",
+      "_race": "demons — magenta — the Archdemon's gate, VICIOUS",
+      "prompt": "A demonic summoning gate, whole and imposing: a tall freestanding archway of cracked charred black basalt, its two heavy columns twisted like scorched bone and joined by a jagged lintel, the whole arch fully visible inside the frame. Six curved black horns jut from the lintel, echoing a crown. The columns are carved with deep spiralling grooves that burn with searing magenta light, and the same light fills the archway itself as a churning vertical rift. Fused fragments of blackened iron armour and broken chain are embedded in the stone. The base is a ring of cracked scorched flagstones. Magenta accents: the rift, the fissure-glow in the grooves, and embers rising from the lintel horns. Vicious, deliberate and alive."
+    },
+    {
+      "name": "t9-demons-damaged",
+      "_race": "demons — magenta",
+      "prompt": "The SAME demonic gate, now battered but standing: the same tall basalt archway with its twisted columns and jagged lintel. Three of the six lintel horns are snapped off and lie on the ground at the base. One column is cracked through and leans visibly, shedding chunks of charred basalt onto the flagstones. The lintel has split at the crown and sags. The magenta rift in the archway is guttering and torn, narrowed to an unstable ragged slit, and the glowing grooves are broken into disconnected stretches. Embedded iron fragments have worked loose and lie among the rubble. Same palette and same arch silhouette, clearly the same gate, hurt."
+    },
+    {
+      "name": "t9-demons-destroyed",
+      "_race": "demons — magenta",
+      "prompt": "The SAME demonic gate, destroyed and settled: both columns are broken off low, leaving two jagged basalt stumps, and the lintel has come down entirely and lies flat and cracked in pieces across the ground between them. All six horns are snapped off and scattered through the rubble. The archway rift is extinguished — no light passes between the stumps. Only a faint dying magenta ember-glow remains in the deepest cracks of the fallen lintel. Loosened iron fragments and broken chain lie among the charred blocks; the flagstone ring is shattered and heaved. Same charred basalt palette, clearly the same gate, finished. Every piece rests on the ground."
+    }
+  ]
+}
