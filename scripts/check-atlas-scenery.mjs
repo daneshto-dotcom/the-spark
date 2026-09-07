@@ -199,17 +199,27 @@ const res = JSON.parse(raw);
 
 /** How far a row's seed-frame height may sit from the median before it reads as a size mismatch. */
 /*
- * S165 - THE VERDICT COVERS THE PLAYABLE ROWS. `die` IS PRINTED, NOT GATED.
+ * S165 - THE EQUAL-HEIGHT VERDICT COVERS THE PLAYABLE ROWS. `die` IS JUDGED SEPARATELY.
  *
- * `goblinRenderer.syncSprite` maps every creature state to `attack | walk | idle` - there is no arm
- * that can ever ask for the `die` row, on any sheet, today. And its heights are POSE-CONFOUNDED
- * rather than zoom-wrong: every die row measures SHORTER than its idle (hound 0.61x, orcs 0.76x,
- * zombies 0.80x, souleater 0.82x). A zoom error scatters both ways; a one-sided result that size is
- * a creature collapsing, which is the animation working.
+ * The original reason had two halves, and S167 retired exactly one of them.
  *
- * So gating on it would hold this guard permanently red over correct art, and a guard that is
- * always red is a guard nobody reads. It stays in the printed line - marked `(die)` - so the number
- * is never hidden, and it moves back into the verdict on the day a `die` row can actually play.
+ * ⛔ THE STALE HALF: it said *"there is no arm that can ever ask for the `die` row, on any sheet,
+ * today"*. **That stopped being true in S167.** `goblinRenderer` now hands a dead creature's sprite
+ * to a client-local death animation that plays the `die` row once, so all twenty-four of these rows
+ * are on screen. A guard whose justification is "nobody can see it" has to be re-derived the moment
+ * somebody can.
+ *
+ * ⭐ THE HALF THAT STILL HOLDS, AND IT IS WHY `die` IS NOT SIMPLY FOLDED INTO THE VERDICT: its
+ * heights are POSE-CONFOUNDED rather than zoom-wrong. Every die row measures SHORTER than its idle
+ * (hound 0.61x, orcs 0.76x, zombies 0.80x, souleater 0.82x; the S167 bosses run 0.57x-1.12x),
+ * because a dying creature COLLAPSES. Holding it to the same +/-15% band as idle/walk/attack would
+ * paint correct art red forever, and a guard that is always red is a guard nobody reads.
+ *
+ * ⭐ SO IT IS GATED ONE-SIDEDLY. A collapse may make a row arbitrarily SHORTER; nothing about
+ * dying makes a creature TALLER. A die row measuring ABOVE the playable median is the same defect
+ * the two-sided check exists for - a zoom error - and it is now caught, while the legitimate
+ * direction stays free. Verified against every shipped sheet before being turned on: the tallest die
+ * row in the tree is the naga boss at 1.12x, inside the 1.15x ceiling.
  */
 const PLAYABLE_ROWS = new Set(['idle', 'walk', 'attack']);
 
@@ -227,7 +237,7 @@ for (const [path, [total, largest]] of Object.entries(res)) {
 
 console.log(noSize
   ? '\n[atlas] 2/2 — SKIPPED (--no-size: these rows are conditions, not states seeded off one image)\n'
-  : '\n[atlas] 2/2 — cross-row SIZE consistency (per-row MEDIAN over every frame; die reported, not gated)\n');
+  : '\n[atlas] 2/2 — cross-row SIZE consistency (per-row MEDIAN over every frame; die gated ONE-SIDEDLY — taller only)\n');
 for (const [path, [, , heights]] of Object.entries(res)) {
   if (noSize || !heights || heights.length === 0) continue;
   const play = heights.filter(([st, h]) => PLAYABLE_ROWS.has(st) && h > 0);
@@ -235,11 +245,23 @@ for (const [path, [, , heights]] of Object.entries(res)) {
   const hs = play.map(([, h]) => h).sort((a, b) => a - b);
   const med = hs[Math.floor(hs.length / 2)];
   const offenders = play.filter(([, h]) => Math.abs(h / med - 1) > SIZE_TOLERANCE);
-  if (offenders.length > 0) sized++;
+  /*
+   * ⭐ S167 - THE ONE-SIDED `die` BOUND. Shorter is a collapse; TALLER is a zoom error. See the
+   * PLAYABLE_ROWS docblock for why this row cannot share the two-sided band.
+   */
+  const tallDie = heights.filter(
+    ([st, h]) => !PLAYABLE_ROWS.has(st) && h > 0 && h / med - 1 > SIZE_TOLERANCE,
+  );
+  if (offenders.length > 0 || tallDie.length > 0) sized++;
   const detail = heights
-    .map(([st, h]) => `${st}=${(h / med).toFixed(2)}x${PLAYABLE_ROWS.has(st) ? '' : '(die)'}`)
+    .map(([st, h]) => {
+      const r = (h / med).toFixed(2);
+      if (PLAYABLE_ROWS.has(st)) return `${st}=${r}x`;
+      return `${st}=${r}x${h / med - 1 > SIZE_TOLERANCE ? '(die TOO TALL)' : '(die)'}`;
+    })
     .join(' ');
-  console.log(`  ${(offenders.length === 0 ? 'clean' : 'MISMATCH').padEnd(8)} ${detail}  ${path}`);
+  const rowVerdict = offenders.length === 0 && tallDie.length === 0 ? 'clean' : 'MISMATCH';
+  console.log(`  ${rowVerdict.padEnd(8)} ${detail}  ${path}`);
 }
 
 /** Largest single opaque near-white pocket allowed. Eye glints measure 2-52 px; leaks measure 113+. */
