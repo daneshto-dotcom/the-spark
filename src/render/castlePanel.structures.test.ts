@@ -26,6 +26,7 @@ import { asPlayerId } from '../types.ts';
 // S166 — R95's race filter, asserted both directions below.
 import { ALL_RACES } from '../state/races.ts';
 import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
+import { T9_TOWER_IDS, isT9TowerId } from '../state/t9BossIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -62,9 +63,15 @@ describe('castleStructuresModel — all six, always', () => {
     //
     // ⚠ S166 — THAT QUOTE IS ABOUT THE CODEX GALLERY, NOT ABOUT R95. Race towers are filtered by
     // race (below); the seven GLOBAL recipes are still all present, in registry order, for everyone.
+    //
+    // ⚠ S167 — "GLOBAL" NOW MEANS "NEITHER TIER", and saying it with two predicates rather than
+    // one is the point. `isRaceTowerId` walks `RACE_TOWER_IDS` only, so a single-predicate filter
+    // would silently reclassify all six tier-9 boss towers as globals — which is exactly the bug
+    // this test would then be asserting as correct.
+    const isRaceScoped = (id: GodlyId): boolean => isRaceTowerId(id) || isT9TowerId(id);
     const shown = castleStructuresModel(setup()).map((r) => r.id);
-    const globals = ALL_BLUEPRINT_IDS.filter((id) => !isRaceTowerId(id));
-    expect(shown.filter((id) => !isRaceTowerId(id))).toEqual(globals);
+    const globals = ALL_BLUEPRINT_IDS.filter((id) => !isRaceScoped(id));
+    expect(shown.filter((id) => !isRaceScoped(id))).toEqual(globals);
     // Anti-vacuity: seven globals must actually exist, or the filter above proves nothing.
     expect(globals.length).toBe(7);
   });
@@ -85,9 +92,25 @@ describe('castleStructuresModel — all six, always', () => {
       expect(shown, `${race} tower must be hidden from a ${me.raceId} seat`)
         .not.toContain(RACE_TOWER_IDS[race]);
     }
-    // Exactly ONE race tower on the panel, ever — seven globals plus mine.
+    // Exactly ONE tier-3 race tower on the panel, ever.
     expect(shown.filter((id) => isRaceTowerId(id)).length).toBe(1);
-    expect(shown.length).toBe(8);
+
+    /*
+     * ⭐ S167 — AND THE SAME CONTRACT FOR THE TIER-9 BOSS TOWER, IN BOTH DIRECTIONS. Without the
+     * second clause in `castlePanel`'s R95 filter these six fall through as GLOBALS and every seat
+     * sees all six bosses — tsc green, and the only other test that would have noticed is a footer
+     * COUNT whose failure message says nothing about race filtering.
+     */
+    expect(shown).toContain(T9_TOWER_IDS[me.raceId]);
+    for (const race of ALL_RACES) {
+      if (race === me.raceId) continue;
+      expect(shown, `${race} BOSS tower must be hidden from a ${me.raceId} seat`)
+        .not.toContain(T9_TOWER_IDS[race]);
+    }
+    expect(shown.filter((id) => isT9TowerId(id)).length).toBe(1);
+
+    // Seven globals + my tier-3 tower + my tier-9 boss tower.
+    expect(shown.length).toBe(9);
   });
 
   it('every row carries a real name, an epigraph and its true cost', () => {

@@ -39,6 +39,8 @@ import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
 import { isRingAt } from '../godlyRecipes/ringShape.ts';
 import { RACE_FEED_SHAPE } from '../races.ts';
 import { RACE_TOWER_SIZE, raceForTowerId } from '../raceTowerIds.ts';
+// S167 — the tier-9 leaf, side-effect-free by the same contract as the line above.
+import { T9_TOWER_SIZE, raceForT9TowerId } from '../t9BossIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
 
@@ -159,6 +161,32 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
       const race = raceForTowerId(spawner.recipeId);
       if (race === null) return false; // unreachable: the case labels ARE the six ids
       return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
+    }
+    /*
+     * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Six explicit labels for the same reason the tier-3 block
+     * above has six: a missing arm must be VISIBLE AT THE SWITCH, and `raceForT9TowerId` inside
+     * `default:` would work while making the omission of a seventh race invisible.
+     *
+     * ⚠ AND THE WINDOW THIS GUARDS IS SHORT BUT REAL. A tier-9 tower only lives from ignition until
+     * it releases its boss, and it razes its own ring on release — so most of the time there is no
+     * spawner here to re-validate. It still needs the arm: a player who breaks their own nine-ring
+     * BEFORE the release must lose the tower, and without a case that would fall to `default:`,
+     * which checks only that the anchor exists — leaving a boss to be released from one lone shape.
+     *
+     * ⛔ `isRingAt` AT n=9, NOT A COMPONENT CHECK, for R136's reason: total degree is unconstrained,
+     * so a friendly shape auto-bonded onto a node must not tear the tower down. At nine nodes that
+     * exposed surface is three times the tier-3 tower's, which makes the relaxed rule matter MORE
+     * here, not less.
+     */
+    case 't9TowerVampires':
+    case 't9TowerNagas':
+    case 't9TowerMummies':
+    case 't9TowerZombies':
+    case 't9TowerOrcs':
+    case 't9TowerDemons': {
+      const race = raceForT9TowerId(spawner.recipeId);
+      if (race === null) return false; // unreachable: the case labels ARE the six ids
+      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], T9_TOWER_SIZE);
     }
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is

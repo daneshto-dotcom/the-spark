@@ -36,6 +36,20 @@ const EXPECTED = [
   't3TowerZombies',
   't3TowerOrcs',
   't3TowerDemons',
+  /*
+   * S167 — the six tier-9 BOSS towers, same one-module-six-recipes shape (`t9BossTower.ts`).
+   *
+   * ⚠ THIS GUARD IS ONE-DIRECTIONAL, WHICH IS WORTH KNOWING BEFORE TRUSTING IT: registering the
+   * recipes and forgetting this list turns the test RED (good), but forgetting BOTH the
+   * `registerAll.ts` import AND this list leaves `listRecipes()` returning the old set, which still
+   * matches it. It catches a HALF-done wiring, never an untouched one.
+   */
+  't9TowerVampires',
+  't9TowerNagas',
+  't9TowerMummies',
+  't9TowerZombies',
+  't9TowerOrcs',
+  't9TowerDemons',
   // ⚠ 'helga', not 'princessHelga' — the recipe ID and its MODULE NAME differ (the module is
   // princessHelga.ts). Worth stating, because a plausible-looking guess at the id is exactly what
   // this pinned list is here to refuse.
@@ -52,6 +66,10 @@ const MODULES = [
   'goblinTower', 'laserTurret', 'lightningHub', 'pentagram', 'princessHelga', 'stinkTower', 'voltkin',
   // S166 — one module, SIX recipes. The first entry here that is not 1:1 with a recipe id.
   'raceTower',
+  // S167 — the second such module. ⚠ An omission here is SILENT: MODULES only feeds the negative
+  // check that no ENTRYPOINT imports a recipe module directly, so leaving it out merely weakens that
+  // guard without failing anything.
+  't9BossTower',
 ];
 
 describe('registerAll is the single registration point', () => {

@@ -309,6 +309,19 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   t3Bat: BOTH,
   t3Warband: BOTH,
   t3Souleater: BOTH,
+  /*
+   * S167 — the six TIER-9 BOSSES target BOTH, and the pairing warning above applies with the most
+   * force here: every boss config carries `targetsStructures: true`, because the owner's brief has
+   * the boss marching on the enemy CASTLE (§B item 7 sends it back to a castle between phases). A
+   * boss that walked to a castle and then refused to hit it would be the single most visible bug
+   * this feature could ship.
+   */
+  t9BossVampires: BOTH,
+  t9BossNagas: BOTH,
+  t9BossMummies: BOTH,
+  t9BossZombies: BOTH,
+  t9BossOrcs: BOTH,
+  t9BossDemons: BOTH,
 };
 
 /**
@@ -380,6 +393,19 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   t3Bat: 'both',
   t3Warband: 'both',
   t3Souleater: 'both',
+  /*
+   * S167 — all six bosses are 'both'. A boss is the most expensive thing a seat can field and there
+   * is exactly ONE of it alive, so pinning it to a single role would make nine shapes a gamble on
+   * which half of the game you were about to be in. The owner's own axes describe how each one
+   * FIGHTS, never a posture: even the Pharaoh's *"inevitability … dread rather than aggression"* is
+   * a description of an advance, not of holding ground.
+   */
+  t9BossVampires: 'both',
+  t9BossNagas: 'both',
+  t9BossMummies: 'both',
+  t9BossZombies: 'both',
+  t9BossOrcs: 'both',
+  t9BossDemons: 'both',
 };
 
 /** What each tower is FOR. Exhaustive — a new kind must declare one. */

@@ -1462,6 +1462,73 @@ export const T3_STATS = {
   souleater: { hp: 3, def: 1, atk: 2, pen: 2, speedMul: 1.0 },
 } as const;
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+ * S167 — THE TIER-9 BOSS TOWER AND ITS SIX BOSSES
+ * ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⭐ HOW LONG THE TOWER STANDS BEFORE IT RELEASES ITS BOSS.
+ *
+ * Owner's whole budget (`RACE_ZONES_AND_BOSS_TOWERS.md` §B): *"should take no [more than 8 seconds]"*
+ * for **spawn + release + crumble together**. This is the first slice of that: 5 s of tower, leaving
+ * ~3 s for the collapse the art priority will draw. `5 * PHYSICS_HZ` rather than a typed 300, so it
+ * stays five seconds if the tick rate ever moves — the `RACE_UNIT_EMIT_INTERVAL_TICKS` precedent.
+ *
+ * ⛔ WITHOUT THIS THE RELEASE TAKES 15 SECONDS AND NOTHING FAILS. `spawnerIntervalTicks` returns
+ * `SPAWN_INTERVAL_TICKS` (900t = 15 s, the CHEWER's cadence) for every recipe but `lightningHub`,
+ * and it feeds BOTH the registration seed and the BUILD re-alignment. That is nearly double the
+ * owner's entire budget for the whole sequence, with tsc green and every test green — the same
+ * silent-cadence class as S158 B2, where the drone tower ran on the chewer's clock in three places.
+ *
+ * ⚠ 5 s IS MINE, NOT THE OWNER'S. He gave the 8 s ceiling for the sequence, not the split inside it.
+ * The split is trivially overruled and the playtest is what should produce the ruling.
+ */
+export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
+
+/**
+ * ⛔ **EVERY NUMBER IN THIS BLOCK IS MINE, NOT THE OWNER'S** — the same standing convention the
+ * `T3_STATS` block above invokes, and for the same reason: he said *"i will give boss specs and
+ * skills later"* (§B item 8) and has not yet. These ship provisional and are trivially overruled.
+ *
+ * ## The ladder, read off the live roster rather than invented
+ *
+ * `raceUnit` 1 hp · tier-3 units 2–4 · chewer 5 · `goblinMelee` 7 · voltkin 8 · `goblinBat` 10.
+ * A boss costs **nine** shapes — three times the tier-3 tower and nearly twice the 5-shape goblin
+ * tower — releases exactly ONE unit, and then the structure is gone. So it has to be worth nine
+ * shapes on its own: the band here is **40–60 HP**, roughly five Voltkins, and the tower cannot be
+ * kept to make a second one.
+ *
+ * ## The axis each boss sits on is the OWNER'S, taken from the art brief
+ *
+ * He fixed six distinct fear axes when the art was made (`race-tier9-bosses/design-spec.json`), and
+ * the stats follow them rather than inventing a second, contradictory personality:
+ *   · Vlad — IMPERIAL, *"the only boss whose threat is authority rather than bulk"* → lowest HP of
+ *     the six, highest ATK and PEN. He is the assassin, not the wall.
+ *   · Kraken — MONSTROUS, *"the only boss whose threat is sheer size"* → the HP pole, slowest.
+ *   · Pharaoh — ANCIENT & CURSED, *"inevitability … dread rather than aggression"* → the armour
+ *     pole (highest DEF), slow, modest damage. Hard to remove rather than fast to kill.
+ *   · Whopper — DISGUSTING, *"body horror and bloat"* → bulk without finesse: high HP, zero PEN.
+ *   · Warlord — BRUTAL, *"earned violence"* → the balanced fighter, best all-round, no weakness.
+ *   · Archdemon — VICIOUS, *"active cruelty"* → highest PEN, fastest; armour is not a defence.
+ *
+ * ⚠ SPEED IS A MULTIPLIER AND ALL SIX ARE ≤ 1.0. A boss that outruns the units escorting it arrives
+ * alone, which is the opposite of what a boss should feel like.
+ */
+export const T9_BOSS_STATS = {
+  /** Vampires — Vlad. IMPERIAL: the glass cannon of the six. */
+  vampires: { hp: 40, def: 2, atk: 12, pen: 4, speedMul: 1.0 },
+  /** Nagas — the Kraken. MONSTROUS: the HP pole, and the slowest thing on the board. */
+  nagas: { hp: 60, def: 3, atk: 8, pen: 1, speedMul: 0.7 },
+  /** Mummies — the Pharaoh. ANCIENT & CURSED: the armour pole; inevitability, not aggression. */
+  mummies: { hp: 50, def: 6, atk: 7, pen: 1, speedMul: 0.75 },
+  /** Zombies — the bloated brute. DISGUSTING: bulk without finesse, no penetration at all. */
+  zombies: { hp: 55, def: 2, atk: 9, pen: 0, speedMul: 0.85 },
+  /** Orcs — the Warlord. BRUTAL: the balanced fighter, and the one with no weakness to exploit. */
+  orcs: { hp: 48, def: 4, atk: 10, pen: 2, speedMul: 0.9 },
+  /** Demons — the Archdemon. VICIOUS: highest PEN, fastest; armour is not a defence against it. */
+  demons: { hp: 45, def: 3, atk: 10, pen: 5, speedMul: 0.95 },
+} as const;
+
 /**
  * ⭐ R120 — THE CASTLE EMITS ONE UNIT EVERY ~30 SECONDS, FREE.
  *

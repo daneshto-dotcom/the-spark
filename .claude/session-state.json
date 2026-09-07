@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 6001,
-  "session_id": "S166",
-  "session_kind": "batch-pdca",
+  "tool_calls_session_total": 6068,
+  "session_id": "S167",
+  "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
-  "prior_session_note": "S164 shipped V6-2.4 (castle regen, PROTOCOL 40->41) plus two real bugs found in already-shipped code. P5 delivered race-unit ART only; nothing in src/ referenced it. P6 not started. Both carried forward at owner instruction.",
-  "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
+  "prior_session_note": "S166 shipped the tier-3 race tower (PROTOCOL 42->43) + 24 tier-9 art seeds.",
+  "prior_session_archive": ".claude/plans-archive/2026-09-07_PDR_S166_BATCH_COMPLETED.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
-  "session_status": "S166 IN PROGRESS - P1 (portal hole) shipped and deploy-verified live. P2 = the tier-3 tower and its six units, Full PDR approved by owner verbatim \"go on tier 3\".",
+  "plan_file": ".claude/plans/2026-09-07_PDR_S167_BATCH.md",
+  "session_status": "in-progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -33,881 +33,25 @@
   "priorities": [
     {
       "id": 1,
-      "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white, all rows consistent",
-      "status": "completed",
+      "name": "The tier-9 boss tower - code (PROTOCOL 43->44)",
+      "status": "in-progress",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "6bce857",
-      "check_method": "All 24 castle-unit clips are S165 art off the new no-shadow, named-pallor designs - the mixed-design atlas is gone. The vampire ATTACK is finally weaponless on the FOURTH attempt: three prior generations drifted a blade in under a bare negative, a stronger negative and an explicit positive ('both hands empty in every frame'); changing the VERB to a BITE fixed it first try, because none of the earlier attempts changed what the hands were DOING. Both shadow sites fixed (spec + the script default every future spec inherits). The naga's sampleWindow is per-state on a measured sweep. ⭐ The atlas guard then caught the NAGA's walk row at 1.29x - a live defect behind the owner's own S164 reject that sampleWindow had never actually fixed - and it was re-rolled with a margin instruction and re-measured to 1.00x. All 6 atlases clean on both guard checks.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-units/design-spec.json",
-          "pattern": "\"Centered on a plain pure white background with a small soft dark oval shadow",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-units/design-spec.json",
-          "needle": "NO GROUND SHADOW OF ANY KIND"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-units/design-spec.json",
-          "needle": "VISIBLE COLOUR CAST"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/gen-character-design.mjs",
-          "needle": "NO GROUND SHADOW OF ANY KIND"
-        },
-        {
-          "type": "file_lacks",
-          "path": "assets-source/race-units/atlas-specs.json",
-          "needle": "_S165_INCOMPLETE_ROWS"
-        },
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-units/atlas-specs.json",
-          "pattern": "normaliseStateScale",
-          "op": ">=",
-          "value": 6
-        },
-        {
-          "type": "syntax_ok",
-          "path": "assets-source/race-units/design-spec.json",
-          "syntax_type": "json"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": 2,
-      "title": "P2 - W1-C castle emitter wiring",
-      "status": "superseded_by_P7",
+      "name": "The tier-9 art - tower atlases, boss clips, destroy cinematics",
+      "status": "pending",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "acac4a1",
-      "check_method": "⚠ SUPERSEDED BY P7, WHICH SHIPPED THE EMITTER. What P2 itself delivered stands and is still verified below: the 43-agent A.0 pass (W1C_A0_FINDINGS.md), the LIVE nearestChewer bug it found (bots had been fleeing their own goblins since S151, fix proven by reverting it), raceUnitFrames.test.ts as the asset gate the atlases never had, and the move to public/art/race-units/. Its one open item — 'the emitter itself is not wired' — is closed by P7 at ef944bd.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "if (c.type !== 'chewer') continue;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/bots/botBrain.ts",
-          "needle": "if (c.sourceSpawnerId === null) continue; // Voltkin"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/bots/nearestChewer.test.ts",
-          "pattern": "\bit\\(",
-          "op": ">=",
-          "value": 5
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/raceUnitFrames.test.ts",
-          "pattern": "\bit\\(",
-          "op": ">=",
-          "value": 8
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/raceUnitFrames.test.ts",
-          "needle": "cellH is IDENTICAL across all six races"
-        },
-        {
-          "type": "file_contains",
-          "path": "W1C_A0_FINDINGS.md",
-          "needle": "A PROTOCOL BUMP **IS** OWED"
-        },
-        {
-          "type": "file_contains",
-          "path": "W1C_A0_FINDINGS.md",
-          "needle": "THE SENTINEL ALONE DOES NOT MAKE THE CASTLE EMIT"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "P3 - tier-3 tower unit art (R116/R134): 6 designs, 24 clips, 6 atlases",
-      "status": "completed",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "6bce857",
-      "check_method": "Bat, piranha, scarab, redrawn hound, twin-axe warband raider, faceless wraith. 24 clips on veo-3.1-fast after establishing the per-model quota split. Auditioned on pure black across four re-roll rounds: round 1 found background SCENERY in 4 of 24 (the matte structurally cannot remove mid-grey), round 2 found the negative was REPRODUCING the thing it named, round 3 fixed pose defects (a piranha that grew arms and legs), round 4 fixed cross-row scale drift. All six atlases now clean on BOTH guard checks with every row within 1% of its median. ⚠ NO STAT LINE WRITTEN - R135 asks for varied stats and supplies no figures.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-tier3-units/clip-spec.json",
-          "pattern": "\"name\": \"t3-",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier3-units/atlas-specs.json",
-          "needle": "normaliseStateScale"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-atlas-scenery.mjs",
-          "needle": "THIS GUARD IS FOR **CHARACTER** ATLASES"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/build-sprite-atlas.mjs",
-          "needle": "normaliseStateScale"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "P4 - tier-3 race towers: 24 condition stills + 6 destruction cinematics + 12 atlases",
-      "status": "completed",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "6ddadc4",
-      "check_method": "24 stills (6 towers x intact/spawning/damaged/destroyed) built as t3tower-* on the castle pattern - framesPerState 1, fit box, still states - plus 6 animated destruction cinematics as t3destroy-*, seeded off each tower's DAMAGED still so frame 0 matches the sprite already on the board and the last frame lands on the destroyed sprite. Both owner-named destructions landed: the pyramid's spiralling SAND DEVIL and the kennel LIQUEFYING into ooze. Gravity rule honoured on every damaged state. Zero ink touches any frame edge on all 24 stills (measured). ⭐ The guard gave two FALSE POSITIVES here and that is recorded rather than tuned away: grey SMOKE read as scenery, and destroyed=0.80x is correct because rubble is shorter than the building. The guard is now scoped to CHARACTER atlases with --no-size / --allow-scenery, and its success line names which checks actually ran.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
-          "pattern": "\"name\": \"t3tower-",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
-          "needle": "SAND DEVIL"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
-          "needle": "MELTS DOWNWARD INTO THICK GREEN OOZE"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-atlas-scenery.mjs",
-          "needle": "--allow-scenery"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "P5 - twelve per-race zone backgrounds (R137)",
-      "status": "completed",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "24608ae",
-      "check_method": "Twelve, not six, and the reason measured against src/state/zones.ts: SPLIT_X = CANVAS_WIDTH/2 = 960 and SPLIT_Y = CANVAS_HEIGHT/2 = 540, so a PITCH_2P zone is 960x1080 portrait and a QUADRANTS_4P zone is 960x540 landscape. Generated in R137's stated order - every 4P landscape first from its banner, every 2P portrait then seeded off its OWN 4P sibling. The readability contract is MEASURED rather than asserted: mean max-channel value 21.9-41.1 out of 255 across all twelve and ZERO pixels above 200 in any of them, so they sit under gameplay instead of competing with it. ⚠ The vampires' setting and the 3:4 portrait aspect are MINE and flagged at the spec.",
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-zones/design-spec.json",
-          "pattern": "\"name\": \"zone-[a-z]+-4p\"",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "grep_count",
-          "path": "assets-source/race-zones/design-spec-2p.json",
-          "pattern": "\"name\": \"zone-[a-z]+-2p\"",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-zones/design-spec.json",
-          "needle": "IT MUST STAY DARK AND QUIET"
-        },
-        {
-          "type": "syntax_ok",
-          "path": "assets-source/race-zones/design-spec-2p.json",
-          "syntax_type": "json"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "P6 - final audit: gates, commit, push, deploy; fix anything broken",
-      "status": "completed",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "6ddadc4",
-      "check_method": "All four gates read directly: typecheck 0, vitest 0 (3693/3693 across 236), build 0 (781.7/900 KiB), e2e:gating 0 (62 passed). Pushed 48b9475..6ddadc4. Both CI lanes concluded SUCCESS. verify-deploy PASS 4/4 at 6ddadc4. Working tree clean, 24/24 source clips present, ZERO stranded veo .op.json handles (nothing billed and unrecoverable). Two failures investigated rather than passed over: the atlas builder's exit 1 was the wrong input shape (it takes ONE spec, atlas-specs.json is a container of six) and a /tmp path that Python and node resolve differently; the final clip run's exit 124 was my own deliberate `timeout 240` wrapper kill.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": ".claude/session-state.json",
-          "needle": "verify_deploy"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/session-state.json",
-          "needle": "veo_blocker_RESOLVED"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/session-state.json",
-          "needle": "PASS 4/4"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "P7 - W1-C: the castle produces its race's unit, WIRED and live (PROTOCOL 41 -> 42)",
-      "status": "completed",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "ef944bd",
-      "check_method": "Every castle emits one free race soldier every ~30 s and the renderer draws it from that seat's race atlas. ONE `raceUnit` CreatureType for all six races (R94/R117 make them stat-identical, so the race is read off `player.raceId`, on the wire since v39) rather than six literals. PROTOCOL bumped 41->42 across all six checklist sites, and the sync gate caught two real mistakes in my own bump before it passed: I destroyed the 40->41 narrative link by replacing it, and I put the new HelloMsg entry in the wrong chronological position, then in the wrong docblock entirely. Per-seat sentinel SpawnerId (-1 - seat), a third cap family RACE_UNIT_MAX_* with `raceUnit` also EXCLUDED from underGoblinCaps' count, and its own explicit call site because the spawner poll iterates a map the sentinel is absent from. Deterministic spread via spreadTargetPos so units do not stack. The frozen differential gate broke on tick 1 exactly as A.0 predicted and was fixed at the FIXTURE (start tick 900, off the recruit cadence) with the equivalence argument written there - never by transcribing into the frozen reference. Five other test files were adjusted and every one was SHARPENED rather than loosened: four used world.creatures.size as a proxy for 'the spawner emitted nothing' while their own titles said drones/chewers/goblins, and one measured a bot's competence by whether its tower SURVIVED 18,000 ticks. GATES: typecheck 0, vitest 0 (3705/3705 across 237), build 0, e2e:gating 0 (62), CI E2E success, verify-deploy PASS 4/4.\n\n ⛔ MCV RECONCILED (S166) — SIX BINDINGS WERE SUPERSEDED BY THIS SESSION'S OWN LATER WORK, AND EVERY ONE WAS REPLACED RATHER THAN DELETED, on the S165 precedent for exactly this (\"Binding REPLACED by two that pin the new form, with the supersession recorded in check_method - not deleted\"). None was a fabrication; each claim was TRUE when written and the tree moved underneath it. (1-2) S165 P7 pinned `PROTOCOL_VERSION = 42` and `protoVersion: 42`, which P2 bumped to 43. (3) S165 P7 pinned \"| 'raceUnit';\" WITH the semicolon; the six t3 literals now follow it, so the semicolon moved. ⭐ THAT BRITTLE BINDING EARNED ITS KEEP FIRST: earlier this session it is what caught a discovery agent writing a fake CreatureType into the tree. It pins ORDER as well as presence, which is fragile AND is why it noticed. Replaced by two - `| 'raceUnit'` for presence and `| 't3Souleater';` for the union terminator. (4) S165 P9 pinned \"42 at S165\" in CLAUDE.md, updated by bump site 6. (5-6) MY OWN P1 pinned `this.spriteHost.mask = this.portalMask;` and `.cut();`, both DELETED by my own bake fix after the stencil mask broke CI. Replaced by bindings on `punchPortal` / `destination-out` / `portalInSource`, plus `file_lacks` on `.mask =` and `new Graphics()` - the NEW invariants. ⚠ `.cut()` was REJECTED as a file_lacks needle: it appears once in raw text because the new docblock QUOTES the old mask to explain why it was wrong. Measured, not assumed - the same check that rejected `0x000000` and `sortableChildren` earlier today.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/raceUnitEmit.ts",
-          "needle": "export function castleSpawnerId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "underRaceUnitCaps(world, action.ownerPlayerId)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "raceUnitEmitTick(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "ensureRaceAtlas"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/raceUnitEmit.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 12
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 43 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 43;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "| 'raceUnit'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "| 't3Souleater';"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "P8 - the twelve per-race zone backgrounds, WIRED and live (R137)",
-      "status": "completed",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "8aff165",
-      "check_method": "Each seat's quarter now shows that race's world, chosen per seat from the synced raceId and per board from world.layout (R137: 2P portrait, 4P landscape). ⛔ TWO DEFECTS FOUND ONLY BY LOOKING AT THE RUNNING APP, neither catchable by any test: (1) the backdrop at the bottom of the STAGE rendered a BLACK BOARD in every multiplayer match, because fogRenderer paints unexplored ground in FOG_COLOR = 0x000000 and sits above the board layers - it showed only on the TITLE screen where there is no fog; moved to index 0 of aboveFogLayer, which is also the correct answer since terrain is static public information and fog exists to hide activity, not geography. (2) It was painting half a Carpathian valley behind the MAIN MENU, because seat 0 exists before a match starts; gated on gameState. VERIFIED VISUALLY: all four quarters render correctly in a live 4-bot match. ⚠ The castle emitter could NOT be confirmed in-browser the same way and this is stated rather than glossed: it fires at tick 1800 and the preview pane, being hidden, has requestAnimationFrame fully paused - MEASURED at zero frames in one second with the HUD clock frozen at 1:30. Covered by raceUnitEmit.test.ts instead. GATES: typecheck 0, vitest 0 (3705/3705), build 0 (784.6/900 KiB), verify-deploy PASS 4/4 at 8aff165.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/render/zoneBackgroundRenderer.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "AT INDEX 0 OF `aboveFogLayer`, NOT OF THE STAGE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "NOT ON THE TITLE SCREEN"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new ZoneBackgroundRenderer(app, aboveFogLayer)"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "pattern": "zone-\\$\\{race\\}",
-          "op": ">=",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "P9 - CI + deploy recovery, and the sweep fixes that followed",
-      "status": "completed",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "5f2a1fa",
-      "check_method": "CI RECOVERED. E2E had been red on every commit after 8aff165 and is GREEN on 28f6b470 - gating e2e, e2e-protocol, e2e-lobby, e2e-soak and the new atlas-guard job all pass; e2e-quarantine fails as designed under job-level continue-on-error, so the RUN concluded success. ROOT CAUSE was NOT the diagnosis carried into this stretch. The failing line printed 'waitForWorld timeout (15000ms): a gatherer banks a shape into the local castle', and 15000 is not that wait's number: pullFromBank declares 30_000 for the ECONOMY wait, placeFreeSparkAndConfirm declares 15_000 for the DRAG, and it passed its own budget straight down. Two unrelated operations shared one number and the smaller won. Fixed with Math.max(timeoutMs, 30_000). The zone backdrop only thinned the margin (5 straight greens before it, 4 failures + 1 success after) - a budget that was always wrong finally started binding. DEPLOY RECOVERED SEPARATELY: the atlas guard I had wired into `npm run build` took the Pages deploy red on ModuleNotFoundError: numpy. Moved to its own atlas-guard job in e2e.yml with a pip step; build is Node-only again. Deploy green on 7e0294ab and every commit since; verify-deploy 4/4. SWEEP FIXES LANDED: (1) HUD ownDecaying tinted an amber 'your score is bleeding' cue while LEADER_DECAY_ENABLED has been false since S147 R28 - now reads the flag, and its test asserts the FLAG instead of a literal true, which is how it stayed green through the mechanic being switched off. (2) DEFENDER_TARGETS had the two towers BACKWARDS vs the code: stinkTower said units-only while stinkThrowBag passes STINK_BAG_DAMAGE as applyRadialDamage's PRIMITIVE amount (corrected to BOTH + pinned by a new test); turret says BOTH per R72 while the beam is creature-only, so the RULING is kept and logged as a carry-forward rather than erased to quiet an audit. (3) the castle sentinel's fallthrough in ownHomePos documented as safe-and-correct with the reason it cannot call isCastleSpawnerId (import cycle). (4) atlas-spec gap re-measured: FOUR unspecced, split into recoverable (helga, stink-bag - clips in tree) and unrecoverable (goblin-archer, goblin-melee - no clips anywhere). (5) the bundle charter now PRINTS the 62 MiB static payload - reported, never gated, for the reason in (deploy) above; first run surfaced a 9.5 MiB audio file. NEW GUARD FOR THE OWNER'S OWN COMPLAINT: e2e/zone-backdrop.spec.ts asserts the browser FETCHED /art/race-zones/*.png with a 200 during a match - the one observation nothing in the suite made, which is why 'i dont see the backgrounds' could not be answered. NEGATIVE CONTROL RUN: with zoneBackgroundRenderer.sync(world) removed it fails with its own diagnostic; restored, 1/1 in 20.5s, and main.ts verified byte-identical to HEAD via git diff. GATES: typecheck 0 - vitest 0 (3715/3715, 239 files) - build 0 - check:atlas 0 (30 atlases, three checks) - e2e:gating 62/62 local (GATING_EXIT captured, not read off the wrapper's '[exited with code 0]') - CI E2E green - deploy verified 4/4. ONE UNRESOLVED, NOT SILENCED: worker-bots.spec.ts:78 failed ONCE in a full-suite local run (world back at TITLE/solo mid-test), then passed standalone, passed a second full-suite run, and passed on CI. Recorded as an unreproduced suite-context flake - the project CLAUDE.md already documents this spec as historically red - NOT as benign. || MCV RECONCILIATION (S165, before close): one P9 binding failed on disk - file_contains '    LEADER_DECAY_ENABLED &&' in src/render/ui.ts. It was TRUE when written and was superseded by my own later fix in the same session: sweep Lane 5 showed that gating ownDecaying on the constant left every test case expecting false, so the predicate became unguarded and `const ownDecaying = false;` would have passed the suite. The flag is therefore now an INJECTABLE PARAMETER defaulting to LEADER_DECAY_ENABLED (the isSimWorkerRequested(search, defaultOn) shape this repo already uses), so the line reads `decayEnabled &&`. The CLAIM is unchanged and still true - the HUD cue is gated on the decay flag - and the implementation is strictly stronger. The binding is REPLACED BY TWO that pin the current form (the parameter's default and the guard expression), not deleted: deleting it would have made a real superseded claim unverifiable. || MCV UNBOUND-GAP RECONCILED: BACKLOG.md was modified this session (the doc-truth pass closed the S162 NONET blocker that owner R132 had already settled in S164) and carried no binding. session_start is a full ISO timestamp, so this was a real gap and not the date-only false-unbound class. Bound two ways: the closure banner must be PRESENT, and the UNCHECKED `- [ ]` blocker line must be ABSENT. The struck-through original text is deliberately still in the file - a decision that vanishes reads as an oversight and gets re-made - so the file_lacks pins the checkbox state rather than the prose. || CLOSE BOOKKEEPING: CLAUDE.md's gate numbers refreshed to the real close figures (3755 tests / 241 files; e2e:gating 67 tests / 18 files) and the P9 binding that PINS that string moved with them in the same edit - which is the whole reason the binding exists, since the number is supposed to move and a binding that pins a stale one would fail on the next honest change. || LANE SPLIT: the two new e2e specs took the shared gating lane past its 720 s Playwright cap on runs 7c39965 and f2a653a - which reads as 'Timed out waiting 720s for the test suite to run', not as a test failure. I trimmed the tick budgets first and the trim was WRONG: a probe showed race-unit count still zero at tick 1408, because raceUnitEmitTick is gated on gameState==='PLAYING' and the transition lands a few ticks in, so all four seats miss their opening slot and the first emit is at tick 1800. The mechanic is inherently 30 s of sim per observation. Split into an `@races` tag + its own GATING e2e-races job (the e2e-protocol/e2e-lobby precedent). Shared lane back to 62 tests/3.7 min from 67/5.3; races lane 5 tests/1.2 min; both exit 0. My own ci.e2eLanes guard CAUGHT the new tag as undeclared and told me what to do, then needed a third state (OWN_JOB) because EXCLUDED would have recorded a gating lane as non-gating - negative-controlled by renaming the job.",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "package.json",
-          "needle": "check-bundle-size.mjs && npm run check:atlas"
-        },
-        {
-          "type": "file_contains",
-          "path": "package.json",
-          "needle": "\"build\": \"tsc -b && vite build && node scripts/check-bundle-size.mjs\""
-        },
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "atlas-guard:"
-        },
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "pip install numpy scipy Pillow"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-atlas-scenery.mjs",
-          "needle": "process.exit(3)"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/helpers.ts",
-          "needle": "await pullFromBank(page, Math.max(timeoutMs, 30_000));"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.ts",
-          "needle": "  decayEnabled: boolean = LEADER_DECAY_ENABLED,"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.ts",
-          "needle": "    decayEnabled &&"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.progress.test.ts",
-          "needle": "toBe(LEADER_DECAY_ENABLED)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.ts",
-          "needle": "stinkTower: BOTH,"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.ts",
-          "needle": "NOT YET IMPLEMENTED"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.test.ts",
-          "needle": "the STINK TOWER attacks BOTH"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "THE CASTLE SENTINEL FALLS THROUGH HERE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/raceUnitEmit.ts",
-          "needle": "NO PRODUCTION CALLER"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/godly-goblins/atlas-specs.json",
-          "needle": "_unspecced_atlases_note"
-        },
-        {
-          "type": "syntax_ok",
-          "path": "assets-source/godly-goblins/atlas-specs.json",
-          "syntax_type": "json"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-bundle-size.mjs",
-          "needle": "static assets (NOT gated, NOT initial-load)"
-        },
-        {
-          "type": "file_exists",
-          "path": "e2e/zone-backdrop.spec.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/zone-backdrop.spec.ts",
-          "needle": "/art/race-zones/"
-        },
-        {
-          "type": "file_lacks",
-          "path": "e2e/zone-backdrop.spec.ts",
-          "needle": "test.describe('@visual"
-        },
-        {
-          "type": "file_lacks",
-          "path": "e2e/zone-backdrop.spec.ts",
-          "needle": "@quarantine-flaky"
-        },
-        {
-          "type": "grep_count",
-          "path": "e2e/zone-backdrop.spec.ts",
-          "pattern": "\\bexpect\\(",
-          "op": ">=",
-          "value": 3
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "3755 tests / 241 files at S165 close"
-        },
-        {
-          "type": "file_lacks",
-          "path": "CLAUDE.md",
-          "needle": "3646 tests / 233 files at S163"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "THE S162 BLOCKER IS CLOSED"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "- [ ] ⛔ **BLOCKER FOUND IN S162"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "43 at S166"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "title": "P1(S166) - SCOPE AMENDMENT: the spawner portal must be a HOLE, not opaque paint over the sparks",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "204fc3f",
-      "check_method": "ROOT CAUSE, established by reading the code rather than by reproducing: portalCut was circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer, while SparkRenderer is constructed on app.stage (main.ts:535) and aboveFogLayer is added after it (main.ts:679) - so the disc sat strictly above every spark and bond, at the one spot where all of them are born. The owner's own sentence carried the diagnosis (his gatherer kept gathering = the sim was never involved). SECOND DEFECT, and the reason it shipped: the :20 docblock asserted the OPPOSITE layering (the FIRST layer added to the stage, so every spark/bond/structure/creature paints on top of it), stale from the first cut, while the :148 docblock in the same file records the move onto aboveFogLayer in full. Its list is wrong exactly where it mattered - creatures, goblins, gatherers and towers ARE above; sparks and bonds are the two gameplay layers below. FIX: sprites moved into a spriteHost masked by rect(canvas).fill().circle(quarry).cut(); portalCut DELETED so no opaque fill exists on the layer at all; sortableChildren + zIndex removed rather than replaced, because they existed only to keep paint above lazily-loaded sprites and a mask is not in the paint order. The old docblock's objection to masking (rebuilt whenever the geometry moves) does not apply - every input is a compile-time constant. VERIFICATION, four independent ways. (1) Six unit tests pinning the INVARIANT (nothing opaque on the layer; every sprite through the mask), not the symptom. (2) TWO NEGATIVE CONTROLS, each red for the right reason and reddening only the right test: routing sprites to this.layer gave NC1_EXIT=1 on the sprite-parent test; dropping the mask assignment gave NC2_EXIT=1 on the structural test. (3) The source scans STRIP COMMENTS - mandatory here because the new docblock QUOTES the old fill line verbatim to explain it, so a naive scan would match the quote and pass while the defect was live. Same vacuity class registerAll.test.ts documents. (4) RUNTIME in a real browser on a 4-seat QUADRANTS_4P board: all four backdrops loaded, all four sprites reported parent===spriteHost, layer children exactly [_Container,_Graphics], portalCut absent from the instance, layerVisible true, alphas 0.55. The hidden Browser pane throttles rAF to about 1 tick/sec so sync never ran on its own; I invoked the real production sync(world) directly, substituting only the scheduler. __SPARK__.zoneBackgroundRenderer was added for this (S85 P4c geometry-getter convention, DEV-only, tree-shaken) because a static test cannot observe runtime layering. BINDING HYGIENE: I checked every file_lacks needle against RAW text first and DROPPED two that would have false-failed - 0x000000 (raw count 1, my own docblock quote) and sortableChildren (raw count 1, my own comment). That is precisely the brittle-binding class that produced this session's MCV incident, avoided by measuring instead of assuming. GATES, every exit code read from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3762 tests / 242 files, +6 tests +1 file), BUILD_EXIT=0 (787.6 KiB main entry, 112.4 KiB headroom). NOT DONE, deliberately, and stated rather than silently dropped: the e2e assertion the PDR listed. A scene-graph assertion there would have been near-duplicative of the unit test and would still NOT catch a WebGL mask failure, which needs pixel sampling that is ambiguous here because the disc is legitimately black. Replaced by the real-browser runtime check above, which is stronger evidence. ALSO NOT DONE, owner-declined: raising sparks/bonds above the backdrop to remove the residual 0.55 dimming OUTSIDE the disc. That would put shape activity above the FOG, a gameplay change; he was offered it explicitly and chose the hole fix alone.\n\n⛔ SUPERSEDED BY MY OWN BAKE FIX LATER THE SAME SESSION, and the reason is the more important half. The mask shipped, was verified in a real browser, and BROKE CI: a per-frame stencil over the full 1920x1080 canvas collapsed the runner to 5.28 ticks/s and blew the gating lane past its 720 s cap, killing three specs on `waitForWorld timeout: a gatherer banks a shape into the local castle` - this renderer's own fingerprint and the THIRD distinct cause of that same line. I re-ran the failed jobs BEFORE touching the product (the test's own diagnostic warns \"do NOT fix the product from this signal\") and it reproduced identically, so it was not runner noise. Replaced by `punchPortal`, which erases the quarry into each texture once with canvas 2D `destination-out`; steady state is four plain sprites, exactly what shipped before S166, so the portal now costs the frame budget NOTHING. Confirmed by CI going green on 5a1c784 (e2e, e2e-races, e2e-soak all success) and by PIXEL probe in a real browser: alpha 0 just inside the quarry edge, 255 elsewhere.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "this.spriteHost.addChild(sp);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "private readonly portalCut: Graphics;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "this.layer.addChild(sp);"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/render/zoneBackgroundRenderer.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/zoneBackgroundRenderer.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "function punchPortal"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "export function portalInSource"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "ctx.globalCompositeOperation = 'destination-out';"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": ".mask ="
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "new Graphics()"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/zoneBackgroundRenderer.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 11
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "title": "P2(S166) - the tier-3 race tower and its six race-specific units (R108/R119/R134/R136/R137)",
-      "status": "completed",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "40e2168",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/state/godlyRecipes/ringShape.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/godlyRecipes/raceTower.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/raceTowerIds.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const T3_STATS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "| 't3Souleater';"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/types.ts",
-          "needle": "| 't3TowerDemons';"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "} else if (isRaceTowerId(sp.recipeId)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/spawners/spawnerLifecycle.ts",
-          "needle": "case 't3TowerDemons': {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyMatcherCore.ts",
-          "needle": "demonTowerOwner, 't3TowerDemons');"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/blueprints.ts",
-          "needle": "const TRI_RING_R = 34;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/blueprints.ts",
-          "needle": "'t3TowerVampires', 't3TowerNagas', 't3TowerMummies',"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botBrain.ts",
-          "needle": "export function seatTowerRungs"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/goblinTowerFeed.ts",
-          "needle": "export function fedCreatureType"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "const visible = ALL_BLUEPRINT_IDS.filter"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "t3Bat: t3UnitAtlasBase('vampires'),"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "'t3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyRecipes/ringShape.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 12
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyRecipes/raceTower.test.ts",
-          "pattern": "\\bit\\(",
-          "op": ">=",
-          "value": 10
-        }
-      ],
-      "check_method": "Built the tier-3 race tower and its six units end to end. R119 already ruled the build cost (three of the race own shape, closed ring), so nothing was asked of the owner that the archive had settled - the S165 handoff's \"ask the build cost first\" was the S158 trap. SIX CreatureTypes rather than one is FORCED, not chosen: the castle mints one `raceUnit` because R125 makes those stat-identical, but R135 varies tier-3 stats per race and `serializeCreature` emits `hp` only when DAMAGED, so an undamaged creature carries no stats and the peer rebuilds them from its OWN CREATURE_CONFIGS keyed by TYPE. FOUR THINGS WOULD HAVE SHIPPED BROKEN. (a) `hostTick.ts:818` is an `else` emitting `chewer` for every unnamed spawner recipe - six towers passively making PENCIL CHEWERS, verbatim the owner-reported S152 A1 defect, and in NONE of the spec's bill or B9-B14. (b) `recipeStillSatisfied`'s default would have kept all six alive forever off one primitive. (c) B12: RING_R=40 gives 69.3 px at n=3, past AUTO_BOND_RADIUS - stampable and UN-BUILDABLE BY HAND; TRI_RING_R=34 gives 58.9 px. (d) B14: botBrain sorts ALL_BLUEPRINT_IDS at module level with no seat, so every bot of every race would queue t3TowerDemons and order Spirals for a tower R137 refuses. THE GUARDS CAUGHT TWO OF MY OWN MISTAKES. `registerAll.test.ts` failed by name, then its extraction regex exposed both: it is NON-GREEDY so `findRaceTowerAnchors(world, 'vampires')` handed it \"vampires\" instead of the id, and its class was `[A-Za-z]+` with NO DIGITS so `t3TowerDemons` was invisible. Fixed by keeping the id the only literal in each ignition call (per-race helper functions) and widening the class - a GodlyId is a serialized wire literal, so a test's character class must not choose the wire format. AND TWO TEST FILES CARRIED COPIES OF THE BRAIN'S RUNG SORT, both of which went stale at once when tier 3 became the cheapest build: `botTowers.test.ts` and `botTowerVariety.test.ts` each derived \"cheapest\" from ALL_BLUEPRINT_IDS and so banked Spirals for a demon tower the NAGAS bot can neither see (R95) nor ignite (R137). Eleven red tests, zero real bugs. `seatTowerRungs` is now EXPORTED and shared, so neither copy can drift again. LINE ENDINGS: src/ is mixed PER FILE (constants/creature/voltkin-config/stats/blueprints/protocol are CRLF; hostTick/goblinRenderer/types/registerAll/spawnerLifecycle/botBrain are LF). An LF anchor matches ZERO times in a CRLF file - which is how this was found - so every edit detected the file's own ending and verified uniformity at the BYTE level after writing. STATS ARE PROVISIONAL AND SAY SO: R135 gives no figures and the owner intends to decide by testing, so T3_STATS marks every number as MINE with its derivation (band 2-4 HP, above the free 1/1/1/1 castle soldier and below every goblin, R99's zombie/mummy poles fixing the spread, totals near-flat). NOT BUILT, stated rather than dropped: R121's submerged naga (an engineering surface across every acquisition path), the `die` atlas row (no renderer arm can request row 3), and the tower's own four-state art + destroy cinematics (the UNITS are wired; the tower art is not). The registry-driven ignition rewrite that would end the hand-written-chain defect class is named at the call site and deliberately left to its own priority - it changes one-spawner-per-topology-change semantics on the sim hot path. GATES, every exit code from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3880 tests / 244 files, +113 tests +2 files over the 3767/242 baseline), BUILD_EXIT=0 (795.0 KiB main entry, 105.0 KiB headroom under the 900 KiB charter)."
-    },
-    {
-      "id": 12,
-      "title": "P3(S166) - SCOPE AMENDMENT: generate the six tier-9 bosses + their towers (24 seeds)",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "e30de2e",
-      "check_method": "Owner amended scope mid-session, reversing his own \"no dont work on tier 9 boss yet\" for the ART only: \"lets at least generate the bosses now and their buildings in whole\", then \"buildings whole damaged and destroyed\". He also amended two names (Lucifer -> Archdemon, Chieftain/Warlord -> Warlord) and asked me to propose the two missing fear axes. SIX AXES, NOT ONE BRIEF, and that is the design decision here: he fixed four himself (Whopper DISGUSTING, Kraken MONSTROUS, Vlad IMPERIAL, Archdemon VICIOUS) and asked for two. Proposed Warlord BRUTAL and Pharaoh ANCIENT & CURSED - deliberately NOT \"regal\", because Vlad already owns aristocratic dread and two regal bosses is the R99 convergence trap. ONE REGEN AND THE REASON IS THE VALUE: the first Vlad came back as a waist-up portrait against a full castle courtyard. Not merely off-brief - build-sprite-atlas.mjs mattes by finding near-white CONNECTED TO THE FRAME BORDER, so scenery makes the image uncuttable. \"Imperial regalia\" read as a throne-room brief. Rewritten and the note kept at the character so the next author does not re-learn it. Verified by EYE, not by exit code: all 24 inspected. 5/6 bosses and the tower sets are clean - white matte, no ground shadow, whole subject in frame, nothing white on the subject, three tower states holding one silhouette and palette with every detached piece resting on the ground. FLAGGED, NOT ACTED ON: \"Whopper\" is a live Burger King trademark (concept safe, word exposed; BLOAT/GLUTTON/THE SWOLLEN/TUMOR offered), and Vlad reads dignified rather than overwhelming - faithful to his axis but offered for a punchier regen. Both are owner calls. NOT DONE, owner-deferred: the per-race destroy cinematic and the five clips (idle, moving, dying, basic attack, skill attack). Skills undecided on purpose, which is why every seed is a grounded READY stance rather than mid-swing - it must drive all five. SEEDS ONLY: assets-source/, nothing in public/, no code references, so a rename costs a file move. AWAITING THE OWNER'S VERDICT before any of it becomes an atlas.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/design-spec.json"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/design-spec.json"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-vampires-vlad.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-nagas-kraken.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-mummies-pharaoh.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-zombies-whopper.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-orcs-warlord.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-bosses/boss-demons-archdemon.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-vampires-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-vampires-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-vampires-destroyed.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-nagas-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-nagas-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-nagas-destroyed.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-mummies-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-mummies-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-mummies-destroyed.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-zombies-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-zombies-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-zombies-destroyed.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-orcs-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-orcs-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-orcs-destroyed.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-demons-intact.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-demons-damaged.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "assets-source/race-tier9-towers/t9-demons-destroyed.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/race-tier9-bosses/design-spec.json",
-          "needle": "S166 REGEN 1"
-        },
-        {
-          "type": "file_contains",
-          "path": "RACE_ZONES_AND_BOSS_TOWERS.md",
-          "needle": "ALL SIX ARE NOW OWNER-NAMED"
-        }
-      ]
+      "note": "Boss SKILL clips excluded pending an owner ruling; the other four clips per boss do not depend on it."
     }
   ],
-  "reflexion_entries_to_archive": [
-    "#grep-the-archive-before-asking-the-owner — I put 'what happens to a dead seat's units?' to the owner as an open question. It had been ruled two sessions earlier (ruling_cf_s161_a, 'keep fighting'). The project CLAUDE.md forbids this in as many words and S158 was pulled up for the same thing. The agent's OBSERVATION was right (elimination.ts has zero creature references) and its CONCLUSION was wrong — that absence IS the implementation of 'keep fighting'.",
-    "#the-tell-was-in-the-thing-that-still-worked — I told the owner twice that his Google top-up went to the wrong product. Image generation on that same key worked all session; an account-wide billing failure would have stopped images too. The real cause was a per-MODEL quota: veo-3.1 was exhausted while veo-3.1-fast and -lite accepted the same request in the same second. Check what still works before concluding what is broken.",
-    "#two-samples-is-not-a-measurement — I compared veo-fast against full on TWO clips, found them indistinguishable at 200px, and said so. Across 24 clips the difference was real and specific: fast invents background scenery. Both statements were measured; the first was measured on too small a sample and stated with too much confidence.",
-    "#a-negation-puts-the-noun-in-the-prompt — 'there is no cave, no stonework, no pillars' produced stonework; the hound's brand-new die clip came back with MORE scenery than the one it replaced. Positive framing ('a seamless blank sheet of pure white paper') fixed both first try. Same lesson as the vampire's phantom weapon, which needed the VERB changed rather than a longer prohibition.",
-    "#fix-the-class-not-the-instance — cross-clip scale drift had been re-rolled by hand in S164 (the naga) and was about to be re-rolled by hand again. Prompting fixed 3 of 5. The durable fix was normaliseStateScale in the builder plus a guard — and the guard immediately found a SIXTH instance in already-shipped castle art that nobody had noticed.",
-    "#a-guard-that-cries-wolf-is-worse-than-none — pointed at structures, my new guard produced two confident false positives (deliberate smoke read as scenery; rubble legitimately shorter than the intact building). Both checks silently assumed CHARACTER semantics. Scoping it explicitly, with those two false positives written up as the reason, is better than widening a threshold until the noise stops.",
-    "#say-which-checks-actually-ran — the guard printed 'clean on both checks' even when --no-size had skipped one. That is the same false-assurance shape as the S161 gate that FAILED and was read as passing.",
-    "#stop-chaining-gates-behind-&& — did it twice in one session after the project rule warns about it explicitly. Once it made a poll never run (and briefly convinced me two billed operations were lost); once it made python's exit code masquerade as tsc's.",
-    {
-      "priority": "P9",
-      "tag": "#read-the-number-the-error-printed",
-      "lesson": "Three separate diagnoses of the same CI red were wrong before one was right, and the correct one needed no new evidence - it was in the first error string. 'waitForWorld timeout (15000ms)' names a budget; the wait it failed on declares 30_000. The two earlier theories (slow boot, then browser memory exhaustion) were both plausible reconstructions built ON TOP of the message instead of readings OF it. The memory theory even 'worked' - it changed the failure shape from a dying browser context to a clean single-test failure - which made it feel confirmed while the real defect was untouched.",
-      "rule": "When a gate prints a NUMBER, find where that number is declared before theorising about causes. A timeout value that does not match the wait's own default is a bug in the plumbing, not a symptom of the environment."
-    },
-    {
-      "priority": "P9",
-      "tag": "#an-asset-opinion-must-never-block-a-ship",
-      "lesson": "A pixel guard written to protect art quality was wired into `npm run build`, so a missing pip package on the Pages runner took the LIVE DEPLOY down. Net effect: zero defects caught and a stale site while the owner was waiting to see new art. The same charter already said this about the bundle cap - 'never let it block a live deploy' - and I re-made the mistake one file over.",
-      "rule": "Guards that express an OPINION about quality belong on a separate runner from the one that ships. Red CI plus a shipped artifact beats a blocked deploy every time: the owner then sees both the flaw and the warning, instead of neither."
-    },
-    {
-      "priority": "P9",
-      "tag": "#a-partial-negative-control-accuses-a-working-test",
-      "lesson": "I neutralised `idPhase` in drawChewBite, watched the jitter test keep passing, and concluded the test was vacuous. It was not - the function has TWO creatureId terms (ring PHASE and crumb DISTANCE) and my `grep | head -4` had truncated the second out of sight. With both neutralised it fails exactly as designed. Separately, a control I ran against the spawner-ignition guard silently matched NOTHING, because the goblin-tower line has no `if (...) return;` wrapper like its two siblings - so the 'test' I was validating was never exercised at all.",
-      "rule": "A negative control must be ASSERTED to have applied, and must neutralise EVERY path to the behaviour. A control that cannot fail manufactures confidence; a partial one convicts working code. Print the mutated line, or assert the substitution happened."
-    },
-    {
-      "priority": "P9",
-      "tag": "#never-assert-on-anything-a-wall-clock-touches",
-      "lesson": "A prune test compared whole rendered frames between two renderer instances. It passed locally and failed on CI over `quadraticCurveTo(288,312,284,317)` vs `(...,286,317)` - two pixels of chewer leg - AND BLOCKED THE DEPLOY, because the unit suite gates it. The hop phase advances by `dtSec * IDLE_HOP_HZ`, i.e. real elapsed time, so the geometry encodes how fast the machine got between two syncs. Narrowing to the body position was machine-stable and stopped catching the leak, because a stale entry perturbs the HOP, not the position.",
-      "rule": "Identify what quantity the claim is actually about before choosing what to measure. This one was a MAP SIZE; an inspection hook reporting it directly is immune to both the instability and the insensitivity. Two failed pixel-based attempts cost a blocked deploy."
-    },
-    {
-      "priority": "P9",
-      "tag": "#a-lane-budget-is-a-shared-resource",
-      "lesson": "Two new e2e specs took the shared gating lane from 4.1 to 5.3 min locally - past its 720 s Playwright cap on a 3-5x slower runner. That does NOT read as a failed test; it reads as `Timed out waiting 720s for the test suite to run`, i.e. the whole lane, which this project has already lost three weeks of signal to. My first fix trimmed the tick budget on arithmetic that looked airtight (cadence `(tick - seat) % 1800` implies seat 0 fires at tick 0) and was wrong: a probe showed zero race units at tick 1408, because the emitter needs `gameState === 'PLAYING'` and the transition lands a few ticks in, so every seat misses its opening slot.",
-      "rule": "Adding a slow test to a lane at its ceiling is a change to every other test in it. Split it onto its own runner - the precedent already existed here twice - and prove the cadence with a probe before trusting the arithmetic about when a mechanic first fires."
-    },
-    {
-      "priority": "P10",
-      "tag": "#scout-the-subsystem-before-designing-against-it",
-      "lesson": "Two read-only scouting agents over the settings and audio subsystems, before any code, returned four defects that would otherwise have shipped: decoded PCM is 384 KB/s so an unbounded music cache reaches ~736 MB; NOTHING stopped the music at match end, which is invisible with one track and means 'you hear the previous race all next match' with six; the local race reads a confident, WRONG 'vampires' on the title screen for every player; and a third top-right glyph would have turned the deploy-gating e2e subset red via three separate guards. Each one is a defect I would have written and then debugged.",
-      "rule": "For a feature that threads through an unfamiliar subsystem, spend the read pass first and demand file:line for every claim. The cost is one round trip; the alternative is discovering the same facts from a failing deploy."
-    },
-    {
-      "session": "S166",
-      "priority": "P1",
-      "title": "A stale docblock is not documentation debt - it is the bug, waiting",
-      "entry": "The zone backdrop covered the shape queue because a docblock said it could not. :20 claimed the layer was bottom-of-stage so every spark, bond, structure and creature painted on top of it; :148, in the same file, records the move onto aboveFogLayer that made that false. Nobody had to be careless - the file held both its own correct and incorrect account, and the wrong one is the one a reader hits first. THE HABIT THAT CAUGHT IT: reading the code that fires a claim instead of the claim, already a project rule for warnings and evidently true of comments too. THE HABIT THAT NEARLY MISSED IT: I almost authored a file_lacks 0x000000 binding, which would have false-failed because my own new docblock quotes the old line in order to explain it - so I checked every needle against raw text and dropped two. Explaining a defect in prose puts the defect's text back into the file, and every text-based guard must then be re-checked. Same reason the unit test strips comments."
-    },
-    {
-      "session": "S166",
-      "priority": "P0-incident",
-      "title": "Distrust agent SIDE EFFECTS, not just agent CLAIMS",
-      "entry": "I already treat subagent findings as unverified - the project rule exists because reviewers have fabricated execution claims. What I had not done is treat their WRITES as a hazard. A discovery lane added a fake CreatureType to three source files as an empirical tsc probe, a genuinely good technique, and left it on disk. Only the gates lane had been told read-only. It was caught by an S165 MCV binding pinning the raceUnit union member WITH its semicolon: brittle by design, and that brittleness is exactly what noticed a member appended after it. TWO LESSONS. (1) Every read-only lane must SAY read-only; the instruction is one sentence and its absence cost a reverted tree and a re-run of every gate. (2) When a hook fires, resolve it before continuing - had I filed it as inherited S165 noise, I would have built the tier-3 tower on a mutated tree and measured every gate against a lie."
-    },
-    {
-      "session": "S166",
-      "priority": "P2",
-      "title": "The guards caught me twice, and both times the guard was the cheap part",
-      "entry": "registerAll.test.ts failed BY NAME on the ignition gap, then its own extraction exposed two further mistakes of mine: the regex is NON-GREEDY, so a race name passed as an argument shadowed the recipe id; and its character class was [A-Za-z]+ with no digits, so every t3TowerN id was invisible to it. Neither would have been found by reading my own diff. THE LESSON IS ABOUT COST ASYMMETRY: these guards took one session each to write and they have now caught a fake CreatureType written by an agent, six towers that would have made pencil chewers, and two of my own errors in one afternoon. The expensive thing is never the guard - it is the silent half-landing it prevents. And when a guard's own shape is wrong (the character class), WIDEN THE GUARD rather than renaming the thing it failed to see: a GodlyId is a serialized wire literal, and letting a test's regex choose the wire format is the tail wagging the dog."
-    },
-    {
-      "session": "S166",
-      "priority": "P3",
-      "title": "Three prompts for three states is three buildings, not one building three times",
-      "entry": "The owner rejected 18 tower images with one observation: \"the second state looks like a shack while the first one looks like a house\". The cause was not a bad roll, it was my METHOD - I wrote three INDEPENDENT text prompts per race, and a text description of a building yields *a* building, not *THAT* building. The fix was a mechanism the generator ALREADY HAD and whose own docblock argues for it better than I could: refImages exists for \"an IDENTITY constraint, not a style one\". Conditioning each damaged/destroyed state on its own intact PNG fixed it outright. TWO TRANSFERABLE LESSONS. (1) When output must be a VARIATION of prior output, the prior output is an INPUT - never re-describe it in words and hope. (2) The owner only reported the zombie set, but the same drift was in the naga set he had APPROVED - his approval of the intact had masked it. A reported defect is a sample, not the population: I re-checked all six and found the second one myself rather than fixing only what was named."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -7188,5 +6332,908 @@
   },
   "mcv_reconcile_s166": {
     "what": " ⛔ MCV RECONCILED (S166) — SIX BINDINGS WERE SUPERSEDED BY THIS SESSION'S OWN LATER WORK, AND EVERY ONE WAS REPLACED RATHER THAN DELETED, on the S165 precedent for exactly this (\"Binding REPLACED by two that pin the new form, with the supersession recorded in check_method - not deleted\"). None was a fabrication; each claim was TRUE when written and the tree moved underneath it. (1-2) S165 P7 pinned `PROTOCOL_VERSION = 42` and `protoVersion: 42`, which P2 bumped to 43. (3) S165 P7 pinned \"| 'raceUnit';\" WITH the semicolon; the six t3 literals now follow it, so the semicolon moved. ⭐ THAT BRITTLE BINDING EARNED ITS KEEP FIRST: earlier this session it is what caught a discovery agent writing a fake CreatureType into the tree. It pins ORDER as well as presence, which is fragile AND is why it noticed. Replaced by two - `| 'raceUnit'` for presence and `| 't3Souleater';` for the union terminator. (4) S165 P9 pinned \"42 at S165\" in CLAUDE.md, updated by bump site 6. (5-6) MY OWN P1 pinned `this.spriteHost.mask = this.portalMask;` and `.cut();`, both DELETED by my own bake fix after the stencil mask broke CI. Replaced by bindings on `punchPortal` / `destination-out` / `portalInSource`, plus `file_lacks` on `.mask =` and `new Graphics()` - the NEW invariants. ⚠ `.cut()` was REJECTED as a file_lacks needle: it appears once in raw text because the new docblock QUOTES the old mask to explain why it was wrong. Measured, not assumed - the same check that rejected `0x000000` and `sortableChildren` earlier today."
-  }
+  },
+  "priorities_s166_archived": [
+    {
+      "id": 1,
+      "title": "P1 - race-unit art regenerated: no baked ground shadow, no near-white, all rows consistent",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6bce857",
+      "check_method": "All 24 castle-unit clips are S165 art off the new no-shadow, named-pallor designs - the mixed-design atlas is gone. The vampire ATTACK is finally weaponless on the FOURTH attempt: three prior generations drifted a blade in under a bare negative, a stronger negative and an explicit positive ('both hands empty in every frame'); changing the VERB to a BITE fixed it first try, because none of the earlier attempts changed what the hands were DOING. Both shadow sites fixed (spec + the script default every future spec inherits). The naga's sampleWindow is per-state on a measured sweep. ⭐ The atlas guard then caught the NAGA's walk row at 1.29x - a live defect behind the owner's own S164 reject that sampleWindow had never actually fixed - and it was re-rolled with a margin instruction and re-measured to 1.00x. All 6 atlases clean on both guard checks.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-units/design-spec.json",
+          "pattern": "\"Centered on a plain pure white background with a small soft dark oval shadow",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-units/design-spec.json",
+          "needle": "NO GROUND SHADOW OF ANY KIND"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-units/design-spec.json",
+          "needle": "VISIBLE COLOUR CAST"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/gen-character-design.mjs",
+          "needle": "NO GROUND SHADOW OF ANY KIND"
+        },
+        {
+          "type": "file_lacks",
+          "path": "assets-source/race-units/atlas-specs.json",
+          "needle": "_S165_INCOMPLETE_ROWS"
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-units/atlas-specs.json",
+          "pattern": "normaliseStateScale",
+          "op": ">=",
+          "value": 6
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-units/design-spec.json",
+          "syntax_type": "json"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "P2 - W1-C castle emitter wiring",
+      "status": "superseded_by_P7",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "acac4a1",
+      "check_method": "⚠ SUPERSEDED BY P7, WHICH SHIPPED THE EMITTER. What P2 itself delivered stands and is still verified below: the 43-agent A.0 pass (W1C_A0_FINDINGS.md), the LIVE nearestChewer bug it found (bots had been fleeing their own goblins since S151, fix proven by reverting it), raceUnitFrames.test.ts as the asset gate the atlases never had, and the move to public/art/race-units/. Its one open item — 'the emitter itself is not wired' — is closed by P7 at ef944bd.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "if (c.type !== 'chewer') continue;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "if (c.sourceSpawnerId === null) continue; // Voltkin"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/nearestChewer.test.ts",
+          "pattern": "\bit\\(",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/raceUnitFrames.test.ts",
+          "pattern": "\bit\\(",
+          "op": ">=",
+          "value": 8
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceUnitFrames.test.ts",
+          "needle": "cellH is IDENTICAL across all six races"
+        },
+        {
+          "type": "file_contains",
+          "path": "W1C_A0_FINDINGS.md",
+          "needle": "A PROTOCOL BUMP **IS** OWED"
+        },
+        {
+          "type": "file_contains",
+          "path": "W1C_A0_FINDINGS.md",
+          "needle": "THE SENTINEL ALONE DOES NOT MAKE THE CASTLE EMIT"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "P3 - tier-3 tower unit art (R116/R134): 6 designs, 24 clips, 6 atlases",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6bce857",
+      "check_method": "Bat, piranha, scarab, redrawn hound, twin-axe warband raider, faceless wraith. 24 clips on veo-3.1-fast after establishing the per-model quota split. Auditioned on pure black across four re-roll rounds: round 1 found background SCENERY in 4 of 24 (the matte structurally cannot remove mid-grey), round 2 found the negative was REPRODUCING the thing it named, round 3 fixed pose defects (a piranha that grew arms and legs), round 4 fixed cross-row scale drift. All six atlases now clean on BOTH guard checks with every row within 1% of its median. ⚠ NO STAT LINE WRITTEN - R135 asks for varied stats and supplies no figures.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier3-units/clip-spec.json",
+          "pattern": "\"name\": \"t3-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-units/atlas-specs.json",
+          "needle": "normaliseStateScale"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "THIS GUARD IS FOR **CHARACTER** ATLASES"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "normaliseStateScale"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "P4 - tier-3 race towers: 24 condition stills + 6 destruction cinematics + 12 atlases",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6ddadc4",
+      "check_method": "24 stills (6 towers x intact/spawning/damaged/destroyed) built as t3tower-* on the castle pattern - framesPerState 1, fit box, still states - plus 6 animated destruction cinematics as t3destroy-*, seeded off each tower's DAMAGED still so frame 0 matches the sprite already on the board and the last frame lands on the destroyed sprite. Both owner-named destructions landed: the pyramid's spiralling SAND DEVIL and the kennel LIQUEFYING into ooze. Gravity rule honoured on every damaged state. Zero ink touches any frame edge on all 24 stills (measured). ⭐ The guard gave two FALSE POSITIVES here and that is recorded rather than tuned away: grey SMOKE read as scenery, and destroyed=0.80x is correct because rubble is shorter than the building. The guard is now scoped to CHARACTER atlases with --no-size / --allow-scenery, and its success line names which checks actually ran.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
+          "pattern": "\"name\": \"t3tower-",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
+          "needle": "SAND DEVIL"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-towers/destroy-clip-spec.json",
+          "needle": "MELTS DOWNWARD INTO THICK GREEN OOZE"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "--allow-scenery"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "P5 - twelve per-race zone backgrounds (R137)",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "24608ae",
+      "check_method": "Twelve, not six, and the reason measured against src/state/zones.ts: SPLIT_X = CANVAS_WIDTH/2 = 960 and SPLIT_Y = CANVAS_HEIGHT/2 = 540, so a PITCH_2P zone is 960x1080 portrait and a QUADRANTS_4P zone is 960x540 landscape. Generated in R137's stated order - every 4P landscape first from its banner, every 2P portrait then seeded off its OWN 4P sibling. The readability contract is MEASURED rather than asserted: mean max-channel value 21.9-41.1 out of 255 across all twelve and ZERO pixels above 200 in any of them, so they sit under gameplay instead of competing with it. ⚠ The vampires' setting and the 3:4 portrait aspect are MINE and flagged at the spec.",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-zones/design-spec.json",
+          "pattern": "\"name\": \"zone-[a-z]+-4p\"",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-zones/design-spec-2p.json",
+          "pattern": "\"name\": \"zone-[a-z]+-2p\"",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-zones/design-spec.json",
+          "needle": "IT MUST STAY DARK AND QUIET"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/race-zones/design-spec-2p.json",
+          "syntax_type": "json"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "P6 - final audit: gates, commit, push, deploy; fix anything broken",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6ddadc4",
+      "check_method": "All four gates read directly: typecheck 0, vitest 0 (3693/3693 across 236), build 0 (781.7/900 KiB), e2e:gating 0 (62 passed). Pushed 48b9475..6ddadc4. Both CI lanes concluded SUCCESS. verify-deploy PASS 4/4 at 6ddadc4. Working tree clean, 24/24 source clips present, ZERO stranded veo .op.json handles (nothing billed and unrecoverable). Two failures investigated rather than passed over: the atlas builder's exit 1 was the wrong input shape (it takes ONE spec, atlas-specs.json is a container of six) and a /tmp path that Python and node resolve differently; the final clip run's exit 124 was my own deliberate `timeout 240` wrapper kill.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "verify_deploy"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "veo_blocker_RESOLVED"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "needle": "PASS 4/4"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "P7 - W1-C: the castle produces its race's unit, WIRED and live (PROTOCOL 41 -> 42)",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "ef944bd",
+      "check_method": "Every castle emits one free race soldier every ~30 s and the renderer draws it from that seat's race atlas. ONE `raceUnit` CreatureType for all six races (R94/R117 make them stat-identical, so the race is read off `player.raceId`, on the wire since v39) rather than six literals. PROTOCOL bumped 41->42 across all six checklist sites, and the sync gate caught two real mistakes in my own bump before it passed: I destroyed the 40->41 narrative link by replacing it, and I put the new HelloMsg entry in the wrong chronological position, then in the wrong docblock entirely. Per-seat sentinel SpawnerId (-1 - seat), a third cap family RACE_UNIT_MAX_* with `raceUnit` also EXCLUDED from underGoblinCaps' count, and its own explicit call site because the spawner poll iterates a map the sentinel is absent from. Deterministic spread via spreadTargetPos so units do not stack. The frozen differential gate broke on tick 1 exactly as A.0 predicted and was fixed at the FIXTURE (start tick 900, off the recruit cadence) with the equivalence argument written there - never by transcribing into the frozen reference. Five other test files were adjusted and every one was SHARPENED rather than loosened: four used world.creatures.size as a proxy for 'the spawner emitted nothing' while their own titles said drones/chewers/goblins, and one measured a bot's competence by whether its tower SURVIVED 18,000 ticks. GATES: typecheck 0, vitest 0 (3705/3705 across 237), build 0, e2e:gating 0 (62), CI E2E success, verify-deploy PASS 4/4.\n\n ⛔ MCV RECONCILED (S166) — SIX BINDINGS WERE SUPERSEDED BY THIS SESSION'S OWN LATER WORK, AND EVERY ONE WAS REPLACED RATHER THAN DELETED, on the S165 precedent for exactly this (\"Binding REPLACED by two that pin the new form, with the supersession recorded in check_method - not deleted\"). None was a fabrication; each claim was TRUE when written and the tree moved underneath it. (1-2) S165 P7 pinned `PROTOCOL_VERSION = 42` and `protoVersion: 42`, which P2 bumped to 43. (3) S165 P7 pinned \"| 'raceUnit';\" WITH the semicolon; the six t3 literals now follow it, so the semicolon moved. ⭐ THAT BRITTLE BINDING EARNED ITS KEEP FIRST: earlier this session it is what caught a discovery agent writing a fake CreatureType into the tree. It pins ORDER as well as presence, which is fragile AND is why it noticed. Replaced by two - `| 'raceUnit'` for presence and `| 't3Souleater';` for the union terminator. (4) S165 P9 pinned \"42 at S165\" in CLAUDE.md, updated by bump site 6. (5-6) MY OWN P1 pinned `this.spriteHost.mask = this.portalMask;` and `.cut();`, both DELETED by my own bake fix after the stencil mask broke CI. Replaced by bindings on `punchPortal` / `destination-out` / `portalInSource`, plus `file_lacks` on `.mask =` and `new Graphics()` - the NEW invariants. ⚠ `.cut()` was REJECTED as a file_lacks needle: it appears once in raw text because the new docblock QUOTES the old mask to explain why it was wrong. Measured, not assumed - the same check that rejected `0x000000` and `sortableChildren` earlier today.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/raceUnitEmit.ts",
+          "needle": "export function castleSpawnerId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "underRaceUnitCaps(world, action.ownerPlayerId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "raceUnitEmitTick(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "ensureRaceAtlas"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/raceUnitEmit.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 12
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 43 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 43;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 'raceUnit'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 't3Souleater';"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "P8 - the twelve per-race zone backgrounds, WIRED and live (R137)",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "8aff165",
+      "check_method": "Each seat's quarter now shows that race's world, chosen per seat from the synced raceId and per board from world.layout (R137: 2P portrait, 4P landscape). ⛔ TWO DEFECTS FOUND ONLY BY LOOKING AT THE RUNNING APP, neither catchable by any test: (1) the backdrop at the bottom of the STAGE rendered a BLACK BOARD in every multiplayer match, because fogRenderer paints unexplored ground in FOG_COLOR = 0x000000 and sits above the board layers - it showed only on the TITLE screen where there is no fog; moved to index 0 of aboveFogLayer, which is also the correct answer since terrain is static public information and fog exists to hide activity, not geography. (2) It was painting half a Carpathian valley behind the MAIN MENU, because seat 0 exists before a match starts; gated on gameState. VERIFIED VISUALLY: all four quarters render correctly in a live 4-bot match. ⚠ The castle emitter could NOT be confirmed in-browser the same way and this is stated rather than glossed: it fires at tick 1800 and the preview pane, being hidden, has requestAnimationFrame fully paused - MEASURED at zero frames in one second with the HUD clock frozen at 1:30. Covered by raceUnitEmit.test.ts instead. GATES: typecheck 0, vitest 0 (3705/3705), build 0 (784.6/900 KiB), verify-deploy PASS 4/4 at 8aff165.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/zoneBackgroundRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "AT INDEX 0 OF `aboveFogLayer`, NOT OF THE STAGE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "NOT ON THE TITLE SCREEN"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new ZoneBackgroundRenderer(app, aboveFogLayer)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "pattern": "zone-\\$\\{race\\}",
+          "op": ">=",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "P9 - CI + deploy recovery, and the sweep fixes that followed",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "5f2a1fa",
+      "check_method": "CI RECOVERED. E2E had been red on every commit after 8aff165 and is GREEN on 28f6b470 - gating e2e, e2e-protocol, e2e-lobby, e2e-soak and the new atlas-guard job all pass; e2e-quarantine fails as designed under job-level continue-on-error, so the RUN concluded success. ROOT CAUSE was NOT the diagnosis carried into this stretch. The failing line printed 'waitForWorld timeout (15000ms): a gatherer banks a shape into the local castle', and 15000 is not that wait's number: pullFromBank declares 30_000 for the ECONOMY wait, placeFreeSparkAndConfirm declares 15_000 for the DRAG, and it passed its own budget straight down. Two unrelated operations shared one number and the smaller won. Fixed with Math.max(timeoutMs, 30_000). The zone backdrop only thinned the margin (5 straight greens before it, 4 failures + 1 success after) - a budget that was always wrong finally started binding. DEPLOY RECOVERED SEPARATELY: the atlas guard I had wired into `npm run build` took the Pages deploy red on ModuleNotFoundError: numpy. Moved to its own atlas-guard job in e2e.yml with a pip step; build is Node-only again. Deploy green on 7e0294ab and every commit since; verify-deploy 4/4. SWEEP FIXES LANDED: (1) HUD ownDecaying tinted an amber 'your score is bleeding' cue while LEADER_DECAY_ENABLED has been false since S147 R28 - now reads the flag, and its test asserts the FLAG instead of a literal true, which is how it stayed green through the mechanic being switched off. (2) DEFENDER_TARGETS had the two towers BACKWARDS vs the code: stinkTower said units-only while stinkThrowBag passes STINK_BAG_DAMAGE as applyRadialDamage's PRIMITIVE amount (corrected to BOTH + pinned by a new test); turret says BOTH per R72 while the beam is creature-only, so the RULING is kept and logged as a carry-forward rather than erased to quiet an audit. (3) the castle sentinel's fallthrough in ownHomePos documented as safe-and-correct with the reason it cannot call isCastleSpawnerId (import cycle). (4) atlas-spec gap re-measured: FOUR unspecced, split into recoverable (helga, stink-bag - clips in tree) and unrecoverable (goblin-archer, goblin-melee - no clips anywhere). (5) the bundle charter now PRINTS the 62 MiB static payload - reported, never gated, for the reason in (deploy) above; first run surfaced a 9.5 MiB audio file. NEW GUARD FOR THE OWNER'S OWN COMPLAINT: e2e/zone-backdrop.spec.ts asserts the browser FETCHED /art/race-zones/*.png with a 200 during a match - the one observation nothing in the suite made, which is why 'i dont see the backgrounds' could not be answered. NEGATIVE CONTROL RUN: with zoneBackgroundRenderer.sync(world) removed it fails with its own diagnostic; restored, 1/1 in 20.5s, and main.ts verified byte-identical to HEAD via git diff. GATES: typecheck 0 - vitest 0 (3715/3715, 239 files) - build 0 - check:atlas 0 (30 atlases, three checks) - e2e:gating 62/62 local (GATING_EXIT captured, not read off the wrapper's '[exited with code 0]') - CI E2E green - deploy verified 4/4. ONE UNRESOLVED, NOT SILENCED: worker-bots.spec.ts:78 failed ONCE in a full-suite local run (world back at TITLE/solo mid-test), then passed standalone, passed a second full-suite run, and passed on CI. Recorded as an unreproduced suite-context flake - the project CLAUDE.md already documents this spec as historically red - NOT as benign. || MCV RECONCILIATION (S165, before close): one P9 binding failed on disk - file_contains '    LEADER_DECAY_ENABLED &&' in src/render/ui.ts. It was TRUE when written and was superseded by my own later fix in the same session: sweep Lane 5 showed that gating ownDecaying on the constant left every test case expecting false, so the predicate became unguarded and `const ownDecaying = false;` would have passed the suite. The flag is therefore now an INJECTABLE PARAMETER defaulting to LEADER_DECAY_ENABLED (the isSimWorkerRequested(search, defaultOn) shape this repo already uses), so the line reads `decayEnabled &&`. The CLAIM is unchanged and still true - the HUD cue is gated on the decay flag - and the implementation is strictly stronger. The binding is REPLACED BY TWO that pin the current form (the parameter's default and the guard expression), not deleted: deleting it would have made a real superseded claim unverifiable. || MCV UNBOUND-GAP RECONCILED: BACKLOG.md was modified this session (the doc-truth pass closed the S162 NONET blocker that owner R132 had already settled in S164) and carried no binding. session_start is a full ISO timestamp, so this was a real gap and not the date-only false-unbound class. Bound two ways: the closure banner must be PRESENT, and the UNCHECKED `- [ ]` blocker line must be ABSENT. The struck-through original text is deliberately still in the file - a decision that vanishes reads as an oversight and gets re-made - so the file_lacks pins the checkbox state rather than the prose. || CLOSE BOOKKEEPING: CLAUDE.md's gate numbers refreshed to the real close figures (3755 tests / 241 files; e2e:gating 67 tests / 18 files) and the P9 binding that PINS that string moved with them in the same edit - which is the whole reason the binding exists, since the number is supposed to move and a binding that pins a stale one would fail on the next honest change. || LANE SPLIT: the two new e2e specs took the shared gating lane past its 720 s Playwright cap on runs 7c39965 and f2a653a - which reads as 'Timed out waiting 720s for the test suite to run', not as a test failure. I trimmed the tick budgets first and the trim was WRONG: a probe showed race-unit count still zero at tick 1408, because raceUnitEmitTick is gated on gameState==='PLAYING' and the transition lands a few ticks in, so all four seats miss their opening slot and the first emit is at tick 1800. The mechanic is inherently 30 s of sim per observation. Split into an `@races` tag + its own GATING e2e-races job (the e2e-protocol/e2e-lobby precedent). Shared lane back to 62 tests/3.7 min from 67/5.3; races lane 5 tests/1.2 min; both exit 0. My own ci.e2eLanes guard CAUGHT the new tag as undeclared and told me what to do, then needed a third state (OWN_JOB) because EXCLUDED would have recorded a gating lane as non-gating - negative-controlled by renaming the job.",
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "package.json",
+          "needle": "check-bundle-size.mjs && npm run check:atlas"
+        },
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "\"build\": \"tsc -b && vite build && node scripts/check-bundle-size.mjs\""
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "atlas-guard:"
+        },
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "pip install numpy scipy Pillow"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "process.exit(3)"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/helpers.ts",
+          "needle": "await pullFromBank(page, Math.max(timeoutMs, 30_000));"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "  decayEnabled: boolean = LEADER_DECAY_ENABLED,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "    decayEnabled &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.progress.test.ts",
+          "needle": "toBe(LEADER_DECAY_ENABLED)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "stinkTower: BOTH,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "NOT YET IMPLEMENTED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.test.ts",
+          "needle": "the STINK TOWER attacks BOTH"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "THE CASTLE SENTINEL FALLS THROUGH HERE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/raceUnitEmit.ts",
+          "needle": "NO PRODUCTION CALLER"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/godly-goblins/atlas-specs.json",
+          "needle": "_unspecced_atlases_note"
+        },
+        {
+          "type": "syntax_ok",
+          "path": "assets-source/godly-goblins/atlas-specs.json",
+          "syntax_type": "json"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-bundle-size.mjs",
+          "needle": "static assets (NOT gated, NOT initial-load)"
+        },
+        {
+          "type": "file_exists",
+          "path": "e2e/zone-backdrop.spec.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "/art/race-zones/"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "test.describe('@visual"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "needle": "@quarantine-flaky"
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/zone-backdrop.spec.ts",
+          "pattern": "\\bexpect\\(",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "3755 tests / 241 files at S165 close"
+        },
+        {
+          "type": "file_lacks",
+          "path": "CLAUDE.md",
+          "needle": "3646 tests / 233 files at S163"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "THE S162 BLOCKER IS CLOSED"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "- [ ] ⛔ **BLOCKER FOUND IN S162"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "43 at S166"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "P1(S166) - SCOPE AMENDMENT: the spawner portal must be a HOLE, not opaque paint over the sparks",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "204fc3f",
+      "check_method": "ROOT CAUSE, established by reading the code rather than by reproducing: portalCut was circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer, while SparkRenderer is constructed on app.stage (main.ts:535) and aboveFogLayer is added after it (main.ts:679) - so the disc sat strictly above every spark and bond, at the one spot where all of them are born. The owner's own sentence carried the diagnosis (his gatherer kept gathering = the sim was never involved). SECOND DEFECT, and the reason it shipped: the :20 docblock asserted the OPPOSITE layering (the FIRST layer added to the stage, so every spark/bond/structure/creature paints on top of it), stale from the first cut, while the :148 docblock in the same file records the move onto aboveFogLayer in full. Its list is wrong exactly where it mattered - creatures, goblins, gatherers and towers ARE above; sparks and bonds are the two gameplay layers below. FIX: sprites moved into a spriteHost masked by rect(canvas).fill().circle(quarry).cut(); portalCut DELETED so no opaque fill exists on the layer at all; sortableChildren + zIndex removed rather than replaced, because they existed only to keep paint above lazily-loaded sprites and a mask is not in the paint order. The old docblock's objection to masking (rebuilt whenever the geometry moves) does not apply - every input is a compile-time constant. VERIFICATION, four independent ways. (1) Six unit tests pinning the INVARIANT (nothing opaque on the layer; every sprite through the mask), not the symptom. (2) TWO NEGATIVE CONTROLS, each red for the right reason and reddening only the right test: routing sprites to this.layer gave NC1_EXIT=1 on the sprite-parent test; dropping the mask assignment gave NC2_EXIT=1 on the structural test. (3) The source scans STRIP COMMENTS - mandatory here because the new docblock QUOTES the old fill line verbatim to explain it, so a naive scan would match the quote and pass while the defect was live. Same vacuity class registerAll.test.ts documents. (4) RUNTIME in a real browser on a 4-seat QUADRANTS_4P board: all four backdrops loaded, all four sprites reported parent===spriteHost, layer children exactly [_Container,_Graphics], portalCut absent from the instance, layerVisible true, alphas 0.55. The hidden Browser pane throttles rAF to about 1 tick/sec so sync never ran on its own; I invoked the real production sync(world) directly, substituting only the scheduler. __SPARK__.zoneBackgroundRenderer was added for this (S85 P4c geometry-getter convention, DEV-only, tree-shaken) because a static test cannot observe runtime layering. BINDING HYGIENE: I checked every file_lacks needle against RAW text first and DROPPED two that would have false-failed - 0x000000 (raw count 1, my own docblock quote) and sortableChildren (raw count 1, my own comment). That is precisely the brittle-binding class that produced this session's MCV incident, avoided by measuring instead of assuming. GATES, every exit code read from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3762 tests / 242 files, +6 tests +1 file), BUILD_EXIT=0 (787.6 KiB main entry, 112.4 KiB headroom). NOT DONE, deliberately, and stated rather than silently dropped: the e2e assertion the PDR listed. A scene-graph assertion there would have been near-duplicative of the unit test and would still NOT catch a WebGL mask failure, which needs pixel sampling that is ambiguous here because the disc is legitimately black. Replaced by the real-browser runtime check above, which is stronger evidence. ALSO NOT DONE, owner-declined: raising sparks/bonds above the backdrop to remove the residual 0.55 dimming OUTSIDE the disc. That would put shape activity above the FOG, a gameplay change; he was offered it explicitly and chose the hole fix alone.\n\n⛔ SUPERSEDED BY MY OWN BAKE FIX LATER THE SAME SESSION, and the reason is the more important half. The mask shipped, was verified in a real browser, and BROKE CI: a per-frame stencil over the full 1920x1080 canvas collapsed the runner to 5.28 ticks/s and blew the gating lane past its 720 s cap, killing three specs on `waitForWorld timeout: a gatherer banks a shape into the local castle` - this renderer's own fingerprint and the THIRD distinct cause of that same line. I re-ran the failed jobs BEFORE touching the product (the test's own diagnostic warns \"do NOT fix the product from this signal\") and it reproduced identically, so it was not runner noise. Replaced by `punchPortal`, which erases the quarry into each texture once with canvas 2D `destination-out`; steady state is four plain sprites, exactly what shipped before S166, so the portal now costs the frame budget NOTHING. Confirmed by CI going green on 5a1c784 (e2e, e2e-races, e2e-soak all success) and by PIXEL probe in a real browser: alpha 0 just inside the quarry edge, 255 elsewhere.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "this.spriteHost.addChild(sp);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "private readonly portalCut: Graphics;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "this.layer.addChild(sp);"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/zoneBackgroundRenderer.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "function punchPortal"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "export function portalInSource"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "ctx.globalCompositeOperation = 'destination-out';"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": ".mask ="
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "new Graphics()"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 11
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "P2(S166) - the tier-3 race tower and its six race-specific units (R108/R119/R134/R136/R137)",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "40e2168",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/state/godlyRecipes/ringShape.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/godlyRecipes/raceTower.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/raceTowerIds.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const T3_STATS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 't3Souleater';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/types.ts",
+          "needle": "| 't3TowerDemons';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "} else if (isRaceTowerId(sp.recipeId)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/spawners/spawnerLifecycle.ts",
+          "needle": "case 't3TowerDemons': {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyMatcherCore.ts",
+          "needle": "demonTowerOwner, 't3TowerDemons');"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprints.ts",
+          "needle": "const TRI_RING_R = 34;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprints.ts",
+          "needle": "'t3TowerVampires', 't3TowerNagas', 't3TowerMummies',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function seatTowerRungs"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/goblinTowerFeed.ts",
+          "needle": "export function fedCreatureType"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "const visible = ALL_BLUEPRINT_IDS.filter"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "t3Bat: t3UnitAtlasBase('vampires'),"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "'t3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyRecipes/ringShape.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 12
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyRecipes/raceTower.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 10
+        }
+      ],
+      "check_method": "Built the tier-3 race tower and its six units end to end. R119 already ruled the build cost (three of the race own shape, closed ring), so nothing was asked of the owner that the archive had settled - the S165 handoff's \"ask the build cost first\" was the S158 trap. SIX CreatureTypes rather than one is FORCED, not chosen: the castle mints one `raceUnit` because R125 makes those stat-identical, but R135 varies tier-3 stats per race and `serializeCreature` emits `hp` only when DAMAGED, so an undamaged creature carries no stats and the peer rebuilds them from its OWN CREATURE_CONFIGS keyed by TYPE. FOUR THINGS WOULD HAVE SHIPPED BROKEN. (a) `hostTick.ts:818` is an `else` emitting `chewer` for every unnamed spawner recipe - six towers passively making PENCIL CHEWERS, verbatim the owner-reported S152 A1 defect, and in NONE of the spec's bill or B9-B14. (b) `recipeStillSatisfied`'s default would have kept all six alive forever off one primitive. (c) B12: RING_R=40 gives 69.3 px at n=3, past AUTO_BOND_RADIUS - stampable and UN-BUILDABLE BY HAND; TRI_RING_R=34 gives 58.9 px. (d) B14: botBrain sorts ALL_BLUEPRINT_IDS at module level with no seat, so every bot of every race would queue t3TowerDemons and order Spirals for a tower R137 refuses. THE GUARDS CAUGHT TWO OF MY OWN MISTAKES. `registerAll.test.ts` failed by name, then its extraction regex exposed both: it is NON-GREEDY so `findRaceTowerAnchors(world, 'vampires')` handed it \"vampires\" instead of the id, and its class was `[A-Za-z]+` with NO DIGITS so `t3TowerDemons` was invisible. Fixed by keeping the id the only literal in each ignition call (per-race helper functions) and widening the class - a GodlyId is a serialized wire literal, so a test's character class must not choose the wire format. AND TWO TEST FILES CARRIED COPIES OF THE BRAIN'S RUNG SORT, both of which went stale at once when tier 3 became the cheapest build: `botTowers.test.ts` and `botTowerVariety.test.ts` each derived \"cheapest\" from ALL_BLUEPRINT_IDS and so banked Spirals for a demon tower the NAGAS bot can neither see (R95) nor ignite (R137). Eleven red tests, zero real bugs. `seatTowerRungs` is now EXPORTED and shared, so neither copy can drift again. LINE ENDINGS: src/ is mixed PER FILE (constants/creature/voltkin-config/stats/blueprints/protocol are CRLF; hostTick/goblinRenderer/types/registerAll/spawnerLifecycle/botBrain are LF). An LF anchor matches ZERO times in a CRLF file - which is how this was found - so every edit detected the file's own ending and verified uniformity at the BYTE level after writing. STATS ARE PROVISIONAL AND SAY SO: R135 gives no figures and the owner intends to decide by testing, so T3_STATS marks every number as MINE with its derivation (band 2-4 HP, above the free 1/1/1/1 castle soldier and below every goblin, R99's zombie/mummy poles fixing the spread, totals near-flat). NOT BUILT, stated rather than dropped: R121's submerged naga (an engineering surface across every acquisition path), the `die` atlas row (no renderer arm can request row 3), and the tower's own four-state art + destroy cinematics (the UNITS are wired; the tower art is not). The registry-driven ignition rewrite that would end the hand-written-chain defect class is named at the call site and deliberately left to its own priority - it changes one-spawner-per-topology-change semantics on the sim hot path. GATES, every exit code from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3880 tests / 244 files, +113 tests +2 files over the 3767/242 baseline), BUILD_EXIT=0 (795.0 KiB main entry, 105.0 KiB headroom under the 900 KiB charter)."
+    },
+    {
+      "id": 12,
+      "title": "P3(S166) - SCOPE AMENDMENT: generate the six tier-9 bosses + their towers (24 seeds)",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "e30de2e",
+      "check_method": "Owner amended scope mid-session, reversing his own \"no dont work on tier 9 boss yet\" for the ART only: \"lets at least generate the bosses now and their buildings in whole\", then \"buildings whole damaged and destroyed\". He also amended two names (Lucifer -> Archdemon, Chieftain/Warlord -> Warlord) and asked me to propose the two missing fear axes. SIX AXES, NOT ONE BRIEF, and that is the design decision here: he fixed four himself (Whopper DISGUSTING, Kraken MONSTROUS, Vlad IMPERIAL, Archdemon VICIOUS) and asked for two. Proposed Warlord BRUTAL and Pharaoh ANCIENT & CURSED - deliberately NOT \"regal\", because Vlad already owns aristocratic dread and two regal bosses is the R99 convergence trap. ONE REGEN AND THE REASON IS THE VALUE: the first Vlad came back as a waist-up portrait against a full castle courtyard. Not merely off-brief - build-sprite-atlas.mjs mattes by finding near-white CONNECTED TO THE FRAME BORDER, so scenery makes the image uncuttable. \"Imperial regalia\" read as a throne-room brief. Rewritten and the note kept at the character so the next author does not re-learn it. Verified by EYE, not by exit code: all 24 inspected. 5/6 bosses and the tower sets are clean - white matte, no ground shadow, whole subject in frame, nothing white on the subject, three tower states holding one silhouette and palette with every detached piece resting on the ground. FLAGGED, NOT ACTED ON: \"Whopper\" is a live Burger King trademark (concept safe, word exposed; BLOAT/GLUTTON/THE SWOLLEN/TUMOR offered), and Vlad reads dignified rather than overwhelming - faithful to his axis but offered for a punchier regen. Both are owner calls. NOT DONE, owner-deferred: the per-race destroy cinematic and the five clips (idle, moving, dying, basic attack, skill attack). Skills undecided on purpose, which is why every seed is a grounded READY stance rather than mid-swing - it must drive all five. SEEDS ONLY: assets-source/, nothing in public/, no code references, so a rename costs a file move. AWAITING THE OWNER'S VERDICT before any of it becomes an atlas.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/design-spec.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/design-spec.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-vampires-vlad.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-nagas-kraken.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-mummies-pharaoh.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-zombies-whopper.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-orcs-warlord.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-bosses/boss-demons-archdemon.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-vampires-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-nagas-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-mummies-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-zombies-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-orcs-destroyed.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-intact.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-damaged.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "assets-source/race-tier9-towers/t9-demons-destroyed.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier9-bosses/design-spec.json",
+          "needle": "S166 REGEN 1"
+        },
+        {
+          "type": "file_contains",
+          "path": "RACE_ZONES_AND_BOSS_TOWERS.md",
+          "needle": "ALL SIX ARE NOW OWNER-NAMED"
+        }
+      ]
+    }
+  ],
+  "reflexion_s166_archived": [
+    "#grep-the-archive-before-asking-the-owner — I put 'what happens to a dead seat's units?' to the owner as an open question. It had been ruled two sessions earlier (ruling_cf_s161_a, 'keep fighting'). The project CLAUDE.md forbids this in as many words and S158 was pulled up for the same thing. The agent's OBSERVATION was right (elimination.ts has zero creature references) and its CONCLUSION was wrong — that absence IS the implementation of 'keep fighting'.",
+    "#the-tell-was-in-the-thing-that-still-worked — I told the owner twice that his Google top-up went to the wrong product. Image generation on that same key worked all session; an account-wide billing failure would have stopped images too. The real cause was a per-MODEL quota: veo-3.1 was exhausted while veo-3.1-fast and -lite accepted the same request in the same second. Check what still works before concluding what is broken.",
+    "#two-samples-is-not-a-measurement — I compared veo-fast against full on TWO clips, found them indistinguishable at 200px, and said so. Across 24 clips the difference was real and specific: fast invents background scenery. Both statements were measured; the first was measured on too small a sample and stated with too much confidence.",
+    "#a-negation-puts-the-noun-in-the-prompt — 'there is no cave, no stonework, no pillars' produced stonework; the hound's brand-new die clip came back with MORE scenery than the one it replaced. Positive framing ('a seamless blank sheet of pure white paper') fixed both first try. Same lesson as the vampire's phantom weapon, which needed the VERB changed rather than a longer prohibition.",
+    "#fix-the-class-not-the-instance — cross-clip scale drift had been re-rolled by hand in S164 (the naga) and was about to be re-rolled by hand again. Prompting fixed 3 of 5. The durable fix was normaliseStateScale in the builder plus a guard — and the guard immediately found a SIXTH instance in already-shipped castle art that nobody had noticed.",
+    "#a-guard-that-cries-wolf-is-worse-than-none — pointed at structures, my new guard produced two confident false positives (deliberate smoke read as scenery; rubble legitimately shorter than the intact building). Both checks silently assumed CHARACTER semantics. Scoping it explicitly, with those two false positives written up as the reason, is better than widening a threshold until the noise stops.",
+    "#say-which-checks-actually-ran — the guard printed 'clean on both checks' even when --no-size had skipped one. That is the same false-assurance shape as the S161 gate that FAILED and was read as passing.",
+    "#stop-chaining-gates-behind-&& — did it twice in one session after the project rule warns about it explicitly. Once it made a poll never run (and briefly convinced me two billed operations were lost); once it made python's exit code masquerade as tsc's.",
+    {
+      "priority": "P9",
+      "tag": "#read-the-number-the-error-printed",
+      "lesson": "Three separate diagnoses of the same CI red were wrong before one was right, and the correct one needed no new evidence - it was in the first error string. 'waitForWorld timeout (15000ms)' names a budget; the wait it failed on declares 30_000. The two earlier theories (slow boot, then browser memory exhaustion) were both plausible reconstructions built ON TOP of the message instead of readings OF it. The memory theory even 'worked' - it changed the failure shape from a dying browser context to a clean single-test failure - which made it feel confirmed while the real defect was untouched.",
+      "rule": "When a gate prints a NUMBER, find where that number is declared before theorising about causes. A timeout value that does not match the wait's own default is a bug in the plumbing, not a symptom of the environment."
+    },
+    {
+      "priority": "P9",
+      "tag": "#an-asset-opinion-must-never-block-a-ship",
+      "lesson": "A pixel guard written to protect art quality was wired into `npm run build`, so a missing pip package on the Pages runner took the LIVE DEPLOY down. Net effect: zero defects caught and a stale site while the owner was waiting to see new art. The same charter already said this about the bundle cap - 'never let it block a live deploy' - and I re-made the mistake one file over.",
+      "rule": "Guards that express an OPINION about quality belong on a separate runner from the one that ships. Red CI plus a shipped artifact beats a blocked deploy every time: the owner then sees both the flaw and the warning, instead of neither."
+    },
+    {
+      "priority": "P9",
+      "tag": "#a-partial-negative-control-accuses-a-working-test",
+      "lesson": "I neutralised `idPhase` in drawChewBite, watched the jitter test keep passing, and concluded the test was vacuous. It was not - the function has TWO creatureId terms (ring PHASE and crumb DISTANCE) and my `grep | head -4` had truncated the second out of sight. With both neutralised it fails exactly as designed. Separately, a control I ran against the spawner-ignition guard silently matched NOTHING, because the goblin-tower line has no `if (...) return;` wrapper like its two siblings - so the 'test' I was validating was never exercised at all.",
+      "rule": "A negative control must be ASSERTED to have applied, and must neutralise EVERY path to the behaviour. A control that cannot fail manufactures confidence; a partial one convicts working code. Print the mutated line, or assert the substitution happened."
+    },
+    {
+      "priority": "P9",
+      "tag": "#never-assert-on-anything-a-wall-clock-touches",
+      "lesson": "A prune test compared whole rendered frames between two renderer instances. It passed locally and failed on CI over `quadraticCurveTo(288,312,284,317)` vs `(...,286,317)` - two pixels of chewer leg - AND BLOCKED THE DEPLOY, because the unit suite gates it. The hop phase advances by `dtSec * IDLE_HOP_HZ`, i.e. real elapsed time, so the geometry encodes how fast the machine got between two syncs. Narrowing to the body position was machine-stable and stopped catching the leak, because a stale entry perturbs the HOP, not the position.",
+      "rule": "Identify what quantity the claim is actually about before choosing what to measure. This one was a MAP SIZE; an inspection hook reporting it directly is immune to both the instability and the insensitivity. Two failed pixel-based attempts cost a blocked deploy."
+    },
+    {
+      "priority": "P9",
+      "tag": "#a-lane-budget-is-a-shared-resource",
+      "lesson": "Two new e2e specs took the shared gating lane from 4.1 to 5.3 min locally - past its 720 s Playwright cap on a 3-5x slower runner. That does NOT read as a failed test; it reads as `Timed out waiting 720s for the test suite to run`, i.e. the whole lane, which this project has already lost three weeks of signal to. My first fix trimmed the tick budget on arithmetic that looked airtight (cadence `(tick - seat) % 1800` implies seat 0 fires at tick 0) and was wrong: a probe showed zero race units at tick 1408, because the emitter needs `gameState === 'PLAYING'` and the transition lands a few ticks in, so every seat misses its opening slot.",
+      "rule": "Adding a slow test to a lane at its ceiling is a change to every other test in it. Split it onto its own runner - the precedent already existed here twice - and prove the cadence with a probe before trusting the arithmetic about when a mechanic first fires."
+    },
+    {
+      "priority": "P10",
+      "tag": "#scout-the-subsystem-before-designing-against-it",
+      "lesson": "Two read-only scouting agents over the settings and audio subsystems, before any code, returned four defects that would otherwise have shipped: decoded PCM is 384 KB/s so an unbounded music cache reaches ~736 MB; NOTHING stopped the music at match end, which is invisible with one track and means 'you hear the previous race all next match' with six; the local race reads a confident, WRONG 'vampires' on the title screen for every player; and a third top-right glyph would have turned the deploy-gating e2e subset red via three separate guards. Each one is a defect I would have written and then debugged.",
+      "rule": "For a feature that threads through an unfamiliar subsystem, spend the read pass first and demand file:line for every claim. The cost is one round trip; the alternative is discovering the same facts from a failing deploy."
+    },
+    {
+      "session": "S166",
+      "priority": "P1",
+      "title": "A stale docblock is not documentation debt - it is the bug, waiting",
+      "entry": "The zone backdrop covered the shape queue because a docblock said it could not. :20 claimed the layer was bottom-of-stage so every spark, bond, structure and creature painted on top of it; :148, in the same file, records the move onto aboveFogLayer that made that false. Nobody had to be careless - the file held both its own correct and incorrect account, and the wrong one is the one a reader hits first. THE HABIT THAT CAUGHT IT: reading the code that fires a claim instead of the claim, already a project rule for warnings and evidently true of comments too. THE HABIT THAT NEARLY MISSED IT: I almost authored a file_lacks 0x000000 binding, which would have false-failed because my own new docblock quotes the old line in order to explain it - so I checked every needle against raw text and dropped two. Explaining a defect in prose puts the defect's text back into the file, and every text-based guard must then be re-checked. Same reason the unit test strips comments."
+    },
+    {
+      "session": "S166",
+      "priority": "P0-incident",
+      "title": "Distrust agent SIDE EFFECTS, not just agent CLAIMS",
+      "entry": "I already treat subagent findings as unverified - the project rule exists because reviewers have fabricated execution claims. What I had not done is treat their WRITES as a hazard. A discovery lane added a fake CreatureType to three source files as an empirical tsc probe, a genuinely good technique, and left it on disk. Only the gates lane had been told read-only. It was caught by an S165 MCV binding pinning the raceUnit union member WITH its semicolon: brittle by design, and that brittleness is exactly what noticed a member appended after it. TWO LESSONS. (1) Every read-only lane must SAY read-only; the instruction is one sentence and its absence cost a reverted tree and a re-run of every gate. (2) When a hook fires, resolve it before continuing - had I filed it as inherited S165 noise, I would have built the tier-3 tower on a mutated tree and measured every gate against a lie."
+    },
+    {
+      "session": "S166",
+      "priority": "P2",
+      "title": "The guards caught me twice, and both times the guard was the cheap part",
+      "entry": "registerAll.test.ts failed BY NAME on the ignition gap, then its own extraction exposed two further mistakes of mine: the regex is NON-GREEDY, so a race name passed as an argument shadowed the recipe id; and its character class was [A-Za-z]+ with no digits, so every t3TowerN id was invisible to it. Neither would have been found by reading my own diff. THE LESSON IS ABOUT COST ASYMMETRY: these guards took one session each to write and they have now caught a fake CreatureType written by an agent, six towers that would have made pencil chewers, and two of my own errors in one afternoon. The expensive thing is never the guard - it is the silent half-landing it prevents. And when a guard's own shape is wrong (the character class), WIDEN THE GUARD rather than renaming the thing it failed to see: a GodlyId is a serialized wire literal, and letting a test's regex choose the wire format is the tail wagging the dog."
+    },
+    {
+      "session": "S166",
+      "priority": "P3",
+      "title": "Three prompts for three states is three buildings, not one building three times",
+      "entry": "The owner rejected 18 tower images with one observation: \"the second state looks like a shack while the first one looks like a house\". The cause was not a bad roll, it was my METHOD - I wrote three INDEPENDENT text prompts per race, and a text description of a building yields *a* building, not *THAT* building. The fix was a mechanism the generator ALREADY HAD and whose own docblock argues for it better than I could: refImages exists for \"an IDENTITY constraint, not a style one\". Conditioning each damaged/destroyed state on its own intact PNG fixed it outright. TWO TRANSFERABLE LESSONS. (1) When output must be a VARIATION of prior output, the prior output is an INPUT - never re-describe it in words and hope. (2) The owner only reported the zombie set, but the same drift was in the naga set he had APPROVED - his approval of the intact had masked it. A reported defect is a sample, not the population: I re-checked all six and found the second one myself rather than fixing only what was named."
+    }
+  ],
+  "reflexion_s166_archived_count": 18,
+  "unlock_evidence_s167": "Owner opening message, verbatim: \"Work on those priorities next - 1. TIER-9 BOSS TOWER CODE ... 2. The five clips per boss ... Ask before generating - i pre-approve the batch.\" Both priorities quoted by the owner from boot-snapshot.md.",
+  "baseline_at_boot_s167": {
+    "typecheck_exit": 0,
+    "vitest_exit": 1,
+    "vitest_result": "3879 passed / 1 failed of 3880, 243/244 files",
+    "failure": "src/state/matchPhase.test.ts > survives a snapshot round-trip mid-FIGHT",
+    "verdict": "BENIGN - ruled with reason, not silenced",
+    "reason": "Test timed out in 5000ms on `await import(\"./save.ts\")` under full-suite load (cumulative collect 2561.58s). Re-ran the file in isolation: exit 0, 24 tests, 79ms. Pre-existing on the untouched tree at c4c3b28; not introduced by S167.",
+    "isolation_rerun_exit": 0
+  },
+  "a0_state_discovery_s167": {
+    "method": "hand-verified by the supervisor + a 9-lane read-only discovery workflow (wf_844babdf-7ac)",
+    "findings": [
+      "isRingAt/findRingAnchors take n as a parameter and generalise to 9 - nothing is baked to 3. VERIFIED by reading src/state/godlyRecipes/ringShape.ts.",
+      "RECIPE COLLISION REFUTED BY TRACE: a 9-ring at n=3 ends the walk on node 4 so `cur === anchorId` is false; a 3-ring at n=9 trips `seen.has(cur)` at step 3. Disjoint by construction.",
+      "NONET does NOT collide at 9: detectNonet requires component size EXACTLY NONET_SHAPE_COUNT (=12, owner R132). sudokuEvent.ts:43,69.",
+      "LOAD-BEARING: igniteOneSpawnerRecipe (godlyMatcherCore.ts:112) de-dups on (anchor,owner) against LIVE spawners only, so a crumbled tower whose nine shapes still stand RE-IGNITES on the next topology change = unlimited bosses. The crumble must CONSUME the ring.",
+      "registerAll.test.ts:149 guard regex is ACTUALLY /[A-Za-z0-9]+/ (widened S166) so it WILL see t9Tower ids. The docblock quoting [A-Za-z]+ at godlyMatcherCore.ts:181 is STALE.",
+      "public/art/race-tier3-towers/ ships six t3destroy-*-atlas.png + anim.json with ZERO src references - the tier-3 destroy cinematic is unwired art.",
+      "build-sprite-atlas.mjs accepts a `still` PNG per state (S161), which is how 18 tower stills become six 3-state atlases.",
+      "blueprints.ts needs three tables: BLUEPRINTS(271), ALL_BLUEPRINT_IDS(336), cost map(414)."
+    ]
+  },
+  "design_decision_s167_race_keyed_literals": "Wire literals are keyed by RACE (t9TowerZombies / t9BossZombies), never by boss name. Spawner.recipeId and Creature.type are serialized, so a name in the literal would weld the unresolved 'Whopper' trademark question into the wire format and cost a protocol bump to change. Boss NAMES live in T9_BOSS_NAMES, a display table changeable for free. Mirrors the shipped RACE_TOWER_IDS vs RACE_TOWER_LABELS split. EFFECT: the Whopper decision no longer blocks anything."
 }

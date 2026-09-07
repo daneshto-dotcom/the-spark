@@ -209,7 +209,37 @@ export type CreatureType =
   | 't3Piranha'
   | 't3Bat'
   | 't3Warband'
-  | 't3Souleater';
+  | 't3Souleater'
+  /* ── S167 — THE SIX TIER-9 BOSSES (`RACE_ZONES_AND_BOSS_TOWERS.md` §B) ────────────────────
+   * One per race, released by the tier-9 tower and named by the owner: Vlad · Kraken · Pharaoh ·
+   * Whopper · Warlord · Archdemon.
+   *
+   * ⛔ SIX LITERALS FOR THE SAME REASON THE TIER-3 UNITS NEEDED SIX, and here the reason is even
+   * stronger: six bosses with six different stat lines and six different silhouettes are the whole
+   * point of the feature. `serializeCreature` emits `hp` only when a creature is DAMAGED, so the
+   * receiving peer rebuilds stats from its OWN `CREATURE_CONFIGS` keyed by TYPE — one literal plus
+   * a race lookup would desync the moment two peers disagreed about the Kraken's HP.
+   *
+   * ⛔ KEYED BY RACE, NOT BY BOSS NAME. These are serialized wire literals and one of the six names
+   * is still an open trademark question with the owner ("Whopper"). The NAMES live in
+   * `T9_BOSS_NAMES` (`state/t9BossIds.ts`), where changing one is free; a name in the literal would
+   * cost a protocol bump. See that file's docblock for the full argument.
+   *
+   * ⭐ SPAWNED WITH `sourceSpawnerId: null`, WHICH IS A DESIGN DECISION AND NOT AN OMISSION. That
+   * routes the boss to `applySpawnCreature`'s null branch, whose one-live-per-(owner, type) gate
+   * (`creatureLifecycle.ts:166`) IS the spec's *"only ONE of a seat's bosses alive at a time"* — for
+   * free, with no new cap family. A non-null id would instead route it to `underGoblinCaps` and
+   * share `GOBLIN_MAX_GLOBAL = 200` with every goblin tower, which is the S157 B1 / S165 W1-C defect
+   * a third time.
+   *
+   * ⛔ SERIALIZED, so they cost the PROTOCOL_VERSION bump (43 -> 44) on exactly the grounds the five
+   * goblins (29->30) and the six tier-3 units (42->43) did. */
+  | 't9BossVampires'
+  | 't9BossNagas'
+  | 't9BossMummies'
+  | 't9BossZombies'
+  | 't9BossOrcs'
+  | 't9BossDemons';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING

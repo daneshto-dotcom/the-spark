@@ -209,6 +209,8 @@ import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts
 import { listRecipes } from './state/godlyRecipes/index.ts';
 import type { GodlyId } from './state/godlyRecipes/types.ts';
 import { unlockGodly } from './render/codexStore.ts';
+// S167 — the tier-9 leaf (side-effect-free): maps a live boss back to the tower that released it.
+import { T9_TOWER_IDS, raceForT9BossType } from './state/t9BossIds.ts';
 // ⭐ S165 — EVERY RECIPE, FROM ONE PLACE. This used to be seven separate side-effect imports here,
 // and `src/simWorker.ts` had none of them — so under `?worker=1`, where the worker is the sole
 // matcher authority, NO defender or spawner recipe could ever match and nothing was buildable. The
@@ -3287,6 +3289,26 @@ Network routes: ${v.detail}`;
     if (world.creatureSpawners.size > 0 || world.defenders.size > 0) {
       for (const sp of world.creatureSpawners.values()) unlockGodly(sp.recipeId);
       for (const d of world.defenders.values()) unlockGodly(d.recipeId);
+    }
+    /*
+     * ⭐ S167 — AND THE TIER-9 BOSS TOWER IS UNLOCKED BY ITS **BOSS**, NOT BY ITSELF.
+     *
+     * ⛔ THE SCAN ABOVE CANNOT SEE IT. It samples spawners that are LIVE on a rendered frame, and a
+     * boss tower exists for only its release delay before it razes itself — on a 10 Hz client mirror
+     * it may never appear in a sampled snapshot at all. Its tile would then be `???` forever for the
+     * player who actually built one, which is the exact opposite of what the codex is for. There is
+     * no `codexOverlay.test.ts`, so nothing would have reported it.
+     *
+     * The BOSS is the durable half of the same event: it is `persistent`, it lives until it dies,
+     * and it is in `world.creatures` for minutes rather than seconds. Unlocking off the boss is
+     * therefore reliable where unlocking off the tower is a race.
+     *
+     * ⚠ STILL A PURE RENDER-SIDE READ OF SYNCED STATE — no sim coupling, `unlockGodly` is
+     * idempotent localStorage, and the mapping is a side-effect-free table lookup.
+     */
+    for (const c of world.creatures.values()) {
+      const bossRace = raceForT9BossType(c.type);
+      if (bossRace !== null) unlockGodly(T9_TOWER_IDS[bossRace]);
     }
     // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
     // S149 P5 — an ARCADE puzzle drives the same shipped overlay through its `override` seam, so

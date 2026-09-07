@@ -151,6 +151,61 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
     emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Spiral, radius: 34 },
   },
 
+  /*
+   * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Nine of the race's own shape; it releases ONE boss and
+   * then crumbles, taking the nine shapes with it.
+   *
+   * ⚠ THE COPY STATES THE COST HONESTLY, because this is the only structure in the game that
+   * DESTROYS ITSELF and the player must not learn that by losing nine shapes. Every `recipe` line
+   * below says the tower is consumed and that only one boss lives at a time.
+   *
+   * ⛔ `CODEX_COPY` is keyed by `string`, so tsc cannot demand these six and `codexCopyFor` falls
+   * back to `id.toUpperCase()` with a BLANK power line — 'T9TOWERVAMPIRES' with no epigraph, shipped
+   * green. `codexPresentation.test.ts`'s pinned ALL_IDS is the only thing that turns that red.
+   */
+  t9TowerVampires: {
+    name: 'VLAD TOWER',
+    power: 'Nine Triangles. Releases one boss.',
+    recipe:
+      'Bond 9 Triangles into a closed ring. It releases Vlad, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Triangle, radius: 44 },
+  },
+  t9TowerNagas: {
+    name: 'KRAKEN TOWER',
+    power: 'Nine Squares. Releases one boss.',
+    recipe:
+      'Bond 9 Squares into a closed ring. It releases the Kraken, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Square, radius: 44 },
+  },
+  t9TowerMummies: {
+    name: 'PHARAOH TOWER',
+    power: 'Nine Lines. Releases one boss.',
+    recipe:
+      'Bond 9 Lines into a closed ring. It releases the Pharaoh, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Line, radius: 44 },
+  },
+  t9TowerZombies: {
+    name: 'WHOPPER TOWER',
+    power: 'Nine Circles. Releases one boss.',
+    recipe:
+      'Bond 9 Circles into a closed ring. It releases the Whopper, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Circle, radius: 44 },
+  },
+  t9TowerOrcs: {
+    name: 'WARLORD TOWER',
+    power: 'Nine Dots. Releases one boss.',
+    recipe:
+      'Bond 9 Dots into a closed ring. It releases the Warlord, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Dot, radius: 44 },
+  },
+  t9TowerDemons: {
+    name: 'ARCHDEMON TOWER',
+    power: 'Nine Spirals. Releases one boss.',
+    recipe:
+      'Bond 9 Spirals into a closed ring. It releases the Archdemon, then crumbles — the nine shapes are spent. One boss alive at a time. Your race only.',
+    emblem: { kind: 'ring', nodes: 9, nodeType: SparkType.Spiral, radius: 44 },
+  },
+
   goblinTower: {
     name: 'GOBLIN TOWER',
     power: 'Feed it a shape, get a goblin.', // 30 chars, inside the 34 budget

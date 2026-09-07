@@ -298,3 +298,70 @@ rather than cousins.
 
 ⚠ **PARTIAL TRANSPARENCY IS STILL BINDING** (brief item A): towers, structures, connectors and
 creatures have to stay readable on top, and the seat colour must survive as an accent.
+
+---
+
+## ⭐ OWNER RULINGS, S167 — **THE BOSS SKILLS** (three of six given; the rest reserved)
+
+Given mid-session, unprompted, and quoted verbatim because the wording carries the design. Owner:
+
+> *"zombie needs to have an aura that damages enemies around him - 3% health per second. when he
+> dies he explodes in a huge radius hurting everything radius. We will discuss their player and
+> skill stats after you provide me with the current stat list of all other enemies. I will think
+> about all the other boss skills in the meanwhile. also their skills need a generated video or art
+> (explosion for zombie boss and stinky deadly aura around him). for Kracken his skills will be
+> tentacles come out of the ground and attack diffferent enemies or structures. 3 tentacles at a
+> time. he also spits sonar wave from his mouth stunning and pushing back all enemies in a cone
+> around him. for Vlad when he kills an enemy that enemy becomes alive again with full stats but
+> becomes a vampire and joins vlad (he sticks to vlad and targets what vlad targets. Also vlad can
+> use a life sap ability that heals him 20% of his health. He can use it 3 times when his health
+> drops below 40%. the rest iil think about while you give me the stats. we would need to generate
+> cool graphics for those abilities"*
+
+### R138 — ZOMBIE BOSS: the rot aura, and the death explosion
+
+| | |
+|---|---|
+| **Aura** | Damages every enemy around him for **3% of health per second**. ⚠ *Whose* health — the victim's max, the victim's current, or the boss's — is NOT stated and changes the mechanic completely (percent-of-current never kills; percent-of-max does). **Open.** |
+| **Death** | He **explodes in a huge radius, hurting everything** — explicitly *everything*, which reads as owner-agnostic like `STRUCTURE_SELFDESTRUCT` rather than enemy-only. |
+| **Art** | *"stinky deadly aura around him"* + an explosion. Both generated. |
+
+⭐ **A PERCENT-BASED AURA IS THE FIRST NON-INTEGER DAMAGE IN THIS GAME**, and that is a real
+engineering note rather than a quibble: `damageEntity` **THROWS on a fraction by design** and the
+whole DoT model is authored in whole units on the fifths ladder (`stats.ts`). 3%/s of a 7-fifth
+goblin is 0.21 fifths per second. This needs either an accumulator (⛔ forbidden — float
+accumulators are banned in the sim) or a tick-quantised integer rule. **Solvable, not free.**
+
+### R139 — KRAKEN: tentacles and the sonar cone
+
+| | |
+|---|---|
+| **Tentacles** | Come **out of the ground** and attack enemies *or structures*. **3 at a time.** |
+| **Sonar wave** | Spat from his mouth: **stuns and pushes back** all enemies in a **cone** around him. |
+
+⚠ **STUN AND KNOCKBACK ARE BOTH NEW VERBS.** Nothing in the creature FSM today has a stunned state,
+and nothing applies an impulse to a creature from a non-collision source. A cone test is also new —
+every existing acquisition scan is a radius. This is the largest engineering surface of the three.
+
+### R140 — VLAD: conversion on kill, and life sap
+
+| | |
+|---|---|
+| **Conversion** | When Vlad KILLS an enemy, that enemy **comes back with full stats as a vampire on Vlad's side**, sticks to Vlad, and **targets what Vlad targets**. |
+| **Life sap** | Heals him **20% of his health**, usable **3 times**, only **below 40% health**. |
+
+⛔ **CONVERSION IS THE MOST DANGEROUS SKILL OF THE SIX TO BALANCE**, and it is worth saying before
+the stats are set: it converts the ENEMY'S army into Vlad's, so its value scales with how many units
+the opponent fields. Against a big push it compounds. It is also the only skill that changes a
+creature's OWNER mid-life — `ownerPlayerId` is serialized and hashed, so this is a wire-visible
+mutation, not a visual.
+
+### STILL RESERVED BY THE OWNER
+
+**Pharaoh · Warlord · Archdemon** — *"the rest iil think about while you give me the stats."*
+
+### ART OWED FOR THE SKILLS
+
+*"their skills need a generated video or art"* — named explicitly so far: the zombie's **explosion**
+and his **stinky deadly aura**. The Kraken's tentacles and sonar cone and Vlad's conversion and life
+sap will each want one too (*"we would need to generate cool graphics for those abilities"*).

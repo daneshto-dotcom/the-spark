@@ -94,6 +94,8 @@ import type { GodlyId } from './godlyRecipes/types.ts';
  */
 import { RACE_FEED_SHAPE, type RaceId } from './races.ts';
 import { RACE_TOWER_IDS, RACE_TOWER_LABELS, RACE_TOWER_SIZE } from './raceTowerIds.ts';
+// S167 — the tier-9 leaf, side-effect-free by the same contract as the line above.
+import { T9_TOWER_IDS, T9_TOWER_SIZE, t9TowerLabel } from './t9BossIds.ts';
 import type { Vec2 } from '../types.ts';
 
 /* ── Recipe shape counts, MIRRORED not imported (see the docblock) ──────────────────────────────── *
@@ -153,6 +155,35 @@ const RING_R = 40;
  * hand-buildability half of that invariant matter more here than anywhere else it applies.
  */
 const TRI_RING_R = 34;
+/**
+ * ⛔ CIRCUMRADIUS FOR THE **NINE**-NODE TIER-9 RING, AND IT IS A THIRD VALUE FOR A THIRD `n`. S167,
+ * measured — the S166 B12 defect is one radius reused at a different `n`, and this is the third `n`.
+ *
+ * `side = 2 · R · sin(π/9) = 0.684 · R`. Reusing `TRI_RING_R` (34) would give **23.3 px** and
+ * `RING_R` (40) **27.4 px**, both under the ~40 px floor and both close enough to the ~22 px
+ * sum-of-radii to strain soft-collision. Solving the same two bounds this file states everywhere:
+ *   · ceiling `side ≤ AUTO_BOND_RADIUS (60)` → `R ≤ 87.7`
+ *   · floor `side ≥ 40` → `R ≥ 58.5`
+ * **R = 64 → side 43.8 px**, comfortably inside both.
+ *
+ * ## ⭐ AND A HAZARD THAT DOES NOT EXIST AT n=3 OR n=5: THE SELF-WELDING CHORD
+ *
+ * At nine nodes the ring is wide enough that NON-ADJACENT nodes could fall within `AUTO_BOND_RADIUS`
+ * of each other. If they did, a chord would weld itself the instant the ring closed, giving two
+ * nodes a THIRD same-type neighbour — and `isRingAt`'s exact-2 clause would reject the ring
+ * permanently. The tower would stamp perfectly and be dead on arrival, every time, for every race.
+ *
+ * The closest non-adjacent pair is the skip-one pair at `2 · R · sin(2π/9) = 1.286 · R`, so the
+ * chord is safe iff `1.286 · R > 60`, i.e. `R > 46.7`. **The existing floor already guarantees it**:
+ * `R ≥ 58.5` forces the skip-one distance to ≥ 75.2 px. At `R = 64` it is 82.3 px.
+ *
+ * ⚠ THIS IS PROVED BY THE RATIO, NOT BY THE CHOSEN NUMBER, which is what makes it durable: the
+ * skip-one distance is always `1.879 ×` the side, so ANY nine-ring whose side clears 31.9 px is
+ * chord-free. Every side this file would ever accept (≥ 40) clears it. `t9BossTower.test.ts` asserts
+ * the chord clearance directly rather than trusting this paragraph — `raceTower.test.ts`'s own
+ * geometry check iterates `bp.bonds` and is therefore structurally blind to a NON-bonded pair.
+ */
+const NINE_RING_R = 64;
 
 /** Node-to-node spacing along the voltkin chain. */
 const CHAIN_STEP = 40;
@@ -274,6 +305,14 @@ const BLUEPRINTS: Readonly<Record<GodlyId, Blueprint>> = {
   t3TowerZombies: raceTowerBlueprint('zombies'),
   t3TowerOrcs: raceTowerBlueprint('orcs'),
   t3TowerDemons: raceTowerBlueprint('demons'),
+  // S167 — the six TIER-9 boss towers. tsc forces these six: `BLUEPRINTS` is a full
+  // `Record<GodlyId, Blueprint>`, which is the one table in this file that cannot be silently missed.
+  t9TowerVampires: t9TowerBlueprint('vampires'),
+  t9TowerNagas: t9TowerBlueprint('nagas'),
+  t9TowerMummies: t9TowerBlueprint('mummies'),
+  t9TowerZombies: t9TowerBlueprint('zombies'),
+  t9TowerOrcs: t9TowerBlueprint('orcs'),
+  t9TowerDemons: t9TowerBlueprint('demons'),
 
   pentagram: (() => {
     const n = PENTAGRAM_RING;
@@ -336,6 +375,20 @@ export const ALL_BLUEPRINT_IDS: readonly GodlyId[] = [
   't3TowerVampires', 't3TowerNagas', 't3TowerMummies',
   't3TowerZombies', 't3TowerOrcs', 't3TowerDemons',
   'stinkTower', 'goblinTower', 'pentagram', 'lightningHub', 'laserTurret', 'helga', 'voltkin',
+  /*
+   * ⛔ S167 — AND THE SIX TIER-9 TOWERS, WHICH THE COMPILER CANNOT DEMAND EITHER. Omitting them
+   * would leave the boss tower fully implemented, ignitable, and INVISIBLE in the build panel —
+   * verbatim the goblin-tower defect this array's own warning above describes.
+   *
+   * ⚠ AND A SECOND, QUIETER COST THAT THE GOBLIN TOWER DID NOT PAY: `blueprints.test.ts` drives
+   * five geometry contracts with `it.each(ALL_BLUEPRINT_IDS)`, so an id missing here does not merely
+   * hide the tower — it silently SKIPS its own geometry checks, and the new nine-ring radius would
+   * ship unverified with a green suite.
+   *
+   * Last, not cheapest-first: these are the most expensive builds in the game.
+   */
+  't9TowerVampires', 't9TowerNagas', 't9TowerMummies',
+  't9TowerZombies', 't9TowerOrcs', 't9TowerDemons',
 ];
 
 /** PURE — the blueprint for `id`. */
@@ -402,6 +455,34 @@ function raceTowerBlueprint(race: RaceId): Blueprint {
   return { id: RACE_TOWER_IDS[race], label: RACE_TOWER_LABELS[race], nodes, bonds };
 }
 
+/**
+ * PURE — one race's TIER-9 BOSS tower: `T9_TOWER_SIZE` nodes of its own feed shape on a circle of
+ * `NINE_RING_R`, ring edges written explicitly.
+ *
+ * ⚠ IDENTICAL IN SHAPE TO `raceTowerBlueprint` AND DELIBERATELY NOT MERGED WITH IT. A shared
+ * `ringBlueprint(race, n, r, id, label)` would be three lines shorter and would put the RADIUS
+ * behind a parameter — and choosing the wrong radius for an `n` is the exact defect (S166 B12) that
+ * both docblocks above exist to prevent. Two callers, two named constants, each documented against
+ * its own `n`.
+ *
+ * ⛔ BUILT FROM THE SIDE-EFFECT-FREE LEAVES (`races.ts`, `t9BossIds.ts`), never from
+ * `godlyRecipes/t9BossTower.ts`, which calls `registerRecipe` at its tail.
+ */
+function t9TowerBlueprint(race: RaceId): Blueprint {
+  const n = T9_TOWER_SIZE;
+  const type = RACE_FEED_SHAPE[race];
+  const nodes: BlueprintNode[] = [];
+  const bonds: Array<readonly [number, number]> = [];
+  for (let i = 0; i < n; i++) {
+    // First node straight up, matching the pentagram and the tier-3 ring, so a stamped tower reads
+    // as oriented rather than arbitrarily rotated.
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    nodes.push({ type, dx: Math.cos(a) * NINE_RING_R, dy: Math.sin(a) * NINE_RING_R });
+    bonds.push([i, (i + 1) % n]);
+  }
+  return { id: T9_TOWER_IDS[race], label: t9TowerLabel(race), nodes, bonds };
+}
+
 export const EXPECTED_COMPONENT_SIZE: Readonly<Record<GodlyId, number>> = {
   stinkTower: STINK_TOWER_SIZE,
   goblinTower: GOBLIN_TOWER_SIZE,
@@ -417,4 +498,10 @@ export const EXPECTED_COMPONENT_SIZE: Readonly<Record<GodlyId, number>> = {
   t3TowerZombies: RACE_TOWER_SIZE,
   t3TowerOrcs: RACE_TOWER_SIZE,
   t3TowerDemons: RACE_TOWER_SIZE,
+  t9TowerVampires: T9_TOWER_SIZE,
+  t9TowerNagas: T9_TOWER_SIZE,
+  t9TowerMummies: T9_TOWER_SIZE,
+  t9TowerZombies: T9_TOWER_SIZE,
+  t9TowerOrcs: T9_TOWER_SIZE,
+  t9TowerDemons: T9_TOWER_SIZE,
 };

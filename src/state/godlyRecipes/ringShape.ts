@@ -78,29 +78,47 @@ function sameTypeNeighbours(world: World, id: PrimitiveId, type: SparkType): Pri
 }
 
 /**
- * PURE — is `anchorId` a member of a closed ring of exactly `n` primitives, all of `type`, each with
- * exactly two same-type neighbours?
+ * PURE — the `n` members of the closed ring `anchorId` sits on, **in walk order**, or `null` if
+ * there is no such ring.
  *
  * Total bond degree is deliberately NOT constrained (R136). See the file docblock for the ruling and
  * for why the same-type count must nevertheless be exact.
+ *
+ * ## ⭐ S167 — WHY THIS RETURNS THE MEMBERS AND `isRingAt` IS NOW ONE LINE OVER IT
+ *
+ * The tier-9 boss tower CONSUMES its ring when it releases its boss (`hostTick`, the t9 emit arm),
+ * and the only shipped self-raze — the lightning hub's, `hostTick.ts:652` — takes
+ * `componentOf(...).primitiveIds`. ⛔ **That call is wrong for a ring.** R136 permits foreign shapes
+ * to auto-bond onto ring nodes, and they join the COMPONENT; razing the component would delete the
+ * player's neighbouring shapes as collateral. The nine nodes the walk actually visited are the only
+ * correct set, and this walk already computed them — `isRingAt` built `seen` and threw it away.
+ *
+ * ⚠ ONE WALK, TWO CONSUMERS, AND THAT IS THE POINT. A separate members-finder would be a second
+ * implementation of the same traversal, free to drift from the predicate that decides the tower is
+ * alive — so the tower could be validated against one set of nodes and raze a different one.
+ *
+ * ⚠ WALK ORDER, NOT ASCENDING ID. Ring order is what a renderer wants for a sequential collapse.
+ * Callers that need determinism get it either way: the walk is seeded from the anchor and steps to
+ * the LOWER id first (`sameTypeNeighbours` sorts), so the sequence is a pure function of the graph.
  */
-export function isRingAt(
+export function ringMembersAt(
   world: World,
   anchorId: PrimitiveId,
   type: SparkType,
   n: number,
-): boolean {
+): PrimitiveId[] | null {
   // A ring needs at least three nodes; n < 3 would let a single bonded pair read as a "ring" whose
   // two members are each other's only neighbour, which the walk below would happily close.
-  if (n < 3) return false;
+  if (n < 3) return null;
   const anchor = world.primitives.get(anchorId);
-  if (anchor === undefined) return false;
-  if (anchor.type !== type) return false;
+  if (anchor === undefined) return null;
+  if (anchor.type !== type) return null;
 
   const first = sameTypeNeighbours(world, anchorId, type);
-  if (first.length !== 2) return false;
+  if (first.length !== 2) return null;
 
   const seen = new Set<PrimitiveId>([anchorId]);
+  const order: PrimitiveId[] = [anchorId];
   let prev: PrimitiveId = anchorId;
   // Either direction closes the same ring, so the lower id is taken purely for determinism.
   let cur: PrimitiveId = first[0]!;
@@ -111,9 +129,10 @@ export function isRingAt(
     // would accept a ring with a same-type spur hanging off a non-anchor node, and the anchor a
     // recipe picks is an implementation detail — so the predicate would depend on which node the
     // scan happened to seed from.
-    if (nbrs.length !== 2) return false;
-    if (seen.has(cur)) return false; // revisited early — a figure-eight, not a ring of n
+    if (nbrs.length !== 2) return null;
+    if (seen.has(cur)) return null; // revisited early — a figure-eight, not a ring of n
     seen.add(cur);
+    order.push(cur);
     const next = nbrs[0] === prev ? nbrs[1]! : nbrs[0]!;
     prev = cur;
     cur = next;
@@ -121,7 +140,25 @@ export function isRingAt(
 
   // After n steps the walk must be standing back on the anchor, having seen n distinct nodes. Both
   // halves are load-bearing: closure alone would accept a shorter ring walked twice.
-  return cur === anchorId && seen.size === n;
+  if (cur !== anchorId || seen.size !== n) return null;
+  return order;
+}
+
+/**
+ * PURE — is `anchorId` a member of a closed ring of exactly `n` primitives, all of `type`, each with
+ * exactly two same-type neighbours?
+ *
+ * ⚠ Kept as its own export rather than folded into callers: this is the shape every predicate and
+ * every re-validation arm asks for, and `ringMembersAt(...) !== null` at eight call sites would be
+ * eight chances to write `=== null`.
+ */
+export function isRingAt(
+  world: World,
+  anchorId: PrimitiveId,
+  type: SparkType,
+  n: number,
+): boolean {
+  return ringMembersAt(world, anchorId, type, n) !== null;
 }
 
 /**

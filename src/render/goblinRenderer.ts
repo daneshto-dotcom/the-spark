@@ -41,6 +41,8 @@ import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
 import { t3UnitAtlasBase } from '../state/raceTowerIds.ts';
+// S167 — the tier-9 leaf, same side-effect-free contract.
+import { t9BossAtlasBase } from '../state/t9BossIds.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
  *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
@@ -103,6 +105,21 @@ const ATLASES: Partial<Record<CreatureType, string>> = {
   t3Hound: t3UnitAtlasBase('zombies'),
   t3Warband: t3UnitAtlasBase('orcs'),
   t3Souleater: t3UnitAtlasBase('demons'),
+  /*
+   * ⭐ S167 — THE SIX TIER-9 BOSSES. Same reasoning as the tier-3 block above: each boss type IS a
+   * single race's creature, so the type alone determines the art and no race lookup is needed.
+   *
+   * ⚠ PATHS ARE DERIVED VIA `t9BossAtlasBase`, never typed out. `loadAtlas`'s bare `catch {}` below
+   * swallows a 404 with no console error and no failing test, so a hand-typed path that is wrong
+   * looks EXACTLY like a missing entry — the green procedural puppet, on the most expensive unit in
+   * the game. `t9BossTower.test.ts` asserts every path this builds exists on disk.
+   */
+  t9BossVampires: t9BossAtlasBase('vampires'),
+  t9BossNagas: t9BossAtlasBase('nagas'),
+  t9BossMummies: t9BossAtlasBase('mummies'),
+  t9BossZombies: t9BossAtlasBase('zombies'),
+  t9BossOrcs: t9BossAtlasBase('orcs'),
+  t9BossDemons: t9BossAtlasBase('demons'),
 };
 
 /**
@@ -169,6 +186,13 @@ const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * all three of which a new renderer gets subtly wrong.
    */
   't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
+  /*
+   * ⛔ S167 — THE SIX BOSSES, AND THIS SET FAILS DIFFERENTLY FROM `ATLASES` ABOVE. A type missing
+   * from `ATLASES` draws the green puppet; a type missing from HERE draws NOTHING AT ALL — the boss
+   * fights, takes damage, kills a castle and is never on screen. Neither is caught by anything: this
+   * Set is hand-maintained and no test file in the tree imports it.
+   */
+  't9BossVampires', 't9BossNagas', 't9BossMummies', 't9BossZombies', 't9BossOrcs', 't9BossDemons',
 ]);
 
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */

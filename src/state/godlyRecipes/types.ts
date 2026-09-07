@@ -57,7 +57,28 @@ export type GodlyId =
   | 't3TowerMummies'
   | 't3TowerZombies'
   | 't3TowerOrcs'
-  | 't3TowerDemons';
+  | 't3TowerDemons'
+  /**
+   * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS (`RACE_ZONES_AND_BOSS_TOWERS.md` §B). NINE of the race's
+   * own feed shape, closed in a ring; it releases exactly ONE boss and then crumbles, consuming the
+   * nine shapes that built it.
+   *
+   * ⛔ KEYED BY RACE, NEVER BY BOSS NAME, and here that is load-bearing rather than tidy. One of the
+   * six boss names — the zombies' "Whopper" — is an unresolved trademark question the owner has not
+   * yet ruled on (`RACE_ZONES_AND_BOSS_TOWERS.md` §B). These literals are SERIALIZED, so a
+   * `t9TowerWhopper` would weld that word into the wire format and make changing it cost a protocol
+   * bump. Race-keyed, every boss NAME lives in `T9_BOSS_NAMES` (`state/t9BossIds.ts`) — a display
+   * table that is free to change. See that file's docblock.
+   *
+   * ⛔ SERIALIZED — part of what PROTOCOL_VERSION 43->44 pays for. A stale peer receiving one of
+   * these has a spawner it cannot resolve, exactly as for the tier-3 six.
+   */
+  | 't9TowerVampires'
+  | 't9TowerNagas'
+  | 't9TowerMummies'
+  | 't9TowerZombies'
+  | 't9TowerOrcs'
+  | 't9TowerDemons';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;

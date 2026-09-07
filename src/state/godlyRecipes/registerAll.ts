@@ -34,3 +34,6 @@ import './goblinTower.ts';
 // `registerRecipe`), so this single import carries all six. Adding it here rather than to an
 // entrypoint is the whole point of this file.
 import './raceTower.ts';
+// S167 — the six tier-9 BOSS towers, same shape as the line above: `T9_TOWER_RECIPES` loops
+// `registerRecipe`, so this one import carries all six.
+import './t9BossTower.ts';

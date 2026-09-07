@@ -25,7 +25,13 @@
  * stable handle, re-validated each poll (Layer 5 fills `recipeStillSatisfied`).
  */
 
-import { DRONE_EMIT_INTERVAL_TICKS, SPAWN_INTERVAL_TICKS } from '../../constants.ts';
+import {
+  DRONE_EMIT_INTERVAL_TICKS,
+  SPAWN_INTERVAL_TICKS,
+  T9_RELEASE_DELAY_TICKS,
+} from '../../constants.ts';
+// S167 — the side-effect-free tier-9 leaf. This module is imported by the reducer AND by hostTick.
+import { isT9TowerId } from '../t9BossIds.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 
@@ -77,6 +83,17 @@ export interface CreatureSpawner {
  * A recipe with no cadence (the goblin tower is FED, never polled) gets the default — inert for it.
  */
 export function spawnerIntervalTicks(recipeId: GodlyId): number {
+  /*
+   * ⭐ S167 — THE TIER-9 BOSS TOWER'S "CADENCE" IS ITS RELEASE DELAY, and it is the one recipe here
+   * that fires exactly once. It stands for `T9_RELEASE_DELAY_TICKS` and then releases its boss and
+   * razes itself (`hostTick`'s t9 arm), so this number is a one-shot fuse rather than a rate.
+   *
+   * ⛔ WITHOUT THIS ARM IT WOULD TAKE THE CHEWER'S 15 s DEFAULT BELOW — nearly double the owner's
+   * ENTIRE 8-second budget for spawn + release + crumble — with tsc green and every test green.
+   * That is the S158 B2 class verbatim: the drone tower ran on the chewer's clock in three separate
+   * places because two of them skipped this function.
+   */
+  if (isT9TowerId(recipeId)) return T9_RELEASE_DELAY_TICKS;
   return recipeId === 'lightningHub' ? DRONE_EMIT_INTERVAL_TICKS : SPAWN_INTERVAL_TICKS;
 }
 

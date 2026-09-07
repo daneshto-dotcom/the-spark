@@ -229,7 +229,7 @@ test.describe('S150 P4 — click a tower on the FOOTER, place it, keep it (solo,
      * bar showing 3 twice would mean the filter had come off.
      */
     const band = await bandPoints(page);
-    expect(band.chips.map((c) => c.complexity)).toEqual([3, 4, 5, 6, 7, 8]);
+    expect(band.chips.map((c) => c.complexity)).toEqual([3, 4, 5, 6, 7, 8, 9]);
 
     // With an EMPTY bank the card is dim AND names its blocker — an unexplained dim box is
     // indistinguishable from a broken one, which was the original S136 complaint.

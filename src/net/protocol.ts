@@ -571,7 +571,45 @@ export type { NetSnapshot };
  * gate that matters here, and it REFUSES a v42 peer outright. There is no degraded-play path, which
  * is the correct outcome: a stale peer cannot render, cap or hash these units.
  */
-export const PROTOCOL_VERSION = 43 as const;
+
+/**
+ * ⭐ S167 P1 — BUMPED 43 -> 44: **THE TIER-9 BOSS TOWER AND ITS SIX BOSSES**
+ * (`RACE_ZONES_AND_BOSS_TOWERS.md` §B). Nine of a race's own feed shape closed in a ring; it
+ * releases exactly ONE boss and then crumbles, consuming the nine shapes that built it.
+ *
+ * Twelve new serialized literals, landed together for the reason §7 of the races spec gave the
+ * tier-3 six — six separate landings would cost six bumps:
+ *
+ *   · SIX `GodlyId`s — `t9TowerVampires` … `t9TowerDemons`. `Spawner.recipeId` rides the wire and is
+ *     restored by `save.ts`, so a v43 peer receiving one has a spawner it cannot resolve.
+ *   · SIX `CreatureType`s — `t9BossVampires` … `t9BossDemons`.
+ *
+ * ⛔ THE CREATURE HALF IS AGAIN THE DANGEROUS ONE, on exactly the grounds the five goblins (29->30)
+ * and the tier-3 units (42->43) were: `deserializeCreature` writes `type: s.type` with NO whitelist,
+ * so a v43 peer ACCEPTS `t9BossNagas` and then finds `CREATURE_CONFIGS['t9BossNagas'] === undefined`
+ * on its own mirror — a peer that parses the snapshot and then diverges, rather than one that
+ * refuses it.
+ *
+ * ⭐ AND THE LITERALS ARE KEYED BY RACE, NOT BY BOSS NAME, WHICH IS A WIRE-FORMAT DECISION RATHER
+ * THAN A STYLE ONE. The owner named all six bosses (Vlad · Kraken · Pharaoh · Whopper · Warlord ·
+ * Archdemon) but the zombie's name is an unresolved trademark question. A `t9BossWhopper` literal
+ * would weld that word into the wire and make changing it cost ANOTHER bump for zero gameplay gain
+ * — the same argument this file uses at `KEEP_RING_RADIUS` (16->17) and that `raceTowerIds.ts` uses
+ * to refuse renaming the goblin tower. Every boss NAME lives in `T9_BOSS_NAMES`
+ * (`state/t9BossIds.ts`), where changing one is free.
+ *
+ * ⚠ NO new action, no new field, no new `GameEffect` kind — the one-shot release reuses the existing
+ * `SPAWN_CREATURE` and `REMOVE_SPAWNER` actions, and the ring is consumed through `razePrimitives`,
+ * which already rides the wire as ordinary primitive deletion. So `detectProtocolMismatch` is again
+ * the only gate that matters, and it REFUSES a v43 peer outright.
+ *
+ * ⛔ THE BOSS SKILLS ARE **NOT** IN THIS BUMP, and that is worth stating so the next author does not
+ * assume they are covered. Owner R138/R139/R140 (S167) specify a damaging aura, a death explosion,
+ * ground tentacles, a stunning sonar cone, on-kill conversion and a life-sap heal. Stun, knockback
+ * and owner-conversion are all NEW VERBS this sim does not have, and at least one of them will need
+ * a new serialized field or `GameEffect` kind — which is its own bump, 44 -> 45.
+ */
+export const PROTOCOL_VERSION = 44 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -778,6 +816,15 @@ export interface HelloMsg {
    * `raceUnit`'s one because R135 makes these stats VARY per race, and an undamaged creature sends
    * no stats — the receiver rebuilds them from its own compiled config, keyed by type.)
    *
+   * S167 P1: 43->44 (THE TIER-9 BOSS TOWER AND ITS SIX BOSSES — `RACE_ZONES_AND_BOSS_TOWERS.md` §B.
+   * Nine of a race's own shape; it releases ONE boss and crumbles, consuming the ring. SIX serialized
+   * `GodlyId`s (`t9TowerVampires` … `t9TowerDemons`) plus SIX `CreatureType`s (`t9BossVampires` …
+   * `t9BossDemons`), landed together for the same reason the tier-3 twelve were. The creature half is
+   * again the five-goblins shape (29->30). Literals are keyed by RACE, never by boss name, because
+   * one of the six names is an open trademark question and a name in the wire format would cost
+   * another bump to change. No new action, no new field, no new `GameEffect` kind — the boss SKILLS
+   * are NOT in this bump and will need their own.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -815,7 +862,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 43;
+  readonly protoVersion: 44;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

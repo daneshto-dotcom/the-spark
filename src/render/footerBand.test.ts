@@ -66,7 +66,15 @@ describe('S149 P4 — the bar is DERIVED from the recipe registry, never hardcod
     const model = footerBandModel(w);
     const counted = model.reduce((n, c) => n + c.total, 0);
     expect(counted).toBe(castleStructuresModel(w).length);
-    expect(counted).toBe(8);
+    /*
+     * ⚠ S167 — 8 -> 9 BECAUSE A SEAT NOW SEES TWO RACE TOWERS, NOT BECAUSE A CHIP MOVED. The
+     * breakdown is 7 globals + the seat's ONE tier-3 tower + the seat's ONE tier-9 boss tower. If
+     * this line ever goes red again, the question to ask FIRST is whether the R95 per-race filter
+     * still hides the other five races' towers — the failure message says "footer band", but the
+     * defect it is most likely reporting is a leaked race filter, and bumping the number would hide
+     * exactly that.
+     */
+    expect(counted).toBe(9);
   });
 
   it('a chip is DIM on an empty inventory, because nothing is affordable at t=0', () => {

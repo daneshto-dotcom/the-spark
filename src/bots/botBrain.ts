@@ -26,6 +26,8 @@ import { bankCount, bankCountOf, isOwnPorchSpark } from '../state/castleBank.ts'
 // `stampRefusalAt`, never a lookalike.
 // S166 — R95/B14's race filter for bot tower choice, from the side-effect-free leaf.
 import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
+// S167 - used by seatTowerRungs to drop the six boss towers from every bot's rung list.
+import { isT9TowerId } from '../state/t9BossIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
@@ -181,7 +183,26 @@ const TOWERS_BY_COST: readonly GodlyId[] = [...ALL_BLUEPRINT_IDS].sort(
 export function seatTowerRungs(world: World, seat: PlayerId): readonly GodlyId[] {
   const me = world.players.get(seat);
   const mine = me === undefined ? null : RACE_TOWER_IDS[me.raceId];
-  return TOWERS_BY_COST.filter((id) => !isRaceTowerId(id) || id === mine);
+  /*
+   * ⛔ S167 — AND THE SIX TIER-9 BOSS TOWERS ARE DROPPED ENTIRELY, FOR EVERY SEAT. This is a
+   * different decision from the tier-3 line above, and it is deliberate rather than lazy.
+   *
+   * Without naming them at all they would sit in every seat's rung list — `isRaceTowerId` walks
+   * `RACE_TOWER_IDS` only — which is S166's B14 defect reopened verbatim: every bot of every race
+   * ordering shapes for five towers R137 refuses to ignite. Neither `botTowers.test.ts` nor
+   * `botTowerVariety.test.ts` can see that, because both only ever index rungs `0..towerTiers-1`.
+   *
+   * ⭐ SO WHY DROP RATHER THAN FILTER TO `mine`? Because nine of ONE shape is a bill no bot can
+   * currently assemble on purpose: `botBrain`'s gatherer order queue is pinned to ONE entry, so a
+   * second hauler contributes untyped shapes, and the economy suite measures a MIXED four-shape bill
+   * and nothing else. A bot that queued a nine-of-one-type order would stall its whole build behind
+   * a rung it cannot reach, which is strictly worse than not knowing the tower exists.
+   *
+   * ⚠ THIS IS A CAPABILITY GAP, NOT A RULING — the owner has never been asked whether bots should
+   * field bosses, and the honest answer today is that the bot economy cannot support one. It is
+   * named in the handoff so it is a decision rather than a discovery.
+   */
+  return TOWERS_BY_COST.filter((id) => !isT9TowerId(id) && (!isRaceTowerId(id) || id === mine));
 }
 
 /**

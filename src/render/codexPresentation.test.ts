@@ -35,10 +35,22 @@ const ALL_IDS = [
    */
   't3TowerVampires', 't3TowerNagas', 't3TowerMummies',
   't3TowerZombies', 't3TowerOrcs', 't3TowerDemons',
+  /*
+   * S167 — the six tier-9 BOSS towers, here for exactly the reason the tier-3 block above is: tsc
+   * cannot demand them and `codexCopyFor` falls back to `id.toUpperCase()` with a BLANK power line,
+   * so 'T9TOWERVAMPIRES' would ship green into the footer card and the FIX popover title.
+   *
+   * ⚠ AND THE BUDGET TEST BELOW EARNED ITS KEEP AGAIN. The first draft of these six ran 36 chars
+   * of `power` against the 34 ceiling and ~210 of `recipe` against 150; all twelve lines were
+   * rewritten to fit and re-measured FROM THE FILE. 'ARCHDEMON TOWER' is 15 of the 16-char `name`
+   * budget, so a longer boss name than that cannot be a tower label without a re-think.
+   */
+  't9TowerVampires', 't9TowerNagas', 't9TowerMummies',
+  't9TowerZombies', 't9TowerOrcs', 't9TowerDemons',
 ] as const;
 
 describe('S121 P4 — codex copy budgets (the anti-overflow contract)', () => {
-  it('covers every codex entry (2 godly + 6 towers)', () => {
+  it('covers every codex entry — CODEX_COPY and ALL_IDS agree exactly, both ways', () => {
     for (const id of ALL_IDS) expect(CODEX_COPY[id], id).toBeDefined();
     expect(Object.keys(CODEX_COPY).sort()).toEqual([...ALL_IDS].sort());
   });

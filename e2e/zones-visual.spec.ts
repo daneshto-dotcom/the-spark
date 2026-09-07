@@ -295,7 +295,7 @@ test.describe('@visual S149 P4 — the footer band on screen', () => {
     // ⭐ S166 — the `3` is the seat's own tier-3 race tower (R108's new tier below the floor). It
     // appeared with no hardcoded list edited because the bar derives from `blueprintCost`; R95
     // filters the other five races' towers out, so there is exactly one 3-cost recipe on the bar.
-    expect(band.chips.map((c) => c.complexity)).toEqual([3, 4, 5, 6, 7, 8]);
+    expect(band.chips.map((c) => c.complexity)).toEqual([3, 4, 5, 6, 7, 8, 9]);
     // And they clear both bottom-corner porches (x=130 and x=1790) by a wide margin.
     expect(Math.min(...band.chips.map((c) => c.x))).toBeGreaterThan(400);
     expect(Math.max(...band.chips.map((c) => c.x + c.w))).toBeLessThan(1520);

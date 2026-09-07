@@ -49,6 +49,9 @@ import { bankOf } from '../state/castleBank.ts';
 // S166 — R95's race filter. From the side-effect-free leaf: this module must not fire
 // `registerRecipe` as an import side effect (see `raceTowerIds.ts`).
 import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
+// S167 - the tier-9 leaf. Separate table AND separate predicate; see the R95 filter below for why
+// folding the twelve ids into one table would put a FEED button on a one-shot boss tower.
+import { T9_TOWER_IDS, isT9TowerId } from '../state/t9BossIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { availableShapeCounts, planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { drawBlueprintThumb } from './blueprintGlyph.ts';
@@ -308,8 +311,22 @@ export function castleStructuresModel(world: World): StructureRow[] {
    * ⚠ THE COMPLEMENT MATTERS TOO AND IS TESTED BOTH WAYS: every race still sees all seven GLOBAL
    * towers. That is the regression proving R95's "additive, not replacing" actually held.
    */
+  /*
+   * ⭐ S167 — R95 NOW COVERS TWO TIERS, AND THE PREDICATES ARE SEPARATE ON PURPOSE.
+   * `isRaceTowerId` walks `RACE_TOWER_IDS` only, so the six tier-9 boss towers would fall through
+   * this filter as GLOBALS and every seat would see all six bosses in its build panel.
+   *
+   * ⛔ AND THE TEMPTING FIX — ONE TABLE HOLDING ALL TWELVE IDS — IS A REAL BUG, NOT A STYLE CHOICE.
+   * `isRaceTowerId` is also what `goblinKinds.ts`'s `seatFeedTowerAt` uses to decide a structure is
+   * FEEDABLE, so folding the tier-9 ids into it would put a FEED button on a boss tower, which is
+   * one-shot and must never be fed. Two predicates, two tables, one filter that names both.
+   */
   const myTowerId = me === undefined ? null : RACE_TOWER_IDS[me.raceId];
-  const visible = ALL_BLUEPRINT_IDS.filter((id) => !isRaceTowerId(id) || id === myTowerId);
+  const myBossTowerId = me === undefined ? null : T9_TOWER_IDS[me.raceId];
+  const visible = ALL_BLUEPRINT_IDS.filter(
+    (id) =>
+      (!isRaceTowerId(id) || id === myTowerId) && (!isT9TowerId(id) || id === myBossTowerId),
+  );
 
   return visible.map((id) => {
     const copy = codexCopyFor(id);

@@ -43,6 +43,7 @@
 import type { CreatureType } from './creature.ts';
 import {
   T3_STATS,
+  T9_BOSS_STATS,
   RACE_UNIT_HP,
   RACE_UNIT_DEF,
   RACE_UNIT_ATK,
@@ -843,6 +844,66 @@ export const T3_BAT_CONFIG: CreatureConfig = makeT3Config('t3Bat', T3_STATS.bat)
 export const T3_WARBAND_CONFIG: CreatureConfig = makeT3Config('t3Warband', T3_STATS.warband);
 export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T3_STATS.souleater);
 
+/**
+ * ⭐ S167 — THE SIX TIER-9 BOSSES. One factory over `T9_BOSS_STATS`, exactly as `makeT3Config` is
+ * one factory over `T3_STATS`: the six differ in five numbers and agree on everything else, so six
+ * hand-written configs would be six chances for one shared field to drift.
+ *
+ * ⛔ `persistent: true` IS THE SPEC'S *"they will live until they die"*, and it is doing real work.
+ * `lifetimeTicks` is match-length here as it is for every persistent unit, but the owner's ruling is
+ * stronger than "long-lived": §B item 7 has the boss SURVIVE the FIGHT phase and return to the
+ * castle to attack again next phase, and §D Q3a rules that it does NOT heal on the way
+ * (*"if it healed at the castle each phase, 'until they die' would be unreachable"*).
+ *
+ * ⚠ SO ONE HALF OF THAT RULING IS NOT IMPLEMENTED BY THIS CONFIG AND MUST NOT BE READ AS IF IT
+ * WERE. `persistent` keeps the boss alive; nothing here gives it a RETURN-TO-CASTLE behaviour,
+ * because all creature locomotion in this codebase advances toward the enemy and there is no retreat
+ * mode to select. The damage-persists half is free (nothing resets `hp` at a phase edge); the
+ * return-and-re-attack half is a new AI mode and is named in the handoff as unbuilt rather than
+ * quietly skipped.
+ *
+ * ⚠ `targetsStructures: true` — a boss that could not hit a castle would be a very expensive
+ * skirmisher, and the castle is what the owner's brief has it attacking.
+ *
+ * ⚠ `attackCadenceTicks` is the goblin's, unscaled. A boss hitting five times harder at the goblin's
+ * rate is already a fivefold damage step; slowing the swing to "feel heavy" would be a second,
+ * uncosted balance change on top of stats that are mine and provisional.
+ */
+function makeT9BossConfig(
+  type: CreatureType,
+  s: { hp: number; def: number; atk: number; pen: number; speedMul: number },
+): CreatureConfig {
+  return {
+    type,
+    hp: s.hp,
+    def: s.def,
+    atk: s.atk,
+    pen: s.pen,
+    lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what keeps it alive
+    spawnTicks: 30,
+    despawningTicks: 30,
+    fadeTicks: 15,
+    attackRange: GOBLIN_ATTACK_RANGE,
+    attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+    attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+    attackChargeEngageTick: 0,
+    persistent: true,
+    chewsConnectors: false,
+    hopSpeedMul: s.speedMul,
+    maxAccel: Math.round(GOBLIN_MAX_ACCEL * s.speedMul),
+    selfExplode: false,
+    targetsStructures: true,
+    holdsRange: false,
+  };
+}
+
+export const T9_BOSS_VAMPIRES_CONFIG: CreatureConfig = makeT9BossConfig('t9BossVampires', T9_BOSS_STATS.vampires);
+export const T9_BOSS_NAGAS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossNagas', T9_BOSS_STATS.nagas);
+export const T9_BOSS_MUMMIES_CONFIG: CreatureConfig = makeT9BossConfig('t9BossMummies', T9_BOSS_STATS.mummies);
+export const T9_BOSS_ZOMBIES_CONFIG: CreatureConfig = makeT9BossConfig('t9BossZombies', T9_BOSS_STATS.zombies);
+export const T9_BOSS_ORCS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossOrcs', T9_BOSS_STATS.orcs);
+export const T9_BOSS_DEMONS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossDemons', T9_BOSS_STATS.demons);
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
@@ -874,6 +935,14 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   t3Bat: T3_BAT_CONFIG,
   t3Warband: T3_WARBAND_CONFIG,
   t3Souleater: T3_SOULEATER_CONFIG,
+  // S167 — the six bosses. tsc forces these: the table is a full `Record<CreatureType, …>`, and it
+  // is the site that saves a new creature type from `getCreatureConfig(...) === undefined` on a peer.
+  t9BossVampires: T9_BOSS_VAMPIRES_CONFIG,
+  t9BossNagas: T9_BOSS_NAGAS_CONFIG,
+  t9BossMummies: T9_BOSS_MUMMIES_CONFIG,
+  t9BossZombies: T9_BOSS_ZOMBIES_CONFIG,
+  t9BossOrcs: T9_BOSS_ORCS_CONFIG,
+  t9BossDemons: T9_BOSS_DEMONS_CONFIG,
 };
 
 /**

@@ -104,6 +104,14 @@ import { raceUnitEmitTick } from './raceUnitEmit.ts';
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
 import { isRaceTowerId } from './raceTowerIds.ts';
+/*
+ * S167 — the tier-9 leaf + the ring walk, both side-effect-free, for the same hot-path reason as
+ * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
+ */
+import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
+import { T9_RELEASE_DELAY_TICKS } from '../constants.ts';
+import { ringMembersAt } from './godlyRecipes/ringShape.ts';
+import { RACE_FEED_SHAPE } from './races.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -837,6 +845,131 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * `if (sp.recipeId === 'pentagram')` and the default becomes inert. That is a behaviour
          * change on the pentagram path, so it is named here rather than done here.
          */
+      } else if (isT9TowerId(sp.recipeId)) {
+        /*
+         * ⭐⭐ S167 — **THE TIER-9 BOSS TOWER RELEASES ONE BOSS AND CONSUMES ITSELF.** This arm is
+         * the whole one-shot mechanic; `t9BossTower.ts` only answers "is there a tower, and whose".
+         *
+         * Owner (`RACE_ZONES_AND_BOSS_TOWERS.md` §B): *"the tower would spawn 1 boss and then the
+         * tower would crumble … should take no [more than 8 seconds]"*.
+         *
+         * ## ⛔ WHY THE NINE SHAPES ARE RAZED, AND WHY THE FEATURE IS BROKEN WITHOUT IT
+         *
+         * `igniteOneSpawnerRecipe` (`godlyMatcherCore.ts`) de-dups on `(anchor, owner)` against the
+         * LIVE `creatureSpawners` map ONLY — its own docblock says *"can't double-register; CAN
+         * rebuild after removal."* There is no spent-set, no per-anchor latch and no cooldown
+         * anywhere in the tree. So if this tower removed itself while its nine shapes were still
+         * standing, the very NEXT bond formed anywhere on the board would re-ignite it and the seat
+         * would field **an unlimited stream of bosses**. Razing the ring is not flavour; it is the
+         * only thing making the one-shot actually one-shot.
+         *
+         * It is also what the spec already assumes — §D Q3b: *"a second boss already costs a fresh
+         * nine of the race shape — a real price, which is the natural cap the design already
+         * contains."*
+         *
+         * ## ⛔ `ringMembersAt`, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
+         *
+         * The lightning hub's self-raze forty lines up takes
+         * `componentOf(dying, …).primitiveIds`. **Copying that call here would be a bug.** R136
+         * deliberately permits FOREIGN shapes to auto-bond onto ring nodes without breaking the
+         * tower, and those shapes are in the COMPONENT — so a component raze would delete the
+         * player's unrelated neighbouring shapes as collateral. The nine nodes the ring walk
+         * actually visited are the only correct set.
+         *
+         * ## ⛔ AND WHY THIS IS NOT ROUTED THROUGH THE RECIPE-BREAK BRANCH ABOVE
+         *
+         * Making `recipeStillSatisfied` return false would be the shorter way to tear the tower
+         * down, and it would be wrong twice over: that branch calls `awardSpawnerKillReward`, so
+         * every deliberate boss release would hand the ENEMY a free kill reward; and it is the
+         * DESTRUCTION path, whose own comment records that it must stay distinguishable from
+         * teardown. A release is neither. It happens here, in the emit chain, where it belongs.
+         *
+         * ⚠ `REMOVE_SPAWNER` IS DISPATCHED IN THE SAME TICK AS THE RAZE, which is what keeps the
+         * next re-validation poll from ever seeing a spawner whose ring has vanished — the poll runs
+         * ABOVE this chain, so by the time it next executes the spawner is already gone.
+         *
+         * ⚠ THE BOSS CARRIES NO `sourceSpawnerId`. That is deliberate and load-bearing: it routes
+         * the spawn to `applySpawnCreature`'s null branch, whose one-live-per-(owner, type) gate IS
+         * the spec's *"only ONE of a seat's bosses alive at a time"* — for free, with no new cap
+         * family. A non-null id would instead route it to `underGoblinCaps`, sharing
+         * `GOBLIN_MAX_GLOBAL = 200` with every goblin tower, which is the S157 B1 / S165 W1-C defect
+         * a third time. The tower is gone one line later, so a spawner id would be dangling anyway.
+         *
+         * ⚠ AND THE GATE MAKES A REBUILD MEANINGFUL RATHER THAN FREE: a seat whose boss is still
+         * alive can build a second nine-ring, and it will ignite, release into the gate, and be
+         * REFUSED — spending the nine shapes for nothing. That is a real cost for a real mistake and
+         * it is the behaviour the spec's working assumption asks for. It is called out here because
+         * it is the kind of thing a playtester reports as a bug.
+         *
+         * ⛔ THE CRUMBLE **CINEMATIC** IS NOT WIRED HERE AND CANNOT BE TIMED OFF THIS SPAWNER.
+         * `trimMirrorSpawner` (`save.ts`) strips every tick field from a spawner on the wire, and
+         * `deserializeSpawner` re-seeds `ignitedAtTick` from the CURRENT tick — so any client-side
+         * animation clocked off spawner state restarts on every snapshot. The art lands in its own
+         * priority and needs a durable signal; this note exists so that priority designs one instead
+         * of discovering the re-seed the hard way.
+         */
+        if (world.tick >= sp.nextSpawnTick) {
+          const race = raceForT9TowerId(sp.recipeId);
+          const anchor = world.primitives.get(sp.anchorPrimitiveId);
+          /*
+           * ⛔⛔ **THE TOWER WAITS RATHER THAN BURNING THE RING FOR NOTHING**, and getting this
+           * wrong reproduces an owner bug report verbatim.
+           *
+           * `applySpawnCreature`'s one-live-per-(owner, type) gate REFUSES a second boss with a bare
+           * `return world` — it reports nothing and it cannot be observed from here. So an arm that
+           * dispatched and then razed unconditionally would, for a seat whose boss is still alive,
+           * destroy NINE SHAPES AND PRODUCE NO BOSS. That is S157 B1 in the owner's own words —
+           * *"the shapes are being consumed nevertheless - not cool!"* — on the most expensive
+           * structure in the game.
+           *
+           * ⭐ SO THE CHECK IS MADE HERE, BEFORE ANYTHING IS SPENT, and the tower simply STANDS
+           * until the seat's current boss dies. That is better than refusing: a second tower becomes
+           * a visible "next boss ready" structure rather than a trap, the nine shapes stay on the
+           * board where their owner can still SCRAP them, and the spec's *"only ONE alive at a
+           * time"* reads as a queue instead of as a punishment.
+           *
+           * ⚠ THE DEADLINE IS ADVANCED ON EVERY BLOCKED SLOT, never banked. A frozen `nextSpawnTick`
+           * left in the past is the S159 P9 / S165 defect this file has now fixed twice: the moment
+           * the block clears, `world.tick >= nextSpawnTick` is true every tick. Here it would merely
+           * re-check a cheap predicate, but the shape is the one the file has settled on.
+           */
+          const bossAlive =
+            race !== null &&
+            [...world.creatures.values()].some(
+              (c) => c.ownerPlayerId === sp.ownerPlayerId && c.type === T9_BOSS_TYPE[race],
+            );
+          if (bossAlive) {
+            sp.nextSpawnTick += T9_RELEASE_DELAY_TICKS;
+            continue;
+          }
+          if (race !== null && anchor !== undefined) {
+            const ring = ringMembersAt(
+              world,
+              sp.anchorPrimitiveId,
+              RACE_FEED_SHAPE[race],
+              T9_TOWER_SIZE,
+            );
+            /*
+             * A `null` ring means the structure broke between the throttled re-validation poll and
+             * this tick. Defense-in-depth, mirroring the deleted-anchor guard on the chewer arm
+             * below: no boss, no raze, and the spawner is removed regardless — the tower cannot be
+             * left half-alive waiting for a ring that is gone.
+             */
+            if (ring !== null) {
+              dispatch(world, {
+                type: 'SPAWN_CREATURE',
+                creatureType: T9_BOSS_TYPE[race],
+                ownerPlayerId: sp.ownerPlayerId,
+                // The boss is released AT the ring's anchor; its AI picks a target on its first tick.
+                pos: { x: anchor.pos.x, y: anchor.pos.y },
+                targetPos: { x: anchor.pos.x, y: anchor.pos.y },
+              });
+              razePrimitives(world, ring);
+            }
+          }
+          dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
+          continue;
+        }
       } else if (world.tick >= sp.nextSpawnTick) {
         const anchor = world.primitives.get(sp.anchorPrimitiveId);
         // The cadence advances on every due slot, emitted or skipped. See the note above.

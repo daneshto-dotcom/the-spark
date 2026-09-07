@@ -33,6 +33,9 @@ import { findAllGoblinTowerAnchors, goblinTowerOwnerForAnchor } from './godlyRec
 // pattern (the goblinTower line above does it): the matcher is a consumer of recipes, so firing
 // their registration as a side effect is harmless. `blueprints.ts` is the file that must not.
 import { findRaceTowerAnchors, raceTowerOwnerForAnchor } from './godlyRecipes/raceTower.ts';
+// S167 — the tier-9 pair. This module already value-imports recipe modules (six lines above), so
+// the S144 registration side effect is accepted here by precedent rather than avoided.
+import { findT9TowerAnchors, t9TowerOwnerForAnchor } from './godlyRecipes/t9BossTower.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { CUTSCENE_FADE_MS } from '../constants.ts';
@@ -201,6 +204,27 @@ export function runSpawnerIgnition(world: World): void {
   igniteOneSpawnerRecipe(world, zombieTowerAnchors(world), zombieTowerOwner, 't3TowerZombies');
   igniteOneSpawnerRecipe(world, orcTowerAnchors(world), orcTowerOwner, 't3TowerOrcs');
   igniteOneSpawnerRecipe(world, demonTowerAnchors(world), demonTowerOwner, 't3TowerDemons');
+  /*
+   * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Same six-explicit-lines shape as the tier-3 block above
+   * and for the same reason: the guard needs a LITERAL id at the call site, so a loop over
+   * `ALL_RACES` would compile, ignite correctly, and make `registerAll.test.ts` blind.
+   *
+   * ⚠ NO EARLY `return` HERE EITHER. A seat has one race (R110), so at most one of these twelve
+   * lines can match for a given player, and returning after the first would let a tier-3 tower
+   * defer a tier-9 tower to the next topology change — which may never come if the player stops
+   * placing, leaving a finished nine-ring inert.
+   *
+   * ⛔ AND THE TWO TIERS CANNOT BOTH MATCH THE SAME ANCHOR. A 9-ring fails the 3-walk's closure
+   * test and a 3-ring fails the 9-walk's revisit guard — traced in `t9BossTower.ts`'s docblock and
+   * pinned in `t9BossTower.test.ts`. So the ordering of these twelve lines carries no meaning and
+   * nothing depends on tier-3 being scanned first.
+   */
+  igniteOneSpawnerRecipe(world, vampireT9Anchors(world), vampireT9Owner, 't9TowerVampires');
+  igniteOneSpawnerRecipe(world, nagaT9Anchors(world), nagaT9Owner, 't9TowerNagas');
+  igniteOneSpawnerRecipe(world, mummyT9Anchors(world), mummyT9Owner, 't9TowerMummies');
+  igniteOneSpawnerRecipe(world, zombieT9Anchors(world), zombieT9Owner, 't9TowerZombies');
+  igniteOneSpawnerRecipe(world, orcT9Anchors(world), orcT9Owner, 't9TowerOrcs');
+  igniteOneSpawnerRecipe(world, demonT9Anchors(world), demonT9Owner, 't9TowerDemons');
 }
 
 /*
@@ -208,7 +232,7 @@ export function runSpawnerIgnition(world: World): void {
  *
  * ⛔ THESE EXIST TO KEEP THE RECIPE ID THE **ONLY** STRING LITERAL IN EACH IGNITION CALL, and the
  * guard caught me getting that wrong. `registerAll.test.ts` extracts ignited ids with
- * `/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z]+)'\s*\)/`, which is NON-GREEDY — so my first
+ * `/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z0-9]+)'\s*\)/`, which is NON-GREEDY — so my first
  * version, `igniteOneSpawnerRecipe(world, findRaceTowerAnchors(world, 'vampires'), …, 't3TowerVampires')`,
  * handed it `'vampires'` and it reported *"runSpawnerIgnition ignites 'vampires', which is not a
  * kind:'spawner' recipe"* while ALSO still reporting all six ids as unwired. Both messages were
@@ -233,6 +257,28 @@ const mummyTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTower
 const zombieTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'zombies');
 const orcTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'orcs');
 const demonTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'demons');
+
+/*
+ * S167 — the same pair of tables for the six TIER-9 BOSS towers, and they exist for the identical
+ * reason: a race name must never appear as a string literal INSIDE an `igniteOneSpawnerRecipe`
+ * call, because the guard's extraction regex is non-greedy and would read the race instead of the
+ * recipe id.
+ *
+ * Each resolver enforces R137 inside `t9TowerOwnerForAnchor`.
+ */
+const vampireT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'vampires');
+const nagaT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'nagas');
+const mummyT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'mummies');
+const zombieT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'zombies');
+const orcT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'orcs');
+const demonT9Anchors = (w: World): PrimitiveId[] => findT9TowerAnchors(w, 'demons');
+
+const vampireT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'vampires');
+const nagaT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'nagas');
+const mummyT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'mummies');
+const zombieT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'zombies');
+const orcT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'orcs');
+const demonT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'demons');
 
 /**
  * S103 P2 — host-only DEFENDER ignition (mirror of runSpawnerIgnition). On a topology change,

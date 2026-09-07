@@ -169,6 +169,10 @@ describe('CREATURE_CONFIGS lookup table', () => {
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
       'lightningDrone', 'raceUnit',
       't3Bat', 't3Hound', 't3Piranha', 't3Scarab', 't3Souleater', 't3Warband',
+      // S167 — the six tier-9 bosses. This list is HAND-MAINTAINED and it earned its keep again:
+      // it is the only thing in the tree that fails when a CreatureType is added to the union and
+      // to CREATURE_CONFIGS but forgotten everywhere a human has to remember.
+      't9BossDemons', 't9BossMummies', 't9BossNagas', 't9BossOrcs', 't9BossVampires', 't9BossZombies',
       'voltkin',
     ]);
   });
