@@ -100,6 +100,13 @@ export const FIFTHS = 5;
  * structure complexity"*), and a clamp helper sitting next to an uncapped stat is an invitation to
  * apply it to the wrong one. `statsLadder.test.ts` asserts every SHIPPED unit sits inside the range;
  * the range is enforced by test, not by silent truncation.
+ *
+ * ⛔ **CORRECTED S167 — THAT LAST SENTENCE WAS A PROMISE, NOT A FACT.** `statsLadder.test.ts` DID
+ * NOT EXIST. The comment had been describing a guard nobody had written, for long enough that a
+ * later session (this one) read it, believed the range was enforced, and shipped six bosses at
+ * HP 40–60 — five times the ruled ceiling — with every gate green. The file exists now and this
+ * sentence is true; it is left in place rather than deleted precisely because it is the shape of
+ * mistake that repeats: **a comment claiming a guard is not a guard.**
  */
 export const STAT_POINT_MIN = 1;
 export const STAT_POINT_MAX = 12;

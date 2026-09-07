@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6068,
+  "tool_calls_session_total": 6073,
   "session_id": "S167",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -48,12 +48,31 @@
     {
       "id": 2,
       "name": "The tier-9 art - tower atlases, boss clips, destroy cinematics",
-      "status": "in-progress",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "note": "Boss SKILL clips excluded pending an owner ruling; the other four clips per boss do not depend on it."
+      "note": "Boss SKILL clips excluded pending an owner ruling; the other four clips per boss do not depend on it.",
+      "check_completed": true,
+      "checkpoint_commit": "0c35dcad63831e3e1c7820318c894ef4a44a3b7f",
+      "check_method": "6 tower atlases from the 18 owner stills + 6 boss atlases from 24 fresh veo clips + 6 tier-9 CRUMBLE cinematics (24+6=30 clips, all generated, exit 0). Row orders verified against the SHIPPED anim.json (t3: intact0/spawning1/damaged2/destroyed3; t9: 0/1/2; boss: idle0/walk1/attack2/die3) and pinned by test. check:atlas extended to both new dirs (its list is hardcoded in package.json - new art is otherwise unscanned while the guard reports success); 48 atlases clean, largest white pocket 0-2px because enclosedWhiteLimitPct is set EXPLICITLY. ⭐ FOUND AND FIXED THE REAL GAP: the art had no RENDERER - t3TowerAtlasBase had ZERO production callers and t3destroy had no accessor at all, so 18 shipped atlases had never been drawn. towerFrames.ts + towerRenderer.ts now draw BOTH tiers, state-driven by the ring's own primitive HP (no new synced field, so no four-sites tax and no trimMirrorSpawner divergence). VISUALLY VERIFIED: screenshot shows Vlad's coffin standing in its nine-Triangle ring. e2e/tower-art.spec.ts asserts a SPRITE exists - the assertion whose absence let the tier-3 art ship invisible. Gates from captured $?: typecheck 0, vitest 0 (4005/4005), check:atlas 0, build 0 (801 KiB), e2e:gating 0 (63).",
+      "art_shipped": {
+        "tower_atlases": 6,
+        "boss_atlases": 6,
+        "crumble_cinematics": 6,
+        "veo_clips": 30
+      }
+    },
+    {
+      "id": 3,
+      "name": "Boss stats onto the owner ruled 1..12 scale + the MISSING statsLadder guard",
+      "status": "in-progress",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "note": "Scope amendment under the owner directive \"keep working all priorities ... work well dont leave anything out\". Corrects MY OWN provisional numbers against an EXISTING owner ruling (STAT_POINT_MAX=12), and writes the guard stats.ts already claims exists."
     }
   ],
   "reflexion_entries_to_archive": [],
@@ -7257,5 +7276,21 @@
     "reserved": "Pharaoh, Warlord, Archdemon - owner is thinking; he asked for the full enemy stat list first.",
     "art_owed": "Every skill needs generated video/art.",
     "recorded_in": "RACE_ZONES_AND_BOSS_TOWERS.md"
+  },
+  "gates_at_p2_close_s167": {
+    "typecheck": 0,
+    "vitest": "0 (4005/4005, 246 files)",
+    "check_atlas": "0 (48 clean)",
+    "build": "0 (801.0 KiB, 95.3 KiB headroom)",
+    "e2e_gating": "0 (63 passed)",
+    "commit": "0c35dcad63831e3e1c7820318c894ef4a44a3b7f",
+    "pushed": true
+  },
+  "findings_s167": {
+    "F1": "vite.config testTimeout was 5s; three separate full-suite runs went red on tests that PASS in isolation with their diagnostics already printed. Raised to 20s. A gate that cries wolf trains the next session to wave red away.",
+    "F2": "castlePanel getUiPoints().structureCenters maps 19 ALL_BLUEPRINT_IDS against an EMPTY tiles array (CASTLE_BUILD_GRID_ENABLED=false, grid retired to the footer). Reports every race tower as present-but-disabled with a blank reason - reads exactly like a broken R95 filter. NOT player-facing; cost two e2e runs to rediscover. Documented at the footer reader that replaced it.",
+    "F3": "stats.ts:101 cites statsLadder.test.ts as enforcing STAT_POINT_MAX=12. THAT FILE DOES NOT EXIST - verified. Nothing enforces the owner ruled 1..12 scale, which is how the S167 provisional boss stats (HP 40-60) shipped 5x outside it.",
+    "F4": "potatoLifecycle POTATO_CLEARS omits all six tier-3 units (pre-existing, commit 40e2168 never touched the file) - potatoes clear every goblin and race unit but not tier-3 units.",
+    "F5": "An ELIMINATED seat leaves its towers standing (scoring.ts:289-304 calls what happens to them an open owner question). A persistent boss that \"lives until it dies\" and survives phase edges turns that into a unit hitting survivors forever with no owner to punish."
   }
 }

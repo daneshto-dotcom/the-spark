@@ -1514,19 +1514,49 @@ export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
  * ⚠ SPEED IS A MULTIPLIER AND ALL SIX ARE ≤ 1.0. A boss that outruns the units escorting it arrives
  * alone, which is the opposite of what a boss should feel like.
  */
+/**
+ * ⛔ **CORRECTED WITHIN S167, AND THE CORRECTION IS THE INTERESTING PART.**
+ *
+ * The first cut of this block was **HP 40–60**. That is not a matter of taste — it BREAKS AN OWNER
+ * RULING THAT WAS ALREADY ON THE BOOKS. `stats.ts` quotes him directly: *"scaling will be for
+ * hp = 1, 2, 3 … 12"*, and `STAT_POINT_MAX = 12`. Nothing on the board had ever exceeded voltkin's
+ * 8. Measured afterwards, the consequences were absurd in BOTH directions:
+ *
+ *   · every boss ONE-SHOT every unit in the game (Vlad's 108 fifths against a goblin's 7-fifth pool
+ *     is fifteenfold overkill);
+ *   · and a boss took **24–92 seconds** of sustained single-unit fire to kill, against a FIGHT phase
+ *     of ~45 s — the Pharaoh at 550 fifths could not be removed at all.
+ *
+ * ⭐ AND NOTHING CAUGHT IT, WHICH IS THE REAL FINDING. `stats.ts` claimed *"`statsLadder.test.ts`
+ * asserts every SHIPPED unit sits inside the range"*. **That file did not exist.** The comment had
+ * been promising a guard nobody had written, so any magnitude passed unchallenged. It exists now,
+ * and it is what would have refused these numbers.
+ *
+ * ## The band, and what it costs to kill
+ *
+ * A boss is a NINE-shape bill against voltkin's eight, so it is priced a little above him: pools of
+ * 72–130 fifths against his 64. Measured against one goblinMelee (12 fifths/swing at 1/s) that is
+ * 6–11 seconds of focused fire, or 2–3 seconds for a squad of five — long enough to feel like a boss
+ * inside a 45 s fight, short enough that it can actually be answered.
+ *
+ * ⚠ DELIBERATELY LEAVING ROOM FOR THE SKILLS. The owner is designing two abilities per boss
+ * (R138/R139/R140 so far — a damaging aura, a death explosion, ground tentacles, a stunning cone,
+ * on-kill conversion, a life-sap heal). That is where a boss's threat is meant to live; raw numbers
+ * frightening on their own would leave the skills nothing to add.
+ */
 export const T9_BOSS_STATS = {
-  /** Vampires — Vlad. IMPERIAL: the glass cannon of the six. */
-  vampires: { hp: 40, def: 2, atk: 12, pen: 4, speedMul: 1.0 },
-  /** Nagas — the Kraken. MONSTROUS: the HP pole, and the slowest thing on the board. */
-  nagas: { hp: 60, def: 3, atk: 8, pen: 1, speedMul: 0.7 },
-  /** Mummies — the Pharaoh. ANCIENT & CURSED: the armour pole; inevitability, not aggression. */
-  mummies: { hp: 50, def: 6, atk: 7, pen: 1, speedMul: 0.75 },
-  /** Zombies — the bloated brute. DISGUSTING: bulk without finesse, no penetration at all. */
-  zombies: { hp: 55, def: 2, atk: 9, pen: 0, speedMul: 0.85 },
-  /** Orcs — the Warlord. BRUTAL: the balanced fighter, and the one with no weakness to exploit. */
-  orcs: { hp: 48, def: 4, atk: 10, pen: 2, speedMul: 0.9 },
-  /** Demons — the Archdemon. VICIOUS: highest PEN, fastest; armour is not a defence against it. */
-  demons: { hp: 45, def: 3, atk: 10, pen: 5, speedMul: 0.95 },
+  /** Vampires — Vlad. IMPERIAL: *"threat is authority rather than bulk"* — least durable, hits hardest. */
+  vampires: { hp: 9, def: 3, atk: 7, pen: 5, speedMul: 1.0 },
+  /** Nagas — the Kraken. MONSTROUS: *"threat is sheer size"* — the HP pole, and the slowest. */
+  nagas: { hp: 12, def: 5, atk: 5, pen: 1, speedMul: 0.7 },
+  /** Mummies — the Pharaoh. ANCIENT & CURSED: *"dread rather than aggression"* — the armour pole. */
+  mummies: { hp: 10, def: 8, atk: 4, pen: 1, speedMul: 0.75 },
+  /** Zombies — the bloated brute. DISGUSTING: *"body horror and bloat"* — bulk, ZERO penetration. */
+  zombies: { hp: 12, def: 4, atk: 6, pen: 0, speedMul: 0.85 },
+  /** Orcs — the Warlord. BRUTAL: *"earned violence"* — the balanced fighter, no weakness to exploit. */
+  orcs: { hp: 10, def: 6, atk: 6, pen: 2, speedMul: 0.9 },
+  /** Demons — the Archdemon. VICIOUS: *"active cruelty"* — highest PEN; armour is no defence. */
+  demons: { hp: 9, def: 4, atk: 6, pen: 5, speedMul: 0.95 },
 } as const;
 
 /**
