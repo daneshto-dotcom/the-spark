@@ -55,11 +55,33 @@ import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { attachButtonFeedback } from './buttonFeedback.ts';
 
-/** ⚠ Must stay < PROGRESS_X (1882) — the rail runs y=80..988 down the right edge. */
+/** Must stay < PROGRESS_X (1882) - the rail runs y=80..988 down the right edge. */
 export const EXIT_RIGHT_LIMIT = 1876;
 export const EXIT_BTN_W = 168;
 export const EXIT_BTN_H = 34;
-export const EXIT_BTN_X = EXIT_RIGHT_LIMIT - EXIT_BTN_W; // 1708
+
+/*
+ * S165 (owner: "back to main covering the player two castle") - MOVED LEFT, OFF SEAT 1'S KEEP.
+ *
+ * THE COLLISION, IN NUMBERS. On QUADRANTS_4P seat 1's castle anchor is (1790, 130) and its keep box
+ * is KEEP_W x KEEP_H = 74 x 58, so it occupies x 1753..1827, y 101..159. The button was flush to
+ * EXIT_RIGHT_LIMIT at x 1708..1876, y 100..134. That overlaps on both axes, and the castle SPRITE
+ * is drawn taller than the keep box, so the button sat squarely on top of the art.
+ *
+ * WHY THE BUTTON MOVED AND NOT THE CASTLE. The four anchors are the board's corners and drive real
+ * simulation - gatherer spawns, castle-gun range, keep hit-testing, zone ownership, the race-unit
+ * emitter and the army recall all read `castleAnchor`. Nudging one of them left would desymmetrise
+ * the board and change gameplay to fix a HUD overlap. The HUD is the layer that has to yield, which
+ * is the same principle `expectNoHudOverlaps` already enforces for every other instrument.
+ *
+ * THE NEW SLOT is derived, not guessed: the right edge sits KEEP_CLEARANCE left of the keep's left
+ * edge. The band x 1524..1692 at y 100..134 is free in the worst-case 4-row HUD dump quoted above -
+ * the tier banner stops at x=1124 and the beta badge starts at y=8 and ends at y=29.
+ */
+const SEAT1_KEEP_LEFT_4P = 1790 - 74 / 2; // castleAnchor(1, QUADRANTS_4P).x - KEEP_W / 2 = 1753
+/** Breathing room, and slack for the castle sprite being drawn wider than its hit box. */
+const KEEP_CLEARANCE = 61;
+export const EXIT_BTN_X = SEAT1_KEEP_LEFT_4P - KEEP_CLEARANCE - EXIT_BTN_W; // 1524
 /** Below the connection dot (ends y=74); clear of the tier banner, which stops at x=1124. */
 export const EXIT_BTN_Y = 100;
 export const EXIT_BTN_LABEL = 'BACK TO MAIN';

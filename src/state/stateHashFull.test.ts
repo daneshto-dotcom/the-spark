@@ -420,3 +420,51 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     expect(hashWorldStateFull(w)).not.toBe(h2);
   });
 });
+
+/**
+ * S165 - EVERY SCALAR CURSOR MARKED 'hashed' MUST ACTUALLY MOVE THE HASH.
+ *
+ * THE HOLE THIS CLOSES. `nextStinkCloudId` was declared `'hashed'` in FIELD_COVERAGE and had no
+ * entry in the string projection, so the WIDE ORACLE could not see it: setting it to any value left
+ * `hashWorldStateFull` byte-identical, while every other cursor in the same `nx` block moved it.
+ *
+ * WHY NOTHING CAUGHT IT. The forcing function above is per-FAMILY (nineteen `[family, regex]`
+ * rows), and this field is a SCALAR, so it sits in `HASHED_NON_FAMILY` and was exempt. The scalar
+ * coverage that did exist was a handful of hand-written spot checks - `rngSeed`,
+ * `nextPrimitiveId`, `gameState` - which is to say the field was exempt from the general gate and
+ * absent from the specific one. Four separate docblocks in this codebase assert that a
+ * "per-field contribution test" exists; for scalars it did not.
+ *
+ * SO THIS ENUMERATES rather than spot-checking. Every numeric `'hashed'` scalar is mutated in turn
+ * and the hash must change. A new cursor added to FIELD_COVERAGE and forgotten in the projection
+ * now fails here on the day it lands, which is the only day it is cheap to fix.
+ */
+describe('S165 - no hashed scalar is invisible to the wide oracle', () => {
+  /** The numeric cursors. Derived from FIELD_COVERAGE so a new one is included automatically. */
+  const numericCursors = (): string[] => {
+    const w = makeWorld(7) as unknown as Record<string, unknown>;
+    return Object.entries(FIELD_COVERAGE)
+      .filter(([k, v]) => v === 'hashed' && typeof w[k] === 'number')
+      .map(([k]) => k);
+  };
+
+  it('enumerates a real set (anti-vacuity)', () => {
+    // An empty list would make the loop below pass while testing nothing at all.
+    expect(numericCursors().length).toBeGreaterThan(10);
+  });
+
+  it('changing any hashed numeric cursor changes hashWorldStateFull', () => {
+    for (const key of numericCursors()) {
+      const w = makeWorld(7) as unknown as Record<string, unknown> & Parameters<typeof hashWorldStateFull>[0];
+      const before = hashWorldStateFull(w);
+      const original = (w as unknown as Record<string, number>)[key];
+      // +9973: a prime, large enough that no cursor's own arithmetic can coincidentally reproduce it.
+      (w as unknown as Record<string, number>)[key] = original + 9973;
+      expect(
+        hashWorldStateFull(w),
+        `${key} is marked 'hashed' in FIELD_COVERAGE but does not appear in the string `
+          + `projection - the wide oracle cannot see it. Add it to determinismParts.`,
+      ).not.toBe(before);
+    }
+  });
+});

@@ -10,9 +10,24 @@
  * Playwright, not the in-app browser pane: an undisplayed pane does not composite, so rAF is paused
  * and the Pixi ticker never advances — a screenshot from it would show a dead first frame.
  *
- * Tagged `@visual` so it stays out of the gating lane; it is a capture with a couple of sanity
- * assertions, not a behavioural test.
+ * ⛔ S165 — THE TAG DOES NOT DO WHAT THIS LINE SAID. It read *"Tagged `@visual` so it stays out of
+ * the gating lane"*, and that was never true: `package.json`'s `e2e:gating` inverts
+ * `@quarantine-flaky|@soak|@perf-measure|@archived-hazard` and has never listed `@visual`. All
+ * eleven tests in this file have been running in the GATING lane, on every push, since the tag was
+ * added — verified with `--list`, not read off the tag.
+ *
+ * ⭐ AND THEY STAY THERE, deliberately, rather than being excluded to match the old sentence. Three
+ * of the eleven are substantive (the empty-opening assertion and the two `expectNoHudOverlaps`
+ * sweeps, which carry real positive controls); dropping the whole file out of the lane to satisfy a
+ * comment would be a coverage cut nobody asked for. `ci.e2eLanes.test.ts` now pins the tag-to-lane
+ * mapping so this can never drift silently again.
+ *
+ * ⚠ WHAT THIS FILE IS. A capture with a couple of sanity assertions. Two of the eleven — the two
+ * keep-drawing tests — assert only `readLayout`, so the castle renderer could be deleted and they
+ * would stay green. Read them as screenshots, not as guards.
  */
+import { existsSync } from 'node:fs';
+
 import { expect, test } from '@playwright/test';
 import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
 
@@ -21,6 +36,20 @@ import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
  * `%USERPROFILE%\Desktop` drops files into a stale folder the owner does not see on screen.
  */
 const DESKTOP = 'C:/Users/onesh/OneDrive/Desktop';
+
+/**
+ * ⛔ S165 — WHERE A CAPTURE GOES WHEN THE OWNER'S DESKTOP DOES NOT EXIST, i.e. on every CI run.
+ *
+ * `DESKTOP` is an absolute WINDOWS path. On the Linux runner it is not absolute at all — it has no
+ * leading slash — so Playwright resolved it RELATIVE to the workspace and every one of these
+ * eleven tests quietly wrote a PNG into a `C:/Users/...` directory tree inside the checkout. The
+ * captures the file exists to produce were being discarded, and the runner grew a junk directory
+ * on every push.
+ *
+ * ⭐ So the destination is now chosen at run time: the real desktop when it is there, and
+ * `test-results/` (already gitignored, already the artifact upload root) when it is not.
+ */
+const CAPTURE_DIR = existsSync(DESKTOP) ? DESKTOP : 'test-results';
 
 async function readLayout(page: import('@playwright/test').Page): Promise<string | undefined> {
   return page.evaluate(
@@ -39,7 +68,7 @@ test.describe('@visual S148 P1 — the zone partition on screen', () => {
     await page.waitForTimeout(5000);
 
     expect(await readLayout(page)).toBe('PITCH_2P');
-    await page.screenshot({ path: `${DESKTOP}/spark-s148-zones-PITCH_2P.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s148-zones-PITCH_2P.png` });
   });
 
   test('QUADRANTS_4P: a bots match draws four corner keeps', async ({ page }) => {
@@ -69,7 +98,7 @@ test.describe('@visual S148 P1 — the zone partition on screen', () => {
     await page.waitForTimeout(5000);
 
     expect(await readLayout(page)).toBe('QUADRANTS_4P');
-    await page.screenshot({ path: `${DESKTOP}/spark-s148-zones-QUADRANTS_4P.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s148-zones-QUADRANTS_4P.png` });
   });
 
   test('S148 P2 — the opening board is EMPTY: no free bot structures, no starter goblins', async ({ page }) => {
@@ -132,7 +161,7 @@ test.describe('@visual S148 P1 — the zone partition on screen', () => {
     expect(opening.defenders, 'nobody opens with a tower').toBe(0);
     expect(opening.primitives, 'no free bot structures on the board').toBe(0);
 
-    await page.screenshot({ path: `${DESKTOP}/spark-s148-empty-opening.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s148-empty-opening.png` });
   });
 });
 
@@ -159,13 +188,13 @@ test.describe('@visual S149 P3 — the border walls on screen', () => {
 
     // BUILD — the walls are up.
     expect(await readPhase(page)).toBe('BUILD');
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-BUILD-pitch.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-walls-BUILD-pitch.png` });
 
     // Flip to FIGHT and let a few frames render.
     await forcePhase(page, 'FIGHT');
     await page.waitForTimeout(1200);
     expect(await readPhase(page)).toBe('FIGHT');
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-FIGHT-pitch.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-walls-FIGHT-pitch.png` });
   });
 
   test('QUADRANTS_4P: four coloured arms during BUILD', async ({ page }) => {
@@ -198,7 +227,7 @@ test.describe('@visual S149 P3 — the border walls on screen', () => {
 
     expect(await readLayout(page)).toBe('QUADRANTS_4P');
     expect(await readPhase(page)).toBe('BUILD');
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-BUILD-quadrants.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-walls-BUILD-quadrants.png` });
   });
 });
 
@@ -268,7 +297,7 @@ test.describe('@visual S149 P4 — the footer band on screen', () => {
     expect(Math.min(...band.chips.map((c) => c.x))).toBeGreaterThan(400);
     expect(Math.max(...band.chips.map((c) => c.x + c.w))).toBeLessThan(1520);
 
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-footer-band.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-footer-band.png` });
 
     // ⭐ S149 P5 — CLICK A TIER AND THE TOWER MENU MUST OPEN. The owner's report on P4 was "it isnt
     // clickable": the chip toggled a selection and opened nothing, so it read as a dead control.
@@ -284,7 +313,7 @@ test.describe('@visual S149 P4 — the footer band on screen', () => {
     });
     expect(opened.selected).toBe(4);
     expect(opened.cards.length).toBeGreaterThan(0); // the menu actually opened
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-footer-menu-open.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-footer-menu-open.png` });
   });
 });
 
@@ -303,7 +332,7 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     const codex = await titleButtonCss(page, 'codex');
     const arcade = await titleButtonCss(page, 'arcade');
     expect(arcade.y).toBeGreaterThan(codex.y);
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-title.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-arcade-title.png` });
 
     // Open the menu.
     await page.mouse.click(arcade.x, arcade.y);
@@ -316,7 +345,7 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     });
     expect(menu.open).toBe(true);
     expect(menu.rows.map((r) => r.id)).toContain('nonet');
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-menu.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-arcade-menu.png` });
 
     // Launch NONET and prove the puzzle came up WITHOUT touching sim state.
     const row = menu.rows.find((r) => r.id === 'nonet')!;
@@ -334,7 +363,7 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     expect(after.sudoku).toBeNull(); // a title-screen puzzle never enters the simulation
     expect(after.gameState).toBe('TITLE');
     expect(after.menuOpen).toBe(false);
-    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-nonet.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-arcade-nonet.png` });
   });
 });
 
@@ -466,27 +495,27 @@ test.describe('@visual S150 P1 — the HUD audit', () => {
     const allowed = /Container|BETA|betaBadgePlate|♪|⚙/;
     const leaked = stray.filter((r) => !allowed.test(r.label));
     expect(leaked, `gameplay HUD drawn on the TITLE screen: ${JSON.stringify(leaked)}`).toEqual([]);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-TITLE.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-TITLE.png` });
   });
 
   test('PITCH_2P: the whole HUD in BUILD and in FIGHT', async ({ page }) => {
     await bootSolo(page);
     expect(await readLayout(page)).toBe('PITCH_2P');
     await expectNoHudOverlaps(page);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-BUILD-pitch.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-BUILD-pitch.png` });
     await forcePhase(page, 'FIGHT');
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-FIGHT-pitch.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-FIGHT-pitch.png` });
   });
 
   test('QUADRANTS_4P: four leaderboard rows, four keeps, the footer band', async ({ page }) => {
     await bootBots(page);
     expect(await readLayout(page)).toBe('QUADRANTS_4P');
     await expectNoHudOverlaps(page);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-BUILD-quadrants.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-BUILD-quadrants.png` });
     await forcePhase(page, 'FIGHT');
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-FIGHT-quadrants.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-FIGHT-quadrants.png` });
   });
 
   /**
@@ -506,6 +535,6 @@ test.describe('@visual S150 P1 — the HUD audit', () => {
     await page.waitForTimeout(400);
     // The banner is UP in this frame, so the sweep now includes it against the live clock.
     await expectNoHudOverlaps(page);
-    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-tier-vs-clock.png` });
+    await page.screenshot({ path: `${CAPTURE_DIR}/spark-s150-hud-tier-vs-clock.png` });
   });
 });

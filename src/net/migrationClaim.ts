@@ -173,6 +173,27 @@ export function rebuildAuthorityAllocators(world: World): {
   nextPrimitiveId: number;
   nextBondId: number;
   maxSparkId: number;
+  /**
+   * ⛔ S165 — THE FOURTH ALLOCATOR, AND ITS ABSENCE WAS A LIVE ENTITY-OVERWRITE BUG.
+   *
+   * `worldTypes.ts` has always documented this value as *"stripped from `NetSnapshot` and rebuilt by
+   * `rebuildAuthorityAllocators` at a migration takeover (scan `freeSparks` for the MINIMUM id)"*.
+   * That rebuild did not exist. The function returned three allocators; nothing anywhere else wrote
+   * the field either — `restore()` does not, `applySnapshotCore` does not, and it is not serialized
+   * at all (zero occurrences in `save.ts`). Its only writes in the whole tree were the `-1` in
+   * `makeWorld` and the `-= 1` in `gathererLifecycle`.
+   *
+   * ⚠ THE CONSEQUENCE IS SILENT DATA LOSS, NOT A DESYNC. A promoted successor — or a `?worker=1`
+   * adoption, or a host save-load — resumed the DESCENDING allocator at −1 while `freeSparks`
+   * already held live pulled shapes at −1, −2, −3 (they ride the wire; `serializeSpark` emits the id
+   * verbatim and nothing filters negatives). The next `PULL_FROM_BANK` then does
+   * `freeSparks.set(asSparkId(-1), spark)` over the top of a living entity — one that may be a
+   * gatherer's `targetSparkId`/`carriedSparkId` or the shape a player is mid-drag.
+   *
+   * ⭐ Reachability is the reason this is HIGH and not a curiosity: the worker-failure repair path
+   * fires in SOLO and VS-BOTS with no peer and no migration at all.
+   */
+  nextPulledSparkId: number;
   reseed: (roomCode: string, takeoverTick: number) => number;
 } {
   let maxPrim = 0;
@@ -187,11 +208,19 @@ export function rebuildAuthorityAllocators(world: World): {
   // TALLY holding no entities and therefore no ids, so there is nothing here to collide with. Note
   // `freeSparks` may now contain NEGATIVE ids (reducer-minted pulls, see worldTypes
   // `nextPulledSparkId`); they can never raise `maxSpark`, which is correct — the Spawner this value
-  // repairs only ever mints ascending non-negatives.
+  // repairs only ever mints ascending non-negatives. They ARE what the minimum scan below reads.
+  //
+  // ⭐ S165 — THE MINIMUM SCAN THE DOCBLOCK PROMISED. Same loop shape as the three above, opposite
+  // direction, seeded at 0 so a world with no pulled shapes yields −1 (the `makeWorld` value)
+  // rather than 0 — 0 is a legal Spawner id and handing it to the descending allocator would
+  // collide on the very first pull.
+  let minSpark = 0;
+  for (const id of world.freeSparks.keys()) if ((id as number) < minSpark) minSpark = id as number;
   return {
     nextPrimitiveId: maxPrim + 1,
     nextBondId: maxBond + 1,
     maxSparkId: maxSpark,
+    nextPulledSparkId: minSpark - 1,
     reseed: (roomCode, takeoverTick) => (fnv1a32(roomCode) ^ takeoverTick) >>> 0,
   };
 }

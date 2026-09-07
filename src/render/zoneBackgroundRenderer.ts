@@ -31,10 +31,16 @@
  * ⚠ RENDER-ONLY. It reads `world.layout` and each player's `raceId`, both already synced, and writes
  * nothing. No new wire field, no protocol bump.
  */
-import { Application, Assets, Container, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 
 import type { World } from '../state/world.ts';
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  SPAWNER_RADIUS,
+} from '../constants.ts';
 import { zoneOwner, type ZoneLayout } from '../state/zones.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 
@@ -47,6 +53,27 @@ import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
  * board unmistakably a board. It is one constant and it is cheap to overrule on sight.
  */
 const ZONE_BG_ALPHA = 0.55;
+
+/**
+ * S165 (owner) - THE QUARRY IS A PORTAL, NOT GROUND, SO NO RACE OWNS IT.
+ *
+ * Owner, after playing the 1v1 board: "the center where the shapes spawn is split in half back
+ * the race background while it should stay cosmos black (its like a spawn portal and not a part
+ * of each players background - revert it to where it was)".
+ *
+ * Exactly right, and the reason is structural rather than aesthetic: the zone partition runs dead
+ * through the canvas centre, and the quarry disc is centred there too. So the backdrop painted the
+ * shared spawn well as one half of one race's world and one half of the other's - a seam across the
+ * one object on the board that belongs to nobody.
+ *
+ * APPLIED TO BOTH LAYOUTS, not just the 1v1 the owner was playing. QUADRANTS_4P splits the same
+ * disc four ways at the same centre, so it has the same defect one seam worse.
+ *
+ * DRAWN, NOT MASKED. Pixi masks are additive - a hole needs an even-odd path, which is fragile and
+ * has to be rebuilt whenever the geometry moves. The board is FOG_COLOR black, so painting the disc
+ * black over the backdrop and under every gameplay layer restores the original pixels exactly.
+ */
+const PORTAL_CUT_RADIUS = SPAWNER_RADIUS + 2;
 
 /**
  * How long a match runs before the backdrop starts loading. 3 s at 60 Hz.
@@ -93,6 +120,8 @@ export class ZoneBackgroundRenderer {
   private readonly layer: Container;
   private readonly sprites: Map<number, Sprite> = new Map();
   private readonly textures: Map<string, Texture> = new Map();
+  /** The cosmos-black disc that keeps the shared quarry out of both races' worlds. */
+  private readonly portalCut: Graphics;
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
 
@@ -117,6 +146,17 @@ export class ZoneBackgroundRenderer {
      * At index 0 of that layer so every structure, creature and effect on it still paints on top.
      */
     parent.addChildAt(this.layer, 0);
+
+    /*
+     * zIndex + sortableChildren rather than draw order, because the backdrop sprites are added
+     * LAZILY in `sync` as each race's texture arrives - so a cut added here in the constructor
+     * would end up underneath every sprite that loaded after it.
+     */
+    this.layer.sortableChildren = true;
+    this.portalCut = new Graphics();
+    this.portalCut.circle(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, PORTAL_CUT_RADIUS).fill({ color: 0x000000 });
+    this.portalCut.zIndex = 1; // above the sprites (default 0), still below every gameplay layer
+    this.layer.addChild(this.portalCut);
     void app;
   }
 

@@ -150,7 +150,21 @@ export function createDebugOverlay(): DebugOverlayHandle {
     // visible at a glance. Surface chewProgress for chewers (the new chew loop).
     let chewerCount = 0;
     for (const c of world.creatures.values()) {
-      const isChewer = c.sourceSpawnerId !== null;
+      /*
+       * S165 - `c.type === 'chewer'`, NOT `sourceSpawnerId !== null`. THE FOURTH SITE.
+       *
+       * The provenance test stopped meaning 'is a chewer' at S151, when goblins began
+       * carrying a spawner id too; W1-C then added the race unit with a NEGATIVE castle
+       * sentinel, also non-null. S165 fixed this exact predicate in `bots/botBrain.ts`,
+       * `state/potatoLifecycle.ts` and `defenders/defenderLifecycle.ts`, each with a note
+       * warning the drift would recur. It had already recurred here, and the sweep that
+       * fixed the other three missed it because this surface is dev-only.
+       *
+       * Dev-only is why it is not HIGH, and also why it matters: this is the readout a
+       * future session uses to diagnose a creature-population bug, and it was reporting
+       * goblins and race units as chewers against CHEWER_MAX_GLOBAL.
+       */
+      const isChewer = c.type === 'chewer';
       if (isChewer) chewerCount++;
       const ticksLeft = Math.max(0, c.despawnAtTick - world.tick);
       const chewSuffix = isChewer

@@ -46,38 +46,57 @@ describe('progressBarFractions (S106 P4 — own-score bar + leader ghost)', () =
   });
 });
 
-describe('progressBarFractions.ownDecaying (S107 P1 — anti-coast amber cue)', () => {
+describe('progressBarFractions.ownDecaying (S107 P1 - anti-coast amber cue)', () => {
   /*
-   * ⛔ S165 — PINNED TO THE FLAG, NOT TO `true`, AND THAT CHANGE IS THE POINT.
+   * S165, SECOND PASS - AND THE FIRST PASS WAS AN INCOMPLETE FIX WORTH RECORDING.
    *
-   * This case asserted a literal `true` and so it PASSED THROUGH the whole defect: S147 P1 (R28)
-   * switched `LEADER_DECAY_ENABLED` off, `scoring.ts` stopped bleeding anyone, and the HUD kept
-   * tinting the bar amber to announce a bleed that no longer existed — with a green test standing
-   * behind it. A test that hard-codes one side of a switch cannot notice the switch moving.
+   * The original bug: this cue drives an amber "you are coasting, your score is bleeding" tint, and
+   * S147 P1 (R28) switched leader decay OFF while this predicate was never told. The first fix made
+   * it read LEADER_DECAY_ENABLED - correct - and changed one case from `toBe(true)` to
+   * `toBe(LEADER_DECAY_ENABLED)`.
    *
-   * ⭐ Reading the flag makes the case bidirectional: it demands FALSE while decay is off (today)
-   * and demands TRUE the moment the constant is flipped back. The other three cases below stay
-   * literal `false` on purpose — they are about leadership, threshold and solo, none of which the
-   * flag has any business changing.
+   * THAT LEFT THE PREDICATE COMPLETELY UNGUARDED. The flag is false, and the other three cases
+   * already asserted literal false, so ALL FOUR demanded false: `const ownDecaying = false;` would
+   * have passed the entire suite. The solo exemption, the leader comparison and the 75% threshold
+   * had no live test at all - and `constants.ts` records that a balance session is expected to flip
+   * the flag back, which would have shipped three untested predicates in one commit.
+   *
+   * SO THE FLAG IS NOW A PARAMETER, the `isSimWorkerRequested(search, defaultOn)` shape this repo
+   * already uses for exactly this problem. Every case below runs in the ENABLED regime, where the
+   * logic is observable; the flag's own wiring is pinned once, separately, at the end.
    */
-  it('tracks LEADER_DECAY_ENABLED when the LOCAL player leads past the decay threshold', () => {
+  const DECAYING = true;
+
+  it('TRUE when the LOCAL player is the leader AND past the decay threshold', () => {
     const w = mk([[0, DECAY_THRESHOLD + 50], [1, 100]], 0); // you lead, past 75%
-    expect(progressBarFractions(w).ownDecaying).toBe(LEADER_DECAY_ENABLED);
+    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(true);
   });
 
   it('FALSE when you are NOT the leader (someone else is decaying, not you)', () => {
     const w = mk([[0, 200], [1, DECAY_THRESHOLD + 50]], 0); // opponent leads + decays
-    expect(progressBarFractions(w).ownDecaying).toBe(false);
+    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
   });
 
   it('FALSE when leading but still BELOW the threshold (no decay yet)', () => {
     const w = mk([[0, DECAY_THRESHOLD - 50], [1, 100]], 0);
-    expect(progressBarFractions(w).ownDecaying).toBe(false);
+    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
   });
 
   it('FALSE in solo (decay is exempt there)', () => {
     const w = mk([[0, DECAY_THRESHOLD + 50]], 0, 'solo');
-    expect(progressBarFractions(w).ownDecaying).toBe(false);
+    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
+  });
+
+  /*
+   * The switch itself. Separated from the four logic cases above so that flipping R28 back changes
+   * exactly this expectation and leaves the other four green - which is the whole point of having
+   * both.
+   */
+  it('and the FLAG gates all of it - false today, per R28', () => {
+    const w = mk([[0, DECAY_THRESHOLD + 50], [1, 100]], 0);
+    expect(progressBarFractions(w, false).ownDecaying).toBe(false);
+    // The production default reads the constant, so this tracks R28 rather than pinning a literal.
+    expect(progressBarFractions(w).ownDecaying).toBe(LEADER_DECAY_ENABLED);
   });
 });
 

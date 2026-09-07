@@ -187,7 +187,20 @@ describe('S154 P4 — ⛔ THE DEADLINE: at BUILD nobody is left in enemy ground'
 
     expect(w.matchPhase).toBe('BUILD');
     const live = w.creatures.get(g.id)!;
-    expect(distTo(live.pos, mine), 'recalled to its own castle').toBeLessThan(2);
+    /*
+     * S165 - THE TOLERANCE IS THE SPREAD RADIUS, NOT 2 PX, AND THAT IS A REAL CHANGE.
+     *
+     * This asserted `< 2`, i.e. the creature landed ON the anchor. It did - and so did every other
+     * creature the seat owned, on the identical pixel, for the whole BUILD phase: there is no
+     * separation force in this sim, and during BUILD the FSM is frozen with `targetPos === pos`, so
+     * nothing ever pulled them apart. `recallArmies` now parks each unit on the same deterministic
+     * golden-angle spiral the emitter uses (RECALL_SPREAD = 46, mirroring RACE_UNIT_SPAWN_SPREAD).
+     *
+     * The claim under test is unchanged - "it is back home, not stranded in enemy ground" - so the
+     * bound is the spread plus a float epsilon. It still fails for a creature left out in the field:
+     * the premise above pins the start at >200 px away, four times this bound.
+     */
+    expect(distTo(live.pos, mine), 'recalled to its own castle').toBeLessThan(47);
   });
 
   it('the recall moves prevPos too, or the creature is flung back out', () => {
@@ -276,5 +289,75 @@ describe('S154 P4 — ⛔ THE DEADLINE: at BUILD nobody is left in enemy ground'
         `seat ${seat}'s creature is still nearer the enemy keep at BUILD`,
       ).toBeLessThan(distTo(c.pos, foe));
     }
+  });
+});
+
+/**
+ * S165 (owner) - "goblins that stayed alive but their goblin producing tower got destroyed should
+ * still be recalled back but instead of going back to their tower (as it was destroyed) will go
+ * back to the castle".
+ *
+ * THIS IS ALREADY THE SHIPPED BEHAVIOUR, AND THAT IS EXACTLY WHY IT IS PINNED HERE. `ownHomePos`
+ * prefers the creature's own tower and falls through to the castle when the lookup misses - and the
+ * lookup misses in both destruction orders: the spawner entry removed, or the spawner still present
+ * but its anchor primitive gone. Nothing asserted either path, so the owner's requirement was true
+ * by accident of a total lookup rather than by a decision anyone had recorded.
+ *
+ * The same fallthrough is what makes the W1-C castle sentinel work (a race unit's negative
+ * sourceSpawnerId names no spawner), so breaking it would break two features at once and neither
+ * had a test.
+ */
+describe('S165 - a homeless goblin runs to its CASTLE, not to the crater', () => {
+  /**
+   * A tower-born goblin whose tower is GONE: it carries the provenance id, and the spawner it names
+   * is not in `world.creatureSpawners`.
+   *
+   * `sourceSpawnerId` is READONLY on Creature, deliberately, so this spawns with the dead id rather
+   * than mutating one in - which is also the more faithful reproduction: on the real path the field
+   * never changes, the SPAWNER disappears out from under it.
+   */
+  function spawnOrphanedGoblin(w: World, seat: 0 | 1, deadSpawner: number) {
+    const enemy = castleAnchor(seat === 0 ? 1 : 0, w.layout);
+    const mine = castleAnchor(seat, w.layout);
+    const away = Math.sign(mine.x - enemy.x) || 1;
+    const pos = { x: enemy.x + away * (CASTLE_ATTACK_RANGE + 40), y: enemy.y };
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinMelee',
+      ownerPlayerId: asPlayerId(seat),
+      pos,
+      targetPos: { ...pos },
+      sourceSpawnerId: asSpawnerId(deadSpawner),
+    });
+    return [...w.creatures.values()].find(
+      (c) => (c.ownerPlayerId as unknown as number) === seat,
+    )!;
+  }
+
+  it('spawner ENTRY removed -> home is the castle', () => {
+    const w = fightWorld();
+    const g = spawnOrphanedGoblin(w, 0, 4242);
+    const mine = castleAnchor(0, w.layout);
+    // The premise: the tower it came from is genuinely not there.
+    expect(w.creatureSpawners.has(asSpawnerId(4242))).toBe(false);
+
+    const home = ownHomePos(w, g);
+    expect(home).not.toBeNull();
+    expect(distTo(home!, mine)).toBeLessThan(1);
+  });
+
+  it('and the recall actually MOVES it there, not just reports it', () => {
+    const w = fightWorld();
+    const g = spawnOrphanedGoblin(w, 0, 4243);
+    const mine = castleAnchor(0, w.layout);
+    // Premise: it really is stranded in enemy ground before the recall.
+    expect(distTo(w.creatures.get(g.id)!.pos, mine)).toBeGreaterThan(200);
+
+    recallArmies(w);
+
+    // Within the deterministic park spread of its own keep - see RECALL_SPREAD in hostTick.ts.
+    expect(distTo(w.creatures.get(g.id)!.pos, mine)).toBeLessThan(47);
+    // ...and prevPos moved with it, or FIGHT resumes by flinging it back across the board.
+    expect(distTo(w.creatures.get(g.id)!.prevPos, mine)).toBeLessThan(47);
   });
 });

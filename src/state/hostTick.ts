@@ -158,6 +158,16 @@ export interface HostTickState {
 }
 
 /**
+ * How far around its home a recalled unit is parked.
+ *
+ * ⚠ THIS NUMBER IS MINE, NOT THE OWNER'S. It mirrors `RACE_UNIT_SPAWN_SPREAD` (46) — the emitter
+ * already chose that as "reads as a squad at the keep rather than a pile", and a recall is the same
+ * picture arriving from the other direction, so the two should not disagree. Purely presentational:
+ * it moves a spawn/park position and nothing mechanical reads it.
+ */
+const RECALL_SPREAD = 46;
+
+/**
  * ⭐ S154 P4 (owner A3) — THE DEADLINE HALF OF THE RETREAT: on the FIGHT→BUILD edge, every creature
  * still out in the field is put back at its own home.
  *
@@ -186,15 +196,39 @@ export function recallArmies(world: World): void {
   for (const c of world.creatures.values()) {
     const home = ownHomePos(world, c);
     if (home === null) continue;
+    /*
+     * ⛔ S165 — SPREAD, BECAUSE `home` IS ONE POINT AND AN ARMY IS NOT.
+     *
+     * This used to write `home` verbatim into every recalled creature, so every unit a seat owned
+     * landed on the IDENTICAL coordinate and stayed there: `constants.ts` states plainly that
+     * *"There is no separation force anywhere"*, and during BUILD the FSM is frozen and
+     * `arriveForce` sees `targetPos === pos`, so nothing pulls them apart again until FIGHT. A
+     * whole army read as a single sprite for the length of a build phase.
+     *
+     * ⚠ IT GETS WORSE OVER A MATCH, WHICH IS WHY THIS IS NOT COSMETIC. `raceUnitEmit` pays for a
+     * 46 px spawn spread precisely to avoid this, and the recall threw it away at the first phase
+     * edge — and the race-unit population is UNCAPPED and `persistent: true`, so one more sprite
+     * joined the pile every 30 s for the rest of the game.
+     *
+     * ⭐ AND IT IS THE S155 N1 TIE CONDITION. Identical coordinates mean identical squared
+     * distances in every target scan; those scans are only safe because each carries an explicit id
+     * tiebreak. Not manufacturing the tie in the first place is strictly better than relying on
+     * every future scan to remember the tiebreak.
+     *
+     * ⛔ DETERMINISTIC: `spreadTargetPos` is the same pure golden-angle spiral the emitter uses,
+     * keyed on the creature id. No RNG, no wall clock, no accumulated remainder — two hosts
+     * replaying the same tick place the same creature on the same pixel.
+     */
+    const at = spreadTargetPos(home, c.id, RECALL_SPREAD);
     // ⚠ prevPos MOVES WITH pos. This is a Verlet integrator: velocity is implicit in
     // (pos - prevPos), so setting pos alone would hand the creature a colossal one-frame velocity
     // and fling it back out across the board the moment FIGHT resumes.
-    c.pos.x = home.x;
-    c.pos.y = home.y;
-    c.prevPos.x = home.x;
-    c.prevPos.y = home.y;
-    c.targetPos.x = home.x;
-    c.targetPos.y = home.y;
+    c.pos.x = at.x;
+    c.pos.y = at.y;
+    c.prevPos.x = at.x;
+    c.prevPos.y = at.y;
+    c.targetPos.x = at.x;
+    c.targetPos.y = at.y;
     // Drop every commitment: the target it was walking to is on the other side of the board now.
     c.targetBondId = null;
     c.targetCreatureId = null;
@@ -761,8 +795,31 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * handed to it — owner R70: *"takes one shape to feed to then spawn a goblin of different
          * kinds"*.
          */
-      } else if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
+        /*
+         * S165 (owner: "i think some other mechanics might have broken too like the pencil chewer
+         * spawn rate") - THE SLOT IS SKIPPED, NOT BANKED, AND THIS ARM WAS THE LAST ONE BANKING IT.
+         *
+         * This read `else if (world.tick >= sp.nextSpawnTick && underChewerCaps(...))`, and
+         * `nextSpawnTick` advanced only INSIDE the successful emit. So a pentagram that was capped -
+         * or whose anchor was momentarily gone - left its deadline frozen in the PAST. The moment
+         * the cap released, `world.tick >= nextSpawnTick` was true on every tick and the spawner
+         * drained the whole backlog ONE CHEWER PER TICK until it caught up: a burst, then a lull,
+         * instead of a steady rate.
+         *
+         * S159 P9 fixed exactly this on the lightning-hub arm forty lines above, after the owner
+         * reported the drone tower's burst behaviour, and its comment names the hazard by name -
+         * "banking blocked slots would drain them one per tick the moment a drone died". The chewer
+         * arm was never given the same treatment. It is now the same shape: advance on EVERY due
+         * slot, emit only when the cap and the anchor allow.
+         *
+         * The rate is unchanged when nothing blocks - one chewer per SPAWN_INTERVAL_TICKS, on the
+         * exact grid. What changes is that a blocked slot is now LOST rather than owed.
+         */
+      } else if (world.tick >= sp.nextSpawnTick) {
         const anchor = world.primitives.get(sp.anchorPrimitiveId);
+        // The cadence advances on every due slot, emitted or skipped. See the note above.
+        sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+        if (anchor !== undefined && !underChewerCaps(world, spawnerId)) continue;
         // Defense-in-depth: a deleted anchor between the (throttled) re-validation
         // and this tick would leave `anchor` undefined — skip the emit (the next
         // re-validation tears the spawner down). The chewer SPAWNS at the anchor's
@@ -780,7 +837,6 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             targetPos: { x: anchor.pos.x, y: anchor.pos.y },
             sourceSpawnerId: spawnerId,
           });
-          sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
           sp.spawnedCount++;
         }
       }

@@ -328,11 +328,29 @@ export interface PanelControl {
 }
 
 /**
- * PURE — the two castle controls for `world`'s local seat, with their enabled state and the reason
+ * PURE - the castle controls for `world`'s local seat, with their enabled state and the reason
  * for every disabled state. Exported and world-only (no Pixi) so unit tests can pin the affordability
  * and reason matrix without a renderer; the S130 lesson is that a draw path which cannot be driven
  * headlessly must not be the only place logic lives.
  */
+/**
+ * The control rows, in draw order, as ONE list.
+ *
+ * S165 - THIS CONSTANT EXISTS BECAUSE THE SAME FACT WAS WRITTEN IN THREE PLACES AND ONE WAS WRONG.
+ * The row count was hardcoded as a literal `2` in the constructor's build loop, the keys were a
+ * separate literal array in `getUiPoints`, and `castleControlsModel` returned the real list. S164
+ * P1 added the CASTLE REGEN row (owner R128-R131) to the model and to the key list - and not to
+ * the loop. So the third row existed in the data, was reported by nothing and was DRAWN by nothing:
+ * the upgrade was invisible and unclickable from the day it shipped.
+ *
+ * The owner found it, not a test: "cant seem to click on castle gatherer upgrades i think you took
+ * it off". At 100 victory points BUY GATHERER is unaffordable (105) and SPEED is a different
+ * control, so REGEN at exactly 100 was the one purchase available - and it was the missing row.
+ *
+ * Every consumer now counts from here, so a fourth row is one entry and cannot half-land.
+ */
+export const CASTLE_ROW_KEYS = ['buyGatherer', 'upgradeSpeed', 'castleRegen'] as const;
+
 export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onActivate'>> {
   const score = Math.floor(world.scoreByPlayer.get(world.localPlayerId) ?? 0);
   const me = world.players.get(world.localPlayerId);
@@ -579,8 +597,13 @@ export class CastlePanel {
     this.titleText.position.set(PANEL_PAD, PANEL_PAD);
     this.container.addChild(this.titleText);
 
-    // Two rows today; the list is data, so a third costs one entry (see the file docblock).
-    for (let i = 0; i < 2; i++) {
+    /*
+     * S165 - COUNTED FROM `CASTLE_ROW_KEYS`, NOT A LITERAL. This read `i < 2` with a comment
+     * promising that "a third costs one entry"; S164 P1 then added the third entry to the model and
+     * this loop kept building two, so the castle-regen upgrade was never drawn and never clickable.
+     * A count that lives next to the list cannot fall behind it.
+     */
+    for (let i = 0; i < CASTLE_ROW_KEYS.length; i++) {
       const bg = new Graphics();
       const label = new Text({
         text: '',
@@ -925,7 +948,7 @@ export class CastlePanel {
     }
     const a = castleAnchor(this.selected, this.layout);
     const o = panelOrigin(a.x, a.y, this.rows.length);
-    const keys = ['buyGatherer', 'upgradeSpeed', 'castleRegen'];
+    const keys = CASTLE_ROW_KEYS;
     return {
       open: true,
       rect: panelRect(o, this.rows.length),

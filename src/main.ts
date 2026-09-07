@@ -2411,6 +2411,9 @@ Network routes: ${v.detail}`;
         const allocs = rebuildAuthorityAllocators(world);
         world.nextPrimitiveId = allocs.nextPrimitiveId;
         world.nextBondId = allocs.nextBondId;
+        // S165 — the fourth allocator. Without it the descending pulled-shape id space
+        // rewinds to -1 and the next PULL_FROM_BANK overwrites a live spark.
+        world.nextPulledSparkId = allocs.nextPulledSparkId;
         const st = spawner.getState();
         if (st !== null) spawner.restoreState({ ...st, nextId: allocs.maxSparkId + 1 });
         const repairSeed = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
@@ -2777,6 +2780,8 @@ Network routes: ${v.detail}`;
                 const allocs = rebuildAuthorityAllocators(world);
                 world.nextPrimitiveId = allocs.nextPrimitiveId;
                 world.nextBondId = allocs.nextBondId;
+                // S165 — the fourth allocator; see the note on rebuildAuthorityAllocators.
+                world.nextPulledSparkId = allocs.nextPulledSparkId;
                 const st = spawner.getState();
                 if (st !== null) spawner.restoreState({ ...st, nextId: allocs.maxSparkId + 1 });
                 const seed = allocs.reseed(roomCode, world.tick);

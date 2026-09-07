@@ -413,7 +413,17 @@ export function determinismParts(world: World): string[] {
       `${world.nextHunterId},${world.nextPotatoId},${world.nextRainbowId},` +
       `${world.nextSeagullId},${world.nextPoopId},${world.nextGathererId},` +
       // S146 P2 — the descending negative allocator for reducer-minted (pulled) sparks.
-      `${world.nextPulledSparkId}`,
+      `${world.nextPulledSparkId},` +
+      /*
+       * S165 - `nextStinkCloudId` WAS MARKED 'hashed' AND HAD NO PROJECTION HERE, so the
+       * WIDE ORACLE WAS BLIND TO IT: changing it moved no hash, while every other cursor in
+       * this list does. It escaped the family-contribution gate because it is a SCALAR (the
+       * test lists it under HASHED_NON_FAMILY) and the scalar test only spot-checks three
+       * fields - which is exactly the 'union entry without a projection' hole the warning
+       * further up this file says is gated. It was the ONLY one: all FIELD_COVERAGE entries
+       * and every `...Hashed` union were re-diffed against this body to confirm that.
+       */
+      `${world.nextStinkCloudId}`,
     // `sudoku` freezes the sim, so its presence and identity are sim state. Stringified
     // wholesale: it is a small flat record, only non-null during a NONET trial, and its
     // key order is fixed by its construction site.

@@ -583,6 +583,22 @@ export function rectsOverlap(a: PlateRect, b: PlateRect): boolean {
  */
 export function progressBarFractions(
   world: Pick<World, 'scoreByPlayer' | 'localPlayerId' | 'scoreProgress' | 'gameMode'>,
+  /*
+   * ⭐ S165 — INJECTABLE, AND THE REASON IS A TEST THAT COULD NOT SEE ITSELF.
+   *
+   * Gating `ownDecaying` on `LEADER_DECAY_ENABLED` (below) was the right fix, but it left every
+   * case in `ui.progress.test.ts` expecting `false` — because the flag is false — so the whole
+   * predicate became unguarded: `const ownDecaying = false;` would have passed the entire suite.
+   * The solo exemption, the leader comparison and the 75% threshold had no live test at all, and
+   * `constants.ts` records that a balance session is expected to flip this flag back, which would
+   * have shipped three untested predicates at once.
+   *
+   * ⚠ A PARAMETER, NOT A MODULE MOCK. This is the `isSimWorkerRequested(search, defaultOn)` shape
+   * the repo already uses for exactly this problem: the production call passes nothing and gets the
+   * real constant, while the test drives BOTH regimes and can therefore assert the logic rather
+   * than the flag's current value.
+   */
+  decayEnabled: boolean = LEADER_DECAY_ENABLED,
 ): { own: number; leader: number; ownDecaying: boolean } {
   const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
   // Local player is (tied for) the leader when their own score reaches the max-of-all.
@@ -601,7 +617,7 @@ export function progressBarFractions(
    * with the mechanic, in one edit, instead of leaving a second site to remember.
    */
   const ownDecaying =
-    LEADER_DECAY_ENABLED &&
+    decayEnabled &&
     world.gameMode !== 'solo' &&
     isLeader &&
     localScore > PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;

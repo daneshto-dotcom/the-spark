@@ -149,6 +149,50 @@ describe('S122 P2 — D-A authority rebuild', () => {
     expect(fnv1a32('K7Q2')).toBe(fnv1a32('K7Q2'));
   });
 
+  /**
+   * ⛔ S165 — THE FOURTH ALLOCATOR, WHICH WAS NEVER REBUILT AND SILENTLY OVERWROTE LIVE ENTITIES.
+   *
+   * `worldTypes.ts` has documented this rebuild since the field was introduced — *"stripped from
+   * `NetSnapshot` and rebuilt by `rebuildAuthorityAllocators` at a migration takeover (scan
+   * `freeSparks` for the MINIMUM id)"*. The scan did not exist. The function returned three
+   * allocators, `restore()` did not set it, `applySnapshotCore` did not set it, and it is not
+   * serialized at all — so a promoted successor, a `?worker=1` adoption, or a save-load resumed the
+   * DESCENDING pulled-shape allocator at -1 while `freeSparks` still held live shapes at -1, -2, -3.
+   * The next PULL_FROM_BANK wrote straight over one of them.
+   *
+   * ⚠ NOT A DESYNC — DATA LOSS. Every peer applies the same successor snapshot, so all of them
+   * agree on the broken world. This is the same shape as the S141 P3 bug the test below replaced,
+   * and it is why "the hashes match" is not evidence of correctness after a takeover.
+   *
+   * ⭐ The negative ids are asserted as ids, not as a count: the bug is an off-by-one in a
+   * direction, so a test that only checked "is negative" would have passed against -1.
+   */
+  it('⛔ S165 — rebuilds nextPulledSparkId BELOW every live pulled shape', () => {
+    const world = makeWorld(7);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    // Three pulled shapes already on the board, exactly as they arrive on a mirror.
+    for (const id of [-1, -2, -3]) world.freeSparks.set(id as never, { id } as never);
+    // ...and an ordinary Spawner-minted shape, to prove the two id spaces do not interfere.
+    world.freeSparks.set(77 as never, { id: 77 } as never);
+
+    const r = rebuildAuthorityAllocators(world);
+    expect(r.nextPulledSparkId).toBe(-4);
+    // The ascending allocator is unmoved by the negatives — the property the old comment claimed.
+    expect(r.maxSparkId).toBe(77);
+  });
+
+  it('⛔ S165 — and a world with NO pulled shapes rebuilds to -1, never 0', () => {
+    // 0 is a legal Spawner id. Seeding the descending allocator at 0 would collide on the first
+    // pull, which is why the scan starts at 0 and subtracts rather than taking a raw minimum.
+    const world = makeWorld(7);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    world.freeSparks.set(0 as never, { id: 0 } as never);
+    world.freeSparks.set(5 as never, { id: 5 } as never);
+    expect(rebuildAuthorityAllocators(world).nextPulledSparkId).toBe(-1);
+  });
+
   it('⭐ S146 P2 — a COUNTED inventory holds no ids, so it cannot contribute a collision', () => {
     // ⛔ WHAT THIS REPLACED, AND WHY IT IS NOT A WEAKENING. Three S141 P3 tests used to pin that
     // `maxSparkId` SCANNED `world.castleBanks`, because a banked shape was a live entity that had
