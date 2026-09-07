@@ -17,8 +17,20 @@
  * halves make that true and BOTH are needed:
  *   · the ART is dark and low-contrast by construction — measured at generation, mean max-channel
  *     22–41 out of 255 with ZERO pixels above 200 across all twelve;
- *   · this renderer draws it at `ZONE_BG_ALPHA` into the FIRST layer added to the stage, so every
- *     spark, bond, structure and creature paints on top of it.
+ *   · this renderer draws it at `ZONE_BG_ALPHA`, and the QUARRY is cut out of it entirely.
+ *
+ * ⛔ AND THE SENTENCE THAT USED TO SIT HERE WAS THE BUG. It read *"into the FIRST layer added to
+ * the stage, so every spark, bond, structure and creature paints on top of it"*, which was true of
+ * the first cut and false from the moment the layer moved onto `aboveFogLayer` (see the constructor,
+ * which records the move and why). Structures, creatures, goblins and gatherers DO paint on top,
+ * because they are on `aboveFogLayer` too. **`SparkRenderer` and the bond overlay are not** — they
+ * are on `app.stage` (`main.ts:535`) BELOW `aboveFogLayer` (`main.ts:679`), so they are the two
+ * gameplay layers this one covers rather than backs.
+ *
+ * ⚠ The 0.55 alpha is what keeps that survivable for the sprites. It did NOT save the portal disc,
+ * which was opaque — owner, S166: *"you have put the layer of dark background OVER the primitives
+ * (shapes), cant see them being generated but my gatherer keeps gathering"*. Exactly right, and the
+ * giveaway is in his own sentence: the sim was never involved.
  *
  * ⚠ TOGGLEABLE, because the owner asked for it: `setEnabled(false)` restores the plain black board.
  * Kept as renderer state rather than world state on purpose — this is a display preference, it must
@@ -69,9 +81,30 @@ const ZONE_BG_ALPHA = 0.55;
  * APPLIED TO BOTH LAYOUTS, not just the 1v1 the owner was playing. QUADRANTS_4P splits the same
  * disc four ways at the same centre, so it has the same defect one seam worse.
  *
- * DRAWN, NOT MASKED. Pixi masks are additive - a hole needs an even-odd path, which is fragile and
- * has to be rebuilt whenever the geometry moves. The board is FOG_COLOR black, so painting the disc
- * black over the backdrop and under every gameplay layer restores the original pixels exactly.
+ * ⛔ MASKED, NOT DRAWN — AND THE PARAGRAPH THAT USED TO SIT HERE ARGUED THE OPPOSITE, WRONGLY.
+ *
+ * It said: *"DRAWN, NOT MASKED. Pixi masks are additive - a hole needs an even-odd path, which is
+ * fragile and has to be rebuilt whenever the geometry moves. The board is FOG_COLOR black, so
+ * painting the disc black over the backdrop and under every gameplay layer restores the original
+ * pixels exactly."* Two of its three clauses are false here:
+ *
+ *   · **"under every gameplay layer"** — it was not. It was above every spark and bond on the
+ *     board, and it is where 100% of them are BORN, so it hid the entire shape queue.
+ *   · **"rebuilt whenever the geometry moves"** — the geometry cannot move. `CANVAS_WIDTH`,
+ *     `CANVAS_HEIGHT`, `SPAWNER_CENTER_X/Y` and `SPAWNER_RADIUS` are all compile-time constants, so
+ *     the mask is built ONCE in the constructor and never touched again.
+ *
+ * ⭐ SO THE HOLE IS A REAL HOLE NOW. `rect(canvas).fill().circle(quarry).cut()` masks the sprite
+ * host, so no backdrop pixel is ever rasterised inside the disc and NOTHING is painted on top of
+ * gameplay. In the disc you see the plain black board and the sparks at full brightness — which is
+ * what the owner asked for in the first place (*"revert it to where it was"*), and what painting
+ * black only approximated.
+ *
+ * ⚠ `cut()`'s one documented precondition is that the hole lie COMPLETELY inside the shape it cuts
+ * (*"If a hole is not completely in a shape, it will fail to cut correctly!"*). The quarry disc is
+ * concentric with the canvas and its radius is a small fraction of it, so that holds by construction
+ * — `zoneBackgroundRenderer.test.ts` pins it as an arithmetic invariant rather than trusting this
+ * sentence.
  */
 const PORTAL_CUT_RADIUS = SPAWNER_RADIUS + 2;
 
@@ -120,8 +153,15 @@ export class ZoneBackgroundRenderer {
   private readonly layer: Container;
   private readonly sprites: Map<number, Sprite> = new Map();
   private readonly textures: Map<string, Texture> = new Map();
-  /** The cosmos-black disc that keeps the shared quarry out of both races' worlds. */
-  private readonly portalCut: Graphics;
+  /**
+   * The backdrop sprites live one level down so the portal mask can apply to THEM ALONE.
+   *
+   * ⛔ Masking `this.layer` directly would work today and break on the next thing added to it: the
+   * mask would silently apply to that too. One container, one job.
+   */
+  private readonly spriteHost: Container;
+  /** Canvas rect with the shared quarry cut out of it — the mask that keeps the portal a portal. */
+  private readonly portalMask: Graphics;
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
 
@@ -148,15 +188,31 @@ export class ZoneBackgroundRenderer {
     parent.addChildAt(this.layer, 0);
 
     /*
-     * zIndex + sortableChildren rather than draw order, because the backdrop sprites are added
-     * LAZILY in `sync` as each race's texture arrives - so a cut added here in the constructor
-     * would end up underneath every sprite that loaded after it.
+     * ⭐ NO `sortableChildren`, AND ITS ABSENCE IS THE POINT. The old code needed zIndex ordering
+     * because the portal was PAINT that had to stay above sprites which arrive lazily in `sync`. A
+     * mask is not in the paint order at all, so the ordering problem is gone rather than solved —
+     * and with it the failure mode where a sprite loading late landed on top of the cut.
      */
-    this.layer.sortableChildren = true;
-    this.portalCut = new Graphics();
-    this.portalCut.circle(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, PORTAL_CUT_RADIUS).fill({ color: 0x000000 });
-    this.portalCut.zIndex = 1; // above the sprites (default 0), still below every gameplay layer
-    this.layer.addChild(this.portalCut);
+    this.spriteHost = new Container();
+    this.layer.addChild(this.spriteHost);
+
+    /*
+     * The fill colour is irrelevant (a stencil mask reads coverage, not colour); it is white only
+     * because a white-means-keep mask is the convention a reader expects.
+     */
+    this.portalMask = new Graphics();
+    this.portalMask
+      .rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      .fill({ color: 0xffffff })
+      .circle(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, PORTAL_CUT_RADIUS)
+      .cut();
+    /*
+     * ⚠ THE MASK MUST BE IN THE DISPLAY LIST, not merely assigned. Pixi computes a mask's world
+     * transform from its place in the scene graph; an orphaned mask has no transform and clips
+     * nothing. It is a sibling of what it masks, which is the shape Pixi's own examples use.
+     */
+    this.layer.addChild(this.portalMask);
+    this.spriteHost.mask = this.portalMask;
     void app;
   }
 
@@ -253,7 +309,7 @@ export class ZoneBackgroundRenderer {
       if (sp === undefined) {
         sp = new Sprite(tex);
         sp.alpha = ZONE_BG_ALPHA;
-        this.layer.addChild(sp);
+        this.spriteHost.addChild(sp);
         this.sprites.set(zone, sp);
       } else if (sp.texture !== tex) {
         // A seat can change race in the lobby, and a rematch can change the board.

@@ -1627,6 +1627,14 @@ Network routes: ${v.detail}`;
       // metrics — the half `hudLayout.test.ts` cannot reach.
       get hud() { return hud; },
       get fogRenderer() { return fogRenderer; },
+      /*
+       * S166 P1 — live backdrop layering, so the e2e/browser can assert at RUNTIME what
+       * `zoneBackgroundRenderer.test.ts` can only assert at construction: that the backdrop
+       * sprites go through the portal mask once REAL textures have loaded. The owner-reported
+       * bug was exactly a runtime layering fact (an opaque disc above `SparkRenderer`), and a
+       * static test cannot see whether a sprite landed in the masked host in a live match.
+       */
+      get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },
       // S149 P4 — live footer-band geometry for e2e (the S85 P4c geometry-getter convention).
       get footerBand() { return footerBand; },
       // S152 — live FIX/SCRAP button geometry for e2e (the S85 P4c geometry-getter convention).
