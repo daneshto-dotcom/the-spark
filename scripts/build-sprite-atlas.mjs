@@ -323,8 +323,34 @@ if spec.get('normaliseStateScale', False):
     def _subject_h(a):
         ys = np.nonzero((a[:, :, 3] > 40).sum(axis=1))[0]
         return int(ys[-1] - ys[0] + 1) if ys.size else 0
-    h0 = {st: _subject_h(frames[st][0]) for st in states}
-    good = [v for v in h0.values() if v > 0]
+    #
+    # S165, SECOND PASS - THE STATISTIC WAS WRONG AND THE OWNER FOUND IT.
+    #
+    # This measured FRAME 0 of each state and equalised those. The reasoning was sound as far as it
+    # went (frame 0 of every state is the same seed pose, so a difference there is pure zoom error)
+    # but it only ever corrected the START of a clip. veo also drifts its zoom DURING a clip, and
+    # that drift survived untouched: measured on the shipped tier-3 sheets, the scarab's walk row
+    # reads 0.99x at frame 0 and 0.82x as a row median. The owner saw the row, not the frame -
+    # "the second row of the beetle looks much smaller - not consistent".
+    #
+    # So the PLAYABLE states are normalised on their ROW MEDIAN, which is what the eye averages over
+    # a loop and is immune to one frame of rear-up or crouch.
+    #
+    # DIE IS NORMALISED ON FRAME 0, DELIBERATELY, AND THE DATA SAYS SO. Every die row measures
+    # SHORTER than its idle - hound 0.61x, orcs 0.76x, zombies 0.80x, souleater 0.82x. A zoom error
+    # scatters in both directions; a one-sided result that size is POSE, because a dying creature
+    # collapses. Normalising die on its median would inflate a correct animation to hide a correct
+    # pose. Frame 0 is pose-comparable across states, so it stays the yardstick for this one row.
+    PLAYABLE = ('idle', 'walk', 'attack')
+    def _median_h(st):
+        per = [_subject_h(a) for a in frames[st]]
+        per = [v for v in per if v > 0]
+        return float(np.median(per)) if per else 0.0
+    h0 = {}
+    for st in states:
+        h0[st] = _median_h(st) if st in PLAYABLE else float(_subject_h(frames[st][0]))
+    # The reference comes from the PLAYABLE rows only - die must not drag the target down.
+    good = [h0[st] for st in states if st in PLAYABLE and h0[st] > 0] or [v for v in h0.values() if v > 0]
     if good:
         ref = float(np.median(good))
         for st in states:
@@ -333,7 +359,8 @@ if spec.get('normaliseStateScale', False):
             k = ref / h0[st]
             if abs(k - 1.0) < 0.02:
                 continue
-            print(f'  normaliseStateScale: {st} frame0 h={h0[st]} vs ref {ref:.0f} -> x{k:.3f}')
+            stat = 'median' if st in PLAYABLE else 'frame0'
+            print(f'  normaliseStateScale: {st} {stat} h={h0[st]:.0f} vs ref {ref:.0f} -> x{k:.3f}')
             out = []
             for a in frames[st]:
                 H, W = a.shape[0], a.shape[1]

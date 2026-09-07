@@ -71,7 +71,7 @@
         "walk": {
           "clip": "assets-source/race-units/clips/unit-nagas/walk.mp4",
           "ticksPerFrame": 4,
-          "sampleWindow": 16
+          "sampleWindow": 24
         },
         "attack": {
           "clip": "assets-source/race-units/clips/unit-nagas/attack.mp4",
@@ -84,9 +84,10 @@
           "sampleWindow": 48
         }
       },
-      "_why_sampleWindow": "S165 — PER-STATE, AND THE S164 VALUE WAS RIGHT FOR ONE STATE AND WRONG FOR THE OTHER THREE. S164 answered the owner's \"naga not coherent ... it looks twice bigger in different states\" by putting sampleWindow 16 on ALL FOUR states. 16 frames is ~0.67s of a 4s clip, so attack and die were sampled entirely BEFORE the action happened: measured motion score (mean abs alpha delta between sampled frames) was 0.07 for idle and near-nothing for attack — the rows were frozen stills. The builder's own docblock says this knob is PER-STATE for exactly this reason: \"a slow idle can take the whole clip while a drifting attack takes the front\". MEASURED SWEEP, rebuilding each time: widening idle/attack/die 16 -> 48 left the union bbox EXACTLY unchanged at 295x200 and woke the rows up (idle 0.07 -> 15.90, attack -> 19.24, die -> 13.48), with subject-height spread of only 10px on idle and 13px on die. Widening WALK is the one that costs: 24/48/96 all inflate the cell 295 -> 336 while the height spread stays flat at 46-48px, so a wider walk window buys no coherence and pads every cell with dead space, which renders the naga SMALLER against its siblings. => walk stays at 16 (S164's finding, confirmed); idle, attack and die go to 48.",
+      "_why_sampleWindow": "S165, THIRD PASS - WALK 16 -> 24, AND THE OWNER OVERTURNED THE TRADE-OFF THE NOTE BELOW RECORDED. Owner, playing the live build: \"the nagas dont look like they are slighering then they walk/move they kinda just twitch... otherwise all the other castle spawn look fine\". Measured and he is right by a wide margin: the naga walk row scored a frame-to-frame alpha delta of 1.41 against 27-37 for every other race, and a centroid travel of 0.2 px against 4-7 px. Twelve frames drawn from a 16-frame window is a fraction of a second of a 4 s clip, looped - a flicker, not a gait. IMPORTANTLY THE SOURCE CLIP IS FINE (luma delta 9.54 vs orcs 15.61), so this was never a regeneration problem; it was the window. THE PREVIOUS NOTE KEPT 16 FOR A REAL REASON and it is preserved verbatim below: widening walk inflates the shared union bbox, which pads every cell and renders the naga smaller. That reasoning was sound and the CONCLUSION was still wrong, because it weighed size coherence above motion and the owner weighs motion above size. MEASURED SWEEP at 20 / 24 / 32 / 48, rebuilding each time: 20 buys nothing (motion 1.27, heights 170); 24 and 32 are IDENTICAL (motion 4.03, cell stays 200x200, heights 143/141/143/142); 48 goes further on motion (8.46) but drops the walk row to 0.78x of idle and widens the cell to 221. => 24, the FRONT of the identical pair, because this file's own doctrine is that veo drifts later in a clip so the earlier window is the safer one. AND IT IS BETTER ON ALL THREE AXES, not a trade: motion 1.41 -> 4.03 (2.9x); cross-row height spread 16 px -> 2 px (183/186/170/182 -> 143/141/143/142), which also answers S164's original \"it looks twice bigger in different states\"; and cross-RACE deviation from the sibling mean of 158 px goes from +16% (183, the largest unit in the game by far) to -10% (142). The size the old note was protecting was itself the outlier.",
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "_why_sampleWindow_prior_s165": "PRESERVED, because it is the measurement that justified 16 and it must not look like an oversight. S165 pass 2: 'S165 - PER-STATE, AND THE S164 VALUE WAS RIGHT FOR ONE STATE AND WRONG FOR THE OTHER THREE... Widening WALK is the one that costs: 24/48/96 all inflate the cell 295 -> 336 while the height spread stays flat at 46-48px, so a wider walk window buys no coherence and pads every cell with dead space, which renders the naga SMALLER against its siblings. => walk stays at 16.' What changed is not the arithmetic but the priority, and the priority is the owner's to set."
     },
     {
       "name": "unit-mummies",

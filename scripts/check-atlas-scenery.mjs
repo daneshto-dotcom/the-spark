@@ -123,15 +123,31 @@ for path in sys.argv[1:]:
     # front-on is legitimately narrower than the same bat gliding side-on at the same size.
     import os
     mpath = path.replace('-atlas.png', '-anim.json')
+    #
+    # S165 FIX - MEDIAN OVER EVERY FRAME, NOT FRAME 0, AND FRAME 0 IS WHY THIS CHECK MISSED THE
+    # DEFECT IT WAS BUILT FOR. It cropped only the first cell of each row and compared those. The
+    # owner then found the scarab's WALK row visibly smaller than its idle row - and this check had
+    # scored that sheet walk=0.99x and passed it, because the scarab's frame 0 happens to match
+    # while the other eleven frames do not. Measured after the change: scarab walk 0.82x, piranha
+    # walk 1.49x, vampire-bat attack 1.50x - three playable rows wrong, all of them previously
+    # 'clean'.
+    #
+    # A per-row MEDIAN is the right statistic: it is what the eye averages over a looping
+    # animation, and it is immune to one frame where the creature rears up or crouches. A single
+    # sampled frame is a measurement of luck.
     heights = []
     if os.path.exists(mpath):
         man = json.load(open(mpath))
         cw, ch = man['cellW'], man['cellH']
-        img = Image.open(path).convert('RGBA')
+        arr = np.asarray(Image.open(path).convert('RGBA'))
         for st, info in man['states'].items():
-            cell = np.asarray(img.crop((0, info['row'] * ch, cw, (info['row'] + 1) * ch)))
-            ys = np.nonzero((cell[:, :, 3] > 40).sum(axis=1))[0]
-            heights.append([st, int(ys[-1] - ys[0] + 1) if ys.size else 0])
+            per = []
+            for f in range(int(info['frames'])):
+                cell = arr[info['row'] * ch:(info['row'] + 1) * ch, f * cw:(f + 1) * cw]
+                ys = np.nonzero((cell[:, :, 3] > 40).sum(axis=1))[0]
+                if ys.size:
+                    per.append(int(ys[-1] - ys[0] + 1))
+            heights.append([st, int(np.median(per)) if per else 0])
     # ── check 3: OPAQUE NEAR-WHITE that survived the matte ────────────────────────────────
     # The owner's words: "some of them have that white background because not cut out too well".
     # build-sprite-atlas.mjs deliberately KEEPS enclosed near-white BELOW enclosedWhiteLimitPct so
@@ -182,6 +198,21 @@ try {
 const res = JSON.parse(raw);
 
 /** How far a row's seed-frame height may sit from the median before it reads as a size mismatch. */
+/*
+ * S165 - THE VERDICT COVERS THE PLAYABLE ROWS. `die` IS PRINTED, NOT GATED.
+ *
+ * `goblinRenderer.syncSprite` maps every creature state to `attack | walk | idle` - there is no arm
+ * that can ever ask for the `die` row, on any sheet, today. And its heights are POSE-CONFOUNDED
+ * rather than zoom-wrong: every die row measures SHORTER than its idle (hound 0.61x, orcs 0.76x,
+ * zombies 0.80x, souleater 0.82x). A zoom error scatters both ways; a one-sided result that size is
+ * a creature collapsing, which is the animation working.
+ *
+ * So gating on it would hold this guard permanently red over correct art, and a guard that is
+ * always red is a guard nobody reads. It stays in the printed line - marked `(die)` - so the number
+ * is never hidden, and it moves back into the verdict on the day a `die` row can actually play.
+ */
+const PLAYABLE_ROWS = new Set(['idle', 'walk', 'attack']);
+
 const SIZE_TOLERANCE = 0.15;
 
 let bad = 0;
@@ -196,15 +227,18 @@ for (const [path, [total, largest]] of Object.entries(res)) {
 
 console.log(noSize
   ? '\n[atlas] 2/2 — SKIPPED (--no-size: these rows are conditions, not states seeded off one image)\n'
-  : '\n[atlas] 2/2 — cross-row SEED-SIZE consistency (frame 0 is the same pose in every row)\n');
+  : '\n[atlas] 2/2 — cross-row SIZE consistency (per-row MEDIAN over every frame; die reported, not gated)\n');
 for (const [path, [, , heights]] of Object.entries(res)) {
   if (noSize || !heights || heights.length === 0) continue;
-  const hs = heights.map(([, h]) => h).filter((h) => h > 0).sort((a, b) => a - b);
-  if (hs.length === 0) continue;
+  const play = heights.filter(([st, h]) => PLAYABLE_ROWS.has(st) && h > 0);
+  if (play.length === 0) continue;
+  const hs = play.map(([, h]) => h).sort((a, b) => a - b);
   const med = hs[Math.floor(hs.length / 2)];
-  const offenders = heights.filter(([, h]) => h > 0 && Math.abs(h / med - 1) > SIZE_TOLERANCE);
+  const offenders = play.filter(([, h]) => Math.abs(h / med - 1) > SIZE_TOLERANCE);
   if (offenders.length > 0) sized++;
-  const detail = heights.map(([st, h]) => `${st}=${(h / med).toFixed(2)}x`).join(' ');
+  const detail = heights
+    .map(([st, h]) => `${st}=${(h / med).toFixed(2)}x${PLAYABLE_ROWS.has(st) ? '' : '(die)'}`)
+    .join(' ');
   console.log(`  ${(offenders.length === 0 ? 'clean' : 'MISMATCH').padEnd(8)} ${detail}  ${path}`);
 }
 
