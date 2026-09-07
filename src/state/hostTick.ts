@@ -970,7 +970,33 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
           continue;
         }
-      } else if (world.tick >= sp.nextSpawnTick) {
+      } else if (sp.recipeId === 'pentagram' && world.tick >= sp.nextSpawnTick) {
+        /*
+         * ⭐⭐ S167 — **THE CHAIN IS INVERTED: THE CHEWER ARM IS NOW NAMED, AND THE DEFAULT IS INERT.**
+         *
+         * This read `} else if (world.tick >= sp.nextSpawnTick) {`, i.e. the pencil-chewer emit was
+         * the arm every recipeId not named above FELL INTO. That is the S152 A1 defect the owner
+         * reported by name — *"goblin tower is passively generating pencil chewers. i think you have
+         * made this tower also have same specs as pentagram... WRONG."* — and it stayed live as a
+         * TRAP: every new spawner recipe silently made chewers until someone remembered to add an
+         * arm. S166 nearly reproduced it six times over, and S167 would have made it twelve.
+         *
+         * ⛔ AND THE DEFECT WAS THE DEFAULT ITSELF, WHICH IS WHY NAMING THE ARM IS THE FIX RATHER
+         * THAN ADDING A SEVENTH GUARD. A recipe with no arm now produces NOTHING — visibly, boringly
+         * inert — which is the correct failure for a tower whose behaviour nobody has written yet.
+         * Silence is debuggable; a tower quietly minting the wrong unit is not.
+         *
+         * ⭐ PROVABLY A NO-OP TODAY, MEASURED RATHER THAN ASSUMED. The registry holds exactly FIFTEEN
+         * `kind:'spawner'` recipes — pentagram, lightningHub, goblinTower, six tier-3 and six tier-9
+         * towers — and the four arms above name fourteen of them. `pentagram` is the only id that
+         * ever reached this `else`, so making it explicit changes no shipped behaviour at all. It
+         * only changes what happens to the SIXTEENTH.
+         *
+         * ⚠ `spawnerEmitChainIds` in `hostTick.emitChain.test.ts` now reads this chain out of the
+         * source and asserts every registered spawner recipe is named somewhere in it — the same
+         * shape as `registerAll.test.ts`'s ignition guard, and for the same reason: a hand-written
+         * chain is exactly where the next recipe gets forgotten.
+         */
         const anchor = world.primitives.get(sp.anchorPrimitiveId);
         // The cadence advances on every due slot, emitted or skipped. See the note above.
         sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;

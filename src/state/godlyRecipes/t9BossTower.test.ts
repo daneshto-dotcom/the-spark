@@ -32,6 +32,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   AUTO_BOND_RADIUS,
+  FIGHT_PHASE_TICKS,
+  PHASE_DURATION_TICKS,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
   SparkType,
@@ -537,5 +539,61 @@ describe('S167 — the art paths resolve to files that exist', () => {
       expect(existsSync(join(root, `${base}-atlas.png`)), `${base}-atlas.png`).toBe(true);
       expect(existsSync(join(root, `${base}-anim.json`)), `${base}-anim.json`).toBe(true);
     }
+  });
+});
+
+describe('S167 — ⭐ THE BOSS PERSISTS ACROSS PHASES, and keeps its damage', () => {
+  /*
+   * Owner, §B item 7: *"It persists across phases: if it survives to the end of that turn's FIGHT
+   * phase it returns to the castle and attacks again the next phase, until killed."* And §D Q3a
+   * rules the other half: it does NOT heal on the way — *"if it healed at the castle each phase,
+   * 'until they die' would be unreachable for anything the defender can out-damage in one phase."*
+   *
+   * ⭐ BOTH HALVES ARE ALREADY TRUE, AND THIS TEST EXISTS BECAUSE I FIRST BELIEVED THEY WERE NOT.
+   * The boss config's docblock originally said the persistence half was unimplemented. Checking
+   * rather than assuming: NOTHING culls creatures at a phase edge — `world.creatures.clear()` is
+   * reachable only from a title-return and a godly abort — and the creature fan-out is merely
+   * DORMANT outside FIGHT (S149 P3), not destructive. So a boss survives the edge by construction,
+   * and nothing anywhere resets `hp`.
+   *
+   * ⚠ WHAT IS GENUINELY NOT IMPLEMENTED is the literal *"returns to the castle"* WALK — all creature
+   * locomotion advances toward the enemy and there is no retreat mode. The boss simply stands where
+   * the whistle blew and resumes when the next FIGHT starts, which satisfies "attacks again the next
+   * phase" without the journey. Named here so the distinction is a decision rather than a surprise.
+   */
+  it('survives a FIGHT → BUILD → FIGHT round trip with its damage intact', () => {
+    const w = buildAndIgnite('vampires');
+    runPastRelease(w);
+    const boss = [...w.creatures.values()].find((c) => c.type === T9_BOSS_TYPE.vampires);
+    expect(boss, 'boss released').toBeDefined();
+
+    /*
+      * Wound it, so "keeps its damage" is a measurement rather than a tautology on a full-health unit.
+      *
+      * ⚠ `ehp`, NOT `hp` — the field was renamed in S151 P2 precisely because its UNIT changed: it
+      * holds `unitPoolFifths(config.hp, config.def)`, i.e. fifths, and a v28 peer reading `hp: 40`
+      * would have seen forty hit points where the host meant eight. The rename is the guard.
+      */
+    const wounded = Math.max(1, Math.floor(boss!.ehp / 2));
+    boss!.ehp = wounded;
+    const bossId = boss!.id;
+
+    // Force the edge: end FIGHT on the next tick and run through BUILD and into the next FIGHT.
+    w.phaseEndsAtTick = w.tick + 1;
+    const d = deps();
+    const st = makeHostTickState(w);
+    const phases = new Set<string>();
+    for (let i = 0; i < PHASE_DURATION_TICKS + FIGHT_PHASE_TICKS + 200; i++) {
+      runHostTick(w, d, st);
+      phases.add(w.matchPhase);
+    }
+
+    // Anti-vacuity: the run must actually have crossed both edges, or this proves nothing.
+    expect([...phases].sort(), 'the run must cross BUILD and FIGHT').toEqual(['BUILD', 'FIGHT']);
+
+    const after = w.creatures.get(bossId);
+    expect(after, '⛔ the boss must SURVIVE the phase edge — "lives until it dies"').toBeDefined();
+    expect(after!.ehp, '⛔ and must NOT heal — §D Q3a').toBe(wounded);
+    expect(bossCount(w, 'vampires'), 'still exactly one').toBe(1);
   });
 });

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6073,
+  "tool_calls_session_total": 6080,
   "session_id": "S167",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -67,12 +67,26 @@
     {
       "id": 3,
       "name": "Boss stats onto the owner ruled 1..12 scale + the MISSING statsLadder guard",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "note": "Scope amendment under the owner directive \"keep working all priorities ... work well dont leave anything out\". Corrects MY OWN provisional numbers against an EXISTING owner ruling (STAT_POINT_MAX=12), and writes the guard stats.ts already claims exists.",
+      "check_completed": true,
+      "checkpoint_commit": "ff2315441a28eb3d1335898143ae39dae4d00aad",
+      "check_method": "Corrected MY OWN provisional boss stats (HP 40-60) against an EXISTING owner ruling (STAT_POINT_MAX=12, 'scaling will be for hp = 1,2,3 ... 12'). Measured the consequences first: every boss one-shot every unit, and a boss took 24-92s of single-unit fire against a ~45s FIGHT phase. New band HP 9-12/DEF 3-8/ATK 4-7/PEN 0-5, pools 72-130 vs voltkin's 64. Wrote statsLadder.test.ts, which stats.ts has CITED BY NAME SINCE S151 AND WHICH DID NOT EXIST - that comment is why I believed the range was enforced. HP/ATK checked as points 1..12, DEF/PEN as ladder indices 0..12 (0 is the x1.0 identity; nine shipped units sit there). ⭐ A NEGATIVE CONTROL against the rejected numbers found my own first draft vacuous: the squad test passed, and the 5x-overkill test was SELF-DEFEATING (it measured against max(pool) of the same set, so an inflated boss raised its own bar). Deleted it and kept one invariant proven to discriminate both ways: one goblin kills anything inside a phase - 10.8s new, 45.8s old. Gates from captured $?: typecheck 0, vitest 0 (4011/4011, 247 files), build 0.",
+      "first_seen_bug_class": "a comment claiming a guard is not a guard"
+    },
+    {
+      "id": 4,
+      "name": "Backlog sweep — the defect class the boot snapshot calls cheap and durable, plus the findings this session surfaced",
       "status": "in-progress",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "note": "Scope amendment under the owner directive \"keep working all priorities ... work well dont leave anything out\". Corrects MY OWN provisional numbers against an EXISTING owner ruling (STAT_POINT_MAX=12), and writes the guard stats.ts already claims exists."
+      "note": "Owner directive: \"keep working all priorities from backlog and current session priorities until you reach 850k\"."
     }
   ],
   "reflexion_entries_to_archive": [],

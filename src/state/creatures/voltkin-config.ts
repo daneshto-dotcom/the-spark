@@ -855,12 +855,19 @@ export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T
  * castle to attack again next phase, and §D Q3a rules that it does NOT heal on the way
  * (*"if it healed at the castle each phase, 'until they die' would be unreachable"*).
  *
- * ⚠ SO ONE HALF OF THAT RULING IS NOT IMPLEMENTED BY THIS CONFIG AND MUST NOT BE READ AS IF IT
- * WERE. `persistent` keeps the boss alive; nothing here gives it a RETURN-TO-CASTLE behaviour,
- * because all creature locomotion in this codebase advances toward the enemy and there is no retreat
- * mode to select. The damage-persists half is free (nothing resets `hp` at a phase edge); the
- * return-and-re-attack half is a new AI mode and is named in the handoff as unbuilt rather than
- * quietly skipped.
+ * ⭐ CORRECTED WITHIN S167 — THIS PARAGRAPH ORIGINALLY UNDER-CLAIMED, WHICH IS ITS OWN KIND OF
+ * INACCURACY. It said the persistence half was unimplemented. Checked rather than assumed, and now
+ * pinned by `t9BossTower.test.ts`: **both halves of the ruling already hold.** Nothing culls
+ * creatures at a phase edge — `world.creatures.clear()` is reachable only from a title-return and a
+ * godly abort — and the creature fan-out is merely DORMANT outside FIGHT (S149 P3), not destructive.
+ * Nothing anywhere resets `ehp`. So a boss crosses FIGHT -> BUILD -> FIGHT alive and still wounded,
+ * by construction rather than by a feature.
+ *
+ * ⚠ WHAT IS GENUINELY UNBUILT is the literal *"returns to the castle"* WALK. All creature
+ * locomotion advances toward the enemy and there is no retreat mode to select, so the boss stands
+ * where the whistle blew and resumes when the next FIGHT begins. That satisfies *"attacks again the
+ * next phase"* without the journey, and the distinction is recorded here so it stays a decision
+ * rather than a surprise.
  *
  * ⚠ `targetsStructures: true` — a boss that could not hit a castle would be a very expensive
  * skirmisher, and the castle is what the owner's brief has it attacking.
