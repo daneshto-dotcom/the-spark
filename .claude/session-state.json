@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 5903,
-  "session_id": "S165",
+  "tool_calls_session_total": 5913,
+  "session_id": "S166",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
   "prior_session_note": "S164 shipped V6-2.4 (castle regen, PROTOCOL 40->41) plus two real bugs found in already-shipped code. P5 delivered race-unit ART only; nothing in src/ referenced it. P6 not started. Both carried forward at owner instruction.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
   "phase": "DO",
-  "tier": "Full",
+  "tier": "Micro",
   "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
-  "session_status": "S165 IN PROGRESS - W1-C wired and live, zone backgrounds wired and live. Five-lane sweep running. NOT closed: owner reviews before handoff.",
+  "session_status": "S166 IN PROGRESS - owner playtest bug (zone-backdrop portal disc drawn OVER sparks). Scope Amendment PDR approved by owner via AskUserQuestion (\"Ship the hole fix\"). Tier-3 tower build is the session objective and still needs its own Full PDR.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -521,6 +521,61 @@
           "needle": "- [ ] ⛔ **BLOCKER FOUND IN S162"
         }
       ]
+    },
+    {
+      "id": 10,
+      "title": "P1(S166) - SCOPE AMENDMENT: the spawner portal must be a HOLE, not opaque paint over the sparks",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "204fc3f",
+      "check_method": "ROOT CAUSE, established by reading the code rather than by reproducing: portalCut was circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer, while SparkRenderer is constructed on app.stage (main.ts:535) and aboveFogLayer is added after it (main.ts:679) - so the disc sat strictly above every spark and bond, at the one spot where all of them are born. The owner's own sentence carried the diagnosis (his gatherer kept gathering = the sim was never involved). SECOND DEFECT, and the reason it shipped: the :20 docblock asserted the OPPOSITE layering (the FIRST layer added to the stage, so every spark/bond/structure/creature paints on top of it), stale from the first cut, while the :148 docblock in the same file records the move onto aboveFogLayer in full. Its list is wrong exactly where it mattered - creatures, goblins, gatherers and towers ARE above; sparks and bonds are the two gameplay layers below. FIX: sprites moved into a spriteHost masked by rect(canvas).fill().circle(quarry).cut(); portalCut DELETED so no opaque fill exists on the layer at all; sortableChildren + zIndex removed rather than replaced, because they existed only to keep paint above lazily-loaded sprites and a mask is not in the paint order. The old docblock's objection to masking (rebuilt whenever the geometry moves) does not apply - every input is a compile-time constant. VERIFICATION, four independent ways. (1) Six unit tests pinning the INVARIANT (nothing opaque on the layer; every sprite through the mask), not the symptom. (2) TWO NEGATIVE CONTROLS, each red for the right reason and reddening only the right test: routing sprites to this.layer gave NC1_EXIT=1 on the sprite-parent test; dropping the mask assignment gave NC2_EXIT=1 on the structural test. (3) The source scans STRIP COMMENTS - mandatory here because the new docblock QUOTES the old fill line verbatim to explain it, so a naive scan would match the quote and pass while the defect was live. Same vacuity class registerAll.test.ts documents. (4) RUNTIME in a real browser on a 4-seat QUADRANTS_4P board: all four backdrops loaded, all four sprites reported parent===spriteHost, layer children exactly [_Container,_Graphics], portalCut absent from the instance, layerVisible true, alphas 0.55. The hidden Browser pane throttles rAF to about 1 tick/sec so sync never ran on its own; I invoked the real production sync(world) directly, substituting only the scheduler. __SPARK__.zoneBackgroundRenderer was added for this (S85 P4c geometry-getter convention, DEV-only, tree-shaken) because a static test cannot observe runtime layering. BINDING HYGIENE: I checked every file_lacks needle against RAW text first and DROPPED two that would have false-failed - 0x000000 (raw count 1, my own docblock quote) and sortableChildren (raw count 1, my own comment). That is precisely the brittle-binding class that produced this session's MCV incident, avoided by measuring instead of assuming. GATES, every exit code read from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3762 tests / 242 files, +6 tests +1 file), BUILD_EXIT=0 (787.6 KiB main entry, 112.4 KiB headroom). NOT DONE, deliberately, and stated rather than silently dropped: the e2e assertion the PDR listed. A scene-graph assertion there would have been near-duplicative of the unit test and would still NOT catch a WebGL mask failure, which needs pixel sampling that is ambiguous here because the disc is legitimately black. Replaced by the real-browser runtime check above, which is stronger evidence. ALSO NOT DONE, owner-declined: raising sparks/bonds above the backdrop to remove the residual 0.55 dimming OUTSIDE the disc. That would put shape activity above the FOG, a gameplay change; he was offered it explicitly and chose the hole fix alone.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "this.spriteHost.mask = this.portalMask;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "this.spriteHost.addChild(sp);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": ".cut();"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "private readonly portalCut: Graphics;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "this.layer.addChild(sp);"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/zoneBackgroundRenderer.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -567,6 +622,18 @@
       "tag": "#scout-the-subsystem-before-designing-against-it",
       "lesson": "Two read-only scouting agents over the settings and audio subsystems, before any code, returned four defects that would otherwise have shipped: decoded PCM is 384 KB/s so an unbounded music cache reaches ~736 MB; NOTHING stopped the music at match end, which is invisible with one track and means 'you hear the previous race all next match' with six; the local race reads a confident, WRONG 'vampires' on the title screen for every player; and a third top-right glyph would have turned the deploy-gating e2e subset red via three separate guards. Each one is a defect I would have written and then debugged.",
       "rule": "For a feature that threads through an unfamiliar subsystem, spend the read pass first and demand file:line for every claim. The cost is one round trip; the alternative is discovering the same facts from a failing deploy."
+    },
+    {
+      "session": "S166",
+      "priority": "P1",
+      "title": "A stale docblock is not documentation debt - it is the bug, waiting",
+      "entry": "The zone backdrop covered the shape queue because a docblock said it could not. :20 claimed the layer was bottom-of-stage so every spark, bond, structure and creature painted on top of it; :148, in the same file, records the move onto aboveFogLayer that made that false. Nobody had to be careless - the file held both its own correct and incorrect account, and the wrong one is the one a reader hits first. THE HABIT THAT CAUGHT IT: reading the code that fires a claim instead of the claim, already a project rule for warnings and evidently true of comments too. THE HABIT THAT NEARLY MISSED IT: I almost authored a file_lacks 0x000000 binding, which would have false-failed because my own new docblock quotes the old line in order to explain it - so I checked every needle against raw text and dropped two. Explaining a defect in prose puts the defect's text back into the file, and every text-based guard must then be re-checked. Same reason the unit test strips comments."
+    },
+    {
+      "session": "S166",
+      "priority": "P0-incident",
+      "title": "Distrust agent SIDE EFFECTS, not just agent CLAIMS",
+      "entry": "I already treat subagent findings as unverified - the project rule exists because reviewers have fabricated execution claims. What I had not done is treat their WRITES as a hazard. A discovery lane added a fake CreatureType to three source files as an empirical tsc probe, a genuinely good technique, and left it on disk. Only the gates lane had been told read-only. It was caught by an S165 MCV binding pinning the raceUnit union member WITH its semicolon: brittle by design, and that brittleness is exactly what noticed a member appended after it. TWO LESSONS. (1) Every read-only lane must SAY read-only; the instruction is one sentence and its absence cost a reverted tree and a re-run of every gate. (2) When a hook fires, resolve it before continuing - had I filed it as inherited S165 noise, I would have built the tier-3 tower on a mutated tree and measured every gate against a lie."
     }
   ],
   "totals": {
@@ -642,9 +709,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 532567,
-  "real_context_pct_at_close": 53.26,
-  "checkpoint_commit": "8aff165",
+  "real_context_tokens_at_close": 309984,
+  "real_context_pct_at_close": 31.0,
+  "checkpoint_commit": "204fc3f",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -3041,7 +3108,7 @@
       "LOW: P3 and P5 checkpoint SHAs pin first-completion state, not final - later commits corrected both. Disclosed in checkpoint_drift_s150."
     ]
   },
-  "real_context_level_at_close": "ORANGE",
+  "real_context_level_at_close": "GREEN",
   "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
   "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
   "owner_rulings_s150_late": {
@@ -6788,5 +6855,34 @@
     "fix": "gen-character-clips.mjs takes a VEO_MODEL override and prints which model ran. Default unchanged (strongest tier).",
     "tier_cost_measured": "At 2 clips, fast and full were indistinguishable at the 200px cell. Across 24 clips the difference IS real and specific: fast invents background scenery far more readily (4 of 24). That is why check-atlas-scenery.mjs exists. Both statements were measured; the first was measured on too small a sample."
   },
-  "carry_forwards_s165_disposition": "ALL TEN carry-forwards spawned earlier in S165 are CLOSED BY S165 ITSELF - eight by code or art, two by owner answers. They are kept with a `resolution` field rather than deleted, because the project has twice been bitten by a next session inheriting resolved work as open work (the NONET blocker presented as open in two files after R132 settled it, and boot-snapshot recommending a design that had already been rebuilt on measurement). Anything genuinely still open for the next session lives in S165_OPEN_ITEMS.md, whose FIRST PRIORITY section is the tier-3 tower."
+  "carry_forwards_s165_disposition": "ALL TEN carry-forwards spawned earlier in S165 are CLOSED BY S165 ITSELF - eight by code or art, two by owner answers. They are kept with a `resolution` field rather than deleted, because the project has twice been bitten by a next session inheriting resolved work as open work (the NONET blocker presented as open in two files after R132 settled it, and boot-snapshot recommending a design that had already been rebuilt on measurement). Anything genuinely still open for the next session lives in S165_OPEN_ITEMS.md, whose FIRST PRIORITY section is the tier-3 tower.",
+  "owner_rulings_s166": {
+    "R_render_hole": "Owner selected \"Ship the hole fix\": the spawner portal must be a genuine HOLE in the backdrop, not opaque black paint above gameplay. Explicitly did NOT take the option that raises sparks above the backdrop, because that would put shape activity above the FOG.",
+    "R136_ring_slack": "Owner selected \"Relax the rule\": a tier-3 race ring is NOT degree-exactly-2. It is degree >= 2 PLUS exactly 2 same-type in-ring neighbours that are bonded to each other. Reason presented and accepted: one friendly shape auto-bonding to any node would otherwise destroy the tower (measured true at all 3 nodes for all 6 races), on what will be the cheapest and most-built structure in the game. Grants the ring the same slack isStarAt already grants star leaves.",
+    "R137_off_race_ring": "Owner selected \"Refuse it\": an off-race player may NOT ignite another race's ring. Enforce at the owner-resolution step by comparing player.raceId against the ring's shape. R95 covers only panel visibility/buildability, not matchability."
+  },
+  "integrity_incident_s166": {
+    "what": "My own Workflow discovery lanes WROTE to the working tree. One lane added a fake CreatureType 'probeT3Vampires' plus the three Record entries tsc demands, across src/state/creatures/creature.ts, src/state/creatures/voltkin-config.ts and src/state/stats.ts, and did not revert it.",
+    "caught_by": "MCV Stop hook. An S165 P7 binding pinned file_contains \"| 'raceUnit';\" WITH the semicolon; the probe appended a member after it, so the semicolon moved and the binding went red. verify-session-claims.py exit 1, hard_fail=1.",
+    "not_a_fabrication": "Explicitly NOT the S149 fabrication class the hook warns about. The S165 claim was true; the tree had been mutated underneath it by this session.",
+    "resolution": "TaskStop on the workflow before it could write more; git checkout -- on the three files; grep -rn \"probeT3\" src/ returns no match (exit 1, ruled benign). Re-ran gates on the pristine tree: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3756/241), MCV_EXIT=0 hard_fail=0. NOTHING was built on the mutated tree.",
+    "lesson": "Agent SIDE EFFECTS, not just agent CLAIMS, must be distrusted. Discovery lanes must be told read-only explicitly; only the gates lane was. Six of nine lanes had not returned when stopped and are owed a hand-run per the S161 rule.",
+    "silver_lining": "The probe empirically established that tsc goes green once exactly THREE collections are filled (CREATURE_CONFIGS, CREATURE_TARGETS, CREATURE_ROLES). Every other site - factory, serialize, hash, worker, renderer, save - is SILENT. The four-sites warning, measured."
+  },
+  "a0_state_discovery_s166": {
+    "method": "Ran every gate myself and read each exit code from a captured $?, never through a pipe.",
+    "typecheck": "TYPECHECK_EXIT=0 (twice: once at boot, once after reverting the agent mutation)",
+    "vitest": "VITEST_EXIT=0, 3756 tests / 241 files (re-run on the pristine tree)",
+    "mcv": "MCV_EXIT=0, hard_fail=0, warn=0 after reconciliation",
+    "git": "clean except .claude/session-state.json (hook-written transient)",
+    "doc_drift_found": "CLAUDE.md says \"3755 tests / 241 files at S165 close\"; disk says 3756/241. Fix at close.",
+    "render_bug_root_cause": "zoneBackgroundRenderer portalCut is circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer (main.ts:679), while SparkRenderer is on app.stage (main.ts:535) - so the disc is strictly above every spark and bond. The :20 docblock asserts the OPPOSITE (\"the FIRST layer added to the stage, so every spark, bond, structure and creature paints on top of it\"), which is stale from the first cut and is why it shipped: the :148 docblock records the move onto aboveFogLayer and the :20 one was never updated. Creatures/goblins/gatherers/towers ARE above; sparks and bonds are the two gameplay layers below."
+  },
+  "gates_at_close_s166": {
+    "typecheck": "TYPECHECK_EXIT=0",
+    "vitest": "VITEST_EXIT=0 (3762 tests / 242 files)",
+    "build": "BUILD_EXIT=0 (main entry 787.6 KiB, cap 900 KiB, headroom 112.4 KiB)",
+    "static_assets_reported_not_gated": "76.0 MiB across 130 files; art/race-tier3-units is 10.2M of it and is still referenced by nothing in src/, e2e/ or index.html",
+    "method": "every exit code read from a captured $?, never through a pipe, never the wrapper trailing [exited with code 0] line"
+  }
 }
