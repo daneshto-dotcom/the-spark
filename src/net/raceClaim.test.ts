@@ -246,6 +246,99 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
     expect(seen[0]![0]!.color).toBe(RACE_COLORS[defaultRaceForSeat(0)]);
   });
 
+  /**
+   * S165 (sweep Lane 5) - THE GHOST-CLAIM PRUNE HAD ZERO COVERAGE, AND IT WAS AN OWNER-BUG FIX.
+   *
+   * `quickmatchGate.ts` deletes `raceByPeer` entries for peers no longer in `transport.peerIds()`,
+   * and its docblock names the symptom it cures: a departed peer's claim kept a race LOCKED while
+   * the picker drew that tile free and clickable - *"i click on it and it shows but it doesnt
+   * change"*. The four existing tests in this describe all call `broadcastQmPresence` and then
+   * assert on the returned roster; not one looks at `raceByPeer`. The prune loop RUNS in every one
+   * of them (the last passes `peerIds: () => []`) and nothing checks what it did.
+   *
+   * MEASURED CONSEQUENCE: delete the four-line prune and the whole suite stays green.
+   */
+  it('⛔ prunes a DEPARTED peer race claim, so that race stops reading as taken', () => {
+    const s = sess();
+    s.raceByPeer.set('GONE-PEER', 'orcs');
+    s.raceByPeer.set('HERE-PEER', 'nagas');
+    const transport = {
+      peerIds: () => ['HERE-PEER'],
+      send: () => {},
+    } as unknown as NetTransport;
+
+    broadcastQmPresence(s, transport, () => {});
+
+    expect(s.raceByPeer.has('GONE-PEER'), 'a departed peer must not keep holding a race').toBe(false);
+    // ...and the present peer is untouched: a prune that cleared everything would also pass the
+    // assertion above, which is the whole reason both halves are asserted.
+    expect(s.raceByPeer.get('HERE-PEER')).toBe('nagas');
+  });
+
+  it('⚠ keys the prune on the TRANSPORT peer list, not on lobbySeats', () => {
+    /*
+     * The docblock is explicit that this distinction is load-bearing: a peer mid-join is CONNECTED
+     * but not yet SEATED, and `raceIsFree`'s third loop exists precisely to honour a claim that
+     * arrives before its seat. Pruning by seat would delete the very claims that loop was written
+     * for. So a peer present on the transport but absent from `lobbySeats` must KEEP its claim.
+     */
+    const s = sess();
+    s.raceByPeer.set('JOINING-PEER', 'vampires');
+    expect(s.lobbySeats.has('JOINING-PEER')).toBe(false);
+    const transport = {
+      peerIds: () => ['JOINING-PEER'],
+      send: () => {},
+    } as unknown as NetTransport;
+
+    broadcastQmPresence(s, transport, () => {});
+
+    expect(s.raceByPeer.get('JOINING-PEER'), 'a mid-join peer keeps its claim').toBe('vampires');
+  });
+
+  /**
+   * S165 (sweep Lane 5) - THE TWO INDEPENDENT TRY/CATCHES HAD ZERO COVERAGE EITHER.
+   *
+   * S163 P8 argues at length that ONE try, or send-before-repaint, reproduces the owner's bug - and
+   * that its own first fix (reordering alone) "removed one way and created its mirror", because a
+   * throw in the host's Pixi repaint would swallow the LOBBY_PRESENCE broadcast for the whole room.
+   * Two independent catches is the shape that makes "both halves always run" true.
+   *
+   * MEASURED CONSEQUENCE: revert to a single try, or to one unguarded call, and the suite stays
+   * green. These two tests are the only thing that would notice.
+   */
+  it('⛔ a THROWING repaint still lets the wire broadcast go out', () => {
+    const s = sess();
+    s.selfRace = 'zombies';
+    const sent: { kind: string }[] = [];
+    const transport = {
+      peerIds: () => [],
+      send: (m: { kind: string }) => { sent.push(m); },
+    } as unknown as NetTransport;
+
+    expect(() => broadcastQmPresence(s, transport, () => {
+      throw new Error('pixi repaint blew up');
+    })).not.toThrow();
+
+    expect(sent, 'every remote rack would freeze if this were empty').toHaveLength(1);
+    expect(sent[0]!.kind).toBe('LOBBY_PRESENCE');
+  });
+
+  it('⛔ a THROWING send still lets the local repaint happen', () => {
+    const s = sess();
+    s.selfRace = 'mummies';
+    const transport = {
+      peerIds: () => [],
+      send: () => { throw new Error('transport disconnected mid-cycle'); },
+    } as unknown as NetTransport;
+    const seen: RosterEntry[][] = [];
+
+    expect(() => broadcastQmPresence(s, transport, (r) => { seen.push([...r]); })).not.toThrow();
+
+    // The original symptom in one assertion: the pick is recorded AND visible.
+    expect(seen, 'this is the "it shows but it doesnt change" bug').toHaveLength(1);
+    expect(seen[0]![0]!.raceId).toBe('mummies');
+  });
+
   it('WITH a transport the wire send is unchanged — the local repaint is additive', () => {
     const s = sess();
     s.selfRace = 'orcs';
