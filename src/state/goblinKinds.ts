@@ -26,6 +26,16 @@
  */
 
 import { GOBLIN_TOWER_HUB_DEGREE, SparkType } from '../constants.ts';
+/*
+ * S166 — the tier-3 ring validator and its two lookups, for `seatFeedTowerAt`.
+ * ⚠ `ringShape.ts` is a PURE leaf and `raceTowerIds.ts` is side-effect-free by contract, which is
+ * what keeps this file importable from `world.ts` without firing every `registerRecipe` in the tree
+ * — the whole reason this leaf exists.
+ */
+import { isRingAt } from './godlyRecipes/ringShape.ts';
+import { RACE_FEED_SHAPE } from './races.ts';
+import { RACE_TOWER_SIZE, raceForTowerId } from './raceTowerIds.ts';
+import type { GodlyId } from './godlyRecipes/types.ts';
 import { componentOf } from '../game/structure.ts';
 import type { PlayerId, PrimitiveId, SpawnerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
@@ -95,6 +105,45 @@ export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boo
  * Lives in the leaf for the reason the whole file exists: `world.ts` reaches the input and panel
  * layers, and importing a recipe module from either would fire every `registerRecipe` in the tree.
  */
+/**
+ * ⭐ S166 — THE SEAT'S FEEDABLE TOWER at `primitiveId`, goblin OR tier-3 race, with its recipe id.
+ *
+ * ⛔ THE RECIPE ID COMES BACK WITH IT, and that is the point. The caller needs to know WHICH kind
+ * of tower it found, because the two feed differently: the goblin tower maps all six shapes to six
+ * outputs, while a race tower accepts exactly ONE shape (R119, *"the tower is made of what it
+ * eats"*). Returning a bare `SpawnerId` — which is what `seatGoblinTowerAt` below does — would
+ * force the caller to look the recipe up again and invite the two lookups to disagree.
+ *
+ * ⚠ RE-VALIDATED PER KIND, not trusted: `isGoblinTowerComponent` for the star, `isRingAt` for the
+ * ring. Using a component check for the ring would re-introduce the S158 B2b defect that owner
+ * ruling R136 exists to prevent.
+ *
+ * ⚠ `seatGoblinTowerAt` IS KEPT, not replaced. It has its own callers and its own narrower
+ * contract; widening it in place would have changed what every one of them means.
+ */
+export function seatFeedTowerAt(
+  world: World,
+  seat: PlayerId,
+  primitiveId: PrimitiveId,
+): { readonly id: SpawnerId; readonly recipeId: GodlyId } | null {
+  const seed = world.primitives.get(primitiveId);
+  if (seed === undefined) return null;
+  const comp = componentOf(seed, world.primitives, world.bonds);
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.ownerPlayerId !== seat) continue;
+    if (!comp.primitiveIds.has(sp.anchorPrimitiveId)) continue;
+    if (sp.recipeId === 'goblinTower') {
+      if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
+      return { id: sp.id, recipeId: sp.recipeId };
+    }
+    const race = raceForTowerId(sp.recipeId);
+    if (race === null) continue; // a pentagram / lightning hub in the same component is not feedable
+    if (!isRingAt(world, sp.anchorPrimitiveId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE)) continue;
+    return { id: sp.id, recipeId: sp.recipeId };
+  }
+  return null;
+}
+
 export function seatGoblinTowerAt(
   world: World,
   seat: PlayerId,

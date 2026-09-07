@@ -101,6 +101,9 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+// S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
+// sim hot path and must not pull the registry in as an import side effect.
+import { isRaceTowerId } from './raceTowerIds.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -814,6 +817,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          *
          * The rate is unchanged when nothing blocks - one chewer per SPAWN_INTERVAL_TICKS, on the
          * exact grid. What changes is that a blocked slot is now LOST rather than owed.
+         */
+      } else if (isRaceTowerId(sp.recipeId)) {
+        /*
+         * ⭐ S166 — THE SIX RACE TOWERS EMIT NOTHING ON A CADENCE. They are FED (R108), exactly like
+         * the goblin tower, and this arm exists for exactly the reason that one does.
+         *
+         * ⛔ WITHOUT IT ALL SIX WOULD INHERIT THE PENCIL-CHEWER DEFAULT BELOW, which is the
+         * owner-reported S152 A1 defect reproduced six times over: *"goblin tower is passively
+         * generating pencil chewers. i think you have made this tower also have same specs as
+         * pentagram... WRONG."* The arm below is the PENTAGRAM behaviour and it is reached as an
+         * `else`, i.e. as a DEFAULT that catches every recipeId not named above.
+         *
+         * ⚠ EXPLICIT AND EMPTY, not a condition bolted onto the arm below — the same shape the
+         * goblin tower's arm uses, for the same stated reason: the defect was the DEFAULT itself, so
+         * every new producing recipe must be named here or it silently makes chewers.
+         *
+         * ⚠ The durable fix is to INVERT this chain so the chewer arm reads
+         * `if (sp.recipeId === 'pentagram')` and the default becomes inert. That is a behaviour
+         * change on the pentagram path, so it is named here rather than done here.
          */
       } else if (world.tick >= sp.nextSpawnTick) {
         const anchor = world.primitives.get(sp.anchorPrimitiveId);

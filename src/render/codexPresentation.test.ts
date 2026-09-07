@@ -24,6 +24,17 @@ const ALL_IDS = [
   'voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga',
   'stinkTower', // S141 P1 — the first NON-GODLY entry
   'goblinTower', // S151 P3 — one tower, six outputs (owner R70)
+  /*
+   * S166 — the six tier-3 race towers (R108/R119). Six ids, ONE module, and the copy is what makes
+   * them legible: `CODEX_COPY` is keyed by `string`, so `tsc` cannot demand these and `codexCopyFor`
+   * falls back to `id.toUpperCase()` with a BLANK power line rather than failing. This pinned list
+   * is the only thing that turns an omission red.
+   *
+   * ⚠ The budget test below is not a formality here — the demons entry came in at 154 chars against
+   * a 150 ceiling and had to be trimmed, which only surfaced because these ids joined this list.
+   */
+  't3TowerVampires', 't3TowerNagas', 't3TowerMummies',
+  't3TowerZombies', 't3TowerOrcs', 't3TowerDemons',
 ] as const;
 
 describe('S121 P4 — codex copy budgets (the anti-overflow contract)', () => {

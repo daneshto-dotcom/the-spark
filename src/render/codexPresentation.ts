@@ -95,6 +95,62 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
   },
   // ⭐ S151 P3 — THE GOBLIN TOWER (owner R70). The only ALL-ONE-TYPE recipe in the registry, and the
   // only structure whose OUTPUT the player chooses AFTER it is built.
+  /*
+   * ⭐ S166 — THE SIX TIER-3 RACE TOWERS (R108/R119/R134).
+   *
+   * ⛔ THIS TABLE IS A **SILENT** SITE, WHICH IS WHY THESE ARE HERE AT ALL. `codexCopyFor` ends in
+   * `?? { name: id.toUpperCase(), power: '', recipe: '???' }`, so a missing entry does not fail — it
+   * renders `T3TOWERVAMPIRES` with a blank tagline into the build panel. `tsc` cannot help either:
+   * the record is keyed by `string`, not `GodlyId`. `castlePanel.structures.test.ts` is what caught
+   * the omission, via its *"every row carries a real name, an epigraph and its true cost"* contract.
+   *
+   * ⚠ `power` is the panel epigraph and its budget is ~34 characters (the `goblinTower` entry below
+   * notes its own 30). All six are 'Three <shapes>. Feed it one.' — which also states the mechanic
+   * the player needs: the tower is made of what it eats (R119).
+   */
+  t3TowerVampires: {
+    name: 'BAT TOWER',
+    power: 'Three Triangles. Feed it one.',
+    recipe:
+      'Bond 3 Triangles into a closed ring — the shape your race owns, three of a kind. Feed it ONE Triangle and it makes a bat. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Triangle, radius: 34 },
+  },
+  t3TowerNagas: {
+    name: 'PIRANHA TOWER',
+    power: 'Three Squares. Feed it one.',
+    recipe:
+      'Bond 3 Squares into a closed ring — the shape your race owns, three of a kind. Feed it ONE Square and it makes a piranha. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Square, radius: 34 },
+  },
+  t3TowerMummies: {
+    name: 'SCARAB TOWER',
+    power: 'Three Lines. Feed it one.',
+    recipe:
+      'Bond 3 Lines into a closed ring — the shape your race owns, three of a kind. Feed it ONE Line and it makes a scarab. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Line, radius: 34 },
+  },
+  t3TowerZombies: {
+    name: 'HOUND TOWER',
+    power: 'Three Circles. Feed it one.',
+    recipe:
+      'Bond 3 Circles into a closed ring — the shape your race owns, three of a kind. Feed it ONE Circle and it makes a hound. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Circle, radius: 34 },
+  },
+  t3TowerOrcs: {
+    name: 'WARBAND TOWER',
+    power: 'Three Dots. Feed it one.',
+    recipe:
+      'Bond 3 Dots into a closed ring — the shape your race owns, three of a kind. Feed it ONE Dot and it makes a raider. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Dot, radius: 34 },
+  },
+  t3TowerDemons: {
+    name: 'SOULEATER TOWER',
+    power: 'Three Spirals. Feed it one.',
+    recipe:
+      'Bond 3 Spirals into a closed ring — the shape your race owns. Feed it ONE Spiral and it makes a soul eater. Only your race can build it.',
+    emblem: { kind: 'ring', nodes: 3, nodeType: SparkType.Spiral, radius: 34 },
+  },
+
   goblinTower: {
     name: 'GOBLIN TOWER',
     power: 'Feed it a shape, get a goblin.', // 30 chars, inside the 34 budget

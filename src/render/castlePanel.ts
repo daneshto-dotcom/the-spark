@@ -46,6 +46,9 @@ import {
   KEEP_H,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
+// S166 — R95's race filter. From the side-effect-free leaf: this module must not fire
+// `registerRecipe` as an import side effect (see `raceTowerIds.ts`).
+import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { availableShapeCounts, planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { drawBlueprintThumb } from './blueprintGlyph.ts';
@@ -290,7 +293,25 @@ export function castleStructuresModel(world: World): StructureRow[] {
 
   const have = availableShapeCounts(world, world.localPlayerId);
 
-  return ALL_BLUEPRINT_IDS.map((id) => {
+  /*
+   * ⭐ S166 — R95: A RACE TOWER IS VISIBLE AND BUILDABLE ONLY BY ITS OWNER. Owner: *"there's
+   * already the current global towers that everyone can build, but we're adding race towers too
+   * which are unique to the player's race."*
+   *
+   * ⛔ FILTERED HERE RATHER THAN IN `ALL_BLUEPRINT_IDS`, because that list is the REGISTRY of what
+   * exists and three other consumers read it — the footer band derives from this model and inherits
+   * the filter for free, but `botBrain` does not and is filtered separately at its own sort.
+   *
+   * ⚠ A SEAT WITH NO PLAYER SEES NO RACE TOWER, not all six. `me` is undefined on a mirror that has
+   * not yet received its roster, and showing six unbuildable rows for one frame would read as a bug.
+   *
+   * ⚠ THE COMPLEMENT MATTERS TOO AND IS TESTED BOTH WAYS: every race still sees all seven GLOBAL
+   * towers. That is the regression proving R95's "additive, not replacing" actually held.
+   */
+  const myTowerId = me === undefined ? null : RACE_TOWER_IDS[me.raceId];
+  const visible = ALL_BLUEPRINT_IDS.filter((id) => !isRaceTowerId(id) || id === myTowerId);
+
+  return visible.map((id) => {
     const copy = codexCopyFor(id);
     const missing: Array<{ type: SparkType; need: number; have: number }> = [];
     for (const [type, need] of blueprintBill(id)) {

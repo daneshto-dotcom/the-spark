@@ -25,6 +25,17 @@ import { listRecipes } from './index.ts';
  */
 const EXPECTED = [
   'goblinTower',
+  /*
+   * S166 — the six tier-3 race towers. ONE module (`raceTower.ts`) registers all six by looping
+   * `registerRecipe` over `RACE_TOWER_RECIPES`, so the module count and the recipe count no longer
+   * match — which is exactly why `MODULES` below is a separate list rather than derived from this one.
+   */
+  't3TowerVampires',
+  't3TowerNagas',
+  't3TowerMummies',
+  't3TowerZombies',
+  't3TowerOrcs',
+  't3TowerDemons',
   // ⚠ 'helga', not 'princessHelga' — the recipe ID and its MODULE NAME differ (the module is
   // princessHelga.ts). Worth stating, because a plausible-looking guess at the id is exactly what
   // this pinned list is here to refuse.
@@ -39,6 +50,8 @@ const EXPECTED = [
 /** Recipe MODULE basenames, which do not all match their ids — see the note above. */
 const MODULES = [
   'goblinTower', 'laserTurret', 'lightningHub', 'pentagram', 'princessHelga', 'stinkTower', 'voltkin',
+  // S166 — one module, SIX recipes. The first entry here that is not 1:1 with a recipe id.
+  'raceTower',
 ];
 
 describe('registerAll is the single registration point', () => {
@@ -120,7 +133,20 @@ describe('S165 — every spawner recipe is actually wired into the ignition path
   const ignitedRecipeIds = (): string[] => {
     const core = readSrc('godlyMatcherCore.ts');
     const body = core.slice(core.indexOf('export function runSpawnerIgnition'));
-    return [...body.matchAll(/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z]+)'\s*\)/g)]
+    /*
+     * ⛔ S166 — `[A-Za-z0-9]`, NOT `[A-Za-z]`. THE OLD CLASS HAD NO DIGITS and the tier-3 tower ids
+     * contain one (`t3TowerDemons`), so all six were invisible to this scan: the test reported every
+     * one of them as UNWIRED while the ignition lines sat right there. Widening the class rather
+     * than renaming the ids is deliberate — a `GodlyId` is a SERIALIZED wire literal, so letting a
+     * test's character class pick the wire format would be the tail wagging the dog.
+     *
+     * ⚠ AND THE NON-GREEDY `[^;]*?` IS STILL A TRAP WORTH KNOWING: it takes the FIRST quoted string
+     * in the call, not the last. An ignition line that passes any other literal — say
+     * `findRaceTowerAnchors(world, 'vampires')` — hands this scan that string instead of the recipe
+     * id, and the test then fails BOTH directions at once. `godlyMatcherCore.ts` keeps per-race
+     * helper functions precisely so the id is the only literal in each call.
+     */
+    return [...body.matchAll(/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z0-9]+)'\s*\)/g)]
       .map((m) => m[1] as string);
   };
 

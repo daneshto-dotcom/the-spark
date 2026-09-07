@@ -23,6 +23,9 @@ import {
   CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS, SparkType,
 } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
+// S166 — R95's race filter, asserted both directions below.
+import { ALL_RACES } from '../state/races.ts';
+import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -52,11 +55,39 @@ function fund(w: World, id: GodlyId): void {
 }
 
 describe('castleStructuresModel — all six, always', () => {
-  it('lists every recipe in ALL_BLUEPRINT_IDS order', () => {
+  it('lists every GLOBAL recipe in ALL_BLUEPRINT_IDS order', () => {
     // Owner: "for now everyone should have all the recipes just to test it all out". This costs
     // nothing because the codex is a localStorage GALLERY record that nothing in src/state/ reads —
     // note this test never touches localStorage and still sees all six.
-    expect(castleStructuresModel(setup()).map((r) => r.id)).toEqual(ALL_BLUEPRINT_IDS);
+    //
+    // ⚠ S166 — THAT QUOTE IS ABOUT THE CODEX GALLERY, NOT ABOUT R95. Race towers are filtered by
+    // race (below); the seven GLOBAL recipes are still all present, in registry order, for everyone.
+    const shown = castleStructuresModel(setup()).map((r) => r.id);
+    const globals = ALL_BLUEPRINT_IDS.filter((id) => !isRaceTowerId(id));
+    expect(shown.filter((id) => !isRaceTowerId(id))).toEqual(globals);
+    // Anti-vacuity: seven globals must actually exist, or the filter above proves nothing.
+    expect(globals.length).toBe(7);
+  });
+
+  /*
+   * ⭐ S166 — R95, TESTED IN BOTH DIRECTIONS, which §7 of the races spec asks for by name: *"a
+   * vampire cannot build the orc tower, AND every race can still build all seven global towers. The
+   * second half is the regression that proves additive-not-replacing actually held."*
+   */
+  it('R95 — shows MY race tower and none of the other five', () => {
+    const w = setup();
+    const me = w.players.get(w.localPlayerId)!;
+    const shown = castleStructuresModel(w).map((r) => r.id);
+
+    expect(shown).toContain(RACE_TOWER_IDS[me.raceId]);
+    for (const race of ALL_RACES) {
+      if (race === me.raceId) continue;
+      expect(shown, `${race} tower must be hidden from a ${me.raceId} seat`)
+        .not.toContain(RACE_TOWER_IDS[race]);
+    }
+    // Exactly ONE race tower on the panel, ever — seven globals plus mine.
+    expect(shown.filter((id) => isRaceTowerId(id)).length).toBe(1);
+    expect(shown.length).toBe(8);
   });
 
   it('every row carries a real name, an epigraph and its true cost', () => {

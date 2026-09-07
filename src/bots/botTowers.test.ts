@@ -27,7 +27,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BOT_CONFIGS } from './botConfig.ts';
-import { chooseGoal, chooseTowerOrder, chooseTowerPlan } from './botBrain.ts';
+import { chooseGoal, chooseTowerOrder, chooseTowerPlan, seatTowerRungs } from './botBrain.ts';
 import { BotManager } from './botManager.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
@@ -35,7 +35,7 @@ import { mulberry32 } from '../state/rng.ts';
 import { makeGameStateExtras } from '../state/gameState.ts';
 import type { Controls } from '../input/controls.ts';
 import { bankAdd, bankCountOf } from '../state/castleBank.ts';
-import { blueprintBill, blueprintCost, ALL_BLUEPRINT_IDS } from '../state/blueprints.ts';
+import { blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -74,10 +74,21 @@ function botsWorld(): World {
   return w;
 }
 
-/** The cheapest blueprint, by the same derivation the brain uses. */
-const CHEAPEST: GodlyId = [...ALL_BLUEPRINT_IDS].sort(
-  (a, b) => blueprintCost(a) - blueprintCost(b) || (a < b ? -1 : a > b ? 1 : 0),
-)[0]!;
+/**
+ * The cheapest blueprint THIS SEAT can actually build, by the brain's own derivation.
+ *
+ * ⛔ S166 — THIS WAS A MODULE-LEVEL CONST OVER `ALL_BLUEPRINT_IDS`, AND IT WENT STALE THE MOMENT
+ * TIER 3 LANDED. Six race towers cost 3 — cheaper than anything that existed before — so the old
+ * sort returned `t3TowerDemons` for everyone, while the bot seat is NAGAS and R95/R137 mean it can
+ * neither see nor ignite the demon ring. Every test here then banked Spirals for a tower the bot
+ * would never target, and `chooseTowerPlan` correctly returned null. Six red tests, zero real bugs.
+ *
+ * ⭐ SO IT SHARES THE BRAIN'S FUNCTION INSTEAD OF RESTATING ITS SORT. The old comment claimed *"the
+ * same derivation the brain uses"* while being a COPY of it — and the copy is what drifted.
+ * `seatTowerRungs` is exported for exactly this, so the test can no longer disagree with the code
+ * about which rung comes first.
+ */
+const cheapest = (w: World): GodlyId => seatTowerRungs(w, SEAT)[0]!;
 
 /** Bank exactly the bill for `id` on `seat`, so `planBlueprintPayment` must succeed. */
 function bankTheBill(w: World, seat: PlayerId, id: GodlyId): void {
@@ -105,8 +116,8 @@ describe('S154 P3 (R86) — the difficulty floor', () => {
   it('⛔ a NOOB with a FULL BILL in the bank still refuses — the flag is really consulted', () => {
     // The assertion that separates "the flag exists" from "the flag does something".
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
-    expect(planBlueprintPayment(w, SEAT, CHEAPEST)).not.toBeNull(); // anti-vacuity: affordable
+    bankTheBill(w, SEAT, cheapest(w));
+    expect(planBlueprintPayment(w, SEAT, cheapest(w))).not.toBeNull(); // anti-vacuity: affordable
     expect(chooseTowerPlan(w, SEAT, BOT_CONFIGS.NOOB)).toBeNull();
     expect(chooseTowerOrder(w, SEAT, BOT_CONFIGS.NOOB)).toBeNull();
     // …and a MID in the identical world DOES want it, so the world is not the reason.
@@ -117,13 +128,13 @@ describe('S154 P3 (R86) — the difficulty floor', () => {
 describe('S154 P3 — the planner asks the SAME questions the human path asks', () => {
   it('proposes nothing when the bill is not met', () => {
     const w = botsWorld(); // empty bank
-    expect(planBlueprintPayment(w, SEAT, CHEAPEST)).toBeNull();
+    expect(planBlueprintPayment(w, SEAT, cheapest(w))).toBeNull();
     expect(chooseTowerPlan(w, SEAT, BOT_CONFIGS.IMBA)).toBeNull();
   });
 
   it('proposes a plan when it is, and the CENTRE is legal by stampRefusalAt', () => {
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     const plan = chooseTowerPlan(w, SEAT, BOT_CONFIGS.IMBA)!;
     expect(plan).not.toBeNull();
     // The footprint-aware predicate, not the centre-only isLegalBuildPos — a site whose outlying
@@ -133,7 +144,7 @@ describe('S154 P3 — the planner asks the SAME questions the human path asks', 
 
   it('⛔ refuses during FIGHT, because nowhere on the board is legal then', () => {
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     expect(chooseTowerPlan(w, SEAT, BOT_CONFIGS.IMBA)).not.toBeNull();
     w.matchPhase = 'FIGHT';
     expect(chooseTowerPlan(w, SEAT, BOT_CONFIGS.IMBA)).toBeNull();
@@ -143,9 +154,9 @@ describe('S154 P3 — the planner asks the SAME questions the human path asks', 
     const w = botsWorld();
     const wanted = chooseTowerOrder(w, SEAT, BOT_CONFIGS.MID);
     expect(wanted, 'an empty bank is short of something').not.toBeNull();
-    expect((blueprintBill(CHEAPEST).get(wanted!) ?? 0)).toBeGreaterThan(0);
+    expect((blueprintBill(cheapest(w)).get(wanted!) ?? 0)).toBeGreaterThan(0);
 
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     // Now the cheapest is affordable, so the cheapest is no longer what it saves for.
     const next = chooseTowerOrder(w, SEAT, BOT_CONFIGS.MID);
     if (next !== null) {
@@ -156,7 +167,7 @@ describe('S154 P3 — the planner asks the SAME questions the human path asks', 
 
   it('is PURE — asking twice does not mutate the world', () => {
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     const before = JSON.stringify([...w.castleBanks.entries()]) + w.primitives.size + w.tick;
     chooseTowerPlan(w, SEAT, BOT_CONFIGS.IMBA);
     chooseTowerOrder(w, SEAT, BOT_CONFIGS.IMBA);
@@ -167,7 +178,7 @@ describe('S154 P3 — the planner asks the SAME questions the human path asks', 
 describe('S154 P3 — ⭐ A TOWER ACTUALLY APPEARS (the assertion the whole priority is about)', () => {
   it('a MID bot holding a bill raises a real structure in a driven run', () => {
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     const primsBefore = w.primitives.size;
     const m = new BotManager(['MID'], 0xbeef);
 
@@ -175,7 +186,7 @@ describe('S154 P3 — ⭐ A TOWER ACTUALLY APPEARS (the assertion the whole prio
 
     const mine = [...w.primitives.values()].filter((p) => p.placedBy === SEAT);
     // A blueprint stamp mints its whole node set at once, so the bill's shape count is the floor.
-    expect(mine.length, 'the bot stamped a tower').toBeGreaterThanOrEqual(blueprintCost(CHEAPEST));
+    expect(mine.length, 'the bot stamped a tower').toBeGreaterThanOrEqual(blueprintCost(cheapest(w)));
     expect(w.primitives.size).toBeGreaterThan(primsBefore);
     // And the nodes are BONDED to each other — a stamp mints its own bond list.
     expect(mine.filter((p) => p.bonds.size > 0).length).toBeGreaterThanOrEqual(2);
@@ -185,11 +196,11 @@ describe('S154 P3 — ⭐ A TOWER ACTUALLY APPEARS (the assertion the whole prio
     // The floor, end to end rather than as a config read. A NOOB may still place loose shapes from
     // its porch, so this counts STRUCTURE-sized output only.
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     const m = new BotManager(['NOOB'], 0xbeef);
     run(w, m, 60 * 6);
     const mine = [...w.primitives.values()].filter((p) => p.placedBy === SEAT);
-    expect(mine.length).toBeLessThan(blueprintCost(CHEAPEST));
+    expect(mine.length).toBeLessThan(blueprintCost(cheapest(w)));
   });
 
   it('⭐ the stamped tower SURVIVES the bot going on building around it', () => {
@@ -205,18 +216,18 @@ describe('S154 P3 — ⭐ A TOWER ACTUALLY APPEARS (the assertion the whole prio
      * the stamp and require the tower to still be standing.
      */
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     const m = new BotManager(['IMBA'], 0xbeef);
     run(w, m, 60 * 6);
 
     const stamped = [...w.primitives.values()].filter((p) => p.placedBy === SEAT && p.origin !== null);
     expect(stamped.length, 'a tower was stamped to begin with').toBeGreaterThanOrEqual(
-      blueprintCost(CHEAPEST),
+      blueprintCost(cheapest(w)),
     );
     const ids = stamped.map((p) => p.id);
 
     // Keep it playing: more shapes banked, many more thinks.
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     run(w, m, 60 * 40);
 
     const survivors = ids.filter((id) => w.primitives.has(id));
@@ -243,8 +254,9 @@ describe('S154 P3 — determinism: no new rng draws', () => {
   it('two identical MID worlds agree too — the new branches add no draw', () => {
     const a = botsWorld();
     const b = botsWorld();
-    bankTheBill(a, SEAT, CHEAPEST);
-    bankTheBill(b, SEAT, CHEAPEST);
+    // Per-world, because the rung is now derived from the SEAT's race in each world.
+    bankTheBill(a, SEAT, cheapest(a));
+    bankTheBill(b, SEAT, cheapest(b));
     const ma = new BotManager(['MID'], 0x1234);
     const mb = new BotManager(['MID'], 0x1234);
     run(a, ma, 60 * 12);
@@ -269,7 +281,7 @@ describe('S154 P3 — determinism: no new rng draws', () => {
      * actually asked for, rather than the one that happened to ship first.
      */
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     for (const g of w.gatherers.values()) g.speedLevel = 5; // GATHERER_MAX_SPEED_LEVEL: nothing to buy
     w.scoreByPlayer.set(SEAT, 0); // and nothing to buy it with
     const goal = chooseGoal(w, SEAT, BOT_CONFIGS.IMBA, () => 0.5, true);
@@ -278,7 +290,7 @@ describe('S154 P3 — determinism: no new rng draws', () => {
 
   it('⭐ but the ECONOMY comes first — a hauler upgrade beats a tower, and that is the owner ruling', () => {
     const w = botsWorld();
-    bankTheBill(w, SEAT, CHEAPEST);
+    bankTheBill(w, SEAT, cheapest(w));
     w.scoreByPlayer.set(SEAT, 500); // plenty for an upgrade
     expect(chooseGoal(w, SEAT, BOT_CONFIGS.IMBA, () => 0.5, true).kind).toBe('UPGRADE_GATHERER');
     // …and a MID bot does NOT upgrade, which is the visible difference between the tiers.
@@ -365,7 +377,7 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
 
     const stamped = [...w.primitives.values()].filter((p) => p.placedBy === SEAT && p.origin !== null);
     expect(stamped.length, 'the bot accumulated a bill and raised a real structure').toBeGreaterThanOrEqual(
-      blueprintCost(CHEAPEST),
+      blueprintCost(cheapest(w)),
     );
   });
 
@@ -458,6 +470,6 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
     expect(
       peakStamped,
       `a HARD bot on the REAL clock in a FOUR-SEAT match raised a structure (first tower at tick ${firstTowerTick})`,
-    ).toBeGreaterThanOrEqual(blueprintCost(CHEAPEST));
+    ).toBeGreaterThanOrEqual(blueprintCost(cheapest(w)));
   });
 });

@@ -39,7 +39,25 @@ export type GodlyId =
    * ⚠ SERIALIZED — `Spawner.recipeId` rides the wire, so a stale peer receiving this literal has a
    * spawner it cannot resolve. That is part of what PROTOCOL_VERSION 29→30 pays for.
    */
-  | 'goblinTower';
+  | 'goblinTower'
+  /**
+   * ⭐ S166 — THE SIX TIER-3 RACE TOWERS (owner R108/R119/R134). Three of the race's own feed
+   * shape, closed in a ring; fed that same shape to emit that race's tier-3 creature.
+   *
+   * ⚠ SIX IDS FOR ONE PATTERN, and the ids are what forces that: `Spawner.recipeId` rides the wire,
+   * and `BLUEPRINTS` / `ALL_BLUEPRINT_IDS` / `CODEX_COPY` are keyed by `GodlyId` — while R95 makes a
+   * race tower visible and buildable only by its owner, which is a per-id filter. The CODE is shared
+   * (one predicate factory in `raceTower.ts`); only the identities are six.
+   *
+   * ⛔ SERIALIZED — part of what PROTOCOL_VERSION 42->43 pays for. A stale peer receiving one of
+   * these has a spawner it cannot resolve.
+   */
+  | 't3TowerVampires'
+  | 't3TowerNagas'
+  | 't3TowerMummies'
+  | 't3TowerZombies'
+  | 't3TowerOrcs'
+  | 't3TowerDemons';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;

@@ -156,10 +156,20 @@ describe('CREATURE_CONFIGS lookup table', () => {
     // ⭐ S165 W1-C — and it fired as designed a THIRD time when the castle's race unit landed.
     // ONE literal covers all six races: R94/R117 make them stat-identical forever, so the race is
     // read off the owner's `player.raceId` at render time and never reaches this table.
+    /*
+     * ⭐ S166 — and a FOURTH time, for the tier-3 tower's six units.
+     *
+     * ⚠ SIX HERE, ONE FOR `raceUnit` ABOVE, AND THE ASYMMETRY IS THE POINT. The castle's unit is a
+     * single literal because R125 makes all six races stat-IDENTICAL. R135 makes THESE vary per race,
+     * and an undamaged creature carries no stats on the wire — the peer rebuilds them from its own
+     * `CREATURE_CONFIGS`, keyed by type — so per-race stats are only expressible as per-race types.
+     */
     expect(keys).toEqual([
       'chewer',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
-      'lightningDrone', 'raceUnit', 'voltkin',
+      'lightningDrone', 'raceUnit',
+      't3Bat', 't3Hound', 't3Piranha', 't3Scarab', 't3Souleater', 't3Warband',
+      'voltkin',
     ]);
   });
 

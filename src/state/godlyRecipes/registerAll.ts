@@ -30,3 +30,7 @@ import './laserTurret.ts';
 import './princessHelga.ts';
 import './stinkTower.ts';
 import './goblinTower.ts';
+// S166 — the six tier-3 race towers register from ONE module (`RACE_TOWER_RECIPES` loops
+// `registerRecipe`), so this single import carries all six. Adding it here rather than to an
+// entrypoint is the whole point of this file.
+import './raceTower.ts';

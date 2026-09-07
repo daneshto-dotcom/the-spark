@@ -1403,6 +1403,65 @@ export const RACE_UNIT_DEF = 1;
 export const RACE_UNIT_ATK = 1;
 export const RACE_UNIT_PEN = 1;
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+ * S166 — THE TIER-3 TOWER'S SIX UNITS (owner R119/R134/R135)
+ * ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⛔ **EVERY NUMBER IN THIS BLOCK IS MINE, NOT THE OWNER'S, AND R135 IS THE REASON.**
+ *
+ * R135 asks for the tier-3 units to have *"slightly different stats and more varied"* and supplies
+ * NO FIGURES. The spec's §11 says nothing may be written until he rules — but he also said, at S165
+ * close, that he intends to decide these BY TESTING (*"i want to test all the tier 3 units of all
+ * races"*), and this project's standing convention is the escape hatch for exactly that: a number
+ * that is MINE says so at the constant, with the measurement behind it. These ship provisional, they
+ * are trivially overruled, and the playtest is what produces the ruling.
+ *
+ * ⭐ THE ONE HARD CONSTRAINT HE DID GIVE, and it bounds all six: *"obviously it has to be a pretty
+ * weak unit for all of them because if it's only three connectors."* Three shapes is the cheapest
+ * structure that has ever existed in this game — cheaper than the 4-shape stink tower — so the
+ * output must not compete with anything built from five or more.
+ *
+ * ## The ladder these sit on, read off the live roster rather than invented
+ *
+ * `raceUnit` 1/1/1/1 (R125, FREE on a 30 s castle timer) · chewer 5 hp · `goblinHound` 5 ·
+ * `goblinMelee` 7 · voltkin 8 · `goblinBat` 10. So the tier-3 band is **2–4 HP**: strictly better
+ * than the free castle soldier (this costs a tower AND a fed shape) and strictly worse than every
+ * goblin (which costs a 5-Circle tower). Nothing here exceeds 4 HP or 3 ATK.
+ *
+ * ## Why they differ, and along which axis — R99 is the only guidance that exists
+ *
+ * R99 forbids zombies and mummies from converging: *"Zombies = NUMBERS (cheap, fast, disposable —
+ * the hound is a pack animal). Mummies = DURABILITY AND DECAY (slow, tanky)."* That is a real
+ * instruction and it fixes the two poles; the other four sit between them so the TOTAL budget stays
+ * near-flat and only the DISTRIBUTION varies. That is what makes R135's *"varied"* mean something
+ * without making any race stronger — the sums are 5/7/6/5/9/8, and the orc's 9 is paid for in speed.
+ *
+ * ⚠ R117's one-stat-line rule does NOT apply here, and this is the sanctioned exception: the spec
+ * narrows R117 to the CASTLE unit, and R134 is what makes varied tier-3 stats coherent at all — two
+ * towers yield more piranhas, which does nothing to the castle's soldier line, so the
+ * "build more towers to bypass the balance" exploit R117 guarded against is gone by construction.
+ *
+ * ⚠ NOT IMPLEMENTED, and deliberately out of scope rather than forgotten: **R121's submerged
+ * naga**. It is an engineering surface, not a stat — §7.3 lists every acquisition path that would
+ * have to learn the word "untargetable", including a defender that has ALREADY committed to a target
+ * mid-windup. The piranha ships targetable and the ruling stands unbuilt.
+ */
+export const T3_STATS = {
+  /** Zombies — R99's NUMBERS pole: cheapest to trade, fastest, dies easily. */
+  hound: { hp: 2, def: 0, atk: 2, pen: 0, speedMul: 1.15 },
+  /** Mummies — R99's DURABILITY pole: tankiest of the six and the slowest. */
+  scarab: { hp: 4, def: 2, atk: 1, pen: 0, speedMul: 0.75 },
+  /** Nagas — mid HP, pen over raw damage: it bites through armour rather than out-hitting. */
+  piranha: { hp: 3, def: 0, atk: 2, pen: 1, speedMul: 1.05 },
+  /** Vampires — fast and fragile, the flier's trade. */
+  bat: { hp: 2, def: 0, atk: 2, pen: 1, speedMul: 1.2 },
+  /** Orcs — the heavy: highest ATK of the six, paid for in speed. R116's twin-axe warband grunt. */
+  warband: { hp: 4, def: 1, atk: 3, pen: 1, speedMul: 0.85 },
+  /** Demons — the armour-ignorer: highest PEN, middling everything else. A drifting soul eater. */
+  souleater: { hp: 3, def: 1, atk: 2, pen: 2, speedMul: 1.0 },
+} as const;
+
 /**
  * ⭐ R120 — THE CASTLE EMITS ONE UNIT EVERY ~30 SECONDS, FREE.
  *

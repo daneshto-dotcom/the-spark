@@ -186,7 +186,30 @@ export type CreatureType =
    * 'lightningDrone' (13->14) and the five goblins (29->30): `deserializeCreature` writes
    * `type: s.type` with no whitelist, so a stale peer would accept the literal and then find
    * `CREATURE_CONFIGS[unknown] === undefined` on its own mirror. */
-  | 'raceUnit';
+  | 'raceUnit'
+  /* ── S166 — THE TIER-3 TOWER'S SIX UNITS (owner R119/R134/R135) ───────────────────────
+   * ⛔ SIX LITERALS, AND UNLIKE `raceUnit` THAT IS FORCED RATHER THAN CHOSEN. The castle mints ONE
+   * type for all six races because R125 makes them stat-IDENTICAL, and the note above says why six
+   * would have been wrong there. R135 makes THESE stats vary per race — and `serializeCreature`
+   * emits `hp` only when a creature is DAMAGED, so an undamaged one carries no stats on the wire at
+   * all and the receiving peer reconstructs them from its OWN `CREATURE_CONFIGS`, keyed by TYPE
+   * (`net/protocol.ts`, the 27->28 entry, which bumped for exactly this reason). Per-race stats are
+   * therefore only expressible as per-race TYPES: one literal plus a race lookup would desync the
+   * moment two peers disagreed about a piranha's HP.
+   *
+   * ⚠ A DIFFERENT POPULATION FROM `raceUnit`, NOT A TIER OF IT (R134). The castle emits humanoid
+   * soldiers; the tower emits these creatures. The `t3` prefix keeps that split visible at every
+   * call site and mirrors the art on disk (`/art/race-tier3-units/t3-<race>-<unit>`).
+   *
+   * ⛔ SERIALIZED, so they cost a PROTOCOL_VERSION bump (42 -> 43) on exactly the grounds the five
+   * goblins did (29->30): `deserializeCreature` writes `type: s.type` with no whitelist, so a stale
+   * peer ACCEPTS the literal and then finds `CREATURE_CONFIGS[unknown] === undefined`. */
+  | 't3Hound'
+  | 't3Scarab'
+  | 't3Piranha'
+  | 't3Bat'
+  | 't3Warband'
+  | 't3Souleater';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING

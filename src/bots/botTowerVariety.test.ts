@@ -19,9 +19,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { BOT_CONFIGS } from './botConfig.ts';
-import { chooseTargetBlueprint, chooseTowerOrder, chooseTowerPlan, ownedBlueprintIds } from './botBrain.ts';
+import {
+  chooseTargetBlueprint, chooseTowerOrder, chooseTowerPlan, ownedBlueprintIds, seatTowerRungs,
+} from './botBrain.ts';
 import { bankAdd } from '../state/castleBank.ts';
-import { blueprintBill, blueprintCost, ALL_BLUEPRINT_IDS } from '../state/blueprints.ts';
+import { blueprintBill } from '../state/blueprints.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -30,9 +32,18 @@ import type { Primitive } from '../game/primitive.ts';
 
 const BOT = asPlayerId(1);
 
-const BY_COST: readonly GodlyId[] = [...ALL_BLUEPRINT_IDS].sort(
-  (a, b) => blueprintCost(a) - blueprintCost(b) || (a < b ? -1 : a > b ? 1 : 0),
-);
+/**
+ * The rungs THIS SEAT may climb, by the brain's own derivation.
+ *
+ * ⛔ S166 — THE SECOND COPY OF THIS SORT, AND IT WENT STALE FOR THE SAME REASON AS THE ONE IN
+ * `botTowers.test.ts`. Tier 3 put six race towers at cost 3, ahead of everything, so a module-level
+ * sort over `ALL_BLUEPRINT_IDS` hands every seat `t3TowerDemons` — which a NAGAS bot can neither see
+ * (R95) nor ignite (R137). Five tests then asserted the bot should target a tower it must refuse.
+ *
+ * ⭐ SHARED WITH THE BRAIN, NOT RESTATED. Two independent copies of one sort is how both files
+ * drifted at once; `seatTowerRungs` is exported so neither can drift again.
+ */
+const byCost = (w: World): readonly GodlyId[] => seatTowerRungs(w, BOT);
 
 function botsWorld(): World {
   const w = makeWorld(0xb07);
@@ -83,7 +94,7 @@ function markOwned(w: World, seat: PlayerId, id: GodlyId): void {
 describe('chooseTargetBlueprint — the bot climbs instead of looping', () => {
   it('opens on the cheapest rung', () => {
     const w = botsWorld();
-    expect(chooseTargetBlueprint(w, BOT, BOT_CONFIGS.IMBA)).toBe(BY_COST[0]);
+    expect(chooseTargetBlueprint(w, BOT, BOT_CONFIGS.IMBA)).toBe(byCost(w)[0]);
   });
 
   it('⭐ moves on once a rung is raised, and keeps moving — the whole complaint', () => {
@@ -97,21 +108,21 @@ describe('chooseTargetBlueprint — the bot climbs instead of looping', () => {
     }
     // Before the fix this array was [stinkTower, stinkTower, stinkTower, …] forever.
     expect(new Set(seen).size, `pursued ${seen.join(' → ')}`).toBe(cfg.towerTiers);
-    expect(seen).toEqual([...BY_COST.slice(0, cfg.towerTiers)]);
+    expect(seen).toEqual([...byCost(w).slice(0, cfg.towerTiers)]);
   });
 
   it('once every rung in its tier is raised, it repeats the BEST one, not the cheapest', () => {
     const w = botsWorld();
     const cfg = BOT_CONFIGS.IMBA;
-    for (const id of BY_COST.slice(0, cfg.towerTiers)) markOwned(w, BOT, id);
-    expect(chooseTargetBlueprint(w, BOT, cfg)).toBe(BY_COST[cfg.towerTiers - 1]);
+    for (const id of byCost(w).slice(0, cfg.towerTiers)) markOwned(w, BOT, id);
+    expect(chooseTargetBlueprint(w, BOT, cfg)).toBe(byCost(w)[cfg.towerTiers - 1]);
   });
 
   it('respects the difficulty ladder — a tier never targets above its rungs', () => {
     for (const name of ['MID', 'HARD', 'IMBA'] as const) {
       const cfg = BOT_CONFIGS[name];
       const w = botsWorld();
-      const allowed = new Set(BY_COST.slice(0, cfg.towerTiers));
+      const allowed = new Set(byCost(w).slice(0, cfg.towerTiers));
       for (let i = 0; i < cfg.towerTiers + 3; i++) {
         const t = chooseTargetBlueprint(w, BOT, cfg)!;
         expect(allowed.has(t), `${name} targeted ${t}, outside its ${cfg.towerTiers} rungs`).toBe(true);
@@ -134,41 +145,41 @@ describe('the bot SAVES for its target instead of spending on the cheap thing', 
      * cheapest rung was affordable. Now the seat is aiming one rung up and holds its shapes.
      */
     const w = botsWorld();
-    markOwned(w, BOT, BY_COST[0]!);
-    bankTheBill(w, BOT, BY_COST[0]!);
+    markOwned(w, BOT, byCost(w)[0]!);
+    bankTheBill(w, BOT, byCost(w)[0]!);
     expect(chooseTowerPlan(w, BOT, BOT_CONFIGS.IMBA)).toBeNull();
   });
 
   it('…and it is still ORDERING, so the saving actually goes somewhere', () => {
     // Anti-vacuity for the case above: "builds nothing" must mean saving, not idling.
     const w = botsWorld();
-    markOwned(w, BOT, BY_COST[0]!);
-    bankTheBill(w, BOT, BY_COST[0]!);
+    markOwned(w, BOT, byCost(w)[0]!);
+    bankTheBill(w, BOT, byCost(w)[0]!);
     expect(chooseTowerOrder(w, BOT, BOT_CONFIGS.IMBA)).not.toBeNull();
   });
 
   it('it builds the moment the TARGET becomes affordable', () => {
     const w = botsWorld();
-    markOwned(w, BOT, BY_COST[0]!);
-    bankTheBill(w, BOT, BY_COST[1]!);
+    markOwned(w, BOT, byCost(w)[0]!);
+    bankTheBill(w, BOT, byCost(w)[1]!);
     const plan = chooseTowerPlan(w, BOT, BOT_CONFIGS.IMBA);
     expect(plan).not.toBeNull();
-    expect(plan!.blueprintId).toBe(BY_COST[1]);
+    expect(plan!.blueprintId).toBe(byCost(w)[1]);
   });
 
   it('⚠ ESCAPE 1 — a seat with NOTHING standing still takes what it can get', () => {
     // An opening bot must not spend the first minutes empty-handed saving for rung two.
     const w = botsWorld();
-    bankTheBill(w, BOT, BY_COST[0]!);
+    bankTheBill(w, BOT, byCost(w)[0]!);
     const plan = chooseTowerPlan(w, BOT, BOT_CONFIGS.IMBA);
     expect(plan).not.toBeNull();
-    expect(plan!.blueprintId).toBe(BY_COST[0]);
+    expect(plan!.blueprintId).toBe(byCost(w)[0]);
   });
 
   it('the orderer and the builder always agree on the target', () => {
     // The failure this pairing prevents: hauling type X while trying to stamp a blueprint needing Y.
     const w = botsWorld();
-    markOwned(w, BOT, BY_COST[0]!);
+    markOwned(w, BOT, byCost(w)[0]!);
     const target = chooseTargetBlueprint(w, BOT, BOT_CONFIGS.IMBA)!;
     const wanted = chooseTowerOrder(w, BOT, BOT_CONFIGS.IMBA);
     expect(wanted).not.toBeNull();
@@ -179,11 +190,11 @@ describe('the bot SAVES for its target instead of spending on the cheap thing', 
 describe('ownedBlueprintIds', () => {
   it('reads the stamp, and only this seat\'s', () => {
     const w = botsWorld();
-    markOwned(w, BOT, BY_COST[2]!);
-    markOwned(w, asPlayerId(0), BY_COST[3]!);
+    markOwned(w, BOT, byCost(w)[2]!);
+    markOwned(w, asPlayerId(0), byCost(w)[3]!);
     const mine = ownedBlueprintIds(w, BOT);
-    expect(mine.has(BY_COST[2]!)).toBe(true);
-    expect(mine.has(BY_COST[3]!), 'the other seat\'s tower is not mine').toBe(false);
+    expect(mine.has(byCost(w)[2]!)).toBe(true);
+    expect(mine.has(byCost(w)[3]!), 'the other seat\'s tower is not mine').toBe(false);
   });
 
   it('ignores loose shapes — only a stamped structure counts as a tower', () => {

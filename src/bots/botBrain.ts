@@ -24,6 +24,8 @@ import { bankCount, bankCountOf, isOwnPorchSpark } from '../state/castleBank.ts'
 // S154 P3 (A5) — a bot's tower uses the SAME predicates the human path uses: affordability from
 // `planBlueprintPayment` (the one the reducer calls) and legality from the footprint-aware
 // `stampRefusalAt`, never a lookalike.
+// S166 — R95/B14's race filter for bot tower choice, from the side-effect-free leaf.
+import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
@@ -159,6 +161,30 @@ const TOWERS_BY_COST: readonly GodlyId[] = [...ALL_BLUEPRINT_IDS].sort(
 );
 
 /**
+ * ⛔ S166 — THE RUNGS A **SEAT** MAY ACTUALLY CLIMB, and without this every bot of every race
+ * queued the wrong tower. §14's B14 called it: *"Bots enumerate `ALL_BLUEPRINT_IDS` with no race and
+ * no seat filter... Tier 3 makes race towers the cheapest builds in the game, so every bot of every
+ * race picks the same one by alphabetical tie-break, spends its bank on the wrong primitive and
+ * queues the wrong shape."*
+ *
+ * That is exactly what the sort above does: `TOWERS_BY_COST` is module-level — no world, no seat —
+ * so the six race towers all sort to the front at cost 3 and `t3TowerDemons` wins the id tie-break
+ * for everyone. A vampire bot would then order Spirals forever for a tower it can never build (R137
+ * refuses the ignition), which is the closed ordering loop the docblock below describes, reopened.
+ *
+ * ⚠ THE MODULE-LEVEL SORT STAYS. It is what keeps bot thinking rng-free and the seeded replay gates
+ * deterministic; this filter preserves its order and only drops rows.
+ *
+ * ⚠ A seat with no player gets the GLOBAL towers only — never all six, which would reintroduce the
+ * bug for one think.
+ */
+export function seatTowerRungs(world: World, seat: PlayerId): readonly GodlyId[] {
+  const me = world.players.get(seat);
+  const mine = me === undefined ? null : RACE_TOWER_IDS[me.raceId];
+  return TOWERS_BY_COST.filter((id) => !isRaceTowerId(id) || id === mine);
+}
+
+/**
  * ⭐ PURE — how far a bot's tower is planted from its own home anchor, and why it is not closer.
  *
  * `stampRefusalAt` already refuses a site whose footprint comes within 60 px of ANY existing
@@ -195,7 +221,13 @@ const TOWER_SITE_ANGLES: readonly number[] = [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1
  *
  * ## Why the bot could only ever build stink towers
  *
- * `TOWERS_BY_COST` is cheapest-first and the stink tower is the cheapest thing in the registry (4
+ * ⚠ S166 — "THE STINK TOWER IS THE CHEAPEST THING IN THE REGISTRY" IS NO LONGER TRUE. The tier-3
+ * race tower is 3 shapes, and a seat's own one now sorts ahead of the stink tower in
+ * `seatTowerRungs`. The loop described below is closed by the S155 rule that follows it, so this is
+ * a correction to the ARCHAEOLOGY rather than a live defect — but the sentence would mislead the
+ * next reader about which rung a bot starts on.
+ *
+ * `TOWERS_BY_COST` is cheapest-first and the stink tower WAS the cheapest thing in the registry (4
  * shapes). `chooseTowerPlan` was FIRST-AFFORDABLE-WINS over that list, so the moment a bot could pay
  * for a stink tower it built one — and it could always pay for a stink tower, because
  * `chooseTowerOrder` was busy fetching exactly its bill. The two halves formed a closed loop: order
@@ -228,7 +260,7 @@ export function ownedBlueprintIds(world: World, seat: PlayerId): ReadonlySet<God
 
 export function chooseTargetBlueprint(world: World, seat: PlayerId, cfg: BotConfig): GodlyId | null {
   if (!cfg.buildsTowers) return null;
-  const rungs = TOWERS_BY_COST.slice(0, cfg.towerTiers);
+  const rungs = seatTowerRungs(world, seat).slice(0, cfg.towerTiers);
   if (rungs.length === 0) return null;
   const owned = ownedBlueprintIds(world, seat);
   for (const id of rungs) if (!owned.has(id)) return id;
@@ -262,7 +294,7 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
   const candidates: GodlyId[] = [];
   if (targetAffordable) candidates.push(target);
   if (targetAffordable || !hasStampedStructure(world, seat)) {
-    for (const id of TOWERS_BY_COST.slice(0, cfg.towerTiers)) {
+    for (const id of seatTowerRungs(world, seat).slice(0, cfg.towerTiers)) {
       if (id !== target) candidates.push(id);
     }
   }

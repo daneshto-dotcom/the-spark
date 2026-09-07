@@ -295,6 +295,20 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   // baseline soldier, and a unit that could not touch structures would be unable to press an
   // advantage its own castle created.
   raceUnit: BOTH,
+  /*
+   * S166 — the six tier-3 units target BOTH, matching `targetsStructures: true` on their configs.
+   *
+   * ⚠ THESE TWO PLACES MUST AGREE OR THE UNIT IS INCOHERENT. `targetsStructures` picks the
+   * `hostTick` branch (march, retreat, shape targeting) while this set is what the acquisition scans
+   * read; a unit that marches on structures but is told to target units only would walk to a castle
+   * and then refuse to hit it. `raceUnit` above documents the same pairing.
+   */
+  t3Hound: BOTH,
+  t3Scarab: BOTH,
+  t3Piranha: BOTH,
+  t3Bat: BOTH,
+  t3Warband: BOTH,
+  t3Souleater: BOTH,
 };
 
 /**
@@ -354,6 +368,18 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   // unbidden every ~30 s wherever the castle is, so in practice it screens the keep it spawned at
   // AND walks out with the army. R125's flat 1/1/1/1 gives it no lean in either direction.
   raceUnit: 'both',
+  /*
+   * S166 — all six are 'both': they screen the tower they came from AND walk out with the army,
+   * exactly as `raceUnit` does. R135's variation is in the STAT SPREAD, not in role — giving the
+   * scarab 'defence' and the warband 'offence' would be a second, hidden balance axis on top of the
+   * numbers the owner is going to rule on by testing, and it would make his A/B unreadable.
+   */
+  t3Hound: 'both',
+  t3Scarab: 'both',
+  t3Piranha: 'both',
+  t3Bat: 'both',
+  t3Warband: 'both',
+  t3Souleater: 'both',
 };
 
 /** What each tower is FOR. Exhaustive — a new kind must declare one. */

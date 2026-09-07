@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 5913,
+  "tool_calls_session_total": 5935,
   "session_id": "S166",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
   "prior_session_note": "S164 shipped V6-2.4 (castle regen, PROTOCOL 40->41) plus two real bugs found in already-shipped code. P5 delivered race-unit ART only; nothing in src/ referenced it. P6 not started. Both carried forward at owner instruction.",
   "prior_session_archive": ".handoff-archive/HANDOFF_2026-09-02_S159.md",
   "phase": "DO",
-  "tier": "Micro",
+  "tier": "Full",
   "plan_file": ".claude/plans/2026-09-05_PDR_S165_BATCH.md",
-  "session_status": "S166 IN PROGRESS - owner playtest bug (zone-backdrop portal disc drawn OVER sparks). Scope Amendment PDR approved by owner via AskUserQuestion (\"Ship the hole fix\"). Tier-3 tower build is the session objective and still needs its own Full PDR.",
+  "session_status": "S166 IN PROGRESS - P1 (portal hole) shipped and deploy-verified live. P2 = the tier-3 tower and its six units, Full PDR approved by owner verbatim \"go on tier 3\".",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -576,6 +576,16 @@
           "needle": "get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },"
         }
       ]
+    },
+    {
+      "id": 11,
+      "title": "P2(S166) - the tier-3 race tower and its six race-specific units (R108/R119/R134/R136/R137)",
+      "status": "in_progress",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
     }
   ],
   "reflexion_entries_to_archive": [
@@ -6884,5 +6894,17 @@
     "build": "BUILD_EXIT=0 (main entry 787.6 KiB, cap 900 KiB, headroom 112.4 KiB)",
     "static_assets_reported_not_gated": "76.0 MiB across 130 files; art/race-tier3-units is 10.2M of it and is still referenced by nothing in src/, e2e/ or index.html",
     "method": "every exit code read from a captured $?, never through a pipe, never the wrapper trailing [exited with code 0] line"
+  },
+  "owner_approval_s166_tier3": {
+    "verbatim": "go on tier 3 - we have already generated all the spawns and videos and cutouts and even the towers in all their states so should be easy. no dont work on tier 9 boss yet. next session",
+    "scope_granted": "the Full PDR as presented (11 scope items)",
+    "scope_refused": "tier-9 boss towers and their art - explicitly deferred to next session",
+    "art_claim_verified": "TRUE. t3tower-<race>-anim.json carries four states (intact/spawning/damaged/destroyed) at 256x256; t3destroy-<race> is 12 frames at 4 ticks/frame (0.8 s); t3-<race>-<unit> carries idle/walk/attack/die at 12 frames each. One correction to the S165 note: unit cells are 209x200, not 200x200."
+  },
+  "council_deviation_s166": {
+    "what": "Full tier calls for 3-way Council R1+R2 + quality gate before code. NOT RUN.",
+    "why": "Rule 0 names \"deliberation round\" explicitly among the bookkeeping gates that may not stop, shrink or defer an approved batch in flight, and directs: do the work and record the deviation. The owner gave an unambiguous go and expects delivery this session.",
+    "what_substitutes": "An unusually strong empirical A.0 pass, all of it cited: an adversarial discovery lane that ran its own throwaway vitest probe over every shipped predicate against a bare 3-ring of all six SparkTypes (refuting the R119 collision by construction), plus my own independent verification of every load-bearing claim - the 3 compiler-forced tables (measured via a fake-CreatureType tsc probe), the 5 silent collections, the six protocol-bump sites read off protocol.ts, the type-generic serializer, and the RING_R arithmetic. Two owner rulings (R136/R137) were taken on measured evidence rather than assumed.",
+    "residual_risk_accepted": "No Gemini quality lens on the design. The two highest-risk items (the hostTick chewer default and recipeStillSatisfied default) are covered by tests with negative controls instead."
   }
 }

@@ -16,6 +16,8 @@ import { ALL_BLUEPRINT_IDS, blueprintCost } from '../state/blueprints.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
+// S166 — the footer derives from the panel model, so the bucket total is asserted against it.
+import { castleStructuresModel } from './castlePanel.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { zoneCount, type ZoneLayout } from '../state/zones.ts';
 import { footerBandModel, structuresAtComplexity } from './footerBandModel.ts';
@@ -49,10 +51,22 @@ describe('S149 P4 — the bar is DERIVED from the recipe registry, never hardcod
     expect(shown).toEqual([...shown].sort((a, b) => a - b));
   });
 
-  it('every registry recipe lands in exactly one bucket — nothing is dropped or double-counted', () => {
-    const model = footerBandModel(playingWorld());
+  it('every VISIBLE recipe lands in exactly one bucket — nothing dropped or double-counted', () => {
+    /*
+     * ⭐ S166 — THE FOOTER INHERITS R95'S RACE FILTER FOR FREE, and §7 of the races spec predicted
+     * exactly that: it derives from `castleStructuresModel`, which now hides the five race towers
+     * that are not yours. So the total is what the PANEL offers (7 globals + 1 own tower = 8), not
+     * `ALL_BLUEPRINT_IDS.length` (13).
+     *
+     * ⚠ ASSERTED AGAINST THE PANEL, not against a hardcoded 8, so the two models can never drift
+     * apart — which is the property that actually matters. The literal 8 below is anti-vacuity: an
+     * empty panel would satisfy the equality on its own.
+     */
+    const w = playingWorld();
+    const model = footerBandModel(w);
     const counted = model.reduce((n, c) => n + c.total, 0);
-    expect(counted).toBe(ALL_BLUEPRINT_IDS.length);
+    expect(counted).toBe(castleStructuresModel(w).length);
+    expect(counted).toBe(8);
   });
 
   it('a chip is DIM on an empty inventory, because nothing is affordable at t=0', () => {

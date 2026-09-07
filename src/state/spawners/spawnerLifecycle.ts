@@ -28,6 +28,17 @@ import type { GodlyId } from '../godlyRecipes/types.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
 import { isGoblinTowerComponent } from '../goblinKinds.ts';
 import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
+/*
+ * S166 — the ring validator plus the two lookups the race-tower cases need.
+ *
+ * ⚠ `ringShape.ts` is a PURE leaf (types only, no `registerRecipe`), and `races.ts` /
+ * `raceTowerIds.ts` are side-effect-free by contract — which is what makes them importable here.
+ * `world.ts` reaches this file, so pulling in a registering module would repeat the S144 trap the
+ * `goblinKinds` import two lines up exists to avoid.
+ */
+import { isRingAt } from '../godlyRecipes/ringShape.ts';
+import { RACE_FEED_SHAPE } from '../races.ts';
+import { RACE_TOWER_SIZE, raceForTowerId } from '../raceTowerIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
 
@@ -124,6 +135,31 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     // the S144 trap and the ?worker=1 boot failure it caused in this very priority.
     case 'goblinTower':
       return isGoblinTowerComponent(world, spawner.anchorPrimitiveId);
+    /*
+     * ⭐ S166 — THE SIX TIER-3 RACE TOWERS. Without these cases all six would fall to `default:`
+     * below, which checks ONLY that the anchor exists — so a tower whose other two nodes had been
+     * eaten would keep producing off one lone shape, FOREVER, with no error anywhere. That is the
+     * identical trap the `goblinTower` case above was written to avoid, and six recipes is six
+     * chances to hit it.
+     *
+     * ⛔ SIX EXPLICIT `case` LABELS, NOT `raceForTowerId` INSIDE `default:`. Putting the lookup in
+     * the default arm would work and would also make the omission of a SEVENTH race invisible — the
+     * whole reason this switch has explicit arms is that a missing one must be visible at the switch.
+     *
+     * ⚠ `isRingAt`, NOT a component check. R136: total degree is unconstrained, so a friendly shape
+     * auto-bonded onto a node must NOT tear the tower down. A `componentOf` rule here would
+     * re-introduce the S158 B2b defect on the cheapest structure in the game.
+     */
+    case 't3TowerVampires':
+    case 't3TowerNagas':
+    case 't3TowerMummies':
+    case 't3TowerZombies':
+    case 't3TowerOrcs':
+    case 't3TowerDemons': {
+      const race = raceForTowerId(spawner.recipeId);
+      if (race === null) return false; // unreachable: the case labels ARE the six ids
+      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
+    }
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is
       // kept alive only while its anchor primitive exists — the minimal contract.

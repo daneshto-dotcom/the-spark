@@ -56,6 +56,12 @@ import { SparkType } from '../constants.ts';
 // codebase. That is the documented S144 trap, and in S151 P3 it stopped the ?worker=1 bots match
 // from ever leaving TITLE. See `goblinKinds.ts`.
 import { GOBLIN_FEED_MAP } from './goblinKinds.ts';
+// S166 — the tier-3 feed rule. Side-effect-free leaves only; this reducer is reached from
+// `world.ts` and must not pull the recipe registry in as an import side effect.
+import { RACE_FEED_SHAPE } from './races.ts';
+import { RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
+import type { GodlyId } from './godlyRecipes/types.ts';
+import type { CreatureType } from './creatures/creature.ts';
 import { bankCountOf, bankRemove } from './castleBank.ts';
 import { underGoblinCaps } from './creatures/creatureLifecycle.ts';
 import type { PlayerId, SpawnerId, Vec2 } from '../types.ts';
@@ -93,13 +99,40 @@ function walkOutTarget(pos: Vec2, spawnerId: SpawnerId): Vec2 {
  *
  * @returns the world, mutated in place on success and untouched on any refusal.
  */
+/**
+ * PURE — what feeding `sparkType` to a `recipeId` tower produces, or `null` if it refuses.
+ *
+ * ⛔ ONE FUNCTION FOR BOTH KINDS SO THE PANEL AND THE REDUCER CANNOT DISAGREE. `structurePanel`
+ * decides which feed buttons to draw from the same rule this reducer enforces; if the two diverged
+ * the player would see a lit button that silently does nothing — the exact class of defect the
+ * panel's own *"a disabled control must SAY why"* contract exists to prevent.
+ */
+export function fedCreatureType(recipeId: GodlyId, sparkType: SparkType): CreatureType | null {
+  if (recipeId === 'goblinTower') return GOBLIN_FEED_MAP[sparkType];
+  const race = raceForTowerId(recipeId);
+  if (race === null) return null; // not a feedable structure at all
+  // R119 — a race tower eats ONLY its own shape. Anything else is refused, never substituted.
+  if (sparkType !== RACE_FEED_SHAPE[race]) return null;
+  return RACE_TOWER_UNIT[race];
+}
+
 export function applyFeedTower(world: World, action: FeedTowerAction): World {
   // ── GATE 1: the tower exists, and it is a GOBLIN TOWER ──────────────────────────────────────
   // The recipe check matters as much as existence: every producing structure is a CreatureSpawner,
   // so without it a player could feed a pentagram and get a goblin out of a chewer nest.
   const spawner = world.creatureSpawners.get(action.spawnerId);
   if (spawner === undefined) return world;
-  if (spawner.recipeId !== 'goblinTower') return world;
+  /*
+   * ⭐ S166 — THIS GATE NOW ALSO DECIDES WHAT COMES OUT, folding two checks into one deliberately.
+   * The goblin tower maps all six shapes to six outputs; a tier-3 race tower accepts EXACTLY ONE
+   * shape — its own (R119, *"the tower is made of what it eats"*) — and yields exactly one unit.
+   * `fedCreatureType` returns `null` both for "not a feedable structure" and for "wrong shape for
+   * THIS tower", and both must refuse BEFORE the bank is debited: the owner's S157 B1 report was
+   * exactly about paying for a spawn that then did not happen (*"the shapes are being consumed
+   * nevertheless - not cool!"*).
+   */
+  const outType = fedCreatureType(spawner.recipeId, action.sparkType);
+  if (outType === null) return world;
 
   // ── GATE 2: it is THEIRS ────────────────────────────────────────────────────────────────────
   if (spawner.ownerPlayerId !== action.playerId) return world;
@@ -143,7 +176,7 @@ export function applyFeedTower(world: World, action: FeedTowerAction): World {
   // `SEVER_BOND` the same way, and JS being single-threaded makes the synchronous re-entry safe.
   dispatch(world, {
     type: 'SPAWN_CREATURE',
-    creatureType: GOBLIN_FEED_MAP[action.sparkType],
+    creatureType: outType,
     ownerPlayerId: action.playerId,
     pos,
     targetPos: walkOutTarget(pos, action.spawnerId),

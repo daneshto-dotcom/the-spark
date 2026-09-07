@@ -42,6 +42,7 @@
 
 import type { CreatureType } from './creature.ts';
 import {
+  T3_STATS,
   RACE_UNIT_HP,
   RACE_UNIT_DEF,
   RACE_UNIT_ATK,
@@ -783,6 +784,65 @@ export const RACE_UNIT_CONFIG: CreatureConfig = {
   holdsRange: false,
 };
 
+/**
+ * ⭐ S166 — ONE FACTORY FOR ALL SIX TIER-3 UNITS, and the alternative is what argues for it.
+ *
+ * The six differ in exactly five numbers (`T3_STATS`) and agree on the other fourteen fields. Six
+ * hand-written literals would have been fourteen chances each for a field to drift — which is the
+ * same reasoning the castle's ONE `raceUnit` literal is justified by, applied to the half of the
+ * problem that actually repeats. The stat SPREAD stays declarative in `constants.ts` where the owner
+ * can read and overrule it; only the plumbing lives here.
+ *
+ * ⛔ `targetsStructures: true` IS THE LOAD-BEARING FLAG, NOT A DETAIL, and copying the chewer
+ * instead would have been a silent disaster. §14.5 of the races spec enumerates what branches on
+ * it: `hostTick`'s goblin arm (shape targeting, units-first, the castle march), `isRetreatWindow`
+ * (whose ONLY caller sits inside that branch — a non-`targetsStructures` unit gets no walk home at
+ * all), and the cap bucket. The chewer arm is reached by `sourceSpawnerId !== null` and carries
+ * `enemyOnly = false`, so a tier-3 unit that landed there would EAT ITS OWN OWNER'S BONDS.
+ *
+ * ⛔ `persistent: true` on the same grounds as `raceUnit`: R123 says race units live until killed,
+ * and a `lifetimeTicks` expiry would quietly re-introduce the timer the owner removed. The ceiling
+ * that DOES apply is per-tower, and it comes free — see the note at the `CREATURE_CONFIGS` table.
+ *
+ * ⚠ `hopSpeedMul` and `maxAccel` move TOGETHER, deliberately. Raising hop speed without accel gives
+ * a unit that wants to move faster than it can accelerate, which reads as sluggish rather than fast;
+ * `RACE_UNIT_CONFIG` already pairs them at 0.85 and this keeps the ratio.
+ */
+function makeT3Config(
+  type: CreatureType,
+  s: { hp: number; def: number; atk: number; pen: number; speedMul: number },
+): CreatureConfig {
+  return {
+    type,
+    hp: s.hp,
+    def: s.def,
+    atk: s.atk,
+    pen: s.pen,
+    lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what keeps it alive
+    spawnTicks: 30,
+    despawningTicks: 30,
+    fadeTicks: 15,
+    attackRange: GOBLIN_ATTACK_RANGE,
+    attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+    attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+    attackChargeEngageTick: 0,
+    persistent: true,
+    chewsConnectors: false,
+    hopSpeedMul: s.speedMul,
+    maxAccel: Math.round(GOBLIN_MAX_ACCEL * s.speedMul),
+    selfExplode: false,
+    targetsStructures: true,
+    holdsRange: false,
+  };
+}
+
+export const T3_HOUND_CONFIG: CreatureConfig = makeT3Config('t3Hound', T3_STATS.hound);
+export const T3_SCARAB_CONFIG: CreatureConfig = makeT3Config('t3Scarab', T3_STATS.scarab);
+export const T3_PIRANHA_CONFIG: CreatureConfig = makeT3Config('t3Piranha', T3_STATS.piranha);
+export const T3_BAT_CONFIG: CreatureConfig = makeT3Config('t3Bat', T3_STATS.bat);
+export const T3_WARBAND_CONFIG: CreatureConfig = makeT3Config('t3Warband', T3_STATS.warband);
+export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T3_STATS.souleater);
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
@@ -794,6 +854,26 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   goblinBat: GOBLIN_BAT_CONFIG,
   goblinSuicide: GOBLIN_SUICIDE_CONFIG,
   raceUnit: RACE_UNIT_CONFIG,
+  /*
+   * ⭐ S166 — THE PER-TOWER CEILING (R124) COMES FREE, AND THAT IS WHY IT IS NOT WRITTEN HERE.
+   *
+   * `underGoblinCaps` counts every spawner-sourced non-chewer non-drone creature against
+   * `GOBLIN_MAX_PER_SPAWNER = 10`, and a tower-fed unit has `sourceSpawnerId !== null`, so R124's
+   * *"a tier-3 tower holds ~10 of its race's unit"* is satisfied by the shipped cap with no new
+   * mechanism. Castle-emitted units (`sourceSpawnerId === null`) skip that loop entirely, which is
+   * what keeps R123's uncapped castle uncapped.
+   *
+   * ⚠ AND ONE CONSEQUENCE THE BALANCE PASS OWES A DECISION, flagged rather than dropped: the same
+   * loop counts these against `GOBLIN_MAX_GLOBAL = 200`, which is now SHARED between two unrelated
+   * economies. A seat fielding 150 hounds starves its own goblin tower. That is inherited behaviour,
+   * not something this priority chose, and the spec's §9B says to decide it explicitly.
+   */
+  t3Hound: T3_HOUND_CONFIG,
+  t3Scarab: T3_SCARAB_CONFIG,
+  t3Piranha: T3_PIRANHA_CONFIG,
+  t3Bat: T3_BAT_CONFIG,
+  t3Warband: T3_WARBAND_CONFIG,
+  t3Souleater: T3_SOULEATER_CONFIG,
 };
 
 /**

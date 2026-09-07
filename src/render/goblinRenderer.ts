@@ -39,6 +39,8 @@ import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
+// S166 — tier-3 atlas paths, from the side-effect-free leaf.
+import { t3UnitAtlasBase } from '../state/raceTowerIds.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
  *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
@@ -79,6 +81,28 @@ const ATLASES: Partial<Record<CreatureType, string>> = {
   // falling through to drawGoblin, which draws in green — the owner's "gay green circle".
   // Every one of the six shapes now hands back real art.
   goblinHound: '/godly/goblin-hound/anim/goblin-hound',
+  /*
+   * ⭐ S166 — THE SIX TIER-3 UNITS, and unlike `raceUnit` they belong in THIS table.
+   *
+   * `raceUnit` is one type for six races, so its atlas has to be resolved at draw time from
+   * `player.raceId` (`RACE_UNIT_ATLAS_BASE`, below). Each tier-3 type IS a single race's creature,
+   * so the type alone determines the art and the plain static map does the job — no race lookup,
+   * no per-frame branch.
+   *
+   * ⛔ THIS TABLE IS `Partial<>`, SO A MISSING ENTRY IS SILENT: the creature falls through to
+   * `drawGoblin`'s procedural puppet, which draws in green. That is the owner's *"gay green circle"*
+   * from S153 P7, and it is what a forgotten tier-3 entry would look like — not a crash, not a red
+   * test, just the wrong art.
+   *
+   * ⚠ PATHS ARE DERIVED VIA `t3UnitAtlasBase`, not typed out, because the filenames carry BOTH the
+   * race and the creature (`t3-vampires-bat`) and a hand-typed path that 404s is silent too.
+   */
+  t3Bat: t3UnitAtlasBase('vampires'),
+  t3Piranha: t3UnitAtlasBase('nagas'),
+  t3Scarab: t3UnitAtlasBase('mummies'),
+  t3Hound: t3UnitAtlasBase('zombies'),
+  t3Warband: t3UnitAtlasBase('orcs'),
+  t3Souleater: t3UnitAtlasBase('demons'),
 };
 
 /**
@@ -132,6 +156,19 @@ function washTowardsWhite(color: number, t: number): number {
 const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
   'raceUnit',
+  /*
+   * ⛔ S166 — THE SIX TIER-3 UNITS, AND THIS SET IS THE GATE. It is hand-maintained and it decides
+   * whether this renderer takes responsibility for a type at all — a `CreatureType` absent from here
+   * is simulated, serialized, hashed and INVISIBLE. Nothing in `tsc` or the suite catches that: the
+   * unit fights, the HP pips never appear, and the board looks like the tower is broken.
+   *
+   * ⚠ THEY JOIN THIS RENDERER RATHER THAN GETTING THEIR OWN, on the same reasoning `raceUnit` did:
+   * `creatureLift.ts` enforces the owner-tinted ground marker by there being nothing else to call,
+   * so a separate renderer would silently ship six units without the seat cue the owner asked to be
+   * universal — and they inherit the HP pips, the facing dead-zone and the tick-derived frame index,
+   * all three of which a new renderer gets subtly wrong.
+   */
+  't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
 ]);
 
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */

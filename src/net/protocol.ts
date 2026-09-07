@@ -503,6 +503,7 @@ export type { NetSnapshot };
  */
 // S164 P1 — bumped 40->41: CASTLE REGEN UPGRADE. A new CLIENT INTENT, which a v40 host drops silently.
 // S165 W1-C — bumped 41->42: THE CASTLE'S RACE UNIT. A new SERIALIZED CreatureType literal.
+// S166 P2 — bumped 42->43: THE TIER-3 RACE TOWER. SIX serialized GodlyIds + SIX CreatureTypes.
 /**
  * ⭐ S165 W1-C — BUMPED 41 → 42: **THE CASTLE PRODUCES ITS RACE'S UNIT** (owner R107/R125/R133/R134).
  *
@@ -540,7 +541,37 @@ export type { NetSnapshot };
  * ⚠ The unbroken precedent: `REPAIR_STRUCTURE`/`SCRAP_STRUCTURE` (26→27), `FEED_TOWER` (29→30),
  * `RAID_TARGET` (30→31) and `ENQUEUE_`/`CANCEL_GATHERER_ORDER` (19→20) each bumped for exactly this.
  */
-export const PROTOCOL_VERSION = 42 as const;
+/**
+ * ⭐ S166 P2 — BUMPED 42 → 43: **THE TIER-3 RACE TOWER AND ITS SIX UNITS** (owner R108/R119/R134).
+ *
+ * Thirteen new serialized literals in one landing, and §7 of the races spec is explicit that they
+ * must land together: *"One tower per race. One protocol bump for all six. Do not dribble them —
+ * each `GodlyId` is a serialized literal, so six separate landings cost six bumps."*
+ *
+ *   · SIX `GodlyId`s — `t3TowerVampires` … `t3TowerDemons`. `Spawner.recipeId` rides the wire and is
+ *     restored by `save.ts`, so a v42 peer receiving one has a spawner it cannot resolve.
+ *   · SIX `CreatureType`s — `t3Bat`, `t3Piranha`, `t3Scarab`, `t3Hound`, `t3Warband`, `t3Souleater`.
+ *
+ * ⛔ THE CREATURE HALF EARNS THE BUMP ON EXACTLY THE GROUNDS THE FIVE GOBLINS DID (29→30), AND IT
+ * IS THE MORE DANGEROUS HALF. `deserializeCreature` writes `type: s.type` with NO whitelist, so a
+ * v42 peer ACCEPTS `t3Piranha` and then finds `CREATURE_CONFIGS['t3Piranha'] === undefined` on its
+ * own mirror — a peer that parses the snapshot and then diverges, rather than one that refuses it.
+ *
+ * ⚠ AND UNLIKE `raceUnit` (41→42) THESE ARE SIX LITERALS, NOT ONE, WHICH IS FORCED RATHER THAN
+ * CHOSEN. That bump's note explains why one literal served all six races: R94/R117 make the castle
+ * unit stat-IDENTICAL, so the race is read off `player.raceId` purely to pick an atlas. R135 makes
+ * the TIER-3 stats VARY per race — and `serializeCreature` emits `hp` only when a creature is
+ * DAMAGED, so an undamaged one carries no stats at all and the receiver rebuilds them from its own
+ * `CREATURE_CONFIGS`, keyed by TYPE. That is the same shared-constant rule this file calls out three
+ * times over (`KEEP_RING_RADIUS` 16→17, `CASTLE_BANK_CAP` 18→19, `VOLTKIN_HP` 27→28): per-race
+ * stats behind one literal would make each peer's compiled numbers the authority, and two peers
+ * would disagree about the exact hit that kills a piranha.
+ *
+ * ⚠ NO new action, no new field, no new `GameEffect` kind — so `detectProtocolMismatch` is the only
+ * gate that matters here, and it REFUSES a v42 peer outright. There is no degraded-play path, which
+ * is the correct outcome: a stale peer cannot render, cap or hash these units.
+ */
+export const PROTOCOL_VERSION = 43 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -738,6 +769,15 @@ export interface HelloMsg {
    * find `CREATURE_CONFIGS['raceUnit'] === undefined` on its own mirror. The `lightningDrone`
    * (13->14) / `goblinMelee` (17->18) / five-goblins (29->30) shape.)
    *
+   * S166 P2: 42->43 (THE TIER-3 RACE TOWER AND ITS SIX UNITS — owner R108/R119/R134. SIX serialized
+   * `GodlyId`s for the towers plus SIX `CreatureType` literals for their output, landed together
+   * because §7 of the races spec says six separate landings would cost six bumps. The creature half
+   * is the dangerous one and it is the five-goblins shape (29->30): `deserializeCreature` writes
+   * `type: s.type` with no whitelist, so a v42 peer ACCEPTS `t3Piranha` and then finds
+   * `CREATURE_CONFIGS['t3Piranha'] === undefined` on its own mirror. SIX literals rather than
+   * `raceUnit`'s one because R135 makes these stats VARY per race, and an undamaged creature sends
+   * no stats — the receiver rebuilds them from its own compiled config, keyed by type.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -775,7 +815,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 42;
+  readonly protoVersion: 43;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

@@ -86,6 +86,14 @@ import {
   GOBLIN_TOWER_SIZE,
 } from '../constants.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
+/*
+ * ⛔ BOTH OF THESE ARE SIDE-EFFECT-FREE LEAVES, WHICH IS THE ONLY REASON THEY MAY BE IMPORTED HERE.
+ * See the "WHY THIS FILE DOES NOT IMPORT THE RECIPE MODULES" note above: `godlyRecipes/raceTower.ts`
+ * calls `registerRecipe` at its tail, so importing the ids FROM THERE would fire six registrations
+ * as a side effect of loading this module. `raceTowerIds.ts` exists to be importable.
+ */
+import { RACE_FEED_SHAPE, type RaceId } from './races.ts';
+import { RACE_TOWER_IDS, RACE_TOWER_LABELS, RACE_TOWER_SIZE } from './raceTowerIds.ts';
 import type { Vec2 } from '../types.ts';
 
 /* ── Recipe shape counts, MIRRORED not imported (see the docblock) ──────────────────────────────── *
@@ -128,6 +136,24 @@ export interface Blueprint {
 const STAR_R = 44;
 /** Circumradius for the pentagram ring (side = 2·R·sin36° ≈ 47 px). */
 const RING_R = 40;
+/**
+ * ⛔ CIRCUMRADIUS FOR A **THREE**-NODE RING, AND IT IS NOT `RING_R`. S166, measured.
+ *
+ * A ring's side is `2 · R · sin(π/n)`, so one radius gives different SIDES at different n. At n=5
+ * `RING_R = 40` yields ~47 px, comfortably inside this file's stated spacing invariant
+ * (*"≤ `AUTO_BOND_RADIUS` (60) so a stamped structure is spaced like a hand-built one"*). **At n=3
+ * the same radius yields 40·√3 ≈ 69.3 px, which BREAKS it** — the tower would stamp fine and be
+ * UN-BUILDABLE BY HAND, because auto-bond never fires between nodes more than 60 px apart.
+ *
+ * Solving `2 · R · sin(60°) ≤ 60` gives `R ≤ 34.64`; the floor from the same docblock (side ≥ ~40 px,
+ * clear of the ~22 px sum-of-radii where soft-collision would strain the bonds) gives `R ≥ 23.1`.
+ * **R = 34 → side 58.9 px**, just inside the ceiling and generous over the floor.
+ *
+ * ⚠ THIS IS THE CHEAPEST STRUCTURE IN THE GAME AND SO THE MOST HAND-BUILT ONE, which makes the
+ * hand-buildability half of that invariant matter more here than anywhere else it applies.
+ */
+const TRI_RING_R = 34;
+
 /** Node-to-node spacing along the voltkin chain. */
 const CHAIN_STEP = 40;
 
@@ -232,6 +258,23 @@ const BLUEPRINTS: Readonly<Record<GodlyId, Blueprint>> = {
    * fatal rather than tolerated, which is precisely why the stamp writes the 5 ring edges explicitly
    * and never lets auto-bond near it (a chord would make two vertices degree 3).
    */
+  /*
+   * ⭐ S166 — THE SIX TIER-3 RACE TOWERS (R119): three of the race's OWN feed shape, closed in a
+   * ring. Six explicit entries over one builder, so `tsc` sees all six keys AND the geometry cannot
+   * drift between them.
+   *
+   * ⚠ THE RING EDGES ARE EXPLICIT, as the pentagram's are, and for a sharper reason here:
+   * `isRingAt` requires every node to have exactly TWO same-type neighbours, so a stamp that left
+   * one pair unbonded would produce a structure the predicate refuses — a tower that builds and then
+   * never ignites, with nothing red anywhere. Auto-bond must never be relied on to close it.
+   */
+  t3TowerVampires: raceTowerBlueprint('vampires'),
+  t3TowerNagas: raceTowerBlueprint('nagas'),
+  t3TowerMummies: raceTowerBlueprint('mummies'),
+  t3TowerZombies: raceTowerBlueprint('zombies'),
+  t3TowerOrcs: raceTowerBlueprint('orcs'),
+  t3TowerDemons: raceTowerBlueprint('demons'),
+
   pentagram: (() => {
     const n = PENTAGRAM_RING;
     const nodes: BlueprintNode[] = [];
@@ -281,6 +324,17 @@ const BLUEPRINTS: Readonly<Record<GodlyId, Blueprint>> = {
 // tear-downable, and simply NEVER APPEARED IN THE BUILD PANEL. A `Record<GodlyId, …>` is
 // exhaustiveness-checked by tsc; an array literal of the same ids is not.
 export const ALL_BLUEPRINT_IDS: readonly GodlyId[] = [
+  /*
+   * ⛔ S166 — THE SIX RACE TOWERS MUST BE HERE AT ALL, AND THIS LIST'S OWN HISTORY IS THE WARNING.
+   * It is HAND-WRITTEN: the goblin tower was fully implemented, registered and working, and simply
+   * never appeared in the build panel because it was missing from this array. `tsc` cannot catch
+   * that — the type is `readonly GodlyId[]`, not a `Record`, so an omission is SILENT.
+   *
+   * ⚠ Order is cosmetic (the panel and the bots both sort by `blueprintCost`), but cheapest-first
+   * matches what a player sees.
+   */
+  't3TowerVampires', 't3TowerNagas', 't3TowerMummies',
+  't3TowerZombies', 't3TowerOrcs', 't3TowerDemons',
   'stinkTower', 'goblinTower', 'pentagram', 'lightningHub', 'laserTurret', 'helga', 'voltkin',
 ];
 
@@ -326,6 +380,28 @@ export function blueprintRadius(id: GodlyId): number {
  * that drifted would be worse than useless, so the test that consumes it also stamps every blueprint
  * against the LIVE predicate.
  */
+/**
+ * PURE — one race's tier-3 tower: `RACE_TOWER_SIZE` nodes of its own feed shape on a circle of
+ * `TRI_RING_R`, with the ring edges written explicitly.
+ *
+ * ⛔ BUILT FROM `races.ts` AND `raceTowerIds.ts`, WHICH ARE SIDE-EFFECT-FREE LEAVES — never from
+ * `godlyRecipes/raceTower.ts`. That module calls `registerRecipe` at its tail, and this file's own
+ * docblock records exactly what a value import of a recipe module costs (S144 P1).
+ */
+function raceTowerBlueprint(race: RaceId): Blueprint {
+  const n = RACE_TOWER_SIZE;
+  const type = RACE_FEED_SHAPE[race];
+  const nodes: BlueprintNode[] = [];
+  const bonds: Array<readonly [number, number]> = [];
+  for (let i = 0; i < n; i++) {
+    // First node straight up, matching the pentagram, so a stamped tower reads as oriented.
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    nodes.push({ type, dx: Math.cos(a) * TRI_RING_R, dy: Math.sin(a) * TRI_RING_R });
+    bonds.push([i, (i + 1) % n]);
+  }
+  return { id: RACE_TOWER_IDS[race], label: RACE_TOWER_LABELS[race], nodes, bonds };
+}
+
 export const EXPECTED_COMPONENT_SIZE: Readonly<Record<GodlyId, number>> = {
   stinkTower: STINK_TOWER_SIZE,
   goblinTower: GOBLIN_TOWER_SIZE,
@@ -334,4 +410,11 @@ export const EXPECTED_COMPONENT_SIZE: Readonly<Record<GodlyId, number>> = {
   laserTurret: TURRET_LEAVES + 1,
   helga: HELGA_LEAF_PAIRS * 2 + 1,
   voltkin: VOLTKIN_HALF * 2,
+  // S166 — all six race towers are the same three-node ring (R119).
+  t3TowerVampires: RACE_TOWER_SIZE,
+  t3TowerNagas: RACE_TOWER_SIZE,
+  t3TowerMummies: RACE_TOWER_SIZE,
+  t3TowerZombies: RACE_TOWER_SIZE,
+  t3TowerOrcs: RACE_TOWER_SIZE,
+  t3TowerDemons: RACE_TOWER_SIZE,
 };

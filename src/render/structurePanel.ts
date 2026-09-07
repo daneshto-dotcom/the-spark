@@ -42,7 +42,10 @@ import { bankCountOf } from '../state/castleBank.ts';
 // ⛔ FROM THE SIDE-EFFECT-FREE LEAF, never from `godlyRecipes/goblinTower.ts` — that module calls
 // `registerRecipe` at its tail, and the documented S144 trap is that a value import of a recipe
 // module registers every recipe for everything downstream of it. `goblinKinds.ts` exists for this.
-import { GOBLIN_FEED_MAP, seatGoblinTowerAt } from '../state/goblinKinds.ts';
+import { GOBLIN_FEED_MAP, seatFeedTowerAt } from '../state/goblinKinds.ts';
+// S166 — the tier-3 feed rule, from the same side-effect-free leaves the note above requires.
+import { RACE_FEED_SHAPE } from '../state/races.ts';
+import { T3_SHORT_NAME, raceForTowerId } from '../state/raceTowerIds.ts';
 import { componentOf } from '../game/structure.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { planStructureRepair, planStructureScrap } from '../state/structureRepair.ts';
@@ -187,7 +190,15 @@ export function structureActionModel(
    * `applyFeedTower` has no phase check — it simply had no reachable surface outside BUILD.
    */
   const inBuild = world.matchPhase === 'BUILD';
-  const feedSpawnerId = seatGoblinTowerAt(world, seat, primitiveId);
+  /*
+   * ⭐ S166 — `seatFeedTowerAt`, NOT `seatGoblinTowerAt`: the popover now serves the goblin tower
+   * AND the six tier-3 race towers, and it needs the RECIPE back to know which. The two feed
+   * differently — six shapes to six goblins, versus one shape to one race unit (R119).
+   */
+  const feedTower = seatFeedTowerAt(world, seat, primitiveId);
+  const feedSpawnerId = feedTower === null ? null : feedTower.id;
+  // `null` for the goblin tower, a RaceId for a tier-3 tower. Drives both the button set and the caption.
+  const feedRace = feedTower === null ? null : raceForTowerId(feedTower.recipeId);
   const scrap = inBuild ? planStructureScrap(world, seat, primitiveId) : null;
   // BUILD needs something scrappable; outside it, only a feedable tower earns a popover.
   if (inBuild && scrap === null) return null; // wrong seat / gone — no popover at all
@@ -290,7 +301,26 @@ export function structureActionModel(
     if (feedTop + FEED_BTN > CANVAS_HEIGHT - EDGE_MARGIN) {
       feedTop = top - FEED_ROW_GAP - FEED_BTN;
     }
-    ALL_SPARK_TYPES.forEach((type, i) => {
+    /*
+     * ⛔ S166 — SIX BUTTONS FOR THE GOBLIN TOWER, **ONE** FOR A RACE TOWER, and §14's B10 named
+     * this as a decision that had to be made rather than defaulted: *"A one-shape race tower needs a
+     * decision: one button, or six with five disabled? Widening only one side gives either an
+     * unreachable tower or six lit buttons that all silently refuse."*
+     *
+     * One button. The six-button row exists so a player can LEARN the mapping ("Square makes the
+     * shield goblin") while holding no Squares — there is no mapping to learn on a race tower, so
+     * five permanently-refusing buttons would teach nothing and contradict this file's own contract
+     * that a disabled control must say why. The tower is made of what it eats; the ring itself is
+     * the affordance.
+     */
+    // Annotated, not inferred: without it TS widens the ternary's element type to `any` and the
+    // `GOBLIN_FEED_MAP[type]` index below silently loses its check.
+    const feedTypes: readonly SparkType[] =
+      feedRace === null ? ALL_SPARK_TYPES : [RACE_FEED_SHAPE[feedRace]];
+    const feedW2 = feedTypes.length * FEED_BTN + (feedTypes.length - 1) * FEED_GAP;
+    feedLeft = (minX + maxX) / 2 - feedW2 / 2;
+    feedLeft = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - feedW2 - EDGE_MARGIN, feedLeft));
+    feedTypes.forEach((type, i) => {
       // ⛔ THE CASTLE BANK ONLY, NOT `availableShapeCounts`. The reducer's Gate 4 checks
       // `bankCountOf` — the tower is fed from STORES, not from loose shapes on the board — so a
       // count that also included the porch would show a feedable 1 and then be refused with no
@@ -300,7 +330,9 @@ export function structureActionModel(
         kind: 'FEED',
         sparkType: type,
         label: '',           // the glyph IS the label — see the renderer
-        caption: GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]] ?? '?',
+        caption: feedRace === null
+          ? (GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]] ?? '?')
+          : T3_SHORT_NAME[feedRace],
         enabled: held > 0,
         x: feedLeft + i * (FEED_BTN + FEED_GAP),
         y: feedTop,
@@ -313,7 +345,10 @@ export function structureActionModel(
   const title = repair !== null
     ? codexCopyFor(repair.group.blueprintId).name
     : feed !== null
-      ? 'GOBLIN TOWER' // outside BUILD the repair plan is never computed, so name it directly
+      // ⭐ S166 — DERIVED FROM THE CODEX, not a literal. It used to read 'GOBLIN TOWER', which was
+      // correct while that was the only feedable structure and would have mislabelled all six race
+      // towers. `codexCopyFor` gives 'BAT TOWER', 'HOUND TOWER', … for free.
+      ? codexCopyFor(feedTower!.recipeId).name
       : 'STRUCTURE';
   return {
     primitiveId,

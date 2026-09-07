@@ -29,6 +29,10 @@ import { findAllLightningHubAnchors, lightningHubOwnerForAnchor } from './godlyR
 // essentially the whole codebase. This file is on the OTHER side of that edge: it imports world.ts,
 // world.ts does not import it. Both lines above are the same shape and have been for sessions.
 import { findAllGoblinTowerAnchors, goblinTowerOwnerForAnchor } from './godlyRecipes/goblinTower.ts';
+// S166 — the six tier-3 race towers. Importing a RECIPE module here is fine and is the existing
+// pattern (the goblinTower line above does it): the matcher is a consumer of recipes, so firing
+// their registration as a side effect is harmless. `blueprints.ts` is the file that must not.
+import { findRaceTowerAnchors, raceTowerOwnerForAnchor } from './godlyRecipes/raceTower.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { CUTSCENE_FADE_MS } from '../constants.ts';
@@ -167,7 +171,68 @@ export function runSpawnerIgnition(world: World): void {
    * feeds `findSpawnerMatch`, and adding a recipe to the registry looks like wiring it up.
    */
   igniteOneSpawnerRecipe(world, findAllGoblinTowerAnchors(world), goblinTowerOwnerForAnchor, 'goblinTower');
+  /*
+   * ⭐ S166 — THE SIX TIER-3 RACE TOWERS. `registerAll.test.ts` failed by NAME until these existed
+   * (*"'t3TowerDemons' is a kind:'spawner' recipe in the registry but runSpawnerIgnition never names
+   * it. It can be BUILT and will never produce"*), which is the S152 P2 guard doing its job.
+   *
+   * ⛔ SIX EXPLICIT LINES AND NOT A LOOP, WHICH LOOKS LIKE THE WRONG CALL UNTIL YOU READ THE GUARD.
+   * That test extracts ignited ids from comment-STRIPPED SOURCE with
+   * `/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z]+)'\s*\)/`, i.e. it needs a LITERAL id at the call
+   * site. A `for (const race of ALL_RACES)` loop passing `RACE_TOWER_IDS[race]` would satisfy the
+   * compiler, ignite correctly, and make the guard blind — trading a real protection for six saved
+   * lines. Explicit stays.
+   *
+   * ⚠ NO EARLY `return` ON THESE SIX, unlike the pentagram and lightningHub lines above. The six are
+   * pairwise disjoint (one race per player, R110) so at most one can match per seat, and returning
+   * after the first would let a vampire tower defer a naga tower to the next topology change — which
+   * may not come if the player stops placing. The goblinTower line above sets the same precedent.
+   *
+   * ⚠ THE DEFECT CLASS SURVIVES THIS FIX AND IS WORTH NAMING: this chain is hand-written, so an
+   * eighth recipe can still be forgotten. `registerAll.test.ts`'s own note says the S152 fix
+   * *"was to add the third line, which leaves the defect class intact"*. Making ignition
+   * registry-driven (as `runDefenderIgnition` already is, draining ALL matches) would end it, but
+   * that changes one-spawner-per-topology-change semantics on the sim hot path and belongs in its own
+   * priority with its own deliberation — not bolted onto this one.
+   */
+  igniteOneSpawnerRecipe(world, vampireTowerAnchors(world), vampireTowerOwner, 't3TowerVampires');
+  igniteOneSpawnerRecipe(world, nagaTowerAnchors(world), nagaTowerOwner, 't3TowerNagas');
+  igniteOneSpawnerRecipe(world, mummyTowerAnchors(world), mummyTowerOwner, 't3TowerMummies');
+  igniteOneSpawnerRecipe(world, zombieTowerAnchors(world), zombieTowerOwner, 't3TowerZombies');
+  igniteOneSpawnerRecipe(world, orcTowerAnchors(world), orcTowerOwner, 't3TowerOrcs');
+  igniteOneSpawnerRecipe(world, demonTowerAnchors(world), demonTowerOwner, 't3TowerDemons');
 }
+
+/*
+ * Per-race anchor finders and owner resolvers.
+ *
+ * ⛔ THESE EXIST TO KEEP THE RECIPE ID THE **ONLY** STRING LITERAL IN EACH IGNITION CALL, and the
+ * guard caught me getting that wrong. `registerAll.test.ts` extracts ignited ids with
+ * `/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z]+)'\s*\)/`, which is NON-GREEDY — so my first
+ * version, `igniteOneSpawnerRecipe(world, findRaceTowerAnchors(world, 'vampires'), …, 't3TowerVampires')`,
+ * handed it `'vampires'` and it reported *"runSpawnerIgnition ignites 'vampires', which is not a
+ * kind:'spawner' recipe"* while ALSO still reporting all six ids as unwired. Both messages were
+ * right and both were about the same mistake.
+ *
+ * ⚠ SO A RACE NAME MUST NEVER APPEAR INSIDE ONE OF THOSE CALLS. It is baked into the helper name
+ * instead, where the regex cannot see it.
+ *
+ * Each resolver enforces R137 inside `raceTowerOwnerForAnchor`: an off-race player standing on
+ * another race's ring resolves to `null`, and the ring never ignites.
+ */
+const vampireTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'vampires');
+const nagaTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'nagas');
+const mummyTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'mummies');
+const zombieTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'zombies');
+const orcTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'orcs');
+const demonTowerAnchors = (w: World): PrimitiveId[] => findRaceTowerAnchors(w, 'demons');
+
+const vampireTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'vampires');
+const nagaTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'nagas');
+const mummyTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'mummies');
+const zombieTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'zombies');
+const orcTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'orcs');
+const demonTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'demons');
 
 /**
  * S103 P2 — host-only DEFENDER ignition (mirror of runSpawnerIgnition). On a topology change,
