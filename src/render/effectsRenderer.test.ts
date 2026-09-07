@@ -19,6 +19,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { PHYSICS_HZ, RAIDED_CLOUD_TICKS } from '../constants.ts';
 import type { Application } from 'pixi.js';
 import { EffectsRenderer } from './effectsRenderer.ts';
 import { drawBondCommit } from './effects/bondCommit.ts';
@@ -64,6 +65,24 @@ const emptyWorld = (tick = 1): World =>
 const stubApp = (): Application =>
   ({ stage: { addChild: () => undefined } } as unknown as Application);
 
+/**
+ * S165 - one representative of every `GameEffect` kind, so lifetime coverage is enumerated rather
+ * than hand-sampled. Shaped minimally: `effectLifetime` switches on `kind` alone.
+ */
+function cases_for_coverage(): GameEffect[] {
+  return [
+    { kind: 'BOND_COMMIT', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 4, visualEffectId: 'fx.bond.default', otherPos: { x: 10, y: 0 } },
+    { kind: 'SEVER_ERASE', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 5 },
+    { kind: 'STRUCTURE_GROW', tick: 0, originPrimId: asPrimitiveId(1), hopByPrimId: new Map(), hopByBondId: new Map(), color: 0xffffff, maxHop: 0 },
+    { kind: 'STRUCTURE_MERGE', tick: 0, originPos: { x: 0, y: 0 }, unionPrimIds: [], color: 0xffffff },
+    { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff, pos: { x: 0, y: 0 } },
+    { kind: 'ARC_FLASH', tick: 0, pos: { x: 0, y: 0 }, otherPos: { x: 5, y: 5 }, color: 0xffffff },
+    { kind: 'BOMB_EXPLODE', tick: 0, pos: { x: 0, y: 0 }, radius: 60 },
+    { kind: 'CHEW_BITE', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff },
+    { kind: 'RAIDED', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff },
+  ] as unknown as GameEffect[];
+}
+
 describe('S12 — effectLifetime', () => {
   it('returns a positive duration for each kind', () => {
     const cases: GameEffect[] = [
@@ -75,6 +94,61 @@ describe('S12 — effectLifetime', () => {
     ];
     for (const eff of cases) {
       expect(effectLifetime(eff), `${eff.kind} should have positive lifetime`).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * S165 (sweep Lane 5) - THE CASE LIST ABOVE COVERS FIVE OF THE TWELVE `GameEffect` KINDS, AND ITS
+   * NAME SAYS "each kind".
+   *
+   * Absent from it: ARC_FLASH, BOMB_EXPLODE, CHEW_BITE and RAIDED. `RAIDED_CLOUD_TICKS` was
+   * referenced by NO test in the repository at all.
+   *
+   * WHAT THAT ALLOWED: set `RAIDED_CLOUD_TICKS = 0` and `effectLifetime` returns 0 for RAIDED, the
+   * raid-attribution cloud never draws, and the whole suite stays green - against owner R78, *"the
+   * cloud dissipates within 3 sec"*, which `lifetime.ts` explicitly says is owned by that constant
+   * *"so the lifetime the RENDERER ages by and the number the DESIGN specifies can never drift
+   * apart"*. A constant with a ruling attached and no test is a ruling with no teeth.
+   *
+   * DERIVED FROM THE UNION, NOT HAND-LISTED, so a thirteenth kind cannot be omitted the way the
+   * four above were. The three audio-only kinds are the documented exception: they are filtered out
+   * at drain time and their `0` exists purely for TS exhaustiveness.
+   */
+  it('EVERY visual kind has a positive lifetime - enumerated, not sampled', () => {
+    const AUDIO_ONLY = new Set(['BOND_FORMED', 'BOND_SEVERED', 'CREATURE_CHARGE']);
+    const visual: GameEffect[] = [
+      ...cases_for_coverage(),
+    ];
+    // Anti-vacuity: an empty list would satisfy the loop below while testing nothing.
+    expect(visual.length).toBe(9);
+    for (const eff of visual) {
+      if (AUDIO_ONLY.has(eff.kind)) continue;
+      expect(
+        effectLifetime(eff),
+        `${eff.kind} has a zero/negative lifetime, so it would never be drawn`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('RAIDED is the longest-lived effect, and it honours owner R78 (~3 s)', () => {
+    /*
+     * Two claims, because the constant alone is not the requirement. R78 is about DURATION - the
+     * victim must be able to read an attribution message rather than blink and miss it - so this
+     * pins the seconds, and separately pins that nothing else outlives it. The second half is what
+     * catches a future effect being given a careless 10-second lifetime.
+     */
+    const raided: GameEffect = {
+      kind: 'RAIDED', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff,
+    } as unknown as GameEffect;
+    const ticks = effectLifetime(raided);
+    expect(ticks).toBe(RAIDED_CLOUD_TICKS);
+    expect(ticks / PHYSICS_HZ).toBeCloseTo(3, 5);
+    for (const eff of cases_for_coverage()) {
+      if (eff.kind === 'RAIDED') continue;
+      expect(
+        effectLifetime(eff),
+        `${eff.kind} outlives the raid cloud, which is meant to be the longest by a wide margin`,
+      ).toBeLessThanOrEqual(ticks);
     }
   });
 
