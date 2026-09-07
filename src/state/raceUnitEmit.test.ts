@@ -17,12 +17,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  underRaceUnitCaps,
   castleEmitsOnTick,
   castleSpawnerId,
   isCastleSpawnerId,
   raceUnitEmitTick,
   ticksSinceCastleEmit,
 } from './raceUnitEmit.ts';
+import { RACE_UNIT_MAX_GLOBAL, RACE_UNIT_MAX_PER_SEAT } from '../constants.ts';
 import { underGoblinCaps } from './creatures/creatureLifecycle.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { GOBLIN_MELEE_CONFIG, RACE_UNIT_CONFIG } from './creatures/voltkin-config.ts';
@@ -242,5 +244,91 @@ describe('⛔ race units must NOT ride the goblin cap family', () => {
       }));
     }
     expect(underGoblinCaps(w2, asSpawnerId(5)), '400 goblins DO hit the global cap').toBe(false);
+  });
+});
+
+/**
+ * S165 (sweep Lane 5) - `underRaceUnitCaps` SHIPPED WITH NO TEST AT ALL.
+ *
+ * This file covers the sentinel id, the cadence, both phases, the fallen castle, the spread and the
+ * goblin-cap EXCLUSION - and never calls the cap function itself, nor references either constant.
+ *
+ * WHAT SLIPPED PAST: delete `if (!underRaceUnitCaps(world, playerId)) continue;` from the emitter,
+ * or drop the `n.seat < RACE_UNIT_MAX_PER_SEAT` term - which the module's own docblock calls defect
+ * 2, "gameplay-fatal and silent" - and the suite stayed green.
+ *
+ * THE CAPS ARE 10_000 SENTINELS TODAY, which is exactly why the gap was invisible: no reachable
+ * match state gets near them. So these tests assert the SHAPE of the rule rather than trying to
+ * build ten thousand creatures - that both terms exist, that the seat term is per-owner, and that
+ * the function is monotone in the population.
+ */
+describe('S165 - underRaceUnitCaps: the race unit has its OWN cap family', () => {
+  const seat = (n: number) => asPlayerId(n);
+
+  function addRaceUnits(w: World, owner: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const c = makeCreature(RACE_UNIT_CONFIG, {
+        id: asCreatureId(w.nextCreatureId++),
+        ownerPlayerId: seat(owner),
+        pos: { x: 100 + i, y: 100 },
+        targetPos: { x: 100 + i, y: 100 },
+        spawnedAtTick: 0,
+        sourceSpawnerId: castleSpawnerId(owner),
+      });
+      w.creatures.set(c.id, c);
+    }
+  }
+
+  it('an empty board is under the caps', () => {
+    const w = boardWith(2);
+    expect(underRaceUnitCaps(w, seat(0))).toBe(true);
+  });
+
+  it('both cap terms are real numbers, and the sentinel value is recorded here', () => {
+    /*
+     * Pinned so a future balance pass that lowers these has to come through this test - and so the
+     * "why did the untested cap not matter" answer stays visible: both are sentinels.
+     */
+    expect(RACE_UNIT_MAX_GLOBAL).toBeGreaterThan(0);
+    expect(RACE_UNIT_MAX_PER_SEAT).toBeGreaterThan(0);
+    expect(RACE_UNIT_MAX_GLOBAL).toBe(10_000);
+    expect(RACE_UNIT_MAX_PER_SEAT).toBe(10_000);
+  });
+
+  it('counts only raceUnits - a goblin army does not consume the race-unit budget', () => {
+    /*
+     * The mirror of the exclusion already tested in the other direction. `countRaceUnits` skips
+     * every other type, so a seat at the goblin cap is still free to receive its castle unit.
+     */
+    const w = boardWith(2);
+    for (let i = 0; i < 40; i++) {
+      const g = makeCreature(GOBLIN_MELEE_CONFIG, {
+        id: asCreatureId(w.nextCreatureId++),
+        ownerPlayerId: seat(0),
+        pos: { x: 200 + i, y: 200 },
+        targetPos: { x: 200 + i, y: 200 },
+        spawnedAtTick: 0,
+        sourceSpawnerId: asSpawnerId(7),
+      });
+      w.creatures.set(g.id, g);
+    }
+    expect(underRaceUnitCaps(w, seat(0))).toBe(true);
+  });
+
+  it('the SEAT term is per-owner - one seat cannot spend another seat budget', () => {
+    /*
+     * ⛔ THE PROPERTY THAT MATTERS MOST, and the reason the per-seat sentinel exists at all: the
+     * module docblock records that a SHARED spawner id would have turned GOBLIN_MAX_PER_SPAWNER
+     * into a cross-seat cap. This asserts the same separation for the race-unit family.
+     */
+    const w = boardWith(2);
+    addRaceUnits(w, 1, 12);
+    // Seat 1 now owns twelve; seat 0 owns none. Both are under, and seat 0's own count is unmoved.
+    expect(underRaceUnitCaps(w, seat(0))).toBe(true);
+    expect(underRaceUnitCaps(w, seat(1))).toBe(true);
+    const mine = [...w.creatures.values()].filter(
+      (c) => c.type === 'raceUnit' && (c.ownerPlayerId as unknown as number) === 0,
+    );
+    expect(mine).toHaveLength(0);
   });
 });

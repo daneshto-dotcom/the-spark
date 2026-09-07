@@ -248,21 +248,69 @@ describe('audioManager — drainAudioEffects (cursor)', () => {
     expect(() => drainAudioEffects(effects, 11)).not.toThrow();
   });
 
-  it('cursor advances; same-tick re-drain is a no-op (replay safety)', () => {
+  /**
+   * S165 (sweep Lane 5) - THESE TWO ASSERTED ONLY `not.toThrow()`, ON THE ONE PROPERTY THIS MODULE
+   * CARES MOST ABOUT, AND ONE OF THEM WAS NAMED AFTER BEHAVIOUR THE CODE DELIBERATELY LACKS.
+   *
+   * The first was called *"same-tick re-drain is a no-op (replay safety)"*. It is not a no-op. The
+   * cursor test is a STRICT `<`, and `drainAudioEffects` says why in as many words: same-tick events
+   * emitted by click handlers between physics ticks would be silently swallowed by `<=`, so
+   * "equality now passes through" (S23 P4). A same-tick re-drain RE-FIRES. The test stayed green
+   * across that decision because `not.toThrow()` cannot see a sound play twice.
+   *
+   * WHAT SLIPPED PAST THEM: delete `if (effect.tick < lastDrainedTick) continue;` and every effect
+   * re-fires on every frame at 60 Hz; delete `lastDrainedTick = currentTick;` and the cursor never
+   * advances. Both were green.
+   *
+   * THE HOOK ALREADY EXISTED. `inspectAudioChain().claveCallsTotal` counts BOND_FORMED handling, and
+   * the sibling `state/audioCursor.test.ts` uses exactly that counter to prove an effect below the
+   * cursor is dropped. This file simply never reached for it.
+   */
+  it('a BELOW-cursor effect is DROPPED - the replay guard, counted', () => {
+    drainAudioEffects([], 100);
+    const before = inspectAudioChain().claveCallsTotal;
+    drainAudioEffects(
+      [{ kind: 'BOND_FORMED', tick: 50, pos: { x: 0, y: 0 }, bondCount: 1 }],
+      50,
+    );
+    expect(
+      inspectAudioChain().claveCallsTotal,
+      'an effect older than the cursor must not fire - this is the save/load replay guard',
+    ).toBe(before);
+  });
+
+  it('a SAME-TICK re-drain DOES re-fire - strict `<`, not `<=` (S23 P4)', () => {
+    /*
+     * ⭐ THE CORRECTED CLAIM. This case used to be named "same-tick re-drain is a no-op" and to
+     * assert nothing, so it documented the opposite of the shipped rule for two years of sessions.
+     * Equality passing through is DELIBERATE: a click handler firing between physics ticks emits at
+     * the same `world.tick`, and `<=` would have eaten it.
+     */
     const effects: GameEffect[] = [
       { kind: 'BOND_FORMED', tick: 5, pos: { x: 0, y: 0 }, bondCount: 2 },
     ];
     drainAudioEffects(effects, 5);
-    expect(() => drainAudioEffects(effects, 5)).not.toThrow();
+    const after1 = inspectAudioChain().claveCallsTotal;
+    drainAudioEffects(effects, 5);
+    expect(
+      inspectAudioChain().claveCallsTotal,
+      'equality passes through by design - see the S23 P4 note in drainAudioEffects',
+    ).toBeGreaterThan(after1);
   });
 
-  it('cursor advances on each drain (forward only)', () => {
+  it('the cursor advances FORWARD ONLY, and a stale effect after it is dropped', () => {
     drainAudioEffects([], 10);
     drainAudioEffects([], 20);
-    const stale: GameEffect[] = [
-      { kind: 'BOND_FORMED', tick: 10, pos: { x: 0, y: 0 }, bondCount: 1 },
-    ];
-    expect(() => drainAudioEffects(stale, 20)).not.toThrow();
+    const before = inspectAudioChain().claveCallsTotal;
+    // tick 10 is now below the cursor (20), so this must be silently skipped.
+    drainAudioEffects(
+      [{ kind: 'BOND_FORMED', tick: 10, pos: { x: 0, y: 0 }, bondCount: 1 }],
+      20,
+    );
+    expect(
+      inspectAudioChain().claveCallsTotal,
+      'delete `lastDrainedTick = currentTick` and this is the test that notices',
+    ).toBe(before);
   });
 
   it('resetAudioDrainCursor allows re-firing effects at previously-drained ticks', () => {

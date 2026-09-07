@@ -26,10 +26,15 @@ what it needs. Nothing leaves this file without one of those two.
 
 | # | Ask | State |
 |---|---|---|
-| B1 | Settings-button toggle: race background ↔ original cosmos black. | ⬜ — `ZoneBackgroundRenderer.setEnabled/isEnabled` already exist and Lane 1 flagged them as dead API. This is their purpose. |
-| B2 | Per-race music (a cover of the original per race) + a toggle back to the original track. | ⬜ wiring. Files DONE: six tracks transcoded to `public/audio/races/{demons,mummies,nagas,orcs,vampires,zombies}.ogg`, 14.5 MB total at 78–82 kbps to match the shipped `blue-steppe-orbit.ogg` (73 kbps). mp3 sources deleted — no repeat of the false-fallback mp3 that Lane 3 found. |
+| B1 | Settings-button toggle: race background ↔ original cosmos black. | ✅ `7c39965` — new `displayPrefs.ts` store; the dead `setEnabled/isEnabled` API now has its caller. Turning it off fetches ZERO backdrops (sync early-returns before ensureTexture), asserted as an absence in `e2e/settings-toggles.spec.ts`. |
+| B2 | Per-race music (a cover of the original per race) + a toggle back to the original track. | ✅ `7c39965` — pure `raceMusic.ts` resolver + URL-keyed cache **capped at 2 buffers** (decoded PCM is 384 KB/s: an uncapped cache would reach ~736 MB). New `stopMusic()` closes a pre-existing gap that would have played the previous match's race for the whole next one. Toggle bites on the click. Verified in a real browser. |
 
 ## C. Five-lane sweep — findings not yet actioned
+
+**Also closed since this file was written:** the `players` oracle blind spot (castleHp gated
+emission and neither hash could see it diverge), the missing race-unit atlas browser check, the
+`quickmatchGate` prune + try/catch coverage, eleven doc/code contradictions, and the false
+mp3-fallback comment.
 
 Closed already: the dead stink taunt, the empty worker recipe registry, potato provenance, the atlas
 guard blocking the deploy, `DEFENDER_TARGETS` backwards, `nextPulledSparkId`, the missing id
