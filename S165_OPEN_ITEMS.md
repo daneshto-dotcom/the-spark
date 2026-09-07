@@ -60,17 +60,36 @@ tie-break, the invisible hashed scalar, the 4th drifted predicate, the one-pixel
 | 3 | Hazard subsystem (bomb/potato/rainbow/seagull) unreachable in production; 5 client-intent wire types live for entities that cannot exist | dead by ruling, undocumented at the sites |
 | 3 | `CREATURE_HIT_DAMAGE`, `isDebugMode()`, `CREATURE_ROLES`, `DEFENDER_ROLES`, `DESPAWN_CREATURE` producer — all callerless | low |
 | 3 | `public/godly/voltkin/parts/SLICE_SPEC.md` served publicly | low |
-| 4 | 23 doc/code contradictions — the big ones: `RACE_ZONES_AND_BOSS_TOWERS.md` + `BACKLOG.md` say the NONET collision is still open (R132 settled it), `SPARK_TD_SESSION_SPECS.md` still specs retaliation-only castle guns (superseded) and a `world.castles` model that does not exist, `SPARK_RACES_SPEC.md` says W1-C is unbuilt in its own anti-drift banner, `boot-snapshot.md` contradicted point-by-point, `CASTLE_BANK_CAP` reasoned from in 3 live sites after deletion, `VOLTKIN_HP`'s whole justification is pre-R72 arithmetic, `RELAY_HEALTH.md` says `probe-relays` is unimplemented | doc-truth pass |
+| 4 | ~~23 doc/code contradictions~~ | ✅ `6ded84b` — the eleven that would change a reader's actions: the settled NONET blocker presented as open in TWO files, superseded castle targeting/HP/interval, a `world.castles` model refused in four of five parts, elimination specced as the opposite of `cf_s161_a`, `SPARK_RACES_SPEC` contradicting itself inside its own anti-drift banner, `CASTLE_BANK_CAP` reasoned from at 3 live sites after deletion, a false `SPAWN_CREATURE` client-intent claim, MAX_PLAYERS 6/7 vs R41's four, and three wrong facts in `RELAY_HEALTH.md`. Plus `boot-snapshot.md` banner-flagged as STALE with a claim-by-claim table |
 | 5 | 12 `not.toThrow()`-only tests in `audioManager.test.ts` guarding replay-safety they cannot observe — and one test's NAME states a property the code deliberately lacks | HIGH |
 | 5 | `quickmatchGate` ghost-race-claim prune + the two-try/catch isolation have zero coverage; both were owner-bug fixes | HIGH |
 | 5 | ~~`RAIDED_CLOUD_TICKS` referenced by no test~~ | ✅ `f2a653a` — lifetime coverage now enumerated from the union; two assertions on RAIDED (the seconds per R78, and that nothing outlives it) |
 | 5 | ~~`underRaceUnitCaps` untested~~ | ✅ `71667d4` — the type filter and the per-owner seat term |
-| 5 | 4 vacuous `chewerRenderer` tests (hop-state prune, per-emitter jitter, hop advance) | MED — still open |
+| 5 | ~~4 vacuous `chewerRenderer` tests~~ | ✅ `68cf955` — the mock records ARGUMENTS now, so the prune is observed through behaviour (re-spawn must draw a fresh frame) and the hop through frame-to-frame geometry. ⚠ Two of my own errors here: the mock only APPENDS (a 14-frame signature compared against a 1-frame one reads exactly like a leak), and a PARTIAL negative control made me briefly call a working test vacuous — `drawChewBite` has TWO creatureId terms |
 | 3 | ~~`findSpawnerMatch` dead while `runSpawnerIgnition` hand-enumerates~~ | ✅ `f2a653a` — the two lists pinned against each other, both directions. ⚠ My guard was vacuous TWICE before the negative control made it real (a comment mentioning the id, then a downstream `case` arm) |
 | 5 | ~~12 `not.toThrow()`-only `audioManager` tests~~ | ✅ `71667d4` — the three cursor/replay ones rewritten against `inspectAudioChain().claveCallsTotal`, and one whose NAME asserted the opposite of the shipped rule corrected. The remaining `not.toThrow` cases are the headless-context ones the module genuinely cannot observe |
 | 2 | ~~`players: 'acknowledged'` hid `castleHp`~~ | ✅ `1661166` — six sim fields projected, avatar asserted ABSENT |
 
 ---
+
+## Lane split — the shared gating lane was starved by my own tests
+
+`7c39965` and `f2a653a` went red as `Timed out waiting 720s for the test suite to run` — the LANE,
+not a test. My two new specs pushed the shared lane from 4.1 to 5.3 min locally, i.e. past its cap on
+a 3–5× slower runner. Trimming the tick budgets was the wrong fix: a probe showed race-unit count
+still ZERO at tick 1408, because `raceUnitEmitTick` needs `gameState === 'PLAYING'` and the
+transition lands a few ticks in, so all four seats miss their opening slot and the first emit is at
+tick 1800. The mechanic is inherently ~30 s of sim per observation.
+
+Split into an `@races` tag + its own GATING `e2e-races` job (`7f6fcb2`), the `e2e-protocol` /
+`e2e-lobby` precedent. Shared lane back to 62 tests / 3.7 min; races lane 5 / 1.2 min. Then one more
+of mine: I restored the tick budget and left the trimmed 90 s ceiling behind, so the races job failed
+on its own first run — fixed at `407ad98` by waiting on the OBSERVATION (the fetch) rather than the
+clock, which also exits early.
+
+⭐ `src/ci.e2eLanes.test.ts`, written hours earlier against `@visual`, CAUGHT the undeclared tag and
+printed the instruction. It needed a third state (`OWN_JOB`) because "excluded from the shared lane"
+and "not gating" are different things.
 
 ## Bookkeeping owed at close
 

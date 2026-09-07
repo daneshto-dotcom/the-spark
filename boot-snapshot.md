@@ -1,4 +1,33 @@
 # Boot Snapshot (auto-generated at handoff)
+
+> # ⛔ STALE — THIS IS THE **S164** SNAPSHOT. S165 SUPERSEDED EVERY HEADLINE BELOW.
+>
+> It has NOT been regenerated because regeneration is `/handoff`'s job and the owner has not
+> closed the session. Reading it as current is the hazard this banner exists to remove — sweep
+> Lane 4 found it contradicted point-by-point by the very module that implemented its plan.
+>
+> **What is actually true at `68cf955`:**
+>
+> | This file says | Reality |
+> |---|---|
+> | **PROTOCOL 41** | **42** (S165 W1-C, `ef944bd`) |
+> | 3679 tests / 234 files | **3756 / 241** |
+> | `e2e:gating` 62 passed | 62 in the shared lane **plus a new gating `e2e-races` lane (5)** |
+> | *"NOTHING IN `src/` REFERENCES [the race units] YET"* | The castle emitter is SHIPPED and live — `src/state/raceUnitEmit.ts` |
+> | *"No protocol bump owed — it rides P1's 40→41"* | FALSE. P1 shipped alone, so W1-C owed its own bump, 41→42 |
+> | *"the whole creature fan-out is FIGHT-gated"* | FALSE. `creatureVerletStep` runs every substep of every BUILD tick with no phase guard |
+> | R133's sentinel plan: *"take the normal spawner population path… `underGoblinCaps`"* | Built differently on measurement — a PER-SEAT negative sentinel with its OWN cap family. A shared id would have made `GOBLIN_MAX_PER_SPAWNER` a cross-seat cap |
+> | Next-step 1 (wire W1-C) | ✅ DONE |
+> | Next-step 2 (regenerate art without the baked shadow) | ✅ DONE |
+>
+> **⭐ THE LIVE LIST IS `S165_OPEN_ITEMS.md`** — every owner report and sweep finding, each either
+> closed with the commit that closed it or open with what it needs. Read that, not this.
+>
+> ⚠ Two items genuinely remain and both need OWNER RULINGS, not code: the **tier-3 towers/units**
+> (18.4 MB of art ships, zero code references it, and R134/R135 stats are unruled) and the
+> **wave-5 tech draft** (R101–R112 fully specced, zero code — and R112 is itself the trigger:
+> *"BUILD ONLY WAVE 5 FIRST… ask once wave 5 ships"*).
+
 Generated: 2026-09-05 | Session: S164 | Commit: `a8e5e5d` | **PROTOCOL 41**
 
 State at close: `tsc` 0 · **3679/3679** unit tests / 234 files · `e2e:gating` exit 0, 62 passed ·
