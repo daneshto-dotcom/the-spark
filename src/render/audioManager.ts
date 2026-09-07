@@ -43,18 +43,23 @@ import type { Vec2 } from '../types.ts';
 // dep edge). This file is already render-layer; importing audioCursor from
 // state/ stays inside the conventional render→state direction.
 import { registerResetHandler } from '../state/audioCursor.ts';
+import { DEFAULT_MUSIC_SRC } from './raceMusic.ts';
 
-/**
- * S51 P2.a — switched from blue-steppe-orbit.mp3 (10.0 MB) to .ogg (3.5 MB,
- * Opus 64k VBR, peaks ~73 kb/s). 65% smaller for mobile/cold-load with
- * near-transparent quality for instrumental music. The .mp3 is retained on
- * disk and in git as the Safari pre-17 fallback (decodeAudioData would
- * silently fail there and the music-fetch try/catch already handles graceful
- * silent-music). Council Battle Ledger C5 ADOPT A — keep both. If mobile
- * cold-load is the priority over Safari pre-17 compat, swap MUSIC_URL back
- * to .mp3 in <1 LOC. ffmpeg encode: -c:a libopus -b:a 64k -application audio.
+/*
+ * S51 P2.a - the music is `.ogg` (Opus 64k VBR, peaks ~73 kb/s), 65% smaller than the original
+ * 10.0 MB mp3 for mobile and cold-load, at near-transparent quality for instrumental music.
+ *
+ * S165 CORRECTION - THE `.mp3` IS NOT A FALLBACK, AND THIS BLOCK CLAIMED IT WAS FOR ~114 SESSIONS.
+ * It read: *"The .mp3 is retained on disk and in git as the Safari pre-17 fallback"*. There is no
+ * fallback anywhere in this module - no `canPlayType`, no format negotiation, no catch-and-retry.
+ * The base track URL is a single value and a decode failure ends in graceful silence, which is the
+ * behaviour the try/catch in `getMusicBuffer` actually provides. So `public/audio/blue-steppe-
+ * orbit.mp3` (9.77 MB, ~15% of the whole static payload) is a MANUAL-SWAP SPARE, not insurance.
+ * Left on disk because deleting a shipped asset is the owner's call, but recorded as a candidate.
+ *
+ * S165 - the default URL itself now lives in `raceMusic.ts` as `DEFAULT_MUSIC_SRC`, shared with the
+ * resolver that chooses between it and the six race covers, so the two cannot drift.
  */
-const MUSIC_URL = '/audio/blue-steppe-orbit.ogg';
 const DEFAULT_MUSIC_VOLUME = 0.25;
 const DEFAULT_SFX_VOLUME = 1.0;
 const CLAVE_GAIN = 0.4;
@@ -118,16 +123,45 @@ const STORAGE_KEY_MUSIC_MUTED = 'audio.musicMuted';
 const STORAGE_KEY_SFX_MUTED = 'audio.sfxMuted';
 const STORAGE_KEY_MUSIC_VOLUME = 'audio.musicVolume';
 const STORAGE_KEY_SFX_VOLUME = 'audio.sfxVolume';
+/**
+ * S165 - the race-music opt-out. DEFAULT TRUE: the owner's framing is that a race's own cover is
+ * the new normal and the original track is the thing you turn back on.
+ */
+const STORAGE_KEY_RACE_MUSIC = 'audio.raceMusicEnabled';
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let musicGainNode: GainNode | null = null;
 let sfxGainNode: GainNode | null = null;
 let musicSource: AudioBufferSourceNode | null = null;
-let musicBuffer: AudioBuffer | null = null;
-let musicFetchPromise: Promise<AudioBuffer> | null = null;
+/*
+ * S165 - URL-KEYED, AND HARD-CAPPED AT TWO, WHICH IS A MEMORY DECISION AND NOT A STYLE ONE.
+ *
+ * This was a single `musicBuffer` + `musicFetchPromise` pair for one hardcoded track, so the
+ * intuitive way to add race music - swap the URL and call `playMusic()` again - would have
+ * returned the STALE buffer forever.
+ *
+ * DECODED PCM IS THE REAL CEILING, NOT DISK. All seven tracks are 48 kHz stereo, so
+ * `decodeAudioData` expands each to 48000 x 2ch x 4B = 384 KB PER SECOND. Measured with ffprobe:
+ * the original is 385 s (~148 MB decoded), nagas 315 s (~121 MB), mummies 307 s (~118 MB),
+ * vampires 280 s (~107 MB), demons 262 s (~101 MB), zombies 209 s (~80 MB), orcs 160 s (~61 MB).
+ * A cache that never evicts reaches ~736 MB resident - a mobile-tab killer, and this same session
+ * watched a 24 MB texture budget kill the CI browser context outright.
+ *
+ * So: at most MUSIC_BUFFER_CAP entries - the one playing plus the one swapping in. Toggling back
+ * re-decodes, which is the right trade: the .ogg is HTTP-cached, so only the decode is paid again.
+ *
+ * The unbounded `oneShotBufferCache` further down is NOT a precedent to copy here. Those are 18 KB
+ * SFX - four orders of magnitude smaller.
+ */
+const MUSIC_BUFFER_CAP = 2;
+const musicBuffers = new Map<string, AudioBuffer>();
+const musicFetches = new Map<string, Promise<AudioBuffer>>();
+/** Which track the game WANTS playing. Read by `playMusic`, set by `setMusicTrack`. */
+let desiredMusicUrl: string = DEFAULT_MUSIC_SRC;
 
 let masterMuted = false;
+let raceMusicEnabled = true;
 let musicMuted = false;
 let sfxMuted = false;
 let musicVolume = DEFAULT_MUSIC_VOLUME;
@@ -208,6 +242,7 @@ function loadSettingsFromStorage(): void {
   sfxMuted = readBool(STORAGE_KEY_SFX_MUTED, false);
   musicVolume = readNumber(STORAGE_KEY_MUSIC_VOLUME, DEFAULT_MUSIC_VOLUME);
   sfxVolume = readNumber(STORAGE_KEY_SFX_VOLUME, DEFAULT_SFX_VOLUME);
+  raceMusicEnabled = readBool(STORAGE_KEY_RACE_MUSIC, true);
   // S23 P2 (Defensive Fix 2 + 3) — surface state on init so debug=1 / DEV can
   // distinguish "user muted intentionally" from "stale localStorage corruption".
   // Always logs (cheap, infrequent — single fire per session). Critical for
@@ -414,27 +449,41 @@ async function resumeIfSuspended(): Promise<void> {
   }
 }
 
-async function getMusicBuffer(): Promise<AudioBuffer | null> {
+async function getMusicBuffer(url: string): Promise<AudioBuffer | null> {
   if (audioContext === null) return null;
-  if (musicBuffer !== null) return musicBuffer;
-  if (musicFetchPromise !== null) return musicFetchPromise;
+  const cached = musicBuffers.get(url);
+  if (cached !== undefined) return cached;
+  const inFlight = musicFetches.get(url);
+  if (inFlight !== undefined) return inFlight;
 
-  musicFetchPromise = (async () => {
-    const response = await fetch(MUSIC_URL);
+  const fetching = (async () => {
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`music fetch ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
     const ctx = audioContext;
     if (ctx === null) throw new Error('AudioContext lost during decode');
     const decoded = await ctx.decodeAudioData(arrayBuffer);
-    musicBuffer = decoded;
+    /*
+     * EVICT BEFORE INSERT, OLDEST FIRST. A Map preserves insertion order, so the first key is the
+     * least recently ADDED - which is the track that has been playing longest, i.e. the one a swap
+     * is moving away from. See MUSIC_BUFFER_CAP for why this is not optional.
+     */
+    while (musicBuffers.size >= MUSIC_BUFFER_CAP) {
+      const oldest = musicBuffers.keys().next().value;
+      if (oldest === undefined) break;
+      musicBuffers.delete(oldest);
+    }
+    musicBuffers.set(url, decoded);
     return decoded;
   })();
+  musicFetches.set(url, fetching);
 
   try {
-    return await musicFetchPromise;
+    return await fetching;
   } catch (err) {
+    // Graceful silence is the established failure mode here - a decode failure must never throw.
     console.warn('[audio] music load failed', err);
-    musicFetchPromise = null;
+    musicFetches.delete(url);
     return null;
   }
 }
@@ -456,10 +505,21 @@ export function initAudio(): void {
  */
 export async function playMusic(): Promise<void> {
   if (audioContext === null || musicGainNode === null) return;
+  // THE IDEMPOTENCE GUARD. Do NOT remove it to make a track swap work: the PLAYING edge,
+  // `exitNonetRealm` and `stopHelgaTheme` all call this, and this line is what makes all three
+  // safe. A swap goes through `setMusicTrack`, which clears `musicSource` first.
   if (musicSource !== null) return;
   await resumeIfSuspended();
-  const buffer = await getMusicBuffer();
+  /*
+   * S165 - CAPTURED BEFORE THE AWAIT AND RE-CHECKED AFTER IT. A 3 MB fetch plus a decode is long
+   * enough for the player to flip the toggle mid-flight, and without this re-check the stale track
+   * would start and then never be corrected - because the guard above would refuse the next call.
+   */
+  const url = desiredMusicUrl;
+  const buffer = await getMusicBuffer(url);
   if (buffer === null || audioContext === null || musicGainNode === null) return;
+  if (desiredMusicUrl !== url) return;
+  if (musicSource !== null) return;
 
   const source = audioContext.createBufferSource();
   source.buffer = buffer;
@@ -467,6 +527,56 @@ export async function playMusic(): Promise<void> {
   source.connect(musicGainNode);
   source.start();
   musicSource = source;
+}
+
+/**
+ * S165 - STOP THE BASE TRACK. A genuine gap, not a nicety.
+ *
+ * NOTHING STOPPED THE MUSIC ON MATCH END. `musicSource.stop()` appeared in exactly three places -
+ * the NONET takeover, the HELGA takeover and the test reset - so a finished match's loop survived
+ * into the title screen, and the NEXT match's PLAYING edge hit the `musicSource !== null` bail in
+ * `playMusic` and did nothing.
+ *
+ * WITH ONE TRACK THAT WAS INVISIBLE. WITH SIX IT IS THE HEADLINE BUG: pick vampires, play, return
+ * to title, pick orcs, play - and you would hear vampires for the whole second match.
+ */
+export function stopMusic(): void {
+  if (musicSource === null) return;
+  try {
+    musicSource.stop();
+  } catch {
+    // Already ended: an AudioBufferSourceNode is single-use and stop() on a finished node throws.
+  }
+  musicSource = null;
+}
+
+/**
+ * S165 - CHOOSE THE BASE TRACK, restarting it if one is already playing.
+ *
+ * WHY THE URL LIVES IN THIS MODULE AND NOT AT THE CALL SITE. Two other paths resume the base track
+ * by calling the argument-less `playMusic()`: `exitNonetRealm` and `stopHelgaTheme(true)`. If the
+ * which-track decision sat in `main.ts`, finishing a NONET trial or disengaging HELGA would
+ * silently drop the player back to the original track for the rest of the match. Keeping
+ * `desiredMusicUrl` here fixes all three paths at once, and needed no edit to either caller.
+ *
+ * A SWAP RESTARTS FROM 0:00 and there is no cheap way around it: this is a WebAudio buffer source,
+ * `stop()` is terminal and the node is single-use, so there is no pause/resume and no playback
+ * offset bookkeeping in this module to reuse. Cross-fading the covers at the same point in the
+ * piece would need `ctx.currentTime` offset tracking - a deliberate scope decision, not an
+ * oversight.
+ */
+export function setMusicTrack(url: string): void {
+  if (desiredMusicUrl === url) return;
+  desiredMusicUrl = url;
+  // Nothing playing (or no context yet) - the next `playMusic` will pick this up.
+  if (musicSource === null) return;
+  stopMusic();
+  void playMusic();
+}
+
+/** Which track the module currently wants. Exported for tests and the debug overlay. */
+export function currentMusicTrack(): string {
+  return desiredMusicUrl;
 }
 
 // S93 — NONET "different realm" theme (user-provided Cloudstep Caravan, off-bundle). Swapped
@@ -722,6 +832,26 @@ export function setMusicMuted(value: boolean): void {
   writeKey(STORAGE_KEY_MUSIC_MUTED, String(musicMuted));
 }
 
+/**
+ * S165 - THE OWNER'S RACE-MUSIC OPT-OUT.
+ *
+ * Deliberately NOT a `setMusicMuted` twin in one respect: it does not touch a gain node. Mute,
+ * volume and the auto-duck are all BUS-level (`musicGainNode` is created once and every source
+ * connects to it), so a swapped-in race track inherits all three for free. This setter only decides
+ * WHICH buffer feeds that bus.
+ *
+ * It stores the flag and reports it; resolving the flag against the local player's race is the
+ * caller's job, because `audioManager` has no business reading `world`.
+ */
+export function setRaceMusicEnabled(value: boolean): void {
+  raceMusicEnabled = value;
+  writeKey(STORAGE_KEY_RACE_MUSIC, String(raceMusicEnabled));
+}
+
+export function isRaceMusicEnabled(): boolean {
+  return raceMusicEnabled;
+}
+
 export function setSfxMuted(value: boolean): void {
   sfxMuted = value;
   applySfxGain();
@@ -746,10 +876,12 @@ export interface AudioSettings {
   sfxMuted: boolean;
   musicVolume: number;
   sfxVolume: number;
+  /** S165 - false plays the original track instead of the local player's race cover. */
+  raceMusicEnabled: boolean;
 }
 
 export function getAudioSettings(): AudioSettings {
-  return { masterMuted, musicMuted, sfxMuted, musicVolume, sfxVolume };
+  return { masterMuted, musicMuted, sfxMuted, musicVolume, sfxVolume, raceMusicEnabled };
 }
 
 /**
@@ -833,8 +965,16 @@ export function _resetAudioForTest(): void {
   musicGainNode = null;
   sfxGainNode = null;
   musicSource = null;
-  musicBuffer = null;
-  musicFetchPromise = null;
+  /*
+   * S165 - THE NEW MUSIC STATE IS RESET HERE, AND THIS FUNCTION'S OWN HISTORY IS THE WARNING.
+   * It clears the HELGA singletons but has never cleared the NONET ones (`nonetBuffer`,
+   * `nonetFetchPromise`, `nonetSource`, `nonetRealmActive`), so those leak between cases in the
+   * one describe block that relies on this reset for isolation.
+   */
+  musicBuffers.clear();
+  musicFetches.clear();
+  desiredMusicUrl = DEFAULT_MUSIC_SRC;
+  raceMusicEnabled = true;
   masterMuted = false;
   musicMuted = false;
   sfxMuted = false;

@@ -80,7 +80,24 @@ test.describe('S136 P0 — castle context panel', () => {
     await clickCanvas(page, keep0.x, keep0.y);
     const open = await readPanel(page);
     expect(open.open).toBe(true);
-    expect(open.rowCenters.map((r) => r.key)).toEqual(['buyGatherer', 'upgradeSpeed']);
+    /*
+     * S165 - THREE ROWS, AND THIS ASSERTION WAS PART OF THE DEFECT IT NOW GUARDS.
+     *
+     * It pinned exactly ['buyGatherer', 'upgradeSpeed']. S164 P1 added the CASTLE REGEN row (owner
+     * R128-R131) to the panel's data model and to `getUiPoints`' key list, but the constructor still
+     * built its Pixi rows with a hardcoded `for (let i = 0; i < 2; i++)` - so the third row existed
+     * in the data, was reported by nothing, and was DRAWN by nothing. Green here the whole time.
+     *
+     * The owner found it, not a test: "cant seem to click on castle gatherer upgrades i think you
+     * took it off". At 100 victory points BUY GATHERER needs 105 and SPEED is a different control,
+     * so REGEN at exactly 100 was the ONE purchase available - and it was the missing row.
+     *
+     * Both consumers now count from `CASTLE_ROW_KEYS`, so a fourth row cannot half-land. This
+     * expectation stays a hard-coded literal on purpose: derived from the same constant it would
+     * assert `x === x` and pass with any number of rows, which is how the last one slipped through.
+     */
+    expect(open.rowCenters.map((r) => r.key))
+      .toEqual(['buyGatherer', 'upgradeSpeed', 'castleRegen']);
     // On-canvas for this seat — panelOrigin flips the box when it would overflow.
     expect(open.rect!.x).toBeGreaterThanOrEqual(0);
     expect(open.rect!.x + open.rect!.w).toBeLessThanOrEqual(CANVAS_WIDTH);

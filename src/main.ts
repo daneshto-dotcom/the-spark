@@ -129,7 +129,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -138,6 +138,8 @@ import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
+import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
+import { resolveMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
@@ -2262,6 +2264,24 @@ Network routes: ${v.detail}`;
       // showing gameState='PLAYING'). Idempotent — playMusic() is no-op when
       // already playing (Council Adoption-F).
       if (world.gameState === 'PLAYING' && lastGameState !== 'PLAYING') {
+        /*
+         * S165 - CHOOSE THE TRACK BEFORE STARTING IT, and resolve the race HERE rather than
+         * earlier.
+         *
+         * ON THE TITLE SCREEN THE LOCAL RACE READS A CONFIDENT, WRONG 'vampires'. `makeWorld` seats
+         * exactly one player and `makeIdlePlayer` defaults its race, and `world.localPlayerId` is
+         * seat 0 for HOST AND JOINER ALIKE until the roster reassigns it - so asking any earlier
+         * gets an answer that looks valid and is wrong for everyone but seat 0. This edge is the
+         * first instant it is true for everybody: `applyStartGame` has just stamped every seat from
+         * the authoritative roster, and a joiner's `localPlayerId` has just been set from it too.
+         *
+         * `resolveMusicTrack` takes the nullable race precisely so "not known yet" has an honest
+         * answer (the original track) instead of a guess.
+         */
+        setMusicTrack(resolveMusicTrack(
+          world.players.get(world.localPlayerId)?.raceId ?? null,
+          isRaceMusicEnabled(),
+        ));
         void playMusic();
         // S95 P0 — preload the NONET overlay chunk at match start so the trial appears INSTANTLY
         // when it fires (no mid-duel chunk fetch) AND so any load failure surfaces + starts its
@@ -2286,6 +2306,16 @@ Network routes: ${v.detail}`;
         // S87 — drop the bot manager with the match (pure decision state; the
         // reducer's RETURN_TO_TITLE already cleared world.botSeats + players).
         botManager = null;
+        /*
+         * S165 - STOP THE MUSIC WITH THE MATCH, and this is what makes the race track actually
+         * change between games. Nothing used to stop it: the finished match's loop ran on into the
+         * title screen, and the next match's PLAYING edge then hit `playMusic`'s
+         * `musicSource !== null` bail and did nothing at all.
+         *
+         * With one track that was invisible. With six it was the headline bug - pick vampires,
+         * play, come back, pick orcs, and you would hear vampires for the whole second match.
+         */
+        stopMusic();
         workerBotInit = null; // S123 P1 — the worker INIT bot config dies with the match
 
         cutsceneOverlay.abort();
@@ -3294,6 +3324,43 @@ Network routes: ${v.detail}`;
     // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT
     // defensively when world omitted or carrier missing (Battle Ledger C4).
     // Behind everything, so it is synced before the board layers that paint over it.
+    /*
+     * S165 (owner) - THE RACE-BACKGROUND / COSMOS-BLACK TOGGLE, applied from the display store.
+     *
+     * Polled rather than pushed, and cheap on purpose: one boolean read and a compare per frame,
+     * and `setEnabled` is only called when the value actually MOVED. The alternative - handing the
+     * renderer to the settings overlay - would mean reordering two constructions 212 lines apart in
+     * this same function, or a late-bound setter that nothing points at.
+     *
+     * `setEnabled(false)` is a real saving, not just a hidden layer: `sync` early-returns on
+     * `!this.enabled` BEFORE the texture load, so a player on the black board never fetches a
+     * backdrop at all.
+     */
+    /*
+     * S165 (owner) - THE RACE-MUSIC TOGGLE HAS TO BITE ON THE CLICK, not at the next match.
+     *
+     * The settings checkbox only PERSISTS the preference - `audioManager` has no business reading
+     * `world`, so it cannot resolve the flag against the local player's race by itself. Re-resolving
+     * here every PLAYING frame is what makes flipping the switch swap the track immediately, which
+     * is plainly what "toggle off their race music and have the original one" means.
+     *
+     * Cheap by construction: `setMusicTrack` returns on its first line when the url is unchanged, so
+     * the steady-state cost is one map lookup and one string compare per frame.
+     *
+     * PLAYING only. On TITLE the local race is a confident, wrong 'vampires' (see the PLAYING-edge
+     * note above), so polling there would set the wrong track for everyone.
+     */
+    if (world.gameState === 'PLAYING') {
+      setMusicTrack(resolveMusicTrack(
+        world.players.get(world.localPlayerId)?.raceId ?? null,
+        isRaceMusicEnabled(),
+      ));
+    }
+
+    const wantZoneBg = isZoneBackgroundEnabled();
+    if (wantZoneBg !== zoneBackgroundRenderer.isEnabled()) {
+      zoneBackgroundRenderer.setEnabled(wantZoneBg);
+    }
     zoneBackgroundRenderer.sync(world);
     sparkRenderer.sync(freeSparkArr, world);
     structureRenderer.sync(world);

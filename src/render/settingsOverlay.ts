@@ -5,6 +5,15 @@
  * sliders for music and SFX. Mirrors the lobbyScreen.ts HTMLInputElement
  * pattern (position:fixed, z-index:1000, lazy-attached on construction).
  *
+ * S165 - IT ALSO CARRIES THE TWO OWNER TOGGLES NOW, and this is deliberately the place for them
+ * rather than the HUD. Three separate guards make a third top-right Pixi glyph a bad idea:
+ * `ui.ts` registers the two audio glyphs as ONE 34 px band and `hudLayout.test.ts` asserts no
+ * two registered rects overlap; `zones-visual.spec.ts`'s TITLE allowlist names the existing
+ * glyphs literally, so a third is reported as a leaked gameplay instrument and turns the
+ * DEPLOY-GATING e2e subset red; and `exitButton.ts` records that the energy gauge and progress
+ * rail already own that edge from y=80 down. This HTML panel has no geometry contract at all,
+ * which is exactly why it is the right home.
+ *
  * Show/hide via .show()/.hide()/.toggle(). Closes on:
  *   - ✕ button click
  *   - ESC keydown (anywhere)
@@ -21,9 +30,11 @@ import {
   getAudioSettings,
   setMusicMuted,
   setMusicVolume,
+  setRaceMusicEnabled,
   setSfxMuted,
   setSfxVolume,
 } from './audioManager.ts';
+import { isZoneBackgroundEnabled, setZoneBackgroundEnabled } from './displayPrefs.ts';
 
 export interface SettingsOverlayHandle {
   show(): void;
@@ -36,7 +47,7 @@ export interface SettingsOverlayHandle {
 export function createSettingsOverlay(): SettingsOverlayHandle {
   const root = document.createElement('div');
   root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-label', 'Audio settings');
+  root.setAttribute('aria-label', 'Settings');
   root.style.position = 'fixed';
   root.style.top = '60px';
   root.style.right = '24px';
@@ -62,7 +73,8 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   header.style.paddingBottom = '6px';
 
   const title = document.createElement('span');
-  title.textContent = 'AUDIO';
+  // S165 - no longer only audio: the panel now carries the race-background display toggle too.
+  title.textContent = 'SETTINGS';
   title.style.letterSpacing = '0.2em';
   title.style.color = '#3bd7ff';
 
@@ -86,6 +98,23 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   root.appendChild(musicRow.el);
   root.appendChild(sfxRow.el);
 
+  /*
+   * S165 - THE TWO OWNER TOGGLES.
+   *
+   * Checkbox-only rows rather than `createChannelRow`: neither of these has a magnitude, so a
+   * slider would be a lie about what the control does.
+   */
+  const divider = document.createElement('div');
+  divider.style.height = '1px';
+  divider.style.margin = '10px 0 8px';
+  divider.style.background = 'rgba(59, 215, 255, 0.25)';
+  root.appendChild(divider);
+
+  const raceMusicRow = createToggleRow('Race music', 'race-music');
+  const zoneBgRow = createToggleRow('Race background', 'zone-bg');
+  root.appendChild(raceMusicRow.el);
+  root.appendChild(zoneBgRow.el);
+
   // Footer hint
   const hint = document.createElement('div');
   hint.textContent = "press 'M' for global pause";
@@ -104,6 +133,13 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
     musicRow.volumeSlider.value = String(Math.round(s.musicVolume * 100));
     sfxRow.muteCheckbox.checked = !s.sfxMuted;
     sfxRow.volumeSlider.value = String(Math.round(s.sfxVolume * 100));
+    /*
+     * S165 - READ ON EVERY SHOW, like the four above. Skipping this is the quiet failure the
+     * scouting pass warned about: the panel would open showing a stale checkbox with nothing
+     * failing anywhere. Both values are read from their own store, never from a local cache.
+     */
+    raceMusicRow.checkbox.checked = s.raceMusicEnabled;
+    zoneBgRow.checkbox.checked = isZoneBackgroundEnabled();
   }
 
   // Wire interactions.
@@ -118,6 +154,18 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   });
   sfxRow.volumeSlider.addEventListener('input', () => {
     setSfxVolume(Number(sfxRow.volumeSlider.value) / 100);
+  });
+  raceMusicRow.checkbox.addEventListener('change', () => {
+    /*
+     * The SETTER only records the preference. Re-resolving it against the local player's race is
+     * `main.ts`'s job, because `audioManager` must not read `world` - and main.ts applies it on
+     * the very next frame, so the swap is audible immediately rather than at the next match.
+     */
+    setRaceMusicEnabled(raceMusicRow.checkbox.checked);
+  });
+  zoneBgRow.checkbox.addEventListener('change', () => {
+    // Same shape: persist here, and main.ts's render loop hands it to the renderer next frame.
+    setZoneBackgroundEnabled(zoneBgRow.checkbox.checked);
   });
 
   // Stop keydown propagation inside the overlay (PRIME-AUDIT #3): typing
@@ -197,6 +245,44 @@ interface ChannelRow {
   el: HTMLDivElement;
   muteCheckbox: HTMLInputElement;
   volumeSlider: HTMLInputElement;
+}
+
+/**
+ * S165 - a LABEL + CHECKBOX row, for a preference that is on or off and has no magnitude.
+ *
+ * Same 60px label column as `createChannelRow` so the four rows line up, but the slider column is
+ * dropped rather than disabled: an inert slider reads as a broken control.
+ */
+interface ToggleRow {
+  el: HTMLDivElement;
+  checkbox: HTMLInputElement;
+}
+
+function createToggleRow(label: string, idPrefix: string): ToggleRow {
+  const el = document.createElement('div');
+  el.style.display = 'grid';
+  el.style.gridTemplateColumns = '1fr 28px';
+  el.style.alignItems = 'center';
+  el.style.gap = '8px';
+  el.style.marginTop = '6px';
+
+  const labelEl = document.createElement('label');
+  labelEl.textContent = label;
+  labelEl.htmlFor = `${idPrefix}-toggle`;
+  labelEl.style.fontSize = '11px';
+  labelEl.style.letterSpacing = '0.08em';
+  labelEl.style.color = 'rgba(255, 255, 255, 0.8)';
+  labelEl.style.cursor = 'pointer';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = `${idPrefix}-toggle`;
+  checkbox.style.cursor = 'pointer';
+  checkbox.style.accentColor = '#3bd7ff';
+
+  el.appendChild(labelEl);
+  el.appendChild(checkbox);
+  return { el, checkbox };
 }
 
 function createChannelRow(label: string, idPrefix: string): ChannelRow {

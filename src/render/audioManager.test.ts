@@ -12,6 +12,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { asPrimitiveId } from '../types.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
+  stopMusic,
+  setRaceMusicEnabled,
+  setMusicTrack,
+  isRaceMusicEnabled,
+  currentMusicTrack,
   boomFreq,
   chargeEnvelope,
   chargeFreq,
@@ -34,6 +39,7 @@ import {
   toggleMute,
   _resetAudioForTest,
 } from './audioManager.ts';
+import { DEFAULT_MUSIC_SRC, RACE_MUSIC_SRC } from './raceMusic.ts';
 
 describe('audioManager — boomFreq (pure, S72 P4 detonation thump)', () => {
   it('starts at 160 Hz, ends at 40 Hz, geometric in between', () => {
@@ -313,7 +319,7 @@ describe('audioManager — per-channel controls (S19 P1)', () => {
     try { window.localStorage.clear(); } catch { /* */ }
   });
 
-  it('default settings: both channels unmuted, music=0.25, sfx=1.0, master=unmuted', () => {
+  it('default settings: channels unmuted, music=0.25, sfx=1.0, master=unmuted, race music ON', () => {
     initAudio();
     const s = getAudioSettings();
     expect(s.masterMuted).toBe(false);
@@ -321,6 +327,81 @@ describe('audioManager — per-channel controls (S19 P1)', () => {
     expect(s.sfxMuted).toBe(false);
     expect(s.musicVolume).toBeCloseTo(0.25, 5);
     expect(s.sfxVolume).toBeCloseTo(1.0, 5);
+    // S165 - race music defaults ON: the owner's framing is that a race's own cover is the new
+    // normal and the original track is the thing you turn back on.
+    expect(s.raceMusicEnabled).toBe(true);
+  });
+
+  /*
+   * S165 - AND THE SHAPE ITSELF IS PINNED, because the test above is an enumeration that does not
+   * know it is one. Add a seventh field to `AudioSettings` and forget `getAudioSettings()`, or
+   * forget `settingsOverlay.refresh()`, and it is silent: the panel shows a stale control while
+   * every assertion above still passes. This fails the moment the shape moves.
+   */
+  it('AudioSettings has exactly the six documented keys', () => {
+    initAudio();
+    expect(Object.keys(getAudioSettings()).sort()).toEqual([
+      'masterMuted', 'musicMuted', 'musicVolume', 'raceMusicEnabled', 'sfxMuted', 'sfxVolume',
+    ]);
+  });
+
+  /**
+   * S165 - THE RACE-MUSIC PREFERENCE (owner: "they will be also able to toggle off their race
+   * music and have the original one").
+   *
+   * Asserted through `getAudioSettings()` only. This suite runs in plain node with no `window`, no
+   * `localStorage` and no `AudioContext` - this file's own header says so - so a test that expected
+   * a buffer to load, or a storage key to survive, would only be testing the absence of a mock.
+   * Persistence is verified by hand on the live URL.
+   */
+  it('setRaceMusicEnabled round-trips through both readers', () => {
+    initAudio();
+    setRaceMusicEnabled(false);
+    expect(getAudioSettings().raceMusicEnabled).toBe(false);
+    expect(isRaceMusicEnabled()).toBe(false);
+    setRaceMusicEnabled(true);
+    expect(getAudioSettings().raceMusicEnabled).toBe(true);
+    expect(isRaceMusicEnabled()).toBe(true);
+  });
+
+  it('setRaceMusicEnabled does NOT disturb the music channel', () => {
+    /*
+     * The same independence property this file already asserts between mute and volume, and it
+     * matters here for a specific reason: mute, volume and the auto-duck are all BUS-level -
+     * `musicGainNode` is created once and every source connects to it - so a swapped-in race track
+     * inherits all three for free. A setter that reached for the gain would break that for nothing.
+     */
+    initAudio();
+    setMusicVolume(0.4);
+    setMusicMuted(true);
+    setRaceMusicEnabled(false);
+    expect(getAudioSettings().musicVolume).toBeCloseTo(0.4, 5);
+    expect(getAudioSettings().musicMuted).toBe(true);
+  });
+
+  it('setMusicTrack records the wanted track, and stopMusic is safe with no context', () => {
+    // Headless, so both take their null-guard early return. What IS observable is the intent.
+    _resetAudioForTest();
+    expect(currentMusicTrack()).toBe(DEFAULT_MUSIC_SRC);
+    setMusicTrack(RACE_MUSIC_SRC.orcs);
+    expect(currentMusicTrack()).toBe(RACE_MUSIC_SRC.orcs);
+    expect(() => { stopMusic(); }).not.toThrow();
+    // A repeat set is a no-op rather than a restart - the first line of `setMusicTrack`.
+    expect(() => { setMusicTrack(RACE_MUSIC_SRC.orcs); }).not.toThrow();
+    expect(currentMusicTrack()).toBe(RACE_MUSIC_SRC.orcs);
+  });
+
+  it('_resetAudioForTest restores the track AND the preference', () => {
+    /*
+     * Non-negotiable, and this function's own history is the warning: it clears the HELGA
+     * singletons but has never cleared the NONET ones, so those leak between cases in this very
+     * describe block - the one block that relies on the reset for isolation.
+     */
+    setRaceMusicEnabled(false);
+    setMusicTrack(RACE_MUSIC_SRC.demons);
+    _resetAudioForTest();
+    expect(currentMusicTrack()).toBe(DEFAULT_MUSIC_SRC);
+    expect(isRaceMusicEnabled()).toBe(true);
   });
 
   it('setMusicVolume clamps and persists', () => {
