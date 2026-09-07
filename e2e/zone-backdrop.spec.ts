@@ -28,7 +28,7 @@
  * capture.
  */
 import { expect, test } from '@playwright/test';
-import { titleButtonCss, waitForWorld } from './helpers.ts';
+import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
 
 /**
  * `ZONE_BG_HOLD_TICKS` in `render/zoneBackgroundRenderer.ts` is 3 * 60 — the backdrop load is held
@@ -100,6 +100,89 @@ test.describe('S165 — the per-race zone backdrop reaches the board', () => {
     // ...and that what it asked for is what the server has.
     for (const entry of zoneArt) {
       expect(entry, `the renderer built a URL the server does not serve: ${entry}`)
+        .toMatch(/^200 /);
+    }
+  });
+});
+
+/**
+ * S165 - AND THE SAME MISSING OBSERVATION FOR THE CASTLE'S OWN UNIT.
+ *
+ * Sweep Lane 1: there is no browser-level check anywhere that a race-unit atlas is ever fetched or
+ * drawn. `raceUnitFrames.test.ts` is a node-side `existsSync`/`readFileSync` pass and says so in its
+ * own header - it proves the FILES are on disk, which is a different claim from the game asking for
+ * one. And `goblinRenderer.loadAtlas` swallows every failure in a bare `catch {}`, deliberately, so
+ * a wrong URL is silent by design.
+ *
+ * THIS PROJECT HAS ALREADY SHIPPED AN INVISIBLE UNIT PAST A GREEN SUITE - the S152 P3 block in
+ * `goblinRenderer.ts` documents it. So this is the backdrop guard's twin: assert the BROWSER asked
+ * for `/art/race-units/unit-<race>-atlas.png` and got a 200, which transitively proves the emitter
+ * ran, a race unit reached the renderer, `atlasKeyFor` built a key, and `ensureRaceAtlas` resolved a
+ * URL the server actually serves.
+ *
+ * ⚠ VS-BOTS, NOT SOLO, and that is load-bearing: the emitter is gated on a seat having a castle
+ * with HP, and a bots match seats four races so the manifest AND the sheet are both exercised.
+ * The wait is TICK-BUDGETED past RACE_UNIT_EMIT_INTERVAL_TICKS for the same reason as the backdrop
+ * spec - a wall-clock wait that is generous locally is a coin flip on a 2-core software-GL runner.
+ */
+test.describe('S165 - the castle-spawned race unit reaches the renderer', () => {
+  test('a bots match FETCHES a race-unit atlas after the first emit', async ({ page }) => {
+    test.setTimeout(240_000);
+    const atlas: string[] = [];
+    page.on('response', (res) => {
+      const u = res.url();
+      if (u.includes('/art/race-units/') && u.endsWith('-atlas.png')) atlas.push(`${res.status()} ${u}`);
+    });
+
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+    const vs = await titleButtonCss(page, 'vsBots');
+    await page.mouse.click(vs.x, vs.y);
+    await page.waitForFunction(
+      () => {
+        const s = (window as unknown as {
+          __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
+        }).__SPARK__;
+        return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
+      },
+      { timeout: 20_000 },
+    );
+    const start = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
+      }).__SPARK__;
+      return s.botSetupOverlay.getUiPoints().start;
+    });
+    const sc = await canvasToCss(page, start.x, start.y);
+    await page.mouse.click(sc.x, sc.y);
+    await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'bots PLAYING');
+
+    /*
+     * The emitter fires on `(tick - seat) % RACE_UNIT_EMIT_INTERVAL_TICKS === 0`, so one full
+     * interval plus a margin guarantees every seated race has produced at least once.
+     */
+    const EMIT_INTERVAL = 1800;
+    const from = (await page.evaluate(
+      () => (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world?.tick ?? 0,
+    )) as number;
+    await page.waitForFunction(
+      ([f, budget]) => {
+        const w = (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world;
+        return w !== undefined && w.tick - f >= budget;
+      },
+      [from, EMIT_INTERVAL + 240] as [number, number],
+      { timeout: 180_000 },
+    );
+
+    expect(
+      atlas.length,
+      `no /art/race-units/*-atlas.png was requested in ${EMIT_INTERVAL + 240} ticks of a bots `
+        + `match. Either the castle emitter produced nothing, or the renderer never asked for the `
+        + `sheet - and loadAtlas swallows load failures by design, so nothing else would say so.`,
+    ).toBeGreaterThan(0);
+
+    for (const entry of atlas) {
+      expect(entry, `the renderer built an atlas URL the server does not serve: ${entry}`)
         .toMatch(/^200 /);
     }
   });
