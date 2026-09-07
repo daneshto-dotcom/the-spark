@@ -728,11 +728,24 @@ interface SerializedCreature {
  *
  * That mattered because host-migration TAKEOVER sets `world.isHost = true` MID-MATCH on a
  * peer whose `simWorkerDriver` is null, so its next frame adopts the worker with LIVE
- * spawners. `spawnedCount` is not telemetry — `hostTick` self-destructs a structure
- * spawner at `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` — so re-seeding silently granted the
- * promoted host a FRESH self-destruct lifetime. Invisible to every runtime instrument:
- * spawners are absent from `NARROW_HASHED_FAMILIES` (the only hash compared at runtime),
- * and a mismatch merely increments a counter.
+ * spawners.
+ *
+ * ⛔ S165 (sweep Lane 2) — THE REASON GIVEN HERE IS DEAD, AND THE CONCLUSION STILL STANDS. It read:
+ * *"`spawnedCount` is not telemetry — `hostTick` self-destructs a structure spawner at
+ * `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` — so re-seeding silently granted the promoted host a FRESH
+ * self-destruct lifetime."* S159 P9 deleted that self-destruct arm on an owner reversal (*"it should
+ * not be so… he should continuously spawn them"*) and the constant with it, so there is no lifetime
+ * left to grant. `spawnedCount` today is incremented in two places and READ by exactly two:
+ * `debugOverlay` and the wide hash.
+ *
+ * ⭐ WHICH IS WHY THE FIELD MUST STILL SURVIVE THE ROUND-TRIP: it is in `SpawnerHashed` and in the
+ * `:sc` projection, so a re-seed diverges `hashWorldStateFull` — the differential and worker-parity
+ * gates both compare it. The hazard moved from "a mechanic silently resets" to "the oracle reports a
+ * desync", which is less dangerous and still not free.
+ *
+ * ⚠ And the original note's last sentence is worth keeping in view: spawners are absent from
+ * `NARROW_HASHED_FAMILIES`, the only hash compared at RUNTIME, so a live mismatch merely increments
+ * a counter. The wide oracle sees this; two live peers do not.
  *
  * ⇒ The four cadence fields are now ADDITIVE-OPTIONAL and are emitted by
  * `serializeSpawner` for the LOCAL consumers (disk save + worker INIT), and STRIPPED from

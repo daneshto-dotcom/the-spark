@@ -342,11 +342,15 @@ export interface Creature {
    * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
    * at expiry). Consumed by `computeSteeringAccel` (scales the steering accel while live).
    *
-   * HOST-ONLY — NOT serialized: `serializeCreature` is an explicit field whitelist that never
-   * emits this, so it adds ZERO wire/save surface and needs NO protocol bump (the client renders
-   * the slower synced positions automatically). A host reload rehydrates it undefined (the slow
-   * transient resets, like targetCreatureId) — acceptable. Mutable; defaults undefined (no factory
-   * change) → un-pooped creatures stay byte-identical (the Voltkin/chewer replay-equivalence guard).
+   * ⛔ S165 (sweep Lane 2) — THIS SAID "HOST-ONLY — NOT serialized" AND IT IS SERIALIZED. S142 P1
+   * added it to `SerializedCreature` and `serializeCreature` emits it (`save.ts:1922`, conditionally
+   * so an un-pooped creature stays byte-identical), with `deserializeCreature` restoring it
+   * (`save.ts:2283`). S142's own story is that the debuff did NOT survive a round-trip and had to be
+   * put on the wire — so the field's two halves have been asserting opposite things ever since.
+   *
+   * ON THE WIRE, conditionally: zero surface for an un-pooped creature, which is what preserves the
+   * Voltkin/chewer replay-equivalence guard, and what let it land without a protocol bump under the
+   * additive-optional rule. Mutable; defaults undefined (no factory change).
    */
   poopyUntilTick?: number;
 }

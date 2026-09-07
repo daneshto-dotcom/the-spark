@@ -8,11 +8,19 @@
  *     `src/render/ui.drainOrder.test.ts`.
  *
  * V6-0.3 (S131) CORRECTION — this header previously claimed effects were "write-only telemetry"
- * and "NOT persisted (save.ts ignores them)". Both were flatly false and had been for a long
- * time: `serializeEffect` (save.ts:1349) puts FIVE kinds on the wire and into localStorage saves
- * — ARC_FLASH, BOND_FORMED, BOND_SEVERED, CREATURE_CHARGE, BOMB_EXPLODE — and
- * `deserializeEffect` (save.ts:1412) rehydrates them. The remaining kinds return null there and
- * ARE host-local. Treating this docblock as authoritative is how a session concludes an effect
+ * and "NOT persisted (save.ts ignores them)". Both were flatly false and had been for a long time.
+ *
+ * ⛔ S165 (sweep Lane 2) — AND THE CORRECTION ITSELF WENT STALE, WHICH IS THE POINT THIS BLOCK
+ * KEEPS PROVING ABOUT ITSELF. It said "FIVE kinds" and named them, and cited `save.ts:1349` /
+ * `save.ts:1412`. Re-measured: `serializeEffect` (`save.ts:2058`) has **twelve** `case` arms and
+ * `deserializeEffect` (`save.ts:2137`) rehydrates **SIX** — `RAIDED` joined at S152 and is the
+ * first arm of both switches, and neither cited line number has been right for many sessions.
+ *
+ * The six that round-trip: ARC_FLASH, BOMB_EXPLODE, BOND_FORMED, BOND_SEVERED, CREATURE_CHARGE,
+ * RAIDED. The rest serialize and then rehydrate as nothing, so they are host-local in practice.
+ *
+ * ⚠ COUNT THEM, DO NOT TRUST THIS PARAGRAPH — that is the standing instruction, and it has now
+ * been earned twice. Treating this docblock as authoritative is how a session concludes an effect
  * field costs nothing on the wire.
  *
  * Each effect has a `tick` so the renderer knows the age in ticks for

@@ -119,10 +119,30 @@ describe('S150 P1 — the bump changelog is complete in both carriers, mechanica
     return found;
   };
 
-  // `bumped N->M:` — the narrative block's own consistent phrasing for 26 entries.
-  const NARRATIVE_LINKS = links(NARRATIVE, /bumped\s+(\d+)\s*->\s*(\d+)/g);
+  /*
+   * `bumped N->M` — the narrative block's phrasing.
+   *
+   * S165 (sweep Lane 2) — CASE-INSENSITIVE, AND IT ACCEPTS THE ARROW GLYPH. The pattern was
+   * `/bumped\s+(\d+)\s*->\s*(\d+)/g`: lower-case `bumped` and an ASCII `->`. The block's own
+   * headline entries are written `⭐ S157 B8 — BUMPED 33 → 34: ...` — CAPITALS and an arrow
+   * glyph — so NONE of them ever matched. Every link the gate found came from the terse one-liners
+   * above the constant.
+   *
+   * The gate still PASSED, which is why nobody noticed: the two carriers agreed because the
+   * one-liners are complete. MEASURED: the old pattern found 31 links, this one finds 41 - TEN
+   * documented bumps were invisible to the gate, and they turned out to be the EARLIEST ones
+   * (1-2 through 10-11), which are written with the arrow GLYPH rather than ASCII. My first
+   * guess here was that the star blocks were the missing ten; they are not - their links are
+   * duplicated by terse one-liners, so the gate saw the LINK while never being able to read the
+   * BLOCK. Both spellings now count, on both axes. It was materially weaker than its docblock
+   * claims — delete a
+   * terse line while leaving its ⭐ block intact and the gate would have reported a broken chain
+   * over a bump that IS documented. Widened so both spellings count.
+   */
+  const BUMP_RE = /bumped\s+(\d+)\s*(?:->|→)\s*(\d+)/gi;
+  const NARRATIVE_LINKS = links(NARRATIVE, BUMP_RE);
   // `N->M (` — the HelloMsg index's phrasing, which always opens a parenthesised reason.
-  const HELLO_LINKS = links(HELLO_LIST, /(\d+)\s*->\s*(\d+)\s*\(/g);
+  const HELLO_LINKS = links(HELLO_LIST, /(\d+)\s*(?:->|→)\s*(\d+)\s*\(/g);
 
   /**
    * ⭐ EACH CARRIER GETS ITS OWN FLOOR, MEASURED — NOT A SHARED CONSTANT.
