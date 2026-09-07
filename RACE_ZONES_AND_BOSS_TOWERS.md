@@ -86,12 +86,38 @@ The race shape is already defined and load-bearing — `RACE_FEED_SHAPE` in `src
 
 | Race | Shape | Boss |
 |---|---|---|
-| Vampires | Triangle | **Vlad** (owner-named) |
-| Nagas | Square | TBD |
-| Mummies | Line | **Pharaoh** (owner-named) |
-| Zombies | Circle | TBD |
-| Orcs | Dot | TBD |
-| Demons | Spiral | TBD |
+| Vampires | Triangle | **Vlad** |
+| Nagas | Square | **Kraken** |
+| Mummies | Line | **Pharaoh** |
+| Zombies | Circle | **Whopper** — see the naming note below |
+| Orcs | Dot | **Chieftain / Warlord** |
+| Demons | Spiral | **Lucifer** |
+
+⭐ **ALL SIX ARE NOW OWNER-NAMED (S166).** The four that were TBD were ruled verbatim:
+
+> *"Nagas -Kraken. Zombies - Whopper (like in resident evil), Orcs - Chieftain/Warlord, Demons -
+> Lucifer. they all need to look absolutely terrifying and fucking epic and we will give them all
+> unique skills and awwesome graphics for those skills and for their movements and all!"*
+
+So the ART BRIEF is part of the ruling and not a later decision: **terrifying and epic**, with unique
+skills, and generated graphics for the skills AND the movement — not just an idle/walk/attack sheet.
+That is a bigger art bill than the tier-3 units carried (which are 4 rows each); budget for
+per-skill effect sequences on top of per-boss locomotion.
+
+⚠ **TWO NAMING RISKS TO SETTLE BEFORE ART, and they are different from each other.**
+
+· **"Whopper" is a live Burger King trademark**, and it is a food-and-beverage mark rather than a
+  game one — but a shipped, publicly-hosted game putting it on a creature is a trademark exposure
+  rather than a copyright one, which is the more awkward kind to argue about. The owner's INTENT is
+  clear and unambiguous from the reference: the Resident Evil 2 "Whopper" is a hugely bloated,
+  swollen zombie brute. That CREATURE CONCEPT is fine to build — giant bloated undead is generic
+  — and it is only the word that carries the risk. Cheap alternatives that keep the intent: **BLOAT**,
+  **GLUTTON**, **THE SWOLLEN**, **TUMOR**. ⛔ Owner's call, not mine; recorded here so it is a
+  decision rather than a discovery after 18 assets are generated.
+· **The DESIGN must be original for all six regardless of name**, per §F below. "Whopper" and
+  "Kraken" both have specific studio-authored looks (Capcom's and, for the kraken, several); this
+  project already reworked a Totoro look-alike in S95. Public-domain lore is safe (Vlad, Lucifer,
+  Pharaoh, Kraken as a myth); a studio's *rendering* of it is not.
 
 **Behaviour, from the brief:**
 

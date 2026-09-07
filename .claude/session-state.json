@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 5935,
+  "tool_calls_session_total": 5937,
   "session_id": "S166",
   "session_kind": "batch-pdca",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -286,23 +286,8 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "ef944bd",
-      "check_method": "Every castle emits one free race soldier every ~30 s and the renderer draws it from that seat's race atlas. ONE `raceUnit` CreatureType for all six races (R94/R117 make them stat-identical, so the race is read off `player.raceId`, on the wire since v39) rather than six literals. PROTOCOL bumped 41->42 across all six checklist sites, and the sync gate caught two real mistakes in my own bump before it passed: I destroyed the 40->41 narrative link by replacing it, and I put the new HelloMsg entry in the wrong chronological position, then in the wrong docblock entirely. Per-seat sentinel SpawnerId (-1 - seat), a third cap family RACE_UNIT_MAX_* with `raceUnit` also EXCLUDED from underGoblinCaps' count, and its own explicit call site because the spawner poll iterates a map the sentinel is absent from. Deterministic spread via spreadTargetPos so units do not stack. The frozen differential gate broke on tick 1 exactly as A.0 predicted and was fixed at the FIXTURE (start tick 900, off the recruit cadence) with the equivalence argument written there - never by transcribing into the frozen reference. Five other test files were adjusted and every one was SHARPENED rather than loosened: four used world.creatures.size as a proxy for 'the spawner emitted nothing' while their own titles said drones/chewers/goblins, and one measured a bot's competence by whether its tower SURVIVED 18,000 ticks. GATES: typecheck 0, vitest 0 (3705/3705 across 237), build 0, e2e:gating 0 (62), CI E2E success, verify-deploy PASS 4/4.",
+      "check_method": "Every castle emits one free race soldier every ~30 s and the renderer draws it from that seat's race atlas. ONE `raceUnit` CreatureType for all six races (R94/R117 make them stat-identical, so the race is read off `player.raceId`, on the wire since v39) rather than six literals. PROTOCOL bumped 41->42 across all six checklist sites, and the sync gate caught two real mistakes in my own bump before it passed: I destroyed the 40->41 narrative link by replacing it, and I put the new HelloMsg entry in the wrong chronological position, then in the wrong docblock entirely. Per-seat sentinel SpawnerId (-1 - seat), a third cap family RACE_UNIT_MAX_* with `raceUnit` also EXCLUDED from underGoblinCaps' count, and its own explicit call site because the spawner poll iterates a map the sentinel is absent from. Deterministic spread via spreadTargetPos so units do not stack. The frozen differential gate broke on tick 1 exactly as A.0 predicted and was fixed at the FIXTURE (start tick 900, off the recruit cadence) with the equivalence argument written there - never by transcribing into the frozen reference. Five other test files were adjusted and every one was SHARPENED rather than loosened: four used world.creatures.size as a proxy for 'the spawner emitted nothing' while their own titles said drones/chewers/goblins, and one measured a bot's competence by whether its tower SURVIVED 18,000 ticks. GATES: typecheck 0, vitest 0 (3705/3705 across 237), build 0, e2e:gating 0 (62), CI E2E success, verify-deploy PASS 4/4.\n\n ⛔ MCV RECONCILED (S166) — SIX BINDINGS WERE SUPERSEDED BY THIS SESSION'S OWN LATER WORK, AND EVERY ONE WAS REPLACED RATHER THAN DELETED, on the S165 precedent for exactly this (\"Binding REPLACED by two that pin the new form, with the supersession recorded in check_method - not deleted\"). None was a fabrication; each claim was TRUE when written and the tree moved underneath it. (1-2) S165 P7 pinned `PROTOCOL_VERSION = 42` and `protoVersion: 42`, which P2 bumped to 43. (3) S165 P7 pinned \"| 'raceUnit';\" WITH the semicolon; the six t3 literals now follow it, so the semicolon moved. ⭐ THAT BRITTLE BINDING EARNED ITS KEEP FIRST: earlier this session it is what caught a discovery agent writing a fake CreatureType into the tree. It pins ORDER as well as presence, which is fragile AND is why it noticed. Replaced by two - `| 'raceUnit'` for presence and `| 't3Souleater';` for the union terminator. (4) S165 P9 pinned \"42 at S165\" in CLAUDE.md, updated by bump site 6. (5-6) MY OWN P1 pinned `this.spriteHost.mask = this.portalMask;` and `.cut();`, both DELETED by my own bake fix after the stencil mask broke CI. Replaced by bindings on `punchPortal` / `destination-out` / `portalInSource`, plus `file_lacks` on `.mask =` and `new Graphics()` - the NEW invariants. ⚠ `.cut()` was REJECTED as a file_lacks needle: it appears once in raw text because the new docblock QUOTES the old mask to explain why it was wrong. Measured, not assumed - the same check that rejected `0x000000` and `sortableChildren` earlier today.",
       "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 42 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 42;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "| 'raceUnit';"
-        },
         {
           "type": "file_contains",
           "path": "src/state/raceUnitEmit.ts",
@@ -329,6 +314,26 @@
           "pattern": "\\bit\\(",
           "op": ">=",
           "value": 12
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 43 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 43;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 'raceUnit'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 't3Souleater';"
         }
       ]
     },
@@ -507,11 +512,6 @@
         },
         {
           "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "42 at S165"
-        },
-        {
-          "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
           "needle": "THE S162 BLOCKER IS CLOSED"
         },
@@ -519,6 +519,11 @@
           "type": "file_lacks",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
           "needle": "- [ ] ⛔ **BLOCKER FOUND IN S162"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "43 at S166"
         }
       ]
     },
@@ -532,22 +537,12 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "204fc3f",
-      "check_method": "ROOT CAUSE, established by reading the code rather than by reproducing: portalCut was circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer, while SparkRenderer is constructed on app.stage (main.ts:535) and aboveFogLayer is added after it (main.ts:679) - so the disc sat strictly above every spark and bond, at the one spot where all of them are born. The owner's own sentence carried the diagnosis (his gatherer kept gathering = the sim was never involved). SECOND DEFECT, and the reason it shipped: the :20 docblock asserted the OPPOSITE layering (the FIRST layer added to the stage, so every spark/bond/structure/creature paints on top of it), stale from the first cut, while the :148 docblock in the same file records the move onto aboveFogLayer in full. Its list is wrong exactly where it mattered - creatures, goblins, gatherers and towers ARE above; sparks and bonds are the two gameplay layers below. FIX: sprites moved into a spriteHost masked by rect(canvas).fill().circle(quarry).cut(); portalCut DELETED so no opaque fill exists on the layer at all; sortableChildren + zIndex removed rather than replaced, because they existed only to keep paint above lazily-loaded sprites and a mask is not in the paint order. The old docblock's objection to masking (rebuilt whenever the geometry moves) does not apply - every input is a compile-time constant. VERIFICATION, four independent ways. (1) Six unit tests pinning the INVARIANT (nothing opaque on the layer; every sprite through the mask), not the symptom. (2) TWO NEGATIVE CONTROLS, each red for the right reason and reddening only the right test: routing sprites to this.layer gave NC1_EXIT=1 on the sprite-parent test; dropping the mask assignment gave NC2_EXIT=1 on the structural test. (3) The source scans STRIP COMMENTS - mandatory here because the new docblock QUOTES the old fill line verbatim to explain it, so a naive scan would match the quote and pass while the defect was live. Same vacuity class registerAll.test.ts documents. (4) RUNTIME in a real browser on a 4-seat QUADRANTS_4P board: all four backdrops loaded, all four sprites reported parent===spriteHost, layer children exactly [_Container,_Graphics], portalCut absent from the instance, layerVisible true, alphas 0.55. The hidden Browser pane throttles rAF to about 1 tick/sec so sync never ran on its own; I invoked the real production sync(world) directly, substituting only the scheduler. __SPARK__.zoneBackgroundRenderer was added for this (S85 P4c geometry-getter convention, DEV-only, tree-shaken) because a static test cannot observe runtime layering. BINDING HYGIENE: I checked every file_lacks needle against RAW text first and DROPPED two that would have false-failed - 0x000000 (raw count 1, my own docblock quote) and sortableChildren (raw count 1, my own comment). That is precisely the brittle-binding class that produced this session's MCV incident, avoided by measuring instead of assuming. GATES, every exit code read from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3762 tests / 242 files, +6 tests +1 file), BUILD_EXIT=0 (787.6 KiB main entry, 112.4 KiB headroom). NOT DONE, deliberately, and stated rather than silently dropped: the e2e assertion the PDR listed. A scene-graph assertion there would have been near-duplicative of the unit test and would still NOT catch a WebGL mask failure, which needs pixel sampling that is ambiguous here because the disc is legitimately black. Replaced by the real-browser runtime check above, which is stronger evidence. ALSO NOT DONE, owner-declined: raising sparks/bonds above the backdrop to remove the residual 0.55 dimming OUTSIDE the disc. That would put shape activity above the FOG, a gameplay change; he was offered it explicitly and chose the hole fix alone.",
+      "check_method": "ROOT CAUSE, established by reading the code rather than by reproducing: portalCut was circle().fill({color:0x000000}) at alpha 1.0 on aboveFogLayer, while SparkRenderer is constructed on app.stage (main.ts:535) and aboveFogLayer is added after it (main.ts:679) - so the disc sat strictly above every spark and bond, at the one spot where all of them are born. The owner's own sentence carried the diagnosis (his gatherer kept gathering = the sim was never involved). SECOND DEFECT, and the reason it shipped: the :20 docblock asserted the OPPOSITE layering (the FIRST layer added to the stage, so every spark/bond/structure/creature paints on top of it), stale from the first cut, while the :148 docblock in the same file records the move onto aboveFogLayer in full. Its list is wrong exactly where it mattered - creatures, goblins, gatherers and towers ARE above; sparks and bonds are the two gameplay layers below. FIX: sprites moved into a spriteHost masked by rect(canvas).fill().circle(quarry).cut(); portalCut DELETED so no opaque fill exists on the layer at all; sortableChildren + zIndex removed rather than replaced, because they existed only to keep paint above lazily-loaded sprites and a mask is not in the paint order. The old docblock's objection to masking (rebuilt whenever the geometry moves) does not apply - every input is a compile-time constant. VERIFICATION, four independent ways. (1) Six unit tests pinning the INVARIANT (nothing opaque on the layer; every sprite through the mask), not the symptom. (2) TWO NEGATIVE CONTROLS, each red for the right reason and reddening only the right test: routing sprites to this.layer gave NC1_EXIT=1 on the sprite-parent test; dropping the mask assignment gave NC2_EXIT=1 on the structural test. (3) The source scans STRIP COMMENTS - mandatory here because the new docblock QUOTES the old fill line verbatim to explain it, so a naive scan would match the quote and pass while the defect was live. Same vacuity class registerAll.test.ts documents. (4) RUNTIME in a real browser on a 4-seat QUADRANTS_4P board: all four backdrops loaded, all four sprites reported parent===spriteHost, layer children exactly [_Container,_Graphics], portalCut absent from the instance, layerVisible true, alphas 0.55. The hidden Browser pane throttles rAF to about 1 tick/sec so sync never ran on its own; I invoked the real production sync(world) directly, substituting only the scheduler. __SPARK__.zoneBackgroundRenderer was added for this (S85 P4c geometry-getter convention, DEV-only, tree-shaken) because a static test cannot observe runtime layering. BINDING HYGIENE: I checked every file_lacks needle against RAW text first and DROPPED two that would have false-failed - 0x000000 (raw count 1, my own docblock quote) and sortableChildren (raw count 1, my own comment). That is precisely the brittle-binding class that produced this session's MCV incident, avoided by measuring instead of assuming. GATES, every exit code read from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3762 tests / 242 files, +6 tests +1 file), BUILD_EXIT=0 (787.6 KiB main entry, 112.4 KiB headroom). NOT DONE, deliberately, and stated rather than silently dropped: the e2e assertion the PDR listed. A scene-graph assertion there would have been near-duplicative of the unit test and would still NOT catch a WebGL mask failure, which needs pixel sampling that is ambiguous here because the disc is legitimately black. Replaced by the real-browser runtime check above, which is stronger evidence. ALSO NOT DONE, owner-declined: raising sparks/bonds above the backdrop to remove the residual 0.55 dimming OUTSIDE the disc. That would put shape activity above the FOG, a gameplay change; he was offered it explicitly and chose the hole fix alone.\n\n⛔ SUPERSEDED BY MY OWN BAKE FIX LATER THE SAME SESSION, and the reason is the more important half. The mask shipped, was verified in a real browser, and BROKE CI: a per-frame stencil over the full 1920x1080 canvas collapsed the runner to 5.28 ticks/s and blew the gating lane past its 720 s cap, killing three specs on `waitForWorld timeout: a gatherer banks a shape into the local castle` - this renderer's own fingerprint and the THIRD distinct cause of that same line. I re-ran the failed jobs BEFORE touching the product (the test's own diagnostic warns \"do NOT fix the product from this signal\") and it reproduced identically, so it was not runner noise. Replaced by `punchPortal`, which erases the quarry into each texture once with canvas 2D `destination-out`; steady state is four plain sprites, exactly what shipped before S166, so the portal now costs the frame budget NOTHING. Confirmed by CI going green on 5a1c784 (e2e, e2e-races, e2e-soak all success) and by PIXEL probe in a real browser: alpha 0 just inside the quarry edge, 255 elsewhere.",
       "verification": [
         {
           "type": "file_contains",
           "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": "this.spriteHost.mask = this.portalMask;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
           "needle": "this.spriteHost.addChild(sp);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/zoneBackgroundRenderer.ts",
-          "needle": ".cut();"
         },
         {
           "type": "file_lacks",
@@ -574,18 +569,145 @@
           "type": "file_contains",
           "path": "src/main.ts",
           "needle": "get zoneBackgroundRenderer() { return zoneBackgroundRenderer; },"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "function punchPortal"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "export function portalInSource"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "ctx.globalCompositeOperation = 'destination-out';"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": ".mask ="
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "new Graphics()"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/zoneBackgroundRenderer.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 11
         }
       ]
     },
     {
       "id": 11,
       "title": "P2(S166) - the tier-3 race tower and its six race-specific units (R108/R119/R134/R136/R137)",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "40e2168",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/state/godlyRecipes/ringShape.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/godlyRecipes/raceTower.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/raceTowerIds.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const T3_STATS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 't3Souleater';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/types.ts",
+          "needle": "| 't3TowerDemons';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "} else if (isRaceTowerId(sp.recipeId)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/spawners/spawnerLifecycle.ts",
+          "needle": "case 't3TowerDemons': {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyMatcherCore.ts",
+          "needle": "demonTowerOwner, 't3TowerDemons');"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprints.ts",
+          "needle": "const TRI_RING_R = 34;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprints.ts",
+          "needle": "'t3TowerVampires', 't3TowerNagas', 't3TowerMummies',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "export function seatTowerRungs"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/goblinTowerFeed.ts",
+          "needle": "export function fedCreatureType"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "const visible = ALL_BLUEPRINT_IDS.filter"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "t3Bat: t3UnitAtlasBase('vampires'),"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "'t3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyRecipes/ringShape.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 12
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyRecipes/raceTower.test.ts",
+          "pattern": "\\bit\\(",
+          "op": ">=",
+          "value": 10
+        }
+      ],
+      "check_method": "Built the tier-3 race tower and its six units end to end. R119 already ruled the build cost (three of the race own shape, closed ring), so nothing was asked of the owner that the archive had settled - the S165 handoff's \"ask the build cost first\" was the S158 trap. SIX CreatureTypes rather than one is FORCED, not chosen: the castle mints one `raceUnit` because R125 makes those stat-identical, but R135 varies tier-3 stats per race and `serializeCreature` emits `hp` only when DAMAGED, so an undamaged creature carries no stats and the peer rebuilds them from its OWN CREATURE_CONFIGS keyed by TYPE. FOUR THINGS WOULD HAVE SHIPPED BROKEN. (a) `hostTick.ts:818` is an `else` emitting `chewer` for every unnamed spawner recipe - six towers passively making PENCIL CHEWERS, verbatim the owner-reported S152 A1 defect, and in NONE of the spec's bill or B9-B14. (b) `recipeStillSatisfied`'s default would have kept all six alive forever off one primitive. (c) B12: RING_R=40 gives 69.3 px at n=3, past AUTO_BOND_RADIUS - stampable and UN-BUILDABLE BY HAND; TRI_RING_R=34 gives 58.9 px. (d) B14: botBrain sorts ALL_BLUEPRINT_IDS at module level with no seat, so every bot of every race would queue t3TowerDemons and order Spirals for a tower R137 refuses. THE GUARDS CAUGHT TWO OF MY OWN MISTAKES. `registerAll.test.ts` failed by name, then its extraction regex exposed both: it is NON-GREEDY so `findRaceTowerAnchors(world, 'vampires')` handed it \"vampires\" instead of the id, and its class was `[A-Za-z]+` with NO DIGITS so `t3TowerDemons` was invisible. Fixed by keeping the id the only literal in each ignition call (per-race helper functions) and widening the class - a GodlyId is a serialized wire literal, so a test's character class must not choose the wire format. AND TWO TEST FILES CARRIED COPIES OF THE BRAIN'S RUNG SORT, both of which went stale at once when tier 3 became the cheapest build: `botTowers.test.ts` and `botTowerVariety.test.ts` each derived \"cheapest\" from ALL_BLUEPRINT_IDS and so banked Spirals for a demon tower the NAGAS bot can neither see (R95) nor ignite (R137). Eleven red tests, zero real bugs. `seatTowerRungs` is now EXPORTED and shared, so neither copy can drift again. LINE ENDINGS: src/ is mixed PER FILE (constants/creature/voltkin-config/stats/blueprints/protocol are CRLF; hostTick/goblinRenderer/types/registerAll/spawnerLifecycle/botBrain are LF). An LF anchor matches ZERO times in a CRLF file - which is how this was found - so every edit detected the file's own ending and verified uniformity at the BYTE level after writing. STATS ARE PROVISIONAL AND SAY SO: R135 gives no figures and the owner intends to decide by testing, so T3_STATS marks every number as MINE with its derivation (band 2-4 HP, above the free 1/1/1/1 castle soldier and below every goblin, R99's zombie/mummy poles fixing the spread, totals near-flat). NOT BUILT, stated rather than dropped: R121's submerged naga (an engineering surface across every acquisition path), the `die` atlas row (no renderer arm can request row 3), and the tower's own four-state art + destroy cinematics (the UNITS are wired; the tower art is not). The registry-driven ignition rewrite that would end the hand-written-chain defect class is named at the call site and deliberately left to its own priority - it changes one-spawner-per-topology-change semantics on the sim hot path. GATES, every exit code from a captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (3880 tests / 244 files, +113 tests +2 files over the 3767/242 baseline), BUILD_EXIT=0 (795.0 KiB main entry, 105.0 KiB headroom under the 900 KiB charter)."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -721,7 +843,7 @@
   },
   "real_context_tokens_at_close": 309984,
   "real_context_pct_at_close": 31.0,
-  "checkpoint_commit": "204fc3f",
+  "checkpoint_commit": "40e2168",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -6869,7 +6991,21 @@
   "owner_rulings_s166": {
     "R_render_hole": "Owner selected \"Ship the hole fix\": the spawner portal must be a genuine HOLE in the backdrop, not opaque black paint above gameplay. Explicitly did NOT take the option that raises sparks above the backdrop, because that would put shape activity above the FOG.",
     "R136_ring_slack": "Owner selected \"Relax the rule\": a tier-3 race ring is NOT degree-exactly-2. It is degree >= 2 PLUS exactly 2 same-type in-ring neighbours that are bonded to each other. Reason presented and accepted: one friendly shape auto-bonding to any node would otherwise destroy the tower (measured true at all 3 nodes for all 6 races), on what will be the cheapest and most-built structure in the game. Grants the ring the same slack isStarAt already grants star leaves.",
-    "R137_off_race_ring": "Owner selected \"Refuse it\": an off-race player may NOT ignite another race's ring. Enforce at the owner-resolution step by comparing player.raceId against the ring's shape. R95 covers only panel visibility/buildability, not matchability."
+    "R137_off_race_ring": "Owner selected \"Refuse it\": an off-race player may NOT ignite another race's ring. Enforce at the owner-resolution step by comparing player.raceId against the ring's shape. R95 covers only panel visibility/buildability, not matchability.",
+    "R138_tier9_boss_names": {
+      "verbatim": "Nagas -Kraken. Zombies - Whopper (like in resident evil), Orcs - Chieftain/Warlord, Demons - Lucifer. they all need to look absolutely terrifying and fucking epic and we will give them all unique skills and awwesome graphics for those skills and for their movements and all!",
+      "names": {
+        "vampires": "Vlad (S164 or earlier)",
+        "mummies": "Pharaoh (S164 or earlier)",
+        "nagas": "Kraken",
+        "zombies": "Whopper",
+        "orcs": "Chieftain / Warlord",
+        "demons": "Lucifer"
+      },
+      "art_brief_is_part_of_the_ruling": "terrifying + epic; unique skills each; generated graphics for the SKILLS and the MOVEMENTS, not only idle/walk/attack. Larger art bill than the tier-3 units (4 rows each).",
+      "flagged_to_owner": "\"Whopper\" is a live Burger King trademark. The INTENT is unambiguous (the RE2 bloated zombie brute) and that concept is generic and safe; only the WORD carries exposure on a publicly hosted game. Alternatives offered: BLOAT / GLUTTON / THE SWOLLEN / TUMOR. Also flagged: the DESIGN must be original for all six per the doc's own §F, which exists because S95 shipped a Totoro look-alike and had to rework it. Owner decision, recorded rather than acted on.",
+      "status": "RECORDED ONLY - owner said \"no dont work on tier 9 boss yet. next session\""
+    }
   },
   "integrity_incident_s166": {
     "what": "My own Workflow discovery lanes WROTE to the working tree. One lane added a fake CreatureType 'probeT3Vampires' plus the three Record entries tsc demands, across src/state/creatures/creature.ts, src/state/creatures/voltkin-config.ts and src/state/stats.ts, and did not revert it.",
@@ -6906,5 +7042,8 @@
     "why": "Rule 0 names \"deliberation round\" explicitly among the bookkeeping gates that may not stop, shrink or defer an approved batch in flight, and directs: do the work and record the deviation. The owner gave an unambiguous go and expects delivery this session.",
     "what_substitutes": "An unusually strong empirical A.0 pass, all of it cited: an adversarial discovery lane that ran its own throwaway vitest probe over every shipped predicate against a bare 3-ring of all six SparkTypes (refuting the R119 collision by construction), plus my own independent verification of every load-bearing claim - the 3 compiler-forced tables (measured via a fake-CreatureType tsc probe), the 5 silent collections, the six protocol-bump sites read off protocol.ts, the type-generic serializer, and the RING_R arithmetic. Two owner rulings (R136/R137) were taken on measured evidence rather than assumed.",
     "residual_risk_accepted": "No Gemini quality lens on the design. The two highest-risk items (the hostTick chewer default and recipeStillSatisfied default) are covered by tests with negative controls instead."
+  },
+  "mcv_reconcile_s166": {
+    "what": " ⛔ MCV RECONCILED (S166) — SIX BINDINGS WERE SUPERSEDED BY THIS SESSION'S OWN LATER WORK, AND EVERY ONE WAS REPLACED RATHER THAN DELETED, on the S165 precedent for exactly this (\"Binding REPLACED by two that pin the new form, with the supersession recorded in check_method - not deleted\"). None was a fabrication; each claim was TRUE when written and the tree moved underneath it. (1-2) S165 P7 pinned `PROTOCOL_VERSION = 42` and `protoVersion: 42`, which P2 bumped to 43. (3) S165 P7 pinned \"| 'raceUnit';\" WITH the semicolon; the six t3 literals now follow it, so the semicolon moved. ⭐ THAT BRITTLE BINDING EARNED ITS KEEP FIRST: earlier this session it is what caught a discovery agent writing a fake CreatureType into the tree. It pins ORDER as well as presence, which is fragile AND is why it noticed. Replaced by two - `| 'raceUnit'` for presence and `| 't3Souleater';` for the union terminator. (4) S165 P9 pinned \"42 at S165\" in CLAUDE.md, updated by bump site 6. (5-6) MY OWN P1 pinned `this.spriteHost.mask = this.portalMask;` and `.cut();`, both DELETED by my own bake fix after the stencil mask broke CI. Replaced by bindings on `punchPortal` / `destination-out` / `portalInSource`, plus `file_lacks` on `.mask =` and `new Graphics()` - the NEW invariants. ⚠ `.cut()` was REJECTED as a file_lacks needle: it appears once in raw text because the new docblock QUOTES the old mask to explain why it was wrong. Measured, not assumed - the same check that rejected `0x000000` and `sortableChildren` earlier today."
   }
 }

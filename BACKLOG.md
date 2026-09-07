@@ -24,7 +24,7 @@ session and not for the next one but maybe for the one after"*. Captured now so 
 - [ ] **B — TIER-9 BOSS TOWERS, one per race.** Nine of the race's own shape (`RACE_FEED_SHAPE`)
       builds it; it releases ONE boss and then crumbles in a generated video effect. ⛔ Explicitly
       **NOT a Voltkin-style cutscene** — the sim keeps running underneath. ≤ 8 s for the whole
-      sequence. Vampires → Vlad, mummies → Pharaoh, rest TBD. Two unique attacks/skills each; the
+      sequence. ALL SIX NAMED S166: vampires → Vlad, nagas → Kraken, mummies → Pharaoh, zombies → Whopper (⚠ Burger King trademark — owner to confirm or rename; the RE2 bloated-brute CONCEPT is what he meant and is safe), orcs → Chieftain/Warlord, demons → Lucifer. Owner brief: *"absolutely terrifying and fucking epic"*, unique skills each, with generated graphics for the SKILLS and the MOVEMENTS — a larger art bill than tier-3's four-row sheets. Two unique attacks/skills each; the
       boss lives until killed, and if it survives the FIGHT phase it returns to the castle and comes
       back next phase. Owner will supply boss specs later.
 
