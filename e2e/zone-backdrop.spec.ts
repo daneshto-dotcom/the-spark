@@ -139,7 +139,7 @@ test.describe('@races S165 — the per-race zone backdrop reaches the board', ()
  */
 test.describe('@races S165 - the castle-spawned race unit reaches the renderer', () => {
   test('a bots match FETCHES a race-unit atlas after the first emit', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(360_000);
     const atlas: string[] = [];
     page.on('response', (res) => {
       const u = res.url();
@@ -187,23 +187,49 @@ test.describe('@races S165 - the castle-spawned race unit reaches the renderer',
      * `@races` tag on both describes below.
      */
     const EMIT_BUDGET = 2040;
-    const from = (await page.evaluate(
+    const tickNow = async (): Promise<number> => (await page.evaluate(
       () => (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world?.tick ?? 0,
     )) as number;
-    await page.waitForFunction(
-      ([f, budget]) => {
-        const w = (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world;
-        return w !== undefined && w.tick - f >= budget;
-      },
-      [from, EMIT_BUDGET] as [number, number],
-      { timeout: 90_000 },
-    );
+    const from = await tickNow();
+
+    /*
+     * ⛔ WAIT ON THE OBSERVATION, NOT ON THE CLOCK, AND THE FIRST TWO VERSIONS DID THE OPPOSITE.
+     *
+     * v1 waited for 2040 SIM TICKS via `waitForFunction` with a 180 s wall-clock ceiling. That
+     * passed locally and blew the shared lane's budget on CI. v2 trimmed the ticks to 240, which
+     * was wrong for the reason in the note above. v3 restored 2040 and left v2's 90 s ceiling
+     * behind — and 2040 ticks takes LONGER than 90 s on a 2-core software-GL runner, so it failed
+     * with `Timeout 90000ms exceeded` on the very job I had just created for it. One number moved
+     * and its partner did not.
+     *
+     * ⭐ SO THE LOOP EXITS THE MOMENT THE FETCH LANDS. The claim was never "the sim reached tick
+     * 2040" — it is "the browser asked for a race-unit atlas". Polling for the fetch itself is both
+     * faster in the normal case (it returns just after the first emit near tick 1800) and immune to
+     * however fast the runner happens to be.
+     *
+     * ⚠ TWO EXIT CONDITIONS, AND THE SECOND ONE IS WHY THE DIAGNOSTIC IS TRUSTWORTHY: the tick
+     * budget still bounds the wait, so a failure can say whether the SIM ADVANCED. Without it a
+     * dead page and a missing fetch look identical, which is the confusion the project's own
+     * `waitForWorldWithinTicks` helper exists to prevent.
+     */
+    const DEADLINE_MS = 300_000;
+    const startedAt = await tickNow();
+    let reached = startedAt;
+    for (const _ of Array.from({ length: DEADLINE_MS / 500 })) {
+      if (atlas.length > 0) break;
+      reached = await tickNow();
+      if (reached - from >= EMIT_BUDGET) break;
+      await page.waitForTimeout(500);
+    }
 
     expect(
       atlas.length,
-      `no /art/race-units/*-atlas.png was requested in ${EMIT_BUDGET} ticks of a bots `
-        + `match. Either the castle emitter produced nothing, or the renderer never asked for the `
-        + `sheet - and loadAtlas swallows load failures by design, so nothing else would say so.`,
+      `no /art/race-units/*-atlas.png was requested. The sim advanced `
+        + `${reached - from} of ${EMIT_BUDGET} budgeted ticks (${from} -> ${reached}), so `
+        + `${reached - from >= EMIT_BUDGET
+          ? 'the budget was SPENT and the emitter or the renderer is at fault'
+          : 'the sim did not advance far enough — read this as a slow/dead page, not a product bug'}`
+        + `. Note loadAtlas swallows load failures by design, so nothing else would say so.`,
     ).toBeGreaterThan(0);
 
     for (const entry of atlas) {
