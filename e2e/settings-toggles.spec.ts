@@ -49,7 +49,7 @@ async function setToggle(
   }, [id, on] as [string, boolean]);
 }
 
-test.describe('S165 — the settings panel carries both owner toggles', () => {
+test.describe('@races S165 — the settings panel carries both owner toggles', () => {
   test('both rows exist, default ON, and survive a reopen', async ({ page }) => {
     await page.goto('/');
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
@@ -111,8 +111,10 @@ test.describe('S165 — the settings panel carries both owner toggles', () => {
         const w = (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world;
         return w !== undefined && w.tick - f >= budget;
       },
-      [from, 600] as [number, number],
-      { timeout: 120_000 },
+      // 2x ZONE_BG_HOLD_TICKS (180). Trimmed from 600: the enabled path loads on the first frame
+      // past the hold, and an over-generous budget here is what timed out the whole gating lane.
+      [from, 360] as [number, number],
+      { timeout: 90_000 },
     );
 
     expect(
@@ -123,7 +125,7 @@ test.describe('S165 — the settings panel carries both owner toggles', () => {
   });
 
   test('a match fetches the local race track, and the toggle sends it back to the original', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(150_000);
     const music: string[] = [];
     page.on('response', (r) => {
       const u = r.url();
@@ -142,7 +144,7 @@ test.describe('S165 — the settings panel carries both owner toggles', () => {
     const solo = await titleButtonCss(page, 'solo');
     await page.mouse.click(solo.x, solo.y);
     await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(2500);
 
     // Seat 0 is vampires by `defaultRaceForSeat`, so a solo match plays that cover.
     expect(
@@ -157,7 +159,9 @@ test.describe('S165 — the settings panel carries both owner toggles', () => {
      */
     await openSettings(page);
     await setToggle(page, RACE_MUSIC_ID, false);
-    await page.waitForTimeout(4000);
+    // Wall-clocked deliberately, unlike the tick budgets above: this waits on a NETWORK fetch and
+    // a decode, which do not advance with the sim clock.
+    await page.waitForTimeout(2500);
 
     expect(
       music.some((m) => m.includes('blue-steppe-orbit')),

@@ -40,9 +40,21 @@ import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
  * A generous tick budget is both faster locally and honest on a slow runner.
  */
 const HOLD_TICKS = 3 * 60;
-const BUDGET_TICKS = HOLD_TICKS * 6;
+/*
+ * S165 - TRIMMED FROM 6x THE HOLD TO 2x, AND THE 6x IS WHAT TIMED OUT THE GATING LANE.
+ *
+ * The lane carries a 720 s global Playwright budget (PW_GLOBAL_TIMEOUT_MIN) and my two new specs
+ * pushed it past that on CI - which does not read as a test failure, it reads as
+ * `Timed out waiting 720s for the test suite to run`, i.e. the whole lane. Generous budgets are
+ * not free when a 2-core software-GL runner spends them at a fraction of 60 fps.
+ *
+ * 2x the hold is still ample: the load is issued on the first frame past the hold, so any budget
+ * above 180 that leaves room for a fetch is enough. What the budget must NOT be is wall-clocked -
+ * that part was right and is unchanged.
+ */
+const BUDGET_TICKS = HOLD_TICKS * 2;
 
-test.describe('S165 — the per-race zone backdrop reaches the board', () => {
+test.describe('@races S165 — the per-race zone backdrop reaches the board', () => {
   test('a solo match FETCHES its seat\'s zone art after the hold', async ({ page }) => {
     /*
      * Recorded from the first navigation, because the request we care about can fire at any point
@@ -125,9 +137,9 @@ test.describe('S165 — the per-race zone backdrop reaches the board', () => {
  * The wait is TICK-BUDGETED past RACE_UNIT_EMIT_INTERVAL_TICKS for the same reason as the backdrop
  * spec - a wall-clock wait that is generous locally is a coin flip on a 2-core software-GL runner.
  */
-test.describe('S165 - the castle-spawned race unit reaches the renderer', () => {
+test.describe('@races S165 - the castle-spawned race unit reaches the renderer', () => {
   test('a bots match FETCHES a race-unit atlas after the first emit', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(120_000);
     const atlas: string[] = [];
     page.on('response', (res) => {
       const u = res.url();
@@ -161,7 +173,20 @@ test.describe('S165 - the castle-spawned race unit reaches the renderer', () => 
      * The emitter fires on `(tick - seat) % RACE_UNIT_EMIT_INTERVAL_TICKS === 0`, so one full
      * interval plus a margin guarantees every seated race has produced at least once.
      */
-    const EMIT_INTERVAL = 1800;
+    /*
+     * S165 - ONE FULL EMIT INTERVAL PLUS A MARGIN, AND IT CANNOT BE SMALLER. MEASURED.
+     *
+     * I trimmed this to 240 on the arithmetic: the cadence is `(tick - seat) % 1800 === 0`, so
+     * seat 0's slot is tick 0 and seats 1-3 are ticks 1, 2 and 3. The trim FAILED, and a probe
+     * said why - race-unit count is still ZERO at tick 1408. `raceUnitEmitTick` is gated on
+     * `gameState === 'PLAYING'`, and the transition happens a few ticks INTO the match, so all
+     * four seats miss their opening slot and the first real emit is at tick 1800.
+     *
+     * So this spec inherently costs ~30 s of sim time and there is no honest way to shorten it.
+     * That is why this file moved OUT of the shared gating lane and into its own CI job - see the
+     * `@races` tag on both describes below.
+     */
+    const EMIT_BUDGET = 2040;
     const from = (await page.evaluate(
       () => (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world?.tick ?? 0,
     )) as number;
@@ -170,13 +195,13 @@ test.describe('S165 - the castle-spawned race unit reaches the renderer', () => 
         const w = (window as { __SPARK__?: { world?: { tick: number } } }).__SPARK__?.world;
         return w !== undefined && w.tick - f >= budget;
       },
-      [from, EMIT_INTERVAL + 240] as [number, number],
-      { timeout: 180_000 },
+      [from, EMIT_BUDGET] as [number, number],
+      { timeout: 90_000 },
     );
 
     expect(
       atlas.length,
-      `no /art/race-units/*-atlas.png was requested in ${EMIT_INTERVAL + 240} ticks of a bots `
+      `no /art/race-units/*-atlas.png was requested in ${EMIT_BUDGET} ticks of a bots `
         + `match. Either the castle emitter produced nothing, or the renderer never asked for the `
         + `sheet - and loadAtlas swallows load failures by design, so nothing else would say so.`,
     ).toBeGreaterThan(0);

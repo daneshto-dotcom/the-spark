@@ -34,7 +34,20 @@ const ROOT = process.cwd();
  * test assert `x === x` — it would agree with whatever `package.json` happens to say, which is the
  * thing under test. These are the decisions; `package.json` is checked AGAINST them.
  */
-const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING'>> = {
+/*
+ * S165 - A THIRD STATE, ADDED THE DAY THIS GUARD FIRST EARNED ITS KEEP.
+ *
+ * The binary EXCLUDED/GATING split could not describe `@races`: those specs are inverted OUT of
+ * the shared `e2e:gating` lane (they observe a 1800-tick cadence and their budget starved it) and
+ * are STILL GATING, via their own `e2e-races` job with no continue-on-error. Collapsing that into
+ * 'EXCLUDED' would have recorded a gating lane as non-gating, which is the kind of quiet
+ * inaccuracy this whole file exists to prevent.
+ *
+ *   EXCLUDED  - in the invert list, and NOT gating anywhere.
+ *   GATING    - not in the invert list; runs in the shared lane.
+ *   OWN_JOB   - in the invert list AND gating, on a dedicated job named below.
+ */
+const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING' | 'OWN_JOB'>> = {
   // Real multi-peer WebRTC that the CI sandbox cannot hold open. Non-gating by long-standing design.
   '@quarantine-flaky': 'EXCLUDED',
   // 10k-tick heap/census audits — 15 of 17 minutes of the old suite. Split to their own lane S126.
@@ -51,6 +64,18 @@ const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING'>> = {
    * out, the three substantive tests must be re-tagged FIRST, not carried along with the captures.
    */
   '@visual': 'GATING',
+  /*
+   * S165 - the castle emitter, the zone backdrops and the two settings toggles. Split out because
+   * each observation costs ~30 s of SIM time (the emit cadence is 1800 ticks and the first slot is
+   * missed while `gameState` is not yet PLAYING), which took the shared lane past its 720 s
+   * Playwright cap on two runs. Gating on its own runner instead of slow in a shared one.
+   */
+  '@races': 'OWN_JOB',
+};
+
+/** For each OWN_JOB tag, the workflow job that must run it and the script it must call. */
+const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
+  '@races': { job: 'e2e-races', script: 'e2e:races' },
 };
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
@@ -95,8 +120,9 @@ describe('e2e lane composition is a decision, not an accident', () => {
 
   it('the EXCLUDED tags are exactly the ones e2e:gating inverts', () => {
     const inverted = invertList().sort();
+    // OWN_JOB tags are inverted out of the shared lane too - that is what makes them their own job.
     const declaredExcluded = Object.entries(LANE)
-      .filter(([, lane]) => lane === 'EXCLUDED')
+      .filter(([, lane]) => lane === 'EXCLUDED' || lane === 'OWN_JOB')
       .map(([t]) => t)
       .sort();
     expect(inverted).toEqual(declaredExcluded);
@@ -130,6 +156,50 @@ describe('e2e lane composition is a decision, not an accident', () => {
           `${f} claims ${tag} keeps it out of the gating lane, but ${tag} is GATING.`,
         ).toBe(false);
       }
+    }
+  });
+  it('⛔ every OWN_JOB tag has a real, GATING workflow job that runs it', () => {
+    /*
+     * The claim that makes OWN_JOB different from EXCLUDED, and it is worth machine-checking because
+     * the failure is invisible: invert a tag out of the shared lane, forget the job, and those tests
+     * simply never run anywhere while every other gate stays green.
+     *
+     * Three things are asserted per tag: the job exists, it calls the right script, and it does NOT
+     * carry `continue-on-error` - a non-gating "own job" is a lane that cannot fail.
+     */
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    const yml = readFileSync(join(ROOT, '.github', 'workflows', 'e2e.yml'), 'utf8');
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+
+    const ownJobTags = Object.entries(LANE).filter(([, l]) => l === 'OWN_JOB').map(([t]) => t);
+    // Anti-vacuity: with no OWN_JOB tags this test would assert nothing at all.
+    expect(ownJobTags.length).toBeGreaterThan(0);
+
+    for (const tag of ownJobTags) {
+      const spec = OWN_JOBS[tag];
+      expect(spec, `${tag} is OWN_JOB but names no job in OWN_JOBS`).toBeDefined();
+      const { job, script } = spec as { job: string; script: string };
+
+      expect(yml.includes(`\n  ${job}:`), `e2e.yml has no ${job} job for ${tag}`).toBe(true);
+      expect(pkg.scripts[script], `package.json has no \`${script}\` script`).toBeTruthy();
+      expect(
+        (pkg.scripts[script] ?? '').includes(tag),
+        `\`${script}\` must select ${tag}`,
+      ).toBe(true);
+      expect(yml.includes(`npm run ${script}`), `\`${job}\` must run \`${script}\``).toBe(true);
+
+      // The gating half: slice this job's block and require no continue-on-error inside it.
+      const start = yml.indexOf(`\n  ${job}:`);
+      const rest = yml.slice(start + 1);
+      const nextJob = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
+      const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
+      expect(
+        block.includes('continue-on-error'),
+        `\`${job}\` carries continue-on-error, so ${tag} is not actually gating anywhere`,
+      ).toBe(false);
     }
   });
 });

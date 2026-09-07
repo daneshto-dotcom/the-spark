@@ -24,7 +24,11 @@ the code in the session that wrote it, not copied from a handoff.
 ```bash
 npm run typecheck        # tsc -b --noEmit
 npx vitest run           # the unit suite — 3755 tests / 241 files at S165 close
-npm run e2e:gating       # Playwright, the deploy-gating subset — 67 tests / 18 files at S165 close
+npm run e2e:gating       # Playwright, the shared gating lane — 62 tests / 16 files at S165 close
+npm run e2e:races        # S165 — the @races lane: castle emitter, backdrops, settings toggles.
+                         # GATING via its own `e2e-races` CI job, inverted OUT of e2e:gating
+                         # because each observation costs ~30 s of SIM time and it starved the
+                         # shared lane's 720 s cap. `src/ci.e2eLanes.test.ts` pins the mapping.
 npm run build            # includes the bundle-size charter check
 npm run check:atlas      # S165 — the sprite-sheet pixel guard. NOT part of `build` (see below)
 npm run verify-deploy    # 4/4 with content-hash equality

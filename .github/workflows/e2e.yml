@@ -158,6 +158,60 @@ jobs:
   # point) while the art still ships. Owner sees the flaw AND the warning, instead of neither.
   #
   # Cheap: no browsers, no Playwright, ~40s including the pip install.
+  # ⭐ S165 — THE RACES LANE. GATING (no continue-on-error), on its own runner.
+  #
+  # ⛔ WHY IT IS NOT IN THE SHARED `e2e` LANE, and it was for two commits before this. These five
+  # tests observe the castle emitter, and that mechanic is on a 1800-tick cadence — 30 s of SIM time
+  # per observation. Worse, the first slot is unreachable: `raceUnitEmitTick` is gated on
+  # `gameState === 'PLAYING'` and the transition lands a few ticks into the match, so all four seats
+  # MISS their opening slot and the first real emit is at tick 1800. Measured with a probe: race-unit
+  # count is still zero at tick 1408.
+  #
+  # ⚠ SO THERE IS NO HONEST WAY TO MAKE THEM FAST, and putting them in the shared lane took that
+  # lane's 720 s Playwright budget past its cap — which does NOT read as a test failure. It reads as
+  # `Timed out waiting 720s for the test suite to run`, i.e. the whole lane, on runs `7c39965` and
+  # `f2a653a`. I trimmed the budget first and the trim was wrong for the reason above; splitting the
+  # lane is the fix that survives the measurement.
+  #
+  # ⭐ STILL GATING. This is the same shape as `e2e-protocol` and `e2e-lobby`: a separate runner with
+  # its own timeout, no `continue-on-error`, so a red here reds the run. What it buys is that a slow
+  # lane can no longer starve a fast one — the reason those two exist at all.
+  e2e-races:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Below timeout-minutes so PLAYWRIGHT ends an overrun and flushes reporters, per the note on
+      # the gating lane. Generous because each observation costs 30 s of sim on a 2-core runner.
+      PW_GLOBAL_TIMEOUT_MIN: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # ⚠ NOT chained behind `&&` — the project rule. This is the last command in the step, so the
+      # step's exit code IS Playwright's.
+      - name: Run E2E (races — the castle emitter, backdrops and the settings toggles)
+        run: npm run e2e:races
+
+      - name: Upload Playwright report (races)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-races
+          path: playwright-report/
+          retention-days: 7
+
   atlas-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
