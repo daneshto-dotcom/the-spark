@@ -212,4 +212,85 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
 
     await page.screenshot({ path: 'test-results/t9-tower-on-board.png' });
   });
+
+  test('⭐ the tower RELEASES its boss, crumbles, and the BOSS is drawn from its atlas', async ({ page }) => {
+    /*
+     * ⭐ THE END-TO-END PROOF, and the one that matters most for a playtest: recipe -> ignition ->
+     * release -> raze -> a BOSS SPRITE ON THE BOARD. Every link is covered in vitest, but vitest has
+     * no Pixi stage and so cannot answer the question that actually sank the tier-3 tower art —
+     * "does a texture reach a sprite?"
+     *
+     * ⚠ AND IT IS SPECIFICALLY A CHECK AGAINST THE GREEN PUPPET. `goblinRenderer`'s ATLASES map is
+     * `Partial<Record<CreatureType, string>>` and `loadAtlas` swallows a 404 with a bare catch, so a
+     * boss with a wrong path renders as `drawGoblin`'s procedural blob — the owner's "gay green
+     * circle" — with tsc green and every unit test green. Asserting the boss is in the SPRITE layer
+     * rather than merely in `world.creatures` is what separates those two outcomes.
+     */
+    await bootSolo(page);
+    const race = await seatRace(page);
+    const shape = SHAPE_BY_RACE[race];
+    await seedBank(page, shape!, 9);
+    await page.waitForTimeout(300);
+
+    const towerId = `t9Tower${race[0]!.toUpperCase()}${race.slice(1)}`;
+    const { chips } = await bandPoints(page);
+    const chip = chips.find((c) => c.complexity === 9)!;
+    await clickCanvas(page, chip.x + chip.w / 2, chip.y + chip.h / 2);
+    await page.waitForTimeout(400);
+    const card = (await bandPoints(page)).cards.find((c) => c.id === towerId)!;
+    await clickCanvas(page, card.x + card.w / 2, card.y + card.h / 2);
+    await page.waitForTimeout(250);
+    await clickCanvas(page, 420, 400);
+    await page.waitForTimeout(600);
+    expect((await towerState(page)).spawners, 'tower ignited').toContain(towerId);
+
+    /*
+     * Jump the match into FIGHT. The whole spawner poll is gated on it (S157 P0, "spawners are
+     * dormant outside the fight"), so a tower built in BUILD — which is the only phase it CAN be
+     * built in — cannot release until the edge. Waiting out a real 90 s BUILD in a gating lane is
+     * not viable, so the phase is set directly; everything downstream is the shipped host loop.
+     */
+    await page.evaluate(() => {
+      const w = (window as { __SPARK__?: { world?: unknown } }).__SPARK__?.world as {
+        matchPhase: string; tick: number; phaseEndsAtTick: number;
+      };
+      w.matchPhase = 'FIGHT';
+      w.phaseEndsAtTick = w.tick + 100_000;
+    });
+
+    // The release fires T9_RELEASE_DELAY_TICKS (5 s) after ignition; allow margin for the poll.
+    await page.waitForTimeout(9_000);
+
+    const after = await page.evaluate(() => {
+      const w = (window as { __SPARK__?: { world?: unknown } }).__SPARK__?.world as {
+        creatures: Map<number, { type: string }>;
+        creatureSpawners: Map<number, { recipeId: string }>;
+        primitives: Map<number, unknown>;
+      };
+      const above = (window as { __SPARK__?: { aboveFogLayer?: unknown } }).__SPARK__
+        ?.aboveFogLayer as { children: Array<{ children?: unknown[] }> };
+      return {
+        bosses: [...w.creatures.values()].filter((c) => c.type.startsWith('t9Boss')).map((c) => c.type),
+        spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
+        primitives: w.primitives.size,
+        // index 8 is goblinRenderer.spriteLayer — the ATLAS sprites, not the procedural puppet.
+        // fog.spec.ts pins that ordering, so this reads the same contract from the other side.
+        atlasSprites: above.children[8]?.children?.length ?? -1,
+      };
+    });
+
+    expect(after.bosses, `exactly one boss released for ${race}`).toHaveLength(1);
+    expect(after.bosses[0]).toBe(`t9Boss${race[0]!.toUpperCase()}${race.slice(1)}`);
+    expect(after.spawners, '⛔ the tower must have CRUMBLED after releasing').not.toContain(towerId);
+    expect(after.primitives, '⛔ and the nine shapes must be CONSUMED').toBe(0);
+    /*
+     * ⭐⭐ The assertion that separates "real art" from "green procedural blob": the boss must be in
+     * the ATLAS sprite layer. A missing or mistyped path leaves world.creatures correct and this
+     * layer empty.
+     */
+    expect(after.atlasSprites, '⛔ the boss must be drawn from its ATLAS, not the puppet')
+      .toBeGreaterThanOrEqual(1);
+
+    await page.screenshot({ path: 'test-results/t9-boss-released.png' });
+  });
 });

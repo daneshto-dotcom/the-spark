@@ -37,6 +37,7 @@ import { syncCreatureProjectiles } from './creatureProjectile.ts';
 import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
@@ -371,7 +372,7 @@ export class GoblinRenderer {
    * nothing.)
    */
   private syncSprite(
-    id: CreatureId, atlas: LoadedAtlas, state: string, ticksInState: number,
+    id: CreatureId, type: CreatureType, atlas: LoadedAtlas, state: string, ticksInState: number,
     x: number, y: number, face: 1 | -1, alpha: number, tint: number,
   ): void {
     // FSM state → animation row. SEEKING is the only state a goblin actually travels in, so it is
@@ -397,7 +398,12 @@ export class GoblinRenderer {
     sp.texture = row[i]!;
     sp.position.set(x, y);
     // Negative X scale mirrors the sprite for facing — the source clips all walk to the right.
-    sp.scale.set(face * GOBLIN_SPRITE_BASE_SCALE, GOBLIN_SPRITE_BASE_SCALE);
+    /*
+     * ⭐ S167 — the per-type multiplier. `1` for every unit shipped before the bosses, so this line
+     * is byte-identical in behaviour for all sixteen of them; see `creatureSpriteScaleMul`.
+     */
+    const mul = creatureSpriteScaleMul(type);
+    sp.scale.set(face * GOBLIN_SPRITE_BASE_SCALE * mul, GOBLIN_SPRITE_BASE_SCALE * mul);
     sp.alpha = alpha;
     /*
      * ⛔ S152 P3 — THE OWNER TINT WAS DESTROYING THE ART, AND IT SHIPPED THAT WAY IN S151.
@@ -567,7 +573,7 @@ export class GoblinRenderer {
             alpha: 0.55 * alpha,
           });
         }
-        this.syncSprite(c.id, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
+        this.syncSprite(c.id, c.type, atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
       } else {
         // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and
         // Voltkin precedent).

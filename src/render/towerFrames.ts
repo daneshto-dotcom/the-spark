@@ -51,7 +51,13 @@ import type { RaceId } from '../state/races.ts';
 import { PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { PrimitiveId } from '../types.ts';
 import { raceForTowerId, t3DestroyAtlasBase, t3TowerAtlasBase } from '../state/raceTowerIds.ts';
-import { raceForT9TowerId, t9DestroyAtlasBase, t9TowerAtlasBase } from '../state/t9BossIds.ts';
+import {
+  isT9BossType,
+  raceForT9TowerId,
+  t9DestroyAtlasBase,
+  t9TowerAtlasBase,
+} from '../state/t9BossIds.ts';
+import type { CreatureType } from '../state/creatures/creature.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** The three conditions a tower can be drawn in. Atlas ROW ORDER — see `TOWER_STATE_ROWS`. */
@@ -125,6 +131,42 @@ export const T9_TOWER_SPRITE_PX = 150;
  * the ground. The ring's centroid is where the tower STANDS, so the sprite's base goes there.
  */
 export const TOWER_SPRITE_ANCHOR = { x: 0.5, y: 1 } as const;
+
+/**
+ * ⭐ S167 — **HOW MUCH BIGGER A BOSS DRAWS THAN A GRUNT**, on top of the atlas cell difference.
+ *
+ * ## The measurement, from a captured frame rather than from taste
+ *
+ * `GOBLIN_SPRITE_BASE_SCALE` (0.2975) is a SINGLE GLOBAL applied to every atlas-backed creature —
+ * there is no per-type scale anywhere. The only lever the art had was the atlas CELL, so the boss
+ * sheets were authored at 320px against the units' 200px, i.e. 1.6x. On a captured frame that is
+ * `320 × 0.2975 ≈ 95 px` of boss against a unit's `≈ 60 px`.
+ *
+ * ⚠ AND 1.6x IS NOT A BOSS. Looked at on the board, Vlad read as a slightly large soldier. The
+ * owner's brief for these six is *"absolutely terrifying and fucking epic"*, and a unit that costs
+ * NINE shapes — three times the tier-3 tower and the most expensive build in the game — has to
+ * announce itself before the player reads its health bar. 1.6 × 1.6 ≈ **2.6x a grunt**, which is
+ * the smallest multiple that stops reading as "a big goblin".
+ *
+ * ⛔ THE S147 LESSON IS WHY THIS NUMBER EXISTS AT ALL RATHER THAN BEING GUESSED IN THE ART SPEC: a
+ * sprite size can only be judged from a captured frame. This one was set after looking at
+ * `test-results/t9-boss-released.png`, not before.
+ *
+ * ⚠ MINE, NOT THE OWNER'S, and it is a one-line change once he has seen a boss in a real fight.
+ */
+export const T9_BOSS_SPRITE_SCALE_MUL = 1.6;
+
+/**
+ * PURE — the extra sprite-scale multiplier for a creature type. `1` for everything that is not a
+ * boss, which is every unit shipped before S167.
+ *
+ * ⚠ A FUNCTION RATHER THAN A `Partial<Record<…>>`, deliberately. A partial map returning `undefined`
+ * for an unlisted type is exactly the silent shape `goblinRenderer`'s `ATLASES` has — and that one
+ * has already cost this project a session of invisible art. This cannot return nothing.
+ */
+export function creatureSpriteScaleMul(type: CreatureType): number {
+  return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
+}
 
 /** What the renderer needs to draw one tower. `null` when the spawner is not a race tower. */
 export interface TowerArt {
