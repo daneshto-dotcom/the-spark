@@ -55,8 +55,8 @@ So no session stalls waiting on a decision.
 |---|---|---|
 | Q1 | Shape → goblin mapping | **[CLAUDE — overridable]** Each shape reads as its unit: **Dot → suicide** (smallest, simplest, pops) · **Line → archer** (a line is an arrow) · **Triangle → swordsman** (a blade) · **Square → shield goblin** (a shield) · **Circle → hound** (rolls, runs) · **Spiral → bat rider** (spiral = flight). |
 | Q2 | How is "gatherers are in 1 s before the walls drop, whatever their speed" guaranteed? | **[CLAUDE — overridable]** Do **not** race pathfinding against the clock. At exactly `phaseEndsAtTick − 60`, every gatherer unconditionally enters `SHELTERED`: removed from the field, cargo auto-deposited. Deterministic, speed-independent, and impossible to fail. Nothing can attack during BUILD, so the snap is unobservable as unfairness. |
-| Q3 | Castle HP / defence / attack numbers | **[CLAUDE — overridable, first pass]** HP **3000**; attack range **300 px**; damage **8** per shot; fire interval **45 ticks**. Identical for every player (R29). All four are playtest dials. |
-| Q4 | Castle targeting rule | **[OWNER, from the notes]** *"castle attacks any enemy units that attack it"* → **retaliation-only**. Concretely: it acquires any enemy unit in range that has damaged this castle **within the last 300 ticks (5 s)**; timer length is **[CLAUDE — overridable]**. |
+| Q3 | Castle HP / defence / attack numbers | ⚠ **TWO OF THE FOUR WERE OVERRULED AND THE OTHER TWO STAND.** HP is **1500**, not 3000 (owner R89, *"castle should have 1500 HP"*, at `constants.ts:1556`). Fire interval is **240 ticks**, not 45 — and that one was MEASURED, not preferred: `constants.ts:1657` records *"Q3's 45 TICKS WAS MEASURED AND REJECTED. IT SILENTLY DELETED A SHIPPED WIN CONDITION."* Attack range **300 px** and damage **8 fifths** are unchanged. Identical for every player (R29). |
+| Q4 | Castle targeting rule | ⛔ **SUPERSEDED — OWNER RULING 2026-09-02: NEAREST ENEMY IN RANGE, no retaliation at all.** Quoted at `src/constants.ts:1604`, implemented as `findNearestEnemyCreatureFrom` in `castleGuns.ts`. Consequence recorded there: *"there is no retaliation bookkeeping"* — no `lastDamagedByTick`, no attacker ledger, nothing to serialize, and that symbol exists nowhere in `src/`. The original answer is struck through below because it is the reasoning the owner overruled, not a live spec: ~~*"castle attacks any enemy units that attack it"* → retaliation-only, any enemy in range that damaged this castle within the last 300 ticks.~~ |
 | Q5 | Do walls block projectiles? | **[OWNER — R37/R38] CORRECTED.** Only ENEMY structures block; your own are transparent to your fire.  My first answer conflated two kinds of wall. **PHASE BORDER WALLS** are down before the first shot, so they never meet a projectile — that half stands. **PLAYER-BUILT WALLS AND STRUCTURES** stand through the FIGHT and **do** block: 2D, no height, so a projectile hits the first thing in its path, damages it and vanishes; the next shot repeats. Enemy fire must chew through your fences to reach what is behind them. |
 | Q6 | Do walls block gatherers reaching the quarry? | **No, by geometry.** Walls run from the quarry rim *outward* along the zone borders, so every zone has unobstructed access to its own slice of the quarry. |
 | Q7 | The 2.6× haul re-tune | **Measured, not guessed** (S148). Instrument one build stage and set the gatherer base speed so a first 4-connector tower is affordable inside one 90 s BUILD. |
@@ -212,17 +212,31 @@ become real and the game first matches the notes.
 ⚠ Contains the **castle weapon system**, which audit pass 1 missed entirely because it comes from the
 notes rather than a numbered ruling.
 
-**Castle entity.** Promote the castle from drawn scenery to a `World` entity: `castles: Map<PlayerId,
-Castle>` with `{ hp, maxHp, lastDamagedByTick, nextFireTick, alive }`. Damage flows through the
-**existing** `state/damage.ts` pipeline. **Generates no points** (R29).
+**Castle entity.** ⛔ **BUILT DIFFERENTLY, IN EVERY PART — do not read this paragraph as the shipped
+model.** There is no `world.castles`; the castle lives on the PLAYER as `castleHp`, and
+`src/game/player.ts:50` carries the docblock explaining why (*"Why it lives on the PLAYER and not in
+a new `world.castleHp` map"*). Of the five fields named here, `lastDamagedByTick` never existed
+(retaliation was overruled — see Q4), `nextFireTick` was refused on purpose (`constants.ts:1655`:
+*"NO STORED TIMER … WHY NOT A `nextFireTick` FIELD"* — the cadence derives from `world.tick`), and
+`alive` was refused too (`elimination.ts`: *"WHY `castleHp <= 0` IS THE PREDICATE AND THERE IS NO
+`eliminated: boolean`"*). Kept as the original proposal because each rejection is documented at its
+own site and this is the design those notes are arguing against.
 
-**Weapon system.** Arms at BUILD→FIGHT, stands down at FIGHT→BUILD. **Retaliation-only** (Q4): targets
-any enemy unit in range that damaged this castle within 300 ticks. Reuses the defender FSM shape
-(IDLE/WINDUP/FIRE/RECOVER) rather than inventing a second combat state machine. Stats per Q3,
-identical for all players.
+~~Promote the castle from drawn scenery to a `World` entity: `castles: Map<PlayerId, Castle>` with
+`{ hp, maxHp, lastDamagedByTick, nextFireTick, alive }`.~~ Damage flows through the **existing**
+`state/damage.ts` pipeline. **Generates no points** (R29).
 
-**Elimination + placings (R10/R20).** Castle at 0 HP → that player is eliminated: their towers and
-units are removed, their zone becomes neutral ground. Last one standing wins. **1500 points is an
+**Weapon system.** Arms at BUILD→FIGHT, stands down at FIGHT→BUILD. ⛔ **NEAREST ENEMY IN RANGE**
+— the 2026-09-02 owner ruling superseding Q4's retaliation-only design; see the Q4 row. Reuses the
+defender FSM shape (IDLE/WINDUP/FIRE/RECOVER) rather than inventing a second combat state machine.
+Stats per Q3 as amended there (HP 1500, interval 240 ticks).
+
+**Elimination + placings (R10/R20).** Castle at 0 HP → that player is eliminated. ⛔ **BUT NOT BY
+REMOVAL, AND THE OWNER RULED THE OPPOSITE OF THIS SENTENCE.** `cf_s161_a`: *"Keep fighting (status
+quo) — a fallen seat's towers/creatures/spawners keep acting until razed."* `src/state/elimination.ts`
+implements exactly that — it stamps `eliminatedAtTick` and gates intents, and removes nothing; there
+is no zone neutralisation anywhere in `src/`. ~~their towers and units are removed, their zone
+becomes neutral ground.~~ Last one standing wins. **1500 points is an
 instant win** (R20). Remaining places ordered by final score. Eliminated players may spectate.
 
 **Protocol.** Bump — `castles` is a new hashed snapshot family.
@@ -524,5 +538,5 @@ after actually playing it.
 1. Castle stat values (Q3) — first-pass numbers, expect to tune.
 2. Goblin stat spreads (S153) — same.
 3. Whether plain non-recipe structures should physically **block movement**, not just absorb damage.
-4. Whether the retaliation window (300 ticks) is the right feel for castle guns.
+4. ~~Whether the retaliation window (300 ticks) is the right feel for castle guns.~~ — **MOOT.** The 2026-09-02 ruling removed retaliation entirely; there is no window to tune.
 5. Per-race castle weapon differentiation (deferred to S157+ by the notes themselves).

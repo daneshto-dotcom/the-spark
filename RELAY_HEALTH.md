@@ -37,8 +37,9 @@ S43 lost real-time 1v1 for the user because 4 of 6 production Nostr relays decay
 | Tracker | Notes |
 |---|---|
 | `wss://tracker.openwebtorrent.com` | Long-running public WebTorrent tracker |
-| `wss://tracker.btorrent.xyz` | Alternative public tracker |
-| `wss://tracker.files.fm:7073/announce` | Backup, includes explicit /announce path |
+| ~~`wss://tracker.btorrent.xyz`~~ | ⛔ **REMOVED** — `iceConfig.ts` records it as *"dead for years"*. |
+| ~~`wss://tracker.files.fm:7073/announce`~~ | ⛔ **REMOVED** — non-standard port, refuses. |
+| `wss://tracker.webtorrent.dev` | ✅ The replacement, and the live second tracker. |
 
 ### MQTT (`STRATEGY_FLAGS.mqtt = false`, opt-in)
 Default-OFF per Council R2 S1δ. Operators needing additional failure-domain diversity may flip to `true` in `src/net/iceConfig.ts` and rebuild. Public MQTT brokers (`broker.hivemq.com`, `test.mosquitto.org`) face the same economic decay as Nostr.
@@ -68,7 +69,7 @@ done
 Expect 200 / 301 / 302. 000 / 4xx / 5xx / TIMEOUT = candidate for rotation.
 
 ### Deep probe (NIP-78 ephemeral write+subscribe)
-TODO — `npm run probe-relays` script not yet implemented. Carry-forward from S44 (see `BACKLOG.md`). Manual verification via the live lobby + `?debug=1` diagnostic strip is currently the canonical functional gate.
+✅ **SHIPPED** — `npm run probe-relays` → `scripts/probe-relays.mjs`, and the project CLAUDE.md lists it as one of the six gates. (S165: this line claimed it was unimplemented long after it landed.) Carry-forward from S44 (see `BACKLOG.md`). Manual verification via the live lobby + `?debug=1` diagnostic strip is currently the canonical functional gate.
 
 ---
 
@@ -88,7 +89,7 @@ TODO — `npm run probe-relays` script not yet implemented. Carry-forward from S
    ```bash
    npm run typecheck && npm test -- --run && npm run build
    ```
-   Confirm bundle stays under 500 KB cap.
+   Confirm bundle stays under the charter in `scripts/check-bundle-size.mjs` — **900 KiB** since S145. (S165: this said 500 KB, two raises out of date. Never hard-code the number here; the script and LOCKED_DECISIONS.md are the pair that move together.)
 5. **Commit + deploy:**
    ```bash
    git add src/net/iceConfig.ts RELAY_HEALTH.md
@@ -108,7 +109,7 @@ TODO — `npm run probe-relays` script not yet implemented. Carry-forward from S
 ## Carry-forwards from S44
 
 - **Mid-session transport degradation (Council R2 PRIME-AUDIT):** Architectural follow-on. Current implementation keeps all enabled strategies alive simultaneously (multi-broadcast), so single-strategy mid-session failure doesn't kill the session — but no explicit teardown-and-restart of a degraded strategy is implemented.
-- **NIP-78 functional probe script:** `npm run probe-relays` not yet implemented. Manual probe via dev-mode 2-browser smoke is current canonical gate.
+- **NIP-78 functional probe script:** ✅ shipped — `scripts/probe-relays.mjs`, wired as `npm run probe-relays`. Manual probe via dev-mode 2-browser smoke is current canonical gate.
 - **Custom relay URL field (lobby UI):** Power-user / tournament escape hatch. Council R1 Grok G-NEW-3. Deferred to follow-on.
 - **Periodic rotation cadence:** Recommend re-probing every 2 months; flag relays with >2 consecutive failed probes for rotation.
 

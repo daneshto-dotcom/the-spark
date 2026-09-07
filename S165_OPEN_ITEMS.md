@@ -17,8 +17,8 @@ what it needs. Nothing leaves this file without one of those two.
 | A3 | *"back to main covering the player two castle"* | REAL — button x 1708..1876 / y 100..134 vs seat-1 keep x 1753..1827 / y 101..159. Moved the BUTTON, not the castle (anchors drive sim). | ✅ `8d56c5b` |
 | A4 | *"the center where the shapes spawn is split in half by the race background… should stay cosmos black"* | REAL — the partition and the quarry disc share the canvas centre. Black disc at `SPAWNER_RADIUS+2`, both boards. | ✅ `8d56c5b` |
 | A5 | *"goblins whose producing tower got destroyed should… go back to the castle"* | ALREADY CORRECT — `ownHomePos` falls through to the castle on a spawner miss. Nothing asserted it; now pinned in `retreat.test.ts`. | ✅ `8d56c5b` |
-| A6 | *"the nagas dont look like they are slithering… they kinda just twitch"* | OPEN — needs per-frame motion measurement of the naga walk row vs the other five. | ⬜ |
-| A7 | *"tier 3 basic unit spawn… the second row of the beetle looks much smaller - not consistent"* | OPEN — scarab walk row. The atlas guard scored it `walk=0.99x` and passed, so either the guard's frame-0-only sampling is too narrow or it measured the wrong thing. Also a white sliver visible in that row. | ⬜ |
+| A6 | *"the nagas dont look like they are slithering… they kinda just twitch"* | REAL, and 20x worse than any sibling: walk-row alpha delta 1.41 vs 27–37, centroid travel 0.2 px vs 4–7. NOT the video (source luma delta 9.54 vs orcs 15.61) — `sampleWindow: 16` drew all 12 frames from half a second of a 4 s clip. Widened to 24 after a 20/24/32/48 sweep. Motion 4.03, rows 1.00/0.99/1.00/0.99, and the naga moves from +16% to −10% of the sibling mean. | ✅ `ad29ece` |
+| A7 | *"tier 3 basic unit spawn… the second row of the beetle looks much smaller - not consistent"* | REAL — scarab walk 0.82x. THE GUARD WAS THE PROBLEM: it compared FRAME 0 of each row, and the scarab's frame 0 matches at 0.99x. Switched to a per-row median over every frame, which then found two more (piranha walk 1.29x, bat attack 1.50x). `normaliseStateScale` had the same frame-0 bug and now uses row medians for playable rows, frame 0 for `die` (pose-confounded — every die row is SHORTER). Three sheets rebuilt from existing clips, no veo. All 30 atlases clean. | ✅ `ad29ece` |
 | A8 | *"i dont see the tier 3 tower - did we implement it yet?"* | CONFIRMED NOT BUILT — 18.4 MB of tier-3 art ships in `public/art/race-tier3-{units,towers}/` and `grep` across `src/ e2e/ index.html` returns **zero** references. Needs owner stat rulings (R134/R135 explicitly unruled) before it can be wired. | ⬜ report + carry-forward |
 | A9 | *"the end of wave 5 racial/general upgrade we didnt do it yet did we?"* | CONFIRMED NOT BUILT — R101–R106/R111/R112 fully specced in `SPARK_RACES_SPEC.md` §9; zero code. R112 is an explicit named trigger: *"BUILD ONLY WAVE 5 FIRST… ask once wave 5 ships."* | ⬜ report + carry-forward |
 
@@ -62,6 +62,15 @@ tie-break, the invisible hashed scalar, the 4th drifted predicate, the one-pixel
 | 5 | 4 more vacuous `chewerRenderer` tests; `underRaceUnitCaps` untested | MED |
 
 ---
+
+## Bookkeeping owed at close
+
+- `CLAUDE.md` gate numbers say **3715 tests / 239 files**; the suite is now **3726 / 240** and still
+  moving as this session adds tests. Refresh at close, together with the P9 verification binding
+  that pins the string, so the two cannot drift apart.
+- MCV reconciled once already: a P9 binding pinned `    LEADER_DECAY_ENABLED &&`, which my own later
+  (better) fix replaced with an injectable parameter. Binding REPLACED by two that pin the new form,
+  with the supersession recorded in `check_method` — not deleted. `verify-session-claims.py` exit 0.
 
 ## Worker-bots flake — recorded, not silenced
 

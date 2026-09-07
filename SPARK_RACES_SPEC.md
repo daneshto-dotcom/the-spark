@@ -11,7 +11,8 @@
 > | **W1-B** — the castle becomes its race | SHIPPED S161 P1 — six atlases in `public/art/castles/`, three states each |
 > | **The selection UI** (W1-A item 5, the owner's P2) | SHIPPED S161 P5/P6 — `src/render/racePicker.ts` + `CLAIM_RACE`. §14 B3's *"cannot be a client intent"* was answered by making it a top-level `NetMessage` rather than an intent |
 > | **B2** — seat elimination | SHIPPED S161 P2 — `src/state/elimination.ts`; see §14 B2 below |
-> | **W1-C / W1-D** | still unbuilt — these remain the live plan |
+> | **W1-C** — the castle emitter | ✅ SHIPPED S165 at `ef944bd`, `src/state/raceUnitEmit.ts`, PROTOCOL 41→42. ⚠ S165 found this very row still saying "unbuilt" **in the banner whose whole job is to stop that drift** — see §14.1 B1, which also still called W1-C dead on arrival |
+> | **W1-D** | still unbuilt — this remains the live plan |
 >
 > Read every "does not exist" and "not implemented" below against that table before acting on it.
 **Authored:** from a live owner brainstorm, against a full audit of `src/`, the roadmaps and the handoff record
@@ -281,7 +282,7 @@ R88 quote are still good.
 
 ### 5.4 THE WIRE COST — the real cost centre, not the towers
 
-- **`PROTOCOL_VERSION` is 38.** A bump = SIX edits (`LOCKED_DECISIONS.md` § S150): the const; the
+- **`PROTOCOL_VERSION` is 42** (S165 W1-C; this line said 38). A bump = SIX edits (`LOCKED_DECISIONS.md` § S150): the const; the
   narrative changelog block; the compact `HelloMsg` list *in chronological order at its neighbours'
   indentation*; the `protoVersion` type literal (a tsc tripwire); `protocol.test.ts`'s pinned
   expectation **and its test title**, plus `LOCAL_PROTO_V` in `e2e/smoke.spec.ts`; and the session
@@ -854,7 +855,18 @@ session or a rebuild.
 
 ## 14.1 THE FIVE THAT KILL A PHASE
 
-### B1 — ⛔ THE CASTLE EMITTER IS BLOCKED BY A SHIPPED GATE. W1-C IS DEAD ON ARRIVAL AS WRITTEN.
+### B1 — ✅ **RESOLVED S165. Kept as the analysis, not as a blocker.**
+
+> ⭐ The heading below read *"THE CASTLE EMITTER IS BLOCKED BY A SHIPPED GATE. W1-C IS DEAD ON
+> ARRIVAL AS WRITTEN"*, and that was true of the design as written. W1-C shipped anyway, because the
+> A.0 discovery pass answered exactly the question this section poses: the castle uses a **per-seat
+> negative sentinel** `castleSpawnerId(seat) = -1 - seat`, race units get **their own cap family**
+> rather than `underGoblinCaps`, and `ownHomePos`'s spawner lookup is TOTAL so the sentinel falls
+> through to the castle anchor — which is the correct home for a castle-born unit anyway. All three
+> are documented at their sites and covered by tests.
+>
+> ⚠ Its sibling B2 got a "RESOLVED" banner and this one did not, which is why it still read as live
+> work two sessions later.
 
 `applySpawnCreature` (`src/state/creatures/creatureLifecycle.ts:147-156`) returns the world
 **unchanged** — no error, no log — if a live creature already exists with the same
@@ -868,7 +880,7 @@ number in §9B assume otherwise.
 **The obvious guess (`sourceSpawnerId: null`) is the broken one, and it looks correct on an empty
 fixture** — trap 6 verbatim. The alternative, a sentinel `SpawnerId` for the castle, breaks
 `ownHomePos` (`creatureAI.ts`, spawner lookup first), `underGoblinCaps` and `recipeStillSatisfied`.
-**Decide this before W1-C, and write the decision at the gate.**
+~~**Decide this before W1-C, and write the decision at the gate.**~~ — done: decided in the S165 A.0 pass, and the decision IS written at the gate (`raceUnitEmit.ts` + `creatureAI.ts` `ownHomePos`).
 
 ### B2 — ✅ RESOLVED. SEAT ELIMINATION SHIPPED IN S161 P2 (owner ruling R127).
 

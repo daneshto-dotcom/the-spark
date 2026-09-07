@@ -741,7 +741,11 @@ export class HUD {
     // rows; drawMultiplayerHUD shows one per live player, sorted by score
     // (leader on top), each in the player's color, the local player marked.
     // S87 — pool sized by PLAYER_COLORS.length (not MAX_PLAYERS): VS-BOTS can
-    // seat MAX_BOTS+1=7 players; the wire/lobby caps stay at MAX_PLAYERS=6.
+    // seat MAX_BOTS+1 players; the wire/lobby cap is MAX_PLAYERS.
+    // S165 CORRECTION: this used to assert "=7" and "=6". Both are wrong - MAX_PLAYERS is 4 (owner
+    // R41, quoted in protocol.ts) and MAX_BOTS is MAX_PLAYERS-1 = 3, so a full bots table is FOUR.
+    // Sizing the pool by PLAYER_COLORS.length (6) is still correct as headroom; only the numbers
+    // in the explanation were false.
     this.scoreTexts = [];
     for (let i = 0; i < PLAYER_COLORS.length; i++) {
       const t = new Text({

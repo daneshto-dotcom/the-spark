@@ -2238,7 +2238,7 @@ export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 // === S141 P1 — THE STINK TOWER: the first NON-GODLY, 4-shape buildable defender ===
 //
 // Recipe: 1 Square hub of bond-degree 3 + 3 Circle leaves = "1 Square + 3 Capsules" (every
-// {Square,Circle} bond is the 'Capsule' magic combo). Four shapes, so at CASTLE_BANK_CAP = 7 it is
+// {Square,Circle} bond is the 'Capsule' magic combo). Four shapes. (S165: this said "at CASTLE_BANK_CAP = 7 ... three slots to spare"; that constant was DELETED S146 P2 and the inventory is limitless.) It is
 // holdable outright with three slots to spare — this is the cheapest, most accessible tower in the
 // game and the first that is not a godly.
 //

@@ -747,7 +747,10 @@ async function bootstrap(): Promise<void> {
   // V6-1.3 ruling at the `WAITING` assignment says a full bank must stall haulers rather than leak
   // the player's work. PULL_FROM_BANK moves a shape onto the PORCH, and `blueprintBuild` pays a bill
   // from bank ∪ own porch — so the shape stays fully spendable, the total pool is unchanged, and the
-  // pool is still hard-capped (CASTLE_BANK_CAP + CASTLE_PORCH_SLOTS). Nothing is destroyed; the
+  // pool is NOT capped any more. S165: this said "still hard-capped (CASTLE_BANK_CAP +
+  // CASTLE_PORCH_SLOTS)" while the comment sixteen lines below, in this same handler, already said
+  // the inventory is limitless and that it removed the last consumer of CASTLE_BANK_CAP - two
+  // opposite claims about one mechanic in one function. Nothing is destroyed; the
   // strategic pressure survives. A full porch simply refuses, no-op-never-throw, and the player is
   // told by the tile they just clicked still reading its shortfall.
   castlePanel.setRequestShapesHandler((missing) => {

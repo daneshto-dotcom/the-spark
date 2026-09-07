@@ -147,9 +147,19 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
      * `gameMode.ts`), and S148 PA made the empty opening a ruling: a fresh match holds one gatherer,
      * one castle and ZERO creatures per seat. Goblins are obtained by FEEDING the goblin tower.
      *
-     * What the gate actually does now is bound `SPAWN_CREATURE` **as a client intent**: it is on the
-     * protocol allowlist (`protocol.ts:1009`), so a peer can send it, and without this a client could
-     * ask for an army of null-spawner units. One live unit per (owner, type) is that bound. Same
+     * What the gate actually does now is bound the per-(owner, type) creature population.
+     *
+     * S165 CORRECTION - THE REASON WRITTEN HERE WAS FALSE, and it is the SECOND reason at this gate
+     * to go stale (the first is struck through just above). It read: *"bound `SPAWN_CREATURE` as a
+     * client intent: it is on the protocol allowlist (`protocol.ts:1009`), so a peer can send it,
+     * and without this a client could ask for an army of null-spawner units."* `SPAWN_CREATURE` is
+     * on the KNOWN-ACTION mirror, which is not the client-intent list; it is ABSENT from
+     * `CLIENT_INTENT_TYPES_RECORD`, so `isClientIntentAllowed` refuses it at both call sites and a
+     * peer cannot send it at all. The cited line is inside an unrelated `EndGameMsg` docblock.
+     *
+     * The security position is therefore STRONGER than the old text claimed rather than weaker - no
+     * client can reach these caps - so the gate stays for the reason it is actually worth: one live
+     * unit per (owner, type) is a HOST-side population bound. Same
      * blueprint-Q10 shape, a live reason instead of a retired one — and the owner's B3 ruling is
      * still about the Voltkin they BUILD.
      */

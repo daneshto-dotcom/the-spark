@@ -111,7 +111,7 @@ export function applyDespawnSpark(world: World, action: DespawnSparkAction): Wor
  *
  *  Host re-validates `action.pos` from REMOTE carriers as untrusted input:
  *    - canvas bounds (0 ≤ x ≤ CANVAS_WIDTH, 0 ≤ y ≤ CANVAS_HEIGHT)
- *    - plausibility (within REASONABLE_PICKUP_REACH=250 of joiner's last
+ *    - plausibility (within REASONABLE_PICKUP_REACH (600 — S165: this said 250) of joiner's last
  *      authoritative avatarPos — prevents teleport-anywhere exploit)
  *  Solo + host-own pickups in 1v1 are LOCAL/trusted; skip validation.
  *

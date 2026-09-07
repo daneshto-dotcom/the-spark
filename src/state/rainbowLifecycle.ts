@@ -64,7 +64,7 @@ export function applySpawnRainbow(world: World, action: SpawnRainbowAction): Wor
 // the bots-only Silver (0xc0c8d0, near-white); including it let a human get deranged INTO Silver
 // and read as "stuck white" after a rainbow (and a poop-foul on that structure then reverts to
 // the same Silver). Excluding it: humans shuffle among the 6 real colours, and a Silver bot's
-// colour isn't in the map so the `?? p.color` fallback leaves it unchanged. MAX_PLAYERS=6.
+// colour isn't in the map so the `?? p.color` fallback leaves it unchanged. MAX_PLAYERS (4 since owner R41 — S165: this line asserted 6, which the very next lines already contradict).
 // *** S147 R41/R45 - THE SLICE IS NOW A NO-OP AND IS REMOVED. The bots-only 7th "Silver" seat colour
 // is retired (R41 caps the game at 4 players, so a 7th seat cannot exist), leaving PLAYER_COLORS as
 // exactly the SIX race colours - every one of which is human-eligible. The exclusion above existed

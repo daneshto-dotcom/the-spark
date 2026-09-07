@@ -109,7 +109,20 @@ The race shape is already defined and load-bearing — `RACE_FEED_SHAPE` in `src
 
 ---
 
-## ⛔ C · THE ONE COLLISION I FOUND, AND IT IS REAL
+## ✅ C · THE ONE COLLISION I FOUND — **SETTLED S164 BY OWNER R132**
+
+> **⭐ RESOLVED, AND THIS BANNER EXISTS BECAUSE THE FILE KEPT SAYING OTHERWISE.** Owner R132
+> moved the NONET trigger to **12** of one shape and left **9** to the tier-9 boss tower, so the
+> two mechanics no longer compete for the same shape count. `src/state/sudokuEvent.ts` reads
+> `export const NONET_SHAPE_COUNT = 12;` and `hostTick.ts` cites R132 at the sweep.
+>
+> ⚠ Everything below is kept as the ANALYSIS that produced the ruling — it is why 12 was
+> chosen — but it must not be read as open work. S165 found this file and `BACKLOG.md` both
+> still asking the owner to decide something he had already decided, which is the exact failure
+> the project CLAUDE.md warns about: *"Before asking for a ruling, grep the archive for it."*
+> The line number cited just below is also stale: the sweep is at `hostTick.ts:512` today.
+
+## ⛔ C · THE ANALYSIS THAT PRODUCED R132 (historical)
 
 **"Nine of one shape" is ALREADY a trigger in this game, and it summons the sudoku minigame.**
 
@@ -173,7 +186,10 @@ shape — a real price, which is the natural cap the design already contains. As
 **a seat may build it again, but may not have two of its bosses alive at once.** Flagging rather than
 asserting, because it is a balance lever and the owner has boss specs coming.
 
-### ⚠ Q4 — THE NONET COLLISION. STILL OPEN, but with a recommendation.
+### ✅ Q4 — THE NONET COLLISION. **CLOSED by owner R132 (S164): NONET is 12, the boss keeps 9.**
+
+⚠ The four options below are the menu that was PUT to the owner. Read them as the record of a
+decision, not as a question still waiting for one.
 
 The one thing here that is not deducible, because it changes a SHIPPED feature and only the owner
 gets to do that. See §C for the collision.

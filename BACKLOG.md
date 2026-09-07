@@ -28,7 +28,11 @@ session and not for the next one but maybe for the one after"*. Captured now so 
       boss lives until killed, and if it survives the FIGHT phase it returns to the castle and comes
       back next phase. Owner will supply boss specs later.
 
-- [ ] ⛔ **BLOCKER FOUND IN S162, NEEDS AN OWNER DECISION FIRST (Q4).** *"Nine of one shape"* is
+- [x] ✅ **THE S162 BLOCKER IS CLOSED — owner R132 (S164): NONET moved to 12, the boss keeps 9.**
+      `sudokuEvent.ts` reads `NONET_SHAPE_COUNT = 12`. Left in place as history; S165 found this item
+      still marked as needing a decision the owner had already made two sessions earlier.
+      The original text follows.
+- [x] ~~⛔ **BLOCKER FOUND IN S162, NEEDS AN OWNER DECISION FIRST (Q4).**~~ *"Nine of one shape"* is
       already a trigger: `hostTick.ts` summons the NONET sudoku trial on *"a connected component of
       EXACTLY 9 shapes of ONE type"*, host-only, once per match. As specced, **building your first
       boss tower would also summon sudoku** — and because NONET is once-per-match, it would collide
