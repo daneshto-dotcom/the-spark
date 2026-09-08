@@ -44,6 +44,7 @@ import {
   phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
+  T9_ZOMBIE_DEATH_BLAST_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -108,7 +109,7 @@ import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.t
  * S167 — the tier-9 leaf + the ring walk, both side-effect-free, for the same hot-path reason as
  * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
  */
-import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
+import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
 import { T9_RELEASE_DELAY_TICKS } from '../constants.ts';
 import { ringMembersAt } from './godlyRecipes/ringShape.ts';
 import { RACE_FEED_SHAPE } from './races.ts';
@@ -122,7 +123,8 @@ import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
-import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
+import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
+import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
@@ -166,6 +168,14 @@ export interface HostTickState {
   invariantSnap: InvariantSnapshot;
   /** DEV invariant-probe log throttle (≤1 error line per 60 ticks). */
   lastViolationLogTick: number;
+  /**
+   * ⭐ S168 P7 — the tier-9 bosses that were alive at the END of the previous tick, with the
+   * position to detonate at. HOST-LOCAL on purpose: a boss death SKILL needs to notice an
+   * ABSENCE, and an absence is path-independent — deferred sweep, immediate delete, radial
+   * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
+   * it here rather than on `World` avoids the four-sites tax and a protocol bump.
+   */
+  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
 }
 
 /**
@@ -272,6 +282,7 @@ export function makeHostTickState(world: World): HostTickState {
     peerAbsentSinceTick: new Map<string, number>(),
     invariantSnap: snapshotInvariants(world.primitives),
     lastViolationLogTick: -Infinity,
+    bossRoster: new Map(),
   };
 }
 
@@ -1829,6 +1840,58 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     }
   } else if (state.peerAbsentSinceTick.size > 0) {
     state.peerAbsentSinceTick.clear();
+  }
+
+  /*
+   * ⭐⭐ S168 P7 (owner R138) — **A BOSS THAT IS GONE DIED, AND THE ZOMBIE EXPLODES WHEN HE DOES.**
+   *
+   * Placed at the very END of the tick on purpose: everything that can remove a creature has now
+   * run — the defender poll, the creature fan-out, the deferred sweep, the bot and hunter passes,
+   * the hazard polls. Anything earlier would reintroduce the path-dependence this replaces.
+   *
+   * ⚠ ONLY THE ZOMBIE EXPLODES. The snapshot deliberately covers ALL SIX bosses, because five more
+   * death skills are coming and the mechanism should not have to be rediscovered; the filter is one
+   * line and it sits here, not in the snapshot.
+   */
+  {
+    /*
+     * ⚠ THE ROSTER SPANS TICK BOUNDARIES, AND THAT IS THE WHOLE REASON IT LIVES IN `HostTickState`
+     * RATHER THAN IN A LOCAL. My first cut snapshotted at the top of THIS tick and compared at the
+     * bottom of it, which silently missed one real path: a player RAID is dispatched from main.ts's
+     * intent drain, OUTSIDE `runHostTick`. A boss killed in that gap is already absent when the next
+     * tick opens, so a within-tick snapshot never saw it alive and never fired. Comparing against
+     * the PREVIOUS tick's roster covers the gap and the tick alike.
+     *
+     * ⚠ Host migration resets this (a new host builds a fresh `HostTickState`), so a boss that dies
+     * during the handover does not explode. Recorded rather than solved: the alternative is a synced
+     * `World` field, which owes the four-sites tax and a protocol bump for a one-frame edge case.
+     */
+    const previous = state.bossRoster;
+    const deaths: { type: CreatureType; x: number; y: number }[] = [];
+    for (const [id, boss] of previous) {
+      if (world.creatures.has(id)) continue;
+      deaths.push(boss);
+    }
+    for (const boss of deaths) {
+      if (boss.type !== T9_BOSS_TYPE.zombies) continue;
+      dispatch(world, {
+        type: 'STRUCTURE_SELFDESTRUCT',
+        pos: { x: boss.x, y: boss.y },
+        radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
+        // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
+      });
+    }
+
+    // Rebuild for the next tick. Insertion order follows `world.creatures`, but nothing reads the
+    // ORDER — the loop above is a membership test per id — so `Map` iteration decides nothing.
+    previous.clear();
+    if (world.gameState === 'PLAYING') {
+      for (const c of world.creatures.values()) {
+        if (isT9BossType(c.type)) {
+          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
+        }
+      }
+    }
   }
 
   if (import.meta.env.DEV && world.gameState === 'PLAYING') {

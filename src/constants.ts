@@ -2311,6 +2311,26 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  */
 export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
 export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+
+/*
+ * ⭐⭐ S168 P7 (owner R138) — **THE ZOMBIE BOSS EXPLODES WHEN HE DIES.**
+ *
+ * Owner: *"when he dies he explodes in a huge radius hurting everything radius"*.
+ *
+ * ⭐ "HURTING EVERYTHING" PICKS THE MECHANIC FOR FREE, and that is why this skill costs almost
+ * nothing to build. `applyStructureSelfDestruct` takes an OPTIONAL `ownerPlayerId` that SPARES the
+ * owner's own units and shapes (S157 P0, added after he reported hubs eating their own base).
+ * *Everything* is unambiguous, so the boss passes NO owner — which is the pre-S157, owner-agnostic
+ * default that reducer already had. No new action, no new `GameEffect` kind (it reuses
+ * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
+ * a client intent), so **no PROTOCOL_VERSION bump either**.
+ *
+ * ⚠ THE NUMBER IS MINE, NOT HIS. He said "huge" and did not give a figure. 380 px is set against
+ * the only comparable already on the board — the lightning hub's 240 px "lightning storm" — because
+ * a tier-9 boss detonating must read as decisively bigger than a tier-6 structure doing it. It is
+ * a fifth of the board's width, so it threatens a neighbourhood and not the map.
+ */
+export const T9_ZOMBIE_DEATH_BLAST_RADIUS = 380;
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 
 // ─────────────────────────────────────────────────────────────────────────────

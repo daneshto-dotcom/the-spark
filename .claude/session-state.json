@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6278,
+  "tool_calls_session_total": 6296,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -108,10 +108,13 @@
     {
       "id": "P8",
       "title": "art: skill VFX + R143 ability stances",
-      "status": "pending",
+      "status": "partial",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "300a220c342859e3e97fddd597cf980b8b889fb3",
+      "check_method": "DEFECT ART DONE, NEW ABILITY ART NOT STARTED. Kraken attack regenerated (credits live again) + sampleStart 60 after a contact sheet showed veo pillarboxed AND zoomed a second time despite a new explicit anti-letterbox clause — looked at the frames rather than re-rolling blind, per R147. Scarab walk sampleStart 24, which also fixed the S165 size drift at its root (the bars were corrupting normaliseStateScale). check:atlas 0 on all 48 atlases across all four checks; negative controls prove the tightened guard still catches both originals (413,789 / 53,703) and scores both fixes 0. STILL OWED: the six ability VFX + the R143 stances (kraken mouth-open sonar, pharaoh hands-out locusts)."
     },
     {
       "id": "P9",
