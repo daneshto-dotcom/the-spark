@@ -14,7 +14,9 @@ import {
   DIREWOLF_SUMMON_COUNT,
   DIREWOLF_SUMMON_INTERVAL_TICKS,
   PLAYER_COLORS,
+  WARLORD_RAGE_CLEAR_PCT,
   WARLORD_RAGE_MULTIPLIER,
+  WARLORD_RAGE_TRIGGER_PCT,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { rageMultiplier } from './creatures/creature.ts';
@@ -102,11 +104,25 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
   });
 
   /*
-   * ⭐⭐ THE ASSERTION THE RULING TURNS ON. *"for the rest of his lifetime"* — so a flag DERIVED from
-   * current HP is wrong, and this game now HAS healing (Vlad's life sap shipped the same session),
-   * so a derived flag would visibly switch off in play.
+   * ⭐⭐ THE ASSERTIONS THE RULING TURNS ON, AND THE RULING MOVED MID-SESSION.
+   *
+   * R149 said *"for the rest of his lifetime"*. R151 replaced it: *"he will stay rages until he dies
+   * or until and IF healed above 50%."* So it still LATCHES — a boss at 30% stays furious, which a
+   * predicate over current HP would get wrong — but there is now an exit, and the two thresholds
+   * differ on purpose. The three tests below are the three regions of that band.
    */
-  it('⭐⭐ LATCHES — healing him back over the line does NOT calm him down', () => {
+  it('⭐⭐ LATCHES inside the band — 30% is above the 25% trigger and he stays enraged', () => {
+    const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
+    const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
+    world.creatures.get(id)!.ehp = 5;
+    runWarlordRage(world);
+    expect(world.creatures.get(id)!.enraged).toBe(true);
+    world.creatures.get(id)!.ehp = Math.floor(max * 0.3); // healed, but only into the band
+    runWarlordRage(world);
+    expect(world.creatures.get(id)!.enraged, 'still furious between 25% and 50%').toBe(true);
+  });
+
+  it('⭐ R151 — healed ABOVE 50% and he calms down', () => {
     const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
     const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
     world.creatures.get(id)!.ehp = 5;
@@ -114,7 +130,26 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
     expect(world.creatures.get(id)!.enraged).toBe(true);
     world.creatures.get(id)!.ehp = max; // fully healed
     runWarlordRage(world);
-    expect(world.creatures.get(id)!.enraged, 'for the REST OF HIS LIFETIME').toBe(true);
+    expect(world.creatures.get(id)!.enraged, '"until and IF healed above 50%"').toBe(false);
+  });
+
+  it('⛔ exactly 50% does NOT calm him — "ABOVE 50%" is strict', () => {
+    const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
+    const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
+    world.creatures.get(id)!.ehp = 5;
+    runWarlordRage(world);
+    world.creatures.get(id)!.ehp = (max * WARLORD_RAGE_CLEAR_PCT) / 100;
+    runWarlordRage(world);
+    expect(world.creatures.get(id)!.enraged).toBe(true);
+  });
+
+  /*
+   * ⭐ THE HYSTERESIS IS THE POINT OF HAVING TWO NUMBERS. With one threshold, a boss hovering at the
+   * line would flicker in and out of a x2 speed and attack multiplier on every point of damage.
+   * Asserted so nobody "simplifies" the two constants into one.
+   */
+  it('⭐ the two thresholds are DIFFERENT — a single line would flicker the multiplier', () => {
+    expect(WARLORD_RAGE_CLEAR_PCT).toBeGreaterThan(WARLORD_RAGE_TRIGGER_PCT);
   });
 
   it('⭐ rage is one multiplier, and it is the owner x2', () => {

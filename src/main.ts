@@ -2962,10 +2962,36 @@ Network routes: ${v.detail}`;
      *
      * ⚠ PRE-EXISTING, not introduced this session: the overlay has layered this way since S87.
      */
+    /*
+     * ⛔⛔ S168 (owner) — **NONET WAS COMPLETELY BROKEN, AND THIS LINE IS WHY.**
+     *
+     * Owner: *"NONET is broken when i click on the sodoku it takes me back to main screen and starts
+     * the timer as if the game started lol - completely broken"*. His screenshot is the TITLE menu
+     * with the arcade clock running above it, which is exactly what the old expression produced:
+     *
+     *   1. clicking NONET sets `arcadeNonet` + `arcadeRun` (so the CLOCK starts — the visible half);
+     *   2. it then calls `arcadeOverlay.hide()`, so `arcadeOverlay.isOpen()` goes FALSE;
+     *   3. `modalUp` therefore goes false, `showTitle` goes TRUE — and the main menu comes back up
+     *      ON TOP of the puzzle the player just started.
+     *
+     * ⭐ THE BUG IS THAT `modalUp` LISTED THE MENUS AND NOT THE THING THE MENUS LAUNCH. Every entry
+     * here was a PANE the player opens; an arcade run is a MODE, it owns the screen just as much,
+     * and it was the only one that hid its own launcher on the way in.
+     *
+     * ⚠ `arcadeRun` is checked as well as `arcadeNonet`, not instead of it: solving the puzzle nulls
+     * `arcadeNonet` while the run continues into its INITIALS and BOARD phases, and the title menu
+     * must stay down for those too.
+     *
+     * ⚠ Why nothing caught it: `zones-visual.spec.ts` asserts ARCADE opens a menu that LAUNCHES
+     * NONET, and it does. The defect is one frame later, in what the title screen does once the
+     * launcher closes — which no assertion looked at.
+     */
+    const arcadeRunning = arcadeNonet !== null || arcadeRun !== null;
     const modalUp =
       (botSetupOverlay?.isVisible() ?? false) ||
       (codexOverlay?.isVisible() ?? false) ||
-      arcadeOverlay.isOpen();
+      arcadeOverlay.isOpen() ||
+      arcadeRunning;
     const showTitle = world.gameState === 'TITLE' && !modalUp;
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);

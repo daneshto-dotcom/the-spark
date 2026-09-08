@@ -2415,6 +2415,24 @@ export const DIREWOLF_MAX_PER_BOSS = 6;
 export const WARLORD_RAGE_TRIGGER_PCT = 25;
 export const WARLORD_RAGE_MULTIPLIER = 2;
 
+/**
+ * ⭐⭐ S168 — **R151, HIS AMENDMENT TO R149: RAGE IS NOT PERMANENT AFTER ALL.**
+ *
+ * *"well he will stay rages until he dies or until and IF healed above 50%."*
+ *
+ * So the latch CLEARS, and the two thresholds are deliberately different — 25% to enrage, 50% to
+ * calm. ⭐ **That gap is a HYSTERESIS BAND and it is the whole reason two numbers were given rather
+ * than one.** A single threshold would make a boss hovering at the line flicker in and out of a ×2
+ * speed and attack multiplier every time he took or regained a point, which would look like a bug
+ * and would be one. Between 25% and 50% he simply keeps whatever state he is already in.
+ *
+ * ⚠ HONEST NOTE: nothing currently heals the Warlord — Vlad's life sap (R140) heals only Vlad — so
+ * the clear condition is unreachable in play TODAY. It is implemented anyway, because the ruling is
+ * about what should happen when it is reachable, and a rule that exists only in a comment is the
+ * class of thing S167 shipped a whole session on.
+ */
+export const WARLORD_RAGE_CLEAR_PCT = 50;
+
 /*
  * ⭐⭐ S168 (owner R150) — **THE ARCHDEMON.**
  *

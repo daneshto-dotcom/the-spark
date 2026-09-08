@@ -15,6 +15,7 @@ import {
   DIREWOLF_MAX_PER_BOSS,
   DIREWOLF_SUMMON_COUNT,
   DIREWOLF_SUMMON_INTERVAL_TICKS,
+  WARLORD_RAGE_CLEAR_PCT,
   WARLORD_RAGE_TRIGGER_PCT,
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
@@ -27,20 +28,36 @@ import { dispatch, type World } from './world.ts';
  * `creatures/creature.ts`, read by the movement integrator (`physics/creatureVerlet.ts`) and by the
  * attack cadence (`creatures/creatureLifecycle.ts`). This function only decides WHEN.
  *
- * ⚠ IT LATCHES AND NEVER CLEARS — *"for the rest of his lifetime"*. A predicate over current HP
- * would switch back OFF if he were healed above the line, and this game now HAS healing: Vlad's life
- * sap shipped in the same session. So the difference is not hypothetical.
+ * ## ⭐⭐ R151 amended R149 mid-session, and the amendment is a HYSTERESIS BAND
  *
- * ⚠ The threshold is an integer cross-multiplication rather than a division, so it stays exact for
+ * R149 said *"for the rest of his lifetime"*. R151 replaced it: *"he will stay rages until he dies
+ * or until and IF healed above 50%."*
+ *
+ * So it still LATCHES — it is not a predicate over current HP, and a boss sitting at 30% stays
+ * furious — but it now has an exit. ⭐ The two thresholds differ ON PURPOSE (25% in, 50% out): with
+ * a single line, a boss hovering at it would flicker in and out of a ×2 speed and attack multiplier
+ * on every point of damage. Between the two he keeps whatever state he already has.
+ *
+ * ⚠ Both comparisons are integer cross-multiplications rather than divisions, so they stay exact for
  * any pool — the same shape as Vlad's 40% gate.
+ *
+ * ⚠ Nothing heals the Warlord today (Vlad's sap heals only Vlad), so the exit is unreachable in
+ * play. Implemented regardless: the ruling is about what happens when it IS reachable.
  */
 export function runWarlordRage(world: World): void {
   if (world.gameState !== 'PLAYING') return;
   for (const id of liveIdsOfType(world, T9_BOSS_TYPE.orcs)) {
     const boss = world.creatures.get(id);
-    if (boss === undefined || boss.enraged === true) continue;
-    if (boss.ehp <= 0) continue; // a corpse does not get angry
-    if (boss.ehp * 100 < maxPoolFifths(boss.type) * WARLORD_RAGE_TRIGGER_PCT) boss.enraged = true;
+    if (boss === undefined) continue;
+    if (boss.ehp <= 0) continue; // a corpse neither rages nor calms
+    const max = maxPoolFifths(boss.type);
+
+    if (boss.enraged === true) {
+      // R151 — the ONLY way out short of dying, and it is strictly ABOVE the line.
+      if (boss.ehp * 100 > max * WARLORD_RAGE_CLEAR_PCT) boss.enraged = false;
+      continue;
+    }
+    if (boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) boss.enraged = true;
   }
 }
 

@@ -650,3 +650,86 @@ His earlier ruling (*"weaker by 1 point off their strongest stat than the tier 3
 table**. This closes three open questions at once: the vampire/zombie ties, six new `CreatureType`s
 with their four-sites tax, and the protocol bump they would have cost. `raceUnit` remains ONE type at
 1/1/1/1 for all six races, with the per-race ART selected off `player.raceId` exactly as it is today.
+
+---
+
+## ⭐ OWNER RULINGS, S168 (close) — R151 … R155
+
+### R151 — RAGE IS NOT PERMANENT (amends R149) ✅ SHIPPED
+
+> *"well he will stay rages until he dies or until and IF healed above 50%."*
+
+Enrage **below 25%**, calm **above 50%**, and the gap between them is a **HYSTERESIS BAND** — that is
+why two numbers were given rather than one. With a single line a boss hovering at it would flicker in
+and out of a ×2 speed and attack multiplier on every point of damage. Between 25% and 50% he keeps
+whatever state he already has. ⚠ Nothing heals the Warlord today (Vlad's sap heals only Vlad), so the
+exit is unreachable in play — implemented anyway, because the ruling is about when it IS reachable.
+
+### R152 — **STUN, AS A GENERAL CONDITION** (unblocks the Kraken) — NOT YET BUILT
+
+> *"for the Kraken stun yeah we need to add condition - STUN where the player is stuck on idle and
+> cant do anything and maybe there is like a cool stunned "seeing stars" effect above the stunned
+> creatures heads? it has to be consistent and coherent obviously."*
+
+⭐ **HE ASKED FOR A CONDITION, NOT A KRAKEN FEATURE**, and that is the right shape — the same call he
+made on the zombie aura (*"we need to build a new mechanic - debuff OR damage over time"*), which is
+now `state/damageOverTime.ts` and will serve the Pharaoh's locusts too. STUN is the second half of
+that pair: DoT was the damage debuff, this is the **control** debuff.
+
+**THE DESIGN, costed against the shipped tree:**
+
+| | |
+|---|---|
+| **State** | A `stunnedUntilTick` field on `Creature` — additive-optional, exactly like `enraged`. ⭐ **NOT a new FSM state.** `CreatureState` is `SPAWNING/SEEKING/ATTACKING/DESPAWNING` and is both serialized and hashed; adding a fifth member changes a wire discriminant and every exhaustive switch over it. A tick-stamp field is strictly cheaper and composes better — two stuns overlap by taking the max. |
+| **Effect** | *"stuck on idle and cant do anything"* — the creature FSM and the movement integrator both return early while `world.tick < stunnedUntilTick`. Two call sites, the same two `rageMultiplier` already touches (`creatureLifecycle.ts` cadence, `creatureVerlet.ts` accel). |
+| **"Seeing stars"** | ⭐ **DERIVED PER FRAME, not pushed as an effect.** Because the stun's END TICK is synced state, the renderer can ask *"is this creature stunned right now"* every frame and draw the stars. That is this codebase's established pattern and it dodges the known trap: a one-shot `world.effects` push is lost ~5/6 of the time, because effects are sampled at 10 Hz and the renderer wipes at 60. **No `GameEffect` kind, no protocol bump.** |
+
+⚠ **WHETHER IT NEEDS A BUMP AT ALL DEPENDS ON ONE THING:** if `stunnedUntilTick` must survive a
+snapshot to a joining peer, it is serialized and earns a bump. If the host can re-derive it, it can
+ride host-local like the sap ledger. Decide that before building, not after.
+
+⚠ **AND IT MUST BE CONSISTENT, WHICH IS HIS WORD:** a stunned creature should be stunned to *every*
+system — it cannot move, attack, chew, or be summoned into a swing it had already committed to. The
+places that read a creature's ability to act have to be enumerated ONCE and made to consult the
+condition, or stun will work in three of them and not the fourth. That enumeration is the real work.
+
+### R153 — THE FOOTER SHAPE LEGEND (next session, small)
+
+> *"in the footer where there are the tiers i want you to do two things next session - something
+> small. you see those six shapes on the left side with their colors - thats illogical to have them.
+> maybe just remove them and make the shapes on the right side (where the queue menue is) colored
+> with those colors (showing the races that own them)."*
+
+Two edits, and they are located:
+1. **Remove the left legend** — `makeLegend(app)` (`main.ts:280`, staged at `:699`, attached to the
+   footer band at `:707`, visibility toggled at `:2990`). It is also a REGISTERED HUD surface, so
+   removing it means removing its rect from `hudSurfaces()` too — the same completeness the help-line
+   removal needed this session.
+2. **Colour the queue/palette shapes by owning race** — `render/shapeStrip.ts`
+   (`shapeStripLayout`, `STRIP_PALETTE_TYPES`). The race→colour mapping already exists as
+   `PLAYER_COLORS` / the race palette, so this is a tint at draw time rather than new state.
+
+⚠ Check first whether the legend is referenced by the codex or a tutorial string before deleting it.
+
+### R154 — TIERS 4–7, AND HE IS GENERATING THEM
+
+> *"building more tiered towers but i want to do the generating - so we stop using so many api calls
+> and so much money … tier 4 is Sand Crawler, Tier 5 is Anubis Warior, Tier 6 is Djinn and Tier 7 is
+> Sand Guardian/Golem … I will generate each of them healthy, hurt and dying, then their buildings in
+> the three states … for now save those in the correct hero folders"*
+
+Folders created and every expected filename written down:
+**`assets-source/TIERS_4_TO_7_DROP_HERE.md`**. ⚠ One open question is recorded there: *"healthy,
+hurt and dying"* for UNITS is a new capability — the game has damage-state art for TOWERS only — and
+it is worth deciding deliberately before he generates twelve more images.
+
+### R155 — VOLTKIN REWORK
+
+> *"here i reworked voltkin … we gotta make voltkin look sick, he is too basic now and he doesnt even
+> have video generated for his movements (only idle but no walking or dying) … we will also need to
+> generate the broken TV he came out off (thats his building) i will generate it"*
+
+He is right, and it is worse than "no walking": Voltkin has **two stills and a cinematic**, no sprite
+atlas at all — he predates the veo pipeline every other unit now uses. Full analysis, filenames and
+the ⚠ **legal flag** (the rework reads as strongly Pikachu-derived, and S95 already cost a rework for
+exactly this) are in **`assets-source/godly-voltkin/REWORK_S168.md`**.

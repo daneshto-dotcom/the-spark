@@ -359,13 +359,36 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     // ⭐ THE ASSERTION THAT MATTERS: the board is up, and `world.sudoku` is still null.
     const after = await page.evaluate(() => {
       const s = (window as unknown as {
-        __SPARK__: { world: { sudoku: unknown; gameState: string }; arcadeOverlay: { getUiPoints: () => { open: boolean } } };
+        __SPARK__: {
+          world: { sudoku: unknown; gameState: string };
+          arcadeOverlay: { getUiPoints: () => { open: boolean } };
+          titleScreen: { isVisible: () => boolean };
+        };
       }).__SPARK__;
-      return { sudoku: s.world.sudoku, gameState: s.world.gameState, menuOpen: s.arcadeOverlay.getUiPoints().open };
+      return {
+        sudoku: s.world.sudoku,
+        gameState: s.world.gameState,
+        menuOpen: s.arcadeOverlay.getUiPoints().open,
+        titleVisible: s.titleScreen.isVisible(),
+      };
     });
     expect(after.sudoku).toBeNull(); // a title-screen puzzle never enters the simulation
     expect(after.gameState).toBe('TITLE');
     expect(after.menuOpen).toBe(false);
+    /*
+     * ⛔⛔ S168 (owner) — **THE ASSERTION THAT WAS MISSING, AND NONET WAS COMPLETELY BROKEN WITHOUT
+     * IT.** Owner: *"NONET is broken when i click on the sodoku it takes me back to main screen and
+     * starts the timer as if the game started lol - completely broken"*.
+     *
+     * Everything above this line PASSED throughout: the menu opened, NONET launched, `world.sudoku`
+     * stayed null and the menu closed. What no assertion looked at was the TITLE MENU ITSELF — and
+     * `modalUp` in main.ts listed the arcade LAUNCHER but not the arcade RUN, so hiding the launcher
+     * made `showTitle` true again and the main menu came straight back up over the puzzle.
+     *
+     * `gameState === 'TITLE'` is deliberately NOT the same check: an arcade run legitimately happens
+     * in the TITLE state. The question is whether the MENU is on screen, and only this line asks it.
+     */
+    expect(after.titleVisible, 'the main menu must not come back over the puzzle').toBe(false);
     await page.screenshot({ path: `${CAPTURE_DIR}/spark-s149-arcade-nonet.png` });
   });
 });
