@@ -41,6 +41,7 @@ import {
 } from '../constants.ts';
 import type { Creature } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
+import { rageMultiplier } from '../state/creatures/creature.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
 /** Shared zero-accel sentinel. Callers must NOT mutate. */
@@ -146,7 +147,9 @@ export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
   // hop. The per-behavior helpers take the same effective cap so the arrive/repulse
   // ramps scale with it (not just the post-sum clamp).
   const config = getCreatureConfig(c.type);
-  const maxAccel = config.maxAccel;
+  // ⭐ S168 (R149) — RAGE: *"moves x2 quicker"*. One multiplier, defined in `creatures/creature.ts`
+  // and read here and at the attack cadence, so the two halves of "quicker" cannot drift apart.
+  const maxAccel = config.maxAccel * rageMultiplier(c);
   const arrive = arriveForce(c, c.targetPos, CREATURE_ARRIVE_RADIUS, maxAccel);
   // S102 #3 — the SPAWNER_POS repulse is the canvas-CENTRE spark-spawner zone (legacy
   // Voltkin scaffolding). A CHEWER must close ONTO its target connector to chew it at

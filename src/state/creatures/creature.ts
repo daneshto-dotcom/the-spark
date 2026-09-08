@@ -22,6 +22,7 @@ import type { BondId, PlayerId, PrimitiveId, Vec2, SpawnerId } from '../../types
 import type { CreatureId } from '../../types.ts';
 import { VOLTKIN_CONFIG, type CreatureConfig } from './voltkin-config.ts';
 import { unitPoolFifths } from '../stats.ts';
+import { WARLORD_RAGE_MULTIPLIER } from '../../constants.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
 
@@ -98,6 +99,22 @@ export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_CONFIG.attackRange * VOLTKIN_CONF
 export const VOLTKIN_ATTACK_CADENCE_TICKS = VOLTKIN_CONFIG.attackCadenceTicks;
 
 /**
+ * ⭐ S168 (owner R149) — **RAGE, AS ONE MULTIPLIER READ IN TWO PLACES.**
+ *
+ * *"he becomes enraged when drops to 25% health and attacks and moves x2 quicker for the rest of his
+ * lifetime."* — so "quicker" has two meanings and both are wired from here:
+ *   · MOVES quicker → `physics/creatureVerlet.ts` scales `config.maxAccel` by this;
+ *   · ATTACKS quicker → `creatures/creatureLifecycle.ts` DIVIDES `config.attackCadenceTicks` by it.
+ *
+ * ⚠ Defined once rather than written at both call sites, because a x2 that was applied to movement
+ * and forgotten at the cadence is a bug nothing in the suite would name — the Warlord would simply
+ * feel wrong. The LATCH itself lives in `state/bossSkills.ts`; this is only the read.
+ */
+export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
+  return c.enraged === true ? WARLORD_RAGE_MULTIPLIER : 1;
+}
+
+/**
  * S27 P0 — Council R1 Q2 COMPROMISE (Grok-A tick-0 vs Gemini-B tick-30) → middle
  * (tick 30). The CREATURE_ATTACK action dispatches when ATTACKING.ticksInState ===
  * VOLTKIN_ATTACK_FIRE_TICK (in main.ts post-CREATURE_TICK fan-out). Ticks 0-29 are
@@ -158,6 +175,21 @@ export function cinematicMsToTicks(ms: number): number {
 // ⚠ This literal is SERIALIZED (`deserializeCreature` writes `type: s.type` with no whitelist), so
 // it forces a PROTOCOL_VERSION bump — the same class as 'lightningDrone', which bumped 13→14.
 export type CreatureType =
+  /* ── S168 (owner R149) — THE ORC WARLORD'S DIREWOLF ──────────────────────────────────────────
+   * *"Orc warlors summons 3 direwolves every 15 sec with stats 3, 3, 3, 3 each direworlf
+   * (i will generate the image for him.)"*
+   *
+   * ⛔ A SUMMON WITH ITS OWN STATS CANNOT BE ANYTHING BUT ITS OWN LITERAL, for the reason the
+   * `t3*` block below states in full: `serializeCreature` emits `hp` only when a creature is
+   * DAMAGED, so an undamaged one carries no stats on the wire and the receiving peer rebuilds them
+   * from its OWN `CREATURE_CONFIGS`, keyed by TYPE. Distinct stats are therefore only expressible
+   * as a distinct type. It is SERIALIZED, so it takes PROTOCOL_VERSION 44 -> 45 on exactly the same
+   * grounds as 'lightningDrone' (13->14) and 'raceUnit' (41->42).
+   *
+   * ⚠ It is a SUMMON, not a spawner output: it carries `sourceSpawnerId: null` like the Voltkin,
+   * because no CreatureSpawner mints it. Its population ceiling is therefore its own, not the
+   * goblin family's. */
+  | 'direwolf'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'
@@ -371,6 +403,31 @@ export interface Creature {
    */
   chewProgress: number;
   /**
+   * ⭐⭐ S168 (owner R149) — **THE ORC WARLORD IS ENRAGED.** *"he becomes enraged when drops to 25%
+   * health and attacks and moves x2 quicker for the rest of his lifetime."*
+   *
+   * ⚠ IT LATCHES, AND THAT IS WHY IT IS A FIELD RATHER THAN A PREDICATE. *"for the rest of his
+   * lifetime"* is explicit: a flag derived from current HP would switch OFF again the moment he was
+   * healed back over the line, which is the opposite of the ruling.
+   *
+   * ⛔ **DELIBERATELY NOT SERIALIZED AND NOT HASHED**, and that is a decision rather than an
+   * oversight. It is DERIVED state: both the host and its `?worker=1` mirror compute it from the
+   * same `ehp` against the same threshold on the same tick, so it can never disagree between the
+   * two sims that `hashWorldStateFull` actually compares. The client never simulates — it renders
+   * positions from snapshots — so it has no use for the flag either. Putting it on the wire would
+   * buy nothing and cost the four-sites tax plus a `FIELD_COVERAGE` entry.
+   *
+   * ⚠ THE COST, NAMED: a HOST MIGRATION rebuilds creatures from a snapshot, so an enraged Warlord
+   * calms down under the new host until he next crosses the threshold — and if he is already below
+   * it, that is the very next tick. Same tradeoff as the life-sap ledger, and the same reasoning.
+   *
+   * ⚠ ADDITIVE-OPTIONAL rather than required, and that is also deliberate: a required field
+   * would force `enraged: false` into roughly twenty hand-built Creature fixtures across the
+   * suite that have no opinion about rage, which is churn with no signal in it. `=== true` is
+   * the only read, so `undefined` and `false` mean the same thing everywhere.
+   */
+  enraged?: boolean;
+  /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.
    *
@@ -478,6 +535,7 @@ export function makeCreature(
     targetPrimitiveId: null, // S139 P2 — set only for a structure-attacker (goblin)
     state: 'SPAWNING',
     ticksInState: 0,
+    enraged: false, // S168 R149 — latched by `runWarlordRage`; see the field's note.
     killCount: 0,
     spawnedAtTick: args.spawnedAtTick,
     // ⭐ S155 P3 — computed ONCE, here, and stored as an ABSOLUTE tick. That is what keeps it

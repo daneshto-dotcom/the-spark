@@ -609,7 +609,32 @@ export type { NetSnapshot };
  * and owner-conversion are all NEW VERBS this sim does not have, and at least one of them will need
  * a new serialized field or `GameEffect` kind — which is its own bump, 44 -> 45.
  */
-export const PROTOCOL_VERSION = 44 as const;
+
+/*
+ * ⭐⭐ S168 — **BUMPED 44 -> 45: THE ORC WARLORD'S DIREWOLF.** One new serialized `CreatureType`
+ * literal, `direwolf` (owner R149: *"summons 3 direwolves every 15 sec with stats 3, 3, 3, 3"*).
+ *
+ * ⛔ WHY A SUMMON CANNOT SHARE AN EXISTING LITERAL, which is the same argument the tier-3 units
+ * settled in 42->43: `serializeCreature` emits `hp` only when a creature is DAMAGED, so an undamaged
+ * one carries NO stats on the wire and the receiving peer rebuilds them from its OWN
+ * `CREATURE_CONFIGS`, keyed by TYPE. Distinct stats are therefore only expressible as a distinct
+ * type. And `deserializeCreature` writes `type: s.type` with no runtime whitelist, so a v44 peer
+ * would accept the literal and then find `CREATURE_CONFIGS.direwolf === undefined` on its own
+ * mirror — the exact failure mode 13->14 ('lightningDrone') and 41->42 ('raceUnit') were bumped for.
+ *
+ * ⭐ AND THE FOUR OTHER SKILLS THAT SHIPPED IN S168 RIDE FOR FREE, which is worth recording because
+ * the note above predicted otherwise:
+ *   · R138 death explosion — reuses `STRUCTURE_SELFDESTRUCT`, which is HOST-INTERNAL, and the
+ *     existing `BOMB_EXPLODE` effect. No new kind.
+ *   · R138 rot aura — plain `damageEntity` on already-serialized `ehp`.
+ *   · R140 life sap — heals already-serialized `ehp`; the CHARGE LEDGER is host-local
+ *     (`HostTickState`), never on the wire.
+ *   · R149 RAGE — a host-local LATCH, likewise. It changes speed and cadence, both of which the
+ *     host already resolves before positions are snapshotted.
+ *   · R150 teleport / taken-to-hell — a position write and a creature removal, both already synced.
+ * So this bump is the direwolf and nothing else.
+ */
+export const PROTOCOL_VERSION = 45 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -825,6 +850,18 @@ export interface HelloMsg {
    * another bump to change. No new action, no new field, no new `GameEffect` kind — the boss SKILLS
    * are NOT in this bump and will need their own.)
    *
+   * S168: 44->45 (THE ORC WARLORD'S DIREWOLF — owner R149, *"summons 3 direwolves every 15 sec with
+   * stats 3, 3, 3, 3"*. ONE new serialized `CreatureType` literal, `direwolf`. Same argument as
+   * 41->42 and 42->43: `serializeCreature` emits `hp` only when a creature is DAMAGED, so an
+   * undamaged one carries no stats and the peer rebuilds them from its OWN `CREATURE_CONFIGS` keyed
+   * by type — distinct stats are only expressible as a distinct type — and `deserializeCreature`
+   * writes `type: s.type` with no whitelist, so a v44 peer would find `CREATURE_CONFIGS.direwolf ===
+   * undefined` on its own mirror. ⭐ The FIVE other boss skills that shipped in S168 ride for free:
+   * the death explosion reuses host-internal `STRUCTURE_SELFDESTRUCT` + `BOMB_EXPLODE`, the rot aura
+   * is plain `damageEntity` on already-serialized `ehp`, the life sap heals the same field with a
+   * HOST-LOCAL charge ledger, RAGE is a host-local latch, and the Archdemon's teleport and execute
+   * are a position write and a creature removal. So this bump is the direwolf and nothing else.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -862,7 +899,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 44;
+  readonly protoVersion: 45;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

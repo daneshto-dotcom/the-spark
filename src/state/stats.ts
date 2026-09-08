@@ -285,6 +285,13 @@ const STRUCTURES_ONLY: ReadonlySet<TargetClass> = new Set<TargetClass>(['structu
  * COMPILE error — the six goblin kinds in P3 land as six forced decisions.
  */
 export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetClass>>> = {
+  /*
+   * ⭐ S168 (owner R149) — the Orc Warlord's summoned direwolf. BOTH, like the rest of the melee
+   * roster: he summons it as a war pack, and a pack that walked past an enemy tower to reach a
+   * soldier would read as broken. Nothing in the ruling narrows it, and BOTH is the roster default
+   * for anything that closes to melee.
+   */
+  direwolf: BOTH,
   // Eats connectors, never fights soldiers — the shipped behaviour, now stated rather than implied.
   chewer: STRUCTURES_ONLY,
   voltkin: BOTH,
@@ -367,6 +374,8 @@ export const DEFENDER_TARGETS: Readonly<Record<DefenderKind, ReadonlySet<TargetC
 
 /** What each unit is FOR (owner R77's "role"). Exhaustive — a new unit must declare one. */
 export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
+  // ⭐ S168 (R149) — a summoned war pack. It goes where the Warlord is going; it does not hold ground.
+  direwolf: 'offence',
   // Walks to an enemy structure and gnaws its connectors. Pure aggression, no holding ground.
   chewer: 'offence',
   // A free melee unit that closes on whatever is nearest — it fights and it screens.

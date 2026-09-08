@@ -273,7 +273,16 @@ type SparkHashed =
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
   | 'targetCreatureId' | 'targetPrimitiveId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
-  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'ehp' | 'poopyUntilTick';
+  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'ehp' | 'poopyUntilTick'
+  /*
+   * ⭐ S168 (owner R149) — the Orc Warlord's RAGE latch. HASHED rather than 'acknowledged', which is
+   * a deliberate choice: the field is NOT serialized (it is derived, and the client never simulates),
+   * so the wire has no opinion about it — but `hashWorldStateFull` compares two SIMS, and both the
+   * host and its `?worker=1` mirror compute this latch themselves. If they ever disagreed, that is
+   * precisely the class of defect this oracle exists to catch, and acknowledging it would blind the
+   * oracle to a latch that gates a x2 speed and cadence multiplier.
+   */
+  | 'enraged';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -515,7 +524,7 @@ export function determinismParts(world: World): string[] {
         `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:tp${n(c.targetPrimitiveId)}` +
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
-        `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}`,
+        `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}`,
     );
   }
 

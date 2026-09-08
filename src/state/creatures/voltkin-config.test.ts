@@ -164,8 +164,15 @@ describe('CREATURE_CONFIGS lookup table', () => {
      * and an undamaged creature carries no stats on the wire — the peer rebuilds them from its own
      * `CREATURE_CONFIGS`, keyed by type — so per-race stats are only expressible as per-race types.
      */
+    /*
+     * ⭐ S168 — and a FIFTH time, for the Orc Warlord's summoned direwolf (owner R149). It is the
+     * only site in the four-sites walk that `tsc` CANNOT point at: the two `Record<CreatureType,…>`
+     * tables fail to compile without the new key, but a hand-maintained literal list can only fail
+     * at RUNTIME. That is exactly why it is hand-maintained.
+     */
     expect(keys).toEqual([
       'chewer',
+      'direwolf',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
       'lightningDrone', 'raceUnit',
       't3Bat', 't3Hound', 't3Piranha', 't3Scarab', 't3Souleater', 't3Warband',

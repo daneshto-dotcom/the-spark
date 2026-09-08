@@ -199,6 +199,24 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w)).not.toBe(wideBefore); // wide catches it
   });
 
+  /*
+   * ⭐ S168 (owner R149) — THE THIRD SUB-SITE OF THE FOUR-SITES WALK, and the only one nothing in
+   * the compiler can force. `CreatureHashed` failing to compile catches a MISSING UNION MEMBER; the
+   * projection is a hand-written string template with no executable link to that union, so a field
+   * named in the union but absent from the template compiles clean, passes every other test, and
+   * leaves the wide oracle BLIND to it. This test is the link.
+   *
+   * RAGE is worth the coverage rather than being 'acknowledged': it is not serialized, but it gates
+   * a x2 speed and attack-cadence multiplier that BOTH the host and its ?worker=1 mirror compute
+   * for themselves, and two sims disagreeing is exactly what this oracle is for.
+   */
+  it('⭐ enraged — the Warlord RAGE latch — flips the wide hash', () => {
+    const w = worldWithEntities();
+    const wideBefore = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.enraged = true;
+    expect(hashWorldStateFull(w), 'the projection must carry the latch').not.toBe(wideBefore);
+  });
+
   it('chewProgress — bond damage — flips the wide hash and not the narrow one', () => {
     // chewProgress IS the bond's HP (CONNECTOR_HP = CHEW_HITS); the bond itself stores
     // no damage state, which is why excluding this field would leave bond-damage

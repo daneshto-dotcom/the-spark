@@ -2347,30 +2347,26 @@ export const VLAD_LIFE_SAP_TRIGGER_PCT = 40;
 export const VLAD_LIFE_SAP_USES = 3;
 
 /*
- * ⭐⭐ S168 (owner R138, AMENDED BY HIM THIS SESSION) — **THE ZOMBIE BOSS'S ROT AURA.**
+ * ⭐⭐ S168 (owner R138, CORRECTED BY HIM TWICE) — **THE ZOMBIE BOSS'S ROT AURA.**
  *
- * He first said *"an aura that damages enemies around him - 3% health per second"*, which left the
- * decisive question open — 3% of WHOSE health. He then answered it himself, and did the arithmetic:
- * *"not 3% of the enemies health but i think we can do 3% because its in fifths right? need to do
- * 2.5%"*.
+ * The ruling settled over three messages and each one moved it:
+ *   1. *"an aura that damages enemies around him - 3% health per second"* — whose health, unstated.
+ *   2. *"…need to do 2.5%"* — so 2.5, because 3% of a 120-fifth pool is 3.6 and fractional.
+ *   3. ⭐ *"no for the zombie boss aura it has to be 2.5% of the enemy that is effected - essentially
+ *      we need to build a new mechanic - debuff OR damage over time. its not fair if its 2.5% of his
+ *      own health..."*
  *
- * ⭐ HE IS EXACTLY RIGHT, AND 2.5 IS THE ONLY NEARBY NUMBER THAT WORKS. The percentage is of the
- * BOSS's own pool, `unitPoolFifths(12, 5)` = **120 fifths**:
+ * ⭐ **SO THE PERCENTAGE IS OF THE VICTIM, AND HE IS RIGHT ABOUT WHY.** A percentage of the BOSS is a
+ * FLAT rate — the same number of fifths for everyone — which deleted a chewer in 1.7 s and needed
+ * 47.7 s on a Pharaoh. A percentage of the VICTIM is a UNIFORM TIME-TO-KILL: at 2.5%/s everything on
+ * the board rots in 100/2.5 = **40 seconds**, whatever it is. That is the fairness he means.
  *
- *      3.0%  ->  3.6 fifths/s   ⛔ fractional — `damageEntity` THROWS on a non-integer by design
- *      2.5%  ->  3.0 fifths/s   ✅ exact
- *      2.0%  ->  2.4 fifths/s   ⛔ fractional
+ * ⛔ AND IT IS FRACTIONAL FOR ALMOST EVERY UNIT — 2.5% of a 5-fifth chewer is 0.125 fifths a second,
+ * and `damageEntity` throws on a fraction by design while float accumulators are banned. That is
+ * exactly why he called it a MECHANIC: see `state/damageOverTime.ts`, where the arithmetic is
+ * inverted so a tick always deals one whole fifth and the RATE carries the percentage.
  *
- * Stored PER-MILLE so the ".5" is itself an integer and no float ever enters the sim.
- *
- * ⭐ AND IT NEEDS NO ACCUMULATOR, WHICH IS THE PART THAT MAKES IT SHIPPABLE. Float accumulators are
- * banned here. 3 fifths per second at 60 Hz is **one fifth every 20 ticks** — so the aura always
- * deals exactly 1 fifth and the RATE carries the percentage. The interval is derived from this
- * constant rather than written down, so a stat retune moves the cadence instead of silently
- * rounding the damage.
- *
- * The resulting shape is a good one: it melts chaff and barely troubles anything large. Measured —
- * chewer 1.7 s · goblin melee 2.3 s · tier-3 warband 8.0 s · voltkin 21.3 s · Pharaoh 47.7 s.
+ * Stored PER-MILLE so the ".5" is itself an integer and no float enters the sim.
  */
 export const ZOMBIE_AURA_PER_MILLE = 25;
 
@@ -2380,6 +2376,69 @@ export const ZOMBIE_AURA_PER_MILLE = 25;
  * feel like standing too close to something enormous, not like a second weapon.
  */
 export const ZOMBIE_AURA_RADIUS = 170;
+
+/*
+ * ⭐⭐ S168 (owner R149) — **THE ORC WARLORD'S DIREWOLVES.**
+ *
+ * *"direwolf summon - Orc warlors summons 3 direwolves every 15 sec with stats 3, 3, 3, 3 each
+ * direworlf (i will generate the image for him.)"*
+ *
+ * All four stats and both numbers below are HIS. `3/3/3/3` gives a pool of `3 * (5+3)` = **24
+ * fifths** and a hit of `3 * (5+3)` = **24 fifths** — the same body as a tier-3 warband and DOUBLE
+ * its damage. That is a strong summon and it is meant to be; he built the Warlord as the balanced
+ * fighter with no weakness.
+ */
+export const DIREWOLF_STATS = { hp: 3, def: 3, atk: 3, pen: 3 } as const;
+export const DIREWOLF_SUMMON_COUNT = 3;
+export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
+
+/**
+ * ⚠⚠ **THIS CEILING IS MINE, AND WITHOUT ONE THE WARLORD IS THE ONLY BOSS ANYONE PICKS.**
+ *
+ * The ruling has no cap. Three wolves every 15 s across a 90 s FIGHT is **eighteen** of them, at 24
+ * fifths a swing — 432 fifths per swing-round from a single boss, against a Pharaoh's whole 143-fifth
+ * pool. That is not a boss skill, it is a win condition.
+ *
+ * 6 keeps the skill's SHAPE intact — he still summons in threes on his own clock, and a full pack is
+ * two summons deep — while bounding the total at 144 fifths a round, which is comparable to the
+ * other bosses' own output rather than an order above it. ⛔ A number from him supersedes this.
+ */
+export const DIREWOLF_MAX_PER_BOSS = 6;
+
+/*
+ * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
+ * moves x2 quicker for the rest of his lifetime."*
+ *
+ * ⚠ "FOR THE REST OF HIS LIFETIME" MEANS IT LATCHES. A flag derived from current HP would switch
+ * OFF again if he were ever healed back over the line, which is the opposite of what he ruled.
+ */
+export const WARLORD_RAGE_TRIGGER_PCT = 25;
+export const WARLORD_RAGE_MULTIPLIER = 2;
+
+/*
+ * ⭐⭐ S168 (owner R150) — **THE ARCHDEMON.**
+ *
+ * *"any enemy around the archdemon radius that drops below 5% health is taken to hell"* … *"He can
+ * teleport around the map to his targets every 7 sec"* … *"He always targets creatures that have the
+ * least amount of their own teammates around him - essentially targeting lone targets"*.
+ *
+ * ⭐ "BELOW 5% HEALTH" COSTS NOTHING ARITHMETICALLY, and that is worth saying because every other
+ * percentage this session had to be checked for integrality. This one is a THRESHOLD, not a damage
+ * amount: `ehp * 100 < max * 5` is an integer comparison and no fraction is ever produced. The
+ * victim is then REMOVED — an execute, not a hit — so `damageEntity`'s throw-on-fraction guard is
+ * never even reached.
+ */
+export const ARCHDEMON_HELL_THRESHOLD_PCT = 5;
+export const ARCHDEMON_TELEPORT_INTERVAL_TICKS = 7 * PHYSICS_HZ;
+
+/**
+ * ⚠ BOTH RADII ARE MINE — he gave neither. `ARCHDEMON_HELL_RADIUS` is set to the zombie aura's 170
+ * so the two "presence" auras on the board read at the same scale, and `ARCHDEMON_LONELINESS_RADIUS`
+ * is deliberately WIDER: it is not a reach, it is the neighbourhood searched to decide whether a
+ * creature counts as *"lone"*, and too small a circle would call every unit lonely.
+ */
+export const ARCHDEMON_HELL_RADIUS = 170;
+export const ARCHDEMON_LONELINESS_RADIUS = 260;
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 
 // ─────────────────────────────────────────────────────────────────────────────

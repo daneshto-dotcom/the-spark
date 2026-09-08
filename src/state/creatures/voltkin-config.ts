@@ -43,6 +43,7 @@
 import type { CreatureType } from './creature.ts';
 import {
   T3_STATS,
+  DIREWOLF_STATS,
   T9_BOSS_STATS,
   RACE_UNIT_HP,
   RACE_UNIT_DEF,
@@ -911,7 +912,21 @@ export const T9_BOSS_ZOMBIES_CONFIG: CreatureConfig = makeT9BossConfig('t9BossZo
 export const T9_BOSS_ORCS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossOrcs', T9_BOSS_STATS.orcs);
 export const T9_BOSS_DEMONS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossDemons', T9_BOSS_STATS.demons);
 
+/**
+ * ⭐ S168 (owner R149) — THE DIREWOLF. Built on `makeT3Config` rather than on a new factory: it is a
+ * melee ground unit of the same shape as the tier-3 roster, and reusing that factory is what keeps
+ * its lifetime, spawn/despawn timing and attack cadence in step with everything else on the board.
+ *
+ * ⚠ `speedMul` 1.0 is MINE — he gave four stats and no speed. A wolf should not be slower than the
+ * infantry it escorts, and 1.0 is the roster's own baseline rather than a number I invented.
+ */
+export const DIREWOLF_CONFIG: CreatureConfig = makeT3Config('direwolf', {
+  ...DIREWOLF_STATS,
+  speedMul: 1.0,
+});
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
+  direwolf: DIREWOLF_CONFIG,
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
   lightningDrone: LIGHTNING_DRONE_CONFIG,

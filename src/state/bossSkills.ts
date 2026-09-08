@@ -20,7 +20,6 @@
  */
 
 import {
-  PHYSICS_HZ,
   VLAD_LIFE_SAP_HEAL_PCT,
   VLAD_LIFE_SAP_TRIGGER_PCT,
   VLAD_LIFE_SAP_USES,
@@ -28,14 +27,31 @@ import {
   ZOMBIE_AURA_RADIUS,
 } from '../constants.ts';
 import { damageEntity } from './damage.ts';
+import { dotDueThisTick } from './damageOverTime.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import type { CreatureId } from '../types.ts';
+import type { CreatureType } from './creatures/creature.ts';
 import type { World } from './world.ts';
 
 /** How many life saps each live Vlad has already spent, by creature id. Host-local. */
 export type SapLedger = Map<CreatureId, number>;
+
+/**
+ * ⭐ S168 — live creatures of one type, ids SORTED.
+ *
+ * Every boss-skill scan in this family starts here, and the sort is the point rather than tidiness:
+ * `Map` iteration is insertion order, and letting it decide which boss acts first is how S155 N1
+ * handed one seat every melee exchange for a whole match. Shared so the six skills cannot each
+ * re-derive it slightly differently.
+ */
+export function liveIdsOfType(world: World, type: CreatureType): CreatureId[] {
+  const out: CreatureId[] = [];
+  for (const [id, c] of world.creatures) if (c.type === type) out.push(id);
+  out.sort((a, b) => (a as number) - (b as number));
+  return out;
+}
 
 /** A boss's FULL pool in fifths, from its config — the denominator both thresholds are taken of. */
 export function bossMaxPoolFifths(type: Parameters<typeof getCreatureConfig>[0]): number {
@@ -100,36 +116,29 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
 }
 
 /**
- * ⭐⭐ R138 (as he amended it in S168) — **THE ZOMBIE BOSS'S ROT AURA.**
+ * ⭐⭐ R138, AS HE CORRECTED IT TWICE — **THE ZOMBIE BOSS'S ROT AURA.**
  *
- * Owner: *"zombie needs to have an aura that damages enemies around him"* … *"not 3% of the enemies
- * health but i think we can do 3% because its in fifths right? need to do 2.5%"*.
+ * The ruling took three messages to settle and every one of them moved it:
  *
- * ## ⭐ Why this deals exactly ONE fifth, and the percentage lives in the CADENCE
+ *   1. *"an aura that damages enemies around him - 3% health per second"* — whose health, unstated.
+ *   2. *"not 3% of the enemies health but i think we can do 3% because its in fifths right? need to
+ *      do 2.5%"* — so I built 2.5% of the BOSS's pool, a flat 3 fifths a second.
+ *   3. ⭐ *"no for the zombie boss aura it has to be 2.5% of the enemy that is effected - essentially
+ *      we need to build a new mechanic - debuff OR damage over time. its not fair if its 2.5% of his
+ *      own health..."*
  *
- * The obvious implementation — "take 2.5% of the pool and subtract it" — is the one that cannot be
- * written here. `damageEntity` throws on a fractional amount BY DESIGN, and a float accumulator to
- * carry a remainder is banned in the sim, because it is precisely how a host and its `?worker=1`
- * mirror drift apart invisibly.
+ * ⭐ **AND HE IS RIGHT ABOUT WHY.** A percentage of the BOSS is a FLAT rate: it deleted a chewer in
+ * 1.7 s and needed 47.7 s on a Pharaoh. A percentage of the VICTIM is a UNIFORM time-to-kill —
+ * 100/2.5 = **40 seconds for everything on the board**. That is the "fair" he is describing, and it
+ * is why the flat version felt wrong in the first place.
  *
- * So the arithmetic is inverted. 2.5% of the boss's 120-fifth pool is 3 fifths per second, which at
- * 60 Hz is **one fifth every twenty ticks**. The aura therefore deals a flat, always-integer 1
- * fifth, and the RATE is what encodes his percentage. `auraIntervalTicks` derives that interval
- * from the ruling rather than hardcoding 20, so a future stat retune shifts the cadence instead of
- * silently rounding the damage to zero.
+ * The arithmetic that makes a fractional percentage expressible at all lives in
+ * `state/damageOverTime.ts`, which is the MECHANIC he asked for: the tick always deals exactly one
+ * fifth and the RATE carries the percentage. See that file for the measurement.
  *
- * ⚠ PHASE-SPREAD BY ENTITY ID, never by an accumulated remainder — the standing rule in this
- * codebase. Two zombie bosses on the board pulse on different ticks.
- * ⚠ TOTAL ORDER: victims are collected then SORTED by id before being damaged, so `Map` iteration
- * order decides nothing. Damage can delete a creature, which is another reason not to mutate mid-scan.
+ * ⚠ ENEMIES ONLY — and deliberately different from the same boss's DEATH explosion, which he ruled
+ * hits *"everything"*. Two skills on one boss, worded differently by him, built differently.
  */
-export function auraIntervalTicks(poolFifths: number): number {
-  // fifths/second = pool * perMille / 1000 ⇒ ticks between single-fifth hits = HZ / that.
-  const perSecond = (poolFifths * ZOMBIE_AURA_PER_MILLE) / 1000;
-  if (perSecond <= 0) return Number.POSITIVE_INFINITY;
-  return Math.max(1, Math.round(PHYSICS_HZ / perSecond));
-}
-
 export function runZombieRotAura(world: World): void {
   if (world.gameState !== 'PLAYING') return;
 
@@ -137,27 +146,28 @@ export function runZombieRotAura(world: World): void {
   for (const [id, c] of world.creatures) {
     if (c.type === T9_BOSS_TYPE.zombies) bosses.push(id);
   }
+  if (bosses.length === 0) return;
   bosses.sort((a, b) => (a as number) - (b as number));
 
+  const rSq = ZOMBIE_AURA_RADIUS * ZOMBIE_AURA_RADIUS;
   for (const bossId of bosses) {
     const boss = world.creatures.get(bossId);
     if (boss === undefined || boss.ehp <= 0) continue;
-    const interval = auraIntervalTicks(bossMaxPoolFifths(boss.type));
-    if (!Number.isFinite(interval)) continue;
-    // Phase-spread by id so several bosses never pulse on the same tick.
-    if ((world.tick + (bossId as number)) % interval !== 0) continue;
 
-    const rSq = ZOMBIE_AURA_RADIUS * ZOMBIE_AURA_RADIUS;
     const victims: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
       if (id === bossId) continue;
-      // ⭐ "damages ENEMIES around him" — unlike the DEATH explosion, which he ruled hits
-      // *"everything"*. The two skills read differently in his own words and are built differently.
-      if (c.ownerPlayerId === boss.ownerPlayerId) continue;
+      if (c.ownerPlayerId === boss.ownerPlayerId) continue; // "damages ENEMIES around him"
       const dx = c.pos.x - boss.pos.x;
       const dy = c.pos.y - boss.pos.y;
-      if (dx * dx + dy * dy <= rSq) victims.push(id);
+      if (dx * dx + dy * dy > rSq) continue;
+      // ⭐ THE RATE IS THE VICTIM'S OWN, which is the whole of his correction. Each victim carries
+      // its own cadence derived from its own pool, so the aura costs everything the same FRACTION
+      // of its life rather than the same number of fifths.
+      if (!dotDueThisTick(world.tick, id as number, c.type, ZOMBIE_AURA_PER_MILLE)) continue;
+      victims.push(id);
     }
+    // Total order before mutating: damage can DELETE a creature, so the scan must finish first.
     victims.sort((a, b) => (a as number) - (b as number));
     for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura');
   }

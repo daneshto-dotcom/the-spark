@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 44; // S167 P1 — 43 → 44 (THE TIER-9 BOSS TOWER: 6 serialized GodlyIds + 6 boss CreatureTypes, RACE_ZONES_AND_BOSS_TOWERS §B)
+const LOCAL_PROTO_V = 45; // S168 — 44 → 45 (THE ORC WARLORD'S DIREWOLF: one new serialized CreatureType, owner R149)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

@@ -87,6 +87,8 @@ import { applyRadialDamage } from './damage.ts';
 import { componentOf } from '../game/structure.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
+import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
+import { runArchdemonHell, runArchdemonTeleport } from './bossSkillsArchdemon.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -1690,8 +1692,19 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * the strike it had committed to. Running it after the sweep would let a Vlad be removed with an
    * unspent charge in hand, which reads as the ability failing rather than as being out-damaged.
    */
+  /*
+   * ⭐ S168 — THE SIX BOSSES' ALIVE-SKILLS, all before the deferred sweep for one reason: a boss
+   * who crossed a threshold during THIS tick's combat should act on it in the same tick, exactly
+   * as the batch itself exists so a creature lands the strike it had already committed to.
+   * The DEATH skills cannot live here — they run at the very end, off the boss roster, because
+   * a death is an ABSENCE and everything that can cause one has to have run first.
+   */
   runZombieRotAura(world);
   runVladLifeSap(world, state.sapLedger);
+  runWarlordRage(world);
+  runWarlordDirewolves(world);
+  runArchdemonHell(world);
+  runArchdemonTeleport(world);
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);

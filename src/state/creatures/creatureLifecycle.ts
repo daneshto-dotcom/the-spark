@@ -36,6 +36,7 @@ import {
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
+  rageMultiplier,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
 import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
@@ -163,7 +164,21 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
      * blueprint-Q10 shape, a live reason instead of a retired one — and the owner's B3 ruling is
      * still about the Voltkin they BUILD.
      */
-    if (action.creatureType !== 'voltkin') {
+    /*
+     * ⭐⭐ S168 (owner R149) — **THE DIREWOLF JOINS THE VOLTKIN'S EXEMPTION, AND IT IS FORCED.**
+     *
+     * *"Orc warlors summons 3 direwolves every 15 sec"* — three at a time is the ruling, and the
+     * gate below is "one live unit per (owner, type)". A summon that arrives in threes cannot pass
+     * a one-per-type bound: the Warlord would mint one wolf, ever, and the other two would be
+     * silently refused with every gate in the suite still green. That is the exact failure the
+     * tier-3 tower shipped with earlier this same session, one layer down.
+     *
+     * ⚠ IT IS NOT UNBOUNDED — it answers to `DIREWOLF_MAX_PER_BOSS` in `runWarlordDirewolves`
+     * instead, which is a POPULATION cap rather than a per-type latch and is the right shape for a
+     * pack. The security position the note above sets out is unchanged: `SPAWN_CREATURE` is absent
+     * from `CLIENT_INTENT_TYPES_RECORD`, so no peer can reach this path at all.
+     */
+    if (action.creatureType !== 'voltkin' && action.creatureType !== 'direwolf') {
       for (const c of world.creatures.values()) {
         if (
           c.sourceSpawnerId === null &&
@@ -762,7 +777,13 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
         distSq(creature.pos, victim.pos) <= range * range;
       if (!stillValid) creature.targetCreatureId = null;
     }
-    const cadenceElapsed = creature.ticksInState >= config.attackCadenceTicks;
+    // ⭐ S168 (R149) — RAGE: *"attacks x2 quicker"* — a SHORTER cadence, hence the divide. Floored
+    // at 1 tick so a future larger multiplier can never produce a zero-tick (every-frame) attack.
+    const ragedCadence = Math.max(
+      1,
+      Math.round(config.attackCadenceTicks / rageMultiplier(creature)),
+    );
+    const cadenceElapsed = creature.ticksInState >= ragedCadence;
     // S103 #8 — the wind-up only aborts early when BOTH possible targets are invalid. A Voltkin
     // that entered ATTACKING for a creature-only target (no bond in range) must NOT bounce out
     // before its FIRE_TICK. When no enemy creatures exist `targetCreatureId` is null →

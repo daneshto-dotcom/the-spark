@@ -21,14 +21,10 @@ import {
   ZOMBIE_AURA_RADIUS,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import {
-  auraIntervalTicks,
-  bossMaxPoolFifths,
-  runVladLifeSap,
-  runZombieRotAura,
-  type SapLedger,
-} from './bossSkills.ts';
+import { bossMaxPoolFifths, runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
+import { dotIntervalTicks, maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
+import type { CreatureType } from './creatures/creature.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, type CreatureId } from '../types.ts';
 
@@ -206,18 +202,51 @@ describe('S168 — the zombie rot aura (R138 amended)', () => {
     return [...world.creatures.values()].filter((c) => c.type === 'goblinShield').at(-1)!.id;
   }
 
-  it('⭐ CONTROL — his 2.5% is the only nearby figure that lands on a whole fifth', () => {
-    const pool = bossMaxPoolFifths(T9_BOSS_TYPE.zombies);
-    expect(pool, 'unitPoolFifths(12,5)').toBe(120);
-    expect((pool * ZOMBIE_AURA_PER_MILLE) / 1000, '2.5% ⇒ 3 fifths/s').toBe(3);
-    expect((pool * 30) / 1000, '3% would be 3.6 — damageEntity throws on that').not.toBe(
-      Math.floor((pool * 30) / 1000),
-    );
+  /*
+   * ⭐⭐ THE PROPERTY HIS CORRECTION IS ABOUT, ASSERTED DIRECTLY.
+   *
+   * *"it has to be 2.5% of the enemy that is effected … its not fair if its 2.5% of his own
+   * health"*. A percentage of the BOSS is a FLAT rate and punishes small units enormously; a
+   * percentage of the VICTIM is a UNIFORM time-to-kill. This test is the difference, and it is the
+   * one that would have caught my first implementation.
+   */
+  it('⭐⭐ every unit on the board takes the SAME time to rot — that is the fairness', () => {
+    const ROSTER: CreatureType[] = [
+      'chewer',
+      'raceUnit',
+      'goblinMelee',
+      'goblinShield',
+      't3Warband',
+      't3Scarab',
+      'voltkin',
+      T9_BOSS_TYPE.mummies,
+    ];
+    const seconds = ROSTER.map((t) => {
+      const pool = maxPoolFifths(t);
+      return (pool * dotIntervalTicks(pool, ZOMBIE_AURA_PER_MILLE)) / PHYSICS_HZ;
+    });
+    // 100 / 2.5 = 40 s, nominal. Integer ticks cost at most ~1.3% across the whole roster.
+    for (const [i, sec] of seconds.entries()) {
+      expect(sec, `${ROSTER[i]} time-to-rot`).toBeGreaterThan(39.5);
+      expect(sec, `${ROSTER[i]} time-to-rot`).toBeLessThan(41);
+    }
+    // And the spread across a 5-fifth chewer and a 143-fifth Pharaoh is nearly nothing.
+    expect(Math.max(...seconds) - Math.min(...seconds), 'spread across the roster').toBeLessThan(1);
   });
 
-  it('⭐ the percentage lives in the CADENCE — one fifth every 20 ticks, never a fraction', () => {
-    expect(auraIntervalTicks(120)).toBe(20);
-    expect(auraIntervalTicks(120) * 3, 'three hits per second at 60 Hz').toBe(PHYSICS_HZ);
+  it('⛔ NEGATIVE CONTROL — a FLAT rate would NOT have this property', () => {
+    // What I shipped first: 3 fifths/s for everyone. Stated as a test so the regression is named.
+    const flat = 3;
+    const chewer = maxPoolFifths('chewer') / flat;
+    const pharaoh = maxPoolFifths(T9_BOSS_TYPE.mummies) / flat;
+    expect(pharaoh / chewer, 'a flat rate is ~28x less punishing to the Pharaoh').toBeGreaterThan(20);
+  });
+
+  it('the per-victim cadence is HZ / (pool x rate), in whole ticks', () => {
+    expect(dotIntervalTicks(5, ZOMBIE_AURA_PER_MILLE), 'chewer: 2400/5').toBe(480);
+    expect(dotIntervalTicks(24, ZOMBIE_AURA_PER_MILLE), 't3 warband: 2400/24').toBe(100);
+    expect(dotIntervalTicks(120, ZOMBIE_AURA_PER_MILLE), 'whopper: 2400/120').toBe(20);
+    expect(dotIntervalTicks(0, ZOMBIE_AURA_PER_MILLE), 'no pool, no division').toBe(Infinity);
   });
 
   it('⭐ an enemy in range rots — and by exactly one fifth per pulse', () => {

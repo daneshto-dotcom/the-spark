@@ -548,3 +548,105 @@ he ruled hits *"everything"*. Two skills on one boss, worded differently by him,
 Pharaoh 47.7 s.
 
 ### ⭐ THE ZOMBIE BOSS IS NOW COMPLETE — both his skills are live.
+
+---
+
+## ⭐ OWNER RULINGS, S168 (late) — THE LAST TWO BOSSES. **ALL SIX ARE NOW SPECIFIED.**
+
+Verbatim, because the wording carries the design:
+
+> *"Orc warlord skills - 1) direwolf summon - Orc warlors summons 3 direwolves every 15 sec with
+> stats 3, 3, 3, 3 each direworlf (i will generate the image for him.) 2) RAGE - he becomes enraged
+> when drops to 25% health and attacks and moves x2 quicker for the rest of his lifetime. Archdemon
+> skills 1) any enemy around the archdemon radius that drops below 5% health is taken to hell. (the
+> ground opens beneath him and the hand of Lucifer comes out and pulls him into the flames of hell,
+> then the ground closes. 2) He can teleport around the map to his targets every 7 sec allowing him
+> to move from targets to targets. He always targets creatures that have the least amount of their
+> own teammates around him - essentially targeting lone targets and trying to destroy them and take
+> them to hell."*
+>
+> *"all of those need super awesome effects"*
+
+### R149 — ORC WARLORD
+
+| | |
+|---|---|
+| **Direwolf summon** | **3 direwolves every 15 s**, each **3 / 3 / 3 / 3**. ⭐ *"i will generate the image for him"* — the ART IS HIS on this one. |
+| **RAGE** | Triggers at **25% health**. **×2 attack speed AND ×2 move speed**, and it **LATCHES** — *"for the rest of his lifetime"*. |
+
+⚠ **THE DIREWOLF IS A NEW `CreatureType`, AND THAT IS THE ONLY PROTOCOL BUMP IN EITHER SET.** A
+creature's type is a wire discriminant, so it owes the four-sites tax (factory + serialize + hash +
+worker) and takes `PROTOCOL_VERSION` 44 → 45. Everything else in R149/R150 rides on state that is
+already synced or is host-local.
+
+⭐ Its numbers are strong and worth seeing before play: `3/3/3/3` is a pool of **24 fifths** and a hit
+of **24 fifths** — the same body as a tier-3 warband and DOUBLE its damage. Three of those every 15 s.
+
+⛔ **AND THERE IS NO CAP IN THE RULING.** Unbounded, a 90 s FIGHT yields **18 direwolves** ≈ 432
+fifths of damage per swing-round from one boss. A cap is needed or the Warlord is the only boss
+anyone picks; the shipped number is MINE until he rules otherwise.
+
+⚠ RAGE must LATCH rather than be derived from current HP — *"for the rest of his lifetime"* is
+explicit, and a derived flag would switch off if he were ever healed above the line.
+
+### R150 — ARCHDEMON
+
+| | |
+|---|---|
+| **Taken to hell** | Any **enemy** in radius that drops **below 5% health** is **removed** — an EXECUTE, not damage. *"the ground opens beneath him and the hand of Lucifer comes out and pulls him into the flames of hell, then the ground closes."* |
+| **Teleport** | **Every 7 s**, to his target. ⭐ He **always targets the creature with the FEWEST of its own teammates nearby** — *"essentially targeting lone targets"*. |
+
+⭐ **"BELOW 5% HEALTH" IS A THRESHOLD, NOT A PERCENTAGE OF DAMAGE**, which is why it costs nothing
+arithmetically: `ehp * 100 < max * 5` is an integer comparison. No fractional damage, so
+`damageEntity`'s throw-on-fraction never comes near it.
+
+⭐ **THE LONELINESS SCAN IS A NEW TARGETING RULE AND IT IS THE INTERESTING PART.** Every acquisition
+scan in this codebase today picks the NEAREST thing. This one picks the most ISOLATED — count each
+candidate's own allies within a radius, take the minimum. It must still be a TOTAL ORDER (fewest
+allies, then squared distance, then explicit id compare) or `Map` order decides a kill.
+
+### ART OWED (R143 applies — a stance AND a VFX per ability)
+
+*"all of those need super awesome effects"* — the direwolf summon, the RAGE transformation, the
+hand-of-Lucifer cinematic, and the teleport. The direwolf's own sprite is the OWNER's.
+
+---
+
+## ⛔ R138 CORRECTED AGAIN (S168, same session) — the aura is a percentage of the VICTIM
+
+> *"no for the zombie boss aura it has to be 2.5% of the enemy that is effected - essentially we need
+> to build a new mechanic - debuff OR damage over time. its not fair if its 2.5% of his own
+> health..."*
+
+**He is right, and the measurement shows why in one line.**
+
+| | flat rate (2.5% of the BOSS) | **2.5% of the VICTIM** |
+|---|---|---|
+| chewer (5 fifths) | 1.7 s | **40.0 s** |
+| tier-3 warband (24) | 8.0 s | **40.0 s** |
+| Pharaoh (143) | 47.7 s | **40.5 s** |
+
+A percentage of the boss is a FLAT number of fifths, so it deletes small units and barely troubles
+large ones. A percentage of the victim is a **UNIFORM TIME-TO-KILL** — 100/2.5 = 40 seconds for
+everything on the board. That is the fairness he is describing.
+
+⭐ **AND IT IS WHY HE CALLED IT A MECHANIC.** 2.5% of a 5-fifth chewer is 0.125 fifths a second, so
+percent-of-victim is fractional for nearly every unit in the game, and `damageEntity` throws on a
+fraction while float accumulators are banned. Built in `state/damageOverTime.ts` by inverting the
+arithmetic: **the tick always deals exactly one fifth and the RATE carries the percentage**, with the
+interval derived per victim from its own pool. Rounding to whole ticks costs at most 1.3% of the
+time-to-kill across the entire roster and nothing at all in the damage.
+
+⚠ **AURA, NOT YET A LINGERING DEBUFF.** Damage lands only while the victim is inside the radius. A
+debuff that keeps ticking after the victim walks out needs per-creature state — serialized, hashed,
+four-sites tax, protocol bump. He named *"debuff OR damage over time"* and the aura needs only the
+second, so that is what exists. The lingering variant is a deliberate non-goal until he asks.
+
+## ✅ R145 WITHDRAWN BY THE OWNER (S168) — the castle spawn units stay as they are
+
+> *"the single 1/1/1/1 for all those units is fine..."*
+
+His earlier ruling (*"weaker by 1 point off their strongest stat than the tier 3 units"*) is **off the
+table**. This closes three open questions at once: the vampire/zombie ties, six new `CreatureType`s
+with their four-sites tax, and the protocol bump they would have cost. `raceUnit` remains ONE type at
+1/1/1/1 for all six races, with the per-race ART selected off `player.raceId` exactly as it is today.
