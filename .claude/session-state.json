@@ -1,6 +1,6 @@
 {
-  "tool_calls_session_total": 6158,
-  "session_id": "S167",
+  "tool_calls_session_total": 6159,
+  "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
   "prior_session_note": "S166 shipped the tier-3 race tower (PROTOCOL 42->43) + 24 tier-9 art seeds.",
@@ -32,232 +32,68 @@
   },
   "priorities": [
     {
-      "id": 1,
-      "name": "The tier-9 boss tower - code (PROTOCOL 43->44)",
-      "status": "completed",
-      "tier": "Full",
+      "id": "P1",
+      "title": "raid one-shots connectors — bot/player asymmetry",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "0911ac3a49d85c2c4c830916d73e0b8bff78f6e2",
-      "check_method": "Six tsc-forced tables enumerated BY THE COMPILER (added the 12 literals first, read the 5 errors, filled them). ~12 silent sites worked from a 10-lane read-only discovery workflow + a completeness critic, EVERY cited symbol grep-verified against the tree before acting (6/6 confirmed: t3TowerAtlasBase has zero renderer consumers, GOBLIN_KINDS is untested, ATLASES is Partial, R137 is untested, trimMirrorSpawner strips ticks, AUTO_BOND_RADIUS=60). The critic found a REAL DEFECT IN MY OWN NEW CODE: hostTick razed the ring unconditionally while applySpawnCreature silently refuses a second live boss = nine shapes destroyed for nothing (owner S157 B1 verbatim); fixed so the tower WAITS, and pinned by test. 23 new tests in t9BossTower.test.ts incl. both disjointness directions, the chord clearance the tier-3 check is blind to, R137 both ways, and the one-shot contract driven through the REAL runHostTick. Gates from captured $?: typecheck 0, vitest 0 (3987/3987, 245 files; +107), build 0 (801.0 KiB, 99.0 KiB headroom), protocol suite 444/444 after the 43->44 bump across all 6 sites + the 7th prose site.",
-      "protocol_bump": "43 -> 44",
-      "tests_added": 23,
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyRecipes/types.ts",
-          "pattern": "'t9Tower(Vampires|Nagas|Mummies|Zombies|Orcs|Demons)'",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/creature.ts",
-          "pattern": "'t9Boss(Vampires|Nagas|Mummies|Zombies|Orcs|Demons)'",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 44 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 44;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "razePrimitives(world, ring)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/ringShape.ts",
-          "needle": "export function ringMembersAt("
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyMatcherCore.ts",
-          "pattern": "igniteOneSpawnerRecipe\\(world, \\w+T9Anchors\\(world\\)",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/godlyRecipes/types.ts",
-          "needle": "'t9TowerWhopper'"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "'t9BossWhopper'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/t9BossIds.ts",
-          "needle": "export const T9_BOSS_NAMES: Readonly<Record<RaceId, string>>"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": 2,
-      "name": "The tier-9 art - tower atlases, boss clips, destroy cinematics",
-      "status": "completed",
-      "tier": "Full",
+      "id": "P2",
+      "title": "tier-3 tower does not spawn creatures",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "note": "Boss SKILL clips excluded pending an owner ruling; the other four clips per boss do not depend on it.",
-      "check_completed": true,
-      "checkpoint_commit": "0c35dcad63831e3e1c7820318c894ef4a44a3b7f",
-      "check_method": "6 tower atlases from the 18 owner stills + 6 boss atlases from 24 fresh veo clips + 6 tier-9 CRUMBLE cinematics (24+6=30 clips, all generated, exit 0). Row orders verified against the SHIPPED anim.json (t3: intact0/spawning1/damaged2/destroyed3; t9: 0/1/2; boss: idle0/walk1/attack2/die3) and pinned by test. check:atlas extended to both new dirs (its list is hardcoded in package.json - new art is otherwise unscanned while the guard reports success); 48 atlases clean, largest white pocket 0-2px because enclosedWhiteLimitPct is set EXPLICITLY. ⭐ FOUND AND FIXED THE REAL GAP: the art had no RENDERER - t3TowerAtlasBase had ZERO production callers and t3destroy had no accessor at all, so 18 shipped atlases had never been drawn. towerFrames.ts + towerRenderer.ts now draw BOTH tiers, state-driven by the ring's own primitive HP (no new synced field, so no four-sites tax and no trimMirrorSpawner divergence). VISUALLY VERIFIED: screenshot shows Vlad's coffin standing in its nine-Triangle ring. e2e/tower-art.spec.ts asserts a SPRITE exists - the assertion whose absence let the tier-3 art ship invisible. Gates from captured $?: typecheck 0, vitest 0 (4005/4005), check:atlas 0, build 0 (801 KiB), e2e:gating 0 (63).",
-      "art_shipped": {
-        "tower_atlases": 6,
-        "boss_atlases": 6,
-        "crumble_cinematics": 6,
-        "veo_clips": 30
-      },
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "public/art/race-tier9-bosses/t9boss-vampires-atlas.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "public/art/race-tier9-towers/t9tower-demons-atlas.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "public/art/race-tier9-towers/t9destroy-nagas-atlas.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/render/towerRenderer.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "towerRenderer.sync(world)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "towerRenderer.clear()"
-        },
-        {
-          "type": "file_contains",
-          "path": "package.json",
-          "needle": "public/art/race-tier9-bosses"
-        },
-        {
-          "type": "file_contains",
-          "path": "package.json",
-          "needle": "public/art/race-tier9-towers"
-        },
-        {
-          "type": "file_exists",
-          "path": "scripts/build-atlas-set.mjs"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": 3,
-      "name": "Boss stats onto the owner ruled 1..12 scale + the MISSING statsLadder guard",
-      "status": "completed",
-      "tier": "Standard",
+      "id": "P3",
+      "title": "boss stats -> owner R141",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "note": "Scope amendment under the owner directive \"keep working all priorities ... work well dont leave anything out\". Corrects MY OWN provisional numbers against an EXISTING owner ruling (STAT_POINT_MAX=12), and writes the guard stats.ts already claims exists.",
-      "check_completed": true,
-      "checkpoint_commit": "ff2315441a28eb3d1335898143ae39dae4d00aad",
-      "check_method": "Corrected MY OWN provisional boss stats (HP 40-60) against an EXISTING owner ruling (STAT_POINT_MAX=12, 'scaling will be for hp = 1,2,3 ... 12'). Measured the consequences first: every boss one-shot every unit, and a boss took 24-92s of single-unit fire against a ~45s FIGHT phase. New band HP 9-12/DEF 3-8/ATK 4-7/PEN 0-5, pools 72-130 vs voltkin's 64. Wrote statsLadder.test.ts, which stats.ts has CITED BY NAME SINCE S151 AND WHICH DID NOT EXIST - that comment is why I believed the range was enforced. HP/ATK checked as points 1..12, DEF/PEN as ladder indices 0..12 (0 is the x1.0 identity; nine shipped units sit there). ⭐ A NEGATIVE CONTROL against the rejected numbers found my own first draft vacuous: the squad test passed, and the 5x-overkill test was SELF-DEFEATING (it measured against max(pool) of the same set, so an inflated boss raised its own bar). Deleted it and kept one invariant proven to discriminate both ways: one goblin kills anything inside a phase - 10.8s new, 45.8s old. Gates from captured $?: typecheck 0, vitest 0 (4011/4011, 247 files), build 0.",
-      "first_seen_bug_class": "a comment claiming a guard is not a guard",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "vampires: { hp: 9, def: 3, atk: 7, pen: 5, speedMul: 1.0 }"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "nagas: { hp: 60,"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/statsLadder.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/statsLadder.test.ts",
-          "needle": "STAT_POINT_MAX"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.ts",
-          "needle": "CORRECTED S167"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": 4,
-      "name": "Backlog sweep — the defect class the boot snapshot calls cheap and durable, plus the findings this session surfaced",
-      "status": "completed",
-      "tier": "Standard",
+      "id": "P4",
+      "title": "castle spawn unit stats -> R145 + full stat table",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "note": "Owner directive: \"keep working all priorities from backlog and current session priorities until you reach 850k\".",
-      "check_completed": true,
-      "checkpoint_commit": "c313b861621b7e858a3da38a1191c3b2c859b36f",
-      "check_method": "Five backlog items closed, each measured before it was changed. (a) hostTick emit chain INVERTED - the chewer arm is now named 'pentagram' and the default is inert; proven a no-op today by enumerating the registry (15 spawner recipes, 14 named by the four arms above, so pentagram was the ONLY id reaching the else) and backed by a new source-reading guard. (b) The `die` row made playable via client-local corpses in the renderer - the sim death path is untouched, which is what makes it safe. (c) check-atlas's die exclusion re-derived: one of its two reasons went stale, the pose-confound half did not, so the row is now gated ONE-SIDEDLY (taller only), verified against every shipped sheet first - the naga boss at 1.12x sits 0.03 under the ceiling. (d) POTATO_CLEARS: the tier-3 units were silently potato-IMMUNE, restored, bosses deliberately excluded, guard written. (e) Boss phase-persistence PROVEN rather than assumed, and a docblock that under-claimed corrected. Plus a per-type boss sprite scale set FROM A CAPTURED FRAME (S147 lesson), and the whole chain verified end-to-end in a real browser with a screenshot. Gates from captured $?: typecheck 0, vitest 0 (4020/4020, 249 files), build 0, check:atlas 0 (48 clean), e2e:gating 0 (64 passed).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "} else if (sp.recipeId === 'pentagram' && world.tick >= sp.nextSpawnTick) {"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/hostTick.emitChain.test.ts"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/potatoLifecycle.ts",
-          "pattern": "'t3(Hound|Scarab|Piranha|Bat|Warband|Souleater)'",
-          "op": "==",
-          "value": 6
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/potatoLifecycle.ts",
-          "needle": "'t9BossZombies'"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/potatoClears.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "this.dying.push({ sprite: sp, frames: dieRow, elapsed: 0 })"
-        },
-        {
-          "type": "file_contains",
-          "path": "vite.config.ts",
-          "needle": "testTimeout: 20_000"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "MOSTLY SHIPPED S167"
-        }
-      ]
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "UI: back-to-main to top, badge BETA only, remove help line",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P6",
+      "title": "multiplayer / TURN actually works",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "title": "boss skills: zombie, kraken, vlad, pharaoh",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P8",
+      "title": "art: skill VFX + R143 ability stances",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -7507,5 +7343,7 @@
     "wave5_tech_draft": "R101-R112, SPARK_RACES_SPEC.md §9. DELIBERATELY NOT STARTED. It is a full system — per-player perk state (serialized AND hashed, so the four-sites tax), a draft-choice UI, a wave trigger, and stat application across the army. Starting it unplanned at the end of a long session, on the same build the owner wants to playtest in the morning, risked the thing he actually asked for. It is the clean next priority and R112 makes waves 10/15/20 a NAMED owner trigger (\"ask once wave 5 ships\").",
     "r121_submerged_naga": "Ruled, unbuilt. §7.3 lists every acquisition path that must learn \"untargetable\", including a defender already committed mid-windup. An engineering surface, not a stat.",
     "boss_skills_code": "Costed in RACE_ZONES_AND_BOSS_TOWERS.md §S167 with the death-hook blocker found and three options priced. Waits on the owner stats + the other three skill sets."
-  }
+  },
+  "pdr_file": ".claude/plans/2026-09-08_PDR_S168_BATCH.md",
+  "pdr_approval_quote": "i approve full session priority batch / I am approving the pdr!"
 }

@@ -202,13 +202,11 @@ describe('S154 P1 — ⛔ THE STRIP CLEARS THE CASTLE PORCHES (the assertion the
     }
   });
 
-  it('clears the controls help line, which shares the bottom strip', () => {
-    // HELP_LINE_X=10, HELP_LINE_Y=CANVAS_HEIGHT-22, measured width 581 → it owns x 10..591. The
-    // strip lives far to the right of that; asserted because both are in the same 84 px band.
-    const HELP_RIGHT = 10 + 581;
-    const { palette, queue } = shapeStripLayout(liveChips(), FULL_QUEUE);
-    for (const r of [...palette, ...queue]) expect(r.x).toBeGreaterThan(HELP_RIGHT);
-  });
+  /*
+   * S168 — 'clears the controls help line' DELETED, not adjusted. The help line was removed on the
+   * owner's ruling, so the constraint it pinned no longer exists; an assertion against a surface
+   * that is gone passes for the wrong reason and reads as coverage it is not providing.
+   */
 });
 
 describe('S154 P1 — the two rows', () => {

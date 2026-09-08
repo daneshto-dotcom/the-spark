@@ -32,7 +32,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
-import { hudSurfaces, rectsOverlap, type HudMetrics, type HudSurface } from './ui.ts';
+import { EXIT_BTN_H, EXIT_BTN_W, EXIT_BTN_X, EXIT_BTN_Y } from './exitButton.ts';
+import {
+  BETA_BADGE_Y,
+  HUD_RIGHT_X,
+  hudSurfaces,
+  rectsOverlap,
+  type HudMetrics,
+  type HudSurface,
+} from './ui.ts';
 
 /**
  * Monospace advance widths, in px per char per font size. Pixi cannot measure text in a headless
@@ -67,9 +75,11 @@ function metrics(rows: number, opts?: { pulsed?: boolean; tier?: boolean }): Hud
     clockHeight: 22 * pulse,
     tierWidth: opts?.tier === true ? WIDEST_TIER : 0,
     tierHeight: opts?.tier === true ? 30 : 0,
-    badgeWidth: 170, // measured live off the running game
+    // S168 — the badge is 'BETA' alone now (~41 px measured). This feeds the layout's own
+    // guaranteed reserve (72) instead, which makes every sweep below a STRICTER bound than
+    // the real badge: if the wider stand-in clears, the shipped one certainly does.
+    badgeWidth: 72,
     badgeHeight: 13,
-    helpWidth: 581, // measured live off the running game
   };
 }
 
@@ -179,6 +189,85 @@ describe('S150 P1 — nothing is drawn off the edge of the canvas', () => {
       expect(s.rect.y, `${s.name} top`).toBeGreaterThanOrEqual(0);
       expect(s.rect.x + s.rect.w, `${s.name} right`).toBeLessThanOrEqual(CANVAS_WIDTH);
       expect(s.rect.y + s.rect.h, `${s.name} bottom`).toBeLessThanOrEqual(CANVAS_HEIGHT);
+    }
+  });
+});
+
+
+/*
+ * ⭐ S168 — BACK TO MAIN MOVED TO THE TOP CHROME ROW, and the badge shrank to make the room.
+ *
+ * Owner: *"move the back to main all the way to the top to be instead the Beta S17 Phase - 2...
+ * alsop remove the 'S17 Phase 2' only keep beta"*.
+ *
+ * The exhaustive sweep above already walks this pair, but these are pinned BY NAME for the reason
+ * this file's header gives: a regression report should say WHICH defect came back.
+ */
+describe('S168 — the BACK TO MAIN button in the top chrome row', () => {
+  it('sits at the top, level with the BETA badge plate', () => {
+    expect(EXIT_BTN_Y).toBe(BETA_BADGE_Y - 4);
+  });
+
+  it('clears the badge, the glyph pair, the connection dot and both right-edge rails', () => {
+    const s = hudSurfaces(metrics(4));
+    const exit = find(s, 'exit-button').rect;
+    for (const name of [
+      'beta-badge',
+      'audio-glyphs',
+      'connection-dot',
+      'energy-gauge',
+      'progress-rail',
+    ]) {
+      expect(rectsOverlap(exit, find(s, name).rect), `exit-button collides with ${name}`).toBe(
+        false,
+      );
+    }
+  });
+
+  /*
+   * ⚠ THE DUPLICATE THAT THIS TEST EXISTS TO PIN. `exitButton.ts` cannot import `HUD_RIGHT_X` from
+   * ui.ts, because ui.ts imports `exitButtonRect()` from exitButton.ts and that would be a cycle.
+   * So it re-derives `CANVAS_WIDTH - 12` locally. A silent drift between the two would move the
+   * button under the badge with every unit test still green, which is exactly the class of defect
+   * this file was written for.
+   */
+  it('the HUD_RIGHT_X mirror in exitButton.ts has not drifted from ui.ts', () => {
+    const BADGE_TEXT_RESERVE = 72;
+    const BADGE_PLATE_PAD = 9;
+    const BADGE_CLEARANCE = 20;
+    expect(EXIT_BTN_X + EXIT_BTN_W).toBe(
+      HUD_RIGHT_X - BADGE_TEXT_RESERVE - BADGE_PLATE_PAD - BADGE_CLEARANCE,
+    );
+  });
+
+  /*
+   * ⭐ S165's collision, retired rather than dodged. Seat 1's keep on QUADRANTS_4P occupies
+   * y 101..159 (castleAnchor (1790,130), KEEP_H 58). The button used to escape it HORIZONTALLY at
+   * y 100..134; at the new y 8..42 it clears on the vertical axis outright, which is why it is now
+   * free to sit far right in the chrome row.
+   */
+  it('clears seat 1 keep on QUADRANTS_4P by height, not by dodging left', () => {
+    const SEAT1_KEEP_TOP_4P = 130 - 58 / 2;
+    expect(EXIT_BTN_Y + EXIT_BTN_H).toBeLessThanOrEqual(SEAT1_KEEP_TOP_4P);
+  });
+
+  /*
+   * The owner asked for it "all the way to the top". ⚠ THE FIRST VERSION OF THIS TEST ASSERTED THE
+   * BUTTON WAS THE TOPMOST SURFACE ON THE WHOLE SCREEN AND FAILED HONESTLY: `top-centre-plate`
+   * starts at y=5, three pixels above it. That plate is the combo/clock group in the CENTRE of the
+   * screen, so it was never the thing being ranked — the claim worth pinning is about the RIGHT-HAND
+   * chrome column, which is the stack the owner was looking at. Narrowed to that, and left written
+   * down because an assertion that had to be weakened is worth more as a note than as a silent edit.
+   */
+  it('leads the right-hand chrome column — nothing in it sits higher', () => {
+    const s = hudSurfaces(metrics(4));
+    const exit = find(s, 'exit-button').rect;
+    const rightColumn = s.filter((surface) => surface.rect.x >= exit.x);
+    expect(rightColumn.length).toBeGreaterThan(1);
+    for (const surface of rightColumn) {
+      expect(surface.rect.y, `${surface.name} sits above BACK TO MAIN`).toBeGreaterThanOrEqual(
+        exit.y,
+      );
     }
   });
 });

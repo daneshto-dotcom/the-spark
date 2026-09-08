@@ -78,12 +78,46 @@ export const EXIT_BTN_H = 34;
  * edge. The band x 1524..1692 at y 100..134 is free in the worst-case 4-row HUD dump quoted above -
  * the tier banner stops at x=1124 and the beta badge starts at y=8 and ends at y=29.
  */
-const SEAT1_KEEP_LEFT_4P = 1790 - 74 / 2; // castleAnchor(1, QUADRANTS_4P).x - KEEP_W / 2 = 1753
-/** Breathing room, and slack for the castle sprite being drawn wider than its hit box. */
-const KEEP_CLEARANCE = 61;
-export const EXIT_BTN_X = SEAT1_KEEP_LEFT_4P - KEEP_CLEARANCE - EXIT_BTN_W; // 1524
-/** Below the connection dot (ends y=74); clear of the tier banner, which stops at x=1124. */
-export const EXIT_BTN_Y = 100;
+/*
+ * ⭐ S168 (owner: "move the back to main all the way to the top to be instead the Beta S17 Phase - 2").
+ *
+ * ⭐ AND MOVING IT UP RETIRES THE S165 CONSTRAINT RATHER THAN WORKING AROUND IT. The block above is
+ * kept because it explains why the button sat where it did: seat 1's keep on QUADRANTS_4P occupies
+ * y 101..159, and the button's old y 100..134 overlapped it, so S165 slid the button LEFT to escape.
+ * At the new y 8..42 there is no vertical overlap with the keep AT ALL, so the horizontal dodge is
+ * no longer buying anything — the button is free to sit far right, in the top chrome row, which is
+ * exactly where the owner asked for it.
+ *
+ * THE SLOT IS DERIVED, NOT EYEBALLED — same method S165 used. The top-right column, right to left:
+ *   energy gauge / progress rail  x 1882..1904, y 80 down    (below us)
+ *   connection dot                x 1890..1902, y  62..74    (below us)
+ *   ♪ / ⚙ glyph pair              x 1874..1908, y  38..54    (below and right of us)
+ *   BETA badge plate              x 1827..1917, y   8..33    (immediately right of us)
+ * so the button takes the band ending BADGE_CLEARANCE left of the badge plate, at the badge's own
+ * top. `hudLayout.test.ts` sweeps every pair and would name the collision if this is ever wrong.
+ */
+
+/**
+ * Room the layout GUARANTEES for the badge TEXT. "BETA" is 4 chars at 12 px monospace with
+ * letterSpacing 3 — about 41 px — so 72 is a deliberate over-reserve: the test feeds this same
+ * number as `badgeWidth`, which makes the sweep a STRICTER bound than the real badge.
+ */
+const BADGE_TEXT_RESERVE = 72;
+/** ui.ts draws the badge plate starting 9 px left of the text. Must match `hudSurfaces()`. */
+const BADGE_PLATE_PAD = 9;
+/** Breathing room between the button and the badge plate. */
+const BADGE_CLEARANCE = 20;
+/**
+ * ⚠ Mirrors `HUD_RIGHT_X` in ui.ts (`CANVAS_WIDTH - 12`). It is duplicated rather than imported
+ * because ui.ts imports THIS file for `exitButtonRect()`, so importing back would be a cycle.
+ * `hudLayout.test.ts` pins the two in step so the duplicate cannot drift.
+ */
+const HUD_RIGHT_MIRROR = CANVAS_WIDTH - 12;
+
+export const EXIT_BTN_X =
+  HUD_RIGHT_MIRROR - BADGE_TEXT_RESERVE - BADGE_PLATE_PAD - BADGE_CLEARANCE - EXIT_BTN_W;
+/** The top chrome row — same top edge as the BETA badge plate (`BETA_BADGE_Y - 4` in ui.ts). */
+export const EXIT_BTN_Y = 8;
 export const EXIT_BTN_LABEL = 'BACK TO MAIN';
 
 /** Modal panel geometry — centred, so neither choice is under the button that opened it. */

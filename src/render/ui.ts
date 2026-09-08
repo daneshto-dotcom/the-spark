@@ -275,8 +275,7 @@ const Q_HINT_H = 12;
 // `hudLayout.test.ts` owns the invariant instead of the next reader's eyes.
 const RAID_PIP_X = Q_HINT_X + Q_HINT_W + 10;
 /** S150 P1 — the controls help line, owned by main.ts but pinned here so `hudSurfaces` can see it. */
-export const HELP_LINE_X = 10;
-export const HELP_LINE_Y = CANVAS_HEIGHT - 22;
+/* S168 — HELP_LINE_X / HELP_LINE_Y removed with the help line itself (owner). */
 
 /**
  * What a tier-banner drain decided this frame. `text === null` means no crossing was captured and
@@ -417,7 +416,6 @@ export interface HudMetrics {
   readonly badgeWidth: number;
   readonly badgeHeight: number;
   /** Help-line width, likewise measured by main.ts. */
-  readonly helpWidth: number;
 }
 
 /**
@@ -537,10 +535,6 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
    * "flush right" placement would have drawn through the rail for the whole match.
    */
   out.push({ name: 'exit-button', rect: exitButtonRect() });
-  out.push({
-    name: 'help-line',
-    rect: { x: HELP_LINE_X, y: HELP_LINE_Y, w: m.helpWidth, h: 12 },
-  });
   return out;
 }
 
@@ -712,7 +706,7 @@ export class HUD {
   /** S15 P2 — set by main.ts each frame; reflects netTransport.peerCount(). */
   private connectedPeers = 0;
   /** S150 P1 — see `setChromeMetrics`. Zeroes until main.ts measures the badge and the help line. */
-  private chromeMetrics = { badgeWidth: 0, badgeHeight: 0, helpWidth: 0 };
+  private chromeMetrics = { badgeWidth: 0, badgeHeight: 0 };
 
   constructor(app: Application) {
     this.gauge = new Graphics();
@@ -835,7 +829,7 @@ export class HUD {
    * only the part this class happens to construct. Splitting ownership across two files is how the
    * ♪-through-the-connection-dot overlap survived: neither half could see the other's rectangle.
    */
-  setChromeMetrics(m: { badgeWidth: number; badgeHeight: number; helpWidth: number }): void {
+  setChromeMetrics(m: { badgeWidth: number; badgeHeight: number }): void {
     this.chromeMetrics = m;
   }
 
@@ -861,7 +855,6 @@ export class HUD {
         tierHeight: this.tierBannerText.visible ? this.tierBannerText.height : 0,
         badgeWidth: this.chromeMetrics.badgeWidth,
         badgeHeight: this.chromeMetrics.badgeHeight,
-        helpWidth: this.chromeMetrics.helpWidth,
       }),
     };
   }

@@ -146,7 +146,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { AUDIO_ICON_Y, BETA_BADGE_Y, HELP_LINE_X, HELP_LINE_Y, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -295,7 +295,10 @@ async function bootstrap(): Promise<void> {
     // S89 P2 — fontSize 14->12 + letterSpacing 4->3: smaller footprint so the
     // version chrome competes less with gameplay (paired with the backing plate
     // below — Council synthesis: de-emphasize the text AND mask the conflict).
-    text: 'BETA · S17 PHASE-2',
+    // ⭐ S168 (owner: "remove the 'S17 Phase 2' only keep beta"). The phase tag had been
+    // stale for 151 sessions — it named S17's Tier-1 milestone on a build at S168 — and it
+    // was the widest thing in the top-right column, which is the room BACK TO MAIN now uses.
+    text: 'BETA',
     style: new TextStyle({
       fontFamily: 'monospace',
       fontSize: 12,
@@ -1530,20 +1533,11 @@ Network routes: ${v.detail}`;
    */
   const exitButton = makeExitButton(app, leaveToTitle);
 
-  const hint = new Text({
-    // ⚠ S152 P1 — "RMB click on bond → sever" WAS NOW A LIE, and the help line is the one place a
-    // player learns the gesture. Under owner R78 a right-click is a RAID: a 2-ATK hit on a unit OR a
-    // connector, paid with a raid point, which severs only once accumulated damage reaches the
-    // connector's capacity. Stale help is worse than none — it teaches the wrong cost model.
-    text: 'LMB drag spark → place · RMB → RAID unit or connector · Q shrink territory · ~ stats · C cinematics · ESC ESC quit',
-    style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
-  });
-  hint.position.set(HELP_LINE_X, HELP_LINE_Y);
-  // ⛔ S150 P1 — IN-GAME CONTROLS DO NOT BELONG ON THE MAIN MENU. Measured on the TITLE capture:
-  // this line rendered at y=1058 under the SPARK menu, telling the player to drag sparks and sever
-  // bonds on a screen where none of those inputs exist. Toggled in the frame loop below.
-  hint.visible = false;
-  app.stage.addChild(hint);
+  // ⛔ S168 (owner: "also remove this line from the bottom left LMB drag spark blah blah blah").
+  // THE CONTROLS HELP LINE IS GONE. It ran along the bottom-left for the whole match — 581 px of
+  // permanent chrome teaching gestures a returning player already knows. Removed with its HUD
+  // surface (`help-line` in ui.ts) and its `helpWidth` chrome metric rather than merely hidden, so
+  // `hudSurfaces()` keeps reporting the WHOLE screen and no dead rect lingers in the registry.
   // S150 P1 — hand the HUD the two chrome rects THIS file owns (the BETA stamp and the help line),
   // so `hud.getUiPoints()` reports the whole screen and the e2e overlap assertion can see every
   // rectangle at once. Deferred to here rather than beside `new HUD(app)` purely because `hint` is
@@ -1551,7 +1545,6 @@ Network routes: ${v.detail}`;
   hud.setChromeMetrics({
     badgeWidth: betaBadge.width,
     badgeHeight: betaBadge.height,
-    helpWidth: hint.width,
   });
 
   if (import.meta.env.DEV) {
@@ -2993,7 +2986,6 @@ Network routes: ${v.detail}`;
     const inOverlayScreen = isOverlayScreen(world.gameState);
     spawnerRing.visible = !inOverlayScreen;
     legend.visible = !inOverlayScreen;
-    hint.visible = !inOverlayScreen;
 
     // S15 P2 — connection-lost overlay (networked, PLAYING, no peers).
     // S62 — generalized gameMode==='1v1' → isNetworked() but DELIBERATELY keeps
