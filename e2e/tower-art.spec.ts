@@ -293,4 +293,50 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
 
     await page.screenshot({ path: 'test-results/t9-boss-released.png' });
   });
+
+  test('⭐ and the TIER-3 tower draws too — the art that was orphaned for two sessions', async ({ page }) => {
+    /*
+     * ⛔ THIS IS THE ONE THAT ACTUALLY REGRESSED, so it gets its own test rather than riding on the
+     * tier-9 case. `t3TowerAtlasBase` had ZERO production callers from S165 until S167: twelve tower
+     * atlases and six destruction cinematics, matted, scanned by check:atlas and asserted-present on
+     * disk by a unit test, and never once drawn.
+     *
+     * ⚠ SHARING A CODE PATH WITH THE TIER-9 TOWER IS NOT PROOF THAT THIS ONE DRAWS. The two tiers
+     * resolve DIFFERENT atlas bases and — the part that would fail silently — DIFFERENT ROW ORDERS:
+     * a tier-3 sheet carries a `spawning` row at index 1 that tier-9 does not have, so reading one
+     * with the other's indices renders a perfectly valid WRONG FRAME. Only building a tier-3 tower
+     * in a browser closes that.
+     */
+    await bootSolo(page);
+    const race = await seatRace(page);
+    const shape = SHAPE_BY_RACE[race];
+    await seedBank(page, shape!, 3);
+    await page.waitForTimeout(300);
+
+    const towerId = `t3Tower${race[0]!.toUpperCase()}${race.slice(1)}`;
+    const { chips } = await bandPoints(page);
+    const chip = chips.find((c) => c.complexity === 3);
+    expect(chip, `no 3 chip; the bar has [${chips.map((c) => c.complexity).join(', ')}]`).not.toBeUndefined();
+    await clickCanvas(page, chip!.x + chip!.w / 2, chip!.y + chip!.h / 2);
+    await page.waitForTimeout(400);
+
+    const { cards } = await bandPoints(page);
+    const card = cards.find((c) => c.id === towerId);
+    expect(card, `the ${race} tier-3 card must open — got [${cards.map((c) => c.id).join(', ')}]`)
+      .not.toBeUndefined();
+    // R95 again: exactly one 3-cost card for a seat, not six.
+    expect(cards.length, `one 3-cost card for a ${race} seat`).toBe(1);
+
+    await clickCanvas(page, card!.x + card!.w / 2, card!.y + card!.h / 2);
+    await page.waitForTimeout(250);
+    await clickCanvas(page, 420, 400);
+    await page.waitForTimeout(900);
+
+    const after = await towerState(page);
+    expect(after.primitives, 'three shapes stamped').toBe(3);
+    expect(after.spawners, 'the tier-3 tower must ignite').toContain(towerId);
+    expect(after.towerSprites, '⛔ the S165 tower art must finally be DRAWN').toBe(1);
+
+    await page.screenshot({ path: 'test-results/t3-tower-on-board.png' });
+  });
 });
