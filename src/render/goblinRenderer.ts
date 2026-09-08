@@ -41,9 +41,9 @@ import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
-import { t3UnitAtlasBase } from '../state/raceTowerIds.ts';
+import { RACE_TOWER_UNIT, t3UnitAtlasBase } from '../state/raceTowerIds.ts';
 // S167 — the tier-9 leaf, same side-effect-free contract.
-import { t9BossAtlasBase } from '../state/t9BossIds.ts';
+import { T9_BOSS_TYPE, t9BossAtlasBase } from '../state/t9BossIds.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
  *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
@@ -69,7 +69,14 @@ import { t9BossAtlasBase } from '../state/t9BossIds.ts';
  * look of any unit. It is deliberately kept: an atlas that fails to fetch on some peer must
  * still draw something rather than nothing.
  */
-const ATLASES: Partial<Record<CreatureType, string>> = {
+/*
+ * ⚠ S169 — EXPORTED so `goblinRendererLazyAtlas.test.ts` can assert every key is reachable by some
+ * load path. That is the S168 direwolf lesson applied before it bites: `GOBLIN_KINDS` warned in
+ * writing for two sessions that a missing type "draws NOTHING AT ALL" while being module-PRIVATE, so
+ * no test COULD import it, and the direwolf duly shipped invisible. A table whose correctness is
+ * described in a comment and checkable by nobody is a prophecy, not a guard.
+ */
+export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
   goblinShield: '/godly/goblin-shield/anim/goblin-shield',
@@ -222,6 +229,22 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */
 const RACE_UNIT_ATLAS_BASE = (race: RaceId): string => `/art/race-units/unit-${race}`;
 
+/**
+ * ⭐⭐ S169 — WHICH SHEETS LOAD ON FIRST SYNC. Everything else in `ATLASES` is race-keyed and is
+ * fetched by `preloadRaceKit` (at match start, for the seated races only) or by `ensureTypeAtlas`.
+ *
+ * ⛔ THE SIX GOBLINS STAY EAGER BECAUSE THEY ARE NOT RACE-KEYED. Any seat can field any of them by
+ * feeding the goblin tower one shape, so there is no smaller set to predict — and at 8.18 MiB they
+ * are a sixth of what this loop used to fetch.
+ *
+ * ⚠ A TYPE ADDED TO `ATLASES` BUT TO NEITHER THIS SET NOR A PRELOAD PATH still draws, via
+ * `ensureTypeAtlas` in the draw loop — one puppet-green frame or two, not a permanent puppet.
+ * `goblinRendererLazyAtlas.test.ts` pins that every `ATLASES` key is reachable by some path.
+ */
+export const EAGER_ATLAS_TYPES: ReadonlySet<CreatureType> = new Set<CreatureType>([
+  'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
+]);
+
 interface AtlasState { row: number; frames: number; ticksPerFrame: number; }
 interface AtlasManifest {
   cellW: number; cellH: number;
@@ -291,6 +314,8 @@ export class GoblinRenderer {
   private atlasLoadStarted = false;
   /** Races whose atlas load has been kicked off — see `ensureRaceAtlas`. */
   private readonly raceLoadStarted: Set<RaceId> = new Set();
+  /** S169 — per-TYPE lazy-load latch, the type-keyed twin of `raceLoadStarted`. */
+  private readonly typeLoadStarted: Set<CreatureType> = new Set();
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -311,8 +336,73 @@ export class GoblinRenderer {
     if (this.atlasLoadStarted) return;
     this.atlasLoadStarted = true;
     for (const [type, base] of Object.entries(ATLASES) as [CreatureType, string][]) {
+      /*
+       * ⭐⭐ S169 (owner playtest) — **ONLY THE GOBLINS ARE EAGER NOW, AND THAT IS 50 MiB OF FETCH
+       * OFF THE FIRST SYNC.**
+       *
+       * Owner, on seeing green procedural puppets on the board: *"why is this silly goblin warrior
+       * being generated from the castle all of a sudden? you screwed something up. we have changed
+       * that a while ago"* and *"why is the castle generating the race spawn + this goblin we had
+       * from like 15 sessions ago or more.... before we even generated the normal goblins."*
+       *
+       * ⛔ HE WAS LOOKING AT `drawGoblin`'S LOAD-FALLBACK, NOT AT A SPAWN BUG. Nothing emits a
+       * legacy goblin near a castle: the castle emits `raceUnit` only (`raceUnitEmit.ts`) and the
+       * tier-3 tower emits `RACE_TOWER_UNIT[race]`. But a type whose sheet has not RESOLVED YET
+       * draws through the green procedural puppet — the pre-veo look, which is exactly "the goblin we
+       * had before we even generated the normal goblins". The fallback is deliberate and stays
+       * (visible-and-wrong beats invisible, per `goblinRenderer.coverage.test.ts`); what was wrong
+       * was how long the window lasted.
+       *
+       * ⛔ MEASURED: this loop fetched **50.53 MiB across 18 sheets** on first sync — 8.18 MiB of
+       * goblins, 10.34 MiB of tier-3 units and **32.02 MiB of tier-9 bosses**. A seat has ONE race
+       * (R110), so at most one tier-3 sheet and one boss sheet can ever be drawn, and the one the
+       * player actually needs was queued behind up to sixteen it never will. Every unit emitted
+       * inside that window is a green puppet.
+       *
+       * ⭐ THIS IS THE PRECEDENT ALREADY IN THIS FILE, APPLIED TO THE TWO TABLES THAT MISSED IT.
+       * `ensureRaceAtlas` went lazy-per-race in S165 for this exact arithmetic ("loading all six
+       * eagerly would spend ~31 MB of texture memory on races nobody is playing"). The tier-3 and
+       * tier-9 sheets are the same shape of asset and were left in the eager table.
+       *
+       * Race-keyed sheets now load two ways instead: `preloadRaceKit` warms the races actually
+       * seated, at match start, during the 90 s BUILD — the `ensureNonetOverlay()` idiom, which
+       * exists so a lazy chunk is never fetched at the moment it is needed — and `ensureTypeAtlas`
+       * in the draw loop is the safety net for anything that appears unannounced.
+       */
+      if (!EAGER_ATLAS_TYPES.has(type)) continue;
       this.loadAtlas(type, base);
     }
+  }
+
+  /**
+   * ⭐ S169 — load ONE type's sheet on demand. Idempotent; cheap enough for the draw loop (a Set
+   * probe). The safety net behind `preloadRaceKit`, and the reason a race-keyed sheet going lazy
+   * cannot make a unit permanently green.
+   */
+  private ensureTypeAtlas(type: CreatureType): void {
+    if (this.typeLoadStarted.has(type)) return;
+    const base = ATLASES[type];
+    if (base === undefined) return; // genuinely puppet-backed — nothing to fetch
+    this.typeLoadStarted.add(type);
+    this.loadAtlas(type, base);
+  }
+
+  /**
+   * ⭐⭐ S169 — WARM EVERY SHEET ONE SEATED RACE CAN PRODUCE, BEFORE IT PRODUCES ANYTHING.
+   *
+   * Called at match start for each seat's race, so the fetch happens during BUILD rather than at the
+   * instant the first unit, tier-3 unit or boss appears. That is the whole fix for the owner's green
+   * puppets: the sheets are already resolved by the time anything is drawn.
+   *
+   * ⚠ THE THREE SHEETS ARE THE COMPLETE PER-RACE SET, and naming them here rather than deriving them
+   * is deliberate — `raceUnit` is keyed `raceUnit:<race>` while the other two are keyed by TYPE, so
+   * there is no single table to loop. If a fourth race-keyed atlas family is ever added, it must be
+   * added here or it inherits the puppet window this method exists to close.
+   */
+  preloadRaceKit(race: RaceId): void {
+    this.ensureRaceAtlas(race);
+    this.ensureTypeAtlas(RACE_TOWER_UNIT[race]);
+    this.ensureTypeAtlas(T9_BOSS_TYPE[race]);
   }
 
   /**
@@ -552,6 +642,9 @@ export class GoblinRenderer {
             ? DORMANT_ALPHA
             : 1;
 
+      // S169 — safety net for a race-keyed sheet that appeared without a preload (a joiner whose
+      // roster arrived late, a race added mid-match by the rainbow shuffle). Idempotent Set probe.
+      this.ensureTypeAtlas(c.type);
       const atlas = this.atlases.get(
         this.atlasKeyFor(world, c.type, c.ownerPlayerId as unknown as number),
       );

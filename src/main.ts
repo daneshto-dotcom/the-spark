@@ -239,7 +239,7 @@ import { asPlayerId } from './types.ts';
 // moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
-import { defaultRaceForSeat, RACE_COLORS, type RaceId } from './state/races.ts';
+import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -2302,6 +2302,36 @@ Network routes: ${v.detail}`;
         // when it fires (no mid-duel chunk fetch) AND so any load failure surfaces + starts its
         // retry window early — never as the silent ~180 s freeze the live playtest hit. Idempotent.
         ensureNonetOverlay();
+        /*
+         * ⭐⭐ S169 (owner playtest) — WARM THE SPRITE SHEETS FOR THE RACES ACTUALLY SEATED.
+         *
+         * Owner: *"why is this silly goblin warrior being generated from the castle all of a sudden?
+         * you screwed something up"* / *"why is the castle generating the race spawn + this goblin we
+         * had from like 15 sessions ago or more.... before we even generated the normal goblins."*
+         *
+         * ⛔ HE WAS SEEING `drawGoblin`'S GREEN PROCEDURAL PUPPET, WHICH IS LITERALLY THE PRE-veo
+         * LOOK — the atlas-load fallback, not a spawn bug. Nothing emits a legacy goblin at a castle:
+         * the castle emits `raceUnit` and the tier-3 tower emits `RACE_TOWER_UNIT[race]`. A type
+         * whose sheet has not resolved yet just draws through the puppet.
+         *
+         * ⛔ AND THE WINDOW WAS ENORMOUS: `ensureAtlases` fetched **50.53 MiB across 18 sheets** on
+         * first sync, 32.02 MiB of it tier-9 bosses, when a seat has ONE race and can therefore draw
+         * at most one tier-3 sheet and one boss sheet. The sheet the player needed queued behind up
+         * to sixteen it never would.
+         *
+         * So the race-keyed sheets went lazy (see `EAGER_ATLAS_TYPES`) and this line is the other
+         * half: warm each seated race's three sheets HERE, at match start, so the fetch lands during
+         * the 90 s BUILD instead of at the instant the first unit appears. It is deliberately the
+         * same idiom as the `ensureNonetOverlay()` call above it — *"preload the chunk at match start
+         * so the trial appears INSTANTLY, never as the silent freeze"* — applied to art.
+         *
+         * ⚠ EVERY SEAT, NOT JUST THE LOCAL ONE. The opponent's units are drawn on this screen too,
+         * and a joiner's own race arrives with the roster, which is exactly what has just been
+         * stamped on the line above this block.
+         */
+        for (const p of world.players.values()) {
+          if (isRaceId(p.raceId)) goblinRenderer.preloadRaceKit(p.raceId);
+        }
       }
       // S31 P0-2 — *→TITLE transition orchestration cleanup. Mirrors the
       // reducer-side cinematic-state-clear (gameMode.ts applyReturnToTitle)
