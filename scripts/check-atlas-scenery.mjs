@@ -136,6 +136,27 @@ for path in sys.argv[1:]:
     # animation, and it is immune to one frame where the creature rears up or crouches. A single
     # sampled frame is a measurement of luck.
     heights = []
+    # ── check 4: A SURVIVING VEO LETTERBOX (S168) ─────────────────────────────────────────
+    # Owner, on the live build: "take a look at the kraken, he is moving within a black frame
+    # slightly larger than his body ... the creature need to be cut out so that he looks like he is
+    # actually integrated within the map".
+    #
+    # ⛔ CHECK 3 LOOKS FOR NEAR-WHITE AND THIS DEFECT IS NEAR-BLACK, so nothing here could see it.
+    # build-sprite-atlas.mjs DOES try to eat letterbox bars, but only when they are
+    # h >= 0.90*H and w <= 0.15*W; the Kraken's are 0.84 and 0.21, so they missed by a little in
+    # the safe direction and shipped. Two atlases carried one: t9boss-nagas ATTACK and
+    # t3-mummies-scarab WALK — and only the first was reported. The second is the S166 lesson again:
+    # a reported defect is a SAMPLE, not the population.
+    #
+    # ⭐ THE TEST IS A COLUMN SCAN, NOT A COMPONENT SHAPE, because the failure mode of the shape rule
+    # is exactly what let this through. Walking inward from each edge, a column counts as letterbox
+    # while >=50% of its OPAQUE pixels are near-black AND it covers >=75% of the cell height; the run
+    # stops at the first column that is not. A character's ink outline never makes a full-height
+    # near-black column, so linework cannot trip it — the S152 disaster this file already records.
+    #
+    # MEASURED across all 48 shipped atlases: 46 score EXACTLY 0 and the two offenders score 53,703
+    # and 414,481. There is no threshold to tune; LETTERBOX_MAX below is slack, not a boundary.
+    lbrow, lbpx = '', 0
     if os.path.exists(mpath):
         man = json.load(open(mpath))
         cw, ch = man['cellW'], man['cellH']
@@ -148,6 +169,26 @@ for path in sys.argv[1:]:
                 if ys.size:
                     per.append(int(ys[-1] - ys[0] + 1))
             heights.append([st, int(np.median(per)) if per else 0])
+        for st, info in man['states'].items():
+            barpx = 0
+            for f in range(int(info['frames'])):
+                cell = arr[info['row'] * ch:(info['row'] + 1) * ch, f * cw:(f + 1) * cw]
+                op = cell[:, :, 3] > 200
+                dk = cell[:, :, :3].max(axis=2) < 42
+                opq = op.sum(axis=0)
+                odk = (op & dk).sum(axis=0)
+                frac = np.where(opq > 0, odk / np.maximum(opq, 1), 0.0)
+                isbar = (frac >= 0.50) & ((opq / ch) >= 0.75)
+                for order in (range(cw), range(cw - 1, -1, -1)):
+                    for x in order:
+                        if opq[x] == 0:
+                            continue
+                        if isbar[x]:
+                            barpx += int(odk[x])
+                        else:
+                            break
+            if barpx > lbpx:
+                lbrow, lbpx = st, barpx
     # ── check 3: OPAQUE NEAR-WHITE that survived the matte ────────────────────────────────
     # The owner's words: "some of them have that white background because not cut out too well".
     # build-sprite-atlas.mjs deliberately KEEPS enclosed near-white BELOW enclosedWhiteLimitPct so
@@ -164,7 +205,7 @@ for path in sys.argv[1:]:
     wbig = 0
     if wn:
         wbig = int(ndimage.sum(white, wlab, index=np.arange(1, wn + 1)).max())
-    out[path] = [total, largest, heights, int(white.sum()), wbig]
+    out[path] = [total, largest, heights, int(white.sum()), wbig, lbrow, lbpx]
 print(json.dumps(out))
 `;
 
@@ -275,7 +316,30 @@ for (const [path, [, , , wtotal, wbig]] of Object.entries(res)) {
   console.log(`  ${(over ? 'WHITE' : 'clean').padEnd(8)} largest ${String(wbig).padStart(5)} px  (total ${String(wtotal).padStart(6)})  ${path}`);
 }
 
+/*
+ * ⭐ S168 — slack, not a boundary. Clean art measures EXACTLY 0 px on all 46 healthy atlases; the two
+ * offenders measured 53,703 and 414,481. This exists only so one stray dark column at a frame edge
+ * cannot red the gate, and it should never need tuning. If it ever does, the rule is wrong.
+ */
+const LETTERBOX_MAX = 2000;
+
+let boxed = 0;
+console.log('\n[atlas] 4/4 — a surviving veo LETTERBOX (near-black bars at the frame edge)\n');
+for (const [path, [, , , , , lbrow, lbpx]] of Object.entries(res)) {
+  const over = lbpx > LETTERBOX_MAX;
+  if (over) boxed++;
+  const where = lbpx > 0 ? `worst row ${lbrow}` : '';
+  console.log(`  ${(over ? 'LETTERBOX' : 'clean').padEnd(10)} ${String(lbpx).padStart(7)} px  ${where.padEnd(16)} ${path}`);
+}
+
 console.log('');
+if (boxed > 0) {
+  console.error(`[atlas] FAIL — ${boxed} atlas(es) still carry a veo letterbox bar.`);
+  console.error('        If the bars are CLEAN rectangles (the creature does not overlap them),');
+  console.error('        `python scripts/repair-atlas-letterbox.py <atlas.png>` removes them losslessly.');
+  console.error('        If the creature BLEEDS over the bars, the source clip is defective and the');
+  console.error('        row has to be re-generated — patching it makes the bars flicker mid-animation.');
+}
 if (leaky > 0) {
   console.error(`[atlas] FAIL — ${leaky} atlas(es) ship a visible white patch. Set`);
   console.error('        "enclosedWhiteLimitPct": 4e-05 on that spec — the builder DEFAULT of 0.003 is 75x');
@@ -291,9 +355,9 @@ if (sized > 0) {
   console.error('        FRAME-FILLING re-roll it demanding visible empty margin — a clamped measurement');
   console.error('        makes the normaliser under-estimate and over-shrink the row.');
 }
-if (bad > 0 || sized > 0 || leaky > 0) process.exit(1);
+if (bad > 0 || sized > 0 || leaky > 0 || boxed > 0) process.exit(1);
 // ⚠ Say WHICH checks actually ran. "clean on both checks" when only one ran is exactly the kind of
 // false assurance this repo has been bitten by before (a gate that FAILED read as passing, S161).
-const ran = noSize ? 'the scenery and white-leak checks' : 'all three checks';
+const ran = noSize ? 'the scenery, white-leak and letterbox checks' : 'all four checks';
 const tol = allowScenery > 0 ? ` (scenery tolerance ${allowScenery} px)` : '';
 console.log(`[atlas] OK — ${files.length} atlas(es) clean on ${ran}${tol}.`);
