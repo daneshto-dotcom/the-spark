@@ -629,10 +629,16 @@ export type { NetSnapshot };
  *   · R138 rot aura — plain `damageEntity` on already-serialized `ehp`.
  *   · R140 life sap — heals already-serialized `ehp`; the CHARGE LEDGER is host-local
  *     (`HostTickState`), never on the wire.
- *   · R149 RAGE — a host-local LATCH, likewise. It changes speed and cadence, both of which the
- *     host already resolves before positions are snapshotted.
+ *   · R149 RAGE — ⚠ CORRECTED BY THE S168 POST-AUDIT. This bullet originally read *"a host-local
+ *     LATCH, likewise"*, and that was wrong: `makeWorkerSim` RESTORES its world from a save rather
+ *     than recomputing it, so an unserialized `enraged` arrived `undefined` in the mirror while the
+ *     host had it set — diverging the wide hash it had just been added to. `Creature.enraged` is now
+ *     an ADDITIVE-OPTIONAL serialized field, emitted only when true. It rides under this same
+ *     version because additive-optional costs no bump: a v45 peer that never sees the key reads it
+ *     as `false`, which is the correct default.
  *   · R150 teleport / taken-to-hell — a position write and a creature removal, both already synced.
- * So this bump is the direwolf and nothing else.
+ * So the DISCRIMINANT half of this bump is the direwolf and nothing else — but the wire format also
+ * gained one optional boolean under it, which is recorded here rather than left to be discovered.
  */
 export const PROTOCOL_VERSION = 45 as const;
 
@@ -859,8 +865,12 @@ export interface HelloMsg {
    * undefined` on its own mirror. ⭐ The FIVE other boss skills that shipped in S168 ride for free:
    * the death explosion reuses host-internal `STRUCTURE_SELFDESTRUCT` + `BOMB_EXPLODE`, the rot aura
    * is plain `damageEntity` on already-serialized `ehp`, the life sap heals the same field with a
-   * HOST-LOCAL charge ledger, RAGE is a host-local latch, and the Archdemon's teleport and execute
-   * are a position write and a creature removal. So this bump is the direwolf and nothing else.)
+   * HOST-LOCAL charge ledger, and the Archdemon's teleport and execute are a position write and a
+   * creature removal. ⚠ RAGE IS THE EXCEPTION AND THIS SENTENCE USED TO GET IT WRONG: `enraged` is
+   * an additive-optional SERIALIZED field, added under this same version by the S168 post-audit
+   * after it turned out the worker RESTORES rather than recomputes. Additive-optional costs no bump
+   * — a peer that never sees the key reads `false` — so 45 still covers it, but "the direwolf and
+   * nothing else" was true of the DISCRIMINANT only.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as

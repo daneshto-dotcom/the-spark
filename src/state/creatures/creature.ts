@@ -410,16 +410,30 @@ export interface Creature {
    * lifetime"* is explicit: a flag derived from current HP would switch OFF again the moment he was
    * healed back over the line, which is the opposite of the ruling.
    *
-   * ⛔ **DELIBERATELY NOT SERIALIZED AND NOT HASHED**, and that is a decision rather than an
-   * oversight. It is DERIVED state: both the host and its `?worker=1` mirror compute it from the
-   * same `ehp` against the same threshold on the same tick, so it can never disagree between the
-   * two sims that `hashWorldStateFull` actually compares. The client never simulates — it renders
-   * positions from snapshots — so it has no use for the flag either. Putting it on the wire would
-   * buy nothing and cost the four-sites tax plus a `FIELD_COVERAGE` entry.
+   * ## ⛔ IT IS HASHED **AND** SERIALIZED, AND AN EARLIER VERSION OF THIS NOTE SAID NEITHER
    *
-   * ⚠ THE COST, NAMED: a HOST MIGRATION rebuilds creatures from a snapshot, so an enraged Warlord
-   * calms down under the new host until he next crosses the threshold — and if he is already below
-   * it, that is the very next tick. Same tradeoff as the life-sap ledger, and the same reasoning.
+   * The first cut read *"DELIBERATELY NOT SERIALIZED AND NOT HASHED"*, on the reasoning that both
+   * sims derive it from the same `ehp` against the same threshold. **Both halves were wrong, and the
+   * post-audit caught them:**
+   *
+   * · **HASHED.** It is in `CreatureHashed` and in the hand-written projection
+   *   (`state/stateHashFull.ts`), deliberately — `hashWorldStateFull` compares two SIMS, both of
+   *   which compute this latch, and acknowledging it would blind the oracle to a ×2 multiplier.
+   * · **SERIALIZED.** The derivation argument was false: `makeWorkerSim` does not RECOMPUTE anything,
+   *   it builds its authoritative world with `restore(JSON.parse(saveJson))`. A field absent from
+   *   the payload therefore arrives `undefined` in the mirror while the host has it set — diverging
+   *   the very hash it had just been added to. `state/save.ts` now round-trips it, and its field
+   *   note quotes `poopyUntilTick`, which was the identical defect 26 sessions earlier.
+   *
+   * ⭐ It costs NO `FIELD_COVERAGE` entry (that map is keyed by World field FAMILY, and `creatures`
+   * is already `'hashed'`) and NO `PROTOCOL_VERSION` bump of its own (additive-optional, emitted
+   * only when true).
+   *
+   * ⭐ AND THE COST AN EARLIER NOTE NAMED HERE IS NOW PAID OFF: a host migration no longer calms an
+   * enraged Warlord, because the latch survives the snapshot. That mattered more after R151 than
+   * before it — R149's pure latch re-armed on the next tick below 25%, but R151 only re-latches
+   * below 25% and only clears above 50%, so one restored inside the band would have lost his ×2 for
+   * the rest of the match.
    *
    * ⚠ ADDITIVE-OPTIONAL rather than required, and that is also deliberate: a required field
    * would force `enraged: false` into roughly twenty hand-built Creature fixtures across the

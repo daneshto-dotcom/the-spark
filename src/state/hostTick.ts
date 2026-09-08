@@ -288,6 +288,18 @@ export function makeHostTickState(world: World): HostTickState {
     invariantSnap: snapshotInvariants(world.primitives),
     lastViolationLogTick: -Infinity,
     bossRoster: new Map(),
+    /*
+     * ⚠ S168 POST-AUDIT — **NEVER RESET BETWEEN MATCHES, AND IT SURVIVES ONLY BY AN ORDERING NOTHING
+     * PINS.** `makeHostTickState` runs once per page load, not per match, while
+     * `applyReturnToTitle` resets `world.nextCreatureId = 0` — so creature ids REPEAT across
+     * matches, and a stale row for id N would silently deny a new Vlad his three saps.
+     *
+     * It does not bite today because `runVladLifeSap` prunes rows whose creature is gone on every
+     * PLAYING tick, and the first such tick of a new match sees an empty `world.creatures` (cleared
+     * on the same transition), so the whole ledger is wiped before any id can collide. That is
+     * load-bearing on an ordering no test asserts. Recorded here so the next person to move either
+     * half knows what they are standing on.
+     */
     sapLedger: new Map(),
   };
 }

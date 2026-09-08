@@ -171,7 +171,19 @@ function washTowardsWhite(color: number, t: number): number {
  * universal. It also inherits the HP pips, the facing dead-zone and the tick-derived frame index
  * for free — all three of which are things a new renderer gets subtly wrong.
  */
-const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
+/**
+ * ⭐ S168 — **EXPORTED, AND THAT IS THE FIX RATHER THAN A CONVENIENCE.**
+ *
+ * The two docblocks below have warned since S166 and S167 that a `CreatureType` missing from this
+ * Set is *"simulated, serialized, hashed and INVISIBLE"*, and both end with the same admission:
+ * *"no test file in the tree imports it"*. It was module-private, so no test COULD.
+ *
+ * The direwolf became the first type to fall into that hole — it walked, struck for 24 fifths,
+ * killed and died with zero pixels on screen. Exporting the Set is what lets
+ * `goblinRenderer.coverage.test.ts` assert that EVERY `CreatureType` is drawn by SOME renderer, so
+ * the warning is now a gate instead of a prophecy.
+ */
+export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
   'raceUnit',
   /*
@@ -194,6 +206,17 @@ const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * Set is hand-maintained and no test file in the tree imports it.
    */
   't9BossVampires', 't9BossNagas', 't9BossMummies', 't9BossZombies', 't9BossOrcs', 't9BossDemons',
+  /*
+   * ⛔⛔ S168 — THE ORC WARLORD'S DIREWOLF (owner R149), AND IT IS THE TYPE THE WARNING ABOVE WAS
+   * WRITTEN FOR. It shipped without this line and was therefore completely invisible: it summoned in
+   * threes, walked, struck at 24 fifths a swing, killed and died, and never drew a pixel. Nothing
+   * failed — not tsc, not the suite, not `check:atlas`.
+   *
+   * ⚠ It has NO ATLAS yet, deliberately: the owner is generating the sprite himself. That is the
+   * GRACEFUL half — a type in this Set but absent from `ATLASES` falls through to `drawGoblin`'s
+   * procedural puppet, so the wolf is visible and readable until the art lands.
+   */
+  'direwolf',
 ]);
 
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */

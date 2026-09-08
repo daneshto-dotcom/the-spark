@@ -10,7 +10,7 @@ import {
   ARCHDEMON_HELL_RADIUS,
   ARCHDEMON_HELL_THRESHOLD_PCT,
   ARCHDEMON_TELEPORT_INTERVAL_TICKS,
-  DIREWOLF_MAX_PER_BOSS,
+  DIREWOLF_MAX_PER_OWNER,
   DIREWOLF_SUMMON_COUNT,
   DIREWOLF_SUMMON_INTERVAL_TICKS,
   PLAYER_COLORS,
@@ -206,7 +206,7 @@ describe('S168 R149 — the direwolf summon', () => {
       runWarlordDirewolves(world);
       world.tick++;
     }
-    expect(wolves(world)).toBe(DIREWOLF_MAX_PER_BOSS);
+    expect(wolves(world)).toBe(DIREWOLF_MAX_PER_OWNER);
   });
 
   it('⭐ a direwolf is 3/3/3/3 — his numbers, on the fifths ladder', () => {

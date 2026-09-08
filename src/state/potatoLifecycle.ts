@@ -267,6 +267,14 @@ const POTATO_CLEARS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * the game — releases once, and takes its whole tower with it. One potato erasing it outright, at
    * full health, with no damage step, would make the most expensive structure in the game
    * answerable by the cheapest item. A hard counter to a boss should be something that FIGHTS it.
+   *
+   * ⭐ S168 — **AND THE ORC WARLORD'S DIREWOLF IS ABSENT ON THE SAME GROUNDS**, stated here rather
+   * than left to omission. A summon carries `sourceSpawnerId: null` (`bossSkillsWarlord.ts`), so it
+   * is in the Voltkin's class exactly as a boss is, and the old predicate would never have covered
+   * it either. The post-audit flagged it as *"the only direwolf membership question in the tree
+   * answered by omission rather than by a line"* — this is the line. The whole point of this Set,
+   * per the note above, is that the next spawner-sourced creature is added ON PURPOSE instead of
+   * being swept in silently; the inverse deserves the same treatment.
    */
 ]);
 

@@ -12,7 +12,7 @@
  */
 
 import {
-  DIREWOLF_MAX_PER_BOSS,
+  DIREWOLF_MAX_PER_OWNER,
   DIREWOLF_SUMMON_COUNT,
   DIREWOLF_SUMMON_INTERVAL_TICKS,
   WARLORD_RAGE_CLEAR_PCT,
@@ -70,7 +70,7 @@ export function runWarlordRage(world: World): void {
  *
  * ⚠ THE CAP IS MINE. The ruling has none, and unbounded this is eighteen wolves across a 90 s fight
  * — 432 fifths a swing-round from one boss, against a Pharaoh's whole 143-fifth pool. See
- * `DIREWOLF_MAX_PER_BOSS` for the arithmetic. A number from him supersedes it.
+ * `DIREWOLF_MAX_PER_OWNER` for the arithmetic. A number from him supersedes it.
  *
  * ⚠ The direwolf is EXEMPT from `applySpawnCreature`'s one-live-unit-per-(owner, type) gate, and it
  * has to be: a summon that arrives in threes cannot pass a one-per-type bound. The exemption is
@@ -89,7 +89,7 @@ export function runWarlordDirewolves(world: World): void {
       if (c.type === 'direwolf' && c.ownerPlayerId === boss.ownerPlayerId) pack++;
     }
 
-    for (let i = 0; i < DIREWOLF_SUMMON_COUNT && pack < DIREWOLF_MAX_PER_BOSS; i++, pack++) {
+    for (let i = 0; i < DIREWOLF_SUMMON_COUNT && pack < DIREWOLF_MAX_PER_OWNER; i++, pack++) {
       /*
        * A FIXED triangle around him, not a scatter. `Math.random` is banned in the sim — and a
        * deterministic formation also reads better on screen: the pack always arrives the same way.

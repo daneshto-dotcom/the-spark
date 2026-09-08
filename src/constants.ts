@@ -2403,7 +2403,15 @@ export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
  * two summons deep — while bounding the total at 144 fifths a round, which is comparable to the
  * other bosses' own output rather than an order above it. ⛔ A number from him supersedes this.
  */
-export const DIREWOLF_MAX_PER_BOSS = 6;
+/*
+ * ⚠ S168 POST-AUDIT — **RENAMED FROM `..._PER_BOSS`, BECAUSE THAT IS NOT WHAT THE CODE COUNTS.**
+ * `runWarlordDirewolves` tallies every direwolf the SEAT owns, not the ones this Warlord summoned,
+ * so two Warlords on one seat share a pack of six rather than fielding six each. That is STRICTER
+ * than the docblock above described, so it is not a balance blowout — but the constant's name and
+ * its stated arithmetic both promised behaviour the code does not have, and a name that lies is
+ * the cheaper half of this repo's recurring stale-docblock defect. The honest fix is the rename.
+ */
+export const DIREWOLF_MAX_PER_OWNER = 6;
 
 /*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
