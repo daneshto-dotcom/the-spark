@@ -1,6 +1,13 @@
 # PDR — S168 BATCH (Full tier)
 
-STATUS: IN-PROGRESS
+> ⚠ **ARCHIVED AT S168 CLOSE — PARTIAL.** Seven of nine priorities completed. **P7 (boss skills)
+> and P8 (art) are PARTIAL** and carry forward: four of six bosses have their skills, the Kraken
+> (R139) and Pharaoh (R142) do not, and no ability ART has been generated. The batch also GREW
+> substantially after approval — R141/R142/R143/R145/R147/R148/R149/R150/R151/R152/R153/R154/R155
+> were all ruled mid-session, plus two owner-reported bugs (NONET, the Kraken matte) that were
+> not in the original scope. Every addition was owner-initiated and is recorded at its ruling.
+
+STATUS: PARTIAL
 Approved: owner, verbatim — *"i approve full session priority batch"* (+ *"keep working iil see what
 you have done when i get back"*). Owner is AWAY; delivery expected on his return.
 
