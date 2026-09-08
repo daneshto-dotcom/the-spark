@@ -2331,6 +2331,20 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC
  * a fifth of the board's width, so it threatens a neighbourhood and not the map.
  */
 export const T9_ZOMBIE_DEATH_BLAST_RADIUS = 380;
+
+/*
+ * ⭐⭐ S168 P7 (owner R140) — **VLAD'S LIFE SAP.** All three numbers are HIS, verbatim:
+ * *"vlad can use a life sap ability that heals him 20% of his health. He can use it 3 times when
+ * his health drops below 40%."*
+ *
+ * ⭐ AND IT IS EXACTLY INTEGRAL, which is the whole reason this skill could be built while the
+ * zombie's 3%/s aura could not. `damageEntity` throws on a fractional amount by design and float
+ * accumulators are banned in the sim. Vlad's pool is `unitPoolFifths(10, 4)` = **90 fifths**, so
+ * 20% is **18** and 40% is **36** — both whole numbers, no quantisation rule needed.
+ */
+export const VLAD_LIFE_SAP_HEAL_PCT = 20;
+export const VLAD_LIFE_SAP_TRIGGER_PCT = 40;
+export const VLAD_LIFE_SAP_USES = 3;
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 
 // ─────────────────────────────────────────────────────────────────────────────

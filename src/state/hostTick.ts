@@ -86,6 +86,7 @@ import { applyRadialDamage } from './damage.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
 import { componentOf } from '../game/structure.ts';
 import { razePrimitives } from './razePrimitives.ts';
+import { runVladLifeSap, type SapLedger } from './bossSkills.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -176,6 +177,8 @@ export interface HostTickState {
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
   bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
+  /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
+  sapLedger: SapLedger;
 }
 
 /**
@@ -283,6 +286,7 @@ export function makeHostTickState(world: World): HostTickState {
     invariantSnap: snapshotInvariants(world.primitives),
     lastViolationLogTick: -Infinity,
     bossRoster: new Map(),
+    sapLedger: new Map(),
   };
 }
 
@@ -1677,6 +1681,16 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * two lines above.
    */
   raceUnitEmitTick(world);
+
+  /*
+   * ⭐ S168 P7 (R140) — VLAD'S LIFE SAP, placed BEFORE the deferred sweep on purpose.
+   *
+   * A boss who dropped under 40% during this tick's combat should get the chance to sap out of it
+   * in the SAME tick, for the same reason the deferred batch exists at all: a creature still lands
+   * the strike it had committed to. Running it after the sweep would let a Vlad be removed with an
+   * unspent charge in hand, which reads as the ability failing rather than as being out-damaged.
+   */
+  runVladLifeSap(world, state.sapLedger);
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
