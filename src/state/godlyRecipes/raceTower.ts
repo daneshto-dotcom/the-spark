@@ -80,7 +80,7 @@ export {
   isRaceTowerId,
   raceForTowerId,
 } from '../raceTowerIds.ts';
-import { findRingAnchors } from './ringShape.ts';
+import { findRingAnchors, ringMembersAt } from './ringShape.ts';
 import { registerRecipe } from './index.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
@@ -97,6 +97,31 @@ import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
  */
 export function findRaceTowerAnchors(world: World, race: RaceId): PrimitiveId[] {
   return findRingAnchors(world, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
+}
+
+/**
+ * ⭐ S169 — THE NODES OF THE RING AT `anchorId`, so a drain-all ignition can claim a WHOLE STRUCTURE
+ * instead of each of its nodes.
+ *
+ * The docblock above says every node of a ring is a valid seed by symmetry and that "any match will
+ * do" is actively wrong here. That was written about a caller which took the lowest anchor and
+ * stopped. S169 needed a caller that keeps going — a player with TWO finished rings of one race was
+ * getting ONE tower (owner: *"I build another Piranha tower, and it just stayed as shaped"*) — and
+ * the naive version of that change registered a spawner PER NODE: three per tier-3 ring, and **nine
+ * per tier-9 boss ring, i.e. nine bosses.** Caught by test, exactly where this comment predicted.
+ *
+ * So a drain-all caller needs ring IDENTITY, not just anchor identity, and this is it. It lives here
+ * rather than in the matcher because the shape and the size are this module's knowledge; the matcher
+ * would have had to re-derive both.
+ *
+ * Returns `null` when `anchorId` is not a valid ring seed (the walk failed) — the caller skips it.
+ */
+export function findRaceTowerMembers(
+  world: World,
+  anchorId: PrimitiveId,
+  race: RaceId,
+): PrimitiveId[] | null {
+  return ringMembersAt(world, anchorId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
 }
 
 /**

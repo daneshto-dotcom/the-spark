@@ -164,7 +164,22 @@ describe('S165 — every spawner recipe is actually wired into the ignition path
      * id, and the test then fails BOTH directions at once. `godlyMatcherCore.ts` keeps per-race
      * helper functions precisely so the id is the only literal in each call.
      */
-    return [...body.matchAll(/igniteOneSpawnerRecipe\([^;]*?,\s*'([A-Za-z0-9]+)'\s*\)/g)]
+    /*
+     * ⛔ S169 — `ignite(?:One|All)SpawnerRecipe`, AND WIDENING THIS WAS MANDATORY, NOT COSMETIC.
+     *
+     * The ignition chain now uses TWO helpers: the pentagram and the lightning hub keep
+     * `igniteOneSpawnerRecipe` (one per frame, early `return` — a real design constraint for them),
+     * while the thirteen tower recipes use `igniteAllSpawnerRecipe`, which drains every finished
+     * ring. Owner report: a second Piranha tower *"just stayed as shaped"* because one-per-recipe
+     * left it un-registered with no retry.
+     *
+     * ⚠ HAD THIS ALTERNATION NOT BEEN ADDED, THIS GUARD WOULD HAVE INVERTED INTO ITS OWN FAILURE
+     * MODE — the one its own comments describe twice. Every `t3Tower*`/`t9Tower*`/`goblinTower` id
+     * would have vanished from `ignited`, and the loop below would have reported all thirteen as
+     * *"registered but never ignited"* while the ignition lines sat right there — the S166
+     * character-class bug verbatim, one function name on. The scan must track the code it audits.
+     */
+    return [...body.matchAll(/ignite(?:One|All)SpawnerRecipe\([^;]*?,\s*'([A-Za-z0-9]+)'\s*\)/g)]
       .map((m) => m[1] as string);
   };
 
@@ -188,7 +203,7 @@ describe('S165 — every spawner recipe is actually wired into the ignition path
      * downstream switch — before this narrowed to the calls themselves.
      */
     const ignited = ignitedRecipeIds();
-    expect(ignited.length, 'no igniteOneSpawnerRecipe calls found — the scan is broken')
+    expect(ignited.length, 'no ignite(One|All)SpawnerRecipe calls found — the scan is broken')
       .toBeGreaterThan(0);
 
     for (const id of spawnerIds) {

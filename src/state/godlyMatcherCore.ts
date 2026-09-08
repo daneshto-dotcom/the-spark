@@ -32,10 +32,10 @@ import { findAllGoblinTowerAnchors, goblinTowerOwnerForAnchor } from './godlyRec
 // S166 — the six tier-3 race towers. Importing a RECIPE module here is fine and is the existing
 // pattern (the goblinTower line above does it): the matcher is a consumer of recipes, so firing
 // their registration as a side effect is harmless. `blueprints.ts` is the file that must not.
-import { findRaceTowerAnchors, raceTowerOwnerForAnchor } from './godlyRecipes/raceTower.ts';
+import { findRaceTowerAnchors, findRaceTowerMembers, raceTowerOwnerForAnchor } from './godlyRecipes/raceTower.ts';
 // S167 — the tier-9 pair. This module already value-imports recipe modules (six lines above), so
 // the S144 registration side effect is accepted here by precedent rather than avoided.
-import { findT9TowerAnchors, t9TowerOwnerForAnchor } from './godlyRecipes/t9BossTower.ts';
+import { findT9TowerAnchors, findT9TowerMembers, t9TowerOwnerForAnchor } from './godlyRecipes/t9BossTower.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { CUTSCENE_FADE_MS } from '../constants.ts';
@@ -141,6 +141,101 @@ function igniteOneSpawnerRecipe(
 }
 
 /**
+ * ⭐⭐ S169 (owner playtest) — DRAIN **EVERY** UN-REGISTERED ANCHOR OF ONE RECIPE.
+ *
+ * Owner: *"I did the Piranha, and it didn't produce at all. And then I build another Piranha tower,
+ * and it just stayed as shaped. It didn't even show, like, the picture of the tower. And then all of
+ * a sudden, the first tower produced two piranhas at once."*
+ *
+ * ⛔ THE DEFECT WAS `igniteOneSpawnerRecipe`'s NAME BEING TRUE. It registers the lowest un-registered
+ * anchor and returns; the chain calls it ONCE per recipe id. So a seat holding TWO finished rings of
+ * the same race got one spawner and one inert pile of primitives — no tower art (nothing to draw
+ * without a spawner), no production, no error, no log line.
+ *
+ * ⛔ AND THE INERT ONE IS NEVER RETRIED ON A TIMER, which is what turned a one-frame miss into
+ * *"sometimes it takes a whole turn"*. Ignition is NOT a structural scan: `runSpawnerIgnition` opens
+ * with a sweep of `world.effects` and `if (!hasTopologyChange) return;`. The second ring therefore
+ * waits for the next `BOND_FORMED` or player-caused `BOND_SEVERED` **anywhere on the board** — and a
+ * player who has finished placing may not produce one again that turn. `blueprintBuild.ts` warns
+ * about exactly this dependency in the singular: *"a perfectly-formed stamped structure sits inert
+ * forever: no tower, no error, no log line."* It was true in the plural too.
+ *
+ * ⭐ THE CHAIN'S OWN COMMENTS ALREADY NAMED THIS FIX — *"Making ignition registry-driven (as
+ * `runDefenderIgnition` already is, draining ALL matches) would end it"* — and deferred it as a
+ * semantics change on the sim hot path. This is the narrow half of that: the DRAIN, applied only to
+ * the recipes for which one-per-frame was never a design choice, with the pentagram and the
+ * lightning hub left on `igniteOneSpawnerRecipe` and their early `return`s intact.
+ *
+ * ⚠ DETERMINISTIC, AND THAT IS LOAD-BEARING NOW IN A WAY IT WAS NOT BEFORE. Registering N spawners
+ * in one sweep mints N ids, so the ORDER decides hashed state rather than merely which single anchor
+ * won. `findRingAnchors` sorts its ids ascending (`ringShape.ts:176`) and `isRingAt` is pure, so the
+ * order is a total order over primitive ids — identical on host, mirror and worker replay. No
+ * `Map`-iteration tie-break is relied on anywhere in this path.
+ *
+ * ⚠ IDEMPOTENT by the same per-(anchor, owner) de-dup the one-shot version used, so re-running a
+ * sweep with no new rings registers nothing.
+ */
+function igniteAllSpawnerRecipe(
+  world: World,
+  anchors: PrimitiveId[],
+  ownerForAnchor: (world: World, anchor: PrimitiveId) => PlayerId | null,
+  membersOf: (world: World, anchor: PrimitiveId) => PrimitiveId[] | null,
+  recipeId: GodlyId,
+): void {
+  /*
+   * ⛔⛔ DE-DUP BY **STRUCTURE**, NOT BY ANCHOR, AND THIS IS THE WHOLE DIFFICULTY OF THE FIX.
+   *
+   * `findRingAnchors` returns EVERY node of a ring, because every node is a valid seed by symmetry.
+   * `igniteOneSpawnerRecipe` survived that by taking the lowest and returning — its "lowest-anchor
+   * tie-break" comment was not a tidiness note, it was the mechanism that made one ring one tower.
+   * A drain that only checked `(anchor, owner)` against the live map therefore registered one
+   * spawner PER NODE: **three per tier-3 ring, and nine per tier-9 boss ring — nine bosses from one
+   * pyramid.** The first draft did exactly that and `spawnerIgnitionDrain.test.ts` read back 3 where
+   * it expected 1.
+   *
+   * `raceTower.ts`'s anchor-finder docblock had already written this warning in full — *"every node
+   * of a ring is a valid seed by symmetry, which makes this the one recipe family where 'any match
+   * will do' is actively wrong"*. It was aimed at a future caller, and it was right.
+   *
+   * So each candidate resolves its ring's MEMBER SET and claims all of it. `claimed` covers rings
+   * registered earlier in this same sweep; the `creatureSpawners` scan covers rings already live
+   * from a previous one. Both are needed: the first alone misses a re-ignition, the second alone
+   * misses two nodes of one fresh ring.
+   *
+   * ⚠ `membersOf` RETURNING `null` MEANS "not a valid ring seed" and the candidate is skipped. A
+   * star-shaped recipe (the goblin tower) has exactly one hub anchor and passes `[anchor]`.
+   */
+  const claimed = new Set<PrimitiveId>();
+  for (const anchor of anchors) {
+    if (claimed.has(anchor)) continue;
+    const owner = ownerForAnchor(world, anchor);
+    if (owner === null) continue;
+    const members = membersOf(world, anchor);
+    if (members === null) continue;
+    const memberSet = new Set<PrimitiveId>(members);
+    let alreadyLive = false;
+    for (const sp of world.creatureSpawners.values()) {
+      if (sp.ownerPlayerId === owner && memberSet.has(sp.anchorPrimitiveId)) {
+        alreadyLive = true;
+        break;
+      }
+    }
+    // Claim the structure either way — a live ring must not be re-examined node by node.
+    for (const m of members) claimed.add(m);
+    if (alreadyLive) continue;
+    dispatch(world, {
+      type: 'REGISTER_SPAWNER',
+      ownerPlayerId: owner,
+      anchorPrimitiveId: anchor,
+      recipeId,
+    });
+  }
+}
+
+/** A star recipe's anchor is its unique hub, so the structure it claims is just itself. */
+const selfMember = (_w: World, a: PrimitiveId): PrimitiveId[] => [a];
+
+/**
  * S100 P1 (TD Phase 1b, Layer 5) — host-only spawner ignition. Runs only on a topology change
  * this frame (BOND_FORMED or player-caused BOND_SEVERED); never touches the cinematic
  * single-slot or godlyFiredThisMatch. Pentagram scanned first (registry-order parity), then
@@ -173,7 +268,7 @@ export function runSpawnerIgnition(world: World): void {
    * ⚠ A REGISTERED RECIPE IS NOT A LIVE RECIPE. That is the durable lesson: registration only
    * feeds `findSpawnerMatch`, and adding a recipe to the registry looks like wiring it up.
    */
-  igniteOneSpawnerRecipe(world, findAllGoblinTowerAnchors(world), goblinTowerOwnerForAnchor, 'goblinTower');
+  igniteAllSpawnerRecipe(world, findAllGoblinTowerAnchors(world), goblinTowerOwnerForAnchor, selfMember, 'goblinTower');
   /*
    * ⭐ S166 — THE SIX TIER-3 RACE TOWERS. `registerAll.test.ts` failed by NAME until these existed
    * (*"'t3TowerDemons' is a kind:'spawner' recipe in the registry but runSpawnerIgnition never names
@@ -198,12 +293,12 @@ export function runSpawnerIgnition(world: World): void {
    * that changes one-spawner-per-topology-change semantics on the sim hot path and belongs in its own
    * priority with its own deliberation — not bolted onto this one.
    */
-  igniteOneSpawnerRecipe(world, vampireTowerAnchors(world), vampireTowerOwner, 't3TowerVampires');
-  igniteOneSpawnerRecipe(world, nagaTowerAnchors(world), nagaTowerOwner, 't3TowerNagas');
-  igniteOneSpawnerRecipe(world, mummyTowerAnchors(world), mummyTowerOwner, 't3TowerMummies');
-  igniteOneSpawnerRecipe(world, zombieTowerAnchors(world), zombieTowerOwner, 't3TowerZombies');
-  igniteOneSpawnerRecipe(world, orcTowerAnchors(world), orcTowerOwner, 't3TowerOrcs');
-  igniteOneSpawnerRecipe(world, demonTowerAnchors(world), demonTowerOwner, 't3TowerDemons');
+  igniteAllSpawnerRecipe(world, vampireTowerAnchors(world), vampireTowerOwner, vampireTowerMembers, 't3TowerVampires');
+  igniteAllSpawnerRecipe(world, nagaTowerAnchors(world), nagaTowerOwner, nagaTowerMembers, 't3TowerNagas');
+  igniteAllSpawnerRecipe(world, mummyTowerAnchors(world), mummyTowerOwner, mummyTowerMembers, 't3TowerMummies');
+  igniteAllSpawnerRecipe(world, zombieTowerAnchors(world), zombieTowerOwner, zombieTowerMembers, 't3TowerZombies');
+  igniteAllSpawnerRecipe(world, orcTowerAnchors(world), orcTowerOwner, orcTowerMembers, 't3TowerOrcs');
+  igniteAllSpawnerRecipe(world, demonTowerAnchors(world), demonTowerOwner, demonTowerMembers, 't3TowerDemons');
   /*
    * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Same six-explicit-lines shape as the tier-3 block above
    * and for the same reason: the guard needs a LITERAL id at the call site, so a loop over
@@ -219,12 +314,12 @@ export function runSpawnerIgnition(world: World): void {
    * pinned in `t9BossTower.test.ts`. So the ordering of these twelve lines carries no meaning and
    * nothing depends on tier-3 being scanned first.
    */
-  igniteOneSpawnerRecipe(world, vampireT9Anchors(world), vampireT9Owner, 't9TowerVampires');
-  igniteOneSpawnerRecipe(world, nagaT9Anchors(world), nagaT9Owner, 't9TowerNagas');
-  igniteOneSpawnerRecipe(world, mummyT9Anchors(world), mummyT9Owner, 't9TowerMummies');
-  igniteOneSpawnerRecipe(world, zombieT9Anchors(world), zombieT9Owner, 't9TowerZombies');
-  igniteOneSpawnerRecipe(world, orcT9Anchors(world), orcT9Owner, 't9TowerOrcs');
-  igniteOneSpawnerRecipe(world, demonT9Anchors(world), demonT9Owner, 't9TowerDemons');
+  igniteAllSpawnerRecipe(world, vampireT9Anchors(world), vampireT9Owner, vampireT9Members, 't9TowerVampires');
+  igniteAllSpawnerRecipe(world, nagaT9Anchors(world), nagaT9Owner, nagaT9Members, 't9TowerNagas');
+  igniteAllSpawnerRecipe(world, mummyT9Anchors(world), mummyT9Owner, mummyT9Members, 't9TowerMummies');
+  igniteAllSpawnerRecipe(world, zombieT9Anchors(world), zombieT9Owner, zombieT9Members, 't9TowerZombies');
+  igniteAllSpawnerRecipe(world, orcT9Anchors(world), orcT9Owner, orcT9Members, 't9TowerOrcs');
+  igniteAllSpawnerRecipe(world, demonT9Anchors(world), demonT9Owner, demonT9Members, 't9TowerDemons');
 }
 
 /*
@@ -259,6 +354,18 @@ const orcTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOw
 const demonTowerOwner = (w: World, a: PrimitiveId): PlayerId | null => raceTowerOwnerForAnchor(w, a, 'demons');
 
 /*
+ * ⭐ S169 — RING MEMBER RESOLVERS, one per race, same no-race-literal-in-the-call discipline as the
+ * two tables above. A drain-all ignition claims a whole ring rather than each of its three nodes;
+ * without these it registered three spawners per tower. See `igniteAllSpawnerRecipe`.
+ */
+const vampireTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'vampires');
+const nagaTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'nagas');
+const mummyTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'mummies');
+const zombieTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'zombies');
+const orcTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'orcs');
+const demonTowerMembers = (w: World, a: PrimitiveId): PrimitiveId[] | null => findRaceTowerMembers(w, a, 'demons');
+
+/*
  * S167 — the same pair of tables for the six TIER-9 BOSS towers, and they exist for the identical
  * reason: a race name must never appear as a string literal INSIDE an `igniteOneSpawnerRecipe`
  * call, because the guard's extraction regex is non-greedy and would read the race instead of the
@@ -279,6 +386,17 @@ const mummyT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwner
 const zombieT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'zombies');
 const orcT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'orcs');
 const demonT9Owner = (w: World, a: PrimitiveId): PlayerId | null => t9TowerOwnerForAnchor(w, a, 'demons');
+
+/*
+ * ⭐ S169 — the tier-9 pair of the same. ⛔ HIGHEST STAKES IN THE CHAIN: a nine-ring has NINE valid
+ * anchors, so an anchor-scoped drain releases NINE BOSSES from one pyramid.
+ */
+const vampireT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'vampires');
+const nagaT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'nagas');
+const mummyT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'mummies');
+const zombieT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'zombies');
+const orcT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'orcs');
+const demonT9Members = (w: World, a: PrimitiveId): PrimitiveId[] | null => findT9TowerMembers(w, a, 'demons');
 
 /**
  * S103 P2 — host-only DEFENDER ignition (mirror of runSpawnerIgnition). On a topology change,

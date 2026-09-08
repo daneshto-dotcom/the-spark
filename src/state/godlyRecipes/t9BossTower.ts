@@ -93,7 +93,7 @@ export {
   isT9BossType,
   raceForT9BossType,
 } from '../t9BossIds.ts';
-import { findRingAnchors } from './ringShape.ts';
+import { findRingAnchors, ringMembersAt } from './ringShape.ts';
 import { registerRecipe } from './index.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
@@ -109,6 +109,26 @@ import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
  */
 export function findT9TowerAnchors(world: World, race: RaceId): PrimitiveId[] {
   return findRingAnchors(world, RACE_FEED_SHAPE[race], T9_TOWER_SIZE);
+}
+
+/**
+ * ⭐ S169 — THE NINE NODES OF THE RING AT `anchorId`, so a drain-all ignition claims the STRUCTURE.
+ *
+ * ⛔ THE STAKES HERE ARE THE HIGHEST IN THE FILE. A tier-9 ring has NINE valid anchors by symmetry,
+ * so a drain-all ignition that de-dups per ANCHOR rather than per RING registers nine boss towers on
+ * one nine-ring — and each releases a boss. The first draft of S169's drain did exactly that and a
+ * test read back nine spawners where one was expected. `raceTower.ts`'s anchor-finder docblock had
+ * already written the warning ("every node of a ring is a valid seed by symmetry"); it was true here
+ * three times over.
+ *
+ * Returns `null` when `anchorId` is not a valid ring seed — the caller skips it.
+ */
+export function findT9TowerMembers(
+  world: World,
+  anchorId: PrimitiveId,
+  race: RaceId,
+): PrimitiveId[] | null {
+  return ringMembersAt(world, anchorId, RACE_FEED_SHAPE[race], T9_TOWER_SIZE);
 }
 
 /**
