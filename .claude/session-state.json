@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6159,
+  "tool_calls_session_total": 6174,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -66,10 +66,13 @@
     {
       "id": "P5",
       "title": "UI: back-to-main to top, badge BETA only, remove help line",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "c7f968515b5614ab745bf3b8b7645d894f10ca44",
+      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4024/4024, 249 files, up from 4020 — 5 new HUD-layout guards, 1 obsolete shapeStrip assertion deleted). NEGATIVE SIGNAL HONOURED: my own new 'topmost surface' assertion FAILED against top-centre-plate at y=5 and was NARROWED to the right-hand chrome column rather than deleted or force-passed. Geometry derived from hudSurfaces() output, not eyeballed: exit 1639..1807 x 8..42 vs badge 1827..1917 x 8..33, glyphs 1874..1908 x 38..54, dot 1890..1902 x 62..74, rails x1882+ y80+. Mirror constant CANVAS_WIDTH-12 pinned against ui.ts HUD_RIGHT_X by a dedicated test (cycle prevents importing it). git diff --stat surgical (28/46/95/12/13 lines) — no line-ending mass rewrite despite git's CRLF notice."
     },
     {
       "id": "P6",

@@ -103,7 +103,7 @@ import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
-import { isRaceTowerId } from './raceTowerIds.ts';
+import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
 /*
  * S167 — the tier-9 leaf + the ring walk, both side-effect-free, for the same hot-path reason as
  * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
@@ -844,7 +844,63 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * ⚠ The durable fix is to INVERT this chain so the chewer arm reads
          * `if (sp.recipeId === 'pentagram')` and the default becomes inert. That is a behaviour
          * change on the pentagram path, so it is named here rather than done here.
+         *   → DONE in S167 P4. The default below is now inert and this arm no longer stands between
+         *     the race towers and the chewer emit; it stands here because it now has a body.
+         *
+         * ⭐⭐ S168 — **AND THE BODY IS AN OWNER REVERSAL, WHICH IS WHY THE R108 TEXT STAYS ABOVE.**
+         *
+         * Owner, this session: *"the tier 3 tower does not produce or spawn creatures! it should
+         * produce spawn at similar rate as the castle does"*. That supersedes R108's *"THE RACE
+         * TOWER IS TIER 3 AND IT IS FED, goblin-tower style"* — the same shape as the S159 P9
+         * lightning-hub reversal, and recorded at the code it governs rather than only in the spec.
+         *
+         * ⚠ FEEDING STILL WORKS. `FEED_TOWER` is untouched, so the tower is now BOTH: a free trickle
+         * at the castle's rate, plus an on-demand unit for each shape the player hands it. The
+         * owner asked for the trickle, not for the removal of the thing he already had.
+         *
+         * ⭐ CORROBORATION THAT THIS WAS ALWAYS THE INTENT: the shipped tier-3 sprite sheets carry a
+         * `spawning` row that no code could draw — `T3_TOWER_STATE_ROWS` in `render/towerFrames.ts`
+         * maps intact/damaged/destroyed and skips row 1. The art pipeline authored a spawn animation
+         * for a tower the sim never let spawn.
          */
+        if (world.tick >= sp.nextSpawnTick) {
+          const anchor = world.primitives.get(sp.anchorPrimitiveId);
+          /*
+           * The cadence advances on EVERY due slot, emitted or skipped — the S159 P9 rule the chewer
+           * arm below states in full: banking blocked slots would drain them one per tick the moment
+           * the blockage cleared. Read through `spawnerIntervalTicks` rather than naming the constant
+           * so this site cannot drift from the seed and the BUILD-phase re-alignment.
+           */
+          sp.nextSpawnTick += spawnerIntervalTicks(sp.recipeId);
+          const race = raceForTowerId(sp.recipeId);
+          // Defence-in-depth, exactly as the chewer arm: a deleted anchor between the throttled
+          // re-validation and this tick would leave `anchor` undefined. Skip; revalidation tears the
+          // spawner down. The cap is enforced inside `applySpawnCreature`, which is the one place
+          // that knows which population this creature answers to.
+          if (anchor !== undefined && race !== null) {
+            dispatch(world, {
+              type: 'SPAWN_CREATURE',
+              creatureType: RACE_TOWER_UNIT[race],
+              ownerPlayerId: sp.ownerPlayerId,
+              pos: { x: anchor.pos.x, y: anchor.pos.y },
+              targetPos: { x: anchor.pos.x, y: anchor.pos.y },
+              /*
+               * ⛔⛔ OMITTING THIS FIELD SHIPS A TOWER THAT EMITS EXACTLY ONCE, FOREVER, AND EVERY
+               * GATE STAYS GREEN. `applySpawnCreature` opens with
+               * `const sourceSpawnerId = action.sourceSpawnerId ?? null`, and a NULL id routes the
+               * spawn into the VOLTKIN population — whose gate is "max one live creature per
+               * (owner, type)". So the first bat is minted and every later one is silently refused
+               * while the cadence keeps advancing perfectly. Measured, not reasoned: the arm fired
+               * at 1800/3600/5400/7200/9000/10800 with a live anchor each time and produced ONE bat.
+               *
+               * It also picks the right CEILING: with the id present the emit answers to
+               * `underGoblinCaps` (10 per spawner, 200 global) rather than the summon rule.
+               */
+              sourceSpawnerId: spawnerId,
+            });
+            sp.spawnedCount++;
+          }
+        }
       } else if (isT9TowerId(sp.recipeId)) {
         /*
          * ⭐⭐ S167 — **THE TIER-9 BOSS TOWER RELEASES ONE BOSS AND CONSUMES ITSELF.** This arm is

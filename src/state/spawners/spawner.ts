@@ -27,11 +27,14 @@
 
 import {
   DRONE_EMIT_INTERVAL_TICKS,
+  RACE_UNIT_EMIT_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   T9_RELEASE_DELAY_TICKS,
 } from '../../constants.ts';
 // S167 — the side-effect-free tier-9 leaf. This module is imported by the reducer AND by hostTick.
 import { isT9TowerId } from '../t9BossIds.ts';
+// S168 — same shape, and the same reason: a side-effect-free id leaf, safe for both callers.
+import { isRaceTowerId } from '../raceTowerIds.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 
@@ -94,6 +97,19 @@ export function spawnerIntervalTicks(recipeId: GodlyId): number {
    * places because two of them skipped this function.
    */
   if (isT9TowerId(recipeId)) return T9_RELEASE_DELAY_TICKS;
+  /*
+   * ⭐ S168 — THE TIER-3 RACE TOWER NOW EMITS, AT THE CASTLE'S OWN RATE. Owner: *"the tier 3 tower
+   * does not produce or spawn creatures! it should produce spawn at similar rate as the castle
+   * does"*. "Similar rate as the castle" is not an estimate — `RACE_UNIT_EMIT_INTERVAL_TICKS` IS the
+   * castle's emitter constant (R120, one unit per ~30 s), so the two move together forever.
+   *
+   * ⛔ AND IT HAS TO BE HERE, NOT ONLY AT THE EMIT. This function feeds THREE readers — the
+   * registration seed (`spawnerLifecycle`), the BUILD-phase re-alignment (`hostTick`) and the emit
+   * itself. The docblock above records what happens when they disagree: the drone tower ran on the
+   * CHEWER's clock in exactly this way, and "a burst weapon or a tower that appears inert" was the
+   * difference. Omitting this arm would have given the race tower a 30 s emit on a 15 s deadline.
+   */
+  if (isRaceTowerId(recipeId)) return RACE_UNIT_EMIT_INTERVAL_TICKS;
   return recipeId === 'lightningHub' ? DRONE_EMIT_INTERVAL_TICKS : SPAWN_INTERVAL_TICKS;
 }
 
