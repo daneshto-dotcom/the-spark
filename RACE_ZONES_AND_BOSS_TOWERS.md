@@ -514,3 +514,37 @@ from text alone.
 
 **Orcs (Warlord) · Demons (Archdemon)** — *"do all of those and i will think about orcs and demons.
 those are the only ones we have left."*
+
+---
+
+## ✅ R138 AMENDED AND SHIPPED (S168) — the aura percentage, answered by the owner
+
+He answered the open question himself, and did the arithmetic to get there:
+
+> *"not 3% of the enemies health but i think we can do 3% because its in fifths right? need to do
+> 2.5%"*
+
+**Both halves are rulings.** The percentage is of **the BOSS's own pool**, not the victim's — which
+retires the "percent-of-current never kills" problem entirely, because it is not a percentage of the
+victim at all. And **2.5% is the only nearby figure that lands on a whole fifth**:
+
+| | |
+|---|---|
+| 3.0% of his 120-fifth pool | 3.6 fifths/s — ⛔ `damageEntity` THROWS on a fraction, by design |
+| **2.5%** | **3.0 fifths/s — ✅ exact** |
+| 2.0% | 2.4 fifths/s — ⛔ fractional |
+
+⭐ **AND IT NEEDS NO ACCUMULATOR.** 3 fifths per second at 60 Hz is **one fifth every twenty ticks**,
+so the shipped aura deals a flat, always-integer 1 fifth and the RATE carries the percentage. The
+banned float accumulator never appears. `auraIntervalTicks()` derives the interval from the constant,
+so a stat retune shifts the cadence rather than silently rounding the damage to zero.
+
+⚠ **ENEMIES ONLY** — and that is deliberately different from the same boss's DEATH explosion, which
+he ruled hits *"everything"*. Two skills on one boss, worded differently by him, built differently.
+
+⚠ The RADIUS (170 px) is MINE; he gave none. Set just inside Voltkin's 180 px `attackRange`.
+
+**Measured shape:** chewer 1.7 s · goblin melee 2.3 s · tier-3 warband 8.0 s · voltkin 21.3 s ·
+Pharaoh 47.7 s.
+
+### ⭐ THE ZOMBIE BOSS IS NOW COMPLETE — both his skills are live.

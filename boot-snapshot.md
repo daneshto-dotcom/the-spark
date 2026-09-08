@@ -5,12 +5,12 @@ Generated: 2026-09-08 | Session: S168 | Commit at close: see `git log -1`
 
 ## Next Steps
 
-1. ⭐ **THE REMAINING FOUR BOSS SKILL SETS.** Two shipped in S168 (R138's death explosion, R140's
-   life sap). In ascending cost, with the blocker named at each:
-   - **Zombie rot aura** — ⛔ BLOCKED on the owner: *"3% of WHOSE health"* is unstated, and
-     percent-of-CURRENT never kills while percent-of-MAX does. It would also be the **first
-     non-integer damage in the game** — `damageEntity` throws on a fraction by design and float
-     accumulators are banned, so it needs a tick-quantised integer rule.
+1. ⭐ **THE REMAINING THREE BOSS SKILL SETS.** Three shipped in S168 — R138's rot aura AND death
+   explosion (the zombie boss is COMPLETE) and R140's life sap. In ascending cost, blocker named:
+   - ~~Zombie rot aura~~ ✅ **SHIPPED S168.** He answered it himself — *"need to do 2.5%"* — and was
+     right: 2.5% of the BOSS's own 120-fifth pool is exactly 3 fifths/s, where 3% is 3.6 and throws.
+     Implemented as one fifth every 20 ticks, so the RATE carries the percentage and no accumulator
+     is needed. **The zombie boss is now COMPLETE — both his skills are live.**
    - **Kraken tentacles + sonar cone (R139)** — stun, knockback and cone-targeting are **three verbs
      the sim has none of**. Every acquisition scan today is a radius, and nothing applies an impulse
      to a creature from a non-collision source.
@@ -32,9 +32,9 @@ Generated: 2026-09-08 | Session: S168 | Commit at close: see `git log -1`
    ⚠ And veo has now pillarboxed the same Kraken clip TWICE, the second time against an explicit
    anti-letterbox instruction — budget for `sampleStart` rather than for a re-roll.
 
-3. ⛔ **FOUR THINGS WAITING ON HIM, none blocking anything else:** the 3%-of-whose-health above ·
-   the castle spawn units (`UNIT_STAT_TABLE.md` §4 — two ties, and it turns one unit into six) ·
-   whether Vlad's sap is 20% of MAX (what I built) or of CURRENT · the Orc and Demon skills.
+3. ⛔ **THREE THINGS WAITING ON HIM, none blocking anything else:** the castle spawn units
+   (`UNIT_STAT_TABLE.md` §4 — two ties, and it turns one unit into six) · whether Vlad's sap is 20%
+   of MAX (what I built) or of CURRENT · the Orc and Demon skills.
 
 4. **Add the TCP/TLS TURN urls** to `VITE_TURN_URLS`. Owner action, one secret edit. The build ships
    ONE relay url, plain UDP:80, so a UDP-blocked network has no fallback. The parser now accepts a
@@ -46,8 +46,8 @@ Generated: 2026-09-08 | Session: S168 | Commit at close: see `git log -1`
 
 ## Blockers
 
-- ⛔ **"3% of whose health"** — the only thing stopping the zombie aura.
-- No infrastructure blockers. Credits are live, relays answer 9/9, the deploy path is healthy.
+- **None.** The one open question (the aura percentage) was answered by the owner in-session and
+  shipped. Credits are live, relays answer 9/9, the deploy path is healthy, `check:atlas` is clean.
 
 ## Open Issues Carried
 
