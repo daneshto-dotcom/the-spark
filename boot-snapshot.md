@@ -5,25 +5,19 @@ Generated: 2026-09-08 | Session: S168 | Commit at close: see `git log -1`
 
 ## Next Steps
 
-1. ⭐ **THE REMAINING THREE BOSS SKILL SETS.** Three shipped in S168 — R138's rot aura AND death
-   explosion (the zombie boss is COMPLETE) and R140's life sap. In ascending cost, blocker named:
-   - ~~Zombie rot aura~~ ✅ **SHIPPED S168.** He answered it himself — *"need to do 2.5%"* — and was
-     right: 2.5% of the BOSS's own 120-fifth pool is exactly 3 fifths/s, where 3% is 3.6 and throws.
-     Implemented as one fifth every 20 ticks, so the RATE carries the percentage and no accumulator
-     is needed. **The zombie boss is now COMPLETE — both his skills are live.**
-   - **Kraken tentacles + sonar cone (R139)** — stun, knockback and cone-targeting are **three verbs
-     the sim has none of**. Every acquisition scan today is a radius, and nothing applies an impulse
-     to a creature from a non-collision source.
-   - **Vlad conversion (R140)** — the only skill that changes a creature's OWNER mid-life.
-     `ownerPlayerId` is `readonly`, serialized AND hashed, so it earns its own protocol bump and a
-     hash-projection review. Also the hardest to balance: its value scales with how many units the
-     OPPONENT fields.
-   - **Pharaoh locusts + Ra (R142)** — needs **"untargetable"**, which R121's submerged naga also
-     wants (build it once, §7.3 lists every acquisition path that must learn it), and an
-     **unkillable channel**, which nothing in the sim can currently express: `damageCreature`
-     removes a creature the moment its pool is spent.
-   The mechanism for death-triggered skills already exists: the host-local boss roster in
-   `HostTickState` (`hostTick.ts`), which notices an ABSENCE and is therefore path-independent.
+1. ⭐⭐ **ALL SIX BOSSES NOW HAVE THEIR SKILLS — THE REMAINING WORK IS ART, NOT MECHANICS.**
+   Shipped in S168: the zombie's rot aura + death explosion, Vlad's life sap, the Orc Warlord's
+   direwolf summon + RAGE, and the Archdemon's take-to-hell + loneliness teleport.
+   ⛔ **STILL UNBUILT — the Kraken (R139) and the Pharaoh (R142)**, and both are large:
+   - **Kraken tentacles + sonar cone** — stun, knockback and cone-targeting are **three verbs the
+     sim has none of**. Every acquisition scan is a radius; nothing applies an impulse to a creature
+     from a non-collision source.
+   - **Pharaoh locusts + Ra** — needs **"untargetable"**, which R121's submerged naga also wants
+     (build it once), and an **unkillable channel**, which nothing in the sim can express:
+     `damageCreature` removes a creature the moment its pool is spent.
+   ⭐ Three mechanisms now exist to build on: the host-local **boss roster** in `HostTickState` for
+   anything death-triggered, **`damageOverTime.ts`** for any percentage-of-victim effect (the
+   locusts will want it), and the per-boss modules `bossSkillsWarlord.ts` / `bossSkillsArchdemon.ts`.
 
 2. ⭐ **THE ABILITY ART (R143).** Every ability is TWO deliverables — the VFX, and a new stance whose
    pose explains it (*"kracken opens his mouth… pharaos puts his hands towards an enemy"*). AI Studio
