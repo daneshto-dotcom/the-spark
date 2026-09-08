@@ -1,3 +1,23 @@
+## S167 (2026-09-08) — the tier-9 boss tower + its six bosses (PROTOCOL 44), the art that had never been drawn, and a guard that was only ever a comment
+
+- A comment claiming a guard is not a guard. stats.ts had cited statsLadder.test.ts BY NAME since S151; the file never existed. I read it, believed the owner's 1..12 range was enforced, and shipped bosses at five times the ceiling with every gate green.
+
+- A negative control found my own new test vacuous - twice in one session. The 5x-overkill assertion measured against max(pool) OF THE SET IT WAS JUDGING, so an inflated boss raised its own bar. Run a new guard against the REJECTED data before trusting it.
+
+- Art that ships is not art that draws. t3TowerAtlasBase had ZERO production callers for two sessions - 18 atlases matted, scanned, disk-tested and never once on screen. An existence test cannot tell 'present' from 'used'; only building the thing in a browser can.
+
+- The adversarial critic found a real defect IN CODE I HAD JUST WRITTEN: my hostTick arm razed the ring unconditionally while applySpawnCreature silently refuses a second live boss - nine shapes destroyed for nothing, the owner's S157 B1 report verbatim. Delegated review earns its keep on fresh code, not just old code.
+
+- Three flaky-looking failures in one session were one cause: a 5s testTimeout on a loaded machine, with the tests' own diagnostics already printed. Fix the cause - a gate that cries wolf trains the next session to wave red away.
+
+- When a guard's justification is 'nobody can see it', re-derive the guard the moment somebody can. check-atlas excluded the die row partly because no arm could request it; making it playable retired that half and left the pose-confound half standing, which is why it became a ONE-SIDED bound rather than either extreme.
+
+- The client-local pattern solved three different problems this session (tower crumble, unit corpses, and it is why no protocol bump was needed for either): when the entity is GONE from the sim, a renderer-owned animation is not a compromise - it is the only correct place, because nothing reads it and so it cannot desync.
+
+- I under-claimed once and it was as wrong as over-claiming: I wrote that boss phase-persistence was unimplemented without checking. Nothing culls creatures at a phase edge; it already worked.
+
+- Stop when the design needs the owner. The zombie death explosion looked like a free win until I traced the death path and found defender kills bypass the deferred-death batch entirely - so a sweep-time hook would fire for some kills and not others. Recorded the three costed options instead of shipping an intermittent skill.
+
 ## S166 (2026-09-07) — the tier-3 race tower + its six units (PROTOCOL 43), the owner's spawner-portal bug (fixed twice), and the six tier-9 bosses + eighteen boss-structure states
 
 - #a-stale-docblock-is-the-bug-waiting — the owner's "the dark background is OVER the primitives" traced to a docblock asserting the layer was "the FIRST layer added to the stage, so every spark, bond, structure and creature paints on top of it". True of the first cut; the layer had since MOVED above the fog, and the note one screen down said so. The false sentence is what let an opaque disc be painted over the one place every shape in the game is born. A docblock that contradicts the code is not debt — it is a defect with a delay fuse, and the delay is however long until someone trusts it.
@@ -67,25 +87,3 @@
 - S164 P5 #the-tool-already-knew — every art defect this session was one the pipeline had already documented for a previous character: the sampleWindow docblock describes veo drifting after ~1s (the naga's size incoherence), and the matte docblock describes sub-threshold enclosed pockets shipping as blobs (the wing gaps, "one size band down" for the bat rider). Reading the script's own comments before retuning it would have predicted all three. Check whether the tool has already met this bug.
 
 - S164 SESSION #reversal-can-be-coherent — the owner asked for varied tier-3 unit stats, which directly reverses R117 (his own ruling, which killed that idea once). Rather than either obeying silently or objecting, the right move was to find WHY R117 existed: it rests on the castle and the tower emitting the same creature, and the owner's new split makes them different creatures, so the exploit R117 guarded against is gone by construction. A reversal that dissolves its predecessor's premise is not a contradiction — but it has to be written down as one, at the ruling.
-
-## S163 (2026-09-04) — the multiplayer outage fixes audited: a HIGH bug found inside my own flagship fix, plus 14 overstated claims. ⚠ APPENDED LATE — S163 was left OPEN at owner request so its /handoff never ran and these entries sat stranded in session-state until S164 closed.
-
-- S163 P1 - A GUARD EVALUATED AT THE TOP OF A FUNCTION AND CLEARED AT THE BOTTOM IS NOT A GUARD. The witness rule read peerAbsentSinceTick a thousand lines before the sweep that clears it, so the instant a partition HEALED the stamps were still stale and the host crowned itself on the very tick its opponents returned - t+20s became t+heal, which is worse. My mutation test passed because it only ever ran ONE tick. State that spans ticks needs a test that spans ticks.
-
-- S163 P1 - I GOT THE ARITHMETIC WRONG IN THE DIRECTION THAT WOULD HAVE CHANGED THE FIX. I read the peers promotion deadline off HOST_STARVATION_MS (6s) and concluded they were safely 11-14s ahead of the 20s forfeit. Promotion is actually RECONNECT_GRACE_MS + rank*CLAIM_LADDER_MS = 15-18s, a 2-5s margin. Had I not re-derived it from the call site, the belief that the peers always win the race would have justified doing nothing at all.
-
-- S163 P5 - git rm STAGES IMMEDIATELY, AND git commit COMMITS THE INDEX, NOT THE PATHS YOU JUST ADDED. P4 silently shipped two P5 deletions under a message that does not mention them. It built and deployed green, so nothing caught it but a diffstat that did not match what I had staged. Stage removals last, or commit with explicit pathspecs.
-
-- S163 P6 - MY OWN FIX WAS UNPROVEN AND ONLY MUTATION SHOWED IT. Stubbing out the new rostersEqual raceId comparison left the ENTIRE suite green at 3641/3641: no case held colour fixed while moving race, because RACE_COLORS being injective hid it. A green suite after a fix is not evidence the fix does anything.
-
-- S163 CHECK - THE AUDIT FOUND MORE IN TODAY WORK THAN TODAY WORK FOUND IN THE INHERITED WORK, for the second session running. Three lanes over my own eight commits returned a HIGH inside the flagship fix and fourteen overstated claims. Fresh code is not safer code; it is merely less examined - and the author is the worst-placed person to notice.
-
-- S163 CHECK - TWO FAILED ATTEMPTS TO RESTORE A TEST WERE THE ANSWER, NOT AN OBSTACLE. Trying to make the over-cap roster case meaningful failed twice, and the second failure proved WHY: range + uniqueness make an over-cap roster impossible by pigeonhole, so the length bound is subsumed and cannot be independently pinned. Writing that down beats a third attempt at a test that cannot exist.
-
-- S163 CHECK - A REORDER IS NOT AN ISOLATION. Swapping send-before-repaint to repaint-before-send removed one throw path and created its mirror: the Pixi repaint can throw too, and it would then have swallowed the whole room broadcast instead of one local rack. Removing the only way this can break is a claim to be suspicious of; two try/catches were what the invariant actually needed.
-
-- S163 CHECK - I ASSERTED A PLATFORM BEHAVIOUR I HAD NOT CHECKED. Claiming that cancel-in-progress false means runs queue and every one reports is not what GitHub does - a newly-queued run still cancels a PENDING one in the same group, so the silent-cancel hazard P7 existed to kill survived P7. The fix was a per-commit group; the lesson is that a CI claim needs the vendor semantics, not the flag name.
-
-- S163 - DELETING A MEMBER LEAVES ITS DOCBLOCK ADOPTED BY THE NEXT ONE. Removing godlyCooldownEndsAtTick left its JSDoc sitting above territorialShrinkUntilTick, silently re-describing an unrelated field. tsc cannot see it and no test can either; only reading the diff catches it.
-
-- S163 MCV — THE CHECK PHASE IS WHEN EARLIER BINDINGS GO STALE, AND I DID NOT RE-RUN THE VERIFIER THERE. Three claims hard-failed at the Stop gate. None was fabricated work — the code was present and every gate green — but two bindings pinned lines my OWN A-F1 fix had rewritten, one needle spanned a line break so a literal match could never hit it, and one regex lost a backslash through the shell quoting layers. Fixing a defect changes the line a binding pins, so CHECK is precisely the phase most likely to falsify bindings written during DO. Run verify-session-claims.py after CHECK, not only at priority close, and never author a needle that wraps.

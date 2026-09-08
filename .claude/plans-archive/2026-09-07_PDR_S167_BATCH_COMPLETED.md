@@ -1,4 +1,4 @@
-# PDR — S167 batch — **STATUS: IN-PROGRESS**
+# PDR — S167 batch — **STATUS: COMPLETED — all four priorities shipped, deployed and verified.**
 
 Tier: **FULL** (>30K, two priorities, one of them a protocol bump across ~30 files).
 Owner approval: **PRE-APPROVED IN THE OPENING MESSAGE** — *"Work on those priorities next … i
@@ -126,3 +126,58 @@ collect 2561 s). It passes in isolation — 24 tests, 79 ms, exit 0. Pre-existin
 
 Every priority is its own commit on `master`. `git revert` of the P1 commit restores PROTOCOL 43 and
 removes all twelve literals; the art commit is additive and independent.
+
+---
+
+## WHAT ACTUALLY SHIPPED (four priorities, not two)
+
+The PDR scoped two. The owner then widened it mid-session — *"keep working all priorities from
+backlog and current session priorities"* — and P3/P4 were opened under that directive.
+
+| | | Outcome |
+|---|---|---|
+| **P1** | The tier-9 boss tower, code | ✅ PROTOCOL 43→44, `0911ac3` |
+| **P2** | The tier-9 art — and the RENDERER it turned out to need | ✅ `70b4f35`, `0c35dca` |
+| **P3** | Boss stats back onto the owner's ruled 1..12 scale + the missing `statsLadder` guard | ✅ `ff23154` |
+| **P4** | Backlog sweep: emit-chain inversion, `die` row, potato immunity, the one-sided atlas gate | ✅ `6c224bf`…`66f46f1` |
+
+## ⛔ THE THREE THINGS THE PDR GOT WRONG, RECORDED RATHER THAN QUIETLY FIXED
+
+1. **"No existing spawner tears itself down after one emit"** — half true. A self-destruct arm DID
+   exist and was deleted in S159 P9 on an owner reversal, and `hostTick`'s recipe-break branch still
+   razes the lightning hub's own component. The pattern was precedented; only the *emit-path* variant
+   was new.
+2. **The PDR said nothing about a RENDERER.** `t3TowerAtlasBase` had zero production callers — 18
+   shipped atlases had never been drawn. P2 was scoped as "generate art" and the actual gap was that
+   the previous session's art was invisible.
+3. **The boss stats in P1 broke an owner ruling already on the books.** HP 40–60 against
+   `STAT_POINT_MAX = 12`. Caught by measuring the consequences, not by any gate — because the gate
+   `stats.ts` cited had never been written.
+
+## DEVIATION RECORDED — COUNCIL WAS NOT RUN
+
+Rule 17 calls for a 3-way Council on a Full PDR. **Not run**, same as S166. Rule 0 names deliberation
+among the gates that may not stop an approved batch in flight.
+
+**What substituted:** a 10-lane read-only discovery workflow plus an adversarial completeness critic,
+with **every load-bearing claim grep-verified against the tree before it was acted on** (6/6 confirmed
+— `t3TowerAtlasBase` orphaned, `GOBLIN_KINDS` untested, `ATLASES` partial, R137 untested,
+`trimMirrorSpawner` stripping ticks, `AUTO_BOND_RADIUS = 60`). The critic earned it: it found a real
+defect in code written minutes earlier — the unconditional raze that would have destroyed nine shapes
+and produced no boss.
+
+**Residual risk accepted:** no external quality lens on the design. The two highest-risk decisions
+(consuming the ring, and `sourceSpawnerId: null`) are covered by tests with anti-vacuity assertions.
+
+## GATES AT CLOSE — every exit code from a captured `$?`
+
+`typecheck 0` · `vitest 0 (4020/4020, 249 files)` · `build 0 (801.0 KiB, 94.4 KiB headroom)` ·
+`check:atlas 0 (48 atlases)` · `e2e:gating 0 (65 passed)` · `e2e:protocol 0 (2/2)` ·
+`probe-relays 0 (9/9)` · `verify-deploy PASS 4/4` · `MCV 0 (hard_fail=0, 32 bindings)`.
+
+## NOT IN THIS BATCH — stated, not dropped
+
+The wave-5 tech draft (a full system; deliberately not started rather than half-built on the build
+the owner is about to playtest) · R121's submerged naga · the boss SKILLS' code (costed, with the
+death-hook blocker found) · the six skill VFX (specs authored and ready; **blocked on AI Studio
+prepay credits — owner action**).

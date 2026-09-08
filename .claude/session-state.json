@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6133,
+  "tool_calls_session_total": 6158,
   "session_id": "S167",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -43,7 +43,65 @@
       "checkpoint_commit": "0911ac3a49d85c2c4c830916d73e0b8bff78f6e2",
       "check_method": "Six tsc-forced tables enumerated BY THE COMPILER (added the 12 literals first, read the 5 errors, filled them). ~12 silent sites worked from a 10-lane read-only discovery workflow + a completeness critic, EVERY cited symbol grep-verified against the tree before acting (6/6 confirmed: t3TowerAtlasBase has zero renderer consumers, GOBLIN_KINDS is untested, ATLASES is Partial, R137 is untested, trimMirrorSpawner strips ticks, AUTO_BOND_RADIUS=60). The critic found a REAL DEFECT IN MY OWN NEW CODE: hostTick razed the ring unconditionally while applySpawnCreature silently refuses a second live boss = nine shapes destroyed for nothing (owner S157 B1 verbatim); fixed so the tower WAITS, and pinned by test. 23 new tests in t9BossTower.test.ts incl. both disjointness directions, the chord clearance the tier-3 check is blind to, R137 both ways, and the one-shot contract driven through the REAL runHostTick. Gates from captured $?: typecheck 0, vitest 0 (3987/3987, 245 files; +107), build 0 (801.0 KiB, 99.0 KiB headroom), protocol suite 444/444 after the 43->44 bump across all 6 sites + the 7th prose site.",
       "protocol_bump": "43 -> 44",
-      "tests_added": 23
+      "tests_added": 23,
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyRecipes/types.ts",
+          "pattern": "'t9Tower(Vampires|Nagas|Mummies|Zombies|Orcs|Demons)'",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/creature.ts",
+          "pattern": "'t9Boss(Vampires|Nagas|Mummies|Zombies|Orcs|Demons)'",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 44 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 44;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "razePrimitives(world, ring)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/ringShape.ts",
+          "needle": "export function ringMembersAt("
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/godlyMatcherCore.ts",
+          "pattern": "igniteOneSpawnerRecipe\\(world, \\w+T9Anchors\\(world\\)",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/godlyRecipes/types.ts",
+          "needle": "'t9TowerWhopper'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "'t9BossWhopper'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/t9BossIds.ts",
+          "needle": "export const T9_BOSS_NAMES: Readonly<Record<RaceId, string>>"
+        }
+      ]
     },
     {
       "id": 2,
@@ -62,7 +120,49 @@
         "boss_atlases": 6,
         "crumble_cinematics": 6,
         "veo_clips": 30
-      }
+      },
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "public/art/race-tier9-bosses/t9boss-vampires-atlas.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "public/art/race-tier9-towers/t9tower-demons-atlas.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "public/art/race-tier9-towers/t9destroy-nagas-atlas.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/towerRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "towerRenderer.sync(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "towerRenderer.clear()"
+        },
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "public/art/race-tier9-bosses"
+        },
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "public/art/race-tier9-towers"
+        },
+        {
+          "type": "file_exists",
+          "path": "scripts/build-atlas-set.mjs"
+        }
+      ]
     },
     {
       "id": 3,
@@ -76,7 +176,33 @@
       "check_completed": true,
       "checkpoint_commit": "ff2315441a28eb3d1335898143ae39dae4d00aad",
       "check_method": "Corrected MY OWN provisional boss stats (HP 40-60) against an EXISTING owner ruling (STAT_POINT_MAX=12, 'scaling will be for hp = 1,2,3 ... 12'). Measured the consequences first: every boss one-shot every unit, and a boss took 24-92s of single-unit fire against a ~45s FIGHT phase. New band HP 9-12/DEF 3-8/ATK 4-7/PEN 0-5, pools 72-130 vs voltkin's 64. Wrote statsLadder.test.ts, which stats.ts has CITED BY NAME SINCE S151 AND WHICH DID NOT EXIST - that comment is why I believed the range was enforced. HP/ATK checked as points 1..12, DEF/PEN as ladder indices 0..12 (0 is the x1.0 identity; nine shipped units sit there). ⭐ A NEGATIVE CONTROL against the rejected numbers found my own first draft vacuous: the squad test passed, and the 5x-overkill test was SELF-DEFEATING (it measured against max(pool) of the same set, so an inflated boss raised its own bar). Deleted it and kept one invariant proven to discriminate both ways: one goblin kills anything inside a phase - 10.8s new, 45.8s old. Gates from captured $?: typecheck 0, vitest 0 (4011/4011, 247 files), build 0.",
-      "first_seen_bug_class": "a comment claiming a guard is not a guard"
+      "first_seen_bug_class": "a comment claiming a guard is not a guard",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "vampires: { hp: 9, def: 3, atk: 7, pen: 5, speedMul: 1.0 }"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "nagas: { hp: 60,"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/statsLadder.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/statsLadder.test.ts",
+          "needle": "STAT_POINT_MAX"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "CORRECTED S167"
+        }
+      ]
     },
     {
       "id": 4,
@@ -89,7 +215,49 @@
       "note": "Owner directive: \"keep working all priorities from backlog and current session priorities until you reach 850k\".",
       "check_completed": true,
       "checkpoint_commit": "c313b861621b7e858a3da38a1191c3b2c859b36f",
-      "check_method": "Five backlog items closed, each measured before it was changed. (a) hostTick emit chain INVERTED - the chewer arm is now named 'pentagram' and the default is inert; proven a no-op today by enumerating the registry (15 spawner recipes, 14 named by the four arms above, so pentagram was the ONLY id reaching the else) and backed by a new source-reading guard. (b) The `die` row made playable via client-local corpses in the renderer - the sim death path is untouched, which is what makes it safe. (c) check-atlas's die exclusion re-derived: one of its two reasons went stale, the pose-confound half did not, so the row is now gated ONE-SIDEDLY (taller only), verified against every shipped sheet first - the naga boss at 1.12x sits 0.03 under the ceiling. (d) POTATO_CLEARS: the tier-3 units were silently potato-IMMUNE, restored, bosses deliberately excluded, guard written. (e) Boss phase-persistence PROVEN rather than assumed, and a docblock that under-claimed corrected. Plus a per-type boss sprite scale set FROM A CAPTURED FRAME (S147 lesson), and the whole chain verified end-to-end in a real browser with a screenshot. Gates from captured $?: typecheck 0, vitest 0 (4020/4020, 249 files), build 0, check:atlas 0 (48 clean), e2e:gating 0 (64 passed)."
+      "check_method": "Five backlog items closed, each measured before it was changed. (a) hostTick emit chain INVERTED - the chewer arm is now named 'pentagram' and the default is inert; proven a no-op today by enumerating the registry (15 spawner recipes, 14 named by the four arms above, so pentagram was the ONLY id reaching the else) and backed by a new source-reading guard. (b) The `die` row made playable via client-local corpses in the renderer - the sim death path is untouched, which is what makes it safe. (c) check-atlas's die exclusion re-derived: one of its two reasons went stale, the pose-confound half did not, so the row is now gated ONE-SIDEDLY (taller only), verified against every shipped sheet first - the naga boss at 1.12x sits 0.03 under the ceiling. (d) POTATO_CLEARS: the tier-3 units were silently potato-IMMUNE, restored, bosses deliberately excluded, guard written. (e) Boss phase-persistence PROVEN rather than assumed, and a docblock that under-claimed corrected. Plus a per-type boss sprite scale set FROM A CAPTURED FRAME (S147 lesson), and the whole chain verified end-to-end in a real browser with a screenshot. Gates from captured $?: typecheck 0, vitest 0 (4020/4020, 249 files), build 0, check:atlas 0 (48 clean), e2e:gating 0 (64 passed).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "} else if (sp.recipeId === 'pentagram' && world.tick >= sp.nextSpawnTick) {"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/hostTick.emitChain.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/potatoLifecycle.ts",
+          "pattern": "'t3(Hound|Scarab|Piranha|Bat|Warband|Souleater)'",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/potatoLifecycle.ts",
+          "needle": "'t9BossZombies'"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/potatoClears.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "this.dying.push({ sprite: sp, frames: dieRow, elapsed: 0 })"
+        },
+        {
+          "type": "file_contains",
+          "path": "vite.config.ts",
+          "needle": "testTimeout: 20_000"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "MOSTLY SHIPPED S167"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
