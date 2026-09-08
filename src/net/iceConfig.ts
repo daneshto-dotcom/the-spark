@@ -320,7 +320,24 @@ export function parseTurnConfig(
   const username = unwrapPastedSecret(rawUsername, 'username');
   const credential = unwrapPastedSecret(rawCredential, 'credential');
 
-  const tokens = urlsField.split(',').map(cleanUrlToken).filter(Boolean);
+  /*
+   * ⭐ S168 — SPLIT FIRST, THEN UNWRAP EACH TOKEN. `unwrapPastedSecret` above strips ONE
+   * `urls: "…"` wrapper off the WHOLE field, which is right for the single-url paste this repo has
+   * always had. It is wrong for the multi-url paste the owner now needs: metered.ca's dashboard
+   * emits one wrapped entry PER url, so after the whole-field unwrap every token except the first
+   * still carries its own `urls: "` prefix and is rejected by ICE_URL_RE.
+   *
+   * ⚠ WHY THAT MATTERS RIGHT NOW: the live build ships exactly ONE relay url, plain UDP on port 80,
+   * with no TCP or TLS fallback — so any network that filters outbound UDP:80 gets no relay at all
+   * and the panel used to blame the credentials for it. Making a multi-url paste survive is what
+   * lets that be fixed by editing a secret instead of by changing code.
+   *
+   * Idempotent: on an already-clean token the second unwrap is a no-op.
+   */
+  const tokens = urlsField
+    .split(',')
+    .map((tok) => cleanUrlToken(unwrapPastedSecret(tok, 'urls')))
+    .filter(Boolean);
   const urls = tokens.filter((u) => ICE_URL_RE.test(u));
   const rejected = tokens.filter((u) => !ICE_URL_RE.test(u));
 

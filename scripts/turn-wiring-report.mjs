@@ -84,7 +84,10 @@ const KEY_OF = {
 const wrapped = NAMES.filter((n) => isSet(n) && unwrapPastedSecret(raw(n), KEY_OF[n]) !== raw(n).trim());
 
 const urlField = unwrapPastedSecret(raw('VITE_TURN_URLS'), 'urls');
-const tokens = urlField.split(',').map(cleanUrlToken).filter(Boolean);
+// ⚠ MUST MATCH parseTurnConfig in src/net/iceConfig.ts — S168 split-then-unwrap, so a dashboard
+// paste of several urls survives instead of keeping only the first. ci.deployGate.test.ts pins the
+// two files in step.
+const tokens = urlField.split(',').map((t) => cleanUrlToken(unwrapPastedSecret(t, 'urls'))).filter(Boolean);
 const goodUrls = tokens.filter((u) => ICE_URL_RE.test(u));
 const badUrls = tokens.filter((u) => !ICE_URL_RE.test(u));
 

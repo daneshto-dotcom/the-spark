@@ -50,6 +50,14 @@ export interface IceProbeResult {
   readonly turnConfigured: boolean;
   /** True when gathering finished on its own; false when we stopped it on the timeout. */
   readonly complete: boolean;
+  /**
+   * ⭐ S168 — a TURN url produced errorCode 701 ("could not reach the server").
+   *
+   * Kept SEPARATE from `errors` because the two mean opposite things and the panel used to conflate
+   * them into one accusation. 701 says the relay never answered; 401/403/438 say it answered and
+   * refused us. `errors` is now strictly the second kind — the EVIDENCE of a credential problem.
+   */
+  readonly relayUnreachable: boolean;
 }
 
 /** A verdict a human can act on. `ok` gates the colour; `headline` is the one line worth reading. */
@@ -67,6 +75,7 @@ export const ICE_VERDICT = {
   RELAY_OK: 'Connection test passed — you can play with anyone',
   NO_TURN_CONFIGURED: 'No relay server — you can only reach players on friendly networks',
   TURN_REJECTED: 'The relay server refused us — the credentials are wrong or expired',
+  TURN_UNREACHABLE: 'The relay server did not answer from this network',
   NO_STUN: 'Your public address could not be found — something is blocking UDP',
   NO_ROUTES: 'The browser found no network routes at all',
 } as const;
@@ -105,16 +114,60 @@ export function summarizeIce(r: IceProbeResult): IceVerdict {
     };
   }
 
-  // No relay. WHICH no-relay this is decides what the owner has to do next, so they are split.
+  /*
+   * ⭐⭐ S168 — **THIS BRANCH USED TO ACCUSE THE OWNER'S CREDENTIALS ON NO EVIDENCE, AND IT WAS
+   * WRONG WHEN HE READ IT.**
+   *
+   * He pressed TEST CONNECTION on the live site and was told *"The relay server refused us — the
+   * credentials are wrong or expired"*, so he asked for multiplayer to be fixed. The credentials
+   * were fine. I extracted the three values from the LIVE bundle (they are public by construction
+   * once inlined — TURN_SETUP.md says so) and performed a real RFC-5766 Allocate against the
+   * shipped relay: **0x0103 Allocate Success. The server ACCEPTED them.**
+   *
+   * The bug was here. The old condition was `relay === 0 && turnConfigured` and NOTHING ELSE — no
+   * error code required, no 401 required. `r.errors` only decorated the sentence, and the gather
+   * loop DISCARDED every 701 ("could not reach the server"), which is precisely the code an
+   * unreachable or UDP-blocked relay produces. So the one situation that leaves `errors` empty was
+   * reported as a certainty about the password.
+   *
+   * ⛔ AND IT MADE `NO_STUN` DEAD CODE. This branch sat ABOVE the `srflx === 0` check, and TURN is
+   * always configured now, so a machine with UDP blocked outright — a firewall, not an account —
+   * was told its TURN password was bad. Both orderings are fixed below: an accusation needs
+   * EVIDENCE, and the firewall case is asked about before the credential case.
+   */
   if (r.turnConfigured) {
-    const why = r.errors.length > 0 ? ` The server said: ${r.errors.join('; ')}.` : '';
+    if (r.errors.length > 0) {
+      return {
+        ok: false,
+        headline: ICE_VERDICT.TURN_REJECTED,
+        detail:
+          'A relay server is configured and it ANSWERED, but it refused the allocation. The server ' +
+          `said: ${r.errors.join('; ')}. That is a credential or quota problem — check the values in ` +
+          'the GitHub repository secrets and redeploy. See TURN_SETUP.md.',
+      };
+    }
+    if (r.srflx === 0) {
+      return {
+        ok: false,
+        headline: ICE_VERDICT.NO_STUN,
+        detail:
+          'No relay route appeared, but this machine could not discover its own public address ' +
+          'either — so the problem is almost certainly THIS network blocking UDP (a strict ' +
+          'firewall, a VPN, or a captive portal), not the relay account. Try another network ' +
+          'before changing any credentials.',
+      };
+    }
     return {
       ok: false,
-      headline: ICE_VERDICT.TURN_REJECTED,
+      headline: ICE_VERDICT.TURN_UNREACHABLE,
       detail:
-        'A relay server IS configured in this build, but it handed back nothing — which means the ' +
-        `username/password are being rejected, or the service is down.${why} Check the credentials ` +
-        'in the GitHub repository secrets and redeploy. See TURN_SETUP.md.',
+        'A relay server is configured and STUN works, but the relay produced no route' +
+        `${r.relayUnreachable ? ' and never answered at all' : ''}. The credentials were NOT ` +
+        'tested here, because the server was never reached, so this result is no evidence about ' +
+        'them either way. The ' +
+        'usual cause is this network blocking the relay port it needs. The build ships a single UDP ' +
+        'relay url, so there is no TCP or TLS fallback to fall back to; adding one is the fix. ' +
+        'See TURN_SETUP.md.',
     };
   }
 
@@ -174,6 +227,7 @@ export async function probeIce(
   let relay = 0;
   const errors = new Set<string>();
   let complete = false;
+  let relayUnreachable = false;
 
   // ⛔ S162 P0 — CONSTRUCTION IS ITS OWN FAILURE MODE, AND IT IS THE TOTAL ONE. A single malformed
   // ICE url makes `new RTCPeerConnection` throw SYNCHRONOUSLY, before one candidate is gathered, so
@@ -220,6 +274,13 @@ export async function probeIce(
         const code = typeof e.errorCode === 'number' ? e.errorCode : 0;
         // 701 is "could not reach the server" and fires for every unreachable STUN url on a normal
         // healthy machine; reporting it would cry wolf. Allocation/auth failures are the signal.
+        //
+        // ⭐ S168 — BUT A 701 ON A **turn:** URL IS NOT NOISE, IT IS THE ANSWER. Discarding every
+        // 701 left `errors` empty when a relay was merely unreachable, and the verdict below then
+        // asserted the credentials were rejected on no evidence at all. Recorded separately rather
+        // than added to `errors`, so it can never be mistaken for an auth failure.
+        const url = typeof e.url === 'string' ? e.url : '';
+        if (code === 701 && /^turns?:/i.test(url)) relayUnreachable = true;
         if (code !== 0 && code !== 701) errors.add(`${code} ${e.errorText ?? ''}`.trim());
       };
 
@@ -234,5 +295,5 @@ export async function probeIce(
     pc.close();
   }
 
-  return { host, srflx, relay, errors: [...errors], turnConfigured, complete };
+  return { host, srflx, relay, errors: [...errors], turnConfigured, complete, relayUnreachable };
 }

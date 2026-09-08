@@ -262,3 +262,61 @@ describe('the shipped module-level constants', () => {
     }
   });
 });
+
+
+/*
+ * ⭐⭐ S168 — A DASHBOARD PASTE OF SEVERAL URLS MUST NOT LOSE ALL BUT THE FIRST.
+ *
+ * The live build ships exactly ONE relay url — plain UDP on port 80, no TCP and no TLS fallback —
+ * so any network filtering outbound UDP:80 gets no relay at all. The owner then reads a panel that
+ * (before this session) blamed his credentials for it.
+ *
+ * `unwrapPastedSecret` strips ONE `urls: "…"` wrapper off the WHOLE field. metered.ca emits one
+ * wrapped entry PER url, so after that single unwrap every token except the first still carried its
+ * own prefix and was silently rejected by ICE_URL_RE. The parse now splits FIRST and unwraps each
+ * token, which is what lets the fallback urls be added by editing a secret rather than by shipping
+ * code.
+ */
+describe('S168 — a multi-url TURN paste survives', () => {
+  const U = 'user';
+  const C = 'cred';
+
+  it('CONTROL — a single clean url still parses to exactly one server', () => {
+    const p = parseTurnConfig('turn:relay.example.com:80', U, C);
+    expect(p.servers).toHaveLength(1);
+    expect(p.servers[0]!.urls).toEqual(['turn:relay.example.com:80']);
+  });
+
+  it('a plain comma-separated list keeps EVERY url', () => {
+    const p = parseTurnConfig(
+      'turn:relay.example.com:80,turn:relay.example.com:443?transport=tcp',
+      U,
+      C,
+    );
+    expect(p.servers[0]!.urls).toEqual([
+      'turn:relay.example.com:80',
+      'turn:relay.example.com:443?transport=tcp',
+    ]);
+  });
+
+  it('⭐ and so does a WRAPPED list — one `urls: "…"` per entry, exactly as a dashboard emits it', () => {
+    const pasted =
+      'urls: "turn:relay.example.com:80", urls: "turn:relay.example.com:443?transport=tcp"';
+    const p = parseTurnConfig(pasted, U, C);
+    expect(p.servers[0]!.urls, 'the second url used to be dropped in silence').toEqual([
+      'turn:relay.example.com:80',
+      'turn:relay.example.com:443?transport=tcp',
+    ]);
+  });
+
+  it('the whole-field wrapper still works — this must not have been traded away', () => {
+    const p = parseTurnConfig('urls: "turn:relay.example.com:80"', U, C);
+    expect(p.servers[0]!.urls).toEqual(['turn:relay.example.com:80']);
+  });
+
+  it('a genuinely malformed entry is still rejected, and still reported', () => {
+    const p = parseTurnConfig('turn:relay.example.com:80,http://not-a-relay', U, C);
+    expect(p.servers[0]!.urls).toEqual(['turn:relay.example.com:80']);
+    expect(p.note).toMatch(/not valid ICE urls/i);
+  });
+});

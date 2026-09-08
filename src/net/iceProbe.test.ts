@@ -20,7 +20,16 @@ import {
 } from './iceProbe.ts';
 
 function result(over: Partial<IceProbeResult> = {}): IceProbeResult {
-  return { host: 1, srflx: 1, relay: 0, errors: [], turnConfigured: false, complete: true, ...over };
+  return {
+    host: 1,
+    srflx: 1,
+    relay: 0,
+    errors: [],
+    turnConfigured: false,
+    complete: true,
+    relayUnreachable: false,
+    ...over,
+  };
 }
 
 describe('summarizeIce — the verdict a human can act on', () => {
@@ -46,12 +55,55 @@ describe('summarizeIce — the verdict a human can act on', () => {
     expect(v.detail).toContain('TURN_SETUP.md');
   });
 
-  it('⭐ a relay IS configured but produced nothing ⇒ a DIFFERENT verdict, because it is a different fix', () => {
+  /*
+   * ⭐⭐ S168 — **THIS TEST PINNED THE DEFECT.** It asserted that "configured but produced nothing"
+   * IS a credential rejection, and the product agreed with it, and both were wrong.
+   *
+   * The owner pressed TEST CONNECTION on the live site, was told *"The relay server refused us —
+   * the credentials are wrong or expired"*, and asked for multiplayer to be fixed. The credentials
+   * were FINE: extracted from the live bundle and put through a real RFC-5766 Allocate against the
+   * shipped relay, the server returned **0x0103 Allocate Success**.
+   *
+   * An accusation now needs EVIDENCE. No error code ⇒ we do not know, and we say so.
+   */
+  it('⭐ configured, no relay, NO error ⇒ UNREACHABLE — never an accusation about the password', () => {
     const v = summarizeIce(result({ turnConfigured: true }));
-    expect(v.headline).toBe(ICE_VERDICT.TURN_REJECTED);
-    // The two no-relay verdicts must never collapse into one another: one says "buy an account",
-    // the other says "your account is misconfigured".
+    expect(v.headline).toBe(ICE_VERDICT.TURN_UNREACHABLE);
+    expect(v.headline).not.toBe(ICE_VERDICT.TURN_REJECTED);
     expect(v.headline).not.toBe(ICE_VERDICT.NO_TURN_CONFIGURED);
+    /*
+     * And it must not imply one in PROSE either — the headline was only half the damage; the old
+     * body said "which means the username/password are being rejected". Matched precisely rather
+     * than on the bare word "wrong", because the correct copy legitimately contains it: the new
+     * body says "Nothing here says the credentials are wrong". Asserting the absence of a word
+     * would have failed the right sentence, which my first cut of this test did.
+     */
+    expect(v.detail).not.toMatch(/credentials (are|were) (wrong|expired|being rejected)/i);
+    expect(v.detail).not.toMatch(/username\/password are being rejected/i);
+    expect(v.detail, 'it should say the creds were never tested').toMatch(/not tested/i);
+  });
+
+  it('⭐ configured, no relay, WITH a server error ⇒ that IS the credential verdict', () => {
+    const v = summarizeIce(result({ turnConfigured: true, errors: ['401 Unauthorized'] }));
+    expect(v.headline).toBe(ICE_VERDICT.TURN_REJECTED);
+  });
+
+  /*
+   * ⛔ NO_STUN WAS UNREACHABLE IN PRODUCTION. Its branch sat BELOW the turnConfigured branch, and
+   * TURN is always configured now — so a machine with UDP blocked outright, which is a firewall
+   * problem and not an account problem, was told its TURN password was bad.
+   */
+  it('⛔ configured, no relay AND no srflx ⇒ blame the NETWORK, not the account', () => {
+    const v = summarizeIce(result({ turnConfigured: true, srflx: 0 }));
+    expect(v.headline).toBe(ICE_VERDICT.NO_STUN);
+    expect(v.detail).not.toMatch(/credentials (are|were) (wrong|expired|being rejected)/i);
+    expect(v.detail, 'it should point at the network').toMatch(/firewall|VPN|UDP/i);
+  });
+
+  it('a 701 on a turn: url is reported as "never answered", not as a rejection', () => {
+    const v = summarizeIce(result({ turnConfigured: true, relayUnreachable: true }));
+    expect(v.headline).toBe(ICE_VERDICT.TURN_UNREACHABLE);
+    expect(v.detail).toContain('never answered');
   });
 
   it('a configured relay quotes the server error verbatim when there is one', () => {
