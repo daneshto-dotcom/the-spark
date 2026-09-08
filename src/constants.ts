@@ -1544,19 +1544,49 @@ export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
  * on-kill conversion, a life-sap heal). That is where a boss's threat is meant to live; raw numbers
  * frightening on their own would leave the skills nothing to add.
  */
+/*
+ * ⭐⭐ S168 — **THESE ARE NOW THE OWNER'S NUMBERS, NOT MINE (R141).**
+ *
+ * He asked in S167 to settle the boss band after seeing the full enemy stat list. He saw it, and
+ * ruled verbatim: *"i agree however with your boss recommendation of stats but slightly different
+ * stats being HP 10–12, DEF 4–8, ATK 6-10 but you forgot PEN which will be 8-10. with varried
+ * speed"*. Every value below sits inside those four bands, and all six speeds are distinct.
+ *
+ * The six personality axes above are UNCHANGED — the bands were re-fitted around them rather than
+ * the other way round, so each boss keeps the identity its art was made for.
+ *
+ * ## ⚠ WHAT HIS PEN FLOOR DOES, MEASURED, SO HE CAN SEE IT WHEN HE TESTS
+ *
+ * PEN is a ×(1+0.2n) multiplier, so a floor of 8 is a floor of ×2.6 on every boss's damage.
+ * `attackFifths` ⇒ Vlad 150 · Archdemon 135 · Warlord 112 · Whopper 104 · Kraken 91 · Pharaoh 78.
+ * Against a goblin's 7–16 fifth pool that means **every boss one-shots every regular unit**, which
+ * S167 flagged as a defect when MY numbers did it. It is not a defect here — it is what the ruling
+ * asks for, and a boss that deletes chaff on contact is a reasonable reading of "boss". Recorded so
+ * it is a decision on the books rather than a surprise.
+ *
+ * ## And what it costs to kill one
+ *
+ * `unitPoolFifths` ⇒ Pharaoh 143 · Warlord 121 · Kraken 132 · Whopper 120 · Vlad 90 · Archdemon 90.
+ * One goblinMelee (12 fifths/swing, 1/s) needs 8–12 s; a squad of five needs 2–3 s. Both sit inside
+ * a ~45 s FIGHT phase, which is the bound `statsLadder.test.ts` actually enforces.
+ *
+ * ⚠ SPEED IS STILL A MULTIPLIER AND ALL SIX ARE ≤ 1.0. "Varried" is satisfied with six DISTINCT
+ * values; the ≤ 1.0 ceiling is kept for the reason stated above — a boss that outruns its escort
+ * arrives alone, which is the opposite of what a boss should feel like.
+ */
 export const T9_BOSS_STATS = {
   /** Vampires — Vlad. IMPERIAL: *"threat is authority rather than bulk"* — least durable, hits hardest. */
-  vampires: { hp: 9, def: 3, atk: 7, pen: 5, speedMul: 1.0 },
+  vampires: { hp: 10, def: 4, atk: 10, pen: 10, speedMul: 0.95 },
   /** Nagas — the Kraken. MONSTROUS: *"threat is sheer size"* — the HP pole, and the slowest. */
-  nagas: { hp: 12, def: 5, atk: 5, pen: 1, speedMul: 0.7 },
+  nagas: { hp: 12, def: 6, atk: 7, pen: 8, speedMul: 0.65 },
   /** Mummies — the Pharaoh. ANCIENT & CURSED: *"dread rather than aggression"* — the armour pole. */
-  mummies: { hp: 10, def: 8, atk: 4, pen: 1, speedMul: 0.75 },
-  /** Zombies — the bloated brute. DISGUSTING: *"body horror and bloat"* — bulk, ZERO penetration. */
-  zombies: { hp: 12, def: 4, atk: 6, pen: 0, speedMul: 0.85 },
+  mummies: { hp: 11, def: 8, atk: 6, pen: 8, speedMul: 0.75 },
+  /** Zombies — the bloated brute. DISGUSTING: *"body horror and bloat"* — bulk, the softest hitter's PEN. */
+  zombies: { hp: 12, def: 5, atk: 8, pen: 8, speedMul: 0.8 },
   /** Orcs — the Warlord. BRUTAL: *"earned violence"* — the balanced fighter, no weakness to exploit. */
-  orcs: { hp: 10, def: 6, atk: 6, pen: 2, speedMul: 0.9 },
+  orcs: { hp: 11, def: 6, atk: 8, pen: 9, speedMul: 0.9 },
   /** Demons — the Archdemon. VICIOUS: *"active cruelty"* — highest PEN; armour is no defence. */
-  demons: { hp: 9, def: 4, atk: 6, pen: 5, speedMul: 0.95 },
+  demons: { hp: 10, def: 4, atk: 9, pen: 10, speedMul: 1.0 },
 } as const;
 
 /**

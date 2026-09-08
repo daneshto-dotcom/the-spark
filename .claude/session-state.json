@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6193,
+  "tool_calls_session_total": 6200,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -34,10 +34,13 @@
     {
       "id": "P1",
       "title": "raid one-shots connectors — bot/player asymmetry",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "625403772f8c3856d1bbfcd8eb66ec77a811b327",
+      "check_method": "typecheck 0 / vitest 0 from captured $? (4039/4039, 251 files, was 4030/250). Root cause independently re-verified against the tree before acting, and the agent's headline claim was REFUTED: no SEVER_BOND regression in src/bots — parity holds at the reducer. Two real defects instead: (a) raid 10 fifths >= 7 of 9 shipped tower capacities (connectors+4 = 7..13), so one cut failed the recipe predicate and fired REMOVE_SPAWNER; (b) picker precedence over 34px vs 8px radii let any unit swallow the click. Four pre-existing tests failed as the INTENDED contract change and were rewritten with their teeth kept, incl. a monotonicity assertion proving the absolute ceiling did not flatten R76, and a negative control proving the clamp actually bites. Third path (droneLifecycle unconditional sever) FLAGGED not changed."
     },
     {
       "id": "P2",

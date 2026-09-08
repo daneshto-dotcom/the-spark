@@ -43,6 +43,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
+import { T9_BOSS_STATS } from '../constants.ts';
 import { STAT_POINT_MAX, STAT_POINT_MIN, attackFifths, unitPoolFifths } from './stats.ts';
 import type { CreatureType } from './creatures/creature.ts';
 
@@ -134,6 +135,76 @@ describe('S167 — and the ladder is MEANINGFUL: nothing on the board is unkilla
       const seconds = unitPoolFifths(c.hp, c.def) / soldierDps;
       expect(seconds, `${type} needs ${seconds.toFixed(1)}s of one goblin — a wall, not a hard unit`)
         .toBeLessThan(FIGHT_SECONDS);
+    }
+  });
+});
+
+
+/*
+ * ⭐⭐ S168 — THE BOSS BAND IS THE OWNER'S, AND IT IS PINNED SEPARATELY FROM THE 1..12 LADDER.
+ *
+ * R141, verbatim: *"i agree however with your boss recommendation of stats but slightly different
+ * stats being HP 10–12, DEF 4–8, ATK 6-10 but you forgot PEN which will be 8-10. with varried
+ * speed"*.
+ *
+ * ⚠ THE GENERAL LADDER ABOVE CANNOT CATCH A DRIFT HERE. 1..12 admits HP 3 and PEN 0 — which is
+ * exactly what these six had before he ruled. A band this specific needs its own guard or the next
+ * balance pass silently walks out of it, which is the S167 failure mode restated: `stats.ts` cited a
+ * guard by name for sixteen sessions and the file did not exist.
+ */
+describe('S168 — the six tier-9 bosses sit inside the band the owner ruled (R141)', () => {
+  const BOSSES = Object.entries(T9_BOSS_STATS);
+
+  it('is not vacuous — there are six bosses to check', () => {
+    expect(BOSSES).toHaveLength(6);
+  });
+
+  it('⛔ HP is 10..12', () => {
+    for (const [race, s] of BOSSES) {
+      expect(s.hp, `${race} hp`).toBeGreaterThanOrEqual(10);
+      expect(s.hp, `${race} hp`).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('⛔ DEF is 4..8', () => {
+    for (const [race, s] of BOSSES) {
+      expect(s.def, `${race} def`).toBeGreaterThanOrEqual(4);
+      expect(s.def, `${race} def`).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('⛔ ATK is 6..10', () => {
+    for (const [race, s] of BOSSES) {
+      expect(s.atk, `${race} atk`).toBeGreaterThanOrEqual(6);
+      expect(s.atk, `${race} atk`).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('⛔ PEN is 8..10 — the axis he pointed out I had forgotten', () => {
+    for (const [race, s] of BOSSES) {
+      expect(s.pen, `${race} pen`).toBeGreaterThanOrEqual(8);
+      expect(s.pen, `${race} pen`).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('⭐ "with varried speed" — six DISTINCT multipliers, none above 1.0', () => {
+    const speeds = BOSSES.map(([, s]) => s.speedMul);
+    expect(new Set(speeds).size, 'every boss moves at its own pace').toBe(6);
+    for (const [race, s] of BOSSES) {
+      expect(s.speedMul, `${race} must not outrun its escort`).toBeLessThanOrEqual(1.0);
+      expect(s.speedMul, `${race} must actually move`).toBeGreaterThan(0);
+    }
+  });
+
+  /*
+   * The consequence of his PEN floor, asserted rather than only described in a comment. It is not a
+   * complaint — a boss deleting chaff on contact is a fair reading of "boss" — but it IS a decision,
+   * so it is on the books where a future session will trip over it before undoing it by accident.
+   */
+  it('⚠ his PEN floor means every boss one-shots a basic goblin — on the books, deliberately', () => {
+    const goblinPool = unitPoolFifths(1, 2); // goblinMelee: 1 HP, 2 DEF ⇒ 7 fifths
+    for (const [race, s] of BOSSES) {
+      expect(attackFifths(s.atk, s.pen), `${race} vs a goblin`).toBeGreaterThanOrEqual(goblinPool);
     }
   });
 });
