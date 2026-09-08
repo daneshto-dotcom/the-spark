@@ -22,6 +22,8 @@ import {
 import { liveIdsOfType } from './bossSkills.ts';
 import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
+// S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
+import { isStunned } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -50,6 +52,17 @@ export function runArchdemonHell(world: World): void {
   for (const demonId of liveIdsOfType(world, T9_BOSS_TYPE.demons)) {
     const demon = world.creatures.get(demonId);
     if (demon === undefined || demon.ehp <= 0) continue;
+    /*
+     * ⭐⭐ S169 (owner R152) — A STUNNED BOSS TAKES NO ACTION. Owner: *"cant do anything"*.
+     *
+     * Placed beside the corpse guard because it is the same kind of statement: a boss who cannot act
+     * does not act. The stun is also the ONLY counterplay a player has against a boss, so leaving
+     * the skills running would make it cosmetic on the one unit it matters most against.
+     *
+     * ⚠ `runWarlordRage` is DELIBERATELY NOT gated — rage is a LATCH over the boss's own health, not
+     * an action he takes. See `stunGates.test.ts`, which asserts that exception explicitly.
+     */
+    if (isStunned(demon, world.tick)) continue;
 
     const doomed: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
@@ -94,6 +107,17 @@ export function runArchdemonTeleport(world: World): void {
   for (const demonId of liveIdsOfType(world, T9_BOSS_TYPE.demons)) {
     const demon = world.creatures.get(demonId);
     if (demon === undefined || demon.ehp <= 0) continue;
+    /*
+     * ⭐⭐ S169 (owner R152) — A STUNNED BOSS TAKES NO ACTION. Owner: *"cant do anything"*.
+     *
+     * Placed beside the corpse guard because it is the same kind of statement: a boss who cannot act
+     * does not act. The stun is also the ONLY counterplay a player has against a boss, so leaving
+     * the skills running would make it cosmetic on the one unit it matters most against.
+     *
+     * ⚠ `runWarlordRage` is DELIBERATELY NOT gated — rage is a LATCH over the boss's own health, not
+     * an action he takes. See `stunGates.test.ts`, which asserts that exception explicitly.
+     */
+    if (isStunned(demon, world.tick)) continue;
     if ((world.tick + (demonId as number)) % ARCHDEMON_TELEPORT_INTERVAL_TICKS !== 0) continue;
 
     let best: { id: CreatureId; allies: number; distSq: number } | null = null;

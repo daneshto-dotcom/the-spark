@@ -21,6 +21,8 @@ import {
 import { liveIdsOfType } from './bossSkills.ts';
 import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
+// S169 R152 — a stunned boss summons nothing. RAGE is exempt (a latch, not an action).
+import { isStunned } from './creatures/creature.ts';
 import { dispatch, type World } from './world.ts';
 
 /**
@@ -82,6 +84,17 @@ export function runWarlordDirewolves(world: World): void {
   for (const bossId of liveIdsOfType(world, T9_BOSS_TYPE.orcs)) {
     const boss = world.creatures.get(bossId);
     if (boss === undefined || boss.ehp <= 0) continue;
+    /*
+     * ⭐⭐ S169 (owner R152) — A STUNNED BOSS TAKES NO ACTION. Owner: *"cant do anything"*.
+     *
+     * Placed beside the corpse guard because it is the same kind of statement: a boss who cannot act
+     * does not act. The stun is also the ONLY counterplay a player has against a boss, so leaving
+     * the skills running would make it cosmetic on the one unit it matters most against.
+     *
+     * ⚠ `runWarlordRage` is DELIBERATELY NOT gated — rage is a LATCH over the boss's own health, not
+     * an action he takes. See `stunGates.test.ts`, which asserts that exception explicitly.
+     */
+    if (isStunned(boss, world.tick)) continue;
     if ((world.tick + (bossId as number)) % DIREWOLF_SUMMON_INTERVAL_TICKS !== 0) continue;
 
     let pack = 0;

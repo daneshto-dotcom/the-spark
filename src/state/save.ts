@@ -729,6 +729,21 @@ interface SerializedCreature {
    * Emitted only when true, so a world with no enraged Warlord stays byte-identical.
    */
   readonly enraged?: boolean;
+
+  /**
+   * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
+   *
+   * It has to ride the wire rather than stay host-local because of what the ruling asks for on the
+   * OTHER side: *"maybe there is like a cool stunned 'seeing stars' effect above the stunned
+   * creatures heads?"*. That effect is DERIVED PER FRAME by the renderer from this stamp — the
+   * established pattern here, because a one-shot `world.effects` push is lost ~5/6 of the time
+   * (effects are sampled at 10 Hz while the renderer wipes at 60). A host-local latch would stun
+   * correctly on the host and draw nothing at all on the joiner.
+   *
+   * Emitted ONLY while set, so a world with no stunned creature stays byte-identical and this lands
+   * under the additive-optional rule with NO protocol bump — the same footing as `poopyUntilTick`.
+   */
+  readonly stunnedUntilTick?: number;
 }
 
 /**
@@ -1941,6 +1956,8 @@ function serializeCreature(c: Creature): SerializedCreature {
     // stays byte-identical to every prior save.
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
+    // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
+    ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
   };
 }
 
@@ -2305,6 +2322,7 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // ⛔ S168 — the RAGE latch survives the round-trip. Absent means calm, which is the correct
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
+    ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
   };
 }
 

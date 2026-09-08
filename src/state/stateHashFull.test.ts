@@ -217,6 +217,33 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w), 'the projection must carry the latch').not.toBe(wideBefore);
   });
 
+  /*
+   * ⭐⭐ S169 (owner R152) — the STUN stamp, and the third of its three hash sub-sites.
+   *
+   * The union entry alone silences `tsc`; the projection alone has no link to the union. This is the
+   * assertion that ties them, and it is worth more here than for most fields: the stun gates FOUR
+   * subsystems (FSM, steering, re-target fan-out, boss skills), so a host and a `?worker=1` mirror
+   * that disagreed about one stunned tick would diverge in movement AND attack timing simultaneously.
+   *
+   * ⚠ The coverage contract did its job on the way in — adding the field to `Creature` failed the
+   * build with `ERROR_UNCOVERED_FIELD: "stunnedUntilTick"` before any hash code existed.
+   */
+  it('⭐ stunnedUntilTick — the STUN stamp — flips the wide hash', () => {
+    const w = worldWithEntities();
+    const wideBefore = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.stunnedUntilTick = 900;
+    expect(hashWorldStateFull(w), 'the projection must carry the stun stamp').not.toBe(wideBefore);
+  });
+
+  it('⭐ and an UNSTUNNED board is unchanged by the field existing at all', () => {
+    // `o()` renders undefined as the absent marker, so introducing the field must not move the hash
+    // of any world that has never been stunned — which is what keeps the replay guards valid.
+    const w = worldWithEntities();
+    const before = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.stunnedUntilTick = undefined;
+    expect(hashWorldStateFull(w)).toBe(before);
+  });
+
   it('chewProgress — bond damage — flips the wide hash and not the narrow one', () => {
     // chewProgress IS the bond's HP (CONNECTOR_HP = CHEW_HITS); the bond itself stores
     // no damage state, which is why excluding this field would leave bond-damage

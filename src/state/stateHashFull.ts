@@ -282,7 +282,23 @@ type CreatureHashed =
    * precisely the class of defect this oracle exists to catch, and acknowledging it would blind the
    * oracle to a latch that gates a x2 speed and cadence multiplier.
    */
-  | 'enraged';
+  | 'enraged'
+  /*
+   * ⭐⭐ S169 (owner R152) — the STUN stamp. HASHED, and for a stronger reason than `enraged` above:
+   * this field is BOTH serialized and simulated. `hashWorldStateFull` compares two SIMS (host vs
+   * `?worker=1` mirror, replay vs replay), and the stun gates four separate subsystems — the FSM,
+   * the steering integrator, the re-target fan-out and the boss-skill runners. A host and a mirror
+   * that disagreed about a single stunned tick would diverge in movement AND in attack timing at
+   * once, which is exactly the class this oracle exists to catch.
+   *
+   * ⚠ AND THE COVERAGE CONTRACT EARNED ITS KEEP HERE, so it is worth recording that it works: adding
+   * `stunnedUntilTick` to `Creature` failed `tsc` immediately with
+   * `Type 'boolean' is not assignable to type '{ ERROR_UNCOVERED_FIELD: "stunnedUntilTick" }'`
+   * before a single line of hash code was written. The union alone still only silences the compiler —
+   * the projection below and the per-field contribution test in `stateHashFull.test.ts` are the other
+   * two of the three sub-sites.
+   */
+  | 'stunnedUntilTick';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -524,7 +540,10 @@ export function determinismParts(world: World): string[] {
         `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:tp${n(c.targetPrimitiveId)}` +
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
-        `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}`,
+        `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}` +
+        // S169 R152 — the STUN stamp. `o()` renders undefined as the absent marker, so an unstunned
+        // board hashes identically to one with the field never introduced.
+        `:su${o(c.stunnedUntilTick)}`,
     );
   }
 

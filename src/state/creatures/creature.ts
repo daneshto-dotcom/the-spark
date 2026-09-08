@@ -115,6 +115,46 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
 }
 
 /**
+ * ⭐⭐ S169 (owner R152) — **IS THIS CREATURE STUNNED RIGHT NOW?** The ONE read of `stunnedUntilTick`.
+ *
+ * Owner: *"the player is stuck on idle and cant do anything ... it has to be consistent and coherent
+ * obviously."* **Consistent is his word and it is the whole engineering problem**, because a stun is
+ * a GATE where rage is a MULTIPLIER. `rageMultiplier` above needed exactly two call sites and a
+ * missed one would only make the Warlord feel wrong; a missed stun site means the creature cannot
+ * move but still swings, or cannot swing but still walks — visibly broken, and in a different system
+ * each time. The design note for R152 says it outright: *"the places that read a creature's ability
+ * to act have to be enumerated ONCE and made to consult the condition, or stun will work in three of
+ * them and not the fourth."*
+ *
+ * So this predicate is defined once and `stunGates.test.ts` pins the enumeration itself — every
+ * gate site is asserted by behaviour, not by grep.
+ *
+ * ⚠ STRICTLY `<`, so `stunnedUntilTick === world.tick` is the FIRST ACTING TICK rather than the last
+ * stunned one. That makes a duration read the way it is written: stamping `tick + 120` yields exactly
+ * 120 stunned ticks. Pinned by test, because an off-by-one here is invisible in play.
+ *
+ * ⚠ Takes `tick` rather than the World so it stays callable from the physics integrator, which is
+ * handed no world.
+ */
+export function isStunned(c: Pick<Creature, 'stunnedUntilTick'>, tick: number): boolean {
+  return c.stunnedUntilTick !== undefined && tick < c.stunnedUntilTick;
+}
+
+/**
+ * ⭐ S169 (owner R152) — APPLY A STUN, TAKING THE MAX.
+ *
+ * *"it has to be consistent"* — two sources overlapping must not let the shorter one cut the longer
+ * one short. The Kraken's sonar cone can clip the same unit on consecutive sweeps, and a plain
+ * assignment would make the second (shorter) stamp win and END the stun early. Written once here so
+ * no caller has to remember the comparison.
+ */
+export function applyStun(c: { stunnedUntilTick?: number }, untilTick: number): void {
+  if (c.stunnedUntilTick === undefined || untilTick > c.stunnedUntilTick) {
+    c.stunnedUntilTick = untilTick;
+  }
+}
+
+/**
  * S27 P0 — Council R1 Q2 COMPROMISE (Grok-A tick-0 vs Gemini-B tick-30) → middle
  * (tick 30). The CREATURE_ATTACK action dispatches when ATTACKING.ticksInState ===
  * VOLTKIN_ATTACK_FIRE_TICK (in main.ts post-CREATURE_TICK fan-out). Ticks 0-29 are
@@ -477,6 +517,39 @@ export interface Creature {
    * additive-optional rule. Mutable; defaults undefined (no factory change).
    */
   poopyUntilTick?: number;
+
+  /**
+   * ⭐⭐ S169 (owner R152) — **STUN. THE TICK THE CREATURE CAN ACT AGAIN.**
+   *
+   * Owner, verbatim: *"for the Kraken stun yeah we need to add condition - STUN where the player is
+   * stuck on idle and cant do anything and maybe there is like a cool stunned 'seeing stars' effect
+   * above the stunned creatures heads? it has to be consistent and coherent obviously."*
+   *
+   * ⭐ HE ASKED FOR A CONDITION, NOT A KRAKEN FEATURE, which is the same call he made on the zombie
+   * aura (*"we need to build a new mechanic - debuff OR damage over time"*, now `damageOverTime.ts`).
+   * STUN is the other half of that pair: DoT is the damage debuff, this is the CONTROL debuff. It is
+   * therefore built and tested on its own, ahead of the Kraken that needs it.
+   *
+   * ⛔ A TICK STAMP, **NOT** A FIFTH `CreatureState`. `CreatureState` is `SPAWNING/SEEKING/ATTACKING/
+   * DESPAWNING` and is both a serialized wire discriminant and hashed, so a fifth member would move
+   * the protocol and every exhaustive switch over it. A stamp is strictly cheaper AND composes
+   * properly: two overlapping stuns take the MAX rather than the last writer winning, which is what
+   * a cone that clips the same unit twice in a second needs.
+   *
+   * ⚠ `undefined` / past = not stunned, so it SELF-HEALS at expiry with nothing to clear — the
+   * `poopyUntilTick` pattern directly above, deliberately. No sweep, no teardown, and nothing to
+   * forget on a new death path.
+   *
+   * ON THE WIRE, conditionally (emitted only while set — `save.ts`), so an unstunned board stays
+   * byte-identical and this lands under the additive-optional rule with **no protocol bump**. It has
+   * to be on the wire rather than host-local for the reason the "seeing stars" ruling creates: the
+   * effect is DERIVED PER FRAME by the renderer from this stamp, on both peers, because a one-shot
+   * `world.effects` push is lost ~5/6 of the time (effects are sampled at 10 Hz, the renderer wipes
+   * at 60). A host-local latch would stun correctly and draw nothing on the joiner.
+   *
+   * Mutable; defaults undefined (no factory change).
+   */
+  stunnedUntilTick?: number;
 }
 
 /**

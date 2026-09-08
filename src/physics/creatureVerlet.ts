@@ -41,7 +41,7 @@ import {
 } from '../constants.ts';
 import type { Creature } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
-import { rageMultiplier } from '../state/creatures/creature.ts';
+import { isStunned, rageMultiplier } from '../state/creatures/creature.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
 /** Shared zero-accel sentinel. Callers must NOT mutate. */
@@ -137,6 +137,22 @@ export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
    * reintroduced. And `holdsRange` is false on all seven other configs, so every shipped unit whose
    * locomotion is a replay-equivalence guard (Voltkin especially) is byte-identical.
    */
+  /*
+   * ⭐⭐ S169 (owner R152) — **STUN GATE 2 OF 4: NO STEERING.**
+   *
+   * Owner: *"stuck on idle and cant do anything."* The FSM gate in `creatureLifecycle` freezes the
+   * state machine, which means a creature stunned mid-SEEKING STAYS in SEEKING — so without this
+   * line it would keep steering toward its target for the whole stun and walk away unharmed. The
+   * frozen FSM is precisely why this second gate is not redundant.
+   *
+   * ⭐ `ZERO_ACCEL` IS THE RIGHT ANSWER RATHER THAN A HARD STOP, and that is a design choice worth
+   * stating because Δ4 above warns that ZERO_ACCEL means **COAST, NOT STOP**. Here coasting is the
+   * feature: R139's sonar wave *"stuns and pushes back"*, so the unit must be free to slide under an
+   * external impulse while unable to steer. A hard stop would eat the knockback the same wave applies
+   * — the two halves of one owner sentence fighting each other. Velocity damping bleeds the slide off
+   * on its own.
+   */
+  if (isStunned(c, tick)) return ZERO_ACCEL;
   const steersWhileAttacking = c.state === 'ATTACKING' && getCreatureConfig(c.type).holdsRange;
   if (c.state !== 'SEEKING' && !steersWhileAttacking) return ZERO_ACCEL;
   // S100 P1 (TD Phase 1a, R16) — de-hardcode the peak accel: read it from the

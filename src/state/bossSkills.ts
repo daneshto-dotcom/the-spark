@@ -31,6 +31,8 @@ import { dotDueThisTick } from './damageOverTime.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
+// S169 R152 — a stunned boss takes no action; see `stunGates.test.ts`.
+import { isStunned } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import type { World } from './world.ts';
@@ -93,6 +95,15 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
   for (const id of vlads) {
     const vlad = world.creatures.get(id);
     if (vlad === undefined) continue;
+    /*
+     * ⭐⭐ S169 (owner R152) — A STUNNED VLAD DOES NOT SAP. Owner: *"cant do anything"*.
+     *
+     * ⚠ AND THE LEDGER IS NOT TOUCHED, which is the point of gating here rather than lower down: a
+     * stun must COST him nothing. Skipping after the `spent` bookkeeping would be the same shape of
+     * mistake as gating the FSM above its end-of-life bookkeeping — the stun would silently consume
+     * one of his three uses.
+     */
+    if (isStunned(vlad, world.tick)) continue;
     const spent = ledger.get(id) ?? 0;
     if (spent >= VLAD_LIFE_SAP_USES) continue;
 
@@ -153,6 +164,17 @@ export function runZombieRotAura(world: World): void {
   for (const bossId of bosses) {
     const boss = world.creatures.get(bossId);
     if (boss === undefined || boss.ehp <= 0) continue;
+    /*
+     * ⭐⭐ S169 (owner R152) — A STUNNED BOSS TAKES NO ACTION. Owner: *"cant do anything"*.
+     *
+     * Placed beside the corpse guard because it is the same kind of statement: a boss who cannot act
+     * does not act. The stun is also the ONLY counterplay a player has against a boss, so leaving
+     * the skills running would make it cosmetic on the one unit it matters most against.
+     *
+     * ⚠ `runWarlordRage` is DELIBERATELY NOT gated — rage is a LATCH over the boss's own health, not
+     * an action he takes. See `stunGates.test.ts`, which asserts that exception explicitly.
+     */
+    if (isStunned(boss, world.tick)) continue;
 
     const victims: CreatureId[] = [];
     for (const [id, c] of world.creatures) {

@@ -129,6 +129,8 @@ import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
+// S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
+import { isStunned } from './creatures/creature.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
 // the BotManager comment documents the invariant).
@@ -1313,6 +1315,26 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       //    spawner (R8) + runs the FFA target-spread.
       const creature = world.creatures.get(id);
       /*
+       * ⭐⭐ S169 (owner R152) — **STUN GATE 3 OF 4: NO RE-TARGETING, NO NAVIGATION, NO ATTACK
+       * DISPATCH.**
+       *
+       * Owner: *"cant do anything ... it has to be consistent and coherent obviously."*
+       *
+       * ⛔ THIS IS THE GATE THE OTHER THREE CANNOT COVER, and skipping it would have produced exactly
+       * the "works in three systems and not the fourth" failure R152's design note predicts. This
+       * loop is where a creature RE-AIMS (`findNearestEnemyCreature`, `findNearestEnemyPrimitiveFrom`,
+       * the bond re-selection) and where the CREATURE_ATTACK fan-out is dispatched. The FSM gate
+       * freezes state and the verlet gate removes steering, but neither stops this loop from
+       * re-pointing a stunned unit at a fresh target — so it would spend the whole stun silently
+       * acquiring, then snap onto a new victim the instant it recovered.
+       *
+       * ⚠ `continue`, NOT a narrower guard inside the branches. The branches below are a long chain
+       * of behaviour-specific arms (chewer stickiness, drone homing, structure-attacker targeting,
+       * standoff re-aim) and adding a stun conjunct to each is exactly how one gets missed. One
+       * skip at the top of the iteration is the only shape that cannot rot as arms are added.
+       */
+      if (creature !== undefined && isStunned(creature, world.tick)) continue;
+      /*
        * ⭐ S158 P3 (CF-S157-e) — `&& !targetsStructures` IS THE WHOLE FIX, AND HERE IS WHY IT IS A
        * CONJUNCT RATHER THAN A REORDER.
        *
@@ -1778,6 +1800,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * instead of having to remember.
    */
   if (world.matchPhase === 'FIGHT') {
+    /*
+     * ⭐⭐ S169 (owner R152) — **STUN GATE 4 OF 4: A STUNNED BOSS USES NO SKILLS.**
+     *
+     * Owner: *"cant do anything"* — and a boss whose aura keeps ticking, whose pack keeps spawning
+     * and who keeps teleporting while visibly stunned is the loudest possible version of the
+     * inconsistency he asked us to avoid. The stun is also the ONLY counterplay a player has against
+     * a boss, so leaving the skills running would make it cosmetic on the one unit it matters most
+     * against.
+     *
+     * ⚠ RAGE IS THE DELIBERATE EXCEPTION. `runWarlordRage` is a LATCH over the boss's own health, not
+     * an action he takes: R151 made it clear/re-latch on thresholds, and skipping it while stunned
+     * would let a Warlord stunned below 25% come out of the stun un-enraged (or, worse, stay enraged
+     * after being healed past 50% during one). A stun stops what a creature DOES, not what is TRUE
+     * about it. Stated here because "skip everything" reads tidier and would be wrong.
+     */
     runZombieRotAura(world);
     runVladLifeSap(world, state.sapLedger);
     runWarlordRage(world);

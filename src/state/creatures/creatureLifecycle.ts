@@ -36,6 +36,7 @@ import {
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
+  isStunned,
   rageMultiplier,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
@@ -591,6 +592,32 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       return world;
     }
   }
+
+  /*
+   * ⭐⭐ S169 (owner R152) — **STUN GATE 1 OF 4: THE FSM IS FROZEN.**
+   *
+   * Owner: *"STUN where the player is stuck on idle and cant do anything."*
+   *
+   * ⛔ PLACED HERE, AND THE POSITION IS THE WHOLE DESIGN — after steps 1 and 2, before step 3.
+   * Steps 1-2 are BOOKKEEPING (end-of-life auto-delete and the forced DESPAWNING hand-off) and both
+   * read `world.tick`, not `ticksInState`. Gating above them would make a stunned creature IMMORTAL
+   * — a stun that outlived its target's lifetime would strand it on the board forever — and a stun
+   * applied to something already fading would freeze it mid-fade. This is the same split the
+   * dormant-spawner gate uses in `hostTick`, whose comment states the rule: dormancy suspends the
+   * WEAPON, not the bookkeeping.
+   *
+   * ⛔ AND `ticksInState` DELIBERATELY DOES **NOT** ADVANCE. That is not laziness about the counter,
+   * it is the difference between a stun and a pause: `ticksInState` is the attack cadence's clock, so
+   * letting it run would have the stun *charge the swing* and fire it on the tick the stun expires —
+   * a stunned unit landing a free hit the instant it recovers. Freezing it means the creature resumes
+   * exactly where it was interrupted, which is what "stuck" means.
+   *
+   * ⚠ It is also what makes the RENDERER honest for free: `ticksInState` is the frame index, so a
+   * stunned sprite holds its pose instead of animating in place. The idle-row override and the
+   * "seeing stars" both derive from `stunnedUntilTick` in `goblinRenderer`, per the ruling's
+   * DERIVED-per-frame requirement.
+   */
+  if (isStunned(creature, world.tick)) return world;
 
   // 3. Advance the in-state counter THEN check FSM transitions.
   creature.ticksInState++;
