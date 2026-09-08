@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6110,
+  "tool_calls_session_total": 6129,
   "session_id": "S167",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -7325,5 +7325,19 @@
     "answer": "Arithmetic, not simulation. underGoblinCaps excludes chewer/lightningDrone/raceUnit but COUNTS tier-3 units, so they do share the 200 ceiling. However GOBLIN_MAX_PER_SPAWNER=10 caps EACH tower, so reaching 200 needs ~20 live towers (60 shapes of one type). Real but distant; the \"150 hounds\" scenario needs 15 towers.",
     "verdict": "NOT changed - it is a balance question and S166 asked for a measurement, not a fix. Reported to the owner.",
     "note": "Bosses are NOT in this cap at all: sourceSpawnerId:null routes them to the one-live-per-(owner,type) gate instead."
+  },
+  "blocker_s167_owner_action": {
+    "what": "Google AI Studio account is OUT OF PREPAY CREDITS — all generation is blocked.",
+    "error": "429 RESOURCE_EXHAUSTED: \"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.\"",
+    "scope": "ACCOUNT-WIDE, verified. gemini-2.5-flash (a different, much cheaper model) returns the identical billing 429. ⭐ This is the OPPOSITE of the S165 diagnosis, where image generation kept working and proved a per-MODEL quota. The distinguishing check is the same both times: try something cheap on a DIFFERENT model and see what still works.",
+    "cause": "S167 generated 30 veo clips (24 boss states + 6 crumble cinematics). All succeeded and shipped. Credits ran out afterwards, on the first cheap IMAGE call.",
+    "blocked": "The 6 boss-skill VFX for the three RULED skill sets (R138 zombie aura + explosion, R139 kraken tentacles + sonar cone, R140 vlad conversion + life sap).",
+    "ready": "assets-source/race-tier9-skills/{design-spec.json,clip-spec.json} are COMPLETE and seeded. Top up the account and run the two commands in the design spec _BLOCKED note; nothing needs re-authoring.",
+    "owner_action": "https://ai.studio/projects — top up prepay credits."
+  },
+  "not_started_s167": {
+    "wave5_tech_draft": "R101-R112, SPARK_RACES_SPEC.md §9. DELIBERATELY NOT STARTED. It is a full system — per-player perk state (serialized AND hashed, so the four-sites tax), a draft-choice UI, a wave trigger, and stat application across the army. Starting it unplanned at the end of a long session, on the same build the owner wants to playtest in the morning, risked the thing he actually asked for. It is the clean next priority and R112 makes waves 10/15/20 a NAMED owner trigger (\"ask once wave 5 ships\").",
+    "r121_submerged_naga": "Ruled, unbuilt. §7.3 lists every acquisition path that must learn \"untargetable\", including a defender already committed mid-windup. An engineering surface, not a stat.",
+    "boss_skills_code": "Costed in RACE_ZONES_AND_BOSS_TOWERS.md §S167 with the death-hook blocker found and three options priced. Waits on the owner stats + the other three skill sets."
   }
 }

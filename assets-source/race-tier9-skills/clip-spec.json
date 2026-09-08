@@ -1,0 +1,106 @@
+{
+  "_comment": [
+    "SPARK — S167: VFX clips for the OWNER-RULED BOSS SKILLS (R138/R139/R140).",
+    "",
+    "⭐ THE OWNER ASKED FOR THESE BY NAME, mid-session: *\"also their skills need a generated video or",
+    "art (explosion for zombie boss and stinky deadly aura around him)\"* and *\"we would need to",
+    "generate cool graphics for those abilities\"*. Only the THREE skill sets he has actually ruled are",
+    "here — Pharaoh, Warlord and Archdemon are still his (*\"the rest iil think about\"*), so nothing is",
+    "generated for them.",
+    "",
+    "⛔ THESE ARE EFFECTS, NOT CHARACTERS, AND THAT CHANGES EVERY PROMPT. There is no seed image: an",
+    "effect has no identity to hold across states, which is the whole reason the character clips are",
+    "image-to-video. What they need instead is ISOLATION — `build-sprite-atlas.mjs` mattes by finding",
+    "near-white connected to the frame border, so any ground, scenery or character in frame would be",
+    "welded into the cut-out and drawn over the board forever. Every prompt therefore says: the effect",
+    "ALONE, on pure white, no background of any kind.",
+    "",
+    "⚠ AND THE SKILLS ARE NOT WIRED YET, DELIBERATELY. `RACE_ZONES_AND_BOSS_TOWERS.md` §S167 costs the",
+    "mechanics and finds a real blocker — there is no single place that knows a creature died, so a",
+    "death-explosion hook would fire for creature kills and miss tower kills. The ART is generated now",
+    "because the owner asked for it and it is the long-lead item; the CODE waits on that design.",
+    "",
+    "⚠ ONE CLIP PER SKILL, played once. None of these loops — an aura that pops back to frame 0 reads",
+    "as a stutter, so the renderer will hold or ping-pong it rather than the art being authored to tile."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "skill-zombie-aura",
+      "_why": "R138 — the zombie boss's damaging aura",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-zombie-aura",
+      "states": {
+        "cast": {
+          "prompt": "A churning ring of sickly greenish-yellow miasma, low and wide like a disc of gas hugging the ground, boiling outward from a centre point and rolling slowly. Thick, wet, putrid vapour with darker flecks turning inside it, edges curling and dissolving. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-zombie-aura.png"
+    },
+    {
+      "name": "skill-zombie-explosion",
+      "_why": "R138 — the zombie boss's death explosion",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-zombie-explosion",
+      "states": {
+        "cast": {
+          "prompt": "A huge burst of putrid green-and-brown gore and gas erupting outward from a single point in all directions, ragged and violent, with chunks and thick strands flung out and a swelling shockwave ring of vapour behind them. It expands fast, then the strands fall and the cloud thins. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-zombie-explosion.png"
+    },
+    {
+      "name": "skill-kraken-tentacles",
+      "_why": "R139 — the kraken's ground tentacles",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-kraken-tentacles",
+      "states": {
+        "cast": {
+          "prompt": "Three enormous teal-and-violet tentacles bursting UP out of nothing, rising fast, coiling and lashing in different directions, suckers visible along their undersides, then whipping down and withdrawing. Wet, muscular, barnacled skin. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-kraken-tentacles.png"
+    },
+    {
+      "name": "skill-kraken-sonar",
+      "_why": "R139 — the kraken's stunning sonar cone",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-kraken-sonar",
+      "states": {
+        "cast": {
+          "prompt": "A widening CONE of concentric cyan shockwave rings travelling outward from a narrow point, like a visible blast of sound — each ring sharper at the leading edge and fading behind, the air inside the cone shimmering and distorted. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-kraken-sonar.png"
+    },
+    {
+      "name": "skill-vlad-conversion",
+      "_why": "R140 — Vlad's on-kill conversion",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-vlad-conversion",
+      "states": {
+        "cast": {
+          "prompt": "A swirling column of crimson mist and drifting embers rising and twisting around an empty centre, with a burst of small dark bats spiralling outward through it, then the mist drawing back inward and settling. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-vlad-conversion.png"
+    },
+    {
+      "name": "skill-vlad-lifesap",
+      "_why": "R140 — Vlad's life sap",
+      "outDir": "assets-source/race-tier9-skills/clips/skill-vlad-lifesap",
+      "states": {
+        "cast": {
+          "prompt": "Thin ribbons of glowing crimson energy streaming inward from the edges of the frame toward a single point at the centre, coiling as they converge, brightening into a pulse as they arrive, then fading. The effect is shown ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame, with NO character, NO ground, NO scenery and NO background of any kind — only the effect itself, centred, so it can be cut out and drawn over a game board. The camera does not move. The effect plays once, cleanly, from nothing to full and back toward nothing."
+        }
+      },
+      "seed": "assets-source/race-tier9-skills/skill-vlad-lifesap.png"
+    }
+  ],
+  "_BLOCKED": [
+    "⛔ BLOCKED WITH design-spec.json — the AI Studio account is out of prepay credits (owner action).",
+    "See that file's _BLOCKED note for the diagnosis and the exact re-run commands.",
+    "",
+    "⚠ AND THIS FILE CANNOT RUN FIRST. `gen-character-clips.mjs` resolves `ch.seed` unconditionally and",
+    "throws ERR_INVALID_ARG_TYPE without one — it is IMAGE-to-video ONLY, by design, because the seed is",
+    "what keeps a subject consistent across states. Every character in this project goes design PNG ->",
+    "clip -> atlas, and an effect is no exception. The `seed` fields below are filled in pointing at the",
+    "PNGs design-spec.json will produce."
+  ]
+}

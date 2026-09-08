@@ -1,0 +1,94 @@
+{
+  "_comment": [
+    "SPARK — S167: design seeds for the OWNER-RULED BOSS SKILL VFX (R138/R139/R140).",
+    "",
+    "⭐ THE OWNER ASKED FOR THESE BY NAME, mid-session: *\"also their skills need a generated video or",
+    "art (explosion for zombie boss and stinky deadly aura around him)\"* and *\"we would need to",
+    "generate cool graphics for those abilities\"*. Only the THREE skill sets he has RULED are here —",
+    "Pharaoh, Warlord and Archdemon remain his (*\"the rest iil think about\"*), so nothing is generated",
+    "for them.",
+    "",
+    "⭐ THE ISOLATION CLAUSE, AND IT IS THE WHOLE REASON THESE PROMPTS ARE WRITTEN THIS WAY.",
+    "`build-sprite-atlas.mjs` mattes by finding near-white CONNECTED TO THE FRAME BORDER, so anything",
+    "that is not the effect — a floor, a horizon, a creature, a shadow — is welded into the cut-out and",
+    "then drawn over the game board forever. Every prompt below therefore demands the effect ALONE on",
+    "pure white, with no ground and no character.",
+    "",
+    "⛔ AND NO SEED IMAGE, WHICH IS WHY THIS FILE EXISTS AT ALL. `gen-character-clips.mjs` is",
+    "IMAGE-to-video only — it resolves `ch.seed` unconditionally and throws without one. That is",
+    "correct for characters (the seed is what keeps idle/walk/attack the same goblin) and it means an",
+    "effect needs a design PNG first, exactly like every character in this project. Design -> clip ->",
+    "atlas, the same three stages.",
+    "",
+    "⚠ THE SKILLS ARE NOT WIRED YET, DELIBERATELY. `RACE_ZONES_AND_BOSS_TOWERS.md` §S167 costs the",
+    "mechanics and finds a real blocker: there is no single place that knows a creature died, so a",
+    "death-explosion hook would fire for creature kills and miss tower kills. The ART is generated now",
+    "because he asked for it and it is the long-lead item; the CODE waits on that design and on his",
+    "skill stats."
+  ],
+  "outDir": "assets-source/race-tier9-skills",
+  "sharedStyle": [
+    "Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame."
+  ],
+  "characters": [
+    {
+      "name": "skill-zombie-aura",
+      "_why": "R138 — the zombie boss's damaging aura",
+      "prompt": "A churning ring of sickly greenish-yellow miasma: a low wide disc of putrid gas boiling outward from a centre point, thick and wet, with darker flecks suspended in it and the edges curling and dissolving into wisps. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    },
+    {
+      "name": "skill-zombie-explosion",
+      "_why": "R138 — the zombie boss's death explosion",
+      "prompt": "A huge burst of putrid green-and-brown gore and gas erupting outward in all directions from a single point — ragged strands and chunks flung outward, a swelling shockwave ring of vapour behind them. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    },
+    {
+      "name": "skill-kraken-tentacles",
+      "_why": "R139 — the kraken's ground tentacles",
+      "prompt": "Three enormous teal-and-violet tentacles bursting upward and coiling in different directions, pale suckers along their undersides, wet muscular barnacled skin, tips lashing. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    },
+    {
+      "name": "skill-kraken-sonar",
+      "_why": "R139 — the kraken's stunning sonar cone",
+      "prompt": "A widening CONE of concentric cyan shockwave rings travelling outward from a narrow point, like a visible blast of sound — each ring sharp at its leading edge and fading behind it, the air inside the cone shimmering and distorted. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    },
+    {
+      "name": "skill-vlad-conversion",
+      "_why": "R140 — Vlad's on-kill conversion",
+      "prompt": "A swirling column of crimson mist and drifting embers twisting around an empty centre, with small dark bats spiralling outward through it. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    },
+    {
+      "name": "skill-vlad-lifesap",
+      "_why": "R140 — Vlad's life sap",
+      "prompt": "Thin ribbons of glowing crimson energy streaming inward from every edge toward a single bright point at the centre, coiling as they converge and brightening into a pulse where they meet. Rendered as a game VFX sprite: bold, readable shapes, strong internal contrast, saturated colour, clean crisp edges. Slightly stylised rather than photoreal, matching a 2D top-down-ish battle game. The effect is CENTRED and fills most of the frame. The effect is shown COMPLETELY ALONE on a seamless blank sheet of pure WHITE paper filling the entire frame. NO character, NO ground, NO floor, NO horizon, NO scenery, NO shadow and NO background of any kind — only the effect itself."
+    }
+  ],
+  "_BLOCKED": [
+    "⛔⛔ NOT GENERATED — THE GOOGLE AI STUDIO ACCOUNT IS OUT OF PREPAY CREDITS. **OWNER ACTION.**",
+    "",
+    "Running `node scripts/gen-character-design.mjs assets-source/race-tier9-skills/design-spec.json`",
+    "returns, on the very first image:",
+    "",
+    "  429 RESOURCE_EXHAUSTED: Your prepayment credits are depleted. Please go to AI Studio at",
+    "  https://ai.studio/projects to manage your project and billing.",
+    "",
+    "⭐ VERIFIED ACCOUNT-WIDE, NOT A PER-MODEL QUOTA — AND THE DISTINCTION MATTERS BECAUSE S165 HAD THE",
+    "OPPOSITE ANSWER. That session saw generation fail while IMAGE generation on the same key kept",
+    "working all day, which proved a per-MODEL quota rather than billing. The check is the same either",
+    "way: try something cheap on a DIFFERENT model and see what still works. Here `gemini-2.5-flash` —",
+    "a completely different and much cheaper model — returns the IDENTICAL billing 429. Nothing on the",
+    "key works, so this is the account, not a model.",
+    "",
+    "⚠ WHAT DRAINED IT: S167 generated 30 veo clips this session — 24 boss states (six bosses x",
+    "idle/walk/attack/die) plus 6 tower crumble cinematics. All of them SUCCEEDED, were built into",
+    "atlases, and are shipped and live. The credits ran out afterwards, on the first cheap IMAGE call.",
+    "",
+    "⭐ THIS FILE IS COMPLETE AND READY. Top the account up and run the commands below; nothing here",
+    "needs re-authoring:",
+    "",
+    "  node scripts/gen-character-design.mjs assets-source/race-tier9-skills/design-spec.json",
+    "  node scripts/gen-character-clips.mjs  assets-source/race-tier9-skills/clip-spec.json",
+    "",
+    "then an atlas-specs.json shaped like race-tier9-towers/destroy-atlas-specs.json, and",
+    "  node scripts/build-atlas-set.mjs assets-source/race-tier9-skills/atlas-specs.json"
+  ]
+}
