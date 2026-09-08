@@ -320,7 +320,22 @@ export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boole
     // free castle units would still fill `GOBLIN_MAX_GLOBAL = 200` and starve every goblin tower —
     // the S157 B1 bug exactly, one population further on, and just as silent.
     if (c.type === 'chewer' || c.type === 'lightningDrone' || c.type === 'raceUnit') continue;
-    global++;
+    /*
+     * ⛔⛔ S168 POST-AUDIT — **THE TIER-3 UNITS MUST NOT EAT THE GOBLIN GLOBAL.** This is the S157 B1
+     * / S165 W1-C lesson a third time, and S168 is what made it bite: until this session a `t3*`
+     * unit only existed if the player FED the tower a shape, so the population was small and
+     * self-limiting. The tower now emits one free unit every 30 s, per tower, forever — so six
+     * towers quietly fill `GOBLIN_MAX_GLOBAL = 200` and every goblin tower on the board stops
+     * paying out, silently, with no message and nothing in the suite to notice.
+     *
+     * ⚠ THE PER-SPAWNER TERM IS DELIBERATELY LEFT COUNTING. R124 rules that a tier-3 tower holds
+     * ~10 of its race's unit, and `GOBLIN_MAX_PER_SPAWNER = 10` is exactly that ceiling — it is a
+     * per-TOWER bound, which is correct and wanted. What was wrong was the SHARED global: one
+     * population's ceiling silently gating another's, which is the thing all three of these
+     * exclusions exist to prevent.
+     */
+    const isTierThreeUnit = c.type.startsWith('t3');
+    if (!isTierThreeUnit) global++;
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
   }
   if (global >= GOBLIN_MAX_GLOBAL) return false;

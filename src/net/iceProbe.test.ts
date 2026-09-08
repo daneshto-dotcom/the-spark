@@ -215,18 +215,40 @@ describe('probeIce — counting, without a WebRTC stack', () => {
 
   it('⭐ captures an allocate error verbatim, and DROPS 701 (which fires on healthy machines)', async () => {
     const { factory } = fakeFactory((pc) => {
-      pc.onicecandidateerror?.({ errorCode: 400, errorText: 'TURN allocate error' });
-      pc.onicecandidateerror?.({ errorCode: 701, errorText: 'Failed to establish connection' });
+      pc.onicecandidateerror?.({ errorCode: 400, errorText: 'TURN allocate error', url: 'turn:r.example:80' });
+      pc.onicecandidateerror?.({ errorCode: 701, errorText: 'Failed to establish connection', url: 'turn:r.example:80' });
       pc.onicecandidate?.({ candidate: null });
     });
     const r = await probeIce([], true, factory);
     expect(r.errors).toEqual(['400 TURN allocate error']);
   });
 
+  /*
+   * ⛔⛔ S168 POST-AUDIT — **EVIDENCE ABOUT THE RELAY MAY ONLY COME FROM THE RELAY.**
+   *
+   * The scheme gate was on the 701 line and NOT on the `errors` line, so any non-701
+   * `icecandidateerror` counted — including one from a STUN server, and `ICE_SERVERS` always ships
+   * four of those. A stray STUN error therefore populated `errors`, and `summarizeIce`'s first
+   * branch told the owner *"the credentials are wrong or expired"* on the strength of it. That is
+   * precisely the loop this priority was written to end: him rotating working credentials because
+   * the panel said so.
+   */
+  it('⛔ a STUN error is NOT evidence about the TURN credentials', async () => {
+    const { factory } = fakeFactory((pc) => {
+      pc.onicecandidateerror?.({ errorCode: 401, errorText: 'Unauthorized', url: 'stun:stun.l.google.com:19302' });
+      pc.onicecandidate?.({ candidate: null });
+    });
+    const r = await probeIce([], true, factory);
+    expect(r.errors, 'a STUN failure says nothing about the relay').toEqual([]);
+    expect(summarizeIce(r).headline, 'so it must not accuse the credentials').not.toBe(
+      ICE_VERDICT.TURN_REJECTED,
+    );
+  });
+
   it('dedupes repeated errors — one bad server per url, not one line per retry', async () => {
     const { factory } = fakeFactory((pc) => {
-      pc.onicecandidateerror?.({ errorCode: 401, errorText: 'Unauthorized' });
-      pc.onicecandidateerror?.({ errorCode: 401, errorText: 'Unauthorized' });
+      pc.onicecandidateerror?.({ errorCode: 401, errorText: 'Unauthorized', url: 'turn:r.example:80' });
+      pc.onicecandidateerror?.({ errorCode: 401, errorText: 'Unauthorized', url: 'turn:r.example:80' });
       pc.onicecandidate?.({ candidate: null });
     });
     expect((await probeIce([], true, factory)).errors).toHaveLength(1);

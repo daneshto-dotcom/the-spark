@@ -739,7 +739,16 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // cleaned spawner resumes on its normal cadence instead of dumping a backlog burst of the
       // now-overdue slots (Council C5). fouledPrimitives already round-trips → no wire bump.
       if (world.fouledPrimitives.has(sp.anchorPrimitiveId)) {
-        while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+        /*
+         * ⛔ S168 POST-AUDIT — **THIS WAS THE CHEWER'S CLOCK, HARD-CODED, AND IT IS THE S158 B2
+         * DEFECT VERBATIM.** The BUILD-phase re-alignment nine lines above already reads
+         * `spawnerIntervalTicks(sp.recipeId)`; this one did not, so a fouled RACE TOWER (30 s)
+         * resumed on a 15 s grid and a fouled LIGHTNING HUB (5 s) was pushed up to 15 s past its
+         * next slot. `spawnerIntervalTicks`'s own docblock names this exact failure — three readers
+         * of one number, two of which skipped the alias — and it had a fourth reader all along.
+         */
+        const fouledStep = spawnerIntervalTicks(sp.recipeId);
+        while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += fouledStep;
         continue;
       }
       // S113 Batch C — branch the emit on the recipe. A pentagram (the default) spawns chewers
@@ -1699,12 +1708,30 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * The DEATH skills cannot live here — they run at the very end, off the boss roster, because
    * a death is an ABSENCE and everything that can cause one has to have run first.
    */
-  runZombieRotAura(world);
-  runVladLifeSap(world, state.sapLedger);
-  runWarlordRage(world);
-  runWarlordDirewolves(world);
-  runArchdemonHell(world);
-  runArchdemonTeleport(world);
+  /*
+   * ⛔⛔ S168 POST-AUDIT — **THE FIGHT GATE, AND ALL SIX SHIPPED WITHOUT IT.**
+   *
+   * Every other actor in this sim is FIGHT-gated: the creature fan-out, the spawner emit poll, the
+   * defender poll, scoring. The ONE deliberate exception, `raceUnitEmitTick`, documents itself as
+   * one. The boss skills had only their own `gameState === 'PLAYING'` guard, which answers a
+   * different question, and the consequences across a 90 s BUILD phase were all real:
+   *   · the Warlord filled `DIREWOLF_MAX_PER_BOSS` before the fight even began;
+   *   · the Archdemon teleported into the enemy base every 7 s, directly undoing `recallArmies`,
+   *     whose entire purpose is that nobody is left standing in enemy ground;
+   *   · the rot aura damaged units during the phase whose premise is that nothing can be attacked;
+   *   · the execute took wounded units frozen at home that could not fight back or retreat.
+   *
+   * ONE gate here rather than six inside the functions, so a seventh skill inherits it by default
+   * instead of having to remember.
+   */
+  if (world.matchPhase === 'FIGHT') {
+    runZombieRotAura(world);
+    runVladLifeSap(world, state.sapLedger);
+    runWarlordRage(world);
+    runWarlordDirewolves(world);
+    runArchdemonHell(world);
+    runArchdemonTeleport(world);
+  }
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
@@ -1895,29 +1922,62 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
      * `World` field, which owes the four-sites tax and a protocol bump for a one-frame edge case.
      */
     const previous = state.bossRoster;
-    const deaths: { type: CreatureType; x: number; y: number }[] = [];
-    for (const [id, boss] of previous) {
-      if (world.creatures.has(id)) continue;
-      deaths.push(boss);
-    }
-    for (const boss of deaths) {
-      if (boss.type !== T9_BOSS_TYPE.zombies) continue;
-      dispatch(world, {
-        type: 'STRUCTURE_SELFDESTRUCT',
-        pos: { x: boss.x, y: boss.y },
-        radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
-        // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
-      });
-    }
 
-    // Rebuild for the next tick. Insertion order follows `world.creatures`, but nothing reads the
-    // ORDER — the loop above is a membership test per id — so `Map` iteration decides nothing.
-    previous.clear();
-    if (world.gameState === 'PLAYING') {
+    /*
+     * ⛔⛔ S168 POST-AUDIT — **"ABSENT" ONLY MEANS "DIED" WHILE THE MATCH IS RUNNING.**
+     *
+     * Three production paths call `world.creatures.clear()` with nobody dying — `applyGodlyAbort`,
+     * `applyReturnToTitle` and `restore` — and `runHostTick` is called on non-PLAYING ticks too.
+     * `GODLY_ABORT` fires on the terminal connection-lost edge, which a HOST reaches at
+     * `peerCount() === 0`. So a host whose uplink dropped saw every boss go absent at once and
+     * detonated a 380 px owner-agnostic blast into its own still-intact base.
+     *
+     * `damage.ts` already states the governing rule for defenders — *"A reset is not a death"* — and
+     * enforces it by having `.clear()` bypass `destroyDefender`. The roster had no equivalent. This
+     * is it: on any non-PLAYING tick the roster is dropped unread.
+     */
+    if (world.gameState !== 'PLAYING') {
+      previous.clear();
+    } else {
+      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number }[] = [];
+      for (const [id, boss] of previous) {
+        if (world.creatures.has(id)) continue;
+        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y });
+      }
+      /*
+       * ⚠ S168 POST-AUDIT — TOTAL ORDER. The scan above is a membership test and does not care about
+       * order, but the dispatch loop below SIDE-EFFECTS, and this block already promises five more
+       * death skills. Sorted so `Map` insertion order can never decide which blast lands first.
+       */
+      deaths.sort((a, b) => (a.id as number) - (b.id as number));
+
+      /*
+       * ⛔⛔ S168 POST-AUDIT — **THE ROSTER IS REBUILT BEFORE THE BLASTS, NOT AFTER.**
+       *
+       * It used to be rebuilt afterwards, from the survivors — which silently swallowed a boss
+       * KILLED BY THE BLAST ITSELF. One-live-unit-per-(owner, type) permits a zombie boss per SEAT,
+       * and the blast is owner-agnostic across 380 px, so seat 1's dying zombie can kill seat 2's.
+       * That boss was alive when `deaths` was built and gone by the time the roster was rebuilt, so
+       * it fell out of the mechanism permanently and its own explosion never fired.
+       *
+       * Snapshotting FIRST makes the roster a record of "who was alive going into the blasts", which
+       * is precisely what the next tick needs in order to notice them dying.
+       */
+      previous.clear();
       for (const c of world.creatures.values()) {
         if (isT9BossType(c.type)) {
           previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
         }
+      }
+
+      for (const boss of deaths) {
+        if (boss.type !== T9_BOSS_TYPE.zombies) continue;
+        dispatch(world, {
+          type: 'STRUCTURE_SELFDESTRUCT',
+          pos: { x: boss.x, y: boss.y },
+          radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
+          // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
+        });
       }
     }
   }

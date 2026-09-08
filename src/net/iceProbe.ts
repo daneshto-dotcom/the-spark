@@ -130,10 +130,17 @@ export function summarizeIce(r: IceProbeResult): IceVerdict {
    * unreachable or UDP-blocked relay produces. So the one situation that leaves `errors` empty was
    * reported as a certainty about the password.
    *
-   * ⛔ AND IT MADE `NO_STUN` DEAD CODE. This branch sat ABOVE the `srflx === 0` check, and TURN is
-   * always configured now, so a machine with UDP blocked outright — a firewall, not an account —
-   * was told its TURN password was bad. Both orderings are fixed below: an accusation needs
-   * EVIDENCE, and the firewall case is asked about before the credential case.
+   * ⛔ AND IT MADE `NO_STUN` DEAD CODE. The old branch fired on `relay === 0 && turnConfigured`
+   * alone, and TURN is always configured now, so a machine with UDP blocked outright — a firewall,
+   * not an account — was told its TURN password was bad. `NO_STUN` is reachable again below.
+   *
+   * ⚠ S168 POST-AUDIT — **THE ORDER BELOW IS CREDENTIALS-FIRST, AND AN EARLIER DRAFT OF THIS NOTE
+   * CLAIMED THE OPPOSITE.** It said *"the firewall case is asked about before the credential case"*,
+   * which the code has never done. Corrected here rather than by reordering the code, because
+   * credentials-first is RIGHT once `errors` is scheme-gated: a genuine 401 from the relay itself is
+   * hard, specific evidence and should outrank the softer inference from a missing srflx. What made
+   * the old order dangerous was that `errors` could be populated by a STUN server — fixed at the
+   * gather site — not the order itself.
    */
   if (r.turnConfigured) {
     if (r.errors.length > 0) {
@@ -280,8 +287,20 @@ export async function probeIce(
         // asserted the credentials were rejected on no evidence at all. Recorded separately rather
         // than added to `errors`, so it can never be mistaken for an auth failure.
         const url = typeof e.url === 'string' ? e.url : '';
-        if (code === 701 && /^turns?:/i.test(url)) relayUnreachable = true;
-        if (code !== 0 && code !== 701) errors.add(`${code} ${e.errorText ?? ''}`.trim());
+        const isTurn = /^turns?:/i.test(url);
+        if (code === 701 && isTurn) relayUnreachable = true;
+        /*
+         * ⛔⛔ S168 POST-AUDIT — **`isTurn` GATES THIS LINE TOO, AND ITS ABSENCE DEFEATED THE WHOLE
+         * FIX.** The 701 line above was scheme-gated and this one was not, so ANY non-701
+         * `icecandidateerror` counted as evidence — including one from a STUN server. `ICE_SERVERS`
+         * always ships four Google/Cloudflare/Twilio STUN entries, so a stray STUN error populated
+         * `errors`, and `summarizeIce`'s first branch then returned *"the credentials are wrong or
+         * expired"* on the strength of it. That is exactly the loop this priority was written to end
+         * — the owner rotating working credentials because the panel told him to.
+         *
+         * An accusation about the RELAY may only be built from what the RELAY said.
+         */
+        if (code !== 0 && code !== 701 && isTurn) errors.add(`${code} ${e.errorText ?? ''}`.trim());
       };
 
       pc.createDataChannel('spark-ice-probe');

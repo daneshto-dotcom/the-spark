@@ -1387,6 +1387,26 @@ export class Controls {
     let bestId: BondId | null = null;
     let bestDist = BOND_PICK_DIST;
     for (const bond of this.world.bonds.values()) {
+      /*
+       * ⛔⛔ S168 POST-AUDIT — **ENEMY-ONLY, AND ITS ABSENCE WAS A REGRESSION THIS SESSION CAUSED.**
+       *
+       * `pickCreature` and `pickRaidableDefender` have always filtered enemy-only; `pickBond` never
+       * did, and it did not matter while the RMB handler was a strict creature-first PRECEDENCE — an
+       * own bond could only win when nothing else was in range at all.
+       *
+       * Scoring by ratio changed that. One of YOUR bonds 2 px under the cursor (0.25) now beats an
+       * enemy chewer 20 px away (0.59), and the reducer then refuses it in silence — `world.ts`
+       * returns early on `aOwner === action.playerId`, so no point is spent, no cloud is drawn and
+       * nothing is said. Right-clicking an enemy unit standing on your own structure — i.e. most of
+       * a FIGHT — would do visibly nothing, which is the SAME complaint the picker fix was written
+       * to end, inverted.
+       *
+       * Ownership is read off the joined primitives exactly as the reducer reads it, so the picker
+       * and the gate can never disagree about whose bond it is.
+       */
+      const aOwner = this.world.primitives.get(bond.aId)?.placedBy;
+      const bOwner = this.world.primitives.get(bond.bId)?.placedBy;
+      if (aOwner === this.playerId || bOwner === this.playerId) continue;
       const d = distToSegment(
         this.cursor.x, this.cursor.y,
         bond.a.pos.x, bond.a.pos.y,

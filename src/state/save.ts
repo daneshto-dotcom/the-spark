@@ -709,6 +709,26 @@ interface SerializedCreature {
    * stays byte-identical. Kept ON the wire per the S133/S134 default posture recorded above.
    */
   readonly poopyUntilTick?: number;
+  /**
+   * ⛔⛔ S168 — ADDED, AND IT IS THE `poopyUntilTick` DEFECT ABOVE REPEATED 26 SESSIONS LATER.
+   *
+   * `Creature.enraged` (owner R149/R151) is READ by the sim — `creatureVerlet` scales accel by it
+   * and `creatureLifecycle` divides the attack cadence by it — and it is HASHED into
+   * `hashWorldStateFull`. It was NOT serialized, on my reasoning that "both sims compute it".
+   *
+   * **THAT REASONING WAS WRONG, AND THE COUNTER-EXAMPLE IS IN THIS FILE.** `makeWorkerSim` does not
+   * recompute anything: it builds its authoritative world with `restore(JSON.parse(saveJson))`. A
+   * field absent from the payload therefore arrives `undefined` in the mirror while the host has it
+   * set — so the WIDE HASH, which exists precisely to compare those two sims, diverges on the very
+   * field I had just added to it.
+   *
+   * ⚠ R151 MAKES THE LOSS PERMANENT RATHER THAN SELF-HEALING. Under R149's pure latch a restored
+   * Warlord below 25% simply re-enraged next tick. R151 only re-latches below 25% and only clears
+   * above 50%, so one restored inside the 25–50% band loses his ×2 for the rest of the match.
+   *
+   * Emitted only when true, so a world with no enraged Warlord stays byte-identical.
+   */
+  readonly enraged?: boolean;
 }
 
 /**
@@ -1920,6 +1940,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
+    ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
   };
 }
 
@@ -2281,6 +2302,9 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
     // every reader gates on `!== undefined && tick < poopyUntilTick`.
     poopyUntilTick: s.poopyUntilTick,
+    // ⛔ S168 — the RAGE latch survives the round-trip. Absent means calm, which is the correct
+    // default for every pre-S168 save and for every Warlord who never dropped below 25%.
+    enraged: s.enraged === true,
   };
 }
 

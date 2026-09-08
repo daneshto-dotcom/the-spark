@@ -235,13 +235,22 @@ describe('S150 P1 — the six-shape type key clears everything else in the botto
     }
   });
 
-  it('clears the bottom-LEFT castle porch and the controls help line', () => {
+  /*
+   * ⛔ S168 POST-AUDIT — **THE HELP-LINE HALF OF THIS TEST WAS ASSERTING AGAINST A PHANTOM.**
+   *
+   * The controls help line was removed this session on the owner's ruling, and its sibling
+   * assertion in `shapeStrip.test.ts` was deleted with it — this one was missed. It stayed GREEN
+   * while measuring nothing, and worse, it pinned 22 px of dead vertical budget at the bottom of
+   * the screen against a rectangle that no longer exists, which would have quietly blocked a future
+   * layout change for no reason.
+   *
+   * The castle-porch half is real and stays. A test that outlives the thing it tests does not fail
+   * — it just starts lying, which is why the removal of a surface has to take its assertions with it.
+   */
+  it('clears the bottom-LEFT castle porch', () => {
     const key = keyRect(CHIP_ROW());
     // The seat-3 porch sits at (130, 1024) on QUADRANTS_4P — see this file's header.
     expect(key.x).toBeGreaterThan(130 + 60);
-    // The help line runs x 10–591 at y 1058–1070 (measured live). The key is vertically clear of
-    // it, which is what lets the strip hold both without either moving.
-    expect(key.y + key.h).toBeLessThan(1058);
   });
 
   it('stays on canvas even with a single chip in the row', () => {
