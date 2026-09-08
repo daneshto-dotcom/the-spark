@@ -22,8 +22,7 @@ import {
   RAID_PROGRESS_PER_CONNECTION,
   RAID_PROGRESS_PER_POINT,
   RAID_PROGRESS_PER_TOWER,
-  SparkType,
-} from '../constants.ts';
+  SparkType, RAID_CONNECTOR_MAX_FIFTHS } from '../constants.ts';
 import { grantRaidProgress, makeIdlePlayer } from '../game/player.ts';
 import { makeFreeSpark, type Spark } from '../game/spark.ts';
 import { attackFifths, connectorCapacityFifths } from './stats.ts';
@@ -102,15 +101,25 @@ describe('S152 P1 — the raid arithmetic is the SHARED ladder, not a bespoke ru
 });
 
 describe('S152 P1 — RAID_TARGET on a CONNECTOR (owner R78)', () => {
-  it('a raid on a 2-connector structure SEVERS it (capacity 6 <= 10)', () => {
+  /*
+   * ⭐ S168 P1 — RETITLED AND REVERSED, DELIBERATELY. This asserted that ONE raid severs the
+   * flimsiest connector on the board, which was true and was the owner's complaint:
+   * *"not fair that they can destroy my tower with one raid action"*. A raid now banks at most
+   * `RAID_CONNECTOR_MAX_FIFTHS` (3) per hit, so capacity 6 costs TWO. The test keeps its teeth by
+   * asserting BOTH halves — it holds on the first, and it goes on the second.
+   */
+  it('⭐ the flimsiest connector on the board takes TWO raids, not one', () => {
     const world = twoSeatWorld();
     world.players.get(RAIDER)!.raidPoints = 2;
-    const ids = chain(world, 3); // 3 prims in a row = 2 connectors
+    const ids = chain(world, 3); // 3 prims in a row = 2 connectors, capacity 6
     const b = bondBetween(world, ids[0]!, ids[1]!);
     expect(world.bonds.has(b)).toBe(true);
     raid(world, b);
-    expect(world.bonds.has(b)).toBe(false); // 10 fifths >= capacity 6
+    expect(world.bonds.has(b), 'one raid must NOT cut it any more').toBe(true);
+    expect(world.bonds.get(b)!.damageFifths).toBe(RAID_CONNECTOR_MAX_FIFTHS);
     expect(world.players.get(RAIDER)!.raidPoints).toBe(1);
+    raid(world, b);
+    expect(world.bonds.has(b), 'the second raid finishes it: 6 >= 6').toBe(false);
   });
 
   it('⭐ a raid on a COMPLEX structure DAMAGES without severing — R76 complexity is real armour', () => {
@@ -122,20 +131,32 @@ describe('S152 P1 — RAID_TARGET on a CONNECTOR (owner R78)', () => {
     const ids = chain(world, 9);
     const b = bondBetween(world, ids[3]!, ids[4]!);
     raid(world, b);
-    expect(world.bonds.has(b)).toBe(true);              // survived
-    expect(world.bonds.get(b)!.damageFifths).toBe(10);  // but the damage POOLED (owner R74)
+    expect(world.bonds.has(b)).toBe(true);                                  // survived
+    // S168 P1 — the hit is CLAMPED to RAID_CONNECTOR_MAX_FIFTHS; it still POOLS (owner R74).
+    expect(world.bonds.get(b)!.damageFifths).toBe(RAID_CONNECTOR_MAX_FIFTHS);
   });
 
-  it('⭐ DAMAGE ACCUMULATES ACROSS RAIDS — the second one finishes the job', () => {
-    // The pool semantics owner R74 settled. 8 connectors, capacity 12: 10 then 20 >= 12.
+  it('⭐ DAMAGE ACCUMULATES ACROSS RAIDS — and R76 armour is now MONOTONE', () => {
+    /*
+     * The pool semantics owner R74 settled, re-measured for S168 P1. 8 connectors ⇒ capacity 12,
+     * and 3 fifths a hit ⇒ FOUR raids (3, 6, 9, 12).
+     *
+     * ⭐ THIS IS THE HALF THAT PROVES THE FIX DID NOT FLATTEN R76. A percentage-of-capacity clamp
+     * would have made every connector in the game cost the same number of raids no matter how
+     * complex the structure — quietly deleting the owner's *"the more complex the tower is the
+     * harder it is to beat up"* incentive while fixing his other complaint. An ABSOLUTE per-hit
+     * ceiling keeps the ladder: capacity 6 → 2 raids, 12 → 4, and a real lattice far more.
+     */
     const world = twoSeatWorld();
-    world.players.get(RAIDER)!.raidPoints = 3;
+    world.players.get(RAIDER)!.raidPoints = 9;
     const ids = chain(world, 9);
     const b = bondBetween(world, ids[3]!, ids[4]!);
     raid(world, b);
-    expect(world.bonds.has(b)).toBe(true);
     raid(world, b);
-    expect(world.bonds.has(b)).toBe(false);
+    raid(world, b);
+    expect(world.bonds.has(b), 'three raids is still not enough at capacity 12').toBe(true);
+    raid(world, b);
+    expect(world.bonds.has(b), 'the fourth finishes it').toBe(false);
   });
 
   it('cannot raid your OWN connector — no damage, no point spent', () => {

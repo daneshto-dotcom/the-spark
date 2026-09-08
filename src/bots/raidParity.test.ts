@@ -26,7 +26,7 @@ import { BOT_INTENT_PARITY_NOTE, botRaidAction } from './botController.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId } from '../types.ts';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, RAID_ATK, RAID_PEN, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, PRIMITIVE_MAX_HP, RAID_ATK, RAID_PEN, SparkType, RAID_CONNECTOR_MAX_FIFTHS } from '../constants.ts';
 import { attackFifths } from '../state/stats.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Bond } from '../physics/bonds.ts';
@@ -130,9 +130,20 @@ describe('a bot raid and a human raid do the same thing to the same connector', 
     dispatch(wH, { type: 'RAID_TARGET', target: { kind: 'bond', id: bH }, playerId: HUMAN });
     dispatch(wB, botRaidAction(BOT, bB));
 
-    const expected = attackFifths(RAID_ATK, RAID_PEN);
+    /*
+     * ⭐ S168 P1 — the expected number is now the CLAMPED one, and the parity claim is unchanged
+     * and if anything sharper. The owner's report was that a bot *"can still destroy my connectors
+     * with one raid"* while his own attack was *"just a cloud and some atk damage"*. The damage was
+     * never the asymmetry — this test already proved that, and it still does. The asymmetry was the
+     * PICKER (see `bestPickIndex` in `input/controls.ts`), which this file cannot see because it
+     * dispatches the action directly. Both sides remain byte-identical at the reducer.
+     */
+    const expected = Math.min(attackFifths(RAID_ATK, RAID_PEN), RAID_CONNECTOR_MAX_FIFTHS);
     expect(wH.bonds.get(bH)?.damageFifths, 'the human put damage on it').toBe(expected);
     expect(wB.bonds.get(bB)?.damageFifths, 'and the bot put the SAME damage on it').toBe(expected);
+    expect(expected, 'and the clamp is really biting, else this test is vacuous').toBeLessThan(
+      attackFifths(RAID_ATK, RAID_PEN),
+    );
   });
 
   it('both SPEND a raid point, and neither spends a disruption charge', () => {

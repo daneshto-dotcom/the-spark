@@ -22,7 +22,7 @@
  *         (applySeverBond) — dispatch() is now uniformly 1-line delegations.
  */
 
-import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_PEN, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_CONNECTOR_MAX_FIFTHS, RAID_PEN, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { attackFifths } from './stats.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isEliminated, isEliminationDeniedIntent } from './elimination.ts';
@@ -737,7 +737,15 @@ export function dispatch(world: World, action: GameAction): World {
        * fifths severs only while the component has ≤6 connectors. A big lattice absorbs raids —
        * which is the incentive owner R76 asked for, not a bug to tune away.
        */
-      const shouldSever = damageConnector(world, action.target.id, damage);
+      /*
+       * ⭐ S168 P1 — THE PER-HIT CEILING. See `RAID_CONNECTOR_MAX_FIFTHS` for the measurement: the
+       * full 10 fifths met or exceeded seven of the nine shipped tower capacities, so one raid
+       * deleted a whole tower. Clamped HERE rather than inside `damageConnector` so that every
+       * other connector-eater — chewers, drones, blasts — keeps its own arithmetic exactly.
+       * Damage still ACCUMULATES on the bond, so the cut is a matter of when, not whether.
+       */
+      const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage);
       if (shouldSever) {
         dispatch(world, {
           type: 'SEVER_BOND',

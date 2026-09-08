@@ -2096,6 +2096,45 @@ export const RAID_PROGRESS_PER_TOWER = 5;
 export const RAID_PROGRESS_PER_CONNECTION = 2;
 export const RAID_PROGRESS_PER_POINT = 10;
 export const MAX_RAID_POINTS = 3;
+
+/*
+ * ⭐⭐ S168 P1 — **THE MOST A SINGLE RAID MAY TAKE OUT OF ONE CONNECTOR.**
+ *
+ * Owner: *"enemy bots can still destroy my connectors with one raid! same bug we had before - we
+ * need to fix it one and for all and make it consistent! not fair that they can destroy my tower
+ * with one raid action and when i attack its just a cloud and some atk damage as it should be"*.
+ *
+ * ⛔ THE ARITHMETIC, AND WHY R76 NEVER PROTECTED A TOWER. A raid is `attackFifths(RAID_ATK=2,
+ * RAID_PEN=0)` = **10 fifths**. A connector's capacity is `connectorCount + 4` fifths
+ * (`connectorCapacityFifths`). `world.ts`'s raid arm states the design in its own comment — *"a big
+ * lattice absorbs raids, which is the incentive owner R76 asked for"* — and that is true of a
+ * LATTICE. It is false of a TOWER, because a functioning tower is pinned to a SMALL EXACT shape by
+ * its own re-validation predicate (`isPentagramComponent` demands exactly 5 nodes of degree 2;
+ * `isStarAt` demands the hub's degree be exactly the recipe's). Measured across every shipped
+ * blueprint:
+ *
+ *   t3 race ring      3 connectors →  7 fifths      pentagram        5 →  9
+ *   stink tower       3            →  7             lightning hub    5 →  9
+ *   goblin tower      4            →  8             laser turret     6 → 10
+ *   princess Helga    6            → 10             voltkin chain    8 → 11
+ *                                                   t9 boss ring     9 → 13
+ *
+ * A 10-fifth raid met or exceeded SEVEN of those nine outright, and one severed connector fails the
+ * recipe predicate, which fires `REMOVE_SPAWNER` — so one right-click deleted the whole tower. The
+ * class of structure R76 exists to reward was the one class it could never defend.
+ *
+ * ⚠ **THIS NUMBER IS MINE, NOT THE OWNER'S.** He named the symptom and demanded consistency; he did
+ * not pick a value. 3 fifths is chosen so the FLIMSIEST tower (capacity 7) costs exactly
+ * `MAX_RAID_POINTS` raids — a legible rule the player can feel: *your whole raid bar buys one cut on
+ * the weakest tower.* The resulting ladder keeps R76 monotone rather than flattening it, which a
+ * percentage-of-capacity cap would have done (every connector would cost the same number of hits):
+ *
+ *   capacity  7 → 3 raids · 8 → 3 · 9 → 3 · 10 → 4 · 11 → 4 · 13 → 5 · 24 (20-connector lattice) → 8
+ *
+ * ⭐ It is applied at the RAID call site only, so chewers, drones and every other connector-eater
+ * keep their own arithmetic untouched.
+ */
+export const RAID_CONNECTOR_MAX_FIFTHS = 3;
 /**
  * ⭐ HOW LONG THE "RAIDED" CLOUD STANDS — 3 s at PHYSICS_HZ, as an INTEGER TICK COUNT.
  *

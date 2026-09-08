@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6174,
+  "tool_calls_session_total": 6193,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -42,10 +42,13 @@
     {
       "id": "P2",
       "title": "tier-3 tower does not spawn creatures",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "6188e94ba05afc5a6924f31bf5526443e81a43f9",
+      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4030/4030, 250 files, up from 4024/249). Root cause TRACED not reasoned: instrumented the hostTick arm and printed every firing — 1800/3600/5400/7200/9000/10800 with a live anchor each time yet ONE bat produced, which localised it to applySpawnCreature's null-spawner (Voltkin) branch and the omitted sourceSpawnerId. Two of my own new assertions failed honestly and were BOTH real: the 'once forever' defect above, and a test-harness double-advance of w.tick (runHostTick already increments at hostTick.ts:290) that made 3 windows read as 6 units. Negative control included so 'three not six' cannot become unfalsifiable. R108 struck through and R148 added to SPARK_RACES_SPEC.md."
     },
     {
       "id": "P3",
@@ -93,6 +96,14 @@
     {
       "id": "P8",
       "title": "art: skill VFX + R143 ability stances",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P9",
+      "title": "kraken sprite has a black box frame — matte cut-out",
       "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,

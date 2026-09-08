@@ -187,6 +187,37 @@ const BOND_PICK_DIST = 8;
 // click "on" a hopping chewer reliably pops it). Bigger than BOND_PICK_DIST (a creature is a
 // fat blob; a bond is a thin segment).
 const CREATURE_PICK_DIST = 34;
+
+/**
+ * ⭐ S168 P1 — one raid candidate and HOW DELIBERATE the click on it was.
+ *
+ * `ratio` is `distance / that family's own pick radius`, so the three families are comparable even
+ * though their radii differ by more than 4x (34 px for a creature, 8 for a bond). 0 is dead centre,
+ * 1 is the edge of the hit area.
+ */
+export interface PickHit<T> {
+  readonly id: T;
+  readonly ratio: number;
+}
+
+/**
+ * ⭐ S168 P1 — which raid candidate the player actually aimed at. PURE, and exported so
+ * `controls.raidPick.test.ts` can pin the behaviour without a DOM, a canvas or a world.
+ *
+ * Lowest `ratio` wins. Ties keep ARRAY ORDER, and callers pass `[creature, defender, bond]` — the
+ * historical R78 precedence — so an exact tie resolves exactly as it always did.
+ *
+ * @returns the winning index, or `null` when nothing was in range.
+ */
+export function bestPickIndex(hits: readonly (PickHit<unknown> | null)[]): number | null {
+  let best: number | null = null;
+  for (let i = 0; i < hits.length; i++) {
+    const hit = hits[i];
+    if (hit === undefined || hit === null) continue;
+    if (best === null || hit.ratio < hits[best]!.ratio) best = i;
+  }
+  return best;
+}
 // On LMB-up outside the spawner zone, auto-bond to any primitive within
 // this radius of the release point. Generous so dropping "near" a structure
 // snaps cleanly. Bigger than PICK_RADIUS because PICK_RADIUS is for grabbing
@@ -805,42 +836,58 @@ export class Controls {
       // and the sever becomes a CONSEQUENCE of damage reaching the connector's capacity (the
       // reducer re-dispatches SEVER_BOND itself). A player can no longer buy a guaranteed cut, and
       // against a component of 7+ connectors a raid cannot sever at all.
-      const creatureId = this.pickCreature();
-      if (creatureId !== null) {
-        this.dispatchFn({
-          type: 'RAID_TARGET',
-          target: { kind: 'creature', id: creatureId },
-          playerId: this.playerId,
-        });
-        return;
-      }
       /*
-       * ⭐ S158 A3 — HELGA, between the units and the connectors.
+       * ⭐⭐ S168 P1 — **THE CLICK IS RESOLVED BY HOW DELIBERATE IT WAS, NOT BY FAMILY RANK.**
        *
-       * She is a UNIT that happens to live in `world.defenders` (R77: *"those are all spawned
-       * units"*), so she sits with the creatures rather than with the structures — the same
-       * units-first ordering R78 asked for and R83 restated. Below `pickCreature` only because a
-       * creature standing on top of her should still be the thing you clicked.
+       * Owner: *"not fair that they can destroy my tower with one raid action and when i attack its
+       * just a cloud and some atk damage as it should be"*. Both halves of that sentence were true,
+       * and the second half is THIS code.
        *
-       * `pickRaidableDefender` refuses a TOWER: no pool, so a raid on one would spend a point for
-       * nothing. Refusing to aim at it is the honest behaviour, and it keeps R75 intact.
+       * ⛔ THE ASYMMETRY. This used to be an unconditional precedence — creature, then defender,
+       * then bond — and the radii are wildly unequal: `CREATURE_PICK_DIST` is 34 px,
+       * `BOND_PICK_DIST` is 8. So ANY enemy unit within 34 px swallowed the right-click. During
+       * FIGHT an enemy tower is surrounded by the units it just spawned, which is exactly when a
+       * player wants to raid it — so his raid reliably landed on a unit and read as *"just a cloud
+       * and some atk damage"*. The BOT has no picker at all: `botRaidAction` always emits
+       * `{kind:'bond'}`, and `nearestEnemySpawnerBond` deliberately hunts connectors INTERNAL to a
+       * spawner's component. The bot could always aim where the player never could.
+       *
+       * ⭐ THE FIX PRESERVES R78's "UNITS FIRST" WHERE IT WAS ACTUALLY MEANT. Each candidate is
+       * scored as `distance / its own pick radius`, and the smallest ratio wins. A chewer hopping ON
+       * the bond (3 px => 0.09) still beats the bond under it (5 px => 0.63) — the case S102 wrote
+       * the precedence for. But a connector under the cursor (2 px => 0.25) now beats a unit 20 px
+       * away (0.59), which is the case the precedence was silently stealing.
+       *
+       * ⚠ TIES KEEP ARRAY ORDER, and the array is in the old precedence order — so an exact tie
+       * still resolves creature -> defender -> bond, exactly as R78 asked.
        */
-      const defenderId = this.pickRaidableDefender();
-      if (defenderId !== null) {
-        this.dispatchFn({
-          type: 'RAID_TARGET',
-          target: { kind: 'defender', id: defenderId },
-          playerId: this.playerId,
-        });
-        return;
-      }
-      const bondId = this.pickBond();
-      if (bondId !== null) {
-        this.dispatchFn({
-          type: 'RAID_TARGET',
-          target: { kind: 'bond', id: bondId },
-          playerId: this.playerId,
-        });
+      const creatureHit = this.pickCreature();
+      const defenderHit = this.pickRaidableDefender();
+      const bondHit = this.pickBond();
+      switch (bestPickIndex([creatureHit, defenderHit, bondHit])) {
+        case 0:
+          this.dispatchFn({
+            type: 'RAID_TARGET',
+            target: { kind: 'creature', id: creatureHit!.id },
+            playerId: this.playerId,
+          });
+          return;
+        case 1:
+          this.dispatchFn({
+            type: 'RAID_TARGET',
+            target: { kind: 'defender', id: defenderHit!.id },
+            playerId: this.playerId,
+          });
+          return;
+        case 2:
+          this.dispatchFn({
+            type: 'RAID_TARGET',
+            target: { kind: 'bond', id: bondHit!.id },
+            playerId: this.playerId,
+          });
+          return;
+        default:
+          return;
       }
     }
   };
@@ -1336,7 +1383,7 @@ export class Controls {
     });
   }
 
-  private pickBond(): BondId | null {
+  private pickBond(): PickHit<BondId> | null {
     let bestId: BondId | null = null;
     let bestDist = BOND_PICK_DIST;
     for (const bond of this.world.bonds.values()) {
@@ -1350,7 +1397,7 @@ export class Controls {
         bestId = bond.id;
       }
     }
-    return bestId;
+    return bestId === null ? null : { id: bestId, ratio: bestDist / BOND_PICK_DIST };
   }
 
   /**
@@ -1360,7 +1407,7 @@ export class Controls {
    * session). The host re-checks ownership/charge authoritatively in the RAID_CREATURE reducer;
    * this is just the cursor hit-test (mirrors pickBond).
    */
-  private pickCreature(): CreatureId | null {
+  private pickCreature(): PickHit<CreatureId> | null {
     let bestId: CreatureId | null = null;
     let bestDist = CREATURE_PICK_DIST;
     for (const c of this.world.creatures.values()) {
@@ -1385,7 +1432,7 @@ export class Controls {
         bestId = c.id;
       }
     }
-    return bestId;
+    return bestId === null ? null : { id: bestId, ratio: bestDist / CREATURE_PICK_DIST };
   }
 
   /**
@@ -1395,7 +1442,7 @@ export class Controls {
    * a proxy for it: a TOWER carries `null` (R75 — its durability is its connectors'), so it is
    * unaimable here and unhurtable there, and the two can never drift apart.
    */
-  private pickRaidableDefender(): DefenderId | null {
+  private pickRaidableDefender(): PickHit<DefenderId> | null {
     let bestId: DefenderId | null = null;
     let bestDist = CREATURE_PICK_DIST;
     for (const d of this.world.defenders.values()) {
@@ -1407,7 +1454,7 @@ export class Controls {
         bestId = d.id;
       }
     }
-    return bestId;
+    return bestId === null ? null : { id: bestId, ratio: bestDist / CREATURE_PICK_DIST };
   }
 
   private isInsideSpawnerZone(p: Vec2): boolean {
