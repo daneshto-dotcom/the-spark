@@ -179,14 +179,23 @@ for path in sys.argv[1:]:
                 odk = (op & dk).sum(axis=0)
                 frac = np.where(opq > 0, odk / np.maximum(opq, 1), 0.0)
                 isbar = (frac >= 0.50) & ((opq / ch) >= 0.75)
+                # ⭐ S168 — AND A BAR IS WIDE. Without a minimum run width this flagged the Kraken's
+                # DIE row: three columns at the extreme left edge, ~800 px, where a dark tentacle
+                # hugs the frame. That is a sliver, not a letterbox. The real bars measured 84-85
+                # columns each, so requiring 8 separates them by an order of magnitude and does it
+                # on SHAPE rather than by loosening the pixel tolerance, which would have hidden
+                # small real bars too.
                 for order in (range(cw), range(cw - 1, -1, -1)):
+                    run = []
                     for x in order:
                         if opq[x] == 0:
                             continue
                         if isbar[x]:
-                            barpx += int(odk[x])
+                            run.append(int(odk[x]))
                         else:
                             break
+                    if len(run) >= 8:
+                        barpx += sum(run)
             if barpx > lbpx:
                 lbrow, lbpx = st, barpx
     # ── check 3: OPAQUE NEAR-WHITE that survived the matte ────────────────────────────────

@@ -104,7 +104,9 @@
         },
         "walk": {
           "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/walk.mp4",
-          "ticksPerFrame": 4
+          "ticksPerFrame": 4,
+          "sampleStart": 24,
+          "_s168": "veo PILLARBOXED the opening of this clip: cells 0-2 of the WALK row carried two solid black bars (53,703 px). That also corrupted normaliseStateScale, which measures the seed frame — the inflated bbox scaled the whole row DOWN to 0.77x of idle, the size drift the owner reported in S165 and which was 'fixed' without the cause ever being found. Skipping the bad frames fixes both, and is the S153 P7 remedy."
         },
         "attack": {
           "clip": "assets-source/race-tier3-units/clips/t3-mummies-scarab/attack.mp4",

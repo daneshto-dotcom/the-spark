@@ -121,6 +121,26 @@ const SHARED = [
   'and the subject scale must match the reference image exactly.',
   'Plain solid pure white background, empty, no floor, no scenery, no shadow cast on anything,',
   'no text, no watermark, no letterboxing artwork, no vignette.',
+  /*
+   * ⛔ S168 — "no letterboxing ARTWORK" WAS NOT THE SAME INSTRUCTION AS "DO NOT LETTERBOX THE
+   * OUTPUT", AND VEO TOOK THE DIFFERENCE.
+   *
+   * The owner, on the live build: "take a look at the kraken, he is moving within a black frame
+   * slightly larger than his body ... he moves with a black box frame/background around him".
+   * Measured: t9boss-nagas ATTACK is 27% opaque near-black against a 2.2-7.1% baseline across every
+   * other boss and state — two solid black PILLARBOX bars, because veo rendered the scene inset
+   * inside a narrower frame and padded the sides.
+   *
+   * The line above forbids letterbox bars as a DRAWN element. It says nothing about the shape of the
+   * delivered frame, which is what actually went wrong, and the matte could not save it: the bar
+   * rule in build-sprite-atlas.mjs only fires at `h >= 0.90*H and w <= 0.15*W`, and the Kraken's are
+   * 0.84 and 0.21 — a miss by a little, in the safe direction. So the instruction has to be explicit
+   * about the FRAME, not only about the picture inside it.
+   */
+  'FILL THE ENTIRE FRAME. The white background must run edge to edge and corner to corner of the',
+  'output video. Do NOT letterbox, pillarbox, matte, inset or frame the shot: there must be no black',
+  'bars at the top, bottom, left or right, no border, and no rendering of the scene inside a smaller',
+  'rectangle. Every pixel to the very edge of the frame is the same plain white background.',
   // ⛔ S165 — THE BACKGROUND MUST BE WHITE, AND "no scenery" WAS NOT ENOUGH TO GET THAT.
   //
   // The line above has said "plain solid pure white background... no scenery" since S152, and

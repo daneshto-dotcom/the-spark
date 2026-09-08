@@ -72,7 +72,9 @@
         },
         "attack": {
           "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/attack.mp4",
-          "ticksPerFrame": 5
+          "ticksPerFrame": 5,
+          "sampleStart": 60,
+          "_s168": "veo pillarboxed the first two-thirds of this clip and then ZOOMED IN, despite a COMPLETELY STATIC camera instruction and an explicit anti-letterbox clause added in S168. Two generations produced the same shape. Frames 60+ are clean and full-frame, so the row is taken from there — the S153 P7 fix (skip the bad frames) rather than loosening the matte, which is the S152 disaster."
         },
         "die": {
           "clip": "assets-source/race-tier9-bosses/clips/t9boss-nagas/die.mp4",
