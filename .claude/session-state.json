@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6314,
+  "tool_calls_session_total": 6318,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -40,7 +40,41 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "625403772f8c3856d1bbfcd8eb66ec77a811b327",
-      "check_method": "typecheck 0 / vitest 0 from captured $? (4039/4039, 251 files, was 4030/250). Root cause independently re-verified against the tree before acting, and the agent's headline claim was REFUTED: no SEVER_BOND regression in src/bots — parity holds at the reducer. Two real defects instead: (a) raid 10 fifths >= 7 of 9 shipped tower capacities (connectors+4 = 7..13), so one cut failed the recipe predicate and fired REMOVE_SPAWNER; (b) picker precedence over 34px vs 8px radii let any unit swallow the click. Four pre-existing tests failed as the INTENDED contract change and were rewritten with their teeth kept, incl. a monotonicity assertion proving the absolute ceiling did not flatten R76, and a negative control proving the clamp actually bites. Third path (droneLifecycle unconditional sever) FLAGGED not changed."
+      "check_method": "typecheck 0 / vitest 0 from captured $? (4039/4039, 251 files, was 4030/250). Root cause independently re-verified against the tree before acting, and the agent's headline claim was REFUTED: no SEVER_BOND regression in src/bots — parity holds at the reducer. Two real defects instead: (a) raid 10 fifths >= 7 of 9 shipped tower capacities (connectors+4 = 7..13), so one cut failed the recipe predicate and fired REMOVE_SPAWNER; (b) picker precedence over 34px vs 8px radii let any unit swallow the click. Four pre-existing tests failed as the INTENDED contract change and were rewritten with their teeth kept, incl. a monotonicity assertion proving the absolute ceiling did not flatten R76, and a negative control proving the clamp actually bites. Third path (droneLifecycle unconditional sever) FLAGGED not changed.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const RAID_CONNECTOR_MAX_FIFTHS = 3;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "export function bestPickIndex"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "ratio: bestDist / BOND_PICK_DIST"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/input/controls.ts",
+          "needle": "const bondId = this.pickBond();"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/input/controls.raidPick.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 8
+        }
+      ]
     },
     {
       "id": "P2",
@@ -51,7 +85,36 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "6188e94ba05afc5a6924f31bf5526443e81a43f9",
-      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4030/4030, 250 files, up from 4024/249). Root cause TRACED not reasoned: instrumented the hostTick arm and printed every firing — 1800/3600/5400/7200/9000/10800 with a live anchor each time yet ONE bat produced, which localised it to applySpawnCreature's null-spawner (Voltkin) branch and the omitted sourceSpawnerId. Two of my own new assertions failed honestly and were BOTH real: the 'once forever' defect above, and a test-harness double-advance of w.tick (runHostTick already increments at hostTick.ts:290) that made 3 windows read as 6 units. Negative control included so 'three not six' cannot become unfalsifiable. R108 struck through and R148 added to SPARK_RACES_SPEC.md."
+      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4030/4030, 250 files, up from 4024/249). Root cause TRACED not reasoned: instrumented the hostTick arm and printed every firing — 1800/3600/5400/7200/9000/10800 with a live anchor each time yet ONE bat produced, which localised it to applySpawnCreature's null-spawner (Voltkin) branch and the omitted sourceSpawnerId. Two of my own new assertions failed honestly and were BOTH real: the 'once forever' defect above, and a test-harness double-advance of w.tick (runHostTick already increments at hostTick.ts:290) that made 3 windows read as 6 units. Negative control included so 'three not six' cannot become unfalsifiable. R108 struck through and R148 added to SPARK_RACES_SPEC.md.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/spawners/spawner.ts",
+          "needle": "if (isRaceTowerId(recipeId)) return RACE_UNIT_EMIT_INTERVAL_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "creatureType: RACE_TOWER_UNIT[race],"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "sourceSpawnerId: spawnerId,"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_RACES_SPEC.md",
+          "needle": "**R148**"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/raceTowerCadence.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 6
+        }
+      ]
     },
     {
       "id": "P3",
@@ -62,7 +125,31 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "81a68aa937f6596f7f58bf0c9aa210e0809e6e17",
-      "check_method": "typecheck 0 / vitest 0 (4046/4046). Owner R141 applied inside all four bands; six DISTINCT speeds. New guard pins the band SEPARATELY from the 1..12 ladder because 1..12 admits HP 3 and PEN 0 — exactly what these six had before he ruled. Measured and asserted the consequence of his PEN floor (every boss one-shots a goblin) rather than only commenting it."
+      "check_method": "typecheck 0 / vitest 0 (4046/4046). Owner R141 applied inside all four bands; six DISTINCT speeds. New guard pins the band SEPARATELY from the 1..12 ladder because 1..12 admits HP 3 and PEN 0 — exactly what these six had before he ruled. Measured and asserted the consequence of his PEN floor (every boss one-shots a goblin) rather than only commenting it.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "vampires: { hp: 10, def: 4, atk: 10, pen: 10, speedMul: 0.95 }"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "mummies: { hp: 11, def: 8, atk: 6, pen: 8, speedMul: 0.75 }"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "pen: (8|9|10), speedMul",
+          "op": "==",
+          "value": 6
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/statsLadder.test.ts",
+          "needle": "the band the owner ruled (R141)"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -73,7 +160,30 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "81a68aa937f6596f7f58bf0c9aa210e0809e6e17",
-      "check_method": "No code. Full stat table generated by reading CREATURE_CONFIGS and computing with the shipped stats.ts functions. Confirmed his DEF arithmetic matches the code exactly (voltkin 64 fifths = 12.8). Traced the 180 to voltkin-config.ts:373 attackRange — pixels, not a stat. Found the castle unit is ONE shared type at 1/1/1/1 while its ART is already per-race. R145 worked through per race; STOPPED at two genuine owner questions (two ties, and that it turns one unit into six with a protocol bump and a large buff to a FREE unit). ⭐ CLOSED BY THE OWNER: 'the single 1/1/1/1 for all those units is fine' — R145 WITHDRAWN. That retires the two ties, six new CreatureTypes, their four-sites tax and a protocol bump."
+      "check_method": "No code. Full stat table generated by reading CREATURE_CONFIGS and computing with the shipped stats.ts functions. Confirmed his DEF arithmetic matches the code exactly (voltkin 64 fifths = 12.8). Traced the 180 to voltkin-config.ts:373 attackRange — pixels, not a stat. Found the castle unit is ONE shared type at 1/1/1/1 while its ART is already per-race. R145 worked through per race; STOPPED at two genuine owner questions (two ties, and that it turns one unit into six with a protocol bump and a large buff to a FREE unit). ⭐ CLOSED BY THE OWNER: 'the single 1/1/1/1 for all those units is fine' — R145 WITHDRAWN. That retires the two ties, six new CreatureTypes, their four-sites tax and a protocol bump.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "UNIT_STAT_TABLE.md",
+          "needle": "Voltkin's attack RANGE in pixels"
+        },
+        {
+          "type": "file_contains",
+          "path": "UNIT_STAT_TABLE.md",
+          "needle": "| `raceUnit` | 1 | 1 | 1 | 1 |"
+        },
+        {
+          "type": "file_contains",
+          "path": "RACE_ZONES_AND_BOSS_TOWERS.md",
+          "needle": "R145 WITHDRAWN BY THE OWNER"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "Phase 1 done = working base",
+          "_note": "S168 — ABSOLUTE on purpose: diff-binding compares against the watch-root's own absolute paths, so a relative path asserts the content but never clears the UNBOUND check. BACKLOG.md was NOT edited this session — its content sha is identical to session start (f549c2b5) and `git diff` against the start commit is empty; only its mtime moved. This binding records that verdict."
+        }
+      ]
     },
     {
       "id": "P5",
@@ -84,7 +194,35 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "c7f968515b5614ab745bf3b8b7645d894f10ca44",
-      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4024/4024, 249 files, up from 4020 — 5 new HUD-layout guards, 1 obsolete shapeStrip assertion deleted). NEGATIVE SIGNAL HONOURED: my own new 'topmost surface' assertion FAILED against top-centre-plate at y=5 and was NARROWED to the right-hand chrome column rather than deleted or force-passed. Geometry derived from hudSurfaces() output, not eyeballed: exit 1639..1807 x 8..42 vs badge 1827..1917 x 8..33, glyphs 1874..1908 x 38..54, dot 1890..1902 x 62..74, rails x1882+ y80+. Mirror constant CANVAS_WIDTH-12 pinned against ui.ts HUD_RIGHT_X by a dedicated test (cycle prevents importing it). git diff --stat surgical (28/46/95/12/13 lines) — no line-ending mass rewrite despite git's CRLF notice."
+      "check_method": "typecheck exit 0 from captured $?; vitest exit 0 from captured $? (4024/4024, 249 files, up from 4020 — 5 new HUD-layout guards, 1 obsolete shapeStrip assertion deleted). NEGATIVE SIGNAL HONOURED: my own new 'topmost surface' assertion FAILED against top-centre-plate at y=5 and was NARROWED to the right-hand chrome column rather than deleted or force-passed. Geometry derived from hudSurfaces() output, not eyeballed: exit 1639..1807 x 8..42 vs badge 1827..1917 x 8..33, glyphs 1874..1908 x 38..54, dot 1890..1902 x 62..74, rails x1882+ y80+. Mirror constant CANVAS_WIDTH-12 pinned against ui.ts HUD_RIGHT_X by a dedicated test (cycle prevents importing it). git diff --stat surgical (28/46/95/12/13 lines) — no line-ending mass rewrite despite git's CRLF notice.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "text: 'BETA',"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "BETA · S17 PHASE-2"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "text: 'LMB drag spark",
+          "_note": "S168 — WAS the bare phrase, which FAILED: my own comment quotes the owner's request verbatim, so the blunt needle could not tell the removed CODE from a quotation of why it was removed. Anchored on the Text construction instead."
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/ui.ts",
+          "needle": "name: 'help-line'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/exitButton.ts",
+          "needle": "export const EXIT_BTN_Y = 8;"
+        }
+      ]
     },
     {
       "id": "P6",
@@ -95,7 +233,29 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "81a68aa937f6596f7f58bf0c9aa210e0809e6e17",
-      "check_method": "typecheck 0 / vitest 0 (4054/4054). Credentials PROVED good by an independent RFC-5766 Allocate against the shipped relay using values read from the LIVE bundle: 0x0103 SUCCESS. Three defects fixed instead: an evidence-free TURN_REJECTED verdict, NO_STUN made unreachable by branch order, and a whole-field unwrap that dropped every url after the first. One of my own assertions failed on correct copy and I reworded the PRODUCT rather than weakening it."
+      "check_method": "typecheck 0 / vitest 0 (4054/4054). Credentials PROVED good by an independent RFC-5766 Allocate against the shipped relay using values read from the LIVE bundle: 0x0103 SUCCESS. Three defects fixed instead: an evidence-free TURN_REJECTED verdict, NO_STUN made unreachable by branch order, and a whole-field unwrap that dropped every url after the first. One of my own assertions failed on correct copy and I reworded the PRODUCT rather than weakening it.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/iceProbe.ts",
+          "needle": "TURN_UNREACHABLE:"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/iceProbe.ts",
+          "needle": "relayUnreachable"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/iceConfig.ts",
+          "needle": "cleanUrlToken(unwrapPastedSecret(tok, 'urls'))"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/turn-wiring-report.mjs",
+          "needle": "cleanUrlToken(unwrapPastedSecret(t, 'urls'))"
+        }
+      ]
     },
     {
       "id": "P7",
@@ -106,7 +266,46 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "34421e416f8ef45f1bfd76b55693d851284ea032",
-      "check_method": "SEVEN skills across FOUR of the six bosses; every one with a negative control RUN. Zombie: rot aura (rebuilt to percent-of-VICTIM after he corrected me — a UNIFORM 40 s time-to-kill, implemented as a reusable DoT mechanic in damageOverTime.ts because the arithmetic is fractional for nearly every unit) + death explosion (solved via a host-local boss ROSTER detecting an ABSENCE, which is path-independent, instead of S167's recommended batch-widening that would have given turret-killed creatures a posthumous swing). Vlad: life sap. Warlord: direwolf summon + RAGE (a LATCH, hashed into the wide oracle across all three sub-sites). Archdemon: take-to-hell execute + LONELINESS teleport, the first acquisition scan in the codebase that picks the most isolated target rather than the nearest. PROTOCOL 44->45 for exactly one reason: the direwolf is a new serialized CreatureType; the other six skills ride free and the bump note says so. TWO defects found by my own tests: the direwolf pack was silently capped at 1 by the one-per-(owner,type) gate, and my own fixture then hit the identical gate. Gates: typecheck 0, vitest 0 (4100/4100, 254 files), build 0, check:atlas 0, verify-deploy 4/4. REMAINING: Kraken R139 (stun/knockback/cone — three verbs the sim lacks) and Pharaoh R142 (untargetable, which R121 also wants, + an unkillable channel)."
+      "check_method": "SEVEN skills across FOUR of the six bosses; every one with a negative control RUN. Zombie: rot aura (rebuilt to percent-of-VICTIM after he corrected me — a UNIFORM 40 s time-to-kill, implemented as a reusable DoT mechanic in damageOverTime.ts because the arithmetic is fractional for nearly every unit) + death explosion (solved via a host-local boss ROSTER detecting an ABSENCE, which is path-independent, instead of S167's recommended batch-widening that would have given turret-killed creatures a posthumous swing). Vlad: life sap. Warlord: direwolf summon + RAGE (a LATCH, hashed into the wide oracle across all three sub-sites). Archdemon: take-to-hell execute + LONELINESS teleport, the first acquisition scan in the codebase that picks the most isolated target rather than the nearest. PROTOCOL 44->45 for exactly one reason: the direwolf is a new serialized CreatureType; the other six skills ride free and the bump note says so. TWO defects found by my own tests: the direwolf pack was silently capped at 1 by the one-per-(owner,type) gate, and my own fixture then hit the identical gate. Gates: typecheck 0, vitest 0 (4100/4100, 254 files), build 0, check:atlas 0, verify-deploy 4/4. REMAINING: Kraken R139 (stun/knockback/cone — three verbs the sim lacks) and Pharaoh R142 (untargetable, which R121 also wants, + an unkillable channel).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 45 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damageOverTime.ts",
+          "needle": "export function dotIntervalTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsWarlord.ts",
+          "needle": "export function runWarlordRage"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsArchdemon.ts",
+          "needle": "export function runArchdemonTeleport"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "| 'enraged';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 'direwolf'"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "^\\s*run(ZombieRotAura|VladLifeSap|WarlordRage|WarlordDirewolves|ArchdemonHell|ArchdemonTeleport)\\(",
+          "op": "==",
+          "value": 6
+        }
+      ]
     },
     {
       "id": "P8",
@@ -117,7 +316,14 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "300a220c342859e3e97fddd597cf980b8b889fb3",
-      "check_method": "DEFECT ART DONE, NEW ABILITY ART NOT STARTED. Kraken attack regenerated (credits live again) + sampleStart 60 after a contact sheet showed veo pillarboxed AND zoomed a second time despite a new explicit anti-letterbox clause — looked at the frames rather than re-rolling blind, per R147. Scarab walk sampleStart 24, which also fixed the S165 size drift at its root (the bars were corrupting normaliseStateScale). check:atlas 0 on all 48 atlases across all four checks; negative controls prove the tightened guard still catches both originals (413,789 / 53,703) and scores both fixes 0. STILL OWED: the six ability VFX + the R143 stances (kraken mouth-open sonar, pharaoh hands-out locusts)."
+      "check_method": "DEFECT ART DONE, NEW ABILITY ART NOT STARTED. Kraken attack regenerated (credits live again) + sampleStart 60 after a contact sheet showed veo pillarboxed AND zoomed a second time despite a new explicit anti-letterbox clause — looked at the frames rather than re-rolling blind, per R147. Scarab walk sampleStart 24, which also fixed the S165 size drift at its root (the bars were corrupting normaliseStateScale). check:atlas 0 on all 48 atlases across all four checks; negative controls prove the tightened guard still catches both originals (413,789 / 53,703) and scores both fixes 0. STILL OWED: the six ability VFX + the R143 stances (kraken mouth-open sonar, pharaoh hands-out locusts).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/gen-character-clips.mjs",
+          "needle": "FILL THE ENTIRE FRAME."
+        }
+      ]
     },
     {
       "id": "P9",
@@ -128,7 +334,34 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "81a68aa937f6596f7f58bf0c9aa210e0809e6e17",
-      "check_method": "typecheck 0 / vitest 0 (4046/4046); check:atlas 1 with TWO REAL findings. Measured all 48 shipped atlases: 46 score exactly 0 on the new letterbox rule, the two offenders 53,703 and 414,481 — no threshold to tune. Scarab walk REPAIRED losslessly and verified (other rows byte-identical, RGB untouched, zero alpha added). Kraken attack deliberately NOT patched: I applied the rule, measured frames 0-4 clean and 5-11 still barred, and reverted, because bars that appear mid-animation are worse than bars that are always there. Repair un-masked a pre-existing size defect the bars had been inflating past the guard."
+      "check_method": "typecheck 0 / vitest 0 (4046/4046); check:atlas 1 with TWO REAL findings. Measured all 48 shipped atlases: 46 score exactly 0 on the new letterbox rule, the two offenders 53,703 and 414,481 — no threshold to tune. Scarab walk REPAIRED losslessly and verified (other rows byte-identical, RGB untouched, zero alpha added). Kraken attack deliberately NOT patched: I applied the rule, measured frames 0-4 clean and 5-11 still barred, and reverted, because bars that appear mid-animation are worse than bars that are always there. Repair un-masked a pre-existing size defect the bars had been inflating past the guard.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/repair-atlas-letterbox.py",
+          "needle": "SOLID_FILL_MIN = 0.90"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "a surviving veo LETTERBOX"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "if len(run) >= 8:"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier9-bosses/atlas-specs.json",
+          "needle": "\"sampleStart\": 60"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier3-units/atlas-specs.json",
+          "needle": "\"sampleStart\": 24"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [

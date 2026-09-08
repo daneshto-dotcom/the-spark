@@ -1538,10 +1538,12 @@ Network routes: ${v.detail}`;
   // permanent chrome teaching gestures a returning player already knows. Removed with its HUD
   // surface (`help-line` in ui.ts) and its `helpWidth` chrome metric rather than merely hidden, so
   // `hudSurfaces()` keeps reporting the WHOLE screen and no dead rect lingers in the registry.
-  // S150 P1 — hand the HUD the two chrome rects THIS file owns (the BETA stamp and the help line),
-  // so `hud.getUiPoints()` reports the whole screen and the e2e overlap assertion can see every
-  // rectangle at once. Deferred to here rather than beside `new HUD(app)` purely because `hint` is
-  // constructed further down; both texts have measured (Pixi v8 measures synchronously) by now.
+  // S150 P1 — hand the HUD the chrome rect THIS file owns, so `hud.getUiPoints()` reports the whole
+  // screen and the e2e overlap assertion can see every rectangle at once.
+  // ⚠ S168 — WAS "the two chrome rects … the BETA stamp and the help line", and named a `hint`
+  // variable that no longer exists. The help line was removed this session and the comment was left
+  // describing it, which is the exact stale-docblock class S166 wrote up: a note that contradicts
+  // the code is a defect with a delay fuse. Caught by the MCV binding, not by reading the diff.
   hud.setChromeMetrics({
     badgeWidth: betaBadge.width,
     badgeHeight: betaBadge.height,
