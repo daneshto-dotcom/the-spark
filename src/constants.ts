@@ -2345,6 +2345,41 @@ export const T9_ZOMBIE_DEATH_BLAST_RADIUS = 380;
 export const VLAD_LIFE_SAP_HEAL_PCT = 20;
 export const VLAD_LIFE_SAP_TRIGGER_PCT = 40;
 export const VLAD_LIFE_SAP_USES = 3;
+
+/*
+ * ⭐⭐ S168 (owner R138, AMENDED BY HIM THIS SESSION) — **THE ZOMBIE BOSS'S ROT AURA.**
+ *
+ * He first said *"an aura that damages enemies around him - 3% health per second"*, which left the
+ * decisive question open — 3% of WHOSE health. He then answered it himself, and did the arithmetic:
+ * *"not 3% of the enemies health but i think we can do 3% because its in fifths right? need to do
+ * 2.5%"*.
+ *
+ * ⭐ HE IS EXACTLY RIGHT, AND 2.5 IS THE ONLY NEARBY NUMBER THAT WORKS. The percentage is of the
+ * BOSS's own pool, `unitPoolFifths(12, 5)` = **120 fifths**:
+ *
+ *      3.0%  ->  3.6 fifths/s   ⛔ fractional — `damageEntity` THROWS on a non-integer by design
+ *      2.5%  ->  3.0 fifths/s   ✅ exact
+ *      2.0%  ->  2.4 fifths/s   ⛔ fractional
+ *
+ * Stored PER-MILLE so the ".5" is itself an integer and no float ever enters the sim.
+ *
+ * ⭐ AND IT NEEDS NO ACCUMULATOR, WHICH IS THE PART THAT MAKES IT SHIPPABLE. Float accumulators are
+ * banned here. 3 fifths per second at 60 Hz is **one fifth every 20 ticks** — so the aura always
+ * deals exactly 1 fifth and the RATE carries the percentage. The interval is derived from this
+ * constant rather than written down, so a stat retune moves the cadence instead of silently
+ * rounding the damage.
+ *
+ * The resulting shape is a good one: it melts chaff and barely troubles anything large. Measured —
+ * chewer 1.7 s · goblin melee 2.3 s · tier-3 warband 8.0 s · voltkin 21.3 s · Pharaoh 47.7 s.
+ */
+export const ZOMBIE_AURA_PER_MILLE = 25;
+
+/**
+ * ⚠ THE RADIUS IS MINE, NOT HIS — he said *"around him"* and gave no distance. 170 px is set just
+ * inside Voltkin's 180 px `attackRange`, the longest reach already on the board: the aura should
+ * feel like standing too close to something enormous, not like a second weapon.
+ */
+export const ZOMBIE_AURA_RADIUS = 170;
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 
 // ─────────────────────────────────────────────────────────────────────────────

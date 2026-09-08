@@ -19,7 +19,15 @@
  * edge case measured in one handover per match. Recorded here rather than discovered later.
  */
 
-import { VLAD_LIFE_SAP_HEAL_PCT, VLAD_LIFE_SAP_TRIGGER_PCT, VLAD_LIFE_SAP_USES } from '../constants.ts';
+import {
+  PHYSICS_HZ,
+  VLAD_LIFE_SAP_HEAL_PCT,
+  VLAD_LIFE_SAP_TRIGGER_PCT,
+  VLAD_LIFE_SAP_USES,
+  ZOMBIE_AURA_PER_MILLE,
+  ZOMBIE_AURA_RADIUS,
+} from '../constants.ts';
+import { damageEntity } from './damage.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
@@ -88,5 +96,69 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
   // (Creature ids are never reused, so this is housekeeping rather than correctness.)
   for (const id of [...ledger.keys()]) {
     if (!world.creatures.has(id)) ledger.delete(id);
+  }
+}
+
+/**
+ * ⭐⭐ R138 (as he amended it in S168) — **THE ZOMBIE BOSS'S ROT AURA.**
+ *
+ * Owner: *"zombie needs to have an aura that damages enemies around him"* … *"not 3% of the enemies
+ * health but i think we can do 3% because its in fifths right? need to do 2.5%"*.
+ *
+ * ## ⭐ Why this deals exactly ONE fifth, and the percentage lives in the CADENCE
+ *
+ * The obvious implementation — "take 2.5% of the pool and subtract it" — is the one that cannot be
+ * written here. `damageEntity` throws on a fractional amount BY DESIGN, and a float accumulator to
+ * carry a remainder is banned in the sim, because it is precisely how a host and its `?worker=1`
+ * mirror drift apart invisibly.
+ *
+ * So the arithmetic is inverted. 2.5% of the boss's 120-fifth pool is 3 fifths per second, which at
+ * 60 Hz is **one fifth every twenty ticks**. The aura therefore deals a flat, always-integer 1
+ * fifth, and the RATE is what encodes his percentage. `auraIntervalTicks` derives that interval
+ * from the ruling rather than hardcoding 20, so a future stat retune shifts the cadence instead of
+ * silently rounding the damage to zero.
+ *
+ * ⚠ PHASE-SPREAD BY ENTITY ID, never by an accumulated remainder — the standing rule in this
+ * codebase. Two zombie bosses on the board pulse on different ticks.
+ * ⚠ TOTAL ORDER: victims are collected then SORTED by id before being damaged, so `Map` iteration
+ * order decides nothing. Damage can delete a creature, which is another reason not to mutate mid-scan.
+ */
+export function auraIntervalTicks(poolFifths: number): number {
+  // fifths/second = pool * perMille / 1000 ⇒ ticks between single-fifth hits = HZ / that.
+  const perSecond = (poolFifths * ZOMBIE_AURA_PER_MILLE) / 1000;
+  if (perSecond <= 0) return Number.POSITIVE_INFINITY;
+  return Math.max(1, Math.round(PHYSICS_HZ / perSecond));
+}
+
+export function runZombieRotAura(world: World): void {
+  if (world.gameState !== 'PLAYING') return;
+
+  const bosses: CreatureId[] = [];
+  for (const [id, c] of world.creatures) {
+    if (c.type === T9_BOSS_TYPE.zombies) bosses.push(id);
+  }
+  bosses.sort((a, b) => (a as number) - (b as number));
+
+  for (const bossId of bosses) {
+    const boss = world.creatures.get(bossId);
+    if (boss === undefined || boss.ehp <= 0) continue;
+    const interval = auraIntervalTicks(bossMaxPoolFifths(boss.type));
+    if (!Number.isFinite(interval)) continue;
+    // Phase-spread by id so several bosses never pulse on the same tick.
+    if ((world.tick + (bossId as number)) % interval !== 0) continue;
+
+    const rSq = ZOMBIE_AURA_RADIUS * ZOMBIE_AURA_RADIUS;
+    const victims: CreatureId[] = [];
+    for (const [id, c] of world.creatures) {
+      if (id === bossId) continue;
+      // ⭐ "damages ENEMIES around him" — unlike the DEATH explosion, which he ruled hits
+      // *"everything"*. The two skills read differently in his own words and are built differently.
+      if (c.ownerPlayerId === boss.ownerPlayerId) continue;
+      const dx = c.pos.x - boss.pos.x;
+      const dy = c.pos.y - boss.pos.y;
+      if (dx * dx + dy * dy <= rSq) victims.push(id);
+    }
+    victims.sort((a, b) => (a as number) - (b as number));
+    for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura');
   }
 }

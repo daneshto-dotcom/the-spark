@@ -86,7 +86,7 @@ import { applyRadialDamage } from './damage.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
 import { componentOf } from '../game/structure.ts';
 import { razePrimitives } from './razePrimitives.ts';
-import { runVladLifeSap, type SapLedger } from './bossSkills.ts';
+import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -1690,6 +1690,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * the strike it had committed to. Running it after the sweep would let a Vlad be removed with an
    * unspent charge in hand, which reads as the ability failing rather than as being out-damaged.
    */
+  runZombieRotAura(world);
   runVladLifeSap(world, state.sapLedger);
 
   if (world.pendingCreatureDeaths !== null) {

@@ -12,13 +12,22 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  PHYSICS_HZ,
   PLAYER_COLORS,
   VLAD_LIFE_SAP_HEAL_PCT,
   VLAD_LIFE_SAP_TRIGGER_PCT,
   VLAD_LIFE_SAP_USES,
+  ZOMBIE_AURA_PER_MILLE,
+  ZOMBIE_AURA_RADIUS,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { bossMaxPoolFifths, runVladLifeSap, type SapLedger } from './bossSkills.ts';
+import {
+  auraIntervalTicks,
+  bossMaxPoolFifths,
+  runVladLifeSap,
+  runZombieRotAura,
+  type SapLedger,
+} from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, type CreatureId } from '../types.ts';
@@ -154,5 +163,136 @@ describe('S168 P7 — Vlad life sap (R140)', () => {
     world.gameState = 'TITLE';
     runVladLifeSap(world, new Map());
     expect(world.creatures.get(id)!.ehp).toBe(10);
+  });
+});
+
+
+/**
+ * ⭐⭐ S168 — THE ZOMBIE BOSS'S ROT AURA (R138, as the owner amended it this session).
+ *
+ * *"not 3% of the enemies health but i think we can do 3% because its in fifths right? need to do
+ * 2.5%"* — and he was right. 2.5% of his own 120-fifth pool is exactly 3 fifths a second; 3% is 3.6
+ * and `damageEntity` throws on a fraction by design. The first test below is that arithmetic,
+ * because it is the entire reason this skill could be built at all.
+ */
+describe('S168 — the zombie rot aura (R138 amended)', () => {
+  function worldWithWhopper(): { world: World; id: CreatureId } {
+    const world = makeWorld(0);
+    world.isHost = true;
+    world.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]!));
+    world.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
+    world.matchPhase = 'FIGHT';
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: T9_BOSS_TYPE.zombies,
+      ownerPlayerId: P0,
+      pos: { x: 500, y: 500 },
+      targetPos: { x: 500, y: 500 },
+    });
+    const boss = [...world.creatures.values()].find((c) => c.type === T9_BOSS_TYPE.zombies)!;
+    return { world, id: boss.id };
+  }
+
+  function addUnit(world: World, seat: ReturnType<typeof asPlayerId>, dx: number): CreatureId {
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinShield', // 16 fifths — survives several pulses, so decay is observable
+      ownerPlayerId: seat,
+      pos: { x: 500 + dx, y: 500 },
+      targetPos: { x: 500 + dx, y: 500 },
+      sourceSpawnerId: null,
+    });
+    return [...world.creatures.values()].filter((c) => c.type === 'goblinShield').at(-1)!.id;
+  }
+
+  it('⭐ CONTROL — his 2.5% is the only nearby figure that lands on a whole fifth', () => {
+    const pool = bossMaxPoolFifths(T9_BOSS_TYPE.zombies);
+    expect(pool, 'unitPoolFifths(12,5)').toBe(120);
+    expect((pool * ZOMBIE_AURA_PER_MILLE) / 1000, '2.5% ⇒ 3 fifths/s').toBe(3);
+    expect((pool * 30) / 1000, '3% would be 3.6 — damageEntity throws on that').not.toBe(
+      Math.floor((pool * 30) / 1000),
+    );
+  });
+
+  it('⭐ the percentage lives in the CADENCE — one fifth every 20 ticks, never a fraction', () => {
+    expect(auraIntervalTicks(120)).toBe(20);
+    expect(auraIntervalTicks(120) * 3, 'three hits per second at 60 Hz').toBe(PHYSICS_HZ);
+  });
+
+  it('⭐ an enemy in range rots — and by exactly one fifth per pulse', () => {
+    const { world } = worldWithWhopper();
+    const victim = addUnit(world, asPlayerId(1), 40);
+    const before = world.creatures.get(victim)!.ehp;
+    let hits = 0;
+    for (let t = 0; t < 200; t++) {
+      world.tick++;
+      const pre = world.creatures.get(victim)?.ehp ?? 0;
+      runZombieRotAura(world);
+      const post = world.creatures.get(victim)?.ehp ?? 0;
+      if (post < pre) {
+        expect(pre - post, 'every pulse is exactly ONE fifth').toBe(1);
+        hits++;
+      }
+    }
+    expect(hits, 'it actually fired').toBeGreaterThan(0);
+    expect(world.creatures.get(victim)?.ehp ?? 0).toBeLessThan(before);
+  });
+
+  it('⛔ a FRIENDLY unit is untouched — "damages ENEMIES around him"', () => {
+    const { world } = worldWithWhopper();
+    const friend = addUnit(world, P0, 40);
+    const before = world.creatures.get(friend)!.ehp;
+    for (let t = 0; t < 200; t++) {
+      world.tick++;
+      runZombieRotAura(world);
+    }
+    expect(world.creatures.get(friend)!.ehp, 'his own units are safe').toBe(before);
+  });
+
+  it('⛔ an enemy OUT of range is untouched', () => {
+    const { world } = worldWithWhopper();
+    const far = addUnit(world, asPlayerId(1), ZOMBIE_AURA_RADIUS + 50);
+    const before = world.creatures.get(far)!.ehp;
+    for (let t = 0; t < 200; t++) {
+      world.tick++;
+      runZombieRotAura(world);
+    }
+    expect(world.creatures.get(far)!.ehp).toBe(before);
+  });
+
+  it('⛔ only the ZOMBIE has an aura', () => {
+    const world = makeWorld(0);
+    world.isHost = true;
+    world.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]!));
+    world.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
+    world.matchPhase = 'FIGHT';
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: T9_BOSS_TYPE.nagas,
+      ownerPlayerId: P0,
+      pos: { x: 500, y: 500 },
+      targetPos: { x: 500, y: 500 },
+    });
+    const victim = addUnit(world, asPlayerId(1), 40);
+    const before = world.creatures.get(victim)!.ehp;
+    for (let t = 0; t < 200; t++) {
+      world.tick++;
+      runZombieRotAura(world);
+    }
+    expect(world.creatures.get(victim)!.ehp, 'the Kraken has no aura').toBe(before);
+  });
+
+  it('is inert outside PLAYING', () => {
+    const { world } = worldWithWhopper();
+    const victim = addUnit(world, asPlayerId(1), 40);
+    const before = world.creatures.get(victim)!.ehp;
+    world.gameState = 'TITLE';
+    for (let t = 0; t < 200; t++) {
+      world.tick++;
+      runZombieRotAura(world);
+    }
+    expect(world.creatures.get(victim)!.ehp).toBe(before);
   });
 });

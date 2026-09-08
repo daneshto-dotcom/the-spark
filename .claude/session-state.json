@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 6302,
+  "tool_calls_session_total": 6308,
   "session_id": "S168",
   "session_kind": "batch",
   "session_start": "2026-09-05T14:00:00+02:00",
@@ -100,10 +100,13 @@
     {
       "id": "P7",
       "title": "boss skills: zombie, kraken, vlad, pharaoh",
-      "status": "pending",
+      "status": "partial",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "c4af8d2372079d0a9e2590d20c091dacf14609b0",
+      "check_method": "TWO OF THE SIX SKILL SETS SHIPPED, both with negative controls RUN not assumed. (1) R138 zombie death explosion: solved the S167 blocker WITHOUT its recommended fix — widening the deferred-death batch would hand every turret-killed creature a free posthumous swing. Instead a host-local boss ROSTER in HostTickState detects an ABSENCE at end of tick, which is path-independent. Found and closed a hole in my own first cut (a raid is dispatched outside runHostTick, so a within-tick snapshot missed it) by making the roster span tick boundaries. Test kills the boss three ways. (2) R140 Vlad life sap: all three owner numbers land on whole fifths (pool 90 -> 18 and 36), charge ledger host-local, percent-of-MAX reading pinned by test. Neither needed a protocol bump; still 44. NOT STARTED: zombie rot aura (BLOCKED — '3% of WHOSE health' is genuinely open, and it would be the first non-integer damage in the game), kraken tentacles + sonar cone (stun, knockback and cone are three verbs the sim has none of), Vlad conversion (mutates ownerPlayerId, which is readonly + serialized + hashed -> its own bump), pharaoh locusts + Ra ultimate (needs 'untargetable', which R121 also wants, and an unkillable channel — nothing in the sim can currently refuse a death)."
     },
     {
       "id": "P8",
