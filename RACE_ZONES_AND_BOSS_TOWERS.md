@@ -446,3 +446,71 @@ difference is not visible from the wording. **This one genuinely needs the owner
   `ownerPlayerId` is `readonly`, serialized AND hashed, so this is a wire-visible mutation rather
   than a visual: it needs its own protocol bump and a hash-projection review. It is also the hardest
   to balance, because its value scales with how many units the OPPONENT fields.
+
+
+---
+
+## ⭐ OWNER RULINGS, S168 — THE PHARAOH, AND HOW ABILITY ART MUST BE MADE
+
+Given unprompted mid-session and quoted verbatim, because the wording carries the design.
+
+### R142 — PHARAOH: the locust cone, and the RA ultimate he cannot be killed during
+
+> *"for pharao the skills we will give him are - locust attack - he lunches a cone of locusts that
+> fly around in locust clouds targeting units and building for 15 sec. he lunches it when the first
+> enemy is in range. locusts attack with 10 atk and 10 pen and they cannot be targeted. also he can
+> summon the god RA to bring down columns of burning light (he is the god of sun afterall) that
+> attacks with upto 15 atk and 15 pen per culumn. each column only lasts 2 sec cinematic and he
+> launches like 5 of them one after another. he does that right before he dies- when he hits 1hp or
+> about to die he stops does a cool attack form / ritual calling down the colums. he cant be killed
+> while he is doing that but when the ultimate attack is finished then he dies."*
+
+| | |
+|---|---|
+| **Locusts** | A **CONE**, launched **when the first enemy enters range**. Clouds fly around for **15 s**, targeting **units AND buildings**. **10 ATK / 10 PEN**. ⭐ **They CANNOT be targeted.** |
+| **Ra ultimate** | **Columns of burning light**, **up to 15 ATK / 15 PEN each**, **~5 columns in sequence**, each a **2 s cinematic**. |
+| **Trigger** | **At 1 HP / about to die.** He stops, takes a ritual stance, and **cannot be killed while channelling**. When it finishes, **he dies**. |
+
+⚠ **THE UNKILLABLE CHANNEL IS THE ENGINEERING HEADLINE, NOT THE COLUMNS.** Nothing in the sim can
+currently refuse a death: `damageCreature` removes a creature the moment its pool is spent. A
+"cannot be killed until X" state is a new lifecycle phase, and it interacts with the deferred-death
+batch (`world.pendingCreatureDeaths`) that the zombie explosion also needs.
+
+⚠ **"CANNOT BE TARGETED" IS THE SAME VERB R121 NEEDS** for the submerged naga. Two rulings now want
+it; it should be built once. §7.3 already lists every acquisition path that must learn it.
+
+⚠ **10 ATK / 10 PEN IS A BOSS-TIER HIT ON A SWARM.** `attackFifths(10,10) = 150` fifths per locust
+strike — more than the Pharaoh's own 78, and enough to one-shot everything on the board including
+another boss's escort. Cadence and cloud count are unstated and will decide whether this is a
+flavour effect or the strongest thing in the game.
+
+### R143 — EVERY ABILITY GETS ITS OWN STANCE, AND THE STANCE MUST MATCH THE MECHANIC
+
+> *"remember it all eneds to look sick and epic and if you generate another form for those characters
+> (when they do their abilities then make sure to generate another stance(how they attack) that has
+> to be logical to the way they attack... so kracken opens his mouth and looks to send huge
+> devastating sonar waves out of his mouth), pharaos puts his hands towards an enemy and releases a
+> wave of locusts. those all neeed videos generated!"*
+
+So an ability is **two** art deliverables, not one: the VFX, and a new character stance whose pose
+explains the VFX. Named so far — Kraken **opens his mouth** for the sonar; Pharaoh **puts his hands
+out** to release the locusts.
+
+### R147 — ONE-SHOT PROMPTS, WITH THE ORIGINAL CREATURE ATTACHED
+
+> *"btw when you generate images or videos dont waste my money - think about the prompt and creature
+> thoroughly to make sure it does generate it correctly in one go. if you need descriptions of
+> anything you are considering and not sure better ask me before. its have to be a well build prompt
+> with the original creature attached so no inconsistencies. everything needs to be describeed in the
+> most thorough manner with the mst correct and creative and epic descriptions so we dont need to
+> redo."*
+
+⭐ This is the S166 lesson as a standing rule, and the generator already has the mechanism its own
+docblock argues for: `refImages` is *"an IDENTITY constraint, not a style one"*. **When the output
+must be a VARIATION of prior output, the prior output is an INPUT.** No new stance may be generated
+from text alone.
+
+### STILL RESERVED BY THE OWNER
+
+**Orcs (Warlord) · Demons (Archdemon)** — *"do all of those and i will think about orcs and demons.
+those are the only ones we have left."*
