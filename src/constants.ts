@@ -1602,6 +1602,33 @@ export const T9_BOSS_STATS = {
 export const RACE_UNIT_EMIT_INTERVAL_TICKS = 30 * PHYSICS_HZ;
 
 /**
+ * ⭐⭐ S169 (owner playtest) — **THE TIER-3 TOWER GETS ITS OWN CLOCK, AND IT IS 15 SECONDS.**
+ *
+ * Owner, verbatim: *"the tier three towers, they need to produce in... on time. So, like, I don't
+ * know, every thirty seconds or whatever we said, starting with... they're not producing in the
+ * background, like the castle is. So they only produce during fight. Right? The minute the fight
+ * starts, they let out first spawn, and then after thirty seconds, or however many we have decided,
+ * fifteen seconds — for example, yeah, fifteen seconds is better because it's low level enemy —
+ * it spawns another one, and then after fifteen seconds, another one … It can be in limitless
+ * amounts. If the tower is not dead."*
+ *
+ * ⛔ THIS SUPERSEDES S168's *"at the castle's own rate"*, and the supersession is the point rather
+ * than a tidy-up. S168 read his *"produce spawn at similar rate as the castle does"* as an
+ * INSTRUCTION TO SHARE THE CASTLE'S CONSTANT, so `spawnerIntervalTicks` returned
+ * `RACE_UNIT_EMIT_INTERVAL_TICKS` (30 s) and the two were welded together forever. He has now played
+ * that build and named the rate he actually wants, so the tier-3 tower owns its own number. The
+ * castle's 30 s (R120) is UNCHANGED — that is what "the two move together" cost us, and why they no
+ * longer do.
+ *
+ * ⭐ WHY 15 s IS NOT MERELY A SMALLER NUMBER: `FIGHT_PHASE_TICKS` is 2700 (45 s). At 30 s a tower
+ * fires at most TWICE in a whole fight and — before the fight-edge alignment that landed with this
+ * constant — often ZERO times, which is precisely the *"the Piranha … didn't produce at all"* he
+ * reported. At 15 s the first unit lands on the opening tick of the fight and two more follow inside
+ * the same fight, so the tower reads as a producer rather than as scenery.
+ */
+export const RACE_TOWER_EMIT_INTERVAL_TICKS = 15 * PHYSICS_HZ;
+
+/**
  * ⭐ R123/R124 — NO PER-PLAYER CAP. Race units live until killed.
  *
  * ⛔ SO THESE ARE SENTINEL BACKSTOPS, NOT BALANCE, and they copy the `CHEWER_MAX_* = 10_000` shape

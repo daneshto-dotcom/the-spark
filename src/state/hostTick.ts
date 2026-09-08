@@ -742,7 +742,48 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * deadline aligned to NOW so a 90 s BUILD cannot bank a backlog burst — for a hub, one that
          * would fire its self-destruct on the first FIGHT tick. Only the STEP was wrong.
          */
+        /*
+         * ⭐⭐ S169 (owner playtest) — **A FIGHT-EDGE PRODUCER IS PINNED TO THE OPENING TICK, NOT
+         * LEFT ON WHATEVER PHASE ITS BUILD TIME HAPPENED TO GIVE IT.**
+         *
+         * Owner, on the tier-3 towers: *"they're not really producing. Sometimes they're producing
+         * two. They're very much noncoherent … I did the Piranha, and it didn't produce at all …
+         * the tier three towers, they need to produce in… on time … The minute the fight starts,
+         * they let out first spawn, and then after fifteen seconds, another one."*
+         *
+         * ⛔ THE `while` BELOW IS WHY IT WAS NONCOHERENT, AND THE BUG IS THE PHASE IT PRESERVES.
+         * Advancing by whole steps keeps `nextSpawnTick` strictly ahead of `world.tick` — which is
+         * all S157 P0/S158 B2 ever asked of it — but it also PRESERVES `nextSpawnTick mod step`.
+         * So at the FIGHT edge every spawner carries an arbitrary offset in `(0, step]` decided
+         * purely by when in a 90 s BUILD the player happened to finish the shape. Against
+         * `FIGHT_PHASE_TICKS` (2700 = 45 s) and the old 30 s tier-3 step that is not a rounding
+         * detail, it is the whole complaint: an offset of 5 s produced two units, an offset of 25 s
+         * produced one, and an offset past 45 s produced **nothing for the entire fight** with every
+         * gate green. Two towers finished at different moments then fired at unrelated times, which
+         * is the *"very much noncoherent"* he is describing.
+         *
+         * Pinning to `world.tick` makes the opening tick of the FIGHT immediately due, so the first
+         * unit lands on the bell and every later one on an exact `step` grid from there. Every tower
+         * of the same kind is now in lockstep regardless of build order — deterministic, and
+         * identical on host and mirror because it is derived from `world.tick` alone.
+         *
+         * ⚠ ONE EMIT, NOT A BURST — the arms below test `if (world.tick >= sp.nextSpawnTick)`, a
+         * single `if`, and advance the deadline inside it. A deadline equal to `world.tick` is
+         * therefore due exactly once. This is NOT the banked-backlog hazard the `while` was written
+         * to prevent: that hazard needs a deadline left in the PAST across many ticks, and this
+         * assignment re-pins it every dormant tick so it can never fall behind.
+         *
+         * ⚠ THE PENTAGRAM AND THE LIGHTNING HUB KEEP THE OLD RE-ALIGNMENT, deliberately. The owner
+         * asked for a fight-edge opening volley from the towers he was watching; he did not ask for
+         * every chewer emitter on the board to fire simultaneously on the bell, and the hub's
+         * comment above records a self-destruct that once rode exactly such an edge. Narrow change,
+         * named recipes.
+         */
         const step = spawnerIntervalTicks(sp.recipeId);
+        if (isRaceTowerId(sp.recipeId) || isT9TowerId(sp.recipeId)) {
+          sp.nextSpawnTick = world.tick;
+          continue;
+        }
         while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += step;
         continue;
       }

@@ -27,7 +27,7 @@
 
 import {
   DRONE_EMIT_INTERVAL_TICKS,
-  RACE_UNIT_EMIT_INTERVAL_TICKS,
+  RACE_TOWER_EMIT_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   T9_RELEASE_DELAY_TICKS,
 } from '../../constants.ts';
@@ -98,10 +98,16 @@ export function spawnerIntervalTicks(recipeId: GodlyId): number {
    */
   if (isT9TowerId(recipeId)) return T9_RELEASE_DELAY_TICKS;
   /*
-   * ⭐ S168 — THE TIER-3 RACE TOWER NOW EMITS, AT THE CASTLE'S OWN RATE. Owner: *"the tier 3 tower
-   * does not produce or spawn creatures! it should produce spawn at similar rate as the castle
-   * does"*. "Similar rate as the castle" is not an estimate — `RACE_UNIT_EMIT_INTERVAL_TICKS` IS the
-   * castle's emitter constant (R120, one unit per ~30 s), so the two move together forever.
+   * ⭐ S168 — THE TIER-3 RACE TOWER EMITS AT ALL. Owner: *"the tier 3 tower does not produce or
+   * spawn creatures! it should produce spawn at similar rate as the castle does"*.
+   *
+   * ⛔ ITS SECOND HALF IS SUPERSEDED BY S169 AND IS KEPT ONLY TO RECORD THE MISREADING. It read:
+   * *"'Similar rate as the castle' is not an estimate — `RACE_UNIT_EMIT_INTERVAL_TICKS` IS the
+   * castle's emitter constant (R120, one unit per ~30 s), so the two move together forever."*
+   * Sharing the constant was MY inference, not his instruction; "similar rate" is a comparison, not
+   * a binding. He played it and named 15 s. The lesson is the one this file already teaches about
+   * numbers: an owner ADJECTIVE ("similar") is not an owner NUMBER, and welding two subsystems to
+   * one constant on the strength of an adjective cost a whole session's playtest.
    *
    * ⛔ AND IT HAS TO BE HERE, NOT ONLY AT THE EMIT. This function feeds THREE readers — the
    * registration seed (`spawnerLifecycle`), the BUILD-phase re-alignment (`hostTick`) and the emit
@@ -109,7 +115,19 @@ export function spawnerIntervalTicks(recipeId: GodlyId): number {
    * CHEWER's clock in exactly this way, and "a burst weapon or a tower that appears inert" was the
    * difference. Omitting this arm would have given the race tower a 30 s emit on a 15 s deadline.
    */
-  if (isRaceTowerId(recipeId)) return RACE_UNIT_EMIT_INTERVAL_TICKS;
+  /*
+   * ⭐⭐ S169 (owner playtest) — **ITS OWN 15 s CLOCK, NO LONGER THE CASTLE'S 30 s.**
+   *
+   * Owner: *"fifteen seconds is better because it's low level enemy"*, after playing the S168 build
+   * and reporting *"the tier three towers, they're not really producing … very much noncoherent"*.
+   * The full quote and why the supersession is deliberate live at `RACE_TOWER_EMIT_INTERVAL_TICKS`.
+   *
+   * ⚠ THE ARM ABOVE STAYS EXACTLY WHERE IT WAS — only the number it returns moved. The three-reader
+   * hazard this whole function exists for (registration seed · BUILD re-alignment · the emit) is
+   * unchanged and still routes through here, so the 30 s → 15 s change reaches all three at once.
+   * `RACE_UNIT_EMIT_INTERVAL_TICKS` remains the CASTLE's constant (R120) and is untouched.
+   */
+  if (isRaceTowerId(recipeId)) return RACE_TOWER_EMIT_INTERVAL_TICKS;
   return recipeId === 'lightningHub' ? DRONE_EMIT_INTERVAL_TICKS : SPAWN_INTERVAL_TICKS;
 }
 

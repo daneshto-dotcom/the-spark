@@ -52,6 +52,9 @@ import {
 // creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
 import { underDroneCaps } from '../droneLifecycle.ts';
 import { underRaceUnitCaps } from '../raceUnitEmit.ts';
+// S169 — the tier-9 boss exemption at the null-spawner population gate; see the note there.
+// Type-only cycle-safe: `t9BossIds` imports `CreatureType` with `import type` and nothing runtime.
+import { isT9BossType } from '../t9BossIds.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -178,7 +181,39 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
      * pack. The security position the note above sets out is unchanged: `SPAWN_CREATURE` is absent
      * from `CLIENT_INTENT_TYPES_RECORD`, so no peer can reach this path at all.
      */
-    if (action.creatureType !== 'voltkin' && action.creatureType !== 'direwolf') {
+    /*
+     * ⭐⭐ S169 (owner playtest) — **THE TIER-9 BOSS JOINS THE EXEMPTION, AND IT IS THE THIRD TIME
+     * THIS LATCH HAS SILENTLY EATEN A FEATURE.**
+     *
+     * Owner, verbatim: *"my wife did two pharaohs, and the second pharaoh building waited until the
+     * first pharaoh is dead. And only then he let out the pharaoh, which is silly."*
+     *
+     * ⛔ THAT IS THIS LOOP, EXACTLY, AND NOTHING ELSE. `hostTick`'s t9 arm dispatches the boss with
+     * **no `sourceSpawnerId`** — deliberately, so the release answers to the summon rule instead of
+     * a spawner population — which routes it down this null-spawner branch. The gate below is "one
+     * live creature per (owner, type)", a boss IS one type per race, and both her pyramids were the
+     * same seat and the same race. So the second tower's `SPAWN_CREATURE` hit the `return world`
+     * below and was **discarded with no error, no effect and no test red**, while the tower itself
+     * sat there having already paid its nine shapes. The moment the first pharaoh died the next due
+     * slot passed the gate — which is precisely the *"waited until the first is dead"* he watched.
+     *
+     * ⚠ THE DIREWOLF NOTE BELOW PREDICTED THIS IN WRITING AND STILL MISSED IT: *"That is the exact
+     * failure the tier-3 tower shipped with earlier this same session, one layer down."* Two
+     * exemptions had already been added for two different summons, and the boss — the most expensive
+     * unit in the game — was never checked against the same rule. `isT9BossType` is used rather than
+     * six more `!==` arms so a seventh race cannot reintroduce it.
+     *
+     * ⚠ NOT UNBOUNDED, and the bound is stronger than this latch was: a second boss costs a fresh
+     * ring of nine race shapes, because `hostTick`'s t9 arm RAZES the ring on release specifically
+     * so the tower cannot re-ignite. The spec already names that as the intended cap — *"a second
+     * boss already costs a fresh nine of the race shape — a real price, which is the natural cap the
+     * design already contains."* This gate was a second, invisible cap on top of the designed one.
+     */
+    if (
+      action.creatureType !== 'voltkin' &&
+      action.creatureType !== 'direwolf' &&
+      !isT9BossType(action.creatureType)
+    ) {
       for (const c of world.creatures.values()) {
         if (
           c.sourceSpawnerId === null &&
