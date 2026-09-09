@@ -1,3 +1,19 @@
+## S169 (2026-09-09) — four owner-reported bugs root-caused, the energy mechanic archived, buildings put under the fog (and the owner says that went too far)
+
+- #empirical-refutes-plausible-criticals — the owner's loudest bug ('why is there no sudoku? it doesn't work') did NOT reproduce; clicking through the running app settled it in two minutes where code-reading would have kept hunting. Drive the app before theorising about a UI report.
+
+- #claim-addressed-not-fixed — I wrote a block comment describing STUN's boss-skill gate and never wrote the check. Only a behavioural test caught it. A comment asserting a behaviour is not the behaviour.
+
+- #test-passing-for-the-wrong-reason — the zombie-aura stun test went GREEN against an ungated aura. Every 'X does not happen' assertion needs a positive control proving X happens otherwise.
+
+- #read-the-warning-the-code-already-wrote — raceTower.ts's docblock predicted the exact bug my ignition drain shipped (one spawner per ring NODE: 3 per tier-3, 9 per boss ring). The warning was aimed at a future caller and I was that caller.
+
+- #reproduce-before-fixing — writing the ignition bug as a failing test FIRST is the only reason the 9-bosses-per-pyramid regression was caught before commit.
+
+- #owner-adjective-is-not-an-owner-number — S168 read 'similar rate as the castle' as an instruction to SHARE the castle's constant, welding two subsystems together. He then gave a number (15s). Adjectives describe; only numbers bind.
+
+- #doc-deltas-are-real — three design-note claims were wrong this session (R152's file paths, R153's hudSurfaces registration, R153's stale line numbers). Probe state before scoping from a markdown claim.
+
 ## S168 (2026-09-08) — five owner-reported bugs, seven boss skills across four bosses (PROTOCOL 45), and a three-agent hunt that found four regressions I shipped the same day
 
 - P1 #the-reducer-was-innocent-and-that-is-why-it-survived — `raidParity.test.ts` had proved bot and human raids byte-identical for sessions, and it was RIGHT. Neither half of the owner's complaint lived in the reducer: one was arithmetic (a working tower is pinned to a 3-6 connector shape, so R76's "big lattices absorb raids" could never protect the thing it was written for), and one was the input picker (a 34 px creature radius swallowing an 8 px bond click). A green test that is TRUE can still be pointing away from the defect.
