@@ -292,46 +292,54 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.fogHiddenIdx, 'and BELOW the fog, which is the whole fix').toBeLessThan(r.fogIdx);
     expect(r.fogHiddenChildNames).toEqual([
       /*
-       * ⭐⭐ S170 P1 (owner) — **THE BACKDROP AND THE WALLS ARE GONE FROM THIS LAYER.** They are
-       * GROUND now and live on `groundLayer` at stage index 0; see `groundChildNames` below and the
-       * long note at its construction in `main.ts`. Two entries left the FRONT of this list, so
-       * every index below shifted down by two — which is exactly what `tower-art.spec.ts` reads
-       * from the other side (its two hardcoded probes moved 3→1 and 8→6).
+       * ⭐⭐ S170 P1 (owner) — **THIS LAYER IS NOW THE OWNER'S HIDE-LIST, LITERALLY.**
        *
-       * ⚠ AND THE INDEX LABELS BELOW ARE NOW ACCURATE. The previous revision numbered `8` TWICE
-       * (spriteLayer and arrowLayer) so every label from turret onward was off by one against its
-       * real array position — in a roll call whose entire purpose is that "a failure diff points
-       * straight at the index that moved". Renumbered 0–11 against the real positions.
+       * *"Fog is just what hides. You have the buildings, the enemy sparks, the connectors that are
+       * being built, the unbuilt buildings, the freeform buildings, the spawn."* Two children LEFT
+       * (the backdrop and the border walls — ground, on `groundLayer`) and FIVE JOINED: the free
+       * sparks, the bonds, the primitives, the keystone telegraph and the drag preview. Three of
+       * those five were never concealable at all before — they sat on `app.stage` and were hidden
+       * only as a side effect of the old black sheet's position, which is exactly why concealment
+       * could not become a mask until they moved.
+       *
+       * ⚠ EVERY INDEX BELOW IS THE REAL ARRAY POSITION. A previous revision numbered `8` twice, so
+       * every label from the turret onward was off by one — in an assertion whose entire purpose is
+       * that the diff points at the index that moved. `tower-art.spec.ts` reads 6 and 11 from here.
        */
-      '_Graphics',  //  0 — spawnerZoneRenderer            (S100 P1) — the spawner "it's alive" aura.
-                    //      This one IS the owner's "spawn that they're generating", so it is
-                    //      correctly concealed. Its own docblock still argues for `aboveFogLayer`
-                    //      as a cross-player landmark; that argument was overruled in S169
-                    //      (*"scouting has to cost something"*) and the comment is stale, not the code.
-      '_Container', //  1 — towerRenderer.layer            (S167) — the race tower BUILDINGS.
-                    //      ⭐ `tower-art.spec.ts` reads THIS index. Was 3 before the ground moved out.
-      '_Container', //  2 — creatureRenderer.container      (S25 P0 → S77 P2)
-      '_Graphics',  //  3 — creatureRenderer.cloudGfx       (S103 P1 lightning cloud)
-      '_Graphics',  //  4 — chewerRenderer                 (S100 P1)
-      '_Graphics',  //  5 — goblinRenderer.graphics         (S139 P2) — the procedural fallback puppet
-      '_Container', //  6 — goblinRenderer.spriteLayer      (S151 P3) — the veo atlas sprites.
-                    //      ⭐ `tower-art.spec.ts` reads THIS index too. Was 8.
-                    //      ⚠ A SECOND CHILD FROM ONE RENDERER — precisely the case a bare count
-                    //      cannot catch and this roll call can: the goblins keep their procedural
-                    //      puppet as the load-failure fallback, so the renderer owns BOTH a Graphics
-                    //      and a Container, and the atlas layer must sit ABOVE the puppet so a
-                    //      fallback frame can never overdraw a real sprite.
-      '_Graphics',  //  7 — goblinRenderer.arrowLayer       (S153 P2) — the archer's arrow.
-                    //      ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is derived from
-                    //      synced FSM state rather than pushed as an effect (a new effect KIND would
-                    //      cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of one-shot
-                    //      pushes anyway), so it needs its own Graphics — ABOVE the sprite layer,
-                    //      or an arrow would vanish behind the goblin firing it.
-      '_Graphics',  //  8 — turretRenderer                 (S103 P3)
-      '_Container', //  9 — princessRenderer.container      (S103 P4)
-      '_Graphics',  // 10 — stinkTowerRenderer.graphics     (S141 P1) — aura ring + lob arc stay
+      '_Container', //  0 — sparkRenderer.container          — the FREE SPARKS.
+      '_Graphics',  //  1 — structureRenderer.bondGraphics   — the CONNECTORS.
+      '_Container', //  2 — structureRenderer.primitiveLayer — the SHAPES / unbuilt structures.
+      '_Graphics',  //  3 — keystoneTelegraphRenderer        (S121 P1 B3)
+      '_Graphics',  //  4 — dragPreviewRenderer              (S98 P3) — the placement preview.
+      '_Graphics',  //  5 — spawnerZoneRenderer              (S100 P1) — the spawner "it's alive" aura,
+                    //      i.e. the owner's *"spawn that they're generating"*. Its own docblock still
+                    //      argues for `aboveFogLayer` as a cross-player landmark; that was overruled
+                    //      in S169 (*"scouting has to cost something"*) — the comment is stale, not
+                    //      the code.
+      '_Container', //  6 — towerRenderer.layer              (S167) — the race tower BUILDINGS.
+                    //      ⭐ `tower-art.spec.ts` reads THIS index.
+      '_Container', //  7 — creatureRenderer.container       (S25 P0 → S77 P2)
+      '_Graphics',  //  8 — creatureRenderer.cloudGfx        (S103 P1 lightning cloud)
+      '_Graphics',  //  9 — chewerRenderer                   (S100 P1)
+      '_Graphics',  // 10 — goblinRenderer.graphics          (S139 P2) — the procedural fallback puppet
+      '_Container', // 11 — goblinRenderer.spriteLayer       (S151 P3) — the veo atlas sprites.
+                    //      ⭐ `tower-art.spec.ts` reads THIS index too.
+                    //      ⚠ A SECOND CHILD FROM ONE RENDERER — the case a bare count cannot catch
+                    //      and this roll call can: the goblins keep the procedural puppet as the
+                    //      load-failure fallback, so the renderer owns BOTH, and the atlas layer must
+                    //      sit ABOVE the puppet or a fallback frame could overdraw a real sprite.
+      '_Graphics',  // 12 — goblinRenderer.arrowLayer        (S153 P2) — the archer's arrow.
+                    //      ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is DERIVED from synced
+                    //      FSM state rather than pushed as an effect (a new effect KIND costs a
+                    //      protocol bump, and the 10 Hz snapshot drops ~5/6 of one-shot pushes), so it
+                    //      needs its own Graphics — above the sprite layer, or the arrow would vanish
+                    //      behind the goblin firing it.
+      '_Graphics',  // 13 — turretRenderer                   (S103 P3)
+      '_Container', // 14 — princessRenderer.container       (S103 P4) — HELGA. Owner, explicitly:
+                    //      *"Also, Helga and stuff, like, all of those need to be hidden."*
+      '_Graphics',  // 15 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
                     //      procedural because they are STATE READOUTS, not character art.
-      '_Container', // 11 — stinkTowerRenderer.spriteLayer  (S151 P3) — the veo tower atlas.
+      '_Container', // 16 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
     ]);
 
     /*

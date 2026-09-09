@@ -137,14 +137,19 @@ async function towerState(page: import('@playwright/test').Page) {
       | { children: Array<{ children?: unknown[] }> }
       | undefined;
     if (above === undefined) throw new Error('__SPARK__.fogHiddenLayer unavailable');
-    // ⭐ S170 P1 (owner) — INDEX 3 -> 1. The zone backdrop and the border walls left this layer for
-    // `groundLayer` (stage index 0), so two children went from the FRONT of `fogHiddenLayer` and
-    // every index below them shifted down by two. `fog.spec.ts` rolls call all three layers and is
-    // the authority; this file reads the same contract from the other side.
-    // ⚠ THIS IS THE THIRD TIME THIS PROBE HAS MOVED (S167 -> S169 -> S170). It is a hardcoded index
-    // into a hand-maintained display list, which is why it keeps breaking — a failure here means the
-    // layer composition changed, and the fix is to re-read the roll call, never to guess an offset.
-    const layer = above.children[1];
+    /*
+     * ⭐ S170 P1 (owner) — INDEX 3 -> 6, and BOTH halves of the move are in that one number.
+     * Two children LEFT the front of this layer (the zone backdrop and the border walls, now on
+     * `groundLayer`) and FIVE joined it (the free sparks, the bond graphics, the primitive layer, the
+     * keystone telegraph and the drag preview) — because the owner's hide-list is *"the buildings,
+     * the enemy sparks, the connectors that are being built, the unbuilt buildings... the spawn"*,
+     * and three of those five were never concealable at all. Net +4 ahead of the tower. `fog.spec.ts`
+     * rolls call all three layers and is the authority; this file reads it from the other side.
+     * ⚠ FOURTH MOVE OF THIS PROBE (S167 -> S169 -> S170 ground -> S170 mask). It is a hardcoded index
+     * into a hand-maintained display list, which is why it keeps breaking — a failure here means the
+     * layer composition changed, and the fix is to re-read the roll call, never to guess an offset.
+     */
+    const layer = above.children[6];
     const towerSprites = layer?.children?.length ?? -1;
     return {
       spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
@@ -285,9 +290,9 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
         spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
         primitives: w.primitives.size,
         // fog.spec.ts pins that ordering, so this reads the same contract from the other side.
-        // ⭐ S170 P1 — index 8 -> 6: goblinRenderer.spriteLayer, the ATLAS sprites and NOT the
-        // procedural puppet at 5. Shifted by the same two children that left for `groundLayer`.
-        atlasSprites: above.children[6]?.children?.length ?? -1,
+        // ⭐ S170 P1 — index 8 -> 11: goblinRenderer.spriteLayer, the ATLAS sprites and NOT the
+        // procedural puppet at 10. Same net +4 shift as the tower probe above.
+        atlasSprites: above.children[11]?.children?.length ?? -1,
       };
     });
 

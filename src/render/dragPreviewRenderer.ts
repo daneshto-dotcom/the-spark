@@ -24,7 +24,7 @@
  * Render-only: zero netcode / sim / world mutation.
  */
 
-import { Application, Graphics } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { lookupCombo } from '../combos.ts';
 import { computePreviewBonds } from '../input/dragPreview.ts';
 import type { Controls } from '../input/controls.ts';
@@ -45,9 +45,22 @@ const PREVIEW_BOND_WIDTH = 4;
 export class DragPreviewRenderer {
   private readonly g: Graphics;
 
-  constructor(app: Application) {
+  /*
+   * ⭐⭐ S170 P1 (owner) — `parent` DEFAULTS TO `app.stage`, AND THE DEFAULT IS THE OLD BUG.
+   *
+   * Owner, on what the fog is for: *"Fog is just what hides. You have the buildings, the enemy
+   * sparks, the connectors that are being built, the unbuilt buildings, the freeform buildings, the
+   * spawn."* And on how it broke: *"once we started putting towers, like, real buildings that we've
+   * generated, that's when they started being visible. Like, everything else was hidden."*
+   *
+   * That is the whole history of this defect. A renderer that attaches itself to `app.stage` lands
+   * ABOVE or BELOW the fog purely by WHEN it was constructed, so every new art renderer arrived
+   * visible-through-the-fog by accident. Taking the parent as an argument is what makes concealment
+   * a DECISION at the call site instead of a side effect of construction order.
+   */
+  constructor(app: Application, parent: Container = app.stage) {
     this.g = new Graphics();
-    app.stage.addChild(this.g);
+    parent.addChild(this.g);
   }
 
   sync(world: World, controls: Controls): void {

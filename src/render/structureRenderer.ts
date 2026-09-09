@@ -55,14 +55,27 @@ export class StructureRenderer {
   private readonly spriteByPrim: Map<PrimitiveId, Sprite> = new Map();
   private readonly textures: ShapeTextures;
 
-  constructor(app: Application) {
+  /*
+   * ⭐⭐ S170 P1 (owner) — `parent` DEFAULTS TO `app.stage`, AND THE DEFAULT IS THE OLD BUG.
+   *
+   * Owner, on what the fog is for: *"Fog is just what hides. You have the buildings, the enemy
+   * sparks, the connectors that are being built, the unbuilt buildings, the freeform buildings, the
+   * spawn."* And on how it broke: *"once we started putting towers, like, real buildings that we've
+   * generated, that's when they started being visible. Like, everything else was hidden."*
+   *
+   * That is the whole history of this defect. A renderer that attaches itself to `app.stage` lands
+   * ABOVE or BELOW the fog purely by WHEN it was constructed, so every new art renderer arrived
+   * visible-through-the-fog by accident. Taking the parent as an argument is what makes concealment
+   * a DECISION at the call site instead of a side effect of construction order.
+   */
+  constructor(app: Application, parent: Container = app.stage) {
     this.textures = makeShapeTextures(app);
 
     this.bondGraphics = new Graphics();
     this.primitiveLayer = new Container();
 
-    app.stage.addChild(this.bondGraphics);
-    app.stage.addChild(this.primitiveLayer);
+    parent.addChild(this.bondGraphics);
+    parent.addChild(this.primitiveLayer);
   }
 
   // S53 P2 — sync no longer takes controls param. The drawPreview consumer

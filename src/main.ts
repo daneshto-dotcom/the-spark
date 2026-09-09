@@ -310,6 +310,29 @@ async function bootstrap(): Promise<void> {
   groundLayer.eventMode = 'none';
   app.stage.addChild(groundLayer);
 
+  /*
+   * ⭐⭐ S170 P1 (owner) — **THE CONCEALABLE LAYER, AND IT IS DECLARED HERE SO THE BOARD CAN JOIN IT.**
+   *
+   * Owner, on what the fog is for: *"Fog is just what hides. You have the buildings, the enemy
+   * sparks, the connectors that are being built, the unbuilt buildings, the freeform buildings, the
+   * spawn."* And: *"all of those need to be hidden. You shouldn't be able to see it unless you're in
+   * fight phase, or if your [spark] is going to explore, so you can see a radius around it."*
+   *
+   * ⛔ **WHY THIS MOVED 300 LINES UP.** It used to be declared beside the renderers that took it, i.e.
+   * AFTER `sparkRenderer` / `structureRenderer` / `keystoneTelegraph` / `dragPreview` were already
+   * built and had already parented themselves to `app.stage`. Those four draw the free sparks, the
+   * BONDS and the PRIMITIVES — three of the five things the owner just listed — so they must be
+   * concealable, and they could not be while the layer did not exist yet.
+   *
+   * ⚠ ORDER IS GROUND, THEN CONCEALABLE. The board's contents draw ABOVE the ground, which is why the
+   * backdrop can never paint over them again (the S166/S169 defect) and why the ground does not need
+   * to be above the fog to survive it — concealment is a MASK on this layer now, not a black sheet
+   * painted over the whole canvas. See the mask wiring just after `fogRenderer` is constructed.
+   */
+  const fogHiddenLayer = new Container();
+  fogHiddenLayer.eventMode = 'none';
+  app.stage.addChild(fogHiddenLayer);
+
   const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
   app.stage.addChild(spawnerRing);
   // S81 P5 — betaBadge/settingsIcon are CREATED here but staged AFTER
@@ -574,16 +597,16 @@ async function bootstrap(): Promise<void> {
   };
 
   const controls = new Controls(app, world, P1, dispatchFn);
-  const sparkRenderer = new SparkRenderer(app);
-  const structureRenderer = new StructureRenderer(app);
+  const sparkRenderer = new SparkRenderer(app, fogHiddenLayer);
+  const structureRenderer = new StructureRenderer(app, fogHiddenLayer);
   // S121 P1 (B3) — keystone telegraph. Constructed right after the board layers so its Graphics sits
   // ABOVE bonds/prims (a subtle gold/green pulse along keystone-linked magic bonds). Render-only,
   // cross-peer by construction (derives the structural relation from synced state + world.tick).
-  const keystoneTelegraphRenderer = new KeystoneTelegraphRenderer(app);
+  const keystoneTelegraphRenderer = new KeystoneTelegraphRenderer(app, fogHiddenLayer);
   // S98 P3 — drag-time connection preview. Constructed right after the board
   // layers so its Graphics sits ABOVE the bonds/prims but BELOW effects/avatar/
   // fog/HUD + aboveFogLayer (added later). Render-only; pulses while dragging.
-  const dragPreviewRenderer = new DragPreviewRenderer(app);
+  const dragPreviewRenderer = new DragPreviewRenderer(app, fogHiddenLayer);
   // S77 P2 — global-reach hazards (potato/rainbow/hunter/Voltkin) render THROUGH the fog to ALL
   // players: they draw into aboveFogLayer, staged after the FogRenderer (below) so it sits ABOVE
   // the fog + memory ghosts but BELOW the HUD. Rule: visible-to-all iff can-affect-all. Bomb is
@@ -642,8 +665,6 @@ async function bootstrap(): Promise<void> {
    * asked for: *"Fog of war has to be real fog. You can only explore it when you [go there]."*
    * Unexplored terrain being dark is the feature, not a casualty.
    */
-  const fogHiddenLayer = new Container();
-  fogHiddenLayer.eventMode = 'none';
   // S100 P1 (TD Phase 1a) — spawner-zone aura. Constructed BEFORE creatureRenderer so its
   // radiating aura + 'alive' bond overlay sit UNDER the chewers/Voltkin on the aboveFogLayer.
   // Cross-player landmark (everyone must see the high-value target to raid it) → aboveFogLayer,
@@ -784,9 +805,32 @@ async function bootstrap(): Promise<void> {
   // BEFORE the HUD (the HUD is never fogged). Active only in 1v1 PLAYING; lifts
   // on WIN. Client-side cosmetic only — no network messages (each peer already
   // holds the full world.primitives via snapshot).
-  // S169 (owner) — the concealable layer goes down FIRST, so the fog paints over it.
-  app.stage.addChild(fogHiddenLayer);
+  // ⭐ S170 P1 — the concealable layer is staged up beside the ground now; concealment is a MASK on
+  // it (wired just below), not this container's position relative to a black sheet.
   const fogRenderer = new FogRenderer(app);
+  /*
+   * ⭐⭐ S170 P1 (owner) — **THE FOG NOW MASKS THE BOARD INSTEAD OF PAINTING OVER IT.**
+   *
+   * Owner: *"Fog is just what hides. You have the buildings, the enemy sparks, the connectors that
+   * are being built, the unbuilt buildings, the freeform buildings, the spawn."* And on the origin:
+   * *"we first talked about it being like in Red Alert or any real time strategy game... you can see
+   * the whole map if you've explored it. And the enemy's buildings, if you've been there, you can
+   * see where the latest building was — it could be destroyed, but you don't know until you're
+   * there again... And then it broke."*
+   *
+   * ⭐ THE C&C MODEL WAS NEVER LOST — only bypassed. `exploredMemory` still remembers scouted
+   * ground, S60's `memoryLayer` still draws dim last-seen silhouettes of enemy structures gated on
+   * "not in current live vision", the spark's cursor still cuts a live hole, and `fogActive` is
+   * BUILD-only so the FIGHT still reveals everything. What broke is narrower than it looked: each
+   * newly generated art renderer (towers, Helga, the turret, the stink tower, the goblin sprite
+   * layers) attached itself ABOVE the fog when it was added, so it was never in the concealed set at
+   * all — and therefore never fell back to the ghost system either. The mechanic did not regress;
+   * the new objects simply never joined it.
+   *
+   * See `FogRenderer.attachTo` for why a black sheet cannot express "backdrop visible, buildings
+   * hidden" by ordering alone, and why three sessions each hit that same wall from a different side.
+   */
+  fogRenderer.attachTo(fogHiddenLayer);
   // ⛔ S149 P5 — UI GOES ABOVE THE FOG. The footer band is constructed long before the fog, so
   // without this the fog draws over it and the bar reads as missing (owner: "it is hidden behind
   // the fog"). Re-parenting here, immediately after the last stage-level renderer exists, is the
