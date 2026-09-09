@@ -13,7 +13,7 @@
  * Per stepPhysics call (one Verlet tick at 60 Hz):
  *   1. Spawner tick → SPAWN_SPARK dispatches
  *   2. enforceFreeSparkCap → DESPAWN_SPARK over soft cap
- *   3. TICK_ENERGY for each player
+ *   3. (S169 — TICK_ENERGY was removed with the energy mechanic; see archive/energy/RESTORE.md)
  *   4. computeTerritorialInfluence (S49 Sym F, per-tick not per-substep)
  *   5. PHYSICS_SUBSTEPS × [controls per-substep + verletStepAll + solveBonds +
  *      enforceSpawnerBounds]

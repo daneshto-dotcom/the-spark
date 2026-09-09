@@ -1,19 +1,10 @@
 /**
- * SPARK — peripheral UI: energy gauge + win banner + 1v1 HUD.
- * § XIV.8 LOCKED — energy is a flat passive +5/sec in Phase 1.
- * The gauge is a thin vertical bar on the right edge — fills as energy
- * accrues. No numeric readout (per § XV anti-bloat).
- *
- * Win banner is dormant until Session 4 flips world.gameState='WIN'.
- *
- * 1v1-only HUD elements: per-player score readouts (top-left, both
- * scores); net connection status dot (top-right). Hidden in solo mode.
- *
- * S42 — Turn-indicator badge ("PLAYER N'S TURN · SPACE to end") DELETED.
- * The 1v1 mode was incorrectly shipped as turn-based hotseat (S15 P2);
- * blueprint mandates real-time. Energy gauge now reads world.localPlayerId
- * instead of the removed world.currentPlayerId (Council R1 Battle Ledger
- * row 3 + Δ4 — drops fallback chain in favor of explicit guard).
+ * SPARK — peripheral UI: win banner + 1v1 HUD + the phase banner and tier banner.
+ * ⭐ S169 (owner) — THE ENERGY GAUGE AND THE SCORE RAIL ARE GONE. He asked whether energy drove
+ * anything, it drove nothing (nothing read `player.energy` but the gauge), and the mechanic was
+ * archived to `archive/energy/RESTORE.md` and removed. The score rail went with it as a
+ * duplicate of the top-left score readout. `GAUGE_X` survives as `GAUGE_X_COLUMN` — the x of the
+ * right-hand column the settings gear and the connection dot still share.
  */
 
 import { Application, Graphics, Text, TextStyle } from 'pixi.js';

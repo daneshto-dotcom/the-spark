@@ -25,7 +25,20 @@ import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
 
 /** The gear glyph's canvas position — `HUD_RIGHT_X - 20`, `AUDIO_ICON_Y`. Its own handler also
  * unlocks the AudioContext, which is why opening the panel is enough to make the music paths live. */
-const GEAR = { x: 1888, y: 38 };
+/*
+ * ⛔ S169 — 1888 -> 1896, AND THIS SPEC IS HOW THE REGRESSION WAS FOUND.
+ *
+ * The owner had the sound glyph removed ("Everyone tries to click on it to turn off the sound") and
+ * the gear re-anchored CENTRED on the right-hand HUD column (`GAUGE_X_COLUMN` = CANVAS_WIDTH - 24)
+ * instead of right-anchored at `HUD_RIGHT_X - 20`. This constant still pointed at the old slot, so
+ * the click landed on empty canvas, the panel never opened, and the failure surfaced as
+ * "#race-music-toggle must default to ON" — a message about a toggle, caused by a mouse coordinate.
+ *
+ * ⚠ IT IS STILL A LITERAL rather than derived, because this file drives the page from the OUTSIDE and
+ * cannot import from src/. That makes it exactly the duplicated-geometry hazard `hudSurfaces()` exists
+ * to catch, so it is written down: if the gear moves again, THIS is the line that has to move with it.
+ */
+const GEAR = { x: 1896, y: 38 };
 
 /** Element ids built by `createToggleRow(label, idPrefix)` as `${idPrefix}-toggle`. */
 const RACE_MUSIC_ID = 'race-music-toggle';

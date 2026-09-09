@@ -648,7 +648,10 @@ async function bootstrap(): Promise<void> {
    * ⭐ S167 — THE RACE TOWER'S OWN BUILDING, both tiers. Until this existed, twelve tier-3 tower
    * atlases and six tier-9 ones sat on disk, matted and disk-tested, drawn by nothing.
    *
-   * ⚠ `aboveFogLayer`, matching the aura it stands in: a race tower is a cross-player landmark and
+   * ⭐ S169 (owner) — SUPERSEDED. This now renders UNDER the fog on `fogHiddenLayer`: "It should all be hidden during build state ... You should only see, like, their castle." The cross-player-landmark argument below was overruled — scouting has to cost something.
+   *
+   * The superseded reason, kept because it is what the layer choice USED to encode:
+   * "⚠ `aboveFogLayer`, matching the aura it stands in: a race tower is a cross-player landmark and
    * a raid target, so it must be visible to everyone THROUGH the fog for the same reason
    * `SpawnerZoneRenderer` is. Constructed AFTER the aura so the building draws on top of its glow.
    */

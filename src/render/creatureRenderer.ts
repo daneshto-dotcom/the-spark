@@ -9,7 +9,8 @@
  *
  * Render contract preserved exactly: ONE shared Graphics, cleared + redrawn each frame from
  * `world.creatures` filtered to `type === 'voltkin'`; parented to aboveFogLayer (a Voltkin attacks any
- * player's bonds — cross-player reach — so it renders THROUGH the fog to all); reads world, NEVER
+ * player's bonds — cross-player reach). ⭐ S169 (owner) — SUPERSEDED. This now renders UNDER the fog on `fogHiddenLayer`: "It should all be hidden during build state ... You should only see, like, their castle." The cross-player-landmark argument below was overruled — scouting has to cost something.
+ * Reads world, NEVER
  * mutates. Pose is a pure fn of WIRED state+ticksInState (host + 1v1 client animate identically; only
  * the cosmetic per-frame crackle jitter uses wall-clock — invisible as desync, same license the chewer
  * wobble holds). The arcFlash lightning still emits from the sim on CREATURE_ATTACK at FIRE_TICK
@@ -153,7 +154,7 @@ export class CreatureRenderer {
   private texLoadStarted = false;
 
   // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
-  // (a Voltkin attacks any player's bonds — cross-player reach) render THROUGH the fog to all.
+  // ⭐ S169 — now UNDER the fog (owner ruling); the cross-player-reach argument was overruled.
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
     parent.addChild(this.container);

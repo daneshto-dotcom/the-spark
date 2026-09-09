@@ -46,8 +46,10 @@ export class SpawnerZoneRenderer {
   private readonly graphics: Graphics;
 
   // S100 P1 — defaults to app.stage but main.ts passes aboveFogLayer: a spawn
-  // zone is a cross-player landmark (everyone must see the high-value target to
-  // raid it), so it renders THROUGH the fog like the other global-reach visuals.
+  // ⭐ S169 (owner) — SUPERSEDED. This now renders UNDER the fog on `fogHiddenLayer`: "It should all be hidden during build state ... You should only see, like, their castle." The cross-player-landmark argument below was overruled — scouting has to cost something.
+  // Superseded reason: "zone is a cross-player landmark (everyone must see the high-value target to
+  // raid it), so it renders THROUGH the fog like the other global-reach visuals."
+  // ⚠ The aura had to move WITH the tower, or a hidden building would still glow.
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
     parent.addChild(this.graphics);

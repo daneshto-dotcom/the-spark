@@ -235,13 +235,36 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w), 'the projection must carry the stun stamp').not.toBe(wideBefore);
   });
 
-  it('⭐ and an UNSTUNNED board is unchanged by the field existing at all', () => {
-    // `o()` renders undefined as the absent marker, so introducing the field must not move the hash
-    // of any world that has never been stunned — which is what keeps the replay guards valid.
+  /*
+   * ⛔⛔ THIS TEST'S PREDECESSOR WAS VACUOUS AND ITS COMMENT WAS FALSE. Recorded rather than quietly
+   * rewritten, because the failure mode is one this repo keeps paying for.
+   *
+   * It read: *"introducing the field must not move the hash of any world that has never been stunned
+   * — which is what keeps the replay guards valid"*, and asserted it by setting the field to
+   * `undefined` and comparing against the SAME build. That is `x === x`; it could not have failed.
+   *
+   * And the claim itself is untrue: the projection appends `:su${o(c.stunnedUntilTick)}`
+   * UNCONDITIONALLY, so every world's wide-hash STRING gained a `:su_` segment when the field
+   * landed. What makes that harmless is not conditionality — it is that `hashWorldStateFull` has
+   * ZERO non-test importers and only ever compares two sims built from ONE build (host vs worker
+   * mirror, replay vs replay). It is never compared across versions, so a one-time shape change
+   * cannot invalidate anything.
+   *
+   * So the honest assertion is the one below: the field must CONTRIBUTE (above), and an absent value
+   * must render as the absent marker rather than as `undefined` leaking into the string.
+   */
+  it('⭐ an absent stun renders as the ABSENT MARKER, not as the string "undefined"', () => {
+    // ⚠ `hashWorldStateFull` returns a NUMBER, so the string is read from `determinismParts` —
+    // the projection itself, which is the thing that could leak a raw `undefined`.
     const w = worldWithEntities();
-    const before = hashWorldStateFull(w);
     w.creatures.get(asCreatureId(1))!.stunnedUntilTick = undefined;
-    expect(hashWorldStateFull(w)).toBe(before);
+    const parts = determinismParts(w).join('|');
+    expect(parts.includes(':su'), 'the stun segment is present').toBe(true);
+    expect(parts.includes('undefined'), 'a raw undefined in the projection is a bug').toBe(false);
+    // And a real value must change it, so the segment is genuinely read.
+    const before = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.stunnedUntilTick = 77;
+    expect(hashWorldStateFull(w)).not.toBe(before);
   });
 
   it('chewProgress — bond damage — flips the wide hash and not the narrow one', () => {
