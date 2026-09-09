@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 398,
+  "tool_calls_session_total": 403,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "DO - P2A complete + live; P2B (the locust attack) next",
+  "session_status": "PAUSED at owner request (5h limit) - P2A + P2B shipped; P2C (Ra ritual) is next",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -235,12 +235,111 @@
       "id": "P2B",
       "title": "The locust attack (R142) - PROTOCOL 45->46",
       "description": "New CreatureType 'locustCloud', untargetable:true, lifetimeTicks 900 (15s, R142 written; owner said ~10s hedged - flagged, one constant). CREATURE_TARGETS BOTH. New bossSkillsPharaoh.ts runPharaohLocusts modelled on runWarlordDirewolves. Launch = cone SPREAD (the cone is the launch, not a volume - A.0 drift finding); then clouds roam and hunt. 3 clouds, 1 strike/5s = 9 strikes (MINE). 10/10 = 150 fifths is the owner's. Spawn-gate exemption like the direwolf. Protocol bump = 6 sites, 4 machine-gated.",
-      "status": "in_progress",
-      "check_completed": false,
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "| 'locustCloud'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "export const LOCUST_CLOUD_CONFIG: CreatureConfig = {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "untargetable: true,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "action.creatureType !== 'locustCloud' &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaoh.ts",
+          "needle": "export function runPharaohLocusts(world: World): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runPharaohLocusts(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/locustCloud.ts",
+          "needle": "export function drawLocustClouds(g: Graphics, world: World): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "drawLocustClouds(g, world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "locustCloud: BOTH,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 46 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 46;"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 46;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "S171: 45->46",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaoh.test.ts",
+          "needle": "THE COUNT — a launch produces the WHOLE fan, not one cloud"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "^export const PHARAOH_LOCUST_",
+          "op": "==",
+          "value": 7
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "R171-M — THE ART DIVISION OF LABOUR"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "THE GUARD IS BLIND TO THIS"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S171_HUD_RESEARCH.md",
+          "needle": "HEALTH BARS (R171-E) — verdict **SOUND_WITH_FIXES**"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "5988dd58f8ac3158235169966321d0f2d9422a77",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4238 tests / 270 files (from 4223/269) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 817.1 KiB of 900 (82.9 headroom). 15 new tests in bossSkillsPharaoh.test.ts, green first run. ⭐ THE COUNT IS THE FIRST ASSERTION, deliberately: the spawn latch would have made the fan 1-of-3 with no error and no red test, and every behavioural test would still have passed. PROTOCOL 45->46 across all six documented sites; protocolVersionSync.test.ts caught my chain entry inserted in DESCENDING order and I repositioned it - the machine-gated half working. FOUR REPO GUARDS FIRED AND ALL FOUR WERE RIGHT: the renderer-invisibility guard (fixed with a REAL procedural renderer, not by dropping the type into GOBLIN_KINDS which would have satisfied it with a humanoid puppet); the hand-maintained CreatureType list (the one site tsc cannot reach); the S169 'nothing is untargetable' test (correctly obsolete on the flag's first consumer - rewritten to the STRONGER claim rather than deleted); and my own P2A census, which flagged bossSkillsPharaoh on the first file written after it shipped - fixed by recognising nearestEnemyFor as the third guarded scanner, which is the honest fix because the file genuinely is guarded. NOT CLAIMED: the cloud's LOOK is unjudged - procedural, and under R171-M new art is the owner's, so he decides whether it earns its place. Stage C (the Ra ritual) is NOT in this commit.",
+      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers; run 34394621116 concluded success",
+      "real_context_tokens_at_close": 470000
     },
     {
       "id": "P2C",
@@ -301,6 +400,21 @@
       "priority": "P2A",
       "tag": "#delegated-lanes-die-and-must-be-named",
       "lesson": "The A.0 probe returned 14/14, but the design panel lost 2 of 4 proposal lanes to the StructuredOutput retry cap (one on unescaped Windows backslashes in its JSON). Per the S161 rule those lanes are NOT DONE and are named as such in the PDR's PRIME-AUDIT delta; their angles were covered by hand. The panel that DID return found four things I had missed, including a ninth removal class (world.creatures.clear() at three sites) and the population latch that would have made a multi-cloud cone into N-1 silent no-ops."
+    },
+    {
+      "priority": "P2B",
+      "tag": "#the-guards-fired-four-times-and-were-right-four-times",
+      "lesson": "Adding one CreatureType tripped four independent repo guards, and not one was a false alarm: the renderer-invisibility coverage test (the cloud drew nothing), the hand-maintained type list (the one site tsc cannot reach), the S169 'nothing is untargetable' assertion (correctly obsolete the moment the flag got its first consumer), and my OWN P2A acquisition census, which flagged bossSkillsPharaoh.ts on the very first file written after it shipped. ⭐ THE TEMPTING FIX WAS THE WRONG ONE TWICE: I could have satisfied the invisibility guard by dropping 'locustCloud' into GOBLIN_KINDS, which would have given a swarm of insects a HUMANOID puppet - satisfying the test while defeating its purpose; and I could have granted the Pharaoh a census verdict instead of recognising nearestEnemyFor as a genuinely guarded scanner. A guard is a question, not an obstacle: the right response is the answer, not the shortest thing that turns it green."
+    },
+    {
+      "priority": "P2B",
+      "tag": "#never-bind-a-claim-to-a-number-that-is-supposed-to-move",
+      "lesson": "P2A's bindings pinned 'PROTOCOL_VERSION = 45 as const' as evidence for its no-bump claim. P2B bumped it to 46 - correctly - and the Stop hook hard-failed P2A as the S149 fabrication class. The claim was never 'the version is 45'; it was 'raRitualUntilTick is additive-optional and so costs no bump'. Rebound onto the MECHANISM that makes it true (the conditional emit/rehydrate pair in save.ts), which survives every future bump. verify-session-claims.py already warns about this exact class for json_field version keys - I walked into the file_contains version of the same trap."
+    },
+    {
+      "priority": "P2B",
+      "tag": "#a-compression-in-the-handoff-becomes-a-wrong-mechanic",
+      "lesson": "Three separate carriers - boot-snapshot, session-state and the S170 PDR - had compressed R142's 'a cone of locusts THAT FLY AROUND IN LOCUST CLOUDS' to 'the locust cone', and the PDR hardened it further to 'wedge'. All describe a persistent cone VOLUME, which is a different mechanic from a fan of autonomous hunters. Reading the owner's verbatim words rather than the carried summary changed the template from the Kraken's sonar to the Warlord's direwolf summon. ⭐ AND MY OWN PDR CARRIED A VERSION OF THE SAME ERROR: it called the launch 'a reuse of inCone'. inCone is a MEMBERSHIP test; the launch PLACES. It became the test ORACLE instead, which is a real check where building the launch on it would have been circular."
     }
   ],
   "budget_total": null,
@@ -852,5 +966,6 @@
       "totals.budget_remaining"
     ],
     "validator_version": "s110-three-tier-v1"
-  }
+  },
+  "pause_note": "Owner: 'lets pause because we are about to hit current 5 hour limit... finish what you are doing and pause. will continue after limit reset.' All work is COMMITTED AND PUSHED - nothing is only on this machine. Resume at P2C."
 }
