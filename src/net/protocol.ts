@@ -1319,7 +1319,6 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // HELLO will already have been rejected at handshake.
   PLACE_FROM_FREE: true,
   SEVER_BOND: true,
-  TICK_ENERGY: true,
   WIN_TRIGGER: true,
   START_GAME: true,
   // S42 — END_TURN removed: turn-based gameplay deleted (blueprint mandates

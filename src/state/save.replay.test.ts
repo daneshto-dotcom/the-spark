@@ -82,7 +82,6 @@ function runStress(world: World, iterations: number): void {
 
     // Periodic energy tick (deterministic deltaSec).
     if (i % 5 === 0) {
-      dispatch(world, { type: 'TICK_ENERGY', playerId: P1, deltaSec: 1 / 60 });
     }
 
     // S90 P1 — accrue complexity-income every iteration so the scoring path

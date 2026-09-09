@@ -150,27 +150,21 @@ describe('S150 P1 — the specific collisions the owner saw, pinned individually
     expect(rectsOverlap(find(s, 'beta-badge').rect, find(s, 'settings-gear').rect)).toBe(false);
   });
 
-  it('the two right-edge rails are a matched pair, side by side, never intersecting', () => {
-    const s = hudSurfaces(metrics(4));
-    const energy = find(s, 'energy-gauge').rect;
-    const progress = find(s, 'progress-rail').rect;
-    expect(rectsOverlap(energy, progress)).toBe(false);
-    // Same top and same bottom — that is what makes them read as one instrument set rather than as
-    // two unrelated bars. The score rail used to be a HORIZONTAL bar in the opposite corner.
-    expect(progress.y).toBe(energy.y);
-    expect(progress.y + progress.h).toBe(energy.y + energy.h);
-    expect(progress.x).toBeLessThan(energy.x); // progress inboard, energy on the edge
-  });
+  /*
+   * ⭐ S169 (owner) — THE TWO RIGHT-EDGE RAILS ARE GONE, SO THEIR CLEARANCE TESTS ARE TOO.
+   *
+   * Owner: *"I don't think we have a mechanic for energy, do we? ... So we should remove that bar and
+   * the other white bar. Those two are redundant."* And on the score rail: *"we don't need that
+   * because on the top left of the screen, there's already, like, the victory score with all the
+   * players, that's enough to know who's winning."*
+   *
+   * He was right about energy on the evidence: `tickEnergy` accrued it and NOTHING in the game ever
+   * read `player.energy` except the gauge drawing it — no spend, no gate, no cost. Two tests here
+   * pinned the geometry of the pair ("a matched pair, side by side" and "the score rail has LEFT the
+   * bottom-left corner"); both described rectangles that no longer exist, so they are removed rather
+   * than left green. The exit-button sweep below keeps covering everything that IS still drawn.
+   */
 
-  it('the score rail has LEFT the bottom-left corner, where QUADRANTS_4P parks a castle', () => {
-    const s = hudSurfaces(metrics(4));
-    const progress = find(s, 'progress-rail').rect;
-    // The seat-3 keep in QUADRANTS_4P starts at x≈93, y≈900 (measured on
-    // spark-s150-hud-BUILD-quadrants.png). The old bar was x 12–93 / y 918–962: one pixel of
-    // clearance from a castle the layout puts there BY CONSTRUCTION.
-    const bottomLeftKeep = { x: 80, y: 890, w: 100, h: 110 };
-    expect(rectsOverlap(progress, bottomLeftKeep)).toBe(false);
-  });
 
   it('the "Q=ZONE" hint sits on the score column\'s own rhythm, not 4 px above it', () => {
     const s = hudSurfaces(metrics(4));
@@ -215,8 +209,6 @@ describe('S168 — the BACK TO MAIN button in the top chrome row', () => {
       'beta-badge',
       'settings-gear',
       'connection-dot',
-      'energy-gauge',
-      'progress-rail',
     ]) {
       expect(rectsOverlap(exit, find(s, name).rect), `exit-button collides with ${name}`).toBe(
         false,

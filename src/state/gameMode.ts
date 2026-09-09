@@ -512,7 +512,6 @@ export function applyReturnToTitle(world: World): World {
   // Reset P1's per-game state.
   const p1 = world.players.get(asPlayerId(0));
   if (p1 !== undefined) {
-    p1.energy = 0;
     p1.buildActions = 0;
     p1.disruptionCharges = 0;
     // S49 P1 (Sym F) — clear shrink debuff so P1 starts fresh.

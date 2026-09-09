@@ -151,10 +151,6 @@ export function stepPhysics(
   reapExpiredFreeSparks(world);
   enforceFreeSparkCap(world);
 
-  for (const player of world.players.values()) {
-    dispatch(world, { type: 'TICK_ENERGY', playerId: player.id, deltaSec: PHYSICS_DT });
-  }
-
   // S82 P1 — slowed-cruiser cursor-chase (cruiser-poopy-slow movement model). Runs once
   // per tick BEFORE the substep loop so this tick's gameplay (pickup reach, poop-vs-avatar,
   // splat-clean sweeps) all see the post-chase avatarPos. No-op unless some player has an

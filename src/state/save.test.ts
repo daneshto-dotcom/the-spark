@@ -81,14 +81,7 @@ describe('WorldSnapshot save/load (§ 10.4)', () => {
     expect(tiersAfter).toEqual(tiersBefore);
   });
 
-  it('preserves player energy + counters', () => {
-    const w1 = makeWorld(0);
-    dispatch(w1, { type: 'TICK_ENERGY', playerId: P1, deltaSec: 3.0 });
-    placeChain(w1, 2);
-    const w2 = makeWorld(0);
-    restore(JSON.parse(JSON.stringify(snapshot(w1))), w2);
-    expect(w2.players.get(P1)!.energy).toBeCloseTo(w1.players.get(P1)!.energy, 6);
-  });
+  // S169 (owner) — the energy round-trip test went with the mechanic. See archive/energy/RESTORE.md.
 
   it('rejects unsupported schemaVersion', () => {
     const w1 = makeWorld(0);
@@ -505,7 +498,7 @@ describe('WorldSnapshot effects field (S31 P0-3)', () => {
       freeSparks: [],
       primitives: [],
       bonds: [],
-      players: [{ id: 0 as never, color: 0, energy: 0, score: 0, avatarPos: { x: 0, y: 0 } }],
+      players: [{ id: 0 as never, color: 0, score: 0, avatarPos: { x: 0, y: 0 } }],
       effects: [
         { kind: 'ARC_FLASH' as const, tick: 5, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
       ],

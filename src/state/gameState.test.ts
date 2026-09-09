@@ -90,6 +90,5 @@ describe('Game-state FSM (Phase 1 abridged)', () => {
     expect(w.bonds.size).toBe(0);
     expect(w.freeSparks.size).toBe(0);
     expect(w.scoreProgress).toBe(0);
-    expect(w.players.get(P1)!.energy).toBe(0);
   });
 });

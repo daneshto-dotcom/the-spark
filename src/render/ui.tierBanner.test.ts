@@ -37,7 +37,23 @@ import { PHASE_1_WIN_SCORE, SCORE_TIER_STEP } from '../constants.ts';
  * live Pixi `Application`, which is exactly why the plate had no mechanical coverage until a CHECK
  * reviewer deleted its two assignments and watched the suite stay green.
  */
-const UI_TS = readFileSync(fileURLToPath(new URL('./ui.ts', import.meta.url)), 'utf8');
+/*
+ * ⚠ S169 - CRLF-NORMALISED, AND THIS TEST FOUND THE HAZARD THE HARD WAY.
+ *
+ * The assertions below match SOURCE TEXT containing newline escapes. `src/` has MIXED line
+ * endings - the project CLAUDE.md warns about it - and a plain `git checkout` of `ui.ts` let git's
+ * autocrlf rewrite the whole file to CRLF, at which point every such literal stopped matching and
+ * this file failed for a reason that had nothing to do with the tier banner.
+ *
+ * Stripping CR at the READ is the fix rather than doubling every literal: these assertions are
+ * about code STRUCTURE, and structure does not change when a line ending does.
+ *
+ * ⚠ Built with String.fromCharCode(13) deliberately - a backslash-r literal here would itself be
+ * one more escape to get wrong.
+ */
+const CR = String.fromCharCode(13);
+const UI_TS = readFileSync(fileURLToPath(new URL('./ui.ts', import.meta.url)), 'utf8')
+  .split(CR).join('');
 
 describe('V6-0.2 — tier milestone banner', () => {
   it('names the tier and anchors it to progress', () => {

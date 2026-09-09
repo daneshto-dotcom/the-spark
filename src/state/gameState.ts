@@ -252,7 +252,6 @@ export function softReset(world: World, extras: GameStateExtras): void {
   // unchanged by softReset).
   for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);
   for (const player of world.players.values()) {
-    player.energy = 0;
     player.buildActions = 0;
     player.disruptionCharges = 0;
     if (player.kind === 'Carrying') {

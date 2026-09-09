@@ -74,11 +74,6 @@ describe('stress', () => {
       for (const s of world.freeSparks.values()) if (s.state.kind === 'Free') freeCount++;
       if (freeCount > maxFreeSparks) maxFreeSparks = freeCount;
 
-      // Energy ticks (the world wants them for FSM bookkeeping).
-      for (const player of world.players.values()) {
-        dispatch(world, { type: 'TICK_ENERGY', playerId: player.id, deltaSec: PHYSICS_DT });
-      }
-
       // Physics — same substep loop the main app uses.
       const sparkArr = Array.from(world.freeSparks.values());
       let bondArr = Array.from(world.bonds.values());

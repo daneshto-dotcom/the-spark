@@ -7,7 +7,6 @@ import {
   makeIdlePlayer,
   pickup,
   tickBuildAction,
-  tickEnergy,
 } from './player.ts';
 
 describe('Player Carry-1 invariant (§ III.3)', () => {
@@ -32,26 +31,19 @@ describe('Player Carry-1 invariant (§ III.3)', () => {
 
   it('preserves common fields across the FSM transition', () => {
     const p = makeIdlePlayer(asPlayerId(0), 0xff3b6b);
-    p.energy = 12.5;
     p.buildActions = 3;
     p.disruptionCharges = 1;
     const c = pickup(p, asSparkId(99));
-    expect(c.energy).toBe(12.5);
     expect(c.buildActions).toBe(3);
     expect(c.disruptionCharges).toBe(1);
     expect(c.color).toBe(0xff3b6b);
     const back = drop(c);
     expect(back.kind).toBe('Idle');
-    expect(back.energy).toBe(12.5);
   });
 });
 
 describe('player accumulators', () => {
-  it('tickEnergy adds rate · deltaSec', () => {
-    const p = makeIdlePlayer(asPlayerId(0), 0xff3b6b);
-    tickEnergy(p, 0.5, 5);
-    expect(p.energy).toBeCloseTo(2.5, 6);
-  });
+  // S169 (owner) — the `tickEnergy` suite is gone with the mechanic. See archive/energy/RESTORE.md.
 
   it('tickBuildAction converts every 5 actions to one disruption charge', () => {
     const p = makeIdlePlayer(asPlayerId(0), 0xff3b6b);

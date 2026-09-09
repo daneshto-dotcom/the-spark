@@ -20,9 +20,6 @@ import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  FOOTER_TOP_Y,
-  LEADER_DECAY_ENABLED,
-  LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   MAX_RAID_POINTS,
   PHASE_1_WIN_SCORE,
@@ -332,12 +329,8 @@ export function captureTierBanner(
   }
   return { watermark, text, color, tier };
 }
-const GAUGE_Y_TOP = 80;
 // V6-1.2 — anchored to the footer, like the progress bar. It was CANVAS_HEIGHT-80 (=1000), i.e.
 // its bottom 4 px drew UNDER the footer plate — the same overlap pattern the progress bar had.
-const GAUGE_Y_BOTTOM = FOOTER_TOP_Y - 8;
-const GAUGE_WIDTH = 8;
-const ENERGY_GAUGE_FULL = 100;
 
 /**
  * ⛔ S150 P1 — THE SCORE RAIL MOVED OUT OF THE BOTTOM-LEFT CORNER AND ONTO THE RIGHT EDGE, BESIDE
@@ -364,10 +357,6 @@ const ENERGY_GAUGE_FULL = 100;
  *
  * Deliberately anchored to the gauge rather than to a fresh literal, so the pair cannot drift apart.
  */
-const PROGRESS_X = GAUGE_X - 14;
-const PROGRESS_Y_TOP = GAUGE_Y_TOP;
-const PROGRESS_Y_BOTTOM = GAUGE_Y_BOTTOM;
-const PROGRESS_WIDTH = 6;
 
 /**
  * S150 P1 — the top-right chrome column: version stamp, then audio/settings, then the link dot,
@@ -523,19 +512,6 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
       h: CONNECTION_DOT_R * 2,
     },
   });
-  out.push({
-    name: 'energy-gauge',
-    rect: { x: GAUGE_X, y: GAUGE_Y_TOP, w: GAUGE_WIDTH, h: GAUGE_Y_BOTTOM - GAUGE_Y_TOP },
-  });
-  out.push({
-    name: 'progress-rail',
-    rect: {
-      x: PROGRESS_X,
-      y: PROGRESS_Y_TOP,
-      w: PROGRESS_WIDTH,
-      h: PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP,
-    },
-  });
   /*
    * ⭐ S155 P2 — THE BACK-TO-MAIN BUTTON IS A REGISTERED SURFACE.
    *
@@ -572,71 +548,8 @@ export function rectsOverlap(a: PlateRect, b: PlateRect): boolean {
 // migrates colours mid-match, so colour names lied after the first switch. Rows
 // are labeled by seat-stable P{n}, matching the S82 nameplates + the win banner.
 
-/**
- * S106 P4 — pure: the two progress-bar fractions [0..1]. `own` = the LOCAL player's own banked score
- * — the bar the owner actually watches. (It used to be world.scoreProgress = max-of-all = the LEADER,
- * which HID your own NONET halving: when the friend won the trial his doubled score kept the shared
- * bar near-full, so the owner read "almost full victory points" while his OWN score had been cut.)
- * `leader` = max-of-all, kept as a thin ghost-tick so "who's winning" stays legible (the WIN gate +
- * HUNTER trigger still read world.scoreProgress elsewhere — unchanged). Solo: localPlayerId=0 is the
- * only entry, so own === leader. Exported for unit tests. Falls back to scoreProgress pre-population.
- *
- * S107 P1 — `ownDecaying`: true when the LOCAL player IS the leader (own === the max) AND past the
- * anti-coast decay threshold, i.e. their score is gently bleeding (state/scoring.ts). Drives a subtle
- * amber tint on the own-bar so the slow recede reads as "you're coasting — keep building" rather than
- * an unexplained drop (the gentle per-tick bleed is too small to trip the red NONET drop-flash). Never
- * true in solo (no decay there).
- */
-export function progressBarFractions(
-  world: Pick<World, 'scoreByPlayer' | 'localPlayerId' | 'scoreProgress' | 'gameMode'>,
-  /*
-   * ⭐ S165 — INJECTABLE, AND THE REASON IS A TEST THAT COULD NOT SEE ITSELF.
-   *
-   * Gating `ownDecaying` on `LEADER_DECAY_ENABLED` (below) was the right fix, but it left every
-   * case in `ui.progress.test.ts` expecting `false` — because the flag is false — so the whole
-   * predicate became unguarded: `const ownDecaying = false;` would have passed the entire suite.
-   * The solo exemption, the leader comparison and the 75% threshold had no live test at all, and
-   * `constants.ts` records that a balance session is expected to flip this flag back, which would
-   * have shipped three untested predicates at once.
-   *
-   * ⚠ A PARAMETER, NOT A MODULE MOCK. This is the `isSimWorkerRequested(search, defaultOn)` shape
-   * the repo already uses for exactly this problem: the production call passes nothing and gets the
-   * real constant, while the test drives BOTH regimes and can therefore assert the logic rather
-   * than the flag's current value.
-   */
-  decayEnabled: boolean = LEADER_DECAY_ENABLED,
-): { own: number; leader: number; ownDecaying: boolean } {
-  const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
-  // Local player is (tied for) the leader when their own score reaches the max-of-all.
-  const isLeader = localScore >= world.scoreProgress - 0.001;
-  /*
-   * ⛔ S165 — `LEADER_DECAY_ENABLED` FIRST, AND ITS ABSENCE WAS A HUD THAT LIED.
-   *
-   * This cue exists to explain a score that is visibly receding. S147 P1 (R28) then switched the
-   * decay itself OFF — `scoring.ts` guards `applyLeaderDecay` on that flag — but this predicate was
-   * never told. So any leader past 75% got the amber "you are coasting, your score is bleeding"
-   * tint over a score that was not bleeding at all and never would. A cue for a mechanic that does
-   * not run is worse than no cue: the player changes their play to answer a warning about nothing.
-   *
-   * ⭐ THE FLAG IS THE SINGLE SWITCH, WHICH IS WHAT R28 SAID. `scoring.ts` already reads it as the
-   * one place decay turns on; reading it here too means flipping that constant restores the tint
-   * with the mechanic, in one edit, instead of leaving a second site to remember.
-   */
-  const ownDecaying =
-    decayEnabled &&
-    world.gameMode !== 'solo' &&
-    isLeader &&
-    localScore > PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
-  return {
-    own: Math.min(1, localScore / PHASE_1_WIN_SCORE),
-    leader: Math.min(1, world.scoreProgress / PHASE_1_WIN_SCORE),
-    ownDecaying,
-  };
-}
 
 export class HUD {
-  private readonly gauge: Graphics;
-  private readonly progress: Graphics;
   private readonly winText: Text;
   /** S62 — N-player leaderboard rows (pool of PLAYER_COLORS.length since S87). */
   private readonly scoreTexts: Text[];
@@ -688,24 +601,18 @@ export class HUD {
    * in without a relayout. Canvas (Pixi), never DOM: every other HUD element is canvas, so this
    * inherits the object-fit:contain letterbox mapping and the stage z-order for free.
    */
-  private displayEnergy = 0;
-  private displayProgress = 0;
-  private lastLocalScore = -1; // S106 P4 — detect a DROP in your own score (NONET halving) to flash the bar
-  private dropFlash = 0; // S106 P4 — 1 on a score drop, decays per frame (render-only cosmetic)
   /**
    * V6-1.1 — suppress the red drop-flash for ONE score-drop event, armed when the local player
    * buys. The flash exists to make an INVOLUNTARY loss (a NONET halving) felt; a purchase is a
    * deliberate investment, so flashing "you lost points" at it reads as a penalty for playing well.
    * The score still visibly falls — only the alarm colour is withheld.
    */
-  private suppressNextDropFlash = false;
   /**
    * Frame budget on the suppression above. The latch is armed on the CLICK, but the spend can be
    * refused after that (benched, migration pause, a joiner acting on a stale mirror). Without an
    * expiry a refused buy strands the latch and it silently swallows the NEXT genuine involuntary
    * loss — the NONET halving alarm the flash exists for. ~1 s at 60 fps covers any real round-trip.
    */
-  private suppressFramesLeft = 0;
   /**
    * V6-1.1 — highest SCORE_TIER milestone already announced this match. Score is now SPENDABLE, so
    * scoreProgress can fall back below 500/1000 and re-cross UPWARD, which would replay a milestone
@@ -721,12 +628,6 @@ export class HUD {
   private chromeMetrics = { badgeWidth: 0, badgeHeight: 0 };
 
   constructor(app: Application) {
-    this.gauge = new Graphics();
-    app.stage.addChild(this.gauge);
-
-    this.progress = new Graphics();
-    app.stage.addChild(this.progress);
-
     this.winText = new Text({
       text: '',
       style: new TextStyle({
@@ -871,25 +772,8 @@ export class HUD {
     };
   }
 
-  /**
-   * S136 P0 — arm the one-shot drop-flash suppression for a VOLUNTARY spend.
-   *
-   * The buy/upgrade buttons moved to `CastlePanel`, so the latch is now armed from outside: main.ts
-   * forwards `castlePanel.consumeSpendArmed()` here. The behaviour it protects is unchanged and
-   * still load-bearing — the red flash exists to make an INVOLUNTARY loss (a NONET halving) felt,
-   * and firing it at a purchase reads as a penalty for playing well. The frame budget stays here
-   * with the flash it guards: the spend can still be REFUSED after the click (benched, migration
-   * pause, a joiner on a stale mirror), and without an expiry a refused buy strands the latch and
-   * silently swallows the next genuine involuntary loss.
-   */
-  armSpendSuppression(): void {
-    this.suppressNextDropFlash = true;
-    this.suppressFramesLeft = 60;
-  }
 
   sync(world: World): void {
-    this.drawEnergyGauge(world);
-    this.drawProgress(world);
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
@@ -1122,106 +1006,7 @@ export class HUD {
     this.phaseBannerText.alpha = 1;
   }
 
-  private drawEnergyGauge(world: World): void {
-    // S42 — read LOCAL player's energy via world.localPlayerId (replaces
-    // removed world.currentPlayerId turn-based artifact). Solo: id=0. 1v1
-    // host: id=0. 1v1 client: id=1. Guard handles the early-frame race
-    // where snapshot hasn't populated players[localPlayerId] yet — gauge
-    // skips this tick rather than crashing (Council R1 Battle Ledger row 3
-    // Grok-C3 ADOPT + Gemini-R2 confirmed). Pre-S42 fallback to
-    // [...players.values()][0] removed (PRIME-AUDIT Δ4 — unnecessary post-guard).
-    // ⛔ S150 P1 — NOT ON THE MAIN MENU. `world.players` already holds P1 at TITLE, so the guard
-    // below never fired there and the gauge's empty track was drawn down the right edge of the
-    // title screen (measured: x 1896, y 80–989 on `spark-s149-arcade-title.png`). A gameplay
-    // instrument on a menu is chrome the player cannot act on — the same defect class as the border
-    // walls that bled onto TITLE earlier this session.
-    if (isOverlayScreen(world.gameState)) {
-      this.gauge.clear();
-      return;
-    }
-    const local = world.players.get(world.localPlayerId);
-    if (local === undefined) return;
-    const target = Math.min(local.energy, ENERGY_GAUGE_FULL);
-    this.displayEnergy += (target - this.displayEnergy) * 0.12;
-    const fillRatio = this.displayEnergy / ENERGY_GAUGE_FULL;
-    const gaugeHeight = GAUGE_Y_BOTTOM - GAUGE_Y_TOP;
-    const fillHeight = gaugeHeight * fillRatio;
 
-    const g = this.gauge;
-    g.clear();
-    g.rect(GAUGE_X, GAUGE_Y_TOP, GAUGE_WIDTH, gaugeHeight)
-      .stroke({ width: 1, color: 0x333333, alpha: 0.6 });
-    g.rect(
-      GAUGE_X,
-      GAUGE_Y_BOTTOM - fillHeight,
-      GAUGE_WIDTH,
-      fillHeight,
-    ).fill({ color: local.color, alpha: 0.8 });
-    if (fillRatio > 0.02) {
-      g.rect(
-        GAUGE_X - 2,
-        GAUGE_Y_BOTTOM - fillHeight - 1,
-        GAUGE_WIDTH + 4,
-        2,
-      ).fill({ color: local.color, alpha: 0.5 });
-    }
-  }
-
-  private drawProgress(world: World): void {
-    // S106 P4 — the PRIMARY bar tracks YOUR OWN score (own), with the LEADER as a ghost-tick. See
-    // progressBarFractions: this makes a NONET halving VISIBLE (your bar drops) where the old shared
-    // leader-max bar hid it. The bar also flashes red on any DROP in your own score so the loss is felt.
-    // ⛔ S150 P1 — NOT ON THE MAIN MENU (see `isOverlayScreen`). This bar was the single most
-    // conspicuous piece of the title-screen bleed: an empty outlined box with a lone yellow tick,
-    // sitting in the bottom-left of the menu with nothing to explain it. `lastLocalScore` is reset
-    // with it so the first frame of the next match cannot be read as a score DROP and fire the red
-    // loss-flash at a player who has not lost anything.
-    if (isOverlayScreen(world.gameState)) {
-      this.progress.clear();
-      this.lastLocalScore = -1;
-      this.dropFlash = 0;
-      return;
-    }
-    const { own, leader, ownDecaying } = progressBarFractions(world);
-    this.displayProgress += (own - this.displayProgress) * 0.18;
-
-    if (this.suppressFramesLeft > 0) {
-      this.suppressFramesLeft--;
-      if (this.suppressFramesLeft === 0) this.suppressNextDropFlash = false; // lapsed → re-arm the alarm
-    }
-    const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
-    if (this.lastLocalScore >= 0 && localScore < this.lastLocalScore - 0.5) {
-      // V6-1.1 — a VOLUNTARY spend (buying a gatherer) must not trip the loss alarm. The drop is
-      // still fully visible in the bar and the number; only the red "you were robbed" flash is
-      // withheld, and only for the single drop the purchase caused.
-      if (this.suppressNextDropFlash) this.suppressNextDropFlash = false;
-      else this.dropFlash = 1;
-    }
-    this.lastLocalScore = localScore;
-    this.dropFlash = Math.max(0, this.dropFlash - 0.04);
-
-    const g = this.progress;
-    g.clear();
-    const trackHeight = PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP;
-    g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH, trackHeight)
-      .stroke({ width: 1, color: 0x333333, alpha: 0.6 });
-    // your own progress — flashes RED on a sharp drop (NONET loss / any future point-loss),
-    // else AMBER while gently decaying as the coasting leader (S107 P1 anti-coast cue — the
-    // slow per-tick bleed is too small to trip the red flash, so amber signals "you're past
-    // 75% and bleeding; keep building to close it out"), else white.
-    const barColor = this.dropFlash > 0 ? 0xff5a5a : ownDecaying ? 0xffc04d : 0xffffff;
-    // S150 P1 — FILLS UPWARD FROM THE BOTTOM, exactly like the energy gauge beside it. The old
-    // horizontal bar grew left-to-right; two adjacent instruments filling in different directions
-    // is precisely the inconsistency the owner asked to be rid of.
-    const fillHeight = trackHeight * this.displayProgress;
-    g.rect(PROGRESS_X, PROGRESS_Y_BOTTOM - fillHeight, PROGRESS_WIDTH, fillHeight)
-      .fill({ color: barColor, alpha: 0.6 + this.dropFlash * 0.35 });
-    // leader ghost-tick (max-of-all) so "who's ahead" stays readable — now a horizontal tick
-    // across the rail, and it overhangs both edges so it reads against the fill.
-    const leaderY = PROGRESS_Y_BOTTOM - trackHeight * leader;
-    g.rect(PROGRESS_X - 2, leaderY - 1, PROGRESS_WIDTH + 4, 2)
-      .fill({ color: 0xffd60a, alpha: 0.85 });
-  }
 
   private drawWinState(world: World): void {
     if (world.gameState === 'WIN' || world.gameState === 'POSTGAME') {

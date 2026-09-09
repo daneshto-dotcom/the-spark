@@ -51,12 +51,10 @@ import {
   applyDropSpark,
   applyPickupSpark,
   applySpawnSpark,
-  applyTickEnergy,
   type DespawnSparkAction,
   type DropSparkAction,
   type PickupSparkAction,
   type SpawnSparkAction,
-  type TickEnergyAction,
 } from './sparkLifecycle.ts';
 import {
   applyCreatureTick,
@@ -225,7 +223,6 @@ export type GameAction =
       // tsc caught only this one AFTER the tests were already green. Vitest does not typecheck.
       readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid';
     }
-  | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
   | ReturnToTitleAction
@@ -555,9 +552,6 @@ export function dispatch(world: World, action: GameAction): World {
     // dispatch() is now uniformly 1-line delegations.
     case 'SEVER_BOND':
       return applySeverBond(world, action);
-
-    case 'TICK_ENERGY':
-      return applyTickEnergy(world, action);
 
     // V6-RISK(R5): this reducer DESTROYS seven entity families at t=0 of the win, spawners and
     // defenders included. A castle / gatherer / bank added to the teardown list below therefore

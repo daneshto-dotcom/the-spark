@@ -16,7 +16,6 @@ import {
   applyDropSpark,
   applyPickupSpark,
   applySpawnSpark,
-  applyTickEnergy,
 } from './sparkLifecycle.ts';
 import { makeWorld } from './world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
@@ -150,7 +149,6 @@ describe('applyPickupSpark', () => {
       id: joinerId,
       color: 0x3bd7ff,
       kind: 'Idle',
-      energy: 0,
       buildActions: 0,
       disruptionCharges: 0,
       avatarPos: { x: 700, y: 400 }, // joiner's authoritative avatarPos
@@ -180,7 +178,7 @@ describe('applyPickupSpark', () => {
     const joinerId = asPlayerId(1);
     world.players.set(joinerId, {
       id: joinerId, color: 0x3bd7ff, kind: 'Idle',
-      energy: 0, buildActions: 0, disruptionCharges: 0,
+      buildActions: 0, disruptionCharges: 0,
       avatarPos: { x: 700, y: 400 },
     } as never);
     const spark = makeTestSpark(8);
@@ -203,7 +201,7 @@ describe('applyPickupSpark', () => {
     const joinerId = asPlayerId(1);
     world.players.set(joinerId, {
       id: joinerId, color: 0x3bd7ff, kind: 'Idle',
-      energy: 0, buildActions: 0, disruptionCharges: 0,
+      buildActions: 0, disruptionCharges: 0,
       avatarPos: { x: 100, y: 100 },
     } as never);
     const spark = makeTestSpark(9);
@@ -290,31 +288,7 @@ describe('applyDropSpark', () => {
   });
 });
 
-describe('applyTickEnergy', () => {
-  it('accumulates energy at the flat regen rate over deltaSec', () => {
-    const world = makeWorld(1);
-    const p0Before = world.players.get(asPlayerId(0))!;
-    const energyBefore = p0Before.energy;
-    applyTickEnergy(world, {
-      type: 'TICK_ENERGY',
-      playerId: asPlayerId(0),
-      deltaSec: 1,
-    });
-    const p0After = world.players.get(asPlayerId(0))!;
-    expect(p0After.energy).toBeGreaterThan(energyBefore);
-  });
-
-  it('throws if the player is missing (defensive — should not happen in practice)', () => {
-    const world = makeWorld(1);
-    expect(() =>
-      applyTickEnergy(world, {
-        type: 'TICK_ENERGY',
-        playerId: asPlayerId(99),
-        deltaSec: 1,
-      }),
-    ).toThrowError(/player 99 missing/);
-  });
-});
+// S169 (owner) — the applyTickEnergy suite went with the mechanic. See archive/energy/RESTORE.md.
 
 describe('S84 P1 — pooped pickup gate (applyPickupSpark)', () => {
   /** World with one debuffed player whose avatar sits at (ax, ay); spark at (100, 100). */

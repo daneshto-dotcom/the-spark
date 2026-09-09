@@ -407,7 +407,6 @@ interface SerializedPlayer {
   color: number;
   kind: 'Idle' | 'Carrying';
   carriedSparkId: SparkId | null;
-  energy: number;
   buildActions: number;
   disruptionCharges: number;
   /** S15 P2 — per-player avatar position. Optional for pre-S15 compat. */
@@ -1661,7 +1660,6 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     const base = {
       id: p.id,
       color: p.color,
-      energy: p.energy,
       buildActions: p.buildActions,
       disruptionCharges: p.disruptionCharges,
       avatarPos: p.avatarPos !== undefined
@@ -1833,7 +1831,6 @@ function serializePlayer(p: Player): SerializedPlayer {
     color: p.color,
     kind: p.kind,
     carriedSparkId: p.kind === 'Carrying' ? p.carriedSparkId : null,
-    energy: p.energy,
     buildActions: p.buildActions,
     disruptionCharges: p.disruptionCharges,
     avatarPos: { x: p.avatarPos.x, y: p.avatarPos.y },

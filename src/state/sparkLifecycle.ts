@@ -16,11 +16,10 @@
  * throw — that's a true invariant violation (caller bug or wire corruption).
  */
 
-import { CarryViolation, drop as fsmDrop, pickup as fsmPickup, tickEnergy } from '../game/player.ts';
+import { CarryViolation, drop as fsmDrop, pickup as fsmPickup } from '../game/player.ts';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  ENERGY_PER_SECOND_FLAT,
   POOP_PICKUP_ARRIVAL_RADIUS,
   REASONABLE_PICKUP_REACH,
 } from '../constants.ts';
@@ -72,12 +71,6 @@ export interface DropSparkAction {
   readonly type: 'DROP_SPARK';
   readonly playerId: PlayerId;
   readonly pos: Vec2;
-}
-
-export interface TickEnergyAction {
-  readonly type: 'TICK_ENERGY';
-  readonly playerId: PlayerId;
-  readonly deltaSec: number;
 }
 
 /** Insert a spawned spark into the free-sparks map. No-op-safe if id collides
@@ -237,11 +230,3 @@ export function applyDropSpark(world: World, action: DropSparkAction): World {
   return world;
 }
 
-/** Tick player energy by deltaSec at the flat regen rate. The 1v1 gate does
- *  NOT apply here — energy ticks for both players each frame (regen accrues
- *  while inactive); only PLACE_PRIMITIVE / PICKUP gate on active-player. */
-export function applyTickEnergy(world: World, action: TickEnergyAction): World {
-  const player = requirePlayer(world, action.playerId);
-  tickEnergy(player, action.deltaSec, ENERGY_PER_SECOND_FLAT);
-  return world;
-}

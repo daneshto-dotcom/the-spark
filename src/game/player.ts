@@ -24,7 +24,6 @@ interface PlayerCommon {
    * the shuffle is the only other writer. Player reconstruction (fsmDrop) copies the live value.
    */
   color: number;
-  energy: number;
   buildActions: number;
   disruptionCharges: number;
   /**
@@ -203,7 +202,6 @@ export function makeIdlePlayer(
     id,
     color,
     kind: 'Idle',
-    energy: 0,
     buildActions: 0,
     disruptionCharges: 0,
     // S152 P1 — a new seat starts with no raid points and no progress toward one.
@@ -233,7 +231,6 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
   return {
     id: player.id,
     color: player.color,
-    energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
     // ⛔ S152 P1 — PRESERVE ACROSS THE CARRY-FSM RECONSTRUCTION. `pickup`/`fsmDrop` rebuild the
@@ -285,7 +282,6 @@ export function drop(player: Player): IdlePlayer {
   return {
     id: player.id,
     color: player.color,
-    energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
     // ⛔ S152 P1 — PRESERVE ACROSS THE CARRY-FSM RECONSTRUCTION. `pickup`/`fsmDrop` rebuild the
@@ -366,7 +362,3 @@ export function grantRaidProgress(player: Player, tenths: number): void {
   }
 }
 
-/** Passive flat energy accrual (§ XIV.8). */
-export function tickEnergy(player: Player, deltaSec: number, ratePerSec: number): void {
-  player.energy += deltaSec * ratePerSec;
-}

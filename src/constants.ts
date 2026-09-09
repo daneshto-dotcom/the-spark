@@ -237,8 +237,6 @@ export const STRAIN_BREAK_BY_TIER: Record<StiffnessTier, number> = {
   HIGH: 1.25,
 };
 
-// === Energy & Claim ===
-export const ENERGY_PER_SECOND_FLAT = 5.0;
 
 // === Disruption ===
 export const BUILD_ACTIONS_PER_CHARGE = 5;

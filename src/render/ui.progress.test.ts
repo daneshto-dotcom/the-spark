@@ -1,104 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhaseBanner, progressBarFractions } from './ui.ts';
-import { LEADER_DECAY_ENABLED, LEADER_DECAY_THRESHOLD_FRACTION, PHASE_1_WIN_SCORE, PHASE_DURATION_TICKS, PHYSICS_HZ } from '../constants.ts';
-import { asPlayerId } from '../types.ts';
-import type { World } from '../state/world.ts';
+import { formatPhaseBanner } from './ui.ts';
+import { PHASE_DURATION_TICKS, PHYSICS_HZ } from '../constants.ts';
 
-/**
- * S106 P4 — pins the fix for the owner's "I had almost full victory points after my friend won the
- * NONET, but my points should have been cut in half." The main progress bar used to read
- * world.scoreProgress = max-of-all-players (the LEADER), so the owner's own halving was invisible on
- * it. progressBarFractions.own now tracks the LOCAL player's own score; .leader keeps the max for the
- * ghost-tick. These tests lock: own ≠ leader when you're behind, and own DROPS on a NONET loss.
- * S107 P1 — also pins `ownDecaying` (drives the amber anti-coast tint).
+
+/*
+ * ⭐ S169 (owner) — THE `progressBarFractions` SUITE IS GONE BECAUSE THE BAR IS GONE.
+ *
+ * Owner: *"the victory bar. We don't need that because on the top left of the screen, there's
+ * already, like, the victory score with all the players, that's enough to know who's winning."*
+ *
+ * He is right that it was a duplicate readout, so the rail and its pure fraction helper were both
+ * removed and their tests with them — assertions about a bar nobody draws cannot fail, and keeping
+ * them would be green decoration. `formatPhaseBanner` is unrelated and its tests continue below.
+ *
+ * ⚠ WHAT THE REMOVAL COST, recorded so it is a decision and not an accident: the rail carried two
+ * things the top-left score text does not — a ghost tick for the LEADER's position, and a red flash
+ * when your own score DROPPED (a NONET halving). If either is missed in play, they belong on the
+ * scoreboard rather than on a second bar.
  */
-const mk = (scores: Array<[number, number]>, localId: number, gameMode: World['gameMode'] = '1v1') => {
-  const scoreByPlayer = new Map(scores.map(([id, s]) => [asPlayerId(id), s]));
-  const scoreProgress = Math.max(0, ...scores.map(([, s]) => s));
-  return { scoreByPlayer, localPlayerId: asPlayerId(localId), scoreProgress, gameMode };
-};
-const DECAY_THRESHOLD = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION; // 589.5
 
-describe('progressBarFractions (S106 P4 — own-score bar + leader ghost)', () => {
-  it('own tracks the LOCAL player, not the leader, when you are behind', () => {
-    const w = mk([[0, 200], [1, 600]], 0); // you (P0) have 200, opponent leads with 600
-    expect(w.scoreProgress).toBe(600);
-    expect(progressBarFractions(w).own).toBeCloseTo(200 / PHASE_1_WIN_SCORE, 6);
-    expect(progressBarFractions(w).leader).toBeCloseTo(600 / PHASE_1_WIN_SCORE, 6);
-  });
-
-  it('own DROPS when your score is cut by a NONET loss (the reported bug)', () => {
-    const before = mk([[0, 400], [1, 300]], 0); // you lead with 400
-    const after = mk([[0, 160], [1, 600]], 0); // you lost the NONET: 400×0.4=160, friend 300×2=600
-    expect(progressBarFractions(after).own).toBeLessThan(progressBarFractions(before).own);
-    expect(progressBarFractions(after).leader).toBeCloseTo(600 / PHASE_1_WIN_SCORE, 6); // ghost = friend now
-  });
-
-  it('solo: own === leader (single entry)', () => {
-    const w = mk([[0, 300]], 0);
-    const f = progressBarFractions(w);
-    expect(f.own).toBeCloseTo(f.leader, 6);
-  });
-
-  it('clamps to 1 at/over the win score', () => {
-    const w = mk([[0, PHASE_1_WIN_SCORE + 50], [1, 10]], 0);
-    expect(progressBarFractions(w).own).toBe(1);
-  });
-});
-
-describe('progressBarFractions.ownDecaying (S107 P1 - anti-coast amber cue)', () => {
-  /*
-   * S165, SECOND PASS - AND THE FIRST PASS WAS AN INCOMPLETE FIX WORTH RECORDING.
-   *
-   * The original bug: this cue drives an amber "you are coasting, your score is bleeding" tint, and
-   * S147 P1 (R28) switched leader decay OFF while this predicate was never told. The first fix made
-   * it read LEADER_DECAY_ENABLED - correct - and changed one case from `toBe(true)` to
-   * `toBe(LEADER_DECAY_ENABLED)`.
-   *
-   * THAT LEFT THE PREDICATE COMPLETELY UNGUARDED. The flag is false, and the other three cases
-   * already asserted literal false, so ALL FOUR demanded false: `const ownDecaying = false;` would
-   * have passed the entire suite. The solo exemption, the leader comparison and the 75% threshold
-   * had no live test at all - and `constants.ts` records that a balance session is expected to flip
-   * the flag back, which would have shipped three untested predicates in one commit.
-   *
-   * SO THE FLAG IS NOW A PARAMETER, the `isSimWorkerRequested(search, defaultOn)` shape this repo
-   * already uses for exactly this problem. Every case below runs in the ENABLED regime, where the
-   * logic is observable; the flag's own wiring is pinned once, separately, at the end.
-   */
-  const DECAYING = true;
-
-  it('TRUE when the LOCAL player is the leader AND past the decay threshold', () => {
-    const w = mk([[0, DECAY_THRESHOLD + 50], [1, 100]], 0); // you lead, past 75%
-    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(true);
-  });
-
-  it('FALSE when you are NOT the leader (someone else is decaying, not you)', () => {
-    const w = mk([[0, 200], [1, DECAY_THRESHOLD + 50]], 0); // opponent leads + decays
-    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
-  });
-
-  it('FALSE when leading but still BELOW the threshold (no decay yet)', () => {
-    const w = mk([[0, DECAY_THRESHOLD - 50], [1, 100]], 0);
-    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
-  });
-
-  it('FALSE in solo (decay is exempt there)', () => {
-    const w = mk([[0, DECAY_THRESHOLD + 50]], 0, 'solo');
-    expect(progressBarFractions(w, DECAYING).ownDecaying).toBe(false);
-  });
-
-  /*
-   * The switch itself. Separated from the four logic cases above so that flipping R28 back changes
-   * exactly this expectation and leaves the other four green - which is the whole point of having
-   * both.
-   */
-  it('and the FLAG gates all of it - false today, per R28', () => {
-    const w = mk([[0, DECAY_THRESHOLD + 50], [1, 100]], 0);
-    expect(progressBarFractions(w, false).ownDecaying).toBe(false);
-    // The production default reads the constant, so this tracks R28 rather than pinning a literal.
-    expect(progressBarFractions(w).ownDecaying).toBe(LEADER_DECAY_ENABLED);
-  });
-});
 
 /**
  * S147 P1 — the MATCH CLOCK readout. Pure formatter, so the arithmetic is tested here rather than

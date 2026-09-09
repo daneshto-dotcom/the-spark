@@ -147,11 +147,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     for (const p of w.primitives.values()) expect(p.bonds.size).toBe(0);
   });
 
-  it('TICK_ENERGY accrues passive energy at the constant rate (§ XIV.8)', () => {
-    const w = makeWorld(0);
-    dispatch(w, { type: 'TICK_ENERGY', playerId: P1, deltaSec: 1.0 });
-    expect(w.players.get(P1)!.energy).toBeCloseTo(5.0, 6);
-  });
+  // S169 (owner) — TICK_ENERGY removed with the energy mechanic. See archive/energy/RESTORE.md.
 
   it('WIN_TRIGGER flips gameState and records the winner', () => {
     const w = makeWorld(0);

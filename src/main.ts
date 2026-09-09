@@ -3569,7 +3569,9 @@ Network routes: ${v.detail}`;
     // S136 P0 — forward a VOLUNTARY spend from the castle panel to the HUD so its red drop-flash
     // (which exists to make an INVOLUNTARY NONET halving felt) is withheld for that one drop. Must
     // run BEFORE hud.sync, which is where drawProgress reads the latch and compares scores.
-    if (castlePanel.consumeSpendArmed()) hud.armSpendSuppression();
+    // S169 (owner) — the score rail is gone, so there is no drop-flash left to suppress. The panel
+    // latch is still CONSUMED so it cannot stick armed forever if the bar ever returns.
+    void castlePanel.consumeSpendArmed();
     hud.sync(world);
     castlePanel.sync(world);
     // S144 P3 — the ghost follows the cursor. Synced AFTER the panel so the armed id it reads is the

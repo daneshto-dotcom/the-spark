@@ -164,9 +164,13 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
 
   it('INTENT accepts every known GameAction discriminant', () => {
     // S42 — END_TURN removed (turn-based gameplay deleted, blueprint mandates real-time).
+    // S169 — TICK_ENERGY removed with the energy mechanic (owner: "Remove the energy mechanic,
+    // archive the code"). Same class as END_TURN and the same verdict recorded at the allowlist
+    // itself: an allowlist TIGHTEN, not a structural message change, so no PROTOCOL_VERSION bump.
+    // It was never a client intent either, so no peer could send it. See archive/energy/RESTORE.md.
     const known = [
       'SPAWN_SPARK', 'DESPAWN_SPARK', 'PICKUP_SPARK', 'DROP_SPARK',
-      'PLACE_PRIMITIVE', 'SEVER_BOND', 'TICK_ENERGY', 'WIN_TRIGGER',
+      'PLACE_PRIMITIVE', 'SEVER_BOND', 'WIN_TRIGGER',
       'START_GAME', 'RETURN_TO_TITLE', 'UPDATE_AVATAR_POS',
       'GODLY_TRIGGER', 'GODLY_COMPLETE', 'GODLY_ABORT',
       'SPAWN_CREATURE', 'DESPAWN_CREATURE', 'CREATURE_TICK', 'CREATURE_ATTACK',
