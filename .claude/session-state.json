@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1314,
+  "tool_calls_session_total": 1318,
   "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -51,7 +51,7 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "GROUND LAYER at stage index 1 (only the flyover cinematic underlay beneath it) carrying the per-race backdrop + border walls, so the 0.55-alpha backdrop can no longer composite over free sparks/bonds/primitives/drag-preview - the owner S166 report, live in prod through two prior \"fixes\". THEN the fog became an INVERSE MASK on the concealable layer instead of an opaque sheet, which is the only way \"backdrop visible AND buildings hidden\" is expressible at all: a sheet paints over everything beneath it, so anything visible must be above it and anything above it covers the board. 5 renderers joined the concealable set (sparkRenderer, structureRenderer bondGraphics+primitiveLayer, keystoneTelegraph, dragPreview) because 3 of the 5 things the owner named were never concealable. FOG_SHROUD_ALPHA 0.55 (MY number, documented at the constant, matched to ZONE_BG_ALPHA) keeps the C&C shroud so unexplored ground still reads unexplored. Mask RELEASED on lift or the whole board would stay hidden through every FIGHT. fog.spec roll call rebuilt (14->17 children) + a new POSITIONAL ground contract that caught my own wrong assumption on its first run (asserted index 0, got 1 - RainbowFlyoverRenderer legitimately owns index 0). tower-art probes 3->6 and 8->11.",
+      "check_method": "FOG OF WAR, FOURTH AND CORRECT ATTEMPT - per-entity CULLING, the C&C model. Owner: \"look at Red Alert. Theyre, like, from the fucking nineties. They did it fine.\" The classic model is 3 parts and this repo already had 2: the explored grid (exploredMemory -> dark/dim/clear tiers) and remembered last-seen buildings (S60 ghosts). The missing third - units in non-visible cells are simply NOT DRAWN - was the entire complaint. render/concealment.ts computes vision ONCE per frame (beginConcealmentFrame; the sources walk is O(own prims + creatures) so per-entity would be quadratic) and isConcealed(x,y,owner) is a cheap read, wired into all 10 renderers that draw his hide-list. Own entities never concealed (owner check before geometry). Bond hidden unless BOTH ends visible. structureRenderer skips BEFORE seen.add so leaving vision REAPS the sprite. Gatherer cull is in the unit loop only, because that renderer also draws the CASTLE (his one always-visible exception). \"until they are in the center which is lit\" needed no special case - the spawner disc is already a permanent vision source for every seat. ALSO IN P1: groundLayer at stage bottom so the 0.55-alpha backdrop stops compositing over sparks/bonds/primitives (the S166 report, live through two prior \"fixes\"); border walls restored to visible (R162); own-zone full-rect erase so your quadrant is lit corner to corner, not just around structures. THREE MECHANISMS WERE TRIED AND REMOVED: backdrop above the sheet (S166 class), below it (S169 class), and an inverse Pixi mask - the last shipped twice concealing nothing, first because the mask texture was tinted FOG_COLOR (a Pixi alpha mask samples a colour CHANNEL and the red channel of black is 0 everywhere), then because the mechanism was UNTESTABLE (Pixi implements alpha masks as filters; renderer.extract does not apply filter effects, so no assertion in the repo could see whether the board was concealed). Untestability was the real defect. Culling is a pure predicate: 12 tests incl. \"the fog closes behind you when the spark leaves\" (which forbids sticky concealment - remembering WHERE buildings were is the ghost layer, not this predicate) and \"nothing concealed during FIGHT\" (R62).",
       "real_context_tokens_at_close": null,
       "verification": [
         {
@@ -78,21 +78,6 @@
           "type": "file_lacks",
           "path": "src/main.ts",
           "needle": "new WallRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "fogRenderer.attachTo(fogHiddenLayer);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/fogRenderer.ts",
-          "needle": "attachTo(target: Container): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/fogRenderer.ts",
-          "needle": "inverse: true"
         },
         {
           "type": "file_contains",
@@ -138,6 +123,125 @@
           "type": "file_contains",
           "path": "e2e/tower-art.spec.ts",
           "needle": "above.children[11]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.ts",
+          "needle": "export function isConcealed("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.ts",
+          "needle": "export function beginConcealmentFrame("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "beginConcealmentFrame(world, controls.cursor);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRenderer.ts",
+          "needle": "if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRenderer.ts",
+          "needle": "if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/goblinRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/creatureRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/chewerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/towerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/spawnerZoneRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/turretRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/princessRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/stinkTowerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/gathererRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*attachTo\\(",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*private (readonly )?maskSprite",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*private maskTarget",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.test.ts",
+          "needle": "the fog must close behind you"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.test.ts",
+          "needle": "NOTHING is concealed during the FIGHT phase"
         }
       ]
     },
@@ -400,12 +504,12 @@
     }
   ],
   "reflexion_entries_to_archive": [
-    "S170 P1: #a-black-sheet-cannot-express-two-visibility-rules: S166, S169 and my own first attempt each tried to fix 'backdrop visible AND buildings hidden' by MOVING the backdrop, and all three failed, because with an opaque full-canvas sheet the requirement is not expressible by ordering at all - anything visible must be above the sheet, and anything above it paints over everything below. Three sessions of relocation were spent on a constraint nobody had stated. LESSON: when two placements of one object both produce bugs, stop moving it and write down the invariant; if the invariant is contradictory, the MECHANISM is wrong, not the position. The fix was to move concealment off the canvas and onto the objects (an inverse mask), after which the backdrop needed no special position at all.",
     "S170 P2: #a-green-test-can-be-defending-the-bug: the owner reported the same two-pharaoh defect twice and S169 'fixed' it by removing the gate that was PROVABLE in a unit test (a direct-dispatch latch) while leaving the gate he actually hit. t9BossTower.test.ts asserted the waiting behaviour as CORRECT, so the suite was green ON the defect and would have blocked the real fix. LESSON: when a reported bug 'does not reproduce' in tests but the owner keeps reporting it, grep for a test that ASSERTS the reported behaviour - a defect with a passing test defending it is invisible to every gate. Also: the docblock defending that gate justified itself by citing the latch S169 had just deleted, so a stale rationale outlived its own premise.",
     "S170 P2b: #gate-the-effect-on-the-outcome-not-on-the-trigger: the drone's blast VFX was pushed unconditionally, BEFORE the enemy-only candidate scan and the owner-sparing damage - so a fuse-expiry detonation at home showed a full shock ring for an event that could not damage anything. The tempting fix (silence blasts on fuse expiry) would have silenced real hits too, since explode-in-place next to an enemy base is deliberate. LESSON: gate a visual on what actually HAPPENED (candidates.length), never on the branch that led there.",
     "S170 P3: #one-populations-ceiling-silently-gating-another: GOBLIN_MAX_PER_SPAWNER=10 was shared by the goblin tower and the tier-3 race towers, so a tier-3 tower went permanently silent at ten units - the owner's original 'the Piranha didn't produce at all' returning, months later, from a constant named after a different unit. Three prior exclusions in the same function existed for exactly this failure and a fourth was still owed. LESSON: fix it as an EXEMPTION, never by raising or deleting the shared number, and assert BOTH sides - a test proving 'tier 3 is uncapped' cannot tell that from 'the cap is gone' and would have re-tuned an economy the owner chose.",
     "S170 P4: #the-unit-of-a-ruling-is-part-of-the-ruling: the sudoku trial counted SHAPES with an exact test; the owner had said 'twelve same-shape-connectors' and the code's own comment flagged that one word would flip it - and nobody asked him for two sessions while he reported 'there is no sudoku, it doesn't work'. Twelve connectors is not a fixed shape count (chain of 13 = ring of 12 = 12 bonds), so no shape-count test could express his rule. LESSON: when a comment says 'one word flips this if the intent was X', that is an OWNER QUESTION, not a note. And an exact-N test on a value that can jump by two is skippable by construction.",
-    "S170 P5: #a-private-renderer-method-scopes-a-condition-to-one-renderer: the stun stars lived as a private method of goblinRenderer, which silently limited them to GOBLIN_KINDS - while applyStun's only caller, the Kraken sonar, has NO type filter and stuns voltkin/chewer/drones drawn by two other renderers. Those froze with no stars, reading as a hang. The same method also used flat geometry, so on the scaled-up bosses (the units stun exists to counter) the ring sat inside the sprite. LESSON: a visual for a property of an ENTITY belongs in a module, not in whichever renderer happened to add it. Extraction is also what made it testable - it went from an untestable private method to a pure function with a determinism assertion."
+    "S170 P5: #a-private-renderer-method-scopes-a-condition-to-one-renderer: the stun stars lived as a private method of goblinRenderer, which silently limited them to GOBLIN_KINDS - while applyStun's only caller, the Kraken sonar, has NO type filter and stuns voltkin/chewer/drones drawn by two other renderers. Those froze with no stars, reading as a hang. The same method also used flat geometry, so on the scaled-up bosses (the units stun exists to counter) the ring sat inside the sprite. LESSON: a visual for a property of an ENTITY belongs in a module, not in whichever renderer happened to add it. Extraction is also what made it testable - it went from an untestable private method to a pure function with a determinism assertion.",
+    "S170 P1: #research-the-standard-solution-before-inventing-a-mechanism: I spent most of a session and THREE shipped-and-wrong attempts hiding enemy units, by re-layering a backdrop twice and then building an inverse Pixi mask - without ever checking how fog of war is done. The owner had to ask twice (\"did you look into them or no? I said, look at Red Alert\") before I looked. The classic RTS answer is per-entity culling (dont draw it), the repo ALREADY contained two of the three pieces (explored grid + last-seen ghosts), and the fix was one predicate plus one line per renderer. LESSON: when a problem is old and solved everywhere, the first move is to find the standard mechanism, not to reach for a rendering trick. SECOND, SHARPER LESSON: prefer the mechanism the SUITE CAN SEE. All three failures passed every gate, because masks and compositing are invisible to a test harness that cannot read composed frames - renderer.extract does not apply filter effects. A pure predicate was both the correct answer and the testable one, and \"can I assert this?\" would have picked it on day one."
   ],
   "budget_total": 1000000,
   "totals": {
