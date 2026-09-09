@@ -31,7 +31,7 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { zoneCount, type ZoneLayout } from '../state/zones.ts';
 import { footerBandModel } from './footerBandModel.ts';
-import { layoutCards, layoutChips, legendAnchor, type FooterChipGeom } from './footerBand.ts';
+import { layoutCards, layoutChips, type FooterChipGeom } from './footerBand.ts';
 import {
   STRIP_BTN,
   STRIP_CHIP_H,
@@ -110,16 +110,16 @@ describe('S154 P1 — the strip is DERIVED from the chip row, never placed at a 
     }
   });
 
-  it('leaves the LEGEND alone — it anchors off the LEFT end of the row, the strip off the right', () => {
-    // The banked plan for this priority warned that the legend "will collide and must move". It
-    // will not: legendAnchor returns `leftmost - LEGEND_GAP - LEGEND_WIDTH + …`. Asserted rather
-    // than argued, so the claim cannot rot.
-    const chips = liveChips();
-    const legend = legendAnchor(chips);
-    const { palette } = shapeStripLayout(chips, FULL_QUEUE);
-    expect(legend.x).toBeLessThan(Math.min(...chips.map((c) => c.x)));
-    expect(palette[0].x).toBeGreaterThan(legend.x);
-  });
+  /*
+   * ⭐ S169 (owner R153) — THE LEGEND CLEARANCE TEST IS GONE BECAUSE THE LEGEND IS GONE.
+   *
+   * It read: *"leaves the LEGEND alone — it anchors off the LEFT end of the row, the strip off the
+   * right"*, and it was answering a banked warning that the key "will collide and must move". The
+   * owner has now removed the key outright — *"those six shapes on the left side with their colors -
+   * thats illogical to have them ... just remove them"* — so there is no rectangle left to clear and
+   * an assertion about one would be theatre. `footerBandLegendRemoved.test.ts` pins the ABSENCE
+   * instead, which is the claim that can actually regress.
+   */
 });
 
 describe('S154 P1 — ⛔ THE STRIP CLEARS THE CASTLE PORCHES (the assertion the chip sweep could not make)', () => {

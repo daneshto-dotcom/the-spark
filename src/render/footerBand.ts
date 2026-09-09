@@ -29,7 +29,8 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
 import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
-import { LEGEND_SPRITE_STEP, LEGEND_WIDTH } from './renderer.ts';
+// S169 R153 — the strip states which race owns each shape, in that race's colour.
+import { raceColorForShape } from '../state/races.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawBlueprintThumb } from './blueprintGlyph.ts';
 import type { World } from '../state/world.ts';
@@ -110,13 +111,6 @@ export class FooterBand {
   /** The complexity the player has opened, or null. Render-only selection — never world state. */
   private selected: number | null = null;
   /**
-   * S150 P1 — the six-shape type key, handed over by main.ts. The band POSITIONS it (beside the
-   * chips, see `legendAnchor`); main.ts keeps owning its VISIBILITY, because the S16 P3.b overlay
-   * gate there already hides it on TITLE/LOBBY alongside the spawner ring. Two writers to one
-   * `.visible` flag is a race nobody wins, so ownership is split by property, not shared.
-   */
-  private legend: Container | null = null;
-  /**
    * ⭐ S154 P1 (owner R80) — THE SHAPE STRIP: the palette + order queue, laid out right of the last
    * tier chip and drawn on every frame of a live match. Geometry is PURE and lives in
    * `shapeStrip.ts`; this class owns the pixels and the hit-tests, exactly as it already does for
@@ -178,13 +172,6 @@ export class FooterBand {
     const model = footerBandModel(world);
     this.chips = layoutChips(model);
 
-    // S150 P1 — re-anchor the type key every frame, from THIS frame's chip row. Cheap (two number
-    // writes) and it means a registry change can never leave the key sitting on top of a chip.
-    if (this.legend !== null) {
-      const a = legendAnchor(this.chips);
-      this.legend.position.set(a.x, a.y);
-    }
-
     for (let i = 0; i < this.chips.length; i++) {
       const c = this.chips[i];
       const isSel = this.selected === c.complexity;
@@ -242,7 +229,17 @@ export class FooterBand {
         alpha: 0.85,
       });
       // The SAME glyph the board and the castle bank draw, so one shape cannot read two ways.
-      drawSparkGlyph(g, b.x + b.w / 2, b.y + b.h / 2, 9, b.type, TINT_ENABLED);
+      /*
+       * ⭐⭐ S169 (owner R153) — TINTED BY THE RACE THAT OWNS THE SHAPE. This is the half of his
+       * ruling that REPLACES what the removed key used to say: he did not ask for the colours to be
+       * deleted, he asked for them to move somewhere logical — *"make the shapes on the right side
+       * (where the queue menue is) colored with those colors (showing the races that own them)."*
+       *
+       * ⚠ NO STATE IS LOST BY OVERRIDING `TINT_ENABLED` HERE. The comment above records that every
+       * palette button is ALWAYS enabled (queueing costs nothing, even benched), so this tint was
+       * carrying no information; hover and press live in the plate fill and stroke, untouched.
+       */
+      drawSparkGlyph(g, b.x + b.w / 2, b.y + b.h / 2, 9, b.type, raceColorForShape(b.type) ?? TINT_ENABLED);
     }
 
     // THE QUEUE. Coalesced to one chip per type with an ×N badge (owner ruling B4), in
@@ -261,7 +258,8 @@ export class FooterBand {
         color: hot ? 0xd46a6a : TINT_ENABLED,
         alpha: c.next ? 0.95 : 0.6,
       });
-      drawSparkGlyph(g, c.x + c.w / 2 - 4, c.y + c.h / 2, 8, c.type, TINT_ENABLED);
+      // S169 R153 — the same race tint as the palette row; `next` and hover still read from the stroke.
+      drawSparkGlyph(g, c.x + c.w / 2 - 4, c.y + c.h / 2, 8, c.type, raceColorForShape(c.type) ?? TINT_ENABLED);
 
       // Only badge a real multiple — "×1" on every chip is noise.
       const badge = this.labelAt(badgeBase + i);
@@ -442,11 +440,6 @@ export class FooterBand {
     return this.cards.find((c) => c.id === id)?.enabled ?? false;
   }
 
-  /** S150 P1 — adopt the shape key so the bottom strip lays out as one row. See `legendAnchor`. */
-  attachLegend(legend: Container): void {
-    this.legend = legend;
-  }
-
   /** main.ts mirrors the armed tower here so the open card can show it as held. */
   setArmed(id: GodlyId | null): void {
     this.armed = id;
@@ -569,28 +562,6 @@ export function layoutCards(
     h: CARD_H,
   }));
 }
-
-/**
- * ⭐ S150 P1 — PURE: where the six-shape type key sits, DERIVED from the chip row it sits beside.
- *
- * See `makeLegend` for the defect this closes (the key was drawn inside the leaderboard's row 0).
- * The interesting decision here is that the anchor is derived rather than fixed: a hardcoded x that
- * clears today's five chips would be quietly wrong the day a sixth complexity enters the recipe
- * registry, because `layoutChips` re-centres the whole row and its left edge marches LEFT by
- * (CHIP_W + CHIP_GAP) / 2 = 38 px per tier. That is the same "duplicated geometry drifts" failure
- * `keepCenter` and `layoutChips` already exist to prevent, so the key reads the chips instead of
- * guessing about them.
- *
- * Vertically centred on the chip row, so the whole bottom strip sits on one line. Returns the
- * container origin, i.e. the CENTRE of the first sprite (they are anchored at 0.5).
- */
-export function legendAnchor(chips: readonly FooterChipGeom[]): { x: number; y: number } {
-  const leftmost = chips.length > 0 ? Math.min(...chips.map((c) => c.x)) : CANVAS_WIDTH / 2;
-  return { x: leftmost - LEGEND_GAP - LEGEND_WIDTH + LEGEND_SPRITE_STEP, y: CHIP_CY };
-}
-
-/** Breathing room between the type key and the first connector chip. */
-const LEGEND_GAP = 34;
 
 export function layoutChips(model: readonly FooterComplexity[]): FooterChipGeom[] {
   const n = model.length;

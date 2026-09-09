@@ -98,6 +98,43 @@ export const RACE_FEED_SHAPE: Readonly<Record<RaceId, SparkType>> = {
 };
 
 /**
+ * ⭐⭐ S169 (owner R153) — **THE INVERSE: WHICH RACE OWNS A SHAPE.**
+ *
+ * Owner, on the footer: *"you see those six shapes on the left side with their colors - thats
+ * illogical to have them. maybe just remove them and make the shapes on the right side (where the
+ * queue menue is) colored with those colors (showing the races that own them)."*
+ *
+ * ⭐ "THE RACES THAT OWN THEM" IS ONLY MEANINGFUL BECAUSE `RACE_FEED_SHAPE` IS A BIJECTION — six
+ * races, six shapes, one each. That is not a coincidence to lean on quietly: R109 assigned one feed
+ * shape per race and R119 made the tier-3 tower a ring OF that shape, so "who owns this shape" has
+ * exactly one answer per shape and the footer can state it in a colour. `races.test.ts` pins the
+ * bijection, so if a seventh race ever shares a shape this map fails loudly rather than silently
+ * picking a winner.
+ *
+ * ⛔ DERIVED FROM `RACE_FEED_SHAPE`, NEVER TYPED OUT. A hand-written inverse is two tables that must
+ * agree, and this repo's own history is the argument: the tier-3 art slug table restates the
+ * creature names from `RACE_TOWER_UNIT` and had to explain in a comment why the duplication is safe.
+ * Here there is no such excuse — one `for` loop cannot drift from its source.
+ */
+export const RACE_FOR_SHAPE: Readonly<Partial<Record<SparkType, RaceId>>> = (() => {
+  const out: Partial<Record<SparkType, RaceId>> = {};
+  for (const race of ALL_RACES) out[RACE_FEED_SHAPE[race]] = race;
+  return out;
+})();
+
+/**
+ * ⭐ S169 (owner R153) — the colour to draw a shape in, in the footer's shape strip.
+ *
+ * Returns the owning race's colour, or `null` for a shape no race owns. `null` rather than a
+ * fallback colour on purpose: a caller that gets `null` should keep its EXISTING tint rather than
+ * invent one, so a future seventh shape degrades to today's look instead of to an arbitrary hue.
+ */
+export function raceColorForShape(type: SparkType): number | null {
+  const race = RACE_FOR_SHAPE[type];
+  return race === undefined ? null : RACE_COLORS[race];
+}
+
+/**
  * ⭐ THE DEFAULT, AND THE ONLY ONE. A seat that never chose gets the race for its seat colour —
  * R45's *"PLAYER_COLORS[seat] is only ever a DEFAULT assignment"*, restated in race terms. This is
  * what keeps solo, vs-bots, a stale peer's roster and every pre-existing save working with ZERO UI.

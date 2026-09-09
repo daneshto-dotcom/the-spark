@@ -136,7 +136,7 @@ import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted,
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
-import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
+import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { resolveMusicTrack } from './render/raceMusic.ts';
@@ -277,9 +277,8 @@ async function bootstrap(): Promise<void> {
   root.appendChild(app.canvas);
 
   const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
-  const legend = makeLegend(app);
   app.stage.addChild(spawnerRing);
-  // S81 P5 — legend/betaBadge/muteIndicator/settingsIcon are CREATED here but staged AFTER
+  // S81 P5 — betaBadge/muteIndicator/settingsIcon are CREATED here but staged AFTER
   // the fog + aboveFogLayer (below): they were added before FogRenderer existed, so the fog
   // container sat above them and swallowed the whole top HUD row in 1v1 PLAYING (user round-3:
   // 'stuff in the top (like where it says beta or shows primitives) is hidden within the
@@ -693,18 +692,27 @@ async function bootstrap(): Promise<void> {
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
   // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
-  // see the comment there). Relative order preserved: legend, beta, ♪ (after beta — S18 P1
+  // see the comment there). Relative order preserved: beta, ♪ (after beta — S18 P1
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
   // which is fine — none of the corner elements overlap them.
-  app.stage.addChild(legend);
   app.stage.addChild(betaBadgePlate); // S89 P2 — backs the badge text (below it, above fog)
   app.stage.addChild(betaBadge);
   app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
-  // S150 P1 — the shape key joins the connector chips in the bottom strip; the band positions it
-  // from the live chip row (see `legendAnchor`). Visibility stays with the overlay gate below.
-  footerBand.attachLegend(legend);
+  /*
+   * ⭐ S169 (owner R153) — THE SIX-SHAPE KEY IS GONE FROM HERE, and the strip says it instead.
+   *
+   * Owner: *"you see those six shapes on the left side with their colors - thats illogical to have
+   * them. maybe just remove them and make the shapes on the right side (where the queue menue is)
+   * colored with those colors (showing the races that own them)."*
+   *
+   * S150 P1 moved the key INTO this strip to stop it colliding with the leaderboard, and that fixed
+   * the collision but left two readouts saying overlapping things. His reading is the better one: a
+   * standalone key is redundant once the shapes you actually click are themselves colour-coded, so
+   * the colour moved onto the palette and queue glyphs (`footerBand`, `raceColorForShape`) and the
+   * key was deleted rather than moved a third time.
+   */
   // S136 P0 — the automation controls moved OFF the permanent footer and into a panel that opens
   // when you click your castle (owner playtest item 2). Constructed after the HUD so it renders
   // above it (child-add order, the betaBadgePlate idiom — no zIndex needed).
@@ -3036,14 +3044,13 @@ Network routes: ${v.detail}`;
      */
     exitButton.setVisible(world.gameState === 'PLAYING' && !modalUp);
 
-    // S16 P3.b — hide spawner ring + legend during TITLE/LOBBY so they don't
+    // S16 P3.b — hide the spawner ring during TITLE/LOBBY so it doesn't
     // bleed through the overlay panes (user-flagged after S15 screenshot review).
     // S150 P1 — one shared predicate (ui.ts), so an element added later has something obvious to
     // ask. The gauge, the score rail and the avatar glow each grew their own answer to this question
     // — which is to say, none — and all three ended up drawn on the title screen.
     const inOverlayScreen = isOverlayScreen(world.gameState);
     spawnerRing.visible = !inOverlayScreen;
-    legend.visible = !inOverlayScreen;
 
     // S15 P2 — connection-lost overlay (networked, PLAYING, no peers).
     // S62 — generalized gameMode==='1v1' → isNetworked() but DELIBERATELY keeps
