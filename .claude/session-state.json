@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 384,
+  "tool_calls_session_total": 398,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "DO - P2 the Pharaoh, stage A in flight",
+  "session_status": "DO - P2A complete + live; P2B (the locust attack) next",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -70,18 +70,158 @@
       "id": "P2A",
       "title": "Close the seven untargetable acquisition + retention sites",
       "description": "world.ts:671 (authoritative raid reducer, before raidPoints--), input/controls.ts:1448, bossSkillsKraken.ts:85, bossSkillsArchdemon.ts:127, voltkinChain.ts:109, creatureProjectile.ts:106 (route through chokepoint), defenderLifecycle.ts:137 (retention - LIVE not latent under R171-A). Seagull poop deliberately LEFT (area hit, not acquisition). Plus: isUntargetableType -> isUntargetable(creature, tick) state-aware in ONE place per the voltkin-config.ts:995 prediction; a call-site allowlist test on the damage.wired.test.ts import-graph pattern; upgrade the readFileSync-substring test to a real behavioural one.",
-      "status": "in_progress",
-      "check_completed": false,
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "export function isUntargetable(",
+          "path": "src/state/creatures/creature.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "export function isChannellingRa(",
+          "path": "src/state/creatures/creature.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "raRitualUntilTick?: number;",
+          "path": "src/state/creatures/creature.ts"
+        },
+        {
+          "type": "file_lacks",
+          "needle": "isUntargetableType(c.type)",
+          "path": "src/state/creatures/creatureAI.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(c, world.tick)",
+          "path": "src/state/creatures/creatureAI.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "if (isUntargetable(target, world.tick)) return world;",
+          "path": "src/state/world.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(c, world.tick)",
+          "path": "src/state/bossSkillsKraken.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(c, world.tick)",
+          "path": "src/state/bossSkillsArchdemon.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(c, world.tick)",
+          "path": "src/state/creatures/voltkinChain.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(c, this.world.tick)",
+          "path": "src/input/controls.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(other, world.tick)",
+          "path": "src/render/creatureProjectile.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(victim, world.tick)",
+          "path": "src/state/defenders/defenderLifecycle.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "| 'raRitualUntilTick';",
+          "path": "src/state/stateHashFull.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": ":rr${o(c.raRitualUntilTick)}",
+          "path": "src/state/stateHashFull.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "readonly raRitualUntilTick?: number;",
+          "path": "src/state/save.ts"
+        },
+        {
+          "type": "grep_count",
+          "pattern": "raRitualUntilTick: (c|s)\\.raRitualUntilTick",
+          "op": "==",
+          "value": 2,
+          "path": "src/state/save.ts"
+        },
+        {
+          "type": "grep_count",
+          "pattern": "^export function isUntargetable\\(",
+          "op": "==",
+          "value": 1,
+          "path": "src/state/creatures/creature.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "NOT_ACQUISITION",
+          "path": "src/state/untargetableCallSites.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "THE GATES, ASSERTED AS GATES",
+          "path": "src/state/untargetableRetention.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "PROTOCOL_VERSION = 45 as const",
+          "path": "src/net/protocol.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "BACKLOG.md",
+          "needle": "S171 — OWNER PLAYTEST WITH HIS BROTHER"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/PDR-S171-P2-PHARAOH.md",
+          "needle": "PRIME-AUDIT DELTA"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/untargetableGates.test.ts",
+          "needle": "CORRECTED S171 — THE PARAGRAPH THAT STOOD HERE WAS WRONG"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/untargetableGates.test.ts",
+          "needle": "A REAL CHOKEPOINT EXISTS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "S171 — OWNER PLAYTEST WITH HIS BROTHER"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/defenderLifecycle.test.ts",
+          "needle": "a defender DROPS a target that has left the targetable space"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, every one from a captured $? (never a pipe, never the wrapper's trailing line): typecheck 0 | vitest 0 = 4223 tests / 269 files (from 4202/267, +21 tests +2 files) | e2e:gating 0 = 65 passed | e2e:races 0 = 5 passed | build 0 = 815.2 KiB of the 900 KiB charter, 84.8 KiB headroom. BEHAVIOURAL COVERAGE: 11 tests in untargetableRetention.test.ts drive the real production entry points - the Kraken aim pick, the Voltkin chain hop, the AUTHORITATIVE RAID_TARGET reducer (both that it refuses AND that it does not spend the point), the Archdemon teleport, the projectile renderer, the shared chokepoint, and RETENTION via applyDefenderTick. Each has a CONTROL arm so it cannot pass vacuously; two of those controls failed first and both were fixture errors, diagnosed and recorded in-test rather than papered over (a chewer DIES to one raid, so the landed raid is a removal not a reduced pool; resolveProjectileShot needs state=ATTACKING inside the flight window). STRUCTURAL COVERAGE: untargetableCallSites.test.ts re-counts every enemy-shaped creature scan in the tree on each run (damage.wired.test.ts import-graph pattern) and requires each to consult the gate or carry a written verdict; its anti-rot arm caught a stale entry on its first run - mine. HASH: the CreatureHashed coverage contract failed tsc on sight as designed; all three sub-sites done (union, projection, and two contribution tests incl. deadline-value distinguishability). CORRECTIONS LANDED: two false completeness docblocks (creatureAI.ts's 'COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'AUDITED RATHER THAN ASSUMED') corrected IN PLACE with the measured numbers, and the readFileSync substring check that passed on a comment mention was replaced. PROTOCOL_VERSION still 45 - raRitualUntilTick is additive-optional, verified against the rule in protocol.ts. NOT CLAIMED: no visual assertion (nothing draws yet); the deploy verification is tracked separately.",
+      "checkpoint_commit": "6667f46fa10ac388738c4425ae70afd0d0b9c189",
+      "real_context_tokens_at_close": 422091,
+      "real_context_pct_at_close": 42.21,
+      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers; deploy run 34391063181 concluded success"
     },
     {
       "id": "P2B",
       "title": "The locust attack (R142) - PROTOCOL 45->46",
       "description": "New CreatureType 'locustCloud', untargetable:true, lifetimeTicks 900 (15s, R142 written; owner said ~10s hedged - flagged, one constant). CREATURE_TARGETS BOTH. New bossSkillsPharaoh.ts runPharaohLocusts modelled on runWarlordDirewolves. Launch = cone SPREAD (the cone is the launch, not a volume - A.0 drift finding); then clouds roam and hunt. 3 clouds, 1 strike/5s = 9 strikes (MINE). 10/10 = 150 fifths is the owner's. Spawn-gate exemption like the direwolf. Protocol bump = 6 sites, 4 machine-gated.",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "verification": [],
       "pdr_approved": true,
@@ -122,7 +262,33 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P2A",
+      "tag": "#a-completeness-claim-in-prose-cannot-stay-true",
+      "lesson": "Two separate docblocks in this repo asserted that the untargetable enumeration was complete — creatureAI.ts's 'THIS ONE LINE COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'THE BYPASSES WERE AUDITED RATHER THAN ASSUMED'. Both were written by sessions that had genuinely looked, and both were wrong: six paths of thirteen, and three files of fifteen. The carried handoff then repeated a SIX-item list whose most important member (world.ts's authoritative RAID_TARGET reducer) was never on it, and three of the six had wrong paths or line numbers. The fix is not a better audit; it is that the enumeration must be re-counted by a machine on every run. damage.wired.test.ts already had the pattern for exactly this reason and I reused it. ⭐ AND ITS ANTI-ROT ARM CAUGHT A STALE ENTRY ON ITS FIRST RUN — mine, a verdict about a file the census never reaches."
+    },
+    {
+      "priority": "P2A",
+      "tag": "#locate-by-content-never-by-the-recorded-line",
+      "lesson": "Every one of the six carried bypass sites was found by grepping for the CLAUSE, not by opening the recorded file:line. Three were wrong: src/controls.ts is src/input/controls.ts, voltkinChain is under creatures/ and the loop is at 106 not 92, seagullLifecycle is under seagulls/. Had I trusted the numbers I would have patched nothing and reported six fixes."
+    },
+    {
+      "priority": "P2A",
+      "tag": "#the-owners-reframing-was-a-better-design-than-mine",
+      "lesson": "I planned an 'unkillable creature' — a guard at eight removal sites. The owner reframed it instead: 'he's in a different dimension, between realities... he's not really in the game.' That is not a softer version of my design, it is a cleaner one: a creature that has LEFT the world is not a candidate anywhere, where an unkillable one must be special-cased at every site that can acquire, strike or remove it. It also turned out to be the exact mechanism voltkin-config.ts:995 had predicted in writing for R121's submerged naga. ⇒ When the owner restates a mechanic in his own terms, read it as a design input, not as a looser spec."
+    },
+    {
+      "priority": "P2A",
+      "tag": "#a-control-arm-that-fails-is-the-fixture-not-the-gate",
+      "lesson": "Two of the new tests failed on their CONTROL arm first: a raid KILLS a chewer (so the landed raid is a removal, not a reduced pool) and resolveProjectileShot returns null unless the archer is ATTACKING inside the flight window. Both were fixture errors. A control that fails for the same reason the assertion would have is precisely how a vacuous test gets written and shipped green — so both diagnoses are recorded IN the tests rather than silently patched."
+    },
+    {
+      "priority": "P2A",
+      "tag": "#delegated-lanes-die-and-must-be-named",
+      "lesson": "The A.0 probe returned 14/14, but the design panel lost 2 of 4 proposal lanes to the StructuredOutput retry cap (one on unescaped Windows backslashes in its JSON). Per the S161 rule those lanes are NOT DONE and are named as such in the PDR's PRIME-AUDIT delta; their angles were covered by hand. The panel that DID return found four things I had missed, including a ninth removal class (world.creatures.clear() at three sites) and the population latch that would have made a multi-cloud cone into N-1 silent no-ops."
+    }
+  ],
   "budget_total": null,
   "totals": {},
   "carry_forward_s170": [

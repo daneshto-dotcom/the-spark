@@ -307,3 +307,76 @@ an number of HP"* and then moved to solving the Pharaoh's case by phasing him ou
 is still unruled. **Proceeding on my default — a raid cannot pick an untargetable unit** — because
 R142 says the locusts *"cannot be targeted"* in as many words, and I read R78 as "raids are not
 restricted to chewers" rather than "raids ignore untargetability". One word overrules it.
+
+
+---
+
+# ⭐ PRIME-AUDIT DELTA — the internal design panel, landed after Stage A shipped
+
+The 4-framing proposal/critique/synthesis panel (`wf_ba7fc269-e7a`) returned after Stage A was
+committed. ⛔ **TWO OF ITS FOUR PROPOSAL LANES DIED** — `minimal-surface` and `delivery-realist` both
+hit the StructuredOutput retry cap (the delivery-realist one on unescaped backslashes in Windows
+paths inside its JSON). 7 of 9 agents completed. Per the standing rule that a hunt returning nothing
+is not a completed hunt, those two lanes are **NOT DONE** and their angles — minimum-surface and
+sequencing/risk — were covered by hand instead, not by an agent.
+
+Everything below was **hand-verified against the tree** before being recorded.
+
+## Δ1 — `inCone` IS A MEMBERSHIP TEST, NOT A PLACEMENT PRIMITIVE. My PDR was half wrong.
+
+The PDR said *"the locust cone is a REUSE, not new geometry."* `inCone(apex, axis, pos, cosHalf,
+rangeSq)` answers *"is this point inside the wedge"*. The launch does not ask that — it **places** N
+clouds inside a wedge, which is `cos`/`sin` at fixed angles. `inCone` earns its place as the **test
+oracle** (assert every launched cloud is inside the wedge) and as a renderer bound, not as the launch
+code. Recorded because "it's a reuse" would have let a later session write ad-hoc trigonometry and
+believe it was covered.
+
+## Δ2 — THE EIGHT REMOVAL SITES ARE NOT EIGHT THREATS. Five can reach a channelling Pharaoh.
+
+`suicideBlast.ts:155` and `droneLifecycle.ts:227` delete **the actor itself** and can never hold a
+Pharaoh. `creatureLifecycle.ts:585` is gated behind `!config.persistent`, and `makeT9BossConfig` sets
+`persistent: true`, so it cannot reach a boss either. The guard still goes in ONE place for all of
+them — but the PDR's "at least four bypass `damageCreature`" was loose accounting, and loose
+accounting is what produces the next bug.
+
+## Δ3 — ⭐ A NINTH REMOVAL CLASS THE PDR MISSED ENTIRELY: `world.creatures.clear()`
+
+Three production sites — `state/gameMode.ts:441`, `state/godlyActions.ts:113`, `state/save.ts:1359`
+(the panel said 1353; verified at 1359). They bypass any per-id guard completely, and they are
+**correct** to: a reset is not a death. The codebase already knows this class —
+`hostTick.ts:2032` carries *"Three production paths call `world.creatures.clear()` with nobody
+dying"*, written after a host detonated a blast into its own base on connection loss. ⇒ Stage C must
+NAME and PIN these so a fourth `.clear()` cannot leak ritual state, and the removal chokepoint must
+not try to guard them.
+
+## Δ4 — ⛔⛔ THE POPULATION LATCH IS THE HIGHEST-PROBABILITY SILENT BUG IN STAGE B
+
+`applySpawnCreature` refuses a second live creature of the same `(owner, type)` unless exempt. The
+exemption list is at `creatures/creatureLifecycle.ts:215-216` and reads
+`action.creatureType !== 'direwolf' && !isT9BossType(action.creatureType)`.
+
+**A multi-cloud cone is N−1 SILENT NO-OPS without an exemption** — no error, no effect, no red test.
+That exact failure has shipped **three times**: the tier-3 tower, the direwolf (whose own comment
+predicted it), and the boss tower — the one the owner hit himself when his wife's second Pharaoh
+waited for the first to die. ⇒ The locust literal and its exemption land in the SAME commit, and the
+first assertion written is that the cone produces N clouds, before any behaviour is tested.
+
+## Δ5 — TWO MORE STAGE-B TRAPS, both hand-checked as real
+
+- **R83 retreat.** `targetsStructures: true` puts the cloud on the goblin nav branch, which carries
+  *"run home 2-3 s before the end of fight"* at top precedence. **A summoned cloud has no home**, so
+  one launched late in a FIGHT would fly backwards for its last third. Needs an explicit exemption.
+- **The DESPAWNING fade.** A non-persistent creature is forced into DESPAWNING at
+  `despawnAtTick − 60`, so a 900-tick locust only *strikes* for 840. Good-looking (the cloud thins
+  out) and worth keeping — but the balance arithmetic must use 840, not 900.
+
+## Δ6 — nothing may be built on `bossRoster`
+
+It is a host-local `Map` in `HostTickState`; a promoted successor rebuilds it empty. Every piece of
+the Pharaoh must be a synced field or `world.tick`-derived.
+
+## WHAT THIS DOES NOT CHANGE
+
+Stage A as shipped stands unaltered — no finding touches it. The Ra-channel mechanism (a deadline
+field read through `isUntargetable`, stamped in the deferred-death sweep) survived every critique;
+the panel converged on it independently.
