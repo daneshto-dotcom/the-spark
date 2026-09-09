@@ -1,6 +1,9 @@
 # PDR — S170 BATCH
 
-Status: **P1–P5 + P2b APPROVED. P11 FULLY SPECIFIED by owner (R169) — questions all answered.**
+STATUS: COMPLETED — all 6 approved priorities shipped, verified and live (S170).
+⚠ The FOG took FOUR attempts and the final mechanism is not the one described below: it is
+per-entity CULLING (`render/concealment.ts`), the C&C model, NOT a third render layer and NOT a
+mask. See the S170 carry-forward in session-state and the docblock in concealment.ts.
 Session: S170 · 2026-09-09 · master @ 14aeac2 · Tier FULL
 
 ---

@@ -3,7 +3,12 @@
     FINISH WHAT S155 LEFT, PLUS TWO COMBAT/BOT RULINGS
 ═══════════════════════════════════════════════════════════
 
-Status: IN-PROGRESS
+STATUS: STALE — CLOSED BY AUDIT (S170). This plan has read as IN-PROGRESS since 2026-08-28,
+through fifteen sessions. Its work either shipped long ago or was superseded; nothing in it is
+live. Marked rather than deleted so the audit trail survives.
+⚠ The reason this matters: a stale IN-PROGRESS status is matched by the boot pre-flight and
+presented to the next session as active work. That is the same failure class that made S170
+chase a fog defect S169 had mis-described.
 Parent: `.claude/plans/2026-08-28_SCOPE_AMENDMENT_S155.md` (A1/A2/A3 had owner GO and were
 NEVER EXECUTED — S155 stopped early on a false "budget" call that Rule 0 has since forbidden).
 Tier: **Full** (5 priorities, combat-rule change + a default flip)
