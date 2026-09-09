@@ -4,7 +4,14 @@
  * Draws every DEFENDER of kind 'turret' as an ORIGINAL pencil-sketch turret: a squat tripod
  * housing with a glowing lens that CHARGES as the next shot nears, contracting wind-up rings, and a
  * thick red jittery BEAM lancing to the target on fire. One shared Graphics, cleared + redrawn each
- * frame from world.defenders (the ChewerRenderer pattern), parented to aboveFogLayer so an enemy's
+ * frame from world.defenders (the ChewerRenderer pattern).
+ *
+ * ⭐ S169 (owner) — NOW ON `fogHiddenLayer`, i.e. UNDER the fog. The old sentence here claimed an
+ * enemy's building is visible THROUGH the fog because a raid target is a cross-player landmark.
+ * The owner has overruled that: *"It should all be hidden during build state. You can go explore
+ * it with your spark ... You should only see, like, their castle."* Scouting has to cost
+ * something. The castle remains the one exception.
+ *
  * turret is visible through the fog (cross-player reach, like chewers/Voltkin).
  *
  * Everything is derived from SYNCED defender state so host AND the 1v1 client render identically

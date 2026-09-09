@@ -145,6 +145,12 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       const aboveFogChildNames = (s.aboveFogLayer.children as any[]).map(
         (c: any): string => (c?.constructor?.name ?? 'unknown') as string,
       );
+      // S169 (owner) — the concealable half, roll-called the same way. Buildings, defenders and
+      // units moved here so the fog actually hides them during BUILD.
+      const fogHiddenIdx = stage.getChildIndex(s.fogHiddenLayer);
+      const fogHiddenChildNames = (s.fogHiddenLayer.children as any[]).map(
+        (c: any): string => (c?.constructor?.name ?? 'unknown') as string,
+      );
 
       // Draw the potato (into aboveFogLayer) + compose the fog — both synchronous (no rAF).
       s.potatoRenderer.sync(w);
@@ -165,6 +171,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
         sparkIdx: labelIdx('avatarRendererLocal'),
         footerIdx: labelIdx('footerBand'),
         aboveIdx, fogIdx, aboveFogChildNames,
+        fogHiddenIdx, fogHiddenChildNames,
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
         boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
         maskAtPotato: read(maskPx, 1400, 300),       // potato is NOT a vision source — mask stays opaque
@@ -211,6 +218,23 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.footerIdx, 'footerBand must be on the stage and labelled').toBeGreaterThanOrEqual(0);
     expect(r.sparkIdx).toBeGreaterThan(r.footerIdx);
     expect(r.aboveFogChildNames).toEqual([
+    /*
+     * ⭐⭐ S169 (owner) - TWELVE ENTRIES LEFT THIS LIST AND MOVED UNDER THE FOG.
+     *
+     * Owner: "you can see their buildings being built ... It should all be hidden during build
+     * state ... you shouldn't see, like, the boss of Pharaoh ... You should only see, like, their
+     * castle."
+     *
+     * The tower/turret/Helga/stink entries above used to carry a 'cross-player landmark' argument -
+     * that a raid target's position is already public, so hiding the building conceals nothing. He
+     * has ruled against it: scouting has to cost something. They now live on `fogHiddenLayer`,
+     * rolled call in its own assertion below.
+     *
+     * ⚠ WHAT STAYS HERE, and each for a reason he agreed with: the zone backdrop and walls
+     * (geography, not activity), the CASTLE (his explicit exception), and every global hazard -
+     * potato, rainbow, seagull, poop, hunter, stink cloud - because a thing that DAMAGES you through
+     * the fog must be visible or it is an ambush rather than a hazard.
+     */
       '_Container', //   0 — zoneBackgroundRenderer.layer (S165) ⭐ NEW — the per-race zone art.
                     //       ⚠ FIRST, AND ABOVE THE FOG, WHICH LOOKS WRONG UNTIL YOU READ WHY.
                     //       `fogRenderer` paints unexplored ground in FOG_COLOR = 0x000000 — pure
@@ -232,40 +256,6 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       border is public knowledge derived from `layout` — concealing it
                     //       would reproduce the very complaint P1/P3 exist to fix, in the
                     //       fogged half of the board.
-      '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
-      '_Container', //    3 — towerRenderer.layer          (S167) ⭐ NEW — the race tower BUILDINGS,
-                    //       both tiers. Twelve tier-3 atlases and six tier-9 ones were on disk,
-                    //       matted and disk-tested, and drawn by NOTHING until this layer existed —
-                    //       `t3TowerAtlasBase` had zero production callers for two sessions.
-                    //       ⚠ IMMEDIATELY ABOVE `spawnerZoneRenderer` AND THAT PAIRING IS THE POINT:
-                    //       index 2 is this tower's own aura, so the building stands ON its glow
-                    //       rather than under it. Below the creatures at 4+, so a unit walking past
-                    //       a tower passes IN FRONT of it.
-                    //       ⭐ ABOVE THE FOG, on the same argument index 2 already makes: the aura
-                    //       is a cross-player landmark everyone must see to raid, so the tower's
-                    //       POSITION is already public and hiding only the building would conceal
-                    //       nothing while making the landmark unreadable.
-      '_Container', //    4 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
-      '_Graphics',  //    5 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
-      '_Graphics',  //    6 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //    7 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
-      '_Container', //    8 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
-                    //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
-                    //       count cannot catch and this roll call can: the goblins keep their
-                    //       procedural puppet as the load-failure fallback, so the renderer owns
-                    //       BOTH a Graphics and a Container, and the atlas layer must sit ABOVE the
-                    //       puppet so a fallback frame can never overdraw a real sprite.
-      '_Graphics',  //    8 — goblinRenderer.arrowLayer     (S153 P2) ⭐ NEW — the archer's arrow.
-                    //       ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is drawn from
-                    //       synced FSM state rather than pushed as an effect (a new effect KIND
-                    //       would cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of
-                    //       one-shot pushes anyway), so it needs its own Graphics — ABOVE the
-                    //       sprite layer, or an arrow would vanish behind the goblin firing it.
-      '_Graphics',  //    9 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //    10 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  11 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
-                    //       procedural because they are STATE READOUTS, not character art.
-      '_Container', //  12 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
       '_Graphics',  //  13 — hunterRenderer               (main.ts:502, S72 P2)
       '_Graphics',  //  14 — gathererRenderer.graphics   (main.ts:506, V6-1.1/S135) — the gatherers,
                     //       their race silhouettes, and the RACE-SHAPED PROCEDURAL KEEP that draws
@@ -302,6 +292,51 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       which shipped a session ago with ZERO references anywhere in src/.
                     //       Above its own haze, for the same reason the goblin sprites sit above
                     //       their puppet: the fallback must never overdraw the real art.
+    ]);
+
+    /*
+     * ⭐ S169 - THE OTHER SIDE OF THE FOG, ROLL-CALLED THE SAME WAY.
+     *
+     * A count would not do: one renderer leaking a second child while another adds none sums the
+     * same. Order is main.ts construction order - keep them in sync.
+     */
+    expect(r.fogHiddenIdx, 'the concealable layer must be on the stage').toBeGreaterThanOrEqual(0);
+    expect(r.fogHiddenIdx, 'and BELOW the fog, which is the whole fix').toBeLessThan(r.fogIdx);
+    expect(r.fogHiddenChildNames).toEqual([
+      '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
+      '_Container', //    3 — towerRenderer.layer          (S167) ⭐ NEW — the race tower BUILDINGS,
+                    //       both tiers. Twelve tier-3 atlases and six tier-9 ones were on disk,
+                    //       matted and disk-tested, and drawn by NOTHING until this layer existed —
+                    //       `t3TowerAtlasBase` had zero production callers for two sessions.
+                    //       ⚠ IMMEDIATELY ABOVE `spawnerZoneRenderer` AND THAT PAIRING IS THE POINT:
+                    //       index 2 is this tower's own aura, so the building stands ON its glow
+                    //       rather than under it. Below the creatures at 4+, so a unit walking past
+                    //       a tower passes IN FRONT of it.
+                    //       ⭐ ABOVE THE FOG, on the same argument index 2 already makes: the aura
+                    //       is a cross-player landmark everyone must see to raid, so the tower's
+                    //       POSITION is already public and hiding only the building would conceal
+                    //       nothing while making the landmark unreadable.
+      '_Container', //    4 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
+      '_Graphics',  //    5 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
+      '_Graphics',  //    6 — chewerRenderer               (main.ts:493, S100 P1)
+      '_Graphics',  //    7 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
+      '_Container', //    8 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
+                    //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
+                    //       count cannot catch and this roll call can: the goblins keep their
+                    //       procedural puppet as the load-failure fallback, so the renderer owns
+                    //       BOTH a Graphics and a Container, and the atlas layer must sit ABOVE the
+                    //       puppet so a fallback frame can never overdraw a real sprite.
+      '_Graphics',  //    8 — goblinRenderer.arrowLayer     (S153 P2) ⭐ NEW — the archer's arrow.
+                    //       ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is drawn from
+                    //       synced FSM state rather than pushed as an effect (a new effect KIND
+                    //       would cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of
+                    //       one-shot pushes anyway), so it needs its own Graphics — ABOVE the
+                    //       sprite layer, or an arrow would vanish behind the goblin firing it.
+      '_Graphics',  //    9 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //    10 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //  11 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
+                    //       procedural because they are STATE READOUTS, not character art.
+      '_Container', //  12 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

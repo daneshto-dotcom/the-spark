@@ -558,6 +558,36 @@ async function bootstrap(): Promise<void> {
   // Created here (before the 4 renderers) so each can target it at construction.
   const aboveFogLayer = new Container();
   aboveFogLayer.eventMode = 'none';
+  /*
+   * ⭐⭐ S169 (owner) — **BUILDINGS GO BACK UNDER THE FOG.**
+   *
+   * Owner: *"there's fog of war. You can't see any structures. Well, connectors. But you can see
+   * their buildings being built ... It should all be hidden during build state. You can go explore
+   * it with your spark and see what they're building. you shouldn't see, like, the boss of Pharaoh
+   * ... It has to be consistent, not consistent yet ... You should only see, like, their castle."*
+   *
+   * ⛔ THE CAUSE WAS NEVER A MISSING CHECK — IT IS PIXI CHILD ORDER, AND NO RENDERER CONSULTS THE FOG
+   * AT ALL. Visibility here is decided entirely by which container a renderer is parented to at
+   * construction. `aboveFogLayer` is staged AFTER `FogRenderer`, so anything on it paints over the
+   * fog by child order (`e2e/fog.spec.ts` asserts that ordering on purpose). Connectors vanish
+   * because `StructureRenderer` sits on `app.stage` below the fog; towers do not because they were
+   * put up here.
+   *
+   * ⛔ AND IT WAS DELIBERATE, WHICH IS WHY IT DRIFTED. The rule above — "visible-to-all iff
+   * can-affect-all" — is right for global hazards (potato, rainbow, hunter). It was then extended to
+   * OWNED BUILDINGS with the argument that "a race tower is a cross-player landmark and a raid
+   * target", repeated at four renderers. The owner has now ruled against that extension for towers,
+   * defenders and units: scouting has to cost something. The castle stays visible — his explicit
+   * exception — and so do the global hazards.
+   *
+   * ⚠ STAGED BEFORE `FogRenderer` (below) rather than re-parented after, so the relative order of
+   * these renderers among THEMSELVES is untouched; only their position against the fog moves.
+   *
+   * ⚠ RENDER-ONLY, per viewer. Nothing here reads or writes `world`, nothing enters either hash, and
+   * `PROTOCOL_VERSION` is unmoved: fog already keys off `world.localPlayerId`.
+   */
+  const fogHiddenLayer = new Container();
+  fogHiddenLayer.eventMode = 'none';
   // S100 P1 (TD Phase 1a) — spawner-zone aura. Constructed BEFORE creatureRenderer so its
   // radiating aura + 'alive' bond overlay sit UNDER the chewers/Voltkin on the aboveFogLayer.
   // Cross-player landmark (everyone must see the high-value target to raid it) → aboveFogLayer,
@@ -613,7 +643,7 @@ async function bootstrap(): Promise<void> {
   /** S150 P3 — the live timed run: clock, initials entry, board. Null whenever no run is in flight. */
   let arcadeRun: ArcadeRun | null = null;
   const arcadeRunOverlay = new ArcadeRunOverlay(app, app.stage);
-  const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
+  const spawnerZoneRenderer = new SpawnerZoneRenderer(app, fogHiddenLayer);
   /*
    * ⭐ S167 — THE RACE TOWER'S OWN BUILDING, both tiers. Until this existed, twelve tier-3 tower
    * atlases and six tier-9 ones sat on disk, matted and disk-tested, drawn by nothing.
@@ -622,22 +652,22 @@ async function bootstrap(): Promise<void> {
    * a raid target, so it must be visible to everyone THROUGH the fog for the same reason
    * `SpawnerZoneRenderer` is. Constructed AFTER the aura so the building draws on top of its glow.
    */
-  const towerRenderer = new TowerRenderer(app, aboveFogLayer);
+  const towerRenderer = new TowerRenderer(app, fogHiddenLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
-  const creatureRenderer = new CreatureRenderer(app, aboveFogLayer);
+  const creatureRenderer = new CreatureRenderer(app, fogHiddenLayer);
   // S100 P1 (TD Phase 1a) — chewerRenderer draws the persistent 'chewer' creatures (original
   // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
   // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
-  const chewerRenderer = new ChewerRenderer(app, aboveFogLayer);
+  const chewerRenderer = new ChewerRenderer(app, fogHiddenLayer);
   // S139 P2 — the goblin needs its OWN renderer: both shipped creature renderers are
   // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
-  const goblinRenderer = new GoblinRenderer(app, aboveFogLayer);
+  const goblinRenderer = new GoblinRenderer(app, fogHiddenLayer);
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
-  const turretRenderer = new TurretRenderer(app, aboveFogLayer);
-  const princessRenderer = new PrincessRenderer(app, aboveFogLayer);
+  const turretRenderer = new TurretRenderer(app, fogHiddenLayer);
+  const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
-  const stinkTowerRenderer = new StinkTowerRenderer(app, aboveFogLayer);
+  const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -685,6 +715,8 @@ async function bootstrap(): Promise<void> {
   // BEFORE the HUD (the HUD is never fogged). Active only in 1v1 PLAYING; lifts
   // on WIN. Client-side cosmetic only — no network messages (each peer already
   // holds the full world.primitives via snapshot).
+  // S169 (owner) — the concealable layer goes down FIRST, so the fog paints over it.
+  app.stage.addChild(fogHiddenLayer);
   const fogRenderer = new FogRenderer(app);
   // ⛔ S149 P5 — UI GOES ABOVE THE FOG. The footer band is constructed long before the fog, so
   // without this the fog draws over it and the bar reads as missing (owner: "it is hidden behind
@@ -1671,6 +1703,8 @@ Network routes: ${v.detail}`;
       // when 28/28 runtime assertions passed while a label visibly overflowed its box).
       get gathererRenderer() { return gathererRenderer; },
       get aboveFogLayer() { return aboveFogLayer; },
+      // S169 (owner) — the concealable layer, so `e2e/fog.spec.ts` can roll-call BOTH sides of the fog.
+      get fogHiddenLayer() { return fogHiddenLayer; },
       // S84 P2 — flyover e2e probe: active-window flag for rainbow.spec assertions.
       get rainbowFlyoverActive() { return rainbowFlyoverRenderer.isActive(); },
       // S82 P2 — full-fidelity save/load seams (DEV-only, tree-shaken from prod). The

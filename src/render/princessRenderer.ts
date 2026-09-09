@@ -13,7 +13,15 @@
  * fallback (S110 Voltkin precedent): until the atlas resolves (or if it fails on a peer) she renders
  * procedurally so she is never blank — a cosmetic-only divergence (gameplay state is identical).
  *
- * One container, aboveFogLayer (an enemy's HELGA is visible through the fog). RENDER-ONLY; wall-clock
+ * One container.
+ *
+ * ⭐ S169 (owner) — NOW ON `fogHiddenLayer`, i.e. UNDER the fog. The old sentence here claimed an
+ * enemy's building is visible THROUGH the fog because a raid target is a cross-player landmark.
+ * The owner has overruled that: *"It should all be hidden during build state. You can go explore
+ * it with your spark ... You should only see, like, their castle."* Scouting has to cost
+ * something. The castle remains the one exception.
+ *
+ * RENDER-ONLY; wall-clock
  * is used only for the cosmetic impact-burst flicker (the slap TIMING is tick-synced).
  */
 
