@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 562,
+  "tool_calls_session_total": 571,
   "session_id": "S169",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CLOSED",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-08_PDR_S169_BATCH.md",
-  "session_status": "S169 CLOSED",
+  "session_status": "S169 HANDED OFF - 6 of 8 completed, 2 carried forward",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -147,7 +147,7 @@
     {
       "id": "P2",
       "title": "THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel",
-      "status": "carry_forward",
+      "status": "skipped",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -204,7 +204,7 @@
     {
       "id": "P4",
       "title": "COHERENCE + REGRESSION SWEEP - agents through the app, nothing shipped since S160 is broken",
-      "status": "carry_forward",
+      "status": "skipped",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -378,7 +378,7 @@
   "carry_forward_s169": [
     "P2 THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel. Not started.",
     "P4 COHERENCE SWEEP - the three-digit agentic pass over the whole app was never run; only a 5-finding regression sweep was (F1/F2/F3/F5 fixed and shipped, F4 folded in).",
-    "FOG OF WAR IS WRONG AND THE OWNER SAID SO: \"you put the fog also over my own player's background, that is wrong... we should be able to see [race backgrounds]... what we should not see is actively the buildings.\" Shipped state fogs the race backdrop too. NOT reverted, on the owner's explicit \"no dont put them board back\". main.ts:628-629 is the fix site.",
+    "FOG - OWNER RULED TWICE AND THE SHIPPED BUILD CONTRADICTS HIM. Every race's artistic backdrop must be VISIBLE (ALL races, his and every opponent's; whatever backdrop a player chose, including plain black, is what shows). Castle visible. HIDDEN during BUILD: buildings, connectors, spawn. AND a hidden building must REVEAL ON MOUSE-OVER - nothing in the codebase does that today. Not reverted, on his explicit 'no dont put them board back'. Fix site main.ts:628-629, but NOT a two-way swap (that is regression F1) - it needs a third layer.",
     "HIDE CONNECTORS once a tower is built - connectors become a damage readout only (owner design discussion, parked to next session).",
     "PER-RACE BUILD + DESTROY CINEMATICS - the tier-3 sheets already ship a `spawning` row that no code can draw (T3_TOWER_STATE_ROWS skips row 1). Half-paid-for already. See ART_PIPELINE.md.",
     "GENERATE TOWER ART for pentagram / lightningHub / Helga etc - they have no bespoke sheet.",
@@ -386,7 +386,8 @@
     "ARCHDEMON ATTACK is frame-sparse, not mis-timed: 12 frames x 5 ticks = exactly the 60-tick attack cadence. Bosses need MORE frames, not a slower cadence.",
     "KRAKEN ATTACK CLIP - tentacles are edge-amputated (unrecoverable). Owner will regenerate from the original still; check-clip.mjs reports sampleStart 60 for the pillarboxing half."
   ],
-  "handoff_document": "HANDOFF_2026-09-09_S169.md",
+  "handoff_document": "HANDOFF_S169_2026-09-09.md",
   "handoff_ready": true,
-  "reflexion_entries_archived": true
+  "reflexion_entries_archived": true,
+  "analyze_completed": true
 }
