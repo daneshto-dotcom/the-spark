@@ -96,9 +96,27 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(result.playing.spawner[3]).toBeLessThan(10);
     expect(result.playing.myPrim[3]).toBeLessThan(10);
     expect(result.playing.enemy[3]).toBeGreaterThan(245); // opaque (concealed)
-    expect(result.playing.enemy[0]).toBe(FOG.r);
-    expect(result.playing.enemy[1]).toBe(FOG.g);
-    expect(result.playing.enemy[2]).toBe(FOG.b);
+    /*
+     * ⛔⛔ **S170 — THE MASK TEXTURE IS WHITE WHERE FOGGED NOW, AND ASSERTING IT WAS BLACK IS WHAT
+     * LET A TOTALLY BROKEN MASK SHIP GREEN.**
+     *
+     * These three lines used to read `toBe(FOG.r/g/b)` — i.e. that the texture is 0x000000 where
+     * concealed. That was right for a fog that was a painted SHEET. When S170 made the fog an
+     * INVERSE MASK, black became the one colour that cannot work: Pixi's alpha mask samples a colour
+     * CHANNEL, and the red channel of black is zero everywhere, so the mask excluded NOTHING while
+     * these assertions confirmed it looked perfect. The owner found the real state by playing.
+     *
+     * ⭐ So the texture is now white-where-fogged (a usable mask) and `fogSprite` carries
+     * `tint = FOG_COLOR` so the SHROUD is still black on screen. ALPHA is the meaningful channel for
+     * concealment and is asserted above; the brightness assertion is inverted here rather than
+     * deleted, so a future session that re-tints the base black fails HERE with the reason.
+     *
+     * ⚠ AND THE REAL CONTRACT IS NOT IN THIS TEST AT ALL. See the board-concealment test at the
+     * bottom of this file: it reads the COMPOSED STAGE, which is the only thing that can tell
+     * "concealed" from "the mask texture looks correct".
+     */
+    expect(result.playing.enemy[0], 'the MASK must be bright where fogged, or it masks nothing')
+      .toBeGreaterThan(245);
     expect(result.playing.far[3]).toBeGreaterThan(245);
 
     // WIN: fog fully lifted and hidden -> reveal-all.
@@ -603,4 +621,36 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.afterReset.visible).toBe(false);  // fog hidden
     expect(r.afterReset.alpha).toBe(0);        // alpha zeroed
   });
+
+  /*
+   * ⛔⛔⛔ **THE ASSERTION THIS FILE STILL CANNOT MAKE, AND IT IS WHY A COMPLETELY BROKEN MASK
+   * SHIPPED GREEN. NAMED RATHER THAN FAKED.**
+   *
+   * Every test above reads `fog.maskTexture` — the mask's own pixels. So when S170 made the fog an
+   * INVERSE MASK while the texture was still tinted `FOG_COLOR`, all of them stayed green: the
+   * texture had exactly the right alpha in exactly the right places. What none of them can see is
+   * whether the mask actually CONCEALS THE BOARD. It did not: Pixi's alpha mask samples a colour
+   * CHANNEL, and the red channel of black is zero everywhere, so it excluded nothing. The owner found
+   * it by playing: *"I can see that their buildings, structures, and creatures are visible through
+   * their fog... you just added, like, fifty percent of darkness for their race backgrounds."*
+   *
+   * ⚠ I TRIED TO WRITE THE MISSING TEST AND IT CANNOT BE WRITTEN HERE. A composed-stage pixel read
+   * (place an enemy structure, `structureRenderer.sync`, `extract.pixels(app.stage)`) returns the
+   * structure's colour as ABSENT in BOTH the concealed and the revealed case — measured, not assumed.
+   * The likely cause is that Pixi v8 implements alpha masks as FILTERS (`AlphaMaskPipe` drives
+   * `filters[0].inverse`) and `renderer.extract` does not apply filter effects, so this harness is
+   * structurally blind to masking. Shipping that test would have meant a vacuous or a
+   * permanently-red assertion, and this project has already paid for a stun test that passed against
+   * an ungated aura.
+   *
+   * ⭐ WHAT GUARDS THE REGRESSION IN THE MEANTIME is the brightness assertion in the first test
+   * above: the mask texture MUST be bright where fogged, because a dark mask is exactly the bug that
+   * shipped. That is a real guard on the real cause — it just is not a guard on the outcome.
+   *
+   * ⚠ THE OUTCOME IS CURRENTLY VERIFIED BY THE OWNER'S EYES, WHICH IS NOT GOOD ENOUGH AND IS LOGGED
+   * AS SUCH. The honest options for closing it, for whoever picks this up: a Playwright SCREENSHOT
+   * comparison (the one thing that definitely sees the composed frame), or a headless WebGL readback
+   * that renders `app.stage` through a RenderTexture rather than `extract`, or moving concealment off
+   * masks entirely and onto per-renderer visibility driven by `isPointVisible`.
+   */
 });

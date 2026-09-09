@@ -199,7 +199,28 @@ export class FogRenderer {
     const base = new Sprite(Texture.WHITE);
     base.width = CANVAS_WIDTH;
     base.height = CANVAS_HEIGHT;
-    base.tint = FOG_COLOR;
+    /*
+     * ⛔⛔ **THE BASE IS WHITE, NOT `FOG_COLOR`, AND THIS ONE LINE IS WHY THE MASK HID NOTHING.**
+     *
+     * It used to be `base.tint = FOG_COLOR` (0x000000), which is correct for a SHEET — the sprite is
+     * drawn, and fog should read as darkness. It is catastrophic for a MASK: Pixi's alpha mask samples
+     * a COLOUR CHANNEL (`AlphaMaskPipe` -> `channel ?? 'red'`), and the red channel of black is **0
+     * everywhere**. So the mask evaluated to zero across the whole board, `inverse: true` excluded
+     * nothing, and every enemy building, unit and connector stayed fully visible while only the drawn
+     * shroud changed. The owner's report was exact: *"you just added, like, fifty percent of darkness
+     * for their race backgrounds. The rest of the fog and all the other shit I can still see."*
+     *
+     * ⚠ AND THIS FILE ALREADY WARNED ME. The `memoryLayer` note a few lines below records the same
+     * trap from the other direction: *"an earlier Sprite(maskRT) GPU mask was dropped: a Pixi sprite
+     * mask attenuates by the mask's brightness, and the fog mask is near-black, so it crushed the
+     * silhouettes to ~5%."* Brightness IS the mask value. I read that comment while building this and
+     * did not connect it.
+     *
+     * ⭐ SO THE COLOUR MOVED TO THE DRAWN SPRITE. The texture is now WHITE where fogged and
+     * transparent at every vision source — a proper mask — and `fogSprite` carries
+     * `tint = FOG_COLOR` so the visible shroud is still black. One texture, two consumers, each
+     * getting what it actually needs.
+     */
 
     this.maskScene = new Container();
     this.maskScene.scale.set(MASK_SCALE);
@@ -243,6 +264,9 @@ export class FogRenderer {
     this.fogSprite.width = CANVAS_WIDTH;
     this.fogSprite.height = CANVAS_HEIGHT;
     this.fogSprite.eventMode = 'none'; // never intercept clicks
+    // ⭐ S170 — the SHROUD is where FOG_COLOR lives now; the texture itself must stay white so it can
+    // also serve as the mask. See the note at `base` above.
+    this.fogSprite.tint = FOG_COLOR;
 
     this.maskSprite = new Sprite(this.maskRT);
     this.maskSprite.width = CANVAS_WIDTH;
