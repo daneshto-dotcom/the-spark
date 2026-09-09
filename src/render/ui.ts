@@ -386,6 +386,14 @@ const PROGRESS_WIDTH = 6;
 export const HUD_RIGHT_X = CANVAS_WIDTH - 12;
 export const BETA_BADGE_Y = 12;
 export const AUDIO_ICON_Y = 38;
+
+/**
+ * ⭐ S169 (owner) — the x of the right-hand HUD COLUMN: the settings gear, the connection dot and
+ * both vertical rails share it, so they read as one stack. Exported because `main.ts` positions the
+ * gear while this file positions everything below it, and two files placing one column is exactly
+ * the "duplicated geometry drifts" failure `hudSurfaces()` exists to catch.
+ */
+export const GAUGE_X_COLUMN = GAUGE_X;
 const CONNECTION_DOT_CY = 68;
 const CONNECTION_DOT_R = 6;
 
@@ -496,11 +504,15 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
       h: m.badgeHeight + 8,
     },
   });
-  // ♪ and ⚙ are one 32 px-wide pair right-anchored to the column (main.ts stages them at
-  // HUD_RIGHT_X and HUD_RIGHT_X − 20); a 14 px glyph band covers both.
+  /*
+   * ⭐ S169 (owner) — ONE GLYPH, NOT TWO. The ♪ was removed (never clickable, and players kept trying
+   * to mute with it), so this surface shrank from the 34 px pair to the gear alone, CENTRED on the
+   * column at `GAUGE_X` instead of right-anchored. Leaving the old 34 px rect would reserve dead
+   * space and could refuse a future element a slot it could actually have used.
+   */
   out.push({
-    name: 'audio-glyphs',
-    rect: { x: HUD_RIGHT_X - 34, y: AUDIO_ICON_Y, w: 34, h: 16 },
+    name: 'settings-gear',
+    rect: { x: GAUGE_X - 8, y: AUDIO_ICON_Y, w: 16, h: 16 },
   });
   out.push({
     name: 'connection-dot',

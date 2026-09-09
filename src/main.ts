@@ -129,7 +129,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -146,7 +146,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { AUDIO_ICON_Y, BETA_BADGE_Y, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -278,7 +278,7 @@ async function bootstrap(): Promise<void> {
 
   const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
   app.stage.addChild(spawnerRing);
-  // S81 P5 — betaBadge/muteIndicator/settingsIcon are CREATED here but staged AFTER
+  // S81 P5 — betaBadge/settingsIcon are CREATED here but staged AFTER
   // the fog + aboveFogLayer (below): they were added before FogRenderer existed, so the fog
   // container sat above them and swallowed the whole top HUD row in 1v1 PLAYING (user round-3:
   // 'stuff in the top (like where it says beta or shows primitives) is hidden within the
@@ -337,24 +337,6 @@ async function bootstrap(): Promise<void> {
   // apart. Pixi's `label` costs nothing and makes the dump self-describing.
   betaBadgePlate.label = 'betaBadgePlate';
 
-  // S18 P1 — mute indicator. Small ♪ glyph anchored top-right (y=30),
-  // between BETA badge (y=12) and connection dot (y=48). Added AFTER
-  // BETA so child-add-order naturally renders it on top (Council R1
-  // Grok #6 — no zIndex API needed). Dims when muted as visual feedback
-  // for 'M' keypress.
-  const muteIndicator = new Text({
-    text: '♪',
-    style: new TextStyle({
-      fontFamily: 'monospace',
-      fontSize: 14,
-      fill: 0x3bd7ff,
-    }),
-  });
-  muteIndicator.anchor.set(1, 0);
-  // S150 P1 — y 30 → 38. At 30 the glyph band (30–45) ran into the connection dot (41–55) AND sat
-  // flush against the badge plate, which ends at 29. The column now has real gaps at every step.
-  muteIndicator.position.set(HUD_RIGHT_X, AUDIO_ICON_Y);
-  muteIndicator.alpha = 0.55;
 
   // S19 P1 — ⚙ settings icon at top-right next to ♪ glyph. Click opens
   // HTML overlay (createSettingsOverlay) for per-channel mute + volume.
@@ -367,8 +349,29 @@ async function bootstrap(): Promise<void> {
       fill: 0x3bd7ff,
     }),
   });
-  settingsIcon.anchor.set(1, 0);
-  settingsIcon.position.set(HUD_RIGHT_X - 20, AUDIO_ICON_Y);
+  /*
+   * ⭐⭐ S169 (owner) — **THE ♪ IS GONE AND THE GEAR TOOK THE COLUMN.**
+   *
+   * Owner: *"Near the settings wheel, there's also a sound, and it's confusing. Everyone tries to
+   * click on it to turn off the sound. Take it off and put the settings button there ... And put the
+   * settings right above the ... x mark."*
+   *
+   * ⭐ HE DIAGNOSED IT EXACTLY. The ♪ was a plain `Text` — **never interactive at any point in its
+   * life**, purely a readout of `isMuted()`. So every player reaching for the obvious mute control
+   * clicked a label and nothing happened. Removing it costs no capability: the gear opens
+   * `createSettingsOverlay`, which carries per-channel mute toggles AND volume sliders for music and
+   * SFX — strictly more than the glyph ever reported.
+   *
+   * ⚠ ANCHOR CHANGED TO CENTRED so the gear sits ON the right-hand column rather than beside it.
+   * `GAUGE_X_COLUMN` is the x of the connection dot and of both rails below it, so the gear, the ⊗
+   * and the two bars now read as one vertical stack — his "right above the x mark".
+   *
+   * ⚠ THE `M` KEY STILL MUTES and now has no glyph to confirm it. Acceptable because the settings
+   * overlay shows the true state on demand, but it is the one thing this removal costs, named here
+   * rather than discovered later.
+   */
+  settingsIcon.anchor.set(0.5, 0);
+  settingsIcon.position.set(GAUGE_X_COLUMN, AUDIO_ICON_Y);
   settingsIcon.alpha = 0.55;
   settingsIcon.eventMode = 'static';
   settingsIcon.cursor = 'pointer';
@@ -692,12 +695,11 @@ async function bootstrap(): Promise<void> {
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
   // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
-  // see the comment there). Relative order preserved: beta, ♪ (after beta — S18 P1
+  // see the comment there). Relative order preserved: beta, ⚙ (after beta — S18 P1
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
   // which is fine — none of the corner elements overlap them.
   app.stage.addChild(betaBadgePlate); // S89 P2 — backs the badge text (below it, above fog)
   app.stage.addChild(betaBadge);
-  app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
   /*
@@ -3285,15 +3287,6 @@ Network routes: ${v.detail}`;
 
     // S15 P2 — HUD connection dot.
     hud.setConnectionPeers(session.netTransport !== null ? session.netTransport.peerCount() : 0);
-
-    // S18 P1 — mute indicator visual feedback (dim + slash glyph when muted).
-    if (isMuted()) {
-      muteIndicator.text = '♪̸';
-      muteIndicator.alpha = 0.25;
-    } else {
-      muteIndicator.text = '♪';
-      muteIndicator.alpha = 0.55;
-    }
 
     // S45 BUG-CRITICAL-3 Sym B — dispatch throttled UPDATE_AVATAR_POS so both
     // players' avatarPos field stays current in the snapshot stream. Host

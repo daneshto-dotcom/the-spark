@@ -43,7 +43,8 @@
  * `hudSurfaces` was dumped for the worst-case 4-row metrics and the free space read off it:
  *
  *   beta-badge   x=1729..1917  y=8..29        energy-gauge   x=1896..1904  y=80..988
- *   audio-glyphs x=1874..1908  y=38..54       progress-rail  x=1882..1888  y=80..988
+ *   settings-gear x=1888..1904  y=38..54      progress-rail  x=1882..1888  y=80..988
+ *   (S169 — was `audio-glyphs` x=1874..1908, a ♪/⚙ PAIR; the ♪ was removed and the gear centred)
  *   connection-dot x=1890..1902 y=62..74      tier-banner    x=796..1124   y=79..119
  *
  * ⚠ THE RIGHT EDGE IS THE TRAP: the gauge and progress rail run from y=80 all the way to the footer,

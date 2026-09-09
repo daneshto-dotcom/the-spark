@@ -139,15 +139,15 @@ describe('S150 P1 — the specific collisions the owner saw, pinned individually
     expect(banner.y).toBeGreaterThan(plate.y + plate.h);
   });
 
-  it('the ♪/⚙ glyph pair clears the connection dot', () => {
+  it('the ⚙ gear clears the connection dot', () => {
     const s = hudSurfaces(metrics(4));
     // MEASURED before the fix: ♪ at x 1900–1908 / y 30–45, dot at x 1889–1903 / y 41–55.
-    expect(rectsOverlap(find(s, 'audio-glyphs').rect, find(s, 'connection-dot').rect)).toBe(false);
+    expect(rectsOverlap(find(s, 'settings-gear').rect, find(s, 'connection-dot').rect)).toBe(false);
   });
 
-  it('the BETA build stamp clears the glyphs below it', () => {
+  it('the BETA build stamp clears the gear below it', () => {
     const s = hudSurfaces(metrics(4));
-    expect(rectsOverlap(find(s, 'beta-badge').rect, find(s, 'audio-glyphs').rect)).toBe(false);
+    expect(rectsOverlap(find(s, 'beta-badge').rect, find(s, 'settings-gear').rect)).toBe(false);
   });
 
   it('the two right-edge rails are a matched pair, side by side, never intersecting', () => {
@@ -208,12 +208,12 @@ describe('S168 — the BACK TO MAIN button in the top chrome row', () => {
     expect(EXIT_BTN_Y).toBe(BETA_BADGE_Y - 4);
   });
 
-  it('clears the badge, the glyph pair, the connection dot and both right-edge rails', () => {
+  it('clears the badge, the gear, the connection dot and both right-edge rails', () => {
     const s = hudSurfaces(metrics(4));
     const exit = find(s, 'exit-button').rect;
     for (const name of [
       'beta-badge',
-      'audio-glyphs',
+      'settings-gear',
       'connection-dot',
       'energy-gauge',
       'progress-rail',

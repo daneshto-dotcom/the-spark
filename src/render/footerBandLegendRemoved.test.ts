@@ -28,7 +28,7 @@
  *
  * R153's write-up warned that the legend "is a REGISTERED HUD SURFACE, so its rect must come out of
  * `hudSurfaces()` too". It is not: the surface list is score-rows, charge-dots, raid-pips, q-hint,
- * top-centre-plate, tier-banner, beta-badge, audio-glyphs, connection-dot, energy-gauge,
+ * top-centre-plate, tier-banner, beta-badge, settings-gear, connection-dot, energy-gauge,
  * progress-rail and exit-button. The key was never registered — it was positioned off the live chip
  * row instead. Verified before removing anything, and asserted below so the correction sticks.
  */
