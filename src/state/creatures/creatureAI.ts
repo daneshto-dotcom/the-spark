@@ -37,8 +37,9 @@ import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveI
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
+import { isUntargetable } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { isUntargetableType, getCreatureConfig } from './voltkin-config.ts';
+import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -403,7 +404,7 @@ export function findNearestEnemyCreatureFrom(
      * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
      * by anything at all. `untargetableGates.test.ts` pins both halves.
      */
-    if (isUntargetableType(c.type)) continue;
+    if (isUntargetable(c, world.tick)) continue;
     const dSq = distSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
     if (

@@ -299,7 +299,22 @@ type CreatureHashed =
    * two of the three sub-sites.
    */
   | 'stunnedUntilTick'
-  | 'sapFlashUntilTick';
+  | 'sapFlashUntilTick'
+  /*
+   * ⭐⭐ S171 (owner R142/R171-A) — the RA RITUAL deadline. HASHED, on the same grounds as
+   * `stunnedUntilTick` above and a degree stronger: this field does not merely gate an ability, it
+   * decides whether a creature EXISTS as a target and whether it can be removed from the world at
+   * all. A host and a `?worker=1` mirror that disagreed about one ritual tick would disagree about
+   * whether the Pharaoh is still on the board — the widest divergence this oracle can be asked to
+   * catch, and the cheapest to catch here.
+   *
+   * ⚠ THE CONTRACT EARNED ITS KEEP AGAIN, exactly as the `stunnedUntilTick` note records: adding
+   * the field to `Creature` failed `tsc` with
+   * `Type 'boolean' is not assignable to type '{ ERROR_UNCOVERED_FIELD: "raRitualUntilTick" }'`
+   * before any hash code existed. Two sub-sites still follow — the projection below and the
+   * per-field contribution test.
+   */
+  | 'raRitualUntilTick';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -548,6 +563,9 @@ export function determinismParts(world: World): string[] {
         // S170 P7 — Vlad's life-sap flash. Hashed rather than serialize-only: an unhashed synced
         // field is a wide-oracle blind spot, which is how castleHp hid behind `players`.
         `:sf${o(c.sapFlashUntilTick)}`,
+        // S171 R142/R171-A — the Ra ritual deadline. Same `o()` absent-marker treatment, so a board
+        // with no Pharaoh mid-ritual hashes identically to one where the field never existed.
+        `:rr${o(c.raRitualUntilTick)}`,
     );
   }
 

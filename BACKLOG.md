@@ -2828,3 +2828,104 @@ Reserved for:
 ## Phase 1 done = working base
 
 All 3 done-gates pass + full game loop exists + save/load works. Then Phase 2 design begins.
+
+---
+
+# ⭐⭐ S171 — OWNER PLAYTEST WITH HIS BROTHER (2026-09-09)
+
+Four items, captured verbatim the moment he said them. **The quotes are the specification**; the
+commentary under each is mine. Research dispatched at capture time (workflow `wf_cc3b099c-54e`,
+4 lanes + adversarial pressure-test) so these are ready to build rather than ready to re-discuss.
+
+⚠ HE CORRECTED THE APPROVAL RECORD HIMSELF: *"we already approved the batch up to, like, priority
+ten or something last session. But... oh, no. We only approved a few. The first four last session,
+and now you're starting to work on Pharaoh."* So nothing below is approved except where noted.
+
+## R171-E · HEALTH BARS — ⭐ HE AUTHORISED THIS FOR THE CURRENT SESSION
+
+> *"health bars. He says, how the fuck do I know if your Kraken has so much more health than my
+> enemies? If it's even worth building an enemy that attacks, like, to see how much something it
+> attacks, how much health comes off. You know? It should be a really thin red health bar above
+> every enemy, and you can see it just, you know, decreases the more damage it takes. It makes
+> sense. ... Obviously, the size of the creature also depends on the size of the health bar. So the
+> big Kraken will have a big health bar. It'll be a little thicker, a little... you know? ... maybe
+> even the health bar will be white. We'll see how it looks, but the health bar needs to be really
+> thin."*
+
+> *"Technically, you can do the health bars already in this session."*
+
+- **REALLY THIN** is stated twice — it is the requirement, not a detail.
+- Red; white is an open option he wants to see.
+- Bar size scales with creature size; the Kraken's is bigger and a little thicker.
+- ⚠ The engineering question the research lane is chasing: a bar needs CURRENT **and MAX** pool, and
+  `serializeCreature` emits `hp` only when a creature is DAMAGED — so what a peer can actually derive
+  about an enemy's max pool has to be established before this is a small change.
+- ⚠ An enemy health bar is a fog position-tell and must cull through `isConcealed`.
+
+## R171-F · FLOATING DAMAGE NUMBERS — build WITH him, not alone
+
+> *"a damage output. So in games like Maple Story, you can see how much damage each attack does. It
+> just has to be in cool font. We'll find the right font for this game. and it doesn't have to be in
+> any color, just in white color. ... So when someone is in a zone of a stink tower or within the
+> radius of the, uh, zombie whopper ... area of effect, damage over time. They wanna know how much
+> damage they're taking. So we'll need, like, damage near the enemy who took the damage. ... You can
+> see how they do it in games like Maple Story, for example. I want you to run a little research
+> because it's already there. Don't need to build anything new. Literally take from existing
+> games."*
+
+> *"And the damage output, we'll do it together."*
+
+- White, "cool font" — font choice is a joint decision, and it is priced against 85.1 KiB of bundle
+  headroom.
+- Must cover **damage over time** (stink tower, Whopper aura), not just discrete strikes.
+- ⛔ THE HARD PART, and the reason this is not a quick win: a damage number is intrinsically a
+  ONE-SHOT EVENT carrying a VALUE, and one-shot `world.effects` pushes are lost ~5/6 of the time on a
+  peer (10 Hz sampling vs a 60 Hz renderer wipe). Every other per-strike visual here was solved by
+  re-deriving from synced state; Vlad's sap needed a whole new synced field because it could not be.
+  Any design that just pushes an effect is wrong.
+
+## R171-G · THE WHOPPER'S DEATH BLAST IS A DAMAGE BUDGET, NOT AN OBLITERATION
+
+> *"he didn't like the the zombie whopper destroyed everything in a range, kind of like the potato
+> bomb. It's not fair. The damage output on the zombies ultimate, so when he dies, his skill is when
+> he dies, he blows up. Right? So it's gonna be a total amount of, like, health, let's say, I don't
+> know, four hundred, like, attack in total distributed among anything that's in the radius. So it
+> doesn't kill everything. It just equally spreads or maybe enemies that are closer take more. I
+> don't know. We'll have to think about that mechanic, but let's add that to the backlog."*
+
+- A FIXED TOTAL, DISTRIBUTED. **400 is illustrative, not a ruling** — he said *"let's say, I don't
+  know"*.
+- Equal split vs closer-take-more is **explicitly left open by him**.
+- ⚠ Determinism: fifths are integers, so the remainder of an uneven split must be handled in an
+  order-independent way or it is a desync.
+
+## R171-H · TOWER REQUIREMENTS MUST NAME THE SHAPE
+
+> *"when you're hovering over the tiers of towers, it says, two more needed. Right? ... but he's
+> like, three more of what? ... I'm putting... if I'm not clicking on the tower, but I have my own
+> queue that I'm doing manually because I have, like, a plan. Sure. I can see, like, the picture of
+> the tower, what it's built of, but I don't know what I have in the castle. I don't wanna have to,
+> like, go back and forth and look. It should be, like, two more squares and then one more, you
+> know, like, then one more line or four more triangles and, you know, something like that, but in a
+> very easy to understand coherent and simplified manner. You know? It has to be very simple. Um,
+> and, uh, yeah, minimalistic, if you would."*
+
+> *"a small one that we can easily fix. We can easily just do it now too."*
+
+- Name the SHAPE and the COUNT. Simple, coherent, minimalistic.
+- ⚠ Enumerate EVERY buildable that shows this wording — fixing one and leaving three is this
+  codebase's documented recurring defect.
+
+## ⭐ AND ON THE LOCUSTS — HE ANSWERED THE ART QUESTION
+
+> *"the cone of locusts, are you gonna code it? Are you gonna build it with code, or are we gonna
+> generate something? I mean, you can try building it with code. You also wanted to build something
+> for Vlad with code, but we'll see how it looks if it looks dirty. I mean, do the best if you can.
+> You could look like sick, like really scary looking, you know, just a cloud of little locust
+> flying and, you know, eating enemies. But if you can do it, then we might just generate a video
+> loop. I'll do it myself and give it to you."*
+
+⇒ **Build it procedurally, do the best I can, and he judges it.** If it reads dirty he generates a
+video loop himself. This CONFIRMS the S171 P2 plan (procedural VFX, art out of scope) rather than
+changing it. The target he described: *"a cloud of little locusts flying and eating enemies"*,
+scary-looking.

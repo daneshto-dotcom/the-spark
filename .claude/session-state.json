@@ -1,47 +1,150 @@
 {
-  "tool_calls_session_total": 1352,
-  "session_id": "S170",
+  "tool_calls_session_total": 384,
+  "session_id": "S171",
   "session_kind": "batch",
-  "session_start": "2026-09-08T18:00:00+02:00",
-  "prior_session_note": "S168 shipped 5 owner bug fixes + 7 boss skills across 4 of 6 bosses; PROTOCOL 44->45. Closed PARTIAL: Kraken + Pharaoh unbuilt, ability art not started.",
+  "session_start": "2026-09-09T19:40:00+02:00",
+  "prior_session_note": "S170 CLOSED 6/6, verified, pushed, live. Handoff: HANDOFF_S170_2026-09-09.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
   "phase": "DO",
-  "tier": "FULL",
-  "plan_file": ".claude/plans/2026-09-09_PDR_S170_BATCH.md",
-  "session_status": "S170 CLOSED - 6/6 priorities complete + the fog rebuilt four times to the owner reported-and-verified state",
+  "tier": "Full",
+  "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
+  "session_status": "DO - P2 the Pharaoh, stage A in flight",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "approval_quote": "we can do priority one, priority two, and priority three. Those are bug fixes. Easy. Priority four, sure you can fix it... The boss abilities VFX, so priority five... Do it. / That answers all the questions. / start working the priorities",
   "protocol_version": 45,
   "boot_preflight": {
-    "typecheck": "PASS exit 0 (captured $?)",
-    "vitest": "PASS exit 0 (captured $?) - 4108 passed / 255 files",
-    "git": "clean, in sync with origin/master at dfa0981",
-    "unpushed_commits": 0,
-    "note": "matched boot-snapshot; handoff said expect 4108/249+ and files are 255"
-  },
-  "a0_state_discovery": {
-    "method": "Workflow spark-s169-scoping - 6 enumerate lanes + 6 adversarial completeness critics (12 agents), plus hand probes before dispatch",
-    "run_id": "wf_e458b664-66d",
-    "hand_probed_deltas": [
-      "stunnedUntilTick absent from src/ - R152 'NOT YET BUILT' CONFIRMED",
-      "R152 cites src/state/creatureLifecycle.ts and src/state/creatureVerlet.ts - NEITHER EXISTS at that path; rageMultiplier actually lives at src/state/creatures/creature.ts:113",
-      "R153 cites legend visibility at main.ts:2990 - actual site is main.ts:3009",
-      "PROTOCOL_VERSION = 45 at src/net/protocol.ts:643 (CLAUDE.md still says 44 at S167)"
+    "handoff_read": true,
+    "boot_snapshot_read": true,
+    "claude_md_read": true,
+    "gates_at_boot": {
+      "typecheck": "exit 0",
+      "vitest": "exit 0 - 4202 tests / 267 files (matches S170 baseline exactly)"
+    },
+    "warns_addressed": [
+      "ENV-DIFF hooks drift: REVIEWED - guard-destructive.sh (S166 hang fix, fails OPEN on timeout/missing interpreter) and verify-claims-on-stop.sh (S342 MCV message accuracy). Both STRENGTHEN safety, neither weakens a gate. Baseline reset, exit 0.",
+      "Git 1 uncommitted change: .claude/session-state.json, tool_calls_session_total 1352->1357 only. Benign post-close hook counter from S170. Superseded by this write.",
+      "REVIEW card S170 pending: card describes S170 work that is committed, pushed, MCV exit 0, handoff written. Stale artifact from a closed session; will approve so it does not block this session's close.",
+      "TNAS SHARE outage 400 samples: Rule 23 TNAS BOUNDARY - separate network device on the LAN, NOT a tracked git subfolder. NOT TOUCHED. Reported to owner only.",
+      "Memory embeddings 1 stale file: advisory, does not affect this session's work.",
+      "statusline_dead: cosmetic, no gate impact."
     ]
   },
-  "owner_reported_bugs_this_session": [
-    "FIXED+SHIPPED 34d00bd - tier-3 towers incoherent/not producing/two at once. Root cause: BUILD-phase `while` re-alignment preserved `next mod step`, so every tower entered FIGHT on an arbitrary phase offset in (0,step]; with a 30s step against a 45s fight that is 2, 1 or ZERO units by build-time luck. Now pinned to the fight edge + own 15s constant (owner's number).",
-    "FIXED+SHIPPED 34d00bd - 'my wife did two pharaohs, second waited until the first is dead'. Root cause: t9 boss releases with sourceSpawnerId=null, which routes into applySpawnCreature's one-live-per-(owner,type) latch; only voltkin+direwolf were exempt. isT9BossType now exempt too.",
-    "FIXED+SHIPPED fa89e6a - second tower of same race 'just stayed as shaped', no tower picture, 'sometimes takes a whole turn'. Root cause: igniteOneSpawnerRecipe registers the LOWEST anchor and returns, once per recipe per topology change, and ignition only runs on a frame carrying BOND_FORMED. 13 tower recipes now drain all rings, de-duped per RING (first draft de-duped per ANCHOR = 3 spawners per tier-3 ring and NINE per boss ring; caught by test).",
-    "FIXED+SHIPPED a5fc01c - 'silly goblin warrior generated from the castle'. Root cause: NOT a spawn bug. drawGoblin's green procedural puppet is the atlas-load fallback and IS the pre-veo look; ensureAtlases fetched 50.53 MiB / 18 sheets on first sync (32 MiB of it t9 bosses) so the needed sheet queued behind ~16 others. Race-keyed sheets now lazy + preloadRaceKit warms seated races at match start during BUILD.",
-    "NOT REPRODUCIBLE (verified in the running app) - 'you took away the no net. Why is there no sudoku? It doesn't work.' Clicked title->ARCADE->NONET on the dev server: full six-colour board, clock running, spirits animating, title menu correctly down, ZERO console errors. S168's modalUp fix holds. He was almost certainly on a page cached from before that fix deployed. REMEDY: hard reload.",
-    "OPEN (ART, needs regeneration) - Kraken attack pose clipped. Measured: attack.mp4 frames 0/30 are PILLARBOXED while 60/90 are not, so the packer's documented assumption ('veo's letterbox is fixed for a whole clip') is FALSE for this clip; and in the later frames the tentacles run off the edge of the 1280px source, so those pixels do not exist and no re-pack recovers them. Needs a regenerated clip on a wider composition.",
-    "OPEN (ART, needs regeneration) - Archdemon attack 'looks ridiculous / too fast'. NOT a timing mismatch: measured 12 frames x 5 tpf = exactly 60 ticks vs an attack cadence of exactly 60, identical across all six bosses. It is frame sparsity for a giant's swing.",
-    "FIXED — fog of war showed enemy BUILDINGS during BUILD. Root cause: Pixi child order, not a missing predicate. CARRY-FORWARD: the enemy BANK glyphs still leak (gathererRenderer draws castle art, HP bar, gatherers AND bank into the same three children; splitting needs a 4th child)."
+  "owner_rulings_s171": [
+    "FOG CONFIRMED GOOD - owner S171 opening message: 'fog looks fine'. This CLOSES the S170 #1 blocker (the owner-eyeball check on per-entity culling). The machine-verification gap in e2e/fog.spec.ts remains open as test debt, but the OUTCOME is now owner-confirmed.",
+    "PRIORITY DIRECTION - owner S171: 'lets start with P2 and work it well making sure it landed correctly and deployed. then we will discuss the next priorities in line.' => P2 (the Pharaoh, R142) is the session's work; it must reach a VERIFIED DEPLOY, not just green gates. Next priorities to be discussed after.",
+    "R171-A THE RITUAL PHARAOH LEAVES THE WORLD: 'while he's doing the ritual, he's, like, in a different dimension, so between realities... So he's not really in the game. Like, his picture's there... but he's not attackable. He's not targetable. He's, like, just take out the targetable place.' Supersedes the 'unkillable creature' framing. Visually present, mechanically absent. Makes retention LIVE.",
+    "R171-B RA COLUMNS ARE AREA WITH A GROWING GROUND TELEGRAPH: 'it should be an area... kind of like when you see the shading when the meteor falls... it starts, like, a little shaded area, and it gets bigger and bigger, and then it lands and kills everything in that circle that it lands on. The column comes from the sky.' NEW SCOPE vs the original PDR.",
+    "R171-C 'up to 15 atk' = exactly 15/15: 'I don't know what's the up to fifteen attack that you said. That's what they'll be doing.' 300 fifths per column.",
+    "R171-D CLOUDS ROAM FREELY. He said 'ten seconds' hedged ('I don't know, like, what'); R142 in writing says 15 sec. Building to R142's 15s behind ONE constant, flagged for a one-word correction.",
+    "NOT ANSWERED: whether a player can right-click-raid a LOCUST CLOUD. He opened 'A raid should hit an number of HP' then pivoted to solving the Pharaoh's case by phasing him out. Proceeding on the default (a raid cannot pick an untargetable unit) since R142 says locusts 'cannot be targeted' explicitly.",
+    "R171-E HEALTH BARS (authorised for this session) - see BACKLOG.md for the verbatim quote.",
+    "R171-F FLOATING DAMAGE NUMBERS - MapleStory-style, white, cool font, must cover DoT. 'We'll do it together' => NOT solo this session. The hard part is that a damage number is a one-shot event carrying a VALUE and one-shot effects are lost ~5/6 of the time on a peer.",
+    "R171-G WHOPPER DEATH BLAST = a fixed TOTAL damage budget distributed among everything in the radius, not an obliteration. 400 is illustrative ('let's say, I don't know'), NOT a ruling. Equal-split vs closer-take-more explicitly left open by him.",
+    "R171-H TOWER REQUIREMENTS must name the shape and count. 'We can easily just do it now too.'",
+    "R171-I LOCUST VFX: BUILD IT PROCEDURALLY. 'you can try building it with code... do the best if you can... But if you can do it, then we might just generate a video loop. I'll do it myself and give it to you.' Target: 'a cloud of little locusts flying and eating enemies', scary-looking. CONFIRMS the P2 plan rather than changing it."
   ],
+  "a0_state_discovery": {
+    "status": "complete",
+    "method": "7-lane workflow probe (all 7 returned) + adversarial verify stage + HAND-RUN verification of every load-bearing claim in-session",
+    "key_findings": [
+      "DRIFT: 'locust cone' is a compression of R142. The owner said he 'lunches a CONE of locusts that FLY AROUND in locust CLOUDS' - the cone is the LAUNCH, not a persistent volume. boot-snapshot.md:27, session-state:620 and the S170 PDR all repeat the compression (the PDR hardened it to 'wedge'). Correct template is runWarlordDirewolves, not the Kraken sonar.",
+      "BYPASS COUNT WRONG: seven sites, not six, and the most important was never listed - state/world.ts:668, the AUTHORITATIVE RAID_TARGET reducer that spends the raid point and deals damage. Also new: render/creatureProjectile.ts:106. Three of the six recorded paths had wrong paths/lines (src/controls.ts -> src/input/controls.ts; voltkinChain -> creatures/ and line 106 not 92; seagullLifecycle -> seagulls/).",
+      "UNKILLABLE IS AN 8-SITE PROBLEM: eight production world.creatures.delete() sites; at least four bypass damageCreature entirely (potatoLifecycle.ts:331 'obliterates regardless of hp', suicideBlast.ts:155, bossSkillsArchdemon.ts:78, droneLifecycle.ts:227). A guard in damageCreature alone would not work.",
+      "EXISTING TESTS WEAKER THAN ADVERTISED: of 6 untargetableGates tests only 2 exercise the gate as a gate; one is a readFileSync substring check that passes on a comment mention. The flag is dead - nothing in src/ sets untargetable:true.",
+      "e2e DOES NOT GATE THE DEPLOY: deploy.yml and e2e.yml are separate workflows with no needs: edge and master has NO branch protection. A red e2e lane still publishes. e2e-quarantine is currently failing, masked by continue-on-error (pre-existing, out of scope).",
+      "BUNDLE: 814.9 KiB of the 900 KiB charter, 85.1 KiB headroom; the guard warns at 60 KiB.",
+      "REUSE FOUND: inCone() exported+pure at bossSkillsKraken.ts:104; lifetimeTicks/despawnAtTick already serialized and migration-safe (15s is free); stunnedUntilTick/sapFlashUntilTick is the additive-optional shape for the ritual deadline; damage.wired.test.ts is the import-graph guard precedent; runWarlordDirewolves is the summon template AND documents the one-live-unit-per-(owner,type) spawn-gate exemption a fan of clouds will also need.",
+      "ARITHMETIC: locust 10/10 = 150 fifths/strike, which one-shots every unit AND all six bosses (largest pool 143, the Pharaoh's own). So strikes = kills and balance lives entirely in cloud count x cadence, which R142 leaves unstated. Ra column 15/15 = 300 fifths."
+    ],
+    "hand_verified": [
+      "R142 recovered verbatim at RACE_ZONES_AND_BOSS_TOWERS.md:457 (LOCKED_DECISIONS.md holds only R1/R2 - it is NOT the R1xx register)",
+      "all seven bypass sites read and quoted from the tree, located by content because line numbers had drifted",
+      "world.ts:668 raid reducer and creatureProjectile.ts:106 re-verified by hand after the agent surfaced them",
+      "the 8 removal sites enumerated by grep and potatoLifecycle.ts:331 read in full",
+      "T9_BOSS_STATS.mummies read from constants.ts:1575; attackFifths/unitPoolFifths read from stats.ts:119-141"
+    ]
+  },
   "priorities": [
+    {
+      "id": "P2A",
+      "title": "Close the seven untargetable acquisition + retention sites",
+      "description": "world.ts:671 (authoritative raid reducer, before raidPoints--), input/controls.ts:1448, bossSkillsKraken.ts:85, bossSkillsArchdemon.ts:127, voltkinChain.ts:109, creatureProjectile.ts:106 (route through chokepoint), defenderLifecycle.ts:137 (retention - LIVE not latent under R171-A). Seagull poop deliberately LEFT (area hit, not acquisition). Plus: isUntargetableType -> isUntargetable(creature, tick) state-aware in ONE place per the voltkin-config.ts:995 prediction; a call-site allowlist test on the damage.wired.test.ts import-graph pattern; upgrade the readFileSync-substring test to a real behavioural one.",
+      "status": "in_progress",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2B",
+      "title": "The locust attack (R142) - PROTOCOL 45->46",
+      "description": "New CreatureType 'locustCloud', untargetable:true, lifetimeTicks 900 (15s, R142 written; owner said ~10s hedged - flagged, one constant). CREATURE_TARGETS BOTH. New bossSkillsPharaoh.ts runPharaohLocusts modelled on runWarlordDirewolves. Launch = cone SPREAD (the cone is the launch, not a volume - A.0 drift finding); then clouds roam and hunt. 3 clouds, 1 strike/5s = 9 strikes (MINE). 10/10 = 150 fifths is the owner's. Spawn-gate exemption like the direwolf. Protocol bump = 6 sites, 4 machine-gated.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2C",
+      "title": "The Ra ritual (R142 + R171-A/B) - no protocol bump",
+      "description": "raRitualUntilTick?: number additive-optional on the stunnedUntilTick shape. Trigger in the deferred-death sweep (the only deterministic reading of 'about to die' when one hit exceeds his whole pool). R171-A: during the ritual he LEAVES the targetable space entirely - untargetable AND damage passes through ('between realities'), visually present. Removal chokepoint + allowlist test for the 4 direct-delete paths. 5 columns x 2s = 600 ticks, 300 fifths each, AREA damage with R171-B's GROWING GROUND TELEGRAPH, then he dies.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P3",
+      "title": "Health bars over every enemy (R171-E)",
+      "description": "Owner authorised for THIS session: 'Technically, you can do the health bars already in this session.' REALLY THIN (said twice), red, white is an open option he wants to see. Bar size scales with creature size - the Kraken's is bigger and thicker. Must cull via isConcealed (an enemy bar is a fog position-tell) and must draw into an EXISTING Graphics (fogHiddenLayer index trap). ⚠ OPEN ENGINEERING QUESTION under research: a bar needs current AND MAX pool, but serializeCreature emits hp only when DAMAGED - establish what a peer can derive first.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P4",
+      "title": "Tower requirements must name the shape (R171-H)",
+      "description": "Owner: 'a small one that we can easily fix. We can easily just do it now too.' Replace 'two more needed' with 'two more squares' / 'one more line' / 'four more triangles'. Simple, coherent, minimalistic. ⚠ Enumerate EVERY buildable showing this wording - fixing one and leaving three is the documented recurring defect.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    }
+  ],
+  "reflexion_entries_to_archive": [],
+  "budget_total": null,
+  "totals": {},
+  "carry_forward_s170": [
+    "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
+    "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
+    "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
+    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
+    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
+    "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
+    "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
+    "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
+    "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
+    "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
+    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
+    "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
+    "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
+    "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
+    "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
+    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
+    "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
+  ],
+  "s170_priorities_archived": [
     {
       "id": "P1",
       "title": "LAYER STACK - backdrop stops painting over sparks/bonds/primitives (owner S166 complaint, still live); all race backdrops VISIBLE during BUILD; border walls VISIBLE (R162); buildings/connectors/spawn stay hidden behind the existing cursor reveal. One ordered layer map. Repoint fog.spec/tower-art.spec child indices; kill 5 stale comment blocks.",
@@ -541,94 +644,24 @@
       ]
     }
   ],
-  "reflexion_entries_to_archive": [
-    "S170 P2: #a-green-test-can-be-defending-the-bug: the owner reported the same two-pharaoh defect twice and S169 'fixed' it by removing the gate that was PROVABLE in a unit test (a direct-dispatch latch) while leaving the gate he actually hit. t9BossTower.test.ts asserted the waiting behaviour as CORRECT, so the suite was green ON the defect and would have blocked the real fix. LESSON: when a reported bug 'does not reproduce' in tests but the owner keeps reporting it, grep for a test that ASSERTS the reported behaviour - a defect with a passing test defending it is invisible to every gate. Also: the docblock defending that gate justified itself by citing the latch S169 had just deleted, so a stale rationale outlived its own premise.",
-    "S170 P2b: #gate-the-effect-on-the-outcome-not-on-the-trigger: the drone's blast VFX was pushed unconditionally, BEFORE the enemy-only candidate scan and the owner-sparing damage - so a fuse-expiry detonation at home showed a full shock ring for an event that could not damage anything. The tempting fix (silence blasts on fuse expiry) would have silenced real hits too, since explode-in-place next to an enemy base is deliberate. LESSON: gate a visual on what actually HAPPENED (candidates.length), never on the branch that led there.",
-    "S170 P3: #one-populations-ceiling-silently-gating-another: GOBLIN_MAX_PER_SPAWNER=10 was shared by the goblin tower and the tier-3 race towers, so a tier-3 tower went permanently silent at ten units - the owner's original 'the Piranha didn't produce at all' returning, months later, from a constant named after a different unit. Three prior exclusions in the same function existed for exactly this failure and a fourth was still owed. LESSON: fix it as an EXEMPTION, never by raising or deleting the shared number, and assert BOTH sides - a test proving 'tier 3 is uncapped' cannot tell that from 'the cap is gone' and would have re-tuned an economy the owner chose.",
-    "S170 P4: #the-unit-of-a-ruling-is-part-of-the-ruling: the sudoku trial counted SHAPES with an exact test; the owner had said 'twelve same-shape-connectors' and the code's own comment flagged that one word would flip it - and nobody asked him for two sessions while he reported 'there is no sudoku, it doesn't work'. Twelve connectors is not a fixed shape count (chain of 13 = ring of 12 = 12 bonds), so no shape-count test could express his rule. LESSON: when a comment says 'one word flips this if the intent was X', that is an OWNER QUESTION, not a note. And an exact-N test on a value that can jump by two is skippable by construction.",
-    "S170 P5: #a-private-renderer-method-scopes-a-condition-to-one-renderer: the stun stars lived as a private method of goblinRenderer, which silently limited them to GOBLIN_KINDS - while applyStun's only caller, the Kraken sonar, has NO type filter and stuns voltkin/chewer/drones drawn by two other renderers. Those froze with no stars, reading as a hang. The same method also used flat geometry, so on the scaled-up bosses (the units stun exists to counter) the ring sat inside the sprite. LESSON: a visual for a property of an ENTITY belongs in a module, not in whichever renderer happened to add it. Extraction is also what made it testable - it went from an untestable private method to a pure function with a determinism assertion.",
-    "S170 P1: #research-the-standard-solution-before-inventing-a-mechanism: I spent most of a session and THREE shipped-and-wrong attempts hiding enemy units, by re-layering a backdrop twice and then building an inverse Pixi mask - without ever checking how fog of war is done. The owner had to ask twice (\"did you look into them or no? I said, look at Red Alert\") before I looked. The classic RTS answer is per-entity culling (dont draw it), the repo ALREADY contained two of the three pieces (explored grid + last-seen ghosts), and the fix was one predicate plus one line per renderer. LESSON: when a problem is old and solved everywhere, the first move is to find the standard mechanism, not to reach for a rendering trick. SECOND, SHARPER LESSON: prefer the mechanism the SUITE CAN SEE. All three failures passed every gate, because masks and compositing are invisible to a test harness that cannot read composed frames - renderer.extract does not apply filter effects. A pure predicate was both the correct answer and the testable one, and \"can I assert this?\" would have picked it on day one."
-  ],
-  "budget_total": 1000000,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "statusline_dead"
-  },
-  "auto_fill_applied": {
-    "ts": "2026-09-09T06:44:36.601876Z",
-    "fields": [
-      "budget_total",
-      "totals"
+  "deliberation": {
+    "tier": "Full",
+    "council": "3-way: Claude (supervisor) + grok-4.20-0309-reasoning + gemini-3.1-pro-preview",
+    "convergence": [
+      "Locust clouds MUST be Creatures. Grok proposed non-Creature 'effects attached to the Pharaoh'; Gemini and I both refuted it - the project rule requires untargetable units to remain killable by area sweeps, and a non-entity has no pool for AoE to reach, making them truly invulnerable, which R142 plus the project's own reasoning forbid.",
+      "'About to die' = 'the deferred death sweep is about to remove him'. All three seats converged. It is the one place a death is realised, runs once per tick after the strike batch, is immune to overkill magnitude and cannot double-fire.",
+      "The ritual deadline is an additive-optional raRitualUntilTick?: number on the stunnedUntilTick shape - no protocol bump."
     ],
-    "validator_version": "s110-three-tier-v1"
+    "disagreements_resolved_by_supervisor": [
+      "UNKILLABLE GUARD PLACEMENT. Grok: make world.creatures private + lint-ban .delete() (a large refactor smuggled into a feature). Gemini: monkey-patch Map.delete at world init (fragile, invisible, and the worker-sim path would not inherit it). BOTH REJECTED. Chosen: one removeCreature() chokepoint + a call-site allowlist test modelled on the repo's OWN damage.wired.test.ts, which exists precisely because a property of the import graph needs a guard that reads the import graph.",
+      "ehp = 9999 for immortality (Grok) REJECTED - ehp is hashed for desync detection and drives the health bar; Gemini caught this independently.",
+      "BALANCE. Grok: 3 clouds x 1 strike/sec = 45 strikes = 6750 fifths (47 Pharaohs). Gemini: 3 clouds x 1 strike/5s = 9 strikes = 1350 fifths. Chose Gemini's cadence: at 150 fifths a strike, strikes ARE kills, and 9 guaranteed kills from one skill is already enormous."
+    ],
+    "grok_missed": "Grok ignored the entire Ra half of R142; Gemini caught it and supplied the column arithmetic (15*(5+15)=300 fifths x 5 columns).",
+    "internal_panel": "A 4-framing internal proposal+critique+synthesis workflow (wf_ba7fc269-e7a) was also dispatched and is still running at PDR time. It is depth-on-top of the mandated 3-way Council, not a substitute; if it surfaces anything that changes the design it will be recorded as a PRIME-AUDIT delta before the affected stage is executed."
   },
-  "check_sweep": {
-    "method": "Three read-only agents over the shipped tree: (1) verify every factual claim in this session's own commit messages against the current tree, (2) hunt regressions caused by this session's REMOVALS and the fog layer move, (3) hunt unfinished/unreachable pathways. Plus gh run list, because a locally-green gating lane is not the whole CI surface.",
-    "agent_1_verify": {
-      "verdict": "8 of 8 headline claims VERIFIED; 3 of my written claims FALSE or PARTIAL",
-      "false_claims_found_and_fixed": [
-        "'the four now-FALSE landmark comments were REWRITTEN' — only THREE were. ~10 sites still asserted 'cross-player landmark / visible THROUGH the fog', including the comment one line above each re-pointed constructor in main.ts. The 'grep for the CLAUSE, not the files you remember touching' failure, committed by me in the same session I quoted it twice. FIXED 461f604.",
-        "'a test that an UNSTUNNED board hashes identically' — VACUOUS and the claim was untrue: the projection appends ':su' UNCONDITIONALLY so every world's hash string moved; the test compared undefined vs undefined in ONE build. What makes it harmless is that hashWorldStateFull has zero non-test importers. FIXED 461f604 with an honest assertion.",
-        "stale present-tense docs after the energy removal (ui.ts header still advertised the gauge; physicsLoop.ts still listed TICK_ENERGY as a pipeline step). FIXED 461f604."
-      ],
-      "nuance_accepted": "Removing SerializedPlayer.energy is a REQUIRED serialized field going away at an unchanged PROTOCOL_VERSION. Harmless (nothing validates player shape, nothing read it) but the precedent I cited — S42's END_TURN allowlist tighten — is an ACTION removal, not a field removal. Verdict stands, argument was broader than the citation supports."
-    },
-    "regression_found_in_ci": {
-      "what": "e2e-races went RED at 7267f61 — settings-toggles.spec.ts hardcodes the settings gear at x=1888 (the old HUD_RIGHT_X-20). Moving the gear to GAUGE_X_COLUMN=1896 made the click miss, the panel never opened, and it surfaced as '#race-music-toggle must default to ON'.",
-      "why_local_gating_missed_it": "@races is deliberately inverted OUT of e2e:gating and runs as its OWN CI job (it starves the shared lane's 720s cap). 'e2e:gating green' was true AND insufficient — only `gh run list` could see it.",
-      "fixed": "461f604 — repointed to 1896 with a note that this literal must move whenever the gear does; settings-toggles 3/3."
-    },
-    "open_at_close": [
-      "e2e-soak render-heap census: 'display-object growth expected < 8, received 8' — exactly at the boundary, in the explicitly NON-GATING soak lane. Local repro was launched to get a real verdict rather than a guess; see the handoff for its outcome."
-    ]
-  },
-  "handoff_document": "HANDOFF_S169_2026-09-09.md",
-  "handoff_ready": true,
-  "reflexion_entries_archived": true,
-  "analyze_completed": true,
-  "owner_rulings_s170": [
-    "R158 tier-3 limitless",
-    "R159 sudoku >=12 connectors",
-    "R160 backdrop toggle local; backdrops a future Steam cosmetic SKU",
-    "R161 tech draft waves 0/5/10/15/20",
-    "R162 border walls visible to all, \"like a backdrop\"",
-    "R163 per-race walls (design open, not soon)",
-    "R164 PROTECTOR OF THE LAND = castle footprint + a Helga radius around it",
-    "R165 walls fall ~2s before the fight, per-race cinematic",
-    "R167 boss stats derived from each boss skill load",
-    "R168 delete blue-steppe-orbit.mp3 (verified safe: original plays from the .ogg)",
-    "R169 tower/connector consolidation FULLY SPECIFIED - raid targets the structure; connectors hidden in BUILD and FIGHT; one aggregated HP bar over per-connector HP; one dead connector breaks it",
-    "R170 drone self-detonation VFX bug"
-  ],
-  "compaction_losses_recovered": [
-    "tower/connector consolidation (recovered verbatim from the S169 transcript)",
-    "art-generation COST pipeline: ChatGPT+Gemini stills, video loops on his own/free accounts, one-by-one for coherence",
-    "the Voltkin complete rework - zero trace anywhere, now P9"
-  ],
-  "owner_away_parked_questions": [
-    "Q-W1: owner said \"two seconds before the end of the fight, all the creatures run back\". Walls falling ~2s BEFORE the fight starts is R165. Is creature retreat before the fight ENDS a separate NEW mechanic, or was that a slip?",
-    "Q-FOG1: FOG_SHROUD_ALPHA is 0.55 and it is MINE. It keeps unexplored ground dimmed-but-readable (the C&C shroud he described) rather than either black (his \"you made everything in fog\" complaint) or fully lit (no fog of war left). One dial - he should eyeball it live.",
-    "Q-T9DELAY: T9_RELEASE_DELAY_TICKS (5s standing before a boss walks out) is BYPASSED for any boss tower built during BUILD, because the S169 fight-edge pin sets nextSpawnTick = world.tick at the bell. Audit finding, pre-existing, not touched by P2. Intended, or should the 5s always apply?",
-    "Q-BOSSSTATS: boss stats are still mine. He ruled they must \"suit the boss and the race\" and be scaled to each boss skill load - which can only be settled after P5/P6/P7/P8 fix what each boss actually does."
-  ],
-  "carry_forward_s170": [
-    "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
-    "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
-    "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
-    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
-    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
-    "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
-    "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
-    "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
-    "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
-    "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
-    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
-    "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
-    "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
-    "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
-    "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
-    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
-    "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
+  "approval_quote": "Let's get cooking approved.",
+  "scope_amendments_s171": [
+    "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e)."
   ]
 }

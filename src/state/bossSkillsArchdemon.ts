@@ -23,7 +23,7 @@ import { liveIdsOfType } from './bossSkills.ts';
 import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
-import { isStunned } from './creatures/creature.ts';
+import { isStunned, isUntargetable } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -125,6 +125,9 @@ export function runArchdemonTeleport(world: World): void {
       if (id === demonId) continue;
       if (c.ownerPlayerId === demon.ownerPlayerId) continue;
       if (c.ehp <= 0) continue;
+      // ⭐ S171 (owner R142/R171-A) — he cannot pick a victim he cannot target. Teleporting onto a
+      // locust cloud, or onto a Pharaoh who has left the world, is an acquisition like any other.
+      if (isUntargetable(c, world.tick)) continue;
 
       let allies = 0;
       for (const [otherId, other] of world.creatures) {

@@ -6,17 +6,31 @@
  * so it is built as a condition rather than as a Pharaoh feature, exactly the call the owner himself
  * made for STUN (R152) and for the damage-over-time mechanic before that.
  *
- * ## ⭐ THE ENUMERATION CAME BACK WITH GOOD NEWS, WHICH IS WORTH RECORDING
+ * ## ⭐ A REAL CHOKEPOINT EXISTS — AND ⛔ IT COVERS FAR LESS THAN THIS FILE ONCE CLAIMED
  *
  * The R142 note warned this would touch "every acquisition path" and asked where a single chokepoint
- * could live so future paths inherit it by construction. It already exists:
+ * could live so future paths inherit it by construction. One does exist:
  * **`findNearestEnemyCreatureFrom`**. Creature-vs-creature acquisition, the standoff wrapper, the
  * CASTLE GUNS, every generic DEFENDER (laser turret, Helga, stink tower) and the gatherer renderer's
- * preview of the castle gun all funnel through it. One line covers them all.
+ * preview of the castle gun genuinely do funnel through it. That much survived verification.
  *
- * ⚠ THE BYPASSES WERE AUDITED RATHER THAN ASSUMED. Three places iterate `world.creatures` directly:
- * `underDroneCaps` (population counting), `recallArmies` (moves your OWN units home) and the
- * boss-death bookkeeping in `hostTick`. None of them picks a victim, so none needs the gate.
+ * ⛔⛔ **CORRECTED S171 — THE PARAGRAPH THAT STOOD HERE WAS WRONG, AND IT IS RECORDED RATHER THAN
+ * QUIETLY DELETED BECAUSE THE FAILURE MODE IS THE POINT.** It read:
+ *
+ * > *"⚠ THE BYPASSES WERE AUDITED RATHER THAN ASSUMED. Three places iterate `world.creatures`
+ * > directly: `underDroneCaps` (population counting), `recallArmies` (moves your OWN units home) and
+ * > the boss-death bookkeeping in `hostTick`. None of them picks a victim, so none needs the gate."*
+ *
+ * Twenty-five production files iterate `world.creatures`; fifteen filter by ownership. The three
+ * named are correctly benign — and the audit missed the Kraken's sonar AIM pick, the Archdemon's
+ * teleport victim, the Voltkin chain hop, the raid picker AND the authoritative `RAID_TARGET`
+ * reducer, the projectile renderer's own scan, and the entire retention family. The sibling claim in
+ * `creatures/creatureAI.ts` — *"THIS ONE LINE COVERS EVERY CREATURE-TARGETING PATH IN THE GAME"* —
+ * was wrong the same way.
+ *
+ * Both were written by sessions that had genuinely looked. **A prose enumeration cannot stay true.**
+ * The gates are now driven individually in `untargetableRetention.test.ts`, and the census itself is
+ * re-counted on every run by `untargetableCallSites.test.ts`.
  *
  * ## ⛔ THE DISTINCTION THIS FILE EXISTS TO PIN: NOT TARGETABLE ≠ NOT DAMAGEABLE
  *
@@ -133,10 +147,21 @@ describe('S169 R142/R121 — the chokepoint refuses to SELECT an untargetable un
     });
   });
 
-  it('⛔ ONE line, but it covers castle guns and every defender too — they share this function', () => {
-    // Asserted at the source rather than by driving each subsystem: the claim is that these are not
-    // separate acquisition paths at all. If any of them ever grows its own scan, this goes red and
-    // the new path has to be gated explicitly.
+  it('⛔ castle guns and every defender inherit it — they share this function', () => {
+    /*
+     * ⚠ REWRITTEN S171. This was a `readFileSync` substring check asserting that `castleGuns.ts` and
+     * `defenderLifecycle.ts` each CONTAIN the string 'findNearestEnemyCreatureFrom'. Its comment
+     * claimed *"If any of them ever grows its own scan, this goes red"* — which it could not do: the
+     * assertion passes on a COMMENT mentioning the name, and a second ungated scan added beside the
+     * routed one leaves it green. It was a grep dressed as a test, and it was the only thing standing
+     * behind the file's coverage claim.
+     *
+     * The property it was reaching for is real, so it is now asserted where it can actually be
+     * proven: the census in `untargetableCallSites.test.ts` re-counts every enemy-shaped scan in the
+     * tree on every run and requires each to consult the gate or carry a written verdict. What is
+     * kept here is the cheap, honest half — that these two files still route through the chokepoint
+     * rather than having quietly grown a private scan.
+     */
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const { join } = require('node:path') as typeof import('node:path');
     const read = (rel: string) => readFileSync(join(process.cwd(), 'src', rel), 'utf8');

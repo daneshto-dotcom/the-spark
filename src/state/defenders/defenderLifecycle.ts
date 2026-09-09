@@ -36,6 +36,7 @@ import {
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { getDefenderRecipe } from '../godlyRecipes/index.ts';
 import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
+import { isUntargetable } from '../creatures/creature.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
@@ -139,6 +140,23 @@ function targetValid(world: World, d: Defender, config: DefenderConfig): boolean
   const victim = world.creatures.get(d.targetCreatureId);
   if (victim === undefined) return false;
   if (victim.ownerPlayerId === d.ownerPlayerId) return false; // (shouldn't happen — defense-in-depth)
+  /*
+   * ⭐⭐ S171 (owner R142/R171-A) — **RETENTION, AND THIS IS THE CASE THE SPEC PREDICTED IN WRITING.**
+   *
+   * `SPARK_RACES_SPEC.md:533` called it before any of it was built: *"the case that will be missed:
+   * a defender that has ALREADY COMMITTED to a naga which then submerges mid-windup. Defender
+   * carries targetCreatureId across ticks."* S169 shipped the ACQUISITION half and left this one,
+   * and the prediction sat accurate and unactioned for two sessions.
+   *
+   * ⛔ IT IS NOT DEAD CODE FOR THE PHARAOH, WHICH IS WHY IT LANDS NOW. A locust cloud is
+   * untargetable from birth, so the chokepoint never acquires one and no defender could ever be
+   * holding one. The Pharaoh is the exact opposite: he is acquired NORMALLY all fight, and then
+   * leaves the world mid-ritual (R171-A — *"he's not really in the game"*). Without this line every
+   * turret already locked onto him keeps firing into a creature that is between realities.
+   *
+   * Dropping the target is correct; the FSM re-acquires next tick through the guarded chokepoint.
+   */
+  if (isUntargetable(victim, world.tick)) return false;
   const dx = victim.pos.x - d.pos.x;
   const dy = victim.pos.y - d.pos.y;
   return dx * dx + dy * dy <= config.attackRange * config.attackRange;

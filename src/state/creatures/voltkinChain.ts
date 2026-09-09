@@ -63,6 +63,7 @@ import { dispatch } from '../world.ts';
 import type { World } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import type { Creature } from './creature.ts';
+import { isUntargetable } from './creature.ts';
 import { bondMidpoint, distSq, isEnemyBond } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
@@ -107,6 +108,9 @@ export function voltkinChainFrom(world: World, attacker: Creature, seed: ChainLi
       if (usedCreatures.has(id)) continue;
       if (id === attacker.id) continue; // never itself, even in a free-for-all
       if (c.ownerPlayerId === attacker.ownerPlayerId) continue; // enemy-only, like every target
+      // ⭐ S171 (owner R142/R171-A) — a chain HOP is an acquisition: the arc chooses who it jumps
+      // to. An untargetable unit is not a candidate, so the chain skips it and hops on past.
+      if (isUntargetable(c, world.tick)) continue;
       const dSq = distSq(from, c.pos);
       if (dSq > hop2) continue;
       if (

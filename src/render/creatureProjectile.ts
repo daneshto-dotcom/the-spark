@@ -51,6 +51,7 @@ import type { World } from '../state/world.ts';
 import type { Creature, CreatureType } from '../state/creatures/creature.ts';
 import { liftOf } from './creatureLift.ts';
 import { distSq } from '../state/creatures/creatureAI.ts';
+import { isUntargetable } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { Vec2 } from '../types.ts';
 
@@ -107,6 +108,20 @@ export function resolveProjectileShot(world: World, c: Creature): ProjectileShot
     if (id === c.id) continue;
     if (other.ownerPlayerId === c.ownerPlayerId) continue;
     if (distSq(c.pos, other.pos) > rangeSq) continue;
+    /*
+     * ⭐ S171 (owner R142/R171-A) — the renderer must not DRAW an arrow at a unit the sim refuses
+     * to shoot at. Without this the arc is a fog-grade tell: a projectile leaning toward a locust
+     * cloud, or toward a Pharaoh who has left the world, advertises a target that cannot be hit.
+     *
+     * ⚠ AND THE DOCBLOCK ABOVE OVERSTATES THIS LOOP'S PARITY WITH THE SIM — it claims "the SAME
+     * predicate the sim uses to choose a victim", but the sim picks the NEAREST enemy through the
+     * guarded chokepoint while this picks the LOWEST ID and consulted no gate at all. This line
+     * closes the gate half. The nearest-vs-lowest-id half is a separate, pre-existing divergence
+     * and is deliberately NOT changed here: it only decides which way an arrow leans, and altering
+     * it would perturb a rendering path with no test pinning it, inside a session about targeting.
+     * Named rather than silently fixed or silently left.
+     */
+    if (isUntargetable(other, world.tick)) continue;
     // Lowest-id tie-break, matching every other selector in the sim so both peers pick the same one.
     const n = id as unknown as number;
     if (n < bestId) {

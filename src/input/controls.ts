@@ -53,6 +53,7 @@ import { canStampAt } from '../state/blueprintLegality.ts';
 import type { World } from '../state/world.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
+import { isUntargetable } from '../state/creatures/creature.ts';
 import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
@@ -1446,6 +1447,15 @@ export class Controls {
        * A half-widened rule is worse than an un-widened one, because the record says it shipped.
        */
       if (c.ownerPlayerId === this.playerId) continue; // enemy-only
+      /*
+       * ⭐ S171 (owner R142/R171-A) — the cursor cannot AIM at what cannot be targeted.
+       *
+       * ⚠ THIS IS THE COSMETIC HALF AND IT IS DELIBERATELY NOT THE GATE. The authoritative refusal
+       * is in the `RAID_TARGET` reducer (`state/world.ts`), which is what actually spends the point;
+       * a replayed or hand-built action never passes through here at all. This exists so the cursor
+       * does not promise a raid the host will refuse.
+       */
+      if (isUntargetable(c, this.world.tick)) continue;
       const d = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y);
       if (d < bestDist) {
         bestDist = d;

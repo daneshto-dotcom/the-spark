@@ -20,6 +20,7 @@ import {
   SparkType,
   PRINCESS_SLAP_INTERVAL_TICKS,
   PRIMITIVE_MAX_HP,
+  DEFENDER_REACQUIRE_TICKS,
 } from '../../constants.ts';
 import {
   asCreatureId, asPlayerId, asPrimitiveId, asSpawnerId, type PrimitiveId,
@@ -339,5 +340,84 @@ describe('teardownDefenders', () => {
     teardownDefenders(w);
     expect(w.defenders.size).toBe(0);
     expect(w.nextDefenderId).toBe(0);
+  });
+});
+
+/**
+ * ⭐⭐ S171 (owner R142/R171-A) — **RETENTION: THE TARGET THAT STOPS BEING TARGETABLE MID-LOCK.**
+ *
+ * `SPARK_RACES_SPEC.md:533` predicted this in writing before any of it existed — *"the case that
+ * will be missed: a defender that has ALREADY COMMITTED to a naga which then submerges mid-windup.
+ * Defender carries targetCreatureId across ticks. Dropping the target is correct; silently firing
+ * into an untargetable unit is not."* S169 shipped the ACQUISITION half only, and the prediction sat
+ * accurate and unactioned for two sessions.
+ *
+ * ⛔ IT IS ONLY REACHABLE VIA THE **STATE** SOURCE, WHICH IS WHY IT COULD BE MISSED. A locust cloud
+ * is untargetable from birth, so the chokepoint never hands one to a defender and no stored target
+ * can ever hold one — retention looks like dead code if you only think about locusts. The Pharaoh is
+ * the inverse: acquired normally all fight, then he leaves the world mid-ritual (R171-A — *"he's not
+ * really in the game"*). Every turret already locked on would keep firing into him.
+ */
+describe('S171 R171-A — a defender DROPS a target that has left the targetable space', () => {
+  it('⭐⭐ a locked-on victim that starts channelling is no longer struck', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 130, 100);
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick;
+
+    // One tick to ACQUIRE, so the defender is genuinely holding a stored target id.
+    tickN(w, 1);
+    expect(d.targetCreatureId, 'fixture: the defender must have committed to it').toBe(asCreatureId(50));
+
+    // Now it phases out MID-LOCK — the exact predicted case.
+    w.creatures.get(asCreatureId(50))!.raRitualUntilTick = w.tick + 600;
+
+    tickN(w, getDefenderConfig('princess').windupTicks + 4);
+    expect(
+      w.creatures.has(asCreatureId(50)),
+      'it must survive: a defender cannot fire into a unit that is between realities',
+    ).toBe(true);
+    expect(d.targetCreatureId, 'and the stale lock is dropped, not merely unfired').toBeNull();
+  });
+
+  it('⭐ CONTROL — the identical setup without the ritual still kills it, so the test is not vacuous', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 130, 100);
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick;
+
+    tickN(w, 1);
+    expect(d.targetCreatureId).toBe(asCreatureId(50));
+    tickN(w, getDefenderConfig('princess').windupTicks + 4);
+    expect(w.creatures.has(asCreatureId(50)), 'control: the strike lands').toBe(false);
+  });
+
+  it('⭐ and when the ritual ENDS, the defender re-acquires it through the guarded chokepoint', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 130, 100);
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick;
+
+    w.creatures.get(asCreatureId(50))!.raRitualUntilTick = w.tick + 5;
+    tickN(w, 3);
+    expect(w.creatures.has(asCreatureId(50)), 'still phased out').toBe(true);
+
+    /*
+     * Past the deadline it is an ordinary enemy again — no un-phasing code exists or is needed.
+     *
+     * ⚠ THE BUDGET IS DERIVED, NOT GUESSED, and it is worth writing down because the first draft of
+     * this test failed on it. Dropping a target puts the defender back to IDLE with
+     * `nextFireTick = tick + DEFENDER_REACQUIRE_TICKS` (12), so the re-kill cannot happen sooner
+     * than the retry cadence PLUS a fresh windup. That failure was a real cadence, not a defect —
+     * recorded here so a future reader does not re-diagnose it as flakiness.
+     */
+    tickN(w, DEFENDER_REACQUIRE_TICKS + getDefenderConfig('princess').windupTicks + 4);
+    expect(w.creatures.has(asCreatureId(50)), 'back in the world, and duly killed').toBe(false);
   });
 });

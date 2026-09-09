@@ -121,6 +121,8 @@ import {
 import { applyDroneExplode, type DroneExplodeAction } from './droneLifecycle.ts';
 // S158 P3 (CF-S157-e) — the terrorist goblin's own detonation, distinct from the drone's bond-sever.
 import { applySuicideBlast, type SuicideBlastAction } from './creatures/suicideBlast.ts';
+// S171 (owner R142/R171-A) — the ONE targetability read; see `creature.ts`.
+import { isUntargetable } from './creatures/creature.ts';
 import {
   applyDissipateRainbow,
   applySpawnRainbow,
@@ -669,6 +671,20 @@ export function dispatch(world: World, action: GameAction): World {
         const target = world.creatures.get(action.target.id);
         if (target === undefined) return world;
         if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
+        /*
+         * ⭐⭐ S171 (owner R142/R171-A) — **CANNOT BE TARGETED, AND THIS IS THE AUTHORITATIVE HALF.**
+         *
+         * ⛔ THE PICKER IN `input/controls.ts` IS NOT THE GATE. It only decides what the cursor
+         * aims at; THIS reducer is what spends the raid point and deals the damage, and a hand-built
+         * or replayed action reaches it without ever passing through the input layer. The S171 A.0
+         * sweep found this site missing from the carried bypass list entirely, which is the more
+         * dangerous half of that omission: gating the picker alone would have LOOKED like a fix.
+         *
+         * ⚠ PLACED BEFORE `raidPoints--`, deliberately, under the atomicity rule this reducer
+         * already documents four lines up — *"paid but got nothing must be unrepresentable"*. A
+         * refusal after the decrement would charge the player for a raid that never landed.
+         */
+        if (isUntargetable(target, world.tick)) return world;
         // ⚠ POSITION CAPTURED BEFORE THE HIT. `damageEntity` removes the creature when it dies, so
         // reading `target.pos` afterwards reads a corpse that is already out of the map — and the
         // cloud's whole job is marking WHERE THE UNIT STOOD.

@@ -256,6 +256,35 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w), 'the projection must carry the life-sap stamp').not.toBe(wideBefore);
   });
 
+  /**
+   * ⭐⭐ S171 (owner R142/R171-A) — **`raRitualUntilTick` — THE RA RITUAL STAMP — MUST CONTRIBUTE.**
+   *
+   * The third sub-site again, and the stakes are higher than for either stamp above. Those gate an
+   * ability and a cosmetic. This one decides whether a creature can be TARGETED at all and whether
+   * it can be REMOVED FROM THE WORLD. A host and its `?worker=1` mirror that disagreed about a
+   * single ritual tick would disagree about whether the Pharaoh is still on the board — the widest
+   * divergence this oracle can be asked to catch.
+   */
+  it('⭐ raRitualUntilTick — the RA RITUAL stamp — flips the wide hash', () => {
+    const w = worldWithEntities();
+    const wideBefore = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.raRitualUntilTick = 4321;
+    expect(hashWorldStateFull(w), 'the projection must carry the ritual deadline').not.toBe(wideBefore);
+  });
+
+  it('⚠ and two DIFFERENT ritual deadlines hash differently — the DURATION is the mechanic', () => {
+    /*
+     * Not merely present-vs-absent. The deadline IS the length of the unkillable window and of the
+     * five-column sequence, so a projection that emitted a constant for any defined value would let
+     * a peer run a longer or shorter ritual than the host with the oracle none the wiser.
+     */
+    const w = worldWithEntities();
+    w.creatures.get(asCreatureId(1))!.raRitualUntilTick = 4321;
+    const a = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.raRitualUntilTick = 4322;
+    expect(hashWorldStateFull(w)).not.toBe(a);
+  });
+
   it('⚠ and two DIFFERENT sap deadlines hash differently — not merely present-vs-absent', () => {
     /*
      * The weaker assertion above would pass against a projection that emitted a constant for any

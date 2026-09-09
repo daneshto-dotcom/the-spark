@@ -20,7 +20,7 @@
 
 import type { BondId, PlayerId, PrimitiveId, Vec2, SpawnerId } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
-import { VOLTKIN_CONFIG, type CreatureConfig } from './voltkin-config.ts';
+import { VOLTKIN_CONFIG, isUntargetableType, type CreatureConfig } from './voltkin-config.ts';
 import { unitPoolFifths } from '../stats.ts';
 import { WARLORD_RAGE_MULTIPLIER } from '../../constants.ts';
 
@@ -138,6 +138,65 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
  */
 export function isStunned(c: Pick<Creature, 'stunnedUntilTick'>, tick: number): boolean {
   return c.stunnedUntilTick !== undefined && tick < c.stunnedUntilTick;
+}
+
+/**
+ * ⭐⭐ S171 (owner R142/R121, and R171-A) — **CAN THIS CREATURE BE TARGETED RIGHT NOW?**
+ *
+ * ⛔ THE STATE-AWARE READ, AND IT IS THE ONE `voltkin-config.ts` PREDICTED IN WRITING. That file's
+ * docblock over `isUntargetableType` says why it was a function and not an inlined flag: *"R121's
+ * submerged naga is untargetable only WHILE SUBMERGED — a state test, not a type test — so when that
+ * lands, this becomes `flag || <the state test>` in ONE place and every acquisition path inherits
+ * it."* This is that moment, arriving via the Pharaoh rather than the naga.
+ *
+ * Owner R171-A, on the Pharaoh mid-ritual: *"he's, like, in a different dimension, so between
+ * realities. Right? So he's not really in the game. Like, his picture's there ... but he's not
+ * attackable. He's not targetable. He's, like, just take out the targetable place."*
+ *
+ * So untargetability now has TWO sources and exactly ONE reader:
+ *   · BY TYPE  — the locust cloud, untargetable from birth (`config.untargetable`);
+ *   · BY STATE — the Pharaoh, untargetable only while channelling Ra.
+ *
+ * ⚠ THE TWO SOURCES DIFFER IN A WAY THAT MATTERS FOR RETENTION. A type-untargetable unit is never
+ * acquired in the first place, so a stored target can never hold one. A state-untargetable unit is
+ * acquired NORMALLY and phases out afterwards — which is precisely the case `SPARK_RACES_SPEC.md:533`
+ * predicted and which shipped unactioned: *"a defender that has ALREADY COMMITTED to a naga which
+ * then submerges mid-windup."* That is why `targetValid` re-checks this predicate every tick and not
+ * only at acquisition.
+ *
+ * ⚠ AND IT IS STILL NOT INVULNERABILITY. This makes a unit impossible to SELECT; area effects that
+ * sweep a region rather than pick a victim still reach it, deliberately — otherwise a 15-second
+ * locust cloud would be unkillable by anything at all. The Pharaoh's ritual needs MORE than this
+ * (he is out of the world entirely, not merely hard to aim at), and that stronger guard lives at the
+ * damage and removal paths, not here. `untargetableGates.test.ts` pins both halves.
+ *
+ * ⚠ Takes `tick` rather than the World, matching `isStunned`, so it stays callable from anywhere.
+ */
+export function isUntargetable(
+  c: Pick<Creature, 'type' | 'raRitualUntilTick'>,
+  tick: number,
+): boolean {
+  return isUntargetableType(c.type) || isChannellingRa(c, tick);
+}
+
+/**
+ * ⭐⭐ S171 (owner R142, R171-A) — **IS THIS CREATURE CHANNELLING THE RA RITUAL RIGHT NOW?**
+ * The ONE read of `raRitualUntilTick`, on exactly the `isStunned` shape.
+ *
+ * The field is stamped by the deferred-death sweep — the single place a death is REALISED — because
+ * R142's *"when he hits 1hp or about to die"* cannot be read literally: one locust strike is 150
+ * fifths against the Pharaoh's whole 143-fifth pool, so 1 HP is a value that is never observed.
+ * "About to die" is therefore implemented as "the sweep is about to remove him", which fires exactly
+ * once, is immune to how far the killing blow overshot, and cannot double-fire when four systems
+ * damage him on the same tick.
+ *
+ * ⚠ STRICTLY `<`, matching `isStunned`, so stamping `tick + N` yields exactly N channelling ticks.
+ */
+export function isChannellingRa(
+  c: Pick<Creature, 'raRitualUntilTick'>,
+  tick: number,
+): boolean {
+  return c.raRitualUntilTick !== undefined && tick < c.raRitualUntilTick;
 }
 
 /**
@@ -572,6 +631,37 @@ export interface Creature {
    * behind `players: 'acknowledged'` and gated emission with neither hash able to see it diverge.
    */
   sapFlashUntilTick?: number;
+  /*
+   * ⭐⭐ S171 (owner R142, and R171-A) — **THE RA RITUAL DEADLINE: THE TICK HE RE-ENTERS THE WORLD,
+   * WHICH IS ALSO THE TICK HE DIES.**
+   *
+   * R142: *"he cant be killed while he is doing that but when the ultimate attack is finished then
+   * he dies."* R171-A gives the reading that decides the implementation: *"while he's doing the
+   * ritual, he's, like, in a different dimension, so between realities ... So he's not really in the
+   * game. Like, his picture's there ... but he's not attackable. He's not targetable."*
+   *
+   * ⛔ SO THIS IS NOT AN "UNKILLABLE" FLAG, AND THE DIFFERENCE IS THE WHOLE DESIGN. An unkillable
+   * creature is still IN the world — still acquired, still swung at, still healthbarred, and every
+   * one of those has to be special-cased. A creature that has LEFT the world is simply not a
+   * candidate anywhere, which is why this field is read through `isUntargetable` alongside the
+   * type flag rather than as a bespoke condition at each site.
+   *
+   * ⚠ STAMPED BY THE DEFERRED-DEATH SWEEP, not by a health threshold. *"when he hits 1hp or about to
+   * die"* is unobservable as written: one locust strike is 150 fifths and his entire pool is 143, so
+   * he never passes through 1 HP. The sweep is the one place a death is REALISED, it runs once per
+   * tick after the whole strike batch, and firing there is exactly-once regardless of how far the
+   * killing blow overshot or how many systems landed one on the same tick.
+   *
+   * ⚠ ADDITIVE-OPTIONAL — emitted only while set, so an ordinary board stays byte-identical and this
+   * costs **no `PROTOCOL_VERSION` bump**, exactly like `stunnedUntilTick` and `sapFlashUntilTick`
+   * above. It must be ON THE WIRE rather than host-local for the same reason they are: the ritual
+   * VFX is derived per frame from this stamp on BOTH peers, and a host-local latch would run the
+   * ritual correctly and draw nothing on the joiner. It IS hashed, for the reason `sapFlashUntilTick`
+   * states — an unhashed serialized field is a wide-oracle blind spot.
+   *
+   * Mutable; defaults undefined (no factory change).
+   */
+  raRitualUntilTick?: number;
 }
 
 /**
