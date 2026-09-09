@@ -35,6 +35,7 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import { POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH } from '../constants.ts';
 import type { Controls } from '../input/controls.ts';
 import { isCruiserDebuffed } from '../state/gameMode.ts';
@@ -300,6 +301,16 @@ export class AvatarRenderer {
     this.crown.clear();
 
     for (const player of world.players.values()) {
+      /*
+       * ⭐ S170 (owner) — FOG: an enemy AVATAR is their live cursor position, which is the single
+       * most valuable thing to hide during BUILD — it says where they are working right now.
+       *
+       * ⚠ The owner check inside `isConcealed` keeps the LOCAL avatar always drawn, which matters
+       * because the local avatar is also the player's own pointer feedback. The old fog sheet used
+       * to dim enemy avatars until scouted; culling replaces that with actually removing them.
+       */
+      if (player.id !== world.localPlayerId
+        && isConcealed(player.avatarPos.x, player.avatarPos.y, player.id)) continue;
       present.add(player.id);
       let g = this.graphicsByPlayer.get(player.id);
       if (g === undefined) {

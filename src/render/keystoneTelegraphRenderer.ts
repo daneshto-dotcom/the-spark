@@ -23,6 +23,8 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
+import type { Primitive } from '../game/primitive.ts';
 import { isAnchorCombo, isFilamentCombo, isMagical } from '../combos.ts';
 import { KEYSTONE_INCOME_MAX_NEIGHBORS } from '../constants.ts';
 import type { World } from '../state/world.ts';
@@ -58,6 +60,22 @@ export function computeKeystonePulses(world: World): KeystonePulse[] {
   const pulses: KeystonePulse[] = [];
   const fouled = world.fouledPrimitives;
   for (const hub of world.bonds.values()) {
+    /*
+     * ⭐ S170 (owner) — FOG: the keystone telegraph traces enemy STRUCTURE TOPOLOGY in gold, which is
+     * strictly more information than the shapes it decorates. Culled on the same rule the bonds
+     * themselves use in `structureRenderer`: hidden unless BOTH ends are in live vision, because a
+     * pulse running from a visible shape into a concealed one points straight at the thing it hides.
+     */
+    /*
+     * ⚠ `bond.a` / `bond.b` are typed `PhysicsBody`, a structural SUBSET of `Primitive` that keeps
+     * the solver narrow — so `placedBy` is present at runtime but absent from the type. This is the
+     * same cast `structureRenderer.drawBonds` makes, with the same justification recorded there:
+     * *"the cast is safe: bond.a / bond.b are always Primitives at runtime."*
+     */
+    const ka = hub.a as unknown as Primitive;
+    const kb = hub.b as unknown as Primitive;
+    if (isConcealed(ka.pos.x, ka.pos.y, ka.placedBy)
+      || isConcealed(kb.pos.x, kb.pos.y, kb.placedBy)) continue;
     const ha = world.primitives.get(hub.aId);
     if (ha === undefined) continue;
     const hb = world.primitives.get(hub.bId);

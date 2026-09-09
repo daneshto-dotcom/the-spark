@@ -24,6 +24,7 @@
  */
 
 import { Application, Graphics } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import {
   EFFECT_LIFETIME_TICKS,
   MAX_ACTIVE_EFFECTS,
@@ -67,6 +68,29 @@ export class EffectsRenderer {
         // via drainAudioEffects; no visual drawer) but was never added to this skip,
         // so every charge inflated activeCount until lifetime cull (S78 audit MEDIUM).
         if (e.kind === 'BOND_FORMED' || e.kind === 'BOND_SEVERED' || e.kind === 'CREATURE_CHARGE') {
+          continue;
+        }
+        /*
+         * ⭐⭐ S170 (owner) — **FOG: AN EFFECT IN A ZONE YOU CANNOT SEE IS NOT DRAWN.** His rule was
+         * absolute: *"You shouldn't see anything in their zone."* A bond-commit flash, a sever erase
+         * or a chew bite is a precise position tell — arguably a louder one than the sprite, because
+         * it is a bright transient on an otherwise dark quarter.
+         *
+         * ⚠ GEOMETRY ONLY (owner `null`), because a `GameEffect` carries no owner. That is the right
+         * call rather than a limitation: effects are events at a PLACE, and the place is what decides
+         * whether the local player is entitled to see it. Own-zone and quarry effects stay visible
+         * because those are always inside a vision source.
+         *
+         * ⚠ AND IT IS GUARDED ON `'pos' in e`, because only 9 of the 12 effect kinds carry one —
+         * `SCORE_TIER` and friends are HUD/audio events with no board position, and must fall through
+         * untouched rather than being silently dropped by a missing-field read.
+         *
+         * ⚠ NOTE ON THE GLOBAL-REACH RULE (*"visible-to-all iff can-affect-all"*, which keeps the
+         * potato/rainbow/hunter renderers above the fog): it is NOT violated here. Those are
+         * RENDERERS on `aboveFogLayer`, untouched by this. And the blast effects that rule protects
+         * fire during FIGHT, when `fogActive` is false and this cull is inert by construction.
+         */
+        if ('pos' in e && isConcealed(e.pos.x, e.pos.y, null)) {
           continue;
         }
         this.active.push({ effect: e, bornTick: e.tick });

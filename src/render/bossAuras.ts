@@ -47,6 +47,7 @@
  */
 
 import type { Graphics } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import {
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
@@ -93,6 +94,14 @@ const SONAR_FOAM_TINT = 0xffffff;
 export function drawBossAuras(g: Graphics, world: World): void {
   for (const [bossId, boss] of world.creatures) {
     if (boss.ehp <= 0) continue;
+    /*
+     * ⭐⭐ S170 (owner) — FOG: an enemy boss's ability VFX is not drawn unless the boss is in live
+     * vision. ⚠ THIS WAS MY OWN LEAK, introduced earlier in this same session: these auras walk
+     * `world.creatures` themselves rather than riding a culled renderer loop, so a rot aura, a sonar
+     * wave or a life-sap flash would have advertised an enemy boss's exact position through the fog —
+     * a bigger tell than the sprite, since the aura is 170px wide and the sonar crosses 260px.
+     */
+    if (isConcealed(boss.pos.x, boss.pos.y, boss.ownerPlayerId)) continue;
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);

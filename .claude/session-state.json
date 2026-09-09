@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1318,
+  "tool_calls_session_total": 1334,
   "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -242,6 +242,44 @@
           "type": "file_contains",
           "path": "src/render/concealment.test.ts",
           "needle": "NOTHING is concealed during the FIGHT phase"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/renderer.ts",
+          "needle": "const sparkOwner = s.state.kind === 'Carried' ? s.state.carrierId : null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/renderer.ts",
+          "needle": "if (isConcealed(s.pos.x, s.pos.y, sparkOwner)) continue;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/bossAuras.ts",
+          "pattern": "isConcealed\\(boss\\.pos",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/keystoneTelegraphRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/avatarRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/effectsRenderer.ts",
+          "pattern": "'pos' in e && isConcealed\\(",
+          "op": "==",
+          "value": 1
         }
       ]
     },

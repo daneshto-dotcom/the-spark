@@ -12,6 +12,7 @@
  */
 
 import { Application, Container, Graphics, Sprite } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import type { Spark } from '../game/spark.ts';
 import type { SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
@@ -97,6 +98,33 @@ export class SparkRenderer {
     const present = new Set<SparkId>();
     for (let i = 0; i < freeSparks.length; i++) {
       const s = freeSparks[i];
+      /*
+       * ⭐⭐ S170 (owner) — **FOG: ENEMY SPARKS, CARRIED OR LOOSE, ARE NOT DRAWN.**
+       *
+       * This one renderer was three of the owner's four remaining leaks, because it draws BOTH
+       * states in the same loop: *"you can still see the sparks, like the enemy sparks in their
+       * regions... you can also see primitives in enemy land [during] build stage... now when the
+       * gatherer is carrying primitives, then you can't see the gatherer, but you could still see,
+       * like, a shape moving. It's ridiculous."*
+       *
+       * All three are this loop:
+       *   · a spark IS a shape (`SparkType`), so "primitives in enemy land" and "their sparks" are
+       *     the same sprite;
+       *   · and the moving shape was a CARRIED spark — the gatherer hauling it is culled by
+       *     `gathererRenderer`, but its cargo is drawn HERE, so the cargo kept walking on its own.
+       *
+       * ⭐ OWNERSHIP IS THE CARRIER. A carried spark belongs to whoever is holding it
+       * (`state.carrierId`), so it is concealed by the OWNER rule and stays visible to its owner
+       * across their whole quarter. A FREE spark is unowned and judged by geometry alone — which is
+       * right: the quarry sits inside `SPAWNER_RADIUS`, a permanent vision source for every seat, so
+       * pool sparks stay visible while a spark dropped in a dark corner does not.
+       *
+       * ⚠ SKIPPED BEFORE `present.add`, so leaving vision also REAPS the sprite via the cleanup pass
+       * below. Adding first and skipping would freeze the last-seen spark on the board forever — the
+       * same trap `structureRenderer` documents at its own cull.
+       */
+      const sparkOwner = s.state.kind === 'Carried' ? s.state.carrierId : null;
+      if (isConcealed(s.pos.x, s.pos.y, sparkOwner)) continue;
       present.add(s.id);
       let sprite = this.spriteBySpark.get(s.id);
       if (sprite === undefined) {
