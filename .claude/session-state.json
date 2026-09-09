@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 38,
+  "tool_calls_session_total": 558,
   "session_id": "S169",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
   "prior_session_note": "S168 shipped 5 owner bug fixes + 7 boss skills across 4 of 6 bosses; PROTOCOL 44->45. Closed PARTIAL: Kraken + Pharaoh unbuilt, ability art not started.",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-08_PDR_S169_BATCH.md",
   "session_status": "in-progress",
@@ -38,7 +38,8 @@
     "FIXED+SHIPPED a5fc01c - 'silly goblin warrior generated from the castle'. Root cause: NOT a spawn bug. drawGoblin's green procedural puppet is the atlas-load fallback and IS the pre-veo look; ensureAtlases fetched 50.53 MiB / 18 sheets on first sync (32 MiB of it t9 bosses) so the needed sheet queued behind ~16 others. Race-keyed sheets now lazy + preloadRaceKit warms seated races at match start during BUILD.",
     "NOT REPRODUCIBLE (verified in the running app) - 'you took away the no net. Why is there no sudoku? It doesn't work.' Clicked title->ARCADE->NONET on the dev server: full six-colour board, clock running, spirits animating, title menu correctly down, ZERO console errors. S168's modalUp fix holds. He was almost certainly on a page cached from before that fix deployed. REMEDY: hard reload.",
     "OPEN (ART, needs regeneration) - Kraken attack pose clipped. Measured: attack.mp4 frames 0/30 are PILLARBOXED while 60/90 are not, so the packer's documented assumption ('veo's letterbox is fixed for a whole clip') is FALSE for this clip; and in the later frames the tentacles run off the edge of the 1280px source, so those pixels do not exist and no re-pack recovers them. Needs a regenerated clip on a wider composition.",
-    "OPEN (ART, needs regeneration) - Archdemon attack 'looks ridiculous / too fast'. NOT a timing mismatch: measured 12 frames x 5 tpf = exactly 60 ticks vs an attack cadence of exactly 60, identical across all six bosses. It is frame sparsity for a giant's swing."
+    "OPEN (ART, needs regeneration) - Archdemon attack 'looks ridiculous / too fast'. NOT a timing mismatch: measured 12 frames x 5 tpf = exactly 60 ticks vs an attack cadence of exactly 60, identical across all six bosses. It is frame sparsity for a giant's swing.",
+    "FIXED — fog of war showed enemy BUILDINGS during BUILD. Root cause: Pixi child order, not a missing predicate. CARRY-FORWARD: the enemy BANK glyphs still leak (gathererRenderer draws castle art, HP bar, gatherers AND bank into the same three children; splitting needs a 4th child)."
   ],
   "priorities": [
     {
@@ -50,7 +51,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "checkpoint_commit": "a5fc01c",
-      "check_method": "typecheck 0 / vitest 0 from captured $? at every step (4108/255 -> 4128/258). FOUR root causes found by reading the code that fires the warnings, not by guessing at symptoms; each reproduced BEFORE being fixed (the ignition bug was written as a failing test first, which is what caught my own draft registering 3 spawners per ring / 9 per boss ring). TWO negative controls run and recorded: reverting the fight-edge pin fails 2 assertions, reverting the boss exemption fails 3. One guard had to be widened or it would have inverted into its own failure mode (registerAll.test.ts's regex on igniteOneSpawnerRecipe). NONET settled EMPIRICALLY in the browser rather than by code reading. Two remaining reports triaged to ART with measurements attached, not deferred silently.",
+      "check_method": "typecheck 0 / vitest 0 from captured $? at every step (4108/255 -> 4128/258). FOUR root causes found by reading the code that fires the warnings, not by guessing at symptoms; each reproduced BEFORE being fixed (the ignition bug was written as a failing test first, which is what caught my own draft registering 3 spawners per ring / 9 per boss ring). TWO negative controls run and recorded: reverting the fight-edge pin fails 2 assertions, reverting the boss exemption fails 3. One guard had to be widened or it would have inverted into its own failure mode (registerAll.test.ts's regex on igniteOneSpawnerRecipe). NONET settled EMPIRICALLY in the browser rather than by code reading. Two remaining reports triaged to ART with measurements attached, not deferred silently. [S169 binding repair] The original grep pinned `if (igniteOneSpawnerRecipe(world,` x2. The last commit of the session removed the board-wide early `return`s from the pentagram and lightningHub arms (they were suppressing sibling ignitions), so those two call sites are now bare statements. Re-pinned to `igniteOneSpawnerRecipe(world, findAll` x2 -- same two sites, verified by eye at godlyMatcherCore.ts:269-270; the 13 igniteAllSpawnerRecipe sites are unchanged.",
       "verification": [
         {
           "type": "file_contains",
@@ -77,7 +78,7 @@
         {
           "type": "grep_count",
           "path": "src/state/godlyMatcherCore.ts",
-          "pattern": "if \\(igniteOneSpawnerRecipe\\(world,",
+          "pattern": "igniteOneSpawnerRecipe\\(world, findAll",
           "op": "eq",
           "value": 2
         },
@@ -146,10 +147,12 @@
     {
       "id": "P2",
       "title": "THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel",
-      "status": "pending",
+      "status": "carry_forward",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": false,
+      "carry_forward_reason": "NOT STARTED. No Pharaoh code was written this session."
     },
     {
       "id": "P3",
@@ -201,10 +204,140 @@
     {
       "id": "P4",
       "title": "COHERENCE + REGRESSION SWEEP - agents through the app, nothing shipped since S160 is broken",
-      "status": "pending",
+      "status": "carry_forward",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsKraken.ts",
+          "needle": "export function inCone("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsKraken.ts",
+          "needle": "v.prevPos.x -= ux * KRAKEN_SONAR_KNOCKBACK;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const KRAKEN_SONAR_COS_HALF_ANGLE = 0.5;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runKrakenSonar(world);"
+        }
+      ],
+      "check_completed": false,
+      "carry_forward_reason": "PARTIAL. A regression sweep ran and found five items; F1/F2/F3/F5 were fixed and shipped (commit 461f604). NOT done: the owner-requested three-digit agentic pass over the whole app, and the fog-of-war outcome the sweep produced was REJECTED by the owner."
+    },
+    {
+      "id": "P5",
+      "title": "UNTARGETABLE as a reusable condition (R142 + R121)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "333e036",
+      "check_method": "findNearestEnemyCreatureFrom is a genuine chokepoint — creature AI, castle guns, every defender and the gatherer renderer all route through it, so one line covers them all. The three direct world.creatures iterators were AUDITED (underDroneCaps, recallArmies, boss-death bookkeeping) and none picks a victim. Config flag not synced field: no hash sub-site, no bump. NOT-targetable != NOT-damageable is asserted by driving the real Kraken sonar into an untargetable unit.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "needle": "export function isUntargetableType("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "if (isUntargetableType(c.type)) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/untargetableGates.test.ts",
+          "needle": "untargetable is NOT invulnerable"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "title": "OWNER UI BATCH — ♪ removed + gear on the column; energy mechanic + both bars archived and removed; fog now hides buildings",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "HEAD",
+      "check_method": "Energy proved DEAD before removal (tickEnergy ran, nothing read player.energy but the gauge) — he asked, I checked. Archived to archive/energy/RESTORE.md following the archive/hazards convention. No hash entry, no bump (allowlist TIGHTEN, the S42 END_TURN precedent recorded at the same table). FOG: cause was Pixi child order, not a missing check — NO renderer consults the fog; aboveFogLayer is staged after FogRenderer. Eight renderers moved to a new fogHiddenLayer staged BEFORE it; castle + global hazards deliberately stay. ⛔ TWO SELF-INFLICTED FAILURES CAUGHT BY GATES: a brace-walk removal swallowed drawPhaseBanner (reverted, redone with a walk-back that stops at the first non-comment line + an assertion no span contains a keeper); and the gating lane found 4 e2e failures in exactly the three specs the fog investigation had warned me to check — hardcoded child indices 3->1 and 8->6. [S169 binding repair] The original grep pinned 8 renderers on fogHiddenLayer. The F1 regression fix later moved ZoneBackgroundRenderer and WallRenderer down as well (main.ts:628-629) because leaving the backdrop on aboveFogLayer composited it OVER the buildings -- the S166 defect class. 10 is the shipped count; GathererRenderer (the castle) stays on aboveFogLayer by design.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const fogHiddenLayer = new Container();"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/main.ts",
+          "pattern": "new \\w+Renderer\\(app, fogHiddenLayer\\)",
+          "op": "eq",
+          "value": 10
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new GathererRenderer(app, aboveFogLayer)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/sparkLifecycle.ts",
+          "needle": "applyTickEnergy"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/net/protocol.ts",
+          "needle": "TICK_ENERGY"
+        },
+        {
+          "type": "file_contains",
+          "path": "archive/energy/RESTORE.md",
+          "needle": "Remove the energy mechanic"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "export const GAUGE_X_COLUMN"
+        }
+      ]
+    },
+    {
+      "id": "P7",
+      "title": "ART PIPELINE — scripts/check-clip.mjs + ART_PIPELINE.md",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "HEAD",
+      "check_method": "Validator separates PILLARBOXING (recoverable — prints the exact sampleStart; reports 60 on the real Kraken attack clip, matching the frame-by-frame manual finding) from EDGE AMPUTATION (not recoverable — regenerate). Three of my own bugs found by running it against clips whose truth I already knew by hand: first..last spanned across the bars; bars measured after the inset so a clean frame read as barred; an ffmpeg select filter silently sampled only the first 24 frames. Report, never a deploy gate.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/check-clip.mjs",
+          "needle": "NOT RECOVERABLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-clip.mjs",
+          "needle": "sampleStart"
+        },
+        {
+          "type": "file_contains",
+          "path": "ART_PIPELINE.md",
+          "needle": "The pipeline does not need video. It needs 12 frames."
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -220,7 +353,7 @@
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
-    "budget_status": "GREEN"
+    "budget_status": "statusline_dead"
   },
   "auto_fill_applied": {
     "ts": "2026-09-09T06:44:36.601876Z",
@@ -229,5 +362,36 @@
       "totals"
     ],
     "validator_version": "s110-three-tier-v1"
-  }
+  },
+  "check_sweep": {
+    "method": "Three read-only agents over the shipped tree: (1) verify every factual claim in this session's own commit messages against the current tree, (2) hunt regressions caused by this session's REMOVALS and the fog layer move, (3) hunt unfinished/unreachable pathways. Plus gh run list, because a locally-green gating lane is not the whole CI surface.",
+    "agent_1_verify": {
+      "verdict": "8 of 8 headline claims VERIFIED; 3 of my written claims FALSE or PARTIAL",
+      "false_claims_found_and_fixed": [
+        "'the four now-FALSE landmark comments were REWRITTEN' — only THREE were. ~10 sites still asserted 'cross-player landmark / visible THROUGH the fog', including the comment one line above each re-pointed constructor in main.ts. The 'grep for the CLAUSE, not the files you remember touching' failure, committed by me in the same session I quoted it twice. FIXED 461f604.",
+        "'a test that an UNSTUNNED board hashes identically' — VACUOUS and the claim was untrue: the projection appends ':su' UNCONDITIONALLY so every world's hash string moved; the test compared undefined vs undefined in ONE build. What makes it harmless is that hashWorldStateFull has zero non-test importers. FIXED 461f604 with an honest assertion.",
+        "stale present-tense docs after the energy removal (ui.ts header still advertised the gauge; physicsLoop.ts still listed TICK_ENERGY as a pipeline step). FIXED 461f604."
+      ],
+      "nuance_accepted": "Removing SerializedPlayer.energy is a REQUIRED serialized field going away at an unchanged PROTOCOL_VERSION. Harmless (nothing validates player shape, nothing read it) but the precedent I cited — S42's END_TURN allowlist tighten — is an ACTION removal, not a field removal. Verdict stands, argument was broader than the citation supports."
+    },
+    "regression_found_in_ci": {
+      "what": "e2e-races went RED at 7267f61 — settings-toggles.spec.ts hardcodes the settings gear at x=1888 (the old HUD_RIGHT_X-20). Moving the gear to GAUGE_X_COLUMN=1896 made the click miss, the panel never opened, and it surfaced as '#race-music-toggle must default to ON'.",
+      "why_local_gating_missed_it": "@races is deliberately inverted OUT of e2e:gating and runs as its OWN CI job (it starves the shared lane's 720s cap). 'e2e:gating green' was true AND insufficient — only `gh run list` could see it.",
+      "fixed": "461f604 — repointed to 1896 with a note that this literal must move whenever the gear does; settings-toggles 3/3."
+    },
+    "open_at_close": [
+      "e2e-soak render-heap census: 'display-object growth expected < 8, received 8' — exactly at the boundary, in the explicitly NON-GATING soak lane. Local repro was launched to get a real verdict rather than a guess; see the handoff for its outcome."
+    ]
+  },
+  "carry_forward_s169": [
+    "P2 THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel. Not started.",
+    "P4 COHERENCE SWEEP - the three-digit agentic pass over the whole app was never run; only a 5-finding regression sweep was (F1/F2/F3/F5 fixed and shipped, F4 folded in).",
+    "FOG OF WAR IS WRONG AND THE OWNER SAID SO: \"you put the fog also over my own player's background, that is wrong... we should be able to see [race backgrounds]... what we should not see is actively the buildings.\" Shipped state fogs the race backdrop too. NOT reverted, on the owner's explicit \"no dont put them board back\". main.ts:628-629 is the fix site.",
+    "HIDE CONNECTORS once a tower is built - connectors become a damage readout only (owner design discussion, parked to next session).",
+    "PER-RACE BUILD + DESTROY CINEMATICS - the tier-3 sheets already ship a `spawning` row that no code can draw (T3_TOWER_STATE_ROWS skips row 1). Half-paid-for already. See ART_PIPELINE.md.",
+    "GENERATE TOWER ART for pentagram / lightningHub / Helga etc - they have no bespoke sheet.",
+    "ABILITY ART - no boss skill draws anything at all (six bosses, mechanically live, visually silent). Two deliverables each: the VFX and a renderer that DERIVES it from synced state.",
+    "ARCHDEMON ATTACK is frame-sparse, not mis-timed: 12 frames x 5 ticks = exactly the 60-tick attack cadence. Bosses need MORE frames, not a slower cadence.",
+    "KRAKEN ATTACK CLIP - tentacles are edge-amputated (unrecoverable). Owner will regenerate from the original still; check-clip.mjs reports sampleStart 60 for the pillarboxing half."
+  ]
 }
