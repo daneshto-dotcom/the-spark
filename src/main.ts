@@ -276,6 +276,40 @@ async function bootstrap(): Promise<void> {
   if (!root) throw new Error('No #app element in DOM');
   root.appendChild(app.canvas);
 
+  /*
+   * ⭐⭐ S170 P1 (owner) — **THE GROUND LAYER, AND IT IS INDEX 0 OF THE STAGE FOR A REASON.**
+   *
+   * Owner, twice, and the second time after S169 shipped the opposite: *"EVERY RACE has their own
+   * background, like the artistic background that we have implemented. WE SHOULD BE ABLE TO SEE
+   * THAT... And should definitely see my own background. You made everything in fog. That's stupid."*
+   * And on the walls: *"The border walls should be visible to everyone. They're like a backdrop,
+   * basically."*
+   *
+   * ⛔ **WHY A THIRD LAYER RATHER THAN MOVING THE BACKDROP UP OR DOWN — BOTH HAVE ALREADY SHIPPED
+   * AND BOTH WERE BUGS.** The two obvious placements are a trap the project has now paid for twice:
+   *   · Backdrop ABOVE the fog (pre-S169): visible, but its 0.55-alpha dark sheet composites OVER
+   *     every building and unit below it. That is the owner's S166 report — *"you have put the layer
+   *     of dark background OVER the primitives (shapes), cant see them being generated."*
+   *   · Backdrop BELOW the fog (S169's "fix"): stops covering the towers, and gets blacked out by
+   *     the fog along with them. That is the *"you made everything in fog"* report.
+   *   · AND S169's version was not even the first placement working — `fogHiddenLayer` is staged at
+   *     the fog line, i.e. AFTER `sparkRenderer` / `structureRenderer` / `keystoneTelegraph` /
+   *     `dragPreview`, which all `addChild` to `app.stage` in their own constructors far above here.
+   *     So its index-0 backdrop still painted over every free spark, bond, primitive and drag
+   *     preview. The S166 defect was never fixed, only moved off the towers and onto the shapes.
+   *
+   * ⭐ THE INVARIANT THAT KILLS THE WHOLE CLASS: **the board's GROUND is index 0 of `app.stage`.**
+   * Nothing can be painted over by a thing that is beneath everything. It is created and staged HERE,
+   * before the first board element, rather than where its renderers are constructed 350 lines below —
+   * because "whoever constructs first wins" is precisely the rule that produced both bugs.
+   *
+   * ⚠ GROUND MEANS GROUND: only the per-race backdrop and the zone border walls. A thing that can
+   * MOVE, be BUILT, or be DESTROYED is not ground and does not belong here.
+   */
+  const groundLayer = new Container();
+  groundLayer.eventMode = 'none';
+  app.stage.addChild(groundLayer);
+
   const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
   app.stage.addChild(spawnerRing);
   // S81 P5 — betaBadge/settingsIcon are CREATED here but staged AFTER
@@ -614,19 +648,29 @@ async function bootstrap(): Promise<void> {
   // radiating aura + 'alive' bond overlay sit UNDER the chewers/Voltkin on the aboveFogLayer.
   // Cross-player landmark (everyone must see the high-value target to raid it) → aboveFogLayer,
   // same fog rule as the other global-reach visuals. Cheap no-op when no spawner is live.
-  // ⭐ S149 P3 — BORDER WALLS. Constructed BEFORE the spawner aura so the walls sit UNDERNEATH
-  // every unit and structure: they are ground markings that define the board, not objects on
-  // it. On `aboveFogLayer` deliberately — the borders are a cross-player fact everyone must be
-  // able to see (you cannot respect a boundary you cannot find), the same rule the spawner
-  // aura already follows. Cheap no-op the moment the walls drop for the FIGHT.
   /*
-   * ⭐ S165 — per-race zone backgrounds (owner brief + R137). On `aboveFogLayer`, and it pins itself
-   * to index 0 of it, so it sits ABOVE the fog (which paints pure black and would otherwise bury it
-   * in every multiplayer match) and BELOW every structure, creature and effect on that layer.
-   * Render-only: reads `world.layout` and each player's synced `raceId`, writes nothing, no wire field.
+   * ⭐⭐ S170 P1 (owner) — **THE BACKDROP AND THE WALLS ARE GROUND. THEY LIVE ON `groundLayer`.**
+   * See the long note at `groundLayer`'s construction (index 0 of `app.stage`) for why neither
+   * `aboveFogLayer` nor `fogHiddenLayer` can hold them without reproducing a shipped bug.
+   *
+   * ⭐ S165 — per-race zone backgrounds (owner brief + R137). Pins itself to index 0 of its parent,
+   * so within the ground layer the backdrop sits UNDER the walls. Render-only: reads `world.layout`
+   * and each player's synced `raceId`, writes nothing, no wire field.
+   *
+   * ⭐ S149 P3 — BORDER WALLS, constructed AFTER the backdrop so they draw on top of it and under
+   * everything else on the board. Owner R162, 2026-09-09: *"The border walls should be visible to
+   * everyone. They're like a backdrop, basically."* — which is the ruling that moved them here.
+   *
+   * ⛔ AND THE WALLS WERE THE UNNOTICED HALF OF THE S169 REGRESSION. `wallsAreUp()` is
+   * `matchPhase === 'BUILD'` (`state/walls.ts`) and `fogActive` is `!solo && PLAYING && BUILD`
+   * (`state/vision.ts`) — the IDENTICAL window. So while they sat on `fogHiddenLayer` they were
+   * blacked out for 100% of their lifetime except inside the local 75 px cursor disc, and
+   * `render/wallRenderer.ts` states the requirement that breaks verbatim: *"a player was being
+   * refused on ground they could not see they did not own... A wall you cannot see is not a wall."*
+   * The S169 handoff called the backdrop "the ONLY defect" and never noticed the walls went with it.
    */
-  const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, fogHiddenLayer);
-  const wallRenderer = new WallRenderer(app, fogHiddenLayer);
+  const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, groundLayer);
+  const wallRenderer = new WallRenderer(app, groundLayer);
   // ⭐ S149 P4 (R36) — THE FOOTER BAND. On `app.stage`, NOT `aboveFogLayer`: it is UI chrome
   // rather than a board object, so it must draw over everything including the fog. Contrast the
   // walls one line above, which are ground markings and deliberately sit under every entity.
@@ -1730,6 +1774,11 @@ Network routes: ${v.detail}`;
       get aboveFogLayer() { return aboveFogLayer; },
       // S169 (owner) — the concealable layer, so `e2e/fog.spec.ts` can roll-call BOTH sides of the fog.
       get fogHiddenLayer() { return fogHiddenLayer; },
+      // ⭐ S170 P1 (owner) — the GROUND layer, published so `e2e/fog.spec.ts` can pin the invariant
+      // that actually prevents the S166/S169 bug class: the board's ground is index 0 of the stage,
+      // so nothing can ever paint over the shapes again. A roll call of the other two layers cannot
+      // see that on its own — the defect was never inside a layer, it was between them.
+      get groundLayer() { return groundLayer; },
       // S84 P2 — flyover e2e probe: active-window flag for rainbow.spec assertions.
       get rainbowFlyoverActive() { return rainbowFlyoverRenderer.isActive(); },
       // S82 P2 — full-fidelity save/load seams (DEV-only, tree-shaken from prod). The

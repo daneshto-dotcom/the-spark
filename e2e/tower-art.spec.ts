@@ -137,10 +137,14 @@ async function towerState(page: import('@playwright/test').Page) {
       | { children: Array<{ children?: unknown[] }> }
       | undefined;
     if (above === undefined) throw new Error('__SPARK__.fogHiddenLayer unavailable');
-    // ⭐ S169 — the layer MOVED (aboveFogLayer -> fogHiddenLayer) but the INDEX is unchanged at 3:
-    // the zone backdrop and walls moved down with the buildings, so the original relative order of
-    // all ten renderers is preserved. `fog.spec.ts` rolls call both layers.
-    const layer = above.children[3];
+    // ⭐ S170 P1 (owner) — INDEX 3 -> 1. The zone backdrop and the border walls left this layer for
+    // `groundLayer` (stage index 0), so two children went from the FRONT of `fogHiddenLayer` and
+    // every index below them shifted down by two. `fog.spec.ts` rolls call all three layers and is
+    // the authority; this file reads the same contract from the other side.
+    // ⚠ THIS IS THE THIRD TIME THIS PROBE HAS MOVED (S167 -> S169 -> S170). It is a hardcoded index
+    // into a hand-maintained display list, which is why it keeps breaking — a failure here means the
+    // layer composition changed, and the fix is to re-read the roll call, never to guess an offset.
+    const layer = above.children[1];
     const towerSprites = layer?.children?.length ?? -1;
     return {
       spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
@@ -281,8 +285,9 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
         spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
         primitives: w.primitives.size,
         // fog.spec.ts pins that ordering, so this reads the same contract from the other side.
-        // index 8 is goblinRenderer.spriteLayer — the ATLAS sprites, not the procedural puppet.
-        atlasSprites: above.children[8]?.children?.length ?? -1,
+        // ⭐ S170 P1 — index 8 -> 6: goblinRenderer.spriteLayer, the ATLAS sprites and NOT the
+        // procedural puppet at 5. Shifted by the same two children that left for `groundLayer`.
+        atlasSprites: above.children[6]?.children?.length ?? -1,
       };
     });
 

@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 582,
-  "session_id": "S169",
+  "tool_calls_session_total": 1138,
+  "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
   "prior_session_note": "S168 shipped 5 owner bug fixes + 7 boss skills across 4 of 6 bosses; PROTOCOL 44->45. Closed PARTIAL: Kraken + Pharaoh unbuilt, ability art not started.",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
-  "phase": "CLOSED",
-  "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-08_PDR_S169_BATCH.md",
-  "session_status": "S169 HANDED OFF - 6 of 8 completed, 2 carried forward",
+  "phase": "DO",
+  "tier": "FULL",
+  "plan_file": ".claude/plans/2026-09-09_PDR_S170_BATCH.md",
+  "session_status": "IN-PROGRESS",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "approval_quote": "Just, you know, give me a PDR. I will preapprove it now so you can autonomously start working through it and just keep working through at least those first, let's say, three priorities. Yeah. Do the first three, and then we'll see the rest. Make sure the three landed. And everything works. ... Alright. Start working. Approved.",
+  "approval_quote": "we can do priority one, priority two, and priority three. Those are bug fixes. Easy. Priority four, sure you can fix it... The boss abilities VFX, so priority five... Do it. / That answers all the questions. / start working the priorities",
   "protocol_version": 45,
   "boot_preflight": {
     "typecheck": "PASS exit 0 (captured $?)",
@@ -43,301 +43,64 @@
   ],
   "priorities": [
     {
-      "id": "P0",
-      "title": "OWNER BUG BATCH - tier-3 cadence, tier-3 ignition, two-pharaohs latch, the 'silly goblin' atlas window, NONET verification",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "a5fc01c",
-      "check_method": "typecheck 0 / vitest 0 from captured $? at every step (4108/255 -> 4128/258). FOUR root causes found by reading the code that fires the warnings, not by guessing at symptoms; each reproduced BEFORE being fixed (the ignition bug was written as a failing test first, which is what caught my own draft registering 3 spawners per ring / 9 per boss ring). TWO negative controls run and recorded: reverting the fight-edge pin fails 2 assertions, reverting the boss exemption fails 3. One guard had to be widened or it would have inverted into its own failure mode (registerAll.test.ts's regex on igniteOneSpawnerRecipe). NONET settled EMPIRICALLY in the browser rather than by code reading. Two remaining reports triaged to ART with measurements attached, not deferred silently. [S169 binding repair] The original grep pinned `if (igniteOneSpawnerRecipe(world,` x2. The last commit of the session removed the board-wide early `return`s from the pentagram and lightningHub arms (they were suppressing sibling ignitions), so those two call sites are now bare statements. Re-pinned to `igniteOneSpawnerRecipe(world, findAll` x2 -- same two sites, verified by eye at godlyMatcherCore.ts:269-270; the 13 igniteAllSpawnerRecipe sites are unchanged.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const RACE_TOWER_EMIT_INTERVAL_TICKS = 15 * PHYSICS_HZ;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "sp.nextSpawnTick = world.tick;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "!isT9BossType(action.creatureType)"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyMatcherCore.ts",
-          "pattern": "igniteAllSpawnerRecipe\\(world,",
-          "op": "eq",
-          "value": 13
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/godlyMatcherCore.ts",
-          "pattern": "igniteOneSpawnerRecipe\\(world, findAll",
-          "op": "eq",
-          "value": 2
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "preloadRaceKit(race: RaceId): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "goblinRenderer.preloadRaceKit(p.raceId)"
-        }
-      ]
-    },
-    {
       "id": "P1",
-      "title": "STUN as a general condition (R152) — SHIPPED 7a54d88. Kraken tentacles/cone/knockback still unbuilt.",
-      "status": "completed",
+      "title": "LAYER STACK - backdrop stops painting over sparks/bonds/primitives (owner S166 complaint, still live); all race backdrops VISIBLE during BUILD; border walls VISIBLE (R162); buildings/connectors/spawn stay hidden behind the existing cursor reveal. One ordered layer map. Repoint fog.spec/tower-art.spec child indices; kill 5 stale comment blocks.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "7a54d88",
-      "check_method": "Four gates enumerated and each pinned by BEHAVIOUR with its own control (FSM frozen + ticksInState held; ZERO_ACCEL steering; hostTick fan-out skip; boss-skill runners). GATE 4 existed only as a COMMENT until my own test caught it — runWarlordDirewolves summoned 3 wolves from a stunned Warlord. WORSE AND MORE USEFUL: the zombie-aura test went GREEN against the ungated aura, i.e. passed for the wrong reason; it now carries a positive control. RAGE deliberately exempt (a latch, not an action), asserted. Coverage contract fired on cue (ERROR_UNCOVERED_FIELD) forcing all three hash sub-sites. No protocol bump (additive-optional; verified trimMirrorCreature strips only targetCreatureId). Negative control on gate 3: disabled, the stunned unit acquires an adjacent enemy.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "export function isStunned("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "export function applyStun("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "if (isStunned(creature, world.tick)) return world;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/creatureVerlet.ts",
-          "needle": "if (isStunned(c, tick)) return ZERO_ACCEL;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "if (creature !== undefined && isStunned(creature, world.tick)) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "su${o(c.stunnedUntilTick)}"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/bossSkillsArchdemon.ts",
-          "pattern": "isStunned\\(demon, world.tick\\)",
-          "op": "eq",
-          "value": 2
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel",
-      "status": "skipped",
+      "title": "SECOND BOSS WAITS - delete the tower-level bossAlive gate in hostTick.ts (owner: \"the second one only came out when the first one died\"), rewrite its now-false docblock, flip the test that pins the waiting. Plus deserializeSpawner 900-tick chewer fuse leaking onto host-migrated t9 towers (should be 300).",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2b",
+      "title": "DRONE BLOWS UP HARMLESSLY AT HOME (R170, owner-reported, VERIFIED live) - fuse expiry detonates in place; enemy-only sever + owner-sparing damage means nothing is hit, but droneLifecycle.ts:139 pushes BOMB_EXPLODE unconditionally. Gate the VFX on something actually being severed/damaged.",
+      "status": "pending",
       "check_completed": false,
-      "carry_forward_reason": "NOT STARTED. No Pharaoh code was written this session."
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "THE FOOTER (R153) — SHIPPED ff8ec09. Legend removed; palette+queue glyphs tinted by owning race.",
-      "status": "completed",
+      "title": "TIER-3 TOWERS TRULY LIMITLESS (R158) - remove the per-spawner cap for tier-3 race towers ONLY; goblin tower keeps its 10, so this needs a separate constant, not a deletion.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "ff8ec09",
-      "check_method": "Six removal sites cleared (renderer factory + 2 constants + its now-dead import; footerBand field/re-anchor/attachLegend/legendAnchor/LEGEND_GAP; main.ts import/construct/stage/attach/visibility + 4 stale comments). Absence asserted from comment-stripped source because dead code compiles and an unstaged container draws nothing. DOC DELTA FOUND AND CORRECTED: R153 claimed the legend was a registered HUD surface needing removal from hudSurfaces() — it never was; asserted so the correction sticks. No layout gap: legendAnchor derived its x from the chips and reserved nothing. BOTH glyph rows tinted (palette AND queue) with a test counting both, since tinting one is the 'three of four sites' shape. Two obsolete geometry suites deleted rather than left green. VERIFIED IN THE RUNNING GAME: 1-Player match, left of the tier chips empty, six race-coloured glyphs right of them matching RACE_COLORS, zero console errors.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "export function raceColorForShape("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/races.ts",
-          "needle": "export const RACE_FOR_SHAPE"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/renderer.ts",
-          "needle": "makeLegend"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/footerBand.ts",
-          "pattern": "legendAnchor\\(",
-          "op": "eq",
-          "value": 0
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "attachLegend"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/footerBand.ts",
-          "pattern": "raceColorForShape\\(",
-          "op": "eq",
-          "value": 2
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P4",
-      "title": "COHERENCE + REGRESSION SWEEP - agents through the app, nothing shipped since S160 is broken",
-      "status": "skipped",
+      "title": "SUDOKU = 12 OR MORE CONNECTORS (R159) - detectNonet counts component BONDS with >=, not primitives with ===. Easter egg, not surfaced in the tower tier.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/bossSkillsKraken.ts",
-          "needle": "export function inCone("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/bossSkillsKraken.ts",
-          "needle": "v.prevPos.x -= ux * KRAKEN_SONAR_KNOCKBACK;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const KRAKEN_SONAR_COS_HALF_ANGLE = 0.5;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "runKrakenSonar(world);"
-        }
-      ],
-      "check_completed": false,
-      "carry_forward_reason": "PARTIAL. A regression sweep ran and found five items; F1/F2/F3/F5 were fixed and shipped (commit 461f604). NOT done: the owner-requested three-digit agentic pass over the whole app, and the fog-of-war outcome the sweep produced was REJECTED by the owner."
+      "unlock_source": "user"
     },
     {
       "id": "P5",
-      "title": "UNTARGETABLE as a reusable condition (R142 + R121)",
-      "status": "completed",
+      "title": "BOSS ABILITY VFX, no-art half - Vlad harpoon tether w/ globules travelling back; Kraken water crescent whose leading edge carries the knockback; zombie rot aura boiling ground; stun-star fixes (unscaled LIFT sits inside boss sprites; voltkin/chewer/drone stun with no stars). All DERIVED per frame from synced state.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "333e036",
-      "check_method": "findNearestEnemyCreatureFrom is a genuine chokepoint — creature AI, castle guns, every defender and the gatherer renderer all route through it, so one line covers them all. The three direct world.creatures iterators were AUDITED (underDroneCaps, recallArmies, boss-death bookkeeping) and none picks a victim. Config flag not synced field: no hash sub-site, no bump. NOT-targetable != NOT-damageable is asserted by driving the real Kraken sonar into an untargetable unit.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "needle": "export function isUntargetableType("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "if (isUntargetableType(c.type)) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/untargetableGates.test.ts",
-          "needle": "untargetable is NOT invulnerable"
-        }
-      ]
-    },
-    {
-      "id": "P6",
-      "title": "OWNER UI BATCH — ♪ removed + gear on the column; energy mechanic + both bars archived and removed; fog now hides buildings",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "HEAD",
-      "check_method": "Energy proved DEAD before removal (tickEnergy ran, nothing read player.energy but the gauge) — he asked, I checked. Archived to archive/energy/RESTORE.md following the archive/hazards convention. No hash entry, no bump (allowlist TIGHTEN, the S42 END_TURN precedent recorded at the same table). FOG: cause was Pixi child order, not a missing check — NO renderer consults the fog; aboveFogLayer is staged after FogRenderer. Eight renderers moved to a new fogHiddenLayer staged BEFORE it; castle + global hazards deliberately stay. ⛔ TWO SELF-INFLICTED FAILURES CAUGHT BY GATES: a brace-walk removal swallowed drawPhaseBanner (reverted, redone with a walk-back that stops at the first non-comment line + an assertion no span contains a keeper); and the gating lane found 4 e2e failures in exactly the three specs the fog investigation had warned me to check — hardcoded child indices 3->1 and 8->6. [S169 binding repair] The original grep pinned 8 renderers on fogHiddenLayer. The F1 regression fix later moved ZoneBackgroundRenderer and WallRenderer down as well (main.ts:628-629) because leaving the backdrop on aboveFogLayer composited it OVER the buildings -- the S166 defect class. 10 is the shipped count; GathererRenderer (the castle) stays on aboveFogLayer by design.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "const fogHiddenLayer = new Container();"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/main.ts",
-          "pattern": "new \\w+Renderer\\(app, fogHiddenLayer\\)",
-          "op": "eq",
-          "value": 10
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new GathererRenderer(app, aboveFogLayer)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/sparkLifecycle.ts",
-          "needle": "applyTickEnergy"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/net/protocol.ts",
-          "needle": "TICK_ENERGY"
-        },
-        {
-          "type": "file_contains",
-          "path": "archive/energy/RESTORE.md",
-          "needle": "Remove the energy mechanic"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.ts",
-          "needle": "export const GAUGE_X_COLUMN"
-        }
-      ]
-    },
-    {
-      "id": "P7",
-      "title": "ART PIPELINE — scripts/check-clip.mjs + ART_PIPELINE.md",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "HEAD",
-      "check_method": "Validator separates PILLARBOXING (recoverable — prints the exact sampleStart; reports 60 on the real Kraken attack clip, matching the frame-by-frame manual finding) from EDGE AMPUTATION (not recoverable — regenerate). Three of my own bugs found by running it against clips whose truth I already knew by hand: first..last spanned across the bars; bars measured after the inset so a clean frame read as barred; an ffmpeg select filter silently sampled only the first 24 frames. Report, never a deploy gate.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "scripts/check-clip.mjs",
-          "needle": "NOT RECOVERABLE"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-clip.mjs",
-          "needle": "sampleStart"
-        },
-        {
-          "type": "file_contains",
-          "path": "ART_PIPELINE.md",
-          "needle": "The pipeline does not need video. It needs 12 frames."
-        }
-      ]
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [],
@@ -389,5 +152,24 @@
   "handoff_document": "HANDOFF_S169_2026-09-09.md",
   "handoff_ready": true,
   "reflexion_entries_archived": true,
-  "analyze_completed": true
+  "analyze_completed": true,
+  "owner_rulings_s170": [
+    "R158 tier-3 limitless",
+    "R159 sudoku >=12 connectors",
+    "R160 backdrop toggle local; backdrops a future Steam cosmetic SKU",
+    "R161 tech draft waves 0/5/10/15/20",
+    "R162 border walls visible to all, \"like a backdrop\"",
+    "R163 per-race walls (design open, not soon)",
+    "R164 PROTECTOR OF THE LAND = castle footprint + a Helga radius around it",
+    "R165 walls fall ~2s before the fight, per-race cinematic",
+    "R167 boss stats derived from each boss skill load",
+    "R168 delete blue-steppe-orbit.mp3 (verified safe: original plays from the .ogg)",
+    "R169 tower/connector consolidation FULLY SPECIFIED - raid targets the structure; connectors hidden in BUILD and FIGHT; one aggregated HP bar over per-connector HP; one dead connector breaks it",
+    "R170 drone self-detonation VFX bug"
+  ],
+  "compaction_losses_recovered": [
+    "tower/connector consolidation (recovered verbatim from the S169 transcript)",
+    "art-generation COST pipeline: ChatGPT+Gemini stills, video loops on his own/free accounts, one-by-one for coherence",
+    "the Voltkin complete rework - zero trace anywhere, now P9"
+  ]
 }

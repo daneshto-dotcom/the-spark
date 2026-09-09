@@ -151,6 +151,14 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       const fogHiddenChildNames = (s.fogHiddenLayer.children as any[]).map(
         (c: any): string => (c?.constructor?.name ?? 'unknown') as string,
       );
+      // ⭐ S170 P1 (owner) — THE GROUND, and the index that makes the bug class impossible.
+      // The S166/S169 defect never lived INSIDE a layer, it lived BETWEEN them: the backdrop was
+      // painted after the shapes. So the assertion that matters is positional — ground is stage
+      // index 0 — and a roll call of the other two layers structurally cannot see it.
+      const groundIdx = stage.getChildIndex(s.groundLayer);
+      const groundChildNames = (s.groundLayer.children as any[]).map(
+        (c: any): string => (c?.constructor?.name ?? 'unknown') as string,
+      );
 
       // Draw the potato (into aboveFogLayer) + compose the fog — both synchronous (no rAF).
       s.potatoRenderer.sync(w);
@@ -172,6 +180,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
         footerIdx: labelIdx('footerBand'),
         aboveIdx, fogIdx, aboveFogChildNames,
         fogHiddenIdx, fogHiddenChildNames,
+        groundIdx, groundChildNames,
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
         boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
         maskAtPotato: read(maskPx, 1400, 300),       // potato is NOT a vision source — mask stays opaque
@@ -282,66 +291,101 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.fogHiddenIdx, 'the concealable layer must be on the stage').toBeGreaterThanOrEqual(0);
     expect(r.fogHiddenIdx, 'and BELOW the fog, which is the whole fix').toBeLessThan(r.fogIdx);
     expect(r.fogHiddenChildNames).toEqual([
-      // ⭐ S169 CORRECTION — THE GROUND MOVED HERE TOO. Leaving the backdrop on `aboveFogLayer`
-      //   while its contents moved down put a 0.55-alpha dark image OVER every building and unit
-      //   (the S166 complaint, recreated). ZoneBackgroundRenderer forces addChildAt(...,0), so it
-      //   is index 0 here and the original relative order of all ten renderers is restored.
-      '_Container', //   0 — zoneBackgroundRenderer.layer (S165) ⭐ NEW — the per-race zone art.
-                    //       ⚠ FIRST, AND ABOVE THE FOG, WHICH LOOKS WRONG UNTIL YOU READ WHY.
-                    //       `fogRenderer` paints unexplored ground in FOG_COLOR = 0x000000 — pure
-                    //       black, chosen so fog reads as darkness rather than a tint — and it sits
-                    //       ABOVE the board layers. A backdrop parented to the STAGE was therefore
-                    //       drawn and then painted over: the first cut of this feature rendered a
-                    //       black board in every multiplayer match and showed only on the TITLE
-                    //       screen, where there is no fog.
-                    //       ⭐ Above the fog is also CORRECT, not merely visible: which race owns
-                    //       which quarter is already public (the castle art and the leaderboard both
-                    //       say so) and terrain is static, so it conceals nothing about what an
-                    //       opponent is DOING. Fog hides activity, not geography — the same argument
-                    //       the wall renderer directly below already makes for zone borders.
-                    //       At index 0 so every structure, creature and effect draws on top of it.
-      '_Graphics',  //   1 — wallRenderer               (S149 P3) — the border walls
-                    //       ⚠ FIRST OF THE GAMEPLAY LAYERS ON PURPOSE (index 1 since S165 put the
-                    //       zone backdrop under it): the walls are ground markings that everything
-                    //       else draws on top of, and they sit ABOVE THE FOG because a zone
-                    //       border is public knowledge derived from `layout` — concealing it
-                    //       would reproduce the very complaint P1/P3 exist to fix, in the
-                    //       fogged half of the board.
-      '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
-      '_Container', //    3 — towerRenderer.layer          (S167) ⭐ NEW — the race tower BUILDINGS,
-                    //       both tiers. Twelve tier-3 atlases and six tier-9 ones were on disk,
-                    //       matted and disk-tested, and drawn by NOTHING until this layer existed —
-                    //       `t3TowerAtlasBase` had zero production callers for two sessions.
-                    //       ⚠ IMMEDIATELY ABOVE `spawnerZoneRenderer` AND THAT PAIRING IS THE POINT:
-                    //       index 2 is this tower's own aura, so the building stands ON its glow
-                    //       rather than under it. Below the creatures at 4+, so a unit walking past
-                    //       a tower passes IN FRONT of it.
-                    //       ⭐ ABOVE THE FOG, on the same argument index 2 already makes: the aura
-                    //       is a cross-player landmark everyone must see to raid, so the tower's
-                    //       POSITION is already public and hiding only the building would conceal
-                    //       nothing while making the landmark unreadable.
-      '_Container', //    4 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
-      '_Graphics',  //    5 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
-      '_Graphics',  //    6 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //    7 — goblinRenderer.graphics      (S139 P2) — the procedural fallback puppet
-      '_Container', //    8 — goblinRenderer.spriteLayer   (S151 P3) ⭐ NEW — the veo atlas sprites.
-                    //       ⚠ A SECOND CHILD FROM ONE RENDERER, which is precisely the case a bare
-                    //       count cannot catch and this roll call can: the goblins keep their
-                    //       procedural puppet as the load-failure fallback, so the renderer owns
-                    //       BOTH a Graphics and a Container, and the atlas layer must sit ABOVE the
-                    //       puppet so a fallback frame can never overdraw a real sprite.
-      '_Graphics',  //    8 — goblinRenderer.arrowLayer     (S153 P2) ⭐ NEW — the archer's arrow.
-                    //       ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is drawn from
-                    //       synced FSM state rather than pushed as an effect (a new effect KIND
-                    //       would cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of
-                    //       one-shot pushes anyway), so it needs its own Graphics — ABOVE the
-                    //       sprite layer, or an arrow would vanish behind the goblin firing it.
-      '_Graphics',  //    9 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //    10 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  11 — stinkTowerRenderer.graphics  (S141 P1) — aura ring + lob arc stay
-                    //       procedural because they are STATE READOUTS, not character art.
-      '_Container', //  12 — stinkTowerRenderer.spriteLayer (S151 P3) ⭐ NEW — the veo tower atlas.
+      /*
+       * ⭐⭐ S170 P1 (owner) — **THE BACKDROP AND THE WALLS ARE GONE FROM THIS LAYER.** They are
+       * GROUND now and live on `groundLayer` at stage index 0; see `groundChildNames` below and the
+       * long note at its construction in `main.ts`. Two entries left the FRONT of this list, so
+       * every index below shifted down by two — which is exactly what `tower-art.spec.ts` reads
+       * from the other side (its two hardcoded probes moved 3→1 and 8→6).
+       *
+       * ⚠ AND THE INDEX LABELS BELOW ARE NOW ACCURATE. The previous revision numbered `8` TWICE
+       * (spriteLayer and arrowLayer) so every label from turret onward was off by one against its
+       * real array position — in a roll call whose entire purpose is that "a failure diff points
+       * straight at the index that moved". Renumbered 0–11 against the real positions.
+       */
+      '_Graphics',  //  0 — spawnerZoneRenderer            (S100 P1) — the spawner "it's alive" aura.
+                    //      This one IS the owner's "spawn that they're generating", so it is
+                    //      correctly concealed. Its own docblock still argues for `aboveFogLayer`
+                    //      as a cross-player landmark; that argument was overruled in S169
+                    //      (*"scouting has to cost something"*) and the comment is stale, not the code.
+      '_Container', //  1 — towerRenderer.layer            (S167) — the race tower BUILDINGS.
+                    //      ⭐ `tower-art.spec.ts` reads THIS index. Was 3 before the ground moved out.
+      '_Container', //  2 — creatureRenderer.container      (S25 P0 → S77 P2)
+      '_Graphics',  //  3 — creatureRenderer.cloudGfx       (S103 P1 lightning cloud)
+      '_Graphics',  //  4 — chewerRenderer                 (S100 P1)
+      '_Graphics',  //  5 — goblinRenderer.graphics         (S139 P2) — the procedural fallback puppet
+      '_Container', //  6 — goblinRenderer.spriteLayer      (S151 P3) — the veo atlas sprites.
+                    //      ⭐ `tower-art.spec.ts` reads THIS index too. Was 8.
+                    //      ⚠ A SECOND CHILD FROM ONE RENDERER — precisely the case a bare count
+                    //      cannot catch and this roll call can: the goblins keep their procedural
+                    //      puppet as the load-failure fallback, so the renderer owns BOTH a Graphics
+                    //      and a Container, and the atlas layer must sit ABOVE the puppet so a
+                    //      fallback frame can never overdraw a real sprite.
+      '_Graphics',  //  7 — goblinRenderer.arrowLayer       (S153 P2) — the archer's arrow.
+                    //      ⚠ A THIRD CHILD FROM THE SAME RENDERER. R84's arrow is derived from
+                    //      synced FSM state rather than pushed as an effect (a new effect KIND would
+                    //      cost a protocol bump, and the 10 Hz snapshot drops ~5/6 of one-shot
+                    //      pushes anyway), so it needs its own Graphics — ABOVE the sprite layer,
+                    //      or an arrow would vanish behind the goblin firing it.
+      '_Graphics',  //  8 — turretRenderer                 (S103 P3)
+      '_Container', //  9 — princessRenderer.container      (S103 P4)
+      '_Graphics',  // 10 — stinkTowerRenderer.graphics     (S141 P1) — aura ring + lob arc stay
+                    //      procedural because they are STATE READOUTS, not character art.
+      '_Container', // 11 — stinkTowerRenderer.spriteLayer  (S151 P3) — the veo tower atlas.
     ]);
+
+    /*
+     * ⭐⭐ S170 P1 (owner) — **THE GROUND CONTRACT, AND IT IS THE ONE THAT PREVENTS THE BUG CLASS.**
+     *
+     * The owner reported the same defect twice, a session apart, and both shipped fixes moved it
+     * rather than removing it:
+     *   · S166: *"you have put the layer of dark background OVER the primitives (shapes), cant see
+     *     them being generated."*
+     *   · S169 moved the backdrop DOWN to the concealable layer — which stopped it covering the
+     *     towers, blacked it out with them (*"You made everything in fog. That's stupid."*), and
+     *     STILL painted over every free spark, bond, primitive and drag preview, because those four
+     *     renderers `addChild` to `app.stage` in their own constructors, long before the concealable
+     *     layer is staged.
+     *
+     * So a roll call of the two fog layers could never have caught this: the defect was never inside
+     * a layer, it was BETWEEN them, and it was decided by construction order. The durable assertion
+     * is POSITIONAL — the board's ground is stage index 0 — because a thing beneath everything
+     * cannot be painted over by anything.
+     */
+    expect(r.groundIdx, 'the ground layer must be on the stage').toBeGreaterThanOrEqual(0);
+    /*
+     * ⚠ NOT `toBe(0)`, AND THE REASON IS A REAL DISCOVERY THIS ASSERTION MADE ON ITS FIRST RUN.
+     *
+     * The first cut asserted stage index 0 and failed with `Received: 1`. The occupant is
+     * `RainbowFlyoverRenderer`, which does `app.stage.addChildAt(this.backdrop, 0)` with the comment
+     * *"True background: index 0 sits behind the spawner ring + the whole board."* That is a
+     * CINEMATIC UNDERLAY for the flyover event and it legitimately belongs beneath the board — its
+     * own character and overlay ride `aboveFogLayer`, so only this one full-screen Graphics is down
+     * here. It also pre-dates the ground layer, so nothing regressed: the race backdrop already drew
+     * over it when it lived inside `fogHiddenLayer`.
+     *
+     * So the honest invariant is not "index 0" but **"below every BOARD element"**, with exactly one
+     * permitted occupant beneath it. `<= 1` keeps the teeth: insert anything board-like under the
+     * ground and this fails, which is the regression that matters.
+     */
+    expect(r.groundIdx, '⛔ only the flyover cinematic underlay may sit beneath the ground')
+      .toBeLessThanOrEqual(1);
+    expect(r.groundIdx, 'and therefore below the concealable layer it used to sit inside')
+      .toBeLessThan(r.fogHiddenIdx);
+    expect(r.groundIdx, 'and below the fog').toBeLessThan(r.fogIdx);
+    expect(r.groundIdx, 'and below the global-reach layer').toBeLessThan(r.aboveIdx);
+    expect(r.groundIdx, 'and below the local avatar, which is a board object and not ground')
+      .toBeLessThan(r.sparkIdx);
+    expect(r.groundChildNames, 'GROUND MEANS GROUND: the per-race backdrop, then the border walls')
+      .toEqual([
+        '_Container', // 0 — zoneBackgroundRenderer.layer (S165 / R137) — the per-race zone art. It
+                      //     forces addChildAt(..., 0), so within the ground it is under the walls.
+        '_Graphics',  // 1 — wallRenderer (S149 P3) — the zone border walls. Owner R162: *"The border
+                      //     walls should be visible to everyone. They're like a backdrop, basically."*
+                      //     ⛔ They were the UNNOTICED half of the S169 regression: `wallsAreUp()` is
+                      //     BUILD-only and `fogActive` is BUILD-only, the identical window, so under
+                      //     the fog they were invisible for 100% of their lifetime.
+      ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.
     expect(r.potatoOnStage[0]).toBeGreaterThan(90);                 // red channel present → visible
