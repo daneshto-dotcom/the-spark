@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1227,
+  "tool_calls_session_total": 1229,
   "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "FULL",
   "plan_file": ".claude/plans/2026-09-09_PDR_S170_BATCH.md",
-  "session_status": "IN-PROGRESS",
+  "session_status": "ALL APPROVED PRIORITIES COMPLETE - P5 minus the Vlad tether (owner decision)",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -105,12 +105,14 @@
     {
       "id": "P5",
       "title": "BOSS ABILITY VFX, no-art half - Vlad harpoon tether w/ globules travelling back; Kraken water crescent whose leading edge carries the knockback; zombie rot aura boiling ground; stun-star fixes (unscaled LIFT sits inside boss sprites; voltkin/chewer/drone stun with no stars). All DERIVED per frame from synced state.",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "a5b9fab+5884e8d",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "THREE of four ability VFX shipped, all DERIVED per frame from synced state (a one-shot world.effects push is lost ~5/6: effects sample at NET_SNAPSHOT_HZ 10, the renderer wipes at 60). (1) STUN STARS extracted to render/stunStars.ts and FIXED twice: the lift/radii were flat constants so on tier-9 bosses the ring sat INSIDE the sprite (scaled by creatureSpriteScaleMul now), and the effect was a PRIVATE method of goblinRenderer so voltkin/chewer/lightningDrone - which the Kraken sonar stuns, its victim scan has no type filter - froze silently with no stars; creatureRenderer + chewerRenderer now draw them too. 6 tests incl. a scaleMul-1-unchanged positive control and a same-tick-same-id determinism assertion. (2) ROT AURA - boiling ground, 14 swell/pop bubbles over a scorch disc, deliberately NOT a ring because the owner said the death blast \"looks just like a stink tower radius\"; gated on the SAME isStunned predicate the sim uses. (3) SONAR WAVE - expanding water crescent with a foam leading edge timed to coincide with the knockback; reconstructed from (world.tick + bossId) % KRAKEN_SONAR_INTERVAL_TICKS with ZERO new wire fields, and the aim axis re-derived via the sim own nearestEnemyFor rather than cached (caching would desync on late join + host migration). 9 tests, the load-bearing one asserting the visual fires on the same tick the sim does and is silent between waves. All drawn into EXISTING renderer Graphics so fogHiddenLayer child indices did not shift a fourth time.",
+      "carry_forward_reason": "VLAD LIFE-SAP TETHER NOT BUILT - BLOCKED ON AN OWNER DECISION, not on effort. sapLedger is a host-local Map in hostTick state, never serialized, so a peer cannot know when he saps and the tether is not derivable. Needs either a synced field (PROTOCOL BUMP, outside P5 scope) or a different trigger. Everything else in P5 shipped."
     }
   ],
   "reflexion_entries_to_archive": [],
