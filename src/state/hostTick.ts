@@ -114,7 +114,12 @@ import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.t
  * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
  */
 import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
-import { T9_RELEASE_DELAY_TICKS } from '../constants.ts';
+/*
+ * ⭐ S170 P2 — `T9_RELEASE_DELAY_TICKS` is no longer imported HERE. It was read only by the
+ * second-boss gate this priority deleted; the 5 s standing period itself is untouched and still
+ * lives where it belongs, as the tower's spawner interval (`spawners/spawner.ts` →
+ * `spawnerIntervalTicks`), which is what `world.tick >= sp.nextSpawnTick` below actually waits on.
+ */
 import { ringMembersAt } from './godlyRecipes/ringShape.ts';
 import { RACE_FEED_SHAPE } from './races.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
@@ -1050,36 +1055,40 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const race = raceForT9TowerId(sp.recipeId);
           const anchor = world.primitives.get(sp.anchorPrimitiveId);
           /*
-           * ⛔⛔ **THE TOWER WAITS RATHER THAN BURNING THE RING FOR NOTHING**, and getting this
-           * wrong reproduces an owner bug report verbatim.
+           * ⭐⭐ S170 P2 (owner) — **THE SECOND-BOSS GATE IS GONE. THIS WAS THE OWNER'S BUG ALL ALONG.**
            *
-           * `applySpawnCreature`'s one-live-per-(owner, type) gate REFUSES a second boss with a bare
-           * `return world` — it reports nothing and it cannot be observed from here. So an arm that
-           * dispatched and then razed unconditionally would, for a seat whose boss is still alive,
-           * destroy NINE SHAPES AND PRODUCE NO BOSS. That is S157 B1 in the owner's own words —
-           * *"the shapes are being consumed nevertheless - not cool!"* — on the most expensive
-           * structure in the game.
+           * His report, twice: *"my wife did two pharaohs, and the second waited until the first is
+           * dead"*, and again after S169 claimed to have fixed it: *"she tried to get two and she
+           * could not build them. She can only build one at a time. The second one only came out of
+           * a structure when the first one [died]."*
            *
-           * ⭐ SO THE CHECK IS MADE HERE, BEFORE ANYTHING IS SPENT, and the tower simply STANDS
-           * until the seat's current boss dies. That is better than refusing: a second tower becomes
-           * a visible "next boss ready" structure rather than a trap, the nine shapes stay on the
-           * board where their owner can still SCRAP them, and the spec's *"only ONE alive at a
-           * time"* reads as a queue instead of as a punishment.
+           * ⛔ **S169 FIXED THE WRONG GATE OF TWO.** There were two independent blocks on a second
+           * boss and it removed only one — the one-live-per-(owner, type) latch inside
+           * `applySpawnCreature` (`creatures/creatureLifecycle.ts`, t9 types now exempt). That latch
+           * is reachable only by a DIRECT `SPAWN_CREATURE` dispatch, so lifting it was provable by a
+           * test that dispatches directly and completely invisible in play. The gate the owner
+           * actually hit lived HERE, in the tower-release arm, and it survived: a `some()` over
+           * `world.creatures` for a live boss of this seat and race, which advanced the deadline by
+           * `T9_RELEASE_DELAY_TICKS` and `continue`d instead of releasing.
            *
-           * ⚠ THE DEADLINE IS ADVANCED ON EVERY BLOCKED SLOT, never banked. A frozen `nextSpawnTick`
-           * left in the past is the S159 P9 / S165 defect this file has now fixed twice: the moment
-           * the block clears, `world.tick >= nextSpawnTick` is true every tick. Here it would merely
-           * re-check a cheap predicate, but the shape is the one the file has settled on.
+           * The second tower stood there re-checking a predicate, which is his sentence verbatim.
+           * Worse, the docblock defending it justified itself by pointing AT the latch S169 had just
+           * deleted — so its entire premise was already false by the time anyone read it.
+           *
+           * ⭐ WHY REMOVING IT IS SAFE, AND IT IS THE SAME ARGUMENT THE LATCH REMOVAL USED. The gate
+           * existed so a tower would not burn nine shapes for a boss that `applySpawnCreature` would
+           * silently refuse — S157 B1, in the owner's words *"the shapes are being consumed
+           * nevertheless - not cool!"*. With the latch exempt for t9 types that dispatch now
+           * SUCCEEDS, so there is nothing to refuse and nothing to waste: the ring is spent and a
+           * boss walks out, which is the trade he is asking for. The cap is the one the spec always
+           * named — *"a second boss already costs a fresh nine of the race shape — a real price,
+           * which is the natural cap the design already contains."*
+           *
+           * ⚠ SO THE TWO REMOVALS ARE ONE CHANGE AND MUST NOT BE SPLIT. Re-adding either alone
+           * restores a bug: this one reinstates the owner's report; the latch alone burns the ring
+           * for nothing. `t9BossTower.test.ts` pinned the WAITING behaviour as CORRECT — the suite
+           * was defending the defect — and is inverted by this change rather than deleted.
            */
-          const bossAlive =
-            race !== null &&
-            [...world.creatures.values()].some(
-              (c) => c.ownerPlayerId === sp.ownerPlayerId && c.type === T9_BOSS_TYPE[race],
-            );
-          if (bossAlive) {
-            sp.nextSpawnTick += T9_RELEASE_DELAY_TICKS;
-            continue;
-          }
           if (race !== null && anchor !== undefined) {
             const ring = ringMembersAt(
               world,

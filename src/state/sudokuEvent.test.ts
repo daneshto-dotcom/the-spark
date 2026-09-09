@@ -11,6 +11,7 @@ import {
   resolveSudoku,
   submitSudokuSolve,
   tickSudoku,
+  NONET_CONNECTOR_COUNT,
   NONET_SHAPE_COUNT,
   NONET_TIMEOUT_TICKS,
   NONET_RESOLVE_DISPLAY_TICKS,
@@ -50,6 +51,18 @@ function link(world: World, a: Primitive, b: Primitive, bondId: number): void {
   b.bonds.add(bond.id);
 }
 
+/**
+ * ⭐ S170 P4 — the same chain, CLOSED into a ring, so the suite can express the one fact the owner's
+ * ruling turns on: a ring of `n` shapes has `n` connectors while a chain of `n` has `n - 1`. Twelve
+ * connectors is therefore NOT a fixed number of shapes, which is exactly why he ruled on connectors.
+ */
+function ringWorld(n: number, type: SparkType): World {
+  const world = chainWorld(n, type);
+  const prims = [...world.primitives.values()];
+  link(world, prims[prims.length - 1], prims[0], 999);
+  return world;
+}
+
 /** A fresh world with a connected chain of `n` P1-owned prims (all `type`, except the last = `lastType`). */
 function chainWorld(n: number, type: SparkType, lastType?: SparkType): World {
   const world = makeWorld(0);
@@ -64,25 +77,62 @@ function chainWorld(n: number, type: SparkType, lastType?: SparkType): World {
   return world;
 }
 
-describe('detectNonet — a connected component of exactly 9 of ONE SparkType (S94)', () => {
-  it('fires on 9 connected squares (returns the owner)', () => {
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Square))).toBe(P1);
+describe('detectNonet — TWELVE OR MORE CONNECTORS of ONE SparkType (owner R159, S170)', () => {
+  /*
+   * ⭐⭐ S170 P4 (owner R159) — **THE UNIT CHANGED FROM SHAPES TO CONNECTORS, AND THE COMPARISON
+   * FROM EXACT TO AT-LEAST.** Owner, asked outright: *"Twelve connectors."* / *"or more than twelve
+   * connectors? Yeah."* / *"it is not shown in the tower tier. It is like an Easter egg."*
+   *
+   * These assertions are INVERTED from the S94/S164 versions rather than deleted, per this project's
+   * own rule about spec changes that flip expectations — so a future regression that re-permits
+   * exactly-N-shapes is caught, and the audit trail of what used to pass survives.
+   */
+  it('⭐ a CHAIN of 13 shapes = 12 connectors — FIRES, which is the owner own arithmetic', () => {
+    // He guessed: "Twelve connectors. So what is it? Thirteen shapes?" — correct, for a chain.
+    expect(detectNonet(chainWorld(13, SparkType.Square))).toBe(P1);
   });
-  it('fires on 9 of ANY single type — circles, spirals', () => {
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Circle))).toBe(P1);
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Spiral))).toBe(P1);
+
+  it('⭐⭐ a RING of 12 shapes = 12 connectors — ALSO FIRES, on one fewer shape than the chain', () => {
+    /*
+     * THE WHOLE POINT OF THE RULING, pinned. Same connector count, different shape count — so no
+     * shape-count test could ever have expressed what he asked for, and this is the assertion that
+     * proves the rule is topology-independent rather than accidentally chain-shaped.
+     */
+    expect(detectNonet(ringWorld(12, SparkType.Square))).toBe(P1);
   });
-  it('rejects 8 (too few)', () => {
-    expect(detectNonet(chainWorld(8, SparkType.Square))).toBeNull();
+
+  it('fires on 12+ connectors of ANY single type — circles, spirals', () => {
+    expect(detectNonet(chainWorld(13, SparkType.Circle))).toBe(P1);
+    expect(detectNonet(chainWorld(13, SparkType.Spiral))).toBe(P1);
   });
-  it('rejects 10 (too many)', () => {
-    expect(detectNonet(chainWorld(10, SparkType.Square))).toBeNull();
+
+  it('⛔ rejects 11 connectors (a chain of 12 shapes) — one short is still short', () => {
+    expect(detectNonet(chainWorld(12, SparkType.Square))).toBeNull();
   });
-  it('rejects a single component of 18 same-type (size is the COMPONENT, not the total)', () => {
-    expect(detectNonet(chainWorld(18, SparkType.Square))).toBeNull();
+
+  it('⭐ MORE than twelve fires too — this is the half that was broken', () => {
+    /*
+     * ⛔ THE OLD TEST ASSERTED THE OPPOSITE ("rejects a single component of 18 same-type"), and that
+     * assertion IS the owner bug report. A single placement can add TWO bonds at once (a new shape
+     * touching two existing ones), so an exact test is skippable by construction; combined with the
+     * once-per-match guard, one skipped tick killed the trial for the whole match — *"Why is there
+     * no sudoku? It does not work."* A monotonic at-least test cannot be jumped.
+     */
+    expect(detectNonet(chainWorld(18, SparkType.Square))).toBe(P1);
+    expect(detectNonet(chainWorld(30, SparkType.Circle))).toBe(P1);
   });
-  it('rejects 9 of MIXED type (8 squares + 1 dot)', () => {
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Square, SparkType.Dot))).toBeNull();
+
+  it('rejects MIXED type however many connectors there are', () => {
+    expect(detectNonet(chainWorld(13, SparkType.Square, SparkType.Dot))).toBeNull();
+  });
+
+  it('⭐ and the tier-9 boss ring still does NOT fire it — the two mechanics stay apart', () => {
+    /*
+     * The boss tower is NINE of the race feed shape closed in a RING = 9 connectors, under 12. R132
+     * moved this trial off nine precisely to free that number, and switching the unit to connectors
+     * could have silently re-collided them — so it is asserted, not assumed.
+     */
+    expect(detectNonet(ringWorld(9, SparkType.Square))).toBeNull();
   });
 });
 
@@ -234,18 +284,28 @@ describe('NONET netcode — snapshot roundtrip (cross-client determinism)', () =
  */
 describe('S164 P4 — the NONET / boss-tower separation', () => {
   it('⛔ NINE no longer fires a NONET — that count belongs to the tier-9 boss tower', () => {
-    expect(detectNonet(chainWorld(9, SparkType.Square))).toBeNull();
+    expect(detectNonet(chainWorld(9, SparkType.Square))).toBeNull(); // 8 connectors
+    // ⭐ S170 — and the boss tower actual shape, a closed ring of nine (9 connectors), also stays
+    // silent. Under the old shape-count rule these were one assertion; under connectors they are
+    // two, and the RING is the one that matters.
+    expect(detectNonet(ringWorld(9, SparkType.Square))).toBeNull();
   });
 
-  it('⭐ TWELVE fires it', () => {
-    expect(detectNonet(chainWorld(12, SparkType.Square))).toBe(P1);
+  it('⭐ TWELVE CONNECTORS fires it (S170 R159 — the unit is bonds, not shapes)', () => {
+    expect(detectNonet(ringWorld(12, SparkType.Square))).toBe(P1); // 12 shapes, 12 bonds
+    expect(detectNonet(chainWorld(13, SparkType.Square))).toBe(P1); // 13 shapes, 12 bonds
   });
 
   it('the constant and the behaviour agree, so this cannot drift to a stale literal', () => {
-    expect(NONET_SHAPE_COUNT).toBe(12);
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Circle))).toBe(P1);
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT - 1, SparkType.Circle))).toBeNull();
-    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT + 1, SparkType.Circle))).toBeNull();
+    expect(NONET_CONNECTOR_COUNT).toBe(12);
+    // ⚠ The legacy alias survives only for two tier-9 docblocks; assert it TRACKS rather than
+    // letting it rot into a second, disagreeing source of truth.
+    expect(NONET_SHAPE_COUNT).toBe(NONET_CONNECTOR_COUNT);
+    // Boundary, in CONNECTORS: a ring of N has N bonds, so N and N-1 straddle the threshold.
+    expect(detectNonet(ringWorld(NONET_CONNECTOR_COUNT, SparkType.Circle))).toBe(P1);
+    expect(detectNonet(ringWorld(NONET_CONNECTOR_COUNT - 1, SparkType.Circle))).toBeNull();
+    // And ABOVE it still fires — the at-least half of the ruling.
+    expect(detectNonet(ringWorld(NONET_CONNECTOR_COUNT + 1, SparkType.Circle))).toBe(P1);
   });
 
   it('⛔ AND IT NEVER APPEARS IN THE FOOTER TOWER MENU — it stays an easter egg (R132)', () => {
@@ -256,7 +316,7 @@ describe('S164 P4 — the NONET / boss-tower separation', () => {
      * file's text, and it is pinned so a future session that formalises the trigger as a recipe has
      * to notice this ruling before it ships.
      */
-    const w = chainWorld(NONET_SHAPE_COUNT, SparkType.Square);
+    const w = ringWorld(NONET_CONNECTOR_COUNT, SparkType.Square);
     const names = castleStructuresModel(w).map((r) => r.name.toLowerCase());
     expect(names.some((n) => n.includes('nonet') || n.includes('sudoku'))).toBe(false);
     // Anti-vacuity: the model is not simply empty, so the assertion above means something.

@@ -40,7 +40,13 @@ import type { World } from './worldTypes.ts';
  * `comp.primitiveIds.size`, so this is twelve SHAPES in one component. One word flips it if the
  * intent was twelve bonds.
  */
-export const NONET_SHAPE_COUNT = 12;
+export const NONET_CONNECTOR_COUNT = 12;
+
+/**
+ * @deprecated ⭐ S170 P4 — kept ONLY so the two tier-9 docblocks that cite "the number the sudoku
+ * wants" keep resolving. The trial no longer counts shapes at all; read `NONET_CONNECTOR_COUNT`.
+ */
+export const NONET_SHAPE_COUNT = NONET_CONNECTOR_COUNT;
 /** Score multipliers applied on resolve. S106 — loser 0.5 → 0.4 (owner: "things that make you
  *  lose points ... so players can actually compete"): losing a NONET now costs you 60% of your
  *  banked score, not half — a real gut-punch so a runaway leader can be reeled in. Winner stays ×2. */
@@ -52,8 +58,9 @@ export const NONET_RESOLVE_DISPLAY_TICKS = 180; // ~3 s
 export const NONET_TIMEOUT_TICKS = 10800; // ~180 s (S94 — +60 s per user request)
 
 /**
- * Sweep all connected components for a NONET — a component of EXACTLY `NONET_SHAPE_COUNT` primitives
- * that are ALL the SAME SparkType (12 squares, OR 12 circles, OR 12 spirals, …). Returns that
+ * Sweep all connected components for a NONET — a component with **AT LEAST `NONET_CONNECTOR_COUNT`
+ * CONNECTORS** whose primitives are ALL the SAME SparkType (12+ bonds among squares, OR among
+ * circles, OR among spirals, …). Owner R159, S170: *"Twelve connectors... or more."* Returns that
  * component's owner
  * (single-owner — cross-colour bonds are impossible) or null. HOST-ONLY. Pure read of world state.
  * A SWEEP (not a seeded check) so it fires whether the structure is BUILT up to 9 same-type OR
@@ -66,7 +73,29 @@ export function detectNonet(world: World): PlayerId | null {
     if (seen.has(start.id)) continue;
     const comp = componentOf(start, world.primitives, world.bonds);
     for (const id of comp.primitiveIds) seen.add(id);
-    if (comp.primitiveIds.size !== NONET_SHAPE_COUNT) continue;
+    /*
+     * ⭐⭐ S170 P4 (owner R159) — **TWELVE OR MORE CONNECTORS, NOT EXACTLY TWELVE SHAPES.**
+     *
+     * Owner, asked directly whether he meant shapes or connectors: *"Twelve connectors."* And on the
+     * comparison: *"or more than twelve connectors? Yeah."* Plus the framing that says why it is
+     * allowed to be generous: *"it's not shown in the tower tier. It's like an Easter egg."*
+     *
+     * ⚠ TWELVE CONNECTORS IS NOT A FIXED NUMBER OF SHAPES, which is the whole reason the unit
+     * matters. A CHAIN of 13 shapes has 12 bonds; a RING of 12 shapes has 12 bonds; a denser blob of
+     * 10 shapes can also reach 12. He guessed "thirteen shapes?" — right for a chain, wrong for a
+     * ring. Counting bonds is topology-independent, and it is what he actually builds with.
+     *
+     * ⛔ AND `>=` IS WHY HE COULD NEVER SEE IT. The old test was `!== 12` on SHAPES, and a single
+     * placement can add TWO bonds at once (a new shape touching two existing ones), so an exact
+     * test is skippable by construction. Combined with the once-per-match `sudokuFiredThisMatch`
+     * guard, one skipped tick killed the trial for the entire match — which is exactly the report:
+     * *"Why is there no sudoku? It doesn't work."* A monotonic `>=` cannot be jumped.
+     *
+     * ⭐ NO COLLISION WITH THE TIER-9 BOSS TOWER, re-checked rather than assumed: that recipe is
+     * NINE of the race's feed shape closed in a RING, which is 9 bonds — comfortably under 12. R132
+     * moved this trial off 9 precisely to free that number, and moving to bonds keeps them apart.
+     */
+    if (comp.bondIds.size < NONET_CONNECTOR_COUNT) continue;
     let sameType = true;
     for (const id of comp.primitiveIds) {
       const p = world.primitives.get(id);

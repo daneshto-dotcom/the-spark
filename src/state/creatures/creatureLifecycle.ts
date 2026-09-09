@@ -364,14 +364,30 @@ export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boole
      * towers quietly fill `GOBLIN_MAX_GLOBAL = 200` and every goblin tower on the board stops
      * paying out, silently, with no message and nothing in the suite to notice.
      *
-     * ⚠ THE PER-SPAWNER TERM IS DELIBERATELY LEFT COUNTING. R124 rules that a tier-3 tower holds
-     * ~10 of its race's unit, and `GOBLIN_MAX_PER_SPAWNER = 10` is exactly that ceiling — it is a
-     * per-TOWER bound, which is correct and wanted. What was wrong was the SHARED global: one
-     * population's ceiling silently gating another's, which is the thing all three of these
-     * exclusions exist to prevent.
+     * ⭐⭐ S170 P3 (owner R159/R158) — **AND NOW THE PER-SPAWNER TERM IS EXEMPT TOO: TIER-3 RACE
+     * TOWERS ARE TRULY LIMITLESS.**
+     *
+     * The note below this line used to say the per-tower bound was "correct and wanted". The owner
+     * was asked directly and overruled it: *"Tier three towers, yes, truly limitless. Because
+     * everyone is building tier three towers, so all the spawn are killing each other. So it's just
+     * gonna sort itself out."* — i.e. MUTUAL ATTRITION is the real cap, not a constant.
+     *
+     * ⛔ AND IT WAS A LIVE BUG, NOT A TUNING PREFERENCE. `GOBLIN_MAX_PER_SPAWNER = 10` silenced a
+     * tier-3 tower permanently once ten of its units were alive: nothing culls creatures at a phase
+     * edge (verified — a boss survives FIGHT->BUILD->FIGHT), so across a long match a tower reaches
+     * ten and never emits again. That is the owner's ORIGINAL report returning — *"the Piranha ...
+     * didn't produce at all"* — which S169 had diagnosed as a phase-offset and fixed only halfway.
+     *
+     * ⚠ THE GOBLIN TOWER KEEPS ITS TEN, and that is why this is an exemption rather than a deleted
+     * constant. Ten-per-goblin-tower is the owner's own bought design (*"a second tower is now worth
+     * building, because the first one stops at ten"*, recorded at the constant), and the two
+     * populations share this one number. Raising or deleting it would silently re-tune the goblin
+     * economy while fixing tier 3 — exactly the "one population's ceiling gating another's" failure
+     * the three exclusions above exist to prevent, committed a fourth time.
      */
     const isTierThreeUnit = c.type.startsWith('t3');
-    if (!isTierThreeUnit) global++;
+    if (isTierThreeUnit) continue; // limitless: out of BOTH the global and the per-tower term
+    global++;
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
   }
   if (global >= GOBLIN_MAX_GLOBAL) return false;

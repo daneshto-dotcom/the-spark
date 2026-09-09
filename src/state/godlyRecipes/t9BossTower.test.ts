@@ -454,15 +454,29 @@ describe('S167 — ⭐ THE ONE-SHOT CONTRACT, through the real host tick', () =>
     expect(bossCount(w, 'orcs'), 'still exactly one boss').toBe(1);
   });
 
-  it('⛔ a SECOND tower does not burn its ring while the first boss lives (S157 B1)', () => {
+  it('⭐⭐ a SECOND tower RELEASES a second boss — the owner report, inverted (S170 P2)', () => {
     /*
-     * `applySpawnCreature` refuses a second live boss of the same (owner, type) with a bare
-     * `return world` the caller cannot observe. An arm that dispatched and then razed regardless
-     * would destroy NINE SHAPES AND PRODUCE NOTHING — the owner's own words, S157 B1: *"the shapes
-     * are being consumed nevertheless - not cool!"*
+     * ⭐⭐ S170 P2 (owner) — **THIS TEST USED TO DEFEND THE BUG, AND IT IS INVERTED, NOT DELETED.**
      *
-     * The shipped behaviour is that the second tower WAITS. This asserts both halves: no second
-     * boss, and the nine shapes still standing.
+     * It previously asserted that a second tower WAITS while the first boss lives — no second boss,
+     * nine shapes still standing. That is, verbatim, the owner's report: *"my wife did two pharaohs,
+     * and the second waited until the first is dead"*, and again a session later: *"she tried to get
+     * two and she could not build them. She can only build one at a time. The second one only came
+     * out of a structure when the first one [died]."*
+     *
+     * So the suite was green ON the defect. Two gates blocked a second boss and S169 removed only
+     * the one-live-per-(owner, type) latch in `applySpawnCreature` — reachable only by a direct
+     * dispatch, hence provable in a unit test and invisible in play. The gate the owner actually hit
+     * was the `bossAlive` check in `hostTick`'s release arm, and this assertion is what kept it.
+     *
+     * ⚠ THE S157 B1 CONCERN IT WAS WRITTEN FOR IS GENUINELY GONE, not overruled. It existed so a
+     * tower would not burn nine shapes for a boss the latch would silently refuse (*"the shapes are
+     * being consumed nevertheless - not cool!"*). With t9 types exempt from that latch the dispatch
+     * SUCCEEDS, so the ring buys a boss instead of buying nothing. The price stays — a second boss
+     * still costs a fresh nine of the race shape, which the spec names as the intended cap.
+     *
+     * It is kept in its inverted form so a future session that re-adds either gate fails HERE, with
+     * the owner's words attached, rather than rediscovering this from a playtest.
      */
     const w = buildAndIgnite('demons');
     runPastRelease(w);
@@ -500,9 +514,9 @@ describe('S167 — ⭐ THE ONE-SHOT CONTRACT, through the real host tick', () =>
 
     runPastRelease(w, T9_RELEASE_DELAY_TICKS * 2);
 
-    expect(bossCount(w, 'demons'), 'still exactly ONE boss alive').toBe(1);
-    expect(w.primitives.size, '⛔ the second ring must NOT be burned for nothing').toBe(9);
-    expect(w.creatureSpawners.size, 'the second tower waits rather than dying').toBe(1);
+    expect(bossCount(w, 'demons'), '⭐ TWO bosses alive for one seat — the owner asked for this').toBe(2);
+    expect(w.primitives.size, 'the second ring is SPENT, because it bought a boss').toBe(0);
+    expect(w.creatureSpawners.size, 'and the one-shot tower consumed itself as designed').toBe(0);
   });
 
   it('the boss carries no sourceSpawnerId — the one-live gate, not the goblin cap', () => {

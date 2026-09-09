@@ -136,7 +136,34 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
   );
 
   // Burst visual (wire-mirrored) — emit ONCE, before the severs.
-  world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: DRONE_EXPLODE_RADIUS });
+  /*
+   * ⭐⭐ S170 P2b (owner R170) — **NO BLAST GRAPHIC WHEN THE BLAST HITS NOTHING.**
+   *
+   * Owner: *"the drone sometimes still explodes, like, in his own building or in his own area when
+   * the fight just starts... he didn't destroy anything but I saw him blow up in my zone when the
+   * fight started."* Verified still live, and the mechanism is three facts meeting:
+   *   1. `hostTick`'s Step 1.5 detonates a drone whose fly-time fuse expires **wherever it happens
+   *      to be** — `world.tick >= despawnAtTick - 1`, explode-in-place rather than fade. At
+   *      `DRONE_LIFETIME_TICKS` = 8 s (and the 30-tick materialize window eating part of that), the
+   *      hub's first drone after the bell can run out mid-flight, still inside its owner's zone.
+   *   2. The candidate scan above collects **ENEMY bonds only**, and `applyRadialDamage` below is
+   *      owner-sparing. So a detonation at home is guaranteed to damage nothing at all.
+   *   3. This push was UNCONDITIONAL and ran BEFORE either of those — so the player got the full
+   *      orange shock ring and flash for an event with no effect whatsoever.
+   *
+   * ⚠ THE GATE IS ON "HIT NOTHING", NOT ON "FUSE EXPIRED", and the distinction is deliberate. The
+   * docblock above chose explode-in-place over a silent fade on purpose, and a fuse-expiry blast
+   * that lands NEXT TO an enemy base is a real hit that should still read. Only the empty one is
+   * wrong, so the effect now follows the OUTCOME: `candidates` is the enemy-bond list this blast
+   * will actually sever, and an empty list means the drone fizzles quietly.
+   *
+   * ⚠ AND IT STAYS A RENDER-ONLY DECISION. `world.effects` is client-side cosmetic and is not
+   * hashed, so gating it moves no determinism oracle and costs no protocol bump. The sever and the
+   * radial damage below are untouched — a drone that hit nothing already changed nothing.
+   */
+  if (candidates.length > 0) {
+    world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: DRONE_EXPLODE_RADIUS });
+  }
 
   /*
    * ⭐ S160 P5 (owner R77) — **AND NOW IT ACTUALLY DEALS ITS DAMAGE.**
