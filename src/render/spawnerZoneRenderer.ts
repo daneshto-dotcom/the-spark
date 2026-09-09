@@ -28,6 +28,7 @@
 
 import { Application, Container, Graphics } from 'pixi.js';
 import { componentOf } from '../game/structure.ts';
+import { isConcealed } from './concealment.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 
@@ -68,6 +69,11 @@ export class SpawnerZoneRenderer {
     for (const sp of world.creatureSpawners.values()) {
       const anchor = world.primitives.get(sp.anchorPrimitiveId);
       if (anchor === undefined) continue; // re-validation will remove it next poll
+      /*
+       * ⭐ S170 (owner) — FOG: *"I shouldn't see their buildings, their sparks, their SPAWN, their
+       * connectors."* This aura IS the spawn he means, so it is culled with everything else.
+       */
+      if (isConcealed(anchor.pos.x, anchor.pos.y, anchor.placedBy)) continue;
       const comp = componentOf(anchor, world.primitives, world.bonds);
 
       // Centroid + radius of the anchor component (the zone's footprint).

@@ -47,6 +47,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
+import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { CreatureId } from '../types.ts';
@@ -138,6 +139,9 @@ export class ChewerRenderer {
 
     for (const c of world.creatures.values()) {
       if (c.type !== 'chewer') continue;
+      // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
+      // see render/concealment.ts. Own entities are never concealed.
+      if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
       liveIds.add(c.id);
       this.lastSeenState.set(c.id, c.state);
       // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a

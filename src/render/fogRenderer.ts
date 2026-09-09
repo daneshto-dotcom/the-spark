@@ -112,13 +112,6 @@ export class FogRenderer {
   private readonly brushTex: Texture;
   private readonly pool: Sprite[] = [];
   private readonly fogSprite: Sprite;
-  /*
-   * ⭐ S170 P1 — A SECOND SPRITE OF THE SAME `maskRT`, AND IT MUST BE A SECOND ONE.
-   * Pixi renders a display object assigned as a `mask` into a mask buffer instead of drawing it, so
-   * one sprite cannot both BE the mask and be the visible shroud. `fogSprite` stays the drawn
-   * shroud; this one is only ever a mask and is never drawn.
-   */
-  private readonly maskSprite: Sprite;
   /**
    * E2E seam (mirror of __TEST_SPAWN_RATE__ / __TEST_WIN_SCORE__): the 2-peer
    * gameplay smoke specs disable fog so the extra per-frame render pass doesn't
@@ -128,12 +121,6 @@ export class FogRenderer {
    * Production: window undefined / flag absent → false.
    */
   private readonly disabled: boolean;
-  /*
-   * ⭐ S170 P1 — the concealable board layer this fog masks, or null when concealment is off.
-   * Held so the mask can be RELEASED on the win-lift: an inverse mask that outlived the fog would
-   * leave the board permanently invisible outside vision, which is the reveal-all bug inverted.
-   */
-  private maskTarget: Container | null = null;
   private alpha = 0;
   private maskFrameCounter = 0;
 
@@ -268,11 +255,6 @@ export class FogRenderer {
     // also serve as the mask. See the note at `base` above.
     this.fogSprite.tint = FOG_COLOR;
 
-    this.maskSprite = new Sprite(this.maskRT);
-    this.maskSprite.width = CANVAS_WIDTH;
-    this.maskSprite.height = CANVAS_HEIGHT;
-    this.maskSprite.eventMode = 'none';
-
     this.container = new Container();
     this.container.eventMode = 'none';
     this.container.visible = false;
@@ -327,48 +309,19 @@ export class FogRenderer {
        * the reveal-all contract inverted into its worst failure. Dropping the mask restores the
        * plain unconcealed board in one assignment.
        */
-      /*
-       * ⛔⛔ **`mask = null`, NOT `setMask({ mask: null })` — THE LATTER IS A NO-OP AND IT SHIPPED
-       * BROKEN FOR ONE COMMIT.** Pixi v8's `setMask` reads:
-       *
-       *     setMask(options) {
-       *       this._maskOptions = { ...this._maskOptions, ...options };
-       *       if (options.mask) { this.mask = options.mask; }   // null is FALSY -> skipped
-       *     }
-       *
-       * so clearing through it merges a null into the options and leaves the mask effect attached.
-       * The `mask` SETTER is the documented clear: it calls `removeEffect` and returns the effect to
-       * the pool.
-       *
-       * ⚠ WHAT THAT COST, because it is the exact catastrophe this branch exists to prevent:
-       * `fogActive` is BUILD-only, so this branch runs for the whole FIGHT and every solo match. With
-       * the release silently doing nothing, the inverse mask stayed attached over a `maskRT` still
-       * holding its last opaque-with-holes frame — the entire board hidden outside a 75 px cursor
-       * disc, for the rest of the match. Every other assertion in `fog.spec.ts` reads the mask
-       * TEXTURE rather than the board, so none of them could see it; the `maskAttached` assertion
-       * added in the same commit is what caught it.
-       *
-       * ⭐ `_maskOptions.inverse` SURVIVES THIS. `AlphaMaskPipe` reads `inverse` from
-       * `maskedContainer._maskOptions` at render time, and `setMask` merges into that object
-       * persistently — so re-attaching below restores an INVERSE mask, not a normal one. Verified
-       * against the installed Pixi rather than assumed, because a silently non-inverse mask would
-       * hide exactly the half of the board that should be visible.
-       */
-      if (this.maskTarget !== null) this.maskTarget.mask = null;
       return;
     }
     this.container.visible = true;
     /*
      * ⭐ S170 P1 — the SHROUD is scaled by `FOG_SHROUD_ALPHA` so the race backdrop reads through it;
      * the MASK is not, because a mask reads alpha and dimming it would leak the hidden board back
-     * into the fog at 45%. Two sprites, two jobs — see `maskSprite`.
+     * into the fog at 45%.
+     *
+     * ⚠ S170 — the second sprite this note used to mention is gone with the mask experiment; the
+     * shroud is the only consumer of `maskRT` now, and `FOG_SHROUD_ALPHA` is purely how dark the
+     * terrain reads. Concealment moved to per-entity culling (`render/concealment.ts`).
      */
     this.fogSprite.alpha = this.alpha * FOG_SHROUD_ALPHA;
-    this.maskSprite.alpha = 1;
-    // ⭐ S170 P1 — re-arm after a lift (BUILD returns after every FIGHT, so this runs every cycle).
-    if (this.maskTarget !== null) {
-      this.maskTarget.setMask({ mask: this.maskSprite, inverse: true });
-    }
     // S60 P2 — the memory layer rides the same fade as the fog so remembered
     // silhouettes dissolve in lockstep on the win-lift (and snap on at match start).
     this.memoryLayer.visible = true;
@@ -545,60 +498,21 @@ export class FogRenderer {
   }
 
   /*
-   * ⭐⭐ S170 P1 (owner) — **THE FOG AS A MASK ON THE BOARD, WHICH IS WHAT HE HAS BEEN DESCRIBING
-   * ALL ALONG.** Owner: *"Fog is just what hides. You have the buildings, the enemy sparks, the
-   * connectors that are being built, the unbuilt buildings, the freeform buildings, the spawn."*
+   * ⛔⛔ S170 — **`attachTo` AND THE INVERSE-MASK EXPERIMENT ARE GONE.** Concealment is per-entity
+   * culling now (`render/concealment.ts`), the way C&C did it: a thing you may not see is not drawn.
    *
-   * ⛔ **WHY A BLACK SHEET STRUCTURALLY CANNOT DELIVER THAT, and why three sessions failed at it.**
-   * `fogSprite` paints opaque FOG_COLOR over everything BENEATH it in the display list. So anything
-   * that must stay VISIBLE has to sit above it, and anything above it paints over everything below.
-   * That makes "the backdrop is visible AND the buildings are hidden" impossible to express by
-   * ordering alone — which is exactly the wall S166, S169 and this session's first attempt each hit,
-   * from three different directions:
-   *   · backdrop above the sheet  -> visible, but composites over every building when the fog is
-   *     INACTIVE (solo / FIGHT), because then the sheet is hidden and nothing separates them. S166.
-   *   · backdrop below the sheet  -> stops covering the buildings, and is blacked out with them.
-   *     *"You made everything in fog. That's stupid."* S169.
-   *   · a ground layer at the bottom -> fixes the compositing, still blacked out by the sheet.
+   * The mask shipped twice and hid nothing both times — first because the mask texture was tinted
+   * `FOG_COLOR` and a Pixi alpha mask samples a colour CHANNEL (the red channel of black is zero
+   * everywhere), then, with that fixed, because the mechanism was untestable: Pixi implements alpha
+   * masks as FILTERS and `renderer.extract` does not apply filter effects, so no assertion in this
+   * repo could see whether the board was concealed. Both cuts passed every gate and the owner found
+   * both by playing. Untestability was the real defect; the tint was only the first symptom.
    *
-   * ⭐ THE MASK DISSOLVES THE CONTRADICTION because it moves concealment off the CANVAS and onto the
-   * OBJECTS. `maskRT` is opaque where fogged and transparent at every vision source, so as an
-   * INVERSE mask it renders the board only inside the holes — the buildings, sparks, bonds and
-   * primitives vanish where you have not scouted, revealing the ground beneath rather than black.
-   * The backdrop then needs no special position at all: it is simply never masked.
-   *
-   * ⚠ INVERSE, and that is load-bearing. A plain Pixi mask shows content where the mask is BRIGHT,
-   * and this mask is near-black by design (FOG_COLOR = 0x000000, chosen so fog reads as darkness
-   * rather than a tint). Using it directly would crush the board to ~5% instead of hiding it — the
-   * same trap recorded at `memoryLayer`, where an earlier `Sprite(maskRT)` mask crushed the ghost
-   * silhouettes and was caught by the pixel e2e.
-   *
-   * ⚠ AND THE SHEET STOPS BEING DRAWN. `container.visible` is forced false while a mask target is
-   * attached, because painting the sheet AND masking the board would double-hide: the board would
-   * disappear inside its own vision holes under a black rectangle. `fogTargetAlpha`'s WIN-lift still
-   * drives `alpha`, and the mask is released on lift so the reveal-all still works.
+   * ⭐ THIS RENDERER'S REMAINING JOB IS THE ONE IT ALWAYS DID WELL: the SHROUD over terrain (the
+   * dark / dim / clear tiers from `exploredMemory`, with the local seat's own quarter fully erased)
+   * and the last-seen ghost silhouettes of enemy structures. Those are the other two thirds of the
+   * classic model and neither was ever broken.
    */
-  attachTo(target: Container): void {
-    if (this.disabled) return; // E2E gameplay specs run with the fog off entirely
-    this.maskTarget = target;
-    // The mask sprite rides the fog container so it is inside the render pass, but Pixi draws it as
-    // a mask rather than as an image — the visible shroud is `fogSprite`, added before it.
-    this.container.addChild(this.maskSprite);
-    target.setMask({ mask: this.maskSprite, inverse: true });
-  }
-
-  /**
-   * DEV/test only — is the board currently concealed by a mask?
-   *
-   * ⚠ `!= null` IS DELIBERATE AND THE STRICT VERSION WAS A BUG. Pixi's `get mask()` returns
-   * `this._maskEffect?.mask`, which is **`undefined`** once the effect is removed — never `null`. A
-   * `!== null` test therefore reported "attached" forever, which is how the first cut of this getter
-   * turned a real failure into a confusing one: the mask genuinely was not releasing, AND the probe
-   * could not have told the difference.
-   */
-  get maskAttached(): boolean {
-    return this.maskTarget !== null && this.maskTarget.mask != null;
-  }
 
   /** DEV/test only — current overlay alpha (1 = full fog, 0 = lifted). */
   get currentAlpha(): number {

@@ -29,6 +29,7 @@
  */
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 
 /* ⭐ S151 P3 — the veo atlas built from the owner's own STINK TOWER design. Owner: *"the stink tower
  * there is designed and actually looks good so make sure you make the stink tower look like that
@@ -117,6 +118,13 @@ export class StinkTowerRenderer {
 
     for (const d of world.defenders.values()) {
       if (d.kind !== 'stinkTower') continue;
+      /*
+       * ⭐ S170 (owner) — FOG: an enemy DEFENDER is not drawn unless it is in live vision.
+       * He named Helga specifically: *"Also, Helga and stuff, like, all of those need to be
+       * hidden. You shouldn't be able to see it unless you're in fight phase"* — or unless the
+       * spark is there, which is what `isConcealed` answers.
+       */
+      if (isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) continue;
       live.add(d.id);
       const config = getDefenderConfig('stinkTower');
       const remaining = d.nextFireTick - world.tick;

@@ -137,6 +137,7 @@ import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
+import { beginConcealmentFrame } from './render/concealment.ts';
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { resolveMusicTrack } from './render/raceMusic.ts';
@@ -809,29 +810,21 @@ async function bootstrap(): Promise<void> {
   // it (wired just below), not this container's position relative to a black sheet.
   const fogRenderer = new FogRenderer(app);
   /*
-   * ⭐⭐ S170 P1 (owner) — **THE FOG NOW MASKS THE BOARD INSTEAD OF PAINTING OVER IT.**
+   * ⛔⛔ S170 — **THE INVERSE-MASK EXPERIMENT IS GONE. Concealment is per-entity culling now**
+   * (`render/concealment.ts`), which is how C&C did it and, unlike a mask, is a pure predicate the
+   * unit suite can actually assert.
    *
-   * Owner: *"Fog is just what hides. You have the buildings, the enemy sparks, the connectors that
-   * are being built, the unbuilt buildings, the freeform buildings, the spawn."* And on the origin:
-   * *"we first talked about it being like in Red Alert or any real time strategy game... you can see
-   * the whole map if you've explored it. And the enemy's buildings, if you've been there, you can
-   * see where the latest building was — it could be destroyed, but you don't know until you're
-   * there again... And then it broke."*
+   * The mask shipped twice and concealed nothing both times. First the mask texture was tinted
+   * `FOG_COLOR`, and a Pixi alpha mask samples a colour CHANNEL — the red channel of black is zero
+   * everywhere, so it excluded nothing. Then, with the tint fixed, the mechanism was still
+   * untestable: Pixi implements alpha masks as FILTERS and `renderer.extract` does not apply filter
+   * effects, so no assertion in this repo could see whether the board was concealed. Both cuts
+   * passed every gate. That is the property that made it the wrong mechanism, independent of the bug.
    *
-   * ⭐ THE C&C MODEL WAS NEVER LOST — only bypassed. `exploredMemory` still remembers scouted
-   * ground, S60's `memoryLayer` still draws dim last-seen silhouettes of enemy structures gated on
-   * "not in current live vision", the spark's cursor still cuts a live hole, and `fogActive` is
-   * BUILD-only so the FIGHT still reveals everything. What broke is narrower than it looked: each
-   * newly generated art renderer (towers, Helga, the turret, the stink tower, the goblin sprite
-   * layers) attached itself ABOVE the fog when it was added, so it was never in the concealed set at
-   * all — and therefore never fell back to the ghost system either. The mechanic did not regress;
-   * the new objects simply never joined it.
-   *
-   * See `FogRenderer.attachTo` for why a black sheet cannot express "backdrop visible, buildings
-   * hidden" by ordering alone, and why three sessions each hit that same wall from a different side.
-   */
-  fogRenderer.attachTo(fogHiddenLayer);
-  // ⛔ S149 P5 — UI GOES ABOVE THE FOG. The footer band is constructed long before the fog, so
+   * ⭐ `fogRenderer` keeps its job: the SHROUD over terrain (the dark / dim / clear tiers from
+   * `exploredMemory`) and the last-seen ghost silhouettes. Those two were always correct. What it no
+   * longer pretends to do is hide objects.
+   */  // ⛔ S149 P5 — UI GOES ABOVE THE FOG. The footer band is constructed long before the fog, so
   // without this the fog draws over it and the bar reads as missing (owner: "it is hidden behind
   // the fog"). Re-parenting here, immediately after the last stage-level renderer exists, is the
   // one place that is guaranteed to be after every competitor.
@@ -3600,6 +3593,20 @@ Network routes: ${v.detail}`;
         isRaceMusicEnabled(),
       ));
     }
+
+    /*
+     * ⭐⭐ S170 (owner) — **FOG OF WAR IS PER-ENTITY CULLING NOW, AND THIS IS ITS ONE FRAME HOOK.**
+     *
+     * Owner, after three failed attempts: *"look at Red Alert. They're, like, from the fucking
+     * nineties. They did it fine."* The classic model is a visibility grid (shipped:
+     * `exploredMemory`), remembered last-seen buildings (shipped: S60's ghost layer), and units in
+     * non-visible cells simply NOT DRAWN — which was the missing third, and the whole complaint.
+     *
+     * ⚠ MUST RUN BEFORE EVERY RENDERER SYNC BELOW. `isConcealed` reads the context this computes;
+     * a renderer syncing ahead of it would cull against the PREVIOUS frame's vision, which on a
+     * moving cursor is a one-frame flicker at the edge of the reveal.
+     */
+    beginConcealmentFrame(world, controls.cursor);
 
     const wantZoneBg = isZoneBackgroundEnabled();
     if (wantZoneBg !== zoneBackgroundRenderer.isEnabled()) {

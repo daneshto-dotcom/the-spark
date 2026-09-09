@@ -26,6 +26,7 @@
  */
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import {
   DEFENDER_FIRE_HOLD_TICKS,
   DEFENDER_RECOVER_TICKS,
@@ -148,6 +149,13 @@ export class PrincessRenderer {
 
     for (const d of world.defenders.values()) {
       if (d.kind !== 'princess') continue;
+      /*
+       * ⭐ S170 (owner) — FOG: an enemy DEFENDER is not drawn unless it is in live vision.
+       * He named Helga specifically: *"Also, Helga and stuff, like, all of those need to be
+       * hidden. You shouldn't be able to see it unless you're in fight phase"* — or unless the
+       * spark is there, which is what `isConcealed` answers.
+       */
+      if (isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) continue;
       live.add(d.id);
       const firing = d.state === 'FIRE';
 

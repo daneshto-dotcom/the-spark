@@ -27,6 +27,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
+import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { Vec2 } from '../types.ts';
@@ -252,6 +253,9 @@ export class CreatureRenderer {
       const isVoltkin = creature.type === 'voltkin';
       const isDrone = creature.type === 'lightningDrone';
       if (!isVoltkin && !isDrone) continue;
+      // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
+      // see render/concealment.ts. Own entities are never concealed.
+      if (isConcealed(creature.pos.x, creature.pos.y, creature.ownerPlayerId)) continue;
       liveIds.add(creature.id);
       this.lastSeenState.set(creature.id, creature.state);
       // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a

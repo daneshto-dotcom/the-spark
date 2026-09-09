@@ -42,6 +42,7 @@ import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
 import { drawBossAuras } from './bossAuras.ts';
+import { isConcealed } from './concealment.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
@@ -624,6 +625,9 @@ export class GoblinRenderer {
 
     for (const c of world.creatures.values()) {
       if (!GOBLIN_KINDS.has(c.type)) continue;
+      // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
+      // see render/concealment.ts. Own entities are never concealed.
+      if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) { this.dropSprite(c.id); continue; }
       live.add(c.id);
 
       // Facing from actual movement, with a dead-zone so a jittering idle unit does not flip-flop.

@@ -82,8 +82,6 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       const win = {
         alpha: fog.currentAlpha,
         visible: fog.container.visible,
-        // ⭐ S170 P1 — did the inverse MASK release with the fog?
-        maskAttached: fog.maskAttached,
       };
 
       return { playing, win };
@@ -123,17 +121,13 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(result.win.alpha).toBe(0);
     expect(result.win.visible).toBe(false);
     /*
-     * ⭐⭐ S170 P1 — **AND THE MASK RELEASED, which is the worst failure mode of making the fog a mask
-     * instead of a sheet.**
-     *
-     * `fogActive` is BUILD-only, so `fogTargetAlpha` is 0 for the whole FIGHT phase and for every
-     * solo match, not just on WIN. An inverse mask left attached at that point would hide the ENTIRE
-     * board outside a 75 px cursor disc for the rest of the match — the reveal-all contract inverted
-     * into its worst form, and completely invisible to a mask-texture pixel assertion, which is all
-     * the rest of this test does. So the release is asserted through the renderer's own state.
+     * ⛔ S170 — the `maskAttached` release guard that lived here is GONE WITH THE MASK. It did its
+     * job on the way out: it caught `setMask({ mask: null })` being a no-op, one commit after I
+     * shipped it. But the mechanism it guarded was replaced by per-entity culling
+     * (`render/concealment.ts`), whose contract is asserted directly in `concealment.test.ts` —
+     * twelve pure-predicate tests including "the fog closes behind you when the spark leaves", which
+     * is the behaviour this file could never reach.
      */
-    expect(result.win.maskAttached, 'an inverse mask that outlives the fog hides the whole board')
-      .toBe(false);
   });
 
   test('S77 P2 — a global-reach entity (potato) renders THROUGH the fog; the board behind stays concealed', async ({

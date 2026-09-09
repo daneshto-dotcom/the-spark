@@ -32,6 +32,7 @@ import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { PrimitiveId } from '../types.ts';
 import { drawBondVisual } from './bondVisualRenderer.ts';
+import { isConcealed } from './concealment.ts';
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
@@ -90,6 +91,21 @@ export class StructureRenderer {
   private syncPrimitives(world: World): void {
     const seen = new Set<PrimitiveId>();
     for (const prim of world.primitives.values()) {
+      /*
+       * ⭐⭐ S170 (owner) — **FOG: AN ENEMY'S SHAPES ARE NOT DRAWN UNLESS THEY ARE IN LIVE VISION.**
+       *
+       * This renderer is the one the owner photographed: *"I can see the enemy sparks actively
+       * building and their connectors while they are being placed!!!"* Three previous attempts tried
+       * to hide it by compositing (a backdrop above/below an opaque sheet, then an inverse mask) and
+       * all three concealed nothing. C&C simply does not render it. So neither do we.
+       *
+       * ⚠ SKIPPED BEFORE `seen.add`, WHICH IS LOAD-BEARING. The cleanup pass below destroys any
+       * sprite whose id is absent from `seen`, so continuing here also REAPS the sprite — a shape
+       * that leaves vision disappears rather than freezing in place. Adding to `seen` first and then
+       * skipping would leave a stale sprite on the board forever, which is a worse bug than the one
+       * being fixed.
+       */
+      if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;
       seen.add(prim.id);
       // S79 P2 — a poop-FOULED primitive renders tinted toward the splat colour so the whole
       // building reads "pooped on, earning nothing, go wipe it". world.fouledPrimitives rides
@@ -148,6 +164,15 @@ export class StructureRenderer {
       // a structural subset to keep the solver narrow).
       const a = bond.a as Primitive;
       const b = bond.b as Primitive;
+      /*
+       * ⭐ S170 (owner) — the CONNECTORS, named explicitly in his spec: *"I shouldn't see their
+       * buildings, their sparks, their spawn, their connectors."*
+       *
+       * ⚠ A bond is hidden unless BOTH ends are visible. The stricter test is the right one: a
+       * connector drawn from a visible shape to a concealed one would trace a line straight to
+       * something the player is not allowed to see, which leaks the position it exists to hide.
+       */
+      if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;
       const dist = Math.hypot(dx, dy);

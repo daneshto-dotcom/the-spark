@@ -20,6 +20,7 @@
  */
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import {
   ALL_SPARK_TYPES,
   CASTLE_ATTACK_RANGE,
@@ -339,6 +340,24 @@ export class GathererRenderer {
       if (!liveSeats.has(seat)) sp.visible = false;
     }
     for (const gatherer of world.gatherers.values()) {
+      /*
+       * ⭐⭐ S170 (owner) — **FOG: THE GATHERER UNITS ARE CULLED, THE CASTLE IS NOT.**
+       *
+       * Owner: *"I shouldn't see their buildings, their sparks, their spawn, their connectors, even
+       * their gatherers (until they are in the center which is lit)."*
+       *
+       * ⚠ THAT PARENTHESIS IS ALREADY SATISFIED AND NEEDS NO SPECIAL CASE. `computeVisionSourcesForSeat`
+       * always includes `{ SPAWNER_CENTER, SPAWNER_RADIUS }` for every seat, so the shared quarry is a
+       * permanent vision source — an enemy gatherer that walks in to mine is visible there and
+       * concealed on the way home, which is exactly what he described, for free.
+       *
+       * ⛔ AND THE CULL IS HERE RATHER THAN AT THE TOP OF `sync`, BECAUSE THIS RENDERER ALSO DRAWS
+       * THE CASTLE. The owner's one explicit ALWAYS-VISIBLE exception is *"You should only see, like,
+       * their castle"* — so culling the whole renderer would hide the one landmark that must never
+       * be hidden, and hiding the castle also breaks elimination readability (you cannot tell who is
+       * still alive). Only the unit loop is gated.
+       */
+      if (isConcealed(gatherer.pos.x, gatherer.pos.y, gatherer.ownerPlayerId)) continue;
       const owner = world.players.get(gatherer.ownerPlayerId);
       const color = owner?.color ?? seatColor(gatherer.ownerPlayerId as unknown as number);
       // ⚠ FALL BACK TO THE SEAT'S DEFAULT RACE, never to a fixed one. A gatherer can outlive the

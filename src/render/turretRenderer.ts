@@ -23,6 +23,7 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
+import { isConcealed } from './concealment.ts';
 import type { World } from '../state/world.ts';
 import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
@@ -68,6 +69,13 @@ export class TurretRenderer {
 
     for (const d of world.defenders.values()) {
       if (d.kind !== 'turret') continue;
+      /*
+       * ⭐ S170 (owner) — FOG: an enemy DEFENDER is not drawn unless it is in live vision.
+       * He named Helga specifically: *"Also, Helga and stuff, like, all of those need to be
+       * hidden. You shouldn't be able to see it unless you're in fight phase"* — or unless the
+       * spark is there, which is what `isConcealed` answers.
+       */
+      if (isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) continue;
       live.add(d.id);
       const config = getDefenderConfig('turret');
       // Charge progress 0..1 (0 = just fired, 1 = about to fire), derived from synced nextFireTick.

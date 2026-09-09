@@ -39,6 +39,7 @@ import { RACE_FEED_SHAPE } from '../state/races.ts';
 import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
 import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+import { isConcealed } from './concealment.ts';
 import {
   TOWER_CRUMBLE_FRAMES,
   TOWER_DESTROY_FRAMES,
@@ -191,6 +192,14 @@ export class TowerRenderer {
     for (const sp of world.creatureSpawners.values()) {
       const art = towerArtForRecipe(sp.recipeId);
       if (art === null) continue; // pentagram / goblin tower / lightning hub have no structure art
+      /*
+       * ⭐ S170 (owner) — FOG: an enemy's BUILDING is not drawn unless it is in live vision. His
+       * hide-list names buildings first. Keyed on the anchor primitive, which is where the structure
+       * physically stands and whose `placedBy` is its owner.
+       */
+      const towerAnchor = world.primitives.get(sp.anchorPrimitiveId);
+      if (towerAnchor !== undefined
+        && isConcealed(towerAnchor.pos.x, towerAnchor.pos.y, towerAnchor.placedBy)) continue;
       this.ensureAtlas(art);
       this.ensureDestroyRow(art);
       const atlas = this.atlases.get(art.atlasBase);
