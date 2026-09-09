@@ -110,6 +110,22 @@ import {
  *  5. Verify `save.replay.test.ts` stays green.
  */
 export interface CreatureConfig {
+  /**
+   * ⭐⭐ S169 (owner R142, and R121) — **CANNOT BE TARGETED.**
+   *
+   * Owner on the Pharaoh's locusts: *"locusts attack with 10 atk and 10 pen and **they cannot be
+   * targeted**."* R121 wants the same verb for the submerged naga, so it is built ONCE.
+   *
+   * ⭐ A CONFIG FLAG, NOT A PER-CREATURE FIELD, and that is the difference from STUN. A stun is a
+   * transient thing that HAPPENS to a unit, so it needs a synced tick stamp on the wire.
+   * Untargetability is a property of what a unit IS — a locust cloud is untargetable for its whole
+   * life — so it reads off the static table. No synced field, no hash sub-site, no protocol bump,
+   * and it cannot desync: both peers read the same table keyed by a type they already agree on.
+   *
+   * ⚠ OPTIONAL, defaulting to targetable — the SAFE default. A config that omits it behaves exactly
+   * as every config does today, so adding the field cannot change a shipped unit.
+   */
+  untargetable?: boolean;
   /** Discriminator — matches the `Creature.type` field. */
   readonly type: CreatureType;
   /**
@@ -972,6 +988,19 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
  * function form is the public API surface so future indirection (cached
  * derived values, debug overlay, etc.) doesn't require a call-site sweep.
  */
+/**
+ * ⭐⭐ S169 (owner R142/R121) — CAN THIS TYPE BE TARGETED AT ALL? The single read of `untargetable`.
+ *
+ * ⛔ A FUNCTION, NOT AN INLINE `config.untargetable` AT EACH CALL SITE, deliberately. R121's
+ * submerged naga is untargetable only WHILE SUBMERGED — a state test, not a type test — so when that
+ * lands, this becomes `flag || <the state test>` in ONE place and every acquisition path inherits it.
+ * Inlining the flag now would mean finding all of them again later, which is the "three of four call
+ * sites" failure this codebase keeps paying for.
+ */
+export function isUntargetableType(type: CreatureType): boolean {
+  return CREATURE_CONFIGS[type].untargetable === true;
+}
+
 export function getCreatureConfig(type: CreatureType): CreatureConfig {
   return CREATURE_CONFIGS[type];
 }

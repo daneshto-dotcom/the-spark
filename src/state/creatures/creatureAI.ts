@@ -38,7 +38,7 @@ import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { getCreatureConfig } from './voltkin-config.ts';
+import { isUntargetableType, getCreatureConfig } from './voltkin-config.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -382,6 +382,28 @@ export function findNearestEnemyCreatureFrom(
   for (const [id, c] of world.creatures) {
     if (id === excludeId) continue;
     if (c.ownerPlayerId === ownerPlayerId) continue; // enemy-only
+    /*
+     * ⭐⭐ S169 (owner R142, and R121) — **CANNOT BE TARGETED, ENFORCED AT THE CHOKEPOINT.**
+     *
+     * Owner on the Pharaoh's locusts: *"locusts attack with 10 atk and 10 pen and they cannot be
+     * targeted."* R121 wants the same for the submerged naga.
+     *
+     * ⭐ THIS ONE LINE COVERS EVERY CREATURE-TARGETING PATH IN THE GAME, which is the happy finding
+     * of the enumeration: creature-vs-creature acquisition (`findNearestEnemyCreature` and the
+     * standoff wrapper), the CASTLE GUNS (`castleGuns.ts`), every generic DEFENDER — laser turret,
+     * Helga, the stink tower (`defenderLifecycle.ts`) — and the gatherer renderer's preview of the
+     * castle gun all funnel through this function. So untargetability is inherited BY CONSTRUCTION
+     * rather than by each future acquisition path remembering, which is exactly what the R142 design
+     * note asked for.
+     *
+     * ⚠ AND IT IS DELIBERATELY *NOT* IMMUNITY. This gate makes a unit impossible to SELECT as a
+     * target; it does not make it impossible to HURT. Area effects that sweep a region rather than
+     * pick a victim — the potato's radial clear, the hub's self-destruct, the zombie rot aura, the
+     * Kraken's own sonar cone — still reach it, because "cannot be targeted" is a statement about
+     * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
+     * by anything at all. `untargetableGates.test.ts` pins both halves.
+     */
+    if (isUntargetableType(c.type)) continue;
     const dSq = distSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
     if (
