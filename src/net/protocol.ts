@@ -611,6 +611,30 @@ export type { NetSnapshot };
  */
 
 /*
+ * ⭐⭐ S171 — **BUMPED 45 -> 46: THE PHARAOH'S LOCUST CLOUD.** One new serialized `CreatureType`
+ * literal, `locustCloud` (owner R142: *"he lunches a cone of locusts that fly around in locust
+ * clouds targeting units and building for 15 sec. locusts attack with 10 atk and 10 pen and they
+ * cannot be targeted."*).
+ *
+ * ⛔ THE ARGUMENT IS VERBATIM THE ONE 44->45 MADE FOR THE DIREWOLF, and it is worth re-stating
+ * rather than cross-referencing, because it is the only reason this literal cannot be avoided:
+ * `serializeCreature` emits `hp` only when a creature is DAMAGED, so an undamaged one carries NO
+ * stats on the wire and the receiving peer rebuilds them from its OWN `CREATURE_CONFIGS`, keyed by
+ * TYPE. 10 ATK / 10 PEN is therefore only expressible as a distinct type. And `deserializeCreature`
+ * writes `type: s.type` with no runtime whitelist, so a v45 peer would accept the literal and then
+ * find `CREATURE_CONFIGS.locustCloud === undefined` on its own mirror — the exact failure 13->14
+ * ('lightningDrone'), 41->42 ('raceUnit') and 44->45 ('direwolf') were bumped for.
+ *
+ * ⭐ THE RA RITUAL RIDES FOR FREE, and that is the interesting half. `raRitualUntilTick` is an
+ * ADDITIVE-OPTIONAL field on `Creature` — emitted only while set, so an ordinary board is
+ * byte-identical and a stale peer simply never sees a ritual and cannot fall through a switch. It
+ * shipped in S171 P2A under PROTOCOL 45 and needed no bump of its own; only the new TYPE does.
+ *
+ * ⚠ NOR DOES THE UNTARGETABLE CONDITION COST ANYTHING. `untargetable` is a CONFIG flag, not a wire
+ * field — both peers read it from their own `CREATURE_CONFIGS` keyed by the type they already have.
+ */
+
+/*
  * ⭐⭐ S168 — **BUMPED 44 -> 45: THE ORC WARLORD'S DIREWOLF.** One new serialized `CreatureType`
  * literal, `direwolf` (owner R149: *"summons 3 direwolves every 15 sec with stats 3, 3, 3, 3"*).
  *
@@ -640,7 +664,7 @@ export type { NetSnapshot };
  * So the DISCRIMINANT half of this bump is the direwolf and nothing else — but the wire format also
  * gained one optional boolean under it, which is recorded here rather than left to be discovered.
  */
-export const PROTOCOL_VERSION = 45 as const;
+export const PROTOCOL_VERSION = 46 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -872,6 +896,16 @@ export interface HelloMsg {
    * — a peer that never sees the key reads `false` — so 45 still covers it, but "the direwolf and
    * nothing else" was true of the DISCRIMINANT only.)
    *
+   * S171: 45->46 (THE PHARAOH'S LOCUST CLOUD — owner R142, *"he lunches a cone of locusts that fly
+   * around in locust clouds targeting units and building for 15 sec ... 10 atk and 10 pen and they
+   * cannot be targeted"*. ONE new serialized `CreatureType` literal, `locustCloud`. Same argument as
+   * 41->42, 42->43 and 44->45: `serializeCreature` emits `hp` only when DAMAGED, so the peer rebuilds
+   * stats from its OWN `CREATURE_CONFIGS` keyed by type, and `deserializeCreature` has no whitelist,
+   * so a v45 peer would find `CREATURE_CONFIGS.locustCloud === undefined` on its own mirror.
+   * ⭐ `raRitualUntilTick` — the Ra ritual deadline — rides FREE: additive-optional, shipped in P2A
+   * under 45. The `untargetable` condition costs nothing either; it is a CONFIG flag, not a wire
+   * field.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -909,7 +943,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 45;
+  readonly protoVersion: 46;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

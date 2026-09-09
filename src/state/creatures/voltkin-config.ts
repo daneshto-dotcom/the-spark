@@ -45,6 +45,11 @@ import {
   T3_STATS,
   DIREWOLF_STATS,
   T9_BOSS_STATS,
+  LOCUST_CLOUD_STATS,
+  LOCUST_CLOUD_SPEED_MUL,
+  LOCUST_CLOUD_ATTACK_RANGE,
+  PHARAOH_LOCUST_LIFETIME_TICKS,
+  PHARAOH_LOCUST_CADENCE_TICKS,
   RACE_UNIT_HP,
   RACE_UNIT_DEF,
   RACE_UNIT_ATK,
@@ -941,8 +946,55 @@ export const DIREWOLF_CONFIG: CreatureConfig = makeT3Config('direwolf', {
   speedMul: 1.0,
 });
 
+/**
+ * ⭐⭐ S171 (owner R142) — **THE LOCUST CLOUD.** Hand-written rather than `makeT3Config`, because
+ * three of that factory's defaults are actively wrong here: `persistent: true` (a cloud must expire),
+ * the goblin attack cadence (the balance dial lives in `PHARAOH_LOCUST_CADENCE_TICKS`), and the
+ * goblin attack range (a cloud engulfs what it reaches).
+ *
+ * ⛔ `untargetable: true` IS THE POINT — *"they cannot be targeted"* — and this is the first entry in
+ * the whole table to set it. It buys refusal at every acquisition path for free, because S171 P2A
+ * routed all seven of them through the single `isUntargetable` read.
+ *
+ * ⚠ AND IT IS NOT INVULNERABILITY. Area sweeps still reach it — the potato's radial clear, the hub
+ * self-destruct, the rot aura, a sonar cone. That is deliberate and it is the player's entire
+ * counterplay: `hp: 1, def: 0` is a 5-fifth pool, so a breath of area damage clears a cloud. Reading
+ * "cannot be targeted" as invulnerability would make a 15-second cloud unkillable by anything at all.
+ *
+ * ⚠ `targetsStructures: true` because he said *"targeting units AND building"*, and it must AGREE
+ * with `CREATURE_TARGETS.locustCloud = BOTH` — the two disagreeing is what makes a unit walk to a
+ * castle and then refuse to hit it.
+ *
+ * ⚠ `lifetimeClock` OMITTED (so 'absolute'), deliberately: the launcher is FIGHT-gated so a cloud can
+ * never be born in BUILD, and 'fight' would restart its clock on a phase edge.
+ */
+export const LOCUST_CLOUD_CONFIG: CreatureConfig = {
+  type: 'locustCloud',
+  hp: LOCUST_CLOUD_STATS.hp,
+  def: LOCUST_CLOUD_STATS.def,
+  atk: LOCUST_CLOUD_STATS.atk,
+  pen: LOCUST_CLOUD_STATS.pen,
+  untargetable: true,
+  lifetimeTicks: PHARAOH_LOCUST_LIFETIME_TICKS,
+  spawnTicks: 12,
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: LOCUST_CLOUD_ATTACK_RANGE,
+  attackCadenceTicks: PHARAOH_LOCUST_CADENCE_TICKS,
+  attackFireTick: 10,
+  attackChargeEngageTick: 0,
+  persistent: false,
+  chewsConnectors: false,
+  hopSpeedMul: LOCUST_CLOUD_SPEED_MUL,
+  maxAccel: Math.round(GOBLIN_MAX_ACCEL * LOCUST_CLOUD_SPEED_MUL),
+  selfExplode: false,
+  targetsStructures: true,
+  holdsRange: false,
+};
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   direwolf: DIREWOLF_CONFIG,
+  locustCloud: LOCUST_CLOUD_CONFIG,
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
   lightningDrone: LIGHTNING_DRONE_CONFIG,

@@ -2929,3 +2929,128 @@ and now you're starting to work on Pharaoh."* So nothing below is approved excep
 video loop himself. This CONFIRMS the S171 P2 plan (procedural VFX, art out of scope) rather than
 changing it. The target he described: *"a cloud of little locusts flying and eating enemies"*,
 scary-looking.
+
+---
+
+# ⭐ S171 — OWNER ART/ANIM DEFECTS + AN R121 CORRECTION (2026-09-09, second playtest)
+
+## ⛔ R171-J — R121 IS THE **PIRANHA**, NOT A "SUBMERGED NAGA", AND IT IS NOT BUILT
+
+I referred to *"the submerged naga R121 predicted"*. The owner corrected me:
+
+> *"There's no submerged Naga so far. I mean, the... how's it called? The piranha was posed to, like,
+> jump in the water and be submerged where you can't attack it for, like, a second at a... every
+> three seconds when it's moving. That was a cool attack or cool ability for base units, makes
+> something cool about Nagas. But it's not how it works right now."*
+
+⇒ The mechanic is the **piranha** (`t3Piranha`, the nagas' tier-3 unit): **untargetable for ~1 s
+every ~3 s WHILE MOVING**. He also confirms it is genuinely novel — *"I didn't see it in games so
+far."*
+
+⭐ **THE STATE-BASED HALF OF THE GATE IS NOW BUILT AND WAITING FOR IT.** S171 P2A turned
+`isUntargetableType(type)` into `isUntargetable(creature, tick)` for the Pharaoh's ritual. The
+piranha is the same shape — a deadline field read in that one place — so the mechanic is now a small
+config + lifecycle change rather than a sweep of every acquisition path.
+
+### And the ANIMATION is wrong, which is the half he actually complained about
+> *"it doesn't look like it's jumping into water. It looks like it's flapping around. Just look at it
+> for a second. And you see, like, literally jump, and it looks like it's, like, disappearing into
+> the water. You know, like a dolphin when it's jumping in and out. You know? How a fish, like, does
+> that."*
+
+⇒ Target: a **dolphin-style porpoise** — arc up, break the surface, dive back under and vanish.
+
+## ⛔ R171-K — MATTE / CUT-OUT BORDERS ARE VISIBLE ON SHIPPED SPRITES
+
+> *"the piranha. When that, like, jumps around, it does this flap... or when it attacks, you can kind
+> of see the borders of the square of the background from its, like, generator. You can see, like,
+> something white around it, like, outside his perimeter. It's something weird. We need to get rid of
+> that."*
+
+> *"There's a similar thing with another creature... obviously, with the Kraken."*
+
+Confirmed so far: **piranha** (worst on attack) and **KRAKEN**. He will report others as he sees them.
+
+⚠⚠ **THE GUARD IS BLIND TO THIS, AND I MEASURED IT RATHER THAN GUESSING.** `check:atlas`
+(`scripts/check-atlas-scenery.mjs`) declares *"opaque near-white pockets the matte left behind"* as
+one of its three defect classes. I ran it against this exact complaint:
+
+```
+clean          0 px  (largest      0)  publicrtace-tier3-units	3-nagas-piranha-atlas.png
+clean          0 px  (largest      0)  publicrtace-tier3-units	3-mummies-scarab-atlas.png
+```
+
+⇒ **Both atlases ARE in the scan set and both report clean, 0 px, largest 0.** So this is not a
+coverage gap that can be closed by pointing the guard at more files — the detector is looking and
+not seeing. **The guard needs fixing alongside the art**, and that is the more valuable half: a
+clean report on an atlas the owner can see is dirty is worse than no report at all, because it is
+the reason nobody went looking.
+
+## ⛔ R171-L — THE SCARAB INFLATES: CROSS-ROW SIZE DRIFT
+
+> *"the scarab is very not consistent in size. When he attacks, it's like... he's, like, two times...
+> two and a half times bigger than when he's, like... it just... he looks like he's inflating. It
+> looks a little stupid. We need to rework that as well."*
+
+The attack row is ~2–2.5× the idle/walk rows. ⚠ **`check:atlas`'s second declared defect class is
+literally "cross-row size drift"**, and it passes this atlas. Same conclusion as R171-K: the guard
+needs auditing alongside the art.
+
+> *"I feel like there's a few other ones that have, like, weird borders or something like that, but
+> I'll let you know when I see them."*
+
+⇒ Treat R171-K/L as the first two of an OPEN list, and fix the detector so the rest are found by the
+guard rather than by him.
+
+---
+
+# ⭐⭐ R171-M — THE ART DIVISION OF LABOUR, AND IT IS A STANDING RULE FROM NOW ON
+
+Owner, S171, verbatim — this supersedes any earlier assumption about who generates what:
+
+> *"I think all the current creatures that you have already generated, anything else we need to do
+> with them you'll keep doing by yourself. So if you need to generate another stance for Pharaoh,
+> like he's praying, like he's doing a ritual, for example, or he's, like, putting his hands forward
+> or to the side and letting out the locusts, I think you should generate it. But anything new from
+> now on, I'll generate."*
+
+> *"it's gonna cost us another hundred bucks or so. Well, maybe not a hundred, but, yeah, like, fifty
+> bucks to finish all the creatures that are already done and generated to just make it all look
+> perfect. Right? Everything that's rest that's left. But anything new I'll start generating."*
+
+> *"any new buildings, new creatures, new states, new videos, I'll start generating, but everything
+> that's done so far, I just want you to polish it, you know, and to continue. So we'll have very
+> polished whatever we currently have. You know what I mean? Before we start adding more shit."*
+
+## THE LINE
+
+| | who generates | examples |
+|---|---|---|
+| **Already-generated creatures** — finishing, polishing, new STANCES for them | ⭐ **ME** | the Pharaoh's ritual/praying stance and his hands-forward locust release (R143); the piranha's dive; the scarab's size fix; the Kraken/piranha matte borders |
+| **Anything NEW** | ⭐ **HIM**, and I walk him through it | the locusts themselves, new creatures, new buildings, new states, new videos |
+| **Voltkin** | **HIM** — *"I've already... generated him all his states"* | the full redo |
+
+⚠ **BUDGET IS THE REASON**, and he named it: *"we've been spending a lot of money on image and video
+generating."* ~$50 to finish polishing everything already generated. So a generation I run must be
+one-shot — which is R147 (*"dont waste my money — think about the prompt and creature thoroughly to
+make sure it does generate it correctly in one go"*) still standing, now with a number attached.
+
+⚠ **12 CUTOUTS IS THE STANDARD, AND BOSSES NEED MORE.** *"You only need, like, twelve cutouts, maybe
+more for bosses, because we said the boss doesn't look good out of twelve cutouts, especially with
+the demon one."* Confirms the S170 carry-forward that bosses want more frames per row than the
+packer's 12 — and names the Archdemon as the worst case.
+
+## ⛔ THE ORDERING RULE THAT FALLS OUT OF THIS
+
+*"very polished whatever we currently have ... before we start adding more shit."* ⇒ **Polish
+outranks new content.** R171-K (matte borders) and R171-L (the inflating scarab) are therefore not
+low-priority cosmetics — they are the stated next class of work once the current backlog lands, and
+the `check:atlas` detector that reports them clean has to be fixed for the rest to be findable at all.
+
+## WHAT THIS MEANS FOR P2 RIGHT NOW
+
+- The Pharaoh's **ritual stance** and **locust-release stance** are MINE to generate (he is an
+  already-generated creature). Not this session — the code half ships first, as S170 did.
+- The **locust cloud itself is NEW**, so the sprite/loop is HIS. ⇒ P2B ships a **procedural** cloud,
+  which is exactly what he asked for earlier: *"you can try building it with code... do the best if
+  you can... if you can do it, then we might just generate a video loop. I'll do it myself."*

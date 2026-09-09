@@ -292,6 +292,14 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
    * for anything that closes to melee.
    */
   direwolf: BOTH,
+  /*
+   * ⭐ S171 (owner R142) — *"targeting units AND building"*, in as many words. BOTH.
+   *
+   * ⚠ THIS MUST AGREE WITH `LOCUST_CLOUD_CONFIG.targetsStructures: true`. The two disagreeing is the
+   * incoherence this table's own docblock names — a unit that walks to a castle and then refuses to
+   * hit it.
+   */
+  locustCloud: BOTH,
   // Eats connectors, never fights soldiers — the shipped behaviour, now stated rather than implied.
   chewer: STRUCTURES_ONLY,
   voltkin: BOTH,
@@ -376,6 +384,8 @@ export const DEFENDER_TARGETS: Readonly<Record<DefenderKind, ReadonlySet<TargetC
 export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   // ⭐ S168 (R149) — a summoned war pack. It goes where the Warlord is going; it does not hold ground.
   direwolf: 'offence',
+  // S171 R142 — a swarm that eats units and buildings alike; it defends nothing.
+  locustCloud: 'offence',
   // Walks to an enemy structure and gnaws its connectors. Pure aggression, no holding ground.
   chewer: 'offence',
   // A free melee unit that closes on whatever is nearest — it fights and it screens.

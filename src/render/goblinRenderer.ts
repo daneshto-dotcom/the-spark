@@ -42,6 +42,7 @@ import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
 import { drawBossAuras } from './bossAuras.ts';
+import { drawLocustClouds } from './locustCloud.ts';
 import { isConcealed } from './concealment.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
@@ -616,6 +617,12 @@ export class GoblinRenderer {
      * to decode would flicker on for the first seconds of every fight.
      */
     drawBossAuras(g, world);
+    /*
+     * ⭐ S171 (owner R142/R171-I) — the Pharaoh's locust clouds, into this SAME Graphics for the same
+     * reason as the auras above: a new child of `fogHiddenLayer` shifts its indices. Drawn after the
+     * auras so a swarm passing over a rot aura sits on top of it, and still beneath the sprite layer.
+     */
+    drawLocustClouds(g, world);
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);

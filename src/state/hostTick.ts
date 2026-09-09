@@ -90,6 +90,7 @@ import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.t
 import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
 import { runArchdemonHell, runArchdemonTeleport } from './bossSkillsArchdemon.ts';
 import { runKrakenSonar } from './bossSkillsKraken.ts';
+import { runPharaohLocusts } from './bossSkillsPharaoh.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -1834,6 +1835,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // the runner, beside every other boss's, rather than here.
     runKrakenSonar(world);
     runArchdemonTeleport(world);
+    // ⭐ S171 (owner R142) — the Pharaoh's locust fan. Ordered beside the other launch-type skills;
+    // the cadence is `(tick + bossId) % INTERVAL`, so placement in this list cannot affect timing.
+    runPharaohLocusts(world);
   }
 
   if (world.pendingCreatureDeaths !== null) {

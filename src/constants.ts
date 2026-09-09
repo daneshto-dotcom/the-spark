@@ -2446,6 +2446,89 @@ export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
 export const DIREWOLF_MAX_PER_OWNER = 6;
 
 /*
+ * ⭐⭐ S171 (owner R142) — **THE PHARAOH'S LOCUSTS.**
+ *
+ * > *"he lunches a cone of locusts that fly around in locust clouds targeting units and building for
+ * > 15 sec. he lunches it when the first enemy is in range. locusts attack with 10 atk and 10 pen and
+ * > they cannot be targeted."*
+ *
+ * ⛔ **"CONE" IS THE LAUNCH, NOT THE MECHANIC — and every carrier of this ruling had compressed it.**
+ * The boot snapshot, the session state and the S170 PDR all say "the locust cone" (the PDR hardened
+ * it to "wedge"), which describes a persistent cone volume. His words are a cone of locusts *that
+ * then fly around in clouds*. So the cone decides only WHERE THEY ARE BORN; after that each cloud is
+ * an ordinary autonomous unit that hunts. That makes the Warlord's direwolf summon the template, not
+ * the Kraken's sonar cone.
+ *
+ * ## ⚠ HIS TWO NUMBERS ARE UNTOUCHED, AND THEY ARE ENORMOUS
+ *
+ * `attackFifths(10, 10) = 10 × (5 + 10)` = **150 fifths per strike**. That is exactly Vlad's strike —
+ * the hardest hitter in the game — on a disposable summon, and it is nearly double the Pharaoh's own
+ * 78. The largest pool in the game is the Pharaoh's own 143, so **one locust strike one-shots every
+ * unit AND all six bosses.** For the locusts, therefore, STRIKES ARE KILLS, and the only thing that
+ * decides the ability's strength is how many strikes land.
+ *
+ * ⇒ R142 fixes ATK and PEN and says nothing about cadence or cloud count, so the entire balance of
+ * the strongest attack in the game lives in the two numbers below, which are MINE.
+ */
+
+/** ⚠ MINE. Matches `DIREWOLF_SUMMON_COUNT` — the only other boss summon, so the board reads alike. */
+export const PHARAOH_LOCUST_COUNT = 3;
+
+/**
+ * ⚠ MINE, and it is the balance dial. One strike per 5 s over a 15 s life = 3 strikes per cloud,
+ * so 3 clouds = **9 strikes = up to 9 kills**, minus whatever the player clears with area damage.
+ *
+ * The 3-way Council split hard here and the disagreement is worth keeping: Grok proposed 1 strike per
+ * SECOND — 45 strikes, 6750 fifths, forty-seven Pharaohs' worth of damage from one ability. Gemini
+ * proposed this figure and called that absurd. At 150 fifths a strike the cadence IS the ability, and
+ * nine guaranteed kills from one boss skill is already enormous.
+ */
+export const PHARAOH_LOCUST_CADENCE_TICKS = 5 * PHYSICS_HZ;
+
+/**
+ * R142: *"for 15 sec"*.
+ *
+ * ⚠ HE SAID "TEN SECONDS" OUT LOUD IN S171 while confirming the clouds roam — hedged
+ * (*"I don't know, like, what, ten seconds"*) — and R142 in writing says 15. Built to the written
+ * ruling, kept behind this ONE constant so "make it ten" is a one-word change.
+ *
+ * ⚠ THE DAMAGING WINDOW IS SHORTER THAN THE LIFETIME. A non-persistent creature is forced into
+ * DESPAWNING `despawningTicks` before `despawnAtTick`, and it does not strike while fading. The
+ * cloud thins out for its last half-second, which reads well — but the arithmetic above uses the
+ * damaging window, not the full 900.
+ */
+export const PHARAOH_LOCUST_LIFETIME_TICKS = 15 * PHYSICS_HZ;
+
+/** Half-angle of the birth wedge, in radians. ⚠ MINE — 30° each side of the aim, a 60° fan. */
+export const PHARAOH_LOCUST_CONE_HALF_ANGLE = Math.PI / 6;
+
+/** How far from the Pharaoh a cloud is born. ⚠ MINE — mirrors the direwolf's 46 px formation ring. */
+export const PHARAOH_LOCUST_SPAWN_DIST = 46;
+
+/**
+ * R142: *"he lunches it when the first enemy is in range."* ⚠ THE RANGE IS MINE — he named the
+ * trigger, not the distance. Matched to the Kraken's sonar reach so the two bosses' "an enemy is
+ * close enough" reads the same to a player.
+ */
+export const PHARAOH_LOCUST_TRIGGER_RANGE = 260;
+
+/**
+ * ⚠ MINE, and the reason is the same one the direwolf cap gives: the ruling has none, and unbounded
+ * this is a new fan every time the launcher re-arms. Two Pharaohs per seat are legal (a second costs
+ * a fresh ring of nine race shapes), so the ceiling is two full fans.
+ */
+export const PHARAOH_LOCUST_MAX_PER_OWNER = PHARAOH_LOCUST_COUNT * 2;
+
+/** ⚠ MINE. A cloud is a swarm of insects: it dies to a breath of area damage, and should. */
+export const LOCUST_CLOUD_STATS = { hp: 1, def: 0, atk: 10, pen: 10 } as const;
+
+/** ⚠ MINE. Flight reads fast; the Pharaoh himself is 0.75, and the cloud should outpace its maker. */
+export const LOCUST_CLOUD_SPEED_MUL = 1.35;
+
+/** ⚠ MINE. Short — a cloud engulfs what it reaches rather than striking at range. */
+export const LOCUST_CLOUD_ATTACK_RANGE = 40;
+
+/*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
  * moves x2 quicker for the rest of his lifetime."*
  *

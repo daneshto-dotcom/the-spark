@@ -174,11 +174,6 @@
         },
         {
           "type": "file_contains",
-          "needle": "PROTOCOL_VERSION = 45 as const",
-          "path": "src/net/protocol.ts"
-        },
-        {
-          "type": "file_contains",
           "path": "BACKLOG.md",
           "needle": "S171 — OWNER PLAYTEST WITH HIS BROTHER"
         },
@@ -206,12 +201,31 @@
           "type": "file_contains",
           "path": "src/state/defenders/defenderLifecycle.test.ts",
           "needle": "a defender DROPS a target that has left the targetable space"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/save.ts",
+          "pattern": "\\.\\.\\.\\(c\\.raRitualUntilTick !== undefined \\?",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/save.ts",
+          "pattern": "\\.\\.\\.\\(s\\.raRitualUntilTick !== undefined \\?",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "raRitualUntilTick?: number;"
         }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "RALPH:PATROL + hand-verification. GATES, every one from a captured $? (never a pipe, never the wrapper's trailing line): typecheck 0 | vitest 0 = 4223 tests / 269 files (from 4202/267, +21 tests +2 files) | e2e:gating 0 = 65 passed | e2e:races 0 = 5 passed | build 0 = 815.2 KiB of the 900 KiB charter, 84.8 KiB headroom. BEHAVIOURAL COVERAGE: 11 tests in untargetableRetention.test.ts drive the real production entry points - the Kraken aim pick, the Voltkin chain hop, the AUTHORITATIVE RAID_TARGET reducer (both that it refuses AND that it does not spend the point), the Archdemon teleport, the projectile renderer, the shared chokepoint, and RETENTION via applyDefenderTick. Each has a CONTROL arm so it cannot pass vacuously; two of those controls failed first and both were fixture errors, diagnosed and recorded in-test rather than papered over (a chewer DIES to one raid, so the landed raid is a removal not a reduced pool; resolveProjectileShot needs state=ATTACKING inside the flight window). STRUCTURAL COVERAGE: untargetableCallSites.test.ts re-counts every enemy-shaped creature scan in the tree on each run (damage.wired.test.ts import-graph pattern) and requires each to consult the gate or carry a written verdict; its anti-rot arm caught a stale entry on its first run - mine. HASH: the CreatureHashed coverage contract failed tsc on sight as designed; all three sub-sites done (union, projection, and two contribution tests incl. deadline-value distinguishability). CORRECTIONS LANDED: two false completeness docblocks (creatureAI.ts's 'COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'AUDITED RATHER THAN ASSUMED') corrected IN PLACE with the measured numbers, and the readFileSync substring check that passed on a comment mention was replaced. PROTOCOL_VERSION still 45 - raRitualUntilTick is additive-optional, verified against the rule in protocol.ts. NOT CLAIMED: no visual assertion (nothing draws yet); the deploy verification is tracked separately.",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, every one from a captured $? (never a pipe, never the wrapper's trailing line): typecheck 0 | vitest 0 = 4223 tests / 269 files (from 4202/267, +21 tests +2 files) | e2e:gating 0 = 65 passed | e2e:races 0 = 5 passed | build 0 = 815.2 KiB of the 900 KiB charter, 84.8 KiB headroom. BEHAVIOURAL COVERAGE: 11 tests in untargetableRetention.test.ts drive the real production entry points - the Kraken aim pick, the Voltkin chain hop, the AUTHORITATIVE RAID_TARGET reducer (both that it refuses AND that it does not spend the point), the Archdemon teleport, the projectile renderer, the shared chokepoint, and RETENTION via applyDefenderTick. Each has a CONTROL arm so it cannot pass vacuously; two of those controls failed first and both were fixture errors, diagnosed and recorded in-test rather than papered over (a chewer DIES to one raid, so the landed raid is a removal not a reduced pool; resolveProjectileShot needs state=ATTACKING inside the flight window). STRUCTURAL COVERAGE: untargetableCallSites.test.ts re-counts every enemy-shaped creature scan in the tree on each run (damage.wired.test.ts import-graph pattern) and requires each to consult the gate or carry a written verdict; its anti-rot arm caught a stale entry on its first run - mine. HASH: the CreatureHashed coverage contract failed tsc on sight as designed; all three sub-sites done (union, projection, and two contribution tests incl. deadline-value distinguishability). CORRECTIONS LANDED: two false completeness docblocks (creatureAI.ts's 'COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'AUDITED RATHER THAN ASSUMED') corrected IN PLACE with the measured numbers, and the readFileSync substring check that passed on a comment mention was replaced. PROTOCOL_VERSION still 45 - raRitualUntilTick is additive-optional, verified against the rule in protocol.ts. NOT CLAIMED: no visual assertion (nothing draws yet); the deploy verification is tracked separately. ⚠ BINDING CORRECTED POST-CLOSE: the original set pinned 'PROTOCOL_VERSION = 45 as const' to evidence P2A's no-bump claim. P2B then bumped it to 46 legitimately and the Stop hook hard-failed the P2A claim. The pin was BRITTLE - it bound a claim to a number that is SUPPOSED to move (the same class verify-session-claims.py already warns about for json_field version keys). The claim itself was never 'the version is 45'; it was 'raRitualUntilTick is additive-optional and so costs no bump'. Rebound onto the MECHANISM that makes that true - the conditional emit/rehydrate pair in save.ts and the optional field declaration - which stays true across every future bump.",
       "checkpoint_commit": "6667f46fa10ac388738c4425ae70afd0d0b9c189",
       "real_context_tokens_at_close": 422091,
       "real_context_pct_at_close": 42.21,
@@ -290,7 +304,9 @@
     }
   ],
   "budget_total": null,
-  "totals": {},
+  "totals": {
+    "budget_remaining": null
+  },
   "carry_forward_s170": [
     "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
     "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
@@ -829,5 +845,12 @@
   "approval_quote": "Let's get cooking approved.",
   "scope_amendments_s171": [
     "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e)."
-  ]
+  ],
+  "auto_fill_applied": {
+    "ts": "2026-09-09T18:53:30.378173Z",
+    "fields": [
+      "totals.budget_remaining"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }

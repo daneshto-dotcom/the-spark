@@ -289,6 +289,23 @@ export type CreatureType =
    * because no CreatureSpawner mints it. Its population ceiling is therefore its own, not the
    * goblin family's. */
   | 'direwolf'
+  /* ── S171 (owner R142) — THE PHARAOH'S LOCUST CLOUD ───────────────────────────────────────────
+   * *"he lunches a cone of locusts that fly around in locust clouds targeting units and building
+   * for 15 sec. locusts attack with 10 atk and 10 pen and they cannot be targeted."*
+   *
+   * ⛔ ITS OWN LITERAL, AND THE REASON IS THE ONE THE `direwolf` BLOCK ABOVE STATES IN FULL:
+   * `serializeCreature` emits `hp` only when a creature is DAMAGED, so an undamaged one carries no
+   * stats on the wire and the receiving peer rebuilds them from its OWN `CREATURE_CONFIGS`, keyed by
+   * TYPE. 10/10 stats are therefore only expressible as a distinct type. It is SERIALIZED, so it
+   * takes PROTOCOL_VERSION 45 -> 46 on exactly the same grounds as 'direwolf' (44->45),
+   * 'lightningDrone' (13->14) and 'raceUnit' (41->42).
+   *
+   * ⭐ IT IS ALSO THE FIRST AND ONLY CONSUMER OF `untargetable`, the flag S169 shipped and nothing
+   * has ever set. Until this literal existed the whole condition was latent.
+   *
+   * ⚠ A SUMMON, like the direwolf: `sourceSpawnerId: null`, no CreatureSpawner mints it — which is
+   * exactly what puts it in front of the one-live-per-(owner,type) latch it must be exempt from. */
+  | 'locustCloud'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'

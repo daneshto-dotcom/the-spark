@@ -42,6 +42,16 @@ const OTHER_RENDERERS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'voltkin',
   'lightningDrone',
   'chewer',
+  /*
+   * ⭐ S171 (owner R142) — the locust cloud, drawn by `render/locustCloud.ts` into the goblin
+   * renderer's existing Graphics (no new display object — the `fogHiddenLayer` index trap).
+   *
+   * ⚠ CLAIMED HERE RATHER THAN ADDED TO `GOBLIN_KINDS`, and the distinction is the point of this
+   * file. Putting it in `GOBLIN_KINDS` would have satisfied this test by giving it the procedural
+   * GOBLIN puppet — a humanoid — which is not a swarm of insects by any reading. This guard exists
+   * to catch a type that DRAWS NOTHING; satisfying it with the wrong drawing would be gaming it.
+   */
+  'locustCloud',
 ]);
 
 describe('S168 — no CreatureType is invisible', () => {

@@ -105,12 +105,21 @@ function withUntargetable(type: CreatureType, fn: () => void): void {
 }
 
 describe('S169 R142/R121 — the condition itself', () => {
-  it('⭐ NOTHING shipped today is untargetable — the flag changes no existing unit', () => {
-    // The flag is optional and defaults to targetable, so introducing it must be behaviour-neutral
-    // for every unit already in the game. This is the assertion that says so.
-    for (const type of Object.keys(CREATURE_CONFIGS) as CreatureType[]) {
-      expect(isUntargetableType(type), `${type} must still be targetable`).toBe(false);
-    }
+  it('⭐ EXACTLY ONE type is untargetable, and it is the locust cloud', () => {
+    /*
+     * ⭐ S171 — REWRITTEN, AND THE REWRITE IS THE FEATURE LANDING. This read *"NOTHING shipped today
+     * is untargetable — the flag changes no existing unit"*, which was the correct assertion for
+     * S169: the condition shipped with no consumer, so behaviour-neutrality was the whole claim.
+     *
+     * R142's locust cloud is the first consumer the flag has ever had, so that assertion had to
+     * become false for the feature to exist at all. It is replaced rather than deleted, and it is
+     * now the STRONGER statement: exactly one type carries the flag. That still catches the thing
+     * the original was guarding against — a stray `untargetable: true` making some existing unit
+     * silently unclickable — while no longer forbidding the unit the flag was built for.
+     */
+    const untargetable = (Object.keys(CREATURE_CONFIGS) as CreatureType[])
+      .filter((t) => isUntargetableType(t));
+    expect(untargetable).toEqual(['locustCloud']);
   });
 
   it('⭐ and the predicate reads the flag when it is set', () => {

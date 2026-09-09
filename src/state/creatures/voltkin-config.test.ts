@@ -170,11 +170,19 @@ describe('CREATURE_CONFIGS lookup table', () => {
      * tables fail to compile without the new key, but a hand-maintained literal list can only fail
      * at RUNTIME. That is exactly why it is hand-maintained.
      */
+    /*
+     * ⭐ S171 — and a SIXTH time, for the Pharaoh's locust cloud (owner R142). Same lesson as the
+     * direwolf note directly above: `tsc` caught the two `Record<CreatureType,…>` tables instantly,
+     * and this hand-maintained list is the one site that can only fail at RUNTIME — which is exactly
+     * why it is hand-maintained and exactly why it keeps earning its place.
+     */
     expect(keys).toEqual([
       'chewer',
       'direwolf',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
-      'lightningDrone', 'raceUnit',
+      // S171 R142 — the Pharaoh's locust cloud. The list is `.sort()`ed, so it lands here between
+      // 'lightningDrone' and 'raceUnit', not beside the direwolf it is a sibling summon to.
+      'lightningDrone', 'locustCloud', 'raceUnit',
       't3Bat', 't3Hound', 't3Piranha', 't3Scarab', 't3Souleater', 't3Warband',
       // S167 — the six tier-9 bosses. This list is HAND-MAINTAINED and it earned its keep again:
       // it is the only thing in the tree that fails when a CreatureType is added to the union and

@@ -210,9 +210,25 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
      * boss already costs a fresh nine of the race shape — a real price, which is the natural cap the
      * design already contains."* This gate was a second, invisible cap on top of the designed one.
      */
+    /*
+     * ⭐⭐ S171 (owner R142) — **THE LOCUST CLOUD IS EXEMPT, AND THIS IS THE FOURTH TIME THIS LATCH
+     * HAS EATEN A SUMMON.**
+     *
+     * A cone of `PHARAOH_LOCUST_COUNT` clouds arrives on ONE tick from ONE owner with ONE type and
+     * `sourceSpawnerId: null`. Without this arm the first passes and **every other one is discarded
+     * with no error, no effect and no test red** — the exact wording the boss note above uses about
+     * the pharaoh the owner's wife could not build. A fan cannot pass a one-per-type bound any more
+     * than a pack of three could.
+     *
+     * ⚠ THE BOUND IS NOT REMOVED, IT IS MOVED SOMEWHERE IT CAN BE SEEN: the launcher counts live
+     * clouds against `PHARAOH_LOCUST_MAX_PER_OWNER` before spawning, direwolf-style, and
+     * `bossSkillsPharaoh.test.ts` asserts the cone produces the full count BEFORE it asserts any
+     * behaviour — because a silent 1-of-3 would otherwise look like a working feature.
+     */
     if (
       action.creatureType !== 'voltkin' &&
       action.creatureType !== 'direwolf' &&
+      action.creatureType !== 'locustCloud' &&
       !isT9BossType(action.creatureType)
     ) {
       for (const c of world.creatures.values()) {

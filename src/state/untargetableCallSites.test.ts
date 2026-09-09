@@ -128,7 +128,15 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
     const offenders: string[] = [];
     for (const f of enemyScans) {
       const src = readFileSync(f, 'utf8');
-      const guarded = src.includes('isUntargetable') || src.includes('findNearestEnemyCreatureFrom');
+      const guarded =
+      src.includes('isUntargetable') ||
+      src.includes('findNearestEnemyCreatureFrom') ||
+      // ⭐ S171 — the THIRD guarded scanner, added when the census flagged `bossSkillsPharaoh.ts` on
+      // the very first file to be written after it shipped. `nearestEnemyFor` (bossSkillsKraken.ts)
+      // took the gate in P2A, so a file that acquires THROUGH it inherits the refusal exactly as one
+      // routing through the chokepoint does. Listing it here rather than granting the Pharaoh a
+      // verdict is the honest fix: the file genuinely is guarded, just by a different guarded helper.
+      src.includes('nearestEnemyFor');
       if (guarded) continue;
       const r = rel(f);
       if (r in NOT_ACQUISITION) continue;
