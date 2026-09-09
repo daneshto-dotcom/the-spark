@@ -125,15 +125,23 @@ async function towerState(page: import('@playwright/test').Page) {
       primitives: Map<number, unknown>;
     };
     /*
-     * The tower layer is a Container parented to `aboveFogLayer`. `fog.spec.ts` pins its INDEX (3,
+     * ⭐ S169 (owner) — the tower layer moved to `fogHiddenLayer`, UNDER the fog: he ruled that an
+     * enemy's buildings must be hidden during BUILD ("You should only see, like, their castle").
+     * This probe follows it. `fog.spec.ts` rolls call BOTH layers now.
+     *
+     * The tower layer is a Container parented to that layer. `fog.spec.ts` pins its INDEX (3,
      * directly above the spawner aura at 2), so reading it positionally here is the same contract
      * read from the other side — if someone reorders the layer, that spec fails first and names it.
      */
-    const above = (window as { __SPARK__?: { aboveFogLayer?: unknown } }).__SPARK__?.aboveFogLayer as
+    const above = (window as { __SPARK__?: { fogHiddenLayer?: unknown } }).__SPARK__?.fogHiddenLayer as
       | { children: Array<{ children?: unknown[] }> }
       | undefined;
-    if (above === undefined) throw new Error('__SPARK__.aboveFogLayer unavailable');
-    const layer = above.children[3];
+    if (above === undefined) throw new Error('__SPARK__.fogHiddenLayer unavailable');
+    // ⭐ S169 — INDEX 3 -> 1. The twelve concealable renderers moved to `fogHiddenLayer`, so the
+    // tower layer is no longer preceded by the zone backdrop and the walls (those stayed above
+    // the fog). New order: 0 spawnerZone, 1 towerRenderer.layer, 2-3 creature, 4 chewer,
+    // 5-7 goblin, 8 turret, 9 princess, 10-11 stinkTower. `fog.spec.ts` rolls this call.
+    const layer = above.children[1];
     const towerSprites = layer?.children?.length ?? -1;
     return {
       spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
@@ -267,15 +275,16 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
         creatureSpawners: Map<number, { recipeId: string }>;
         primitives: Map<number, unknown>;
       };
-      const above = (window as { __SPARK__?: { aboveFogLayer?: unknown } }).__SPARK__
-        ?.aboveFogLayer as { children: Array<{ children?: unknown[] }> };
+      const above = (window as { __SPARK__?: { fogHiddenLayer?: unknown } }).__SPARK__
+        ?.fogHiddenLayer as { children: Array<{ children?: unknown[] }> };
       return {
         bosses: [...w.creatures.values()].filter((c) => c.type.startsWith('t9Boss')).map((c) => c.type),
         spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
         primitives: w.primitives.size,
-        // index 8 is goblinRenderer.spriteLayer — the ATLAS sprites, not the procedural puppet.
         // fog.spec.ts pins that ordering, so this reads the same contract from the other side.
-        atlasSprites: above.children[8]?.children?.length ?? -1,
+        // ⭐ S169 — INDEX 8 -> 6 for the same layer move. goblinRenderer.spriteLayer is the ATLAS
+        // sprites (not the procedural puppet at 5); `fog.spec.ts` pins the ordering.
+        atlasSprites: above.children[6]?.children?.length ?? -1,
       };
     });
 

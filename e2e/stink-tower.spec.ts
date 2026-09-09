@@ -140,7 +140,7 @@ test.describe('S141 P1 — the Stink Tower is real, and it is VISIBLE', () => {
     // nothing is the exact failure this file was written for, and it is invisible to state asserts.
     const drawn = await page.evaluate(() => {
       const S = (window as unknown as {
-        __SPARK__: { world: never; app: { ticker: { update: (t: number) => void } }; aboveFogLayer: {
+        __SPARK__: { world: never; app: { ticker: { update: (t: number) => void } }; fogHiddenLayer: {
           children: Array<{ constructor: { name: string }; geometry?: { bounds?: unknown }; getBounds?: () => { width: number; height: number } }>;
         } };
       }).__SPARK__;
@@ -154,7 +154,8 @@ test.describe('S141 P1 — the Stink Tower is real, and it is VISIBLE', () => {
       // Find any aboveFog Graphics whose painted bounds contain the tower position.
       let covering = 0;
       let widest = 0;
-      for (const child of S.aboveFogLayer.children) {
+      // S169 (owner) — the stink tower moved UNDER the fog with the other buildings.
+      for (const child of S.fogHiddenLayer.children) {
         const b = child.getBounds?.();
         if (b === undefined || b.width <= 0 || b.height <= 0) continue;
         widest = Math.max(widest, b.width);
