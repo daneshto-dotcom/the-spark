@@ -1,0 +1,181 @@
+/**
+ * SPARK — S170 P5 — **THE ZOMBIE'S ROT AURA AND THE KRAKEN'S SONAR WAVE, DERIVED FROM SYNCED STATE.**
+ *
+ * Owner, on the state of boss abilities: *"I didn't see that they have, like, cool generated videos
+ * or effects."* Five bosses ran eight abilities and almost nothing was drawn — damage simply
+ * happened. This module is the half of that pass that needs **no generated art**, so it could ship
+ * without an owner-in-the-loop generation round.
+ *
+ * ## ⭐⭐ THE MECHANISM, AND WHY IT IS NOT A `world.effects` PUSH
+ *
+ * A one-shot `world.effects` push is lost about **five times in six**: effects are sampled into
+ * snapshots at `NET_SNAPSHOT_HZ` (10) while `effectsRenderer.sync` wipes `world.effects` every
+ * render frame at 60. So a pushed ability visual appears on the host and flickers or vanishes on the
+ * peer. Everything here is instead a **pure function of synced state**, recomputed every frame:
+ *
+ *   · the rot aura reads a live zombie boss's `type`, `pos` and `stunnedUntilTick`;
+ *   · the sonar wave reads `(world.tick + bossId) % KRAKEN_SONAR_INTERVAL_TICKS`.
+ *
+ * ⭐ **THAT SECOND ONE IS FREE BECAUSE OF THE DETERMINISM RULE, NOT DESPITE IT.** The sim is forbidden
+ * from using accumulators, so `runKrakenSonar` phase-spreads by entity id against `world.tick` —
+ * exactly the expression above. Both operands are synced and hashed, so a renderer can compute which
+ * tick each Kraken fires, and how long ago it fired, with nothing on the wire and no new field. Even
+ * the wave's DIRECTION re-derives: the sim aims at `nearestEnemyFor(world, boss, rangeSq)`, a pure
+ * read of synced positions, so calling the same function here yields the same axis on every peer.
+ *
+ * ⚠ NO WALL CLOCK, NO `Math.random`, NO ACCUMULATORS — the same rules the sim obeys, because a
+ * visual that disagrees between two screens is the same class of defect as a divergent sim, just
+ * quieter. Animation phase comes from `world.tick` alone.
+ *
+ * ## ⚠ THE ONE ABILITY THAT COULD NOT BE DONE THIS WAY
+ *
+ * Vlad's life sap is NOT here. Its use-count lives in `sapLedger`, a host-local `Map` held in
+ * `hostTick`'s state object and never serialized, so a peer cannot know when he saps and the tether
+ * is not derivable at all. It needs either a synced field (a protocol bump) or a different trigger,
+ * and that is an owner decision rather than a silent design choice.
+ *
+ * ## THE DESIGN RULE THESE FOLLOW
+ *
+ * State effects go **above the head**; environment effects go **on the floor**; never mixed. That is
+ * why the stun stars read well (`stunStars.ts`) and why both of these sit on the ground: the aura is
+ * something happening TO the terrain around the boss, and the wave is something crossing it.
+ */
+
+import type { Graphics } from 'pixi.js';
+import {
+  KRAKEN_SONAR_COS_HALF_ANGLE,
+  KRAKEN_SONAR_INTERVAL_TICKS,
+  KRAKEN_SONAR_RANGE,
+  ZOMBIE_AURA_RADIUS,
+} from '../constants.ts';
+import { isStunned } from '../state/creatures/creature.ts';
+import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
+import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
+import type { World } from '../state/world.ts';
+
+/* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
+ * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
+ * the existing zombie visual was that the death blast *"kinda looks just like a stink tower radius.
+ * It didn't really do anything cool"* — so this deliberately does NOT draw a ring. A ring is what
+ * the stink tower already is, and re-using that vocabulary is what made the blast read as nothing. */
+const ROT_BUBBLES = 14;
+/** Bubble radius range, in px. Small enough that fourteen of them read as texture, not as objects. */
+const ROT_R_MIN = 2.2;
+const ROT_R_MAX = 5.5;
+/** A bubble's full swell-and-pop cycle, in ticks. Staggered per bubble so the ground never pulses. */
+const ROT_CYCLE_TICKS = 42;
+const ROT_TINT = 0x7bbf3a;
+/** The lingering scorch under the boil — one flat disc, dark and low-contrast, not a bright ring. */
+const ROT_SCORCH_TINT = 0x2a3d18;
+const ROT_SCORCH_ALPHA = 0.28;
+
+/* ── SONAR dial. ⚠ ALSO MINE. Owner R139 ruled the mechanic (a cone that STUNS and PUSHES BACK) and
+ * S170's creative pass asked for *"a heavy, rippling crescent of high-pressure water... with a thick,
+ * foamy leading edge"* whose edge visually CARRIES the units the knockback shoves. */
+const SONAR_VISIBLE_TICKS = 24;
+const SONAR_ARCS = 4;
+const SONAR_TINT = 0x8fdcff;
+const SONAR_FOAM_TINT = 0xffffff;
+
+/**
+ * Draw every live boss aura for this frame. Cheap no-op when no boss is on the board.
+ *
+ * ⚠ `g` is an EXISTING renderer's Graphics, never a new display object. A new child of
+ * `fogHiddenLayer` would shift its indices and break `tower-art.spec.ts`'s two hardcoded probes —
+ * which have already moved three times this session.
+ */
+export function drawBossAuras(g: Graphics, world: World): void {
+  for (const [bossId, boss] of world.creatures) {
+    if (boss.ehp <= 0) continue;
+    if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
+    if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
+  }
+}
+
+/**
+ * The ground under a live zombie boss BOILS: sickly bubbles swell and pop over a dark scorch.
+ *
+ * ⚠ GATED ON THE STUN, and that is not decoration. `runZombieRotAura` returns early for a stunned
+ * boss (owner R152 — *"cant do anything"*), so an aura that kept boiling while he was stunned would
+ * advertise damage that is not being dealt, and would make the player's only counterplay look like
+ * it failed. The visual and the sim read the SAME predicate.
+ */
+function drawRotAura(g: Graphics, world: World, id: number, pos: { x: number; y: number }, stunned: boolean): void {
+  if (stunned) return;
+  g.circle(pos.x, pos.y, ZOMBIE_AURA_RADIUS)
+    .fill({ color: ROT_SCORCH_TINT, alpha: ROT_SCORCH_ALPHA });
+
+  for (let k = 0; k < ROT_BUBBLES; k++) {
+    // Deterministic pseudo-scatter: integer hash of (bubble index, boss id). No Math.random.
+    const h = (k * 2654435761 + id * 40503) >>> 0;
+    const ang = ((h % 628) / 100);
+    const dist = ((h >>> 9) % ZOMBIE_AURA_RADIUS);
+    const bx = pos.x + Math.cos(ang) * dist;
+    const by = pos.y + Math.sin(ang) * dist * 0.55; // squashed: the board is seen at an angle
+
+    // Each bubble runs its own swell→pop cycle, offset so the field never pulses in unison.
+    const phase = (world.tick + k * 7 + id * 3) % ROT_CYCLE_TICKS;
+    const t = phase / ROT_CYCLE_TICKS;
+    // Swell for the first 70%, then pop: radius collapses and alpha goes with it.
+    const swell = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.3;
+    const r = ROT_R_MIN + (ROT_R_MAX - ROT_R_MIN) * swell;
+    g.circle(bx, by, r).fill({ color: ROT_TINT, alpha: 0.18 + 0.42 * swell });
+  }
+}
+
+/**
+ * The Kraken's sonar: a heavy crescent of water with a foamy leading edge, expanding along the axis
+ * the sim actually aimed at.
+ *
+ * ⭐⭐ THE WHOLE FUNCTION IS DERIVED, and this is the reference case for the rest of the ability-art
+ * pass. `runKrakenSonar` fires when `(world.tick + bossId) % KRAKEN_SONAR_INTERVAL_TICKS === 0`, so
+ * `sinceFire` below reconstructs how many ticks ago that happened — on any peer, from two synced
+ * numbers, with no new wire field and no effect push to lose.
+ *
+ * ⚠ AND THE AXIS RE-DERIVES RATHER THAN BEING REMEMBERED. Calling the sim's own `nearestEnemyFor`
+ * gives the same aim the wave was fired along, because it is a pure read of synced positions. The
+ * alternative — caching the axis at fire time in renderer state — would desync on a late-joining
+ * peer and on host migration, and would silently drift from whatever the sim aimed at.
+ */
+function drawSonarWave(
+  g: Graphics,
+  world: World,
+  id: number,
+  boss: { pos: { x: number; y: number } } & Parameters<typeof nearestEnemyFor>[1],
+): void {
+  const sinceFire = ((world.tick + id) % KRAKEN_SONAR_INTERVAL_TICKS);
+  if (sinceFire >= SONAR_VISIBLE_TICKS) return; // between waves — nothing to draw
+
+  const rangeSq = KRAKEN_SONAR_RANGE * KRAKEN_SONAR_RANGE;
+  const aim = nearestEnemyFor(world, boss, rangeSq);
+  if (aim === null) return; // no target in reach ⇒ the sim fired no wave either
+
+  const ax = aim.pos.x - boss.pos.x;
+  const ay = aim.pos.y - boss.pos.y;
+  const len = Math.sqrt(ax * ax + ay * ay);
+  if (len < 1) return;
+  const ux = ax / len;
+  const uy = ay / len;
+  const heading = Math.atan2(uy, ux);
+  // KRAKEN_SONAR_COS_HALF_ANGLE is the cosine of the half-angle the SIM tests, so the drawn cone is
+  // the real hitbox rather than an artistic guess at it.
+  const half = Math.acos(KRAKEN_SONAR_COS_HALF_ANGLE);
+
+  const t = sinceFire / SONAR_VISIBLE_TICKS; // 0 → 1 as the wave crosses the cone
+  const front = KRAKEN_SONAR_RANGE * t;
+  const fade = 1 - t;
+
+  // Stacked arcs trailing the front: the body of the water, thinning as it passes.
+  for (let k = 0; k < SONAR_ARCS; k++) {
+    const r = front - k * 14;
+    if (r <= 6) continue;
+    g.arc(boss.pos.x, boss.pos.y, r, heading - half, heading + half)
+      .stroke({ width: 5 - k, color: SONAR_TINT, alpha: (0.5 - k * 0.1) * fade });
+  }
+  // ⭐ THE FOAMY LEADING EDGE, thicker and brighter than the body. It is drawn LAST and at the front
+  // radius so it coincides with where the knockback is applied — the wave must look like it CARRIES
+  // the units it shoves, which is the detail that makes it read as force rather than as a coloured
+  // triangle.
+  g.arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
+    .stroke({ width: 7, color: SONAR_FOAM_TINT, alpha: 0.75 * fade });
+}

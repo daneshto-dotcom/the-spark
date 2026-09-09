@@ -41,6 +41,7 @@ import { isStunned } from '../state/creatures/creature.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
+import { drawBossAuras } from './bossAuras.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
@@ -599,6 +600,21 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    /*
+     * ⭐⭐ S170 P5 — BOSS GROUND AURAS FIRST, so they sit UNDER every unit drawn below. Owner:
+     * *"I didn't see that they have, like, cool generated videos or effects."*
+     *
+     * Drawn into THIS renderer's existing Graphics rather than a new display object, deliberately: a
+     * new child of `fogHiddenLayer` would shift its indices and break `tower-art.spec.ts`'s two
+     * hardcoded probes, which have already moved three times this session. Order inside one Graphics
+     * is call order, so drawing here puts the auras beneath the puppets, and the atlas `spriteLayer`
+     * is a separate container above this one — so they land under the real sprites too.
+     *
+     * ⚠ It walks `world.creatures` itself instead of riding the loop below, because that loop is
+     * gated on `GOBLIN_KINDS` and on an atlas being READY. An aura that waited for its boss's sheet
+     * to decode would flicker on for the first seconds of every fight.
+     */
+    drawBossAuras(g, world);
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);
