@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1334,
+  "tool_calls_session_total": 1341,
   "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "FULL",
   "plan_file": ".claude/plans/2026-09-09_PDR_S170_BATCH.md",
-  "session_status": "ALL APPROVED PRIORITIES COMPLETE - P5 minus the Vlad tether (owner decision)",
+  "session_status": "S170 CLOSED - 6/6 priorities complete + the fog rebuilt four times to the owner reported-and-verified state",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -583,17 +583,6 @@
       "e2e-soak render-heap census: 'display-object growth expected < 8, received 8' — exactly at the boundary, in the explicitly NON-GATING soak lane. Local repro was launched to get a real verdict rather than a guess; see the handoff for its outcome."
     ]
   },
-  "carry_forward_s169": [
-    "P2 THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel. Not started.",
-    "P4 COHERENCE SWEEP - the three-digit agentic pass over the whole app was never run; only a 5-finding regression sweep was (F1/F2/F3/F5 fixed and shipped, F4 folded in).",
-    "FOG - the ONLY defect is that the race BACKDROPS went under the fog with the buildings. Every race's artistic backdrop must be VISIBLE (all races; whatever backdrop a player chose, including plain black). Castle visible. Buildings/connectors/spawn stay HIDDEN during BUILD - and they ALREADY reveal on mouse-over via the cursor vision source at src/state/vision.ts:88 (R_PERSONAL, shipped S58/S63). DO NOT BUILD A HOVER REVEAL - it exists. Fix site main.ts:628-629, but NOT a two-way swap (that is regression F1) - it needs a third layer.",
-    "HIDE CONNECTORS once a tower is built - connectors become a damage readout only (owner design discussion, parked to next session).",
-    "PER-RACE BUILD + DESTROY CINEMATICS - the tier-3 sheets already ship a `spawning` row that no code can draw (T3_TOWER_STATE_ROWS skips row 1). Half-paid-for already. See ART_PIPELINE.md.",
-    "GENERATE TOWER ART for pentagram / lightningHub / Helga etc - they have no bespoke sheet.",
-    "ABILITY ART - no boss skill draws anything at all (six bosses, mechanically live, visually silent). Two deliverables each: the VFX and a renderer that DERIVES it from synced state.",
-    "ARCHDEMON ATTACK is frame-sparse, not mis-timed: 12 frames x 5 ticks = exactly the 60-tick attack cadence. Bosses need MORE frames, not a slower cadence.",
-    "KRAKEN ATTACK CLIP - tentacles are edge-amputated (unrecoverable). Owner will regenerate from the original still; check-clip.mjs reports sampleStart 60 for the pillarboxing half."
-  ],
   "handoff_document": "HANDOFF_S169_2026-09-09.md",
   "handoff_ready": true,
   "reflexion_entries_archived": true,
@@ -622,5 +611,24 @@
     "Q-FOG1: FOG_SHROUD_ALPHA is 0.55 and it is MINE. It keeps unexplored ground dimmed-but-readable (the C&C shroud he described) rather than either black (his \"you made everything in fog\" complaint) or fully lit (no fog of war left). One dial - he should eyeball it live.",
     "Q-T9DELAY: T9_RELEASE_DELAY_TICKS (5s standing before a boss walks out) is BYPASSED for any boss tower built during BUILD, because the S169 fight-edge pin sets nextSpawnTick = world.tick at the bell. Audit finding, pre-existing, not touched by P2. Intended, or should the 5s always apply?",
     "Q-BOSSSTATS: boss stats are still mine. He ruled they must \"suit the boss and the race\" and be scaled to each boss skill load - which can only be settled after P5/P6/P7/P8 fix what each boss actually does."
+  ],
+  "carry_forward_s170": [
+    "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
+    "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
+    "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
+    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
+    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
+    "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
+    "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
+    "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
+    "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
+    "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
+    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
+    "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
+    "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
+    "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
+    "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
+    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
+    "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
   ]
 }
