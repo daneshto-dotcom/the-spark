@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 573,
+  "tool_calls_session_total": 582,
   "session_id": "S169",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -378,7 +378,7 @@
   "carry_forward_s169": [
     "P2 THE PHARAOH (R142) - untargetable condition, locust cone, unkillable Ra channel. Not started.",
     "P4 COHERENCE SWEEP - the three-digit agentic pass over the whole app was never run; only a 5-finding regression sweep was (F1/F2/F3/F5 fixed and shipped, F4 folded in).",
-    "FOG - OWNER RULED TWICE AND THE SHIPPED BUILD CONTRADICTS HIM. Every race's artistic backdrop must be VISIBLE (ALL races, his and every opponent's; whatever backdrop a player chose, including plain black, is what shows). Castle visible. HIDDEN during BUILD: buildings, connectors, spawn. AND a hidden building must REVEAL ON MOUSE-OVER - nothing in the codebase does that today. Not reverted, on his explicit 'no dont put them board back'. Fix site main.ts:628-629, but NOT a two-way swap (that is regression F1) - it needs a third layer.",
+    "FOG - the ONLY defect is that the race BACKDROPS went under the fog with the buildings. Every race's artistic backdrop must be VISIBLE (all races; whatever backdrop a player chose, including plain black). Castle visible. Buildings/connectors/spawn stay HIDDEN during BUILD - and they ALREADY reveal on mouse-over via the cursor vision source at src/state/vision.ts:88 (R_PERSONAL, shipped S58/S63). DO NOT BUILD A HOVER REVEAL - it exists. Fix site main.ts:628-629, but NOT a two-way swap (that is regression F1) - it needs a third layer.",
     "HIDE CONNECTORS once a tower is built - connectors become a damage readout only (owner design discussion, parked to next session).",
     "PER-RACE BUILD + DESTROY CINEMATICS - the tier-3 sheets already ship a `spawning` row that no code can draw (T3_TOWER_STATE_ROWS skips row 1). Half-paid-for already. See ART_PIPELINE.md.",
     "GENERATE TOWER ART for pentagram / lightningHub / Helga etc - they have no bespoke sheet.",

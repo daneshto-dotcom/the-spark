@@ -1,5 +1,7 @@
 ## S169 (2026-09-09) — four owner-reported bugs root-caused, the energy mechanic archived, buildings put under the fog (and the owner says that went too far)
 
+- #an-absence-claim-needs-a-search-not-a-memory — I wrote in the handoff that "nothing in the codebase implements the hover reveal" and the owner answered that it had been working for two months. He was right. `src/state/vision.ts:88` puts a vision source of radius R_PERSONAL at the LOCAL PLAYER'S LIVE CURSOR and has since S58/S63; his own phrasing for it is quoted in the code I had just edited, at `main.ts:580`. Worse, the claim inverted the fix: putting buildings under the fog is exactly what made that existing reveal apply to them, so my handoff would have sent the next session to build a `pointerover` duplicate that fights the fog mask. This project's rule already says READ THE CODE THAT FIRES THE WARNING and GREP FOR THE CLAUSE, NOT FOR THE FILES YOU REMEMBER — an absence is the one claim shape that cannot be settled from memory, and it is the shape I asserted without a single grep.
+
 - #empirical-refutes-plausible-criticals — the owner's loudest bug ('why is there no sudoku? it doesn't work') did NOT reproduce; clicking through the running app settled it in two minutes where code-reading would have kept hunting. Drive the app before theorising about a UI report.
 
 - #claim-addressed-not-fixed — I wrote a block comment describing STUN's boss-skill gate and never wrote the check. Only a behavioural test caught it. A comment asserting a behaviour is not the behaviour.

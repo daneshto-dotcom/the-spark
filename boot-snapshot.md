@@ -12,8 +12,9 @@ verify-deploy 4/4 / build 811.5 KiB of 900.
 1. **FIX THE FOG.** The owner ruled twice. EVERY race's artistic backdrop must be VISIBLE - all
    races, his and every opponent's - and whatever backdrop a player chose (including the plain black
    one) is what shows. The castle stays visible. HIDDEN during BUILD: buildings, connectors, spawn.
-   AND a hidden building must REVEAL ON MOUSE-OVER, which nothing in the codebase does today. The
-   shipped build fogs everything and he called it stupid. Fix site `src/main.ts:628-629` - but NOT
+   Those already reveal on mouse-over - the cursor vision source in `src/state/vision.ts:88` has
+   done that since S58. DO NOT REBUILD IT. The shipped build fogs the backdrops too, and he called
+   that stupid; the backdrop is the ONLY defect. Fix site `src/main.ts:628-629` - but NOT
    as a two-way swap, that was regression F1 (the 0.55-alpha backdrop then composites over every
    building). Needs a third layer.
 2. **P2 THE PHARAOH (R142)** — untargetable condition, locust cone, unkillable Ra channel. Not started.
