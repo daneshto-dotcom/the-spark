@@ -40,6 +40,7 @@ import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
+import { drawStunStars } from './stunStars.ts';
 import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
@@ -243,20 +244,13 @@ const RACE_UNIT_ATLAS_BASE = (race: RaceId): string => `/art/race-units/unit-${r
  * `ensureTypeAtlas` in the draw loop — one puppet-green frame or two, not a permanent puppet.
  * `goblinRendererLazyAtlas.test.ts` pins that every `ATLASES` key is reachable by some path.
  */
-/* ── S169 R152 — the "seeing stars" dial. ⚠ EVERY NUMBER HERE IS MINE, NOT THE OWNER'S: he asked for
- * "a cool stunned 'seeing stars' effect above the stunned creatures heads" and gave no geometry.
- * Sized against the sprite scale so three stars clear a goblin's head without covering the HP pips,
- * and deliberately small enough that a stunned crowd does not become a wall of yellow. */
-const STUN_STAR_COUNT = 3;
-const STUN_STAR_R = 3.2;
-/** Orbit radii — wider than tall, so it reads as a ring seen in perspective rather than a halo. */
-const STUN_STAR_RX = 13;
-const STUN_STAR_RY = 4.5;
-/** How far above the creature's origin the ring floats. Clears the tallest goblin's head. */
-const STUN_STAR_LIFT = 30;
-/** Orbit speed, in integer phase units per tick — a lazy spin, not a blur. */
-const STUN_STAR_SPEED = 4;
-const STUN_STAR_TINT = 0xffe066;
+/*
+ * ⭐ S170 P5 — the "seeing stars" dial and its drawing MOVED to `render/stunStars.ts`, because the
+ * Kraken's sonar stuns units this renderer does not own (voltkin, chewer, lightningDrone) and they
+ * were freezing with no stars at all. The dial went with it so there is ONE set of numbers rather
+ * than three that drift. This renderer now passes `creatureSpriteScaleMul(type)`, which is the fix
+ * for the bosses: the lift was flat and sat inside a scaled-up sprite.
+ */
 
 export const EAGER_ATLAS_TYPES: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'goblinMelee', 'goblinArcher', 'goblinShield', 'goblinHound', 'goblinBat', 'goblinSuicide',
@@ -594,21 +588,6 @@ export class GoblinRenderer {
    * two players watching the same stunned unit see the stars in the same place, and a crowd of
    * stunned units does not pulse in lockstep because the id offsets them.
    */
-  private drawStunStars(
-    g: Graphics, x: number, y: number, tick: number, id: CreatureId, alpha: number,
-  ): void {
-    const n = Number(id);
-    for (let k = 0; k < STUN_STAR_COUNT; k++) {
-      // Phase: a slow orbit, offset per star and per creature so nothing marches in step.
-      const t = (tick * STUN_STAR_SPEED + k * (628 / STUN_STAR_COUNT) + n * 37) % 628;
-      const a = t / 100; // ~radians, integer-derived
-      const sx = x + Math.cos(a) * STUN_STAR_RX;
-      const sy = y - STUN_STAR_LIFT + Math.sin(a) * STUN_STAR_RY;
-      // A four-point twinkle rather than a filled dot: reads as a star at 3 px and needs no texture.
-      g.star(sx, sy, 4, STUN_STAR_R, 0, 0).fill({ color: STUN_STAR_TINT, alpha: 0.9 * alpha });
-    }
-  }
-
   /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
   private dropSprite(id: CreatureId): void {
     const sp = this.sprites.get(id);
@@ -763,7 +742,8 @@ export class GoblinRenderer {
          */
         const stunnedNow = isStunned(c, world.tick);
         this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
-        if (stunnedNow) this.drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, c.id, alpha);
+        // ⭐ S170 P5 — scaled by the sprite multiplier, or the ring sits inside a boss.
+        if (stunnedNow) drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, Number(c.id), alpha, creatureSpriteScaleMul(c.type));
       } else {
         // Procedural puppet — the instant first-paint and atlas-load-fail fallback (the Helga and
         // Voltkin precedent).
@@ -775,7 +755,8 @@ export class GoblinRenderer {
         // S169 R152 — the puppet fallback gets the stars too. A stunned unit whose atlas failed to
         // load must still READ as stunned, or the condition looks broken on exactly the peer that
         // is already having a bad time.
-        if (isStunned(c, world.tick)) this.drawStunStars(g, c.pos.x, c.pos.y, world.tick, c.id, alpha);
+        // The puppet is drawn unscaled, so the stars are too — scaleMul defaults to 1.
+        if (isStunned(c, world.tick)) drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), alpha);
       }
       this.drawHpPips(g, c.pos.x, c.pos.y, c.ehp, cfg.hp, cfg.def, alpha);
     }

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1200,
+  "tool_calls_session_total": 1219,
   "session_id": "S170",
   "session_kind": "batch",
   "session_start": "2026-09-08T18:00:00+02:00",
@@ -45,52 +45,62 @@
     {
       "id": "P1",
       "title": "LAYER STACK - backdrop stops painting over sparks/bonds/primitives (owner S166 complaint, still live); all race backdrops VISIBLE during BUILD; border walls VISIBLE (R162); buildings/connectors/spawn stay hidden behind the existing cursor reveal. One ordered layer map. Repoint fog.spec/tower-art.spec child indices; kill 5 stale comment blocks.",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "842f93f+7e86fba",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "GROUND LAYER at stage index 1 (only the flyover cinematic underlay beneath it) carrying the per-race backdrop + border walls, so the 0.55-alpha backdrop can no longer composite over free sparks/bonds/primitives/drag-preview - the owner S166 report, live in prod through two prior \"fixes\". THEN the fog became an INVERSE MASK on the concealable layer instead of an opaque sheet, which is the only way \"backdrop visible AND buildings hidden\" is expressible at all: a sheet paints over everything beneath it, so anything visible must be above it and anything above it covers the board. 5 renderers joined the concealable set (sparkRenderer, structureRenderer bondGraphics+primitiveLayer, keystoneTelegraph, dragPreview) because 3 of the 5 things the owner named were never concealable. FOG_SHROUD_ALPHA 0.55 (MY number, documented at the constant, matched to ZONE_BG_ALPHA) keeps the C&C shroud so unexplored ground still reads unexplored. Mask RELEASED on lift or the whole board would stay hidden through every FIGHT. fog.spec roll call rebuilt (14->17 children) + a new POSITIONAL ground contract that caught my own wrong assumption on its first run (asserted index 0, got 1 - RainbowFlyoverRenderer legitimately owns index 0). tower-art probes 3->6 and 8->11.",
+      "real_context_tokens_at_close": null
     },
     {
       "id": "P2",
       "title": "SECOND BOSS WAITS - delete the tower-level bossAlive gate in hostTick.ts (owner: \"the second one only came out when the first one died\"), rewrite its now-false docblock, flip the test that pins the waiting. Plus deserializeSpawner 900-tick chewer fuse leaking onto host-migrated t9 towers (should be 300).",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "Deleted the tower-level bossAlive gate in hostTick t9 release arm - the SECOND of two gates, and the one the owner actually hit. S169 removed only the applySpawnCreature latch (direct-dispatch-only, hence invisible in play). Its defending docblock cited the latch S169 had deleted, so its premise was already false. t9BossTower.test.ts had pinned the WAITING behaviour as correct (suite green ON the defect) and is INVERTED, now asserting TWO bosses alive through the real runHostTick. T9_RELEASE_DELAY_TICKS import dropped; the 5s standing period is untouched and still lives in spawnerIntervalTicks.",
+      "real_context_tokens_at_close": null
     },
     {
       "id": "P2b",
       "title": "DRONE BLOWS UP HARMLESSLY AT HOME (R170, owner-reported, VERIFIED live) - fuse expiry detonates in place; enemy-only sever + owner-sparing damage means nothing is hit, but droneLifecycle.ts:139 pushes BOMB_EXPLODE unconditionally. Gate the VFX on something actually being severed/damaged.",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "droneLifecycle BOMB_EXPLODE push gated on candidates.length > 0. Gate is on HIT NOTHING, not FUSE EXPIRED, so explode-in-place next to an enemy base still reads - only the empty blast is silenced. New droneFizzle.test.ts, 3 tests WITH a positive control (a real severing blast still shows) plus an anti-no-op assertion (the drone is still consumed). Render-only: world.effects is unhashed, no oracle moves, no protocol bump.",
+      "real_context_tokens_at_close": null
     },
     {
       "id": "P3",
       "title": "TIER-3 TOWERS TRULY LIMITLESS (R158) - remove the per-spawner cap for tier-3 race towers ONLY; goblin tower keeps its 10, so this needs a separate constant, not a deletion.",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "underGoblinCaps now `continue`s on t3* units, removing them from BOTH the global and the per-spawner term (owner R158 truly limitless). An EXEMPTION not a deleted constant - GOBLIN_MAX_PER_SPAWNER=10 stays for the goblin tower, which is the owner own bought design and shares the number. New tierThreeLimitless.test.ts, 5 tests, TWO of them positive controls proving the goblin ceiling still bites at 10 and pays out at 9.",
+      "real_context_tokens_at_close": null
     },
     {
       "id": "P4",
       "title": "SUDOKU = 12 OR MORE CONNECTORS (R159) - detectNonet counts component BONDS with >=, not primitives with ===. Easter egg, not surfaced in the tower tier.",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "detectNonet counts comp.bondIds.size >= NONET_CONNECTOR_COUNT (12) instead of primitiveIds.size === 12 (owner R159). New ringWorld() test helper so the suite can express the load-bearing fact: a ring of N shapes has N bonds, a chain of N has N-1, so 12 connectors is NOT a fixed shape count. 5 old shape-count assertions INVERTED not deleted, incl. the one that asserted 18-same-type is REJECTED - that assertion was itself the owner bug report. Tier-9 ring (9 shapes closed = 9 bonds) re-asserted clear of 12.",
+      "real_context_tokens_at_close": null
     },
     {
       "id": "P5",
@@ -171,5 +181,11 @@
     "tower/connector consolidation (recovered verbatim from the S169 transcript)",
     "art-generation COST pipeline: ChatGPT+Gemini stills, video loops on his own/free accounts, one-by-one for coherence",
     "the Voltkin complete rework - zero trace anywhere, now P9"
+  ],
+  "owner_away_parked_questions": [
+    "Q-W1: owner said \"two seconds before the end of the fight, all the creatures run back\". Walls falling ~2s BEFORE the fight starts is R165. Is creature retreat before the fight ENDS a separate NEW mechanic, or was that a slip?",
+    "Q-FOG1: FOG_SHROUD_ALPHA is 0.55 and it is MINE. It keeps unexplored ground dimmed-but-readable (the C&C shroud he described) rather than either black (his \"you made everything in fog\" complaint) or fully lit (no fog of war left). One dial - he should eyeball it live.",
+    "Q-T9DELAY: T9_RELEASE_DELAY_TICKS (5s standing before a boss walks out) is BYPASSED for any boss tower built during BUILD, because the S169 fight-edge pin sets nextSpawnTick = world.tick at the bell. Audit finding, pre-existing, not touched by P2. Intended, or should the 5s always apply?",
+    "Q-BOSSSTATS: boss stats are still mine. He ruled they must \"suit the boss and the race\" and be scaled to each boss skill load - which can only be settled after P5/P6/P7/P8 fix what each boss actually does."
   ]
 }

@@ -46,6 +46,8 @@ import type { CreatureState } from '../state/creatures/creature.ts';
 import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
+import { drawStunStars } from './stunStars.ts';
+import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { CreatureId } from '../types.ts';
 import { playSplatSFX, playGnawSFX } from './audioManager.ts';
@@ -143,6 +145,24 @@ export class ChewerRenderer {
       // three creature renderers, because the owner's requirement was explicitly that it be
       // consistent across ALL spawned creatures.
       drawGroundMarker(g, c.pos.x, c.pos.y, ownerTint(world.players, c.ownerPlayerId, PLAYER_COLORS), 1);
+      /*
+       * ⭐⭐ S170 P5 (owner R152) — **THE KRAKEN CAN STUN THIS UNIT, AND IT USED TO FREEZE SILENTLY.**
+       *
+       * `applyStun` has exactly one production caller — the sonar in `bossSkillsKraken.ts` — and its
+       * victim scan has **no type filter**, so it stuns whatever stands in the cone. The "seeing
+       * stars" the owner asked for (and the one ability visual he says he likes) shipped as a
+       * PRIVATE METHOD of `goblinRenderer`, which silently scoped it to `GOBLIN_KINDS`. This unit is
+       * drawn here instead, so it stopped dead with nothing above its head — which reads as the game
+       * hanging rather than as a stun, on exactly the units the counterplay is aimed at.
+       *
+       * ⭐ Derived, never pushed: `stunnedUntilTick` is serialized and hashed, so both peers draw the
+       * same stars on the same tick with nothing on the wire. Drawn into the renderer's EXISTING
+       * Graphics deliberately — a new display object would shift `fogHiddenLayer`'s child indices
+       * and break the two hardcoded probes in `tower-art.spec.ts` for a fourth time.
+       */
+      if (isStunned(c, world.tick)) {
+        drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), 1);
+      }
 
 
       // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED

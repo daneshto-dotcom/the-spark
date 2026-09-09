@@ -26,6 +26,8 @@ import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.
 import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
+import { drawStunStars } from './stunStars.ts';
+import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { Vec2 } from '../types.ts';
 import { playZapBurstSFX } from './audioManager.ts';
@@ -282,6 +284,28 @@ export class CreatureRenderer {
         const alpha = computeCreatureAlpha(creature);
         const scaleMul = isDrone ? LIGHTNING_DRONE_SPRITE_SCALE : 1;
         this.drawVoltkin(g, creature.pos.x, creature.pos.y, facing, alpha, pose, nowSec, (creature.id as number) * 1.37, scaleMul);
+      }
+      /*
+       * ⭐⭐ S170 P5 (owner R152) — **THE KRAKEN CAN STUN THIS UNIT, AND IT USED TO FREEZE SILENTLY.**
+       *
+       * `applyStun` has exactly one production caller — the sonar in `bossSkillsKraken.ts` — and its
+       * victim scan has **no type filter**, so it stuns whatever stands in the cone. The "seeing
+       * stars" the owner asked for (and the one ability visual he says he likes) shipped as a
+       * PRIVATE METHOD of `goblinRenderer`, which silently scoped it to `GOBLIN_KINDS`. This unit is
+       * drawn here instead, so it stopped dead with nothing above its head — which reads as the game
+       * hanging rather than as a stun, on exactly the units the counterplay is aimed at.
+       *
+       * ⭐ Derived, never pushed: `stunnedUntilTick` is serialized and hashed, so both peers draw the
+       * same stars on the same tick with nothing on the wire. Drawn into the renderer's EXISTING
+       * Graphics deliberately — a new display object would shift `fogHiddenLayer`'s child indices
+       * and break the two hardcoded probes in `tower-art.spec.ts` for a fourth time.
+       */
+      if (isStunned(creature, world.tick)) {
+        drawStunStars(
+          g, creature.pos.x, creature.pos.y, world.tick, Number(creature.id),
+          computeCreatureAlpha(creature),
+          isDrone ? LIGHTNING_DRONE_SPRITE_SCALE : 1,
+        );
       }
     }
 
