@@ -288,15 +288,21 @@ export class ZoneBackgroundRenderer {
   constructor(app: Application, parent: Container = app.stage) {
     this.layer = new Container();
     /*
-     * ⛔ AT INDEX 0 OF `aboveFogLayer`, NOT OF THE STAGE — and the first cut got this wrong in a way
-     * only a real frame could show.
+     * ⛔⛔ **SUPERSEDED BY S170 P1 — THIS RENDERER NOW LIVES ON `groundLayer`, AT THE BOTTOM OF THE
+     * STAGE, AND THAT IS CORRECT.** The history below is kept because it is the reason the obvious
+     * placement was rejected twice, and because the resolution is not "the old note was wrong" — it
+     * is that the MECHANISM changed underneath it.
      *
-     * Putting it at the bottom of the STAGE looked obviously right and rendered a black board in
-     * every multiplayer match. `fogRenderer` paints unexplored ground in `FOG_COLOR = 0x000000`
-     * (pure black, chosen so fog reads as darkness rather than a tint), and it sits ABOVE the board
-     * layers — so the backdrop was drawn, then painted over. It was visible only on the TITLE screen,
-     * where there is no fog, which is exactly the sort of half-working that a green suite calls
-     * success.
+     * The old note said: at index 0 of `aboveFogLayer`, never of the stage, because
+     * `fogRenderer` painted unexplored ground in opaque `FOG_COLOR` from ABOVE the board layers, so a
+     * stage-bottom backdrop was drawn and then painted over — black in every multiplayer match and
+     * visible only on the TITLE screen. That was true of a fog that was a SHEET.
+     *
+     * ⭐ S170 made the fog an INVERSE MASK on the concealable layer instead (see
+     * `fogRenderer.attachTo`), so it no longer paints the ground at all — it hides OBJECTS. With
+     * nothing painting over the board, stage-bottom becomes the right home, and it is the only
+     * placement that also stops this 0.55-alpha image compositing over the shapes (the owner's S166
+     * and S169 reports). The backdrop is now painted over by nothing and paints over nothing.
      *
      * ⭐ ABOVE THE FOG IS ALSO THE CORRECT ANSWER, not merely the one that shows. Which race owns
      * which quarter is already public — the castle art and the leaderboard both say so — and terrain

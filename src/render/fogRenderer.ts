@@ -303,7 +303,34 @@ export class FogRenderer {
        * the reveal-all contract inverted into its worst failure. Dropping the mask restores the
        * plain unconcealed board in one assignment.
        */
-      if (this.maskTarget !== null) this.maskTarget.setMask({ mask: null });
+      /*
+       * ⛔⛔ **`mask = null`, NOT `setMask({ mask: null })` — THE LATTER IS A NO-OP AND IT SHIPPED
+       * BROKEN FOR ONE COMMIT.** Pixi v8's `setMask` reads:
+       *
+       *     setMask(options) {
+       *       this._maskOptions = { ...this._maskOptions, ...options };
+       *       if (options.mask) { this.mask = options.mask; }   // null is FALSY -> skipped
+       *     }
+       *
+       * so clearing through it merges a null into the options and leaves the mask effect attached.
+       * The `mask` SETTER is the documented clear: it calls `removeEffect` and returns the effect to
+       * the pool.
+       *
+       * ⚠ WHAT THAT COST, because it is the exact catastrophe this branch exists to prevent:
+       * `fogActive` is BUILD-only, so this branch runs for the whole FIGHT and every solo match. With
+       * the release silently doing nothing, the inverse mask stayed attached over a `maskRT` still
+       * holding its last opaque-with-holes frame — the entire board hidden outside a 75 px cursor
+       * disc, for the rest of the match. Every other assertion in `fog.spec.ts` reads the mask
+       * TEXTURE rather than the board, so none of them could see it; the `maskAttached` assertion
+       * added in the same commit is what caught it.
+       *
+       * ⭐ `_maskOptions.inverse` SURVIVES THIS. `AlphaMaskPipe` reads `inverse` from
+       * `maskedContainer._maskOptions` at render time, and `setMask` merges into that object
+       * persistently — so re-attaching below restores an INVERSE mask, not a normal one. Verified
+       * against the installed Pixi rather than assumed, because a silently non-inverse mask would
+       * hide exactly the half of the board that should be visible.
+       */
+      if (this.maskTarget !== null) this.maskTarget.mask = null;
       return;
     }
     this.container.visible = true;
@@ -536,9 +563,17 @@ export class FogRenderer {
     target.setMask({ mask: this.maskSprite, inverse: true });
   }
 
-  /** DEV/test only — is the board currently concealed by a mask? */
+  /**
+   * DEV/test only — is the board currently concealed by a mask?
+   *
+   * ⚠ `!= null` IS DELIBERATE AND THE STRICT VERSION WAS A BUG. Pixi's `get mask()` returns
+   * `this._maskEffect?.mask`, which is **`undefined`** once the effect is removed — never `null`. A
+   * `!== null` test therefore reported "attached" forever, which is how the first cut of this getter
+   * turned a real failure into a confusing one: the mask genuinely was not releasing, AND the probe
+   * could not have told the difference.
+   */
   get maskAttached(): boolean {
-    return this.maskTarget !== null && this.maskTarget.mask !== null;
+    return this.maskTarget !== null && this.maskTarget.mask != null;
   }
 
   /** DEV/test only — current overlay alpha (1 = full fog, 0 = lifted). */

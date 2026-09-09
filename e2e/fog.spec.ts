@@ -79,7 +79,12 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       // WIN -> fade overlay out over ~1s (90 frames covers the 1s fade + margin).
       w.gameState = 'WIN';
       for (let f = 0; f < 90; f++) fog.sync(w, s.controls.cursor, 1 / 60);
-      const win = { alpha: fog.currentAlpha, visible: fog.container.visible };
+      const win = {
+        alpha: fog.currentAlpha,
+        visible: fog.container.visible,
+        // ⭐ S170 P1 — did the inverse MASK release with the fog?
+        maskAttached: fog.maskAttached,
+      };
 
       return { playing, win };
       /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -99,6 +104,18 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     // WIN: fog fully lifted and hidden -> reveal-all.
     expect(result.win.alpha).toBe(0);
     expect(result.win.visible).toBe(false);
+    /*
+     * ⭐⭐ S170 P1 — **AND THE MASK RELEASED, which is the worst failure mode of making the fog a mask
+     * instead of a sheet.**
+     *
+     * `fogActive` is BUILD-only, so `fogTargetAlpha` is 0 for the whole FIGHT phase and for every
+     * solo match, not just on WIN. An inverse mask left attached at that point would hide the ENTIRE
+     * board outside a 75 px cursor disc for the rest of the match — the reveal-all contract inverted
+     * into its worst form, and completely invisible to a mask-texture pixel assertion, which is all
+     * the rest of this test does. So the release is asserted through the renderer's own state.
+     */
+    expect(result.win.maskAttached, 'an inverse mask that outlives the fog hides the whole board')
+      .toBe(false);
   });
 
   test('S77 P2 — a global-reach entity (potato) renders THROUGH the fog; the board behind stays concealed', async ({
