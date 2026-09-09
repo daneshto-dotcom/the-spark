@@ -586,6 +586,28 @@ async function bootstrap(): Promise<void> {
    * ⚠ RENDER-ONLY, per viewer. Nothing here reads or writes `world`, nothing enters either hash, and
    * `PROTOCOL_VERSION` is unmoved: fog already keys off `world.localPlayerId`.
    */
+  /*
+   * ⛔⛔ S169 CORRECTION — THE ZONE BACKDROP AND WALLS MOVED HERE TOO, AND LEAVING THEM BEHIND WAS A
+   * REAL BUG I SHIPPED FOR ONE COMMIT.
+   *
+   * `ZoneBackgroundRenderer` pins itself to INDEX 0 of whatever layer it is given, and its own
+   * comment states the contract that makes that safe: *"At index 0 of that layer so every structure,
+   * creature and effect on it still paints on top."* That held only because the towers, creatures and
+   * defenders were its SIBLINGS. Moving those eight to `fogHiddenLayer` while leaving the backdrop on
+   * `aboveFogLayer` put a 0.55-alpha DARK full-zone image ON TOP of every building, unit and
+   * defender — roughly `0.45·sprite + 0.55·dark`, in every mode, fog or not.
+   *
+   * ⚠ THE OWNER HAS ALREADY REPORTED THIS EXACT CLASS ONCE, at S166: *"you have put the layer of dark
+   * background OVER the primitives (shapes), cant see them being generated."* I recreated it for the
+   * other half of the board.
+   *
+   * ⭐ AND MOVING THE GROUND DOWN IS THE RIGHT FIX RATHER THAN RAISING THE BUILDINGS, because the two
+   * constraints are otherwise contradictory: the fog must cover buildings (his new ruling) and the
+   * backdrop must sit under them (visual correctness). Both hold only if the whole board stack —
+   * ground, then contents — lives on one layer beneath the fog. It also matches what he actually
+   * asked for: *"Fog of war has to be real fog. You can only explore it when you [go there]."*
+   * Unexplored terrain being dark is the feature, not a casualty.
+   */
   const fogHiddenLayer = new Container();
   fogHiddenLayer.eventMode = 'none';
   // S100 P1 (TD Phase 1a) — spawner-zone aura. Constructed BEFORE creatureRenderer so its
@@ -603,8 +625,8 @@ async function bootstrap(): Promise<void> {
    * in every multiplayer match) and BELOW every structure, creature and effect on that layer.
    * Render-only: reads `world.layout` and each player's synced `raceId`, writes nothing, no wire field.
    */
-  const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, aboveFogLayer);
-  const wallRenderer = new WallRenderer(app, aboveFogLayer);
+  const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, fogHiddenLayer);
+  const wallRenderer = new WallRenderer(app, fogHiddenLayer);
   // ⭐ S149 P4 (R36) — THE FOOTER BAND. On `app.stage`, NOT `aboveFogLayer`: it is UI chrome
   // rather than a board object, so it must draw over everything including the fog. Contrast the
   // walls one line above, which are ground markings and deliberately sit under every entity.

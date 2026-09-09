@@ -235,27 +235,6 @@ test.describe('S57 Fog of War — client-side render mask', () => {
      * potato, rainbow, seagull, poop, hunter, stink cloud - because a thing that DAMAGES you through
      * the fog must be visible or it is an ambush rather than a hazard.
      */
-      '_Container', //   0 — zoneBackgroundRenderer.layer (S165) ⭐ NEW — the per-race zone art.
-                    //       ⚠ FIRST, AND ABOVE THE FOG, WHICH LOOKS WRONG UNTIL YOU READ WHY.
-                    //       `fogRenderer` paints unexplored ground in FOG_COLOR = 0x000000 — pure
-                    //       black, chosen so fog reads as darkness rather than a tint — and it sits
-                    //       ABOVE the board layers. A backdrop parented to the STAGE was therefore
-                    //       drawn and then painted over: the first cut of this feature rendered a
-                    //       black board in every multiplayer match and showed only on the TITLE
-                    //       screen, where there is no fog.
-                    //       ⭐ Above the fog is also CORRECT, not merely visible: which race owns
-                    //       which quarter is already public (the castle art and the leaderboard both
-                    //       say so) and terrain is static, so it conceals nothing about what an
-                    //       opponent is DOING. Fog hides activity, not geography — the same argument
-                    //       the wall renderer directly below already makes for zone borders.
-                    //       At index 0 so every structure, creature and effect draws on top of it.
-      '_Graphics',  //   1 — wallRenderer               (S149 P3) — the border walls
-                    //       ⚠ FIRST OF THE GAMEPLAY LAYERS ON PURPOSE (index 1 since S165 put the
-                    //       zone backdrop under it): the walls are ground markings that everything
-                    //       else draws on top of, and they sit ABOVE THE FOG because a zone
-                    //       border is public knowledge derived from `layout` — concealing it
-                    //       would reproduce the very complaint P1/P3 exist to fix, in the
-                    //       fogged half of the board.
       '_Graphics',  //  13 — hunterRenderer               (main.ts:502, S72 P2)
       '_Graphics',  //  14 — gathererRenderer.graphics   (main.ts:506, V6-1.1/S135) — the gatherers,
                     //       their race silhouettes, and the RACE-SHAPED PROCEDURAL KEEP that draws
@@ -303,6 +282,31 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.fogHiddenIdx, 'the concealable layer must be on the stage').toBeGreaterThanOrEqual(0);
     expect(r.fogHiddenIdx, 'and BELOW the fog, which is the whole fix').toBeLessThan(r.fogIdx);
     expect(r.fogHiddenChildNames).toEqual([
+      // ⭐ S169 CORRECTION — THE GROUND MOVED HERE TOO. Leaving the backdrop on `aboveFogLayer`
+      //   while its contents moved down put a 0.55-alpha dark image OVER every building and unit
+      //   (the S166 complaint, recreated). ZoneBackgroundRenderer forces addChildAt(...,0), so it
+      //   is index 0 here and the original relative order of all ten renderers is restored.
+      '_Container', //   0 — zoneBackgroundRenderer.layer (S165) ⭐ NEW — the per-race zone art.
+                    //       ⚠ FIRST, AND ABOVE THE FOG, WHICH LOOKS WRONG UNTIL YOU READ WHY.
+                    //       `fogRenderer` paints unexplored ground in FOG_COLOR = 0x000000 — pure
+                    //       black, chosen so fog reads as darkness rather than a tint — and it sits
+                    //       ABOVE the board layers. A backdrop parented to the STAGE was therefore
+                    //       drawn and then painted over: the first cut of this feature rendered a
+                    //       black board in every multiplayer match and showed only on the TITLE
+                    //       screen, where there is no fog.
+                    //       ⭐ Above the fog is also CORRECT, not merely visible: which race owns
+                    //       which quarter is already public (the castle art and the leaderboard both
+                    //       say so) and terrain is static, so it conceals nothing about what an
+                    //       opponent is DOING. Fog hides activity, not geography — the same argument
+                    //       the wall renderer directly below already makes for zone borders.
+                    //       At index 0 so every structure, creature and effect draws on top of it.
+      '_Graphics',  //   1 — wallRenderer               (S149 P3) — the border walls
+                    //       ⚠ FIRST OF THE GAMEPLAY LAYERS ON PURPOSE (index 1 since S165 put the
+                    //       zone backdrop under it): the walls are ground markings that everything
+                    //       else draws on top of, and they sit ABOVE THE FOG because a zone
+                    //       border is public knowledge derived from `layout` — concealing it
+                    //       would reproduce the very complaint P1/P3 exist to fix, in the
+                    //       fogged half of the board.
       '_Graphics',  //    2 — spawnerZoneRenderer          (main.ts:486, S100 P1)
       '_Container', //    3 — towerRenderer.layer          (S167) ⭐ NEW — the race tower BUILDINGS,
                     //       both tiers. Twelve tier-3 atlases and six tier-9 ones were on disk,

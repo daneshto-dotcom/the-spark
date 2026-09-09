@@ -137,11 +137,10 @@ async function towerState(page: import('@playwright/test').Page) {
       | { children: Array<{ children?: unknown[] }> }
       | undefined;
     if (above === undefined) throw new Error('__SPARK__.fogHiddenLayer unavailable');
-    // ⭐ S169 — INDEX 3 -> 1. The twelve concealable renderers moved to `fogHiddenLayer`, so the
-    // tower layer is no longer preceded by the zone backdrop and the walls (those stayed above
-    // the fog). New order: 0 spawnerZone, 1 towerRenderer.layer, 2-3 creature, 4 chewer,
-    // 5-7 goblin, 8 turret, 9 princess, 10-11 stinkTower. `fog.spec.ts` rolls this call.
-    const layer = above.children[1];
+    // ⭐ S169 — the layer MOVED (aboveFogLayer -> fogHiddenLayer) but the INDEX is unchanged at 3:
+    // the zone backdrop and walls moved down with the buildings, so the original relative order of
+    // all ten renderers is preserved. `fog.spec.ts` rolls call both layers.
+    const layer = above.children[3];
     const towerSprites = layer?.children?.length ?? -1;
     return {
       spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
@@ -282,9 +281,8 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
         spawners: [...w.creatureSpawners.values()].map((s) => s.recipeId),
         primitives: w.primitives.size,
         // fog.spec.ts pins that ordering, so this reads the same contract from the other side.
-        // ⭐ S169 — INDEX 8 -> 6 for the same layer move. goblinRenderer.spriteLayer is the ATLAS
-        // sprites (not the procedural puppet at 5); `fog.spec.ts` pins the ordering.
-        atlasSprites: above.children[6]?.children?.length ?? -1,
+        // index 8 is goblinRenderer.spriteLayer — the ATLAS sprites, not the procedural puppet.
+        atlasSprites: above.children[8]?.children?.length ?? -1,
       };
     });
 

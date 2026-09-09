@@ -17,7 +17,8 @@
  *
  * ASSERT (S127 — recalibrated against MEASURED CI + local numbers; see the calibration block
  * below for the arithmetic, and LOCKED_DECISIONS §SOAK-CALIBRATION for why):
- *   • ALWAYS: display-object growth < a WINDOW-SCALED census limit, texture growth < TEXTURE_LIMIT,
+ *   • ALWAYS: display-object growth < a WINDOW-SCALED census limit, texture growth < TEXTURE_LIMIT
+ *     (S169 — the latter now tolerates lazily-arriving race sheets; see the constant),
  *     the textures ≥ 0 Pixi tripwire, and post-GC heap growth < GROWTH_LIMIT_MB. Census and
  *     textures are the PRIMARY instruments here — entity-bounded and tick-INSENSITIVE, so they
  *     mean the same thing at 2 200 ticks as at 7 653.
@@ -130,10 +131,33 @@ const CENSUS_FLOOR_OBJECTS = 25;
 // something, so a red is honest — RE-RUN, never re-tune.
 const MIN_VALID_TICKS = 1_300;
 
-// Same reasoning: atlases/sprites are load-time, so entities never mint per-entity textures.
-// Observed Δ 0/0/+1/0 over n=4; 8 tolerates a lazily loaded atlas mid-run (the one observed +1)
-// while staying far under a per-entity leak signal. Was 64.
-const TEXTURE_LIMIT = 8;
+/*
+ * ⭐⭐ S169 — RAISED 8 → 40, AND THE PREMISE ABOVE IT WAS INVALIDATED BY DESIGN, NOT BY A LEAK.
+ *
+ * The old text read: *"atlases/sprites are load-time, so entities never mint per-entity textures.
+ * Observed Δ 0/0/+1/0 over n=4; 8 tolerates a lazily loaded atlas mid-run."* That was true while
+ * `ensureAtlases` fetched EVERY sheet on first sync — 18 sheets, 50.53 MiB — so the texture count
+ * was already at its ceiling before `s0` was ever sampled and growth really was ~0.
+ *
+ * S169 made the race-keyed sheets LAZY (owner: the green procedural puppet he saw was that 50 MiB
+ * queue, with the sheet he needed behind up to sixteen he never would). They now arrive DURING the
+ * measurement window, so texture growth is expected and load-bearing rather than suspicious.
+ *
+ * ⛔ THIS FAILED IN CI AT Δ8 AND WAS REPRODUCED LOCALLY AT Δ11 — worse, i.e. not boundary noise, and
+ * that is why it was chased instead of dismissed. The evidence line named the cause outright:
+ * `textures 82 → 93` while `census Δ48 vs limit 119` passed comfortably. A texture assertion, not a
+ * leak assertion.
+ *
+ * ⚠ STILL A BOUND, AND DERIVED RATHER THAN PICKED. A VS-BOTS match seats up to 4 players, each race
+ * warming THREE sheets (`preloadRaceKit`: raceUnit + tier-3 + tier-9 boss) = 12 sheets. Each sheet is
+ * one texture plus its per-cell frames' base, so ~2-3 textures per sheet in practice; 40 covers 12
+ * sheets with headroom and still sits an order of magnitude under a per-entity leak signal (~341
+ * entity lifecycles happened inside this window — a per-entity mint would read in the hundreds).
+ *
+ * ⚠ IF THIS EVER FAILS AGAIN, READ THE EVIDENCE LINE FIRST: `textures A → B` growing roughly with
+ * SEAT COUNT is this design working; growing with ENTITY COUNT is the leak this assertion is for.
+ */
+const TEXTURE_LIMIT = 40;
 
 interface RenderSample {
   heapMB: number;

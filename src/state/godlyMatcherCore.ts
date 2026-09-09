@@ -249,8 +249,25 @@ export function runSpawnerIgnition(world: World): void {
   }
   if (!hasTopologyChange) return;
 
-  if (igniteOneSpawnerRecipe(world, findAllPentagramAnchors(world), pentagramOwnerForAnchor, 'pentagram')) return;
-  if (igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub')) return;
+  /*
+   * ⛔⛔ S169 CORRECTION — THE `return`s ARE GONE, AND THEY WERE A HOLE IN THE FIX ONE COMMIT EARLIER.
+   *
+   * These read `if (igniteOneSpawnerRecipe(...)) return;`. That return is BOARD-WIDE, not per-owner:
+   * any un-registered pentagram or lightning hub anywhere skipped ALL THIRTEEN tower drains below for
+   * that tick. And ignition is not a structural scan — `runSpawnerIgnition` opens with
+   * `if (!hasTopologyChange) return;` — so the skipped ring then waited for the next BOND_FORMED
+   * anywhere on the board, which may never come if the player has stopped placing.
+   *
+   * That is verbatim the failure `fa89e6a` set out to kill (*"the inert ring is never retried ...
+   * sometimes it takes a whole turn"*), still reachable: two players closing rings on the same tick,
+   * or one player building a second pentagram while a tower ring waits.
+   *
+   * ⚠ THE ONE-PER-FRAME CAP ON THESE TWO IS UNCHANGED, which is why dropping the `return` is safe
+   * rather than a behaviour change: `igniteOneSpawnerRecipe` already ignites AT MOST ONE anchor per
+   * call. The `return` was capping the whole SWEEP, not the recipe — and nothing ever wanted that.
+   */
+  igniteOneSpawnerRecipe(world, findAllPentagramAnchors(world), pentagramOwnerForAnchor, 'pentagram');
+  igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub');
   /*
    * ⭐ S152 P2 — THE GOBLIN TOWER NEVER IGNITED. This line is the whole defect.
    *

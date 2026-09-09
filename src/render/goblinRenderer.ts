@@ -387,6 +387,12 @@ export class GoblinRenderer {
        * in the draw loop is the safety net for anything that appears unannounced.
        */
       if (!EAGER_ATLAS_TYPES.has(type)) continue;
+      // ⚠ S169 CORRECTION — LATCH THE EAGER ONES TOO. Without this, `ensureTypeAtlas` (called per
+      // drawn creature in `sync`) finds `typeLoadStarted` empty for a goblin type and loads the sheet
+      // a SECOND time: a duplicate manifest fetch and a second construction of every frame Texture
+      // for all six. The PNG came from Pixi's cache so nothing failed and nothing grew — which is
+      // exactly why it needed finding rather than waiting to be noticed.
+      this.typeLoadStarted.add(type);
       this.loadAtlas(type, base);
     }
   }
