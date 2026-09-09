@@ -2492,6 +2492,71 @@ export const ARCHDEMON_TELEPORT_INTERVAL_TICKS = 7 * PHYSICS_HZ;
  */
 export const ARCHDEMON_HELL_RADIUS = 170;
 export const ARCHDEMON_LONELINESS_RADIUS = 260;
+/* ──────────────────────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ S169 (owner R139) — THE KRAKEN'S SONAR WAVE.
+ *
+ * Owner: *"Sonar wave - spat from his mouth: **stuns and pushes back** all enemies in a **cone**
+ * around him."* And on the art (R143): *"so kracken opens his mouth and looks to send huge
+ * devastating sonar waves out of his mouth"*.
+ *
+ * ⛔ THREE VERBS THE SIM HAD NONE OF, and two of them are now built: STUN landed as a general
+ * condition (R152, `creatures/creature.ts`) and KNOCKBACK is the impulse below. The third, a CONE,
+ * is the geometry here — every acquisition scan in this game before this one was a RADIUS.
+ *
+ * ⚠⚠ EVERY NUMBER IN THIS BLOCK IS MINE, NOT THE OWNER'S. He specified the SHAPE of the skill (a
+ * cone, from the mouth, stun + pushback) and no magnitudes at all. They are calibrated against the
+ * boss numbers that already shipped rather than invented free-hand, and each says what it was
+ * measured against so he can overrule any of them on sight.
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * How far the wave carries. Sized at `ARCHDEMON_LONELINESS_RADIUS` (260) rather than the
+ * touch-range 170 of the rot aura and the hell-drag: a wave *spat* across the board should out-reach
+ * an aura you have to stand in, and 260 is the longest reach any shipped boss skill has.
+ */
+export const KRAKEN_SONAR_RANGE = 260;
+
+/**
+ * ⭐ THE CONE, AS A COSINE — NO TRIGONOMETRY AT RUNTIME, WHICH IS A DETERMINISM DECISION AND NOT A
+ * MICRO-OPTIMISATION.
+ *
+ * The half-angle test is `dot(toTarget, axis)² >= COS² · |toTarget|² · |axis|²` with a positive-dot
+ * guard, i.e. multiplications only — the same trick the squared-distance comparisons in every
+ * acquisition scan already use. Calling `Math.acos`/`Math.atan2` per candidate per tick would put a
+ * transcendental on the sim hot path, and cross-engine agreement on those is exactly the hazard the
+ * Verlet module's Δ7 note already flags for `cos`/`sin`.
+ *
+ * `0.5` is `cos 60°`, so the wave covers **120° in total** — wide enough to be worth dodging around
+ * rather than merely stepping aside from, narrow enough that it is visibly a cone and not an aura.
+ */
+export const KRAKEN_SONAR_COS_HALF_ANGLE = 0.5;
+
+/**
+ * How long the wave holds a unit. 2 s at 60 Hz. Against `FIGHT_PHASE_TICKS` (2700 = 45 s) and the
+ * ~9 s cadence below, a caught unit loses roughly a fifth of its time between waves — punishing,
+ * and short of a lock.
+ */
+export const KRAKEN_SONAR_STUN_TICKS = 2 * PHYSICS_HZ;
+
+/**
+ * The pushback, in pixels of instantaneous displacement applied as a Verlet impulse.
+ *
+ * ⚠ THIS IS AN IMPULSE, NOT A TELEPORT. It is applied by moving `prevPos` toward the Kraken, so the
+ * integrator reads a velocity pointing away and the unit SLIDES out over the following ticks,
+ * decaying under `VELOCITY_DAMPING`. That is why the stun gate returns `ZERO_ACCEL` rather than
+ * hard-stopping: a hard stop would eat this, and the two halves of *"stuns and pushes back"* would
+ * fight each other.
+ *
+ * 26 px of impulse against a 0.998/substep damping carries a unit roughly a body-length and a half.
+ */
+export const KRAKEN_SONAR_KNOCKBACK = 26;
+
+/**
+ * Cadence. 9 s sits between the Archdemon's 7 s teleport and the Warlord's 15 s pack, which is the
+ * band the shipped bosses already occupy — about five waves in a 45 s fight.
+ */
+export const KRAKEN_SONAR_INTERVAL_TICKS = 9 * PHYSICS_HZ;
+
 export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
 
 // ─────────────────────────────────────────────────────────────────────────────

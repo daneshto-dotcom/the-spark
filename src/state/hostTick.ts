@@ -89,6 +89,7 @@ import { razePrimitives } from './razePrimitives.ts';
 import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
 import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
 import { runArchdemonHell, runArchdemonTeleport } from './bossSkillsArchdemon.ts';
+import { runKrakenSonar } from './bossSkillsKraken.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -1820,6 +1821,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     runWarlordRage(world);
     runWarlordDirewolves(world);
     runArchdemonHell(world);
+    // ⭐ S169 (owner R139) — the Kraken's sonar cone: stun + pushback. Its own stun gate is inside
+    // the runner, beside every other boss's, rather than here.
+    runKrakenSonar(world);
     runArchdemonTeleport(world);
   }
 
