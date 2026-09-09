@@ -23,6 +23,7 @@ import {
   VLAD_LIFE_SAP_HEAL_PCT,
   VLAD_LIFE_SAP_TRIGGER_PCT,
   VLAD_LIFE_SAP_USES,
+  VLAD_SAP_FLASH_TICKS,
   ZOMBIE_AURA_PER_MILLE,
   ZOMBIE_AURA_RADIUS,
 } from '../constants.ts';
@@ -117,6 +118,14 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
     const heal = Math.floor((max * VLAD_LIFE_SAP_HEAL_PCT) / 100);
     vlad.ehp = Math.min(max, vlad.ehp + heal);
     ledger.set(id, spent + 1);
+    /*
+     * ⭐⭐ S170 P7 (owner) — STAMP THE FLASH SO EVERY PEER CAN DRAW IT, not just the host.
+     * Owner: *"we do need enemies to be able to see Vlad's tether, not just the player that owns
+     * Vlad."* `sapFlashUntilTick` is serialized and hashed; see the field's docblock in
+     * `creatures/creature.ts` for why a stamped deadline is the only shape that survives a 10 Hz
+     * snapshot against a one-tick trigger.
+     */
+    vlad.sapFlashUntilTick = world.tick + VLAD_SAP_FLASH_TICKS;
   }
 
   // A Vlad who is gone frees his ledger row, so a later Vlad on the same seat starts with three.

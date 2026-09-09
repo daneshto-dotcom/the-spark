@@ -27,12 +27,17 @@
  * visual that disagrees between two screens is the same class of defect as a divergent sim, just
  * quieter. Animation phase comes from `world.tick` alone.
  *
- * ## ⚠ THE ONE ABILITY THAT COULD NOT BE DONE THIS WAY
+ * ## ⭐ THE ONE ABILITY THAT NEEDED A SYNCED FIELD — and the owner is why
  *
- * Vlad's life sap is NOT here. Its use-count lives in `sapLedger`, a host-local `Map` held in
- * `hostTick`'s state object and never serialized, so a peer cannot know when he saps and the tether
- * is not derivable at all. It needs either a synced field (a protocol bump) or a different trigger,
- * and that is an owner decision rather than a silent design choice.
+ * Vlad's life sap could NOT be derived: its use-count lives in `sapLedger`, a host-local `Map` in
+ * `hostTick`'s state that is never serialized, and the triggering condition is true for essentially
+ * one tick (he drops below 40% and is healed straight back above it) so a 10 Hz snapshot misses it
+ * ~5/6 of the time. It was parked for exactly that reason — until the owner named the requirement
+ * that settles it: *"we do need enemies to be able to see Vlad's tether, not just the player that
+ * owns Vlad."* A cross-player visual is not optional decoration, so it earned
+ * `Creature.sapFlashUntilTick`: additive-optional (no protocol bump), serialized AND hashed, stamped
+ * by the sim where the heal lands. See `drawLifeSap` at the bottom for the part that is a SPEC GAP
+ * rather than a coding choice — R140 has no victim, so there is nothing to tether to.
  *
  * ## THE DESIGN RULE THESE FOLLOW
  *
@@ -46,6 +51,7 @@ import {
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
   KRAKEN_SONAR_RANGE,
+  VLAD_SAP_FLASH_TICKS,
   ZOMBIE_AURA_RADIUS,
 } from '../constants.ts';
 import { isStunned } from '../state/creatures/creature.ts';
@@ -89,6 +95,7 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.ehp <= 0) continue;
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
+    if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
   }
 }
 
@@ -178,4 +185,75 @@ function drawSonarWave(
   // triangle.
   g.arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
     .stroke({ width: 7, color: SONAR_FOAM_TINT, alpha: 0.75 * fade });
+}
+
+
+/* ── LIFE SAP dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R140: heals 20% of his health,
+ * three uses, only below 40%) and for the LOOK gave a reference rather than geometry: *"It needs to be
+ * looking scary and cool, like life sap, you know, and Dota... research Lifesap in Dota and you'll see
+ * how it looks."* */
+const SAP_MOTES = 18;
+/** Where the motes are born, as a multiple of the convergence radius. */
+const SAP_SPAWN_R = 96;
+const SAP_MOTE_R = 3.4;
+const SAP_TINT = 0xb3122b;
+const SAP_CORE_TINT = 0xff4d6a;
+
+/**
+ * ⭐⭐ S170 P7 (owner R140) — **VLAD'S LIFE SAP, AND IT IS DRAWN AS WHAT IT ACTUALLY IS.**
+ *
+ * Owner: *"we do need enemies to be able to see Vlad's tether, not just the player that owns Vlad. It
+ * needs to be looking scary and cool, like life sap, you know, and Dota."*
+ *
+ * ⛔ **THE HONEST PART, AND IT IS A SPEC GAP RATHER THAN A CODING CHOICE: THERE IS NO VICTIM.**
+ * R140 as he ruled it is a pure SELF-HEAL — `runVladLifeSap` does
+ * `vlad.ehp = Math.min(max, vlad.ehp + heal)` and touches nobody else. Nothing is drained from any
+ * unit. Dota's lifesteal shows blood travelling FROM a victim TO the caster, so drawing a tether here
+ * would paint a damage relationship that does not exist — the same class of lie as the drone's
+ * unconditional blast graphic (S170 P2b), where a full explosion played for an event that hit nothing.
+ * A visual must never claim a mechanic the sim does not have.
+ *
+ * ⭐ SO IT READS AS A DRAIN WITHOUT NAMING A DONOR: crimson motes converge on him from every side and
+ * are swallowed at his chest, over a brightening core. Life flowing INWARD is the Dota read; where it
+ * came from is left unstated, which is exactly as specific as the mechanic is.
+ *
+ * ⚠ IF HE WANTS THE TETHER, THE MECHANIC HAS TO CHANGE FIRST — the sap would need to drain a nearby
+ * enemy, which is his ruling to make, not a detail to infer from a reference to another game. Recorded
+ * as an open question rather than silently built either way.
+ *
+ * ⚠ CROSS-PLAYER BY CONSTRUCTION. `sapFlashUntilTick` is serialized and hashed, so the enemy sees this
+ * on the same tick the owner does — which was his actual requirement. It is NOT gated on the local
+ * seat, and it deliberately does not ride the fog's concealment rules any differently from the boss
+ * itself: if you can see Vlad, you can see him feed.
+ */
+function drawLifeSap(
+  g: Graphics,
+  world: World,
+  id: number,
+  pos: { x: number; y: number },
+  until: number | undefined,
+): void {
+  if (until === undefined || world.tick >= until) return;
+  const remaining = until - world.tick;
+  // 0 -> 1 across the flash. Integer-derived: no wall clock, no accumulator.
+  const t = 1 - remaining / VLAD_SAP_FLASH_TICKS;
+
+  // The core swells and brightens as the life lands.
+  g.circle(pos.x, pos.y, 10 + 16 * t).fill({ color: SAP_CORE_TINT, alpha: 0.5 * (1 - t) + 0.15 });
+
+  for (let k = 0; k < SAP_MOTES; k++) {
+    // Deterministic bearing per mote per boss - identical on every peer.
+    const h = (k * 2246822519 + id * 668265263) >>> 0;
+    const ang = (h % 628) / 100;
+    // Each mote travels inward on its own stagger, so they arrive as a stream not a ring.
+    const lead = ((h >>> 11) % 40) / 100; // 0 .. 0.39
+    const travel = Math.min(1, Math.max(0, (t - lead) / (1 - lead || 1)));
+    if (travel <= 0) continue;
+    const dist = SAP_SPAWN_R * (1 - travel);
+    const mx = pos.x + Math.cos(ang) * dist;
+    const my = pos.y + Math.sin(ang) * dist * 0.7; // squashed: the board is seen at an angle
+    // A mote shrinks as it is swallowed, which is what sells "absorbed" over "orbiting".
+    g.circle(mx, my, SAP_MOTE_R * (1 - travel * 0.55))
+      .fill({ color: SAP_TINT, alpha: 0.35 + 0.55 * travel });
+  }
 }

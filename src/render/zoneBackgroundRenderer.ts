@@ -157,7 +157,15 @@ function zoneArtUrl(race: RaceId, layout: ZoneLayout): string {
  * 3 = bottom-left. Getting this wrong paints a seat's world over its neighbour's ground, which is
  * exactly the kind of thing that looks like an art bug and is a mapping bug.
  */
-function zoneRect(
+/*
+ * ⭐ S170 P6 — EXPORTED, because `fogRenderer` now needs the same rectangle to leave the local
+ * player's own quarter fully lit (owner: *"your own character zone or quadrant should be always lit
+ * and visible, completely, not just around your structures"*). Shared rather than re-derived: a
+ * second copy of this geometry that drifted would light a rectangle that does not match the
+ * backdrop it is lighting, and this file's own docblock already warns that getting the clock order
+ * wrong "looks like an art bug and is a mapping bug".
+ */
+export function zoneRect(
   zone: number,
   layout: ZoneLayout,
 ): { x: number; y: number; w: number; h: number } {

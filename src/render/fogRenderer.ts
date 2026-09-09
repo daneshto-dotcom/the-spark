@@ -50,6 +50,8 @@ import {
   type GhostMemory,
 } from '../state/exploredMemory.ts';
 import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './shapes.ts';
+import { zoneRect } from './zoneBackgroundRenderer.ts';
+import { zoneOwner } from '../state/zones.ts';
 import type { World } from '../state/world.ts';
 import type { PrimitiveId, Vec2 } from '../types.ts';
 
@@ -146,6 +148,22 @@ export class FogRenderer {
   private readonly gridImageData: ImageData;
   private readonly gridTex: Texture;
   private readonly gridSprite: Sprite;
+  /*
+   * ⭐⭐ S170 P6 (owner) — **YOUR OWN QUARTER IS NEVER FOGGED.** A full-rectangle erase over the local
+   * seat's own zone, composed into the mask alongside the radial vision brushes.
+   *
+   * Owner, looking at the shipped build: *"I don't like how it's too dim... the background should be
+   * not as dim, especially your [own]. Maybe the other player's background can be dim as you've done
+   * it... But your own character zone or quadrant should be always lit and visible. Okay?
+   * Completely. Not just around your structures."*
+   *
+   * ⚠ "NOT JUST AROUND YOUR STRUCTURES" IS THE WHOLE POINT, and it is why this is a rectangle rather
+   * than another radius. Vision was assembled purely from radial sources — the cursor (`R_PERSONAL`
+   * 75), each owned primitive (`R_BEACON` 80) and each owned creature (`R_CREATURE_VISION` 120) — so
+   * an empty corner of your OWN ground stayed shrouded until you swept the mouse across it. No number
+   * of extra radii fixes that; the unit of "mine" is the ZONE.
+   */
+  private readonly ownZoneErase: Sprite;
   private gridNeedsRedraw = true;
   /** Tracks the PLAYING edge so remembered areas reset at the start of each match. */
   private wasActive = false;
@@ -207,6 +225,17 @@ export class FogRenderer {
     this.gridSprite.width = CANVAS_WIDTH;
     this.gridSprite.height = CANVAS_HEIGHT;
     this.maskScene.addChild(this.gridSprite);
+
+    /*
+     * ⚠ ADDED AFTER `gridSprite`, WHICH IS LOAD-BEARING. The grid paints the "explored but not
+     * currently visible" DIM tier over the dark base, so an erase added before it would be painted
+     * back over and the owner's own zone would still read as dim-explored rather than as lit.
+     */
+    this.ownZoneErase = new Sprite(Texture.WHITE);
+    this.ownZoneErase.blendMode = 'erase';
+    this.ownZoneErase.eventMode = 'none';
+    this.ownZoneErase.visible = false;
+    this.maskScene.addChild(this.ownZoneErase);
 
     // Displayed layer: the low-res mask upscaled to full screen (bilinear-smooth).
     // Alpha = fog strength (tweened for the win-lift).
@@ -308,6 +337,23 @@ export class FogRenderer {
     if (!due) return;
 
     const sources = computeVisionSources(world, localCursor);
+    /*
+     * ⭐ S170 P6 — light the local seat's whole quarter before anything else is composed.
+     *
+     * ⚠ GATED ON A REAL SEAT. `zoneOwner` fails CLOSED (null for a seat with no ground), and a
+     * spectator or an out-of-range seat must not silently light zone 0 — that would hand one player
+     * a free reveal of someone else's ground, which is the opposite of what the fog is for.
+     */
+    const ownZone = zoneOwner(world.localPlayerId as unknown as number, world.layout);
+    if (ownZone === null) {
+      this.ownZoneErase.visible = false;
+    } else {
+      const r = zoneRect(ownZone, world.layout);
+      this.ownZoneErase.visible = true;
+      this.ownZoneErase.position.set(r.x, r.y);
+      this.ownZoneErase.width = r.w;
+      this.ownZoneErase.height = r.h;
+    }
     // S59 P1 — accumulate explored cells; only re-upload the grid texture when the
     // explored set actually grew (most ticks it doesn't) — keeps the sim canary happy.
     if (markVisible(this.grid, sources) || this.gridNeedsRedraw) {

@@ -2370,6 +2370,13 @@ export const T9_ZOMBIE_DEATH_BLAST_RADIUS = 380;
 export const VLAD_LIFE_SAP_HEAL_PCT = 20;
 export const VLAD_LIFE_SAP_TRIGGER_PCT = 40;
 export const VLAD_LIFE_SAP_USES = 3;
+/*
+ * ⭐ S170 P7 — how long the life-sap flash is drawn for, in ticks. ⚠ THIS NUMBER IS MINE, NOT THE
+ * OWNER'S. He asked for the effect to be *"looking scary and cool, like life sap in Dota"* and gave
+ * no duration. ~0.6 s is long enough to register on a busy board and short enough that three saps
+ * over a fight read as three distinct events rather than as a permanent aura.
+ */
+export const VLAD_SAP_FLASH_TICKS = 36;
 
 /*
  * ⭐⭐ S168 (owner R138, CORRECTED BY HIM TWICE) — **THE ZOMBIE BOSS'S ROT AURA.**

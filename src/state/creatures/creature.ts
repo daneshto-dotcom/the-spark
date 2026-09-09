@@ -550,6 +550,28 @@ export interface Creature {
    * Mutable; defaults undefined (no factory change).
    */
   stunnedUntilTick?: number;
+  /*
+   * ⭐⭐ S170 P7 (owner R140) — **THE LIFE-SAP FLASH, AND IT EXISTS ONLY BECAUSE THE VISUAL HAD TO BE
+   * VISIBLE TO THE ENEMY.**
+   *
+   * Owner: *"we do need enemies to be able to see Vlad's tether, not just the player that owns Vlad.
+   * It needs to be looking scary and cool."*
+   *
+   * ⛔ WITHOUT THIS FIELD THE EFFECT IS NOT DRAWABLE AT ALL. The sap's use-count lives in
+   * `sapLedger`, a host-local `Map` held in `hostTick`'s state object that is never serialized, so a
+   * peer cannot know a sap happened. Nor can it be inferred: the sap fires on the first tick `ehp`
+   * drops below `VLAD_LIFE_SAP_TRIGGER_PCT` and immediately heals him back ABOVE that line, so the
+   * triggering condition is true for essentially one tick — and snapshots sample at 10 Hz against a
+   * 60 Hz sim, so a peer would miss it roughly five times in six. A one-shot `world.effects` push
+   * loses on exactly the same arithmetic. A stamped DEADLINE is the shape that survives sampling,
+   * which is the same reason `stunnedUntilTick` above is a deadline rather than a boolean.
+   *
+   * ⚠ ADDITIVE-OPTIONAL, so it costs no `PROTOCOL_VERSION` bump: a stale peer that never sends it
+   * simply draws no flash, and cannot fall through a switch. It IS hashed, deliberately — an
+   * unhashed serialized field is a wide-oracle blind spot, which is exactly how `castleHp` hid
+   * behind `players: 'acknowledged'` and gated emission with neither hash able to see it diverge.
+   */
+  sapFlashUntilTick?: number;
 }
 
 /**

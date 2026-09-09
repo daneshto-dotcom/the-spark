@@ -183,3 +183,80 @@ describe('drawBossAuras — the Kraken sonar wave', () => {
       .toBeGreaterThan(radiusAt(1));
   });
 });
+
+describe("drawBossAuras — Vlad's life sap (S170 P7, owner R140)", () => {
+  it('⭐ draws while the flash stamp is live, and stops when it expires', () => {
+    const w = board();
+    const vlad = put(w, 1, T9_BOSS_TYPE.vampires);
+    (vlad as { sapFlashUntilTick?: number }).sapFlashUntilTick = w.tick + 20;
+
+    const during = recorder(); drawBossAuras(during.g, w);
+    expect(during.ops.length).toBeGreaterThan(0);
+
+    w.tick += 25; // past the stamp
+    const after = recorder(); drawBossAuras(after.g, w);
+    expect(after.ops, 'a stale stamp must not leave a permanent aura').toHaveLength(0);
+  });
+
+  it('⛔ draws NOTHING without the stamp — no flash for a Vlad who has not sapped', () => {
+    const w = board();
+    put(w, 1, T9_BOSS_TYPE.vampires); // no sapFlashUntilTick at all
+    const { g, ops } = recorder();
+    drawBossAuras(g, w);
+    expect(ops).toHaveLength(0);
+  });
+
+  it('⭐⭐ CROSS-PLAYER — the effect is not gated on the local seat, which was the owner requirement', () => {
+    /*
+     * Owner: *"we do need enemies to be able to see Vlad's tether, not just the player that owns
+     * Vlad."* This is the assertion that keeps it honest: the same Vlad, owned by the OTHER seat,
+     * must draw identically. A `localPlayerId` check anywhere in this path would fail here — and
+     * that check is exactly the shape a future "optimisation" would add.
+     */
+    const mine = board();
+    const a = put(mine, 1, T9_BOSS_TYPE.vampires, P0);
+    (a as { sapFlashUntilTick?: number }).sapFlashUntilTick = mine.tick + 20;
+    const ra = recorder(); drawBossAuras(ra.g, mine);
+
+    const theirs = board();
+    const bb = put(theirs, 1, T9_BOSS_TYPE.vampires, P1);
+    (bb as { sapFlashUntilTick?: number }).sapFlashUntilTick = theirs.tick + 20;
+    const rb = recorder(); drawBossAuras(rb.g, theirs);
+
+    expect(rb.ops, "an enemy Vlad must feed just as visibly as your own").toEqual(ra.ops);
+  });
+
+  it('⛔ DETERMINISM — identical tick + stamp gives byte-identical draws, and it animates', () => {
+    const w = board();
+    const vlad = put(w, 1, T9_BOSS_TYPE.vampires);
+    (vlad as { sapFlashUntilTick?: number }).sapFlashUntilTick = w.tick + 30;
+    const a = recorder(); drawBossAuras(a.g, w);
+    const b2 = recorder(); drawBossAuras(b2.g, w);
+    expect(b2.ops).toEqual(a.ops);
+
+    w.tick += 6;
+    const c = recorder(); drawBossAuras(c.g, w);
+    expect(c.ops, 'the motes must travel, or it is a static blob').not.toEqual(a.ops);
+  });
+
+  it('the motes converge INWARD — that is what makes it read as absorbed rather than orbiting', () => {
+    const w = board();
+    const vlad = put(w, 1, T9_BOSS_TYPE.vampires, P0, 500, 500);
+    const until = w.tick + 36;
+    (vlad as { sapFlashUntilTick?: number }).sapFlashUntilTick = until;
+
+    /** Mean distance of the drawn motes from Vlad at a given point in the flash. */
+    const spread = (tickOffset: number): number => {
+      w.tick = until - 36 + tickOffset;
+      const { g, ops } = recorder();
+      drawBossAuras(g, w);
+      const pts = ops.filter((o) => o.startsWith('circle')).map((o) => {
+        const [, x, y] = o.split(' ');
+        return Math.hypot(Number(x) - 500, Number(y) - 500);
+      });
+      return pts.reduce((s2, v) => s2 + v, 0) / Math.max(1, pts.length);
+    };
+    expect(spread(30), 'late in the flash the motes are nearer his chest than early on')
+      .toBeLessThan(spread(12));
+  });
+});

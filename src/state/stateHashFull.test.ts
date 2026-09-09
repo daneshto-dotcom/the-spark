@@ -236,6 +236,40 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
   });
 
   /*
+   * ⭐⭐ S170 P7 — **`sapFlashUntilTick` — VLAD'S LIFE-SAP STAMP — MUST CONTRIBUTE.**
+   *
+   * The THIRD sub-site of adding a hashed field, and the one the project rule says the union alone
+   * does not buy: the `...Hashed` union is a compile-time coverage contract, the hand-written string
+   * projection is the actual behaviour, and only this test proves the two agree. A field in the union
+   * and absent from the projection compiles clean and hashes nothing.
+   *
+   * ⚠ WHY IT IS HASHED AT ALL, given it is a cosmetic stamp. It is SERIALIZED, and an unhashed
+   * serialized field is a wide-oracle blind spot — precisely how `castleHp` hid behind
+   * `players: 'acknowledged'` while GATING emission, with neither hash able to see it diverge. A
+   * host and its worker mirror that disagreed about this stamp would show one player a feeding Vlad
+   * and the other nothing, and no gate would say so.
+   */
+  it('⭐ sapFlashUntilTick — the LIFE-SAP stamp — flips the wide hash', () => {
+    const w = worldWithEntities();
+    const wideBefore = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.sapFlashUntilTick = 1234;
+    expect(hashWorldStateFull(w), 'the projection must carry the life-sap stamp').not.toBe(wideBefore);
+  });
+
+  it('⚠ and two DIFFERENT sap deadlines hash differently — not merely present-vs-absent', () => {
+    /*
+     * The weaker assertion above would pass against a projection that emitted a constant for any
+     * defined value. The flash DURATION is what the renderer reads, so a stamp of 1234 and a stamp
+     * of 1235 must be distinguishable or a desynced deadline is invisible to the oracle.
+     */
+    const w = worldWithEntities();
+    w.creatures.get(asCreatureId(1))!.sapFlashUntilTick = 1234;
+    const a = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.sapFlashUntilTick = 1235;
+    expect(hashWorldStateFull(w)).not.toBe(a);
+  });
+
+  /*
    * ⛔⛔ THIS TEST'S PREDECESSOR WAS VACUOUS AND ITS COMMENT WAS FALSE. Recorded rather than quietly
    * rewritten, because the failure mode is one this repo keeps paying for.
    *

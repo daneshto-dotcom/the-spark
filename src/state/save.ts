@@ -743,6 +743,8 @@ interface SerializedCreature {
    * under the additive-optional rule with NO protocol bump — the same footing as `poopyUntilTick`.
    */
   readonly stunnedUntilTick?: number;
+  /** S170 P7 — Vlad's life-sap flash deadline. Additive-optional; peers without it draw nothing. */
+  readonly sapFlashUntilTick?: number;
 }
 
 /**
@@ -1955,6 +1957,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
+    ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
   };
 }
 
@@ -2320,6 +2323,7 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
+    ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
   };
 }
 

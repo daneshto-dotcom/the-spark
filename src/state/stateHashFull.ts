@@ -298,7 +298,8 @@ type CreatureHashed =
    * the projection below and the per-field contribution test in `stateHashFull.test.ts` are the other
    * two of the three sub-sites.
    */
-  | 'stunnedUntilTick';
+  | 'stunnedUntilTick'
+  | 'sapFlashUntilTick';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -544,6 +545,9 @@ export function determinismParts(world: World): string[] {
         // S169 R152 — the STUN stamp. `o()` renders undefined as the absent marker, so an unstunned
         // board hashes identically to one with the field never introduced.
         `:su${o(c.stunnedUntilTick)}`,
+        // S170 P7 — Vlad's life-sap flash. Hashed rather than serialize-only: an unhashed synced
+        // field is a wide-oracle blind spot, which is how castleHp hid behind `players`.
+        `:sf${o(c.sapFlashUntilTick)}`,
     );
   }
 
