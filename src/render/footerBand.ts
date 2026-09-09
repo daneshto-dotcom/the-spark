@@ -208,8 +208,9 @@ export class FooterBand {
      * was fixed, and the one R80 is actually about.
      *
      * Laid out from THIS frame's chips (never a cached origin) so a sixth recipe complexity moves
-     * the strip instead of drawing it through the new chip — the `legendAnchor` discipline, applied
-     * on the other side of the row.
+     * the strip instead of drawing it through the new chip. ⚠ S169: this used to say "the
+     * `legendAnchor` discipline, applied on the other side of the row" — that helper is gone with
+     * the six-shape key (owner R153), and the discipline it named now lives only here.
      */
     const orders = world.gathererOrders.get(world.localPlayerId) ?? [];
     this.strip = shapeStripLayout(this.chips, orders);
