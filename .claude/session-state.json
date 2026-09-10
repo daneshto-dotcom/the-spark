@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 434,
+  "tool_calls_session_total": 435,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "DO - P3 health bars in flight; P5 atlas detector next",
+  "session_status": "DO - P2A/B/C + P3 + P5 shipped. Locust re-arm bug fixed. Shape-flying bug under investigation.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -311,13 +311,6 @@
           "needle": "THE COUNT — a launch produces the WHOLE fan, not one cloud"
         },
         {
-          "type": "grep_count",
-          "path": "src/constants.ts",
-          "pattern": "^export const PHARAOH_LOCUST_",
-          "op": "==",
-          "value": 7
-        },
-        {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
           "needle": "R171-M — THE ART DIVISION OF LABOUR"
@@ -331,13 +324,43 @@
           "type": "file_contains",
           "path": ".claude/plans/S171_HUD_RESEARCH.md",
           "needle": "HEALTH BARS (R171-E) — verdict **SOUND_WITH_FIXES**"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_COUNT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_CADENCE_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_LIFETIME_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_TRIGGER_RANGE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_MAX_PER_OWNER"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_CONE_HALF_ANGLE"
         }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "5988dd58f8ac3158235169966321d0f2d9422a77",
-      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4238 tests / 270 files (from 4223/269) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 817.1 KiB of 900 (82.9 headroom). 15 new tests in bossSkillsPharaoh.test.ts, green first run. ⭐ THE COUNT IS THE FIRST ASSERTION, deliberately: the spawn latch would have made the fan 1-of-3 with no error and no red test, and every behavioural test would still have passed. PROTOCOL 45->46 across all six documented sites; protocolVersionSync.test.ts caught my chain entry inserted in DESCENDING order and I repositioned it - the machine-gated half working. FOUR REPO GUARDS FIRED AND ALL FOUR WERE RIGHT: the renderer-invisibility guard (fixed with a REAL procedural renderer, not by dropping the type into GOBLIN_KINDS which would have satisfied it with a humanoid puppet); the hand-maintained CreatureType list (the one site tsc cannot reach); the S169 'nothing is untargetable' test (correctly obsolete on the flag's first consumer - rewritten to the STRONGER claim rather than deleted); and my own P2A census, which flagged bossSkillsPharaoh on the first file written after it shipped - fixed by recognising nearestEnemyFor as the third guarded scanner, which is the honest fix because the file genuinely is guarded. NOT CLAIMED: the cloud's LOOK is unjudged - procedural, and under R171-M new art is the owner's, so he decides whether it earns its place. Stage C (the Ra ritual) is NOT in this commit.",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4238 tests / 270 files (from 4223/269) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 817.1 KiB of 900 (82.9 headroom). 15 new tests in bossSkillsPharaoh.test.ts, green first run. ⭐ THE COUNT IS THE FIRST ASSERTION, deliberately: the spawn latch would have made the fan 1-of-3 with no error and no red test, and every behavioural test would still have passed. PROTOCOL 45->46 across all six documented sites; protocolVersionSync.test.ts caught my chain entry inserted in DESCENDING order and I repositioned it - the machine-gated half working. FOUR REPO GUARDS FIRED AND ALL FOUR WERE RIGHT: the renderer-invisibility guard (fixed with a REAL procedural renderer, not by dropping the type into GOBLIN_KINDS which would have satisfied it with a humanoid puppet); the hand-maintained CreatureType list (the one site tsc cannot reach); the S169 'nothing is untargetable' test (correctly obsolete on the flag's first consumer - rewritten to the STRONGER claim rather than deleted); and my own P2A census, which flagged bossSkillsPharaoh on the first file written after it shipped - fixed by recognising nearestEnemyFor as the third guarded scanner, which is the honest fix because the file genuinely is guarded. NOT CLAIMED: the cloud's LOOK is unjudged - procedural, and under R171-M new art is the owner's, so he decides whether it earns its place. Stage C (the Ra ritual) is NOT in this commit. ⚠ BINDING CORRECTED (2nd instance of one class this session): P2B pinned grep_count('^export const PHARAOH_LOCUST_') == 7. The locust re-arm fix then added an EIGHTH constant, legitimately, and the Stop hook hard-failed P2B. A HEADCOUNT of same-prefix constants asserts nothing durable - it is designed to change whenever the feature is extended. Rebound onto the six constants BY NAME, which survive extension. Same root cause as the PROTOCOL_VERSION pin corrected earlier today: do not bind a claim to a number that is supposed to move.",
       "deploy_verified": "verify-deploy exit 0 — 4/4 carriers; run 34394621116 concluded success",
       "real_context_tokens_at_close": 470000
     },
@@ -437,12 +460,44 @@
       "id": "P3",
       "title": "Health bars over every enemy (R171-E)",
       "description": "Owner authorised for THIS session: 'Technically, you can do the health bars already in this session.' REALLY THIN (said twice), red, white is an open option he wants to see. Bar size scales with creature size - the Kraken's is bigger and thicker. Must cull via isConcealed (an enemy bar is a fog position-tell) and must draw into an EXISTING Graphics (fogHiddenLayer index trap). ⚠ OPEN ENGINEERING QUESTION under research: a bar needs current AND MAX pool, but serializeCreature emits hp only when DAMAGED - establish what a peer can derive first.",
-      "status": "in_progress",
-      "check_completed": false,
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "export function drawHealthBars(g: Graphics, world: World): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "LENGTH IS **NOT** SCALED BY THE SPRITE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "drawHealthBars(this.arrowLayer, world);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "private drawHpPips("
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "import { multiplierFifths }"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.test.ts",
+          "needle": "FILLS ARE COMPARABLE ACROSS UNITS"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "Gates all from a captured $?: typecheck 0 | vitest 0 = 4264/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0 | verify-deploy 4/4 on 773a4db. 10 new tests, each pinning one of the four faults the old pips had. ⛔ THE ENCODING TEST CAUGHT ME: my first draft scaled the whole bar by sprite size, which broke cross-unit fill comparability (boss 14.4px vs goblin 9px for the SAME remaining health). Length is the readout and is now scale-free; thickness and lift still scale. ⚠ Two fixture holes found by their own failures: fogActive needs all four of gameMode/gameState/matchPhase/localPlayerId, and computeVisionSources DEREFERENCES the cursor so null throws. NOT CLAIMED: the look is unjudged by the owner."
     },
     {
       "id": "P4",
@@ -465,6 +520,38 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "Fix the check:atlas detector (R171-K/L)",
+      "status": "completed",
+      "check_completed": true,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "MEASURED BEFORE DIAGNOSING. Two independent root causes, neither a threshold: (1) the size check is HEIGHT-ONLY and a side-on beetle carries its scale in WIDTH - scarab width dev 0.27 vs height 0.01, piranha 0.27 vs 0.00, and those two sheets are ranks 1 and 2 of 48 by width; (2) row heights came from the bbox of ALL opaque pixels, so one white sliver scored scarab walk frame 0 at 188px against a 136px beetle and poisoned the median - now measured from the LARGEST CONNECTED COMPONENT (188->136). Plus a NEW check 5: the matte fringe as a POSITION test (near-white with a transparent neighbour), because check 3's docblock correctly refused 'total' - a glint is interior, a fringe hugs the edge. Result: 30-clean -> 6 size-mismatched + 9 fringed, catching every atlas the owner reported plus 13 he had not reached. ⚠ `fringed` is in the exit-code line: a new check omitted there prints FRINGE and still exits 0, which reads as coverage. Deploy is unaffected - build does not call check:atlas.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "const WIDTH_TOLERANCE = 0.18;"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "const EDGE_WHITE_MAX = 60;"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "THE **BODY** COMPONENT, NOT EVERY OPAQUE PIXEL"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "fringed > 0) process.exit(1);"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -512,6 +599,21 @@
       "priority": "P2C",
       "tag": "#count-the-outcome-not-the-call",
       "lesson": "The ritual's five columns are timed so the last one lands on the exact tick the channel ends. My runner checked death first, removed the boss, and silently dropped that column - the ultimate would have shipped as four columns and a corpse, and it would have LOOKED fine. What caught it was that the test counts columns by standing a real victim on each landing spot and asserting all five die. A spy on applyRadialDamage, a call-count, or a vaguer 'columns landed' assertion would every one of them have been green on four of five. ⇒ When a mechanic's value is N of something, assert N OUTCOMES, not N invocations."
+    },
+    {
+      "priority": "P5",
+      "tag": "#measure-the-population-before-choosing-a-threshold",
+      "lesson": "The atlas guard reported 30 sheets clean while the owner could see two of them were dirty. The instinct is to loosen a threshold; the truth was that neither defect was a threshold problem. It measured HEIGHT on a creature whose scale lives in WIDTH (scarab: width dev 0.27, height 0.01), and it measured the bbox of ALL opaque pixels so one stray sliver redefined the animal (188px against a 136px beetle). Both were found by dumping the metric across all 48 atlases and looking at the distribution, and the two sheets he named came out ranks 1 and 2. ⇒ When a guard disagrees with the owner's eyes, print its raw numbers for the whole population before touching a constant - the ranking tells you whether the metric or the threshold is wrong."
+    },
+    {
+      "priority": "P5",
+      "tag": "#engage-the-docblock-that-already-rejected-your-fix",
+      "lesson": "My first instinct for the white fringe was 'threshold on TOTAL instead of largest blob'. The existing docblock had explicitly considered and rejected exactly that, with data: eye glints give healthy sheets 66-768px of total white while their largest pocket is 2-52px, so summing calls the healthy sheets worse than the broken ones. It was right. Reading it turned a wrong fix into the correct one - the discriminator is not how much white but WHERE: a glint is interior, a matte fringe hugs the cut-out edge. ⇒ A comment that pre-refutes your change is the cheapest review you will ever get; the fix that survives it is a better fix."
+    },
+    {
+      "priority": "P3",
+      "tag": "#run-typecheck-after-test-edits-not-only-source-edits",
+      "lesson": "Twice in one session vitest went fully green while `tsc -b` inside `npm run build` failed on a type error in a TEST file - once a missing property on a return type, once an unused binding. vitest strips types, so a test suite passing says nothing about the test file compiling, and the failure surfaces two gates later where it reads as a build break rather than as the test edit that caused it."
     }
   ],
   "budget_total": null,

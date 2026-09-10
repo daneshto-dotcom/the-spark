@@ -3112,3 +3112,74 @@ tutorial.
 3. **The readiness protocol** — the countdown and the "all players done or skipped" gate touch the
    lobby/START_GAME_SIGNAL path, which is wire-visible. That half is an engineering design, not a
    script.
+
+---
+
+# ⭐⭐ S171 — OWNER FEEDBACK WHILE PLAYING THE SHIPPED PHARAOH (2026-09-10)
+
+## R171-O — SPAWNER TOWERS MUST SHOW WHAT THEY HOLD (feature, next sessions)
+
+> *"when I click on a tower, that holds goblins or any units, right, when it has units, it'll be
+> nice to know how many units it has and what kind. So there should be, like, kind of, like, the
+> queue of the primitives on the right side of the footer where you build the buildings. It'll be
+> cool to know how many units of each kind you have. Kind of like a tiny little square picture with
+> rounded edges. Same with the primitives."*
+
+> *"Goblin Tower can build, like, five different goblins. So it'd be nice to know, like, how many of
+> each you have. And same with, like, pencil chewers and other towers that produce creatures — any
+> spawner tower. So you will know, like, between battles during build phase how many it holds inside
+> and of which kind. You don't need to guess, especially the goblin can hold up to ten."*
+
+> *"I can't really see how many I built because I click with the metals really quickly. So what — I
+> have three sappers and two archers, like what?"*
+
+- **Placement**: the RIGHT side of the footer, where buildings are built — *"like the queue of the
+  primitives"*, reusing that existing visual language.
+- **Form**: small rounded-corner square thumbnails, one per kind, with a count.
+- **Scope**: every spawner tower — the goblin tower (5 kinds, cap 10), pencil chewers, and any other
+  producer. ⚠ *"any spawner tower"* — enumerate them all; fixing one and leaving three is this
+  codebase's documented recurring defect.
+- **When it matters**: during BUILD, between battles.
+- ⚠ He classified it himself: *"That's not a bug. It's just another spec we should add. Block that
+  for, like, sometime in the next sessions."* NOT this session.
+
+## ⛔ R171-P — THE RA COLUMNS DO NOT LOOK GOOD, AND THE ANSWER IS GENERATED ART
+
+> *"The columns of light from the sky, I just saw it finally in the end of the game. It doesn't
+> really look good. It needs to look epic. You know? Like, he stands there. He does a prayer. I
+> think we need to generate that as a loop, like, a three second loop, and then we'll cut it into
+> many frames and do it like that."*
+
+⇒ **The procedural version shipped in P2C is REJECTED on looks.** Verdict on the mechanic is
+untouched — he saw it fire at the end of a game, so the trigger, the timing and the damage work.
+
+- **The deliverable is a ~3 SECOND LOOP**, cut into frames through the existing packer pipeline.
+- The subject is **the Pharaoh praying / channelling**, with the columns coming down.
+- ⚠ **Who generates it**: under R171-M the Pharaoh is an already-generated creature, so his RITUAL
+  STANCE is MINE. Read `ART_PIPELINE.md` before starting, and R147 applies — one-shot prompt, the
+  original creature attached as an identity reference, no wasted money.
+
+## ⛔ R171-Q — THE LOCUSTS DO NOT COME FROM HIS HANDS
+
+> *"Locust is fine. It doesn't look bad. But also it doesn't look like it comes from his hands.
+> Again, it, like, looks like it just being generated in front of him. Maybe, like, around him.
+> Maybe we should also take the pharaoh, do another stance where he, like, puts his hands forward
+> and it comes out. We didn't do that."*
+
+⭐ **The procedural swarm PASSES** — *"Locust is fine. It doesn't look bad."* The gap is the
+CHARACTER, not the effect: there is no release stance, so the cloud appears beside a Pharaoh who is
+not doing anything.
+
+⚠ **THIS IS R143 AND IT WAS ALWAYS OWED.** R143 (S168) already ruled: *"pharaos puts his hands
+towards an enemy and releases a wave of locusts. those all need videos generated!"* It was scoped
+out of P2 as art; he has now hit exactly the absence it predicted. Mine to generate under R171-M.
+
+> *"maybe that's something to do for next session, so we will finish with Pharaoh."*
+
+⇒ **NEXT SESSION CLOSES THE PHARAOH**: the ritual loop (R171-P) + the locust-release stance (R171-Q).
+The code half of both is already shipped and working.
+
+## STATUS OF THE TWO BUGS HE REPORTED IN THE SAME BREATH
+- **Locust population never cleared** — FIXED and shipped (`7b3185a`). One constant was serving as
+  both the cloud's strike rate and the Pharaoh's re-arm cooldown.
+- **Shapes fly off near a big structure** — under investigation; see the next section when it lands.
