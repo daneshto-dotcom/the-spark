@@ -186,21 +186,39 @@ function drawBar(
    * *"make them longer (at least the length of the creatures width that it represents)"*. So the
    * pool-derived length is a FLOOR, not the answer: whichever is longer wins.
    *
-   * ⚠ AND THE FILL IS SCALED BY THE SAME FACTOR, or the encoding breaks. If the track were widened
-   * to the sprite while the fill kept its pool length, a wide creature would read as permanently
-   * damaged. `k` is applied to both, so the bar gets longer without the READOUT changing meaning —
-   * a full-health unit still fills its whole track, and the fill still shrinks in proportion.
-   *
-   * ⚠ Cross-unit fill comparability (the property the earlier draft broke by scaling length) is
-   * therefore preserved only WITHIN a given sprite width. That is an accepted trade: he asked for
-   * the bar to match the creature, and a bar narrower than the thing it labels was the complaint.
+   * ⚠ The TRACK is what `span()` sizes. The FILL is a plain fraction of it — see below.
    */
-  const poolW = span(max);
-  const w = Math.max(poolW, spriteW);
-  const k = poolW > 0 ? w / poolW : 1;
-  // ⚠ CLAMPED TO THE TRACK. `span()` has a floor, so a nearly-dead unit would otherwise draw a fill
-  // slightly LONGER than its own track once `ehp` falls under the floor's threshold.
-  const fw = Math.min(w, span(ehp) * k);
+  /*
+   * ⛔⛔ S172 (owner) — **THE FILL IS LINEAR, AND EVERY EARLIER VERSION OF IT WAS A LIE.**
+   *
+   * Owner, having played S171's bars: *"they don't seem to decrease. The creatures just die ... The
+   * whole idea of a health bar is that you can see how much health someone has. Now it's just a
+   * freaking artistic thing."* He was right twice over, and neither cause was a threshold.
+   *
+   * 1. ⛔ **`span()` WAS APPLIED TO THE FILL AS WELL AS THE TRACK, AND ITS FLOOR FROZE SIX UNITS.**
+   *    `BAR_MIN_W / BAR_PX_PER_SQRT_FIFTH` squared is 7.01, so for any unit whose WHOLE POOL is
+   *    ≤ 7 fifths, `span(ehp)` and `span(max)` both clamp to the same 9 px at every health level.
+   *    The fill could not move. That is goblinMelee (pool 7), goblinHound (5), goblinArcher (6),
+   *    raceUnit (6), locustCloud (5) and chewer (5) — the six most numerous units in the game had a
+   *    bar that was mathematically incapable of decreasing.
+   * 2. ⛔ **AND ABOVE THE FLOOR THE SQRT UNDER-REPORTED IT.** A unit at half health drew 71 % of its
+   *    track; at a tenth it still drew 32 %.
+   *
+   * ⭐ THE SPLIT THAT FIXES BOTH WITHOUT LOSING WHAT THE SQRT WAS FOR. The two properties were
+   * never in conflict — they belong to different parts of the bar:
+   *   · the **TRACK** keeps `span()`, so its LENGTH still encodes the max pool and a boss's bar is
+   *     still visibly longer than a chewer's (*"the big Kraken will have a big health bar"*, R171-E);
+   *   · the **FILL** is now `w × ehp/max`, a straight fraction, so half health is half a bar on
+   *     every unit in the game.
+   * No owner ruling is overturned: the sqrt encoding he asked for lives on in the track, which is
+   * the part that does the cross-unit comparing. Widening to the sprite needs no `k` any more — a
+   * fraction of the final width is correct whatever set that width.
+   *
+   * ⚠ `healthBar.test.ts` asserts this for EVERY `CreatureType`, not one boss. The S171 test that
+   * should have caught it used `t9BossNagas`, whose 132-fifth pool sits 19× above the floor.
+   */
+  const w = Math.max(span(max), spriteW);
+  const fw = max > 0 ? w * Math.min(1, Math.max(0, ehp / max)) : 0;
   const h = BAR_H * scale;
   const bx = x - w / 2;
   // Clear the sprite's own top, then a small constant gap. Foot-anchored, so the top is one full

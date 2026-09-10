@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 541,
-  "session_id": "S171",
+  "tool_calls_session_total": 659,
+  "session_id": "S172",
   "session_kind": "batch",
-  "session_start": "2026-09-09T19:40:00+02:00",
-  "prior_session_note": "S170 CLOSED 6/6, verified, pushed, live. Handoff: HANDOFF_S170_2026-09-09.md",
+  "session_start": "2026-09-10T13:00:00+02:00",
+  "prior_session_note": "S171 CLOSED 8/8, verified, pushed, live. Handoff: HANDOFF_S171_2026-09-10.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "CLOSING - all owner bugs fixed and shipped; handoff being written",
+  "plan_file": ".claude/plans/PDR-S172-BATCH.md",
+  "session_status": "EXECUTING - batch approved by owner with four amendments",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 45,
+  "protocol_version": 46,
   "boot_preflight": {
     "handoff_read": true,
     "boot_snapshot_read": true,
@@ -46,26 +46,562 @@
   ],
   "a0_state_discovery": {
     "status": "complete",
-    "method": "7-lane workflow probe (all 7 returned) + adversarial verify stage + HAND-RUN verification of every load-bearing claim in-session",
-    "key_findings": [
-      "DRIFT: 'locust cone' is a compression of R142. The owner said he 'lunches a CONE of locusts that FLY AROUND in locust CLOUDS' - the cone is the LAUNCH, not a persistent volume. boot-snapshot.md:27, session-state:620 and the S170 PDR all repeat the compression (the PDR hardened it to 'wedge'). Correct template is runWarlordDirewolves, not the Kraken sonar.",
-      "BYPASS COUNT WRONG: seven sites, not six, and the most important was never listed - state/world.ts:668, the AUTHORITATIVE RAID_TARGET reducer that spends the raid point and deals damage. Also new: render/creatureProjectile.ts:106. Three of the six recorded paths had wrong paths/lines (src/controls.ts -> src/input/controls.ts; voltkinChain -> creatures/ and line 106 not 92; seagullLifecycle -> seagulls/).",
-      "UNKILLABLE IS AN 8-SITE PROBLEM: eight production world.creatures.delete() sites; at least four bypass damageCreature entirely (potatoLifecycle.ts:331 'obliterates regardless of hp', suicideBlast.ts:155, bossSkillsArchdemon.ts:78, droneLifecycle.ts:227). A guard in damageCreature alone would not work.",
-      "EXISTING TESTS WEAKER THAN ADVERTISED: of 6 untargetableGates tests only 2 exercise the gate as a gate; one is a readFileSync substring check that passes on a comment mention. The flag is dead - nothing in src/ sets untargetable:true.",
-      "e2e DOES NOT GATE THE DEPLOY: deploy.yml and e2e.yml are separate workflows with no needs: edge and master has NO branch protection. A red e2e lane still publishes. e2e-quarantine is currently failing, masked by continue-on-error (pre-existing, out of scope).",
-      "BUNDLE: 814.9 KiB of the 900 KiB charter, 85.1 KiB headroom; the guard warns at 60 KiB.",
-      "REUSE FOUND: inCone() exported+pure at bossSkillsKraken.ts:104; lifetimeTicks/despawnAtTick already serialized and migration-safe (15s is free); stunnedUntilTick/sapFlashUntilTick is the additive-optional shape for the ritual deadline; damage.wired.test.ts is the import-graph guard precedent; runWarlordDirewolves is the summon template AND documents the one-live-unit-per-(owner,type) spawn-gate exemption a fan of clouds will also need.",
-      "ARITHMETIC: locust 10/10 = 150 fifths/strike, which one-shots every unit AND all six bosses (largest pool 143, the Pharaoh's own). So strikes = kills and balance lives entirely in cloud count x cadence, which R142 leaves unstated. Ra column 15/15 = 300 fifths."
-    ],
-    "hand_verified": [
-      "R142 recovered verbatim at RACE_ZONES_AND_BOSS_TOWERS.md:457 (LOCKED_DECISIONS.md holds only R1/R2 - it is NOT the R1xx register)",
-      "all seven bypass sites read and quoted from the tree, located by content because line numbers had drifted",
-      "world.ts:668 raid reducer and creatureProjectile.ts:106 re-verified by hand after the agent surfaced them",
-      "the 8 removal sites enumerated by grep and potatoLifecycle.ts:331 read in full",
-      "T9_BOSS_STATS.mummies read from constants.ts:1575; attackFifths/unitPoolFifths read from stats.ts:119-141"
-    ]
+    "method": "3 workflows / 21 agents, 0 errors. Gates re-verified from captured $?: typecheck 0, vitest 0 (4271/272). Health-bar defect reproduced numerically before any edit."
   },
-  "priorities": [
+  "reflexion_entries_to_archive": [],
+  "budget_total": null,
+  "totals": {
+    "budget_remaining": null
+  },
+  "carry_forward_s170": [
+    "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
+    "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
+    "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
+    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
+    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
+    "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
+    "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
+    "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
+    "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
+    "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
+    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
+    "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
+    "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
+    "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
+    "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
+    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
+    "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
+  ],
+  "s170_priorities_archived": [
+    {
+      "id": "P1",
+      "title": "LAYER STACK - backdrop stops painting over sparks/bonds/primitives (owner S166 complaint, still live); all race backdrops VISIBLE during BUILD; border walls VISIBLE (R162); buildings/connectors/spawn stay hidden behind the existing cursor reveal. One ordered layer map. Repoint fog.spec/tower-art.spec child indices; kill 5 stale comment blocks.",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "842f93f+7e86fba",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "FOG OF WAR, FOURTH AND CORRECT ATTEMPT - per-entity CULLING, the C&C model. Owner: \"look at Red Alert. Theyre, like, from the fucking nineties. They did it fine.\" The classic model is 3 parts and this repo already had 2: the explored grid (exploredMemory -> dark/dim/clear tiers) and remembered last-seen buildings (S60 ghosts). The missing third - units in non-visible cells are simply NOT DRAWN - was the entire complaint. render/concealment.ts computes vision ONCE per frame (beginConcealmentFrame; the sources walk is O(own prims + creatures) so per-entity would be quadratic) and isConcealed(x,y,owner) is a cheap read, wired into all 10 renderers that draw his hide-list. Own entities never concealed (owner check before geometry). Bond hidden unless BOTH ends visible. structureRenderer skips BEFORE seen.add so leaving vision REAPS the sprite. Gatherer cull is in the unit loop only, because that renderer also draws the CASTLE (his one always-visible exception). \"until they are in the center which is lit\" needed no special case - the spawner disc is already a permanent vision source for every seat. ALSO IN P1: groundLayer at stage bottom so the 0.55-alpha backdrop stops compositing over sparks/bonds/primitives (the S166 report, live through two prior \"fixes\"); border walls restored to visible (R162); own-zone full-rect erase so your quadrant is lit corner to corner, not just around structures. THREE MECHANISMS WERE TRIED AND REMOVED: backdrop above the sheet (S166 class), below it (S169 class), and an inverse Pixi mask - the last shipped twice concealing nothing, first because the mask texture was tinted FOG_COLOR (a Pixi alpha mask samples a colour CHANNEL and the red channel of black is 0 everywhere), then because the mechanism was UNTESTABLE (Pixi implements alpha masks as filters; renderer.extract does not apply filter effects, so no assertion in the repo could see whether the board was concealed). Untestability was the real defect. Culling is a pure predicate: 12 tests incl. \"the fog closes behind you when the spark leaves\" (which forbids sticky concealment - remembering WHERE buildings were is the ghost layer, not this predicate) and \"nothing concealed during FIGHT\" (R62).",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const groundLayer = new Container();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new ZoneBackgroundRenderer(app, groundLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new WallRenderer(app, groundLayer)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "new ZoneBackgroundRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "new WallRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "const FOG_SHROUD_ALPHA = 0.55;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new SparkRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new StructureRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new KeystoneTelegraphRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new DragPreviewRenderer(app, fogHiddenLayer)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "get groundLayer() { return groundLayer; },"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/fog.spec.ts",
+          "needle": "groundChildNames"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/tower-art.spec.ts",
+          "needle": "above.children[6]"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/tower-art.spec.ts",
+          "needle": "above.children[11]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.ts",
+          "needle": "export function isConcealed("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.ts",
+          "needle": "export function beginConcealmentFrame("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "beginConcealmentFrame(world, controls.cursor);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRenderer.ts",
+          "needle": "if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRenderer.ts",
+          "needle": "if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/goblinRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/creatureRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/chewerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/towerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/spawnerZoneRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/turretRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/princessRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/stinkTowerRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/gathererRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*attachTo\\(",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*private (readonly )?maskSprite",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/fogRenderer.ts",
+          "pattern": "^\\s*private maskTarget",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.test.ts",
+          "needle": "the fog must close behind you"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/concealment.test.ts",
+          "needle": "NOTHING is concealed during the FIGHT phase"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/renderer.ts",
+          "needle": "const sparkOwner = s.state.kind === 'Carried' ? s.state.carrierId : null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/renderer.ts",
+          "needle": "if (isConcealed(s.pos.x, s.pos.y, sparkOwner)) continue;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/bossAuras.ts",
+          "pattern": "isConcealed\\(boss\\.pos",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/keystoneTelegraphRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/avatarRenderer.ts",
+          "pattern": "isConcealed\\(",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/effectsRenderer.ts",
+          "pattern": "'pos' in e && isConcealed\\(",
+          "op": "==",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "SECOND BOSS WAITS - delete the tower-level bossAlive gate in hostTick.ts (owner: \"the second one only came out when the first one died\"), rewrite its now-false docblock, flip the test that pins the waiting. Plus deserializeSpawner 900-tick chewer fuse leaking onto host-migrated t9 towers (should be 300).",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "Deleted the tower-level bossAlive gate in hostTick t9 release arm - the SECOND of two gates, and the one the owner actually hit. S169 removed only the applySpawnCreature latch (direct-dispatch-only, hence invisible in play). Its defending docblock cited the latch S169 had deleted, so its premise was already false. t9BossTower.test.ts had pinned the WAITING behaviour as correct (suite green ON the defect) and is INVERTED, now asserting TWO bosses alive through the real runHostTick. T9_RELEASE_DELAY_TICKS import dropped; the 5s standing period is untouched and still lives in spawnerIntervalTicks.",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "^\\s*const bossAlive",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "^\\s*if \\(bossAlive\\)",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "THE SECOND-BOSS GATE IS GONE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/t9BossTower.test.ts",
+          "needle": "TWO bosses alive for one seat"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/godlyRecipes/t9BossTower.test.ts",
+          "needle": "the second tower waits rather than dying"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "!isT9BossType(action.creatureType)"
+        }
+      ]
+    },
+    {
+      "id": "P2b",
+      "title": "DRONE BLOWS UP HARMLESSLY AT HOME (R170, owner-reported, VERIFIED live) - fuse expiry detonates in place; enemy-only sever + owner-sparing damage means nothing is hit, but droneLifecycle.ts:139 pushes BOMB_EXPLODE unconditionally. Gate the VFX on something actually being severed/damaged.",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "droneLifecycle BOMB_EXPLODE push gated on candidates.length > 0. Gate is on HIT NOTHING, not FUSE EXPIRED, so explode-in-place next to an enemy base still reads - only the empty blast is silenced. New droneFizzle.test.ts, 3 tests WITH a positive control (a real severing blast still shows) plus an anti-no-op assertion (the drone is still consumed). Render-only: world.effects is unhashed, no oracle moves, no protocol bump.",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "if (candidates.length > 0) {"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/droneLifecycle.ts",
+          "pattern": "kind: 'BOMB_EXPLODE'",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "if (!world.bonds.has(bondId)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneFizzle.test.ts",
+          "needle": "POSITIVE CONTROL"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneFizzle.test.ts",
+          "needle": "the drone spent itself either way"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "TIER-3 TOWERS TRULY LIMITLESS (R158) - remove the per-spawner cap for tier-3 race towers ONLY; goblin tower keeps its 10, so this needs a separate constant, not a deletion.",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "underGoblinCaps now `continue`s on t3* units, removing them from BOTH the global and the per-spawner term (owner R158 truly limitless). An EXEMPTION not a deleted constant - GOBLIN_MAX_PER_SPAWNER=10 stays for the goblin tower, which is the owner own bought design and shares the number. New tierThreeLimitless.test.ts, 5 tests, TWO of them positive controls proving the goblin ceiling still bites at 10 and pays out at 9.",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "if (isTierThreeUnit) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "TRULY LIMITLESS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const GOBLIN_MAX_PER_SPAWNER = 10;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/tierThreeLimitless.test.ts",
+          "needle": "POSITIVE CONTROL"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/tierThreeLimitless.test.ts",
+          "pattern": "POSITIVE CONTROL",
+          "op": ">=",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "SUDOKU = 12 OR MORE CONNECTORS (R159) - detectNonet counts component BONDS with >=, not primitives with ===. Easter egg, not surfaced in the tower tier.",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "5164080",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "detectNonet counts comp.bondIds.size >= NONET_CONNECTOR_COUNT (12) instead of primitiveIds.size === 12 (owner R159). New ringWorld() test helper so the suite can express the load-bearing fact: a ring of N shapes has N bonds, a chain of N has N-1, so 12 connectors is NOT a fixed shape count. 5 old shape-count assertions INVERTED not deleted, incl. the one that asserted 18-same-type is REJECTED - that assertion was itself the owner bug report. Tier-9 ring (9 shapes closed = 9 bonds) re-asserted clear of 12.",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/sudokuEvent.ts",
+          "needle": "export const NONET_CONNECTOR_COUNT = 12;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/sudokuEvent.ts",
+          "needle": "if (comp.bondIds.size < NONET_CONNECTOR_COUNT) continue;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/sudokuEvent.ts",
+          "needle": "comp.primitiveIds.size !== NONET_SHAPE_COUNT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/sudokuEvent.test.ts",
+          "needle": "function ringWorld("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/sudokuEvent.test.ts",
+          "needle": "a RING of 12 shapes = 12 connectors"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "BOSS ABILITY VFX, no-art half - Vlad harpoon tether w/ globules travelling back; Kraken water crescent whose leading edge carries the knockback; zombie rot aura boiling ground; stun-star fixes (unscaled LIFT sits inside boss sprites; voltkin/chewer/drone stun with no stars). All DERIVED per frame from synced state.",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "a5b9fab+5884e8d",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "THREE of four ability VFX shipped, all DERIVED per frame from synced state (a one-shot world.effects push is lost ~5/6: effects sample at NET_SNAPSHOT_HZ 10, the renderer wipes at 60). (1) STUN STARS extracted to render/stunStars.ts and FIXED twice: the lift/radii were flat constants so on tier-9 bosses the ring sat INSIDE the sprite (scaled by creatureSpriteScaleMul now), and the effect was a PRIVATE method of goblinRenderer so voltkin/chewer/lightningDrone - which the Kraken sonar stuns, its victim scan has no type filter - froze silently with no stars; creatureRenderer + chewerRenderer now draw them too. 6 tests incl. a scaleMul-1-unchanged positive control and a same-tick-same-id determinism assertion. (2) ROT AURA - boiling ground, 14 swell/pop bubbles over a scorch disc, deliberately NOT a ring because the owner said the death blast \"looks just like a stink tower radius\"; gated on the SAME isStunned predicate the sim uses. (3) SONAR WAVE - expanding water crescent with a foam leading edge timed to coincide with the knockback; reconstructed from (world.tick + bossId) % KRAKEN_SONAR_INTERVAL_TICKS with ZERO new wire fields, and the aim axis re-derived via the sim own nearestEnemyFor rather than cached (caching would desync on late join + host migration). 9 tests, the load-bearing one asserting the visual fires on the same tick the sim does and is silent between waves. All drawn into EXISTING renderer Graphics so fogHiddenLayer child indices did not shift a fourth time.",
+      "carry_forward_reason": "VLAD LIFE-SAP TETHER NOT BUILT - BLOCKED ON AN OWNER DECISION, not on effort. sapLedger is a host-local Map in hostTick state, never serialized, so a peer cannot know when he saps and the tether is not derivable. Needs either a synced field (PROTOCOL BUMP, outside P5 scope) or a different trigger. Everything else in P5 shipped.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/stunStars.ts",
+          "needle": "export function drawStunStars("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stunStars.ts",
+          "needle": "scaleMul = 1,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stunStars.ts",
+          "needle": "const lift = STUN_STAR_LIFT * scaleMul;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "private drawStunStars("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "drawStunStars("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/chewerRenderer.ts",
+          "needle": "drawStunStars("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "creatureSpriteScaleMul(c.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "export function drawBossAuras("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "KRAKEN_SONAR_INTERVAL_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "nearestEnemyFor(world, boss, rangeSq)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "drawBossAuras(g, world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stunStars.test.ts",
+          "needle": "DETERMINISM"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.test.ts",
+          "needle": "draws right after the sim fires"
+        },
+        {
+          "type": "file_absent",
+          "path": "public/audio/blue-steppe-orbit.mp3"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceMusic.ts",
+          "needle": "'/audio/blue-steppe-orbit.ogg'"
+        }
+      ]
+    }
+  ],
+  "deliberation": {
+    "tier": "Full",
+    "council": "3-way: Claude (supervisor) + grok-4.20-0309-reasoning + gemini-3.1-pro-preview",
+    "convergence": [
+      "Locust clouds MUST be Creatures. Grok proposed non-Creature 'effects attached to the Pharaoh'; Gemini and I both refuted it - the project rule requires untargetable units to remain killable by area sweeps, and a non-entity has no pool for AoE to reach, making them truly invulnerable, which R142 plus the project's own reasoning forbid.",
+      "'About to die' = 'the deferred death sweep is about to remove him'. All three seats converged. It is the one place a death is realised, runs once per tick after the strike batch, is immune to overkill magnitude and cannot double-fire.",
+      "The ritual deadline is an additive-optional raRitualUntilTick?: number on the stunnedUntilTick shape - no protocol bump."
+    ],
+    "disagreements_resolved_by_supervisor": [
+      "UNKILLABLE GUARD PLACEMENT. Grok: make world.creatures private + lint-ban .delete() (a large refactor smuggled into a feature). Gemini: monkey-patch Map.delete at world init (fragile, invisible, and the worker-sim path would not inherit it). BOTH REJECTED. Chosen: one removeCreature() chokepoint + a call-site allowlist test modelled on the repo's OWN damage.wired.test.ts, which exists precisely because a property of the import graph needs a guard that reads the import graph.",
+      "ehp = 9999 for immortality (Grok) REJECTED - ehp is hashed for desync detection and drives the health bar; Gemini caught this independently.",
+      "BALANCE. Grok: 3 clouds x 1 strike/sec = 45 strikes = 6750 fifths (47 Pharaohs). Gemini: 3 clouds x 1 strike/5s = 9 strikes = 1350 fifths. Chose Gemini's cadence: at 150 fifths a strike, strikes ARE kills, and 9 guaranteed kills from one skill is already enormous."
+    ],
+    "grok_missed": "Grok ignored the entire Ra half of R142; Gemini caught it and supplied the column arithmetic (15*(5+15)=300 fifths x 5 columns).",
+    "internal_panel": "A 4-framing internal proposal+critique+synthesis workflow (wf_ba7fc269-e7a) was also dispatched and is still running at PDR time. It is depth-on-top of the mandated 3-way Council, not a substitute; if it surfaces anything that changes the design it will be recorded as a PRIME-AUDIT delta before the affected stage is executed."
+  },
+  "approval_quote": "otherwise full session priority batch APPROVED!",
+  "scope_amendments_s171": [
+    "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e).",
+    "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
+  ],
+  "auto_fill_applied": {
+    "ts": "2026-09-09T18:53:30.378173Z",
+    "fields": [
+      "totals.budget_remaining"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  },
+  "pause_note": "Owner: 'lets pause because we are about to hit current 5 hour limit... finish what you are doing and pause. will continue after limit reset.' All work is COMMITTED AND PUSHED - nothing is only on this machine. Resume at P2C.",
+  "s171_priorities_archived": [
     {
       "id": "P2A",
       "title": "Close the seven untargetable acquisition + retention sites",
@@ -622,633 +1158,58 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "priority": "P2A",
-      "tag": "#a-completeness-claim-in-prose-cannot-stay-true",
-      "lesson": "Two separate docblocks in this repo asserted that the untargetable enumeration was complete — creatureAI.ts's 'THIS ONE LINE COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'THE BYPASSES WERE AUDITED RATHER THAN ASSUMED'. Both were written by sessions that had genuinely looked, and both were wrong: six paths of thirteen, and three files of fifteen. The carried handoff then repeated a SIX-item list whose most important member (world.ts's authoritative RAID_TARGET reducer) was never on it, and three of the six had wrong paths or line numbers. The fix is not a better audit; it is that the enumeration must be re-counted by a machine on every run. damage.wired.test.ts already had the pattern for exactly this reason and I reused it. ⭐ AND ITS ANTI-ROT ARM CAUGHT A STALE ENTRY ON ITS FIRST RUN — mine, a verdict about a file the census never reaches."
-    },
-    {
-      "priority": "P2A",
-      "tag": "#locate-by-content-never-by-the-recorded-line",
-      "lesson": "Every one of the six carried bypass sites was found by grepping for the CLAUSE, not by opening the recorded file:line. Three were wrong: src/controls.ts is src/input/controls.ts, voltkinChain is under creatures/ and the loop is at 106 not 92, seagullLifecycle is under seagulls/. Had I trusted the numbers I would have patched nothing and reported six fixes."
-    },
-    {
-      "priority": "P2A",
-      "tag": "#the-owners-reframing-was-a-better-design-than-mine",
-      "lesson": "I planned an 'unkillable creature' — a guard at eight removal sites. The owner reframed it instead: 'he's in a different dimension, between realities... he's not really in the game.' That is not a softer version of my design, it is a cleaner one: a creature that has LEFT the world is not a candidate anywhere, where an unkillable one must be special-cased at every site that can acquire, strike or remove it. It also turned out to be the exact mechanism voltkin-config.ts:995 had predicted in writing for R121's submerged naga. ⇒ When the owner restates a mechanic in his own terms, read it as a design input, not as a looser spec."
-    },
-    {
-      "priority": "P2A",
-      "tag": "#a-control-arm-that-fails-is-the-fixture-not-the-gate",
-      "lesson": "Two of the new tests failed on their CONTROL arm first: a raid KILLS a chewer (so the landed raid is a removal, not a reduced pool) and resolveProjectileShot returns null unless the archer is ATTACKING inside the flight window. Both were fixture errors. A control that fails for the same reason the assertion would have is precisely how a vacuous test gets written and shipped green — so both diagnoses are recorded IN the tests rather than silently patched."
-    },
-    {
-      "priority": "P2A",
-      "tag": "#delegated-lanes-die-and-must-be-named",
-      "lesson": "The A.0 probe returned 14/14, but the design panel lost 2 of 4 proposal lanes to the StructuredOutput retry cap (one on unescaped Windows backslashes in its JSON). Per the S161 rule those lanes are NOT DONE and are named as such in the PDR's PRIME-AUDIT delta; their angles were covered by hand. The panel that DID return found four things I had missed, including a ninth removal class (world.creatures.clear() at three sites) and the population latch that would have made a multi-cloud cone into N-1 silent no-ops."
-    },
-    {
-      "priority": "P2B",
-      "tag": "#the-guards-fired-four-times-and-were-right-four-times",
-      "lesson": "Adding one CreatureType tripped four independent repo guards, and not one was a false alarm: the renderer-invisibility coverage test (the cloud drew nothing), the hand-maintained type list (the one site tsc cannot reach), the S169 'nothing is untargetable' assertion (correctly obsolete the moment the flag got its first consumer), and my OWN P2A acquisition census, which flagged bossSkillsPharaoh.ts on the very first file written after it shipped. ⭐ THE TEMPTING FIX WAS THE WRONG ONE TWICE: I could have satisfied the invisibility guard by dropping 'locustCloud' into GOBLIN_KINDS, which would have given a swarm of insects a HUMANOID puppet - satisfying the test while defeating its purpose; and I could have granted the Pharaoh a census verdict instead of recognising nearestEnemyFor as a genuinely guarded scanner. A guard is a question, not an obstacle: the right response is the answer, not the shortest thing that turns it green."
-    },
-    {
-      "priority": "P2B",
-      "tag": "#never-bind-a-claim-to-a-number-that-is-supposed-to-move",
-      "lesson": "P2A's bindings pinned 'PROTOCOL_VERSION = 45 as const' as evidence for its no-bump claim. P2B bumped it to 46 - correctly - and the Stop hook hard-failed P2A as the S149 fabrication class. The claim was never 'the version is 45'; it was 'raRitualUntilTick is additive-optional and so costs no bump'. Rebound onto the MECHANISM that makes it true (the conditional emit/rehydrate pair in save.ts), which survives every future bump. verify-session-claims.py already warns about this exact class for json_field version keys - I walked into the file_contains version of the same trap."
-    },
-    {
-      "priority": "P2B",
-      "tag": "#a-compression-in-the-handoff-becomes-a-wrong-mechanic",
-      "lesson": "Three separate carriers - boot-snapshot, session-state and the S170 PDR - had compressed R142's 'a cone of locusts THAT FLY AROUND IN LOCUST CLOUDS' to 'the locust cone', and the PDR hardened it further to 'wedge'. All describe a persistent cone VOLUME, which is a different mechanic from a fan of autonomous hunters. Reading the owner's verbatim words rather than the carried summary changed the template from the Kraken's sonar to the Warlord's direwolf summon. ⭐ AND MY OWN PDR CARRIED A VERSION OF THE SAME ERROR: it called the launch 'a reuse of inCone'. inCone is a MEMBERSHIP test; the launch PLACES. It became the test ORACLE instead, which is a real check where building the launch on it would have been circular."
-    },
-    {
-      "priority": "P2C",
-      "tag": "#count-the-outcome-not-the-call",
-      "lesson": "The ritual's five columns are timed so the last one lands on the exact tick the channel ends. My runner checked death first, removed the boss, and silently dropped that column - the ultimate would have shipped as four columns and a corpse, and it would have LOOKED fine. What caught it was that the test counts columns by standing a real victim on each landing spot and asserting all five die. A spy on applyRadialDamage, a call-count, or a vaguer 'columns landed' assertion would every one of them have been green on four of five. ⇒ When a mechanic's value is N of something, assert N OUTCOMES, not N invocations."
-    },
-    {
-      "priority": "P5",
-      "tag": "#measure-the-population-before-choosing-a-threshold",
-      "lesson": "The atlas guard reported 30 sheets clean while the owner could see two of them were dirty. The instinct is to loosen a threshold; the truth was that neither defect was a threshold problem. It measured HEIGHT on a creature whose scale lives in WIDTH (scarab: width dev 0.27, height 0.01), and it measured the bbox of ALL opaque pixels so one stray sliver redefined the animal (188px against a 136px beetle). Both were found by dumping the metric across all 48 atlases and looking at the distribution, and the two sheets he named came out ranks 1 and 2. ⇒ When a guard disagrees with the owner's eyes, print its raw numbers for the whole population before touching a constant - the ranking tells you whether the metric or the threshold is wrong."
-    },
-    {
-      "priority": "P5",
-      "tag": "#engage-the-docblock-that-already-rejected-your-fix",
-      "lesson": "My first instinct for the white fringe was 'threshold on TOTAL instead of largest blob'. The existing docblock had explicitly considered and rejected exactly that, with data: eye glints give healthy sheets 66-768px of total white while their largest pocket is 2-52px, so summing calls the healthy sheets worse than the broken ones. It was right. Reading it turned a wrong fix into the correct one - the discriminator is not how much white but WHERE: a glint is interior, a matte fringe hugs the cut-out edge. ⇒ A comment that pre-refutes your change is the cheapest review you will ever get; the fix that survives it is a better fix."
-    },
-    {
-      "priority": "P3",
-      "tag": "#run-typecheck-after-test-edits-not-only-source-edits",
-      "lesson": "Twice in one session vitest went fully green while `tsc -b` inside `npm run build` failed on a type error in a TEST file - once a missing property on a return type, once an unused binding. vitest strips types, so a test suite passing says nothing about the test file compiling, and the failure surfaces two gates later where it reads as a build break rather than as the test edit that caused it."
-    },
-    {
-      "priority": "P6",
-      "tag": "#report-in-the-owners-units-not-the-engines",
-      "lesson": "I quoted RAW FIFTHS at the owner all session - in a PDR, a stats table and four commit messages ('150 damage against a 143 pool'). The sim stores combat as atk*(5+pen) to stay integral; 150 fifths IS 30 points, which is exactly his own 10*(1+0.2*10). Every RATIO I gave was right and every NUMBER was in a unit he does not think in, so it read as nonsense and he had to challenge it to find out. ⇒ An internal representation is never the reporting unit. Built scripts/stat-table.mjs so the whole roster prints in points and this cannot recur - and that table then became the evidence for his much larger point, that the stat system has no ladder at all."
-    },
-    {
-      "priority": "P6",
-      "tag": "#the-owners-words-can-name-the-mechanism-exactly",
-      "lesson": "He described shapes flying off the porch as 'it seems like there's MAGNETISM or ANTIMAGNETISM between the shapes'. Vortex (Dot+Spiral) is a radial suck and Spindle (Line+Circle) is a tangential shove - he had named both mechanics precisely without knowing the code. Treating that phrase as a literal hypothesis rather than as vague colour is what pointed the investigation at two files with no escrow guard. ⇒ When a non-engineer reaches for a physical metaphor, test it as a hypothesis before translating it."
-    },
-    {
-      "priority": "P6",
-      "tag": "#a-guard-and-its-builder-can-share-one-blind-spot",
-      "lesson": "check-atlas-scenery measured row size from the bbox of ALL opaque pixels, so a stray sliver redefined the creature - and build-sprite-atlas's normaliseStateScale measured the SAME way, where the number is the DIVISOR in a rescale. So the speck did not merely mismeasure the row, it SHRANK it, and the checker that should have caught that was blind for the identical reason. Both fixed to use the largest connected component. ⇒ When a guard misses something, check whether the thing it guards computes the same quantity the same wrong way."
-    }
-  ],
-  "budget_total": null,
-  "totals": {
-    "budget_remaining": null
-  },
-  "carry_forward_s170": [
-    "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
-    "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
-    "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
-    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
-    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
-    "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
-    "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
-    "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
-    "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
-    "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
-    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
-    "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
-    "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
-    "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
-    "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
-    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
-    "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
-  ],
-  "s170_priorities_archived": [
+  "priorities": [
     {
       "id": "P1",
-      "title": "LAYER STACK - backdrop stops painting over sparks/bonds/primitives (owner S166 complaint, still live); all race backdrops VISIBLE during BUILD; border walls VISIBLE (R162); buildings/connectors/spawn stay hidden behind the existing cursor reveal. One ordered layer map. Repoint fog.spec/tower-art.spec child indices; kill 5 stale comment blocks.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "842f93f+7e86fba",
+      "title": "The health bar actually moves",
+      "description": "BAR_MIN_W floor applies to the TRACK only; fill becomes linear fw = w*(ehp/max). Six units (goblinMelee/Hound/Archer, raceUnit, locustCloud, chewer) had bars frozen at 100%% because pool <= 7.01 fifths sits under the 9px floor. Add the every-type shrink assertion that the existing boss-only test could not catch.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "FOG OF WAR, FOURTH AND CORRECT ATTEMPT - per-entity CULLING, the C&C model. Owner: \"look at Red Alert. Theyre, like, from the fucking nineties. They did it fine.\" The classic model is 3 parts and this repo already had 2: the explored grid (exploredMemory -> dark/dim/clear tiers) and remembered last-seen buildings (S60 ghosts). The missing third - units in non-visible cells are simply NOT DRAWN - was the entire complaint. render/concealment.ts computes vision ONCE per frame (beginConcealmentFrame; the sources walk is O(own prims + creatures) so per-entity would be quadratic) and isConcealed(x,y,owner) is a cheap read, wired into all 10 renderers that draw his hide-list. Own entities never concealed (owner check before geometry). Bond hidden unless BOTH ends visible. structureRenderer skips BEFORE seen.add so leaving vision REAPS the sprite. Gatherer cull is in the unit loop only, because that renderer also draws the CASTLE (his one always-visible exception). \"until they are in the center which is lit\" needed no special case - the spawner disc is already a permanent vision source for every seat. ALSO IN P1: groundLayer at stage bottom so the 0.55-alpha backdrop stops compositing over sparks/bonds/primitives (the S166 report, live through two prior \"fixes\"); border walls restored to visible (R162); own-zone full-rect erase so your quadrant is lit corner to corner, not just around structures. THREE MECHANISMS WERE TRIED AND REMOVED: backdrop above the sheet (S166 class), below it (S169 class), and an inverse Pixi mask - the last shipped twice concealing nothing, first because the mask texture was tinted FOG_COLOR (a Pixi alpha mask samples a colour CHANNEL and the red channel of black is 0 everywhere), then because the mechanism was UNTESTABLE (Pixi implements alpha masks as filters; renderer.extract does not apply filter effects, so no assertion in the repo could see whether the board was concealed). Untestability was the real defect. Culling is a pure predicate: 12 tests incl. \"the fog closes behind you when the spark leaves\" (which forbids sticky concealment - remembering WHERE buildings were is the ghost layer, not this predicate) and \"nothing concealed during FIGHT\" (R62).",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "const groundLayer = new Container();"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new ZoneBackgroundRenderer(app, groundLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new WallRenderer(app, groundLayer)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "new ZoneBackgroundRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "new WallRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/fogRenderer.ts",
-          "needle": "const FOG_SHROUD_ALPHA = 0.55;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new SparkRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new StructureRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new KeystoneTelegraphRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "new DragPreviewRenderer(app, fogHiddenLayer)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "get groundLayer() { return groundLayer; },"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/fog.spec.ts",
-          "needle": "groundChildNames"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/tower-art.spec.ts",
-          "needle": "above.children[6]"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/tower-art.spec.ts",
-          "needle": "above.children[11]"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/concealment.ts",
-          "needle": "export function isConcealed("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/concealment.ts",
-          "needle": "export function beginConcealmentFrame("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "beginConcealmentFrame(world, controls.cursor);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/structureRenderer.ts",
-          "needle": "if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/structureRenderer.ts",
-          "needle": "if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/goblinRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/creatureRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/chewerRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/towerRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/spawnerZoneRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/turretRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/princessRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/stinkTowerRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/gathererRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/fogRenderer.ts",
-          "pattern": "^\\s*attachTo\\(",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/fogRenderer.ts",
-          "pattern": "^\\s*private (readonly )?maskSprite",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/fogRenderer.ts",
-          "pattern": "^\\s*private maskTarget",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/concealment.test.ts",
-          "needle": "the fog must close behind you"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/concealment.test.ts",
-          "needle": "NOTHING is concealed during the FIGHT phase"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/renderer.ts",
-          "needle": "const sparkOwner = s.state.kind === 'Carried' ? s.state.carrierId : null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/renderer.ts",
-          "needle": "if (isConcealed(s.pos.x, s.pos.y, sparkOwner)) continue;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/bossAuras.ts",
-          "pattern": "isConcealed\\(boss\\.pos",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/keystoneTelegraphRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/avatarRenderer.ts",
-          "pattern": "isConcealed\\(",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/effectsRenderer.ts",
-          "pattern": "'pos' in e && isConcealed\\(",
-          "op": "==",
-          "value": 1
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "SECOND BOSS WAITS - delete the tower-level bossAlive gate in hostTick.ts (owner: \"the second one only came out when the first one died\"), rewrite its now-false docblock, flip the test that pins the waiting. Plus deserializeSpawner 900-tick chewer fuse leaking onto host-migrated t9 towers (should be 300).",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "5164080",
+      "title": "The stat protocol - level assignment",
+      "description": "Owner formula unchanged: (atk x (1+0.2*pen)) x 5. Derive HP = round(4 * atk*(5+pen) / (5+def)); if HP > 12 lower ATK instead. OWNER AMENDMENT: double every boss HP to fix boss-v-boss one-shot (supersedes the R141 HP 10-12 band). Make attackCadenceTicks a real per-unit dimension. Pin hits-to-kill invariants in statsLadder.test.ts.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "Deleted the tower-level bossAlive gate in hostTick t9 release arm - the SECOND of two gates, and the one the owner actually hit. S169 removed only the applySpawnCreature latch (direct-dispatch-only, hence invisible in play). Its defending docblock cited the latch S169 had deleted, so its premise was already false. t9BossTower.test.ts had pinned the WAITING behaviour as correct (suite green ON the defect) and is INVERTED, now asserting TWO bosses alive through the real runHostTick. T9_RELEASE_DELAY_TICKS import dropped; the 5s standing period is untouched and still lives in spawnerIntervalTicks.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "grep_count",
-          "path": "src/state/hostTick.ts",
-          "pattern": "^\\s*const bossAlive",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/hostTick.ts",
-          "pattern": "^\\s*if \\(bossAlive\\)",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "THE SECOND-BOSS GATE IS GONE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/t9BossTower.test.ts",
-          "needle": "TWO bosses alive for one seat"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/godlyRecipes/t9BossTower.test.ts",
-          "needle": "the second tower waits rather than dying"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "!isT9BossType(action.creatureType)"
-        }
-      ]
-    },
-    {
-      "id": "P2b",
-      "title": "DRONE BLOWS UP HARMLESSLY AT HOME (R170, owner-reported, VERIFIED live) - fuse expiry detonates in place; enemy-only sever + owner-sparing damage means nothing is hit, but droneLifecycle.ts:139 pushes BOMB_EXPLODE unconditionally. Gate the VFX on something actually being severed/damaged.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "5164080",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "droneLifecycle BOMB_EXPLODE push gated on candidates.length > 0. Gate is on HIT NOTHING, not FUSE EXPIRED, so explode-in-place next to an enemy base still reads - only the empty blast is silenced. New droneFizzle.test.ts, 3 tests WITH a positive control (a real severing blast still shows) plus an anti-no-op assertion (the drone is still consumed). Render-only: world.effects is unhashed, no oracle moves, no protocol bump.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "if (candidates.length > 0) {"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/droneLifecycle.ts",
-          "pattern": "kind: 'BOMB_EXPLODE'",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/droneLifecycle.ts",
-          "needle": "if (!world.bonds.has(bondId)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/droneFizzle.test.ts",
-          "needle": "POSITIVE CONTROL"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/droneFizzle.test.ts",
-          "needle": "the drone spent itself either way"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "TIER-3 TOWERS TRULY LIMITLESS (R158) - remove the per-spawner cap for tier-3 race towers ONLY; goblin tower keeps its 10, so this needs a separate constant, not a deletion.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "5164080",
+      "title": "Floating damage numbers",
+      "description": "Kanit 900 Italic (owner pick, verified HTTP 200), red fill + white outline, digits only. NO unit conversion - display the stored integer (owner confirmed: everything x5 is whole). Derived from ehp deltas (no new synced field, no protocol bump; covers DoT free). OWNER AMENDMENT on placement: NOT the midpoint - from the midpoint go another 50%% toward the VICTIM, i.e. t=0.25 along victim->attacker, so you can tell who took the hit. BitmapText.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "underGoblinCaps now `continue`s on t3* units, removing them from BOTH the global and the per-spawner term (owner R158 truly limitless). An EXEMPTION not a deleted constant - GOBLIN_MAX_PER_SPAWNER=10 stays for the goblin tower, which is the owner own bought design and shares the number. New tierThreeLimitless.test.ts, 5 tests, TWO of them positive controls proving the goblin ceiling still bites at 10 and pays out at 9.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "if (isTierThreeUnit) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "TRULY LIMITLESS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const GOBLIN_MAX_PER_SPAWNER = 10;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/tierThreeLimitless.test.ts",
-          "needle": "POSITIVE CONTROL"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/tierThreeLimitless.test.ts",
-          "pattern": "POSITIVE CONTROL",
-          "op": ">=",
-          "value": 2
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P4",
-      "title": "SUDOKU = 12 OR MORE CONNECTORS (R159) - detectNonet counts component BONDS with >=, not primitives with ===. Easter egg, not surfaced in the tower tier.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "5164080",
+      "title": "Finish the Pharaoh",
+      "description": "Ritual + locust-release stances, >12 frames (owner: bosses need more cutouts). OWNER AMENDMENT - the Ra ritual redesigned: Ra does NOT fully descend. His huge godly HEAD emerges from thunder clouds at the TOP of the screen, on the Pharaoh column, opens his mouth, then FIVE light beams drop one after another, each telegraphed by a growing ground shadow. Beam IS included and may be cut out separately and reused. Locust stance: hands to the release side. Constraints: same Pharaoh throughout, clean cut-out, no white background.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "detectNonet counts comp.bondIds.size >= NONET_CONNECTOR_COUNT (12) instead of primitiveIds.size === 12 (owner R159). New ringWorld() test helper so the suite can express the load-bearing fact: a ring of N shapes has N bonds, a chain of N has N-1, so 12 connectors is NOT a fixed shape count. 5 old shape-count assertions INVERTED not deleted, incl. the one that asserted 18-same-type is REJECTED - that assertion was itself the owner bug report. Tier-9 ring (9 shapes closed = 9 bonds) re-asserted clear of 12.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.ts",
-          "needle": "export const NONET_CONNECTOR_COUNT = 12;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.ts",
-          "needle": "if (comp.bondIds.size < NONET_CONNECTOR_COUNT) continue;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/sudokuEvent.ts",
-          "needle": "comp.primitiveIds.size !== NONET_SHAPE_COUNT"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.test.ts",
-          "needle": "function ringWorld("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/sudokuEvent.test.ts",
-          "needle": "a RING of 12 shapes = 12 connectors"
-        }
-      ]
-    },
-    {
-      "id": "P5",
-      "title": "BOSS ABILITY VFX, no-art half - Vlad harpoon tether w/ globules travelling back; Kraken water crescent whose leading edge carries the knockback; zombie rot aura boiling ground; stun-star fixes (unscaled LIFT sits inside boss sprites; voltkin/chewer/drone stun with no stars). All DERIVED per frame from synced state.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "a5b9fab+5884e8d",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "THREE of four ability VFX shipped, all DERIVED per frame from synced state (a one-shot world.effects push is lost ~5/6: effects sample at NET_SNAPSHOT_HZ 10, the renderer wipes at 60). (1) STUN STARS extracted to render/stunStars.ts and FIXED twice: the lift/radii were flat constants so on tier-9 bosses the ring sat INSIDE the sprite (scaled by creatureSpriteScaleMul now), and the effect was a PRIVATE method of goblinRenderer so voltkin/chewer/lightningDrone - which the Kraken sonar stuns, its victim scan has no type filter - froze silently with no stars; creatureRenderer + chewerRenderer now draw them too. 6 tests incl. a scaleMul-1-unchanged positive control and a same-tick-same-id determinism assertion. (2) ROT AURA - boiling ground, 14 swell/pop bubbles over a scorch disc, deliberately NOT a ring because the owner said the death blast \"looks just like a stink tower radius\"; gated on the SAME isStunned predicate the sim uses. (3) SONAR WAVE - expanding water crescent with a foam leading edge timed to coincide with the knockback; reconstructed from (world.tick + bossId) % KRAKEN_SONAR_INTERVAL_TICKS with ZERO new wire fields, and the aim axis re-derived via the sim own nearestEnemyFor rather than cached (caching would desync on late join + host migration). 9 tests, the load-bearing one asserting the visual fires on the same tick the sim does and is silent between waves. All drawn into EXISTING renderer Graphics so fogHiddenLayer child indices did not shift a fourth time.",
-      "carry_forward_reason": "VLAD LIFE-SAP TETHER NOT BUILT - BLOCKED ON AN OWNER DECISION, not on effort. sapLedger is a host-local Map in hostTick state, never serialized, so a peer cannot know when he saps and the tether is not derivable. Needs either a synced field (PROTOCOL BUMP, outside P5 scope) or a different trigger. Everything else in P5 shipped.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/stunStars.ts",
-          "needle": "export function drawStunStars("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/stunStars.ts",
-          "needle": "scaleMul = 1,"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/stunStars.ts",
-          "needle": "const lift = STUN_STAR_LIFT * scaleMul;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "private drawStunStars("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "drawStunStars("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "drawStunStars("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "creatureSpriteScaleMul(c.type)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bossAuras.ts",
-          "needle": "export function drawBossAuras("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bossAuras.ts",
-          "needle": "KRAKEN_SONAR_INTERVAL_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bossAuras.ts",
-          "needle": "nearestEnemyFor(world, boss, rangeSq)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "drawBossAuras(g, world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/stunStars.test.ts",
-          "needle": "DETERMINISM"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bossAuras.test.ts",
-          "needle": "draws right after the sim fires"
-        },
-        {
-          "type": "file_absent",
-          "path": "public/audio/blue-steppe-orbit.mp3"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/raceMusic.ts",
-          "needle": "'/audio/blue-steppe-orbit.ogg'"
-        }
-      ]
+      "unlock_source": "user"
     }
   ],
-  "deliberation": {
-    "tier": "Full",
-    "council": "3-way: Claude (supervisor) + grok-4.20-0309-reasoning + gemini-3.1-pro-preview",
-    "convergence": [
-      "Locust clouds MUST be Creatures. Grok proposed non-Creature 'effects attached to the Pharaoh'; Gemini and I both refuted it - the project rule requires untargetable units to remain killable by area sweeps, and a non-entity has no pool for AoE to reach, making them truly invulnerable, which R142 plus the project's own reasoning forbid.",
-      "'About to die' = 'the deferred death sweep is about to remove him'. All three seats converged. It is the one place a death is realised, runs once per tick after the strike batch, is immune to overkill magnitude and cannot double-fire.",
-      "The ritual deadline is an additive-optional raRitualUntilTick?: number on the stunnedUntilTick shape - no protocol bump."
-    ],
-    "disagreements_resolved_by_supervisor": [
-      "UNKILLABLE GUARD PLACEMENT. Grok: make world.creatures private + lint-ban .delete() (a large refactor smuggled into a feature). Gemini: monkey-patch Map.delete at world init (fragile, invisible, and the worker-sim path would not inherit it). BOTH REJECTED. Chosen: one removeCreature() chokepoint + a call-site allowlist test modelled on the repo's OWN damage.wired.test.ts, which exists precisely because a property of the import graph needs a guard that reads the import graph.",
-      "ehp = 9999 for immortality (Grok) REJECTED - ehp is hashed for desync detection and drives the health bar; Gemini caught this independently.",
-      "BALANCE. Grok: 3 clouds x 1 strike/sec = 45 strikes = 6750 fifths (47 Pharaohs). Gemini: 3 clouds x 1 strike/5s = 9 strikes = 1350 fifths. Chose Gemini's cadence: at 150 fifths a strike, strikes ARE kills, and 9 guaranteed kills from one skill is already enormous."
-    ],
-    "grok_missed": "Grok ignored the entire Ra half of R142; Gemini caught it and supplied the column arithmetic (15*(5+15)=300 fifths x 5 columns).",
-    "internal_panel": "A 4-framing internal proposal+critique+synthesis workflow (wf_ba7fc269-e7a) was also dispatched and is still running at PDR time. It is depth-on-top of the mandated 3-way Council, not a substitute; if it surfaces anything that changes the design it will be recorded as a PRIME-AUDIT delta before the affected stage is executed."
-  },
-  "approval_quote": "Let's get cooking approved.",
-  "scope_amendments_s171": [
-    "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e).",
-    "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
-  ],
-  "auto_fill_applied": {
-    "ts": "2026-09-09T18:53:30.378173Z",
-    "fields": [
-      "totals.budget_remaining"
-    ],
-    "validator_version": "s110-three-tier-v1"
-  },
-  "pause_note": "Owner: 'lets pause because we are about to hit current 5 hour limit... finish what you are doing and pause. will continue after limit reset.' All work is COMMITTED AND PUSHED - nothing is only on this machine. Resume at P2C."
+  "scope_amendments_s172": [
+    "Font DECIDED: Kanit 900 Italic (not Jokerman - licensing; owner released the requirement).",
+    "P2: owner ruled DOUBLE every boss HP rather than cut boss ATK. Extends R141's HP band past 12.",
+    "P3: display value is the stored integer - no fifths->points conversion. Owner confirmed explicitly.",
+    "P3: placement is victim-weighted (t=0.25), not the midpoint - so the damaged unit is identifiable.",
+    "P4: Ra ritual re-specified as head-from-clouds + 5 telegraphed beams; beam art allowed and reusable.",
+    "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites)."
+  ]
 }

@@ -139,15 +139,27 @@ describe('S171 R171-E — fault 3: the encoding must not invert his own comparis
     ).toBeGreaterThan(barOf(chewer).track.w * 1.8);
   });
 
-  it('⭐⭐ AND FILLS ARE COMPARABLE ACROSS UNITS — the trap in the obvious version', () => {
+  it('⛔ SUPERSEDED S172 — the fill is a FRACTION now, and cross-unit compare moved to the track', () => {
     /*
-     * ⛔ THE BUG THIS PREVENTS, spelled out because it would have looked completely fine:
-     * if the track is sized by MAX and then filled by a PERCENTAGE, a Kraken at ~10 % draws a
-     * shorter fill than a healthy goblin — even though 10 % of 132 fifths is 13 and the goblin's
-     * whole pool is 7-16. The picture would say the goblin is tougher when they are comparable.
+     * ⛔⛔ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE PROPERTY IT ASSERTED IS WHY THE BAR WAS
+     * BROKEN. It required "equal remaining pools draw equal fills, whatever unit they belong to" —
+     * an ABSOLUTE fill, sized by the same `span()` as the track. Two consequences followed:
+     *   · `span()`'s 9 px floor bound the FILL as well as the track, so every unit with a pool
+     *     ≤ 7.01 fifths drew a permanently full bar — six unit types, frozen;
+     *   · and where it did move, the sqrt made half health draw 71 % of the track.
+     * The owner played it and said: *"they don't seem to decrease. The creatures just die ... Now
+     * it's just a freaking artistic thing. It doesn't really have a function."*
      *
-     * Filling in the same absolute units the track uses keeps it honest: equal remaining pools
-     * draw equal fills, whatever unit they belong to.
+     * ⭐ WHOSE RULE WAS IT. Not his. The sibling test above quotes him — *"how the fuck do I know
+     * if your Kraken has so much more health"* — but that sentence is about the TRACK, which is
+     * unchanged and still sqrt-scaled by max pool. Absolute-fill was an S171 inference with no
+     * ruling behind it. He approved the replacement directly in the S172 batch PDR: *"the fill
+     * becomes honest, so 50 % health draws a 50 % bar instead of 71 %"*.
+     *
+     * ⭐ AND THE PROPERTY IT PROTECTED IS NOT LOST, IT MOVED. Comparing two units' REMAINING health
+     * is now the job of the floating damage numbers (S172 P3), which print the real fifths. The bar
+     * answers "how much of ITS OWN health does this creature have left", which is what he asked a
+     * health bar to do. The track still answers "who has the bigger pool".
      */
     const goblinPool = unitPoolFifths(
       getCreatureConfig('goblinMelee').hp,
@@ -157,14 +169,20 @@ describe('S171 R171-E — fault 3: the encoding must not invert his own comparis
     const boss = twoSeat();
     const bossId = spawn(boss, 't9BossNagas', P1, 500);
     boss.creatures.get(bossId)!.ehp = goblinPool; // a boss worn down to a goblin's worth of health
+    const bossBar = barOf(boss);
 
     const goblin = twoSeat();
     spawn(goblin, 'goblinMelee', P1, 500);
+    const goblinBar = barOf(goblin);
 
-    expect(
-      barOf(boss).fillW,
-      'equal remaining pools must draw equal fills, regardless of who owns them',
-    ).toBeCloseTo(barOf(goblin).fillW, 5);
+    // The boss is nearly dead and the goblin is untouched, so the FRACTIONS must say exactly that.
+    expect(bossBar.fillW / bossBar.track.w, 'a boss on its last legs reads as nearly empty')
+      .toBeLessThan(0.15);
+    expect(goblinBar.fillW / goblinBar.track.w, 'an untouched goblin reads as full')
+      .toBeCloseTo(1, 5);
+    // ⭐ The cross-unit signal that DOES survive, and the one he actually asked for.
+    expect(bossBar.track.w, 'the boss still owns the longer track')
+      .toBeGreaterThan(goblinBar.track.w);
   });
 
   it('⛔ the fill can never exceed its own track', () => {
@@ -284,5 +302,89 @@ describe('S171 R171-E (2nd pass) — above the head, and as wide as the creature
     spawn(world, 'chewer', P1, 500, 500);
     const bar = barWithSprite(world, 200, 40);
     expect(bar.fillW, 'undamaged ⇒ the fill spans the whole widened track').toBeCloseTo(bar.track.w, 5);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+describe('S172 (owner) — fault 5: THE FILL MUST ACTUALLY MOVE, ON EVERY UNIT', () => {
+  /*
+   * ⛔ THE TEST THAT WAS MISSING, AND WHY ITS ABSENCE SHIPPED A COSMETIC BAR.
+   *
+   * S171 had exactly one shrink assertion — "and it shrinks as damage lands" — and it spawned a
+   * `t9BossNagas`, whose 132-fifth pool sits 19× above the `BAR_MIN_W` floor. It passed. Meanwhile
+   * every unit BELOW the floor (pool ≤ 7.01 fifths) drew a fill pinned to its own track at all
+   * health levels, and the owner watched six unit types die behind a bar that never moved:
+   * *"they don't seem to decrease. The creatures just die."*
+   *
+   * The companion coverage test ("every CreatureType draws a bar") could not catch it either,
+   * because it only asserts a bar EXISTS. Existence was never the defect.
+   *
+   * ⭐ So the rule this file now enforces is the one the feature is actually for: not "a bar is
+   * drawn", but "the bar RESPONDS", for every type in the table.
+   */
+  const ALL = Object.keys(CREATURE_CONFIGS) as CreatureType[];
+
+  it('⭐⭐ THE OWNER COMPLAINT: a damaged unit draws a strictly shorter fill — every type', () => {
+    for (const type of ALL) {
+      const world = twoSeat();
+      const id = spawn(world, type, P1, 500);
+      const full = barOf(world).fillW;
+      const c = world.creatures.get(id)!;
+      c.ehp = Math.max(1, Math.floor(c.ehp / 2));
+      expect(barOf(world).fillW, `${type}: the fill must shrink when the unit is damaged`)
+        .toBeLessThan(full);
+    }
+  });
+
+  it('⭐⭐ and it is PROPORTIONAL — half the pool is half the bar, on every type', () => {
+    /*
+     * The `sqrt` that used to size the fill made half health draw 71 % of the track and a tenth
+     * draw 32 %. A readout that under-reports damage by that much is a decoration, which is the
+     * owner's other word for what he was looking at. LINEAR, or it is not a readout.
+     */
+    for (const type of ALL) {
+      const cfg = getCreatureConfig(type);
+      const max = unitPoolFifths(cfg.hp, cfg.def);
+      for (const frac of [0.75, 0.5, 0.25]) {
+        const world = twoSeat();
+        const id = spawn(world, type, P1, 500);
+        world.creatures.get(id)!.ehp = Math.round(max * frac);
+        const bar = barOf(world);
+        expect(bar.fillW / bar.track.w, `${type} at ${frac * 100}% pool`)
+          .toBeCloseTo(Math.round(max * frac) / max, 2);
+      }
+    }
+  });
+
+  it('⛔ THE SIX THAT WERE FROZEN — named, because they are the ones he watched', () => {
+    /*
+     * Every one of these has a whole pool at or under the 7.01-fifth threshold where the old
+     * `span()` floor bound BOTH the track and the fill to 9 px. They are also the most numerous
+     * units in the game, which is why the defect was so visible in play.
+     */
+    for (const type of ['goblinMelee', 'goblinHound', 'goblinArcher', 'raceUnit', 'locustCloud', 'chewer'] as CreatureType[]) {
+      const cfg = getCreatureConfig(type);
+      const world = twoSeat();
+      const id = spawn(world, type, P1, 500);
+      const full = barOf(world).fillW;
+      world.creatures.get(id)!.ehp = 1;
+      const nearlyDead = barOf(world).fillW;
+      expect(nearlyDead, `${type} (pool ${unitPoolFifths(cfg.hp, cfg.def)}) must not draw a full bar at 1 fifth`)
+        .toBeLessThan(full * 0.5);
+    }
+  });
+
+  it('⭐ the TRACK still encodes max pool — the sqrt survives where it belongs', () => {
+    /*
+     * The fix must not cost the property the sqrt was there for. Owner R171-E: *"the big Kraken
+     * will have a big health bar"*. LENGTH is still the cross-unit comparison; only the FILL
+     * changed. A boss's track stays visibly longer than a chewer's.
+     */
+    const boss = twoSeat();
+    spawn(boss, 't9BossNagas', P1, 500);
+    const chewer = twoSeat();
+    spawn(chewer, 'chewer', P1, 500);
+    expect(barOf(boss).track.w, 'a boss track is longer than a chewer track')
+      .toBeGreaterThan(barOf(chewer).track.w);
   });
 });
