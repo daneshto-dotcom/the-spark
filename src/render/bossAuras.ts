@@ -54,8 +54,13 @@ import {
   KRAKEN_SONAR_RANGE,
   VLAD_SAP_FLASH_TICKS,
   ZOMBIE_AURA_RADIUS,
+  RA_COLUMN_COUNT,
+  RA_COLUMN_RADIUS,
+  RA_COLUMN_TICKS,
+  RA_RITUAL_TICKS,
 } from '../constants.ts';
-import { isStunned } from '../state/creatures/creature.ts';
+import { isStunned, isChannellingRa } from '../state/creatures/creature.ts';
+import { raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
 import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
@@ -105,6 +110,98 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
+    if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, world, bossId as number, boss);
+  }
+}
+
+/* ── RA RITUAL dial. ⚠ THE LOOK IS MINE; THE MECHANIC AND THE TELEGRAPH ARE HIS (R142, R171-B). */
+const RA_TELEGRAPH_TINT = 0xffb43c;
+const RA_COLUMN_TINT = 0xfff3c4;
+const RA_HALO_TINT = 0xffd970;
+/** How long the beam itself is visible after impact. Short — it is a strike, not a lingering pool. */
+const RA_FLASH_TICKS = 14;
+
+/**
+ * ⭐⭐ S171 (owner R142 + R171-B) — **THE RA RITUAL: FIVE TELEGRAPHED COLUMNS OF SUNLIGHT.**
+ *
+ * The owner described the telegraph precisely, and it is the whole mechanic of the visual:
+ *
+ * > *"it should be an area ... It'll be, like, a circle on the ground before it shows that the
+ * > column is coming of light ... kind of like when you see the shading when the meteor falls and
+ * > see it, like, shading that gets bigger and bigger. In a lot of games, it works like that. You
+ * > see, you know where the column is gonna hit. It starts, like, a little shaded area, and it gets
+ * > bigger and bigger, and then it lands and kills everything in that circle that it lands on. The
+ * > column comes from the sky."*
+ *
+ * ⛔ **THE TELEGRAPH IS A PROMISE, SO IT IS DRAWN FROM THE SIM'S OWN FUNCTION.** The landing spot
+ * comes from `raColumnPos` — the same export `runPharaohRitual` damages through — rather than from a
+ * second copy of the formula here. A telegraph a few pixels off its impact is a lie the player
+ * learns not to trust, and two hand-written copies of one formula is exactly how they drift apart.
+ *
+ * ⚠ EVERYTHING IS DERIVED FROM ONE SYNCED NUMBER. `raRitualUntilTick` gives the start, the column
+ * index and the progress of each telegraph, so both peers draw the identical five circles with
+ * nothing pushed over the wire — the same reason the sonar wave needed no state at all.
+ */
+function drawRaRitual(
+  g: Graphics,
+  world: World,
+  id: number,
+  boss: { pos: { x: number; y: number }; raRitualUntilTick?: number },
+): void {
+  const until = boss.raRitualUntilTick;
+  if (until === undefined) return;
+  if (!isChannellingRa(boss, world.tick)) return;
+
+  const start = until - RA_RITUAL_TICKS;
+  const elapsed = world.tick - start;
+
+  // The priest himself: a rising halo while he channels, so the source of it all is legible.
+  const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
+  g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
+    .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
+
+  for (let k = 0; k < RA_COLUMN_COUNT; k++) {
+    const windowStart = k * RA_COLUMN_TICKS;
+    const impact = (k + 1) * RA_COLUMN_TICKS;
+    if (elapsed < windowStart) continue;              // not yet announced
+    if (elapsed > impact + RA_FLASH_TICKS) continue;  // done and faded
+
+    const pos = raColumnPos(id, k, boss.pos.x, boss.pos.y);
+
+    if (elapsed < impact) {
+      /*
+       * THE SHADE THAT GETS BIGGER. `t` runs 0→1 across the full two seconds, and the radius grows
+       * with it up to the EXACT kill radius the sim will use — so what the player dodges out of is
+       * the real circle, at its real size, at the moment it lands.
+       */
+      const t = (elapsed - windowStart) / RA_COLUMN_TICKS;
+      const r = RA_COLUMN_RADIUS * (0.18 + 0.82 * t);
+      g.circle(pos.x, pos.y, r).fill({ color: RA_TELEGRAPH_TINT, alpha: 0.10 + 0.22 * t });
+      g.circle(pos.x, pos.y, r).stroke({ color: RA_TELEGRAPH_TINT, width: 1.5, alpha: 0.35 + 0.5 * t });
+    } else {
+      /*
+       * THE COLUMN, FROM THE SKY. Drawn as a tall tapering shaft standing on the circle plus a
+       * ground flare, fading over `RA_FLASH_TICKS`. The board is seen at an angle, so the beam rises
+       * off the TOP of the ellipse rather than from its centre.
+       */
+      const f = 1 - (elapsed - impact) / RA_FLASH_TICKS; // 1 → 0
+      const halfW = RA_COLUMN_RADIUS * 0.42 * f;
+      const top = pos.y - 520;
+      g.moveTo(pos.x - halfW, pos.y)
+        .lineTo(pos.x - halfW * 0.45, top)
+        .lineTo(pos.x + halfW * 0.45, top)
+        .lineTo(pos.x + halfW, pos.y)
+        .fill({ color: RA_COLUMN_TINT, alpha: 0.55 * f });
+      // A hotter core, so the shaft has depth rather than reading as a flat quad.
+      g.moveTo(pos.x - halfW * 0.35, pos.y)
+        .lineTo(pos.x - halfW * 0.14, top)
+        .lineTo(pos.x + halfW * 0.14, top)
+        .lineTo(pos.x + halfW * 0.35, pos.y)
+        .fill({ color: 0xffffff, alpha: 0.5 * f });
+      // The scorch it lands in — at the true kill radius, so the aftermath states the hitbox.
+      g.circle(pos.x, pos.y, RA_COLUMN_RADIUS * (1 + (1 - f) * 0.25))
+        .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
+    }
   }
 }
 

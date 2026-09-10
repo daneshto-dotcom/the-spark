@@ -23,6 +23,7 @@
 import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_TICKS } from '../constants.ts';
 import { asPotatoId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
+import { removeCreature } from './creatures/creatureLifecycle.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -328,7 +329,10 @@ export function applyRadialClear(
     if (dx * dx + dy * dy <= radiusSq) creatureVictims.push(cid);
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
-  for (const cid of creatureVictims) world.creatures.delete(cid);
+  // ⭐ S171 — THE SITE THAT MADE A CHOKEPOINT NECESSARY. This loop "obliterates regardless of hp"
+  // (see damageCreature's docstring), so it bypasses every damage-side guard there is. A potato
+  // blast is exactly how a channelling Pharaoh would have been deleted mid-ritual.
+  for (const cid of creatureVictims) removeCreature(world, cid);
 
   const victims: PrimitiveId[] = [];
   for (const [pid, prim] of world.primitives) {

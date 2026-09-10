@@ -38,6 +38,7 @@ import {
   type CreatureType,
   isStunned,
   rageMultiplier,
+  isChannellingRa,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
 import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
@@ -48,6 +49,7 @@ import {
   GOBLIN_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_VICTIM,
+  RA_RITUAL_TICKS,
 } from '../../constants.ts';
 // S113 Batch C — a lightning-drone spawn uses its OWN cap (runtime-only call; the
 // creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
@@ -55,7 +57,7 @@ import { underDroneCaps } from '../droneLifecycle.ts';
 import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 // S169 — the tier-9 boss exemption at the null-spawner population gate; see the note there.
 // Type-only cycle-safe: `t9BossIds` imports `CreatureType` with `import type` and nothing runtime.
-import { isT9BossType } from '../t9BossIds.ts';
+import { isT9BossType, T9_BOSS_TYPE } from '../t9BossIds.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -469,7 +471,8 @@ function chewerVictimPlayerId(world: World, bondId: import('../../types.ts').Bon
  */
 export function applyDespawnCreature(world: World, action: DespawnCreatureAction): World {
   if (!world.creatures.has(action.creatureId)) return world;
-  world.creatures.delete(action.creatureId);
+  // S171 — through the chokepoint: a channelling Pharaoh is not in the world to be despawned.
+  removeCreature(world, action.creatureId);
   return world;
 }
 
@@ -525,10 +528,56 @@ export function damageCreature(
 ): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
+  /*
+   * ⭐⭐ S171 (owner R171-A) — **BETWEEN REALITIES: DAMAGE PASSES STRAIGHT THROUGH A CHANNELLING
+   * PHARAOH.**
+   *
+   * *"he's, like, in a different dimension, so between realities. So he's not really in the game ...
+   * he's not attackable. He's not targetable."*
+   *
+   * ⛔ THIS IS STRONGER THAN UNTARGETABLE AND HAS TO BE. `isUntargetable` stops anything from
+   * SELECTING him — but the project rule is explicit that untargetable is NOT invulnerable, so an
+   * area sweep (a potato clear, a rot aura, a sonar cone) would still reach him. A boss who is out
+   * of the world cannot be caught by a splash he is not standing in the world to receive.
+   *
+   * ⚠ AND IT RETURNS `false`, NOT `true`. `true` means "this creature died" and drives kill counts,
+   * rewards and death VFX. A blow that passes through a ghost killed nothing.
+   */
+  if (isChannellingRa(c, world.tick)) return false;
   // S151 P2 — both sides are in FIFTHS: `ehp` is `hp × (5 + def)` and the amount is
   // `atk × (5 + pen)`. Same subtraction that has always been here, on one shared scale.
   c.ehp -= amountFifths;
   if (c.ehp <= 0) {
+    /*
+     * ⭐⭐ S171 (owner R142) — **THE RITUAL FIRES HERE, AND THIS IS THE ONLY HONEST READING OF HIS
+     * TRIGGER.**
+     *
+     * *"he does that right before he dies - when he hits 1hp or about to die."*
+     *
+     * ⛔ "WHEN HE HITS 1HP" CANNOT BE IMPLEMENTED LITERALLY, and the arithmetic says why: one locust
+     * strike is `attackFifths(10,10)` = 150 fifths and his ENTIRE pool is `unitPoolFifths(11,8)` =
+     * 143. He does not pass through 1 HP on the way down — he is at full health and then he is
+     * past dead. A threshold watcher would simply never fire.
+     *
+     * So "about to die" is implemented as **the moment lethality is decided**, which is exactly this
+     * branch: the one place in the codebase where `ehp <= 0` becomes a death, shared by the deferred
+     * arm and the immediate arm alike. Firing here is:
+     *   · EXACTLY ONCE — `raRitualUntilTick === undefined` is the latch, and it is never cleared, so
+     *     once the channel ends he is an ordinary mortal boss who dies to the next blow;
+     *   · IMMUNE TO OVERKILL — it does not care whether the blow dealt 1 fifth or 1000;
+     *   · SAFE UNDER A SAME-TICK PILE-ON — four systems hitting him on one tick all funnel through
+     *     here, and only the first finds the latch unset.
+     *
+     * ⚠ `ehp` IS RESTORED TO 1, deliberately, and it is not cosmetic. He must be a live creature for
+     * the next 10 seconds — rendered, iterated, channelling — and every `ehp <= 0` guard in the
+     * codebase (the boss runners, the census, the renderers) would otherwise treat him as a corpse.
+     * 1 fifth is also the literal reading of *"when he hits 1hp"*, arrived at from the other side.
+     */
+    if (c.type === T9_BOSS_TYPE.mummies && c.raRitualUntilTick === undefined) {
+      c.ehp = 1;
+      c.raRitualUntilTick = world.tick + RA_RITUAL_TICKS;
+      return false; // he is NOT dead — no kill count, no reward, no death VFX
+    }
     if (deferDelete !== undefined) {
       // Still "dead" to the caller (kill counts, effects, return value) — only the REMOVAL waits, so
       // a creature that has already taken a lethal blow this tick can still land the one it had
@@ -536,10 +585,45 @@ export function damageCreature(
       deferDelete.add(creatureId);
       return true;
     }
-    world.creatures.delete(creatureId);
+    removeCreature(world, creatureId);
     return true;
   }
   return false;
+}
+
+/**
+ * ⭐⭐ S171 (owner R171-A) — **THE ONE REMOVAL CHOKEPOINT, AND WHY PROSE COULD NOT HOLD IT.**
+ *
+ * *"he's not really in the game."* A creature that has left the world cannot be deleted from it, and
+ * that turns out to be a much wider claim than "damage cannot kill him".
+ *
+ * ⛔ THE A.0 SWEEP COUNTED **EIGHT** PRODUCTION `world.creatures.delete(` SITES AND `damageCreature`
+ * IS ONLY ONE OF THEM. Five of the eight can reach a boss: the Archdemon's doom list, the explicit
+ * DESPAWN action, `damageCreature`'s own lethal arm, this tick's deferred sweep, and the potato's
+ * radial clear — whose own docstring says it *"obliterates regardless of hp"*. (The other three are
+ * unreachable for a Pharaoh and it is worth saying why rather than guarding them blindly: the
+ * suicide blast and the drone detonation delete THE ACTOR ITSELF, and the lifetime expiry is gated
+ * behind `!config.persistent` while `makeT9BossConfig` sets `persistent: true`.)
+ *
+ * A guard placed only where damage is dealt would therefore have let a potato blast delete a
+ * channelling Pharaoh mid-ritual — the exact "three of four call sites" defect this codebase keeps
+ * paying for, and one a behavioural test would not have caught because nobody would have thought to
+ * throw a potato at him.
+ *
+ * ⚠ **THE NINTH CLASS IS `world.creatures.clear()` AND IT MUST *NOT* ROUTE THROUGH HERE.** Three
+ * production sites call it — `state/gameMode.ts`, `state/godlyActions.ts` and `state/save.ts` — and
+ * `hostTick.ts` already carries the note that *"three production paths call `world.creatures.clear()`
+ * with nobody dying"*. A match reset, a godly abort and a snapshot rebuild are not deaths, and a
+ * ritual is not a reason to survive one. Named here so the next reader does not "fix" it.
+ *
+ * @returns whether the creature was actually removed.
+ */
+export function removeCreature(world: World, creatureId: CreatureId): boolean {
+  const c = world.creatures.get(creatureId);
+  if (c === undefined) return false;
+  if (isChannellingRa(c, world.tick)) return false; // between realities — not here to be removed
+  world.creatures.delete(creatureId);
+  return true;
 }
 
 /**
@@ -549,7 +633,9 @@ export function damageCreature(
  * exactly once and nothing reads a 0-ehp creature in between).
  */
 export function sweepDeferredDeaths(world: World, dead: Set<CreatureId>): void {
-  for (const id of dead) world.creatures.delete(id);
+  // S171 — through the chokepoint, so a boss who entered the ritual on the SAME tick he was
+  // marked lethal is not swept out from under it.
+  for (const id of dead) removeCreature(world, id);
   dead.clear();
 }
 

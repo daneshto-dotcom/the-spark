@@ -24,6 +24,7 @@ import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
 import { isStunned, isUntargetable } from './creatures/creature.ts';
+import { removeCreature } from './creatures/creatureLifecycle.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -75,7 +76,8 @@ export function runArchdemonHell(world: World): void {
       if (dx * dx + dy * dy <= rSq) doomed.push(id);
     }
     doomed.sort((a, b) => (a as number) - (b as number));
-    for (const id of doomed) world.creatures.delete(id);
+    // S171 — through the chokepoint; the doom list cannot reach a boss who has left the world.
+    for (const id of doomed) removeCreature(world, id);
   }
 }
 

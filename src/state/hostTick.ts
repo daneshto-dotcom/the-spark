@@ -91,6 +91,7 @@ import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
 import { runArchdemonHell, runArchdemonTeleport } from './bossSkillsArchdemon.ts';
 import { runKrakenSonar } from './bossSkillsKraken.ts';
 import { runPharaohLocusts } from './bossSkillsPharaoh.ts';
+import { runPharaohRitual } from './bossSkillsPharaohRitual.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
@@ -1838,6 +1839,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // ⭐ S171 (owner R142) — the Pharaoh's locust fan. Ordered beside the other launch-type skills;
     // the cadence is `(tick + bossId) % INTERVAL`, so placement in this list cannot affect timing.
     runPharaohLocusts(world);
+    /*
+     * ⭐ S171 (owner R142) — the Ra ritual: lands whichever column is due, and removes him when the
+     * channel ends. ⚠ ORDERED AFTER the locust fan on purpose: a Pharaoh who enters the ritual is
+     * out of the world, and `runPharaohLocusts` aims through the guarded scan, so a dying Pharaoh
+     * stops launching on the same tick he starts channelling rather than one tick later.
+     */
+    runPharaohRitual(world);
   }
 
   if (world.pendingCreatureDeaths !== null) {

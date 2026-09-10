@@ -2529,6 +2529,76 @@ export const LOCUST_CLOUD_SPEED_MUL = 1.35;
 export const LOCUST_CLOUD_ATTACK_RANGE = 40;
 
 /*
+ * ⭐⭐ S171 (owner R142 + R171-A/B/C) — **THE RA RITUAL: THE COLUMNS HE CANNOT BE KILLED DURING.**
+ *
+ * > *"he can summon the god RA to bring down columns of burning light (he is the god of sun
+ * > afterall) that attacks with upto 15 atk and 15 pen per culumn. each column only lasts 2 sec
+ * > cinematic and he launches like 5 of them one after another. he does that right before he dies -
+ * > when he hits 1hp or about to die he stops does a cool attack form / ritual calling down the
+ * > colums. he cant be killed while he is doing that but when the ultimate attack is finished then
+ * > he dies."*
+ *
+ * ## R171-A — HE LEAVES THE WORLD, HE DOES NOT MERELY REFUSE TO DIE
+ *
+ * > *"while he's doing the ritual, he's, like, in a different dimension, so between realities. So
+ * > he's not really in the game. Like, his picture's there ... but he's not attackable. He's not
+ * > targetable. He's, like, just take out the targetable place."*
+ *
+ * That is a stronger and CHEAPER statement than "unkillable". An unkillable creature is still in the
+ * world — still acquired, still swung at, still a valid removal target — and every one of those has
+ * to be special-cased. A creature that has LEFT the world is simply not a candidate anywhere, which
+ * is why the ritual is read through the SAME `isUntargetable` predicate the locusts use rather than
+ * as a bespoke condition at each site.
+ *
+ * ## R171-C — "up to 15 atk" IS JUST 15
+ *
+ * Asked what "up to" meant: *"I don't know what's the up to fifteen attack that you said. That's
+ * what they'll be doing."* ⇒ exactly 15/15 ⇒ `attackFifths(15,15) = 15 × 20` = **300 fifths per
+ * column**, which one-shots every unit and every boss, twice over.
+ */
+
+/** R142: *"like 5 of them one after another"*. HIS number. */
+export const RA_COLUMN_COUNT = 5;
+
+/** R142: *"each column only lasts 2 sec cinematic"*. HIS number. */
+export const RA_COLUMN_TICKS = 2 * PHYSICS_HZ;
+
+/**
+ * The whole channel: five columns, back to back. DERIVED from his two numbers, not chosen — and it
+ * is the only stored quantity the ritual needs, because the START is recoverable as
+ * `raRitualUntilTick - RA_RITUAL_TICKS`. That is what keeps the ritual to ONE additive-optional
+ * field instead of two.
+ */
+export const RA_RITUAL_TICKS = RA_COLUMN_COUNT * RA_COLUMN_TICKS;
+
+/** R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers. */
+export const RA_COLUMN_ATK = 15;
+export const RA_COLUMN_PEN = 15;
+
+/**
+ * ⚠ MINE. How wide a column's kill circle is.
+ *
+ * R171-B: *"it starts, like, a little shaded area, and it gets bigger and bigger, and then it lands
+ * and kills everything in that circle that it lands on."* He specified the TELEGRAPH and the
+ * outcome, not the size. 70 px is deliberately tighter than the zombie rot aura (170) and the stink
+ * cloud: at 300 fifths a column deletes whatever it catches, so the counterplay has to be MOVING,
+ * and a circle you cannot walk out of in two seconds is not a telegraph, it is an announcement.
+ */
+export const RA_COLUMN_RADIUS = 70;
+
+/**
+ * ⚠ MINE. How far from the Pharaoh the columns fall.
+ *
+ * They land in a deterministic ring around him rather than on chosen victims, and that is a design
+ * choice with a determinism reason behind it: a column aimed at a unit would have to COMMIT its
+ * landing spot when the telegraph opens (or the telegraph is a lie), which means storing five
+ * positions on the wire. Derived from `(bossId, columnIndex)` around a boss who is not moving —
+ * he is mid-ritual — every peer reconstructs the identical five circles from state it already has,
+ * for zero new fields. It also reads correctly: Ra brings the sun down AROUND his priest.
+ */
+export const RA_COLUMN_SPREAD = 150;
+
+/*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
  * moves x2 quicker for the rest of his lifetime."*
  *

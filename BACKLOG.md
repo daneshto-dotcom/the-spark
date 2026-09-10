@@ -3054,3 +3054,61 @@ the `check:atlas` detector that reports them clean has to be fixed for the rest 
 - The **locust cloud itself is NEW**, so the sprite/loop is HIS. ⇒ P2B ships a **procedural** cloud,
   which is exactly what he asked for earlier: *"you can try building it with code... do the best if
   you can... if you can do it, then we might just generate a video loop. I'll do it myself."*
+
+---
+
+# ⭐⭐ R171-N — THE LOADING-SCREEN TUTORIAL, NOW SPECIFIED (owner, S171)
+
+This supersedes the one-line carry-forward (*"LOBBY TUTORIAL — backlogged at his instruction, but
+the signal is strong: 'I've been asked of that already by multiple people'"*). He has now given the
+actual design, verbatim:
+
+> *"While the game is loading, there's gonna be a game tutorial. The game for, like, let's see,
+> fifteen or thirty seconds, forty seconds, you know, not long, just to show what each thing does.
+> So there's gonna be, like, a spark, a preplane spark, that's, like, clicking on a few things.
+> Like, this is your castle. You have to protect it. This is how you build towers to, you know,
+> towers do different things, you know, like little pop up windows that run, like, in a in a movie.
+> You know what I mean? You'd leave, like, a few seconds per per, like, per screen and make it a fun
+> thing, and then it, like, plays a little bit of the of the game, and then it stops and it's like,
+> this is... now he built it, you know, this. This tower generates level, you know, tier three
+> grunts. And then like that, just explaining everything, this is the settings menu. We can change
+> blah blah blah."*
+
+> *"That way each player can do... you can see that. Obviously, there's gonna be a skip button so a
+> player can, like, skip through it and instead go straight in the game, but then he waits. Like,
+> the game doesn't start. There's a countdown, and it starts only when the other players into either
+> he skipped the tutorial or or, yeah, or he finished the tutorial and logged in."*
+
+> *"We need to define, like, the whole script for this video and what's the best way to do it. ...
+> We're gonna have to research a little better how to do it more creatively and could enable it."*
+
+## THE SHAPE
+
+| | |
+|---|---|
+| **When** | during the load, before the match starts |
+| **Length** | 15–40 s. *"not long"* |
+| **Form** | an animated demo — a spark clicking through things, with pop-up captions *"like in a movie"*, a few seconds per screen |
+| **Beats named so far** | this is your castle, protect it · this is how you build towers · towers do different things · *"now he built it — this tower generates tier-3 grunts"* · this is the settings menu |
+| **Skip** | a skip button, always |
+| ⭐ **The gate** | **skipping does NOT start the match.** A countdown runs, and the game begins only once EVERY player has either finished or skipped. So the tutorial costs nothing in wall-clock — it fills a wait that already exists |
+
+⚠ **THE DELAY IS DELIBERATE AND IT IS THE WHOLE IDEA.** The earlier carry-forward already recorded
+this and it is worth keeping in front: the load is effectively instant, so the wait is *manufactured*
+to create a teaching moment. Anyone who reads this as "hide the tutorial behind a fast load" has
+inverted it.
+
+⚠ **"a spark, a preplane spark"** — transcription is uncertain (pre-placed? a plane/plain spark? a
+spark avatar that flies the tour?). **Ask before building**; do not guess the protagonist of the
+tutorial.
+
+## WHAT IT OWES BEFORE ANY CODE
+
+1. **The full SCRIPT** — he asked for it explicitly, beat by beat, with the caption text.
+2. **Research on the best way to build it** — *"how to do it more creatively"*. Candidates to price:
+   a scripted replay of a real recorded match driven by the existing deterministic sim (the sim
+   already replays deterministically, which is an unusually strong fit); a hand-authored sequence of
+   canned screens; a pre-rendered video (costly under R171-M, since new video is his to generate).
+3. **The readiness protocol** — the countdown and the "all players done or skipped" gate touch the
+   lobby/START_GAME_SIGNAL path, which is wire-visible. That half is an engineering design, not a
+   script.
