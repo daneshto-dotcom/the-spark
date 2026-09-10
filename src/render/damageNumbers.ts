@@ -50,7 +50,7 @@
 
 import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
-import type { CreatureId } from '../types.ts';
+import type { CreatureId, PlayerId } from '../types.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -129,6 +129,11 @@ export async function loadDamageFont(): Promise<void> {
  * strips `targetCreatureId` from the wire and it is the ONE field it strips. So the direction is
  * DERIVED as the nearest creature under a different owner.
  *
+ * ⚠ THE OWNER IS PASSED IN, NOT LOOKED UP, and that is not a style choice. The killing blow is
+ * rendered AFTER the victim has already left `world.creatures`, so a lookup returns `undefined` —
+ * and then every creature on the board counts as "another owner", including the victim's own
+ * allies, and the number would point at a friend. The caller remembers who it belonged to.
+ *
  * ⚠ TOTAL ORDER, ALWAYS: squared distance, then an explicit id compare. Letting `Map` iteration
  * order decide anything is the bug class that handed one seat every melee exchange for an entire
  * match in S155 — and a visual is not exempt, because two peers would then disagree on the picture.
@@ -141,12 +146,20 @@ export function damageAnchor(
   victim: CreatureId,
   vx: number,
   vy: number,
+  owner?: PlayerId,
 ): { x: number; y: number } {
   let bestX = vx;
   let bestY = vy - 1;
   let bestD = Infinity;
   let bestId = Number.MAX_SAFE_INTEGER;
-  const mine = world.creatures.get(victim)?.ownerPlayerId;
+  const mine = owner ?? world.creatures.get(victim)?.ownerPlayerId;
+  /*
+   * ⚠ WRITTEN IN THE PLAIN `ownerPlayerId ===` FORM ON PURPOSE. The S171 acquisition census
+   * finds enemy-shaped scans with a regex on `ownerPlayerId` followed by an equality operator,
+   * so a CAST written between the field and the operator makes a real scan INVISIBLE to the
+   * guard. This file did exactly that for one commit in S172 and dropped out of the census
+   * while still scanning enemies every frame. Keep the branded type and no cast.
+   */
   for (const o of world.creatures.values()) {
     if (o.id === victim || o.ownerPlayerId === mine) continue;
     const dx = o.pos.x - vx;
@@ -169,25 +182,61 @@ export function damageAnchor(
 export const DAMAGE_TOWARD_ATTACKER = TOWARD_ATTACKER;
 export const DAMAGE_LIFT_PX = LIFT_PX;
 
+/** Damage is red, healing is green. Both carry the white outline. */
+export type FloaterKind = 'damage' | 'heal';
+
+/** What the renderer remembers about a creature between frames. */
+interface Watched {
+  ehp: number;
+  x: number;
+  y: number;
+  owner: PlayerId;
+}
+
 export class DamageNumbers {
   readonly layer = new Container();
 
-  /** Last observed pool per creature. A DROP between frames is the damage event. */
-  private readonly prevEhp = new Map<CreatureId, number>();
+  /**
+   * Last observation per creature. A DROP in `ehp` is damage, a RISE is healing, and a creature
+   * that VANISHES was killed — its last remembered pool is the damage that finished it.
+   *
+   * ⚠ Position and owner are remembered too, and both are load-bearing for the killing blow: by
+   * the time a death is observable the creature is gone from `world.creatures`, so neither can be
+   * looked up any more. An earlier version of this file dropped the fatal number entirely for
+   * exactly that reason.
+   */
+  private readonly watched = new Map<CreatureId, Watched>();
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
   private flip = 1;
 
-  private readonly style = new TextStyle({
+  private readonly damageStyle = new TextStyle({
     fontFamily: [DAMAGE_FONT_FAMILY, 'Impact', 'sans-serif'],
     fontWeight: '900',
     fontStyle: 'italic',
     fontSize: 20,
-    // ⭐ Owner: *"red numbers with a white outline"*. He had ruled plain white in R171-F and
-    // corrected himself once he saw it against the board: *"no, it's not, because the background
-    // is just kind of blackish. So maybe just red numbers with a white outline."*
+    // ⭐ Owner on the shipped look: *"It looks sick. We made it really look good. I like that."*
+    // Left exactly as it shipped.
     fill: 0xe01b1b,
+    stroke: { color: 0xffffff, width: 3, join: 'round' },
+  });
+
+  /**
+   * ⭐ HEALING, S172 (owner): *"when a creature gets healed — so for example Vlad does his life sap,
+   * or in the future we will have other healing effects — then the same number of how much he was
+   * healed for, near the creature that was healed, but in GREEN with white outline."*
+   *
+   * Same face, same size, same outline, same motion: only the hue carries the meaning, so the two
+   * read as one system rather than two features. Identical geometry also means a heal landing in
+   * the same frame as a hit stacks against it correctly instead of overlapping it.
+   */
+  private readonly healStyle = new TextStyle({
+    fontFamily: [DAMAGE_FONT_FAMILY, 'Impact', 'sans-serif'],
+    fontWeight: '900',
+    fontStyle: 'italic',
+    fontSize: 20,
+    fill: 0x2fbf3f,
     stroke: { color: 0xffffff, width: 3, join: 'round' },
   });
 
@@ -204,37 +253,58 @@ export class DamageNumbers {
 
     for (const c of world.creatures.values()) {
       seen.add(c.id);
-      const prev = this.prevEhp.get(c.id);
-      this.prevEhp.set(c.id, c.ehp);
-      if (prev === undefined) continue; // first sighting is not a hit
-      const dropped = prev - c.ehp;
-      if (dropped <= 0) continue; // unchanged, or healed (Vlad's sap)
-      this.spawn(world, c.id, c.pos.x, c.pos.y, dropped);
+      const prev = this.watched.get(c.id);
+      const owner = c.ownerPlayerId;
+      this.watched.set(c.id, { ehp: c.ehp, x: c.pos.x, y: c.pos.y, owner });
+      if (prev === undefined) continue; // first sighting is neither a hit nor a heal
+      const delta = prev.ehp - c.ehp;
+      if (delta > 0) this.emit(world, c.id, c.pos.x, c.pos.y, delta, 'damage', owner);
+      else if (delta < 0) this.emit(world, c.id, c.pos.x, c.pos.y, -delta, 'heal', owner);
     }
 
     /*
-     * ⛔ THE KILLING BLOW. A creature is deleted in the same tick its pool reaches zero, so it
-     * simply VANISHES from `world.creatures` — there is no post-fatal `ehp` left to read. What it
-     * had remaining when last seen is the damage that finished it, so the disappearance IS the
-     * event. Position is unavailable by then, which is why this path only clears the entry.
+     * ⭐⭐ THE KILLING BLOW — owner, S172: *"damage is [not] shown on the last hit when a creature
+     * dies, but it should show. It should show every hit ... whether it's the last hit or the first
+     * hit, it doesn't matter. Always damage should be visible."*
+     *
+     * A creature is deleted from `world.creatures` in the same tick its pool reaches zero, so the
+     * fatal hit is never observable as a delta — the creature simply VANISHES. The disappearance
+     * IS the event, and what it had left when last seen is the damage that finished it.
+     *
+     * ⚠ THE NUMBER IS THE REMAINING POOL, NOT THE SWING. Overkill is discarded at the damage site
+     * and never serialized, so a 7-point goblin hit for 30 prints 7. That is the honest count of
+     * damage actually dealt TO THAT CREATURE, and it is the most either peer can know without a new
+     * synced field. It also makes the arithmetic he wants players to learn come out exact: the
+     * numbers over a creature's whole life now sum to precisely its pool.
      */
-    for (const [id] of this.prevEhp) {
-      if (!seen.has(id)) this.prevEhp.delete(id);
+    for (const [id, last] of this.watched) {
+      if (seen.has(id)) continue;
+      this.watched.delete(id);
+      if (last.ehp > 0) this.emit(world, id, last.x, last.y, last.ehp, 'damage', last.owner);
     }
 
     this.advance();
   }
 
-  private spawn(world: World, victim: CreatureId, vx: number, vy: number, amount: number): void {
+  private emit(
+    world: World,
+    victim: CreatureId,
+    vx: number,
+    vy: number,
+    amount: number,
+    kind: FloaterKind,
+    owner: PlayerId,
+  ): void {
     if (amount <= 0) return;
-    const { x, y } = damageAnchor(world, victim, vx, vy);
+    const { x, y } = damageAnchor(world, victim, vx, vy, owner);
 
     let stack = 0;
     for (const f of this.live) {
       if (Math.abs(f.x - x) < 12 && Math.abs(f.y - y) < ROW_STACK_PX) stack++;
     }
 
-    const t = this.pool.pop() ?? new Text({ text: '', style: this.style });
+    const t = this.pool.pop() ?? new Text({ text: '', style: this.damageStyle });
+    t.style = kind === 'heal' ? this.healStyle : this.damageStyle;
     t.text = String(amount);
     t.anchor.set(0.5);
     t.visible = true;

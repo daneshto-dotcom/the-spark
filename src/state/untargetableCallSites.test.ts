@@ -121,7 +121,15 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
   const enemyScans = files.filter((f) => {
     const src = readFileSync(f, 'utf8');
     const iterates = /of world\.creatures|of this\.world\.creatures/.test(src);
-    const filtersOwner = /ownerPlayerId\s*(===|!==)/.test(src);
+    /*
+     * ⛔ S172 — THE CAST BLIND SPOT. This was a regex requiring only WHITESPACE between
+     * `ownerPlayerId` and the equality operator, which a real scan escapes just by writing
+     * `(o.ownerPlayerId as number) === mine`. render/damageNumbers.ts did exactly that and
+     * dropped out of the census while still scanning enemies every frame — the guard
+     * reporting a clean board because it could not SEE the file, which is the same failure
+     * shape as the S171 atlas checker. A short cast-like span now counts too.
+     */
+    const filtersOwner = /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src);
     return iterates && filtersOwner;
   });
 

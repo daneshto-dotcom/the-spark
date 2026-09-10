@@ -107,6 +107,22 @@ export const FIFTHS = 5;
  * HP 40–60 — five times the ruled ceiling — with every gate green. The file exists now and this
  * sentence is true; it is left in place rather than deleted precisely because it is the shape of
  * mistake that repeats: **a comment claiming a guard is not a guard.**
+ *
+ * ⛔ **AMENDED S172 — AND THIS AMENDMENT EXISTS BECAUSE THE PARAGRAPH ABOVE STARTED DRIFTING AGAIN.**
+ *
+ * “every SHIPPED unit sits inside the range” is no longer true of six of them. The owner ruled the
+ * tier-9 bosses UP, twice: *“bosses should be a lot stronger. So let's double their health and
+ * defense, whatever it is right now.”* They now sit at **HP 20–24, DEF 8–16** — outside 1..12 by
+ * his instruction, not by drift.
+ *
+ * ⭐ THE GUARD DID NOT WEAKEN, IT SPLIT. `statsLadder.test.ts` now runs TWO lanes: the roster is
+ * still held to 1..12, and the six bosses to their own owner-ruled band. That is STRICTER than
+ * what it replaced — a boss must now be ≥ 20, so rolling one back to its old HP fails, which the
+ * S172 negative control proved by poisoning the data and watching both lanes fire.
+ *
+ * ⚠ So read `STAT_POINT_MAX` as the ROSTER ceiling, not a universal one. It is exactly the
+ * sentence above, one session older: a range is only as true as the lane that checks it, and this
+ * docblock has now been wrong twice in the same place.
  */
 export const STAT_POINT_MIN = 1;
 export const STAT_POINT_MAX = 12;

@@ -31,6 +31,7 @@
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
+import type { DefenderId } from '../types.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { syncCreatureProjectiles } from './creatureProjectile.ts';
@@ -315,6 +316,17 @@ export class GoblinRenderer {
   /** ⭐ S172 — see the fall-through in `sync`. Without it, non-goblin bars sit inside the sprite. */
   setExtraSpriteBox(fn: (id: CreatureId) => { w: number; h: number } | null): void {
     this.extraSpriteBox = fn;
+  }
+
+  /**
+   * ⭐ S172 — THE SAME PROBLEM ONE LAYER OVER. Helga's bar was drawn at the 26 px fallback and
+   * therefore inside her body. Owner: *"Helga doesn't have a health bar. She should have one."*
+   * `PrincessRenderer` owns her sprite; main.ts wires it in.
+   */
+  private defenderSpriteBox: ((id: DefenderId) => { w: number; h: number } | null) | null = null;
+
+  setDefenderSpriteBox(fn: (id: DefenderId) => { w: number; h: number } | null): void {
+    this.defenderSpriteBox = fn;
   }
   /**
    * The atlas key each live creature is drawing from, so a CORPSE can find its own `die` row after
@@ -661,7 +673,7 @@ export class GoblinRenderer {
        * owns those sprites and is wired in from `main.ts`.
        */
       return this.extraSpriteBox?.(id) ?? null;
-    });
+    }, (id) => this.defenderSpriteBox?.(id) ?? null);
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();

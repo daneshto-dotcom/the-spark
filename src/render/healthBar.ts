@@ -63,7 +63,7 @@ import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { unitPoolFifths } from '../state/stats.ts';
 import type { World } from '../state/world.ts';
-import type { CreatureId } from '../types.ts';
+import type { CreatureId, DefenderId } from '../types.ts';
 
 /**
  * How big a creature is actually DRAWN, supplied by the renderer that owns its sprite.
@@ -118,7 +118,12 @@ const TRACK_ALPHA = 0.5;
  * what riding it costs, and a bar that waited for a sprite sheet to decode would blink on seconds
  * into every fight.
  */
-export function drawHealthBars(g: Graphics, world: World, box?: SpriteBoxLookup): void {
+export function drawHealthBars(
+  g: Graphics,
+  world: World,
+  box?: SpriteBoxLookup,
+  defenderBox?: (id: DefenderId) => { w: number; h: number } | null,
+): void {
   for (const c of world.creatures.values()) {
     if (c.ehp <= 0) continue;
     if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
@@ -135,6 +140,12 @@ export function drawHealthBars(g: Graphics, world: World, box?: SpriteBoxLookup)
    * ⭐ DEFENDERS TOO, AND HELGA IS THE REASON. She is the one named character on the board with a
    * real pool and no readout, and a `CREATURE_CONFIGS` coverage test cannot see her because she is
    * not a creature. A tower carries `ehp === null` and is skipped — it has no pool to show.
+   *
+   * ⛔ S172 (owner): *"Helga doesn't have a health bar. She should have a health bar."* She DID —
+   * this loop drew one for her from S171 onward. It was drawn at `FALLBACK_SPRITE_H = 26`, and
+   * Helga is far taller than 26 px, so the bar sat INSIDE HER BODY where he could not see it.
+   * Exactly the same defect as the bosses, from the same cause: nobody handed this function the
+   * MEASURED sprite. `PrincessRenderer` owns her sprite and is wired in from main.ts.
    */
   for (const d of world.defenders.values()) {
     if (d.ehp === null || d.ehp <= 0) continue;
@@ -143,7 +154,9 @@ export function drawHealthBars(g: Graphics, world: World, box?: SpriteBoxLookup)
     // live `ehp` is the same pure `unitPoolFifths(unitStats)` the factory seeded it with.
     const stats = getDefenderConfig(d.kind).unitStats;
     if (stats === null) continue; // a tower: no pool, nothing to show
-    drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1, 0, FALLBACK_SPRITE_H);
+    const db = defenderBox?.(d.id) ?? null;
+    drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1,
+            db?.w ?? 0, db?.h ?? FALLBACK_SPRITE_H);
   }
 }
 

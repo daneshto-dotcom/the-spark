@@ -766,6 +766,8 @@ async function bootstrap(): Promise<void> {
   // tier-3 units, Voltkin, the direwolf and the chewer live in CreatureRenderer, and without this
   // line their bars fall back to a 26 px box and are drawn inside the creature.
   goblinRenderer.setExtraSpriteBox((id) => creatureRenderer.spriteBoxOf(id));
+  // ⭐ S172 — and Helga's, for the same reason: without it her bar is drawn inside her body.
+  goblinRenderer.setDefenderSpriteBox((id) => princessRenderer.spriteBoxOf(id));
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
   const turretRenderer = new TurretRenderer(app, fogHiddenLayer);
   const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);

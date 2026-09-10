@@ -1574,17 +1574,17 @@ export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
  */
 export const T9_BOSS_STATS = {
   /** Vampires — Vlad. IMPERIAL: *"threat is authority rather than bulk"* — least durable, hits hardest. */
-  vampires: { hp: 10, def: 4, atk: 10, pen: 10, speedMul: 0.95 },
+  vampires: { hp: 20, def: 8, atk: 10, pen: 10, speedMul: 0.95 },
   /** Nagas — the Kraken. MONSTROUS: *"threat is sheer size"* — the HP pole, and the slowest. */
-  nagas: { hp: 12, def: 6, atk: 7, pen: 8, speedMul: 0.65 },
+  nagas: { hp: 24, def: 12, atk: 7, pen: 8, speedMul: 0.65 },
   /** Mummies — the Pharaoh. ANCIENT & CURSED: *"dread rather than aggression"* — the armour pole. */
-  mummies: { hp: 11, def: 8, atk: 6, pen: 8, speedMul: 0.75 },
+  mummies: { hp: 22, def: 16, atk: 6, pen: 8, speedMul: 0.75 },
   /** Zombies — the bloated brute. DISGUSTING: *"body horror and bloat"* — bulk, the softest hitter's PEN. */
-  zombies: { hp: 12, def: 5, atk: 8, pen: 8, speedMul: 0.8 },
+  zombies: { hp: 24, def: 10, atk: 8, pen: 8, speedMul: 0.8 },
   /** Orcs — the Warlord. BRUTAL: *"earned violence"* — the balanced fighter, no weakness to exploit. */
-  orcs: { hp: 11, def: 6, atk: 8, pen: 9, speedMul: 0.9 },
+  orcs: { hp: 22, def: 12, atk: 8, pen: 9, speedMul: 0.9 },
   /** Demons — the Archdemon. VICIOUS: *"active cruelty"* — highest PEN; armour is no defence. */
-  demons: { hp: 10, def: 4, atk: 9, pen: 10, speedMul: 1.0 },
+  demons: { hp: 20, def: 8, atk: 9, pen: 10, speedMul: 1.0 },
 } as const;
 
 /**

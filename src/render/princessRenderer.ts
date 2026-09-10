@@ -79,6 +79,16 @@ export class PrincessRenderer {
   private readonly bodyGfx: Graphics; // procedural fallback puppet + impact star-burst
   private readonly spriteLayer: Container; // veo-atlas character sprites
   private readonly sprites: Map<DefenderId, Sprite> = new Map();
+
+  /**
+   * ⭐ S172 — the measured sprite box, so Helga's health bar clears her head instead of being
+   * drawn inside her at the 26 px fallback. Owner: *"Helga doesn't have a health bar."*
+   * ⚠ `Math.abs` on the width because the X scale is negative when she faces left.
+   */
+  spriteBoxOf(id: DefenderId): { w: number; h: number } | null {
+    const sp = this.sprites.get(id);
+    return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };
+  }
   private readonly lastState: Map<DefenderId, string> = new Map();
   private readonly facing: Map<DefenderId, 1 | -1> = new Map();
 
