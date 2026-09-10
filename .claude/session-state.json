@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 727,
+  "tool_calls_session_total": 733,
   "session_id": "S172",
   "session_kind": "batch",
   "session_start": "2026-09-10T13:00:00+02:00",
@@ -1196,7 +1196,48 @@
       "description": "BAR_MIN_W floor applies to the TRACK only; fill becomes linear fw = w*(ehp/max). Six units (goblinMelee/Hound/Archer, raceUnit, locustCloud, chewer) had bars frozen at 100%% because pool <= 7.01 fifths sits under the 9px floor. Add the every-type shrink assertion that the existing boss-only test could not catch.",
       "status": "completed",
       "check_completed": true,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "const fw = max > 0 ? w * Math.min(1, Math.max(0, ehp / max)) : 0;",
+          "path": "src/render/healthBar.ts"
+        },
+        {
+          "type": "file_lacks",
+          "needle": "Math.min(w, span(ehp) * k)",
+          "path": "src/render/healthBar.ts"
+        },
+        {
+          "type": "file_lacks",
+          "needle": "const k = poolW > 0 ? w / poolW : 1;",
+          "path": "src/render/healthBar.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "spriteBoxOf(id: CreatureId)",
+          "path": "src/render/creatureRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "this.extraSpriteBox?.(id)",
+          "path": "src/render/goblinRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "goblinRenderer.setExtraSpriteBox(",
+          "path": "src/main.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "THE FILL MUST ACTUALLY MOVE, ON EVERY UNIT",
+          "path": "src/render/healthBar.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "A BAR DRAWN INSIDE THE CREATURE IS A BAR HE CANNOT SEE",
+          "path": "src/render/healthBar.test.ts"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -1221,7 +1262,53 @@
       "description": "Kanit 900 Italic (owner pick, verified HTTP 200), red fill + white outline, digits only. NO unit conversion - display the stored integer (owner confirmed: everything x5 is whole). Derived from ehp deltas (no new synced field, no protocol bump; covers DoT free). OWNER AMENDMENT on placement: NOT the midpoint - from the midpoint go another 50%% toward the VICTIM, i.e. t=0.25 along victim->attacker, so you can tell who took the hit. BitmapText.",
       "status": "completed",
       "check_completed": true,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "export function damageAnchor(",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "const TOWARD_ATTACKER = 0.25;",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "export const DAMAGE_FONT_FAMILY = 'Kanit';",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "family=Kanit:ital,wght@1,900",
+          "path": "index.html"
+        },
+        {
+          "type": "file_contains",
+          "needle": "damageNumbers.sync(world);",
+          "path": "src/main.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "app.stage.addChild(damageNumbers.layer);",
+          "path": "src/main.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "'render/damageNumbers.ts':",
+          "path": "src/state/untargetableCallSites.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "the number is placed so you can tell WHO TOOK the hit",
+          "path": "src/render/damageNumbers.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "the number printed is the STORED INTEGER, with no conversion",
+          "path": "src/render/damageNumbers.test.ts"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
