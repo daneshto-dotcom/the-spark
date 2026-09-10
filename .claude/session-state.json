@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 733,
+  "tool_calls_session_total": 789,
   "session_id": "S172",
   "session_kind": "batch",
   "session_start": "2026-09-10T13:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S172-BATCH.md",
-  "session_status": "P1 + damage numbers SHIPPED AND LIVE. P2 parked by owner. P4 not started.",
+  "session_status": "P1,P3,P5,P6,P8 complete. P7 PARTIAL (Helga done, towers not). P2 parked. P4,P9 not started.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -1326,6 +1326,183 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_method": "NOT DONE. Pharaoh ritual + locust stance + the Ra head/beams respec. Untouched this session."
+    },
+    {
+      "id": "P5",
+      "title": "Damage numbers: EVERY hit, plus healing in green",
+      "description": "Owner: \"damage is [not] shown on the last hit when a creature dies, but it should ... Always damage should be visible.\" The killing blow is the known gap - the creature leaves world.creatures the same tick, so the death path currently only clears the entry. Fix by carrying last-seen POSITION alongside last-seen ehp. PLUS healing: an ehp INCREASE (Vlad life sap, future heals) prints the same number in GREEN with a white outline, and the health bar rises with it.",
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "this.emit(world, id, last.x, last.y, last.ehp, 'damage', last.owner)",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "owner: PlayerId;",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "fill: 0xe01b1b",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "fill: 0x2fbf3f",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "o.ownerPlayerId === mine",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_lacks",
+          "needle": "(o.ownerPlayerId as number) === mine",
+          "path": "src/render/damageNumbers.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "the KILLING BLOW is drawn, and it points the right way",
+          "path": "src/render/damageNumbersLifecycle.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "healing reads as healing",
+          "path": "src/render/damageNumbersLifecycle.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "THE CAST BLIND SPOT",
+          "path": "src/state/untargetableCallSites.test.ts"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "c19e883",
+      "check_method": "gates from captured $?: typecheck 0, vitest 0 (4296/274), build 0 (822.1 KiB). Killing blow emits from the disappearance using remembered pos+owner; heals green. Also fixed the acquisition census cast blind spot that had hidden this very file."
+    },
+    {
+      "id": "P6",
+      "title": "Boss HP and DEF doubled again",
+      "description": "Owner: \"Vlad died within like three seconds ... bosses should be a lot stronger. Double their health AND defense, whatever it is right now, for all the bosses. Keep their damage as is.\" So T9_BOSS_STATS hp x2 and def x2; atk and pen UNTOUCHED. This is a second doubling on top of the S172 hp x2 that was reverted with the parked retune, so it applies to the SHIPPED values.",
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "vampires: { hp: 20, def: 8,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "nagas: { hp: 24, def: 12,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "mummies: { hp: 22, def: 16,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "zombies: { hp: 24, def: 10,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "orcs: { hp: 22, def: 12,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "demons: { hp: 20, def: 8,",
+          "path": "src/constants.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "BOSS_HP_MIN",
+          "path": "src/state/statsLadder.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "AMENDED S172",
+          "path": "src/state/stats.ts"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "c19e883",
+      "check_method": "gates as above. Boss HP+DEF doubled, ATK/PEN untouched; pools ~x3 (Vlad 90->260). statsLadder split into roster (1..12) and boss (HP 20..24 / DEF 8..16) lanes, proven discriminating by a negative control. stats.ts docblock amended - it had begun overstating its own guard again."
+    },
+    {
+      "id": "P7",
+      "title": "Health bars on Helga and every tower",
+      "description": "Owner: \"Helga doesn't have a health bar. She should have one. And towers too. All towers should have health bars ... they already have health stats of how they are set, so we should know how much health they have and how much they take before they get destroyed, before their first connector dies.\"",
+      "status": "partial",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "spriteBoxOf(id: DefenderId)",
+          "path": "src/render/princessRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "setDefenderSpriteBox(",
+          "path": "src/render/goblinRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "goblinRenderer.setDefenderSpriteBox(",
+          "path": "src/main.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "defenderBox?: (id: DefenderId)",
+          "path": "src/render/healthBar.ts"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "c19e883",
+      "check_method": "gates as above. Helga HAD a bar; it was drawn at the 26px fallback and sat inside her body. PrincessRenderer now supplies the measured box. TOWERS NOT DONE - their durability is in the connectors, a different data source."
+    },
+    {
+      "id": "P8",
+      "title": "The stat retune, as something he can actually READ",
+      "description": "Owner: \"I wanna see the whole chart of what you are trying to do in the stat retune because I don't see the dot patch, I can't really read it. I needed either an HTML or a PDF.\" Publish the derivation, the role table and the before/after roster as an Artifact.",
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "T9_BOSS_STATS",
+          "path": ".claude/plans/S172_STAT_RETUNE.patch"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "c19e883",
+      "check_method": "Published as an Artifact he can read: https://claude.ai/code/artifact/76cd0d84-d358-4fe1-b2f8-a03311132bf5 - the derivation, full before/after roster, the two pinned units, and the effect on the non-creature attackers. Every number computed from the shipped functions."
+    },
+    {
+      "id": "P9",
+      "title": "Vlad life sap VFX - generated",
+      "description": "Owner: \"Vlad's life sap looks like shit. I think we'll need to generate it as well as a video.\" NOT STARTED - art, lower priority than the four above.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "scope_amendments_s172": [
@@ -1334,6 +1511,8 @@
     "P3: display value is the stored integer - no fifths->points conversion. Owner confirmed explicitly.",
     "P3: placement is victim-weighted (t=0.25), not the midpoint - so the damaged unit is identifiable.",
     "P4: Ra ritual re-specified as head-from-clouds + 5 telegraphed beams; beam art allowed and reusable.",
-    "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites)."
+    "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites).",
+    "S172 mid-session (Rule 16): owner added P5-P9 after playing the shipped damage numbers. Approved in his own words: \"let's do that and then go straight into the next priority ... continue working\".",
+    "DAMAGE COLOURS: he said \"red without white outline is the damage\" but had just praised the SHIPPED look (\"It looks sick. We made it really look good\"), which IS red WITH a white outline. Treating the phrase as a slip and KEEPING damage exactly as shipped; healing gets green + white outline. Flagged to him."
   ]
 }
