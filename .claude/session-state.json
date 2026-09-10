@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 430,
+  "tool_calls_session_total": 433,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "PAUSED at owner request (5h limit) - P2A + P2B shipped; P2C (Ra ritual) is next",
+  "session_status": "DO - P2 COMPLETE (A+B+C shipped and live). P3 health bars / P4 tower labels next.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -345,12 +345,93 @@
       "id": "P2C",
       "title": "The Ra ritual (R142 + R171-A/B) - no protocol bump",
       "description": "raRitualUntilTick?: number additive-optional on the stunnedUntilTick shape. Trigger in the deferred-death sweep (the only deterministic reading of 'about to die' when one hit exceeds his whole pool). R171-A: during the ritual he LEAVES the targetable space entirely - untargetable AND damage passes through ('between realities'), visually present. Removal chokepoint + allowlist test for the 4 direct-delete paths. 5 columns x 2s = 600 ticks, 300 fifths each, AREA damage with R171-B's GROWING GROUND TELEGRAPH, then he dies.",
-      "status": "pending",
-      "check_completed": false,
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaohRitual.ts",
+          "needle": "export function runPharaohRitual(world: World): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaohRitual.ts",
+          "needle": "export function raColumnPos("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaohRitual.ts",
+          "needle": "COLUMNS FIRE **BEFORE** THE DEATH CHECK"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "export function removeCreature(world: World, creatureId: CreatureId): boolean {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "if (isChannellingRa(c, world.tick)) return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "c.raRitualUntilTick = world.tick + RA_RITUAL_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/potatoLifecycle.ts",
+          "needle": "for (const cid of creatureVictims) removeCreature(world, cid);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsArchdemon.ts",
+          "needle": "for (const id of doomed) removeCreature(world, id);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runPharaohRitual(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "function drawRaRitual("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "raColumnPos(id, k, boss.pos.x, boss.pos.y)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "^export const RA_",
+          "op": "==",
+          "value": 7
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaohRitual.test.ts",
+          "needle": "THE POTATO BLAST CANNOT DELETE HIM"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 46 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "R171-N — THE LOADING-SCREEN TUTORIAL"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "8ee0a15b2e07139cd88b281649c0c43e448a0cf8",
+      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4251 tests / 271 files (from 4238/270) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 818.7 KiB of 900 | verify-deploy 0 = 4/4 carriers, deploy concluded success. 13 new tests. ⛔ THE TESTS CAUGHT A REAL ORDERING BUG IN MY OWN RUNNER: five 2-second columns fill the ritual exactly, so the fifth lands on the same tick isChannellingRa goes false. The first draft checked death first and SWALLOWED THE LAST COLUMN - the ultimate would have shipped as four columns and a corpse. It was caught only because the test counts columns against real victims standing on each landing spot; a spy on applyRadialDamage or a 'some columns landed' assertion would have been green on four. Fixed by firing columns before the death check, which is the owner's sentence in its literal order. REMOVAL CHOKEPOINT: 5 of the 8 delete sites can reach a boss and now route through removeCreature; the 3 that cannot are NAMED with the reason rather than blindly guarded; the ninth class (world.creatures.clear() x3) deliberately does NOT route through it because a reset is not a death. NO PROTOCOL BUMP - raRitualUntilTick shipped additive-optional in P2A. NOT CLAIMED: the ritual's LOOK is unjudged - procedural telegraph + column, owner's eyes needed, and under R171-M the Pharaoh's ritual STANCE is art I owe him separately."
     },
     {
       "id": "P3",
@@ -415,6 +496,11 @@
       "priority": "P2B",
       "tag": "#a-compression-in-the-handoff-becomes-a-wrong-mechanic",
       "lesson": "Three separate carriers - boot-snapshot, session-state and the S170 PDR - had compressed R142's 'a cone of locusts THAT FLY AROUND IN LOCUST CLOUDS' to 'the locust cone', and the PDR hardened it further to 'wedge'. All describe a persistent cone VOLUME, which is a different mechanic from a fan of autonomous hunters. Reading the owner's verbatim words rather than the carried summary changed the template from the Kraken's sonar to the Warlord's direwolf summon. ⭐ AND MY OWN PDR CARRIED A VERSION OF THE SAME ERROR: it called the launch 'a reuse of inCone'. inCone is a MEMBERSHIP test; the launch PLACES. It became the test ORACLE instead, which is a real check where building the launch on it would have been circular."
+    },
+    {
+      "priority": "P2C",
+      "tag": "#count-the-outcome-not-the-call",
+      "lesson": "The ritual's five columns are timed so the last one lands on the exact tick the channel ends. My runner checked death first, removed the boss, and silently dropped that column - the ultimate would have shipped as four columns and a corpse, and it would have LOOKED fine. What caught it was that the test counts columns by standing a real victim on each landing spot and asserting all five die. A spy on applyRadialDamage, a call-count, or a vaguer 'columns landed' assertion would every one of them have been green on four of five. ⇒ When a mechanic's value is N of something, assert N OUTCOMES, not N invocations."
     }
   ],
   "budget_total": null,
