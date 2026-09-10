@@ -1,49 +1,61 @@
-# BOOT SNAPSHOT — after S171 (2026-09-10)
+# BOOT SNAPSHOT — after S172 (2026-09-10)
 
-Read `HANDOFF_S171_2026-09-10.md` for the full picture; this is the 30-second version.
+Read `HANDOFF_S172_2026-09-10.md` for the full picture; this is the 30-second version.
 
 ## Where the code is
-`master`, clean, pushed, 0 unpushed. Live at spark-online.space, `verify-deploy` 4/4.
-`PROTOCOL_VERSION` **46** (bumped 45→46 for the locust cloud).
-Gates at close: typecheck 0 / vitest **4271 across 272 files** / e2e:gating 65 / e2e:races 5 /
-build ~819 KiB of 900 / MCV hard_fail=0.
-⚠ **`check:atlas` exits 1 ON PURPOSE** — it now reports 6 size-mismatched + 9 fringed atlases.
-That list IS the art polish pass. It does NOT gate the deploy (`build` never calls it).
+`master`, clean, **0 unpushed**. Live at spark-online.space, `verify-deploy` 4/4.
+`PROTOCOL_VERSION` **46** — unchanged all session (nothing S172 shipped needed a bump).
+Gates at close, every one from a captured `$?`: typecheck 0 / vitest **4296 across 274 files** /
+e2e:gating 0 / build 0 (~822 KiB of the 900 charter) / MCV 0 with 35 assertions.
+⚠ `check:atlas` still exits 1 ON PURPOSE (6 size-mismatched + 9 fringed atlases = the art polish
+pass). It does NOT gate the deploy.
 
-## ⛔ FIRST: REPORT STATS IN POINTS, NOT FIFTHS
-The sim stores combat as `atk*(5+pen)` — **150 fifths IS 30 points**. S171 quoted raw fifths to the
-owner all session and he had to challenge it to find out. **`node scripts/stat-table.mjs`** prints
-the whole roster in his units. Use it before saying any number out loud.
+## ⛔ FIRST: THE DISPLAY UNIT IS THE STORED INTEGER — S171's LESSON IS SUPERSEDED
+S171 said "report POINTS, not fifths". The owner has since formalised the ×5 **into** the stat
+definition: *"you multiply it by five, so we have fifths"*, and confirmed for the damage numbers
+*"there's no conversion ... everything's gonna be whole numbers"*.
+**`lv 3 atk × lv 1 pen = 3 × 1.2 = 3.6 × 5 = 18`** — and `attackFifths(3,1)` returns exactly 18.
+Use his form. `node scripts/stat-table.mjs` still prints the roster.
 
-## THE PHARAOH IS DONE — and he has already played it
-R142 shipped complete: locusts + the Ra ritual. He has seen both live and given verdicts:
-- **Locusts: APPROVED.** *"Locust is fine. It doesn't look bad."*
-- **Ra columns: REJECTED ON LOOKS.** Mechanic fine, visual not. Wants a ~3 s generated loop.
+## What shipped in S172
+The fight is readable now. All live and play-tested by him.
+- **Health bars actually move.** TWO separate causes: the 9px floor was applied to the FILL as well
+  as the track (six unit types frozen at 100%), and `drawHealthBars` was handed a sprite map holding
+  only goblins, so every boss/t3/Voltkin/Helga bar was drawn at a 26px fallback INSIDE the body.
+- **Floating damage numbers**, Kanit 900 Italic, red + white outline. Every hit including the
+  killing blow; heals in green. Derived from `ehp` deltas — no new synced field, no protocol bump,
+  DoT covered free.
+- **Bosses doubled** (HP *and* DEF, damage untouched) — pools ~×3, Vlad 90→260.
+- **The stat retune is PARKED, not lost** — patch + a readable chart (links in the handoff).
 
 ## The next things, in order
+1. **TOWER HEALTH BARS** — the only *partial* item. Helga is done; towers are skipped because their
+   durability is in the CONNECTORS (R76), not a pool. Needs a connector-derived aggregate.
+2. **THE PHARAOH (P4)** — respecified by him in S172: Ra's giant HEAD from thunder clouds at the top
+   of the screen, mouth opens, then FIVE beams with growing ground shadows. Beam included and
+   reusable. >12 frames ⇒ `framesPerState` scalar → per-state, 5 sites.
+3. **VLAD'S LIFE SAP VFX (P9)** — *"looks like shit"*, wants it generated. ⚠ R140 as ruled has NO
+   victim, so a tether would paint a relationship that does not exist — his decision first.
+4. **THE ART POLISH PASS** — `check:atlas` red on 15 atlases. The scarab needs its WALK CLIP
+   RE-GENERATED (a repack cannot fix a 0.74× width).
+5. **ATTACK SPEED** — still 3 distinct cadences across 22 units. Not a design dimension yet.
 
-1. **R171-R — THE STAT PROTOCOL.** The biggest open design item. He asked for *"a mechanism -
-   protocol or algorithm to build each units stats"*. Run `stat-table.mjs`: nearly every unit's
-   single HIT exceeds nearly every unit's whole POOL, attack speed is a constant 1 s on all but two
-   units, and `ownHits` ranges 0.03–5.60. Full write-up in `BACKLOG.md` under R171-R.
-2. **R171-P + R171-Q — FINISH THE PHARAOH.** The ritual loop and the locust-release stance. He said
-   these two close him. Both fully researched in `.claude/plans/S171_NEXT_SESSION_RESEARCH.md`,
-   including the finding that the release stance needs NO new synced field.
-3. **R171-K/L — THE ART POLISH PASS**, now that the guard works. ⚠ The scarab needs its WALK CLIP
-   RE-GENERATED — I tried a repack and it cannot fix a 0.74× width, because `normaliseStateScale`
-   equalises height only.
-4. **R171-O — spawner tower contents.** Researched, cheap (no new synced structure), not started.
-5. **R171-N — the loading-screen tutorial.** Specified, owes a script.
+## One question to settle in a sentence
+He said *"red without white outline is the damage"* one breath after praising the shipped look,
+which **is** red WITH a white outline. Treated as a slip and left as shipped. Just ask.
 
-## Art division of labour (R171-M, standing)
-Already-generated creatures — new stances, polish — are **MINE**. Anything NEW is **HIS**.
-~$50 to finish polishing what exists. 12 cutouts standard; bosses want more.
-
-## Traps that will bite
-- ⛔ **Never bind a verification to something that is supposed to change.** The Stop hook caught this
-  three times in S171: a pinned PROTOCOL_VERSION, a constant headcount, an exact function signature.
-- ⛔ **Run `npm run typecheck` after TEST edits.** vitest strips types; twice a green suite hid a
-  type error that only `npm run build` caught.
-- ⛔ **The packer takes ONE union bbox across every frame of EVERY state.** A taller new pose
-  permanently shrinks the character's other rows.
-- ⛔ **Locusts must NOT be drawn into a Pharaoh clip** — the matte would weld them in forever.
+## Traps that bit this session
+- ⛔ **Fixing the first cause is not evidence there is only one.** The health bar had two, in
+  different files, and he re-reported it after the first fix shipped.
+- ⛔ **Believe his observation over your model.** *"It took him a good thirty seconds to die"*
+  demolished my one-shot-combat explanation and relocated the bug.
+- ⛔ **A missing WIRE between two modules cannot be caught by a unit test of either.** Pin it with a
+  source-text assertion.
+- ⛔ **Comments that lie are a defect class — three found in one session**, including one that had
+  lied for sixteen sessions and caused the S167 accident.
+- ⛔ **The acquisition census has a cast blind spot** (now fixed): writing
+  `(o.ownerPlayerId as number) === mine` made a real enemy scan invisible to the guard.
+- ⛔ **Author `verification[]` at priority close, before announcing done.** MCV hard-failed on
+  UNCOVERED because both arrays were empty. And grep every needle against disk first.
+- ⛔ **Do not derive a newline from a sample of the file** — it left two files mixed-ending. Patch
+  with `newline=''`.

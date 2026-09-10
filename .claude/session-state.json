@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 789,
+  "tool_calls_session_total": 809,
   "session_id": "S172",
   "session_kind": "batch",
   "session_start": "2026-09-10T13:00:00+02:00",
@@ -49,36 +49,18 @@
     "method": "3 workflows / 21 agents, 0 errors. Gates re-verified from captured $?: typecheck 0, vitest 0 (4271/272). Health-bar defect reproduced numerically before any edit."
   },
   "reflexion_entries_to_archive": [
-    {
-      "priority": "P1",
-      "tag": "#a-guard-and-the-thing-it-guards-can-share-a-blind-spot",
-      "lesson": "The one S171 test that checked the bar SHRINKS used t9BossNagas, whose 132-fifth pool sits 19x above the 9px floor where the bug lived. The every-type test only asserted a bar EXISTS. Coverage over the table is worthless if it asserts the wrong property."
-    },
-    {
-      "priority": "P1b",
-      "tag": "#the-second-cause-was-in-a-different-file-entirely",
-      "lesson": "After the fill was fixed the owner STILL saw no movement. The remaining cause was that drawHealthBars is called from GoblinRenderer and was handed a sprite map populated behind `if (!GOBLIN_KINDS.has(c.type)) continue`, so every boss measured null and its bar was drawn at the 26px fallback INSIDE the body. A unit test of healthBar.ts could never have caught a missing wire between two renderers - the pin has to be a source-text assertion."
-    },
-    {
-      "priority": "P1c",
-      "tag": "#believe-the-owner-over-your-own-diagnosis",
-      "lesson": "I explained the missing bar as one-shot combat and was WRONG. He corrected it flatly - \"he doesnt die in one hit, it took him a good thirty seconds\" - and that single sentence relocated the bug from the stat ladder to the renderer wiring. The 30 seconds was the evidence; my model was the thing that had to give."
-    },
-    {
-      "priority": "P2",
-      "tag": "#a-mechanical-rule-can-be-arithmetically-right-and-design-wrong",
-      "lesson": "The first derivation (HP from the units OWN hit) wanted to cut the locust from ATK 10 to 1 - straight through owner ruling R142 - and flatten the drone and the suicide bomber. ownHits is the WRONG target: role IS ownHits variation. Re-deriving against a tier REFERENCE hit with a role factor left every ATK/PEN/DEF untouched."
-    },
-    {
-      "priority": "P3",
-      "tag": "#the-census-earned-its-keep",
-      "lesson": "The S171 acquisition census failed the build the moment damageNumbers.ts scanned enemy creatures. It was right to ask, and the answer was a recorded VERDICT (presentational, never picks a victim, gating it would HIDE real area damage) rather than an exemption."
-    },
-    {
-      "priority": "P3b",
-      "tag": "#no-library-is-a-finding-not-a-shrug",
-      "lesson": "The owner assumed a floating-damage-number package existed. Eight npm searches, the awesome-pixijs list and all 40 PixiJS org repos returned zero. But the RECIPE was recoverable from two real clients, so \"there is nothing to install\" came with the MapleStory timings and the MIT pop/fling pattern attached instead of an empty answer."
-    }
+    "P1 #the-fix-was-right-and-the-bug-was-somewhere-else: healthBar's fill was frozen at 100% on six unit types because span()'s 9px floor was applied to the FILL as well as the TRACK (the floor binds below 7.01 fifths; goblinMelee/Hound/Archer, raceUnit, locustCloud and chewer all sit under it). I fixed that, shipped it, and the owner STILL saw no movement - because there was a second, unrelated cause in a different file. Fixing the first cause is not evidence there is only one.",
+    "P1b #a-missing-wire-cannot-be-caught-by-a-unit-test: drawHealthBars is called from GoblinRenderer and was handed a sprite map populated behind `if (!GOBLIN_KINDS.has(c.type)) continue`, so every boss, tier-3 unit, Voltkin and chewer measured null, fell back to FALLBACK_SPRITE_H=26, and had its bar drawn INSIDE the sprite. No unit test of healthBar.ts could ever see that - the defect lived BETWEEN two renderers. The pin has to be a source-text assertion on the wire itself.",
+    "P1c #believe-the-owner-over-your-own-model: I explained the missing bar as one-shot combat. He said flatly 'he doesnt die in one hit, it took him a good thirty seconds' - and that one sentence relocated the bug from the stat ladder to renderer wiring. His observation was the evidence; my model was the thing that had to give.",
+    "P2 #arithmetically-right-and-design-wrong: the first stat derivation took HP from each unit's OWN hit. It wanted to cut the locust from ATK 10 to 1 (straight through R142) and flatten the drone and the suicide bomber. ownHits is the WRONG target because role IS ownHits variation. Re-deriving against a tier REFERENCE hit with a role factor moved only HP and touched no owner ruling.",
+    "P2b #ship-what-he-ruled-then-measure-it-out-loud: he ruled 'double the boss HP' expecting it to fix boss-v-boss. It moved 1.0 to 1.2-3.7 hits, not the 4 he wanted, because the glass-cannon bosses hit for 150. I implemented the ruling exactly and reported what it actually bought, rather than quietly over-delivering or quietly under-delivering.",
+    "P3 #no-library-is-a-finding-not-a-shrug: he assumed a floating-damage-number package existed. Eight npm searches, the awesome-pixijs list and all 40 PixiJS org repos returned zero, for any engine. But the RECIPE was recoverable from two real clients (MapleStory's timings, an MIT WoW addon's pop and fling), so the answer was 'nothing to install, here are the measured constants' rather than empty.",
+    "P3b #the-census-earned-its-keep-twice: the S171 acquisition census failed the build the moment damageNumbers.ts scanned enemy creatures - correctly, and the answer was a recorded VERDICT, not an exemption. Then it FAILED TO FIRE when my rewrite wrote `(o.ownerPlayerId as number) === mine`, because its regex allowed only whitespace before the operator. A guard reporting a clean board because it cannot SEE the file - the S171 atlas shape exactly. Fixed the cast AND the detector.",
+    "P5 #the-last-hit-is-a-disappearance-not-a-delta: a creature leaves world.creatures the same tick its pool reaches zero, so the killing blow can never be observed as an ehp drop - only as an absence. And to place and AIM that number you must have remembered the victim's position AND owner, because both are gone by then. Without the owner the lookup returns undefined, every creature counts as an enemy, and the final number flies at the victim's own ally.",
+    "MCV #author-the-bindings-before-announcing-done: the Stop hook hard-failed with UNCOVERED - both completed priorities carried verification: []. I created the entries with an empty array at PDR time and never filled them at close. The work was real; the CLAIM was unbacked. Authoring them proactively is step 4 of the completion protocol, and I did it reactively instead.",
+    "MCV-b #grep-the-needle-before-you-assert-it: checking every verification needle against disk before writing it caught my first file_lacks candidate immediately - `span(ehp)` was STILL PRESENT at healthBar.ts:200, inside the docblock that explains the old bug, where it belongs. Asserted from memory it would have failed, and the 'fix' would have been deleting a comment that should stay.",
+    "SESSION #comments-that-lie-are-a-defect-class-not-untidiness: three in one session. stats.ts claimed 'every SHIPPED unit sits inside the range' after six bosses left it; damageNumbers.ts still said the killing blow COULD NOT be shown after I made it show; and a pre-existing docblock had the Pharaoh at 130 fifths when he had drifted to 143. That same stats.ts paragraph already lied for sixteen sessions and caused the S167 accident. A number that lives only in prose has nothing checking it.",
+    "SESSION #newline-detection-can-corrupt-what-it-protects: my own patch helper chose CRLF whenever a file contained ANY CRLF, so it wrote CRLF blocks into otherwise-LF files and left goblinRenderer.ts and main.ts mixed (8 and 20 lines). The project rule 'patch with newline=\"\"' preserves what exists; deriving a newline from a sample of the file does not."
   ],
   "budget_total": null,
   "totals": {
@@ -1514,5 +1496,14 @@
     "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites).",
     "S172 mid-session (Rule 16): owner added P5-P9 after playing the shipped damage numbers. Approved in his own words: \"let's do that and then go straight into the next priority ... continue working\".",
     "DAMAGE COLOURS: he said \"red without white outline is the damage\" but had just praised the SHIPPED look (\"It looks sick. We made it really look good\"), which IS red WITH a white outline. Treating the phrase as a slip and KEEPING damage exactly as shipped; healing gets green + white outline. Flagged to him."
+  ],
+  "carry_forwards_spawned_in_s172": [
+    "P7 TOWER HEALTH BARS - PARTIAL. Helga is DONE (her bar was drawn at the 26px fallback, inside her body). TOWERS ARE NOT: drawHealthBars skips them at `if (stats === null) continue` because a tower has no unit pool. Owner: 'all towers should have health bars ... we should know how much health they have and how much they take before they get destroyed, before their first connector dies.' Their durability lives in the CONNECTORS (R76: structure HP = connector count, DEF = count-1, per-connector capacity = c+4 fifths), so this needs a connector-derived aggregate, NOT a copy of Helga's fix.",
+    "P4 THE PHARAOH - NOT STARTED, and RESPECIFIED by the owner in S172. Ra does NOT fully descend: his huge godly HEAD emerges from thunder clouds at the TOP of the screen on the Pharaoh's column, opens his mouth, then FIVE light beams drop one after another, each telegraphed by a growing ground shadow. THE BEAM IS INCLUDED and may be cut out separately and reused anywhere. Locust stance: hands to the release side. MORE THAN 12 FRAMES (bosses need more cutouts) - which forces framesPerState from a scalar to per-state across 5 sites. Constraints: same Pharaoh throughout, clean cut-out, no white background, and NO locusts drawn into the clip (the matte welds them in forever). Prior research: .claude/plans/S171_NEXT_SESSION_RESEARCH.md",
+    "P9 VLAD LIFE SAP VFX - NOT STARTED. Owner: 'Vlad's life sap looks like shit. I think we'll need to generate it as well as a video.' Carried from S170: R140 AS RULED HAS NO VICTIM (runVladLifeSap is a pure self-heal and drains nobody), so a tether would paint a damage relationship that does not exist. Whether the sap starts draining a target is an OWNER DECISION and a MECHANIC change.",
+    "P2 THE STAT RETUNE - PARKED BY THE OWNER, NOT ABANDONED. He played the live build and said 'all the health and attack for now, they're balanced very well ... let's leave that.' The derivation, role table, before/after roster and his castle ruling (ATK 25 / PEN 5 = a 250 hit) survive whole as .claude/plans/S172_STAT_RETUNE.patch (178 lines), and are published for him to read at https://claude.ai/code/artifact/76cd0d84-d358-4fe1-b2f8-a03311132bf5",
+    "ATTACK SPEED IS STILL NOT A DESIGN DIMENSION. Three distinct attackCadenceTicks values across 22 units (60 on almost everything, 300 on two). He asked to 'work attack speed' in S171 and it remains untouched. It is what separates a fast weak attacker from a slow heavy one at equal DPS.",
+    "BALANCE TRIPWIRE NOW THIN - reported, not acted on. The shipped test 'one basic goblin can kill any unit inside a FIGHT phase' now clears by 6.5 s (Pharaoh 462 fifths / 12 per second = 38.5 s against a 45 s phase), down from 33.1 s before the doubling. Any further boss buff of real size turns it RED. That is the guard working - it marks where a boss stops being hard and becomes a wall - but the next balance ruling in this direction will land as a test failure and should be read as one.",
+    "DAMAGE COLOUR - one unresolved sentence. He said 'red without white outline is the damage' immediately after praising the shipped look, which IS red WITH a white outline. Treated as a slip and left as shipped. One question to settle in a sentence next session."
   ]
 }
