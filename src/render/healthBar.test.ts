@@ -12,6 +12,7 @@
  *   4. NOT SCALING — flat pixel sizes tuned on a goblin put a boss's readout inside its chest.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
@@ -386,5 +387,57 @@ describe('S172 (owner) — fault 5: THE FILL MUST ACTUALLY MOVE, ON EVERY UNIT',
     spawn(chewer, 'chewer', P1, 500);
     expect(barOf(boss).track.w, 'a boss track is longer than a chewer track')
       .toBeGreaterThan(barOf(chewer).track.w);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+describe('S172 (owner) — fault 6: A BAR DRAWN INSIDE THE CREATURE IS A BAR HE CANNOT SEE', () => {
+  /*
+   * ⛔ THE SECOND HALF OF THE OWNER'S COMPLAINT, AND THE HALF THE FILL FIX DID NOT TOUCH.
+   * *"Vlad died without his health going down. I think none of them, their health bars move."*
+   * Vlad takes ~30 s to die, so his pool WAS draining and the fill WAS correct. The bar was
+   * simply drawn in the wrong place.
+   *
+   * `drawHealthBars` is called from GoblinRenderer and was handed GoblinRenderer.sprites as its
+   * only size lookup — a map populated behind `if (!GOBLIN_KINDS.has(c.type)) continue`. Every
+   * boss, tier-3 unit, Voltkin, direwolf and chewer therefore measured `null`, fell back to
+   * FALLBACK_SPRITE_H = 26, and on a large sprite the bar landed INSIDE THE BODY.
+   *
+   * ⭐ These are SOURCE-TEXT assertions on purpose. The defect was a missing WIRE between two
+   * renderers, not arithmetic — no unit test of healthBar.ts could ever have caught it, which is
+   * exactly why it survived S171's second pass. What must stay true is that the wire exists.
+   */
+  const read = (rel: string): string =>
+    readFileSync(new URL(rel, import.meta.url), 'utf8');
+
+  it('⛔⛔ main.ts WIRES CreatureRenderer into the health-bar size lookup', () => {
+    expect(
+      read('../main.ts'),
+      'without this line every non-goblin bar is drawn at the 26 px fallback, inside the sprite',
+    ).toMatch(/goblinRenderer\.setExtraSpriteBox\(/);
+  });
+
+  it('⭐ CreatureRenderer exposes the measured box the lookup needs', () => {
+    expect(read('./creatureRenderer.ts')).toMatch(/spriteBoxOf\(id: CreatureId\)/);
+  });
+
+  it('⭐ and GoblinRenderer actually FALLS THROUGH to it rather than returning null', () => {
+    expect(read('./goblinRenderer.ts')).toMatch(/this\.extraSpriteBox\?\.\(id\)/);
+  });
+
+  it('⭐⭐ a measured sprite lifts the bar clear of it — the fallback would not', () => {
+    // A boss-sized 120 px sprite must push the bar far above where the 26 px fallback puts it.
+    const world = twoSeat();
+    spawn(world, 't9BossNagas', P1, 500, 500);
+    const g = new G();
+    beginConcealmentFrame(world, CURSOR);
+    drawHealthBars(g as never, world, () => ({ w: 90, h: 120 }));
+    const measured = g.rects[0]!.y;
+    const g2 = new G();
+    beginConcealmentFrame(world, CURSOR);
+    drawHealthBars(g2 as never, world, () => null); // the pre-S172 behaviour
+    expect(measured, 'the measured box must sit HIGHER (smaller y) than the fallback')
+      .toBeLessThan(g2.rects[0]!.y);
+    expect(g.rects[0]!.w, 'and at least as wide as the sprite').toBeGreaterThanOrEqual(90);
   });
 });

@@ -754,6 +754,10 @@ async function bootstrap(): Promise<void> {
   // S139 P2 — the goblin needs its OWN renderer: both shipped creature renderers are
   // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
   const goblinRenderer = new GoblinRenderer(app, fogHiddenLayer);
+  // ⭐ S172 — GoblinRenderer draws every health bar but only measures its OWN sprites. Bosses,
+  // tier-3 units, Voltkin, the direwolf and the chewer live in CreatureRenderer, and without this
+  // line their bars fall back to a 26 px box and are drawn inside the creature.
+  goblinRenderer.setExtraSpriteBox((id) => creatureRenderer.spriteBoxOf(id));
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
   const turretRenderer = new TurretRenderer(app, fogHiddenLayer);
   const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);

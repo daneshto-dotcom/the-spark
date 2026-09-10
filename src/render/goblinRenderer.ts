@@ -308,6 +308,14 @@ export class GoblinRenderer {
    */
   private readonly arrowLayer: Graphics;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
+
+  /** Size lookup for creatures this renderer does not draw — wired to `CreatureRenderer` in main.ts. */
+  private extraSpriteBox: ((id: CreatureId) => { w: number; h: number } | null) | null = null;
+
+  /** ⭐ S172 — see the fall-through in `sync`. Without it, non-goblin bars sit inside the sprite. */
+  setExtraSpriteBox(fn: (id: CreatureId) => { w: number; h: number } | null): void {
+    this.extraSpriteBox = fn;
+  }
   /**
    * The atlas key each live creature is drawing from, so a CORPSE can find its own `die` row after
    * the creature is gone from `world.creatures` and its type is no longer knowable.
@@ -644,7 +652,15 @@ export class GoblinRenderer {
      */
     drawHealthBars(this.arrowLayer, world, (id) => {
       const sp = this.sprites.get(id);
-      return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };
+      if (sp !== undefined) return { w: Math.abs(sp.width), h: sp.height };
+      /*
+       * ⭐ S172 — FALL THROUGH TO THE OTHER RENDERER. `this.sprites` only ever holds GOBLIN_KINDS
+       * (see the `continue` in the draw loop below), so without this every boss, tier-3 unit,
+       * Voltkin, direwolf and chewer measured as `null` and its bar was drawn at the 26 px
+       * fallback height — i.e. buried inside the sprite on anything large. `CreatureRenderer`
+       * owns those sprites and is wired in from `main.ts`.
+       */
+      return this.extraSpriteBox?.(id) ?? null;
     });
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;

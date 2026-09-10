@@ -129,6 +129,26 @@ export function computeSpriteDelta(
 // ===== Renderer class =====
 
 export class CreatureRenderer {
+  /**
+   * ⭐⭐ S172 (owner) — **THE MEASURED SPRITE BOX, FOR THE HEALTH BAR ABOVE THIS CREATURE'S HEAD.**
+   *
+   * ⛔ THE BUG THIS EXISTS TO FIX. `drawHealthBars` is called from `GoblinRenderer`, and it was
+   * handed `GoblinRenderer.sprites` as its only size lookup — a map that is populated behind
+   * `if (!GOBLIN_KINDS.has(c.type)) continue`. So for every creature this renderer owns (the six
+   * tier-9 bosses, the six tier-3 race units, Voltkin, the direwolf, the chewer) the lookup
+   * returned `undefined`, the bar fell back to `FALLBACK_SPRITE_H = 26`, and on a boss that put
+   * the bar INSIDE ITS BODY instead of above its head. The owner: *"Vlad died without his health
+   * going down ... I think none of them, their health bars move."* The fill was correct; it was
+   * drawn where he could not see it.
+   *
+   * ⚠ `Math.abs` on the width because a sprite's X scale is NEGATIVE when it faces left — the
+   * same reason `GoblinRenderer` does it at its own call site.
+   */
+  spriteBoxOf(id: CreatureId): { w: number; h: number } | null {
+    const sp = this.sprites.get(id);
+    return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };
+  }
+
   readonly container: Container;
   /** S106 P5 — ONE shared Graphics for all Voltkins (the chewer/turret pattern; no per-creature sprite). */
   private readonly bodyGfx: Graphics;
