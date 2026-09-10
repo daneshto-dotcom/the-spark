@@ -43,8 +43,8 @@ import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
 import { drawBossAuras } from './bossAuras.ts';
 import { drawLocustClouds } from './locustCloud.ts';
+import { drawHealthBars } from './healthBar.ts';
 import { isConcealed } from './concealment.ts';
-import { multiplierFifths } from '../state/stats.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
 import { RACE_TOWER_UNIT, t3UnitAtlasBase } from '../state/raceTowerIds.ts';
@@ -626,6 +626,16 @@ export class GoblinRenderer {
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);
+    /*
+     * ⭐ S171 (owner R171-E) — health bars, into the ARROW LAYER and strictly AFTER the projectile
+     * sync. Two reasons, both load-bearing:
+     *   · `syncCreatureProjectiles` opens with `g.clear()`, so anything drawn before it is erased;
+     *   · `arrowLayer` sits ABOVE the sprite layer, which is where a bar has to be — the Graphics
+     *     used by the auras below is UNDER the sprites, so a bar drawn there would vanish behind
+     *     every boss it is most needed on.
+     * No new display object either way, so `fogHiddenLayer`'s child indices are untouched.
+     */
+    drawHealthBars(this.arrowLayer, world);
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();
@@ -785,7 +795,10 @@ export class GoblinRenderer {
         // The puppet is drawn unscaled, so the stars are too — scaleMul defaults to 1.
         if (isStunned(c, world.tick)) drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), alpha);
       }
-      this.drawHpPips(g, c.pos.x, c.pos.y, c.ehp, cfg.hp, cfg.def, alpha);
+      // ⭐ S171 (owner R171-E) — the per-HP pips that used to draw here are GONE, replaced by
+      // `render/healthBar.ts`, which draws for EVERY creature (these pips reached 20 of 23
+      // types), stays visible at FULL health (they hid, which was his actual complaint) and
+      // scales to the sprite (they were goblin-tuned, so on a boss they sat inside its chest).
     }
 
     // Sprites for goblins that died this frame must go with them, or they freeze mid-swing forever.
@@ -934,44 +947,6 @@ export class GoblinRenderer {
     g.moveTo(handX, handY).lineTo(tipX, tipY).stroke({ color: BLADE, width: 3.4, alpha });
     g.moveTo(handX, handY).lineTo(tipX, tipY)
       .stroke({ color: BLADE_EDGE, width: 1.2, alpha: 0.9 * alpha });
-  }
-
-  /**
-   * HP pips above the head — one pip per HP POINT, filled by how many points remain.
-   *
-   * ⭐ S151 P2 — THIS USED TO READ `GOBLIN_MELEE_HP` AS ITS DENOMINATOR, which made the renderer the
-   * third consumer of the goblin-as-backbone defect (owner R72) and, worse, hard-coded ONE unit's
-   * toughness into a function drawing ANY unit. Now every number comes from the drawn creature's own
-   * config, so the six goblin kinds arriving with the goblin tower each get a correct bar for free.
-   *
-   * `ehp` is in FIFTHS; one HP point is `5 + def` fifths, so remaining points is that division
-   * rounded UP — a unit on its last sliver still shows one pip rather than reading as already dead.
-   */
-  private drawHpPips(
-    g: Graphics,
-    x: number,
-    y: number,
-    ehp: number,
-    hpPoints: number,
-    def: number,
-    alpha: number,
-  ): void {
-    const perPoint = multiplierFifths(def);
-    const remaining = Math.ceil(ehp / perPoint);
-    if (remaining >= hpPoints) return; // undamaged: no clutter
-    const total = hpPoints;
-    const w = 1.6;
-    const gap = 0.9;
-    const span = total * w + (total - 1) * gap;
-    const x0 = x - span / 2;
-    const py = y - BODY_R * 2.5;
-    for (let i = 0; i < total; i++) {
-      const filled = i < remaining;
-      g.rect(x0 + i * (w + gap), py, w, 2.4).fill({
-        color: filled ? 0x8ce06a : 0x000000,
-        alpha: (filled ? 0.95 : 0.28) * alpha,
-      });
-    }
   }
 
   /**

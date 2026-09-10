@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 433,
+  "tool_calls_session_total": 434,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "DO - P2 COMPLETE (A+B+C shipped and live). P3 health bars / P4 tower labels next.",
+  "session_status": "DO - P3 health bars in flight; P5 atlas detector next",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -437,7 +437,7 @@
       "id": "P3",
       "title": "Health bars over every enemy (R171-E)",
       "description": "Owner authorised for THIS session: 'Technically, you can do the health bars already in this session.' REALLY THIN (said twice), red, white is an open option he wants to see. Bar size scales with creature size - the Kraken's is bigger and thicker. Must cull via isConcealed (an enemy bar is a fog position-tell) and must draw into an EXISTING Graphics (fogHiddenLayer index trap). ⚠ OPEN ENGINEERING QUESTION under research: a bar needs current AND MAX pool, but serializeCreature emits hp only when DAMAGED - establish what a peer can derive first.",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "verification": [],
       "pdr_approved": true,
@@ -448,6 +448,17 @@
       "id": "P4",
       "title": "Tower requirements must name the shape (R171-H)",
       "description": "Owner: 'a small one that we can easily fix. We can easily just do it now too.' Replace 'two more needed' with 'two more squares' / 'one more line' / 'four more triangles'. Simple, coherent, minimalistic. ⚠ Enumerate EVERY buildable showing this wording - fixing one and leaving three is the documented recurring defect.",
+      "status": "pending",
+      "check_completed": false,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "Fix the check:atlas detector, then polish behind it (R171-K/L)",
+      "description": "Owner S171: 'fix that detector too while you're at it and polish pass the working guard behind it.' MEASURED: t3-nagas-piranha and t3-mummies-scarab atlases ARE scanned and BOTH report 'clean 0 px' while the owner can see white matte borders on the piranha/Kraken and 2-2.5x cross-row size drift on the scarab - two of check:atlas's three declared defect classes. The detector is looking and not seeing. Fix the detector FIRST so the polish pass has a working guard, then polish.",
       "status": "pending",
       "check_completed": false,
       "verification": [],
@@ -1044,7 +1055,8 @@
   },
   "approval_quote": "Let's get cooking approved.",
   "scope_amendments_s171": [
-    "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e)."
+    "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e).",
+    "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
   ],
   "auto_fill_applied": {
     "ts": "2026-09-09T18:53:30.378173Z",
