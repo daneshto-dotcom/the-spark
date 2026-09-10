@@ -63,6 +63,17 @@ import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { unitPoolFifths } from '../state/stats.ts';
 import type { World } from '../state/world.ts';
+import type { CreatureId } from '../types.ts';
+
+/**
+ * How big a creature is actually DRAWN, supplied by the renderer that owns its sprite.
+ *
+ * ⚠ THE BAR CANNOT WORK THIS OUT ITSELF, and that is why it is injected rather than imported. This
+ * module walks `world.creatures` deliberately — so it covers the three types the goblin loop misses
+ * — but on-screen size lives in the atlas + `GOBLIN_SPRITE_BASE_SCALE`, which only the sprite owner
+ * knows. `null` for anything with no sprite (the procedural puppets), which falls back to a default.
+ */
+export type SpriteBoxLookup = (id: CreatureId) => { w: number; h: number } | null;
 
 /**
  * ⚠ "REALLY THIN" IS HIS REQUIREMENT AND HE SAID IT TWICE. 1.5 px at scale 1. A boss multiplies it,
@@ -77,8 +88,19 @@ const BAR_PX_PER_SQRT_FIFTH = 3.4;
 const BAR_MIN_W = 9;
 const BAR_MAX_W = 62;
 
-/** How far above the sprite's own top the bar floats. Scaled per type, like everything else here. */
-const BAR_LIFT = 26;
+/**
+ * ⭐ S171 (owner, second pass) — **CLEARANCE ABOVE THE SPRITE'S OWN TOP, not a flat offset.**
+ *
+ * The first version lifted a flat 26 px and the owner sent a screenshot of a bar sitting ON a
+ * creature: *"the health bars should be above the heads of the enemies"*. Sprites are FOOT-anchored,
+ * so a fixed lift lands inside anything taller than the number it was tuned against — the same class
+ * as the old HP pips ending up inside a boss's chest. The bar now clears the measured sprite HEIGHT
+ * and this is only the gap above it.
+ */
+const BAR_LIFT = 10;
+
+/** Fallback height for a creature with no atlas sprite (the procedural puppets). */
+const FALLBACK_SPRITE_H = 26;
 
 /**
  * ⚠ HIS FIRST CHOICE WAS RED AND HIS OPEN QUESTION WAS WHITE — *"maybe even the health bar will be
@@ -96,7 +118,7 @@ const TRACK_ALPHA = 0.5;
  * what riding it costs, and a bar that waited for a sprite sheet to decode would blink on seconds
  * into every fight.
  */
-export function drawHealthBars(g: Graphics, world: World): void {
+export function drawHealthBars(g: Graphics, world: World, box?: SpriteBoxLookup): void {
   for (const c of world.creatures.values()) {
     if (c.ehp <= 0) continue;
     if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
@@ -104,7 +126,9 @@ export function drawHealthBars(g: Graphics, world: World): void {
     const max = unitPoolFifths(cfg.hp, cfg.def);
     if (max <= 0) continue;
     const scale = creatureSpriteScaleMul(c.type);
-    drawBar(g, c.pos.x, c.pos.y - liftOf(c.type), c.ehp, max, scale);
+    const b = box?.(c.id) ?? null;
+    drawBar(g, c.pos.x, c.pos.y - liftOf(c.type), c.ehp, max, scale,
+            b?.w ?? 0, b?.h ?? FALLBACK_SPRITE_H * scale);
   }
 
   /*
@@ -119,7 +143,7 @@ export function drawHealthBars(g: Graphics, world: World): void {
     // live `ehp` is the same pure `unitPoolFifths(unitStats)` the factory seeded it with.
     const stats = getDefenderConfig(d.kind).unitStats;
     if (stats === null) continue; // a tower: no pool, nothing to show
-    drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1);
+    drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1, 0, FALLBACK_SPRITE_H);
   }
 }
 
@@ -134,6 +158,10 @@ function drawBar(
   ehp: number,
   max: number,
   scale: number,
+  /** The creature's drawn sprite width, or 0 when it has no sprite. */
+  spriteW: number,
+  /** The creature's drawn sprite height — how far the bar has to rise to clear its head. */
+  spriteH: number,
 ): void {
   const span = (v: number): number =>
     Math.min(BAR_MAX_W, Math.max(BAR_MIN_W, Math.sqrt(Math.max(0, v)) * BAR_PX_PER_SQRT_FIFTH));
@@ -152,13 +180,32 @@ function drawBar(
    * *"the big Kraken will have a big health bar, it'll be a little thicker"*. His bar is already
    * longer because his POOL is bigger, which is the honest reason for it to be.
    */
-  const w = span(max);
+  /*
+   * ⭐ S171 (owner, second pass) — **AT LEAST AS WIDE AS THE CREATURE IT BELONGS TO.**
+   *
+   * *"make them longer (at least the length of the creatures width that it represents)"*. So the
+   * pool-derived length is a FLOOR, not the answer: whichever is longer wins.
+   *
+   * ⚠ AND THE FILL IS SCALED BY THE SAME FACTOR, or the encoding breaks. If the track were widened
+   * to the sprite while the fill kept its pool length, a wide creature would read as permanently
+   * damaged. `k` is applied to both, so the bar gets longer without the READOUT changing meaning —
+   * a full-health unit still fills its whole track, and the fill still shrinks in proportion.
+   *
+   * ⚠ Cross-unit fill comparability (the property the earlier draft broke by scaling length) is
+   * therefore preserved only WITHIN a given sprite width. That is an accepted trade: he asked for
+   * the bar to match the creature, and a bar narrower than the thing it labels was the complaint.
+   */
+  const poolW = span(max);
+  const w = Math.max(poolW, spriteW);
+  const k = poolW > 0 ? w / poolW : 1;
   // ⚠ CLAMPED TO THE TRACK. `span()` has a floor, so a nearly-dead unit would otherwise draw a fill
   // slightly LONGER than its own track once `ehp` falls under the floor's threshold.
-  const fw = Math.min(w, span(ehp));
+  const fw = Math.min(w, span(ehp) * k);
   const h = BAR_H * scale;
   const bx = x - w / 2;
-  const by = y - BAR_LIFT * scale;
+  // Clear the sprite's own top, then a small constant gap. Foot-anchored, so the top is one full
+  // sprite height above `y`.
+  const by = y - spriteH - BAR_LIFT * scale;
 
   g.rect(bx, by, w, h).fill({ color: TRACK_TINT, alpha: TRACK_ALPHA });
   g.rect(bx, by, fw, h).fill({ color: FILL_TINT, alpha: 0.95 });

@@ -635,7 +635,17 @@ export class GoblinRenderer {
      *     every boss it is most needed on.
      * No new display object either way, so `fogHiddenLayer`'s child indices are untouched.
      */
-    drawHealthBars(this.arrowLayer, world);
+    /*
+     * ⚠ THE SPRITE BOX IS SUPPLIED BY THIS RENDERER, because only it knows how big a creature is
+     * actually DRAWN — the size comes from the atlas texture times GOBLIN_SPRITE_BASE_SCALE times
+     * the per-type multiplier, none of which `healthBar` can see. The owner asked for bars "above
+     * the heads" and "at least the length of the creature's width", and both need the real box.
+     * `Math.abs` on the width because the sprite's X scale is NEGATIVE when it faces left.
+     */
+    drawHealthBars(this.arrowLayer, world, (id) => {
+      const sp = this.sprites.get(id);
+      return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };
+    });
     this.ensureAtlases();
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();

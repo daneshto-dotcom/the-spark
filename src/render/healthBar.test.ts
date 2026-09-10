@@ -234,3 +234,55 @@ describe('S171 R171-E — it must not leak position through the fog', () => {
     expect(g.rects.length, 'nothing may be drawn for an enemy you cannot see').toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('S171 R171-E (2nd pass) — above the head, and as wide as the creature', () => {
+  /** Draw with a supplied sprite box, the way the goblin renderer does in production. */
+  function barWithSprite(world: World, w: number, h: number) {
+    const g = new G();
+    beginConcealmentFrame(world, CURSOR);
+    drawHealthBars(g as never, world, () => ({ w, h }));
+    expect(g.rects.length).toBe(2);
+    return { track: g.rects[0]!, fillW: g.rects[1]!.w };
+  }
+
+  it('⭐⭐ the bar is AT LEAST as wide as the creature it labels', () => {
+    // *"make them longer (at least the length of the creatures width that it represents)"*.
+    const world = twoSeat();
+    spawn(world, 'chewer', P1, 500, 500); // a tiny pool, so the pool-derived length is the floor
+    const wide = barWithSprite(world, 120, 40);
+    expect(wide.track.w, 'a 120px creature must not wear a 9px bar').toBeGreaterThanOrEqual(120);
+  });
+
+  it('⭐⭐ it sits ABOVE the sprite, not on it', () => {
+    /*
+     * The owner's screenshot showed a bar drawn across a creature's body. Sprites are FOOT-anchored,
+     * so the top of a creature standing at y is `y - spriteHeight` — a flat lift lands inside
+     * anything taller than the number it was tuned against.
+     */
+    const world = twoSeat();
+    spawn(world, 'chewer', P1, 500, 500);
+    const SPRITE_H = 80;
+    const bar = barWithSprite(world, 60, SPRITE_H);
+    expect(bar.track.y, 'must clear the top of an 80px sprite standing at y=500')
+      .toBeLessThan(500 - SPRITE_H);
+  });
+
+  it('⭐ a taller creature pushes its bar higher', () => {
+    const world = twoSeat();
+    spawn(world, 'chewer', P1, 500, 500);
+    expect(barWithSprite(world, 60, 140).track.y).toBeLessThan(barWithSprite(world, 60, 40).track.y);
+  });
+
+  it('⛔ widening to the sprite does NOT make a healthy unit look damaged', () => {
+    /*
+     * The trap in "just make the track longer": if the TRACK grows to the sprite while the FILL
+     * keeps its pool-derived length, every wide creature reads as permanently half-dead. Both are
+     * scaled by the same factor, so full health still fills the whole track.
+     */
+    const world = twoSeat();
+    spawn(world, 'chewer', P1, 500, 500);
+    const bar = barWithSprite(world, 200, 40);
+    expect(bar.fillW, 'undamaged ⇒ the fill spans the whole widened track').toBeCloseTo(bar.track.w, 5);
+  });
+});

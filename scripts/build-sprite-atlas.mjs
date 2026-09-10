@@ -321,8 +321,40 @@ for st in states:
 # ⚠ Absent ⇒ byte-identical to the previous behaviour, like every other knob in this file.
 if spec.get('normaliseStateScale', False):
     def _subject_h(a):
-        ys = np.nonzero((a[:, :, 3] > 40).sum(axis=1))[0]
-        return int(ys[-1] - ys[0] + 1) if ys.size else 0
+        #
+        # ⭐⭐ S171 — MEASURE THE **BODY**, NOT EVERY OPAQUE PIXEL. THIS IS THE SCARAB BUG'S REAL CAUSE.
+        #
+        # This read the bbox of ALL opaque pixels, so ONE stray speck redefined the character's size
+        # — and because that number is the DIVISOR in the rescale below, a speck does not merely
+        # mismeasure the row, it SHRINKS IT.
+        #
+        # ⛔ THAT IS EXACTLY WHAT SHIPPED ON THE SCARAB, AND THE S168 NOTE IN 'atlas-specs.json'
+        # DESCRIBED THE MECHANISM WITHOUT CLOSING IT. It records that veo pillarboxed the walk clip
+        # and that *"the inflated bbox scaled the whole row DOWN to 0.77x of idle"*, then fixed it by
+        # skipping the bad frames with 'sampleStart: 24'. That cured those particular BLACK bars. It
+        # left the measurement itself fragile, and the frames after the skip carry a near-WHITE
+        # sliver at the left edge which does the identical thing:
+        #
+        #     shipped walk row, measured: body 196x133 against idle 330x136  ->  0.59x the width
+        #     walk frame 0 all-opaque bbox: 185 px tall. Largest BODY component: 136 px.
+        #
+        # The owner reported both halves as separate complaints — *"he looks like he's inflating"*
+        # (it is the WALK that is shrunk, not the attack that grows) and *"those white edges ...
+        # during their walk"*. One cause.
+        #
+        # ⚠ AND THE SAME DEFECT WAS IN THE CHECKER, fixed in the same session: 'check-atlas-scenery'
+        # scored these rows 1.00x and passed them for three sessions because it measured the same
+        # way. A guard and the builder sharing a blind spot is why nobody found this by looking.
+        #
+        # Taking the LARGEST CONNECTED COMPONENT measures the animal and ignores the litter. The
+        # litter is still caught, on its own terms, by the checker's edge-fringe test.
+        op = a[:, :, 3] > 40
+        lab, n = ndimage.label(op)
+        if not n:
+            return 0
+        sizes = ndimage.sum(op, lab, index=np.arange(1, n + 1))
+        ys = np.nonzero(lab == int(np.argmax(sizes)) + 1)[0]
+        return int(ys.max() - ys.min() + 1) if ys.size else 0
     #
     # S165, SECOND PASS - THE STATISTIC WAS WRONG AND THE OWNER FOUND IT.
     #

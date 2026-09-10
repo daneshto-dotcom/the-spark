@@ -67,6 +67,37 @@ export function applyVortexPull(world: World, attractedId: SparkId | null = null
   for (const spark of world.freeSparks.values()) {
     if (spark.state.kind !== 'Free') continue; // carried/placed sparks are not free to pull
     if (attractedId !== null && spark.id === attractedId) continue; // don't fight the player's drag
+    /*
+     * ⭐⭐ S171 (owner) — **AN ESCROWED SPARK IS PARKED ON PURPOSE. DO NOT PULL IT.**
+     *
+     * Owner, reporting it from play: *"I built, like, a huge structure near my castle. So ... not
+     * every time I take out a shape from the castle primitive, it just flies all by itself ... it's
+     * just automatically flying off very fast"* and then, exactly: *"it seems like there's MAGNETISM
+     * or ANTIMAGNETISM between the shapes."*
+     *
+     * ⛔ HE NAMED THE MECHANISM WITHOUT KNOWING IT. Vortex (Dot+Spiral) is a radial SUCK and Spindle
+     * (Line+Circle) is a tangential SHOVE — magnetism and antimagnetism. Neither loop checked
+     * `escrow`, so a shape standing on the castle porch was a legal target for both.
+     *
+     * ⚠ AND ESCROW IS EXACTLY WHY IT WAS UNRECOVERABLE. `escrow` exempts a spark from every
+     * containment rail there is — the quarry rim-snap, the 10 s TTL reap and the soft cap — because
+     * a banked or hauled shape is *meant* to sit outside the zone. So the one flag that let a magic
+     * field fling it was also the flag that guaranteed nothing would ever pull it back.
+     *
+     * MEASURED before the fix, from porch slot 0: one Spindle anchor 30 px away launched the shape
+     * 530 px at 353 px/s; six Spindle bonds — an ordinary big structure — reached 567 px/s and 824
+     * px, off the bottom of a 1080 px canvas. For scale, the fastest chaser in the game is the
+     * hunter at 315 px/s.
+     *
+     * ⭐ THE LINE IS COPIED FROM `enforceSpawnerBounds` (`game/spawner.ts`), which already carries
+     * this guard and states the rule: *"an ESCROWED spark has left the quarry on purpose."* A magic
+     * field reaching into a player's porch is the same violation the rim-snap exemption was written
+     * for. It also closes the mirror case nobody has hit yet: a Vortex stealing a gatherer's
+     * in-flight haul (`escrow: 'hauled'`).
+     *
+     * No wire or hash cost — `escrow` is already serialized and hashed. No PROTOCOL_VERSION bump.
+     */
+    if (spark.escrow !== undefined) continue;
     let px = 0;
     let py = 0;
     for (const anchor of anchors) {

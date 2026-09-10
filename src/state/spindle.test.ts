@@ -243,3 +243,52 @@ describe('S115 P2 — Spindle tangential swirl', () => {
     expect(Math.abs(vel(sNear).x)).toBeGreaterThan(Math.abs(vel(sFar).x));
   });
 });
+
+/**
+ * ⭐⭐ S171 (owner) — **A BANKED SHAPE ON THE PORCH IS NOT THE SPINDLE'S TO MOVE.**
+ *
+ * Owner, from play: *"I built, like, a huge structure near my castle ... not every time I take out a
+ * shape from the castle primitive, it just flies all by itself ... it seems like there's MAGNETISM
+ * or ANTIMAGNETISM between the shapes."* He named both mechanics without knowing it: Vortex
+ * (Dot+Spiral) is a radial suck and Spindle (Line+Circle) is a tangential shove.
+ *
+ * ⛔ AND ESCROW IS WHY IT WAS UNRECOVERABLE, WHICH IS THE PART WORTH REMEMBERING. `escrow` exempts a
+ * spark from every containment rail — the quarry rim-snap, the 10 s TTL reap, the soft cap —
+ * because a banked shape is MEANT to sit outside the zone. So the flag that let a magic field fling
+ * it was also the flag guaranteeing nothing would pull it back. Measured before the fix: six
+ * Spindle bonds launched a porch shape 824 px at 567 px/s, off the bottom of a 1080 px canvas, and
+ * the game's fastest chaser (the hunter) only manages 315 px/s.
+ */
+describe('S171 — escrowed sparks are immune to the magic fields', () => {
+  it('⭐⭐ a BANKED spark inside the radius is not swirled at all', () => {
+    const w = makeWorld(0);
+    addSpindle(w, 500, 500);
+    const s = addFreeSpark(w, 99, 530, 500); // 30 px away — well inside SPINDLE_PULL_RADIUS
+    s.escrow = 'banked';
+
+    applySpindlePull(w, null);
+    expect(vel(s), 'a shape parked on the porch must not move').toEqual({ x: 0, y: 0 });
+  });
+
+  it('⭐ CONTROL — the identical spark without escrow IS swirled, so the test is not vacuous', () => {
+    const w = makeWorld(0);
+    addSpindle(w, 500, 500);
+    const s = addFreeSpark(w, 99, 530, 500);
+
+    applySpindlePull(w, null);
+    const v = vel(s);
+    expect(Math.hypot(v.x, v.y), 'control: an ordinary free spark still swirls').toBeGreaterThan(0);
+  });
+
+  it('⭐ and a HAULED spark is protected too — the mirror case nobody has hit yet', () => {
+    // A gatherer carrying a shape home is escrowed for the same reason. Without the guard a Vortex
+    // or Spindle beside the route would steal the haul mid-flight.
+    const w = makeWorld(0);
+    addSpindle(w, 500, 500);
+    const s = addFreeSpark(w, 98, 520, 500);
+    s.escrow = 'hauled';
+
+    applySpindlePull(w, null);
+    expect(vel(s)).toEqual({ x: 0, y: 0 });
+  });
+});
