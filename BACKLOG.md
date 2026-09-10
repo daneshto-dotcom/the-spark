@@ -3183,3 +3183,77 @@ The code half of both is already shipped and working.
 - **Locust population never cleared** — FIXED and shipped (`7b3185a`). One constant was serving as
   both the cloud's strike rate and the Pharaoh's re-arm cooldown.
 - **Shapes fly off near a big structure** — under investigation; see the next section when it lands.
+
+---
+
+# ⭐⭐⭐ R171-R — THE STAT PROTOCOL. The biggest open design item in the game.
+
+> *"if a locusts cloud has 10 atk and 10 pen then his damage should be 10*3 = 30 not 143?? he has 10
+> atk and 10 def and 10 def is 3 (remember it goes 1 def = 1.2, 2 def = 1,4, etc...) so every 5 sec
+> one strike per cloud that does 30 totals damage points... ? i think we need to review all damage
+> and health (all stats in general) and also work attack speed, movement speed. we need a mechanism
+> - protocol or algorithm to build each units stats so it is consistent and make sense with the
+> game"*
+
+## ⛔ FIRST, THE UNIT ERROR THAT STARTED IT — AND HE WAS RIGHT
+
+The sim stores combat numbers in **FIFTHS**: `attackFifths(atk,pen) = atk * (5 + pen)`. That is a
+fixed-point trick to keep the arithmetic integral. **150 fifths IS 30 points**, which is exactly his
+`10 x (1 + 0.2*10)`.
+
+S171 reported the RAW FIFTHS to him — in the P2 PDR, in a stats table, and in four commit messages
+("150 damage against a 143 pool"). The RATIOS were all correct and the UNIT was internal, so the
+numbers read as nonsense to the person who has to balance them.
+
+⇒ **`node scripts/stat-table.mjs` now prints the whole roster in POINTS.** Every stat conversation
+uses it. Written this session precisely so this cannot recur.
+
+## THE MEASURED STATE OF THE ROSTER — this is the evidence he is right
+
+```
+unit                 HP DEF ATK PEN |  ePOOL    HIT   cad    DPS   spd | ownHits
+t9BossMummies        11   8   6   8 |   28.6   15.6    1s   15.6  0.75 |    1.83
+t9BossVampires       10   4  10  10 |   18.0   30.0    1s   30.0  0.95 |    0.60
+voltkin               8   3   3   6 |   12.8    6.6    1s    6.6     1 |    1.94
+t3Scarab              4   2   1   0 |    5.6    1.0    1s    1.0  0.75 |    5.60
+goblinMelee           1   2   2   1 |    1.4    2.4    1s    2.4  0.85 |    0.58
+locustCloud           1   0  10  10 |    1.0   30.0    5s    6.0  1.35 |    0.03
+chewer                1   0   1   2 |    1.0    1.4    5s    0.3   0.6 |    0.71
+```
+
+**Four pathologies, all visible in one table:**
+
+1. ⛔ **THERE IS NO LADDER — nearly every unit's single HIT exceeds nearly every unit's whole POOL.**
+   A goblinMelee has 1.4 effective HP and almost everything on the board does more than that per
+   swing. Combat is not attrition, it is *who swings first*. ⭐ That is the same root as the S155
+   *"player 2's goblins couldn't kill anything"* bug: deferred deaths fixed the symptom (iteration
+   order deciding the winner), but the reason order MATTERED is that one hit is always lethal.
+2. ⛔ **THE BANDS CONTRADICT EACH OTHER IN BOTH DIRECTIONS AT ONCE.** Bosses hit for 15-30 against
+   trash pools of 1-5, so a boss one-shots everything — while Vlad's own pool is 18 and a goblinHound
+   hits 4.2, so five trash units kill a boss in one exchange round.
+3. ⛔ **ATTACK SPEED IS NOT A DESIGN DIMENSION.** Every unit is a 1 s cadence except the chewer and
+   the locust. He asked to *"work attack speed"* — there is currently nothing to work.
+4. ⛔ **`ownHits` (ePOOL / HIT) HAS NO SHAPE.** Scarab 5.60, Voltkin 1.94, Pharaoh 1.83, goblinHound
+   0.24, locust 0.03. Those are not roles; they are the residue of numbers set by different rulings
+   in different sessions with different reasoning.
+
+## WHAT THE PROTOCOL HAS TO PRODUCE
+
+A **derivation**, not a table: given a unit's ROLE and TIER, the stats fall out. Candidate axes he
+has already named — HP, DEF, ATK, PEN, **attack speed**, **movement speed**.
+
+Constraints any proposal must satisfy:
+- ⚠ **Some numbers are HIS RULINGS and are not free.** R141 fixed the boss band (HP 10-12, DEF 4-8,
+  ATK 6-10, PEN 8-10); R142 fixed the locust at 10/10 and the Ra column at 15/15; R70/R72/R77 fixed
+  goblin stats; R118 rules that a tech-draft step is **+1 POINT**, not a percentage. A protocol that
+  requires overturning a ruling has to say so explicitly and ask.
+- ⚠ **`multiplierFifths` is `5 + points`, i.e. `x(1 + 0.2n)` in points.** The DEF/PEN curve is
+  linear and unbounded — at PEN 10 it is x3. Whether that curve is right is itself a question.
+- ⚠ **Everything is INTEGER FIFTHS.** A protocol producing fractional points must say how it rounds,
+  order-independently, or it is a desync.
+- ⚠ **TIME-TO-KILL is the real output.** The protocol should be expressed as a target TTK band per
+  matchup class (trash-v-trash, trash-v-boss, boss-v-boss) and the stats derived to hit it — rather
+  than stats chosen first and TTK discovered afterwards, which is how the current roster happened.
+
+⇒ **This is a Full-tier design priority for a coming session**, with the stat table as its baseline
+and `statsLadder.test.ts` as the place the invariants get pinned.
