@@ -41,11 +41,18 @@
  * always separate cleanly; only a crowd focusing a single victim merges. This is a renderer-local
  * visual over synced state: it cannot desync the sim, and `world` is never written to.
  *
- * ⛔ THE ONE NUMBER THIS CANNOT SHOW EXACTLY IS THE KILLING BLOW. A creature is removed from
- * `world.creatures` in the same tick its `ehp` reaches 0 and the overkill is discarded, so the fatal
- * hit is only recoverable as the victim's LAST SEEN REMAINING POOL. A 7-point goblin struck for 30
- * prints 7, not 30. That is the honest number for "damage actually dealt to this creature", and it
- * is the best either peer can know without adding a synced field.
+ * ## ⭐ THE KILLING BLOW IS SHOWN — owner, S172: *"it should show every hit ... whether it's the
+ * last hit or the first hit, it doesn't matter. Always damage should be visible."*
+ *
+ * It is NOT a delta, because a creature is removed from `world.creatures` in the same tick its
+ * `ehp` reaches 0. It is a DISAPPEARANCE, and the watcher carries the last-seen position and
+ * owner forward so the number can still be placed and still be aimed.
+ *
+ * ⚠ THE VALUE IS THE REMAINING POOL, NOT THE SWING. Overkill is discarded at the damage site and
+ * never serialized, so a 7-point goblin struck for 30 prints 7. That is the honest count of damage
+ * actually dealt TO THAT CREATURE, it is the most either peer can know without a new synced field,
+ * and it makes the arithmetic he wants players to learn come out exact: the numbers over a
+ * creature's whole life sum to precisely its pool.
  */
 
 import { Container, Text, TextStyle } from 'pixi.js';
