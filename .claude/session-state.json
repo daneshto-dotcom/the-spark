@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 659,
+  "tool_calls_session_total": 727,
   "session_id": "S172",
   "session_kind": "batch",
   "session_start": "2026-09-10T13:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S172-BATCH.md",
-  "session_status": "EXECUTING - batch approved by owner with four amendments",
+  "session_status": "P1 + damage numbers SHIPPED AND LIVE. P2 parked by owner. P4 not started.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -48,7 +48,38 @@
     "status": "complete",
     "method": "3 workflows / 21 agents, 0 errors. Gates re-verified from captured $?: typecheck 0, vitest 0 (4271/272). Health-bar defect reproduced numerically before any edit."
   },
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P1",
+      "tag": "#a-guard-and-the-thing-it-guards-can-share-a-blind-spot",
+      "lesson": "The one S171 test that checked the bar SHRINKS used t9BossNagas, whose 132-fifth pool sits 19x above the 9px floor where the bug lived. The every-type test only asserted a bar EXISTS. Coverage over the table is worthless if it asserts the wrong property."
+    },
+    {
+      "priority": "P1b",
+      "tag": "#the-second-cause-was-in-a-different-file-entirely",
+      "lesson": "After the fill was fixed the owner STILL saw no movement. The remaining cause was that drawHealthBars is called from GoblinRenderer and was handed a sprite map populated behind `if (!GOBLIN_KINDS.has(c.type)) continue`, so every boss measured null and its bar was drawn at the 26px fallback INSIDE the body. A unit test of healthBar.ts could never have caught a missing wire between two renderers - the pin has to be a source-text assertion."
+    },
+    {
+      "priority": "P1c",
+      "tag": "#believe-the-owner-over-your-own-diagnosis",
+      "lesson": "I explained the missing bar as one-shot combat and was WRONG. He corrected it flatly - \"he doesnt die in one hit, it took him a good thirty seconds\" - and that single sentence relocated the bug from the stat ladder to the renderer wiring. The 30 seconds was the evidence; my model was the thing that had to give."
+    },
+    {
+      "priority": "P2",
+      "tag": "#a-mechanical-rule-can-be-arithmetically-right-and-design-wrong",
+      "lesson": "The first derivation (HP from the units OWN hit) wanted to cut the locust from ATK 10 to 1 - straight through owner ruling R142 - and flatten the drone and the suicide bomber. ownHits is the WRONG target: role IS ownHits variation. Re-deriving against a tier REFERENCE hit with a role factor left every ATK/PEN/DEF untouched."
+    },
+    {
+      "priority": "P3",
+      "tag": "#the-census-earned-its-keep",
+      "lesson": "The S171 acquisition census failed the build the moment damageNumbers.ts scanned enemy creatures. It was right to ask, and the answer was a recorded VERDICT (presentational, never picks a victim, gating it would HIDE real area damage) rather than an exemption."
+    },
+    {
+      "priority": "P3b",
+      "tag": "#no-library-is-a-finding-not-a-shrug",
+      "lesson": "The owner assumed a floating-damage-number package existed. Eight npm searches, the awesome-pixijs list and all 40 PixiJS org repos returned zero. But the RECIPE was recoverable from two real clients, so \"there is nothing to install\" came with the MapleStory timings and the MIT pop/fling pattern attached instead of an empty answer."
+    }
+  ],
   "budget_total": null,
   "totals": {
     "budget_remaining": null
@@ -1163,45 +1194,51 @@
       "id": "P1",
       "title": "The health bar actually moves",
       "description": "BAR_MIN_W floor applies to the TRACK only; fill becomes linear fw = w*(ehp/max). Six units (goblinMelee/Hound/Archer, raceUnit, locustCloud, chewer) had bars frozen at 100%% because pool <= 7.01 fifths sits under the 9px floor. Add the every-type shrink assertion that the existing boss-only test could not catch.",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "7506761",
+      "check_method": "gates read from captured $?: typecheck 0, vitest 0 (4288/273), build 0 (821.4 KiB of 900), verify-deploy 0 (4/4 carriers, run 34479023419). health bar: linear fill AND the cross-renderer sprite-box wire"
     },
     {
       "id": "P2",
       "title": "The stat protocol - level assignment",
       "description": "Owner formula unchanged: (atk x (1+0.2*pen)) x 5. Derive HP = round(4 * atk*(5+pen) / (5+def)); if HP > 12 lower ATK instead. OWNER AMENDMENT: double every boss HP to fix boss-v-boss one-shot (supersedes the R141 HP 10-12 band). Make attackCadenceTicks a real per-unit dimension. Pin hits-to-kill invariants in statsLadder.test.ts.",
-      "status": "pending",
+      "status": "parked",
       "check_completed": false,
       "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "PARKED BY OWNER after he played the live build: \"all the health and attack for now, they are balanced very well ... let us leave that\". The retune was written, measured and then REVERTED; it survives as .claude/plans/S172_STAT_RETUNE.patch (178 lines) with the derivation, the role table and the castle ruling (ATK 25 / PEN 5) intact."
     },
     {
       "id": "P3",
       "title": "Floating damage numbers",
       "description": "Kanit 900 Italic (owner pick, verified HTTP 200), red fill + white outline, digits only. NO unit conversion - display the stored integer (owner confirmed: everything x5 is whole). Derived from ehp deltas (no new synced field, no protocol bump; covers DoT free). OWNER AMENDMENT on placement: NOT the midpoint - from the midpoint go another 50%% toward the VICTIM, i.e. t=0.25 along victim->attacker, so you can tell who took the hit. BitmapText.",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "37f376d",
+      "check_method": "gates read from captured $?: typecheck 0, vitest 0 (4288/273), build 0 (821.4 KiB of 900), verify-deploy 0 (4/4 carriers, run 34479023419). floating damage numbers, Kanit 900 Italic"
     },
     {
       "id": "P4",
       "title": "Finish the Pharaoh",
       "description": "Ritual + locust-release stances, >12 frames (owner: bosses need more cutouts). OWNER AMENDMENT - the Ra ritual redesigned: Ra does NOT fully descend. His huge godly HEAD emerges from thunder clouds at the TOP of the screen, on the Pharaoh column, opens his mouth, then FIVE light beams drop one after another, each telegraphed by a growing ground shadow. Beam IS included and may be cut out separately and reused. Locust stance: hands to the release side. Constraints: same Pharaoh throughout, clean cut-out, no white background.",
-      "status": "pending",
+      "status": "not_started",
       "check_completed": false,
       "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "NOT DONE. Pharaoh ritual + locust stance + the Ra head/beams respec. Untouched this session."
     }
   ],
   "scope_amendments_s172": [
