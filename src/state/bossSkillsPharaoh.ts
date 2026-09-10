@@ -39,7 +39,7 @@
  */
 
 import {
-  PHARAOH_LOCUST_CADENCE_TICKS,
+  PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS,
   PHARAOH_LOCUST_CONE_HALF_ANGLE,
   PHARAOH_LOCUST_COUNT,
   PHARAOH_LOCUST_MAX_PER_OWNER,
@@ -70,7 +70,13 @@ export function runPharaohLocusts(world: World): void {
     // same reasoning as every other boss runner: a boss who cannot act does not act, and the stun is
     // the only counterplay a player has against one.
     if (isStunned(boss, world.tick)) continue;
-    if ((world.tick + (bossId as number)) % PHARAOH_LOCUST_CADENCE_TICKS !== 0) continue;
+    /*
+     * ⛔ THE **LAUNCH** CLOCK, WHICH IS NOT THE CLOUD'S STRIKE CLOCK. S171 shipped with one
+     * constant doing both, so he re-armed every 5 s and the board never cleared — the owner's
+     * *"they seem to just kill everything around"* and *"the locusts don't seem to disappear"*,
+     * which were one bug wearing two faces. See the constant for the measured before/after.
+     */
+    if ((world.tick + (bossId as number)) % PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS !== 0) continue;
 
     /*
      * *"he lunches it when the first enemy is in range."* The aim doubles as the trigger: if there is

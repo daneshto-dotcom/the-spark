@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PHARAOH_LOCUST_CADENCE_TICKS,
+  PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS,
   PHARAOH_LOCUST_CONE_HALF_ANGLE,
   PHARAOH_LOCUST_COUNT,
   PHARAOH_LOCUST_LIFETIME_TICKS,
@@ -69,9 +70,9 @@ const clouds = (w: World): CreatureId[] =>
 
 /** Advance to this boss's next cadence slot and run the launcher there. */
 function fireOnce(world: World, bossId: CreatureId): void {
-  for (let i = 0; i < PHARAOH_LOCUST_CADENCE_TICKS + 2; i++) {
+  for (let i = 0; i < PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS + 2; i++) {
     world.tick++;
-    if ((world.tick + (bossId as number)) % PHARAOH_LOCUST_CADENCE_TICKS === 0) {
+    if ((world.tick + (bossId as number)) % PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS === 0) {
       runPharaohLocusts(world);
       return;
     }
@@ -259,5 +260,62 @@ describe('S171 R142 — the cloud itself carries his numbers', () => {
     // incoherence that makes a unit walk to a castle and then refuse to hit it.
     const cfg = getCreatureConfig('locustCloud');
     expect(cfg.targetsStructures).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('S171 — ⛔ THE BOARD MUST CLEAR: the launch cooldown is not the strike cadence', () => {
+  it('⭐⭐ the locust population RETURNS TO ZERO between fans', () => {
+    /*
+     * ⛔ THE REGRESSION THIS FILE EXISTS FOR AFTER S171. The ability shipped with ONE constant
+     * serving as both the cloud's strike rate and the Pharaoh's re-arm cooldown, so he launched a
+     * fresh fan every 5 s against a 15 s cloud lifetime and the population sat pinned at the cap
+     * forever. The owner reported both faces of it from play — *"they seem to just kill everything
+     * around"* and *"the locusts don't seem to disappear"*.
+     *
+     * ⚠ AND NOTE WHAT A WEAKER TEST WOULD HAVE MISSED. "clouds expire" was TRUE the whole time — the
+     * 15-second lifetime always worked, and a test that spawned one fan and watched it die would
+     * have been green on the broken build. The property that was actually violated is that the board
+     * comes back to EMPTY, which only shows up when the launcher is allowed to keep running.
+     */
+    const world = twoSeat();
+    spawn(world, 't9BossMummies', P0, 500);
+    spawn(world, 'goblinMelee', P1, 620);
+
+    let sawFan = false;
+    let sawEmptyAfterFan = false;
+    let peak = 0;
+    for (let t = 0; t < PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS * 2; t++) {
+      world.tick++;
+      runPharaohLocusts(world);
+      for (const id of [...world.creatures.keys()]) {
+        dispatch(world, { type: 'CREATURE_TICK', creatureId: id } as never);
+      }
+      const n = clouds(world).length;
+      peak = Math.max(peak, n);
+      if (n > 0) sawFan = true;
+      if (sawFan && n === 0) sawEmptyAfterFan = true;
+    }
+    expect(sawFan, 'fixture: a fan must have launched at all').toBe(true);
+    expect(peak, 'never more than one fan alive at a time').toBeLessThanOrEqual(PHARAOH_LOCUST_COUNT);
+    expect(
+      sawEmptyAfterFan,
+      'the board must return to ZERO locusts between fans — if this is false the launcher is ' +
+        're-arming faster than the clouds expire, which is the S171 bug',
+    ).toBe(true);
+  });
+
+  it('⭐ the two clocks are genuinely different constants', () => {
+    // A guard against the fix being undone by "tidying" them back into one. They measure different
+    // things: how often a CLOUD STRIKES, and how often the PHARAOH RE-ARMS.
+    expect(PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS).toBeGreaterThan(PHARAOH_LOCUST_CADENCE_TICKS);
+    // And the cooldown must outlast the clouds, or fans overlap and the board never empties.
+    expect(PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS).toBeGreaterThan(PHARAOH_LOCUST_LIFETIME_TICKS);
+  });
+
+  it('⭐ TWO clouds per fan — the owner corrected my three', () => {
+    // *"I thought I said two clouds, but there's three clouds."* R142 states no count, so his
+    // recollection is the ruling.
+    expect(PHARAOH_LOCUST_COUNT).toBe(2);
   });
 });

@@ -2471,8 +2471,12 @@ export const DIREWOLF_MAX_PER_OWNER = 6;
  * the strongest attack in the game lives in the two numbers below, which are MINE.
  */
 
-/** ⚠ MINE. Matches `DIREWOLF_SUMMON_COUNT` — the only other boss summon, so the board reads alike. */
-export const PHARAOH_LOCUST_COUNT = 3;
+/**
+ * ⚠ MINE, then CORRECTED BY HIM. I chose 3 to match `DIREWOLF_SUMMON_COUNT`; on seeing it live he
+ * said *"I thought I said two clouds, but there's three clouds."* R142 does not state a count, so
+ * his recollection is the ruling. Two.
+ */
+export const PHARAOH_LOCUST_COUNT = 2;
 
 /**
  * ⚠ MINE, and it is the balance dial. One strike per 5 s over a 15 s life = 3 strikes per cloud,
@@ -2484,6 +2488,34 @@ export const PHARAOH_LOCUST_COUNT = 3;
  * nine guaranteed kills from one boss skill is already enormous.
  */
 export const PHARAOH_LOCUST_CADENCE_TICKS = 5 * PHYSICS_HZ;
+
+/**
+ * ⭐⭐ HOW OFTEN HE LAUNCHES A NEW FAN — **AND SPLITTING THIS OUT IS A BUG FIX, NOT A TIDY-UP.**
+ *
+ * S171 shipped with ONE constant doing two unrelated jobs: `PHARAOH_LOCUST_CADENCE_TICKS` set both
+ * how often a CLOUD STRIKES and how often the PHARAOH RE-ARMS. So he launched a fresh fan every
+ * five seconds, and with a 15-second cloud lifetime the board simply never cleared.
+ *
+ * ⛔ MEASURED IN A HARNESS BEFORE AND AFTER, because the owner reported it from play — *"they seem
+ * to just kill everything around"* and *"the locusts don't seem to disappear"*:
+ *
+ *     t=0s 0 clouds | t=5s 3 | t=10s 6 | t=15s 6 | t=20s 3 | t=25s 3   <- shipped behaviour
+ *
+ * Both halves of his report were right and had one cause. The clouds DID expire — the 6→3 step is
+ * the 15-second lifetime working correctly — but a new fan arrived faster than the old one died, so
+ * the population sat pinned at the cap forever. At 150 fifths a strike that is roughly a kill every
+ * second, permanently, from one ability.
+ *
+ * ⚠ AND MY OWN PDR MIS-STATED THE ABILITY BECAUSE OF IT. It priced the fan at "9 strikes = up to 9
+ * kills", which is the arithmetic for ONE fan. The launcher re-armed, so the true figure was
+ * unbounded. The lesson is narrow and worth keeping: a constant named for a CADENCE was reused as a
+ * COOLDOWN, and the two words describe different clocks.
+ *
+ * ⚠ THIRTY SECONDS IS MINE. R142 gives the trigger (*"when the first enemy is in range"*) and no
+ * cooldown. With a 15 s lifetime this yields 15 s of locusts and then 15 s of clear board, so the
+ * ability visibly STARTS and ENDS instead of being weather.
+ */
+export const PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS = 30 * PHYSICS_HZ;
 
 /**
  * R142: *"for 15 sec"*.
