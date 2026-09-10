@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 532,
+  "tool_calls_session_total": 538,
   "session_id": "S171",
   "session_kind": "batch",
   "session_start": "2026-09-09T19:40:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/PDR-S171-P2-PHARAOH.md",
-  "session_status": "DO - P2A/B/C + P3 + P5 shipped. Locust re-arm bug fixed. Shape-flying bug under investigation.",
+  "session_status": "CLOSING - all owner bugs fixed and shipped; handoff being written",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -466,7 +466,7 @@
         {
           "type": "file_contains",
           "path": "src/render/healthBar.ts",
-          "needle": "export function drawHealthBars(g: Graphics, world: World): void {"
+          "needle": "export function drawHealthBars("
         },
         {
           "type": "file_contains",
@@ -476,7 +476,7 @@
         {
           "type": "file_contains",
           "path": "src/render/goblinRenderer.ts",
-          "needle": "drawHealthBars(this.arrowLayer, world);"
+          "needle": "drawHealthBars(this.arrowLayer, world"
         },
         {
           "type": "file_lacks",
@@ -497,7 +497,7 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "Gates all from a captured $?: typecheck 0 | vitest 0 = 4264/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0 | verify-deploy 4/4 on 773a4db. 10 new tests, each pinning one of the four faults the old pips had. ⛔ THE ENCODING TEST CAUGHT ME: my first draft scaled the whole bar by sprite size, which broke cross-unit fill comparability (boss 14.4px vs goblin 9px for the SAME remaining health). Length is the readout and is now scale-free; thickness and lift still scale. ⚠ Two fixture holes found by their own failures: fogActive needs all four of gameMode/gameState/matchPhase/localPlayerId, and computeVisionSources DEREFERENCES the cursor so null throws. NOT CLAIMED: the look is unjudged by the owner."
+      "check_method": "Gates all from a captured $?: typecheck 0 | vitest 0 = 4264/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0 | verify-deploy 4/4 on 773a4db. 10 new tests, each pinning one of the four faults the old pips had. ⛔ THE ENCODING TEST CAUGHT ME: my first draft scaled the whole bar by sprite size, which broke cross-unit fill comparability (boss 14.4px vs goblin 9px for the SAME remaining health). Length is the readout and is now scale-free; thickness and lift still scale. ⚠ Two fixture holes found by their own failures: fogActive needs all four of gameMode/gameState/matchPhase/localPlayerId, and computeVisionSources DEREFERENCES the cursor so null throws. NOT CLAIMED: the look is unjudged by the owner. ⚠ BINDINGS CORRECTED (3rd stale-binding instance this session, third flavour): these pinned the exact SIGNATURE of drawHealthBars and its exact call. P6 legitimately added a sprite-box parameter and both went stale. A signature is a form, not an identity - it is supposed to change when a function gains a capability. Rebound onto the function NAME and the call site. Together with the PROTOCOL_VERSION pin and the constant HEADCOUNT earlier today, the rule generalises: bind to the thing that must remain TRUE, never to the thing's current shape."
     },
     {
       "id": "P4",
@@ -552,6 +552,74 @@
           "needle": "fringed > 0) process.exit(1);"
         }
       ]
+    },
+    {
+      "id": "P6",
+      "title": "Owner-reported bugs found while playing the shipped Pharaoh",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "6023b9834a12bd4c7451c2c7e8bcae47a0cbf11c",
+      "check_method": "Three owner bugs, all fixed and shipped. (1) LOCUST RE-ARM: one constant served as both the cloud's strike rate and the Pharaoh's cooldown, so a fan launched every 5s against a 15s lifetime and the board never cleared. Measured before/after in a harness. Split into PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS=30s; count 2 per his correction. Regression test pins that the population RETURNS TO ZERO between fans - the property actually violated, since 'clouds expire' was TRUE on the broken build. (2) THE PORCH FLING: Vortex/Spindle had no escrow guard, so a banked shape on the porch was a legal target for both - and escrow is also what exempts it from every recovery rail. Measured 824px at 567px/s from six Spindle bonds. One line each, copied from enforceSpawnerBounds. PRE-EXISTING (vortex S89, spindle S115), verified against this session's diffs. (3) HEALTH BARS 2nd pass: bars now clear the MEASURED sprite height and are at least as wide as the creature, with the fill scaled by the same factor so a widened track does not read as damage. Gates all from a captured $?: typecheck 0 | vitest 0 = 4271/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaoh.ts",
+          "needle": "PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS !== 0"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vortex.ts",
+          "needle": "if (spark.escrow !== undefined) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/spindle.ts",
+          "needle": "if (spark.escrow !== undefined) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/spindle.test.ts",
+          "needle": "escrowed sparks are immune to the magic fields"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "AT LEAST AS WIDE AS THE CREATURE IT BELONGS TO"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.test.ts",
+          "needle": "it sits ABOVE the sprite, not on it"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "MEASURE THE **BODY**, NOT EVERY OPAQUE PIXEL"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/stat-table.mjs",
+          "needle": "REPORTING THE RAW FIFTHS COST A WHOLE SESSION"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S171_NEXT_SESSION_RESEARCH.md",
+          "needle": "THE RELEASE NEEDS NO NEW FIELD"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "R171-R — THE STAT PROTOCOL"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -614,6 +682,21 @@
       "priority": "P3",
       "tag": "#run-typecheck-after-test-edits-not-only-source-edits",
       "lesson": "Twice in one session vitest went fully green while `tsc -b` inside `npm run build` failed on a type error in a TEST file - once a missing property on a return type, once an unused binding. vitest strips types, so a test suite passing says nothing about the test file compiling, and the failure surfaces two gates later where it reads as a build break rather than as the test edit that caused it."
+    },
+    {
+      "priority": "P6",
+      "tag": "#report-in-the-owners-units-not-the-engines",
+      "lesson": "I quoted RAW FIFTHS at the owner all session - in a PDR, a stats table and four commit messages ('150 damage against a 143 pool'). The sim stores combat as atk*(5+pen) to stay integral; 150 fifths IS 30 points, which is exactly his own 10*(1+0.2*10). Every RATIO I gave was right and every NUMBER was in a unit he does not think in, so it read as nonsense and he had to challenge it to find out. ⇒ An internal representation is never the reporting unit. Built scripts/stat-table.mjs so the whole roster prints in points and this cannot recur - and that table then became the evidence for his much larger point, that the stat system has no ladder at all."
+    },
+    {
+      "priority": "P6",
+      "tag": "#the-owners-words-can-name-the-mechanism-exactly",
+      "lesson": "He described shapes flying off the porch as 'it seems like there's MAGNETISM or ANTIMAGNETISM between the shapes'. Vortex (Dot+Spiral) is a radial suck and Spindle (Line+Circle) is a tangential shove - he had named both mechanics precisely without knowing the code. Treating that phrase as a literal hypothesis rather than as vague colour is what pointed the investigation at two files with no escrow guard. ⇒ When a non-engineer reaches for a physical metaphor, test it as a hypothesis before translating it."
+    },
+    {
+      "priority": "P6",
+      "tag": "#a-guard-and-its-builder-can-share-one-blind-spot",
+      "lesson": "check-atlas-scenery measured row size from the bbox of ALL opaque pixels, so a stray sliver redefined the creature - and build-sprite-atlas's normaliseStateScale measured the SAME way, where the number is the DIVISOR in a rescale. So the speck did not merely mismeasure the row, it SHRANK it, and the checker that should have caught that was blind for the identical reason. Both fixed to use the largest connected component. ⇒ When a guard misses something, check whether the thing it guards computes the same quantity the same wrong way."
     }
   ],
   "budget_total": null,
