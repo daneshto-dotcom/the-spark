@@ -26,6 +26,7 @@
 // DEV-only; the whole module dead-code-eliminates in a production build. See its docblock.
 import './dev/probeBootstrap.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
 import {
   SPAWN_RATE_PER_SECOND,
   CANVAS_HEIGHT,
@@ -747,6 +748,13 @@ async function bootstrap(): Promise<void> {
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
   const creatureRenderer = new CreatureRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐ S172 — FLOATING DAMAGE NUMBERS. Its own container, added ABOVE the creature layers so a
+   * number is never painted over by a sprite drawn later in the frame. It reads `ehp` deltas and
+   * writes nothing back into `world`.
+   */
+  const damageNumbers = new DamageNumbers();
+  void loadDamageFont();
   // S100 P1 (TD Phase 1a) — chewerRenderer draws the persistent 'chewer' creatures (original
   // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
   // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
@@ -836,6 +844,12 @@ async function bootstrap(): Promise<void> {
   // S77 P2 — stage the global-reach layer ABOVE the fog (+ memory ghosts) but BELOW the HUD, so
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
+  /*
+   * ⭐ S172 — the damage numbers sit ABOVE the fog layer, next to the other above-fog UI. A number
+   * is information the player is meant to read and learn from (owner: *"that way people can learn
+   * how to play it"*), so it must never be occluded by a sprite or dimmed by fog.
+   */
+  app.stage.addChild(damageNumbers.layer);
   // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
   // see the comment there). Relative order preserved: beta, ⚙ (after beta — S18 P1
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
@@ -3650,6 +3664,8 @@ Network routes: ${v.detail}`;
     // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
     chewerRenderer.sync(world);
     goblinRenderer.sync(world);
+    // ⭐ S172 — after both creature renderers, so a number spawned this frame is drawn on top.
+    damageNumbers.sync(world);
     // S103 P3 — laser-turret defenders (charge/beam off synced state). Cheap when none live.
     turretRenderer.sync(world);
     // S103 P4 — HELGA princess defenders (articulated slap rig off synced state). Cheap when none live.

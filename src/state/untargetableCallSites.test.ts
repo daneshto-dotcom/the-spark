@@ -79,6 +79,13 @@ const rel = (p: string): string => p.slice(SRC.length + 1).split('\\').join('/')
  * A.0 sweep — this list is a set of VERDICTS, not a set of exemptions.
  */
 const NOT_ACQUISITION: Readonly<Record<string, string>> = {
+  'render/damageNumbers.ts':
+    'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
+    'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
+    'has already happened. Nothing is targeted, nothing is damaged, and `world` is never written '+
+    'to. Gating it would be actively WRONG: a unit that is untargetable can still be hurt by an '+
+    'area effect, and hiding the number would hide real damage from the player — the exact '+
+    'opposite of what the feature is for (owner: *"that way people can learn how to play it"*).',
   'bots/botBrain.ts':
     'AVOIDANCE, not acquisition. `nearestChewer` filters on `type !== chewer` and returns a position ' +
     'for the bot to steer AWAY from; the ownership filter in this file belongs to `nearestEnemyPrim`, ' +
