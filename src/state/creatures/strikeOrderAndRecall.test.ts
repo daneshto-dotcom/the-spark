@@ -7,6 +7,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  DEFENDER_FIRE_HOLD_TICKS,
+  DEFENDER_RECOVER_TICKS,
   FIGHT_PHASE_TICKS,
   GOBLIN_DAMAGE_VS_PRIMITIVE,
   PLAYER_COLORS,
@@ -16,6 +18,7 @@ import {
   SparkType,
 } from '../../constants.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
+import { getDefenderConfig } from '../defenders/defender.ts';
 import { applyCreatureAttack } from './creatureAttack.ts';
 import { asCreatureId, makeCreature } from './creature.ts';
 import { makeBond } from '../placePrimitive.ts';
@@ -255,13 +258,33 @@ describe('S157 F3 — a recalled chewer is not bricked for the rest of the match
   });
 });
 
-describe('S157 B7 — the laser fires twice as fast', () => {
-  it('the cadence halved, and the charge ring follows it for free', () => {
-    // Owner: "Laser tower should charge up and be able to shoot x2 quicker!"
+describe('S157 B7 / S173 B6 — the laser fires twice as fast, twice', () => {
+  it('the cadence halved AGAIN, and the charge ring follows it for free', () => {
+    // Owner S157 B7: "Laser tower should charge up and be able to shoot x2 quicker!"  (1800 → 900)
+    // Owner S173 B6: "The laser tower needs to shoot twice as fast. So it needs to load and shoot
+    // like twice faster ... So two times faster."                                      (900 → 450)
     // The renderer derives charge as `1 - remaining / fireIntervalTicks`, so no render change exists
     // to make — the ring fills against whatever this constant says.
-    expect(TURRET_FIRE_INTERVAL_TICKS).toBe(900);
-    // And it must fit the fight it is used in: 4 shots per 2700-tick FIGHT, not 2.
-    expect(Math.floor(FIGHT_PHASE_TICKS / TURRET_FIRE_INTERVAL_TICKS)).toBe(3);
+    expect(TURRET_FIRE_INTERVAL_TICKS).toBe(450);
+    // And it must fit the fight it is used in: 6 windows per 2700-tick FIGHT, not 3.
+    expect(Math.floor(FIGHT_PHASE_TICKS / TURRET_FIRE_INTERVAL_TICKS)).toBe(6);
+  });
+
+  /*
+   * ⚠ THE PERIOD IS NOT THE INTERVAL, and this is pinned because the prose drifted once already.
+   * The S157 note above the constant claimed "FOUR shots (0/900/1800/2700)" while the assertion
+   * directly under it said three — it counted the interval and forgot the phases. The turret re-arms
+   * `nextFireTick` at the RECOVER→IDLE edge, so a full cycle also pays windup + FIRE hold + recover.
+   * That sum is the number the owner actually feels, so it gets an assertion rather than a sentence.
+   */
+  it('the real cycle is interval + windup + hold + recover, and it DOUBLES the landed beams', () => {
+    const cfg = getDefenderConfig('turret');
+    const period = cfg.fireIntervalTicks + cfg.windupTicks
+      + DEFENDER_FIRE_HOLD_TICKS + DEFENDER_RECOVER_TICKS;
+    expect(period).toBe(479); // was 933 at the S157 numbers
+    // Beams that LAND before the whistle: t = 0, period, 2·period, ... < FIGHT_PHASE_TICKS. The
+    // turret fires at t=0 because `standDownDefenders` never re-phases `nextFireTick`, so it is
+    // already in the past at every FIGHT edge (measured in S157, unchanged here).
+    expect(Math.ceil(FIGHT_PHASE_TICKS / period)).toBe(6); // was 3
   });
 });

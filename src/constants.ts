@@ -2906,6 +2906,33 @@ export const TURRET_BEAM_PEN = 0; // owner R77 gave no turret PEN; unchanged
 export const STINK_BAG_PEN = 1; // ⭐ R77 — was 0
 // Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
 /**
+ * ⭐⭐ S173 B6 (owner) — **HALVED AGAIN, AND THE NUMBER IS HIS.** *"The laser tower needs to
+ * shoot twice as fast. So it needs to load and shoot like twice faster, because this is not good
+ * enough. It's like a tier six or seven. It does a lot of damage, but it needs a lot more speed. So
+ * two times faster."*
+ *
+ * 900 → 450. The S157 ruling below is kept UNEDITED rather than overwritten: he asked for ×2 twice,
+ * sixteen sessions apart, and which halving is which stays legible.
+ *
+ * ⚠ THE CADENCE IS THIS CONSTANT — BUT THE CYCLE IS NOT ONLY THIS CONSTANT. Measured, not assumed.
+ * The FSM is IDLE (wait for `nextFireTick`) → WINDUP → FIRE → RECOVER, and `nextFireTick` is re-armed
+ * at the RECOVER→IDLE edge (`defenderLifecycle.ts`), so the true period is
+ * `fireInterval + windup + DEFENDER_FIRE_HOLD_TICKS + DEFENDER_RECOVER_TICKS`:
+ *     before   900 + 9 + 12 + 12 = 933 ticks (15.55 s)
+ *     after    450 + 5 + 12 + 12 = 479 ticks ( 7.98 s)  → **1.95×**, not a clean 2.00×.
+ *
+ * The missing 3 % is the two SHARED phase constants (12 + 12), and they are deliberately NOT halved:
+ * they are the same numbers HELGA and the stink tower fire on, so halving them would silently retune
+ * two other defenders — and `DEFENDER_FIRE_HOLD_TICKS` is load-bearing at 12 (*"held ≥2 snapshot
+ * intervals"*: a 10 Hz peer must still OBSERVE the FIRE state or the beam never draws). His "two
+ * times faster" is bought with the one constant that owns 96 % of the cycle.
+ *
+ * ⭐ AND IN THE UNIT HE ACTUALLY FEELS — beams that LAND inside one 2700-tick FIGHT: **3 → 6**.
+ * Before, t = 0 / 933 / 1866 (a 4th at 2799 fell past the whistle). After, t = 0 / 479 / 958 / 1437
+ * / 1916 / 2395. Exactly double, even though the period ratio is 1.95. Pinned in
+ * `state/creatures/strikeOrderAndRecall.test.ts`, because the prose below already drifted once (it
+ * says "FOUR" where its own assertion said three — it counted the interval and forgot the phases).
+ *
  * ⭐ S157 B7 (owner) — HALVED. *"Laser tower should charge up and be able to shoot x2 quicker!"*
  *
  * This overrides the earlier *"every 30s"* spec, which was authored before the match clock existed.
@@ -2920,8 +2947,8 @@ export const STINK_BAG_PEN = 1; // ⭐ R77 — was 0
  * `1 - remaining / config.fireIntervalTicks`, so the ring simply fills twice as fast. The windup tell
  * halves with it to keep the same proportion of the cycle.
  */
-export const TURRET_FIRE_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — owner: "x2 quicker" (was 1800)
-export const TURRET_WINDUP_TICKS = 9; // the pre-beam tell, halved with the cadence (was 18)
+export const TURRET_FIRE_INTERVAL_TICKS = 450; // 7.5 s @ 60 Hz — owner S173 B6 "two times faster" (was 900; S157 had halved 1800→900)
+export const TURRET_WINDUP_TICKS = 5; // the pre-beam tell, halved with the cadence again (9→5, rounded UP so it survives)
 export const TURRET_WINDUP_RINGS = 5; // client-visible charge rings across the fire interval (owner: "5 rings")
 export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 
