@@ -1438,16 +1438,47 @@
     {
       "id": "B6+B2",
       "title": "PLAYTEST B6 (laser tower fires 2x faster - an owner RULING with a number) and B2 (\"up to six\" players is a lie, the game seats four; six RACES is true and must be kept). Delegated as one small pair.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "b6a9a93+ce60f87",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "delegated_to": "agent:laser-and-seatcount",
-      "check_method": null,
+      "check_method": "B6 LASER TURRET 2x, and B2 THE SEAT-COUNT LIE. B6: the cadence is NOT one number - the FSM is IDLE->WINDUP->FIRE->RECOVER and nextFireTick is re-armed at the RECOVER->IDLE edge, so the true period is fireInterval + windup + FIRE hold + RECOVER. TURRET_FIRE_INTERVAL_TICKS 900->450 (96% of the cycle) and TURRET_WINDUP_TICKS 9->5 (rounded UP so the pre-beam tell survives). Measured 933->479 ticks = 1.95x, NOT a clean 2.00x, and the shortfall is deliberate: DEFENDER_FIRE_HOLD_TICKS and DEFENDER_RECOVER_TICKS are SHARED with Helga and the stink tower, and the FIRE hold is load-bearing at 12 (held >=2 snapshot intervals, or a 10 Hz peer never observes FIRE and the beam never draws). In the unit he actually feels it IS exactly double: beams inside one 2700-tick FIGHT go 3 -> 6. A PRE-EXISTING PROSE DRIFT was found and fixed in passing: an S157 note claimed FOUR shots while the assertion beneath it said three - it counted the interval and forgot the phases. TRIPWIRE CHECKED AND NOT AFFECTED: statsLadder's \"one basic goblin can kill any unit inside a FIGHT phase\" iterates the CREATURE roster, never defenders. No protocol bump - a balance constant is not a wire shape. B2: the real maximum established FROM CODE, not memory - MAX_PLAYERS = 4 (owner R41) and MAX_BOTS = MAX_PLAYERS - 1 = 3; the board agrees because QUADRANTS_4P has exactly four zones, so at six seats zoneOwner has no answer for seats 4 and 5. Two player-facing lies in titleScreen.ts, both stale since S147, both now INTERPOLATED from the constants rather than rewritten as literal 4s (following R42's own ruling for the lobby line) so they cannot drift again. The worse half was \"1-6 AI sparks\", which plus the human promises SEVEN seats - the exact configuration R45 retired the silver colour to make impossible. SIX RACES KEPT: PLAYER_COLORS stays at six (R45: \"its ok to have 6 colors with only 4 players max\"). README, lobbyStateMachine and botSetupOverlay swept and found already correct. GATES from a captured exit code: typecheck 0, vitest 0 at 4368 tests / 276 files, both items. OWED, NOT DONE: lobbyScreen.ts:398 still says \"match up to 6 strangers\" in a COMMENT (no user-visible string). The agent patched it, discovered the file had acquired the B1 agent's in-flight untracked work, and REVERSE-APPLIED ITS OWN EDIT BY HAND rather than git checkout - which would have destroyed that work and flipped line endings. Correct call; the line is still owed.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "TURRET_FIRE_INTERVAL_TICKS = 450"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "TURRET_FIRE_INTERVAL_TICKS = 900"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "TURRET_WINDUP_TICKS = 5"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "2–${MAX_PLAYERS} sparks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "1–${MAX_BOTS} AI sparks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/strikeOrderAndRecall.test.ts",
+          "needle": "479"
+        }
+      ]
     },
     {
       "id": "B1",
@@ -1844,7 +1875,9 @@
     "P6+P7 ADDED MID-SESSION BY THE OWNER (third amendment this session). P6 is a REGRESSION and therefore outranks the rest of the batch on urgency; recorded as an amendment rather than fixed ad-hoc, per the URGENCY PROTOCOL, which says urgency makes the scope gate MORE important, not less. P7 is explicitly design-only this session (\"build it in parallel with spark\").",
     "AMENDMENT 4 - THE LIVE 2-PLAYER PLAYTEST (Romania). Nine bugs, captured verbatim in .claude/plans/S173_PLAYTEST_BUGS.md and committed BEFORE triage so nothing could be lost to a context window or a usage limit. He then directed parallel execution: \"send out a few agents to fix the little bugs ... anything that sounds bigger, just record and log for later ... don't send out more than three at a time. Three or maybe four.\" THREE dispatched (B5, B6+B2, B1); four recorded (B7+B8, B4, B9) with the reason each is bigger than it looks. ⚠ TWO OF THE NINE LANDED ON WORK SHIPPED EARLIER IN THIS SAME SESSION: B3 corrected P1's bar colour, and B4 confirmed by eye the scarab finding P2 had already measured."
   ],
-  "carry_forwards_spawned_in_s173": [],
+  "carry_forwards_spawned_in_s173": [
+    "OWED: lobbyScreen.ts:398 comment still says \"match up to 6 strangers\". Comment-only, no user-visible string. Deliberately left because the B1 agent had in-flight untracked work in that file at the time."
+  ],
   "owner_questions_open_s173": [
     "VOLTKIN'S FATE IN THE CODEX - the one ambiguity in amendment 2, and it changes what ships. He said BOTH \"remove the whole godly combos\" AND \"[Voltkin] is no more godly as anything else. It's just a tower now and structure.\" Reading A: delete the tab and let Voltkin appear under TOWERS & STRUCTURES (where a tower/structure belongs by his own sentence). Reading B: delete the tab and Voltkin with it, so Voltkin has no codex entry at all. NONET is NOT ambiguous - he was explicit that it must not appear anywhere in the codex because it is an Easter egg. DEFAULT IF HE DOES NOT ANSWER: Reading A, because his own words call Voltkin a tower and structure, and silently deleting a live buildable from the codex would be a bigger change than he asked for."
   ],
