@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1053,
+  "tool_calls_session_total": 1092,
   "session_id": "S173",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
@@ -1182,9 +1182,9 @@
     {
       "id": "P1",
       "title": "TOWER HEALTH BARS - the S172 PARTIAL. Owner: \"all towers should have health bars ... how much they take before their first connector dies.\" Durability lives in the CONNECTORS (R76), so this is a connector-derived aggregate, NOT a copy of the Helga fix. OWNER RULED THIS SESSION: POOL semantics (sum of remaining capacity across the structure), chosen over WEAKEST-connector, because it is comparable with every other bar in the game. structureDefenceFifths() at stats.ts:236 already computes the MAX half and has ZERO production callers. No new wire field, no protocol bump, no four-sites work.",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
-      "checkpoint_commit": null,
+      "checkpoint_commit": "f8eb33d",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -1221,7 +1221,7 @@
     {
       "id": "P4",
       "title": "SCOPE AMENDMENT (owner, mid-session, Rule 16) - THE TOWER SHORTFALL MUST NAME THE SHAPES. Owner: \"under the tower, it says need five more ... But it doesn't say what shapes. Some towers need different types of shapes. It's good to know which you're missing ... We need the NEED, and then the SYMBOL. Need three more this and five more this.\" Screenshot supplied: \"GOBLIN TOWER / NEED 5 MORE\". WHY IT IS MICRO: the per-type breakdown ALREADY EXISTS and is ALREADY LATCHED - castlePanel.ts:331 builds missing[] as {type, need, have} per SparkType, and castlePanel.ts:1157 latches it into this.structureMissing[i] for the S145 click-to-order path. Line 339 then throws the breakdown away: short = missing.reduce(sum) => `NEED ${short} MORE`. The SYMBOL renderer also already exists and is already used in this same file: drawSparkGlyph (render/sparkGlyph.ts), imported at castlePanel.ts:60 and drawn for the bank strip at :1101 via the established {glyph: Graphics, count: Text} slot pattern (:573, :671-691). So this is a REUSE of two existing mechanisms, not an invention. THE ONE REAL COST: the caption is a Text object and a shape symbol needs Graphics, so the shortfall readout becomes a small row of glyph+count pairs rather than a string.",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "checkpoint_commit": null,
       "pdr_approved": true,
@@ -1229,17 +1229,47 @@
       "unlock_source": "user",
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [],
+      "delegated_to": "agent:tower-shortfall-shapes"
     },
     {
       "id": "P5",
       "title": "SCOPE AMENDMENT 2 (owner, mid-session, Rule 16) - THE CODEX, THREE PARTS. (a) REMOVE THE \"GODLY COMBOS\" TAB ENTIRELY. Owner: \"I already told you to remove the godly combos because [Voltkin] is no more godly as anything else. It's just a tower now and structure ... So, yeah, remove the whole godly combos.\" AND: \"no [NONET] be anywhere in the codex. Easter egg\" - he talked himself from \"keep the one-trial card\" to removing it outright: \"You can just go straight into [NONET]. It already explains it within [NONET], so you don't need to re-explain it.\" SITES: TabKey union + TABS table (codexOverlay.ts:97-100), the godly field + ctor arg + buildSpriteGrid arm (:106,:113,:126,:264), open(tab: TabKey = \"godly\") default (:249), nonetEntry() (:85-96) deleted, and the main.ts callers. (b) \"TOWERS & STRUCTURES\" MUST SCROLL. Owner: \"it's not scrollable. I can't scroll down and keep seeing all the towers, which is bad.\" CONFIRMED by his screenshot - the SOULEATER / ??? / KRAKEN / PHARAOH row is clipped mid-card at the viewport bottom. COMBOS is fine and he said so (\"Combos, they're all fine. You can see all of them\"), so this is the towers grid only. (c) COMBO CARDS GET A HOVER/CLICK PREVIEW OF THE ACTUAL CONNECTOR. Owner: \"you're showing what shapes you need to make this vortex, but they don't show what this vortex IS, how it looks ... they all look unique, and they have little graphics and little mechanics. Like the vortex, I think, spins, or a warped anchor is like a spiral that's moving and spiraling around. So maybe make those clickable. So when you mouse over each of those combos, you can see how it would look. Just the connector itself. You get, like, a little example.\" He estimates \"It shouldn't be too hard to do\" - to be measured, not assumed.",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "delegated_to": "agent:codex"
+    },
+    {
+      "id": "P6",
+      "title": "SCOPE AMENDMENT 3 (owner, mid-session) - THE NONET MUSIC IS GONE. A REGRESSION. Owner: \"I just played NoNet and you have removed the music. Why? Bring it back. It was sick freaking music for NONET.\" ***HE HAS REPORTED THIS BEFORE*** - main.ts:3557 carries an S149 P6 comment quoting him: \"for NONET in arcade you left the music out. bring the music back that we have applied to the NONET it was awesome.\" SECOND RECURRENCE, so the fix owes a GUARD, not just a re-wire. ESTABLISHED AT DISPATCH: the asset still exists (public/audio/nonet-theme.ogg), the machine still exists (audioManager.ts NONET_THEME_URL ~584, getNonetBuffer ~590, enterNonetRealm ~618, exitNonetRealm ~640), and the main.ts edge wiring LOOKS correct and covers both the arcade puzzle and the in-match trial (nonetActiveNow = world.sudoku !== null || arcadeNonet !== null). So the break is downstream. Leading hypothesis handed to the agent: the ogg may not be TRACKED/SERVED in the deployed build - a silent live failure, since the only failure path is a console.warn nobody sees. Other hypotheses: an S165 settings toggle gating the music bus; HELGA/race music taking the bus; enterNonetRealm returning early and silently when musicGainNode is null.",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "delegated_to": "agent:nonet-music",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "P7",
+      "title": "NONET STAGES - DESIGN NOTE ONLY THIS SESSION, NO CODE. Owner: \"we already discussed it before, but there should be STAGES. Right? Like, you have to beat like ten stages, and then you get to a harder level of sudoku. We're gonna have to build it in parallel with spark.\" Deliverable is .claude/plans/S173_NONET_STAGES.md: his words verbatim, what the CURRENT difficulty model is (if difficulty is even a parameter today), what a 10-stage ladder would touch, and what is synced/hashed - NONET state crosses the wire, so a difficulty field may cost a PROTOCOL_VERSION bump (currently 46). Open questions flagged for him, not answered.",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "delegated_to": "agent:nonet-music",
       "check_method": null,
       "real_context_tokens_at_close": null,
       "verification": []
@@ -1582,7 +1612,8 @@
   ],
   "scope_amendments_s173": [
     "P4 ADDED MID-SESSION BY THE OWNER, and recorded as an amendment rather than executed ad-hoc (Rule 16). His words: \"Also, we're gonna add a little micro priority to this session ... Add this to this session priority batch.\" Approval is explicit and in his own message, so no separate go was sought. Ordered AFTER P1 because both touch HUD readouts and P1 is the outstanding item from S172; P4 is independent of it and could move earlier if he prefers.",
-    "P5 ADDED MID-SESSION BY THE OWNER (second amendment this session), recorded rather than executed ad-hoc per Rule 16. His words: \"we'll add this too as a micro batch to this priority... to this session.\" Three parts, all in the codex. ORDERING NOTE: P5(a) is a deletion and is the cheapest; P5(b) is a contained scroll container; P5(c) is the only part with real unknown cost because it needs each combo's LIVE appearance, and the combo visuals are drawn by the board renderers rather than by anything the codex can call today."
+    "P5 ADDED MID-SESSION BY THE OWNER (second amendment this session), recorded rather than executed ad-hoc per Rule 16. His words: \"we'll add this too as a micro batch to this priority... to this session.\" Three parts, all in the codex. ORDERING NOTE: P5(a) is a deletion and is the cheapest; P5(b) is a contained scroll container; P5(c) is the only part with real unknown cost because it needs each combo's LIVE appearance, and the combo visuals are drawn by the board renderers rather than by anything the codex can call today.",
+    "P6+P7 ADDED MID-SESSION BY THE OWNER (third amendment this session). P6 is a REGRESSION and therefore outranks the rest of the batch on urgency; recorded as an amendment rather than fixed ad-hoc, per the URGENCY PROTOCOL, which says urgency makes the scope gate MORE important, not less. P7 is explicitly design-only this session (\"build it in parallel with spark\")."
   ],
   "carry_forwards_spawned_in_s173": [],
   "owner_questions_open_s173": [
@@ -1590,5 +1621,8 @@
   ],
   "findings_s173": [
     "P1 CAVEAT, FOUND WHILE IMPLEMENTING AND NOT SWEPT: a tower can be destroyed by TWO independent damage channels, not one. (1) CONNECTORS - damageConnector accumulates Bond.damageFifths until it reaches connectorCapacityFifths(n), then the caller dispatches SEVER_BOND (damage.ts:279). (2) PRIMITIVES - damageEntity({kind:\"primitive\"}) does prim.hp -= amount and at zero calls razePrimitives, which takes the shape AND its incident bonds out (damage.ts:153-170); Primitive.hp is a real required field seeded at PRIMITIVE_MAX_HP = 1000 (primitive.ts:97,128). towerRenderer already derives its intact/damaged/destroyed FRAME from that second model via towerHpFrac (towerFrames.ts:190). The owner ruled the bar on CONNECTORS in his own words (\"before their first connector dies\") and chose POOL semantics, so that is what ships - but the primitive-hp channel is documented AT THE CONSTANT rather than left for a future session to discover the bar under-reporting. Flagged to the owner."
+  ],
+  "parallel_execution_s173": [
+    "OWNER DIRECTED PARALLEL EXECUTION: \"send out, like, two agents to do some other priorities ... one agent to do that [the tower shape shortfall]. NoNet, so the Sudoku, another agent to make sure the music is back, and another agent to do the codex. So three agents while you're working on priority one.\" AND: \"we might hit limit ... so make sure to save every step ... even if we do hit limit ... you'll be able to continue exactly where we left off without losing any progress.\" => COMMIT AFTER EVERY GREEN STEP is an explicit owner instruction this session, and it coincides with the standing CLAUDE.md rule that protection against a full window is COMMIT FREQUENCY, not stopping early. DISPATCHED AS THREE SEPARATE Agent INVOCATIONS, deliberately NOT one workflow: the A.0 sweep earlier this session lost 6 of 8 agents to a single org spend-limit hit because all six lanes rode one invocation - the S161 failure the project CLAUDE.md warns about. Separate invocations mean a limit costs one lane. FILE OWNERSHIP, to keep three agents off each other: P4 agent owns castlePanel.ts; P6 agent owns audioManager.ts; P5 agent owns codexOverlay/codexPresentation/codexStore/comboCodexStore AND main.ts; I own healthBar.ts. P1 turned out to need NO main.ts change, which is what freed that file for the codex agent. The P4 and P6 agents were told to REPORT any main.ts edit they need rather than making it."
   ]
 }
