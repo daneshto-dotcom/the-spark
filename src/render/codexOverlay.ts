@@ -20,9 +20,19 @@
  * tab while leaving main.ts's `spawner | defender` filter in place would have dropped a LIVE
  * BUILDABLE out of the codex entirely, which is a bigger change than the owner asked for and the
  * opposite of his own sentence ("it's just a tower now"). main.ts therefore feeds `listRecipes()`
- * WHOLE into `towers`, and registry order (registerAll.ts imports voltkin first) puts him in the
- * tab's first slot. NONET is not in that list because it never was a recipe — it was a synthetic
- * entry built by a `nonetEntry()` helper, and that helper is deleted rather than relocated.
+ * WHOLE into `towers`, so he is a card among the towers. NONET is not in that list because it never
+ * was a recipe — it was a synthetic entry built by a `nonetEntry()` helper, and that helper is
+ * deleted rather than relocated.
+ *
+ * ⚠ AND THE TAB'S ORDER IS NOT A DESIGNED ORDER — I checked, having first written the opposite.
+ * `listRecipes()` is `Array.from(REGISTRY.values())`, i.e. the order `registerRecipe` was CALLED,
+ * which is module-EVALUATION order and not registerAll.ts's import list: several recipe modules are
+ * pulled in earlier by other main.ts imports. MEASURED in the running game, the shipped sequence is
+ * pentagram, lightning hub, goblin tower, the six race towers, the six boss towers, VOLTKIN, laser
+ * turret, HELGA, stink tower — Voltkin is the sixteenth card, on row four of five. He is reachable,
+ * which is what the owner's ruling requires, but nobody chose that position. If a deliberate order
+ * is ever wanted it belongs at the main.ts call site as an explicit sort, not as a hope about
+ * import order.
  *
  * Each entry shows WHAT it is + HOW TO BUILD it (the recipe). Entries are LOCKED until unlocked at
  * least once (the brother-surprise convention, PRIME-AUDIT-S21 #4) — locked tiles read "???".
@@ -489,7 +499,7 @@ export class CodexOverlay {
     const startX = (CANVAS_WIDTH - totalWidth) / 2;
     // S173 P5 — the grid's own geometry decides how far it scrolls, so adding a tower tier needs no
     // edit here: 19 entries at 4 columns is 5 rows whose last tile ends at y=1947, which with the
-    // bottom pad is 935 px of travel.
+    // bottom pad is 935 px of travel — confirmed against the running game, not computed on paper.
     this.scrollMax = scrollExtent(gridContentBottom(gridRowCount(entries.length, cols), TILE_H, TILE_GAP));
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];

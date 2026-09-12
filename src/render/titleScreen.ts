@@ -123,13 +123,17 @@ export class TitleScreen {
     );
     this.container.addChild(btnVsBots);
 
-    // S22 P3 / S104 P3 — the ONE CODEX entry (fourth row). Opens the unified codex with all three
-    // tabs (Godly Combos · Combos · Towers & Structures). Replaces the old separate CODEX + COMBOS
+    // S22 P3 / S104 P3 — the ONE CODEX entry (fourth row). Replaces the old separate CODEX + COMBOS
     // buttons (owner: "only codex that includes all"). Empty tabs on a fresh profile (no-spoilers).
     // Also openable in-game via the G+C chord.
+    // ⚠ S173 P5 — THE SUBTITLE NAMED THE TAB THAT WAS JUST DELETED. It read 'godly · combos ·
+    // towers', and the GODLY COMBOS tab is gone (owner: *"remove the whole godly combos"*, Voltkin
+    // being *"just a tower now and structure"*). This is the codebase's own four-sites lesson in
+    // miniature — grep for the CLAUSE, not for the files you remember touching: the tab lived in
+    // codexOverlay.ts and main.ts, and the only place a PLAYER read its name was here.
     const btnCodex = this.makeButton(
       'CODEX',
-      'godly · combos · towers — everything you have earned',
+      'combos · towers — everything you have earned',
       0xffd60a,
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 3,
