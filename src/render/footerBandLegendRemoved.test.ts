@@ -109,13 +109,28 @@ describe('S169 R153 — the strip is tinted by the race that owns each shape', (
     for (const t of unowned) expect(raceColorForShape(t)).toBeNull();
   });
 
-  it('⭐⭐ BOTH strip rows actually pass the race colour to the glyph — palette AND queue', () => {
-    // The behaviour lives inside a Pixi draw call, so the wiring is asserted at the source. Two
-    // rows, two call sites: tinting one and forgetting the other is precisely the "three of four
-    // sites" failure this repo keeps hitting, and it would look correct in half the footer.
+  it('⭐⭐ EVERY shape glyph in the footer passes the race colour — not just the one you remember', () => {
+    /*
+     * The behaviour lives inside a Pixi draw call, so the wiring is asserted at the source. Tinting
+     * one site and forgetting another is precisely the "three of four sites" failure this repo keeps
+     * hitting, and it would look correct in half the footer.
+     *
+     * ⚠ S173 — THIS COUNTED `2` AND WAS RIGHT TO FAIL WHEN A THIRD SITE APPEARED. The shortfall
+     * readout on a tower card ("NEED ⟨glyph⟩x3") draws shapes too, and it is tinted for a sharper
+     * reason than the strip rows: the player's next action is to press that same shape in the
+     * palette, so the mark under the count and the button it sends them to must match.
+     *
+     * ⛔ SO THE ASSERTION IS NOW THE RULE, NOT THE TALLY: every `drawSparkGlyph` in this file is
+     * race-tinted. A hardcoded count has to be hand-bumped by whoever adds a site — which is the
+     * same person who would have forgotten to tint it — and bumping it is indistinguishable from
+     * fixing it. Stating the invariant makes a new UNTINTED site fail here on its own.
+     */
     const code = stripComments(src('render/footerBand.ts'));
+    const all = [...code.matchAll(/drawSparkGlyph\(/g)];
     const tinted = [...code.matchAll(/drawSparkGlyph\([^)]*raceColorForShape\([^)]*\)[^)]*\)/g)];
-    expect(tinted.length, 'both the palette row and the queue row are tinted').toBe(2);
+    // Anti-vacuity: the palette row and the queue row must both still exist, or this proves nothing.
+    expect(all.length, 'the footer must still draw shape glyphs at all').toBeGreaterThanOrEqual(2);
+    expect(tinted.length, 'every shape glyph in the footer is race-tinted').toBe(all.length);
     // And no glyph in the strip is left on the old flat tint.
     const flat = [...code.matchAll(/drawSparkGlyph\([^)]*,\s*TINT_ENABLED\s*\)/g)];
     expect(flat.length, 'no strip glyph still draws in the flat enabled tint').toBe(0);

@@ -272,8 +272,121 @@ export interface StructureRow {
   readonly enabled: boolean;
   /** Non-empty exactly when `enabled` is false — never left blank (this file's standing contract). */
   readonly reason: string;
-  /** Per-shape shortfall, for the caption's "need" readout. Empty when affordable. */
+  /**
+   * Per-shape shortfall, for the "need" readout. Empty when affordable.
+   *
+   * ⭐ S173 — ALWAYS IN `ALL_SPARK_TYPES` ORDER, and that is now a tested contract rather than an
+   * accident. See `castleStructuresModel` for both reasons (determinism and the bank strip's
+   * reading order); a renderer may iterate this array straight through.
+   */
   readonly missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>;
+}
+
+/* ========================================================================== *
+ *   S173 — THE SHORTFALL READOUT: **WHICH** SHAPES, NOT JUST HOW MANY
+ * ========================================================================== */
+
+/**
+ * ⭐ THE OWNER'S ASK, VERBATIM (playtest, this session):
+ *
+ *   *"under the tower, it says need five more or, like, need two more. How many shapes it needs more
+ *    to be able to build that tower? But it doesn't say WHAT SHAPES. Some towers need different types
+ *    of shapes. It's good to know which you're missing. So you can either plan ahead, like, oh, first
+ *    I'll get a few of those, then I'll get that... We need the NEED, and then the SYMBOL. Need three
+ *    more this and five more this, for example."*
+ *
+ * The model has computed the per-shape breakdown since S145 — `StructureRow.missing` — and every
+ * surface then SUMMED it away into one number (`NEED 5 MORE`), which is exactly the readout he is
+ * complaining about. Nothing new has to be measured; the total just has to stop being the only thing
+ * that survives to the pixels.
+ *
+ * ⛔ AND THE ANSWER IS A GLYPH, NOT A WORD, FOR A MEASURED REASON. The widest shortfall in the
+ * registry is PRINCESS HELGA (Triangle + Spiral + Circle), which spells out as
+ * `NEED 3 TRIANGLE 3 SPIRAL 3 CIRCLE` — 33 characters ≈ 258 px at the footer card's 13 px monospace,
+ * inside a card that has 192 px of room. The same three shortfalls as glyph+count pairs are ~120 px.
+ * Text cannot carry this readout; `drawSparkGlyph` can, and it draws the SAME mark the board, the
+ * castle bank strip and the footer's shape palette draw, so one shape cannot read two ways.
+ */
+
+/** One line of the shortfall readout: a shape, and how many MORE of it the build wants. */
+export interface ShortfallEntry {
+  readonly type: SparkType;
+  /** `need - have`, always ≥ 1 — a shape you already have enough of never appears. */
+  readonly short: number;
+}
+
+/**
+ * PURE — the per-shape shortfall as the readout wants it: "how many MORE", not "need vs have".
+ *
+ * Exists so the subtraction lives in ONE place. Both surfaces that draw this row would otherwise
+ * each re-derive `need - have`, and the failure mode of one of them drifting is a card that promises
+ * a build the reducer refuses — the `castleStructuresModel` lesson, one layer out.
+ *
+ * ⚠ Order is inherited from `missing`, which is `ALL_SPARK_TYPES` order by construction. Do not sort
+ * here: a second opinion about the order is how two surfaces start disagreeing.
+ */
+export function shortfallEntries(
+  missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>,
+): ShortfallEntry[] {
+  return missing
+    .filter((m) => m.need > m.have)
+    .map((m) => ({ type: m.type, short: m.need - m.have }));
+}
+
+/** Visual radius handed to `drawSparkGlyph` for a readout glyph — a legible mark at caption size. */
+export const SHORTFALL_GLYPH_R = 7;
+/** Horizontal advance reserved for one count, sized to its widest realistic form (`x12`). */
+const SHORTFALL_COUNT_W = 22;
+/** Gap between one glyph+count pair and the next. */
+const SHORTFALL_PAIR_GAP = 8;
+
+/** One glyph+count pair, positioned relative to the readout row's LEFT edge. */
+export interface ShortfallSlot {
+  readonly type: SparkType;
+  readonly short: number;
+  /** Centre of the shape glyph. */
+  readonly glyphX: number;
+  /** Centre of the `x3` count that follows it. */
+  readonly countX: number;
+}
+
+/** Per-surface sizing. Every field has a default, so two surfaces agree unless one says otherwise. */
+export interface ShortfallRowOptions {
+  readonly glyphR?: number;
+  readonly countW?: number;
+  readonly gap?: number;
+}
+
+/**
+ * PURE — lay a shortfall out as a row of glyph+count pairs, and report the width it occupies.
+ *
+ * Pixi-free on purpose, exactly like every other layout function in this file: the S130 lesson is
+ * that a draw path which cannot be driven headlessly is a draw path nobody tests. The caller adds
+ * its own origin; these coordinates are row-local.
+ *
+ * ⚠ `width` is the span of the PAIRS ONLY — no trailing gap — so a caller can centre the row by
+ * subtracting half of it. An empty shortfall is width 0, not one gap wide.
+ */
+export function shortfallRowLayout(
+  entries: ReadonlyArray<ShortfallEntry>,
+  opts: ShortfallRowOptions = {},
+): { readonly slots: ShortfallSlot[]; readonly width: number } {
+  const glyphR = opts.glyphR ?? SHORTFALL_GLYPH_R;
+  const countW = opts.countW ?? SHORTFALL_COUNT_W;
+  const gap = opts.gap ?? SHORTFALL_PAIR_GAP;
+  const pairW = glyphR * 2 + countW;
+  const slots: ShortfallSlot[] = [];
+  let x = 0;
+  for (const e of entries) {
+    slots.push({
+      type: e.type,
+      short: e.short,
+      glyphX: x + glyphR,
+      countX: x + glyphR * 2 + countW / 2,
+    });
+    x += pairW + gap;
+  }
+  return { slots, width: slots.length === 0 ? 0 : x - gap };
 }
 
 /**
@@ -330,13 +443,40 @@ export function castleStructuresModel(world: World): StructureRow[] {
 
   return visible.map((id) => {
     const copy = codexCopyFor(id);
+    /*
+     * ⭐ S173 — WALKED IN `ALL_SPARK_TYPES` ORDER, NOT IN THE BILL'S MAP ORDER. Two reasons, and the
+     * first one is this codebase's standing rule:
+     *
+     * ⛔ `blueprintBill` returns a `Map` whose key order is FIRST-APPEARANCE IN THE NODE LIST. That
+     *    is stable today only because `BLUEPRINTS` is a static table — the moment a recipe's nodes
+     *    are reordered (helga's leaves are interleaved "purely cosmetic[ally]", by its own comment)
+     *    the readout silently reshuffles under the player's cursor. Letting `Map` iteration decide
+     *    an order is the defect class this repo has already paid for; a total order costs one loop.
+     *
+     * ⭐ AND THE ORDER IT PICKS IS THE ONE THE PLAYER ALREADY READS. `ALL_SPARK_TYPES` is the order
+     *    the castle's bank strip draws its six swatches in, and the order the footer's shape palette
+     *    lays its buttons out in — the two places the player looks to ACT on this shortfall. A
+     *    readout that scans left-to-right the same way as the strip it sends you to is the whole
+     *    "so you can plan ahead" half of the owner's ask.
+     */
+    const bill = blueprintBill(id);
     const missing: Array<{ type: SparkType; need: number; have: number }> = [];
-    for (const [type, need] of blueprintBill(id)) {
+    for (const type of ALL_SPARK_TYPES) {
+      const need = bill.get(type);
+      if (need === undefined) continue;
       const got = have.get(type) ?? 0;
       if (got < need) missing.push({ type, need, have: got });
     }
     const affordable = planBlueprintPayment(world, world.localPlayerId, id) !== null;
     const short = missing.reduce((n, m) => n + (m.need - m.have), 0);
+    /*
+     * ⚠ S173 — `reason` IS NOW THE ONE-LINE FALLBACK, NOT THE WHOLE STORY. It keeps the TOTAL (and
+     * the `LOCKED` word, which has no per-shape form), because a surface with a single line of text
+     * and no `Graphics` still has to honour this file's standing contract that a disabled thing
+     * SAYS why. The surface that can draw — the footer card — renders `missing` as glyph+count
+     * pairs instead, which is what the owner actually asked for. Do not delete this string to
+     * "avoid duplication": the two say different amounts of the same true thing.
+     */
     const reason = locked ? 'LOCKED' : affordable ? '' : `NEED ${short} MORE`;
     return {
       id,

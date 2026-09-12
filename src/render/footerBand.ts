@@ -27,7 +27,7 @@
  */
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
+import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
 import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
 // S169 R153 — the strip states which race owns each shape, in that race's colour.
 import { raceColorForShape } from '../state/races.ts';
@@ -36,6 +36,10 @@ import { drawBlueprintThumb } from './blueprintGlyph.ts';
 import type { World } from '../state/world.ts';
 import type { SparkType } from '../constants.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
+// S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
+// computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
+// differently — the same sharing rule `structuresAtComplexity` follows for affordability.
+import { SHORTFALL_GLYPH_R, shortfallEntries, shortfallRowLayout } from './castlePanel.ts';
 import {
   STRIP_MAX_CHIPS,
   hitStripRect,
@@ -71,10 +75,32 @@ const CARD_GAP = 10;
 /** The menu floats just above the band. */
 const MENU_BOTTOM_GAP = 12;
 
+/**
+ * S173 — the most shapes ONE card's shortfall can ever name. Six, because that is how many primitive
+ * types exist: a bill cannot be short of a seventh. Derived rather than written as `6` so a new
+ * primitive widens the reservation instead of silently truncating the readout.
+ */
+const SHORTFALL_MAX_SHAPES = ALL_SPARK_TYPES.length;
+/**
+ * Pooled labels ONE card reserves: its name, its sub-line, and one count per shape it can be short
+ * of. A FIXED stride, for the reason spelled out at the shape-strip badge block — a running index
+ * would shift every later card's labels sideways the moment one card's shortfall changed length.
+ */
+const CARD_LABELS = 2 + SHORTFALL_MAX_SHAPES;
+/** Space between the word `NEED` and the first glyph+count pair. */
+const SHORTFALL_PREFIX_GAP = 8;
+
 export interface FooterCardGeom {
   readonly id: GodlyId;
   readonly name: string;
   readonly reason: string;
+  /**
+   * S173 — the per-shape shortfall behind `reason`, carried through verbatim from
+   * `castleStructuresModel`. The card draws THIS (as glyph+count pairs) and keeps `reason` only as
+   * the one-line fallback for `LOCKED`; see the sub-line block in `sync` for why a total was never
+   * enough. Empty exactly when the card is affordable.
+   */
+  readonly missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>;
   readonly enabled: boolean;
   readonly x: number;
   readonly y: number;
@@ -307,24 +333,96 @@ export class FooterBand {
             bondAlpha: card.enabled ? 0.9 : 0.45,
           });
 
-          const nameLabel = this.labelAt(this.cardLabelBase() + this.cards.indexOf(card) * 2);
+          const slotBase = this.cardLabelBase() + this.cards.indexOf(card) * CARD_LABELS;
+          const nameLabel = this.labelAt(slotBase);
           nameLabel.text = card.name;
           nameLabel.style.fill = tint;
           nameLabel.style.fontSize = 18;
           nameLabel.position.set(card.x + 34 + (card.w - 34) / 2, card.y + 22);
           nameLabel.visible = true;
 
-          const subLabel = this.labelAt(this.cardLabelBase() + this.cards.indexOf(card) * 2 + 1);
+          /*
+           * ⭐⭐ S173 — THE SUB-LINE NAMES **WHICH** SHAPES, NOT JUST HOW MANY. Owner, playtest:
+           *
+           *   *"under the tower, it says need five more … But it doesn't say WHAT SHAPES. Some
+           *    towers need different types of shapes. It's good to know which you're missing. So you
+           *    can either plan ahead … We need the NEED, and then the SYMBOL. Need three more this
+           *    and five more this, for example."*
+           *
+           * So a short card reads `NEED ⟨glyph⟩x3 ⟨glyph⟩x2` instead of `NEED 5 MORE`. The
+           * breakdown is not new — `castleStructuresModel` has computed it since S145 for the
+           * click-to-order path — it was only ever summed away on the way to the pixels.
+           *
+           * ⛔ WHY GLYPHS AND NOT WORDS, measured rather than assumed: the widest shortfall in the
+           * registry (PRINCESS HELGA — Triangle + Spiral + Circle) spells out as
+           * `NEED 3 TRIANGLE 3 SPIRAL 3 CIRCLE`, ~258 px at this label's 13 px monospace, in a card
+           * with `CARD_W - 34` = 192 px of room. The same three as glyph pairs are ~120 px.
+           *
+           * ⚠ A LOCKED CARD STILL FALLS BACK TO THE WORD. `LOCKED` is an input lock, not a
+           * shortage, and it has no per-shape form — its `missing` list may be non-empty and would
+           * read as a shopping list for something the player is not allowed to buy right now.
+           */
+          const shortfall =
+            card.enabled || card.reason === 'LOCKED' ? [] : shortfallEntries(card.missing);
+          const row = shortfallRowLayout(shortfall, { glyphR: SHORTFALL_GLYPH_R });
+
+          const subLabel = this.labelAt(slotBase + 1);
           // A disabled card must SAY why — the castle panel's standing contract, carried over.
-          subLabel.text = card.enabled ? 'READY — click, then place' : card.reason;
+          subLabel.text = card.enabled
+            ? 'READY — click, then place'
+            : shortfall.length > 0
+              ? 'NEED'
+              : card.reason;
           subLabel.style.fill = card.enabled ? TINT_ENABLED : TINT_DISABLED;
           subLabel.style.fontSize = 13;
-          subLabel.position.set(card.x + 34 + (card.w - 34) / 2, card.y + 44);
           subLabel.visible = true;
+
+          // The whole readout — the word plus the pairs — is centred as ONE block, so a two-shape
+          // card and a one-shape card both sit under the middle of the tower name rather than
+          // drifting right as shapes are paid off.
+          const subY = card.y + 44;
+          const rowW = row.width === 0 ? 0 : SHORTFALL_PREFIX_GAP + row.width;
+          const blockLeft = card.x + 34 + (card.w - 34) / 2 - (subLabel.width + rowW) / 2;
+          subLabel.position.set(blockLeft + subLabel.width / 2, subY);
+
+          const pairsLeft = blockLeft + subLabel.width + SHORTFALL_PREFIX_GAP;
+          for (let k = 0; k < row.slots.length; k++) {
+            const slot = row.slots[k];
+            /*
+             * S169 R153's tint, and it earns its keep harder here than on the palette: the player's
+             * NEXT action is to press that same shape in the palette strip, so the mark under this
+             * count and the button they are being sent to are the same colour as well as the same
+             * glyph.
+             */
+            drawSparkGlyph(
+              g,
+              pairsLeft + slot.glyphX,
+              subY,
+              SHORTFALL_GLYPH_R,
+              slot.type,
+              raceColorForShape(slot.type) ?? TINT_DISABLED,
+            );
+            const countLabel = this.labelAt(slotBase + 2 + k);
+            countLabel.text = `x${slot.short}`;
+            countLabel.style.fill = TINT_DISABLED;
+            countLabel.style.fontSize = 13;
+            countLabel.position.set(pairsLeft + slot.countX, subY);
+            countLabel.visible = true;
+          }
+          /*
+           * ⚠ THE SAME FIXED-RESERVATION DISCIPLINE AS THE BADGE BLOCK ABOVE, and for the same
+           * reason: `CARD_LABELS` is a constant stride, so a card whose shortfall shrinks by one
+           * paid-off shape does not shift every LATER card's labels sideways (a label that changes
+           * owner mid-frame keeps the previous owner's font size). `hideLabelsFrom` only clears the
+           * tail, so the unused slots INSIDE this card's reservation are hidden here by hand.
+           */
+          for (let k = row.slots.length; k < SHORTFALL_MAX_SHAPES; k++) {
+            this.labelAt(slotBase + 2 + k).visible = false;
+          }
         }
       }
     }
-    this.hideLabelsFrom(this.cardLabelBase() + this.cards.length * 2);
+    this.hideLabelsFrom(this.cardLabelBase() + this.cards.length * CARD_LABELS);
   }
 
   /**
@@ -556,6 +654,9 @@ export function layoutCards(
     id: r.id,
     name: r.name,
     reason: r.reason,
+    // S173 — carried, never re-derived. The card's "WHAT SHAPES" readout must be the same shortfall
+    // `planBlueprintPayment` refused the build over, not a second count that could drift from it.
+    missing: r.missing,
     enabled: r.enabled,
     x: left + i * (CARD_W + CARD_GAP),
     y: top,

@@ -11,17 +11,18 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, SparkType } from '../constants.ts';
 import { ALL_BLUEPRINT_IDS, blueprintCost } from '../state/blueprints.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 // S166 — the footer derives from the panel model, so the bucket total is asserted against it.
-import { castleStructuresModel } from './castlePanel.ts';
+// S173 — and the card's "WHICH shapes" readout is that same model's shortfall, unsummed.
+import { castleStructuresModel, shortfallEntries } from './castlePanel.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { zoneCount, type ZoneLayout } from '../state/zones.ts';
 import { footerBandModel, structuresAtComplexity } from './footerBandModel.ts';
-import { layoutChips } from './footerBand.ts';
+import { layoutCards, layoutChips } from './footerBand.ts';
 
 const P0 = asPlayerId(0);
 
@@ -201,5 +202,62 @@ describe('S149 P4 — the bar is presentational: no sim state, no wire surface',
  * race tint that replaced it — the claims that CAN regress.
  */
 
+/**
+ * ⭐ S173 — A SHORT CARD SAYS **WHICH** SHAPES. Owner, playtest:
+ *
+ *   *"under the tower, it says need five more … But it doesn't say WHAT SHAPES. Some towers need
+ *    different types of shapes. It's good to know which you're missing … We need the NEED, and then
+ *    the SYMBOL. Need three more this and five more this, for example."*
+ *
+ * This is the surface his screenshot was of — the open tower menu's card, whose sub-line was
+ * `card.reason`, i.e. the panel model's per-shape shortfall already summed into one number. The
+ * geometry carrier now hands the breakdown through so the card can draw a glyph per shape.
+ *
+ * ⚠ WHAT THESE TESTS CAN AND CANNOT SEE. `layoutCards` is PURE and is therefore what is asserted;
+ * the glyph pixels are drawn in `sync` against a live Pixi `Graphics`, exactly like the tower thumb
+ * and the palette marks beside them, and are out of reach here. So the claim pinned below is the one
+ * that can actually regress silently: that the card carries the UNSUMMED shortfall, and that it is
+ * the SAME shortfall the reducer refused the build over.
+ */
+describe('S173 — the tower card carries WHICH shapes it is short of, not just how many', () => {
+  it('layoutCards hands the per-shape shortfall through VERBATIM from the panel model', () => {
+    const w = playingWorld();
+    for (const complexity of footerBandModel(w).map((c) => c.complexity)) {
+      const rows = structuresAtComplexity(w, complexity);
+      const cards = layoutCards(w, complexity, FOOTER_TOP_Y);
+      expect(cards.length, `complexity ${complexity}`).toBe(rows.length);
+      for (const card of cards) {
+        const row = rows.find((r) => r.id === card.id)!;
+        // Carried, never re-derived: a second count here could promise a build the reducer refuses.
+        expect(card.missing, `${card.id}`).toEqual(row.missing);
+      }
+    }
+  });
+
+  it('a card names each missing shape with its own count — the owner’s "three more this"', () => {
+    // STINK TOWER = 1 Square hub + 3 Circle leaves, and the bank opens EMPTY.
+    const w = playingWorld();
+    const card = layoutCards(w, blueprintCost('stinkTower'), FOOTER_TOP_Y)
+      .find((c) => c.id === 'stinkTower')!;
+    expect(card.enabled).toBe(false);
+    expect(shortfallEntries(card.missing)).toEqual([
+      { type: SparkType.Square, short: 1 },
+      { type: SparkType.Circle, short: 3 },
+    ]);
+    // The one-line fallback survives beside it, still true, no longer the only thing on offer.
+    expect(card.reason).toBe('NEED 4 MORE');
+  });
+
+  it('⚠ a card that is merely LOCKED keeps the WORD — a lock is not a shopping list', () => {
+    const w = playingWorld();
+    w.players.get(w.localPlayerId)!.benchedUntilTick = w.tick + 600;
+    const cards = layoutCards(w, blueprintCost('stinkTower'), FOOTER_TOP_Y);
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.enabled).toBe(false);
+      expect(card.reason).toBe('LOCKED');
+    }
+  });
+});
 
 void P0;

@@ -20,7 +20,7 @@ import { makeCastleBank } from '../state/castleBank.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import {
-  CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS, SparkType,
+  ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS, SparkType,
 } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 // S166 — R95's race filter, asserted both directions below.
@@ -31,8 +31,9 @@ import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/bluepr
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import {
-  PANEL_W, ROW_INNER_W, TILE, TILE_COLS, castleStructuresModel, panelHeight, panelOrigin, panelRect,
-  rowsTop, structureRowCount, structuresStripHeight, tileOrigin,
+  PANEL_W, ROW_INNER_W, SHORTFALL_GLYPH_R, TILE, TILE_COLS, castleStructuresModel, panelHeight,
+  panelOrigin, panelRect, rowsTop, shortfallEntries, shortfallRowLayout, structureRowCount,
+  structuresStripHeight, tileOrigin,
 } from './castlePanel.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
@@ -273,5 +274,155 @@ describe('build-grid layout stays inside the plate (the S140 overflow class)', (
 
   it('the taller panel still fits the canvas with room for the caption', () => {
     expect(panelHeight(2)).toBeLessThan(CANVAS_HEIGHT - 16);
+  });
+});
+
+/**
+ * ⭐ S173 — THE SHORTFALL SAYS **WHICH** SHAPES. Owner, playtest:
+ *
+ *   *"under the tower, it says need five more or, like, need two more. How many shapes it needs more
+ *    to be able to build that tower? But it doesn't say WHAT SHAPES. Some towers need different
+ *    types of shapes. It's good to know which you're missing. So you can either plan ahead, like,
+ *    oh, first I'll get a few of those, then I'll get that... We need the NEED, and then the SYMBOL.
+ *    Need three more this and five more this, for example."*
+ *
+ * The breakdown already existed — `StructureRow.missing`, computed since S145 for the click-to-order
+ * path — and every surface summed it into one number on the way to the pixels. These tests pin the
+ * two things that would make the fix a lie: that each missing TYPE survives with its OWN count, and
+ * that the order the player reads them in is a total order rather than a `Map`'s insertion order.
+ */
+describe('S173 — the shortfall names each missing shape with its own count', () => {
+  it('a tower short of TWO different shapes lists BOTH, each with its own count', () => {
+    // STINK TOWER = 1 Square hub + 3 Circle leaves, against a bank that opens EMPTY.
+    const stink = castleStructuresModel(setup()).find((r) => r.id === 'stinkTower')!;
+    expect(stink.enabled).toBe(false);
+    expect(shortfallEntries(stink.missing)).toEqual([
+      { type: SparkType.Square, short: 1 },
+      { type: SparkType.Circle, short: 3 },
+    ]);
+    // The old readout is still there as the one-line fallback, and still tells the truth — it is
+    // just no longer the ONLY thing a surface can say. 1 + 3 = 4.
+    expect(stink.reason).toBe('NEED 4 MORE');
+  });
+
+  it('a tower short of ONE shape lists exactly one — a shape you hold enough of never appears', () => {
+    const w = setup();
+    // Bank the Square hub and two of the three Circles: only Circle is still short, by one.
+    const bank = makeCastleBank();
+    for (const type of [SparkType.Square, SparkType.Circle, SparkType.Circle]) {
+      bank[type as number] = (bank[type as number] ?? 0) + 1;
+    }
+    w.castleBanks.set(P0, bank);
+    const stink = castleStructuresModel(w).find((r) => r.id === 'stinkTower')!;
+    expect(shortfallEntries(stink.missing)).toEqual([{ type: SparkType.Circle, short: 1 }]);
+  });
+
+  it('an affordable tower lists NONE — the readout appears only when it has something to say', () => {
+    const w = setup();
+    fund(w, 'stinkTower');
+    const stink = castleStructuresModel(w).find((r) => r.id === 'stinkTower')!;
+    expect(stink.enabled).toBe(true);
+    expect(shortfallEntries(stink.missing)).toEqual([]);
+    expect(shortfallRowLayout(shortfallEntries(stink.missing)).slots).toEqual([]);
+  });
+
+  it('⛔ the entries are in ALL_SPARK_TYPES order, NEVER the bill’s Map insertion order', () => {
+    /*
+     * PRINCESS HELGA is the one recipe in the registry that can tell these two apart, which is why
+     * the test uses her rather than a tidier example: her bill is built hub-first then leaves
+     * (Triangle, Spiral, Circle), while the canonical primitive order is Triangle, Circle, Spiral.
+     * A readout that iterated `blueprintBill` straight through would put Spiral before Circle.
+     *
+     * ⚠ Anti-vacuity: the two orders are asserted to actually DIFFER here. If a later edit to her
+     * node list made them coincide, this test would silently stop guarding anything.
+     */
+    const billOrder = [...blueprintBill('helga').keys()];
+    const helga = castleStructuresModel(setup()).find((r) => r.id === 'helga')!;
+    const shown = shortfallEntries(helga.missing).map((e) => e.type);
+
+    expect(billOrder).not.toEqual(shown);
+    expect(shown).toEqual([SparkType.Triangle, SparkType.Circle, SparkType.Spiral]);
+    // ...which is exactly `ALL_SPARK_TYPES` filtered to the types she actually needs — the same
+    // left-to-right order as the castle bank strip and the footer's shape palette.
+    expect(shown).toEqual(ALL_SPARK_TYPES.filter((t) => shown.includes(t)));
+    // And each one keeps its OWN count: 1 Triangle hub, 3 Circle + 3 Spiral leaves.
+    expect(shortfallEntries(helga.missing)).toEqual([
+      { type: SparkType.Triangle, short: 1 },
+      { type: SparkType.Circle, short: 3 },
+      { type: SparkType.Spiral, short: 3 },
+    ]);
+  });
+
+  it('every dim row can name its shapes — no tower is left with only a bare total', () => {
+    for (const row of castleStructuresModel(setup())) {
+      expect(row.enabled).toBe(false);
+      const entries = shortfallEntries(row.missing);
+      expect(entries.length, `${row.id} must name at least one missing shape`).toBeGreaterThan(0);
+      // Every count is a real "how many MORE", never a zero or a negative pretending to be one.
+      for (const e of entries) expect(e.short).toBeGreaterThan(0);
+      // And the per-shape counts must still add up to the total the fallback string quotes.
+      const total = entries.reduce((n, e) => n + e.short, 0);
+      expect(row.reason).toBe(`NEED ${total} MORE`);
+    }
+  });
+});
+
+describe('S173 — shortfallRowLayout: the glyph+count pairs fit, and never overlap', () => {
+  const entriesOf = (n: number) =>
+    ALL_SPARK_TYPES.slice(0, n).map((type) => ({ type, short: n }));
+
+  it('lays one slot per entry, in the order it was given', () => {
+    for (let n = 0; n <= ALL_SPARK_TYPES.length; n++) {
+      const { slots } = shortfallRowLayout(entriesOf(n));
+      expect(slots.length).toBe(n);
+      expect(slots.map((s) => s.type)).toEqual(entriesOf(n).map((e) => e.type));
+      expect(slots.map((s) => s.short)).toEqual(entriesOf(n).map((e) => e.short));
+    }
+  });
+
+  it('pairs advance strictly left to right, and a glyph never lands on its neighbour', () => {
+    const { slots } = shortfallRowLayout(entriesOf(ALL_SPARK_TYPES.length));
+    for (let i = 1; i < slots.length; i++) {
+      // Ordering, and a real gap: the previous pair's glyph edge must clear this one's.
+      expect(slots[i].glyphX).toBeGreaterThan(slots[i - 1].countX);
+      expect(slots[i].glyphX - SHORTFALL_GLYPH_R).toBeGreaterThan(
+        slots[i - 1].glyphX + SHORTFALL_GLYPH_R,
+      );
+    }
+    // The count always follows its own glyph — the pair reads "shape, then how many".
+    for (const s of slots) expect(s.countX).toBeGreaterThan(s.glyphX);
+  });
+
+  it('⚠ width is the span of the PAIRS ONLY — no trailing gap, and 0 for an empty shortfall', () => {
+    expect(shortfallRowLayout([]).width).toBe(0);
+    const one = shortfallRowLayout(entriesOf(1));
+    expect(one.width).toBeGreaterThan(0);
+    // A caller centres by subtracting half the width, so the row must END at `width`: the last
+    // pair's count centre has to sit inside it, not beyond it.
+    for (let n = 1; n <= ALL_SPARK_TYPES.length; n++) {
+      const { slots, width } = shortfallRowLayout(entriesOf(n));
+      expect(slots[slots.length - 1].countX).toBeLessThan(width);
+      expect(slots[0].glyphX - SHORTFALL_GLYPH_R).toBe(0);
+    }
+  });
+
+  it('⛔ the WIDEST shortfall the registry can produce still fits the footer card that draws it', () => {
+    /*
+     * This is the measurement that decided glyphs over words, so it is pinned rather than recalled.
+     * `CARD_W` is 226 and the tower thumb eats the first 34 px, leaving 192; the word "NEED" is
+     * ~31 px at the card's 13 px monospace, plus an 8 px gap before the first pair.
+     *
+     * ⚠ THE WORST CASE IS DERIVED FROM THE REGISTRY, NOT GUESSED. A card can only ever be short of
+     * as many DISTINCT shapes as its bill names, so the bound to defend is the widest bill in
+     * `ALL_BLUEPRINT_IDS` — Princess Helga's three. Asserting the theoretical six-primitive maximum
+     * would be asserting a case no recipe can reach, and would fail honestly sized glyphs for it.
+     */
+    const widestBill = Math.max(...ALL_BLUEPRINT_IDS.map((id) => blueprintBill(id).size));
+    expect(widestBill, 'anti-vacuity: a recipe must actually mix shapes').toBeGreaterThan(1);
+    expect(widestBill).toBeLessThanOrEqual(ALL_SPARK_TYPES.length);
+
+    const CARD_INNER = 226 - 34;
+    const PREFIX = 31 + 8;
+    expect(PREFIX + shortfallRowLayout(entriesOf(widestBill)).width).toBeLessThanOrEqual(CARD_INNER);
   });
 });
