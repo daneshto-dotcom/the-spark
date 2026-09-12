@@ -1379,14 +1379,47 @@
       "id": "B3",
       "title": "PLAYTEST B3 - BUILDINGS ARE GREEN, CREATURES RED, AND THE CASTLE STOPS HIDING. DONE this session, commit 87c2259. Owner: \"the Castle HP shows a green HP bar, but only once it's attacked. All the other buildings still don't have HP bars ... a green one, exactly the same. While spawn and creatures have the red HP bars.\" TWO halves: (1) P1 shipped tower bars EARLIER THIS SESSION in red - right bar, wrong colour - now on the castle's own green/amber/red ramp, because \"exactly the same\" taken literally means the ramp, not a flat green; (2) drawKeep's `if (hpFrac < 1)` hide-while-full gate is GONE. That gate was fault 1, the same defect he rejected for creatures in S171, and healthBar.ts had carried the line \"the castle bar still carries fault 1 - noted, not touched here\" ever since. RECORDING A DEFECT IS NOT FIXING IT.",
       "status": "completed",
-      "check_completed": false,
+      "check_completed": true,
       "checkpoint_commit": "87c2259",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": null,
+      "check_method": "BUILDINGS GREEN, CREATURES RED, AND THE CASTLE STOPS HIDING (owner, live playtest). TWO halves. (1) COLOUR IS A READING: P1 shipped tower bars EARLIER THIS SESSION in FILL_TINT (red) - the right bar in the wrong colour, which is why he said the buildings still had no bars. buildingTint() is the castle drawKeep ramp verbatim (0x6ee07a / 0xffc14d / 0xff4d4d); \"exactly the same\" is taken literally rather than as a flat green, because a tower matching only the healthy colour would diverge from the castle the moment either took damage. drawBar gained an optional fillTint defaulting to the creature red, so creatures are byte-identical. (2) THE HIDE-WHILE-FULL GATE IS GONE: drawKeep wrapped its bar in , which is fault 1 - the same hide-while-undamaged behaviour he rejected for creatures in S171 - and healthBar.ts had carried the line \"the castle bar still carries fault 1 - noted, not touched here\" ever since. That stale line is replaced by a record of the fix. GATES from a captured $?: typecheck 0, healthBar + gathererRenderer 33/33. NOT machine-verified: the COLOUR itself draws in the Pixi path, so it wants his eye.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "function buildingTint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "buildingTint(current / max)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "0x6ee07a"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "if (hpFrac < 1) {"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/healthBar.ts",
+          "needle": "still carries fault 1 — noted, not touched here"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/healthBar.ts",
+          "pattern": "fillTint",
+          "op": ">=",
+          "value": 2
+        }
+      ]
     },
     {
       "id": "B5",
