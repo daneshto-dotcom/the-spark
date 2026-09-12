@@ -31,6 +31,8 @@ import {
 } from './lobbyStateMachine.ts';
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
+// ⭐ S173 B1 — the seat-partitioned lobby backdrop (owner: the lobby showed only player one's).
+import { makeLobbyBackdrop, type LobbyBackdropHandle } from './lobbyBackdrop.ts';
 
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
 import type { RaceId } from '../state/races.ts';
@@ -129,6 +131,9 @@ export class LobbyScreen {
   // S69 P2 — 6-seat rack (shown in-room) + "Room N/6" count line.
   private readonly seatRack: SeatRackHandle;
   private readonly racePicker: RacePickerHandle;
+  // ⭐ S173 B1 — the seat-partitioned backdrop, mounted at index 0 so every lobby surface draws on
+  // top of it. Fed the SAME `SeatView[]` the rack gets, from the one `applyView` below.
+  private readonly backdrop: LobbyBackdropHandle;
   private countText: Text;
   private hostPane: Container;
   private joinPane: Container;
@@ -218,6 +223,20 @@ export class LobbyScreen {
     this.inputEl.style.textTransform = 'uppercase';
     this.inputEl.style.caretColor = `#${PLAYER_COLORS[1].toString(16).padStart(6, '0')}`;
     document.body.appendChild(this.inputEl);
+
+    /*
+     * ⭐ S173 B1 (owner) — THE BACKDROP MOUNTS FIRST, AND FIRST IS THE WHOLE REQUIREMENT.
+     *
+     * *"the multiplayer lobby only shows player one background ... However many people are in the
+     * lobby has to split the background into the zones or quadrants just like the game has."*
+     *
+     * Added before the title, the panes and the rack so it sits at index 0 of this container and
+     * every other lobby surface paints over it. `lobbyBackdrop.ts` carries the diagnosis and the
+     * seat→region mapping; this line is the whole of the wiring, plus the one `update` in
+     * `applyView`.
+     */
+    this.backdrop = makeLobbyBackdrop(() => this.isShown);
+    this.container.addChild(this.backdrop.container);
 
     // Title
     const title = new Text({
@@ -395,10 +414,15 @@ export class LobbyScreen {
     this.beginButton.visible = false;
     this.container.addChild(this.beginButton);
 
-    // S87 P4 — QUICK MATCH entry (SELECT pane only): match up to 6 strangers,
-    // everyone clicks READY to start. Centered above the Host/Join panes so it
-    // reads as the headline option. main.ts owns the discovery + drives this
-    // screen into hosting/joining via applyQuickmatch*.
+    // S87 P4 — QUICK MATCH entry (SELECT pane only): match up to MAX_PLAYERS
+    // strangers, everyone clicks READY to start. Centered above the Host/Join
+    // panes so it reads as the headline option. main.ts owns the discovery +
+    // drives this screen into hosting/joining via applyQuickmatch*.
+    // ⛔ S173 B2 — this read "up to 6 strangers". The cap moved 6 → 4 in S147 R41 and the comment
+    // did not follow. The B2 lane found it, could not stage this file (B1's untracked backdrop
+    // import was in flight here) and reported it instead; B1 owns lobbyScreen.ts, so it lands here.
+    // No user-visible string is involved — but a stale number in a comment is how a dead cap gets
+    // repeated back to the owner as live scope, which is the whole of what B2 was about.
     const quickMatchBtn = this.makeButton('QUICK MATCH', 0x9bff3b, () => {
       callbacks.onQuickMatch();
     });
@@ -859,6 +883,15 @@ export class LobbyScreen {
    */
   private applyView(): void {
     const v = lobbyView(this.state);
+    /*
+     * ⭐ S173 B1 — the backdrop is fed from the SAME `v.seats` the rack renders, unconditionally.
+     *
+     * ⚠ NOT INSIDE THE `if (inRoom)` BLOCK BELOW, deliberately: the transition OUT of a room has to
+     * reach it too, or the last room's split would stay painted behind the SELECT panes. On the
+     * select screen every seat is unoccupied, `lobbyBackdropRegions` returns nothing and the whole
+     * layer hides itself — which is also today's behaviour there, unchanged.
+     */
+    this.backdrop.update(v.seats);
     if (this.codeText.text !== v.code) this.codeText.text = v.code;
     if (this.statusText.text !== v.status) this.statusText.text = v.status;
     this.statusText.style.fill = v.statusColor;
