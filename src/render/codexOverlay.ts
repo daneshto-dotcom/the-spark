@@ -67,6 +67,109 @@ const POWER_Y = 200;
 const RECIPE_Y = 226;
 const COMBO_COLS = 5;
 
+/*
+ * ⭐ S173 P5 — THE SCROLL VIEWPORT.
+ *
+ * Owner: *"the towers and structures… it's not scrollable. I can't scroll down and keep seeing all
+ * the towers, which is bad. Make it so the user can actually go there and scroll down."*
+ *
+ * ⚠ MEASURED, NOT ESTIMATED. TOWERS & STRUCTURES lists 19 entries at 4 columns = 5 rows; a row is
+ * TILE_H + TILE_GAP = 348 tall and the grid starts at GRID_TOP = 235, so its last pixel sits at
+ * y = 1947 on a 1080-tall canvas (1971 once the bottom pad is counted, against a viewport floor of
+ * 1036 — 935 px of travel). **More than half the tab could not be reached**, and the one row
+ * that was partly visible ran under the footer line — which is exactly what the owner's screenshot
+ * showed. COMBOS is 14 entries at 5 columns = 3 rows ending at y = 679, wholly inside the viewport,
+ * which is why he said *"Combos, they're all fine. You can see all of them."*
+ *
+ * ⭐ THE VIEWPORT IS APPLIED TO BOTH TABS ON PURPOSE — one code path, no per-tab special case, and
+ * `scrollExtent` clamps to 0 when the content already fits. COMBOS therefore draws exactly what it
+ * drew before: every tile of it is inside the mask, the scrollbar is not drawn, and the footer keeps
+ * its original line. The mask's BOTTOM edge is the second half of the fix: it is what stops a tall
+ * grid painting through the footer, rather than merely letting you reach the rows that did.
+ */
+const SCROLL_VIEW_TOP = 212;                   // below the subtitle (y=192), above GRID_TOP (235)
+const SCROLL_VIEW_BOTTOM = CANVAS_HEIGHT - 44; // above the footer line (y=1054)
+const SCROLL_VIEW_H = SCROLL_VIEW_BOTTOM - SCROLL_VIEW_TOP;
+/** Breathing room under the last row so it does not end flush against the mask's hard edge. */
+const SCROLL_BOTTOM_PAD = 24;
+const SCROLLBAR_X = CANVAS_WIDTH - 24;
+const SCROLLBAR_W = 6;
+const SCROLLBAR_MIN_THUMB = 48;
+/*
+ * ⚠ THESE TWO NUMBERS ARE MINE, NOT THE OWNER'S, and this is the measurement behind them.
+ * index.html serves the 1920×1080 canvas under `object-fit: contain`, so on a 1280-wide window one
+ * DOM pixel is 1.5 canvas pixels; 1.6 keeps a wheel notch feeling like a notch across the common
+ * desktop sizes rather than matching any single one exactly. Chrome sends deltaMode 0 with
+ * deltaY ≈ ±100 per notch → 160 canvas px. Firefox sends deltaMode 1 with deltaY ≈ ±3 → 180 canvas
+ * px at 60 px/line. A grid row is 348 px, so both land near half a row per notch.
+ */
+const WHEEL_PIXEL_SCALE = 1.6;
+const WHEEL_LINE_PX = 60;
+
+/** S121 P4 footer: how to reopen + the unlock convention, kept out of every tile. */
+const FOOTER_BASE = 'entries reveal through play · press G+C in-game to open the codex';
+/** S173 P5 — appended only when the active tab actually has somewhere to go. */
+const FOOTER_SCROLL_HINT = ' · mouse wheel to scroll';
+
+/*
+ * ⭐ THE SCROLL MATH IS PURE AND EXPORTED, and `codexOverlay.test.ts` exercises it.
+ *
+ * ⛔ main.ts:~3527 records that *"there is no codexOverlay.test.ts, so nothing would have reported
+ * it"* about a codex bug that shipped. Keeping the arithmetic out of the Pixi class is what lets
+ * that sentence stop being true: the row count, the content extent, the clamp and the thumb are all
+ * decidable in node, so a grid that grows past the viewport (another tower tier, say) is a number a
+ * test can check rather than something a human has to notice on screen.
+ */
+
+/** Rows a grid of `count` tiles occupies at `cols` columns. The ONE place the row count is derived. */
+export function gridRowCount(count: number, cols: number): number {
+  if (count <= 0 || cols <= 0) return 0;
+  return Math.ceil(count / cols);
+}
+
+/** The last y a grid occupies in absolute canvas coords, bottom pad included. */
+export function gridContentBottom(rows: number, tileH: number, gap: number): number {
+  if (rows <= 0) return SCROLL_VIEW_TOP;
+  return GRID_TOP + rows * tileH + (rows - 1) * gap + SCROLL_BOTTOM_PAD;
+}
+
+/** How far the grid may travel before its last row rests on the viewport floor. 0 ⇒ it all fits. */
+export function scrollExtent(contentBottom: number): number {
+  return Math.max(0, contentBottom - SCROLL_VIEW_BOTTOM);
+}
+
+/**
+ * One wheel event in CANVAS units. `deltaMode` is the DOM's own: 0 = pixels, 1 = lines, 2 = pages.
+ * Handling all three matters — Firefox reports lines and a few setups report pages, and treating
+ * either as pixels would move the grid by three pixels per notch and read as "it still doesn't
+ * scroll".
+ */
+export function wheelScrollDelta(deltaY: number, deltaMode: number): number {
+  if (deltaMode === 1) return deltaY * WHEEL_LINE_PX;
+  if (deltaMode === 2) return deltaY * SCROLL_VIEW_H * 0.9;
+  return deltaY * WHEEL_PIXEL_SCALE;
+}
+
+/** Clamp so neither end can be scrolled past — the owner asked for scrolling, not for a void. */
+export function clampScroll(offset: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.min(max, Math.max(0, offset));
+}
+
+/**
+ * Scrollbar thumb geometry, in absolute canvas coords. Length is the visible FRACTION of the
+ * content (floored at SCROLLBAR_MIN_THUMB so a very long grid still shows a grabbable bar), and it
+ * travels the remaining track linearly with the offset — so the bar answers "how much more is
+ * there", which is the question a player who cannot see row five is actually asking.
+ */
+export function scrollbarThumb(offset: number, max: number): { readonly y: number; readonly h: number } {
+  const contentH = SCROLL_VIEW_H + Math.max(0, max);
+  const h = Math.max(SCROLLBAR_MIN_THUMB, Math.round((SCROLL_VIEW_H / contentH) * SCROLL_VIEW_H));
+  const travel = Math.max(0, SCROLL_VIEW_H - h);
+  const t = max <= 0 ? 0 : clampScroll(offset, max) / max;
+  return { y: SCROLL_VIEW_TOP + travel * t, h };
+}
+
 export interface CodexEntry {
   readonly id: GodlyId;
   readonly displayName: string;
@@ -138,6 +241,13 @@ export class CodexOverlay {
   private active: CodexTabKey = 'towers';
   private readonly content: Container;
   private readonly subtitle: Text;
+  private readonly footer: Text;
+  // S173 P5 — the scroll viewport. `viewportMask` is a SIBLING of `content`, never a child (see
+  // the constructor); `scrollbar` is a pure indicator drawn outside the mask.
+  private readonly viewportMask: Graphics;
+  private readonly scrollbar: Graphics;
+  private scrollY = 0;
+  private scrollMax = 0;
   private readonly tabButtons = new Map<CodexTabKey, { box: Graphics; label: Text }>();
   // S110 P3 — the player-avatar layer is lifted above this overlay's near-opaque backdrop while
   // open, then restored to its original z-index on close (so fog-of-war layering is untouched).
@@ -170,13 +280,14 @@ export class CodexOverlay {
     this.container.addChild(this.subtitle);
 
     // S121 P4 — one persistent footer: how to reopen + the unlock convention, out of every tile.
-    const footer = new Text({
-      text: 'entries reveal through play · press G+C in-game to open the codex',
+    // S173 P5 — it is a field now because `rebuild` appends the scroll hint to it per tab.
+    this.footer = new Text({
+      text: FOOTER_BASE,
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0x6a6a78, letterSpacing: 1 }),
     });
-    footer.anchor.set(0.5);
-    footer.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 26);
-    this.container.addChild(footer);
+    this.footer.anchor.set(0.5);
+    this.footer.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 26);
+    this.container.addChild(this.footer);
 
     // Tab bar.
     const tabY = 130;
@@ -227,8 +338,62 @@ export class CodexOverlay {
     this.content = new Container();
     this.container.addChild(this.content);
 
+    /*
+     * ⭐ S173 P5 — THE SCROLL VIEWPORT, in three parts.
+     *
+     * ⚠ THE MASK IS A SIBLING OF `content`, NEVER ITS CHILD. A mask parented to the container it
+     * masks travels with that container's scroll offset, so it clips nothing and the grid spills
+     * over the footer exactly as before — a silent no-op that looks like working code.
+     */
+    this.viewportMask = new Graphics();
+    this.viewportMask.rect(0, SCROLL_VIEW_TOP, CANVAS_WIDTH, SCROLL_VIEW_H).fill(0xffffff);
+    this.container.addChild(this.viewportMask);
+    this.content.mask = this.viewportMask;
+
+    // Drawn OUTSIDE the mask so it is never clipped by the thing it is describing.
+    this.scrollbar = new Graphics();
+    this.container.addChild(this.scrollbar);
+
+    /*
+     * The wheel, as a DOM listener on the canvas rather than a Pixi federated 'wheel' handler.
+     *
+     * A federated wheel event needs a hit-testable display object under the cursor, which here would
+     * mean making the full-screen backdrop `eventMode: 'static'` — and that backdrop sits under the
+     * tab buttons and the close button, so turning it into an event target is a change to this
+     * overlay's whole pointer story for one scroll wheel. index.html pins `body { overflow: hidden }`
+     * and nothing else in `src/` listens for 'wheel' (grepped), so a plain canvas listener is
+     * unambiguous and has no page-scroll to fight; `passive: false` is what lets it preventDefault
+     * the events it consumes.
+     *
+     * ⚠ IT IS NEVER REMOVED, and that is deliberate rather than an oversight: this overlay is built
+     * once, lazily, and lives for the life of the page (there is no `destroy()` on this class). The
+     * two guards on the first line are what keep it inert the rest of the time — invisible codex, or
+     * a tab whose content already fits, and the event is left entirely alone.
+     */
+    app.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      if (!this.container.visible || this.scrollMax <= 0) return;
+      e.preventDefault();
+      this.scrollY = clampScroll(this.scrollY + wheelScrollDelta(e.deltaY, e.deltaMode), this.scrollMax);
+      this.applyScroll();
+    }, { passive: false });
+
     this.container.visible = false;
     app.stage.addChild(this.container);
+  }
+
+  /**
+   * Push `scrollY` into the display list + redraw the indicator. Called on every wheel event and
+   * once at the end of every `rebuild`, so the bar and the grid can never disagree.
+   */
+  private applyScroll(): void {
+    this.content.y = -this.scrollY;
+    this.scrollbar.clear();
+    if (this.scrollMax <= 0) return; // content fits — no track, no thumb, nothing to say
+    this.scrollbar.roundRect(SCROLLBAR_X, SCROLL_VIEW_TOP, SCROLLBAR_W, SCROLL_VIEW_H, 3)
+      .fill({ color: 0xffffff, alpha: 0.08 });
+    const thumb = scrollbarThumb(this.scrollY, this.scrollMax);
+    this.scrollbar.roundRect(SCROLLBAR_X, thumb.y, SCROLLBAR_W, thumb.h, 3)
+      .fill({ color: GOLD, alpha: 0.55 });
   }
 
   private tabW = 320;
@@ -283,8 +448,14 @@ export class CodexOverlay {
     this.drawTabBar();
     this.subtitle.text = TABS.find((t) => t.key === this.active)?.subtitle ?? '';
     this.content.removeChildren().forEach((c) => c.destroy({ children: true }));
+    // Every tab opens at its own top; the grid builders below set `scrollMax` from what they laid out.
+    this.scrollY = 0;
+    this.scrollMax = 0;
     if (this.active === 'towers') this.buildSpriteGrid(this.towers, loadUnlockedSet());
     else this.buildCombosGrid();
+    this.applyScroll();
+    // Told, not discovered: a grid you cannot see the bottom of says so on the footer line.
+    this.footer.text = this.scrollMax > 0 ? `${FOOTER_BASE}${FOOTER_SCROLL_HINT}` : FOOTER_BASE;
   }
 
   /** Highlight the active tab; dim the rest. */
@@ -316,6 +487,10 @@ export class CodexOverlay {
     const cols = Math.min(entries.length, 4);
     const totalWidth = cols * TILE_W + (cols - 1) * TILE_GAP;
     const startX = (CANVAS_WIDTH - totalWidth) / 2;
+    // S173 P5 — the grid's own geometry decides how far it scrolls, so adding a tower tier needs no
+    // edit here: 19 entries at 4 columns is 5 rows whose last tile ends at y=1947, which with the
+    // bottom pad is 935 px of travel.
+    this.scrollMax = scrollExtent(gridContentBottom(gridRowCount(entries.length, cols), TILE_H, TILE_GAP));
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       const col = i % cols;
@@ -416,6 +591,10 @@ export class CodexOverlay {
     const ch = 132;
     const gx = 24;
     const gy = 24;
+    // S173 P5 — the Magic-14 at 5 columns is 3 rows ending at y=679, comfortably inside the
+    // viewport, so this is 0 today and COMBOS looks exactly as it did (owner: "they're all fine").
+    // It is computed rather than hardcoded so a 15th combo scrolls instead of silently vanishing.
+    this.scrollMax = scrollExtent(gridContentBottom(gridRowCount(catalog.length, COMBO_COLS), ch, gy));
     for (let i = 0; i < catalog.length; i++) {
       const entry = catalog[i];
       const row = Math.floor(i / COMBO_COLS);
