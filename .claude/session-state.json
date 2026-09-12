@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Standard",
   "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "P1 + P1b + P4 + P5(a,b,c) + P6 + B3 complete. B5 / B6+B2 / B1 delegated to three agents. B7+B8, B4, B9 recorded as bigger/blocked per his instruction. P2 (atlas repack) in flight, P3 pending.",
+  "session_status": "P1, P1b, P4, P5(a,b,c), P6, B3, B6+B2, B5 complete. B1 (lobby backdrop) still delegated. B7+B8, B4, B9 recorded as bigger/blocked. P2 (atlas repack) in flight, P3 pending.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -76,7 +76,9 @@
     "P4 #the-agent-refused-my-brief-and-was-right: I briefed the tower-shortfall work at castlePanel's caption from my own grep. CASTLE_BUILD_GRID_ENABLED = false - that panel has been dead code since S149 P5 moved tower-building to the footer band. The agent verified the premise before building on it and redirected to footerBand.ts. I had grepped for the STRING (\"NEED n MORE\") and found a real site, but never asked whether that site was still REACHABLE. A live-looking code path is not the same as a rendered one.",
     "P4b #two-agents-one-working-tree-sweep-each-other: staging is global, so when two subagents commit into the same checkout, whoever commits second sweeps up the first's staged files - and the first then reports success for a commit that does not contain its work. The P4 agent even NAMED this hazard in its report and still concluded, wrongly, that its work was safe in HEAD. It was uncommitted. VERIFYING THE AGENT'S CLAIM AGAINST THE TREE is what saved it: three greps, and the symbols were absent from every commit. Next time: give parallel agents separate worktrees, or let exactly one of them commit.",
     "B3 #a-noted-defect-is-still-a-defect: healthBar.ts carried the line \"The castle bar (gathererRenderer.drawKeep) still carries fault 1 - noted, not touched here\" from S171 onward. Fault 1 is hide-while-undamaged, which the owner had ALREADY rejected once for creatures. He then found it on the castle by playing, and reported it a second time. Writing a defect down bought nothing except the ability to say it was known. If it is worth a comment that names it as a fault, it is worth either fixing or a line in the backlog he can see.",
-    "P1/B3 #shipping-half-a-ruling-reads-as-not-shipping-it: P1 gave every tower a health bar and he still said \"the other buildings don't have HP bars\" - because the bar was RED and the castle's is GREEN, so it did not read as the same feature. The mechanic was right and the signal was wrong. Colour was carrying meaning (building vs unit) that nobody had written down, and I had matched the creature convention without asking which family a tower belongs to."
+    "P1/B3 #shipping-half-a-ruling-reads-as-not-shipping-it: P1 gave every tower a health bar and he still said \"the other buildings don't have HP bars\" - because the bar was RED and the castle's is GREEN, so it did not read as the same feature. The mechanic was right and the signal was wrong. Colour was carrying meaning (building vs unit) that nobody had written down, and I had matched the creature convention without asking which family a tower belongs to.",
+    "B5 #my-brief-named-the-wrong-layer-and-the-agent-refused-it: I briefed a wave-indexed ladder falling through to a default creature type, because the owner said \"after wave three the CASTLE starts SPAWNING goblins\" and that sentence sounds like sim. There is no wave->creature table in the tree at all; world.waveNumber has one consumer and it scales a spawn RATE. The real cause was a RENDERER fall-through - direwolf in GOBLIN_KINDS with no atlas, drawn as the pre-veo puppet. TWICE IN ONE SESSION an agent has corrected the layer I aimed it at (P4 was the dead castle panel). The owner describes what he SEES; the word he uses for the mechanism is a guess I should not inherit.",
+    "B5b #a-deliberate-exemption-is-still-a-defect-and-it-was-defended-in-prose: S168 wrote at the constant that the direwolf had NO ATLAS \"deliberately... visible and readable until the art lands\", while the coverage test one paragraph below stated the opposite principle correctly for the locust cloud. The exemption survived because it was ARGUED rather than tested. Same shape as B3 this session, where \"the castle bar still carries fault 1 - noted, not touched here\" sat in a docblock for five sessions until he found it by playing. A defect with a paragraph defending it outlives a defect with nothing."
   ],
   "budget_total": null,
   "totals": {
@@ -1424,16 +1426,46 @@
     {
       "id": "B5",
       "title": "PLAYTEST B5 - ORCS, AFTER WAVE 3, THE CASTLE SPAWNS GOBLIN MELEES. A regression with an exact repro that makes race identity vanish mid-match. Delegated.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "e19a002",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "delegated_to": "agent:orcs-wave3",
-      "check_method": null,
+      "check_method": "B5 - \"ORCS SPAWN GOBLIN MELEES AFTER WAVE 3\". ⛔ THE PREMISE IN MY OWN BRIEF WAS WRONG AND THE AGENT REFUTED IT BEFORE BUILDING ANYTHING. I briefed a wave-indexed ladder falling through to a default creature type. There is no such ladder: world.waveNumber has exactly ONE functional consumer in the tree, waveSpawnMultiplier (constants.ts:1355), read once in physicsLoop.ts:101 to scale the SHAPE-ARRIVAL RATE. Nothing maps wave to creature type. The castle arm hard-codes the literal `creatureType: raceUnit` (raceUnitEmit.ts:231), and driving the REAL runHostTick wave loop as orcs through wave 5 emits raceUnit at every wave. The only production path to a goblinMelee at all is GOBLIN_FEED_MAP[Triangle] (goblinKinds.ts:62), reachable only by a player feeding a GOBLIN TOWER a Triangle - no castle can reach it. THE REAL CAUSE IS A RENDERER FALL-THROUGH, NOT A SIM BUG: `direwolf` sits in GOBLIN_KINDS with NO ATLASES entry, so goblinRenderer.sync takes the `atlas === undefined` arm and calls drawGoblin - the pre-veo green humanoid puppet with a cleaver. Every detail of his report lands on it: ORC-EXCLUSIVE (only the Warlord summons direwolves), \"after wave three\" (a nine-ring boss tower becomes affordable about then - timing, not an index), \"the castle starts spawning\" (the wolves spawn AT THE BOSS, released at its own tower in the player's own zone, i.e. beside his keep, three at a time up to DIREWOLF_MAX_PER_OWNER = 6), and \"taking us back thirty sessions, the little tiny green\" - literally the procedural puppet. ⛔ AND THE EXEMPTION HAD BEEN WRITTEN DOWN AND DEFENDED: S168 noted at the constant \"It has NO ATLAS yet, deliberately... the wolf is visible and readable until the art lands\", while the coverage test one paragraph later states the opposite principle correctly for the locust cloud (\"satisfying it with the wrong drawing would be gaming it\"). Both stale comments corrected at the site. THE SAME SHAPE AS B3 THIS SESSION: a defect recorded in prose is not a defect fixed. THE FIX, and the all-races half: ATLASES.direwolf now points at the shipped four-legged hound sheet, AND a new gate makes \"in GOBLIN_KINDS implies real art\" a TEST, so the next artless type cannot silently inherit the humanoid puppet the way this one did. Written failing first: expected [direwolf] to deeply equal [], exit 1 before the fix. NO sim change, NO wire change, NO protocol bump - the dispatched creature type is untouched. GATES from a captured exit code: typecheck 0, vitest 0 at 4395 tests / 276 files. ⚠ TWO HONEST CAVEATS, BOTH THE AGENT'S OWN: (1) it could NOT observe the live game - the attribution is exhaustive elimination of every production SPAWN_CREATURE site plus an exact match on race, colour, count, cadence, location and timing, NOT a sighting. Owner confirmation that he had a Warlord out would close it. (2) The hound sheet is the AGENT'S choice, not his: a direwolf and a goblin hound now share a look until real direwolf art lands, flagged at the site as the one path to swap. ⚠ RESIDUAL, AND IT IS NOT A BUG: an OPPONENT feeding a goblin tower Triangles would put real, enemy-tinted goblinMelee units at his walls. If the green goblins he saw carried the enemy seat colour, that is intended play.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "direwolf: '/godly/goblin-hound/anim/goblin-hound'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/raceUnitEmit.test.ts",
+          "needle": "S173 B5"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRendererLazyAtlas.test.ts",
+          "needle": "GOBLIN_KINDS"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/goblinRendererLazyAtlas.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/raceUnitEmit.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 5
+        }
+      ]
     },
     {
       "id": "B6+B2",
@@ -1879,7 +1911,9 @@
     "OWED: lobbyScreen.ts:398 comment still says \"match up to 6 strangers\". Comment-only, no user-visible string. Deliberately left because the B1 agent had in-flight untracked work in that file at the time."
   ],
   "owner_questions_open_s173": [
-    "VOLTKIN'S FATE IN THE CODEX - the one ambiguity in amendment 2, and it changes what ships. He said BOTH \"remove the whole godly combos\" AND \"[Voltkin] is no more godly as anything else. It's just a tower now and structure.\" Reading A: delete the tab and let Voltkin appear under TOWERS & STRUCTURES (where a tower/structure belongs by his own sentence). Reading B: delete the tab and Voltkin with it, so Voltkin has no codex entry at all. NONET is NOT ambiguous - he was explicit that it must not appear anywhere in the codex because it is an Easter egg. DEFAULT IF HE DOES NOT ANSWER: Reading A, because his own words call Voltkin a tower and structure, and silently deleting a live buildable from the codex would be a bigger change than he asked for."
+    "VOLTKIN'S FATE IN THE CODEX - the one ambiguity in amendment 2, and it changes what ships. He said BOTH \"remove the whole godly combos\" AND \"[Voltkin] is no more godly as anything else. It's just a tower now and structure.\" Reading A: delete the tab and let Voltkin appear under TOWERS & STRUCTURES (where a tower/structure belongs by his own sentence). Reading B: delete the tab and Voltkin with it, so Voltkin has no codex entry at all. NONET is NOT ambiguous - he was explicit that it must not appear anywhere in the codex because it is an Easter egg. DEFAULT IF HE DOES NOT ANSWER: Reading A, because his own words call Voltkin a tower and structure, and silently deleting a live buildable from the codex would be a bigger change than he asked for.",
+    "B5 NEEDS ONE SENTENCE FROM HIM TO CLOSE: were the \"little green goblins\" appearing near your castle around wave 3 accompanied by an ORC WARLORD (your tier-9 boss)? The diagnosis says they were his DIREWOLVES, drawn with the old procedural goblin puppet because that type had no atlas. Confirming a Warlord was out closes it. If instead they carried the ENEMY seat colour and were attacking you, they were real goblins from an opponent feeding a goblin tower Triangles - intended play, not a bug.",
+    "B5 FOLLOW-ON, HIS CALL: the direwolf now borrows the GOBLIN-HOUND sheet, so a direwolf and a goblin hound look the same until real direwolf art is generated. That is the agent's choice, not his ruling. Overrule on sight if the doubling reads worse than the goblin puppet did."
   ],
   "findings_s173": [
     "P1 CAVEAT, FOUND WHILE IMPLEMENTING AND NOT SWEPT: a tower can be destroyed by TWO independent damage channels, not one. (1) CONNECTORS - damageConnector accumulates Bond.damageFifths until it reaches connectorCapacityFifths(n), then the caller dispatches SEVER_BOND (damage.ts:279). (2) PRIMITIVES - damageEntity({kind:\"primitive\"}) does prim.hp -= amount and at zero calls razePrimitives, which takes the shape AND its incident bonds out (damage.ts:153-170); Primitive.hp is a real required field seeded at PRIMITIVE_MAX_HP = 1000 (primitive.ts:97,128). towerRenderer already derives its intact/damaged/destroyed FRAME from that second model via towerHpFrac (towerFrames.ts:190). The owner ruled the bar on CONNECTORS in his own words (\"before their first connector dies\") and chose POOL semantics, so that is what ships - but the primitive-hp channel is documented AT THE CONSTANT rather than left for a future session to discover the bar under-reporting. Flagged to the owner."
