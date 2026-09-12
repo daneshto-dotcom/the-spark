@@ -479,7 +479,23 @@ export class GathererRenderer {
      * CASTLE_BUILD_SPACE_DESIGN addendum). This is the placeholder that makes the mechanic legible in
      * the meantime, matching the keep box it sits on — which is itself described as a placeholder.
      */
-    if (hpFrac < 1) {
+    /*
+     * ⛔⛔ S173 (owner, SECOND report) — **IT NO LONGER HIDES WHILE FULL.**
+     *
+     * > *"the Castle HP, it shows like a green HP bar, right? But only once it's attacked. All the
+     * > other buildings still don't have HP bars ... Let's make sure all the buildings have an HP
+     * > bar just like the castle has, a green one, exactly the same."*
+     *
+     * The gate here was `if (hpFrac < 1)`, i.e. **fault 1** — the identical hide-while-undamaged
+     * behaviour he rejected for creatures in S171 (*"a full-health Kraken therefore drew NOTHING, so
+     * there was no pool to compare against"*). `healthBar.ts`'s docblock has carried the line *"The
+     * castle bar (`gathererRenderer.drawKeep`) still carries fault 1 — noted, not touched here"*
+     * ever since. It was written down, left, and he has now reported it from play.
+     *
+     * ⚠ A NOTED DEFECT IS STILL A DEFECT. Recording it bought nothing except the ability to say it
+     * was known when he found it anyway.
+     */
+    {
       // ⚠ ON THE OVERLAY. A castle sprite stands up to CASTLE_SPRITE_PX above its own foot, which is
       // far higher than this bar sits, so a bar drawn into `g` would be hidden behind the very
       // castle whose health it reports.

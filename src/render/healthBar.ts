@@ -24,7 +24,12 @@
  *      boss sprite the pips sat *inside the chest*. That is the identical defect S170 fixed on the
  *      stun stars, and `creatureSpriteScaleMul` is the identical cure.
  *
- * The castle bar (`gathererRenderer.drawKeep`) still carries fault 1 — noted, not touched here.
+ * ⭐ S173 — THE CASTLE BAR CARRIED FAULT 1 TOO, AND THIS LINE USED TO SAY SO AND LEAVE IT: *"still
+ * carries fault 1 — noted, not touched here."* The owner then found it by playing —
+ * *"the Castle HP ... shows a green HP bar, but only once it's attacked"* — which is fault 1 word
+ * for word, reported a second time. `drawKeep`'s `if (hpFrac < 1)` gate is gone and the castle now
+ * shows a full bar while healthy, like every other pool on the board.
+ * ⚠ Recording a defect is not fixing it; the note bought nothing but the ability to say it was known.
  *
  * ## ⭐ IT COSTS NOTHING ON THE WIRE, WHICH IS WHY IT IS A SMALL CHANGE
  *
@@ -111,6 +116,31 @@ const FALLBACK_SPRITE_H = 26;
 const FILL_TINT = 0xe0342f;
 const TRACK_TINT = 0x140a08;
 const TRACK_ALPHA = 0.5;
+
+/**
+ * ⭐⭐ S173 (owner) — **BUILDINGS ARE GREEN, CREATURES ARE RED. THAT IS THE READING.**
+ *
+ * > *"the Castle HP, it shows like a green HP bar, right? ... Let's make sure all the buildings have
+ * > an HP bar just like the castle has, a green one, exactly the same. While spawn and creatures
+ * > have the red HP bars."*
+ *
+ * So the colour is not decoration — it is what tells you at a glance whether the thing losing health
+ * is a BUILDING of yours or a UNIT. P1 shipped tower bars earlier this session in `FILL_TINT` (red),
+ * which was the right bar in the wrong colour.
+ *
+ * ⚠ *"EXACTLY THE SAME"* IS TAKEN LITERALLY: this is the castle's own ramp, not a flat green.
+ * `gathererRenderer.drawKeep` fills with `hpFrac > 0.5 ? 0x6ee07a : hpFrac > 0.25 ? 0xffc14d :
+ * 0xff4d4d` — green while healthy, amber past half, red in the last quarter, because the reading a
+ * player needs is *"is that one nearly down?"*. A tower that matched only the healthy colour would
+ * diverge from the castle the moment either took damage, which is the opposite of what he asked for.
+ *
+ * ⛔ THE 0.5 BOUNDARY IS SHARED WITH THE ART — `castleStateForHp` flips the castle to its damaged
+ * sprite at exactly this number (`CASTLE_DAMAGED_BELOW`), and `towerStateForHp` does the same for
+ * towers. Retuning this ramp without those makes the bar and the building disagree.
+ */
+function buildingTint(frac: number): number {
+  return frac > 0.5 ? 0x6ee07a : frac > 0.25 ? 0xffc14d : 0xff4d4d;
+}
 
 /**
  * ⭐ Draw a health bar over every creature and every pooled defender.
@@ -298,7 +328,8 @@ function drawStructureBars(g: Graphics, world: World): void {
     if (current <= 0) return; // already collapsing — the sever path owns the next frame
 
     const sb = spriteBoxFor(recipeId);
-    drawBar(g, cx / count, cy / count, current, max, 1, sb.w, sb.h);
+    // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
+    drawBar(g, cx / count, cy / count, current, max, 1, sb.w, sb.h, buildingTint(current / max));
   };
 
   // The two pooled-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`.
@@ -333,6 +364,8 @@ function drawBar(
   spriteW: number,
   /** The creature's drawn sprite height — how far the bar has to rise to clear its head. */
   spriteH: number,
+  /** ⭐ S173 — the FILL colour. Creatures keep the red; BUILDINGS pass the castle ramp (owner). */
+  fillTint: number = FILL_TINT,
 ): void {
   const span = (v: number): number =>
     Math.min(BAR_MAX_W, Math.max(BAR_MIN_W, Math.sqrt(Math.max(0, v)) * BAR_PX_PER_SQRT_FIFTH));
@@ -397,5 +430,5 @@ function drawBar(
   const by = y - spriteH - BAR_LIFT * scale;
 
   g.rect(bx, by, w, h).fill({ color: TRACK_TINT, alpha: TRACK_ALPHA });
-  g.rect(bx, by, fw, h).fill({ color: FILL_TINT, alpha: 0.95 });
+  g.rect(bx, by, fw, h).fill({ color: fillTint, alpha: 0.95 });
 }
