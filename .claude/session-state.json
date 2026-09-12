@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 809,
-  "session_id": "S172",
+  "tool_calls_session_total": 1053,
+  "session_id": "S173",
   "session_kind": "batch",
-  "session_start": "2026-09-10T13:00:00+02:00",
-  "prior_session_note": "S171 CLOSED 8/8, verified, pushed, live. Handoff: HANDOFF_S171_2026-09-10.md",
+  "session_start": "2026-09-12T00:00:00+02:00",
+  "prior_session_note": "S172 CLOSED. 6 complete, 1 partial (tower bars), 1 parked (stat retune), 2 not started (Pharaoh, Vlad sap). Handoff: HANDOFF_S172_2026-09-10.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
   "phase": "DO",
-  "tier": "Full",
-  "plan_file": ".claude/plans/PDR-S172-BATCH.md",
-  "session_status": "P1,P3,P5,P6,P8 complete. P7 PARTIAL (Helga done, towers not). P2 parked. P4,P9 not started.",
+  "tier": "Standard",
+  "plan_file": ".claude/plans/PDR-S173-BATCH.md",
+  "session_status": "P1,P2,P3 approved by owner. Executing P1.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -19,15 +19,20 @@
     "claude_md_read": true,
     "gates_at_boot": {
       "typecheck": "exit 0",
-      "vitest": "exit 0 - 4202 tests / 267 files (matches S170 baseline exactly)"
+      "vitest": "exit 0 - 4296 tests / 274 files (exact S172 baseline)",
+      "e2e_gating": "exit 0",
+      "verify_deploy": "exit 0 - 4/4 carriers, live is current",
+      "check_atlas": "exit 1 - INTENDED, 6 size-mismatch + 9 fringe, does NOT gate the deploy"
     },
     "warns_addressed": [
-      "ENV-DIFF hooks drift: REVIEWED - guard-destructive.sh (S166 hang fix, fails OPEN on timeout/missing interpreter) and verify-claims-on-stop.sh (S342 MCV message accuracy). Both STRENGTHEN safety, neither weakens a gate. Baseline reset, exit 0.",
-      "Git 1 uncommitted change: .claude/session-state.json, tool_calls_session_total 1352->1357 only. Benign post-close hook counter from S170. Superseded by this write.",
-      "REVIEW card S170 pending: card describes S170 work that is committed, pushed, MCV exit 0, handoff written. Stale artifact from a closed session; will approve so it does not block this session's close.",
-      "TNAS SHARE outage 400 samples: Rule 23 TNAS BOUNDARY - separate network device on the LAN, NOT a tracked git subfolder. NOT TOUCHED. Reported to owner only.",
-      "Memory embeddings 1 stale file: advisory, does not affect this session's work.",
-      "statusline_dead: cosmetic, no gate impact."
+      "Git 1 uncommitted change: .claude/session-state.json, tool_calls_session_total only. Benign post-close hook counter from S172. Superseded by this write; .s172bak kept.",
+      "MODEL DRIFT (3x, escalated to boot-blocker): session reports model \"<synthetic>\" rather than a strongest-tier id. REPORTED TO OWNER, not silently proceeded past. No routing or downgrade was requested by me; the allowlist may simply not recognise the running build (the S129 shape: an upgrade reading as drift).",
+      "Stale boot-snapshot: fell back to HANDOFF_S172_2026-09-10.md as instructed. Read in full.",
+      "Three .claude/plans/ files textually containing IN-PROGRESS are NOT stale: their STATUS lines read \"STATUS: STALE - CLOSED BY AUDIT (S170)\". Separately VERIFIED that pre-flight.sh:81 scans .claude/plans-archive/, NOT .claude/plans/ - so that WARN could never have fired on them anyway.",
+      "REVIEW card (S172) pending: describes S172 work that is committed, pushed, MCV exit 0, handoff written. Its HELD items are the carry-forwards surfaced to the owner in this PDR. Will approve at close so it does not block /handoff.",
+      "statusline_dead: cosmetic; real-token budget reading may be inaccurate. Informational only - per CLAUDE.md a token reading never stops approved work.",
+      "Pipeline v2 changelog: not the first session since S59. No action.",
+      "FAILED COMMAND VERDICT (benign, named per the project rule): my first typecheck run exited 1 because $TMPDIR is unset in git-bash, so the redirect target became /tc.log which is not writable. That exit belonged to the bash redirect, not to tsc; re-run against the scratchpad it exited 0. A second failure - a Python print of recovered agent JSON - was a cp1252 console encoder limit, not a data problem; the file had already been written."
     ]
   },
   "owner_rulings_s171": [
@@ -46,22 +51,24 @@
   ],
   "a0_state_discovery": {
     "status": "complete",
-    "method": "3 workflows / 21 agents, 0 errors. Gates re-verified from captured $?: typecheck 0, vitest 0 (4271/272). Health-bar defect reproduced numerically before any edit."
+    "method": "Workflow of 6 probe lanes + 6 adversarial verifiers. AN ORG SPEND LIMIT KILLED 6 OF 8 AGENTS - only probe:vlad-life-sap and probe:repo-and-deploy returned, and BOTH verifiers died. Per the project rule that a hunt returning nothing is not a completed hunt, the four dead lanes (tower-health-bars, attack-speed, pharaoh, art-polish) were RE-RUN BY HAND in-session before the PDR was written, and the two surviving lanes had their load-bearing claims hand-verified because their verifiers never ran.",
+    "fanout_lesson": "All six lanes rode ONE workflow invocation, so a single limit hit cost all six - exactly the S161 failure the project CLAUDE.md warns about. Dispatch lanes as separate smaller runs.",
+    "premises_corrected": [
+      "PROTOCOL_VERSION is 46 (protocol.ts:667, pinned protocol.test.ts:93). CLAUDE.md:141 says 44 - stale. => P3.",
+      "The acquisition-census regex is NOT the whitespace-only form. S172 widened it to also match a short cast-like span, to close the cast blind spot. Reasoning on the old form reasons about already-fixed code.",
+      "The stale-plan WARN scans .claude/plans-archive/, NOT .claude/plans/ (pre-flight.sh:81).",
+      "speedMul (\"with varried speed\", R141) is MOVEMENT speed, not attack speed. Attack cadence really is flat: 60 almost everywhere, 300 on the chewer (a legacy chew SPAN, not a speed), 5*PHYSICS_HZ for the Pharaoh locust; the only modulation is rageMultiplier (creatureLifecycle.ts:979).",
+      "A re-matte tool DOES exist (scripts/matte-*.py, repair-atlas-letterbox.py) - my initial hypothesis that it was absent was wrong."
+    ],
+    "hand_verified_claims": [
+      "e2e/tower-art.spec.ts:152 and :295 DO probe above.children[6] / [11] by hardcoded index, and bossAuras.ts:93 explicitly forbids a new display object for that reason. CONFIRMED by hand after the Vlad verifier died.",
+      "structureDefenceFifths (stats.ts:236) has ZERO production callers - grep across src/ and scripts/ returns tests only.",
+      "Bond.damageFifths is serialized (save.ts:402 type, :1832 emit-when-nonzero) AND hashed (stateHashFull.ts:269 union, :538 projection).",
+      "normaliseStateScale equalises HEIGHT only (build-sprite-atlas.mjs:322, _subject_h) - the handoff mechanism claim is correct.",
+      "5 of 6 size-mismatched atlas PNGs predate scripts/build-sprite-atlas.mjs (2026-09-10 10:39); only t3-mummies-scarab postdates it and still fails."
+    ]
   },
-  "reflexion_entries_to_archive": [
-    "P1 #the-fix-was-right-and-the-bug-was-somewhere-else: healthBar's fill was frozen at 100% on six unit types because span()'s 9px floor was applied to the FILL as well as the TRACK (the floor binds below 7.01 fifths; goblinMelee/Hound/Archer, raceUnit, locustCloud and chewer all sit under it). I fixed that, shipped it, and the owner STILL saw no movement - because there was a second, unrelated cause in a different file. Fixing the first cause is not evidence there is only one.",
-    "P1b #a-missing-wire-cannot-be-caught-by-a-unit-test: drawHealthBars is called from GoblinRenderer and was handed a sprite map populated behind `if (!GOBLIN_KINDS.has(c.type)) continue`, so every boss, tier-3 unit, Voltkin and chewer measured null, fell back to FALLBACK_SPRITE_H=26, and had its bar drawn INSIDE the sprite. No unit test of healthBar.ts could ever see that - the defect lived BETWEEN two renderers. The pin has to be a source-text assertion on the wire itself.",
-    "P1c #believe-the-owner-over-your-own-model: I explained the missing bar as one-shot combat. He said flatly 'he doesnt die in one hit, it took him a good thirty seconds' - and that one sentence relocated the bug from the stat ladder to renderer wiring. His observation was the evidence; my model was the thing that had to give.",
-    "P2 #arithmetically-right-and-design-wrong: the first stat derivation took HP from each unit's OWN hit. It wanted to cut the locust from ATK 10 to 1 (straight through R142) and flatten the drone and the suicide bomber. ownHits is the WRONG target because role IS ownHits variation. Re-deriving against a tier REFERENCE hit with a role factor moved only HP and touched no owner ruling.",
-    "P2b #ship-what-he-ruled-then-measure-it-out-loud: he ruled 'double the boss HP' expecting it to fix boss-v-boss. It moved 1.0 to 1.2-3.7 hits, not the 4 he wanted, because the glass-cannon bosses hit for 150. I implemented the ruling exactly and reported what it actually bought, rather than quietly over-delivering or quietly under-delivering.",
-    "P3 #no-library-is-a-finding-not-a-shrug: he assumed a floating-damage-number package existed. Eight npm searches, the awesome-pixijs list and all 40 PixiJS org repos returned zero, for any engine. But the RECIPE was recoverable from two real clients (MapleStory's timings, an MIT WoW addon's pop and fling), so the answer was 'nothing to install, here are the measured constants' rather than empty.",
-    "P3b #the-census-earned-its-keep-twice: the S171 acquisition census failed the build the moment damageNumbers.ts scanned enemy creatures - correctly, and the answer was a recorded VERDICT, not an exemption. Then it FAILED TO FIRE when my rewrite wrote `(o.ownerPlayerId as number) === mine`, because its regex allowed only whitespace before the operator. A guard reporting a clean board because it cannot SEE the file - the S171 atlas shape exactly. Fixed the cast AND the detector.",
-    "P5 #the-last-hit-is-a-disappearance-not-a-delta: a creature leaves world.creatures the same tick its pool reaches zero, so the killing blow can never be observed as an ehp drop - only as an absence. And to place and AIM that number you must have remembered the victim's position AND owner, because both are gone by then. Without the owner the lookup returns undefined, every creature counts as an enemy, and the final number flies at the victim's own ally.",
-    "MCV #author-the-bindings-before-announcing-done: the Stop hook hard-failed with UNCOVERED - both completed priorities carried verification: []. I created the entries with an empty array at PDR time and never filled them at close. The work was real; the CLAIM was unbacked. Authoring them proactively is step 4 of the completion protocol, and I did it reactively instead.",
-    "MCV-b #grep-the-needle-before-you-assert-it: checking every verification needle against disk before writing it caught my first file_lacks candidate immediately - `span(ehp)` was STILL PRESENT at healthBar.ts:200, inside the docblock that explains the old bug, where it belongs. Asserted from memory it would have failed, and the 'fix' would have been deleting a comment that should stay.",
-    "SESSION #comments-that-lie-are-a-defect-class-not-untidiness: three in one session. stats.ts claimed 'every SHIPPED unit sits inside the range' after six bosses left it; damageNumbers.ts still said the killing blow COULD NOT be shown after I made it show; and a pre-existing docblock had the Pharaoh at 130 fifths when he had drifted to 143. That same stats.ts paragraph already lied for sixteen sessions and caused the S167 accident. A number that lives only in prose has nothing checking it.",
-    "SESSION #newline-detection-can-corrupt-what-it-protects: my own patch helper chose CRLF whenever a file contained ANY CRLF, so it wrote CRLF blocks into otherwise-LF files and left goblinRenderer.ts and main.ts mixed (8 and 20 lines). The project rule 'patch with newline=\"\"' preserves what exists; deriving a newline from a sample of the file does not."
-  ],
+  "reflexion_entries_to_archive": [],
   "budget_total": null,
   "totals": {
     "budget_remaining": null
@@ -601,7 +608,7 @@
     "grok_missed": "Grok ignored the entire Ra half of R142; Gemini caught it and supplied the column arithmetic (15*(5+15)=300 fifths x 5 columns).",
     "internal_panel": "A 4-framing internal proposal+critique+synthesis workflow (wf_ba7fc269-e7a) was also dispatched and is still running at PDR time. It is depth-on-top of the mandated 3-way Council, not a substitute; if it surfaces anything that changes the design it will be recorded as a PRIME-AUDIT delta before the affected stage is executed."
   },
-  "approval_quote": "otherwise full session priority batch APPROVED!",
+  "approval_quote": "Owner approved via AskUserQuestion: batch = \"Go - all three\"; tower bar semantics = \"POOL - total remaining (Recommended)\".",
   "scope_amendments_s171": [
     "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e).",
     "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
@@ -1174,6 +1181,92 @@
   "priorities": [
     {
       "id": "P1",
+      "title": "TOWER HEALTH BARS - the S172 PARTIAL. Owner: \"all towers should have health bars ... how much they take before their first connector dies.\" Durability lives in the CONNECTORS (R76), so this is a connector-derived aggregate, NOT a copy of the Helga fix. OWNER RULED THIS SESSION: POOL semantics (sum of remaining capacity across the structure), chosen over WEAKEST-connector, because it is comparable with every other bar in the game. structureDefenceFifths() at stats.ts:236 already computes the MAX half and has ZERO production callers. No new wire field, no protocol bump, no four-sites work.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "P2",
+      "title": "THE ATLAS REPACK EXPERIMENT - 5 of the 6 size-mismatched atlases PREDATE the S171 packer fix (commit 6023b98, \"measure the BODY not every opaque pixel\") and have never been repacked with the corrected measurement. Repack, re-run check:atlas, record the per-atlas delta, ship only strict improvements, record the rest as ART OWED with numbers. MTIME IS NOT PROOF - this is an EXPERIMENT with a recorded verdict, not a claimed fix. check:atlas NEVER gates the deploy.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "P3",
+      "title": "THE DOC THAT LIES - CLAUDE.md:141 says PROTOCOL_VERSION is 44; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. \"Comments that lie are a defect class\" - one such paragraph lied for sixteen sessions and caused the S167 accident.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "P4",
+      "title": "SCOPE AMENDMENT (owner, mid-session, Rule 16) - THE TOWER SHORTFALL MUST NAME THE SHAPES. Owner: \"under the tower, it says need five more ... But it doesn't say what shapes. Some towers need different types of shapes. It's good to know which you're missing ... We need the NEED, and then the SYMBOL. Need three more this and five more this.\" Screenshot supplied: \"GOBLIN TOWER / NEED 5 MORE\". WHY IT IS MICRO: the per-type breakdown ALREADY EXISTS and is ALREADY LATCHED - castlePanel.ts:331 builds missing[] as {type, need, have} per SparkType, and castlePanel.ts:1157 latches it into this.structureMissing[i] for the S145 click-to-order path. Line 339 then throws the breakdown away: short = missing.reduce(sum) => `NEED ${short} MORE`. The SYMBOL renderer also already exists and is already used in this same file: drawSparkGlyph (render/sparkGlyph.ts), imported at castlePanel.ts:60 and drawn for the bank strip at :1101 via the established {glyph: Graphics, count: Text} slot pattern (:573, :671-691). So this is a REUSE of two existing mechanisms, not an invention. THE ONE REAL COST: the caption is a Text object and a shape symbol needs Graphics, so the shortfall readout becomes a small row of glyph+count pairs rather than a string.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "P5",
+      "title": "SCOPE AMENDMENT 2 (owner, mid-session, Rule 16) - THE CODEX, THREE PARTS. (a) REMOVE THE \"GODLY COMBOS\" TAB ENTIRELY. Owner: \"I already told you to remove the godly combos because [Voltkin] is no more godly as anything else. It's just a tower now and structure ... So, yeah, remove the whole godly combos.\" AND: \"no [NONET] be anywhere in the codex. Easter egg\" - he talked himself from \"keep the one-trial card\" to removing it outright: \"You can just go straight into [NONET]. It already explains it within [NONET], so you don't need to re-explain it.\" SITES: TabKey union + TABS table (codexOverlay.ts:97-100), the godly field + ctor arg + buildSpriteGrid arm (:106,:113,:126,:264), open(tab: TabKey = \"godly\") default (:249), nonetEntry() (:85-96) deleted, and the main.ts callers. (b) \"TOWERS & STRUCTURES\" MUST SCROLL. Owner: \"it's not scrollable. I can't scroll down and keep seeing all the towers, which is bad.\" CONFIRMED by his screenshot - the SOULEATER / ??? / KRAKEN / PHARAOH row is clipped mid-card at the viewport bottom. COMBOS is fine and he said so (\"Combos, they're all fine. You can see all of them\"), so this is the towers grid only. (c) COMBO CARDS GET A HOVER/CLICK PREVIEW OF THE ACTUAL CONNECTOR. Owner: \"you're showing what shapes you need to make this vortex, but they don't show what this vortex IS, how it looks ... they all look unique, and they have little graphics and little mechanics. Like the vortex, I think, spins, or a warped anchor is like a spiral that's moving and spiraling around. So maybe make those clickable. So when you mouse over each of those combos, you can see how it would look. Just the connector itself. You get, like, a little example.\" He estimates \"It shouldn't be too hard to do\" - to be measured, not assumed.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    }
+  ],
+  "scope_amendments_s172": [
+    "Font DECIDED: Kanit 900 Italic (not Jokerman - licensing; owner released the requirement).",
+    "P2: owner ruled DOUBLE every boss HP rather than cut boss ATK. Extends R141's HP band past 12.",
+    "P3: display value is the stored integer - no fifths->points conversion. Owner confirmed explicitly.",
+    "P3: placement is victim-weighted (t=0.25), not the midpoint - so the damaged unit is identifiable.",
+    "P4: Ra ritual re-specified as head-from-clouds + 5 telegraphed beams; beam art allowed and reusable.",
+    "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites).",
+    "S172 mid-session (Rule 16): owner added P5-P9 after playing the shipped damage numbers. Approved in his own words: \"let's do that and then go straight into the next priority ... continue working\".",
+    "DAMAGE COLOURS: he said \"red without white outline is the damage\" but had just praised the SHIPPED look (\"It looks sick. We made it really look good\"), which IS red WITH a white outline. Treating the phrase as a slip and KEEPING damage exactly as shipped; healing gets green + white outline. Flagged to him."
+  ],
+  "carry_forwards_spawned_in_s172": [
+    "P7 TOWER HEALTH BARS - PARTIAL. Helga is DONE (her bar was drawn at the 26px fallback, inside her body). TOWERS ARE NOT: drawHealthBars skips them at `if (stats === null) continue` because a tower has no unit pool. Owner: 'all towers should have health bars ... we should know how much health they have and how much they take before they get destroyed, before their first connector dies.' Their durability lives in the CONNECTORS (R76: structure HP = connector count, DEF = count-1, per-connector capacity = c+4 fifths), so this needs a connector-derived aggregate, NOT a copy of Helga's fix.",
+    "P4 THE PHARAOH - NOT STARTED, and RESPECIFIED by the owner in S172. Ra does NOT fully descend: his huge godly HEAD emerges from thunder clouds at the TOP of the screen on the Pharaoh's column, opens his mouth, then FIVE light beams drop one after another, each telegraphed by a growing ground shadow. THE BEAM IS INCLUDED and may be cut out separately and reused anywhere. Locust stance: hands to the release side. MORE THAN 12 FRAMES (bosses need more cutouts) - which forces framesPerState from a scalar to per-state across 5 sites. Constraints: same Pharaoh throughout, clean cut-out, no white background, and NO locusts drawn into the clip (the matte welds them in forever). Prior research: .claude/plans/S171_NEXT_SESSION_RESEARCH.md",
+    "P9 VLAD LIFE SAP VFX - NOT STARTED. Owner: 'Vlad's life sap looks like shit. I think we'll need to generate it as well as a video.' Carried from S170: R140 AS RULED HAS NO VICTIM (runVladLifeSap is a pure self-heal and drains nobody), so a tether would paint a damage relationship that does not exist. Whether the sap starts draining a target is an OWNER DECISION and a MECHANIC change.",
+    "P2 THE STAT RETUNE - PARKED BY THE OWNER, NOT ABANDONED. He played the live build and said 'all the health and attack for now, they're balanced very well ... let's leave that.' The derivation, role table, before/after roster and his castle ruling (ATK 25 / PEN 5 = a 250 hit) survive whole as .claude/plans/S172_STAT_RETUNE.patch (178 lines), and are published for him to read at https://claude.ai/code/artifact/76cd0d84-d358-4fe1-b2f8-a03311132bf5",
+    "ATTACK SPEED IS STILL NOT A DESIGN DIMENSION. Three distinct attackCadenceTicks values across 22 units (60 on almost everything, 300 on two). He asked to 'work attack speed' in S171 and it remains untouched. It is what separates a fast weak attacker from a slow heavy one at equal DPS.",
+    "BALANCE TRIPWIRE NOW THIN - reported, not acted on. The shipped test 'one basic goblin can kill any unit inside a FIGHT phase' now clears by 6.5 s (Pharaoh 462 fifths / 12 per second = 38.5 s against a 45 s phase), down from 33.1 s before the doubling. Any further boss buff of real size turns it RED. That is the guard working - it marks where a boss stops being hard and becomes a wall - but the next balance ruling in this direction will land as a test failure and should be read as one.",
+    "DAMAGE COLOUR - one unresolved sentence. He said 'red without white outline is the damage' immediately after praising the shipped look, which IS red WITH a white outline. Treated as a slip and left as shipped. One question to settle in a sentence next session."
+  ],
+  "s172_priorities_archived": [
+    {
+      "id": "P1",
       "title": "The health bar actually moves",
       "description": "BAR_MIN_W floor applies to the TRACK only; fill becomes linear fw = w*(ehp/max). Six units (goblinMelee/Hound/Archer, raceUnit, locustCloud, chewer) had bars frozen at 100%% because pool <= 7.01 fifths sits under the 9px floor. Add the every-type shrink assertion that the existing boss-only test could not catch.",
       "status": "completed",
@@ -1487,23 +1580,15 @@
       "unlock_source": "user"
     }
   ],
-  "scope_amendments_s172": [
-    "Font DECIDED: Kanit 900 Italic (not Jokerman - licensing; owner released the requirement).",
-    "P2: owner ruled DOUBLE every boss HP rather than cut boss ATK. Extends R141's HP band past 12.",
-    "P3: display value is the stored integer - no fifths->points conversion. Owner confirmed explicitly.",
-    "P3: placement is victim-weighted (t=0.25), not the midpoint - so the damaged unit is identifiable.",
-    "P4: Ra ritual re-specified as head-from-clouds + 5 telegraphed beams; beam art allowed and reusable.",
-    "P4: frame count exceeds 12 - forces framesPerState from a scalar to per-state (5 sites).",
-    "S172 mid-session (Rule 16): owner added P5-P9 after playing the shipped damage numbers. Approved in his own words: \"let's do that and then go straight into the next priority ... continue working\".",
-    "DAMAGE COLOURS: he said \"red without white outline is the damage\" but had just praised the SHIPPED look (\"It looks sick. We made it really look good\"), which IS red WITH a white outline. Treating the phrase as a slip and KEEPING damage exactly as shipped; healing gets green + white outline. Flagged to him."
+  "scope_amendments_s173": [
+    "P4 ADDED MID-SESSION BY THE OWNER, and recorded as an amendment rather than executed ad-hoc (Rule 16). His words: \"Also, we're gonna add a little micro priority to this session ... Add this to this session priority batch.\" Approval is explicit and in his own message, so no separate go was sought. Ordered AFTER P1 because both touch HUD readouts and P1 is the outstanding item from S172; P4 is independent of it and could move earlier if he prefers.",
+    "P5 ADDED MID-SESSION BY THE OWNER (second amendment this session), recorded rather than executed ad-hoc per Rule 16. His words: \"we'll add this too as a micro batch to this priority... to this session.\" Three parts, all in the codex. ORDERING NOTE: P5(a) is a deletion and is the cheapest; P5(b) is a contained scroll container; P5(c) is the only part with real unknown cost because it needs each combo's LIVE appearance, and the combo visuals are drawn by the board renderers rather than by anything the codex can call today."
   ],
-  "carry_forwards_spawned_in_s172": [
-    "P7 TOWER HEALTH BARS - PARTIAL. Helga is DONE (her bar was drawn at the 26px fallback, inside her body). TOWERS ARE NOT: drawHealthBars skips them at `if (stats === null) continue` because a tower has no unit pool. Owner: 'all towers should have health bars ... we should know how much health they have and how much they take before they get destroyed, before their first connector dies.' Their durability lives in the CONNECTORS (R76: structure HP = connector count, DEF = count-1, per-connector capacity = c+4 fifths), so this needs a connector-derived aggregate, NOT a copy of Helga's fix.",
-    "P4 THE PHARAOH - NOT STARTED, and RESPECIFIED by the owner in S172. Ra does NOT fully descend: his huge godly HEAD emerges from thunder clouds at the TOP of the screen on the Pharaoh's column, opens his mouth, then FIVE light beams drop one after another, each telegraphed by a growing ground shadow. THE BEAM IS INCLUDED and may be cut out separately and reused anywhere. Locust stance: hands to the release side. MORE THAN 12 FRAMES (bosses need more cutouts) - which forces framesPerState from a scalar to per-state across 5 sites. Constraints: same Pharaoh throughout, clean cut-out, no white background, and NO locusts drawn into the clip (the matte welds them in forever). Prior research: .claude/plans/S171_NEXT_SESSION_RESEARCH.md",
-    "P9 VLAD LIFE SAP VFX - NOT STARTED. Owner: 'Vlad's life sap looks like shit. I think we'll need to generate it as well as a video.' Carried from S170: R140 AS RULED HAS NO VICTIM (runVladLifeSap is a pure self-heal and drains nobody), so a tether would paint a damage relationship that does not exist. Whether the sap starts draining a target is an OWNER DECISION and a MECHANIC change.",
-    "P2 THE STAT RETUNE - PARKED BY THE OWNER, NOT ABANDONED. He played the live build and said 'all the health and attack for now, they're balanced very well ... let's leave that.' The derivation, role table, before/after roster and his castle ruling (ATK 25 / PEN 5 = a 250 hit) survive whole as .claude/plans/S172_STAT_RETUNE.patch (178 lines), and are published for him to read at https://claude.ai/code/artifact/76cd0d84-d358-4fe1-b2f8-a03311132bf5",
-    "ATTACK SPEED IS STILL NOT A DESIGN DIMENSION. Three distinct attackCadenceTicks values across 22 units (60 on almost everything, 300 on two). He asked to 'work attack speed' in S171 and it remains untouched. It is what separates a fast weak attacker from a slow heavy one at equal DPS.",
-    "BALANCE TRIPWIRE NOW THIN - reported, not acted on. The shipped test 'one basic goblin can kill any unit inside a FIGHT phase' now clears by 6.5 s (Pharaoh 462 fifths / 12 per second = 38.5 s against a 45 s phase), down from 33.1 s before the doubling. Any further boss buff of real size turns it RED. That is the guard working - it marks where a boss stops being hard and becomes a wall - but the next balance ruling in this direction will land as a test failure and should be read as one.",
-    "DAMAGE COLOUR - one unresolved sentence. He said 'red without white outline is the damage' immediately after praising the shipped look, which IS red WITH a white outline. Treated as a slip and left as shipped. One question to settle in a sentence next session."
+  "carry_forwards_spawned_in_s173": [],
+  "owner_questions_open_s173": [
+    "VOLTKIN'S FATE IN THE CODEX - the one ambiguity in amendment 2, and it changes what ships. He said BOTH \"remove the whole godly combos\" AND \"[Voltkin] is no more godly as anything else. It's just a tower now and structure.\" Reading A: delete the tab and let Voltkin appear under TOWERS & STRUCTURES (where a tower/structure belongs by his own sentence). Reading B: delete the tab and Voltkin with it, so Voltkin has no codex entry at all. NONET is NOT ambiguous - he was explicit that it must not appear anywhere in the codex because it is an Easter egg. DEFAULT IF HE DOES NOT ANSWER: Reading A, because his own words call Voltkin a tower and structure, and silently deleting a live buildable from the codex would be a bigger change than he asked for."
+  ],
+  "findings_s173": [
+    "P1 CAVEAT, FOUND WHILE IMPLEMENTING AND NOT SWEPT: a tower can be destroyed by TWO independent damage channels, not one. (1) CONNECTORS - damageConnector accumulates Bond.damageFifths until it reaches connectorCapacityFifths(n), then the caller dispatches SEVER_BOND (damage.ts:279). (2) PRIMITIVES - damageEntity({kind:\"primitive\"}) does prim.hp -= amount and at zero calls razePrimitives, which takes the shape AND its incident bonds out (damage.ts:153-170); Primitive.hp is a real required field seeded at PRIMITIVE_MAX_HP = 1000 (primitive.ts:97,128). towerRenderer already derives its intact/damaged/destroyed FRAME from that second model via towerHpFrac (towerFrames.ts:190). The owner ruled the bar on CONNECTORS in his own words (\"before their first connector dies\") and chose POOL semantics, so that is what ships - but the primitive-hp channel is documented AT THE CONSTANT rather than left for a future session to discover the bar under-reporting. Flagged to the owner."
   ]
 }

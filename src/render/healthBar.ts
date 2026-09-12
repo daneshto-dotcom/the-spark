@@ -61,9 +61,10 @@ import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
-import { unitPoolFifths } from '../state/stats.ts';
+import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
+import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
-import type { CreatureId, DefenderId } from '../types.ts';
+import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
 
 /**
  * How big a creature is actually DRAWN, supplied by the renderer that owns its sprite.
@@ -153,10 +154,128 @@ export function drawHealthBars(
     // ⚠ MAX COMES FROM THE CONFIG, NOT FROM A STORED FIELD — `Defender` has no `maxEhp`, and its
     // live `ehp` is the same pure `unitPoolFifths(unitStats)` the factory seeded it with.
     const stats = getDefenderConfig(d.kind).unitStats;
-    if (stats === null) continue; // a tower: no pool, nothing to show
+    if (stats === null) continue; // a TOWER — handled by the structure pass below, not here
     const db = defenderBox?.(d.id) ?? null;
     drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1,
             db?.w ?? 0, db?.h ?? FALLBACK_SPRITE_H);
+  }
+
+  drawStructureBars(g, world);
+}
+
+/**
+ * ⭐⭐ S173 (owner) — **A HEALTH BAR OVER EVERY TOWER.**
+ *
+ * > *"all towers should have health bars ... we should know how much health they have and how much
+ * > they take before they get destroyed, before their first connector dies."*
+ *
+ * ## ⛔ A TOWER HAS NO POOL, SO THIS IS NOT A COPY OF HELGA'S FIX
+ *
+ * The defender loop above skips every tower at `stats === null`, and that skip is CORRECT: owner R75
+ * — *"towers have attack and piercing but not def and hp because they are based on the connectors
+ * that build them"* — means a tower's `ehp` is `null` by construction. There is no pool field to
+ * read. The durability lives in the CONNECTORS, so the bar has to be DERIVED from them.
+ *
+ * ## THE AGGREGATE, AND WHY BOTH HALVES WERE ALREADY WRITTEN
+ *
+ *   · MAX — `structureDefenceFifths(n)` = `n × connectorCapacityFifths(n)` = `n × (n + 4)`.
+ *     ⭐ This function already existed (`stats.ts`) with **zero production callers**. Its own
+ *     docblock says it exists *"because the owner reasons about structures in these terms … so the
+ *     HUD and the tests can speak their language"* — it was written FOR this readout and never
+ *     wired, the same shape as the S167 `t3TowerAtlasBase` accident.
+ *   · CURRENT — `max` minus the accumulated `Bond.damageFifths` over the component's bonds. That
+ *     field is the ONLY stored durability state (R76: capacity is derived, damage is state).
+ *
+ * ⭐ ZERO WIRE COST, verified rather than assumed: `Bond.damageFifths` is already SERIALIZED
+ * (`save.ts`, emitted only when non-zero) and already HASHED (`stateHashFull.ts`, the `:dmg`
+ * projection). So a peer's bar shows the true number with no new field and no protocol bump.
+ *
+ * ## ⚠ IT IS THE **STRUCTURE'S** BAR, NOT THE TOWER'S — WHICH IS WHAT THE OWNER'S RULING IMPLIES
+ *
+ * He chose POOL semantics over WEAKEST-connector: *"total remaining"*, so that a tower's bar is
+ * comparable with every other bar on screen. But a POOL belongs to a connected component, not to a
+ * building — `connectorCapacityFifths` reads the CURRENT component's connector count, and two towers
+ * welded into one lattice genuinely share one pool. So this draws ONE bar per STRUCTURE, at the
+ * component's centroid, deduped by the component's lowest primitive id. Drawing per-tower would
+ * paint two identical overlapping bars on one shared pool and imply two independent healths.
+ *
+ * ⚠ **AND THE CAPACITY FALLS AS CONNECTORS DIE**, so the TRACK shortens too — that is owner R76's
+ * intended cascade (*"if you manage to damage its connectors then it also scales down in defense"*),
+ * not a rendering bug. A bar that only ever shrank its fill would hide the acceleration.
+ *
+ * ## ⛔ THE HONEST LIMIT OF THIS BAR — A SECOND DAMAGE CHANNEL EXISTS AND IT IS NOT SHOWN
+ *
+ * A tower can die two ways, and this bar tracks ONE of them:
+ *   1. CONNECTORS — `damageConnector` banks `damageFifths` until it reaches capacity, then the
+ *      caller dispatches `SEVER_BOND`. **This is what the bar shows**, and it is what the owner named.
+ *   2. PRIMITIVES — `damageEntity({kind:'primitive'})` does `prim.hp -= amount` and at zero calls
+ *      `razePrimitives`, taking the shape AND its incident bonds out. `Primitive.hp` is a real
+ *      required field seeded at `PRIMITIVE_MAX_HP`, and `towerRenderer` already picks its
+ *      intact/damaged/destroyed FRAME from it via `towerHpFrac`.
+ * So a structure being chewed on its SHAPES rather than its BONDS will lose connectors — and
+ * therefore bar — in steps, without the smooth fill drop that connector damage gives. This is
+ * recorded here rather than swept because the owner ruled the bar on connectors in his own words,
+ * and a future session finding the bar "under-reporting" should find this paragraph first.
+ */
+function drawStructureBars(g: Graphics, world: World): void {
+  /*
+   * ⚠ DEDUP BY COMPONENT, and the key must be DETERMINISTIC rather than whichever tower was visited
+   * first. `Map` iteration is insertion order, and letting it decide anything is the defect class
+   * this codebase spends most of its comments on — so the key is the component's LOWEST primitive
+   * id, which is the same value whichever member we entered through.
+   */
+  const drawn = new Set<PrimitiveId>();
+
+  const bar = (anchorId: PrimitiveId, ownerPlayerId: PlayerId): void => {
+    const anchor = world.primitives.get(anchorId);
+    if (anchor === undefined) return; // broken between the re-validation poll and this frame
+    if (isConcealed(anchor.pos.x, anchor.pos.y, ownerPlayerId)) return;
+
+    const comp = componentOf(anchor, world.primitives, world.bonds);
+    const n = comp.bondIds.size;
+    if (n === 0) return; // a lone shape has no connectors, so it has no durability to show
+
+    let key: PrimitiveId | null = null;
+    let cx = 0;
+    let cy = 0;
+    let count = 0;
+    for (const id of comp.primitiveIds) {
+      if (key === null || (id as number) < (key as number)) key = id;
+      const p = world.primitives.get(id);
+      if (p === undefined) continue;
+      cx += p.pos.x;
+      cy += p.pos.y;
+      count++;
+    }
+    if (key === null || count === 0) return;
+    if (drawn.has(key)) return;
+    drawn.add(key);
+
+    let damage = 0;
+    for (const bondId of comp.bondIds) damage += world.bonds.get(bondId)?.damageFifths ?? 0;
+
+    const max = structureDefenceFifths(n);
+    const current = Math.max(0, Math.min(max, max - damage));
+    if (current <= 0) return; // already collapsing — the sever path owns the next frame
+
+    // No sprite to measure: a structure's bar rides above the shapes themselves.
+    drawBar(g, cx / count, cy / count, current, max, 1, 0, FALLBACK_SPRITE_H);
+  };
+
+  // The two pooled-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`.
+  for (const d of world.defenders.values()) {
+    if (d.ehp !== null) continue; // Helga and anything else with a real pool is drawn above
+    bar(d.anchorPrimitiveId, d.ownerPlayerId);
+  }
+
+  /*
+   * …AND THE SPAWNER TOWERS, which are a SEPARATE MAP and not defenders at all. The goblin tower in
+   * the owner's screenshot is one of these, as are the pentagram, the lightning hub, the six race
+   * tier-3 towers and the six tier-9 boss towers. Missing this map would have shipped bars on two
+   * tower kinds and called the job done.
+   */
+  for (const sp of world.creatureSpawners.values()) {
+    bar(sp.anchorPrimitiveId, sp.ownerPlayerId);
   }
 }
 
