@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Standard",
   "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "P1,P2,P3 approved by owner. Executing P1.",
+  "session_status": "P1 COMPLETE (tower health bars, committed f8eb33d + 09aebae). P4/P5/P6/P7 delegated to three parallel agents. P2/P3 pending.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -68,7 +68,12 @@
       "5 of 6 size-mismatched atlas PNGs predate scripts/build-sprite-atlas.mjs (2026-09-10 10:39); only t3-mummies-scarab postdates it and still fails."
     ]
   },
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "P1 #the-function-with-no-callers-was-the-spec: structureDefenceFifths already existed in stats.ts with ZERO production callers, and its docblock said outright that it existed \"so the HUD and the tests can speak their language\". The tower health bar the owner asked for had already been half-written by a past session and never wired - the same shape as S167's t3TowerAtlasBase, where the art shipped with no renderer. Grepping for an unused function that names your feature is cheaper than designing the feature.",
+    "P1b #two-durability-models-and-the-bar-can-only-tell-one-truth: a tower dies EITHER by connector severance (Bond.damageFifths vs connectorCapacityFifths) OR by primitive death (prim.hp -> razePrimitives), and towerRenderer already derives its damaged/destroyed FRAME from the second while the owner's words name the first. I shipped his model and documented the other AT THE SITE rather than picking silently - because a future session finding the bar \"under-reporting\" will otherwise re-derive the whole thing before discovering there were two.",
+    "P1c #vitest-green-and-tsc-red-on-the-same-commit: the full suite passed 4303/4303 while typecheck exited 1 with three errors in the very test file that was passing. Bond.a is a PhysicsBody, not a Primitive, so my adjacency detach was a no-op the assertions could not see. Reading ONE gate's exit code would have shipped it. The project rule is \"read every gate's exit code from a captured $?\" - every, not the slowest one.",
+    "A0 #i-rode-six-lanes-on-one-invocation-and-lost-five: the state-discovery workflow put all six probe lanes in a single Workflow call, an org spend limit hit mid-run, and 6 of 8 agents died - the exact S161 failure this project's CLAUDE.md warns about in a section written after it happened before. I had READ that section during boot. Re-running the four dead lanes by hand cost more than dispatching them separately would have. When the owner later asked for parallel work I used three SEPARATE Agent invocations for that reason."
+  ],
   "budget_total": null,
   "totals": {
     "budget_remaining": null
@@ -1182,15 +1187,65 @@
     {
       "id": "P1",
       "title": "TOWER HEALTH BARS - the S172 PARTIAL. Owner: \"all towers should have health bars ... how much they take before their first connector dies.\" Durability lives in the CONNECTORS (R76), so this is a connector-derived aggregate, NOT a copy of the Helga fix. OWNER RULED THIS SESSION: POOL semantics (sum of remaining capacity across the structure), chosen over WEAKEST-connector, because it is comparable with every other bar in the game. structureDefenceFifths() at stats.ts:236 already computes the MAX half and has ZERO production callers. No new wire field, no protocol bump, no four-sites work.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": "f8eb33d",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "09aebae",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": null,
+      "check_method": "TOWER HEALTH BARS, POOL SEMANTICS PER HIS RULING THIS SESSION. A tower is skipped by the defender loop at `stats === null` because owner R75 gives it no pool of its own - its durability lives in the CONNECTORS. So the bar is DERIVED, not read: MAX = structureDefenceFifths(n) = n x (n+4), CURRENT = max minus the accumulated Bond.damageFifths over the component. BOTH HALVES WERE ALREADY WRITTEN AND ONE HAD NO CALLER: structureDefenceFifths (stats.ts:236) existed with ZERO production callers and its own docblock says it exists \"so the HUD and the tests can speak their language\" - written FOR this readout and never wired, the S167 t3TowerAtlasBase shape exactly. ZERO WIRE COST, VERIFIED NOT ASSUMED: Bond.damageFifths is already serialized (save.ts:402 type, :1832 emit-when-non-zero) and already hashed (stateHashFull.ts:269 union, :538 :dmg projection), so a peer sees the true number. No new field, no protocol bump (still 46), no four-sites work. ONE BAR PER STRUCTURE, NOT PER TOWER: a pool belongs to a connected component - connectorCapacityFifths reads the CURRENT component count, so two towers welded into one lattice genuinely share one pool. Deduped by the component LOWEST primitive id, which is deterministic whichever member we enter through (Map iteration order must never decide anything in this codebase). IT COVERS TWO MAPS, AND MISSING THE SECOND WOULD HAVE LOOKED DONE: world.defenders holds only turret + stinkTower with a null pool; the GOBLIN TOWER in his screenshot is a world.creatureSpawners entry, as are the pentagram, the lightning hub, the six race towers and the six tier-9 boss towers. HONEST LIMIT, DOCUMENTED AT THE SITE RATHER THAN SWEPT: a tower can also die by PRIMITIVE hp (damageEntity -> prim.hp -= amount -> razePrimitives), a second channel this bar does not show; towerRenderer already picks its intact/damaged/destroyed FRAME from that model via towerHpFrac. He named connectors, so connectors is what ships, with the other channel written where the next session will find it before concluding the bar under-reports. TESTS: 7 new, each guarding a plausible-looking wrong version - appears at all and reads FULL undamaged; MAX is exactly structureDefenceFifths(n) and half the pool is half a bar; connector damage shortens the FILL; losing a connector shortens the TRACK (R76 cascade, pinned so nobody \"fixes\" it); one bar per structure; a lone shape has none; a concealed enemy tower draws nothing. TWO FIXTURE HOLES RECORDED: the fog case needs THREE preconditions (gameMode 1v1 + gameState PLAYING + matchPhase BUILD) plus far placement or the fog is inert and it reads as a renderer leak - the creature fog test's own comment predicted this and I fell into it anyway. And tsc caught what vitest could not: Bond.a/Bond.b are PhysicsBody, not Primitive, so the adjacency detach had to go through world.primitives by id; the test passed either way and only the typecheck exit code disagreed. GATES, each from a captured $?: typecheck 0, healthBar 29/29, full vitest 0 at 4303 tests / 274 files (from the 4296 boot baseline, +7 = exactly the new tests).",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "function drawStructureBars"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "structureDefenceFifths(n)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "componentOf(anchor, world.primitives, world.bonds)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "for (const sp of world.creatureSpawners.values())"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "const drawn = new Set<PrimitiveId>()"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/healthBar.ts",
+          "needle": "ownerPlayerId as number"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.test.ts",
+          "needle": "ONE bar per STRUCTURE"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/healthBar.ts",
+          "pattern": "drawStructureBars",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/healthBar.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 20
+        }
+      ]
     },
     {
       "id": "P2",
