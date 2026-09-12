@@ -138,7 +138,8 @@ writing the line is what proves the check happened.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (44 at S167) and a mismatched peer is REFUSED —
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**46**, unchanged S172–S173; it was 44 at S167,
+and this line still said so two sessions later) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no
 degraded-play path. Consequences:
 

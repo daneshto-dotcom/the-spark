@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Standard",
   "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "P1, P1b, P4, P5(a,b,c), P6, B3, B6+B2, B5 complete. B1 (lobby backdrop) still delegated. B7+B8, B4, B9 recorded as bigger/blocked. P2 (atlas repack) in flight, P3 pending.",
+  "session_status": "P1, P1b, P2 (negative result), P3, P4, P5(a,b,c), P6, B1, B3, B5, B6+B2 COMPLETE. B7+B8 and the art plan (direwolf runbook, scarab, Voltkin, boss VFX debt) delegated as RESEARCH-ONLY for next session. B4/B9 fold into the art plan.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -78,7 +78,9 @@
     "B3 #a-noted-defect-is-still-a-defect: healthBar.ts carried the line \"The castle bar (gathererRenderer.drawKeep) still carries fault 1 - noted, not touched here\" from S171 onward. Fault 1 is hide-while-undamaged, which the owner had ALREADY rejected once for creatures. He then found it on the castle by playing, and reported it a second time. Writing a defect down bought nothing except the ability to say it was known. If it is worth a comment that names it as a fault, it is worth either fixing or a line in the backlog he can see.",
     "P1/B3 #shipping-half-a-ruling-reads-as-not-shipping-it: P1 gave every tower a health bar and he still said \"the other buildings don't have HP bars\" - because the bar was RED and the castle's is GREEN, so it did not read as the same feature. The mechanic was right and the signal was wrong. Colour was carrying meaning (building vs unit) that nobody had written down, and I had matched the creature convention without asking which family a tower belongs to.",
     "B5 #my-brief-named-the-wrong-layer-and-the-agent-refused-it: I briefed a wave-indexed ladder falling through to a default creature type, because the owner said \"after wave three the CASTLE starts SPAWNING goblins\" and that sentence sounds like sim. There is no wave->creature table in the tree at all; world.waveNumber has one consumer and it scales a spawn RATE. The real cause was a RENDERER fall-through - direwolf in GOBLIN_KINDS with no atlas, drawn as the pre-veo puppet. TWICE IN ONE SESSION an agent has corrected the layer I aimed it at (P4 was the dead castle panel). The owner describes what he SEES; the word he uses for the mechanism is a guess I should not inherit.",
-    "B5b #a-deliberate-exemption-is-still-a-defect-and-it-was-defended-in-prose: S168 wrote at the constant that the direwolf had NO ATLAS \"deliberately... visible and readable until the art lands\", while the coverage test one paragraph below stated the opposite principle correctly for the locust cloud. The exemption survived because it was ARGUED rather than tested. Same shape as B3 this session, where \"the castle bar still carries fault 1 - noted, not touched here\" sat in a docblock for five sessions until he found it by playing. A defect with a paragraph defending it outlives a defect with nothing."
+    "B5b #a-deliberate-exemption-is-still-a-defect-and-it-was-defended-in-prose: S168 wrote at the constant that the direwolf had NO ATLAS \"deliberately... visible and readable until the art lands\", while the coverage test one paragraph below stated the opposite principle correctly for the locust cloud. The exemption survived because it was ARGUED rather than tested. Same shape as B3 this session, where \"the castle bar still carries fault 1 - noted, not touched here\" sat in a docblock for five sessions until he found it by playing. A defect with a paragraph defending it outlives a defect with nothing.",
+    "P2 #i-had-both-halves-of-the-contradiction-and-shipped-anyway: A.0 established that normaliseStateScale equalises HEIGHT only (_subject_h, no _subject_w exists) AND that 5 of 6 mismatched atlases predated the packer fix. Every failure the guard prints is a WIDTH divergence (\"1.21w(WIDE)\"), so the repack could never have worked - the two findings were in the same write-up and contradicted each other. I built a priority on the mtime half because it was NEW and felt like the stronger signal. The experiment cost one repack to disprove, which is cheap; the lesson is to cross-check a new finding against the mechanism finding BEFORE writing the PDR.",
+    "P2b #a-negative-result-is-a-deliverable: the repack produced no improvement and was reverted, and the session is BETTER for it - the corrected verdict is that ALL SIX size-mismatched atlases need regenerated art, not just the scarab. Recorded with the measurement so the next session does not re-run the same experiment on the other four."
   ],
   "budget_total": null,
   "totals": {
@@ -1256,28 +1258,57 @@
     {
       "id": "P2",
       "title": "THE ATLAS REPACK EXPERIMENT - 5 of the 6 size-mismatched atlases PREDATE the S171 packer fix (commit 6023b98, \"measure the BODY not every opaque pixel\") and have never been repacked with the corrected measurement. Repack, re-run check:atlas, record the per-atlas delta, ship only strict improvements, record the rest as ART OWED with numbers. MTIME IS NOT PROOF - this is an EXPERIMENT with a recorded verdict, not a claimed fix. check:atlas NEVER gates the deploy.",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": null,
+      "check_method": "THE ATLAS REPACK EXPERIMENT - RUN, AND THE HYPOTHESIS IS REFUTED. THIS IS A NEGATIVE RESULT AND IT IS THE DELIVERABLE. THE HYPOTHESIS (mine, from A.0): 5 of the 6 size-mismatched atlases have PNG mtimes PREDATING the S171 packer fix (commit 6023b98, \"measure the BODY, not every opaque pixel\"), so they had never been packed with the corrected measurement and a free repack might green them. Only the scarab postdates it and still fails. THE EXPERIMENT: backed up all 5, repacked unit-demons via build-atlas-set.mjs (exit 0, 4 states x 12 frames, normaliseStateScale fired: attack median h=635 vs ref 619 -> x0.975), re-ran check:atlas and diffed the row. THE RESULT: essentially NO CHANGE. walk stayed 1.21w(WIDE); attack moved 0.91w -> 0.89w. Still MISMATCH. The repack was reverted from backup rather than shipped, per the PDR rule \"ship only atlases that strictly improve\". Working tree clean under public/art. ⛔ AND THE HYPOTHESIS WAS INTERNALLY INCONSISTENT FROM THE START, WHICH IS THE REAL LESSON. A.0 had ALREADY established that normaliseStateScale equalises HEIGHT only - the function is _subject_h and there is no _subject_w anywhere in the packer. Every one of these six failures is a WIDTH divergence (the guard prints \"1.21w(WIDE)\"). So a repack could never fix them, whatever the packer mtime said. I had both halves of that contradiction in the same A.0 write-up and shipped a priority built on them anyway, because the mtime finding was NEW and therefore felt like the stronger signal. ⭐ THE CORRECTED VERDICT, which is more useful than the one the PDR expected: ALL SIX size-mismatched atlases need ART REGENERATION, not just the scarab. unit-demons, unit-vampires, t3-nagas-piranha, t3-vampires-bat, t9boss-vampires join t3-mummies-scarab on the ART OWED list. The 9 FRINGE atlases are a separate class and remain untested here - the guard's own advice is to re-matte rather than re-roll, and scripts/matte-*.py exist; that is a live lead for the art plan, NOT a closed question. CI CONSEQUENCE, reported not acted on: atlas-guard has been RED on every master run since S171 and Deploy stays green, so nobody reads it. It will stay red until the art is regenerated. A permanently-red job is a real hazard - a genuine failure would hide in it.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "_subject_h"
+        },
+        {
+          "type": "grep_count",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "pattern": "_subject_w",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "normaliseStateScale"
+        }
+      ]
     },
     {
       "id": "P3",
       "title": "THE DOC THAT LIES - CLAUDE.md:141 says PROTOCOL_VERSION is 44; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. \"Comments that lie are a defect class\" - one such paragraph lied for sixteen sessions and caused the S167 accident.",
-      "status": "pending",
-      "check_completed": false,
+      "status": "completed",
+      "check_completed": true,
       "checkpoint_commit": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": null,
+      "check_method": "THE DOC THAT LIED. CLAUDE.md said PROTOCOL_VERSION was \"44 at S167\"; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. The line was dated, which is what let it survive - it was true when written and simply never followed the constant. Now states 46, notes it is unchanged S172-S173, AND keeps the 44-at-S167 history with the fact that the line went two sessions stale, so the next reader sees the failure mode rather than just a corrected number. Docs-only: deploy.yml's paths filter correctly triggers no deploy run.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**46**"
+        },
+        {
+          "type": "file_lacks",
+          "path": "CLAUDE.md",
+          "needle": "lives in `src/net/protocol.ts` (44 at S167)"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -1515,16 +1546,39 @@
     {
       "id": "B1",
       "title": "PLAYTEST B1 - THE MULTIPLAYER LOBBY SHOWS ONLY PLAYER ONE'S BACKDROP. Must partition by occupied seat count the way the board already does: 2 players = halves, 3-4 = quadrants, each region showing that seat's chosen race backdrop. The twelve per-race backdrops already shipped in S165, so this is COMPOSITION, not art. Delegated.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "ecc7b04+31aa4dd",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "delegated_to": "agent:lobby-backdrop",
-      "check_method": null,
+      "check_method": "THE LOBBY SPLITS BY SEAT. Owner: \"the multiplayer lobby only shows player one background ... however many people are in the lobby has to split the background into the zones or quadrants just like the game has.\" THE CAUSE WAS NOT A MISSING FEATURE: ZoneBackgroundRenderer.sync early-returns on TITLE and nothing else, so in LOBBY it ran its ordinary loop over world.players - which in the lobby holds EXACTLY ONE entry (world.ts:474 seats P1; peers are not seated until Begin mints the dense roster). On the default PITCH_2P board that one seat owns zone 0 = the left half. \"Only player one's background\", with the right half black. THE WRONG ROSTER WAS BEING ASKED. The board's own mapping is REUSED, not re-derived: layoutForSeatCount -> zoneOwner -> zoneRect, the same three calls the board renderer makes. One genuine subtlety reported: it is the DENSE seat, not the rack seat - lobby seats may hold a hole and buildMatchRoster compacts at Begin, so the i-th occupied seat gets board seat i's region and a player warms up on the half he will actually play on. THREE DEFAULTS, each documented at its site: un-picked race resolves to the race the seat will actually play (there is no unpicked state to render) with a fail-closed black arm; the empty quadrant at 3 players is cosmos black, matching the board (R2: no 3-player map); a 1-seat lobby takes the whole canvas, the one deliberate divergence and from nothing real, since a one-seat lobby can never become a match. ⭐ VERIFIED IN THE RUNNING APP, not just by test - and the walkthrough found a SECOND leak the tests could not see: the SELECT screen showed the same half-and-half because with no roster there were no regions, the layer hid itself, and the board renderer got the screen back. Fixed in a second commit; the backing is the lobby's floor and is never hidden. It also landed the one line B2 could not stage (lobbyScreen.ts \"up to 6 strangers\", comment-only) and said so in its commit. GATES from a captured exit code: typecheck 0, vitest 0 at 4395 tests / 276 files. 23 new tests.",
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyBackdrop.ts",
+          "needle": "export function lobbyBackdropRegions"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyScreen.ts",
+          "needle": "lobbyBackdrop"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyScreen.ts",
+          "needle": "'match up to 6 strangers'"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/lobbyBackdrop.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 12
+        }
+      ]
     },
     {
       "id": "B7+B8",
@@ -1913,7 +1967,8 @@
   "owner_questions_open_s173": [
     "VOLTKIN'S FATE IN THE CODEX - the one ambiguity in amendment 2, and it changes what ships. He said BOTH \"remove the whole godly combos\" AND \"[Voltkin] is no more godly as anything else. It's just a tower now and structure.\" Reading A: delete the tab and let Voltkin appear under TOWERS & STRUCTURES (where a tower/structure belongs by his own sentence). Reading B: delete the tab and Voltkin with it, so Voltkin has no codex entry at all. NONET is NOT ambiguous - he was explicit that it must not appear anywhere in the codex because it is an Easter egg. DEFAULT IF HE DOES NOT ANSWER: Reading A, because his own words call Voltkin a tower and structure, and silently deleting a live buildable from the codex would be a bigger change than he asked for.",
     "B5 NEEDS ONE SENTENCE FROM HIM TO CLOSE: were the \"little green goblins\" appearing near your castle around wave 3 accompanied by an ORC WARLORD (your tier-9 boss)? The diagnosis says they were his DIREWOLVES, drawn with the old procedural goblin puppet because that type had no atlas. Confirming a Warlord was out closes it. If instead they carried the ENEMY seat colour and were attacking you, they were real goblins from an opponent feeding a goblin tower Triangles - intended play, not a bug.",
-    "B5 FOLLOW-ON, HIS CALL: the direwolf now borrows the GOBLIN-HOUND sheet, so a direwolf and a goblin hound look the same until real direwolf art is generated. That is the agent's choice, not his ruling. Overrule on sight if the doubling reads worse than the goblin puppet did."
+    "B5 FOLLOW-ON, HIS CALL: the direwolf now borrows the GOBLIN-HOUND sheet, so a direwolf and a goblin hound look the same until real direwolf art is generated. That is the agent's choice, not his ruling. Overrule on sight if the doubling reads worse than the goblin puppet did.",
+    "B5 IS CLOSED WITHOUT THE WARLORD QUESTION - his own description settled it: \"a circle, and they have a sword that goes up, down, up, down ... like if a kid drew it in Microsoft Paint ... not a generated image ... the first goblins we created before we generated images for them.\" That is drawGoblin, the procedural vector rig, exactly. AND THE PROOF IS EXHAUSTIVE: enumerating GOBLIN_KINDS against ATLASES at the pre-fix commit, direwolf was the ONLY type in the entire game with no atlas - every other member, goblinMelee included, had generated art. So the Paint-looking goblin he saw could ONLY have been a direwolf. No sighting needed; the question is withdrawn."
   ],
   "findings_s173": [
     "P1 CAVEAT, FOUND WHILE IMPLEMENTING AND NOT SWEPT: a tower can be destroyed by TWO independent damage channels, not one. (1) CONNECTORS - damageConnector accumulates Bond.damageFifths until it reaches connectorCapacityFifths(n), then the caller dispatches SEVER_BOND (damage.ts:279). (2) PRIMITIVES - damageEntity({kind:\"primitive\"}) does prim.hp -= amount and at zero calls razePrimitives, which takes the shape AND its incident bonds out (damage.ts:153-170); Primitive.hp is a real required field seeded at PRIMITIVE_MAX_HP = 1000 (primitive.ts:97,128). towerRenderer already derives its intact/damaged/destroyed FRAME from that second model via towerHpFrac (towerFrames.ts:190). The owner ruled the bar on CONNECTORS in his own words (\"before their first connector dies\") and chose POOL semantics, so that is what ships - but the primitive-hp channel is documented AT THE CONSTANT rather than left for a future session to discover the bar under-reporting. Flagged to the owner."
