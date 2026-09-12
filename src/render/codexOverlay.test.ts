@@ -24,19 +24,29 @@ import {
   scrollExtent,
   scrollbarThumb,
   wheelScrollDelta,
+  COMBO_COLS,
+  COMBO_ROW_Y,
+  COMBO_TILE_H,
+  COMBO_TILE_W,
+  COMBO_TILE_GAP,
+  PREVIEW_TICK_RATE,
+  TOWER_COLS,
+  TOWER_TILE_H,
+  TOWER_TILE_GAP,
   type CodexTabKey,
+  previewSpanFor,
 } from './codexOverlay.ts';
 import { CANVAS_HEIGHT } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
+import { magicComboCatalog } from './comboCodexStore.ts';
+import { drawBondVisual, type BondVisualParams } from './bondVisualRenderer.ts';
 
-// The tile anatomy the overlay lays out with. Mirrored here rather than exported, because these are
-// private layout constants; the numbers below are the ones the file itself uses.
-const TILE_H = 320;
-const TILE_GAP = 28;
-const COMBO_TILE_H = 132;
-const COMBO_GAP = 24;
-const COMBO_COLS = 5;
-const TOWER_COLS = 4;
+// ⚠ BOUND, NOT MIRRORED. These come from codexOverlay.ts itself, so a layout retune moves the
+// assertions with it instead of leaving a test that passes about numbers the file stopped using —
+// the S140 anti-drift lesson this repo already learned once in codexPresentation.test.ts.
+const TILE_H = TOWER_TILE_H;
+const TILE_GAP = TOWER_TILE_GAP;
+const COMBO_GAP = COMBO_TILE_GAP;
 /** The viewport floor: CANVAS_HEIGHT - 44, i.e. just above the footer line at y = 1054. */
 const VIEW_BOTTOM = CANVAS_HEIGHT - 44;
 
@@ -165,5 +175,147 @@ describe('S173 P5 — the scrollbar says how much more there is', () => {
   it('travel is monotonic in the offset', () => {
     expect(scrollbarThumb(MAX / 2, MAX).y).toBeGreaterThan(scrollbarThumb(0, MAX).y);
     expect(scrollbarThumb(MAX, MAX).y).toBeGreaterThan(scrollbarThumb(MAX / 2, MAX).y);
+  });
+});
+
+/*
+ * ============================ S173 P5 (c) — the combo preview ============================
+ *
+ * Owner: *"they don't show what this vortex IS, how it looks… the vortex, I think, spins or
+ * something, or a warped anchor — it's like a spiral that's moving and spiraling around. So maybe
+ * make those clickable, so when you mouse over each of those combos you can see how it would look.
+ * Just the connector itself."*
+ *
+ * The preview calls the SHIPPED `drawBondVisual`, so what is worth testing is not the silhouettes —
+ * bondVisualRenderer.test.ts owns those — but the two claims the CODEX makes about them:
+ *   1. each connector FITS the card it is drawn on, at every tick, for all fourteen;
+ *   2. the 3× preview clock produces motion a player sees inside a hover.
+ *
+ * The recording mock is the same device bondVisualRenderer.test.ts uses: Pixi's Graphics is a
+ * method chain, and capturing the chain is enough to measure geometry without a renderer.
+ */
+interface Op { readonly op: string; readonly args: readonly number[] }
+class GraphicsMock {
+  readonly calls: Op[] = [];
+  moveTo(x: number, y: number): this { this.calls.push({ op: 'moveTo', args: [x, y] }); return this; }
+  lineTo(x: number, y: number): this { this.calls.push({ op: 'lineTo', args: [x, y] }); return this; }
+  circle(x: number, y: number, r: number): this { this.calls.push({ op: 'circle', args: [x, y, r] }); return this; }
+  stroke(o: { width?: number; color?: number; alpha?: number }): this {
+    this.calls.push({ op: 'stroke', args: [o.width ?? 0, o.color ?? 0, o.alpha ?? 1] });
+    return this;
+  }
+  rect(): this { return this; }
+  roundRect(): this { return this; }
+}
+
+/** The exact params the overlay hands `drawBondVisual` for one card, at a given tick. */
+function previewParams(visualEffectId: string, tick: number): BondVisualParams {
+  // ⚠ THE SPAN COMES FROM THE SHIPPING FUNCTION, not from COMBO_SPAN. The vortex radiates about
+  // ENDPOINT A to the FULL length rather than len/2 about the midpoint, so it gets a shorter bond —
+  // and a fixture that hardcoded the glyph gap here would be measuring a card the game never draws.
+  const half = previewSpanFor(visualEffectId) / 2;
+  return {
+    ax: COMBO_TILE_W / 2 - half,
+    ay: COMBO_ROW_Y,
+    bx: COMBO_TILE_W / 2 + half,
+    by: COMBO_ROW_Y,
+    visualEffectId,
+    colorA: 0x53d8ff,
+    colorB: 0x53d8ff,
+    alpha: 1,
+    width: 4,
+    tick,
+  };
+}
+
+function drawnBox(visualEffectId: string, tick: number): { minY: number; maxY: number; minX: number; maxX: number } {
+  const g = new GraphicsMock();
+  drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], previewParams(visualEffectId, tick));
+  let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+  for (const c of g.calls) {
+    if (c.op === 'stroke') continue;
+    const r = c.op === 'circle' ? c.args[2] : 0;
+    minX = Math.min(minX, c.args[0] - r); maxX = Math.max(maxX, c.args[0] + r);
+    minY = Math.min(minY, c.args[1] - r); maxY = Math.max(maxY, c.args[1] + r);
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+function serialize(visualEffectId: string, tick: number): string {
+  const g = new GraphicsMock();
+  drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], previewParams(visualEffectId, tick));
+  return JSON.stringify(g.calls.map((c) => [c.op, ...c.args.map((n) => Math.round(n * 100) / 100)]));
+}
+
+const CATALOG = magicComboCatalog();
+
+describe('S173 P5 — every combo has its OWN connector to show', () => {
+  it('no Magic-14 entry falls through to the plain default line', () => {
+    // If one did, hovering that card would show a straight stroke and the owner's complaint would
+    // be true again for that combo — "they don't show what this IS". Fourteen names, fourteen looks.
+    for (const e of CATALOG) {
+      expect(e.outcome.visualEffectId, `${e.outcome.resultName}`).not.toBe('fx.bond.default');
+    }
+    expect(new Set(CATALOG.map((e) => e.outcome.visualEffectId)).size).toBe(MAGIC_COMBO_KEYS.length);
+  });
+});
+
+describe('S173 P5 — the connector FITS the card (the reason the tile grew 132 → 168)', () => {
+  // The ornamented silhouettes — wheel, lattice, diamond — draw a ring or rhombus of radius len/2
+  // about the bond midpoint, so the band is COMBO_ROW_Y ± COMBO_SPAN/2. This measures that claim
+  // against the real draw calls rather than trusting the arithmetic in the comment.
+  const NAME_BOTTOM = 40;   // name text at y=30, fontSize 19, anchored 0.5
+  const LOCK_TOP = COMBO_TILE_H - 22; // 'connect to reveal' at h-16, fontSize 11
+
+  it.each(CATALOG.map((e) => [e.outcome.resultName, e.outcome.visualEffectId] as const))(
+    '%s stays inside the card at every phase of its animation',
+    (_name, fx) => {
+      // Sample a full second of preview motion at the shipped rate, plus a long tail, so a
+      // silhouette that only breaches its box at some phase cannot hide between two samples.
+      for (let frame = 0; frame < 240; frame += 7) {
+        const box = drawnBox(fx, frame * PREVIEW_TICK_RATE);
+        expect(box.minY, `${_name} top`).toBeGreaterThan(NAME_BOTTOM);
+        expect(box.maxY, `${_name} bottom`).toBeLessThan(LOCK_TOP);
+        expect(box.minX, `${_name} left`).toBeGreaterThanOrEqual(0);
+        expect(box.maxX, `${_name} right`).toBeLessThanOrEqual(COMBO_TILE_W);
+      }
+    },
+  );
+});
+
+describe('S173 P5 — the 3× preview clock makes the motion visible inside a hover', () => {
+  // ⛔ THE MEASUREMENT BEHIND PREVIEW_TICK_RATE. `drawVortex` advances by `tick * 0.0035`: one
+  // revolution is 1795 ticks, i.e. 30 SECONDS at one tick per frame. The vortex is the combo the
+  // owner named as the thing he wants to watch spin, so at 1× the feature ships as a still image.
+  const ONE_SECOND_OF_HOVER = 60 * PREVIEW_TICK_RATE;
+
+  it.each([
+    ['Vortex', 'fx.vortex'],
+    ['Warped Anchor', 'fx.warped'],
+    ['Wheel', 'fx.wheel'],
+    ['Orbital', 'fx.orbital'],
+    ['Filament', 'fx.filament'],
+    ['Whip', 'fx.whip'],
+  ])('%s looks different after one second of hovering', (_name, fx) => {
+    expect(serialize(fx, ONE_SECOND_OF_HOVER)).not.toBe(serialize(fx, 0));
+  });
+
+  it('the rate is what makes the difference — the vortex is near-still at 1× over the same second', () => {
+    // Not a style preference: this is the evidence that the 3× clock is load-bearing rather than
+    // decorative. The vortex turns 0.21 rad in a second at 1×, which is 12 degrees on a 42 px
+    // radius — under 9 px of travel at the rim, across a whole second.
+    const oneX = Math.abs(60 * 0.0035);
+    const threeX = Math.abs(ONE_SECOND_OF_HOVER * 0.0035);
+    expect(oneX).toBeLessThan(0.25);              // radians per second at 1×
+    expect(threeX).toBeGreaterThan(0.6);          // radians per second at 3×
+    expect(PREVIEW_TICK_RATE).toBe(3);
+  });
+
+  it('a preview is a pure function of its frame counter — no wall clock, no randomness', () => {
+    // Two openings of the same card must look identical, and the codex has no world to read a tick
+    // from. Re-serialising the same frame twice is what proves nothing ambient leaked in.
+    for (const e of CATALOG) {
+      expect(serialize(e.outcome.visualEffectId, 123)).toBe(serialize(e.outcome.visualEffectId, 123));
+    }
   });
 });

@@ -52,10 +52,13 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constan
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { loadUnlockedSet } from './codexStore.ts';
 import { SHAPE_GLYPHS } from './shapes.ts';
-import { MAGIC_COMBO_KEYS, isOrderSymmetric } from '../combos.ts';
+import { MAGIC_COMBO_KEYS, isOrderSymmetric, type ComboKey } from '../combos.ts';
 import { loadDiscoveredCombos, magicComboCatalog } from './comboCodexStore.ts';
 import { codexCopyFor, drawEmblem, type EmblemSpec } from './codexPresentation.ts';
 import { fitTextToBox, fitTextToWidth } from './textFit.ts';
+// ⭐ S173 P5 — THE SAME DRAW CALL THE BOARD USES. See `syncComboPreview` for why this import, and
+// not a hand-drawn approximation, is the whole point of the combo preview.
+import { drawBondVisual } from './bondVisualRenderer.ts';
 // S87 P4 — re-export so godlyOrchestration (eager) can unlock without importing this heavy overlay.
 export { unlockGodly } from './codexStore.ts';
 
@@ -75,7 +78,105 @@ const GRID_TOP = 235;
 const ART_CY = 116;
 const POWER_Y = 200;
 const RECIPE_Y = 226;
-const COMBO_COLS = 5;
+/*
+ * ⭐ S173 P5 — THE GRID METRICS ARE EXPORTED so `codexOverlay.test.ts` BINDS to them rather than
+ * mirroring them. This file's own history is the argument (see codexPresentation.test.ts, S140): a
+ * test that hardcodes a layout number has to be hand-bumped by whoever changes the layout — the same
+ * person who would have forgotten — and bumping it is indistinguishable from fixing it.
+ */
+export const TOWER_COLS = 4;
+export const COMBO_COLS = 5;
+export const TOWER_TILE_H = TILE_H;
+export const TOWER_TILE_GAP = TILE_GAP;
+
+/*
+ * ⭐ S173 P5 — COMBO TILE ANATOMY, RESIZED FOR THE LIVE CONNECTOR.
+ *
+ * Owner: *"you're showing what shapes you need to make this vortex, but they don't show what this
+ * vortex IS, how it looks… the vortex, I think, spins or something, or a warped anchor — it's like
+ * a spiral that's moving and spiraling around. So maybe make those clickable, so when you mouse
+ * over each of those combos you can see how it would look. Just the connector itself."*
+ *
+ * ⚠ THE TILE HAD TO GROW, 132 → 168, AND THIS IS THE MEASUREMENT. The ornamented silhouettes —
+ * wheel, lattice, diamond — draw a ring or a rhombus of radius len/2 around the bond's midpoint, so
+ * a connector spanning the two glyphs reaches COMBO_SPAN/2 = 42 px ABOVE and BELOW the glyph row.
+ * At the old anatomy (name at y=36, glyphs at y=88, tile 132 tall) that band runs 46…130, i.e.
+ * straight through the name and out of the bottom of the card. The row moved to y=96 and the tile to
+ * 168 so the band lands at 54…138, clear of the name (bottom ~40) and of the lock line (top ~146).
+ *
+ * ⚠ AND THE GRID STILL DOES NOT SCROLL, which is the constraint from part (b): 14 entries at 5
+ * columns is 3 rows, 235 + 3*168 + 2*24 + 24 pad = 811 against a viewport floor of 1036. Owner:
+ * *"Combos, they're all fine. You can see all of them."* A test pins that.
+ */
+export const COMBO_TILE_W = 224;
+export const COMBO_TILE_H = 168;
+export const COMBO_TILE_GAP = 24;
+const COMBO_NAME_Y = 30;
+export const COMBO_ROW_Y = 96;
+/** Glyph-to-glyph distance: the preview connector's length, and the ornaments' diameter. */
+export const COMBO_SPAN = 84;
+
+/**
+ * ⛔⛔ THE VORTEX DOES NOT OBEY THE RULE THE TILE WAS SIZED FOR, AND A TEST CAUGHT IT.
+ *
+ * Everything above reasons about the ornamented silhouettes — wheel, lattice, diamond — which draw
+ * radius `len/2` about the bond's MIDPOINT. `drawVortex` does neither half of that:
+ *
+ *     const r = t * len;                                     // …to the FULL length, not half it
+ *     { x: p.ax + Math.cos(a) * r, y: p.ay + Math.sin(a) * r } // …about ENDPOINT A, not the midpoint
+ *
+ * So at `COMBO_SPAN = 84` it sweeps a disc of radius 84 centred on the LEFT glyph: vertically
+ * 96 ± 84, i.e. **12 … 180** on a card whose name ends at 40 and whose lock line starts at 146. It
+ * burst out of BOTH ends at once.
+ *
+ * ⚠ AND GROWING THE CARD CANNOT FIX IT — that was the tempting move, because the tile had already
+ * grown once (132 → 168) for exactly this class of problem. It fixes only the bottom. The top
+ * breach (y=12 against a name ending at 40) is above the card's own title no matter how tall the
+ * card gets, because the vortex radiates from a point that does not move.
+ *
+ * ⛔ AND THE ONE FIX THAT MUST NOT BE MADE: changing `drawVortex`. It is the REAL renderer, shared
+ * with the board — the spiral running from A out to B's distance is what a vortex IS in this game.
+ * Editing gameplay visuals so a thumbnail fits would be the tail wagging the dog.
+ *
+ * ⇒ So the PREVIEW hands it a shorter bond. `96 − r > 40` and `96 + r < 146` give `r < 50`; 44
+ * leaves margin at both ends and lands the swirl at a radius close to the 42 the ornamented family
+ * already draws, so the card reads as one set. The connector no longer reaches the two glyphs — an
+ * accepted cost, because the owner asked to see *"just the connector itself"*, how it LOOKS, and
+ * the shape and its motion are both preserved.
+ */
+const RADIAL_ABOUT_A_SPAN = 44;
+
+/**
+ * The preview bond length for one effect. One entry, not a table, because exactly one of the
+ * fourteen radiates about an endpoint — and the per-effect fit test walks all fourteen, so a
+ * second offender announces itself rather than needing to be predicted here.
+ */
+export function previewSpanFor(visualEffectId: string): number {
+  return visualEffectId === 'fx.vortex' ? RADIAL_ABOUT_A_SPAN : COMBO_SPAN;
+}
+
+/** Matches dragPreviewRenderer's PREVIEW_BOND_WIDTH — the same silhouette at the same weight. */
+const PREVIEW_BOND_WIDTH = 4;
+/*
+ * ⚠ THE PREVIEW CLOCK RUNS AT 3×, AND THIS NUMBER IS MINE, NOT THE OWNER'S.
+ *
+ * The silhouettes animate off `p.tick`, and their phase constants are tuned for a bond you live
+ * beside for a whole match, not for a card you hover for two seconds. MEASURED FROM THE SOURCE:
+ * `drawVortex` advances its phase by `tick * 0.0035`, so one revolution is 1795 ticks — **30
+ * seconds** at one tick per frame. The vortex is the exact combo the owner named as the thing he
+ * wants to watch spin, and at 1× a hover shows him a still picture of it.
+ *
+ * 3× puts the vortex at 10 s per revolution (clearly turning), the warped anchor's ring at 4.4 s,
+ * and the wheel's spokes at 0.58 s per quarter-turn. 6× was considered and rejected on the other
+ * end of the range: it puts `drawFilament`'s shimmer (`tick * 0.04`, 2.6 s at 1×) at 0.44 s, which
+ * is a flicker rather than a shimmer.
+ *
+ * ⛔ WHAT THIS DOES **NOT** DO IS CHANGE THE SHAPE. The preview calls the shipped `drawBondVisual`,
+ * so the geometry cannot drift from the board by construction; only the clock driving it differs,
+ * and it differs for a stated reason. A hand-drawn "preview" that looked right today and diverged
+ * on the next silhouette retune would be worse than no preview at all.
+ */
+export const PREVIEW_TICK_RATE = 3;
 
 /*
  * ⭐ S173 P5 — THE SCROLL VIEWPORT.
@@ -237,6 +338,20 @@ export interface CodexOverlayOpts {
   readonly towers: CodexEntry[];
 }
 
+/** S173 P5 — everything `syncComboPreview` needs to animate one combo card, captured at build time. */
+interface ComboPreview {
+  /** The Graphics the silhouette is redrawn into each frame (cleared first — drawBondVisual appends). */
+  readonly g: Graphics;
+  /** The ↔ / → glyph, hidden while the connector is showing: the preview REPLACES the abstraction. */
+  readonly arrow: Text;
+  readonly ax: number;
+  readonly bx: number;
+  readonly cy: number;
+  readonly visualEffectId: string;
+  readonly color: number;
+  readonly discovered: boolean;
+}
+
 export class CodexOverlay {
   readonly container: Container;
   private readonly app: Application;
@@ -258,6 +373,19 @@ export class CodexOverlay {
   private readonly scrollbar: Graphics;
   private scrollY = 0;
   private scrollMax = 0;
+  /*
+   * S173 P5 — COMBOS preview state. `hovered` wins over `pinned` so moving the mouse always shows
+   * what is under it; `shown` is what is currently drawn, and the difference between want and shown
+   * is what tells `syncComboPreview` to put the previous card's arrow back.
+   *
+   * ⚠ ALL FIVE ARE RESET IN `rebuild`, because it DESTROYS every tile in `content` — a Map still
+   * holding a destroyed Graphics is a draw onto a dead object on the very next frame.
+   */
+  private readonly comboPreviews = new Map<ComboKey, ComboPreview>();
+  private hoveredCombo: ComboKey | null = null;
+  private pinnedCombo: ComboKey | null = null;
+  private shownCombo: ComboKey | null = null;
+  private previewFrame = 0;
   private readonly tabButtons = new Map<CodexTabKey, { box: Graphics; label: Text }>();
   // S110 P3 — the player-avatar layer is lifted above this overlay's near-opaque backdrop while
   // open, then restored to its original z-index on close (so fog-of-war layering is untouched).
@@ -387,8 +515,84 @@ export class CodexOverlay {
       this.applyScroll();
     }, { passive: false });
 
+    /*
+     * ⭐ S173 P5 — the preview's heartbeat. `app.ticker` is the established pattern in this layer
+     * (cutsceneOverlay does the same), and the guard on the first line is what keeps it free: on
+     * every frame the codex is shut, or is on the TOWERS tab, this costs one boolean and a compare.
+     *
+     * ⛔ THE COUNTER IS RENDERER-LOCAL AND MUST STAY THAT WAY. `world.tick` is not available here —
+     * the codex has no world, it opens on the title screen before a match exists — and it would be
+     * wrong even if it were: a codex animation that stops because the sim is paused, or because a
+     * NONET trial froze the duel, is a codex that looks broken. No `Math.random` either; the phase
+     * is a pure function of this counter, so two openings of the same card look identical.
+     */
+    app.ticker.add(() => {
+      if (!this.container.visible || this.active !== 'combos') return;
+      this.previewFrame += PREVIEW_TICK_RATE;
+      this.syncComboPreview();
+    });
+
     this.container.visible = false;
     app.stage.addChild(this.container);
+  }
+
+  /**
+   * ⭐ S173 P5 — DRAW THE HOVERED (or pinned) COMBO'S REAL CONNECTOR, one frame's worth.
+   *
+   * Owner: *"they don't show what this vortex IS, how it looks… make those clickable, so when you
+   * mouse over each of those combos you can see how it would look. Just the connector itself."*
+   *
+   * ⭐ IT IS `drawBondVisual` — THE FUNCTION THE BOARD ITSELF CALLS, not a codex lookalike. That
+   * was the one decision worth making carefully here, and it turned out to cost nothing: the
+   * silhouettes are pure `(Graphics, BondVisualParams) → void` with no world, no entity and no
+   * lookup, so the codex can call the shipped renderer directly. `dragPreviewRenderer` already
+   * proved the pattern (its docblock even claims the Combo Codex does this — as of now that is
+   * true). The consequence that matters: a retune of any silhouette moves this preview with it, and
+   * a preview that has drifted from the thing it depicts is worse than none.
+   *
+   * ⚠ AN UNDISCOVERED COMBO STILL PREVIEWS, DIMMED, and that is this file's own existing rule
+   * rather than a new one: `drawEmblem` keeps a locked recipe's geometry visible "just dimmed —
+   * only character art gets the full brother-surprise hide" (S105 P2, so requirements stay
+   * checkable). The NAME is still `???`, which is the part that is actually a spoiler. Hiding the
+   * shape too would have made this whole feature invisible on a fresh profile — 0/14 discovered is
+   * exactly the state the owner's own screenshot was in.
+   */
+  private syncComboPreview(): void {
+    const want = this.hoveredCombo ?? this.pinnedCombo;
+    if (want !== this.shownCombo) {
+      const prev = this.shownCombo === null ? undefined : this.comboPreviews.get(this.shownCombo);
+      if (prev !== undefined) {
+        prev.g.clear();
+        prev.g.visible = false;
+        prev.arrow.visible = true;
+      }
+      this.shownCombo = want;
+      this.previewFrame = 0; // every card starts its motion from the beginning, every time
+    }
+    if (want === null) return;
+    const view = this.comboPreviews.get(want);
+    if (view === undefined) return;
+    view.g.visible = true;
+    view.arrow.visible = false;
+    view.g.clear(); // drawBondVisual APPENDS paths; the caller clears (structureRenderer's contract)
+    // ⚠ The span is per-effect, not the glyph gap — see `previewSpanFor`. Derived from the stored
+    // endpoints' MIDPOINT so the connector stays centred under the card whatever length it takes.
+    const previewHalf = previewSpanFor(view.visualEffectId) / 2;
+    const previewMid = (view.ax + view.bx) / 2;
+    drawBondVisual(view.g, {
+      ax: previewMid - previewHalf,
+      ay: view.cy,
+      bx: previewMid + previewHalf,
+      by: view.cy,
+      visualEffectId: view.visualEffectId,
+      // Both endpoints take the CARRIED shape's colour, so the connector reads in the same palette
+      // as the two glyphs it runs between. (Post-Sym D the silhouettes stroke in colorA anyway.)
+      colorA: view.color,
+      colorB: view.color,
+      alpha: view.discovered ? 1 : 0.55,
+      width: PREVIEW_BOND_WIDTH,
+      tick: this.previewFrame,
+    });
   }
 
   /**
@@ -461,6 +665,14 @@ export class CodexOverlay {
     // Every tab opens at its own top; the grid builders below set `scrollMax` from what they laid out.
     this.scrollY = 0;
     this.scrollMax = 0;
+    // ⛔ S173 P5 — the line above destroyed every tile, so every preview handle in this Map now
+    // points at a destroyed Graphics. Clearing here is what stops the next ticker frame drawing
+    // into one. The pin does not survive a tab switch either: it belongs to a card that is gone.
+    this.comboPreviews.clear();
+    this.hoveredCombo = null;
+    this.pinnedCombo = null;
+    this.shownCombo = null;
+    this.previewFrame = 0;
     if (this.active === 'towers') this.buildSpriteGrid(this.towers, loadUnlockedSet());
     else this.buildCombosGrid();
     this.applyScroll();
@@ -494,7 +706,7 @@ export class CodexOverlay {
       this.content.addChild(empty);
       return;
     }
-    const cols = Math.min(entries.length, 4);
+    const cols = Math.min(entries.length, TOWER_COLS);
     const totalWidth = cols * TILE_W + (cols - 1) * TILE_GAP;
     const startX = (CANVAS_WIDTH - totalWidth) / 2;
     // S173 P5 — the grid's own geometry decides how far it scrolls, so adding a tower tier needs no
@@ -595,14 +807,16 @@ export class CodexOverlay {
   /** COMBOS tab: the Magic-14, each tile = glyphA (→/↔) glyphB = ResultName (the recipe IS the how-to). */
   private buildCombosGrid(): void {
     const discovered = loadDiscoveredCombos();
-    this.subtitle.text = `COMBOS — ${discovered.size} / ${MAGIC_COMBO_KEYS.length} discovered · connect two shapes in play to reveal`;
+    // S173 P5 — the subtitle names the interaction, because a hover target with no affordance is a
+    // feature nobody finds. (The cursor turns to a pointer on each card for the same reason.)
+    this.subtitle.text = `COMBOS — ${discovered.size} / ${MAGIC_COMBO_KEYS.length} discovered · hover a card to watch the connector it makes`;
     const catalog = magicComboCatalog();
-    const cw = 224;
-    const ch = 132;
-    const gx = 24;
-    const gy = 24;
-    // S173 P5 — the Magic-14 at 5 columns is 3 rows ending at y=679, comfortably inside the
-    // viewport, so this is 0 today and COMBOS looks exactly as it did (owner: "they're all fine").
+    const cw = COMBO_TILE_W;
+    const ch = COMBO_TILE_H;
+    const gx = COMBO_TILE_GAP;
+    const gy = COMBO_TILE_GAP;
+    // S173 P5 — the Magic-14 at 5 columns is 3 rows ending at y=811, still inside the viewport, so
+    // this is 0 and COMBOS does not scroll (owner: "they're all fine. You can see all of them").
     // It is computed rather than hardcoded so a 15th combo scrolls instead of silently vanishing.
     this.scrollMax = scrollExtent(gridContentBottom(gridRowCount(catalog.length, COMBO_COLS), ch, gy));
     for (let i = 0; i < catalog.length; i++) {
@@ -636,12 +850,22 @@ export class CodexOverlay {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 19, fill: isDiscovered ? GOLD : 0x666666, letterSpacing: 2, fontWeight: 'bold' }),
     });
     name.anchor.set(0.5);
-    name.position.set(w / 2, 36);
+    name.position.set(w / 2, COMBO_NAME_Y);
     tile.addChild(name);
 
     // Recipe row: glyphA <arrow> glyphB (↔ = either order, → = directional dual).
-    const cy = 88;
-    tile.addChild(this.makeGlyph(entry.a, w / 2 - 46, cy, isDiscovered));
+    const cy = COMBO_ROW_Y;
+    const ax = w / 2 - COMBO_SPAN / 2;
+    const bx = w / 2 + COMBO_SPAN / 2;
+
+    // ⭐ S173 P5 — the preview Graphics goes in FIRST, so the connector passes BEHIND its two
+    // endpoint glyphs exactly as a bond passes behind its primitives on the board. Empty and hidden
+    // until a pointer arrives; `syncComboPreview` owns everything that happens to it after that.
+    const preview = new Graphics();
+    preview.visible = false;
+    tile.addChild(preview);
+
+    tile.addChild(this.makeGlyph(entry.a, ax, cy, isDiscovered));
     const arrow = new Text({
       text: isOrderSymmetric(entry.a, entry.b) ? '↔' : '→',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 22, fill: isDiscovered ? 0xdddddd : 0x555555 }),
@@ -649,7 +873,7 @@ export class CodexOverlay {
     arrow.anchor.set(0.5);
     arrow.position.set(w / 2, cy);
     tile.addChild(arrow);
-    tile.addChild(this.makeGlyph(entry.b, w / 2 + 46, cy, isDiscovered));
+    tile.addChild(this.makeGlyph(entry.b, bx, cy, isDiscovered));
 
     if (!isDiscovered) {
       const lock = new Text({
@@ -660,6 +884,29 @@ export class CodexOverlay {
       lock.position.set(w / 2, h - 16);
       tile.addChild(lock);
     }
+
+    this.comboPreviews.set(entry.key, {
+      g: preview,
+      arrow,
+      ax,
+      bx,
+      cy,
+      visualEffectId: entry.outcome.visualEffectId,
+      color: isDiscovered ? SPARK_COLORS[entry.a] : LOCKED_SIL,
+      discovered: isDiscovered,
+    });
+
+    /*
+     * Hover is the interaction the owner named; the tap is the one he offered ("maybe make those
+     * clickable"). A tap PINS the card so its connector keeps running once the pointer leaves —
+     * tapping it again, or tapping another card, releases it. Hover still wins while the pointer is
+     * over a card, so pinning can never make the thing under your cursor show something else.
+     */
+    tile.eventMode = 'static';
+    tile.cursor = 'pointer';
+    tile.on('pointerover', () => { this.hoveredCombo = entry.key; });
+    tile.on('pointerout', () => { if (this.hoveredCombo === entry.key) this.hoveredCombo = null; });
+    tile.on('pointertap', () => { this.pinnedCombo = this.pinnedCombo === entry.key ? null : entry.key; });
     return tile;
   }
 
