@@ -14,9 +14,11 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
+import { KEEP_H, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { drawHealthBars } from './healthBar.ts';
+import { BAR_LIFT, drawHealthBars } from './healthBar.ts';
+import { castleBarTopY } from './gathererRenderer.ts';
+import { CASTLE_SPRITE_PX } from './castleFrames.ts';
 import { beginConcealmentFrame } from './concealment.ts';
 import { getCreatureConfig, CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
@@ -646,24 +648,81 @@ describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds 
    * reproduced verbatim by me one session later. "Is a bar drawn?" was the wrong question;
    * "is it drawn where a human can see it?" is the one that catches this.
    */
-  it('⛔⛔ a tier-3 tower bar clears the TOP of the building, not just the centroid', () => {
+  /*
+   * ⛔⛔ S174 (owner, THIRD report) — **"ABOVE" WAS NEVER THE ASSERTION THIS NEEDED.**
+   *
+   * > *"the towers have their health in the middle of them ... it is there, it's just way too up, and
+   * > it is like behind the other tower ... You take the HIGHEST POINT and you put a bar over it.
+   * > Not a meter above."*
+   *
+   * The two tests below shipped GREEN over the bug he is reporting, and the reason is worth naming:
+   * they asserted `track.y < spriteTop` — a ONE-SIDED bound, satisfied by the correct lift and
+   * equally by a lift of any size whatsoever. S173 passed `art.sizePx` as the rise where the geometry
+   * wants `art.sizePx * 0.5` (the building is foot-anchored at `cy + sizePx*0.5`, so its roof is only
+   * HALF a sprite above the centroid), the bar floated 42 px too high on a tier-3 and 75 px on a
+   * tier-9, and both of these still passed because 42 px too high is still "above".
+   *
+   * ⭐ SO THEY ARE PINNED ON BOTH SIDES NOW, against `BAR_LIFT` itself rather than a literal — the
+   * gap may be retuned, the RELATIONSHIP may not. "Way too up" is a failing test from here on.
+   */
+  it('⛔⛔ a tier-3 tower bar clears the roof by exactly BAR_LIFT — not less, and NOT MORE', () => {
     const { world } = towerWorld();
     world.creatureSpawners.clear();
     addTower(world, 1, asPrimitiveId(1), P0, 't3TowerMummies' as never);
     const track = bars(world)[0]!;
     // towerRenderer foot-anchors at cy + sizePx*0.5, so the building's TOP is sizePx/2 above the
-    // ring centroid. T3_TOWER_SPRITE_PX = 84 => 42 px up. The bar must be strictly above THAT.
+    // ring centroid. T3_TOWER_SPRITE_PX = 84 => 42 px up.
     const centroidY = 500;
     const spriteTopY = centroidY - T3_TOWER_SPRITE_PX / 2;
     expect(track.y, 'the bar must sit above the pyramid, not inside it').toBeLessThan(spriteTopY);
+    expect(spriteTopY - track.y, '"not a meter above" — the gap is BAR_LIFT, not half a building')
+      .toBeCloseTo(BAR_LIFT, 6);
   });
 
-  it('⛔⛔ a tier-9 boss tower is 150 px tall and its bar clears that too', () => {
+  it('⛔⛔ a tier-9 boss tower is 150 px tall and its bar clears THAT roof by the same gap', () => {
     const { world } = towerWorld();
     world.creatureSpawners.clear();
     addTower(world, 1, asPrimitiveId(1), P0, 't9TowerMummies' as never);
     const track = bars(world)[0]!;
-    expect(track.y).toBeLessThan(500 - T9_TOWER_SPRITE_PX / 2);
+    const spriteTopY = 500 - T9_TOWER_SPRITE_PX / 2;
+    expect(track.y).toBeLessThan(spriteTopY);
+    expect(spriteTopY - track.y, 'the 150 px boss gets the same gap as the 84 px pyramid')
+      .toBeCloseTo(BAR_LIFT, 6);
+  });
+
+  it('⛔ the gap does NOT grow with the building — a tier-9 bar is not further up than a tier-3', () => {
+    /*
+     * The failure mode in one assertion. Passing `sizePx` where `sizePx * 0.5` belongs overshoots by
+     * HALF THE BUILDING, so the error scales with the art: 42 px on a tier-3, 75 px on a tier-9. A
+     * test comparing the two GAPS catches that whatever either absolute number happens to be.
+     */
+    const t3 = towerWorld().world;
+    t3.creatureSpawners.clear();
+    addTower(t3, 1, asPrimitiveId(1), P0, 't3TowerMummies' as never);
+    const t9 = towerWorld().world;
+    t9.creatureSpawners.clear();
+    addTower(t9, 1, asPrimitiveId(1), P0, 't9TowerMummies' as never);
+    const gap3 = (500 - T3_TOWER_SPRITE_PX / 2) - bars(t3)[0]!.y;
+    const gap9 = (500 - T9_TOWER_SPRITE_PX / 2) - bars(t9)[0]!.y;
+    expect(gap9, 'a bigger building must not wear its bar further out in space').toBeCloseTo(gap3, 6);
+  });
+
+  it('⛔⛔ AND THE CASTLE AGREES — "not traversing the middle like the castle"', () => {
+    /*
+     * His sentence compares the two bars, so the test has to as well. `castleBarTopY` is the castle's
+     * half of the arithmetic: the sprite is FOOT-anchored at the keep box's foot (`y + KEEP_H/2`) and
+     * rises CASTLE_SPRITE_PX, so its roof is at `y + KEEP_H/2 − CASTLE_SPRITE_PX`. The shipped bar sat
+     * at `top − 7 = y − KEEP_H/2 − 7`, which is 31 px BELOW that roof — straight through the spires,
+     * exactly what he photographed.
+     */
+    const anchorY = 500;
+    const castleRoofY = anchorY + KEEP_H / 2 - CASTLE_SPRITE_PX;
+    expect(castleBarTopY(anchorY, true)).toBeLessThan(castleRoofY);
+    expect(castleRoofY - castleBarTopY(anchorY, true), 'the same gap a tower bar gets')
+      .toBeCloseTo(BAR_LIFT, 6);
+    // ⚠ AND THE LOAD-FAILURE KEEP IS THE OTHER HALF. With no atlas the castle IS the box, so its
+    // highest point is the box's top — a bar 38 px above that would be "a meter above" nothing.
+    expect(castleBarTopY(anchorY, false)).toBeCloseTo(anchorY - KEEP_H / 2 - BAR_LIFT, 6);
   });
 
   it('a tower bar is at least as WIDE as the building it labels (R171-E)', () => {

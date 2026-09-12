@@ -103,8 +103,19 @@ const BAR_MAX_W = 62;
  * so a fixed lift lands inside anything taller than the number it was tuned against — the same class
  * as the old HP pips ending up inside a boss's chest. The bar now clears the measured sprite HEIGHT
  * and this is only the gap above it.
+ *
+ * ⭐⭐ S174 — **EXPORTED, BECAUSE THE CASTLE HAS TO SIT THE SAME DISTANCE UP.**
+ *
+ * > *"It should be right above the image — like right above each tower, like when it ends, the
+ * > rooftop or whatever. You take the HIGHEST POINT and you put a bar over it. Not a meter above.
+ * > Not traversing the middle like the castle."*
+ *
+ * That last clause is a comparison between two bars drawn by two different files, so the gap cannot
+ * be a private number in either of them. `gathererRenderer.castleBarTopY` imports this constant, so
+ * a castle bar and a tower bar clear their art by the identical distance by construction rather
+ * than by two people having typed the same digit.
  */
-const BAR_LIFT = 10;
+export const BAR_LIFT = 10;
 
 /** Fallback height for a creature with no atlas sprite (the procedural puppets). */
 const FALLBACK_SPRITE_H = 26;
@@ -287,12 +298,35 @@ function drawStructureBars(g: Graphics, world: World): void {
    * creature's width that it represents"*): a 15 px bar over an 84 px pyramid reads as a scratch.
    * The sprite width is passed as the FLOOR, exactly as the creature arm does it.
    */
+  /**
+   * ⛔⛔ S174 (owner, THIRD report on this one bar) — **HALF THE SPRITE, NOT THE WHOLE SPRITE.**
+   *
+   * > *"the towers have their health in the middle of them ... it is there, it's just way too up,
+   * > and it is like behind the other tower ... You take the HIGHEST POINT and you put a bar over
+   * > it. Not a meter above."*
+   *
+   * `h` here feeds `drawBar`'s RISE parameter, and the anchor this arm passes as `y` is the
+   * component CENTROID. `towerRenderer` foot-anchors the building at `sprite.y = cy + sizePx * 0.5`
+   * with `TOWER_SPRITE_ANCHOR = {x: 0.5, y: 1}` — so the roof is `sizePx * 0.5` above the centroid,
+   * NOT `sizePx`. The S173 pass passed the full `sizePx` and overshot by half a building: 42 px on a
+   * tier-3, 75 px on a tier-9. That is his *"way too up ... behind the other tower"*, and the bar he
+   * saw crossing a neighbouring tower's body was this one, floating over its own.
+   *
+   * ⚠ THE PREVIOUS FIX AND THIS ONE ARE THE SAME MISTAKE IN OPPOSITE DIRECTIONS, and the pair is the
+   * lesson: S173 corrected "26 px, far too low" by reaching for the sprite's size without checking
+   * WHICH POINT the anchor was. A test that only asserts "above the top" passes for both the correct
+   * lift and a lift of any size — which is why `healthBar.test.ts` now pins the gap on BOTH sides.
+   *
+   * ⚠ WIDTH IS STILL THE FULL `sizePx`, and that is not an inconsistency: width is a FLOOR on the
+   * bar's length (owner R171-E, *"at least the length of the creature's width"*), and the building
+   * really is `sizePx` wide. Only the vertical reading was halved.
+   */
   const spriteBoxFor = (recipeId: GodlyId | null): { w: number; h: number } => {
     const art = recipeId === null ? null : towerArtForRecipe(recipeId);
     // `null` is the pentagram, the goblin tower and the lightning hub — they have no building art,
     // so their bar rides above the SHAPES themselves and the small fallback is correct there.
     if (art === null) return { w: 0, h: FALLBACK_SPRITE_H };
-    return { w: art.sizePx, h: art.sizePx };
+    return { w: art.sizePx, h: art.sizePx * 0.5 };
   };
 
   const bar = (anchorId: PrimitiveId, ownerPlayerId: PlayerId, recipeId: GodlyId | null): void => {
@@ -362,8 +396,22 @@ function drawBar(
   scale: number,
   /** The creature's drawn sprite width, or 0 when it has no sprite. */
   spriteW: number,
-  /** The creature's drawn sprite height — how far the bar has to rise to clear its head. */
-  spriteH: number,
+  /**
+   * ⛔⛔ S174 (owner) — **HOW FAR THE ART'S TOP EDGE IS ABOVE `y`. IT IS NOT "SPRITE HEIGHT".**
+   *
+   * It used to be called `spriteH`, and that name is exactly how the tower bar shipped at double the
+   * lift it needed. A CREATURE is foot-anchored at `y`, so for a creature the rise IS the whole
+   * sprite height and the two readings coincide. A STRUCTURE is anchored at its CENTROID and
+   * `towerRenderer` foot-anchors the building at `cy + sizePx * 0.5` — so the roof is only
+   * `sizePx * 0.5` above the anchor, and passing the full `sizePx` put the bar half a building too
+   * high (42 px on a tier-3, 75 px on a tier-9). The owner: *"it is there, it's just way too up, and
+   * it is like behind the other tower."*
+   *
+   * ⚠ THE NAME WAS THE WHOLE BUG. Both call sites were "the sprite's height", both were literally
+   * true, and only one of them answered the question the arithmetic asks. Callers now pass a RISE
+   * ABOVE THE ANCHOR and the anchor convention is theirs to state.
+   */
+  spriteRise: number,
   /** ⭐ S173 — the FILL colour. Creatures keep the red; BUILDINGS pass the castle ramp (owner). */
   fillTint: number = FILL_TINT,
 ): void {
@@ -425,9 +473,10 @@ function drawBar(
   const fw = max > 0 ? w * Math.min(1, Math.max(0, ehp / max)) : 0;
   const h = BAR_H * scale;
   const bx = x - w / 2;
-  // Clear the sprite's own top, then a small constant gap. Foot-anchored, so the top is one full
-  // sprite height above `y`.
-  const by = y - spriteH - BAR_LIFT * scale;
+  // Clear the art's own top edge, then a small constant gap. `spriteRise` is how far that edge is
+  // above `y` — a full sprite height for a foot-anchored creature, HALF a building for a
+  // centroid-anchored structure. See the parameter's docblock.
+  const by = y - spriteRise - BAR_LIFT * scale;
 
   g.rect(bx, by, w, h).fill({ color: TRACK_TINT, alpha: TRACK_ALPHA });
   g.rect(bx, by, fw, h).fill({ color: fillTint, alpha: 0.95 });

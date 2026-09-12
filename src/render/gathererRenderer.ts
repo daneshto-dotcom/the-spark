@@ -53,11 +53,53 @@ import {
   drawRaceGathererMark,
   drawRaceKeepFallback,
 } from './raceMotifs.ts';
+import { BAR_LIFT } from './healthBar.ts';
 import type { GathererId, PlayerId, SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
 
 /** Ticks each primitive is held before morphing to the next (~1.2 s at 60 Hz — never per-tick). */
 const MORPH_TICKS = 72;
+
+/**
+ * ⛔⛔ S174 (owner) — **THE CASTLE BAR WAS PINNED TO THE BOX, AND THE ART IS 38 px TALLER THAN IT.**
+ *
+ * > *"the towers have their health in the middle of them. It should be ABOVE the image ... It should
+ * > be right above the image — like right above each tower, like when it ends, the rooftop or
+ * > whatever. You take the HIGHEST POINT and you put a bar over it. Not a meter above. Not traversing
+ * > the middle like the castle."*
+ *
+ * His screenshot shows a green bar drawn straight THROUGH a castle's spires, and here is why, in
+ * numbers that were all already in this file:
+ *
+ *   · the KEEP BOX is `KEEP_H = 58` tall and centred on the castle anchor, so its top is `y − 29`;
+ *   · the CASTLE SPRITE is `CASTLE_SPRITE_PX = 96` tall, FOOT-anchored (`CASTLE_SPRITE_ANCHOR.y = 1`)
+ *     at the box's own foot `y + 29` — so its roof is at `y + 29 − 96 = y − 67`;
+ *   · the bar was drawn at `top − 7 = y − 36`, i.e. **31 px BELOW the roof**, which on a spired
+ *     silhouette is the middle of the towers.
+ *
+ * ⚠ THE THREE-LINE COMMENT ABOVE THE OLD `barY` ALREADY SAID THIS AND DREW THE WRONG CONCLUSION FROM
+ * IT — *"A castle sprite stands up to CASTLE_SPRITE_PX above its own foot, which is far higher than
+ * this bar sits"* — and used the fact to move the bar to the OVERLAY so it would not be painted over.
+ * Being on top of the art it crosses is not the same as being above it. The observation was right and
+ * only half of it was acted on, which is the same shape as the `hpFrac < 1` note S173 finally cashed.
+ *
+ * ⭐ `hasSprite` IS THE FORK, AND IT IS ALREADY A PARAMETER. When the race atlas has not loaded the
+ * castle IS the procedural box, so the box's top is genuinely the highest point and the bar belongs
+ * there. A single unconditional offset would leave the fallback keep wearing its bar 38 px out in
+ * space, which is his *"not a meter above"* on the other side of the same sentence.
+ *
+ * ⭐ THE GAP IS `BAR_LIFT`, IMPORTED FROM `healthBar.ts` RATHER THAN RETYPED, because the requirement
+ * is a COMPARISON between this bar and the tower bars — *"not traversing the middle like the castle"*
+ * says the two must agree. Sharing the constant makes them agree by construction.
+ *
+ * Pure and exported so the arithmetic is testable without a Pixi stage.
+ */
+export function castleBarTopY(anchorY: number, hasSprite: boolean): number {
+  const artTopY = hasSprite
+    ? anchorY + KEEP_H / 2 - CASTLE_SPRITE_PX // foot at the box's foot, rising CASTLE_SPRITE_PX
+    : anchorY - KEEP_H / 2; //                   no art loaded: the box IS the building
+  return artTopY - BAR_LIFT;
+}
 const GATHERER_RADIUS = 11;
 // S136 P0 — KEEP_W / KEEP_H were promoted to constants.ts so the click target (isPointInKeep) and
 // this drawing read the same numbers. Only the battlement height stays local: nothing outside this
@@ -500,7 +542,7 @@ export class GathererRenderer {
       // far higher than this bar sits, so a bar drawn into `g` would be hidden behind the very
       // castle whose health it reports.
       const bar = this.overlay;
-      const barY = top - 7;
+      const barY = castleBarTopY(y, hasSprite);
       bar.rect(left, barY, KEEP_W, 4).fill({ color: 0x000000, alpha: 0.55 });
       bar.rect(left, barY, KEEP_W * Math.max(0, hpFrac), 4).fill({
         // Green while healthy, amber past half, red in the last quarter — the reading a player needs
