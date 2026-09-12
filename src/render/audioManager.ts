@@ -586,28 +586,74 @@ let nonetBuffer: AudioBuffer | null = null;
 let nonetFetchPromise: Promise<AudioBuffer | null> | null = null;
 let nonetSource: AudioBufferSourceNode | null = null;
 let nonetRealmActive = false;
+/*
+ * ⭐ S173 P6 — TWO COUNTERS, BECAUSE THIS THEME HAS NOW GONE MISSING TWICE AND BOTH TIMES THE
+ * ONLY EVIDENCE WAS THE OWNER SAYING SO.
+ *
+ * > Owner, S149: *"for NONET in arcade you left the music out. bring the music back that we have
+ * > applied to the NONET it was awesome."*
+ * > Owner, S173: *"I just played NoNet and you have removed the music. Why? Bring it back."*
+ *
+ * ⛔ EVERY FAILURE PATH IN THIS BLOCK USED TO END IN A BARE `return` OR A `console.warn`, so a
+ * silent trial and a working one were INDISTINGUISHABLE from outside the module — there was no
+ * value anywhere a test, the debug overlay or a session could read to tell them apart. That is the
+ * structural reason the regression class is invisible, and it is what these two fix.
+ *
+ * `nonetSilentEntries` counts entries that produced NO SOUND (no bus, or no buffer).
+ * `nonetLoadFailures` counts fetch/decode failures specifically. Both surface on
+ * `inspectAudioChain()`.
+ */
+let nonetSilentEntries = 0;
+let nonetLoadFailures = 0;
 
+/*
+ * ⛔ S173 P6 — THE try/catch IS INSIDE THE IIFE NOW, AND THAT IS A BUG FIX, NOT A TIDY-UP.
+ *
+ * It used to wrap the `await` at the CALL site instead, which left the early-out two lines above it
+ * handing a concurrent caller the RAW, UNGUARDED promise:
+ *
+ *     if (nonetFetchPromise !== null) return nonetFetchPromise;   // ← no catch on this path
+ *
+ * The first caller's rejection was therefore caught and the second caller's was NOT — it threw
+ * straight out of `enterNonetRealm`, whose only call site is `void enterNonetRealm()`
+ * (`main.ts`, the realm-shift edge). A `void`-ed async throw is an UNHANDLED REJECTION: no catch,
+ * no player-visible symptom, and `nonetRealmActive` left latched `true` with no source attached.
+ *
+ * ⭐ THE SIBLING ALREADY HAD IT RIGHT. `getHelgaThemeBuffer`, twenty lines below, puts its
+ * try/catch inside the IIFE exactly like this. `getNonetBuffer` was the odd one out of the three
+ * loaders in this file, and nothing in 80 sessions looked at the two side by side.
+ */
 async function getNonetBuffer(): Promise<AudioBuffer | null> {
   if (audioContext === null) return null;
   if (nonetBuffer !== null) return nonetBuffer;
   if (nonetFetchPromise !== null) return nonetFetchPromise;
-  nonetFetchPromise = (async () => {
-    const response = await fetch(NONET_THEME_URL);
-    if (!response.ok) throw new Error(`nonet theme fetch ${response.status}`);
-    const arrayBuffer = await response.arrayBuffer();
-    const ctx = audioContext;
-    if (ctx === null) throw new Error('AudioContext lost during decode');
-    const decoded = await ctx.decodeAudioData(arrayBuffer);
-    nonetBuffer = decoded;
-    return decoded;
+  nonetFetchPromise = (async (): Promise<AudioBuffer | null> => {
+    try {
+      const response = await fetch(NONET_THEME_URL);
+      if (!response.ok) throw new Error(`nonet theme fetch ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      const ctx = audioContext;
+      if (ctx === null) throw new Error('AudioContext lost during decode');
+      const decoded = await ctx.decodeAudioData(arrayBuffer);
+      nonetBuffer = decoded;
+      return decoded;
+    } catch (err) {
+      /*
+       * ⛔ console.ERROR, NOT console.warn. A warn is what shipped, and the owner has now reported
+       * this theme missing twice while that warn sat unread in a console nobody had open. An error
+       * says, in the one place a failure is actually observable, that the trial is playing SILENT.
+       */
+      nonetLoadFailures += 1;
+      console.error(
+        '[audio] ⛔ NONET theme FAILED TO LOAD — the trial will play in SILENCE. '
+        + `Expected a decodable audio file at ${NONET_THEME_URL}.`,
+        err,
+      );
+      nonetFetchPromise = null;
+      return null;
+    }
   })();
-  try {
-    return await nonetFetchPromise;
-  } catch (err) {
-    console.warn('[audio] nonet theme load failed', err);
-    nonetFetchPromise = null;
-    return null;
-  }
+  return nonetFetchPromise;
 }
 
 /**
@@ -617,7 +663,22 @@ async function getNonetBuffer(): Promise<AudioBuffer | null> {
  * where exitNonetRealm fires during the buffer load.
  */
 export async function enterNonetRealm(): Promise<void> {
-  if (audioContext === null || musicGainNode === null) return;
+  if (audioContext === null || musicGainNode === null) {
+    /*
+     * ⛔ S173 P6 — LOUD. This used to be a bare `return` and the docblock above still calls it
+     * "no-ops gracefully", which is true of the CODE and false of the EXPERIENCE: the player gets a
+     * whole NONET trial in silence and nothing anywhere says why. Reaching a trial takes at least
+     * one click (the ARCADE row, or a placement in a match), so by the time this fires the gesture
+     * listener in `main.ts` should ALREADY have run `initAudio()` — i.e. this branch means the bus
+     * genuinely failed to build, which is worth a line.
+     */
+    nonetSilentEntries += 1;
+    console.error(
+      '[audio] ⛔ NONET entered with no audio bus (AudioContext/musicGain is null) — '
+      + 'the trial will play in SILENCE. initAudio() has not run or the AudioContext failed to build.',
+    );
+    return;
+  }
   if (nonetRealmActive) return;
   nonetRealmActive = true;
   stopHelgaTheme(false); // S112 — NONET owns the music bus; never layer HELGA's theme under it
@@ -627,8 +688,29 @@ export async function enterNonetRealm(): Promise<void> {
     musicSource = null;
   }
   const buffer = await getNonetBuffer();
-  // exit may have fired during the load, or the context was torn down — bail.
-  if (!nonetRealmActive || buffer === null || audioContext === null || musicGainNode === null) return;
+  // exit may have fired during the load — it has already restored the duel track, so leave it be.
+  if (!nonetRealmActive) return;
+  if (buffer === null || audioContext === null || musicGainNode === null) {
+    /*
+     * ⛔⛔ S173 P6 — UN-LATCH. THE OLD CODE RETURNED HERE WITH `nonetRealmActive` STILL TRUE, AND
+     * THAT IS THE WORST OUTCOME THIS MODULE CAN PRODUCE — STRICTLY WORSE THAN NOT TRYING.
+     *
+     * The flag is not a note-to-self, it is the OWNERSHIP TOKEN for the music bus. While it is set:
+     *   · `updateHelgaTheme` returns on its first branch every frame ("NONET realm owns the bus"),
+     *     so her situational theme cannot play either;
+     *   · `stopHelgaTheme(true)`'s `!nonetRealmActive` guard refuses to resume the base track;
+     *   · and `enterNonetRealm`'s own `if (nonetRealmActive) return;` refuses every LATER trial.
+     *
+     * So one failed fetch did not cost one silent trial — it handed the bus to a realm with no
+     * sound in it and kept it there until a falling edge, taking the duel track and HELGA's theme
+     * down with it. Releasing the token and resuming the base track makes a failure cost exactly
+     * the thing that failed, and lets the next trial try again.
+     */
+    nonetRealmActive = false;
+    nonetSilentEntries += 1;
+    void playMusic();
+    return;
+  }
   const source = audioContext.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
@@ -899,6 +981,18 @@ export interface AudioChainSnapshot {
   sfxOutputs: number | null;
   masterInputs: number | null;
   musicSourceActive: boolean;
+  /*
+   * ⭐ S173 P6 — THE NONET REALM, MADE INSPECTABLE. "Is the theme playing?" had no answer before
+   * this: the realm flag, the source and every failure were module-private, so the only way to know
+   * was to listen. These four make the silent case READABLE — by a test, by the debug overlay, and
+   * by a session answering the owner in one line instead of re-deriving it from scratch.
+   */
+  nonetRealmActive: boolean;
+  nonetSourceActive: boolean;
+  /** Entries that produced NO sound (no bus, or no buffer). Must stay 0 in a healthy session. */
+  nonetSilentEntries: number;
+  /** Fetch/decode failures for the theme specifically. */
+  nonetLoadFailures: number;
   /** S23 P3 — diagnostic call counters. */
   claveCallsTotal: number;
   claveCallsSynthed: number;
@@ -941,6 +1035,10 @@ export function inspectAudioChain(): AudioChainSnapshot {
     sfxOutputs: sfxGainNode?.numberOfOutputs ?? null,
     masterInputs: masterGain?.numberOfInputs ?? null,
     musicSourceActive: musicSource !== null,
+    nonetRealmActive,
+    nonetSourceActive: nonetSource !== null,
+    nonetSilentEntries,
+    nonetLoadFailures,
     claveCallsTotal,
     claveCallsSynthed,
     fartCallsTotal,
@@ -970,7 +1068,23 @@ export function _resetAudioForTest(): void {
    * It clears the HELGA singletons but has never cleared the NONET ones (`nonetBuffer`,
    * `nonetFetchPromise`, `nonetSource`, `nonetRealmActive`), so those leak between cases in the
    * one describe block that relies on this reset for isolation.
+   *
+   * ⭐⭐ S173 P6 — FIXED, AND THIS LEAK IS WHY THE NONET THEME HAS NO TESTS AT ALL.
+   *
+   * S165 wrote the paragraph above, named the exact four singletons, and then did not clear them.
+   * `nonetRealmActive` surviving a reset means the SECOND case in any describe block hits
+   * `enterNonetRealm`'s `if (nonetRealmActive) return;` and silently does nothing; `nonetBuffer`
+   * surviving means a case that stubs a FAILING fetch still gets a buffer from the case before it.
+   * Both make a NONET audio test lie, which is a fair guess at why `audioManager.test.ts` reached
+   * 646 lines with ZERO NONET assertions — and therefore why the theme could vanish twice with
+   * every gate green. Clearing them is the enabler for the tests at the bottom of that file.
    */
+  nonetBuffer = null;
+  nonetFetchPromise = null;
+  nonetSource = null;
+  nonetRealmActive = false;
+  nonetSilentEntries = 0;
+  nonetLoadFailures = 0;
   musicBuffers.clear();
   musicFetches.clear();
   desiredMusicUrl = DEFAULT_MUSIC_SRC;

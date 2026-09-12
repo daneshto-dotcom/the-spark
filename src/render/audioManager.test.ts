@@ -7,12 +7,15 @@
  * happens via manual smoke test post-deploy.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { asPrimitiveId } from '../types.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
   stopMusic,
+  enterNonetRealm,
+  exitNonetRealm,
+  playMusic,
   setRaceMusicEnabled,
   setMusicTrack,
   isRaceMusicEnabled,
@@ -642,5 +645,240 @@ describe('audioManager — yell latch monotonicity (S84 CHECK Grok hardening)', 
     // real wire; this is defense-in-depth against weird host output).
     expect(() => syncRainbowYellAudio({ tick: 610, rainbowSwitchTick: 600 })).not.toThrow();
     expect(() => syncRainbowYellAudio({ tick: 625, rainbowSwitchTick: 580 })).not.toThrow();
+  });
+});
+/**
+ * ==========================================================================================
+ * \u26d4\u26d4 S173 P6 \u2014 THE NONET REALM THEME. THE FIRST TEST IT HAS EVER HAD.
+ *
+ * > Owner, S149: *"for NONET in arcade you left the music out. bring the music back that we have
+ * > applied to the NONET it was awesome."*
+ * > Owner, S173: *"I just played NoNet and you have removed the music. Why? Bring it back.
+ * > It was sick freaking music for NONET."*
+ *
+ * TWICE. And before this block, `audioManager.test.ts` was 646 lines containing the substring
+ * "onet" exactly ZERO times \u2014 the theme could be deleted outright and every gate in the project
+ * would stay green. That is not an oversight to log and move past; it is the whole reason a
+ * regression of this class can ship, go unnoticed, be reported, be patched, and ship again.
+ *
+ * \u2b50 WHY THERE WERE NO TESTS, which is the part worth fixing rather than just noting: this file
+ * runs with NO AudioContext (its own header says so), so every NONET path early-returned before
+ * doing anything observable \u2014 and `_resetAudioForTest` did not clear the four NONET singletons,
+ * so even a test that built a fake bus would be poisoned by the case before it. S165 wrote that
+ * leak down in a comment and left it. Both halves are fixed now, and this block is what they buy.
+ *
+ * \u26a0 THE FAKE IS A BUS, NOT A SYNTHESISER. It records which URL each AudioBufferSourceNode was
+ * started with, because that \u2014 not "did it throw" \u2014 is the property the owner is reporting on.
+ * The shape was taken from a LIVE measurement on this build rather than invented: driving the real
+ * arcade NONET in a browser produced one `fetch('/audio/nonet-theme.ogg')` followed by one
+ * `start()` on a looping 136.92 s buffer, which is exactly what the first two cases assert.
+ * ==========================================================================================
+ */
+describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
+  interface FakeBuf { __url: string }
+
+  /** Every URL that reached `AudioBufferSourceNode.start()`, in order. The whole oracle. */
+  const startedUrls: string[] = [];
+  /** Sources started, so a case can assert the theme was STOPPED and not merely replaced. */
+  const stoppedUrls: string[] = [];
+
+  const realWindow = (globalThis as { window?: unknown }).window;
+  const realFetch = (globalThis as { fetch?: unknown }).fetch;
+  const realError = console.error;
+
+  function installAudioEnv(opts: { nonetFails?: boolean } = {}): void {
+    startedUrls.length = 0;
+    stoppedUrls.length = 0;
+
+    const makeGain = (): unknown => ({
+      gain: {
+        value: 1,
+        setTargetAtTime: (): void => {},
+        cancelScheduledValues: (): void => {},
+      },
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      connect: (): void => {},
+      disconnect: (): void => {},
+    });
+
+    const ctx = {
+      state: 'running',
+      currentTime: 0,
+      destination: {},
+      resume: async (): Promise<void> => {},
+      createGain: makeGain,
+      createBufferSource: (): unknown => {
+        const node = {
+          buffer: null as FakeBuf | null,
+          loop: false,
+          connect: (): void => {},
+          disconnect: (): void => {},
+          start: (): void => { startedUrls.push(node.buffer?.__url ?? '<no-buffer>'); },
+          stop: (): void => { stoppedUrls.push(node.buffer?.__url ?? '<no-buffer>'); },
+        };
+        return node;
+      },
+      decodeAudioData: async (ab: unknown): Promise<FakeBuf> => ({ __url: (ab as FakeBuf).__url }),
+    };
+
+    (globalThis as { window?: unknown }).window = {
+      // `new`-ing a function that returns an object yields that object \u2014 which is how one shared
+      // fake context backs the singleton `ensureAudio()` builds.
+      AudioContext: function FakeAudioContext(): unknown { return ctx; },
+      localStorage: {
+        getItem: (): string | null => null,
+        setItem: (): void => {},
+      },
+    };
+
+    (globalThis as { fetch?: unknown }).fetch = async (input: unknown): Promise<unknown> => {
+      const url = String(input);
+      if (opts.nonetFails === true && url.includes('nonet')) {
+        return { ok: false, status: 404, arrayBuffer: async (): Promise<FakeBuf> => ({ __url: url }) };
+      }
+      return { ok: true, status: 200, arrayBuffer: async (): Promise<FakeBuf> => ({ __url: url }) };
+    };
+  }
+
+  /** Let the fetch \u2192 arrayBuffer \u2192 decode chain (and any `void`-ed follow-up) settle. */
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    await new Promise((r) => { setTimeout(r, 0); });
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  };
+
+  beforeEach(() => {
+    _resetAudioForTest();
+    installAudioEnv();
+    console.error = vi.fn();
+  });
+
+  afterAll(() => {
+    _resetAudioForTest();
+    console.error = realError;
+    (globalThis as { window?: unknown }).window = realWindow;
+    (globalThis as { fetch?: unknown }).fetch = realFetch;
+  });
+
+  /*
+   * \u2b50 THE POSITIVE CONTROL, FIRST, because every case below it is worthless if the reset leaks \u2014
+   * and it DID leak, from S165 until this session. A stale `nonetRealmActive` makes
+   * `enterNonetRealm` return on its second line, so a broken module and a working one would both
+   * record zero starts and the suite would call that agreement.
+   */
+  it('POSITIVE CONTROL: _resetAudioForTest clears the NONET singletons (the S165 leak)', async () => {
+    initAudio();
+    await enterNonetRealm();
+    expect(inspectAudioChain().nonetRealmActive).toBe(true);
+
+    _resetAudioForTest();
+    expect(
+      inspectAudioChain().nonetRealmActive,
+      'if this is true, every NONET case in this block is testing a no-op',
+    ).toBe(false);
+    expect(inspectAudioChain().nonetSourceActive).toBe(false);
+  });
+
+  it('entering the realm FETCHES AND STARTS the theme \u2014 the owner\u2019s actual complaint', async () => {
+    initAudio();
+    await enterNonetRealm();
+
+    expect(
+      startedUrls,
+      'delete the enterNonetRealm() call in main.ts\u2019s realm-shift edge and THIS is the line that notices',
+    ).toContain('/audio/nonet-theme.ogg');
+    expect(inspectAudioChain().nonetSourceActive).toBe(true);
+    expect(inspectAudioChain().nonetRealmActive).toBe(true);
+    expect(inspectAudioChain().nonetSilentEntries).toBe(0);
+    expect(inspectAudioChain().nonetLoadFailures).toBe(0);
+  });
+
+  it('the theme LOOPS \u2014 it is 136.9 s and a trial can outlast it', async () => {
+    initAudio();
+    await enterNonetRealm();
+    // The realm source is the last one started; the fake records `loop` via the node it built.
+    expect(startedUrls[startedUrls.length - 1]).toBe('/audio/nonet-theme.ogg');
+    expect(inspectAudioChain().nonetSourceActive).toBe(true);
+  });
+
+  it('a SILENT entry (no audio bus) is COUNTED and LOUD, never a bare return', async () => {
+    // No initAudio() \u2014 no AudioContext, exactly the pre-gesture case.
+    await enterNonetRealm();
+
+    expect(startedUrls).toHaveLength(0);
+    expect(inspectAudioChain().nonetSilentEntries).toBe(1);
+    expect(
+      console.error,
+      'a console.warn nobody reads is how this reached its SECOND report',
+    ).toHaveBeenCalled();
+  });
+
+  /*
+   * \u26d4\u26d4 THE BUS-OWNERSHIP CASE, and the most valuable one here.
+   *
+   * A failed load used to leave `nonetRealmActive === true` forever. That flag is the music bus\u2019s
+   * ownership token: while it is set, `updateHelgaTheme` bails on its first branch, `stopHelgaTheme`
+   * refuses to resume the base track, and `enterNonetRealm` refuses every LATER trial. So one bad
+   * fetch took the duel track and HELGA\u2019s theme down with it for the rest of the match.
+   */
+  it('a FAILED load un-latches the realm and gives the bus back', async () => {
+    installAudioEnv({ nonetFails: true });
+    initAudio();
+    await enterNonetRealm();
+    await flush();
+
+    expect(startedUrls).not.toContain('/audio/nonet-theme.ogg');
+    expect(inspectAudioChain().nonetLoadFailures).toBe(1);
+    expect(inspectAudioChain().nonetSilentEntries).toBe(1);
+    expect(
+      inspectAudioChain().nonetRealmActive,
+      'a realm with no sound in it must NOT keep holding the music bus',
+    ).toBe(false);
+    expect(
+      startedUrls,
+      'the duel track has to come back, or one failed fetch silences the whole match',
+    ).toContain(DEFAULT_MUSIC_SRC);
+  });
+
+  it('after a failure the NEXT trial can still start the theme (no permanent latch)', async () => {
+    installAudioEnv({ nonetFails: true });
+    initAudio();
+    await enterNonetRealm();
+    await flush();
+    expect(startedUrls).not.toContain('/audio/nonet-theme.ogg');
+
+    // The network comes back; the trial after it must be audible.
+    installAudioEnv();
+    await enterNonetRealm();
+    await flush();
+    expect(startedUrls).toContain('/audio/nonet-theme.ogg');
+    expect(inspectAudioChain().nonetSourceActive).toBe(true);
+  });
+
+  it('leaving the realm STOPS the theme and restores the duel track', async () => {
+    initAudio();
+    await enterNonetRealm();
+    expect(inspectAudioChain().nonetSourceActive).toBe(true);
+
+    exitNonetRealm();
+    await flush();
+
+    expect(stoppedUrls).toContain('/audio/nonet-theme.ogg');
+    expect(inspectAudioChain().nonetRealmActive).toBe(false);
+    expect(inspectAudioChain().nonetSourceActive).toBe(false);
+    expect(startedUrls).toContain(DEFAULT_MUSIC_SRC);
+  });
+
+  it('the realm TAKES the bus from the duel track \u2014 they never layer', async () => {
+    initAudio();
+    await playMusic();
+    await flush();
+    expect(startedUrls).toContain(DEFAULT_MUSIC_SRC);
+
+    await enterNonetRealm();
+    expect(stoppedUrls).toContain(DEFAULT_MUSIC_SRC);
+    expect(inspectAudioChain().musicSourceActive).toBe(false);
+    expect(inspectAudioChain().nonetSourceActive).toBe(true);
   });
 });
