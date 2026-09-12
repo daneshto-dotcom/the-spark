@@ -1,9 +1,10 @@
 /**
  * SPARK — S144 P2/P3: how a BLUEPRINT is drawn, at any size.
  *
- * ONE renderer, TWO consumers:
+ * ONE renderer, THREE consumers:
  *   • the castle panel's build tiles (P2), scaled down to a ~64 px thumbnail;
- *   • the drag ghost that follows your cursor (P3), at full world scale.
+ *   • the drag ghost that follows your cursor (P3), at full world scale;
+ *   • S174 — the CODEX cards for HELGA and VOLTKIN (see `blueprintFitScaleBox` below).
  *
  * Both read `blueprints.ts`, so the thumbnail you clicked, the ghost you dragged and the structure
  * that actually gets stamped are the same geometry by construction — not three drawings that happen
@@ -43,6 +44,43 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
  */
 export function blueprintFitScale(id: GodlyId, fitRadius: number): number {
   return fitRadius / blueprintRadius(id);
+}
+
+/**
+ * The node glyph's radius at scale 1. Named because TWO functions depend on it agreeing:
+ * `drawBlueprintShape` draws `NODE_GLYPH_R * scale`, and `blueprintFitScaleBox` has to leave room
+ * for exactly that much or the diagram it "fits" overflows by a glyph.
+ */
+const NODE_GLYPH_R = 9;
+
+/**
+ * PURE — the scale that fits `id`'s whole drawn footprint inside a `halfW` × `halfH` BOX.
+ *
+ * ⚠ WHY A BOX AND NOT `blueprintFitScale`'s CIRCLE. The circle fit is right for a square tile, and
+ * wrong for the codex card, which is a WIDE art zone (≈108 × 56). The two recipes that need it sit
+ * at opposite extremes of the aspect range and a radius fit serves neither: voltkin is a 280 px
+ * straight chain with ZERO vertical extent — fitting its 152 px radius into a 56 px half-height
+ * shrinks it to a row of specks over an empty card — while helga's 44 px star would be blown up to
+ * fill a 108 px half-width and burst through the card's name. Measured against the shipped
+ * geometry, the box fit gives voltkin 0.72 (a chain that spans the card) and helga 1.06 (leaves at
+ * ~47 px, which is the same visual weight as the `EmblemSpec` family's 38–46 px radii).
+ *
+ * The glyph allowance is why the returned scale can be trusted as a bound rather than an estimate:
+ * a node is drawn as a disc of `NODE_GLYPH_R * scale` about its centre, so the extent to fit is
+ * `(|d| + NODE_GLYPH_R) * scale`, not `|d| * scale`.
+ */
+export function blueprintFitScaleBox(id: GodlyId, halfW: number, halfH: number): number {
+  const bp = blueprintFor(id);
+  let maxDx = 0;
+  let maxDy = 0;
+  for (const n of bp.nodes) {
+    maxDx = Math.max(maxDx, Math.abs(n.dx));
+    maxDy = Math.max(maxDy, Math.abs(n.dy));
+  }
+  return Math.max(
+    0,
+    Math.min(halfW / (maxDx + NODE_GLYPH_R), halfH / (maxDy + NODE_GLYPH_R)),
+  );
 }
 
 export interface BlueprintDrawOpts {
@@ -103,7 +141,7 @@ export function drawBlueprintShape(
       // long, so a square tile forces it to ~0.21 scale and at a 2 px floor it rendered as a row of
       // nearly-invisible specks (checked on the real render, not inferred). 3 px keeps the chain
       // readable as a chain without inflating the compact stars.
-      Math.max(3, 9 * scale),
+      Math.max(3, NODE_GLYPH_R * scale),
       node.type,
       tint ?? SPARK_COLORS[node.type],
     );

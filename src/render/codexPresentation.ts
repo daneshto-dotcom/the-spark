@@ -8,10 +8,23 @@
  *
  *   - COPY   — displayName + a one-line POWER epigraph + a tight, epic RECIPE (each written to FIT the
  *              tile text zone by construction; codexPresentation.test.ts enforces the budgets).
- *   - IMAGE  — the coherence rule: an entry that IS a character shows its character art (Voltkin,
- *              HELGA); a GEOMETRIC buildable shows its BUILD CONSTELLATION — a recipe
- *              emblem drawn from the same SHAPE_GLYPHS + SPARK_COLORS the board and the COMBOS tab
- *              use, so the codex speaks one visual language: the recipe IS the picture.
+ *   - IMAGE  — the coherence rule: a buildable shows its BUILD CONSTELLATION — a recipe emblem drawn
+ *              from the same SHAPE_GLYPHS + SPARK_COLORS the board and the COMBOS tab use, so the
+ *              codex speaks one visual language: the recipe IS the picture.
+ *
+ * ⭐ S174 — AND THAT RULE NOW HAS NO EXCEPTIONS. Owner: *"Helga has reverted back to the state where
+ * you can see the actual Helga, but you should see only the STRUCTURE of the building, like the
+ * connectors, how it looks. Also for Voltkin."*
+ *
+ * ⛔ SO THE `sprite` HALF OF THIS TABLE IS DELETED, not merely unused. It existed for exactly two
+ * rows — voltkin and helga — and it was the reason those two cards were the only ones in TOWERS &
+ * STRUCTURES that did not draw their recipe. Their diagram cannot be an `EmblemSpec`: helga's star
+ * has TWO leaf types (3 Spirals + 3 Circles on one Triangle hub) and `EmblemSpec` carries a single
+ * `nodeType`, and voltkin is a straight CHAIN, which is neither of its two `kind`s. Rather than
+ * widen the emblem language for two entries, `codexOverlay` falls back to `blueprintGlyph` — the
+ * renderer the castle panel's build tiles already use, drawing the REAL stamped geometry. An entry
+ * with no emblem is therefore not a missing picture; it is a picture drawn from the blueprint.
+ * `codexOverlay.test.ts` pins that both of them fit the card's art zone.
  *
  * `emblemLayout` is a pure function (no Pixi) so the emblem geometry — node counts, hub, ring bonds —
  * is unit-testable against the real recipe requirements (anti-drift: the laser turret emblem must show
@@ -32,15 +45,17 @@ export interface CodexCopy {
   readonly power: string;
   /** Precise build recipe + what it does — ≤150 chars so it always fits the tile text zone. */
   readonly recipe: string;
-  /** Character art (only for entries that ARE characters); geometric buildables use an emblem. */
-  readonly sprite?: string;
-  /** Recipe-constellation emblem (only for geometric buildables). */
+  /**
+   * Recipe-constellation emblem. ABSENT means "this recipe is not expressible as a ring or a star"
+   * (helga's two-leaf-type hub, voltkin's chain) — the card then draws the blueprint itself. See
+   * the S174 note in the file docblock; it is never a hole.
+   */
   readonly emblem?: EmblemSpec;
 }
 
 /**
- * Keyed by recipe id (+ the synthetic 'nonet'). The coherence contract, enforced by tests:
- * every entry has EITHER a sprite (character) OR an emblem (geometry) — never neither, never both.
+ * Keyed by recipe id. The coherence contract, enforced by tests: every entry shows its RECIPE —
+ * an emblem where the shape is a ring or a star, the blueprint itself where it is neither.
  */
 export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
   voltkin: {
@@ -48,7 +63,8 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
     power: 'The storm given a body.',
     recipe:
       'Chain 4 Squares, then 4 Triangles — 8 bonded in one straight line, both ends free. The sky answers with a summons.',
-    sprite: '/godly/voltkin/anim/voltkin-zap.png',
+    // ⭐ S174 — no `emblem`: a straight chain is neither a ring nor a star. The card draws the
+    // blueprint (`blueprintGlyph`), which is the same 8-node line the build actually stamps.
   },
   /*
    * ⭐ S173 P5 — THE `nonet` ROW IS DELETED AND MUST NOT COME BACK. Owner: *"no [NONET] be anywhere
@@ -218,7 +234,8 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
     power: 'The princess answers in slaps.',
     recipe:
       'Bond 3 Spirals + 3 Circles to 1 Triangle hub — seven shapes. HELGA descends and slaps chewers off your walls.',
-    sprite: '/godly/helga/helga.png',
+    // ⭐ S174 — no `emblem`: `EmblemSpec` carries ONE `nodeType` and this star has two (Spiral +
+    // Circle, interleaved). The card draws the blueprint, which shows the real alternation.
   },
 };
 

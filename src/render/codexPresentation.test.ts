@@ -5,9 +5,14 @@
  *   1. COPY BUDGETS — every entry's copy is written to FIT its tile zone (name ≤ 16 chars,
  *      power ≤ 44, recipe ≤ 150). The tile layout in codexOverlay.ts is sized for exactly these
  *      budgets, so "text coming out of the boxes" fails HERE, at authoring time, not on screen.
- *   2. IMAGE COHERENCE — every entry has EITHER character art OR a recipe emblem, never neither /
- *      both; and NO non-Voltkin entry may point at Voltkin art (the S121 owner bug: pentagram /
- *      laser turret / lightning hub all wore the voltkin-zap placeholder).
+ *   2. IMAGE COHERENCE — ⭐ S174 (a) REWRITTEN, AND IT IS NOW A ONE-SIDED RULE. It used to say
+ *      "EITHER character art OR a recipe emblem", which is precisely what let two cards show a
+ *      person instead of a building. Owner: *"you should see only the STRUCTURE of the building,
+ *      like the connectors, how it looks. Also for Voltkin."* So `sprite` is gone from the table
+ *      and the contract is that NO entry carries art at all: a card is an emblem, or — for the two
+ *      recipes an `EmblemSpec` cannot describe — its blueprint, drawn by codexOverlay.
+ *      This also SUBSUMES the S121 owner bug it replaces (pentagram / laser turret / lightning hub
+ *      all wearing the voltkin-zap placeholder): with no sprite field, no entry can wear any art.
  *   3. EMBLEM TRUTH — emblemLayout must depict the REAL recipe: 5 ring triangles for the
  *      pentagram, 1 line + 6 spirals for the turret (S140 P1 retune), 1 dot + 5 circles for the hub — with the
  *      right bond topology (ring vs spokes).
@@ -73,32 +78,33 @@ describe('S121 P4 — codex copy budgets (the anti-overflow contract)', () => {
     const fb = codexCopyFor('someFutureTower');
     expect(fb.name).toBe('SOMEFUTURETOWER');
     expect(fb.recipe).toBe('???');
-    expect(fb.sprite).toBeUndefined();
     expect(fb.emblem).toBeUndefined();
   });
 });
 
-describe('S121 P4 — image coherence (characters wear their art; geometry wears its build)', () => {
-  it('every entry has EXACTLY ONE of sprite | emblem', () => {
+describe('S174 (a) — image coherence: EVERY card wears its build, none wears a character', () => {
+  it('⛔ REGRESSION: no entry carries character art at all — owner: "only the STRUCTURE"', () => {
+    /*
+     * Owner: *"Helga has reverted back to the state where you can see the actual Helga, but you
+     * should see only the STRUCTURE of the building, like the connectors, how it looks. Also for
+     * Voltkin."*
+     *
+     * ⚠ ASSERTED AS "NO KEY NAMED sprite ANYWHERE", not as `c.sprite === undefined`. The field was
+     * DELETED from `CodexCopy`, so the typed form of that assertion no longer compiles — and once
+     * it cannot compile, nothing stops a future session re-adding the field and the two cards with
+     * it. A key scan is the only version of this test that survives the deletion it is guarding.
+     */
     for (const id of ALL_IDS) {
-      const c = CODEX_COPY[id];
-      const hasSprite = c.sprite !== undefined;
-      const hasEmblem = c.emblem !== undefined;
-      expect(hasSprite !== hasEmblem, `${id}: sprite XOR emblem`).toBe(true);
+      expect(Object.keys(CODEX_COPY[id]), `${id} must carry no art`).not.toContain('sprite');
     }
   });
 
-  it('REGRESSION: no non-Voltkin entry wears Voltkin art (the S121 owner bug)', () => {
-    for (const id of ALL_IDS) {
-      if (id === 'voltkin') continue;
-      const sprite = CODEX_COPY[id].sprite ?? '';
-      expect(sprite.includes('voltkin'), `${id} must not wear voltkin art`).toBe(false);
-    }
-  });
-
-  it('the two characters keep their own art', () => {
-    expect(CODEX_COPY['voltkin'].sprite).toContain('voltkin');
-    expect(CODEX_COPY['helga'].sprite).toContain('helga');
+  it('every entry either wears an emblem or is drawn from its blueprint — and we name which', () => {
+    // The two without an emblem are the two an `EmblemSpec` cannot describe: helga's star has TWO
+    // leaf types and voltkin is a chain. codexOverlay draws those from `blueprints.ts` instead, and
+    // codexOverlay.test.ts is where that geometry is checked against the owner's stated recipes.
+    const drawnFromBlueprint = ALL_IDS.filter((id) => CODEX_COPY[id].emblem === undefined);
+    expect([...drawnFromBlueprint].sort()).toEqual(['helga', 'voltkin']);
   });
 
   it('⭐ S173 P5 REGRESSION: NONET appears NOWHERE in the codex — owner: "Easter egg"', () => {
@@ -109,7 +115,7 @@ describe('S121 P4 — image coherence (characters wear their art; geometry wears
     // and it checks the COPY as well as the key so a 'sudoku trial' card under another name is
     // caught too. The mechanic itself is untouched: sudokuEvent/sudokuOverlay still run the trial.
     for (const [id, copy] of Object.entries(CODEX_COPY)) {
-      const blob = `${id} ${copy.name} ${copy.power} ${copy.recipe} ${copy.sprite ?? ''}`;
+      const blob = `${id} ${copy.name} ${copy.power} ${copy.recipe}`;
       expect(blob.toLowerCase(), `${id} must not mention NONET`).not.toContain('nonet');
     }
   });

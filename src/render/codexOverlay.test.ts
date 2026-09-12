@@ -33,13 +33,20 @@ import {
   TOWER_COLS,
   TOWER_TILE_H,
   TOWER_TILE_GAP,
+  ART_HALF_W,
+  ART_HALF_H,
+  entryFromRecipe,
   type CodexTabKey,
   previewSpanFor,
 } from './codexOverlay.ts';
-import { CANVAS_HEIGHT } from '../constants.ts';
+import { CANVAS_HEIGHT, SparkType } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 import { magicComboCatalog } from './comboCodexStore.ts';
 import { drawBondVisual, type BondVisualParams } from './bondVisualRenderer.ts';
+import { CODEX_COPY } from './codexPresentation.ts';
+import { blueprintFitScaleBox, drawBlueprintShape } from './blueprintGlyph.ts';
+import { blueprintFor } from '../state/blueprints.ts';
+import type { DefenderGodlyRecipe } from '../state/godlyRecipes/types.ts';
 
 // ⚠ BOUND, NOT MIRRORED. These come from codexOverlay.ts itself, so a layout retune moves the
 // assertions with it instead of leaving a test that passes about numbers the file stopped using —
@@ -317,5 +324,133 @@ describe('S173 P5 — the 3× preview clock makes the motion visible inside a ho
     for (const e of CATALOG) {
       expect(serialize(e.outcome.visualEffectId, 123)).toBe(serialize(e.outcome.visualEffectId, 123));
     }
+  });
+});
+
+/*
+ * ================= S174 (a) — HELGA AND VOLTKIN SHOW THE BUILDING, NOT THE PERSON =================
+ *
+ * Owner: *"Helga has reverted back to the state where you can see the actual Helga, but you should
+ * see only the STRUCTURE of the building, like the connectors, how it looks. Also for Voltkin."*
+ *
+ * ⛔ THE DEFECT WAS A DATA ONE, WHICH IS WHY THE TESTS BELOW ARE ABOUT DATA AND GEOMETRY RATHER
+ * THAN PIXELS. `makeSpriteTile` drew `entry.emblem` when it had one and `entry.characterSprite`
+ * otherwise — and those two entries were the only ones in the table carrying art, so they were the
+ * only two cards that never drew their recipe. The fix severs the sprite path entirely and sends
+ * every emblem-less entry to `blueprintGlyph`, so what is worth pinning is: (1) an entry minted
+ * from a recipe that HAS art carries none; (2) the geometry that gets drawn instead is the owner's
+ * stated recipe; (3) it fits the card.
+ */
+
+/**
+ * A recording Graphics for `drawBlueprintShape`, deliberately SEPARATE from the `GraphicsMock`
+ * above rather than an extension of it. That one is tuned for `drawBondVisual` and treats `rect` as
+ * a no-op; blueprint glyphs draw Squares AS rects, so teaching the shared mock to record them would
+ * silently widen the combo-preview fit boxes measured earlier in this file.
+ */
+class BlueprintGraphicsMock {
+  minX = Infinity; maxX = -Infinity; minY = Infinity; maxY = -Infinity;
+  private pt(x: number, y: number): void {
+    this.minX = Math.min(this.minX, x); this.maxX = Math.max(this.maxX, x);
+    this.minY = Math.min(this.minY, y); this.maxY = Math.max(this.maxY, y);
+  }
+  moveTo(x: number, y: number): this { this.pt(x, y); return this; }
+  lineTo(x: number, y: number): this { this.pt(x, y); return this; }
+  circle(x: number, y: number, r: number): this { this.pt(x - r, y - r); this.pt(x + r, y + r); return this; }
+  rect(x: number, y: number, w: number, h: number): this { this.pt(x, y); this.pt(x + w, y + h); return this; }
+  closePath(): this { return this; }
+  fill(): this { return this; }
+  stroke(): this { return this; }
+}
+
+function drawnAtCardScale(id: 'helga' | 'voltkin'): BlueprintGraphicsMock {
+  const g = new BlueprintGraphicsMock();
+  // Centred on (0,0) on purpose: the claim under test is about the FIT, so measuring |extent|
+  // against the half-sizes keeps this assertion independent of where the card puts its art centre.
+  drawBlueprintShape(
+    g as unknown as Parameters<typeof drawBlueprintShape>[0],
+    id,
+    0,
+    0,
+    blueprintFitScaleBox(id, ART_HALF_W, ART_HALF_H),
+  );
+  return g;
+}
+
+describe('S174 (a) — the card draws the recipe, and carries no character art to draw instead', () => {
+  it('⛔ a recipe that HAS character art still mints an entry without any', () => {
+    // The strongest form of the fix: hand `entryFromRecipe` the real shape of a recipe that carries
+    // art and assert the art does not survive the mapping. If `characterSprite` is ever re-added to
+    // CodexEntry, this fails while the type still compiles — which is the half tsc cannot cover.
+    const helgaLike: DefenderGodlyRecipe = {
+      kind: 'defender',
+      id: 'helga',
+      defenderKind: 'princess',
+      predicate: () => null,
+      stillValid: () => true,
+      characterSprite: '/godly/helga/helga.png',
+    };
+    const entry = entryFromRecipe(helgaLike);
+    expect(Object.keys(entry)).not.toContain('characterSprite');
+    expect(Object.values(entry).join(' ')).not.toContain('helga.png');
+    // …and with no emblem either, the tile's `else` branch — the blueprint — is the only thing left.
+    expect(entry.emblem).toBeUndefined();
+  });
+
+  it('HELGA and VOLTKIN are the entries with no emblem, so they take the blueprint branch', () => {
+    expect(CODEX_COPY['helga'].emblem).toBeUndefined();
+    expect(CODEX_COPY['voltkin'].emblem).toBeUndefined();
+  });
+});
+
+describe('S174 (a) — the diagram IS the owner\'s stated recipe (read off blueprints.ts)', () => {
+  it('HELGA: 3 Spirals + 3 Circles bonded to 1 Triangle hub — 7 shapes, hub degree 6', () => {
+    const bp = blueprintFor('helga');
+    expect(bp.nodes).toHaveLength(7);
+    expect(bp.nodes[0].type).toBe(SparkType.Triangle);
+    expect(bp.nodes.filter((n) => n.type === SparkType.Spiral)).toHaveLength(3);
+    expect(bp.nodes.filter((n) => n.type === SparkType.Circle)).toHaveLength(3);
+    // Hub degree 6: every bond touches node 0, and there are six of them.
+    expect(bp.bonds).toHaveLength(6);
+    for (const [a] of bp.bonds) expect(a).toBe(0);
+  });
+
+  it('VOLTKIN: 4 Squares then 4 Triangles, 8 bonded in ONE straight line, both ends free', () => {
+    const bp = blueprintFor('voltkin');
+    expect(bp.nodes).toHaveLength(8);
+    expect(bp.nodes.slice(0, 4).every((n) => n.type === SparkType.Square)).toBe(true);
+    expect(bp.nodes.slice(4).every((n) => n.type === SparkType.Triangle)).toBe(true);
+    // "one straight line": every node on the same row, and the chain is 7 consecutive bonds.
+    expect(new Set(bp.nodes.map((n) => n.dy)).size).toBe(1);
+    expect(bp.bonds).toHaveLength(7);
+    // "both ends free": the end nodes appear in exactly one bond each, the middle six in two.
+    const degree = bp.nodes.map((_, i) => bp.bonds.filter(([a, b]) => a === i || b === i).length);
+    expect(degree).toEqual([1, 2, 2, 2, 2, 2, 2, 1]);
+  });
+});
+
+describe('S174 (a) — the diagram fits the card, at the scale the card actually uses', () => {
+  it.each(['helga', 'voltkin'] as const)('%s stays inside the art zone', (id) => {
+    /*
+     * ⚠ THIS IS THE ASSERTION THAT EARNS `blueprintFitScaleBox` OVER `blueprintFitScale`. Voltkin
+     * is a 280 px chain with zero vertical extent and helga a 44 px star; a single radius fit
+     * either shrinks the chain to specks or blows the star through the card's name. The bound is
+     * exact by construction — `(|d| + glyphR) * scale` — so equality at one edge is the fit
+     * working, not a near miss; the epsilon is for float, nothing else.
+     */
+    const g = drawnAtCardScale(id);
+    expect(Math.abs(g.minX), `${id} left`).toBeLessThanOrEqual(ART_HALF_W + 1e-6);
+    expect(g.maxX, `${id} right`).toBeLessThanOrEqual(ART_HALF_W + 1e-6);
+    expect(Math.abs(g.minY), `${id} top`).toBeLessThanOrEqual(ART_HALF_H + 1e-6);
+    expect(g.maxY, `${id} bottom`).toBeLessThanOrEqual(ART_HALF_H + 1e-6);
+  });
+
+  it('and it is not drawn as a dot: each uses most of the axis it is long on', () => {
+    // Anti-vacuity. A fit of 0 would pass every bound above while drawing nothing legible — which
+    // is precisely the failure a radius fit produces for voltkin (0.39 scale, 3.5 px glyphs).
+    const chain = drawnAtCardScale('voltkin');
+    expect(chain.maxX - chain.minX).toBeGreaterThan(ART_HALF_W * 1.8);
+    const star = drawnAtCardScale('helga');
+    expect(star.maxY - star.minY).toBeGreaterThan(ART_HALF_H * 1.8);
   });
 });

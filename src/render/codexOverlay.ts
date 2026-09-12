@@ -47,7 +47,7 @@
  * (`spark:combos:discovered:v1`). All render-layer / localStorage — never touches the sim.
  */
 
-import { Application, Container, Graphics, Text, TextStyle, Sprite, Assets, ColorMatrixFilter } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { loadUnlockedSet } from './codexStore.ts';
@@ -55,6 +55,19 @@ import { SHAPE_GLYPHS } from './shapes.ts';
 import { MAGIC_COMBO_KEYS, isOrderSymmetric, type ComboKey } from '../combos.ts';
 import { loadDiscoveredCombos, magicComboCatalog } from './comboCodexStore.ts';
 import { codexCopyFor, drawEmblem, type EmblemSpec } from './codexPresentation.ts';
+/*
+ * ⭐ S174 (a) — THE RECIPE DIAGRAM FOR THE TWO ENTRIES AN `EmblemSpec` CANNOT DESCRIBE.
+ *
+ * Owner: *"Helga has reverted back to the state where you can see the actual Helga, but you should
+ * see only the STRUCTURE of the building, like the connectors, how it looks. Also for Voltkin."*
+ *
+ * This is the renderer the castle panel's build tiles already use — the SHIPPED geometry out of
+ * `blueprints.ts`, the same nodes and bonds the build stamps — not a second diagram system written
+ * for the codex. `blueprintGlyph.ts`'s own docblock argued the case years before this priority
+ * needed it: an emblem is "an idealised logo… not the real stamped layout", and voltkin and helga
+ * had no emblem at all.
+ */
+import { blueprintFitScaleBox, drawBlueprintShape } from './blueprintGlyph.ts';
 import { fitTextToBox, fitTextToWidth } from './textFit.ts';
 // ⭐ S173 P5 — THE SAME DRAW CALL THE BOARD USES. See `syncComboPreview` for why this import, and
 // not a hand-drawn approximation, is the whole point of the combo preview.
@@ -78,6 +91,19 @@ const GRID_TOP = 235;
 const ART_CY = 116;
 const POWER_Y = 200;
 const RECIPE_Y = 226;
+/*
+ * ⭐ S174 (a) — THE ART ZONE, AS A BOX, because a blueprint diagram has an aspect ratio and an
+ * emblem does not. Exported so `codexOverlay.test.ts` binds to these rather than mirroring them.
+ *
+ * ⚠ MEASURED AGAINST THE TILE'S OWN ANATOMY, not chosen. Horizontally: `TILE_W - 28` leaves the
+ * same 14 px gutter the recipe text block uses. Vertically: the zone is ART_CY ± 56, i.e. 60…172 —
+ * clear of the name (fontSize 20 anchored at y=30, so it ends at 40) and of the power epigraph
+ * (fontSize 13 anchored at POWER_Y, so it starts at ~193). The emblem family's radii top out at 48
+ * (pinned by codexPresentation.test.ts), so a blueprint fitted to this box reads at the same weight
+ * as the seventeen cards beside it rather than as a bigger or smaller kind of picture.
+ */
+export const ART_HALF_W = (TILE_W - 28) / 2;
+export const ART_HALF_H = 56;
 /*
  * ⭐ S173 P5 — THE GRID METRICS ARE EXPORTED so `codexOverlay.test.ts` BINDS to them rather than
  * mirroring them. This file's own history is the argument (see codexPresentation.test.ts, S140): a
@@ -288,17 +314,24 @@ export interface CodexEntry {
   readonly power: string;
   /** Precise "how to build + what it does" — visible in BOTH states (S105 P2 checkable recipes). */
   readonly recipeHint: string;
-  /** Character art — only for entries that ARE characters (Voltkin, HELGA). */
-  readonly characterSprite?: string;
-  /** Recipe-constellation emblem — only for geometric buildables (drawn in the board's glyph language). */
+  /**
+   * Recipe-constellation emblem, drawn in the board's glyph language. ABSENT is not a hole: the
+   * card then draws the entry's BLUEPRINT instead (S174 (a) — helga's two-leaf-type star and
+   * voltkin's chain are the two recipes an `EmblemSpec` cannot express). Either way the picture is
+   * the recipe, which is the whole coherence rule.
+   */
   readonly emblem?: EmblemSpec;
 }
 
 /**
  * S121 P4 — derive a CodexEntry from a GodlyRecipe via the codexPresentation copy map (the single
- * source of presentation truth). The recipe's own `characterSprite` is used ONLY when the map marks
- * the entry as a character — this is what retired the wrong Voltkin placeholder on the three
- * geometric towers (they now show their build constellation instead).
+ * source of presentation truth).
+ *
+ * ⭐ S174 (a) — `characterSprite` IS GONE FROM THIS TYPE. It carried the recipe's character art
+ * into the card for exactly two entries, and the owner's ruling is that those two must show their
+ * structure like everything else. The art itself is untouched on the recipes — the cinematic, the
+ * defender renderer and the spawner all still read `recipe.characterSprite`; the CODEX simply
+ * stopped being one of its consumers.
  */
 export function entryFromRecipe(recipe: GodlyRecipe): CodexEntry {
   const copy = codexCopyFor(recipe.id);
@@ -307,7 +340,6 @@ export function entryFromRecipe(recipe: GodlyRecipe): CodexEntry {
     displayName: copy.name,
     power: copy.power,
     recipeHint: copy.recipe,
-    characterSprite: copy.sprite,
     emblem: copy.emblem,
   };
 }
@@ -742,33 +774,34 @@ export class CodexOverlay {
     fitTextToWidth(name, TILE_W - 24, 12);
     tile.addChild(name);
 
-    // IMAGE — the S121 coherence rule: characters show their art (brother-surprise hidden until
-    // unlocked); geometric buildables show their BUILD CONSTELLATION in the board's own glyph
-    // language (visible even locked — the recipe is checkable, per S105 P2; just dimmed).
+    /*
+     * IMAGE — the S121 coherence rule, which S174 (a) made exceptionless: EVERY card shows the
+     * recipe that builds it, in the board's own glyph language.
+     *
+     * Owner: *"Helga has reverted back to the state where you can see the actual Helga, but you
+     * should see only the STRUCTURE of the building, like the connectors, how it looks. Also for
+     * Voltkin."*
+     *
+     * ⛔ THE `else` IS NOT A FALLBACK FOR MISSING DATA. `BLUEPRINTS` is a full
+     * `Record<GodlyId, Blueprint>` — tsc will not let an id exist without one — so every entry that
+     * has no emblem HAS a blueprint, and the branch below draws the real stamped nodes and bonds.
+     * That is a STRONGER picture than an emblem, not a weaker one: an emblem is an idealised logo
+     * while the blueprint is the geometry the build actually lays down.
+     */
+    const diagram = new Graphics();
     if (entry.emblem !== undefined) {
-      const emblem = new Graphics();
-      drawEmblem(emblem, entry.emblem, isUnlocked);
-      emblem.position.set(TILE_W / 2, ART_CY);
-      tile.addChild(emblem);
-    } else if (entry.characterSprite !== undefined) {
-      const spritePath = entry.characterSprite;
-      void Assets.load(spritePath).then((tex) => {
-        const sprite = new Sprite(tex);
-        sprite.anchor.set(0.5);
-        sprite.position.set(TILE_W / 2, ART_CY);
-        // Fit the art inside the zone regardless of source resolution (was a fixed 0.26 that
-        // assumed one asset size — another "escapes the box" vector for future art drops).
-        const fit = Math.min(150 / tex.width, 130 / tex.height);
-        sprite.scale.set(Math.min(0.26, fit));
-        if (!isUnlocked) {
-          const gray = new ColorMatrixFilter();
-          gray.desaturate();
-          sprite.filters = [gray];
-          sprite.alpha = 0.15;
-        }
-        tile.addChild(sprite);
-      }).catch(() => { /* asset missing — leave empty tile */ });
+      drawEmblem(diagram, entry.emblem, isUnlocked);
+      diagram.position.set(TILE_W / 2, ART_CY);
+    } else {
+      drawBlueprintShape(
+        diagram,
+        entry.id,
+        TILE_W / 2,
+        ART_CY,
+        blueprintFitScaleBox(entry.id, ART_HALF_W, ART_HALF_H),
+      );
     }
+    tile.addChild(diagram);
 
     // POWER epigraph — the entry's soul, part of the unlock payoff (hidden while locked).
     if (isUnlocked && entry.power !== '') {
