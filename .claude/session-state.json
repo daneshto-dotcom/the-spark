@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Standard",
   "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "P1 + P4 COMPLETE. P5 partially landed (godly-combos tab removed, towers grid scrolls; the combo hover-preview still in flight). P6/P7 agent still running. P2/P3 pending.",
+  "session_status": "P1 + P1b + P4 + P5(a,b,c) + P6 + B3 complete. B5 / B6+B2 / B1 delegated to three agents. B7+B8, B4, B9 recorded as bigger/blocked per his instruction. P2 (atlas repack) in flight, P3 pending.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -74,7 +74,9 @@
     "P1c #vitest-green-and-tsc-red-on-the-same-commit: the full suite passed 4303/4303 while typecheck exited 1 with three errors in the very test file that was passing. Bond.a is a PhysicsBody, not a Primitive, so my adjacency detach was a no-op the assertions could not see. Reading ONE gate's exit code would have shipped it. The project rule is \"read every gate's exit code from a captured $?\" - every, not the slowest one.",
     "A0 #i-rode-six-lanes-on-one-invocation-and-lost-five: the state-discovery workflow put all six probe lanes in a single Workflow call, an org spend limit hit mid-run, and 6 of 8 agents died - the exact S161 failure this project's CLAUDE.md warns about in a section written after it happened before. I had READ that section during boot. Re-running the four dead lanes by hand cost more than dispatching them separately would have. When the owner later asked for parallel work I used three SEPARATE Agent invocations for that reason.",
     "P4 #the-agent-refused-my-brief-and-was-right: I briefed the tower-shortfall work at castlePanel's caption from my own grep. CASTLE_BUILD_GRID_ENABLED = false - that panel has been dead code since S149 P5 moved tower-building to the footer band. The agent verified the premise before building on it and redirected to footerBand.ts. I had grepped for the STRING (\"NEED n MORE\") and found a real site, but never asked whether that site was still REACHABLE. A live-looking code path is not the same as a rendered one.",
-    "P4b #two-agents-one-working-tree-sweep-each-other: staging is global, so when two subagents commit into the same checkout, whoever commits second sweeps up the first's staged files - and the first then reports success for a commit that does not contain its work. The P4 agent even NAMED this hazard in its report and still concluded, wrongly, that its work was safe in HEAD. It was uncommitted. VERIFYING THE AGENT'S CLAIM AGAINST THE TREE is what saved it: three greps, and the symbols were absent from every commit. Next time: give parallel agents separate worktrees, or let exactly one of them commit."
+    "P4b #two-agents-one-working-tree-sweep-each-other: staging is global, so when two subagents commit into the same checkout, whoever commits second sweeps up the first's staged files - and the first then reports success for a commit that does not contain its work. The P4 agent even NAMED this hazard in its report and still concluded, wrongly, that its work was safe in HEAD. It was uncommitted. VERIFYING THE AGENT'S CLAIM AGAINST THE TREE is what saved it: three greps, and the symbols were absent from every commit. Next time: give parallel agents separate worktrees, or let exactly one of them commit.",
+    "B3 #a-noted-defect-is-still-a-defect: healthBar.ts carried the line \"The castle bar (gathererRenderer.drawKeep) still carries fault 1 - noted, not touched here\" from S171 onward. Fault 1 is hide-while-undamaged, which the owner had ALREADY rejected once for creatures. He then found it on the castle by playing, and reported it a second time. Writing a defect down bought nothing except the ability to say it was known. If it is worth a comment that names it as a fault, it is worth either fixing or a line in the backlog he can see.",
+    "P1/B3 #shipping-half-a-ruling-reads-as-not-shipping-it: P1 gave every tower a health bar and he still said \"the other buildings don't have HP bars\" - because the bar was RED and the castle's is GREEN, so it did not read as the same feature. The mechanic was right and the signal was wrong. Colour was carrying meaning (building vs unit) that nobody had written down, and I had matched the creature convention without asking which family a tower belongs to."
   ],
   "budget_total": null,
   "totals": {
@@ -1372,6 +1374,100 @@
       "check_method": null,
       "real_context_tokens_at_close": null,
       "verification": []
+    },
+    {
+      "id": "B3",
+      "title": "PLAYTEST B3 - BUILDINGS ARE GREEN, CREATURES RED, AND THE CASTLE STOPS HIDING. DONE this session, commit 87c2259. Owner: \"the Castle HP shows a green HP bar, but only once it's attacked. All the other buildings still don't have HP bars ... a green one, exactly the same. While spawn and creatures have the red HP bars.\" TWO halves: (1) P1 shipped tower bars EARLIER THIS SESSION in red - right bar, wrong colour - now on the castle's own green/amber/red ramp, because \"exactly the same\" taken literally means the ramp, not a flat green; (2) drawKeep's `if (hpFrac < 1)` hide-while-full gate is GONE. That gate was fault 1, the same defect he rejected for creatures in S171, and healthBar.ts had carried the line \"the castle bar still carries fault 1 - noted, not touched here\" ever since. RECORDING A DEFECT IS NOT FIXING IT.",
+      "status": "completed",
+      "check_completed": false,
+      "checkpoint_commit": "87c2259",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B5",
+      "title": "PLAYTEST B5 - ORCS, AFTER WAVE 3, THE CASTLE SPAWNS GOBLIN MELEES. A regression with an exact repro that makes race identity vanish mid-match. Delegated.",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "delegated_to": "agent:orcs-wave3",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B6+B2",
+      "title": "PLAYTEST B6 (laser tower fires 2x faster - an owner RULING with a number) and B2 (\"up to six\" players is a lie, the game seats four; six RACES is true and must be kept). Delegated as one small pair.",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "delegated_to": "agent:laser-and-seatcount",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B1",
+      "title": "PLAYTEST B1 - THE MULTIPLAYER LOBBY SHOWS ONLY PLAYER ONE'S BACKDROP. Must partition by occupied seat count the way the board already does: 2 players = halves, 3-4 = quadrants, each region showing that seat's chosen race backdrop. The twelve per-race backdrops already shipped in S165, so this is COMPOSITION, not art. Delegated.",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "delegated_to": "agent:lobby-backdrop",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B7+B8",
+      "title": "PLAYTEST B7 + B8 - DAMAGE NUMBERS MUST STACK, AND POWERS MUST SHOW THEM. ⛔ DELIBERATELY NOT DELEGATED - RECORDED AS BIGGER, per the owner's own instruction (\"anything that sounds bigger, just record and log for later\"). B7: \"it should be stackable ... any new damage hitting the same target should just layer above. Like, boom boom boom boom ... as many damages as the unit receives.\" B8: \"powers don't show damage, but they should - the red with the white outline font, on powers as well, not just on spawn.\" ⛔ WHY THIS IS NOT A SMALL FIX: S172 derives damage numbers from ehp DELTAS between observations, precisely BECAUSE a one-shot world.effects push is lost ~5/6 of the time on a peer (S171 research). Six simultaneous attackers therefore coalesce into ONE number BY CONSTRUCTION - exactly what he is describing. Making them stack means either per-hit events (the thing that design rejected) or rendering one observed delta as a layered column. AND B8 is the same file's known coverage hole: the design \"covers 3 of damageEntity's 5 arms - bonds and primitives are skipped\". READ .claude/plans/S171_HUD_RESEARCH.md §2 BEFORE PROMISING THE MAPLESTORY LOOK.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B4",
+      "title": "PLAYTEST B4 - THE SCARAB: white fringe AND a ~2x inflated attack row. ⛔ RECORDED, NOT DELEGATED, BECAUSE CODE CANNOT FIX IT. This session measured both defects and proved the scarab is the ONE atlas a repack cannot repair: its PNG POSTDATES the S171 packer fix (10:41 vs 10:39 on 2026-09-10) and still fails, and normaliseStateScale equalises HEIGHT only (_subject_h), so a WIDTH divergence survives it. check:atlas also reports the largest near-white pocket of any unit atlas (47 px) on this asset. HIS OWN CONCLUSION IS CORRECT: \"we'll probably have to regenerate it if you can't make it right.\" The clip needs regenerating - an art action, and he runs the generators.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
+    },
+    {
+      "id": "B9",
+      "title": "PLAYTEST B9 - VOLTKIN REWORK. Deferred BY HIM: \"obviously rework Volt because he looks like shit, but we have that on priority down the line.\" Consistent with the standing note: new art supplied, no death animation, no build cinematic.",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": []
     }
   ],
   "scope_amendments_s172": [
@@ -1712,7 +1808,8 @@
   "scope_amendments_s173": [
     "P4 ADDED MID-SESSION BY THE OWNER, and recorded as an amendment rather than executed ad-hoc (Rule 16). His words: \"Also, we're gonna add a little micro priority to this session ... Add this to this session priority batch.\" Approval is explicit and in his own message, so no separate go was sought. Ordered AFTER P1 because both touch HUD readouts and P1 is the outstanding item from S172; P4 is independent of it and could move earlier if he prefers.",
     "P5 ADDED MID-SESSION BY THE OWNER (second amendment this session), recorded rather than executed ad-hoc per Rule 16. His words: \"we'll add this too as a micro batch to this priority... to this session.\" Three parts, all in the codex. ORDERING NOTE: P5(a) is a deletion and is the cheapest; P5(b) is a contained scroll container; P5(c) is the only part with real unknown cost because it needs each combo's LIVE appearance, and the combo visuals are drawn by the board renderers rather than by anything the codex can call today.",
-    "P6+P7 ADDED MID-SESSION BY THE OWNER (third amendment this session). P6 is a REGRESSION and therefore outranks the rest of the batch on urgency; recorded as an amendment rather than fixed ad-hoc, per the URGENCY PROTOCOL, which says urgency makes the scope gate MORE important, not less. P7 is explicitly design-only this session (\"build it in parallel with spark\")."
+    "P6+P7 ADDED MID-SESSION BY THE OWNER (third amendment this session). P6 is a REGRESSION and therefore outranks the rest of the batch on urgency; recorded as an amendment rather than fixed ad-hoc, per the URGENCY PROTOCOL, which says urgency makes the scope gate MORE important, not less. P7 is explicitly design-only this session (\"build it in parallel with spark\").",
+    "AMENDMENT 4 - THE LIVE 2-PLAYER PLAYTEST (Romania). Nine bugs, captured verbatim in .claude/plans/S173_PLAYTEST_BUGS.md and committed BEFORE triage so nothing could be lost to a context window or a usage limit. He then directed parallel execution: \"send out a few agents to fix the little bugs ... anything that sounds bigger, just record and log for later ... don't send out more than three at a time. Three or maybe four.\" THREE dispatched (B5, B6+B2, B1); four recorded (B7+B8, B4, B9) with the reason each is bigger than it looks. ⚠ TWO OF THE NINE LANDED ON WORK SHIPPED EARLIER IN THIS SAME SESSION: B3 corrected P1's bar colour, and B4 confirmed by eye the scarab finding P2 had already measured."
   ],
   "carry_forwards_spawned_in_s173": [],
   "owner_questions_open_s173": [
