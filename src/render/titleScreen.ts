@@ -3,10 +3,10 @@
  *
  * Renders the "SPARK" title + four buttons:
  *   - 1 Player    → solo mode (existing Phase-1 behavior unchanged)
- *   - Multiplayer → networked FFA (2..6 players) via Trystero — friends lobby
- *                   or quick match (S87 rename of the historical "1v1" button;
+ *   - Multiplayer → networked FFA (2..MAX_PLAYERS seats) via Trystero — friends
+ *                   lobby or quick match (S87 rename of the historical "1v1" button;
  *                   the INTERNAL GameMode value stays '1v1', wire-locked)
- *   - VS Bots     → local match vs 1..6 AI sparks (S87; opens BotSetupOverlay)
+ *   - VS Bots     → local match vs 1..MAX_BOTS AI sparks (S87; opens BotSetupOverlay)
  *   - CODEX       → S104 P3: the ONE unified codex (3 tabs: Godly Combos / Combos / Towers &
  *                   Structures). Replaces the old separate CODEX + COMBOS buttons (owner: "only
  *                   codex that includes all"). Also openable in-game via the G+C chord.
@@ -19,7 +19,9 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import {
+  BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS, MAX_PLAYERS, PLAYER_COLORS,
+} from '../constants.ts';
 import { fitTextToWidth } from './textFit.ts';
 import { attachButtonFeedback } from './buttonFeedback.ts';
 
@@ -98,11 +100,29 @@ export class TitleScreen {
     );
     this.container.addChild(btnSolo);
 
-    // S87 — renamed from "1v1 (2 Player)": the mode has seated up to 6 since
+    // S87 — renamed from "1v1 (2 Player)": the mode has seated more than two since
     // S62; the user mandated the honest name. Internal GameMode stays '1v1'.
+    //
+    // ⛔ S173 B2 (owner) — **THIS SUBLABEL SAID "2–6 SPARKS" AND THE GAME SEATS FOUR.**
+    // *"it still says in the home page or whatever that it's up to six, but it's only up to four.
+    // Yes, we have six colors. But make sure that's consistent and coherent with what's supposed to
+    // be."* The cap moved 6 → 4 in S147 R41 (*"from now on the game will be only upto 4 players"*)
+    // and this line did not follow — it was the first thing he saw on the home screen for 26
+    // sessions.
+    //
+    // ⭐ IT IS INTERPOLATED NOW, NOT WRITTEN IN PROSE — the same fix S147 R42 made to the lobby
+    // status line (`lobbyStateMachine.ts`: *"the cap is INTERPOLATED, not written in prose"*), for
+    // the same reason: a hardcoded cap in copy is a promise the code stops keeping the moment the
+    // constant moves, and it moves silently because no test can fail on a sentence.
+    //
+    // ⚠ SIX COLOURS IS STILL TRUE AND IS DELIBERATELY NOT TOUCHED. `PLAYER_COLORS` has six entries
+    // because they are six RACES (owner R45: *"its ok to have 6 colors with only 4 players max"*),
+    // of which at most MAX_PLAYERS are in play at once. **Six races, four seats** — the number he
+    // was correcting is the SEAT count, and the board says so: `QUADRANTS_4P` has exactly four
+    // zones, so a fifth seat has no quadrant to own.
     const btn1v1 = this.makeButton(
       'Multiplayer',
-      'friends lobby or quick match · 2–6 sparks',
+      `friends lobby or quick match · 2–${MAX_PLAYERS} sparks`,
       PLAYER_COLORS[1],
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + BUTTON_HEIGHT + BUTTON_GAP,
@@ -110,12 +130,18 @@ export class TitleScreen {
     );
     this.container.addChild(btn1v1);
 
-    // S87 — VS BOTS entry (third row): local match vs 1..6 AI sparks with
+    // S87 — VS BOTS entry (third row): local match vs 1..MAX_BOTS AI sparks with
     // per-bot difficulty. Opens BotSetupOverlay; the match itself reuses the
     // FFA rule set (mode 'bots').
+    //
+    // ⛔ S173 B2 — THE SAME LIE ONE ROW DOWN, and arguably the worse half: "1–6 AI sparks" plus
+    // the human promises SEVEN seats, which is the exact configuration S147 R45 retired the silver
+    // colour to make impossible. `MAX_BOTS === MAX_PLAYERS - 1`, and `BotSetupOverlay` has always
+    // clamped its picker to it (`Math.min(MAX_BOTS, n)`) — only the copy was stale, so the button
+    // advertised a match the next screen would refuse to set up.
     const btnVsBots = this.makeButton(
       'VS Bots',
-      'battle 1–6 AI sparks · set each bot’s difficulty',
+      `battle 1–${MAX_BOTS} AI sparks · set each bot’s difficulty`,
       BOT_ACCENT_COLOR,
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
