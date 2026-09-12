@@ -406,6 +406,76 @@ if spec.get('normaliseStateScale', False):
                 out.append(np.array(canvas))
             frames[st] = out
 
+# ⭐⭐ S173 (owner) — **normaliseStateWidth: EQUALISE THE BODY WIDTH TOO.**
+#
+# > *"You literally take it, and you move the width to be smaller. Like, you take the image and you
+# > take both sides and compact it horizontally. It's super easy. I can even do it on a cropping
+# > thing just so it will be equal."*
+#
+# ⛔ WHY THE HEIGHT PASS ABOVE DOES NOT ALREADY DO THIS. normaliseStateScale measures the
+# subject's HEIGHT and applies that factor to BOTH axes. So after it runs the heights agree and the
+# widths only agree if the subject has the SAME ASPECT in every row. Measured on the shipped scarab,
+# after the height pass:
+#
+#     idle   330x136  (2.42)     walk   196x134  (1.47)
+#     attack 270x136  (1.99)     die    331x121  (2.74)
+#
+# Heights match to within 2 px; widths run 196..331. veo drew the beetle more head-on in the walk
+# clip, so that row is genuinely a different SHAPE rather than a different zoom — which is why the
+# uniform pass could never reach it and why the owner sees the creature change size between states.
+#
+# ⚠ THIS IS A NON-UNIFORM SCALE AND IT THEREFORE DISTORTS, BY CONSTRUCTION. Stretching a
+# foreshortened body to a side-on width does not rotate it; it widens it. That is an ART trade the
+# owner makes, not a correctness fix, so it is OPT-IN per spec and OFF by default — absent, this
+# file stays byte-identical, like every other knob here.
+#
+# ⚠ AND IT IS CAPPED. Beyond maxWidthStretch the distortion is worse than the size jump it
+# cures, so the factor is clamped and the clamp is PRINTED — a row that hits the cap is telling you
+# the clip needs re-rolling rather than re-scaling.
+if spec.get('normaliseStateWidth', False):
+    def _subject_w(a):
+        op = a[:, :, 3] > 40
+        lab, n = ndimage.label(op)
+        if not n:
+            return 0
+        sizes = ndimage.sum(op, lab, index=np.arange(1, n + 1))
+        xs = np.nonzero(lab == int(np.argmax(sizes)) + 1)[1]
+        return int(xs.max() - xs.min() + 1) if xs.size else 0
+
+    MAX_STRETCH = float(spec.get('maxWidthStretch', 1.35))
+    PLAYABLE_W = ('idle', 'walk', 'attack')
+
+    def _median_w(st):
+        per = [_subject_w(a) for a in frames[st]]
+        per = [v for v in per if v > 0]
+        return float(np.median(per)) if per else 0.0
+
+    w0 = {st: _median_w(st) for st in states}
+    goodw = [w0[st] for st in states if st in PLAYABLE_W and w0[st] > 0] or [v for v in w0.values() if v > 0]
+    if goodw:
+        refw = float(np.median(goodw))
+        for st in states:
+            if w0[st] <= 0:
+                continue
+            kx = refw / w0[st]
+            if abs(kx - 1.0) < 0.02:
+                continue
+            clamped = max(1.0 / MAX_STRETCH, min(MAX_STRETCH, kx))
+            note = '' if clamped == kx else f'  (CLAMPED from x{kx:.3f} — re-roll this clip)'
+            print(f'  normaliseStateWidth: {st} median w={w0[st]:.0f} vs ref {refw:.0f} -> x{clamped:.3f}{note}')
+            out = []
+            for a in frames[st]:
+                H, W = a.shape[0], a.shape[1]
+                im = Image.fromarray(a)
+                nw = max(1, int(round(W * clamped)))
+                im = im.resize((nw, H), Image.LANCZOS)
+                canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+                # Bottom-centre anchored, exactly as the height pass does, so the body keeps its
+                # ground line and only its WIDTH moves.
+                canvas.paste(im, ((W - nw) // 2, 0), im)
+                out.append(np.array(canvas))
+            frames[st] = out
+
 # ⭐ ONE union bbox across EVERY frame of EVERY state — the anti-jitter guarantee.
 x0 = y0 = 10**9; x1 = y1 = -1
 for st in states:
