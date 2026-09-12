@@ -81,8 +81,10 @@ function expectDisjointAndOnCanvas(regions: readonly LobbyRegion[]): void {
 const CANVAS_AREA = CANVAS_WIDTH * CANVAS_HEIGHT;
 
 describe('S173 B1 — the lobby backdrop splits by OCCUPIED SEAT COUNT', () => {
-  it('no occupied seats (the SELECT screen) paints nothing at all', () => {
+  it('no occupied seats (the SELECT screen) yields NO regions', () => {
     // With no roster there is no seat to partition by, and inventing one is the bug being fixed.
+    // The renderer still paints its black floor there — that is what replaces the stale half the
+    // board was leaking onto the select screen (see BACKING_COLOR).
     expect(lobbyBackdropRegions(seatsWith([]))).toEqual([]);
   });
 

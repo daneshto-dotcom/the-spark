@@ -59,16 +59,23 @@ import { zoneRect } from './zoneBackgroundRenderer.ts';
 const LOBBY_BG_ALPHA = 0.55;
 
 /**
- * ⛔ THE OPAQUE BACKING IS LOAD-BEARING, NOT DECORATION. Two things sit under it and both must be
- * hidden, or the fix reproduces the bug it is fixing:
+ * ⛔ THE OPAQUE BACKING IS LOAD-BEARING, NOT DECORATION. Three things sit under it and all three
+ * must be hidden, or the fix reproduces the bug it is fixing:
  *
  *   · the board's own `ZoneBackgroundRenderer`, still painting seat 0's half on `groundLayer`
  *     underneath the lobby (that IS the reported defect);
  *   · the empty quadrant of a 3-player split, which must read as the cosmos black the board's
- *     unowned ground reads as — see `lobbyBackdropRegions`.
+ *     unowned ground reads as — see `lobbyBackdropRegions`;
+ *   · the SELECT screen, which has no roster at all and was therefore showing that same stale
+ *     half-and-half behind the HOST/JOIN panes. Verified in the running app, not deduced.
  *
  * Without it a 0.55-alpha region would COMPOSITE over the stale half rather than replace it, which
  * is worse than the bug: two race worlds blended into one.
+ *
+ * ⚠ SO IT IS PAINTED WHENEVER THE LOBBY IS, INCLUDING WITH ZERO REGIONS. That is the whole of the
+ * select-screen answer: with nobody seated there is no seat to partition by, and the honest
+ * backdrop for "no players yet" is the black this screen had before per-race art existed — never
+ * one seat's world standing in for everybody's, which is the sentence this file is named after.
  *
  * ⚠ SAFE ONLY BECAUSE OF ONE FACT — CHECK IT BEFORE MOVING THIS. The connection-lost overlay is a
  * STAGE SIBLING mounted BELOW the lobby container (`connectionLostOverlay.ts` adds itself to
@@ -269,8 +276,6 @@ export interface LobbyBackdropHandle {
  */
 export function makeLobbyBackdrop(isShown: () => boolean): LobbyBackdropHandle {
   const container = new Container();
-  // Hidden until the first `update` — the lobby can be shown before any transition has run.
-  container.visible = false;
 
   const backing = new Graphics();
   backing.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(BACKING_COLOR);
@@ -299,7 +304,9 @@ export function makeLobbyBackdrop(isShown: () => boolean): LobbyBackdropHandle {
      */
     lastEnabled = isZoneBackgroundEnabled();
     const regions = lastEnabled ? lobbyBackdropRegions(seats) : [];
-    container.visible = regions.length > 0;
+    // ⚠ `container.visible` is NEVER touched — see the `BACKING_COLOR` docblock. The backing is the
+    // lobby's floor and must survive an empty roster (the select screen) and a toggled-off backdrop
+    // alike; only the region sprites below come and go.
     awaitingTexture = false;
 
     while (sprites.length < regions.length) {

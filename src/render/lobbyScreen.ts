@@ -888,8 +888,9 @@ export class LobbyScreen {
      *
      * ⚠ NOT INSIDE THE `if (inRoom)` BLOCK BELOW, deliberately: the transition OUT of a room has to
      * reach it too, or the last room's split would stay painted behind the SELECT panes. On the
-     * select screen every seat is unoccupied, `lobbyBackdropRegions` returns nothing and the whole
-     * layer hides itself — which is also today's behaviour there, unchanged.
+     * select screen every seat is unoccupied, so the layer keeps only its black floor — which is
+     * also the fix for the half-and-half that screen was showing, since it never had a roster to
+     * partition by in the first place.
      */
     this.backdrop.update(v.seats);
     if (this.codeText.text !== v.code) this.codeText.text = v.code;
