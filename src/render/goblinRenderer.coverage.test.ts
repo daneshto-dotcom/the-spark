@@ -61,9 +61,16 @@ describe('S168 — no CreatureType is invisible', () => {
 
   /*
    * ⭐⭐ THE ASSERTION. Every type the sim can mint must be claimed by exactly one of the three
-   * renderers. A type in `GOBLIN_KINDS` but missing from `ATLASES` is FINE — it falls through to the
-   * procedural puppet, which is the graceful case and is how the direwolf ships while the owner
-   * generates its sprite. A type in NEITHER set is the invisible case, and that is what fails here.
+   * renderers. A type in NEITHER set is the invisible case, and that is what fails here.
+   *
+   * ⛔ S173 B5 — THIS BLOCK USED TO ADD *"a type in `GOBLIN_KINDS` but missing from `ATLASES` is
+   * FINE — it falls through to the procedural puppet, which is the graceful case and is how the
+   * direwolf ships while the owner generates its sprite."* The owner played that "graceful case" and
+   * reported it as a regression thirty sessions deep — a wolf drawn as a green goblin with a cleaver
+   * is the wrong drawing by THIS FILE'S OWN standard, the one the locust-cloud note states two
+   * paragraphs above (*"satisfying it with the wrong drawing would be gaming it"*). Missing art is
+   * no longer fine: `goblinRendererLazyAtlas.test.ts`'s S173 B5 block gates it. This file keeps its
+   * narrower question — draws NOTHING — and stops blessing the other half.
    */
   it('⭐⭐ every CreatureType is claimed by a renderer — the direwolf was not', () => {
     const orphans = (Object.keys(CREATURE_CONFIGS) as CreatureType[]).filter(

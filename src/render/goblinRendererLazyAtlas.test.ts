@@ -100,3 +100,65 @@ describe('S169 — lazy race-keyed atlases stay reachable', () => {
     expect(Object.keys(ATLASES).length).toBeGreaterThanOrEqual(18);
   });
 });
+
+/**
+ * ⭐⭐ S173 B5 (owner playtest) — **THE INVERSE OF THE CONTRACT ABOVE, AND IT IS THE HALF THAT WAS
+ * MISSING.**
+ *
+ * Owner, playing ORCS over the internet: *"when you're playing as orcs, after wave three, the castle
+ * starts spawning the original shitty little goblin melees ... we already have the right orc spawn
+ * that the castle is supposed to spawn, the creature type, the little orc warriors. And then
+ * starting with wave three it's like taking us back thirty sessions when we had those goblin, like,
+ * the little tiny green. That's not correct. It should only generate the orcs."*
+ *
+ * ⛔ THE SIM IS NOT THE CULPRIT AND THAT IS PROVEN, NOT ASSUMED — `raceUnitEmit.test.ts`'s S173 B5
+ * block drives the REAL `runHostTick` wave loop as orcs through wave 5 and every castle-born unit is
+ * `raceUnit`, at every wave. `waveNumber` has exactly ONE consumer in the whole tree
+ * (`waveSpawnMultiplier`, the shape-arrival rate), so there is no wave-indexed creature ladder to
+ * fall off. Enumerating every production `SPAWN_CREATURE` site leaves ONE type an orc seat can field
+ * that draws as the green procedural goblin: the Warlord's **direwolf**, which had no `ATLASES`
+ * entry.
+ *
+ * ⛔ AND IT WAS AN EXEMPTION THIS SUITE HAD WRITTEN DOWN AND DEFENDED. `goblinRenderer.coverage`
+ * states the principle exactly right for the locust cloud — *"satisfying it with the wrong drawing
+ * would be gaming it"*, because a humanoid puppet is not a swarm of insects — and then let the
+ * direwolf ship as that same humanoid puppet, on the grounds that the owner would supply art later.
+ * He played it first. A wolf drawn as a green goblin with a cleaver is the wrong drawing by the
+ * suite's own test, and it is orc-EXCLUSIVE, which is why the report names a race.
+ *
+ * ⚠ THE ASSERTION IS DELIBERATELY OVER ALL SIX RACES' UNITS, not over the direwolf alone. He
+ * happened to be playing orcs; the rule is that NOTHING this renderer claims falls through to
+ * `drawGoblin` in a shipped build.
+ */
+describe('S173 B5 — nothing this renderer claims draws as the legacy green goblin', () => {
+  /**
+   * `raceUnit` is the one legitimate absentee: it is ONE `CreatureType` for six races, so its sheet
+   * is resolved at draw time from `player.raceId` (`RACE_UNIT_ATLAS_BASE`) rather than from this
+   * type-keyed table. The six sheets it resolves to are pinned on disk by `raceUnitFrames.test.ts`.
+   */
+  const RACE_KEYED: ReadonlySet<CreatureType> = new Set<CreatureType>(['raceUnit']);
+
+  it('⛔⛔ every GOBLIN_KINDS type has real art — a gap here IS the owner`s green goblin', () => {
+    const puppets = [...GOBLIN_KINDS].filter(
+      (t) => !RACE_KEYED.has(t) && ATLASES[t] === undefined,
+    );
+    expect(
+      puppets,
+      `these types are drawn by goblinRenderer but have no atlas, so they fall through to `
+        + `drawGoblin — the green procedural puppet the owner calls "the little tiny green" and `
+        + `"taking us back thirty sessions": ${puppets.join(', ')}. Give each one an ATLASES entry `
+        + `(a placeholder sheet that reads as the right KIND of creature beats a humanoid goblin) `
+        + `or move it to a renderer that draws it properly.`,
+    ).toEqual([]);
+  });
+
+  it('⭐ the direwolf specifically — the type the owner reported, pinned by name', () => {
+    // By name as well as by the sweep, the `hudLayout` rule: a regression report should say WHICH
+    // defect came back, not merely that some member of a set is wrong.
+    expect(ATLASES.direwolf, 'the Orc Warlord`s wolf must not draw as a goblin').toBeTypeOf('string');
+  });
+
+  it('CONTROL — the scan is not vacuous', () => {
+    expect(GOBLIN_KINDS.size).toBeGreaterThanOrEqual(20);
+  });
+});

@@ -135,6 +135,49 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
   t9BossZombies: t9BossAtlasBase('zombies'),
   t9BossOrcs: t9BossAtlasBase('orcs'),
   t9BossDemons: t9BossAtlasBase('demons'),
+  /*
+   * ⭐⭐ S173 B5 (owner playtest) — **THE DIREWOLF IS NOT A GOBLIN, AND UNTIL S173 IT WAS DRAWN AS
+   * ONE.** This entry is what stops the Orc Warlord's pack rendering as `drawGoblin`'s green
+   * humanoid puppet.
+   *
+   * Owner, playing ORCS: *"when you're playing as orcs, after wave three, the castle starts spawning
+   * the original shitty little goblin melees ... we already have the right orc spawn that the castle
+   * is supposed to spawn, the creature type, the little orc warriors. And then starting with wave
+   * three it's like taking us back thirty sessions when we had those goblin, like, the little tiny
+   * green. That's not correct. It should only generate the orcs."*
+   *
+   * ⛔ IT IS NOT A SPAWN BUG AND THAT IS PROVEN, NOT ASSUMED. `raceUnitEmit.test.ts`'s S173 B5 block
+   * drives the REAL `runHostTick` wave loop as orcs through wave 5: every castle-born unit is
+   * `raceUnit`, at every wave, and the emitter's output is wave-INVARIANT. `waveNumber` has exactly
+   * one consumer in the tree (`waveSpawnMultiplier` — the shape-arrival rate), so there is no
+   * wave-indexed creature ladder to fall off. Enumerating every production `SPAWN_CREATURE` dispatch
+   * leaves exactly one type an orc seat can field that had no art: the Warlord's direwolf — summoned
+   * three at a time every 15 s, AT THE BOSS, i.e. in the player's own base beside his keep, which is
+   * why he read it as the castle producing them. "Wave three" is when a nine-ring boss tower becomes
+   * affordable, not an index into anything.
+   *
+   * ⛔ AND THE EXEMPTION WAS WRITTEN DOWN AND DEFENDED BY THE SUITE ITSELF. S168 added `direwolf` to
+   * `GOBLIN_KINDS` with *"It has NO ATLAS yet, deliberately: the owner is generating the sprite
+   * himself ... the wolf is visible and readable until the art lands"*, and
+   * `goblinRenderer.coverage.test.ts` states the opposite principle correctly one paragraph later,
+   * for the locust cloud: *"satisfying it with the wrong drawing would be gaming it"*. A wolf drawn
+   * as a green goblin with a cleaver is that same wrong drawing. He played it before the art landed
+   * and reported it as a regression to the pre-veo game, which is exactly what it looks like.
+   *
+   * ⚠ THE SHEET IS THE GOBLIN HOUND'S, AND THAT CHOICE IS MINE, NOT HIS. It is the only shipped
+   * four-legged beast atlas in the tree (idle/walk/attack, 12 frames each), so the pack now reads as
+   * a pack of hounds instead of a squad of goblins — the right KIND of creature, at the right scale
+   * (`creatureSpriteScaleMul` is 1 for both). The cost is that a direwolf and a goblin hound look
+   * identical; that is strictly better than a wolf looking like a goblin, and it is ONE path to swap
+   * the day his direwolf art lands. Overrule on sight if the doubling reads worse than the goblin did.
+   *
+   * ⚠ IT IS A SECOND KEY OVER THE SAME FILES, and that is accepted rather than missed. `goblinHound`
+   * is in `EAGER_ATLAS_TYPES`, so this key's `loadAtlas` re-fetches a 376-byte manifest and builds 36
+   * more `Texture` views over a `TextureSource` Pixi already has cached — the duplication S169
+   * measured and fixed for the eager loop was a 1.9 MiB PNG per duplicate, not this. Aliasing at
+   * `atlasKeyFor` instead would put a per-type branch in the draw loop to save 36 texture views.
+   */
+  direwolf: '/godly/goblin-hound/anim/goblin-hound',
 };
 
 /**
@@ -226,9 +269,13 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * threes, walked, struck at 24 fifths a swing, killed and died, and never drew a pixel. Nothing
    * failed — not tsc, not the suite, not `check:atlas`.
    *
-   * ⚠ It has NO ATLAS yet, deliberately: the owner is generating the sprite himself. That is the
-   * GRACEFUL half — a type in this Set but absent from `ATLASES` falls through to `drawGoblin`'s
-   * procedural puppet, so the wolf is visible and readable until the art lands.
+   * ⛔ S173 B5 — THIS PARAGRAPH USED TO SAY THE MISSING ATLAS WAS "THE GRACEFUL HALF", i.e. that a
+   * type in this Set but absent from `ATLASES` *"falls through to `drawGoblin`'s procedural puppet,
+   * so the wolf is visible and readable until the art lands"*. The owner played it and that is the
+   * bug he reported — a wolf drawn as a green goblin reads as the pre-veo game coming back, not as a
+   * placeholder. It now has an `ATLASES` entry (the goblin hound's sheet, with the reasoning at the
+   * table), and `goblinRendererLazyAtlas.test.ts` makes "in this Set ⇒ has real art" a GATE so the
+   * next artless type cannot inherit the humanoid puppet the way this one did.
    */
   'direwolf',
 ]);

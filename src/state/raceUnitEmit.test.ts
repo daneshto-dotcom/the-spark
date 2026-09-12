@@ -30,6 +30,8 @@ import { makeCreature } from './creatures/creature.ts';
 import { GOBLIN_MELEE_CONFIG, RACE_UNIT_CONFIG } from './creatures/voltkin-config.ts';
 import {
   CASTLE_MAX_HP,
+  FIGHT_PHASE_TICKS,
+  PHASE_DURATION_TICKS,
   RACE_UNIT_ATK,
   RACE_UNIT_DEF,
   RACE_UNIT_EMIT_INTERVAL_TICKS,
@@ -40,6 +42,12 @@ import {
 } from '../constants.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asCreatureId, asPlayerId, asSpawnerId } from '../types.ts';
+// S173 B5 — the REAL host loop, so the wave boundaries are actually crossed rather than simulated.
+import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
+import { makeGameStateExtras } from './gameState.ts';
+import { mulberry32 } from './rng.ts';
+import type { Controls } from '../input/controls.ts';
 
 /** A world with `seats` live castles and nothing else — the emitter needs only players + layout. */
 function boardWith(seats: number): World {
@@ -330,5 +338,110 @@ describe('S165 - underRaceUnitCaps: the race unit has its OWN cap family', () =>
       (c) => c.type === 'raceUnit' && (c.ownerPlayerId as unknown as number) === 0,
     );
     expect(mine).toHaveLength(0);
+  });
+});
+
+/**
+ * ⭐⭐ S173 B5 (owner playtest) — **THE CASTLE'S OUTPUT IS WAVE-INVARIANT, DRIVEN THROUGH THE REAL
+ * WAVE LOOP RATHER THAN ASSERTED.**
+ *
+ * Owner, playing ORCS over the internet: *"when you're playing as orcs, after wave three, the castle
+ * starts spawning the original shitty little goblin melees ... we already have the right orc spawn
+ * that the castle is supposed to spawn, the creature type, the little orc warriors. And then
+ * starting with wave three it's like taking us back thirty sessions when we had those goblin, like,
+ * the little tiny green. That's not correct. It should only generate the orcs."*
+ *
+ * ⛔ THE SUSPECTED CAUSE WAS A WAVE-INDEXED LADDER FALLING THROUGH TO A DEFAULT CREATURE TYPE, AND
+ * THERE IS NO SUCH LADDER ANYWHERE IN THE TREE. `waveNumber` has exactly ONE consumer —
+ * `waveSpawnMultiplier`, the shape-ARRIVAL RATE, read once in `physics/physicsLoop.ts` — so no table
+ * in this game is indexed by the wave at all, let alone a creature-type one. The castle emitter
+ * hard-codes the literal `'raceUnit'` and the tier-3 arm reads `RACE_TOWER_UNIT[race]`; the only
+ * production path to a `goblinMelee` is a player feeding a goblin tower a Triangle
+ * (`GOBLIN_FEED_MAP`), which no castle can reach.
+ *
+ * ⭐ SO THIS RUNS THE ACTUAL `runHostTick` LOOP rather than calling `raceUnitEmitTick` by hand, the
+ * way the tests above do. Hand-driving the emitter would have proved only that the emitter is
+ * consistent with itself; what was in doubt was whether something ELSE downstream of a wave boundary
+ * rewrites the castle's output, and only the real loop crosses those boundaries.
+ *
+ * ⚠ WHAT THE OWNER ACTUALLY SAW IS IN `render/goblinRenderer.ts`: the Warlord's `direwolf` had no
+ * atlas and fell through to `drawGoblin`'s green humanoid puppet — orc-EXCLUSIVE, summoned three at
+ * a time beside his own keep, which is why a render fault reads as "the castle spawning". This block
+ * is the half that PROVES the sim innocent, so the next session does not re-hunt it here.
+ */
+describe('S173 B5 — the castle emits its race unit at EVERY wave', () => {
+  const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+
+  function hostDeps(): HostTickDeps {
+    return {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)),
+      controls: stubControls,
+      botManager: null,
+      gameStateExtras: makeGameStateExtras(),
+      alivePeerIds: null,
+      hostSeats: new Map(),
+    } as unknown as HostTickDeps;
+  }
+
+  /** Two seats, both ORCS — the owner's match, seated through the real START_GAME roster path. */
+  function orcBoard(): World {
+    const world = makeWorld(0xb5);
+    world.gameState = 'TITLE';
+    dispatch(world, {
+      type: 'START_GAME',
+      mode: '1v1',
+      isHost: true,
+      roster: [
+        { seat: 0, color: PLAYER_COLORS[0]!, raceId: 'orcs' as const },
+        { seat: 1, color: PLAYER_COLORS[1]!, raceId: 'orcs' as const },
+      ],
+    });
+    for (const p of world.players.values()) p.castleHp = CASTLE_MAX_HP;
+    return world;
+  }
+
+  it('⛔⛔ four waves of the REAL host loop, and no goblin is ever born', () => {
+    const world = orcBoard();
+    const d = hostDeps();
+    const st = makeHostTickState(world);
+    /** Every type seen alive at any tick, and every type born from a CASTLE sentinel. */
+    const seen = new Set<string>();
+    const castleBorn = new Set<string>();
+    const turn = PHASE_DURATION_TICKS + FIGHT_PHASE_TICKS;
+    for (let t = 0; t < turn * 4 + 10; t++) {
+      runHostTick(world, d, st);
+      for (const c of world.creatures.values()) {
+        seen.add(c.type);
+        if (isCastleSpawnerId(c.sourceSpawnerId)) castleBorn.add(c.type);
+      }
+    }
+    // CONTROL — the fixture really crossed wave 3, or the assertions below say nothing.
+    expect(world.waveNumber, 'the run must pass the wave the owner reported').toBeGreaterThanOrEqual(4);
+    expect(castleBorn.size, 'the castle must actually have produced something').toBeGreaterThan(0);
+    expect([...castleBorn], 'the castle emits ONE type, and it is the race unit').toEqual(['raceUnit']);
+    expect(
+      seen.has('goblinMelee'),
+      'a goblinMelee on this board could only come from feeding a goblin tower a Triangle',
+    ).toBe(false);
+  });
+
+  it('⭐ the emit is IDENTICAL at wave 1, 3, 7 and 99 — nothing is indexed by the wave', () => {
+    /*
+     * The direct statement of the hypothesis, and the cheapest possible refutation of it: hold the
+     * clock and the board fixed and move ONLY `waveNumber`. A ladder that fell off its table past
+     * some index would change the output here; the same single type at wave 99 says there is no
+     * table to fall off.
+     */
+    const out = [1, 3, 7, 99].map((wave) => {
+      const w = boardWith(2);
+      w.waveNumber = wave;
+      runEmit(w, RACE_UNIT_EMIT_INTERVAL_TICKS + 1);
+      return [...w.creatures.values()].map((c) => c.type).sort().join(',');
+    });
+    expect(
+      out[0],
+      'wave 1 must actually produce units, or this compares four empty strings',
+    ).toContain('raceUnit');
+    expect(new Set(out).size, `wave-dependent output: ${out.join(' | ')}`).toBe(1);
   });
 });
