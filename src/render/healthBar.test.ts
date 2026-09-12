@@ -20,6 +20,9 @@ import { drawHealthBars } from './healthBar.ts';
 import { beginConcealmentFrame } from './concealment.ts';
 import { getCreatureConfig, CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
+import { T3_TOWER_SPRITE_PX, T9_TOWER_SPRITE_PX } from './towerFrames.ts';
+import { attackFifths, connectorCapacityFifths } from '../state/stats.ts';
+import { CHEWER_ATK, CHEWER_PEN } from '../constants.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import {
@@ -530,12 +533,12 @@ describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds 
    * the six tier-9 boss towers. A fix that covered only defenders would have shipped bars on two
    * tower kinds and called the job done.
    */
-  function addTower(world: World, id: number, anchor: PrimitiveId, owner: PlayerId): void {
+  function addTower(world: World, id: number, anchor: PrimitiveId, owner: PlayerId, recipeId = 'goblinTower'): void {
     world.creatureSpawners.set(asSpawnerId(id), {
       id: asSpawnerId(id),
       ownerPlayerId: owner,
       anchorPrimitiveId: anchor,
-      recipeId: 'goblinTower' as never,
+      recipeId: recipeId as never,
       nextSpawnTick: 0,
       lastValidatedTick: 0,
       spawnedCount: 0,
@@ -631,6 +634,83 @@ describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds 
     world.primitives.set(p.id, p);
     addTower(world, 1, p.id, P0);
     expect(bars(world).length, 'no connectors ⇒ no durability ⇒ nothing to show').toBe(0);
+  });
+
+  /*
+   * ⛔⛔ THE REGRESSION GUARD THE FIRST PASS DID NOT HAVE, and the owner found the gap by playing:
+   * "You said the towers have health bars, but I dont see them having health bars. Look. The
+   * zombies have. Towers dont."
+   *
+   * The bar WAS being drawn - every test above passed - but at FALLBACK_SPRITE_H = 26 above a
+   * FOOT-ANCHORED building 84 px tall, which put it 6 px INSIDE the pyramid. The S172 Helga bug,
+   * reproduced verbatim by me one session later. "Is a bar drawn?" was the wrong question;
+   * "is it drawn where a human can see it?" is the one that catches this.
+   */
+  it('⛔⛔ a tier-3 tower bar clears the TOP of the building, not just the centroid', () => {
+    const { world } = towerWorld();
+    world.creatureSpawners.clear();
+    addTower(world, 1, asPrimitiveId(1), P0, 't3TowerMummies' as never);
+    const track = bars(world)[0]!;
+    // towerRenderer foot-anchors at cy + sizePx*0.5, so the building's TOP is sizePx/2 above the
+    // ring centroid. T3_TOWER_SPRITE_PX = 84 => 42 px up. The bar must be strictly above THAT.
+    const centroidY = 500;
+    const spriteTopY = centroidY - T3_TOWER_SPRITE_PX / 2;
+    expect(track.y, 'the bar must sit above the pyramid, not inside it').toBeLessThan(spriteTopY);
+  });
+
+  it('⛔⛔ a tier-9 boss tower is 150 px tall and its bar clears that too', () => {
+    const { world } = towerWorld();
+    world.creatureSpawners.clear();
+    addTower(world, 1, asPrimitiveId(1), P0, 't9TowerMummies' as never);
+    const track = bars(world)[0]!;
+    expect(track.y).toBeLessThan(500 - T9_TOWER_SPRITE_PX / 2);
+  });
+
+  it('a tower bar is at least as WIDE as the building it labels (R171-E)', () => {
+    const { world } = towerWorld();
+    world.creatureSpawners.clear();
+    addTower(world, 1, asPrimitiveId(1), P0, 't3TowerMummies' as never);
+    const track = bars(world)[0]!;
+    // A 15 px bar over an 84 px pyramid reads as a scratch; his standing rule is that the bar is
+    // at least the width of the thing it represents.
+    expect(track.w).toBeGreaterThanOrEqual(T3_TOWER_SPRITE_PX);
+  });
+
+  /*
+   * OWNER, SECOND PASS: "it will be moving when its being hit. You know? Like, losing health.
+   * Remember the issue we had last time that you made health bars for the creatures, but then it
+   * didnt move. They would just, like, die. It needs to actually reflect the HP. Needs to be
+   * consistent."
+   *
+   * That is the S172 frozen-fill defect, and this pins the tower against it with REAL damage rather
+   * than a hand-set field: bite the same connector with a real chewer hit and the bar must shrink on
+   * EVERY bite, never sit still and then vanish.
+   *
+   * MEASURED, and it is a MECHANIC fact rather than a readout one: a chewer bites for
+   * attackFifths(CHEWER_ATK=1, CHEWER_PEN=2) = 1 x (5+2) = 7 fifths, and a 3-shape race-tower ring
+   * has connectorCapacityFifths(3) = 7. So one bite severs one connector of the SMALLEST tower
+   * exactly. A bigger lattice moves smoothly (n=12 => capacity 16 => three bites per connector);
+   * a 3-ring genuinely dies in three. The bar is telling the truth about a thin structure - if
+   * towers should be tougher that is a ruling on connectorCapacityFifths, not on this file.
+   */
+  it('the bar MOVES on every real hit - it never sits still and then vanishes', () => {
+    const { world, bondIds } = towerWorld();
+    const bite = attackFifths(CHEWER_ATK, CHEWER_PEN);
+    expect(bite, 'a chewer bite, in fifths').toBe(7);
+
+    const widths: number[] = [bars(world)[1]!.w];
+    // Bite the SAME connector repeatedly, below its capacity, so nothing severs and the movement
+    // under test is the fill itself rather than the topology changing underneath it.
+    const cap = connectorCapacityFifths(bondIds.length);
+    const bond = world.bonds.get(bondIds[0]!)!;
+    for (let i = 1; i * 1 < cap; i++) {
+      bond.damageFifths = i; // one fifth at a time: the finest movement the encoding can show
+      widths.push(bars(world)[1]!.w);
+    }
+    for (let i = 1; i < widths.length; i++) {
+      expect(widths[i]!, `the bar must shrink at step ${i}, not sit still`).toBeLessThan(widths[i - 1]!);
+    }
+    expect(widths.length, 'several observable steps before anything severs').toBeGreaterThan(3);
   });
 
   it('⛔ a CONCEALED enemy tower draws no bar — it must not leak position through the fog', () => {

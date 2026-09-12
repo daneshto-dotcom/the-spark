@@ -57,12 +57,13 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
-import { creatureSpriteScaleMul } from './towerFrames.ts';
+import { creatureSpriteScaleMul, towerArtForRecipe } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
 import { componentOf } from '../game/structure.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
 
@@ -226,7 +227,45 @@ function drawStructureBars(g: Graphics, world: World): void {
    */
   const drawn = new Set<PrimitiveId>();
 
-  const bar = (anchorId: PrimitiveId, ownerPlayerId: PlayerId): void => {
+  /**
+   * ⛔⛔ S173, SECOND PASS (owner, having PLAYED the first one) — **A BAR INSIDE THE BUILDING IS A
+   * BAR HE CANNOT SEE, AND I SHIPPED THAT EXACT DEFECT AGAIN.**
+   *
+   * > *"You said the towers have health bars, but I don't see them having health bars. Look. The
+   * > zombies have. Towers don't."*
+   *
+   * The first pass drew every structure bar at `FALLBACK_SPRITE_H = 26`, with a comment claiming
+   * there was *"no sprite to measure"*. That comment was false and the arithmetic is unforgiving —
+   * tower sprites are FOOT-anchored at `sprite.y = cy + sizePx * 0.5`, so the top of the building
+   * sits at `cy − sizePx / 2`:
+   *
+   *   · a tier-3 tower is 84 px ⇒ its top is 42 px above the centroid, and the bar was drawn 36 px
+   *     above it — **6 px INSIDE the pyramid**;
+   *   · a tier-9 boss tower is 150 px ⇒ top 75 px up, bar 36 px up — **39 px inside it**.
+   *
+   * ⛔ THIS IS THE S172 HELGA BUG, VERBATIM: *"It was drawn at `FALLBACK_SPRITE_H = 26`, and Helga
+   * is far taller than 26 px, so the bar sat INSIDE HER BODY where he could not see it."* The fix
+   * there was to feed the measured sprite in. I read that paragraph, wrote the tower arm, and put
+   * the same constant in the same place — because a STRUCTURE felt like a different thing from a
+   * CREATURE. It is not: anything drawn taller than 26 px hides its own bar.
+   *
+   * ⭐ AND THE HEIGHT WAS NEVER UNKNOWABLE. `towerArtForRecipe(recipeId).sizePx` is the exact number
+   * `towerRenderer` itself sizes the sprite with, from the same table. No measurement plumbing is
+   * needed — just asking the function that already knows.
+   *
+   * ⚠ WIDTH TOO, and for the owner's other standing rule (R171-E, *"at least the length of the
+   * creature's width that it represents"*): a 15 px bar over an 84 px pyramid reads as a scratch.
+   * The sprite width is passed as the FLOOR, exactly as the creature arm does it.
+   */
+  const spriteBoxFor = (recipeId: GodlyId | null): { w: number; h: number } => {
+    const art = recipeId === null ? null : towerArtForRecipe(recipeId);
+    // `null` is the pentagram, the goblin tower and the lightning hub — they have no building art,
+    // so their bar rides above the SHAPES themselves and the small fallback is correct there.
+    if (art === null) return { w: 0, h: FALLBACK_SPRITE_H };
+    return { w: art.sizePx, h: art.sizePx };
+  };
+
+  const bar = (anchorId: PrimitiveId, ownerPlayerId: PlayerId, recipeId: GodlyId | null): void => {
     const anchor = world.primitives.get(anchorId);
     if (anchor === undefined) return; // broken between the re-validation poll and this frame
     if (isConcealed(anchor.pos.x, anchor.pos.y, ownerPlayerId)) return;
@@ -258,14 +297,14 @@ function drawStructureBars(g: Graphics, world: World): void {
     const current = Math.max(0, Math.min(max, max - damage));
     if (current <= 0) return; // already collapsing — the sever path owns the next frame
 
-    // No sprite to measure: a structure's bar rides above the shapes themselves.
-    drawBar(g, cx / count, cy / count, current, max, 1, 0, FALLBACK_SPRITE_H);
+    const sb = spriteBoxFor(recipeId);
+    drawBar(g, cx / count, cy / count, current, max, 1, sb.w, sb.h);
   };
 
   // The two pooled-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`.
   for (const d of world.defenders.values()) {
     if (d.ehp !== null) continue; // Helga and anything else with a real pool is drawn above
-    bar(d.anchorPrimitiveId, d.ownerPlayerId);
+    bar(d.anchorPrimitiveId, d.ownerPlayerId, null);
   }
 
   /*
@@ -275,7 +314,7 @@ function drawStructureBars(g: Graphics, world: World): void {
    * tower kinds and called the job done.
    */
   for (const sp of world.creatureSpawners.values()) {
-    bar(sp.anchorPrimitiveId, sp.ownerPlayerId);
+    bar(sp.anchorPrimitiveId, sp.ownerPlayerId, sp.recipeId);
   }
 }
 
