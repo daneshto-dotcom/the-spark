@@ -165,7 +165,7 @@ import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // frees ~index-chunk headroom for the quickmatch UI (the heavy Pixi overlay was
 // only eager because godlyOrchestration imported unlockGodly from it — now split
 // to codexStore.ts). Type-only import is erased; the class loads on demand.
-import type { CodexOverlay } from './render/codexOverlay.ts';
+import type { CodexOverlay, CodexTabKey } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
 import { GoblinRenderer } from './render/goblinRenderer.ts';
@@ -210,7 +210,8 @@ import { ScreenShake, shouldTriggerNonetResolveShake } from './render/screenShak
 // the production index chunk. Type-only imports are erased at compile.
 import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts';
 import { listRecipes } from './state/godlyRecipes/index.ts';
-import type { GodlyId } from './state/godlyRecipes/types.ts';
+// ⚠ S173 P5 — the `GodlyId` type-only import that sat here went with NONET_CODEX_ID (below). This
+// file compiles under `noUnusedLocals`, so an orphaned import is a BUILD FAILURE, not a lint nit.
 import { unlockGodly } from './render/codexStore.ts';
 // S167 — the tier-9 leaf (side-effect-free): maps a live boss back to the tower that released it.
 import { T9_TOWER_IDS, raceForT9BossType } from './state/t9BossIds.ts';
@@ -250,11 +251,10 @@ const P1 = asPlayerId(0);
 // creature fan-out it throttles.
 const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
 
-// S94 — NONET appears in the Codex as a "super-combo". It is NOT a godly recipe (no recipe
-// predicate/cinematic), so it's a synthetic CodexEntry, unlocked the first time a trial fires.
-// S121 P4 — its copy + kami sprite moved to render/codexPresentation.ts (the single source of
-// codex presentation truth); only the unlock id stays here for the trial-fire hook below.
-const NONET_CODEX_ID = 'nonet' as GodlyId;
+// ⭐ S173 P5 — `NONET_CODEX_ID` stood here from S94 to unlock a Codex tile the first time a trial
+// fired. Owner: *"no [NONET] be anywhere in the codex. Easter egg."* The tile, its copy row and the
+// unlock call in the render loop are all gone; the TRIAL is untouched (sudokuEvent.ts + the realm
+// audio/overlay edge below still fire exactly as before) — it is simply no longer advertised.
 
 async function bootstrap(): Promise<void> {
   // S82 P4(a) — page-session host identity: ECDSA P-256 keypair whose pubkey fingerprint
@@ -1066,25 +1066,31 @@ async function bootstrap(): Promise<void> {
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
   // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
   // Pixi overlay class + its Assets/ColorMatrixFilter usage load on demand.
-  // S104 P3 — ONE unified CODEX (3 tabs: GODLY COMBOS / COMBOS / TOWERS & STRUCTURES). Lazy on first
-  // open (the botSetupOverlay pattern — Pixi weight off the entry chunk). Opened from the title-screen
-  // CODEX button AND in-game via the G+C chord (openCodex('towers') etc.). Godly = cinematic recipes
-  // (+ the synthetic NONET); towers = spawner + defender recipes. Combos read comboCodexStore directly.
+  // S104 P3 — ONE unified CODEX, lazy on first open (the botSetupOverlay pattern — Pixi weight off
+  // the entry chunk). Opened from the title-screen CODEX button AND in-game via the G+C chord.
+  /*
+   * ⭐ S173 P5 — TWO TABS (COMBOS / TOWERS & STRUCTURES), AND `towers` IS NOW **EVERY** RECIPE.
+   *
+   * Owner: *"I already told you to remove the godly combos because [Voltkin] is no more godly as
+   * anything else. It's just a tower now and structure… So, yeah, remove the whole godly combos."*
+   *
+   * ⚠ THE FILTER THAT USED TO BE ON THIS LINE WAS THE HAZARD, not the tab. It read
+   * `.filter((r) => r.kind === 'spawner' || r.kind === 'defender')`, and `kind: 'cinematic'` has
+   * exactly ONE member in the registry — Voltkin — who was listed by the GODLY tab alone. Deleting
+   * the tab and keeping the filter would have removed a live buildable from the codex outright.
+   * `listRecipes()` whole is the fix; registry order (registerAll.ts imports voltkin first) makes
+   * him the tab's first card, which is what "it's just a tower now and structure" asks for.
+   *
+   * The synthetic NONET entry that rode with the cinematics is DELETED, not relocated — owner:
+   * *"no [NONET] be anywhere in the codex. Easter egg."*
+   */
   let codexOverlay: CodexOverlay | null = null;
-  const openCodex = (tab: 'godly' | 'combos' | 'towers' = 'godly'): void => {
+  const openCodex = (tab: CodexTabKey = 'towers'): void => {
     void (async () => {
       if (codexOverlay === null) {
         const mod = await import('./render/codexOverlay.ts');
-        const godly = [
-          ...listRecipes()
-            .filter((r) => r.kind === 'cinematic')
-            .map((r) => mod.entryFromRecipe(r)),
-          mod.nonetEntry(), // S94 — NONET super-combo (synthetic, non-recipe entry)
-        ];
-        const towers = listRecipes()
-          .filter((r) => r.kind === 'spawner' || r.kind === 'defender')
-          .map((r) => mod.entryFromRecipe(r));
-        codexOverlay = new mod.CodexOverlay(app, { godly, towers }, () => {
+        const towers = listRecipes().map((r) => mod.entryFromRecipe(r));
+        codexOverlay = new mod.CodexOverlay(app, { towers }, () => {
           codexOverlay?.setVisible(false);
         });
         // S110 P3 — keep the player avatar ("cruiser") visible above the codex backdrop while open.
@@ -3561,8 +3567,9 @@ Network routes: ${v.detail}`;
     const nonetActiveNow = world.sudoku !== null || arcadeNonet !== null;
     if (nonetActiveNow !== prevNonetActive) {
       if (nonetActiveNow) {
+        // ⭐ S173 P5 — the `unlockGodly(NONET_CODEX_ID)` that stood here is gone with the codex
+        // entry it revealed (owner: NONET is an easter egg). The realm swap itself is unchanged.
         void enterNonetRealm();
-        unlockGodly(NONET_CODEX_ID); // S94 — reveal the NONET Codex entry on first trial
       } else {
         exitNonetRealm();
       }

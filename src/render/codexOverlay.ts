@@ -1,11 +1,28 @@
 /**
- * SPARK — Unified CODEX overlay (S104 P3 — merges the old godly codexOverlay + the
- * separate comboCodexOverlay into ONE in-game reference with THREE tabs):
+ * SPARK — Unified CODEX overlay. S104 P3 merged the old godly codexOverlay + the separate
+ * comboCodexOverlay into ONE in-game reference with three tabs; S173 P5 cut it back to TWO:
  *
- *   ⚡ GODLY COMBOS      — the cinematic summons (Voltkin, …). Unlock = it fired in play.
  *   ◆ COMBOS            — the Magic-14 two-shape connections. Unlock = discovered in play.
- *   🏰 TOWERS & STRUCTURES — the buildables that stay on the field (pentagram spawner, #9 laser
- *                            turret, #10 HELGA). Unlock = you built one (S104 unlock-on-build).
+ *   🏰 TOWERS & STRUCTURES — everything that stays on the field: Voltkin, the pentagram spawner, the
+ *                            laser turret, HELGA, the stink/goblin towers, the six race towers and
+ *                            the six boss towers. Unlock = you built one (S104 unlock-on-build), or
+ *                            in Voltkin's case that his cinematic fired.
+ *
+ * ⭐ S173 P5 — THE GODLY COMBOS TAB IS GONE, AND SO IS NONET.
+ *
+ * Owner: *"I already told you to remove the godly combos because [Voltkin] is no more godly as
+ * anything else. It's just a tower now and structure… So, yeah, remove the whole godly combos."*
+ * And on the synthetic NONET card that rode in the same tab: *"no [NONET] be anywhere in the codex.
+ * Easter egg."*
+ *
+ * ⚠ THE HALF OF THAT DELETION THAT IS EASY TO GET WRONG: `kind: 'cinematic'` has exactly ONE member
+ * in the whole registry — Voltkin — and the GODLY tab was the only thing listing it. Deleting the
+ * tab while leaving main.ts's `spawner | defender` filter in place would have dropped a LIVE
+ * BUILDABLE out of the codex entirely, which is a bigger change than the owner asked for and the
+ * opposite of his own sentence ("it's just a tower now"). main.ts therefore feeds `listRecipes()`
+ * WHOLE into `towers`, and registry order (registerAll.ts imports voltkin first) puts him in the
+ * tab's first slot. NONET is not in that list because it never was a recipe — it was a synthetic
+ * entry built by a `nonetEntry()` helper, and that helper is deleted rather than relocated.
  *
  * Each entry shows WHAT it is + HOW TO BUILD it (the recipe). Entries are LOCKED until unlocked at
  * least once (the brother-surprise convention, PRIME-AUDIT-S21 #4) — locked tiles read "???".
@@ -13,9 +30,9 @@
  * Opened from the title-screen CODEX button AND in-game via the G+C key chord (main.ts owns the
  * chord; this is a pure-UI overlay that dispatches NOTHING to the sim). LAZY-loaded by main.ts on
  * first open (the botSetupOverlay pattern) so its Pixi weight stays off the index/entry chunk; each
- * tab's Pixi tree is built on first switch (not all three on open) to avoid a first-open hitch.
+ * tab's Pixi tree is built on first switch (not both on open) to avoid a first-open hitch.
  *
- * Unlock state is read live each open: godly + towers from codexStore (localStorage
+ * Unlock state is read live each open: towers from codexStore (localStorage
  * `spark:codex:unlocked:v1`, keyed by GodlyId); combos from comboCodexStore
  * (`spark:combos:discovered:v1`). All render-layer / localStorage — never touches the sim.
  */
@@ -57,7 +74,7 @@ export interface CodexEntry {
   readonly power: string;
   /** Precise "how to build + what it does" — visible in BOTH states (S105 P2 checkable recipes). */
   readonly recipeHint: string;
-  /** Character art — only for entries that ARE characters (Voltkin, HELGA, the NONET kami). */
+  /** Character art — only for entries that ARE characters (Voltkin, HELGA). */
   readonly characterSprite?: string;
   /** Recipe-constellation emblem — only for geometric buildables (drawn in the board's glyph language). */
   readonly emblem?: EmblemSpec;
@@ -81,41 +98,47 @@ export function entryFromRecipe(recipe: GodlyRecipe): CodexEntry {
   };
 }
 
-/** S121 P4 — the synthetic NONET super-combo entry (not a recipe; copy lives in codexPresentation). */
-export function nonetEntry(): CodexEntry {
-  const copy = codexCopyFor('nonet');
-  return {
-    id: 'nonet' as GodlyId,
-    displayName: copy.name,
-    power: copy.power,
-    recipeHint: copy.recipe,
-    characterSprite: copy.sprite,
-    emblem: copy.emblem,
-  };
-}
+/*
+ * ⭐ S173 P5 — `nonetEntry()` LIVED HERE AND IS DELETED. It minted a synthetic 'nonet' CodexEntry
+ * (not a recipe — no predicate, no cinematic) for the GODLY COMBOS tab. Owner: *"no [NONET] be
+ * anywhere in the codex. Easter egg."* He talked himself out of even a stub card mid-sentence:
+ * *"You can just go straight into [NONET]. It already explains it within [NONET], so you don't need
+ * to re-explain it."* Its copy row in codexPresentation.ts went with it, and
+ * codexPresentation.test.ts now asserts NOTHING in CODEX_COPY mentions nonet, so a future session
+ * cannot quietly put it back.
+ */
 
-type TabKey = 'godly' | 'combos' | 'towers';
-interface TabDef { readonly key: TabKey; readonly label: string; readonly color: number; readonly subtitle: string; }
+/**
+ * The tabs, and the union main.ts names when it calls `open()`. Exported so the call site shares
+ * THIS type rather than re-typing a string-literal union that can drift out of step with it —
+ * which is exactly what happened while there were three tabs.
+ */
+export type CodexTabKey = 'combos' | 'towers';
+interface TabDef { readonly key: CodexTabKey; readonly label: string; readonly color: number; readonly subtitle: string; }
 const TABS: readonly TabDef[] = [
-  { key: 'godly', label: 'GODLY COMBOS', color: 0xff6ad5, subtitle: 'cinematic summons — earned in the arena, never given' },
   { key: 'combos', label: 'COMBOS', color: 0x53d8ff, subtitle: 'the geometry itself — two shapes, one magic' },
   { key: 'towers', label: 'TOWERS & STRUCTURES', color: GOLD, subtitle: 'build them true and they fight for you' },
 ];
 
 export interface CodexOverlayOpts {
-  readonly godly: CodexEntry[];
   readonly towers: CodexEntry[];
 }
 
 export class CodexOverlay {
   readonly container: Container;
   private readonly app: Application;
-  private readonly godly: CodexEntry[];
   private readonly towers: CodexEntry[];
-  private active: TabKey = 'godly';
+  /**
+   * ⭐ S173 P5 — the default tab moved off the deleted 'godly' and onto 'towers'. Both entry points
+   * now agree: the title-screen CODEX button (`openCodex()`) and the in-game G+C chord
+   * (`openCodex('towers')`) land on the buildables — the tab Voltkin moved into, and the one the
+   * owner was reading when he reported it would not scroll. COMBOS is one click away, and is the
+   * only other tab there is.
+   */
+  private active: CodexTabKey = 'towers';
   private readonly content: Container;
   private readonly subtitle: Text;
-  private readonly tabButtons = new Map<TabKey, { box: Graphics; label: Text }>();
+  private readonly tabButtons = new Map<CodexTabKey, { box: Graphics; label: Text }>();
   // S110 P3 — the player-avatar layer is lifted above this overlay's near-opaque backdrop while
   // open, then restored to its original z-index on close (so fog-of-war layering is untouched).
   private avatarLayer: Container | null = null;
@@ -123,7 +146,6 @@ export class CodexOverlay {
 
   constructor(app: Application, opts: CodexOverlayOpts, onClose: () => void) {
     this.app = app;
-    this.godly = opts.godly;
     this.towers = opts.towers;
     this.container = new Container();
 
@@ -245,13 +267,13 @@ export class CodexOverlay {
     return this.container.visible;
   }
 
-  /** Open directly on a given tab (the G+C chord opens 'godly' by default). */
-  open(tab: TabKey = 'godly'): void {
+  /** Open directly on a given tab; both callers land on TOWERS & STRUCTURES (see `active` above). */
+  open(tab: CodexTabKey = 'towers'): void {
     this.active = tab;
     this.setVisible(true);
   }
 
-  private switchTab(tab: TabKey): void {
+  private switchTab(tab: CodexTabKey): void {
     if (this.active === tab) return;
     this.active = tab;
     this.rebuild();
@@ -261,8 +283,7 @@ export class CodexOverlay {
     this.drawTabBar();
     this.subtitle.text = TABS.find((t) => t.key === this.active)?.subtitle ?? '';
     this.content.removeChildren().forEach((c) => c.destroy({ children: true }));
-    if (this.active === 'godly') this.buildSpriteGrid(this.godly, loadUnlockedSet());
-    else if (this.active === 'towers') this.buildSpriteGrid(this.towers, loadUnlockedSet());
+    if (this.active === 'towers') this.buildSpriteGrid(this.towers, loadUnlockedSet());
     else this.buildCombosGrid();
   }
 
@@ -280,7 +301,7 @@ export class CodexOverlay {
     }
   }
 
-  /** GODLY + TOWERS tabs: a sprite tile grid (locked = grayscale ??? + a build hint when unlocked). */
+  /** TOWERS & STRUCTURES: a sprite tile grid (locked = grayscale ??? + a build hint when unlocked). */
   private buildSpriteGrid(entries: CodexEntry[], unlocked: Set<GodlyId>): void {
     if (entries.length === 0) {
       const empty = new Text({

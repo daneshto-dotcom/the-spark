@@ -21,7 +21,8 @@ import { STINK_HUB_TYPE, STINK_LEAF_TYPE } from '../state/godlyRecipes/stinkTowe
 import { STINK_TOWER_HUB_DEGREE, STINK_TOWER_SIZE } from '../constants.ts';
 
 const ALL_IDS = [
-  'voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga',
+  // ⭐ S173 P5 — 'nonet' was the second id here and is gone; see the NONET regression test below.
+  'voltkin', 'pentagram', 'lightningHub', 'laserTurret', 'helga',
   'stinkTower', // S141 P1 — the first NON-GODLY entry
   'goblinTower', // S151 P3 — one tower, six outputs (owner R70)
   /*
@@ -95,10 +96,22 @@ describe('S121 P4 — image coherence (characters wear their art; geometry wears
     }
   });
 
-  it('the three characters keep their own art', () => {
+  it('the two characters keep their own art', () => {
     expect(CODEX_COPY['voltkin'].sprite).toContain('voltkin');
     expect(CODEX_COPY['helga'].sprite).toContain('helga');
-    expect(CODEX_COPY['nonet'].sprite).toContain('kami');
+  });
+
+  it('⭐ S173 P5 REGRESSION: NONET appears NOWHERE in the codex — owner: "Easter egg"', () => {
+    // Owner: *"no [NONET] be anywhere in the codex. Easter egg."* The entry used to be a SYNTHETIC
+    // one (no recipe, no predicate) minted by codexOverlay's now-deleted `nonetEntry()` from a row
+    // in this table. Because CODEX_COPY is keyed by `string`, tsc can neither demand nor forbid a
+    // key — re-adding one would compile and ship green. This test is the only thing that says no,
+    // and it checks the COPY as well as the key so a 'sudoku trial' card under another name is
+    // caught too. The mechanic itself is untouched: sudokuEvent/sudokuOverlay still run the trial.
+    for (const [id, copy] of Object.entries(CODEX_COPY)) {
+      const blob = `${id} ${copy.name} ${copy.power} ${copy.recipe} ${copy.sprite ?? ''}`;
+      expect(blob.toLowerCase(), `${id} must not mention NONET`).not.toContain('nonet');
+    }
   });
 });
 

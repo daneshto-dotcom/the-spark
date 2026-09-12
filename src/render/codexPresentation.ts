@@ -9,7 +9,7 @@
  *   - COPY   — displayName + a one-line POWER epigraph + a tight, epic RECIPE (each written to FIT the
  *              tile text zone by construction; codexPresentation.test.ts enforces the budgets).
  *   - IMAGE  — the coherence rule: an entry that IS a character shows its character art (Voltkin,
- *              HELGA, the NONET kami); a GEOMETRIC buildable shows its BUILD CONSTELLATION — a recipe
+ *              HELGA); a GEOMETRIC buildable shows its BUILD CONSTELLATION — a recipe
  *              emblem drawn from the same SHAPE_GLYPHS + SPARK_COLORS the board and the COMBOS tab
  *              use, so the codex speaks one visual language: the recipe IS the picture.
  *
@@ -50,13 +50,13 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
       'Chain 4 Squares, then 4 Triangles — 8 bonded in one straight line, both ends free. The sky answers with a summons.',
     sprite: '/godly/voltkin/anim/voltkin-zap.png',
   },
-  nonet: {
-    name: 'NONET',
-    power: 'One trial. Double or nothing.',
-    recipe:
-      'Bond 9 of ONE shape — nothing else. A Sudoku trial freezes the duel: solve it first and your score DOUBLES; every rival is HALVED.',
-    sprite: '/art/nonet/kami.webp',
-  },
+  /*
+   * ⭐ S173 P5 — THE `nonet` ROW IS DELETED AND MUST NOT COME BACK. Owner: *"no [NONET] be anywhere
+   * in the codex. Easter egg."* It was the one entry here keyed to no recipe at all (codexOverlay's
+   * `nonetEntry()` synthesised a CodexEntry from it for the since-deleted GODLY COMBOS tab), so
+   * nothing in the game reads it any more. `codexPresentation.test.ts` asserts no key or copy string
+   * in this table mentions nonet — that test, not tsc, is what keeps the easter egg an easter egg.
+   */
   pentagram: {
     name: 'PENTAGRAM',
     power: 'A ring that births the swarm.',
