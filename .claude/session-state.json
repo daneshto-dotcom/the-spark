@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Standard",
   "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "P1 COMPLETE (tower health bars, committed f8eb33d + 09aebae). P4/P5/P6/P7 delegated to three parallel agents. P2/P3 pending.",
+  "session_status": "P1 + P4 COMPLETE. P5 partially landed (godly-combos tab removed, towers grid scrolls; the combo hover-preview still in flight). P6/P7 agent still running. P2/P3 pending.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -72,7 +72,9 @@
     "P1 #the-function-with-no-callers-was-the-spec: structureDefenceFifths already existed in stats.ts with ZERO production callers, and its docblock said outright that it existed \"so the HUD and the tests can speak their language\". The tower health bar the owner asked for had already been half-written by a past session and never wired - the same shape as S167's t3TowerAtlasBase, where the art shipped with no renderer. Grepping for an unused function that names your feature is cheaper than designing the feature.",
     "P1b #two-durability-models-and-the-bar-can-only-tell-one-truth: a tower dies EITHER by connector severance (Bond.damageFifths vs connectorCapacityFifths) OR by primitive death (prim.hp -> razePrimitives), and towerRenderer already derives its damaged/destroyed FRAME from the second while the owner's words name the first. I shipped his model and documented the other AT THE SITE rather than picking silently - because a future session finding the bar \"under-reporting\" will otherwise re-derive the whole thing before discovering there were two.",
     "P1c #vitest-green-and-tsc-red-on-the-same-commit: the full suite passed 4303/4303 while typecheck exited 1 with three errors in the very test file that was passing. Bond.a is a PhysicsBody, not a Primitive, so my adjacency detach was a no-op the assertions could not see. Reading ONE gate's exit code would have shipped it. The project rule is \"read every gate's exit code from a captured $?\" - every, not the slowest one.",
-    "A0 #i-rode-six-lanes-on-one-invocation-and-lost-five: the state-discovery workflow put all six probe lanes in a single Workflow call, an org spend limit hit mid-run, and 6 of 8 agents died - the exact S161 failure this project's CLAUDE.md warns about in a section written after it happened before. I had READ that section during boot. Re-running the four dead lanes by hand cost more than dispatching them separately would have. When the owner later asked for parallel work I used three SEPARATE Agent invocations for that reason."
+    "A0 #i-rode-six-lanes-on-one-invocation-and-lost-five: the state-discovery workflow put all six probe lanes in a single Workflow call, an org spend limit hit mid-run, and 6 of 8 agents died - the exact S161 failure this project's CLAUDE.md warns about in a section written after it happened before. I had READ that section during boot. Re-running the four dead lanes by hand cost more than dispatching them separately would have. When the owner later asked for parallel work I used three SEPARATE Agent invocations for that reason.",
+    "P4 #the-agent-refused-my-brief-and-was-right: I briefed the tower-shortfall work at castlePanel's caption from my own grep. CASTLE_BUILD_GRID_ENABLED = false - that panel has been dead code since S149 P5 moved tower-building to the footer band. The agent verified the premise before building on it and redirected to footerBand.ts. I had grepped for the STRING (\"NEED n MORE\") and found a real site, but never asked whether that site was still REACHABLE. A live-looking code path is not the same as a rendered one.",
+    "P4b #two-agents-one-working-tree-sweep-each-other: staging is global, so when two subagents commit into the same checkout, whoever commits second sweeps up the first's staged files - and the first then reports success for a commit that does not contain its work. The P4 agent even NAMED this hazard in its report and still concluded, wrongly, that its work was safe in HEAD. It was uncommitted. VERIFYING THE AGENT'S CLAIM AGAINST THE TREE is what saved it: three greps, and the symbols were absent from every commit. Next time: give parallel agents separate worktrees, or let exactly one of them commit."
   ],
   "budget_total": null,
   "totals": {
@@ -1276,15 +1278,57 @@
     {
       "id": "P4",
       "title": "SCOPE AMENDMENT (owner, mid-session, Rule 16) - THE TOWER SHORTFALL MUST NAME THE SHAPES. Owner: \"under the tower, it says need five more ... But it doesn't say what shapes. Some towers need different types of shapes. It's good to know which you're missing ... We need the NEED, and then the SYMBOL. Need three more this and five more this.\" Screenshot supplied: \"GOBLIN TOWER / NEED 5 MORE\". WHY IT IS MICRO: the per-type breakdown ALREADY EXISTS and is ALREADY LATCHED - castlePanel.ts:331 builds missing[] as {type, need, have} per SparkType, and castlePanel.ts:1157 latches it into this.structureMissing[i] for the S145 click-to-order path. Line 339 then throws the breakdown away: short = missing.reduce(sum) => `NEED ${short} MORE`. The SYMBOL renderer also already exists and is already used in this same file: drawSparkGlyph (render/sparkGlyph.ts), imported at castlePanel.ts:60 and drawn for the bank strip at :1101 via the established {glyph: Graphics, count: Text} slot pattern (:573, :671-691). So this is a REUSE of two existing mechanisms, not an invention. THE ONE REAL COST: the caption is a Text object and a shape symbol needs Graphics, so the shortfall readout becomes a small row of glyph+count pairs rather than a string.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "ff045c6",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": null,
+      "check_method": "THE TOWER SHORTFALL NAMES THE SHAPES. Owner: \"it doesn't say WHAT SHAPES ... We need the NEED, and then the SYMBOL.\" ⛔ MY OWN BRIEF WAS HALF WRONG AND THE AGENT REFUSED IT. I aimed this at castlePanel's caption. But castlePanel.ts:227 reads CASTLE_BUILD_GRID_ENABLED = false - S149 P5 moved tower-building out of the castle on an owner ruling, so the panel's tiles and caption have been DEAD CODE since. The card in his screenshot is the FOOTER BAND's tower card (footerBand.ts:371). Implementing my brief literally would have shipped dead code and he would have seen no change. The model half of the brief WAS right and was reused: castlePanel.ts:333-337 already computed the per-shape `missing` array and :339-340 threw it away by summing into `NEED n MORE`; drawSparkGlyph was already imported and already used for the bank strip. GLYPHS NOT WORDS, MEASURED: the widest real shortfall in the registry is Helga (Triangle + Spiral + Circle) = ~258 px as words at the card's 13 px monospace, in a card with 192 px of room; the same three as glyph pairs are ~124 px. Text cannot carry this readout. Each mark is race-tinted (R153) so it matches the palette button the player is being sent to press. ⭐ A REAL DETERMINISM FIX RODE ALONG: the missing-shape list is now walked in ALL_SPARK_TYPES order rather than blueprintBill's Map order. Helga's leaves are interleaved \"purely cosmetically\" by their own comment, so a node reorder would have reshuffled the readout under the cursor - Map iteration order must never decide anything in this codebase. A TEST WAS WEAKENED BY DESIGN: footerBandLegendRemoved counted exactly 2 race-tinted glyph sites and the third broke it. The tally was replaced by the RULE (every glyph in the file is race-tinted), because a hardcoded count has to be hand-bumped by the same person who would have forgotten to tint, and bumping is indistinguishable from fixing. ⚠ RECOVERED, NOT AS THE AGENT REPORTED. It claimed its work had landed inside another agent's commit and said it had verified the symbols in `git show HEAD:`. It had NOT: no commit in the repo contained shortfallEntries, and the commit it named no longer existed. The work was sitting UNCOMMITTED in the shared working tree, one checkout from being lost. I verified this myself rather than accepting the report, then committed it. ROOT CAUSE, and it will recur: two agents committing into ONE working tree sweep each other's staged files, because staging is global. The agent flagged that hazard in its own report and then fell into it. GATES from a captured $?: typecheck 0, vitest 0 at 275 files / 4331 tests (from the 4303 after P1). 39 new tests. ⚠ NOT EYEBALLED: the glyphs draw in the Pixi sync path and the browser pane never advances world.tick, so only the pure layout is machine-verified. Wants one owner playtest.",
       "real_context_tokens_at_close": null,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "shortfallEntries"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "shortfallRowLayout"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "SHORTFALL_GLYPH_R"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "CARD_LABELS"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.structures.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 20
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/footerBand.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 14
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "ALL_SPARK_TYPES",
+          "op": ">=",
+          "value": 1
+        }
+      ],
       "delegated_to": "agent:tower-shortfall-shapes"
     },
     {
