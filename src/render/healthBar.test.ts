@@ -14,15 +14,26 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS } from '../constants.ts';
+import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { drawHealthBars } from './healthBar.ts';
 import { beginConcealmentFrame } from './concealment.ts';
 import { getCreatureConfig, CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
-import { unitPoolFifths } from '../state/stats.ts';
+import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
-import { asPlayerId, type CreatureId } from '../types.ts';
+import {
+  asBondId,
+  asPlayerId,
+  asPrimitiveId,
+  asSpawnerId,
+  type BondId,
+  type CreatureId,
+  type PlayerId,
+  type PrimitiveId,
+} from '../types.ts';
+import type { Primitive } from '../game/primitive.ts';
+import type { Bond } from '../physics/bonds.ts';
 
 /** ⚠ A REAL Vec2, not null: `computeVisionSources` dereferences the cursor whenever fog is
  *  active, so `null` throws rather than meaning "no cursor". Parked far from the fog test's
@@ -439,5 +450,204 @@ describe('S172 (owner) — fault 6: A BAR DRAWN INSIDE THE CREATURE IS A BAR HE 
     expect(measured, 'the measured box must sit HIGHER (smaller y) than the fallback')
       .toBeLessThan(g2.rects[0]!.y);
     expect(g.rects[0]!.w, 'and at least as wide as the sprite').toBeGreaterThanOrEqual(90);
+  });
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ⭐⭐ S173 (owner) — **TOWER HEALTH BARS, DERIVED FROM THE CONNECTORS.**
+ *
+ * > *"all towers should have health bars ... we should know how much health they have and how much
+ * > they take before they get destroyed, before their first connector dies."*
+ *
+ * The S172 session shipped Helga's bar and left towers out, because the defender loop skips anything
+ * whose config has `unitStats === null` — and owner R75 gives a tower no pool of its own. So these
+ * tests pin the DERIVATION rather than a stored field, and each one guards a way it could be wrong
+ * while still looking plausible on screen:
+ *
+ *   1. it must appear AT ALL, and at the right MAX — `structureDefenceFifths(n)`, the function that
+ *      already existed with zero production callers;
+ *   2. connector damage must SHORTEN THE FILL — the S172 lesson, where six unit types shipped a bar
+ *      that was mathematically incapable of moving;
+ *   3. losing a connector must SHORTEN THE TRACK — capacity is `n + 4` per connector and falls with
+ *      `n`, which is owner R76's intended cascade, not a rendering bug;
+ *   4. ONE bar per STRUCTURE — a pool belongs to a component, so two towers welded into one lattice
+ *      share one bar rather than drawing two identical overlapping ones;
+ *   5. it must not leak an enemy tower's position through the fog.
+ */
+describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds it', () => {
+  /** A 3-shape chain owned by P0 ⇒ 2 connectors, the smallest structure with any durability. */
+  function towerWorld(owner = P0, x0 = 500): { world: World; bondIds: BondId[] } {
+    const world = twoSeat();
+    const mk = (id: number, x: number): Primitive => {
+      const p: Primitive = {
+        id: asPrimitiveId(id),
+        type: SparkType.Dot,
+        placerColor: PLAYER_COLORS[0]!,
+        placedBy: owner,
+        createdTick: 0,
+        pos: { x, y: x0 },
+        prevPos: { x, y: x0 },
+        bonds: new Set(),
+        ownerColor: PLAYER_COLORS[0]!,
+        lastOwnershipChange: 0,
+        radius: 8,
+        hp: PRIMITIVE_MAX_HP,
+        origin: null,
+      };
+      world.primitives.set(p.id, p);
+      return p;
+    };
+    const join = (id: number, a: Primitive, b: Primitive): BondId => {
+      const bond: Bond = {
+        id: asBondId(id),
+        aId: a.id,
+        bId: b.id,
+        a,
+        b,
+        restLength: 32,
+        stiffnessTier: 'MID',
+        damageFifths: 0,
+        createdTick: 0,
+      };
+      world.bonds.set(bond.id, bond);
+      a.bonds.add(bond.id);
+      b.bonds.add(bond.id);
+      return bond.id;
+    };
+    const a = mk(1, x0);
+    const b = mk(2, x0 + 32);
+    const c = mk(3, x0 + 64);
+    const bondIds = [join(10, a, b), join(11, b, c)];
+    addTower(world, 1, a.id, owner);
+    return { world, bondIds };
+  }
+
+  /**
+   * ⚠ A SPAWNER, NOT A DEFENDER, AND THAT IS THE POINT. `world.defenders` holds only the turret and
+   * the stink tower with a null pool; the GOBLIN TOWER the owner screenshotted is a
+   * `world.creatureSpawners` entry, as are the pentagram, the lightning hub, the six race towers and
+   * the six tier-9 boss towers. A fix that covered only defenders would have shipped bars on two
+   * tower kinds and called the job done.
+   */
+  function addTower(world: World, id: number, anchor: PrimitiveId, owner: PlayerId): void {
+    world.creatureSpawners.set(asSpawnerId(id), {
+      id: asSpawnerId(id),
+      ownerPlayerId: owner,
+      anchorPrimitiveId: anchor,
+      recipeId: 'goblinTower' as never,
+      nextSpawnTick: 0,
+      lastValidatedTick: 0,
+      spawnedCount: 0,
+      ignitedAtTick: 0,
+    });
+  }
+
+  function bars(world: World): Array<{ x: number; y: number; w: number; h: number }> {
+    const g = new G();
+    beginConcealmentFrame(world, CURSOR);
+    drawHealthBars(g as never, world);
+    return g.rects;
+  }
+
+  it('⭐⭐ THE ASK: a tower draws a bar at all, and it is FULL while undamaged', () => {
+    const { world } = towerWorld();
+    const rects = bars(world);
+    expect(rects.length, 'one track plus one fill').toBe(2);
+    const track = rects[0]!;
+    const fill = rects[1]!;
+    // Undamaged ⇒ the fill spans the whole track. This is fault 1 from the S171 pips, which hid
+    // while healthy: a full tower must still SHOW its pool so it can be compared against.
+    expect(fill.w).toBeCloseTo(track.w, 6);
+    expect(track.w).toBeGreaterThan(0);
+  });
+
+  it('⭐ the MAX is structureDefenceFifths(connectors) — the function that had no caller', () => {
+    const { world, bondIds } = towerWorld();
+    const n = bondIds.length;
+    expect(n).toBe(2);
+    // 2 connectors ⇒ capacity 2+4 = 6 fifths each ⇒ 12 fifths total.
+    expect(structureDefenceFifths(n)).toBe(12);
+
+    // Spend exactly half the pool and the fill must read exactly half.
+    const half = structureDefenceFifths(n) / 2;
+    world.bonds.get(bondIds[0]!)!.damageFifths = half;
+    const rects = bars(world);
+    const track = rects[0]!;
+    const fill = rects[1]!;
+    expect(fill.w / track.w).toBeCloseTo(0.5, 6);
+  });
+
+  it('⭐⭐ connector damage SHORTENS THE FILL — the S172 defect, on a tower this time', () => {
+    const { world, bondIds } = towerWorld();
+    const before = bars(world)[1]!.w;
+    world.bonds.get(bondIds[0]!)!.damageFifths = 3;
+    const after = bars(world)[1]!.w;
+    expect(after, 'a damaged tower must read as damaged').toBeLessThan(before);
+  });
+
+  it('⛔ losing a connector SHORTENS THE TRACK — R76 cascade, not a rendering bug', () => {
+    const { world, bondIds } = towerWorld();
+    const wide = bars(world)[0]!.w;
+    // Break one connector: the component keeps the anchor but drops to 1 bond, so per-connector
+    // capacity falls from 6 to 5 AND the count halves — the pool drops 12 → 5.
+    const bond = world.bonds.get(bondIds[1]!)!;
+    world.bonds.delete(bond.id);
+    // ⚠ Bond.a / Bond.b are PhysicsBody, NOT Primitive — the adjacency set lives on the primitive,
+    // so the detach has to go back through world.primitives by id. tsc caught this; vitest did not,
+    // because the test passed either way.
+    world.primitives.get(bond.aId)?.bonds.delete(bond.id);
+    world.primitives.get(bond.bId)?.bonds.delete(bond.id);
+    const narrow = bars(world)[0]!.w;
+    expect(narrow, 'a smaller structure is a smaller pool, so a shorter TRACK').toBeLessThan(wide);
+  });
+
+  it('⭐⭐ ONE bar per STRUCTURE — two towers on one lattice do not draw two', () => {
+    const { world } = towerWorld();
+    // A second tower anchored on a DIFFERENT member of the SAME component. The pool is shared, so
+    // drawing per-tower would paint two identical overlapping bars and imply two healths.
+    addTower(world, 2, asPrimitiveId(3), P0);
+    expect(world.creatureSpawners.size).toBe(2);
+    expect(bars(world).length, 'still exactly one track plus one fill').toBe(2);
+  });
+
+  it('⛔ a lone shape has no connectors, so it has no bar to draw', () => {
+    const world = twoSeat();
+    const p: Primitive = {
+      id: asPrimitiveId(1),
+      type: SparkType.Dot,
+      placerColor: PLAYER_COLORS[0]!,
+      placedBy: P0,
+      createdTick: 0,
+      pos: { x: 500, y: 500 },
+      prevPos: { x: 500, y: 500 },
+      bonds: new Set(),
+      ownerColor: PLAYER_COLORS[0]!,
+      lastOwnershipChange: 0,
+      radius: 8,
+      hp: PRIMITIVE_MAX_HP,
+      origin: null,
+    };
+    world.primitives.set(p.id, p);
+    addTower(world, 1, p.id, P0);
+    expect(bars(world).length, 'no connectors ⇒ no durability ⇒ nothing to show').toBe(0);
+  });
+
+  it('⛔ a CONCEALED enemy tower draws no bar — it must not leak position through the fog', () => {
+    /*
+     * ⚠ THE SAME THREE-PRECONDITION FIXTURE HOLE THE CREATURE FOG TEST ABOVE RECORDS, and I fell
+     * into it exactly as its comment predicts: setting only the phase leaves `fogActive` false
+     * (`isNetworked(world) && gameState === 'PLAYING' && matchPhase === 'BUILD'`), the fog is inert,
+     * two rects are drawn, and it reads as a renderer leak rather than a hole in the test.
+     * The structure is also built FAR from anything of P0's, because the spawner disc and the
+     * cursor are both permanent vision sources.
+     */
+    const { world } = towerWorld(P1, 4000);
+    world.gameMode = '1v1';
+    world.gameState = 'PLAYING';
+    world.localPlayerId = P0;
+    world.matchPhase = 'BUILD'; // R62: nothing is concealed during FIGHT
+    const rects = bars(world);
+    expect(rects.length, 'an enemy tower outside vision is not drawn at all').toBe(0);
   });
 });
