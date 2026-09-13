@@ -170,6 +170,7 @@ import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
 import { GoblinRenderer } from './render/goblinRenderer.ts';
 import { TurretRenderer } from './render/turretRenderer.ts';
+import { VoltkinTowerRenderer } from './render/voltkinTowerRenderer.ts';
 import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
@@ -776,6 +777,11 @@ async function bootstrap(): Promise<void> {
   goblinRenderer.setDefenderSpriteBox((id) => princessRenderer.spriteBoxOf(id));
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
   const turretRenderer = new TurretRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐⭐ S175 P4a — the Voltkin TV, drawn as a BUILDING on its chain. Same layer as the other
+   * structures so it fogs and sorts with them.
+   */
+  const voltkinTowerRenderer = new VoltkinTowerRenderer(app, fogHiddenLayer);
   const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
   const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
@@ -2612,6 +2618,7 @@ Network routes: ${v.detail}`;
         goblinRenderer.clear();
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
+        voltkinTowerRenderer.clear();
         // S103 P4 — drop HELGA graphics + per-princess facing/SFX state on title-return.
         princessRenderer.clear();
         // S141 P1 — drop stink-tower graphics + per-tower FSM-edge state on title-return.
@@ -3707,6 +3714,7 @@ Network routes: ${v.detail}`;
     // S167 — the tower sprite sits on its aura. Cheap when no race tower is live: it iterates
     // world.creatureSpawners and `towerArtForRecipe` returns null for every non-race recipe.
     towerRenderer.sync(world);
+    voltkinTowerRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
     // can stack above creatures in S27). Cheap when world.creatures empty.

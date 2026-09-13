@@ -47,6 +47,70 @@ function otherEndpoint(bond: Bond, id: PrimitiveId): PrimitiveId {
 }
 
 /**
+ * The shared DFS. Extracted in S175 P4a so `findVoltkinChain` and `findAllVoltkinChains` cannot
+ * drift apart — this codebase's recurring defect is two copies of one rule, and a renderer that
+ * disagreed with the matcher about what a Voltkin chain IS would draw a TV over shapes that never
+ * fire, or leave a fired chain bare.
+ */
+function walkChain(
+  world: World,
+  currentId: PrimitiveId,
+  nextDepth: number,
+  visited: Set<PrimitiveId>,
+  path: PrimitiveId[],
+): PrimitiveId[] | null {
+  if (nextDepth === EXPECTED_CHAIN.length) return [...path];
+  const current = world.primitives.get(currentId);
+  if (current === undefined) return null;
+  const expected = EXPECTED_CHAIN[nextDepth];
+  for (const bondId of current.bonds) {
+    const bond = world.bonds.get(bondId);
+    if (bond === undefined) continue;
+    const otherId = otherEndpoint(bond, currentId);
+    if (visited.has(otherId)) continue;
+    const other = world.primitives.get(otherId);
+    if (other === undefined) continue;
+    if (other.type !== expected) continue;
+    visited.add(otherId);
+    path.push(otherId);
+    const result = walkChain(world, otherId, nextDepth + 1, visited, path);
+    if (result !== null) return result;
+    visited.delete(otherId);
+    path.pop();
+  }
+  return null;
+}
+
+/**
+ * ⭐⭐ S175 P4a — EVERY standing Voltkin chain on the board, for the RENDERER.
+ *
+ * `findVoltkinChain` returns the FIRST match, which is correct for the matcher (an ignition event
+ * has one chain) and wrong for drawing: a two-TV board would get one TV. S161 P3's docblock is a
+ * full account of what that single-result shape has already cost this project once.
+ *
+ * ⚠ DEDUPED BY MEMBER SET, because the chain is a PATH and several of its four squares can each be
+ * a legal starting point — the same eight primitives would otherwise be returned several times and
+ * the renderer would stack identical sprites.
+ *
+ * ⚠ READ-ONLY and sim-free. Nothing here mutates world, and nothing in the sim calls it.
+ */
+export function findAllVoltkinChains(world: World): ReadonlyArray<ReadonlyArray<PrimitiveId>> {
+  const out: PrimitiveId[][] = [];
+  const seen = new Set<string>();
+  for (const prim of world.primitives.values()) {
+    if (prim.type !== EXPECTED_CHAIN[0]) continue;
+    const visited = new Set<PrimitiveId>([prim.id]);
+    const path: PrimitiveId[] = [prim.id];
+    const result = walkChain(world, prim.id, 1, visited, path);
+    if (result === null) continue;
+    const key = [...result].map(Number).sort((a, b) => a - b).join(',');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(result);
+  }
+  return out;
+}
+/**
  * DFS from `startId` looking for a non-revisiting path through the bond graph
  * whose primitive types match EXPECTED_CHAIN in order. Returns the 8-prim path
  * or null. Exported for vitest path-shape regression coverage.
@@ -79,39 +143,12 @@ export function findVoltkinChain(
     }
     return false;
   };
-  const walk = (
-    currentId: PrimitiveId,
-    nextDepth: number,
-    visited: Set<PrimitiveId>,
-    path: PrimitiveId[],
-  ): PrimitiveId[] | null => {
-    if (nextDepth === EXPECTED_CHAIN.length) return [...path];
-    const current = world.primitives.get(currentId);
-    if (current === undefined) return null;
-    const expected = EXPECTED_CHAIN[nextDepth];
-    for (const bondId of current.bonds) {
-      const bond = world.bonds.get(bondId);
-      if (bond === undefined) continue;
-      const otherId = otherEndpoint(bond, currentId);
-      if (visited.has(otherId)) continue;
-      const other = world.primitives.get(otherId);
-      if (other === undefined) continue;
-      if (other.type !== expected) continue;
-      visited.add(otherId);
-      path.push(otherId);
-      const result = walk(otherId, nextDepth + 1, visited, path);
-      if (result !== null) return result;
-      visited.delete(otherId);
-      path.pop();
-    }
-    return null;
-  };
 
   for (const prim of world.primitives.values()) {
     if (prim.type !== EXPECTED_CHAIN[0]) continue;
     const visited = new Set<PrimitiveId>([prim.id]);
     const path: PrimitiveId[] = [prim.id];
-    const result = walk(prim.id, 1, visited, path);
+    const result = walkChain(world, prim.id, 1, visited, path);
     // ⚠ `continue`, NOT `return`: a chain that does not touch `nearPos` is not this event's chain,
     // and another start primitive may still reach the one that is.
     if (result !== null && touchesNearPos(result)) return result;

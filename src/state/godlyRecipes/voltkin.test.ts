@@ -13,7 +13,7 @@ import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
 import { AUTO_BOND_RADIUS, PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial } from './voltkin.ts';
+import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial, findAllVoltkinChains } from './voltkin.ts';
 
 function makePrim(
   id: number,
@@ -489,5 +489,73 @@ describe('S161 P3 — a STANDING chain must not re-fire on a topology change els
     for (let i = 4; i < 8; i++) addPrim(world, makePrim(100 + i, p0Color, 3000 + i * 50, 900, SparkType.Triangle));
     for (let i = 0; i < 7; i++) addBond(world, makeBond(100 + i, 100 + i, 101 + i));
     expect(voltkinPredicate(world, { x: 3150, y: 900 })).not.toBeNull();
+  });
+});
+
+/**
+ * ⭐⭐ S175 P4a — EVERY chain on the board, for the renderer that draws the TV.
+ *
+ * `findVoltkinChain` returns the FIRST match, which is right for the matcher and wrong for drawing.
+ * S161 P3's docblock is a full account of what that single-result shape already cost this project
+ * once: with two chains standing, the ignition fired at the WRONG chain's centroid. A renderer
+ * inheriting the same shape would draw one TV on a two-TV board.
+ */
+describe("S175 P4a — findAllVoltkinChains (the renderer's enumerator)", () => {
+  let world: World;
+  let p0Color: number;
+
+  beforeEach(() => {
+    world = makeWorld(1);
+    const p2 = makeIdlePlayer(asPlayerId(1), 0x00ff00);
+    world.players.set(p2.id, p2);
+    p0Color = world.players.get(asPlayerId(0))!.color;
+  });
+
+  /** One complete 4-square -> 4-triangle chain, ids based at `base`, laid out around (x, y). */
+  const buildChain = (base: number, x: number, y: number): void => {
+    for (let i = 0; i < 4; i++) addPrim(world, makePrim(base + i, p0Color, x + i * 50, y, SparkType.Square));
+    for (let i = 4; i < 8; i++) addPrim(world, makePrim(base + i, p0Color, x + i * 50, y, SparkType.Triangle));
+    for (let i = 0; i < 7; i++) addBond(world, makeBond(base + i, base + i, base + i + 1));
+  };
+
+  it('an empty board has no chains', () => {
+    expect(findAllVoltkinChains(world)).toHaveLength(0);
+  });
+
+  it('one chain is found once — NOT once per legal starting square', () => {
+    buildChain(0, 0, 0);
+    const all = findAllVoltkinChains(world);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toHaveLength(8);
+  });
+
+  it('⭐ TWO chains on one board are both returned — the defect this function exists for', () => {
+    buildChain(0, 0, 0);
+    buildChain(100, 3000, 900);
+    expect(findAllVoltkinChains(world)).toHaveLength(2);
+    // ...while the matcher still answers with exactly one, which is correct for an ignition event.
+    expect(findVoltkinChain(world)).toHaveLength(8);
+  });
+
+  it('the two results are DISJOINT — no primitive is claimed by both TVs', () => {
+    buildChain(0, 0, 0);
+    buildChain(100, 3000, 900);
+    const [a, b] = findAllVoltkinChains(world);
+    const setA = new Set(a!.map(Number));
+    expect(b!.every((id) => !setA.has(Number(id)))).toBe(true);
+  });
+
+  it('an INCOMPLETE chain contributes nothing', () => {
+    for (let i = 0; i < 4; i++) addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    for (let i = 0; i < 3; i++) addBond(world, makeBond(i, i, i + 1));
+    expect(findAllVoltkinChains(world)).toHaveLength(0);
+  });
+
+  it('⛔ it agrees with the matcher — the shared DFS means they cannot drift', () => {
+    buildChain(0, 0, 0);
+    const first = findVoltkinChain(world);
+    const all = findAllVoltkinChains(world);
+    expect(first).not.toBeNull();
+    expect(new Set(all[0]!.map(Number))).toEqual(new Set(first!.map(Number)));
   });
 });

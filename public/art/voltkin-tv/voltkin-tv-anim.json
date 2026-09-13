@@ -1,0 +1,25 @@
+{
+  "cellW": 256,
+  "cellH": 256,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9961
+  },
+  "states": {
+    "intact": {
+      "row": 0,
+      "frames": 1,
+      "ticksPerFrame": 1
+    },
+    "damaged": {
+      "row": 1,
+      "frames": 1,
+      "ticksPerFrame": 1
+    },
+    "destroyed": {
+      "row": 2,
+      "frames": 1,
+      "ticksPerFrame": 1
+    }
+  }
+}

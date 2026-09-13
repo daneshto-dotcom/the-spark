@@ -1,0 +1,58 @@
+{
+  "_comment": [
+    "SPARK — S175 P4a: THE VOLTKIN TV, AS A BUILDING (owner, S175).",
+    "",
+    "Owner: \"we're redoing the whole way that Voltkin is coming out of the TV. It's gonna be in game.",
+    "It's gonna be like the tower is being built ... kind of like when bosses come out. But even cooler.\"",
+    "And on what he sees today: \"for now it's just fucking connectors of, what is it, four squares and",
+    "then four triangle. It looks stupid. It should be like that, but then the tower happens.\"",
+    "",
+    "⭐ THREE ROWS, NOT SIX, AND THAT IS THE WHOLE DE-RISK. His art is a six-panel sequence — intact,",
+    "spawn, burning, critical, explosion, ruins — but the engine's TowerState union is",
+    "intact/damaged/destroyed, and WIDENING it breaks tsc across BOTH row tables (T3 and T9) and forces",
+    "a decision about rows the tier-9 sheets do not have. Mapping his sequence onto the three states the",
+    "renderer already drives costs nothing and ships now:",
+    "    intact    <- tv-1-intact",
+    "    damaged   <- tv-3-burning   (his own words: the long-lived state the tower wears most of a match)",
+    "    destroyed <- tv-6-ruins",
+    "",
+    "⚠ tv-2-spawn, tv-4-critical and tv-5-explosion are NOT packed here. They belong to the emergence",
+    "and the destruction cinematic, which are frame-driven and client-local (the TOWER_CRUMBLE_FRAMES",
+    "shape), not damage states. Packing them into this sheet would put four-of-six rows somewhere no",
+    "code reads and invite a future session to 'wire up the missing rows'.",
+    "",
+    "⚠ THE SOURCES ARE FLATTENED ONTO 254-WHITE first (`*-flat.png`). The packer's matte keys out",
+    "near-WHITE; a transparent PNG whose RGB is 0,0,0 reads as SUBJECT and packs the art inside a black",
+    "box. That cost S175 three rebuilds on the direwolf before it was spotted by LOOKING at the sheet.",
+    "",
+    "⚠ NO normaliseStateScale — buildings legitimately change size between states, and a burning TV that",
+    "has partly collapsed SHOULD be shorter than an intact one. `fit: box` and framesPerState 1 match",
+    "every other building spec in the tree."
+  ],
+  "specs": [
+    {
+      "name": "voltkin-tv",
+      "outDir": "public/art/voltkin-tv",
+      "cellW": 256,
+      "cellH": 256,
+      "fit": "box",
+      "framesPerState": 1,
+      "states": {
+        "intact": {
+          "still": "assets-source/voltkin-tv/tv-1-intact-flat.png",
+          "ticksPerFrame": 1
+        },
+        "damaged": {
+          "still": "assets-source/voltkin-tv/tv-3-burning-flat.png",
+          "ticksPerFrame": 1,
+          "_why": "His BURNING panel, not CRITICAL. He called burning the state the tower wears most of the match; critical is one beat before the explosion and belongs to the destruction sequence."
+        },
+        "destroyed": {
+          "still": "assets-source/voltkin-tv/tv-6-ruins-flat.png",
+          "ticksPerFrame": 1
+        }
+      },
+      "enclosedWhiteLimitPct": 4e-05
+    }
+  ]
+}
