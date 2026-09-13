@@ -209,6 +209,8 @@ import { ScreenShake, shouldTriggerNonetResolveShake } from './render/screenShak
 // the production index chunk. Type-only imports are erased at compile.
 import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts';
 import { listRecipes } from './state/godlyRecipes/index.ts';
+import { ALL_BLUEPRINT_IDS, blueprintCost, blueprintFor } from './state/blueprints.ts';
+import type { GodlyId } from './state/godlyRecipes/types.ts';
 /*
  * ⚠ S173 P5 — the `GodlyId` type-only import that sat here went with NONET_CODEX_ID (below). This
  * file compiles under `noUnusedLocals`, so an orphaned import is a BUILD FAILURE, not a lint nit.
@@ -1092,7 +1094,54 @@ async function bootstrap(): Promise<void> {
     void (async () => {
       if (codexOverlay === null) {
         const mod = await import('./render/codexOverlay.ts');
-        const towers = listRecipes().map((r) => mod.entryFromRecipe(r));
+        /*
+         * ⭐⭐ S175 P5 (owner R175-A) — **THE GRID IS ORDERED BY CONNECTOR COUNT.**
+         *
+         * Owner, asked whether the codex tier is node count or connector count: *"Yes. It's by
+         * connectors. So if it's in the wrong one in game, so let's move them as well to tier three
+         * or whatnot."* — which also settles what to do when the answer surprises us: the LADDER is
+         * authoritative and a structure that lands in an odd tier is a GAME question, not a reason
+         * to hand-place a card here.
+         *
+         * ⛔ AND THIS IS THE CALL SITE `codexOverlay.ts` NOMINATED, not a new idea. Its docblock has
+         * said since S173 that `listRecipes()` returns `Array.from(REGISTRY.values())`, i.e. the
+         * order `registerRecipe` happened to be CALLED — module-EVALUATION order, which nobody chose
+         * — and that *"if a deliberate order is ever wanted it belongs at the main.ts call site as an
+         * explicit sort, not as a hope about import order"*. This is that sort.
+         *
+         * ⭐ THE COUNT COMES OFF `Blueprint.bonds`, WHICH IS THE THING ITSELF. That array is the exact
+         * bond list the build stamps, so the codex ladder cannot drift from what the player actually
+         * connects; a hand-kept tier column on the copy table could, and this file has been bitten by
+         * hand-kept tables twice (ALL_BLUEPRINT_IDS, GOBLIN_KINDS).
+         *
+         * ⚠ THE STINK TOWER COMES OUT AT TIER 3, NOT LAST, and that is the ruling working rather
+         * than failing. He said *"stink tower is last"* in S174 and *"it's by connectors"* here; it
+         * has FOUR nodes but only THREE bonds (a hub and three leaves), so by his own rule it sits
+         * with the six race towers. The cost tie-break puts it last WITHIN that tier, which is as
+         * far as ordering can honour the earlier sentence without contradicting the later one.
+         * Moving it up a tier is a recipe change in the game, which is exactly what he said to do.
+         *
+         * ⚠ A recipe with no blueprint sorts to the END rather than throwing. Every registered
+         * recipe has one today; `ALL_BLUEPRINT_IDS` is hand-written, so one day one might not, and a
+         * codex that throws on open is far worse than a card in the wrong place.
+         */
+        const LAST = Number.MAX_SAFE_INTEGER;
+        const ladder = new Map(ALL_BLUEPRINT_IDS.map((id) => {
+          const bp = blueprintFor(id);
+          return [id, { tier: bp.bonds.length, cost: blueprintCost(id) }] as const;
+        }));
+        const rank = (id: string): readonly [number, number] => {
+          const e = ladder.get(id as GodlyId);
+          return e === undefined ? [LAST, LAST] : [e.tier, e.cost];
+        };
+        const towers = listRecipes()
+          .slice()
+          .sort((a, b) => {
+            const [at, ac] = rank(a.id);
+            const [bt, bc] = rank(b.id);
+            return at - bt || ac - bc || a.id.localeCompare(b.id);
+          })
+          .map((r) => mod.entryFromRecipe(r));
         codexOverlay = new mod.CodexOverlay(app, { towers }, () => {
           codexOverlay?.setVisible(false);
         });
