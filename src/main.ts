@@ -139,6 +139,7 @@ import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
 import { beginConcealmentFrame } from './render/concealment.ts';
+import { beginTowerCoverFrame } from './render/towerCover.ts';
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { resolveMusicTrack } from './render/raceMusic.ts';
@@ -3665,6 +3666,17 @@ Network routes: ${v.detail}`;
      * moving cursor is a one-frame flicker at the edge of the reveal.
      */
     beginConcealmentFrame(world, controls.cursor);
+    /*
+     * ⭐⭐ S175 P6 (owner R169) — promote last frame's tower-cover marks and start collecting this
+     * frame's. It sits beside `beginConcealmentFrame` for the same reason that one does: both compute
+     * a per-frame context that renderers then read cheaply, and both must run before any sync.
+     *
+     * ⚠ ONE FRAME OF LAG, ON PURPOSE. `structureRenderer.sync` runs below BEFORE the tower and
+     * defender renderers that publish the marks, so consumers read the previous frame's set.
+     * 16 ms against a 2-second ramp, and it avoids reordering the render tick — which would risk
+     * z-order and fog behaviour for a purely cosmetic feature.
+     */
+    beginTowerCoverFrame(world);
 
     const wantZoneBg = isZoneBackgroundEnabled();
     if (wantZoneBg !== zoneBackgroundRenderer.isEnabled()) {

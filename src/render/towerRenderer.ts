@@ -40,6 +40,8 @@ import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
 import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
 import { isConcealed } from './concealment.ts';
+import { markTowerCover } from './towerCover.ts';
+import type { BondId, PrimitiveId } from '../types.ts';
 import {
   TOWER_CRUMBLE_FRAMES,
   TOWER_DESTROY_FRAMES,
@@ -70,6 +72,30 @@ interface Crumble {
   elapsed: number;
 }
 
+
+/**
+ * The bonds lying WHOLLY INSIDE a ring, plus the newest `createdTick` among them.
+ *
+ * ⚠ BOTH ENDPOINTS MUST BE RING MEMBERS. A bond running from a ring node out to some unrelated
+ * shape the player attached is not part of the building; hiding it would erase a connector the
+ * tower does not stand on.
+ *
+ * ⚠ `createdTick` is the ramp anchor because it is REQUIRED and unconditionally serialized.
+ * `CreatureSpawner.ignitedAtTick` is the trap that looks right: `trimMirrorSpawner` strips it from
+ * the wire and `deserializeSpawner` re-seeds it from the client's own tick, so a ramp anchored on it
+ * would restart ten times a second on a joiner.
+ */
+function ringBondsOf(world: World, ring: readonly PrimitiveId[]): { ids: BondId[]; newestTick: number } {
+  const members = new Set<PrimitiveId>(ring);
+  const ids: BondId[] = [];
+  let newestTick = 0;
+  for (const bond of world.bonds.values()) {
+    if (!members.has(bond.aId) || !members.has(bond.bId)) continue;
+    ids.push(bond.id);
+    if (bond.createdTick > newestTick) newestTick = bond.createdTick;
+  }
+  return { ids, newestTick };
+}
 export class TowerRenderer {
   private readonly layer: Container;
   private readonly sprites = new Map<SpawnerId, Sprite>();
@@ -249,6 +275,16 @@ export class TowerRenderer {
        * drawn in its race's own colour, and `Player.color` is DERIVED from `raceId`, so ownership
        * reads without a tint by construction.
        */
+      /*
+       * ⭐⭐ S175 P6 (owner R169) — **THE SHAPES UNDER THIS TOWER PHASE OUT.** Declared HERE, at the
+       * point a sprite is actually committed, and never re-derived inside `towerCover`. Five gates
+       * above can each skip a tower — no art, fogged, atlas still loading, ring unresolved, ring
+       * empty — and this renderer's own contract for those is that *"the shapes themselves stay
+       * visible underneath, so the structure is still readable"*. Marking anywhere but this line
+       * would hide shapes beneath a tower nobody drew.
+       */
+      const ringBonds = ringBondsOf(world, ring);
+      markTowerCover(ring, ringBonds.ids, ringBonds.newestTick);
       live.add(sp.id);
       // Cached for the crumble, which happens after both the spawner and the ring are gone.
       this.lastSeen.set(sp.id, { x: cx, y: cy + art.sizePx * 0.5, art });

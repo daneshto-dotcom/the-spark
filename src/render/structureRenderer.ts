@@ -33,6 +33,7 @@ import type { World } from '../state/world.ts';
 import type { PrimitiveId } from '../types.ts';
 import { drawBondVisual } from './bondVisualRenderer.ts';
 import { isConcealed } from './concealment.ts';
+import { TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, pruneTowerCover } from './towerCover.ts';
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
@@ -127,7 +128,18 @@ export class StructureRenderer {
       }
       sprite.x = prim.pos.x;
       sprite.y = prim.pos.y;
+      /*
+       * ⭐⭐ S175 P6 (owner R169) — phase the shape out while a building stands on it.
+       *
+       * ⛔ AN ALPHA, NOT A `continue`, AND THE DIFFERENCE IS LOAD-BEARING. The concealment skip
+       * twenty lines above deliberately jumps BEFORE `seen.add` so the cleanup pass destroys the
+       * sprite. Copying that here would destroy and recreate the shape instead of fading it: it
+       * would pop out at the start of the ramp and pop back in on reveal, which is the opposite of
+       * the owner's *"phase them in and out of reality"*.
+       */
+      sprite.alpha = coverAlphaForPrim(prim.id);
     }
+    pruneTowerCover(world);
     if (this.spriteByPrim.size > seen.size) {
       for (const [id, sprite] of this.spriteByPrim) {
         if (!seen.has(id)) {
@@ -173,6 +185,12 @@ export class StructureRenderer {
        * something the player is not allowed to see, which leaks the position it exists to hide.
        */
       if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;
+      /*
+       * ⭐⭐ S175 P6 — the connector's phase-out. Fully hidden means SKIP: this bond draws into a
+       * shared Graphics and an alpha-0 stroke still costs the geometry.
+       */
+      const coverAlpha = coverAlphaForBond(bond.id);
+      if (coverAlpha <= TOWER_COVER_DRAW_EPSILON) continue;
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;
       const dist = Math.hypot(dx, dy);
@@ -209,7 +227,7 @@ export class StructureRenderer {
         visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
         colorA: stressedA,
         colorB: stressedB,
-        alpha: 0.85,
+        alpha: 0.85 * coverAlpha,
         width,
         tick,
       });
@@ -223,12 +241,18 @@ export class StructureRenderer {
           .stroke({
             width: 1,
             color: 0xff8080,
-            alpha: 0.4 + 0.6 * pulse,
+            alpha: (0.4 + 0.6 * pulse) * coverAlpha,
           });
       }
 
       // S85 P4b — ownership pattern overlay (see drawBonds header comment).
-      if (colorToSeat !== null) {
+      /*
+       * ⚠ THE OWNERSHIP PATTERN IS SKIPPED RATHER THAN FADED. `drawOwnershipPattern` strokes
+       * straight into the shared Graphics with its own alpha, so a phased-out connector would keep
+       * a fully opaque dash pattern floating where it used to be — the S175 version of the three
+       * separate draw calls this bond is made of not agreeing with each other.
+       */
+      if (colorToSeat !== null && coverAlpha > TOWER_COVER_DRAW_EPSILON) {
         const seat = colorToSeat.get(a.placerColor);
         drawOwnershipPattern(g, a.pos.x, a.pos.y, b.pos.x, b.pos.y, seatPatternKind(seat));
       }
