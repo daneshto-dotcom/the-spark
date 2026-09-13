@@ -1,0 +1,309 @@
+{
+  "_comment": [
+    "SPARK — THE VEO RECIPE FILE. Machine-readable companion to ART_VEO_PROTOCOL.md (repo root),",
+    "which is the prose runbook and the authority where the two disagree. ART_PIPELINE.md is the",
+    "parent document for the whole art pipeline; this file covers the GENERATION step only.",
+    "",
+    "⛔ WHY IT EXISTS. Owner, S173, after a session generated 8 clips at $0.50 each WITHOUT first",
+    "reading the spec that produced the art he already likes — 4 of the 8 came back with the subject",
+    "touching the frame edge, which check-clip.mjs calls NOT RECOVERABLE. ~$2.00 on a solved problem.",
+    "*\"From now on it's a protocol... STOP WASTING MY MONEY. Be coherent about this, be methodical,",
+    "be technical.\"*",
+    "",
+    "⭐ READ THIS FILE BEFORE GENERATING ANYTHING. One read, and the whole recipe is here.",
+    "",
+    "⚠ EVERY NUMBER BELOW WAS MEASURED OFF THE TREE ON 2026-09-12, not copied from a handoff. Where a",
+    "number is MINE rather than the owner's, the field says so."
+  ],
+
+  "version": 1,
+  "authoredSession": "S173",
+  "authoredDate": "2026-09-12",
+  "proseRunbook": "ART_VEO_PROTOCOL.md",
+  "parentDoc": "ART_PIPELINE.md",
+
+  "stepZero": {
+    "rule": "READ THE LAST KNOWN-GOOD SPEC AND COPY ITS PROMPT SHAPE BEFORE SPENDING ANYTHING.",
+    "why": "This is the step whose absence cost $2.00 in S173. It takes ninety seconds.",
+    "read": [
+      "assets-source/race-tier9-bosses/clip-spec.json",
+      ".claude/veo-recipes.json",
+      "ART_VEO_PROTOCOL.md"
+    ]
+  },
+
+  "generation": {
+    "script": "scripts/gen-character-clips.mjs",
+    "invoke": "node scripts/gen-character-clips.mjs <clip-spec.json> [--only <character>] [--state <name>] [--skip-existing]",
+    "⛔ generateThroughTheScript": [
+      "The per-state prompts are SHORT because the script appends its SHARED block: static camera,",
+      "flat-white background, the anti-letterbox paragraph, the anti-scenery paragraph and the",
+      "match-the-reference-scale paragraph. Each of those clauses was paid for by a specific failed",
+      "clip (the Kraken's black box, the bat's grey pillars, the melting stink tower).",
+      "Calling veo_generate or the REST endpoint by hand gives you the short prompt and NONE of the",
+      "protections, and re-buys all of those defects."
+    ],
+    "model": "veo-3.1-generate-preview",
+    "modelOverrideEnv": "VEO_MODEL",
+    "modelNote": "ALWAYS-STRONGEST. The three veo variants have SEPARATE quota pools (measured S165: the full model answered 429 while -fast and -lite accepted the same request on the same key in the same second). Dropping a tier is the owner's call with a side-by-side, never a silent downgrade.",
+    "durationSeconds": 4,
+    "durationNote": "The owner's cap: \"All we need is a few seconds, up to four.\" The pipeline keeps 12 frames of ~90 anyway.",
+    "resolution": "720p",
+    "aspectRatio": "16:9",
+    "aspectRatioNote": "HARDCODED in gen-character-clips.mjs. This is why the seed must be 16:9 — see seedGeometry.",
+    "concurrency": 4,
+    "concurrencyNote": "veo answers 429 RESOURCE_EXHAUSTED beyond its quota; the ceiling was found at eight. A 429 is BACKPRESSURE the script retries, not a failure.",
+    "billingWarning": "An accepted operation is BILLED whether or not the process survives to download it. The op name lands in <out>.op.json immediately and a later run resumes from it. If a run dies, RE-RUN THE SAME COMMAND — never re-submit."
+  },
+
+  "seedGeometry": {
+    "recommended": "A_PADDED_16_9",
+    "recommendationRationale": [
+      "1. It removes the failure at the mechanism. The request is hardcoded 16:9, so a 16:9 seed",
+      "   cannot be pillarboxed. A 1:1 seed MUST be fitted, and the shipped tier-9 clips show it",
+      "   being fitted with ~320px bars a side — 635 of 1280 usable, 49.6% of the frame.",
+      "2. The 48% of empty canvas IS the margin the attack state needs. The boss whose seed filled",
+      "   the most width (Kraken, 96%W) is the one whose tentacles were amputated, twice. The zombie",
+      "   the owner praises sits at 89%W x 88%H — the most generous margins of the six.",
+      "3. It is the only recipe that has produced a first-try clean check-clip since the failure",
+      "   mode was understood.",
+      "⚠ CAVEAT, HONESTLY: n=1 clip for A vs 24 clips of owner-approved ART for B. Those measure",
+      "different things — B is proven on style, A is proven on FRAMING. A's residual risk is a",
+      "subject drawn too small, which cellW/cellH and normaliseStateScale absorb for free; B's",
+      "residual risk is a $0.50 re-roll. If an A-recipe character comes back too small or drifting,",
+      "amend this field with the measurement."
+    ],
+    "A_PADDED_16_9": {
+      "label": "16:9 padded canvas — RECOMMENDED",
+      "canvasW": 1920,
+      "canvasH": 1080,
+      "aspect": 1.7778,
+      "subjectHeightPct": 52,
+      "subjectPlacement": "centred, both axes",
+      "background": "flat pure white, RGB (never RGBA)",
+      "subjectHeightPctProvenance": "⚠ THIS NUMBER IS MINE, not the owner's — the ratio measured off the single clean S173 clip's seed, rounded. Not swept; 45% and 60% may work as well. Do not quote it to him as a finding.",
+      "evidence": "direwolf/attack.mp4, S173 — the ONE clip of eight that measured `PASS  no side bars, subject clear of every edge — packable as-is` (check-clip exit 0 for that clip).",
+      "sampleSize": "n = 1 clip",
+      "prepSnippet": "ART_VEO_PROTOCOL.md §1 — tested on direwolf-healthy.png, voltkin-healthy.png, boss-zombies-whopper.png and a synthetic 3.33-aspect subject; both fit branches exit 0."
+    },
+    "B_SQUARE_FULL_FRAME": {
+      "label": "1024x1024 square, subject near-full-frame — the HISTORICAL recipe",
+      "canvasW": 1024,
+      "canvasH": 1024,
+      "aspect": 1.0,
+      "subjectHeightPct": "88-94 (measured range across the six approved boss seeds)",
+      "subjectWidthPct": "51-96 (measured range — the spread is the subject's silhouette, not a rule)",
+      "background": "flat pure white, RGB",
+      "evidence": "the six tier-9 bosses, S167 — owner-approved art, shipped and live.",
+      "sampleSize": "n = 24 clips across 6 characters",
+      "knownFaults": [
+        "pillarboxing present in most clips (recoverable — the packer crops one stable column)",
+        "t9boss-nagas attack needed sampleStart: 60 after veo pillarboxed two-thirds then ZOOMED",
+        "the Kraken's tentacles were amputated across two generations"
+      ],
+      "measuredSeeds": {
+        "boss-zombies-whopper.png": { "w": 1024, "h": 1024, "subjectW": 916, "subjectH": 900, "pctW": 89, "pctH": 88, "marginL": 53, "marginR": 55, "marginT": 80, "marginB": 44, "note": "⭐ THE OWNER'S OWN REFERENCE: \"look at the ones that were generated well, like the freaking zombie boss. Everything about him looks great.\" Also the most generous margins of the six." },
+        "boss-demons-archdemon.png": { "w": 1024, "h": 1024, "pctW": 93, "pctH": 94, "marginL": 31, "marginR": 41, "marginT": 26, "marginB": 36 },
+        "boss-mummies-pharaoh.png": { "w": 1024, "h": 1024, "pctW": 83, "pctH": 94, "marginL": 104, "marginR": 74, "marginT": 22, "marginB": 42 },
+        "boss-nagas-kraken.png": { "w": 1024, "h": 1024, "pctW": 96, "pctH": 90, "marginL": 20, "marginR": 24, "marginT": 62, "marginB": 44, "note": "⛔ THE WIDEST SEED OF THE SIX AND THE ONE THAT LOST ITS TENTACLES. A limb that extends needs somewhere to extend into." },
+        "boss-orcs-warlord.png": { "w": 1024, "h": 1024, "pctW": 88, "pctH": 94, "marginL": 51, "marginR": 75, "marginT": 21, "marginB": 40 },
+        "boss-vampires-vlad.png": { "w": 1024, "h": 1024, "pctW": 51, "pctH": 93, "marginL": 227, "marginR": 278, "marginT": 44, "marginB": 26 }
+      },
+      "measurementMethod": "subject bbox = pixels with mean RGB luminance < 235, the same near-white background test check-clip.mjs uses. Measured 2026-09-12."
+    },
+    "hardRules": [
+      "⛔ FLATTEN TO RGB ON WHITE. Never send an RGBA cut-out — a transparent seed gets composited by whatever is upstream, and black is a common default. build-sprite-atlas.mjs keys near-white CONNECTED TO THE FRAME BORDER; it cannot key black.",
+      "⚠ ONE SEED PER CHARACTER, FOR ALL FOUR STATES — not one per state. The seed is the only yardstick the four independent generations share. Owner: \"make sure the goblin when he is idle or walking is same as attacking... need to stay consistent throughout.\"",
+      "⚠ The healthy/standing pose is the seed. A hurt or dead still is NOT a second seed — at most it is a reference for where the die clip comes to rest."
+    ]
+  },
+
+  "promptFormula": {
+    "shape": "{CREATURE} {MOTION} {AXIS} {CONTAINMENT}",
+    "andNothingElse": "The script appends style, camera, background and framing. A second, differently-worded copy of those competes with the tuned one.",
+    "placeholders": {
+      "{CREATURE}": "ONE clause of identity, re-stated in EVERY state. e.g. \"the enormous bloated grey-green undead brute\".",
+      "{AXIS}": "ONE sentence of movement character, pasted VERBATIM into all four states. e.g. \"His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong.\"",
+      "{ATTACK_VERB}": "A verb that CANNOT acquire a prop. See rules.attackVerb."
+    },
+    "rules": {
+      "reDescribeEveryClip": "⛔ Each state is a separate generation with no memory of the others. Drop the creature clause and veo drifts to a different creature. The seed pins the drawing; the clause pins the words. You need both.",
+      "butKeepItToOneClause": "⚠ From the tier-9 spec: \"Long re-descriptions are what made veo REDRAW the subject each frame instead of animating a fixed one — the shipped stink tower melted for exactly that reason.\" Identity in one clause, motion in the rest.",
+      "attackVerb": "⛔ A WOLF BITES. Verbs that imply hands make the generator hand the creature a weapon it does not own — that cost three re-rolls on the castle vampire. SAFE: bites, gores, headbutts, slams with its own body, discharges lightning. UNSAFE: swings, strikes, wields, chops.",
+      "dieMustLand": "⛔ DOWN BY THE HALFWAY POINT, AND ENDING STILL, ON THE GROUND, IN FRAME. The packer takes an even stride; a death still falling at the last frame gives a row whose final pose is mid-air, and the renderer holds it. The capitals in the template are load-bearing.",
+      "oneAxisPerCharacter": "⭐ Owner-fixed fear axes for the bosses: Vlad IMPERIAL, Kraken MONSTROUS, Pharaoh ANCIENT & CURSED, Whopper DISGUSTING, Warlord BRUTAL, Archdemon VICIOUS & TERRIFYING. R99 forbids two races converging; six monsters that all moved the same way would collapse that at the point the player actually sees it.",
+      "noFramingLanguage": "⚠ Do not add camera or framing words to a per-state prompt. They are in SHARED, in wording tuned against specific failures."
+    },
+    "unitStates": {
+      "_note": "Verbatim shape from assets-source/race-tier9-bosses/clip-spec.json. The doubled spaces before punctuation are in the shipped spec and are kept so a diff against the reference stays clean.",
+      "idle": "{CREATURE} stands in place . He shifts his weight slightly and his head turns as he surveys the field. {AXIS} He stays in the SAME SPOT for the whole clip and does not walk anywhere.",
+      "walk": "{CREATURE} advances steadily forward toward the viewer , a full walk cycle. {AXIS} He stays roughly centred in frame the whole time.",
+      "attack": "{CREATURE} delivers one single {ATTACK_VERB} - a full wind-up, the strike, and the recovery back to a ready stance, all within the clip. {AXIS} He stays in the SAME SPOT and does not travel.",
+      "die": "{CREATURE} is struck a mortal blow. He staggers, collapses and FALLS ONTO THE GROUND. He is already fully down by the middle of the clip. For the entire second half he lies motionless on the ground, completely still, not moving at all. {AXIS}"
+    },
+    "workedExample_zombieBoss": {
+      "_why": "The owner's own reference for what good looks like. Quoted so the shape is never guessed at.",
+      "CREATURE": "the enormous bloated grey-green undead brute",
+      "AXIS": "His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong.",
+      "idle": "the enormous bloated grey-green undead brute stands in place . He shifts his weight slightly and his head turns as he surveys the field. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
+    }
+  },
+
+  "subjectKind": {
+    "⚠ trap": "A three-panel healthy/hurt/dead sheet is a BUILDING sheet. Handing that in for a unit gives you none of the four things a unit sheet needs, and confusing them wastes a whole round. It fired again in S173 on BOTH the direwolf and Voltkin, which are UNITS.",
+    "UNIT": {
+      "needs": "MOTION",
+      "states": ["idle", "walk", "attack", "die"],
+      "clips": 4,
+      "cost": 2.0
+    },
+    "BUILDING": {
+      "needs": "DAMAGE STATES",
+      "states": ["intact", "damaged", "destroyed"],
+      "optional": ["spawning"],
+      "clips": 0,
+      "cost": 0.0,
+      "⛔ generateNothing": "Most building states must NOT be veo clips. A building has no gait, no swing and no idle bob, so a clip spends the budget re-drawing a static subject and buys back seed drift (S152: the bat rider went spindly) and the melting stink tower. Use the packer's `still` knob — one PNG per state, same matte, same union bbox, $0.00.",
+      "cinematicsOnly": "Generate a clip only for a genuine cinematic (the spawn burst, the crumble). Set staticSubject:true on the character so the hold-the-geometry block is appended — and it is A PROMPT, NOT A GUARANTEE, so look at the frames.",
+      "⭐ halfPaidFor": "The tier-3 sheets already ship a `spawning` row that no code can draw. T3_TOWER_STATE_ROWS maps intact->0, damaged->2, destroyed->3 and skips row 1."
+    }
+  },
+
+  "verifyGate": {
+    "⛔ rule": "RUN THIS ON EVERY CLIP BEFORE SPENDING ANOTHER CENT, AND BEFORE ANY PACKING.",
+    "command": "node scripts/check-clip.mjs assets-source/<family>/clips/<character>/",
+    "exitCodeRule": "⛔ Read $? CAPTURED, on its own line. Never through a pipe, and never trust a trailing `[exited with code 0]` from the harness — that line is the wrapper's, not the gate's.",
+    "verdicts": [
+      {
+        "output": "PASS  no side bars, subject clear of every edge — packable as-is",
+        "meaning": "clean",
+        "action": "pack it",
+        "costUsd": 0.0
+      },
+      {
+        "output": "⚠ PILLARBOXED ... RECOVERABLE — bars are present throughout",
+        "meaning": "RECOVERABLE — the packer's content_column already crops one stable column",
+        "action": "nothing",
+        "costUsd": 0.0
+      },
+      {
+        "output": "⛔ BARS CHANGE MID-CLIP ... RECOVERABLE — set \"sampleStart\": N",
+        "meaning": "RECOVERABLE — the one case the packer is documented as NOT handling (it averages brightness over the whole clip)",
+        "action": "write \"sampleStart\": N onto that state in the atlas spec",
+        "costUsd": 0.0
+      },
+      {
+        "output": "⛔ SUBJECT TOUCHES THE FRAME EDGE ... NOT RECOVERABLE",
+        "meaning": "the pixels were never generated; widening the cell puts empty space around a limb that still ends in a flat stump",
+        "action": "re-roll THAT ONE STATE, framed smaller: --only <character> --state <state>",
+        "costUsd": 0.5
+      },
+      {
+        "output": "exit 3",
+        "meaning": "ffmpeg or numpy/Pillow missing — a TOOLCHAIN gap, NOT a verdict on the art",
+        "action": "pip install numpy scipy Pillow",
+        "costUsd": 0.0
+      }
+    ],
+    "⛔ doNotRegenerateRule": "DO NOT REGENERATE UNTIL check-clip SAYS NOT RECOVERABLE. A pillarboxed clip is not a bad clip — it is a clip that needs one JSON field. Bars are free. Amputation is $0.50. Only the second is a reason to pay.",
+    "reRollScope": "ONE state, never the set. Add --skip-existing to any whole-character re-run so clips already on disk are never re-paid for.",
+    "⚠ notADeployGate": "check-clip reads assets-source/, which the shipped build does not. An asset-quality opinion must never block a live deploy — S165 wired one into `npm run build` and the site sat stale."
+  },
+
+  "packPath": {
+    "build": "node scripts/build-atlas-set.mjs assets-source/<family>/atlas-specs.json [nameFilter...]",
+    "guard": "npm run check:atlas",
+    "guardNote": "NOT part of `npm run build` — it runs as its own atlas-guard CI job. Exit 3 = pip install numpy scipy Pillow (toolchain gap, not a verdict). Exit 1 = a real defect.",
+    "silentFailureWarning": "A missing atlas is SILENT at runtime — loadAtlas catches and the creature falls back to a green procedural puppet. build-atlas-set exits non-zero and names the spec rather than reporting a partial success.",
+    "atlasSpecKnobs": {
+      "_source": "read out of scripts/build-sprite-atlas.mjs on 2026-09-12 — this is the real list, not a remembered one",
+      "topLevel": {
+        "name": { "default": "required", "what": "sheet name; also the default out-dir leaf" },
+        "outDir": { "default": "public/godly/<name>/anim", "what": "where <name>-atlas.png and <name>-anim.json land" },
+        "cellW": { "default": "required", "what": "⭐ the cell the union bbox is fitted into — the ONLY lever that makes a boss look like a boss, because the base sprite scale is one global. Bosses 320, tier-3 units 200" },
+        "cellH": { "default": "required", "what": "as cellW" },
+        "framesPerState": { "default": "required", "what": "12 in every shipped spec — see openDials.framesPerState" },
+        "states": { "default": "required", "what": "one entry per row" },
+        "sampleStart": { "default": 0, "what": "skip N leading source frames; a per-state value wins over this" },
+        "sampleWindow": { "default": "rest of clip", "what": "sample only N frames from sampleStart" },
+        "enclosedWhiteLimitPct": { "default": 0.003, "shipped": 4e-05, "what": "⚠ SET IT EXPLICITLY. Max area of an enclosed white pocket kept opaque. The default is 75x looser than the tuned value, and taking it by omission is exactly the S165 defect the owner saw by eye: \"some of them have that white background because not cut out too well\"" },
+        "normaliseStateScale": { "default": false, "what": "⭐ ON for characters (veo picks its own zoom per clip, so a boss visibly grows between states); OFF for buildings, whose size legitimately changes" },
+        "normaliseStateWidth": { "default": false, "what": "⚠ S173, opt-in. Non-uniform width match across idle/walk/attack. DISTORTS BY CONSTRUCTION — an art trade, not a fix. On the scarab it made the spread WORSE (1.42x -> 1.71x), which is how we know that row is a POSE difference and not a zoom" },
+        "maxWidthStretch": { "default": 1.35, "what": "clamp on the above, and the clamp is PRINTED — a row that hits it is telling you to re-roll, not to re-scale" },
+        "fit": { "default": "height", "what": "height-fit keeps bodies comparable and widens the cell for a prop; anything else box-fits, which shrinks a character by its bow" }
+      },
+      "perState": {
+        "clip": "path to the mp4",
+        "still": "⛔ a PNG instead of a clip — mutually exclusive with clip, throws if both are present. The free path for buildings",
+        "ticksPerFrame": "playback cadence. Shipped: idle 7, walk 4, attack 5, die 5",
+        "sampleStart": "per-state override — this is where check-clip's suggested number goes",
+        "sampleWindow": "per-state override"
+      }
+    }
+  },
+
+  "cost": {
+    "perClipUsd": 0.5,
+    "basis": "veo-3.1, 4s, 720p. Corroborated in-tree since S83 (\"~$0.50/clip\") and again by S152's \"$3.50 of generation made unrecoverable\" for seven clips.",
+    "table": [
+      { "job": "one UNIT, all four states", "clips": 4, "usd": 2.0 },
+      { "job": "one BUILDING, stills only", "clips": 0, "usd": 0.0 },
+      { "job": "one BUILDING + spawn + crumble cinematics", "clips": 2, "usd": 1.0 },
+      { "job": "one re-roll of a single amputated state", "clips": 1, "usd": 0.5 },
+      { "job": "a six-race boss set (the S167 reference)", "clips": 24, "usd": 12.0 },
+      { "job": "⛔ S173's lesson", "clips": 8, "usd": 4.0, "note": "~$2.00 of it bought nothing" }
+    ]
+  },
+
+  "knownGood": [
+    {
+      "spec": "assets-source/race-tier9-bosses/clip-spec.json",
+      "atlasSpec": "assets-source/race-tier9-bosses/atlas-specs.json",
+      "session": "S167",
+      "subjects": 6,
+      "clips": 24,
+      "seedRecipe": "B_SQUARE_FULL_FRAME",
+      "ownerVerdict": "⭐ \"look at the ones that were generated well, like the freaking zombie boss. Everything about him looks great.\"",
+      "whyItIsTheReference": "Six characters, four states each, with per-character fear axes and short prompts. THE prompt-shape template. Copy this file's structure for any new unit.",
+      "caveats": "Most clips pillarboxed (recoverable); t9boss-nagas attack carries sampleStart:60; the Kraken's tentacles were amputated twice."
+    },
+    {
+      "spec": "assets-source/race-tier3-units/clip-spec.json",
+      "session": "S165",
+      "seedRecipe": "B_SQUARE_FULL_FRAME",
+      "whyListed": "The source of the tuned enclosedWhiteLimitPct 4e-05 and of normaliseStateScale for characters. Its measured zoom spread (hound walk 2.13x its idle) is the evidence behind that knob."
+    },
+    {
+      "spec": "assets-source/godly-goblins/clip-spec.json",
+      "session": "S152",
+      "seedRecipe": "B_SQUARE_FULL_FRAME",
+      "whyListed": "The first image-to-video set — owner-approved. \"seeded IMAGE-TO-VIDEO off the owner's own character art, so idle, walk and attack are the same character rather than three drawings of one.\""
+    },
+    {
+      "clip": "assets-source/direwolf/clips/direwolf/attack.mp4",
+      "session": "S173",
+      "seedRecipe": "A_PADDED_16_9",
+      "checkClipVerdict": "PASS  no side bars, subject clear of every edge — packable as-is",
+      "whyListed": "⭐ The only evidence for the recommended seed recipe. n=1. The other seven clips of that batch used unpadded portrait seeds; four were NOT RECOVERABLE."
+    }
+  ],
+
+  "openDials": {
+    "framesPerState": {
+      "current": 12,
+      "status": "⚠ OPEN — NOT A DECISION. Do not change it quietly; raise it with the owner.",
+      "ownerPosition": "12 is not enough for good motion.",
+      "measurement": "ART_PIPELINE.md — \"the arch demon looks ridiculous... too fast\" is frame sparsity, not a timing bug: 12 frames x 5 ticks = exactly 60 ticks against an attack cadence of exactly 60. Bosses want MORE FRAMES, not a slower cadence.",
+      "costOfRaising": "sheet width only. Generation cost is unchanged — the clip already holds ~90 frames and the packer keeps 12."
+    },
+    "subjectHeightPct": {
+      "current": 52,
+      "status": "⚠ MINE, not swept. n=1. 45% and 60% are untested.",
+      "howToClose": "Generate one character at 45% and one at 60% alongside a 52% control and compare check-clip verdicts plus the packed cell fill."
+    },
+    "spawningRow": {
+      "status": "⭐ half-paid-for and unreachable — the tier-3 sheets ship a `spawning` row no code can draw. Art exists; a renderer arm does not.",
+      "alsoUnreachable": "the `die` row — goblinRenderer.syncSprite maps every FSM state to attack/walk/idle, so row 3 is generated and packed but never requested."
+    }
+  }
+}

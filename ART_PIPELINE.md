@@ -6,6 +6,11 @@ heroes or new towers or new everything."*
 The point of this document is that **generation is the expensive step and everything else is cheap**,
 so every rule here exists to stop a clip being paid for twice.
 
+⭐ **Stage 3 — the veo step itself — has its own runbook: `ART_VEO_PROTOCOL.md`** (seed geometry,
+the prompt formula, the verify gate, the cost table), with `.claude/veo-recipes.json` as its
+machine-readable form and `/veo-generate` as the operator front end. This document stays the parent
+and the authority on *what* to generate; that one covers *how*, and must never contradict this.
+
 ---
 
 ## ⭐ THE ONE FACT THAT CHANGES THE ECONOMICS
