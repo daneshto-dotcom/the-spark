@@ -294,6 +294,36 @@ for st in states:
     lo, hi = content_column(raw)
     frames[st] = [matte(a[:, lo:hi]) for a in raw]
 
+# ⛔⛔ S175 - EVERY STATE ONTO ONE CANVAS BEFORE ANYTHING MEASURES ACROSS THEM.
+#
+# The union bbox below is ONE rectangle, computed over all states and then used as the crop rect
+# for EVERY frame. That is only meaningful if the frames share a coordinate space. Until S175 they
+# always did, for a reason nobody had to think about: a character is four clips at one resolution,
+# and a building is four stills of one drawing.
+#
+# The direwolf is the first spec to MIX them - three veo clips at 1280x720 plus a hand-drawn corpse
+# at 520x369 - and the mismatch does not fail, it MISRENDERS. The 659-tall union rect was applied
+# to a 369-tall still and the die row came out as a giant clipped close-up of the wolf's back.
+# Nothing threw; the sheet just had to be looked at.
+#
+# Padding is bottom-centre, matching every other paste in this file, so a shorter canvas keeps its
+# subject standing on the same ground line instead of floating. A single-canvas spec pads by zero
+# and is byte-identical, so no shipped atlas can move.
+maxH = max(a.shape[0] for st in states for a in frames[st])
+maxW = max(a.shape[1] for st in states for a in frames[st])
+for st in states:
+    if all(a.shape[0] == maxH and a.shape[1] == maxW for a in frames[st]):
+        continue
+    print(f'  canvas: {st} padded to {maxW}x{maxH} (mixed clip/still spec)')
+    padded = []
+    for a in frames[st]:
+        H, W = a.shape[0], a.shape[1]
+        c = np.zeros((maxH, maxW, 4), dtype=a.dtype)
+        x0 = (maxW - W) // 2
+        c[maxH - H:, x0:x0 + W] = a
+        padded.append(c)
+    frames[st] = padded
+
 # ⭐⭐ S165 — normaliseStateScale: MAKE EVERY STATE AGREE ABOUT HOW BIG THE CHARACTER IS.
 #
 # ⛔ THE DEFECT. Each state is a SEPARATE veo generation, and veo picks its own framing every time.
@@ -387,6 +417,43 @@ if spec.get('normaliseStateScale', False):
         ref = float(np.median(good))
         for st in states:
             if h0[st] <= 0:
+                continue
+            # ⛔⛔ S175 - A 'still'-SOURCED STATE NORMALISES TO A **RATIO** OF THE REFERENCE.
+            #
+            # The die row is measured at frame 0 rather than at its median because, IN A CLIP,
+            # frame 0 is the creature still STANDING - the collapse has not happened yet - so it is
+            # pose-comparable with idle and the factor lands near 1.0. That reasoning depends
+            # entirely on there BEING a standing first frame.
+            #
+            # A still has none: the still IS the collapsed pose. Both naive answers are wrong, and
+            # S175 shipped one of them into a contact sheet before catching it:
+            #   - normalise it like any other row  -> the corpse is inflated to STAND as tall as the
+            #     living animal (the direwolf measured a 1.7x blow-up);
+            #   - exempt it from the pass entirely -> it keeps the scale of its own small source
+            #     canvas, which has no relation to the clip frames, and it came out ENORMOUS,
+            #     clipping its cell on every side.
+            #
+            # So a still is normalised to ref * stillHeightRatio: the artist's collapse, at the
+            # sheet's scale. The ratio is MEASURED off the source art (dead subject height / standing
+            # subject height), never guessed, and the shipped clip-derived die rows are the sanity
+            # check on it - hound 0.61, orcs 0.76, zombies 0.80, souleater 0.82.
+            #
+            # Absent  => 1.0, i.e. exactly the pre-S175 behaviour, so no shipped atlas can move.
+            still_ratio = float(spec['states'][st].get('stillHeightRatio', 1.0)) \
+                if spec['states'][st].get('still') is not None else 1.0
+            if still_ratio != 1.0:
+                k = (ref * still_ratio) / h0[st]
+                print(f'  normaliseStateScale: {st} still ratio {still_ratio:.3f} h={h0[st]:.0f} -> x{k:.3f}')
+                out = []
+                for a in frames[st]:
+                    H, W = a.shape[0], a.shape[1]
+                    im = Image.fromarray(a)
+                    nw, nh = max(1, int(round(W * k))), max(1, int(round(H * k)))
+                    im = im.resize((nw, nh), Image.LANCZOS)
+                    canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+                    canvas.paste(im, ((W - nw) // 2, H - nh), im)
+                    out.append(np.array(canvas))
+                frames[st] = out
                 continue
             k = ref / h0[st]
             if abs(k - 1.0) < 0.02:

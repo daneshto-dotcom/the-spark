@@ -164,20 +164,28 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    * as a green goblin with a cleaver is that same wrong drawing. He played it before the art landed
    * and reported it as a regression to the pre-veo game, which is exactly what it looks like.
    *
-   * ⚠ THE SHEET IS THE GOBLIN HOUND'S, AND THAT CHOICE IS MINE, NOT HIS. It is the only shipped
-   * four-legged beast atlas in the tree (idle/walk/attack, 12 frames each), so the pack now reads as
-   * a pack of hounds instead of a squad of goblins — the right KIND of creature, at the right scale
-   * (`creatureSpriteScaleMul` is 1 for both). The cost is that a direwolf and a goblin hound look
-   * identical; that is strictly better than a wolf looking like a goblin, and it is ONE path to swap
-   * the day his direwolf art lands. Overrule on sight if the doubling reads worse than the goblin did.
+   * ⭐⭐ S175 — **AND THE ART HAS LANDED, SO THE STAND-IN IS GONE.** The two paragraphs above are kept
+   * because they are the history of the defect, not because they still describe the code: from S173
+   * to S175 this key pointed at `/godly/goblin-hound/anim/goblin-hound` and the Warlord's pack drew
+   * as a pack of goblin hounds. That was always meant to be ONE path to swap on the day the wolf's
+   * sheet existed. This is that swap.
    *
-   * ⚠ IT IS A SECOND KEY OVER THE SAME FILES, and that is accepted rather than missed. `goblinHound`
-   * is in `EAGER_ATLAS_TYPES`, so this key's `loadAtlas` re-fetches a 376-byte manifest and builds 36
-   * more `Texture` views over a `TextureSource` Pixi already has cached — the duplication S169
-   * measured and fixed for the eager loop was a 1.9 MiB PNG per duplicate, not this. Aliasing at
-   * `atlasKeyFor` instead would put a per-type branch in the draw loop to save 36 texture views.
+   * ⛔ AND THE ART HAD EXISTED FOR TWO SESSIONS. The clips were generated in S173 and the owner's
+   * three-pose sheet was on disk the whole time; what was missing was an `atlas-specs.json`, so
+   * nothing had ever been PACKED from any of it. The handoff recorded this as "the direwolf now has
+   * art" and the renderer recorded it as having none, and both were half right — which is why the
+   * owner kept seeing a hound where his wolf should be.
+   *
+   * ⭐ THE SHEET IS GEOMETRICALLY IDENTICAL TO THE HOUND'S BY CONSTRUCTION — cell 200x200, idle 7 /
+   * walk 3 / attack 5 — copied from the stand-in rather than chosen, so this line changes WHICH
+   * animal is drawn and nothing else. No size jump, no cadence change, nothing else to review.
+   *
+   * ⭐ IT ALSO GAINS A `die` ROW THE STAND-IN NEVER HAD (the hound sheet is idle/walk/attack only),
+   * so a dying direwolf now has a corpse instead of vanishing. That row is the owner's purpose-drawn
+   * dead wolf, not a clip window — see `assets-source/direwolf/atlas-specs.json` for why, and for the
+   * two packer defects the first still exposed.
    */
-  direwolf: '/godly/goblin-hound/anim/goblin-hound',
+  direwolf: '/godly/direwolf/anim/direwolf',
 };
 
 /**

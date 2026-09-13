@@ -1,0 +1,75 @@
+{
+  "_comment": [
+    "SPARK — S175 P2: THE ORC WARLORD'S DIREWOLF (owner R149). The clips were generated in S173;",
+    "this is the spec that finally turns them into a sheet.",
+    "",
+    "⛔ WHAT THIS REPLACES. `direwolf` has been in GOBLIN_KINDS since S168 and in the ATLASES table",
+    "since S173 B5 — pointed at '/godly/goblin-hound/anim/goblin-hound'. It has been BORROWING the",
+    "goblin hound's sheet, which is why the owner kept seeing a hound where his wolf should be. The",
+    "art existed the whole time; nothing had ever been packed from it.",
+    "",
+    "⭐ GEOMETRY IS COPIED FROM THE HOUND ON PURPOSE, not chosen. cellH 200 and the idle-7 / walk-3 /",
+    "attack-5 cadence are exactly the stand-in's shipped values, so re-pointing the renderer changes",
+    "WHICH animal is drawn and nothing else — no size jump, no cadence change, nothing else to review.",
+    "",
+    "⚠ enclosedWhiteLimitPct is the TUNED 4e-05, set explicitly. The 0.003 default is 75x looser and",
+    "taking it by omission is the S165 defect the owner reported as \"some of them have that white",
+    "background because not cut out too well\". A quadruped is the worst case for it — four legs make",
+    "several enclosed background pockets a single-blob matte will happily keep.",
+    "",
+    "⭐ NO sampleStart ON ANY PLAYABLE ROW, AND THAT IS MEASURED, NOT ASSUMED. idle is pillarboxed in",
+    "all 24 sampled frames, which is the stable case the content-column crop already handles. walk is",
+    "a clean PASS today — ART_VEO_PROTOCOL.md's S173 verdict table condemns it, but walk.mp4 was",
+    "RE-ROLLED at 21:17 after that table was written and the table was never updated. attack passed",
+    "when it was written and passes now.",
+    "",
+    "⛔ DIE IS A STILL, AND IT IS THE OWNER'S RULING, NOT A SHORTCUT. His words: \"I already have a",
+    "purpose drawn like dead wolf, so we should use that.\" The alternative on the table was",
+    "sampleStart:68 on die.mp4, which packs cleanly and is ARTISTICALLY EMPTY — the collapse happens",
+    "at frames 20-32 inside the pillarboxed region, and frames 68-95 are a motionless corpse with an",
+    "identical bbox. Twelve frames of a dead-still body, for a row the renderer holds on anyway.",
+    "The drawn corpse is the same static property and a far better picture, for the same $0.",
+    "",
+    "⚠ THE STILL FORCED A PACKER FIX, recorded here because a future session will hit it again:",
+    "normaliseStateScale measures `die` at FRAME 0 precisely because, in a CLIP, frame 0 is the",
+    "creature still STANDING and therefore pose-comparable with idle. A still has no standing frame —",
+    "the still IS the corpse — so the pass read a legitimately short subject as zoom error and would",
+    "have inflated the dead wolf ~1.7x to stand as tall as the living one. `still`-sourced states are",
+    "now exempt (build-sprite-atlas.mjs, the normaliseStateScale block).",
+    "",
+    "⛔ COST OF THIS FILE: $0.00. Every input already existed on disk."
+  ],
+  "specs": [
+    {
+      "name": "direwolf",
+      "outDir": "public/godly/direwolf/anim",
+      "cellW": 200,
+      "cellH": 200,
+      "framesPerState": 12,
+      "normaliseStateScale": true,
+      "enclosedWhiteLimitPct": 4e-05,
+      "states": {
+        "idle": {
+          "clip": "assets-source/direwolf/clips/direwolf/idle.mp4",
+          "ticksPerFrame": 7
+        },
+        "walk": {
+          "clip": "assets-source/direwolf/clips/direwolf/walk.mp4",
+          "ticksPerFrame": 3
+        },
+        "attack": {
+          "clip": "assets-source/direwolf/clips/direwolf/attack.mp4",
+          "ticksPerFrame": 5
+        },
+        "die": {
+          "still": "assets-source/direwolf/direwolf-dead-matted.png",
+          "ticksPerFrame": 5,
+          "_why_still": "Owner R175-C: \"I already have a purpose drawn like dead wolf, so we should use that.\" The alternative was sampleStart:68 on die.mp4, which packs cleanly and is ARTISTICALLY EMPTY - the collapse runs frames 20-32 inside the pillarboxed region and frames 68-95 are a motionless corpse with an identical bbox.",
+          "stillHeightRatio": 0.621,
+          "_why_stillHeightRatio": "MEASURED off one sheet so the two poses are directly comparable: standing subject h=623, dead h=387 -> 0.621. Sanity-checked against the shipped clip-derived die rows - hound 0.61, orcs 0.76, zombies 0.80, souleater 0.82.",
+          "_why_matted_variant": "⛔ NOT direwolf-dead.png. That crop came off the DARK contact sheet and kept an opaque grey-brown background; the matte only lifts near-WHITE, so it survived and the die row packed as a wolf in a box. This still is re-cut from direwolf-source-transparent.png (the white-ground sheet), with the neighbouring pose's stray paw dropped by connected-component filtering. Caught by LOOKING at the sheet - nothing in the pipeline failed."
+        }
+      }
+    }
+  ]
+}
