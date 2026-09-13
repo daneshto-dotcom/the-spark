@@ -1,0 +1,12 @@
+{
+  "project": "the-spark",
+  "loop_name": null,
+  "done_predicate": null,
+  "budget": {
+    "turns": null,
+    "usd": null
+  },
+  "on_budget_exceeded": "fail_closed_stop",
+  "status": "closed",
+  "last_result": "No agentic loop this session. Four delegated agents all terminated on an org spend limit; their work was salvaged from the working tree rather than re-run."
+}
