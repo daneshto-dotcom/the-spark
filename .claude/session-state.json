@@ -1301,7 +1301,7 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "THE DOC THAT LIED. CLAUDE.md said PROTOCOL_VERSION was \"44 at S167\"; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. The line was dated, which is what let it survive - it was true when written and simply never followed the constant. Now states 46, notes it is unchanged S172-S173, AND keeps the 44-at-S167 history with the fact that the line went two sessions stale, so the next reader sees the failure mode rather than just a corrected number. Docs-only: deploy.yml's paths filter correctly triggers no deploy run.",
+      "check_method": "THE DOC THAT LIED. CLAUDE.md said PROTOCOL_VERSION was \"44 at S167\"; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. The line was dated, which is what let it survive - it was true when written and simply never followed the constant. Now states 46, notes it is unchanged S172-S173, AND keeps the 44-at-S167 history with the fact that the line went two sessions stale, so the next reader sees the failure mode rather than just a corrected number. Docs-only: deploy.yml's paths filter correctly triggers no deploy run. ⭐ S174 CLOSE: also logged the full S173/S174 owner sweep into BACKLOG.md - the forward plan - so nothing he said this session lives only in a carry-forward the next session might not reach.",
       "real_context_tokens_at_close": null,
       "verification": [
         {
@@ -1313,6 +1313,12 @@
           "type": "file_lacks",
           "path": "CLAUDE.md",
           "needle": "lives in `src/net/protocol.ts` (44 at S167)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "QUEUED — EVERYTHING THE OWNER RAISED IN S173/S174",
+          "_note": "ABSOLUTE by necessity: verify-session-claims normpaths the binding path and compares it against the watch-root diff, which yields absolute paths - a relative path can never match and reads as UNBOUND."
         }
       ]
     },
