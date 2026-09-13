@@ -283,6 +283,35 @@ def matte(a):
     # Erode by one pixel to kill the pale halo veo leaves at the ink outline.
     solid = ndimage.binary_erosion(alpha > 0, structure=np.ones((3, 3)), border_value=1)
     alpha = np.where(solid, alpha, 0).astype(np.uint8)
+    #
+    # ⭐⭐ S175 P7 — **THE FRINGE STRIP, AND IT IS NOT MORE EROSION.**
+    #
+    # The owner: *"you can see something white around it, outside his perimeter"*, and
+    # check-atlas-scenery has been failing NINE sheets on exactly that since S171 — long enough
+    # that a permanently red job stopped being read.
+    #
+    # ⛔ WHY THE ONE-PIXEL EROSION ABOVE DOES NOT ALREADY FIX IT. The matte keys near-WHITE, which
+    # is min(rgb) > 205. The halo is the ANTI-ALIASED BLEND between that white and the ink — values
+    # around 150-205 — so it was never background by rule (1), and one pass of blunt erosion only
+    # removes the outermost ring of it. On the worst sheet (t9boss-demons) 342 edge pixels survived.
+    #
+    # ⛔ AND MORE BLUNT EROSION IS THE WRONG ANSWER, WHICH IS WHY THIS IS A DIFFERENT OPERATION.
+    # binary_erosion removes boundary pixels REGARDLESS of colour, so raising it to 2-3 passes eats
+    # the thin dark features these characters are made of — the warband's spear, the naga's
+    # antennae, the demon's horn tips, the scarab's legs. It would trade a white rim for an amputated
+    # silhouette, and the second defect is worse and harder to see.
+    #
+    # So this strips ONLY boundary pixels that are PALE. Dark ink at the boundary is kept, every
+    # time, so a spike stays a spike while the halo around it goes. Default 0 = the pre-S175
+    # behaviour exactly, so no shipped atlas can move unless its spec opts in.
+    fringe_px = int(spec.get('edgeFringeStripPx', 0))
+    fringe_luma = int(spec.get('edgeFringeLuma', 170))
+    for _ in range(max(0, fringe_px)):
+        opaque = alpha > 0
+        inner = ndimage.binary_erosion(opaque, structure=np.ones((3, 3)), border_value=1)
+        boundary = opaque & ~inner
+        pale = rgb.min(axis=2) > fringe_luma
+        alpha = np.where(boundary & pale, 0, alpha).astype(np.uint8)
     return np.dstack([a[:, :, :3], alpha])
 
 frames = {}

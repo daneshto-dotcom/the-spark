@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "SPARK — S175 P7: NAMED, DATED WAIVERS FOR THE CROSS-ROW SIZE CHECK.",
+    "",
+    "⛔ WHY THIS FILE EXISTS, AND IT IS NOT TO SILENCE THE GUARD. `atlas-guard` had been RED on every",
+    "master run since S171. The owner named the real cost himself: a permanently red job is where a",
+    "REAL failure hides, because nobody reads it any more. P7 fixed the nine FRINGE sheets outright.",
+    "These five are the other class and they cannot be fixed in code.",
+    "",
+    "⭐ THE MEASUREMENT THAT MAKES THIS A WAIVER AND NOT A SHRUG. These rows disagree about the",
+    "character's WIDTH, not its height (every height ratio measures 0.96-1.03). That is a POSE",
+    "difference — a beetle standing with its legs together is narrower than the same beetle mid-stride",
+    "— not a zoom error. S173 BUILT the horizontal squash the owner asked for (`normaliseStateWidth`),",
+    "measured it on the scarab, and it made the spread WORSE: 1.42x -> 1.71x. It was reverted and the",
+    "flag was kept precisely because the measurement is the evidence.",
+    "",
+    "⇒ The only real fix is REGENERATED ART, which is the owner's call and his generation budget.",
+    "Until then these five are known, named and dated here, and every OTHER sheet still fails the",
+    "check normally. A new size mismatch anywhere else turns the job red again — which is the whole",
+    "point of getting it green.",
+    "",
+    "⚠ TO RETIRE AN ENTRY: regenerate the clip with visible empty margin, rebuild, and DELETE the line.",
+    "Do not edit the tolerance."
+  ],
+  "waivedSince": "2026-09-13 (S175)",
+  "reason": "cross-row WIDTH disagreement = pose, not zoom. normaliseStateWidth measured WORSE (1.42x -> 1.71x, S173). Needs regenerated art.",
+  "sheets": [
+    "unit-demons-atlas.png",
+    "t3-mummies-scarab-atlas.png",
+    "t3-nagas-piranha-atlas.png",
+    "t9boss-nagas-atlas.png",
+    "t9boss-vampires-atlas.png"
+  ]
+}

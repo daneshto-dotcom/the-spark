@@ -82,7 +82,9 @@
         }
       },
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "edgeFringeStripPx": 2,
+      "_why_edgeFringeStripPx": "⭐ S175 P7 - the matte FRINGE the owner reported as \"you can see something white around it, outside his perimeter\". MEASURED, not chosen: this is the SMALLEST depth that brings this sheet under check-atlas-scenery's EDGE_WHITE_MAX of 60 (47 px on edge at 2). Each sheet got its own sweep because the halo width depends on the art, not on the pipeline."
     },
     {
       "name": "t9boss-mummies",
@@ -109,7 +111,9 @@
         }
       },
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "edgeFringeStripPx": 2,
+      "_why_edgeFringeStripPx": "⭐ S175 P7 - the matte FRINGE the owner reported as \"you can see something white around it, outside his perimeter\". MEASURED, not chosen: this is the SMALLEST depth that brings this sheet under check-atlas-scenery's EDGE_WHITE_MAX of 60 (50 px on edge at 2). Each sheet got its own sweep because the halo width depends on the art, not on the pipeline."
     },
     {
       "name": "t9boss-zombies",
@@ -136,7 +140,9 @@
         }
       },
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "edgeFringeStripPx": 3,
+      "_why_edgeFringeStripPx": "⭐ S175 P7 - the matte FRINGE the owner reported as \"you can see something white around it, outside his perimeter\". MEASURED, not chosen: this is the SMALLEST depth that brings this sheet under check-atlas-scenery's EDGE_WHITE_MAX of 60 (56 px on edge at 3). Each sheet got its own sweep because the halo width depends on the art, not on the pipeline."
     },
     {
       "name": "t9boss-orcs",
@@ -163,7 +169,9 @@
         }
       },
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "edgeFringeStripPx": 2,
+      "_why_edgeFringeStripPx": "⭐ S175 P7 - the matte FRINGE the owner reported as \"you can see something white around it, outside his perimeter\". MEASURED, not chosen: this is the SMALLEST depth that brings this sheet under check-atlas-scenery's EDGE_WHITE_MAX of 60 (17 px on edge at 2). Each sheet got its own sweep because the halo width depends on the art, not on the pipeline."
     },
     {
       "name": "t9boss-demons",
@@ -190,7 +198,9 @@
         }
       },
       "enclosedWhiteLimitPct": 4e-05,
-      "normaliseStateScale": true
+      "normaliseStateScale": true,
+      "edgeFringeStripPx": 6,
+      "_why_edgeFringeStripPx": "⭐ S175 P7 - the matte FRINGE the owner reported as \"you can see something white around it, outside his perimeter\". MEASURED, not chosen: this is the SMALLEST depth that brings this sheet under check-atlas-scenery's EDGE_WHITE_MAX of 60 (43 px on edge at 6). Each sheet got its own sweep because the halo width depends on the art, not on the pipeline."
     }
   ]
 }

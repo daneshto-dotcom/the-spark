@@ -15,13 +15,11 @@
     "⚠ EVERY NUMBER BELOW WAS MEASURED OFF THE TREE ON 2026-09-12, not copied from a handoff. Where a",
     "number is MINE rather than the owner's, the field says so."
   ],
-
-  "version": 1,
+  "version": "1+s175",
   "authoredSession": "S173",
   "authoredDate": "2026-09-12",
   "proseRunbook": "ART_VEO_PROTOCOL.md",
   "parentDoc": "ART_PIPELINE.md",
-
   "stepZero": {
     "rule": "READ THE LAST KNOWN-GOOD SPEC AND COPY ITS PROMPT SHAPE BEFORE SPENDING ANYTHING.",
     "why": "This is the step whose absence cost $2.00 in S173. It takes ninety seconds.",
@@ -31,7 +29,6 @@
       "ART_VEO_PROTOCOL.md"
     ]
   },
-
   "generation": {
     "script": "scripts/gen-character-clips.mjs",
     "invoke": "node scripts/gen-character-clips.mjs <clip-spec.json> [--only <character>] [--state <name>] [--skip-existing]",
@@ -55,7 +52,6 @@
     "concurrencyNote": "veo answers 429 RESOURCE_EXHAUSTED beyond its quota; the ceiling was found at eight. A 429 is BACKPRESSURE the script retries, not a failure.",
     "billingWarning": "An accepted operation is BILLED whether or not the process survives to download it. The op name lands in <out>.op.json immediately and a later run resumes from it. If a run dies, RE-RUN THE SAME COMMAND — never re-submit."
   },
-
   "seedGeometry": {
     "recommended": "A_PADDED_16_9",
     "recommendationRationale": [
@@ -102,12 +98,70 @@
         "the Kraken's tentacles were amputated across two generations"
       ],
       "measuredSeeds": {
-        "boss-zombies-whopper.png": { "w": 1024, "h": 1024, "subjectW": 916, "subjectH": 900, "pctW": 89, "pctH": 88, "marginL": 53, "marginR": 55, "marginT": 80, "marginB": 44, "note": "⭐ THE OWNER'S OWN REFERENCE: \"look at the ones that were generated well, like the freaking zombie boss. Everything about him looks great.\" Also the most generous margins of the six." },
-        "boss-demons-archdemon.png": { "w": 1024, "h": 1024, "pctW": 93, "pctH": 94, "marginL": 31, "marginR": 41, "marginT": 26, "marginB": 36 },
-        "boss-mummies-pharaoh.png": { "w": 1024, "h": 1024, "pctW": 83, "pctH": 94, "marginL": 104, "marginR": 74, "marginT": 22, "marginB": 42 },
-        "boss-nagas-kraken.png": { "w": 1024, "h": 1024, "pctW": 96, "pctH": 90, "marginL": 20, "marginR": 24, "marginT": 62, "marginB": 44, "note": "⛔ THE WIDEST SEED OF THE SIX AND THE ONE THAT LOST ITS TENTACLES. A limb that extends needs somewhere to extend into." },
-        "boss-orcs-warlord.png": { "w": 1024, "h": 1024, "pctW": 88, "pctH": 94, "marginL": 51, "marginR": 75, "marginT": 21, "marginB": 40 },
-        "boss-vampires-vlad.png": { "w": 1024, "h": 1024, "pctW": 51, "pctH": 93, "marginL": 227, "marginR": 278, "marginT": 44, "marginB": 26 }
+        "boss-zombies-whopper.png": {
+          "w": 1024,
+          "h": 1024,
+          "subjectW": 916,
+          "subjectH": 900,
+          "pctW": 89,
+          "pctH": 88,
+          "marginL": 53,
+          "marginR": 55,
+          "marginT": 80,
+          "marginB": 44,
+          "note": "⭐ THE OWNER'S OWN REFERENCE: \"look at the ones that were generated well, like the freaking zombie boss. Everything about him looks great.\" Also the most generous margins of the six."
+        },
+        "boss-demons-archdemon.png": {
+          "w": 1024,
+          "h": 1024,
+          "pctW": 93,
+          "pctH": 94,
+          "marginL": 31,
+          "marginR": 41,
+          "marginT": 26,
+          "marginB": 36
+        },
+        "boss-mummies-pharaoh.png": {
+          "w": 1024,
+          "h": 1024,
+          "pctW": 83,
+          "pctH": 94,
+          "marginL": 104,
+          "marginR": 74,
+          "marginT": 22,
+          "marginB": 42
+        },
+        "boss-nagas-kraken.png": {
+          "w": 1024,
+          "h": 1024,
+          "pctW": 96,
+          "pctH": 90,
+          "marginL": 20,
+          "marginR": 24,
+          "marginT": 62,
+          "marginB": 44,
+          "note": "⛔ THE WIDEST SEED OF THE SIX AND THE ONE THAT LOST ITS TENTACLES. A limb that extends needs somewhere to extend into."
+        },
+        "boss-orcs-warlord.png": {
+          "w": 1024,
+          "h": 1024,
+          "pctW": 88,
+          "pctH": 94,
+          "marginL": 51,
+          "marginR": 75,
+          "marginT": 21,
+          "marginB": 40
+        },
+        "boss-vampires-vlad.png": {
+          "w": 1024,
+          "h": 1024,
+          "pctW": 51,
+          "pctH": 93,
+          "marginL": 227,
+          "marginR": 278,
+          "marginT": 44,
+          "marginB": 26
+        }
       },
       "measurementMethod": "subject bbox = pixels with mean RGB luminance < 235, the same near-white background test check-clip.mjs uses. Measured 2026-09-12."
     },
@@ -117,7 +171,6 @@
       "⚠ The healthy/standing pose is the seed. A hurt or dead still is NOT a second seed — at most it is a reference for where the die clip comes to rest."
     ]
   },
-
   "promptFormula": {
     "shape": "{CREATURE} {MOTION} {AXIS} {CONTAINMENT}",
     "andNothingElse": "The script appends style, camera, background and framing. A second, differently-worded copy of those competes with the tuned one.",
@@ -148,19 +201,29 @@
       "idle": "the enormous bloated grey-green undead brute stands in place . He shifts his weight slightly and his head turns as he surveys the field. His swollen flesh quivers and sloshes with every movement; he is wet, heavy and wrong. He stays in the SAME SPOT for the whole clip and does not walk anywhere."
     }
   },
-
   "subjectKind": {
     "⚠ trap": "A three-panel healthy/hurt/dead sheet is a BUILDING sheet. Handing that in for a unit gives you none of the four things a unit sheet needs, and confusing them wastes a whole round. It fired again in S173 on BOTH the direwolf and Voltkin, which are UNITS.",
     "UNIT": {
       "needs": "MOTION",
-      "states": ["idle", "walk", "attack", "die"],
+      "states": [
+        "idle",
+        "walk",
+        "attack",
+        "die"
+      ],
       "clips": 4,
       "cost": 2.0
     },
     "BUILDING": {
       "needs": "DAMAGE STATES",
-      "states": ["intact", "damaged", "destroyed"],
-      "optional": ["spawning"],
+      "states": [
+        "intact",
+        "damaged",
+        "destroyed"
+      ],
+      "optional": [
+        "spawning"
+      ],
       "clips": 0,
       "cost": 0.0,
       "⛔ generateNothing": "Most building states must NOT be veo clips. A building has no gait, no swing and no idle bob, so a clip spends the budget re-drawing a static subject and buys back seed drift (S152: the bat rider went spindly) and the melting stink tower. Use the packer's `still` knob — one PNG per state, same matte, same union bbox, $0.00.",
@@ -168,7 +231,6 @@
       "⭐ halfPaidFor": "The tier-3 sheets already ship a `spawning` row that no code can draw. T3_TOWER_STATE_ROWS maps intact->0, damaged->2, destroyed->3 and skips row 1."
     }
   },
-
   "verifyGate": {
     "⛔ rule": "RUN THIS ON EVERY CLIP BEFORE SPENDING ANOTHER CENT, AND BEFORE ANY PACKING.",
     "command": "node scripts/check-clip.mjs assets-source/<family>/clips/<character>/",
@@ -209,7 +271,6 @@
     "reRollScope": "ONE state, never the set. Add --skip-existing to any whole-character re-run so clips already on disk are never re-paid for.",
     "⚠ notADeployGate": "check-clip reads assets-source/, which the shipped build does not. An asset-quality opinion must never block a live deploy — S165 wired one into `npm run build` and the site sat stale."
   },
-
   "packPath": {
     "build": "node scripts/build-atlas-set.mjs assets-source/<family>/atlas-specs.json [nameFilter...]",
     "guard": "npm run check:atlas",
@@ -218,19 +279,59 @@
     "atlasSpecKnobs": {
       "_source": "read out of scripts/build-sprite-atlas.mjs on 2026-09-12 — this is the real list, not a remembered one",
       "topLevel": {
-        "name": { "default": "required", "what": "sheet name; also the default out-dir leaf" },
-        "outDir": { "default": "public/godly/<name>/anim", "what": "where <name>-atlas.png and <name>-anim.json land" },
-        "cellW": { "default": "required", "what": "⭐ the cell the union bbox is fitted into — the ONLY lever that makes a boss look like a boss, because the base sprite scale is one global. Bosses 320, tier-3 units 200" },
-        "cellH": { "default": "required", "what": "as cellW" },
-        "framesPerState": { "default": "required", "what": "12 in every shipped spec — see openDials.framesPerState" },
-        "states": { "default": "required", "what": "one entry per row" },
-        "sampleStart": { "default": 0, "what": "skip N leading source frames; a per-state value wins over this" },
-        "sampleWindow": { "default": "rest of clip", "what": "sample only N frames from sampleStart" },
-        "enclosedWhiteLimitPct": { "default": 0.003, "shipped": 4e-05, "what": "⚠ SET IT EXPLICITLY. Max area of an enclosed white pocket kept opaque. The default is 75x looser than the tuned value, and taking it by omission is exactly the S165 defect the owner saw by eye: \"some of them have that white background because not cut out too well\"" },
-        "normaliseStateScale": { "default": false, "what": "⭐ ON for characters (veo picks its own zoom per clip, so a boss visibly grows between states); OFF for buildings, whose size legitimately changes" },
-        "normaliseStateWidth": { "default": false, "what": "⚠ S173, opt-in. Non-uniform width match across idle/walk/attack. DISTORTS BY CONSTRUCTION — an art trade, not a fix. On the scarab it made the spread WORSE (1.42x -> 1.71x), which is how we know that row is a POSE difference and not a zoom" },
-        "maxWidthStretch": { "default": 1.35, "what": "clamp on the above, and the clamp is PRINTED — a row that hits it is telling you to re-roll, not to re-scale" },
-        "fit": { "default": "height", "what": "height-fit keeps bodies comparable and widens the cell for a prop; anything else box-fits, which shrinks a character by its bow" }
+        "name": {
+          "default": "required",
+          "what": "sheet name; also the default out-dir leaf"
+        },
+        "outDir": {
+          "default": "public/godly/<name>/anim",
+          "what": "where <name>-atlas.png and <name>-anim.json land"
+        },
+        "cellW": {
+          "default": "required",
+          "what": "⭐ the cell the union bbox is fitted into — the ONLY lever that makes a boss look like a boss, because the base sprite scale is one global. Bosses 320, tier-3 units 200"
+        },
+        "cellH": {
+          "default": "required",
+          "what": "as cellW"
+        },
+        "framesPerState": {
+          "default": "required",
+          "what": "12 in every shipped spec — see openDials.framesPerState"
+        },
+        "states": {
+          "default": "required",
+          "what": "one entry per row"
+        },
+        "sampleStart": {
+          "default": 0,
+          "what": "skip N leading source frames; a per-state value wins over this"
+        },
+        "sampleWindow": {
+          "default": "rest of clip",
+          "what": "sample only N frames from sampleStart"
+        },
+        "enclosedWhiteLimitPct": {
+          "default": 0.003,
+          "shipped": 4e-05,
+          "what": "⚠ SET IT EXPLICITLY. Max area of an enclosed white pocket kept opaque. The default is 75x looser than the tuned value, and taking it by omission is exactly the S165 defect the owner saw by eye: \"some of them have that white background because not cut out too well\""
+        },
+        "normaliseStateScale": {
+          "default": false,
+          "what": "⭐ ON for characters (veo picks its own zoom per clip, so a boss visibly grows between states); OFF for buildings, whose size legitimately changes"
+        },
+        "normaliseStateWidth": {
+          "default": false,
+          "what": "⚠ S173, opt-in. Non-uniform width match across idle/walk/attack. DISTORTS BY CONSTRUCTION — an art trade, not a fix. On the scarab it made the spread WORSE (1.42x -> 1.71x), which is how we know that row is a POSE difference and not a zoom"
+        },
+        "maxWidthStretch": {
+          "default": 1.35,
+          "what": "clamp on the above, and the clamp is PRINTED — a row that hits it is telling you to re-roll, not to re-scale"
+        },
+        "fit": {
+          "default": "height",
+          "what": "height-fit keeps bodies comparable and widens the cell for a prop; anything else box-fits, which shrinks a character by its bow"
+        }
       },
       "perState": {
         "clip": "path to the mp4",
@@ -241,20 +342,14 @@
       }
     }
   },
-
   "cost": {
-    "perClipUsd": 0.5,
-    "basis": "veo-3.1, 4s, 720p. Corroborated in-tree since S83 (\"~$0.50/clip\") and again by S152's \"$3.50 of generation made unrecoverable\" for seven clips.",
-    "table": [
-      { "job": "one UNIT, all four states", "clips": 4, "usd": 2.0 },
-      { "job": "one BUILDING, stills only", "clips": 0, "usd": 0.0 },
-      { "job": "one BUILDING + spawn + crumble cinematics", "clips": 2, "usd": 1.0 },
-      { "job": "one re-roll of a single amputated state", "clips": 1, "usd": 0.5 },
-      { "job": "a six-race boss set (the S167 reference)", "clips": 24, "usd": 12.0 },
-      { "job": "⛔ S173's lesson", "clips": 8, "usd": 4.0, "note": "~$2.00 of it bought nothing" }
-    ]
+    "⛔ CORRECTED_S175": "The $0.50/clip this file and ART_VEO_PROTOCOL.md carried for six sessions was WRONG by ~6x.",
+    "ownerMeasured": "~$3.10 per clip (owner: 'about twenty five even' for the 8 S173 clips).",
+    "ownerQuote": "\"You said it was only four and a half dollars, but it was, like, twenty.\" ... \"about twenty five even.\"",
+    "consequence": "One avoided re-roll pays for reading a verdict table twice. S175 packed 6 of 8 S173 clips for $0.00 and shipped the entire direwolf without generating anything.",
+    "rule": "An in-tree cost figure nobody has reconciled against an invoice is a guess with a decimal point. Re-confirm whenever he quotes a number.",
+    "priorValue_do_not_restore": 0.5
   },
-
   "knownGood": [
     {
       "spec": "assets-source/race-tier9-bosses/clip-spec.json",
@@ -287,7 +382,6 @@
       "whyListed": "⭐ The only evidence for the recommended seed recipe. n=1. The other seven clips of that batch used unpadded portrait seeds; four were NOT RECOVERABLE."
     }
   ],
-
   "openDials": {
     "framesPerState": {
       "current": 12,
@@ -305,5 +399,42 @@
       "status": "⭐ half-paid-for and unreachable — the tier-3 sheets ship a `spawning` row no code can draw. Art exists; a renderer arm does not.",
       "alsoUnreachable": "the `die` row — goblinRenderer.syncSprite maps every FSM state to attack/walk/idle, so row 3 is generated and packed but never requested."
     }
+  },
+  "lastRevisedSession": "S175",
+  "verdictStaleness": {
+    "rule": "A recorded verdict is evidence about a FILE AT A MOMENT, not a property of the file. Before acting on any verdict in any doc, re-run check-clip and compare `stat -c %Y` on the clip against the table's date.",
+    "S175_proof": "ART_VEO_PROTOCOL.md condemned direwolf/walk as NOT RECOVERABLE. walk.mp4 was re-rolled at 21:17, AFTER that table was written. It measures a clean PASS and packed as-is. Trusting the doc would have paid ~$3.10 to replace a working file.",
+    "S175_second_proof": "voltkin/walk was ALSO condemned and is recoverable at $0 - only 4 of 96 frames touch an edge, frames 36-71 are clean, so sampleStart:36 + sampleWindow:36 yields 12 clean frames. TWO of the four condemned clips were recoverable.",
+    "counterRule": "But a clean WINDOW that excludes the ACTION is not a recovery. voltkin/attack and voltkin/die both have technically-clean runs containing no strike and no collapse. Those are genuine re-rolls."
+  },
+  "stillContract": {
+    "mustBe": "RGB on near-white (254,254,254). NEVER a transparent cut-out.",
+    "why": "The matte keys out near-WHITE. A transparent PNG stores see-through pixels as RGB 0,0,0, which reads as SUBJECT - the art packs inside a solid black box. Cost S175 three rebuilds of the direwolf.",
+    "mixedCanvas": "A spec mixing clips and stills: the union bbox is ONE crop rect for every frame, so the frames must share a canvas. The packer now pads bottom-centre; before that a 659-tall rect on a 369-tall still gave a giant clipped close-up.",
+    "stillHeightRatio": "normaliseStateScale measures `die` at frame 0 because in a CLIP frame 0 is still STANDING. A still has no standing frame, so use stillHeightRatio measured off the source art (direwolf 387/623 = 0.621). Exempting it entirely is ALSO wrong - it then keeps its own canvas scale and comes out enormous."
+  },
+  "fringeStrip": {
+    "knobs": {
+      "edgeFringeStripPx": "passes, default 0 (= pre-S175 behaviour)",
+      "edgeFringeLuma": "what counts as pale, default 170"
+    },
+    "why_not_more_erosion": "binary_erosion removes boundary pixels regardless of COLOUR, so deeper passes eat thin dark features - a spear, an antenna, a horn tip. The fringe strip removes only PALE boundary pixels, so a spike stays a spike.",
+    "lowering_luma_is_worse": "Measured on t9boss-demons: 170->81, 150->85, 130->89. Stripping darker pixels EXPOSES paler ones underneath.",
+    "tuned_S175": {
+      "t9boss-orcs": 2,
+      "unit-zombies": 2,
+      "t3-orcs-warband": 2,
+      "t9boss-nagas": 2,
+      "t9boss-mummies": 2,
+      "unit-demons": 2,
+      "t9boss-zombies": 3,
+      "t3-mummies-scarab": 4,
+      "t9boss-demons": 6
+    },
+    "note": "The depth is a property of the ART (how wide the model drew the anti-aliased blend), not of the pipeline. Sweep per sheet."
+  },
+  "auditionOnDark": {
+    "rule": "⭐ Composite the cells onto the BOARD colour (11,13,20) before believing a sheet is clean. A white preview hides a white fringe by definition.",
+    "why": "S175 found THREE packer defects by opening the PNG - each had passed tsc, the full 4,400-test suite AND check:atlas. This is the highest-yield step in the whole pipeline."
   }
 }

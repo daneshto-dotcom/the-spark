@@ -130,6 +130,12 @@ A re-roll is `--only <character> --state <state>`, never the whole set.
 
 ## STEP 7 — PACK (only once step 5 is clean or explicitly accepted)
 
+⛔ **A `still` STATE IS NOT A CUT-OUT — IT IS RGB ON 254-WHITE.** The matte keys out near-WHITE. A
+transparent PNG stores its see-through pixels as RGB `0,0,0`, which reads as SUBJECT, so the art
+packs inside a solid black box. Flatten first (`ART_VEO_PROTOCOL.md` §4.1a). Mixing clips and stills
+in one spec is fine — the packer pads them to one canvas — but a still `die` needs
+`stillHeightRatio`, measured off the source art, or the corpse is inflated to standing height.
+
 ```bash
 node scripts/build-atlas-set.mjs assets-source/<family>/atlas-specs.json <character>
 npm run check:atlas > /tmp/at.txt 2>&1; ATLAS_EXIT=$?; echo "ATLAS_EXIT=$ATLAS_EXIT"; cat /tmp/at.txt
@@ -140,6 +146,23 @@ Atlas-spec starting point for a character: `cellW`/`cellH` (200 units, 320 bosse
 **`enclosedWhiteLimitPct: 4e-05` set explicitly** (the default is 75× looser and taking it by
 omission is the S165 white-fringe defect), **`normaliseStateScale: true`** for a character.
 Full knob list: `.claude/veo-recipes.json → packPath.atlasSpecKnobs`.
+
+## STEP 7b — ⭐⭐ AUDITION THE SHEET ON THE **DARK** BOARD COLOUR. DO NOT SKIP THIS.
+
+```python
+out = Image.new('RGBA', (w, h), (11, 13, 20, 255))   # the board, NOT white
+out.alpha_composite(atlas.crop(cell))
+```
+
+**A white preview cannot show a white halo.** S175 shipped three separate packer defects into a
+contact sheet — mixed canvas sizes, an un-normalised still, and a corpse cut from a dark sheet the
+matte could not lift — and **every one passed `tsc`, the full 4,400-test suite AND `check:atlas`**.
+All three were caught by opening the PNG. Highest-yield step in the pipeline; costs thirty seconds.
+
+If the sheet shows a pale rim, that is the **FRINGE**: set `edgeFringeStripPx`, sweeping the
+smallest depth that clears `EDGE_WHITE_MAX = 60`. ⛔ Do **not** reach for more `binary_erosion` — it
+removes boundary pixels regardless of colour and eats spears, antennae and horn tips. The fringe
+strip removes only PALE boundary pixels, so a spike stays a spike.
 
 ⚠ Wiring the renderer is a separate job and a **`Partial<>` art table means a missing entry is
 SILENT** — the unit falls through to the green procedural puppet. A race-keyed atlas must also be
@@ -159,3 +182,17 @@ reachable from `EAGER_ATLAS_TYPES` or `preloadRaceKit` or it is never fetched. S
   change it quietly.
 - **When a measurement in `.claude/veo-recipes.json` turns out wrong, amend the file in the same
   session.** A recipe file that drifts from the tree is how this protocol stops earning its keep.
+- ⛔ **A RECORDED VERDICT IS EVIDENCE ABOUT A FILE AT A MOMENT, NOT A PROPERTY OF THE FILE.** Before
+  acting on a verdict written in any document, re-run `check-clip` and compare `stat -c %Y` on the
+  clip against the table's date. S173's own table condemned `direwolf/walk`; it had been re-rolled
+  hours later and measures a clean PASS — trusting the doc would have paid ~$3.10 to replace a
+  working file. `voltkin/walk` was also condemned and is recoverable at $0. **Two of the four
+  condemnations were wrong.**
+- ⚠ **A clean WINDOW that excludes the ACTION is not a recovery.** `voltkin/attack` and
+  `voltkin/die` both hold technically-clean runs containing no strike and no collapse. Those are
+  genuine re-rolls — say so, rather than packing a row with no motion in it.
+- ⛔ **THE RATE IS ~$3.10 PER CLIP, OWNER-MEASURED** — not the $0.50 this protocol claimed for six
+  sessions. *"You said it was only four and a half dollars, but it was, like, twenty."* Quote the
+  real number in STEP 6, and re-confirm it whenever he mentions a figure.
+- ⚠ **WRITE THROUGH A TEMP FILE.** S175 truncated this very file to 0 bytes by opening it for
+  write and then throwing mid-encode. Build the whole string first, write a `.tmp`, `os.replace`.

@@ -34,13 +34,29 @@ Hand-run verdict, `node scripts/check-clip.mjs` over all eight, exit code captur
 | direwolf/attack | none | no | ✅ **PASS — packable as-is** |
 | direwolf/idle | L322 R322, throughout | no | recoverable (packer crops it) |
 | direwolf/die | L322 R323, **change at f68** | no | recoverable — `sampleStart: 68` |
-| direwolf/walk | L321 R322, change at f36 | **yes (left)** | ⛔ **NOT RECOVERABLE** |
+| direwolf/walk | ~~L321 R322, change at f36~~ | ~~yes (left)~~ | ⚠ **STALE — SEE BELOW. It is a clean PASS today.** |
 | voltkin/idle | L318 R317, throughout | no | recoverable |
 | voltkin/walk | L318 R317, change at f36 | **yes (left)** | ⛔ **NOT RECOVERABLE** |
 | voltkin/attack | L318 R317, throughout | **yes (all four sides, 14/24 frames)** | ⛔ **NOT RECOVERABLE** |
 | voltkin/die | L318 R317, throughout | **yes (all four sides)** | ⛔ **NOT RECOVERABLE** |
 
-**Four of eight are unrecoverable. One of eight is clean.** ~$2.00 bought nothing.
+**Four of eight are unrecoverable. One of eight is clean.** ~$12 bought nothing.
+
+⛔ **AND THE TABLE ABOVE WENT STALE INSIDE ITS OWN SESSION, WHICH IS A LESSON IN ITSELF.**
+`direwolf/walk` was RE-ROLLED at 21:17 on the same day, AFTER these verdicts were written, and the
+table was never updated. S175 re-ran `check-clip` and measured it a clean **PASS**; it packed as-is.
+Had S175 trusted this document instead of the clip, it would have paid ~$3.10 to replace a file that
+already worked.
+
+⇒ **A RECORDED VERDICT IS EVIDENCE ABOUT A FILE AT A MOMENT, NOT A PROPERTY OF THE FILE.** Before
+acting on any verdict in any document, re-run `check-clip` and compare `stat -c %Y` on the clip
+against the date on the table. This is the same mtime discipline the project CLAUDE.md already
+demands of leak and regression claims.
+
+⭐ S175 also re-measured **voltkin/walk** and found the S173 "NOT RECOVERABLE" verdict wrong in the
+other direction: only 4 of its 96 frames touch an edge, and frames 36-71 are a contiguous clean run,
+so `"sampleStart": 36, "sampleWindow": 36` yields 12 clean frames for **$0**. Two of the four
+condemned clips were recoverable. **Condemnation is expensive; measure it twice.**
 
 ⭐ **And the mechanism is arithmetic, not luck.** Both seeds were portrait-ish cut-outs —
 `direwolf-healthy.png` is 516×622 (aspect 0.83), `voltkin-healthy.png` 603×709 (0.85) — handed to a
@@ -303,13 +319,17 @@ trailing line. The project CLAUDE.md carries both.
 | `PASS  no side bars, subject clear of every edge — packable as-is` | clean | pack it | $0 |
 | `PILLARBOXED … bars are present throughout` | **RECOVERABLE** | nothing — `content_column` crops one stable column | $0 |
 | `BARS CHANGE MID-CLIP … RECOVERABLE — set "sampleStart": N` | **RECOVERABLE** | put `"sampleStart": N` on that state in the atlas spec | $0 |
-| `⛔ SUBJECT TOUCHES THE FRAME EDGE … NOT RECOVERABLE` | the pixels were never generated | **re-roll that ONE state, framed smaller** | $0.50 |
+| `⛔ SUBJECT TOUCHES THE FRAME EDGE … NOT RECOVERABLE` | the pixels were never generated | **re-roll that ONE state, framed smaller** — but re-measure first, S175 found 2 of 4 such verdicts wrong | **~$3.10** |
 | exit **3** | `ffmpeg` or `numpy`/`Pillow` missing | `pip install numpy scipy Pillow` — **a TOOLCHAIN gap, NOT a verdict on the art** | $0 |
 
 ⛔ **DO NOT REGENERATE UNTIL `check-clip` SAYS NOT RECOVERABLE.** A pillarboxed clip is not a bad
 clip — it is a clip that needs one JSON field. Re-rolling it burns $0.50 to fix something the packer
 already handles, and the replacement is just as likely to come back barred. **Bars are free.
-Amputation is $0.50. Only the second one is a reason to pay.**
+Amputation is ~$3.10. Only the second one is a reason to pay** — and even then, check whether a clean
+WINDOW exists inside the clip before paying. ⚠ But a window that excludes the ACTION is not a
+recovery: S175 found technically-clean runs in voltkin/attack and voltkin/die that contained no
+strike and no collapse. A clip whose recoverable window holds none of the motion is genuinely a
+re-roll; a clip whose window holds the motion is $0.
 
 ⚠ And a re-roll is **one state**, never the set: `node scripts/gen-character-clips.mjs <spec> --only
 <character> --state attack`. Add `--skip-existing` to any re-run of a whole character so the clips
@@ -338,6 +358,73 @@ build`; it runs as its own `atlas-guard` CI job. **Exit 3 = `pip install numpy s
 is a toolchain gap and not a verdict.** Exit 1 = a real defect (welded scenery, cross-row size drift,
 opaque near-white pockets).
 
+### 4.1 — ⭐ THE STILL CONTRACT, AND THE HALO (S175)
+
+Three defects cost S175 four rebuilds of one sheet. **Every one passed `tsc`, the full 4,400-test
+suite AND `check:atlas`.** All three were found by opening the PNG.
+
+**(a) A `still` MUST be RGB on near-white — never a transparent cut-out.** The matte keys out
+near-WHITE. A transparent PNG stores its see-through pixels as RGB `0,0,0`, which the matte reads as
+SUBJECT, so the art packs inside a solid black box. Every shipped building still is RGB on `254,254,254`
+and that is the contract. Flatten first:
+
+```python
+bg = Image.new('RGBA', src.size, (254, 254, 254, 255)); bg.alpha_composite(src)
+bg.convert('RGB').save(dst)
+```
+
+**(b) A spec that MIXES clips and stills must agree on a canvas.** The union bbox is ONE rectangle
+used as the crop rect for every frame, which only means anything if the frames share a coordinate
+space. A character was always four clips at one resolution and a building four stills of one drawing,
+so nothing had ever mixed them. The packer now pads every state to one canvas, bottom-centre; before
+that, a 659-tall union rect applied to a 369-tall still produced a giant clipped close-up.
+
+**(c) `normaliseStateScale` has no frame 0 to trust on a still.** `die` is measured at frame 0
+precisely because in a CLIP frame 0 is the creature still STANDING. A still has none — it IS the
+collapsed pose — so the pass reads a legitimately short subject as zoom error. Use
+`stillHeightRatio`, measured off the source art (direwolf: dead 387 / standing 623 = 0.621, which
+sits right alongside the shipped clip-derived die rows: hound 0.61, orcs 0.76, zombies 0.80).
+
+⛔ **AND EXEMPTING IT ENTIRELY IS ALSO WRONG.** S175 shipped that into a contact sheet before catching
+it: with no normalisation a still keeps the scale of its own small canvas and comes out ENORMOUS.
+Neither naive branch is right; the ratio is.
+
+#### ⭐⭐ AUDITION THE SHEET ON A **DARK** BACKGROUND, AND THIS IS THE STEP THAT FINDS HALOS
+
+A white preview hides a white fringe **by definition**. The board is near-black, which is where the
+owner sees it. Composite the cells onto the board colour before you believe a sheet is clean:
+
+```python
+out = Image.new('RGBA', (w, h), (11, 13, 20, 255))   # the board, not white
+out.alpha_composite(atlas.crop(cell))
+```
+
+#### Tuning `edgeFringeStripPx`
+
+Sweep the SMALLEST depth that brings the sheet under `EDGE_WHITE_MAX = 60`, then LOOK at it on dark.
+⛔ **Do not reach for more `binary_erosion` instead.** Erosion removes boundary pixels regardless of
+colour, so deeper passes eat the thin dark features these characters are made of — a spear, an
+antenna, a horn tip. The fringe strip removes only PALE boundary pixels, so a spike stays a spike.
+
+Measured S175, the nine sheets that were failing since S171:
+
+| sheet | strip px | edge-white after (cap 60) |
+|---|---|---|
+| t9boss-orcs | 2 | 17 |
+| unit-zombies | 2 | 36 |
+| t3-orcs-warband | 2 | 36 |
+| t9boss-nagas | 2 | 47 |
+| t9boss-mummies | 2 | 50 |
+| unit-demons | 2 | 51 |
+| t9boss-zombies | 3 | 56 |
+| t3-mummies-scarab | 4 | 46 |
+| t9boss-demons | 6 | 43 (from **342** — the worst on the board) |
+
+⚠ The depth is a property of the ART, not of the pipeline: the halo is as wide as the anti-aliased
+blend the model drew. Sweep per sheet; do not copy a neighbour's number.
+
+---
+
 ### The atlas-spec knobs — read out of `scripts/build-sprite-atlas.mjs`, S173
 
 **Top level**
@@ -351,6 +438,9 @@ opaque near-white pockets).
 | `states` | required | one entry per row |
 | `sampleStart` | `0` | skip N leading source frames (per-state override wins) |
 | `sampleWindow` | rest of clip | sample only N frames from `sampleStart` |
+| `edgeFringeStripPx` | `0` | ⭐ **S175 — the FRINGE fix.** Repeatedly removes boundary pixels that are PALE, N passes deep. This is the answer to the owner's *"you can see something white around it, outside his perimeter"*. Per-sheet, MEASURED (see §4.1) |
+| `edgeFringeLuma` | `170` | what counts as "pale" for the strip above. ⚠ LOWERING it makes the score WORSE, not better — stripping darker pixels exposes paler ones underneath. Measured on t9boss-demons: 170→81, 150→85, 130→89 |
+| `stillHeightRatio` | `1.0` | ⭐ **S175** — for a `still` state only: normalise it to this fraction of the playable rows' reference instead of to the reference itself. A drawn corpse is legitimately SHORTER than a standing animal; measure the ratio off the source art |
 | `enclosedWhiteLimitPct` | `0.003` | max area of an enclosed white pocket kept opaque. ⚠ **Set it explicitly; the default is 75× looser than the tuned `4e-05`, and taking it by omission is exactly the S165 defect the owner saw** (*"some of them have that white background because not cut out too well"*) |
 | `normaliseStateScale` | `false` | equalise seed-frame subject SIZE across states. ⭐ **ON for characters** (veo zooms differently per clip); OFF for buildings, whose size legitimately changes |
 | `normaliseStateWidth` | `false` | S173, opt-in. Non-uniform width match across `idle`/`walk`/`attack`. ⚠ **Distorts by construction** — an art trade, not a fix; on the scarab it made the spread *worse* (1.42× → 1.71×), which is how we learned that row is a POSE difference, not a zoom |
@@ -377,17 +467,31 @@ we keep 12. **Not decided. Do not quietly change it; raise it with him.**
 
 ## 5 · COST
 
-Measured rate, corroborated in-tree since S83 and again by S152's *"$3.50 of generation made
-unrecoverable"* for seven clips: **veo-3.1, 4 s, 720p = $0.50 per clip.**
+⛔ **THE $0.50 FIGURE THIS SECTION CARRIED FOR SIX SESSIONS WAS WRONG BY ~6x, AND IT WAS WRONG IN THE
+DIRECTION THAT COSTS MONEY.** Owner, S175, on the S173 run this document was written about: *"You said
+it was only four and a half dollars, but it was, like, twenty."* Later, more precisely: *"about
+twenty five even."*
 
-| job | clips | cost |
+**Measured by the person paying the bill: ~$3.10 per clip** (~$25 for 8). Every budget below is
+restated at that rate.
+
+⚠ The old number was not invented — it was inherited from S83 and re-asserted by S152's *"$3.50 of
+generation made unrecoverable"* for seven clips, which is self-consistent at $0.50 and simply never
+checked against a statement. **An in-tree figure that no one has reconciled against an invoice is a
+guess with a decimal point.** Re-confirm this one the next time he quotes a number.
+
+| job | clips | cost @ ~$3.10 |
 |---|---|---|
-| one UNIT, all four states | 4 | **$2.00** |
+| one UNIT, all four states | 4 | **~$12.40** |
 | one BUILDING, stills only | 0 | **$0.00** |
-| one BUILDING + spawn + crumble cinematics | 2 | $1.00 |
-| one re-roll of a single amputated state | 1 | $0.50 |
-| a six-race boss set (the S167 reference) | 24 | $12.00 |
-| **S173's lesson** | 8 | **$4.00, of which ~$2.00 bought nothing** |
+| one BUILDING + spawn + crumble cinematics | 2 | ~$6.20 |
+| one re-roll of a single amputated state | 1 | **~$3.10** |
+| a six-race boss set (the S167 reference) | 24 | ~$74 |
+| **S173's lesson** | 8 | **~$25, of which ~$12 bought nothing** |
+
+⭐ **AT THIS RATE THE VERIFY GATE IS NOT BUREAUCRACY, IT IS THE WHOLE GAME.** One avoided re-roll pays
+for the entire time it takes to read a verdict table. S175 packed SIX of the eight S173 clips for
+**$0.00** by reading them properly, and shipped the whole direwolf without generating anything.
 
 ⚠ **Duration is the owner's cap: *"All we need is a few seconds, up to four."*** `durationSeconds: 4`
 and `resolution: "720p"` are the shipped values and there is no reason to exceed them — the pipeline
@@ -419,7 +523,7 @@ python prep-seed.py <approved-still>.png assets-source/<family>/<name>-seed.png
 
 # 2. Write assets-source/<family>/clip-spec.json — copy the tier-9 shape, swap {CREATURE}/{AXIS}.
 
-# 3. Generate. $0.50 per state.
+# 3. Generate. ~$3.10 per state (S175, owner-measured - NOT the $0.50 this doc used to say).
 node scripts/gen-character-clips.mjs assets-source/<family>/clip-spec.json --skip-existing
 
 # 4. ⛔ VERIFY BEFORE SPENDING ANOTHER CENT.
@@ -430,9 +534,15 @@ CC=$?; echo "CHECKCLIP_EXIT=$CC"; cat /tmp/cc.txt
 #    sampleStart suggested -> write it into the atlas spec. Do NOT pay.
 
 # 5. Pack.
+#    ⚠ A `still` state must be RGB on 254-white, NOT a transparent cut-out - see 4.1(a).
+#    ⚠ Mixing clips and stills in one spec: the packer pads to one canvas - see 4.1(b).
 node scripts/build-atlas-set.mjs assets-source/<family>/atlas-specs.json <name>
 npm run check:atlas > /tmp/at.txt 2>&1; AT=$?; echo "ATLAS_EXIT=$AT"; cat /tmp/at.txt
 
+# 5b. ⭐ AUDITION THE SHEET ON THE DARK BOARD COLOUR. This is the step that catches what every
+#     gate misses. S175 found THREE packer defects this way, each of which had passed tsc, the full
+#     suite and check:atlas. A white preview cannot show a white halo. See 4.1.
+#
 # 6. Wire the renderer. ⚠ A Partial<> art table means a MISSING ENTRY IS SILENT — the unit falls
 #    through to the green procedural puppet. And a race-keyed atlas must be reachable from
 #    EAGER_ATLAS_TYPES or preloadRaceKit or it is never fetched. See ART_PIPELINE.md.

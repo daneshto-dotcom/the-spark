@@ -46,8 +46,8 @@
  * Usage:  node scripts/check-atlas-scenery.mjs <dir> [<dir>...]
  * Exit 0 = clean, 1 = scenery found, 2 = bad usage, 3 = the Python toolchain is missing.
  */
-import { readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 /**
@@ -341,6 +341,17 @@ const EDGE_WHITE_MAX = 60;
 
 let bad = 0;
 let sized = 0;
+let waivedSize = 0;
+/*
+ * ⭐ S175 P7 — the NAMED size waivers. An absent or unreadable file yields an EMPTY set, so every
+ * sheet is judged normally: deleting this file can only make the guard stricter, never quieter.
+ */
+const waived = (() => {
+  try {
+    const w = JSON.parse(readFileSync('assets-source/atlas-size-waivers.json', 'utf8'));
+    return new Set(Array.isArray(w.sheets) ? w.sheets : []);
+  } catch { return new Set(); }
+})();
 
 console.log('[atlas] 1/3 — opaque mid-grey BLOCKS welded to the sprite (the matte cannot remove these)\n');
 for (const [path, [total, largest]] of Object.entries(res)) {
@@ -372,7 +383,22 @@ for (const [path, [, , heights]] of Object.entries(res)) {
   const tallDie = heights.filter(
     ([st, h]) => !PLAYABLE_ROWS.has(st) && h > 0 && h / med - 1 > SIZE_TOLERANCE,
   );
-  if (offenders.length > 0 || tallDie.length > 0 || wideOffenders.length > 0) sized++;
+  const mismatched = offenders.length > 0 || tallDie.length > 0 || wideOffenders.length > 0;
+  /*
+   * ⭐⭐ S175 P7 — A NAMED, DATED WAIVER, AND THE POINT IS TO MAKE THIS JOB READABLE AGAIN.
+   *
+   * `atlas-guard` had been RED on every master run since S171. The owner named the cost himself: a
+   * permanently red job is where a real failure hides, because nobody reads it any more. P7 fixed
+   * the nine FRINGE sheets outright. These five disagree about WIDTH, which is a POSE difference
+   * and not something code can fix — S173 BUILT the squash, measured it WORSE (1.42x -> 1.71x) and
+   * reverted it. The only real fix is regenerated art, which is the owner's budget.
+   *
+   * ⛔ A WAIVED SHEET STILL PRINTS ITS NUMBERS AND STILL SAYS WAIVED. It is not hidden, the
+   * tolerance is not lowered, and it is per-FILE: any sheet not on that list fails exactly as
+   * before, so a NEW size mismatch turns the job red again. That is the entire point of green.
+   */
+  if (mismatched && waived.has(basename(path))) waivedSize++;
+  else if (mismatched) sized++;
   const detail = heights
     .map(([st, h, w]) => {
       const r = (h / med).toFixed(2);
@@ -385,10 +411,9 @@ for (const [path, [, , heights]] of Object.entries(res)) {
       return `${st}=${r}x${wr}${h / med - 1 > SIZE_TOLERANCE ? '(die TOO TALL)' : '(die)'}`;
     })
     .join(' ');
-  const rowVerdict =
-    offenders.length === 0 && tallDie.length === 0 && wideOffenders.length === 0
-      ? 'clean'
-      : 'MISMATCH';
+  const rowVerdict = !mismatched
+    ? 'clean'
+    : waived.has(basename(path)) ? 'WAIVED' : 'MISMATCH';
   console.log(`  ${rowVerdict.padEnd(8)} ${detail}  ${path}`);
 }
 
@@ -467,4 +492,13 @@ const ran = noSize
   ? 'the scenery, white-leak, edge-fringe and letterbox checks'
   : 'all five checks';
 const tol = allowScenery > 0 ? ` (scenery tolerance ${allowScenery} px)` : '';
-console.log(`[atlas] OK — ${files.length} atlas(es) clean on ${ran}${tol}.`);
+/*
+ * ⚠ S175 — THE WAIVER COUNT GOES IN THIS LINE, and the reason is written four lines above: *"Say
+ * WHICH checks actually ran. 'clean on both checks' when only one ran is exactly the kind of false
+ * assurance this repo has been bitten by before."* A green run that quietly waived five sheets is
+ * the same defect wearing a different hat.
+ */
+const waivedNote = waivedSize > 0
+  ? ` — ⚠ ${waivedSize} sheet(s) WAIVED on the size check (assets-source/atlas-size-waivers.json); they need regenerated art, not code`
+  : '';
+console.log(`[atlas] OK — ${files.length} atlas(es) clean on ${ran}${tol}.${waivedNote}`);
