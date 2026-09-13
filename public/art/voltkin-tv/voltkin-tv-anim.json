@@ -11,13 +11,18 @@
       "frames": 1,
       "ticksPerFrame": 1
     },
-    "damaged": {
+    "spawning": {
       "row": 1,
       "frames": 1,
       "ticksPerFrame": 1
     },
-    "destroyed": {
+    "damaged": {
       "row": 2,
+      "frames": 1,
+      "ticksPerFrame": 1
+    },
+    "destroyed": {
+      "row": 3,
       "frames": 1,
       "ticksPerFrame": 1
     }

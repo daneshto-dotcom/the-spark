@@ -21,6 +21,7 @@
  *   lastCinematicOwner  — previous activeCinematicPlayerId for transition detection
  */
 
+import { VOLTKIN_EMERGE_MS } from '../constants.ts';
 import { Controls } from '../input/controls.ts';
 import { NetTransport } from '../net/transport.ts';
 import { CinematicVignetteHandle } from '../render/cinematicVignette.ts';
@@ -36,7 +37,7 @@ import { CinematicVignetteHandle } from '../render/cinematicVignette.ts';
  * nothing left to do. That headroom win survives the deletion — there is now no codex import here
  * at all, which is strictly lighter than the one it replaced.
  */
-import { CutsceneOverlay, FADE_MS } from '../render/cutsceneOverlay.ts';
+import { CutsceneOverlay } from '../render/cutsceneOverlay.ts';
 import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.ts';
 import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
@@ -174,7 +175,26 @@ export function startCinematicIfNeeded(
    * keeps the clock, the completion, the queue and `pendingCreatureSpawn` byte-identical, and drops
    * only the video, the voice and the vignette.
    */
-  const silent = !world.cinematicIsFirstShowing;
+  /*
+   * ⭐⭐ S175 P4b (owner) — **ALWAYS SILENT. THE CUTSCENE IS GONE.**
+   *
+   * Owner: *"you know how now there is the cutscene where you can see kind of a TV, and it stops the
+   * whole game — we'll remove that and just make it like a cool animation inside the game without a
+   * cutscene."* And, on what replaces it: *"it's gonna be like the tower is being built … kind of
+   * like when bosses come out. But even cooler."*
+   *
+   * ⛔ IT IS STILL A SILENT PLAY, NOT A SKIP, AND THAT IS THE WHOLE REASON THIS LINE IS NOT A
+   * `return`. `cutsceneOverlay.onComplete` below is the SOLE driver of `GODLY_COMPLETE` and of
+   * `pendingCinematics` advancement. Not calling `play()` would latch `activeCinematicPlayerId`
+   * forever and queue every later Voltkin behind it — strictly worse than the cutscene it removes.
+   * S158 P5 wrote that warning for the repeat case; S175 makes every showing take that path.
+   *
+   * ⚠ `cinematicIsFirstShowing` IS DELIBERATELY LEFT ALONE. It is sim state, it is hashed, and
+   * `godlyCinematicOnce.test.ts` (11 cases) still guards it. Making the RENDERER ignore it costs
+   * nothing; deleting it would be a wire change for no gain, and it is what a future 'play the
+   * cinematic in a replay/theatre mode' would read.
+   */
+  const silent = true;
   // The vignette dims the board for everyone who is NOT the summoner — it exists to frame the
   // cutscene, so it goes with it. Without this gate, a repeat would dim the screen for the other
   // players for ~4.8 s with nothing to look at, which is worse than either extreme.
@@ -182,6 +202,7 @@ export function startCinematicIfNeeded(
   const targetPos = event.targetPos;
   void ctx.cutsceneOverlay.play(recipe, {
     silent,
+    silentDurationMs: VOLTKIN_EMERGE_MS,
     targetPos,
     onComplete: () => {
       // Idempotent — GODLY_COMPLETE clears activeCinematicPlayerId; next tick
@@ -227,10 +248,20 @@ export function startCinematicIfNeeded(
     // pulse the fix is meant to expose. Spawn delay is now wall-clock
     // (cinematicMs + sustainedEffectMs + FADE_MS) → ticks-deterministic via
     // cinematicMsToTicks for replay safety.
+    /*
+     * ⭐⭐ S175 P4b — THE 4.8 s DELAY IS GONE WITH THE THING IT EXISTED FOR.
+     *
+     * Everything above this line is the S31 reasoning for the old number, and it is kept because it
+     * explains why the number was RIGHT: the creature was held back until `bg.alpha` reached 0 so
+     * its entry pulse was not spent under an opaque overlay. There is no overlay any more. Holding
+     * the delay would leave the summoner watching an unchanged board for five seconds — the exact
+     * complaint, moved rather than fixed.
+     *
+     * ⚠ THIS MOVES REPLAY AND DIFFERENTIAL BASELINES, and that is expected rather than a regression:
+     * `pendingCreatureSpawn.fireAtTick` is sim state and the Voltkin now arrives ~4 s earlier.
+     */
     world.pendingCreatureSpawn = {
-      fireAtTick: world.tick + cinematicMsToTicks(
-        recipe.cinematicMs + recipe.sustainedEffectMs + FADE_MS,
-      ),
+      fireAtTick: world.tick + cinematicMsToTicks(VOLTKIN_EMERGE_MS),
       event,
     };
   }

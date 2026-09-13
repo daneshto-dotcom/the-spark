@@ -370,7 +370,22 @@ export class Controls {
   private isInputLocked(): boolean {
     // S93 — the NONET trial freezes the duel for everyone; the Sudoku overlay owns input.
     if (this.world.sudoku !== null) return true;
-    if (this.world.activeCinematicPlayerId === this.playerId) return true;
+    /*
+     * ⛔⛔ S175 P4b — **THE CINEMATIC INPUT LOCK IS DELETED, AND IT WAS HALF OF WHAT HE MEANT.**
+     *
+     * Owner: *"there is the cutscene … and it stops the whole game — we'll remove that."* The SIM
+     * was never stopped: `activeCinematicPlayerId` appears in zero of `hostTick.ts`, `physics/*.ts`
+     * and `simWorker.ts`, so the world ticked throughout. What actually stopped for him was a
+     * full-canvas opaque rectangle and THIS LINE, which froze the summoner — and only the
+     * summoner — out of his own board while it played.
+     *
+     * The rectangle is gone (`godlyOrchestration` now always takes the silent path), so this lock
+     * would freeze a player for 0.9 s behind nothing at all. The Voltkin emerges from his TV
+     * in-game now; the game keeps running underneath, which is the whole ruling.
+     *
+     * ⚠ The OTHER locks stay. NONET genuinely owns input for everyone, and a benched player is
+     * benched. Only the cinematic clause goes.
+     */
     // S72 P2 — a benched player (eaten by the Pac-Man hunter) is fully input-locked
     // until benchedUntilTick. Tick compare self-heals if the clear is missed (R5).
     const me = this.world.players.get(this.playerId);

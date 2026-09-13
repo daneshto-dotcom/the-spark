@@ -172,16 +172,34 @@ describe('S136 P0 — castleControlsModel: a disabled control always names its b
       }
     });
 
-    it('the local player mid-cinematic locks both rows', () => {
-      const w = world(9999);
-      w.activeCinematicPlayerId = P0;
-      expect(row(w, 'buyGatherer').reason).toBe('LOCKED');
+    /*
+     * ⛔⛔ S175 P4b — **INVERTED, NOT DELETED, AND THE INVERSION IS THE OWNER'S RULING.**
+     *
+     * This case used to assert that the summoner's own cinematic LOCKED his rows, and it was right
+     * for as long as a full-screen black rectangle sat over the board. Owner, S175: *"there is the
+     * cutscene … and it stops the whole game — we'll remove that and just make it like a cool
+     * animation inside the game without a cutscene."* The lock was one of the two things that
+     * actually stopped for him (the sim never did — `activeCinematicPlayerId` appears in no tick
+     * path at all), so it went with the rectangle.
+     *
+     * Kept as a live assertion rather than removed, because it is now the GUARD: if a future
+     * session re-introduces a cinematic input lock, this fails and names why it must not.
+     */
+    it('⛔ a cinematic no longer locks ANYONE, including the summoner (S175 P4b)', () => {
+      const mine = world(9999);
+      mine.activeCinematicPlayerId = P0;
+      expect(row(mine, 'buyGatherer').enabled, 'the summoner keeps playing').toBe(true);
+
+      const theirs = world(9999);
+      theirs.activeCinematicPlayerId = asPlayerId(1);
+      expect(row(theirs, 'buyGatherer').enabled).toBe(true);
     });
 
-    it("ANOTHER player's cinematic does NOT lock yours", () => {
-      const w = world(9999);
-      w.activeCinematicPlayerId = asPlayerId(1);
-      expect(row(w, 'buyGatherer').enabled).toBe(true);
+    it('⚠ and the OTHER locks are untouched — only the cinematic clause went', () => {
+      const nonet = world(9999);
+      nonet.activeCinematicPlayerId = P0;
+      nonet.sudoku = {} as unknown as typeof nonet.sudoku;
+      expect(row(nonet, 'buyGatherer').reason, 'NONET still owns input for everyone').toBe('LOCKED');
     });
 
     it('a benched (eaten) player is locked; the same player after the bench expires is not', () => {

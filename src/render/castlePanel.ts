@@ -400,11 +400,15 @@ export function shortfallRowLayout(
  */
 export function castleStructuresModel(world: World): StructureRow[] {
   const me = world.players.get(world.localPlayerId);
+  /*
+   * ⛔ S175 P4b — the `activeCinematicPlayerId` clause was removed from BOTH `locked` expressions
+   * in this file, alongside the one in `Controls.isInputLocked`. There is no cutscene to lock
+   * behind any more; see the long note at that site. NONET and benched still lock.
+   */
   // Honour the same input locks the control rows do — these tiles live on app.stage and their
   // pointertap never passes through Controls.isInputLocked().
   const locked =
     world.sudoku !== null ||
-    world.activeCinematicPlayerId === world.localPlayerId ||
     (me !== undefined && isBenched(me.benchedUntilTick, world.tick));
 
   const have = availableShapeCounts(world, world.localPlayerId);
@@ -538,7 +542,6 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
   // mid-NONET, where full-screen overlays do not all capture pointers — could spend victory points.
   const locked =
     world.sudoku !== null ||
-    world.activeCinematicPlayerId === world.localPlayerId ||
     (me !== undefined && isBenched(me.benchedUntilTick, world.tick));
 
   let owned = 0;

@@ -38,7 +38,7 @@ import type { BondId, PrimitiveId } from '../types.ts';
 import { findAllVoltkinChains } from '../state/godlyRecipes/voltkin.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
-import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp, type TowerState } from './towerFrames.ts';
+import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
 
 const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
 
@@ -53,11 +53,49 @@ const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
  */
 const TV_SPRITE_PX = 132;
 
-interface StateTextures { readonly intact: Texture; readonly damaged: Texture; readonly destroyed: Texture }
-interface Manifest { cellW: number; cellH: number; states: Partial<Record<TowerState, { row: number }>> }
+/** How close a SPAWNING Voltkin must be to a TV for that TV to be the one he is coming out of. */
+const VOLTKIN_EMERGE_MATCH_PX = 160;
 
-/** Fallback row order, and the CONTRACT — the shipped manifest is the authority. */
-const TV_ROWS: Readonly<Record<TowerState, number>> = { intact: 0, damaged: 1, destroyed: 2 };
+/** Four rows, and `spawning` is NOT a `TowerState` — see TV_ROW_ORDER. */
+interface StateTextures {
+  readonly intact: Texture;
+  readonly spawning: Texture;
+  readonly damaged: Texture;
+  readonly destroyed: Texture;
+}
+type TvRow = keyof StateTextures;
+interface Manifest { cellW: number; cellH: number; states: Partial<Record<TvRow, { row: number }>> }
+
+/**
+ * Fallback row order, and the CONTRACT — the shipped manifest is the authority.
+ *
+ * ⭐ `spawning` LIVES HERE AND NOT IN `TowerState`, DELIBERATELY. The engine's damage union is three
+ * valued and widening it breaks `tsc` across both shared row tables and forces a decision about rows
+ * the tier-9 sheets do not have. The emergence is not a damage state anyway — it is a beat the TV
+ * holds while the Voltkin climbs out of it — so this renderer owns its own row map and maps the
+ * three DAMAGE rows through `towerStateForHp` exactly as before.
+ */
+const TV_ROWS: Readonly<Record<TvRow, number>> = { intact: 0, spawning: 1, damaged: 2, destroyed: 3 };
+
+/**
+ * Is a Voltkin currently climbing out of the TV standing at (cx, cy)?
+ *
+ * ⚠ MATCHED BY POSITION, not by an id, because the chain and the creature are never linked in state:
+ * `currentCinematicEvent` is cleared on GODLY_COMPLETE and the creature carries no chain reference.
+ * The spawn happens AT the chain centroid (`pendingCreatureSpawn` uses `event.targetPos`), so a
+ * generous radius around the sprite is exact in practice and degrades to 'no emergence frame' rather
+ * than to a wrong one.
+ */
+function isVoltkinEmergingAt(world: World, cx: number, cy: number): boolean {
+  const rSq = VOLTKIN_EMERGE_MATCH_PX * VOLTKIN_EMERGE_MATCH_PX;
+  for (const c of world.creatures.values()) {
+    if (c.type !== 'voltkin' || c.state !== 'SPAWNING') continue;
+    const dx = c.pos.x - cx;
+    const dy = c.pos.y - cy;
+    if (dx * dx + dy * dy <= rSq) return true;
+  }
+  return false;
+}
 
 export class VoltkinTowerRenderer {
   readonly layer = new Container();
@@ -77,14 +115,17 @@ export class VoltkinTowerRenderer {
       try {
         const manifest = (await (await fetch(`${ATLAS_BASE}-anim.json`)).json()) as Manifest;
         const sheet = (await Assets.load(`${ATLAS_BASE}-atlas.png`)) as Texture;
-        const cut = (state: TowerState): Texture => new Texture({
+        const cut = (state: TvRow): Texture => new Texture({
           source: sheet.source,
           frame: new Rectangle(
             0, (manifest.states[state]?.row ?? TV_ROWS[state]) * manifest.cellH,
             manifest.cellW, manifest.cellH,
           ),
         });
-        this.atlas = { intact: cut('intact'), damaged: cut('damaged'), destroyed: cut('destroyed') };
+        this.atlas = {
+          intact: cut('intact'), spawning: cut('spawning'),
+          damaged: cut('damaged'), destroyed: cut('destroyed'),
+        };
       } catch {
         /*
          * Left null and never retried. The chain's own shapes stay fully visible, because a failed
@@ -132,7 +173,22 @@ export class VoltkinTowerRenderer {
         this.layer.addChild(sprite);
         this.sprites.set(key, sprite);
       }
-      sprite.texture = this.atlas[towerStateForHp(towerHpFrac(chain, (id) => world.primitives.get(id)?.hp))];
+      /*
+       * ⭐⭐ S175 P4b — **THE EMERGENCE, DRIVEN OFF THE VOLTKIN'S OWN SPAWNING STATE.**
+       *
+       * Owner: *"it's gonna be like the tower is being built … kind of like when bosses come out.
+       * But even cooler."* So while he is climbing out, the TV wears his burst-through-the-screen
+       * panel, and the moment he is on the board it returns to intact.
+       *
+       * ⛔ `creature.state` IS THE RIGHT CLOCK AND `activeCinematicPlayerId` IS NOT. The latter is
+       * host-local — it appears nowhere in `save.ts` — so a joiner would never see the emergence at
+       * all. `Creature.state` and `pos` are REQUIRED, fully-serialized wire fields, so every peer
+       * switches to the spawn frame on the same tick, for free. No new state, no bump.
+       */
+      const emerging = isVoltkinEmergingAt(world, cx, cy);
+      sprite.texture = emerging
+        ? this.atlas.spawning
+        : this.atlas[towerStateForHp(towerHpFrac(chain, (id) => world.primitives.get(id)?.hp))];
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = cx;

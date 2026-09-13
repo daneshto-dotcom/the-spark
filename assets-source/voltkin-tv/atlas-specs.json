@@ -16,7 +16,7 @@
     "    damaged   <- tv-3-burning   (his own words: the long-lived state the tower wears most of a match)",
     "    destroyed <- tv-6-ruins",
     "",
-    "⚠ tv-2-spawn, tv-4-critical and tv-5-explosion are NOT packed here. They belong to the emergence",
+    "⚠ tv-4-critical and tv-5-explosion are NOT packed here. They belong to the DESTRUCTION beat, which is frame-driven and client-local (the TOWER_CRUMBLE_FRAMES shape), not a damage state. tv-2-spawn IS packed, as row 1, because the emergence is a state the TV genuinely holds while the Voltkin comes out of it - see the _why on that entry.",
     "and the destruction cinematic, which are frame-driven and client-local (the TOWER_CRUMBLE_FRAMES",
     "shape), not damage states. Packing them into this sheet would put four-of-six rows somewhere no",
     "code reads and invite a future session to 'wire up the missing rows'.",
@@ -41,6 +41,11 @@
         "intact": {
           "still": "assets-source/voltkin-tv/tv-1-intact-flat.png",
           "ticksPerFrame": 1
+        },
+        "spawning": {
+          "still": "assets-source/voltkin-tv/tv-2-spawn-flat.png",
+          "ticksPerFrame": 1,
+          "_why": "⭐ S175 P4b - HIS BURST-THROUGH-THE-SCREEN PANEL, and it is the emergence, not a damage state. Row 1, matching the tier-3 sheets' intact/spawning/damaged/destroyed order so the layout is not a third convention. The renderer selects it directly rather than through TowerState, which stays three-valued."
         },
         "damaged": {
           "still": "assets-source/voltkin-tv/tv-3-burning-flat.png",

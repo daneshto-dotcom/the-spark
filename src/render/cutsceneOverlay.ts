@@ -51,6 +51,14 @@ export interface CutsceneContext {
   readonly targetPos: { readonly x: number; readonly y: number };
   /** Called when the cinematic completes naturally OR aborts. */
   onComplete(): void;
+  /**
+   * ⭐ S175 P4b — override the silent path's duration. The visible path is unaffected.
+   *
+   * With the cutscene removed there is no 4.8 s of black to wait out, so the completion that drives
+   * `GODLY_COMPLETE` must arrive on the EMERGENCE beat instead. Passed rather than hardcoded so the
+   * caller can keep it and `pendingCreatureSpawn` reading one constant.
+   */
+  readonly silentDurationMs?: number;
   /** Plays the recipe's voice clip at the scripted offset. audioManager hook. */
   playVoice(assetUrl: string): void;
   /**
@@ -139,7 +147,7 @@ export class CutsceneOverlay {
       const silentTimer = setTimeout(() => {
         this.active = false;
         ctx.onComplete();
-      }, totalDurationMs(recipe) + FADE_MS);
+      }, ctx.silentDurationMs ?? (totalDurationMs(recipe) + FADE_MS));
       this.timers.push(silentTimer);
       return;
     }

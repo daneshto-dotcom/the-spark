@@ -3235,6 +3235,33 @@ export const SPINDLE_MAX_TANGENTIAL_SPEED = 2.0; // px/tick HARD cap on swirl-di
 // #1 Spindle readability/feel knob: higher = faster orbit, lower = gentle drift. Deterministic; host-only.
 
 // ── S122 P1 (B2 phase d — worker-sim cutover) ───────────────────────────────────────────────
+/**
+ * ⭐⭐ S175 P4b (owner) — **HOW LONG THE VOLTKIN TAKES TO COME OUT OF HIS TV, NOW THAT THERE IS NO
+ * CUTSCENE TO HIDE HIM BEHIND.**
+ *
+ * Owner: *"we're redoing the whole way that Voltkin is coming out of the TV. It's gonna be in game
+ * … kind of like when bosses come out. But even cooler."* and, of the old one, *"it stops the whole
+ * game — we'll remove that and just make it like a cool animation inside the game without a
+ * cutscene."*
+ *
+ * ⛔ THIS NUMBER REPLACES 4,800 ms, AND DELETING THE OVERLAY WITHOUT IT WOULD HAVE BEEN WORSE THAN
+ * KEEPING IT. The old delay existed for one reason: to hold the creature back until a full-screen
+ * black rectangle had finished fading, so the player did not watch him spawn under it. Take away the
+ * rectangle and leave the delay, and the summoner presses build and then stares at an unchanged
+ * board for nearly five seconds with nothing at all to look at.
+ *
+ * ⚠ ONE CONSTANT, TWO CONSUMERS, DELIBERATELY. It sets BOTH the creature's `fireAtTick` and the
+ * silent completion timer that drives `GODLY_COMPLETE`. `cutsceneOverlay` already warns that those
+ * two must be read from one expression or *"a drift here would desynchronise the cutscene from
+ * pendingCreatureSpawn"* — so they read this.
+ *
+ * ⚠ THE VALUE IS MINE. 900 ms is a beat: long enough for the TV to show his burst-through frame and
+ * for the eye to register where he came from, short enough that it reads as an entrance rather than
+ * a wait. `CREATURE_SPAWN_TICKS` then carries his own spawn animation on top of it. Overrule it
+ * against the live board.
+ */
+export const VOLTKIN_EMERGE_MS = 900;
+
 // CUTSCENE_FADE_MS: the cutscene overlay's fade-out duration. MOVED here from
 // render/cutsceneOverlay.ts (which re-exports it as FADE_MS for its render-side consumers) so the
 // WORKER-side cinematic scheduler (state/workerSim.ts) can compute the deterministic tick-domain
