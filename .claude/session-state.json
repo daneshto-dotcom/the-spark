@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1092,
+  "tool_calls_session_total": 1093,
   "session_id": "S175",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/S175_BATCH_PDR.md",
-  "session_status": "in_progress",
+  "session_status": "priorities_complete",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -70,7 +70,20 @@
       "veo cost in ART_VEO_PROTOCOL.md is understated ~5x - owner measured ~$25 for 8 clips"
     ]
   },
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "P1 #the-backlog-said-owed-and-the-tree-said-shipped: the 2x MOVE speed had been wired since S168 at creatureVerlet.ts:168 while the backlog, the handoff and the boot snapshot all listed it as outstanding. Phase A.0 is the only reason P1 was scoped as 'the tint' instead of re-implementing something that already worked.",
+    "P1b #the-channel-was-already-spent: the obvious one-line fix (sp.tint = red) collides with the seat-colour wash that already occupies that channel, and a Pixi tint is a MULTIPLY - S151 shipped exactly this and S152 had to repair it. The seat cue survives only because S154 put a coloured ground marker under every creature, which is what made overriding safe.",
+    "P1c #he-asked-for-the-half-i-had-not-planned: 'so he LOOKS like he attacks two times faster as well' - the cadence divide existed, the animation frame rate did not, so an enraged Warlord would have re-triggered his swing before the attack row finished drawing. Shipping only the cadence would have looked like a stutter, not like speed.",
+    "P2 #both-sides-of-the-art-claim-were-half-right: the handoff said the direwolf HAD art, the renderer said it had NONE. The art existed and was committed; no atlas-specs.json existed, so nothing had ever been packed. The owner was right and so was the grep, and the missing word was PACKED.",
+    "P2b #the-contact-sheet-caught-what-no-gate-could: three separate defects shipped a green typecheck, a green suite and an unchanged check:atlas - mixed canvas sizes, a still with no standing frame 0, and a corpse cut from the dark sheet that the near-white matte could not lift. Every one was found by LOOKING at the PNG. The protocol's 'audition the sheet' step is the only thing standing between those and the owner.",
+    "P2c #the-first-correct-fix-was-still-wrong: exempting a still from normaliseStateScale fixed the inflation and immediately caused the opposite failure - with no normalisation the still keeps the scale of its own small canvas and comes out enormous. A ratio measured off one sheet was the answer; neither naive branch was.",
+    "P2d #the-protocol-document-lied-about-its-own-clip: ART_VEO_PROTOCOL.md condemns direwolf/walk as NOT RECOVERABLE. walk.mp4 was re-rolled at 21:17 after that table was written. A stale verdict table is worth money - it would have bought a re-roll of a clip that already passes.",
+    "P5 #the-code-had-already-named-its-own-fix-site: codexOverlay.ts said since S173 that a deliberate order 'belongs at the main.ts call site as an explicit sort, not as a hope about import order'. Reading the file I was about to change saved inventing a worse place to put it.",
+    "P5b #two-owner-sentences-disagreed-and-the-newer-one-wins: 'stink tower is last' (S174) vs 'it's by connectors' (S175). The stink tower has 4 nodes but 3 bonds, so the connector rule puts it FIRST. Shipping the specific ruling and recording the conflict in a test beats quietly hand-placing the card.",
+    "P6 #the-only-test-i-wrote-caught-the-only-bug-i-shipped: flip detection inside the alpha getter read correctly for anything queried every frame and silently wrong for anything the concealment `continue` skipped - a shape would have phased in as you looked at it. Nothing else in the tree could have caught it; StructureRenderer is never instantiated in any test.",
+    "P6b #the-natural-anchor-was-the-trap: ignitedAtTick is exactly the field this ramp wants and is STRIPPED on the wire, re-seeded from the client's own tick every snapshot. A.0 found it; using it would have made joiners' fades restart 10x a second and looked like a shader bug.",
+    "P6c #the-owner-narrowed-the-scope-himself-and-the-design-already-obeyed: he confirmed defenders count as 'a tower on top' and then said none of them has art yet, focus on the race ones. Because cover is published by whoever DRAWS a sprite, that needed no filter - the general towers simply never mark."
+  ],
   "budget_total": null,
   "totals": {},
   "carry_forward_s170": [
@@ -1182,10 +1195,10 @@
     {
       "id": "P1",
       "title": "Warlord RAGE: washed-red tint + animation speed-up + the missing integration test",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "372934aff200aa5c8d8c0a98537c84aa6a7b862a",
+      "check_method": "Read from captured $?: typecheck 0; vitest 4428/4428 (was 4416, +12 new). New warlordRage.integration.test.ts drives computeSteeringAccel and pins the real 2x ratio - the first test anywhere to cover the x2 WIRING rather than the pure helper. Tint verified NOT 0xff0000 (S152 multiply trap) and identical across all four seats.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1195,10 +1208,10 @@
     {
       "id": "P2",
       "title": "Pack the direwolf atlas ($0) and re-point the renderer off the goblin-hound sheet",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "133b4044340ba019e9b7dff8dbed2ffaa734b964",
+      "check_method": "Read from captured $?: typecheck 0; vitest 4428/4428; check:atlas 1 = UNCHANGED from baseline (9 fringe + 6 size; the guard scans public/art only and does not see public/godly). Direwolf sheet audited directly with check-atlas-scenery: 0 px welded, 3 px largest enclosed white, 14 px edge fringe - clean on all three matte defects; heights 0.99/1.00/1.00. Contact sheet visually auditioned 4x; two packer defects found by looking, both fixed. $0.00 spent.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1208,10 +1221,10 @@
     {
       "id": "P5",
       "title": "Codex: sort by connector count (R175-A) + the owed discovery-removal tests",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "727bf7a633245f4f6025a36c025a4d952ad56375",
+      "check_method": "Captured $?: typecheck 0; vitest 4438/4438 (+10). Connector ladder verified empirically by probe: 3=six race towers+stink, 4=goblin, 5=pentagram/lightningHub, 6=laserTurret/helga, 7=voltkin, 9=six t9. Sort proven order-independent (reversed input yields identical output). Discovery-gate removal asserted by source scan with comments stripped.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1221,10 +1234,10 @@
     {
       "id": "P6",
       "title": "Connector hiding under live towers (renderer-only), incl. defenders per R175-B",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "b10e772adc8a999f803c32360445fad823d218fb",
+      "check_method": "Captured $?: typecheck 0; vitest 4449/4449 (+11); build OK 826.6 KiB under the 900 cap. The new test caught a REAL read-order defect (lazy flip detection in the getter) which was fixed by moving reconciliation to the frame boundary. PROTOCOL_VERSION unchanged at 46 - no field flips, state derived from synced topology.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1234,10 +1247,10 @@
     {
       "id": "P4a",
       "title": "The Voltkin TV becomes a real structure entity with damage states",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "95af12f0268bc1f222dc2fac791f716128b0f8e9",
+      "check_method": "Captured $?: typecheck 0; vitest 4455/4455; build OK 828.4 KiB; check:atlas exit 1 UNCHANGED at the baseline 9 fringe + 6 size. The new TV sheet is now GATED (public/art/voltkin-tv added to check:atlas) and passes clean on its own: 0 px welded, 4 px largest enclosed white, 10 px edge fringe. The shared-DFS extraction was proven behaviour-preserving by the 160 pre-existing godly tests.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1247,10 +1260,10 @@
     {
       "id": "P4b",
       "title": "Voltkin's in-game emergence + DROP THE CUTSCENE (folds in old P3)",
-      "status": "pending",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "e5de634c542bee4df5360bf3b0f094ddfa398474",
+      "check_method": "Captured $?: typecheck 0; vitest 4455/4455; build OK 828.5 KiB; check:atlas unchanged. One test INVERTED not deleted (castlePanel's mid-cinematic lock) and turned into a guard against re-introduction. A.0 predicted replay/differential baseline churn from the retime; it did NOT occur - those suites do not exercise the cinematic path - reported rather than assumed.",
       "real_context_tokens_at_close": null,
       "verification": [],
       "pdr_approved": true,
@@ -1633,9 +1646,16 @@
     "R175-G_voltkin_tower": "'for now it's just fucking connectors of four squares and four triangles. It looks stupid.' The TV must become a real tower with a build/emerge/damage/destroy loop."
   },
   "carry_forward_s175": [
-    "P7 THE ATLAS DEBT - NOT APPROVED, owner needs a plain-language explanation first.",
-    "R173-B, B7+B8 damage numbers, Pharaoh stances+Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
-    "General/goblin tower art: owner will generate; then damage+destroyed states and the build/destroy loop.",
-    "Voltkin attack+die clips remain UNPACKED - not re-rolled, per the cost ruling."
-  ]
+    "P7 THE ATLAS DEBT - explained to the owner at S175 close, still NOT approved. 9 fringed atlases (a matte problem) + 6 width-mismatched (a pose problem). The real matte is embedded python in build-sprite-atlas.mjs:203-286, NOT scripts/matte-*.py, and there is NO tighter-edge knob - erosion is hardcoded at :284, so this means ADDING a knob.",
+    "ART_VEO_PROTOCOL.md is STALE in two places: its S173 verdict table condemns direwolf/walk which now measures a clean PASS, and its section 5 cost table is ~5x low. Fix both before the next generation run.",
+    "Voltkin attack + die clips remain UNPACKED and were NOT re-rolled, per the cost ruling. voltkin/walk was measured RECOVERABLE at $0 (frames 36-71 clean, sampleStart:36 + sampleWindow:36) - the S173 claim that it needed a re-roll is wrong.",
+    "General/goblin tower art: owner will generate; then damage+destroyed states and the build/destroy loop. Connector hiding auto-covers them the moment each draws a tower sprite - one markTowerCover call each.",
+    "tv-4-critical and tv-5-explosion are packed as flats but NOT in the atlas - they belong to the destruction beat (TOWER_CRUMBLE_FRAMES shape), still unbuilt.",
+    "R173-B, B7+B8 damage numbers, Pharaoh stances + Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
+    "The Warlord's attack-cadence WIRING is still uncovered by test (arithmetic only) - stated in warlordRage.integration.test.ts's header, not hidden."
+  ],
+  "cost_notes": {
+    "owner_reported_agent_spend_s175": "~$7.00 for 2026-09-13. ⚠ ZERO art generation this session - no veo, no imagen. That figure is the Phase A.0 subagent sweep: 7 lanes, 1,021,822 subagent tokens, 288 tool uses. Record it as AGENT spend so it does not corrupt the veo rate.",
+    "veo_rate_correction": "Owner measured ~$25 for the 8 S173 clips => ~$3.10/clip, against the $0.50/clip written in ART_VEO_PROTOCOL.md section 5. Every cost line in that doc is understated ~5x. NOT yet corrected in the doc - carry-forward."
+  }
 }
