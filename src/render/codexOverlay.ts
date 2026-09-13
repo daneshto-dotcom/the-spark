@@ -2,11 +2,32 @@
  * SPARK — Unified CODEX overlay. S104 P3 merged the old godly codexOverlay + the separate
  * comboCodexOverlay into ONE in-game reference with three tabs; S173 P5 cut it back to TWO:
  *
- *   ◆ COMBOS            — the Magic-14 two-shape connections. Unlock = discovered in play.
+ *   ◆ COMBOS            — the Magic-14 two-shape connections.
  *   🏰 TOWERS & STRUCTURES — everything that stays on the field: Voltkin, the pentagram spawner, the
  *                            laser turret, HELGA, the stink/goblin towers, the six race towers and
- *                            the six boss towers. Unlock = you built one (S104 unlock-on-build), or
- *                            in Voltkin's case that his cinematic fired.
+ *                            the six boss towers.
+ *
+ * ⭐⭐ S174 (b) — THERE IS NO LONGER ANY SUCH THING AS A LOCKED ENTRY. EVERY CARD RENDERS IN FULL,
+ * ALWAYS, ON A FRESH PROFILE.
+ *
+ * Owner, from the live build, looking at `???` cards for towers he had certainly built: *"all the
+ * ones that are hidden, that are undiscovered yet — that's silly, because I've obviously discovered
+ * all of them, I play all the games … It should ALL be discovered right from the start. We need to
+ * REMOVE the discoverable part where you actually need to use them before you discover them in the
+ * codex. All of it should be visible because now there's a lot. People should be able to see them."*
+ *
+ * ⛔ REMOVED, NOT PRE-UNLOCKED, and the difference is the whole point. A store seeded full is a
+ * store a later session can un-seed, and it leaves every `isUnlocked ? … : …` ternary standing as a
+ * dead branch waiting to be revived. So: `codexStore.ts` is DELETED; `comboCodexStore`'s persistence
+ * half is deleted; the `???` title, the dimmed art, the grey stroke, the 'connect to reveal' line,
+ * the "nothing discovered yet" empty state and the footer's *"entries reveal through play"* are all
+ * gone; `drawEmblem` lost the `discovered` parameter that selected its dim variant. There is exactly
+ * ONE way to draw a card.
+ *
+ * ⚠ TWO localStorage KEYS ARE LEFT BEHIND IN EXISTING BROWSERS — `spark:codex:unlocked:v1` and
+ * `spark:combos:discovered:v1`. Nothing reads or writes them any more. They are NOT migrated or
+ * cleaned up: a migration would be new code whose only job is to delete data that costs nothing and
+ * that no code path can observe.
  *
  * ⭐ S173 P5 — THE GODLY COMBOS TAB IS GONE, AND SO IS NONET.
  *
@@ -34,26 +55,23 @@
  * is ever wanted it belongs at the main.ts call site as an explicit sort, not as a hope about
  * import order.
  *
- * Each entry shows WHAT it is + HOW TO BUILD it (the recipe). Entries are LOCKED until unlocked at
- * least once (the brother-surprise convention, PRIME-AUDIT-S21 #4) — locked tiles read "???".
+ * Each entry shows WHAT it is + HOW TO BUILD it (the recipe).
  *
  * Opened from the title-screen CODEX button AND in-game via the G+C key chord (main.ts owns the
  * chord; this is a pure-UI overlay that dispatches NOTHING to the sim). LAZY-loaded by main.ts on
  * first open (the botSetupOverlay pattern) so its Pixi weight stays off the index/entry chunk; each
  * tab's Pixi tree is built on first switch (not both on open) to avoid a first-open hitch.
  *
- * Unlock state is read live each open: towers from codexStore (localStorage
- * `spark:codex:unlocked:v1`, keyed by GodlyId); combos from comboCodexStore
- * (`spark:combos:discovered:v1`). All render-layer / localStorage — never touches the sim.
+ * Pure render-layer: it reads the recipe registry and the combo catalog, and nothing else. After
+ * S174 (b) it reads no localStorage at all, and it still never touches the sim.
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
-import { loadUnlockedSet } from './codexStore.ts';
 import { SHAPE_GLYPHS } from './shapes.ts';
 import { MAGIC_COMBO_KEYS, isOrderSymmetric, type ComboKey } from '../combos.ts';
-import { loadDiscoveredCombos, magicComboCatalog } from './comboCodexStore.ts';
+import { magicComboCatalog } from './comboCodexStore.ts';
 import { codexCopyFor, drawEmblem, type EmblemSpec } from './codexPresentation.ts';
 /*
  * ⭐ S174 (a) — THE RECIPE DIAGRAM FOR THE TWO ENTRIES AN `EmblemSpec` CANNOT DESCRIBE.
@@ -72,12 +90,16 @@ import { fitTextToBox, fitTextToWidth } from './textFit.ts';
 // ⭐ S173 P5 — THE SAME DRAW CALL THE BOARD USES. See `syncComboPreview` for why this import, and
 // not a hand-drawn approximation, is the whole point of the combo preview.
 import { drawBondVisual } from './bondVisualRenderer.ts';
-// S87 P4 — re-export so godlyOrchestration (eager) can unlock without importing this heavy overlay.
-export { unlockGodly } from './codexStore.ts';
+/*
+ * ⛔ S174 (b) — `export { unlockGodly } from './codexStore.ts'` STOOD HERE AND IS GONE, and the
+ * re-export is worth a line because it was the only reason a state-layer module reached into this
+ * render file at all. S87 P4 added it so the always-eager `godlyOrchestration` could record an
+ * unlock without dragging this heavy Pixi class into the index chunk. There is no unlock to record
+ * now: `codexStore.ts` is deleted, and `godlyOrchestration` imports nothing from `render/` for the
+ * codex any more — which is strictly lighter than the split it replaces.
+ */
 
 const GOLD = 0xffd60a;
-const LOCKED_STROKE = 0x3a3a44;
-const LOCKED_SIL = 0x53536a;
 
 // S121 P4 — tile anatomy (was 220×230 with the recipe text starting at y=178: every hint longer than
 // ~3 lines escaped the box — the owner's "text coming out of the boxes"). The tile is now sized so the
@@ -243,8 +265,15 @@ const SCROLLBAR_MIN_THUMB = 48;
 const WHEEL_PIXEL_SCALE = 1.6;
 const WHEEL_LINE_PX = 60;
 
-/** S121 P4 footer: how to reopen + the unlock convention, kept out of every tile. */
-const FOOTER_BASE = 'entries reveal through play · press G+C in-game to open the codex';
+/**
+ * S121 P4 footer: how to reopen, kept out of every tile.
+ *
+ * ⭐ S174 (b) — it opened with *"entries reveal through play · "* and that clause is deleted. It was
+ * the line TELLING the player the codex hides things, so leaving it while unhiding everything would
+ * have left the screen contradicting itself.
+ */
+// Exported so `codexOverlay.test.ts` reads the SHIPPED string rather than a copy of it.
+export const FOOTER_BASE = 'press G+C in-game to open the codex';
 /** S173 P5 — appended only when the active tab actually has somewhere to go. */
 const FOOTER_SCROLL_HINT = ' · mouse wheel to scroll';
 
@@ -310,9 +339,9 @@ export function scrollbarThumb(offset: number, max: number): { readonly y: numbe
 export interface CodexEntry {
   readonly id: GodlyId;
   readonly displayName: string;
-  /** One-line epigraph — the entry's soul; shown only when unlocked (part of the reveal). */
+  /** One-line epigraph — the entry's soul. S174 (b): always shown, like everything else on the card. */
   readonly power: string;
-  /** Precise "how to build + what it does" — visible in BOTH states (S105 P2 checkable recipes). */
+  /** Precise "how to build + what it does" (S105 P2 checkable recipes). */
   readonly recipeHint: string;
   /**
    * Recipe-constellation emblem, drawn in the board's glyph language. ABSENT is not a hole: the
@@ -381,7 +410,6 @@ interface ComboPreview {
   readonly cy: number;
   readonly visualEffectId: string;
   readonly color: number;
-  readonly discovered: boolean;
 }
 
 export class CodexOverlay {
@@ -449,7 +477,7 @@ export class CodexOverlay {
     this.subtitle.position.set(CANVAS_WIDTH / 2, 192);
     this.container.addChild(this.subtitle);
 
-    // S121 P4 — one persistent footer: how to reopen + the unlock convention, out of every tile.
+    // S121 P4 — one persistent footer: how to reopen, out of every tile.
     // S173 P5 — it is a field now because `rebuild` appends the scroll hint to it per tab.
     this.footer = new Text({
       text: FOOTER_BASE,
@@ -582,12 +610,13 @@ export class CodexOverlay {
    * true). The consequence that matters: a retune of any silhouette moves this preview with it, and
    * a preview that has drifted from the thing it depicts is worse than none.
    *
-   * ⚠ AN UNDISCOVERED COMBO STILL PREVIEWS, DIMMED, and that is this file's own existing rule
-   * rather than a new one: `drawEmblem` keeps a locked recipe's geometry visible "just dimmed —
-   * only character art gets the full brother-surprise hide" (S105 P2, so requirements stay
-   * checkable). The NAME is still `???`, which is the part that is actually a spoiler. Hiding the
-   * shape too would have made this whole feature invisible on a fresh profile — 0/14 discovered is
-   * exactly the state the owner's own screenshot was in.
+   * ⭐ S174 (b) — S173's note here read *"an undiscovered combo still previews, DIMMED … the NAME is
+   * still ???"*, and it argued its way to that half-measure because a fresh profile sat at 0/14 and
+   * the feature would otherwise have been invisible. The owner went further than the half-measure:
+   * *"It should ALL be discovered right from the start."* So the dim variant and the `???` are both
+   * gone and EVERY card previews at full alpha in its own palette. That the S173 reasoning already
+   * pointed this way — and was held back only by a lock that no longer exists — is why this was a
+   * deletion rather than a redesign.
    */
   private syncComboPreview(): void {
     const want = this.hoveredCombo ?? this.pinnedCombo;
@@ -621,7 +650,8 @@ export class CodexOverlay {
       // as the two glyphs it runs between. (Post-Sym D the silhouettes stroke in colorA anyway.)
       colorA: view.color,
       colorB: view.color,
-      alpha: view.discovered ? 1 : 0.55,
+      alpha: 1, // S174 (b) — was `discovered ? 1 : 0.55`; there is no undiscovered card any more
+
       width: PREVIEW_BOND_WIDTH,
       tick: this.previewFrame,
     });
@@ -705,7 +735,7 @@ export class CodexOverlay {
     this.pinnedCombo = null;
     this.shownCombo = null;
     this.previewFrame = 0;
-    if (this.active === 'towers') this.buildSpriteGrid(this.towers, loadUnlockedSet());
+    if (this.active === 'towers') this.buildSpriteGrid(this.towers);
     else this.buildCombosGrid();
     this.applyScroll();
     // Told, not discovered: a grid you cannot see the bottom of says so on the footer line.
@@ -726,18 +756,18 @@ export class CodexOverlay {
     }
   }
 
-  /** TOWERS & STRUCTURES: a sprite tile grid (locked = grayscale ??? + a build hint when unlocked). */
-  private buildSpriteGrid(entries: CodexEntry[], unlocked: Set<GodlyId>): void {
-    if (entries.length === 0) {
-      const empty = new Text({
-        text: 'nothing discovered yet — play to reveal',
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0x666666 }),
-      });
-      empty.anchor.set(0.5);
-      empty.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-      this.content.addChild(empty);
-      return;
-    }
+  /**
+   * TOWERS & STRUCTURES: a tile grid. Every entry, fully drawn — S174 (b) removed the locked
+   * variant, so there is no second appearance a tile can have.
+   *
+   * ⚠ THE "nothing discovered yet — play to reveal" EMPTY STATE IS GONE TOO, and not merely
+   * reworded: its `entries.length === 0` branch is now unreachable by construction. `towers` is
+   * `listRecipes()` whole, so an empty grid would mean the recipe registry itself failed to load —
+   * a message about DISCOVERY would be an actively wrong diagnosis of that. An empty grid now
+   * simply draws nothing and the scroll math (which already handles 0 rows) stays correct.
+   */
+  private buildSpriteGrid(entries: CodexEntry[]): void {
+    if (entries.length === 0) return;
     const cols = Math.min(entries.length, TOWER_COLS);
     const totalWidth = cols * TILE_W + (cols - 1) * TILE_GAP;
     const startX = (CANVAS_WIDTH - totalWidth) / 2;
@@ -751,23 +781,25 @@ export class CodexOverlay {
       const row = Math.floor(i / cols);
       const x = startX + col * (TILE_W + TILE_GAP);
       const y = GRID_TOP + row * (TILE_H + TILE_GAP);
-      this.content.addChild(this.makeSpriteTile(entry, unlocked.has(entry.id), x, y));
+      this.content.addChild(this.makeSpriteTile(entry, x, y));
     }
   }
 
-  private makeSpriteTile(entry: CodexEntry, isUnlocked: boolean, x: number, y: number): Container {
+  private makeSpriteTile(entry: CodexEntry, x: number, y: number): Container {
     const tile = new Container();
     tile.position.set(x, y);
     const bg = new Graphics();
     bg.roundRect(0, 0, TILE_W, TILE_H, 12)
       .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: isUnlocked ? GOLD : LOCKED_STROKE, alpha: 0.7 });
+      .stroke({ width: 2, color: GOLD, alpha: 0.7 });
     tile.addChild(bg);
 
     // Name at the TOP (was below the art — long names collided with the hint block).
+    // ⭐ S174 (b) — the `isUnlocked ? entry.displayName : '???'` here was the owner's actual
+    // complaint: he was reading `???` on the Archdemon and Bat towers he had built himself.
     const name = new Text({
-      text: isUnlocked ? entry.displayName : '???',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: isUnlocked ? GOLD : 0x666666, letterSpacing: 2, fontWeight: 'bold' }),
+      text: entry.displayName,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: GOLD, letterSpacing: 2, fontWeight: 'bold' }),
     });
     name.anchor.set(0.5);
     name.position.set(TILE_W / 2, 30);
@@ -790,7 +822,7 @@ export class CodexOverlay {
      */
     const diagram = new Graphics();
     if (entry.emblem !== undefined) {
-      drawEmblem(diagram, entry.emblem, isUnlocked);
+      drawEmblem(diagram, entry.emblem);
       diagram.position.set(TILE_W / 2, ART_CY);
     } else {
       drawBlueprintShape(
@@ -803,8 +835,9 @@ export class CodexOverlay {
     }
     tile.addChild(diagram);
 
-    // POWER epigraph — the entry's soul, part of the unlock payoff (hidden while locked).
-    if (isUnlocked && entry.power !== '') {
+    // POWER epigraph — the entry's soul. S174 (b): no longer an unlock payoff, just part of the
+    // card. `power !== ''` remains because `codexCopyFor`'s fallback for an unmapped id has none.
+    if (entry.power !== '') {
       const power = new Text({
         text: entry.power,
         style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0xe8d9a0, letterSpacing: 1, align: 'center' }),
@@ -815,20 +848,19 @@ export class CodexOverlay {
       tile.addChild(power);
     }
 
-    // Divider between the reveal zone (name/art/power) and the always-visible recipe.
+    // Divider between the name/art/power block and the recipe.
     const divider = new Graphics();
     divider.moveTo(20, POWER_Y + 16).lineTo(TILE_W - 20, POWER_Y + 16)
-      .stroke({ width: 1, color: isUnlocked ? 0x3a3624 : 0x22222a, alpha: 0.9 });
+      .stroke({ width: 1, color: 0x3a3624, alpha: 0.9 });
     tile.addChild(divider);
 
-    // S105 P2 — the recipe is shown in BOTH states so a player can CHECK the build requirements
-    // BEFORE building (the owner couldn't see the 7-spiral turret recipe because it was unlock-gated).
-    // When locked, only the NAME + character art + power stay hidden (the brother-surprise reveal) —
-    // you learn HOW to build it; the WHAT (its name/look/soul) is the payoff for building it once.
+    // S105 P2 — the recipe is what lets a player CHECK the build requirements BEFORE building (the
+    // owner couldn't see the 7-spiral turret recipe because it was unlock-gated). S174 (b) finished
+    // that thought: the name and the epigraph are no longer gated either.
     // S121 P4 — copy budget (≤150 chars, tested) + fitTextToBox make tile overflow impossible.
     const hint = new Text({
       text: entry.recipeHint,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: isUnlocked ? 0xbfbfbf : 0x9a9aa8, wordWrap: true, wordWrapWidth: TILE_W - 28, align: 'center' }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0xbfbfbf, wordWrap: true, wordWrapWidth: TILE_W - 28, align: 'center' }),
     });
     hint.anchor.set(0.5, 0);
     hint.position.set(TILE_W / 2, RECIPE_Y);
@@ -839,10 +871,11 @@ export class CodexOverlay {
 
   /** COMBOS tab: the Magic-14, each tile = glyphA (→/↔) glyphB = ResultName (the recipe IS the how-to). */
   private buildCombosGrid(): void {
-    const discovered = loadDiscoveredCombos();
     // S173 P5 — the subtitle names the interaction, because a hover target with no affordance is a
     // feature nobody finds. (The cursor turns to a pointer on each card for the same reason.)
-    this.subtitle.text = `COMBOS — ${discovered.size} / ${MAGIC_COMBO_KEYS.length} discovered · hover a card to watch the connector it makes`;
+    // ⭐ S174 (b) — it led with a *"N / 14 discovered"* score, which was the COMBOS tab's version of
+    // the thing the owner asked to remove. All fourteen are always here; the count said otherwise.
+    this.subtitle.text = `COMBOS — all ${MAGIC_COMBO_KEYS.length} · hover a card to watch the connector it makes`;
     const catalog = magicComboCatalog();
     const cw = COMBO_TILE_W;
     const ch = COMBO_TILE_H;
@@ -861,13 +894,12 @@ export class CodexOverlay {
       const startX = (CANVAS_WIDTH - rowWidth) / 2;
       const x = startX + col * (cw + gx);
       const yy = GRID_TOP + row * (ch + gy);
-      this.content.addChild(this.makeComboTile(entry, discovered.has(entry.key), x, yy, cw, ch));
+      this.content.addChild(this.makeComboTile(entry, x, yy, cw, ch));
     }
   }
 
   private makeComboTile(
     entry: ReturnType<typeof magicComboCatalog>[number],
-    isDiscovered: boolean,
     x: number, y: number, w: number, h: number,
   ): Container {
     const tile = new Container();
@@ -875,12 +907,13 @@ export class CodexOverlay {
     const bg = new Graphics();
     bg.roundRect(0, 0, w, h, 12)
       .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: isDiscovered ? GOLD : LOCKED_STROKE, alpha: 0.75 });
+      .stroke({ width: 2, color: GOLD, alpha: 0.75 });
     tile.addChild(bg);
 
+    // ⭐ S174 (b) — the combo half of the owner's ruling: fourteen named results, never `???`.
     const name = new Text({
-      text: isDiscovered ? entry.outcome.resultName : '???',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 19, fill: isDiscovered ? GOLD : 0x666666, letterSpacing: 2, fontWeight: 'bold' }),
+      text: entry.outcome.resultName,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 19, fill: GOLD, letterSpacing: 2, fontWeight: 'bold' }),
     });
     name.anchor.set(0.5);
     name.position.set(w / 2, COMBO_NAME_Y);
@@ -898,25 +931,21 @@ export class CodexOverlay {
     preview.visible = false;
     tile.addChild(preview);
 
-    tile.addChild(this.makeGlyph(entry.a, ax, cy, isDiscovered));
+    tile.addChild(this.makeGlyph(entry.a, ax, cy));
     const arrow = new Text({
       text: isOrderSymmetric(entry.a, entry.b) ? '↔' : '→',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 22, fill: isDiscovered ? 0xdddddd : 0x555555 }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 22, fill: 0xdddddd }),
     });
     arrow.anchor.set(0.5);
     arrow.position.set(w / 2, cy);
     tile.addChild(arrow);
-    tile.addChild(this.makeGlyph(entry.b, bx, cy, isDiscovered));
+    tile.addChild(this.makeGlyph(entry.b, bx, cy));
 
-    if (!isDiscovered) {
-      const lock = new Text({
-        text: 'connect to reveal',
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x555555 }),
-      });
-      lock.anchor.set(0.5);
-      lock.position.set(w / 2, h - 16);
-      tile.addChild(lock);
-    }
+    /*
+     * ⭐ S174 (b) — the *"connect to reveal"* line that was stamped across the bottom of every
+     * undiscovered card is DELETED. It was the tab's lock affordance, and there is nothing left to
+     * unlock; `h` is now used only for the tile background, which is why the parameter stays.
+     */
 
     this.comboPreviews.set(entry.key, {
       g: preview,
@@ -925,8 +954,7 @@ export class CodexOverlay {
       bx,
       cy,
       visualEffectId: entry.outcome.visualEffectId,
-      color: isDiscovered ? SPARK_COLORS[entry.a] : LOCKED_SIL,
-      discovered: isDiscovered,
+      color: SPARK_COLORS[entry.a],
     });
 
     /*
@@ -943,14 +971,13 @@ export class CodexOverlay {
     return tile;
   }
 
-  /** One primitive glyph tinted its type colour (dim grey when the combo is undiscovered). */
-  private makeGlyph(type: SparkType, cx: number, cy: number, discovered: boolean): Container {
+  /** One primitive glyph tinted its type colour. S174 (b) removed the dim-grey locked variant. */
+  private makeGlyph(type: SparkType, cx: number, cy: number): Container {
     const wrap = new Container();
     wrap.position.set(cx, cy);
     const g = new Graphics();
     SHAPE_GLYPHS[type](g);
-    g.tint = discovered ? SPARK_COLORS[type] : LOCKED_SIL;
-    if (!discovered) g.alpha = 0.5;
+    g.tint = SPARK_COLORS[type];
     wrap.addChild(g);
     return wrap;
   }

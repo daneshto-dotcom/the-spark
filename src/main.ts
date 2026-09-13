@@ -156,15 +156,14 @@ import { BlueprintGhost } from './render/blueprintGhost.ts';
 import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
-// S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
-// separate ComboCodexOverlay was deleted). The tiny Pixi-free store stays eager (the render loop
-// persists discoveries through it every match; the codex's COMBOS tab reads it).
-import { mergeDiscoveredCombos } from './render/comboCodexStore.ts';
+// ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
+// mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
+// reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
+// persist anything. `world.discoveredCombos` still drives the in-play toast, untouched.
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // S87 P4 — CodexOverlay is LAZY (shown only on a Codex click). Lazy-loading it
-// frees ~index-chunk headroom for the quickmatch UI (the heavy Pixi overlay was
-// only eager because godlyOrchestration imported unlockGodly from it — now split
-// to codexStore.ts). Type-only import is erased; the class loads on demand.
+// frees ~index-chunk headroom for the quickmatch UI. Type-only import is erased;
+// the class loads on demand.
 import type { CodexOverlay, CodexTabKey } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
@@ -210,11 +209,15 @@ import { ScreenShake, shouldTriggerNonetResolveShake } from './render/screenShak
 // the production index chunk. Type-only imports are erased at compile.
 import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts';
 import { listRecipes } from './state/godlyRecipes/index.ts';
-// ⚠ S173 P5 — the `GodlyId` type-only import that sat here went with NONET_CODEX_ID (below). This
-// file compiles under `noUnusedLocals`, so an orphaned import is a BUILD FAILURE, not a lint nit.
-import { unlockGodly } from './render/codexStore.ts';
-// S167 — the tier-9 leaf (side-effect-free): maps a live boss back to the tower that released it.
-import { T9_TOWER_IDS, raceForT9BossType } from './state/t9BossIds.ts';
+/*
+ * ⚠ S173 P5 — the `GodlyId` type-only import that sat here went with NONET_CODEX_ID (below). This
+ * file compiles under `noUnusedLocals`, so an orphaned import is a BUILD FAILURE, not a lint nit.
+ *
+ * ⭐ S174 (b) — AND THAT WARNING IMMEDIATELY EARNED ITSELF AGAIN. Deleting the codex's unlock
+ * mechanism removed the `unlockGodly` import here AND orphaned `T9_TOWER_IDS` + `raceForT9BossType`
+ * from `state/t9BossIds.ts`, whose ONLY use in this file was the boss-tower unlock scan in the
+ * render loop. Both import lines are gone; the tier-9 tower itself is untouched.
+ */
 // ⭐ S165 — EVERY RECIPE, FROM ONE PLACE. This used to be seven separate side-effect imports here,
 // and `src/simWorker.ts` had none of them — so under `?worker=1`, where the worker is the sole
 // matcher authority, NO defender or spawner recipe could ever match and nothing was buildable. The
@@ -2263,10 +2266,9 @@ Network routes: ${v.detail}`;
   let osCursorHidden = false;
   // S93 — track world.sudoku active-state edges to drive the realm-shift audio swap.
   let prevNonetActive = false;
-  // S97 G3b — last-seen in-match combo-discovery count, to persist NEW discoveries into the
-  // cross-match Combo Codex store only on the rising edge of the set's size (cheap: a localStorage
-  // touch only when a combo is actually discovered, never per frame).
-  let lastDiscoveredComboSize = 0;
+  // ⭐ S174 (b) — `lastDiscoveredComboSize` stood here to drive the rising-edge localStorage mirror
+  // of `world.discoveredCombos`. That mirror is deleted with the codex's discovery mechanism, and
+  // this tracker had no other reader.
   // S95 — last-seen NONET resolvedTick, to fire a one-shot celebration shake on the resolve edge.
   let prevNonetResolvedTick: number | null = null;
 
@@ -2745,12 +2747,12 @@ Network routes: ${v.detail}`;
               for (const e of result.effects) world.effects.push(e);
             }
             // Godly side effects (≤1/batch — the cadence cap), tick-tagged (Council L2):
-            // transport broadcast + codex unlock + probe flag — the wrapper's exact set.
+            // transport broadcast + probe flag — the wrapper's exact set.
+            // ⭐ S174 (b) — the codex unlock that was the third member is gone; see the import note.
             for (const g of result.godlyEvents) {
               if (session.netTransport !== null && isNetworked(world)) {
                 session.netTransport.send({ kind: 'GODLY_TRIGGER', event: g.event });
               }
-              unlockGodly(g.event.godlyId);
               debugProbes.matcherFiredEver = true;
             }
             // Remote-peer forward: the worker-built snapshot IS the wire snapshot (built
@@ -3502,47 +3504,27 @@ Network routes: ${v.detail}`;
     // shake duration (6 ticks). Stage offset is global — every Pixi child
     // inherits the translation, giving the whole play-field the shake feel.
     screenShake.applyToStage(app.stage, world.tick);
-    // S97 G3b — persist newly-discovered combos to the cross-match Combo Codex store. world.
-    // discoveredCombos is per-match (cleared on START_GAME/RETURN_TO_TITLE), so mirror its GROWTH
-    // into localStorage on the rising size edge → the title-screen Combo Codex remembers across
-    // matches + survives an abrupt quit. Host + the 1v1 client (which mirrors the host's set via the
-    // snapshot) each persist their own witnessed view. On clear the size drops → tracker resets, no
-    // write. mergeDiscoveredCombos itself no-ops the write when nothing new lands.
-    if (world.discoveredCombos.size !== lastDiscoveredComboSize) {
-      if (world.discoveredCombos.size > lastDiscoveredComboSize) {
-        mergeDiscoveredCombos(world.discoveredCombos);
-      }
-      lastDiscoveredComboSize = world.discoveredCombos.size;
-    }
-    // S104 P3 — unlock-on-build for the TOWERS & STRUCTURES Codex tab. runSpawnerIgnition /
-    // runDefenderIgnition only DISPATCH (they never call unlockGodly), so those tiles could never
-    // reveal. A spawner/defender LIVE in the synced world unlocks its tile — uniform on host AND the
-    // 1v1 client (both hold the synced maps; the combo-mirror precedent above). unlockGodly is
-    // idempotent pure-localStorage (zero sim coupling); the maps are tiny so the per-frame scan is free.
-    if (world.creatureSpawners.size > 0 || world.defenders.size > 0) {
-      for (const sp of world.creatureSpawners.values()) unlockGodly(sp.recipeId);
-      for (const d of world.defenders.values()) unlockGodly(d.recipeId);
-    }
     /*
-     * ⭐ S167 — AND THE TIER-9 BOSS TOWER IS UNLOCKED BY ITS **BOSS**, NOT BY ITSELF.
+     * ⭐⭐ S174 (b) — THREE PER-FRAME CODEX-UNLOCK SCANS STOOD HERE AND ARE ALL DELETED.
      *
-     * ⛔ THE SCAN ABOVE CANNOT SEE IT. It samples spawners that are LIVE on a rendered frame, and a
-     * boss tower exists for only its release delay before it razes itself — on a 10 Hz client mirror
-     * it may never appear in a sampled snapshot at all. Its tile would then be `???` forever for the
-     * player who actually built one, which is the exact opposite of what the codex is for. There is
-     * no `codexOverlay.test.ts`, so nothing would have reported it.
+     * Owner, from the live build: *"all the ones that are hidden, that are undiscovered yet —
+     * that's silly, because I've obviously discovered all of them, I play all the games … It should
+     * ALL be discovered right from the start. We need to REMOVE the discoverable part where you
+     * actually need to use them before you discover them in the codex. All of it should be visible
+     * because now there's a lot. People should be able to see them."*
      *
-     * The BOSS is the durable half of the same event: it is `persistent`, it lives until it dies,
-     * and it is in `world.creatures` for minutes rather than seconds. Unlocking off the boss is
-     * therefore reliable where unlocking off the tower is a race.
+     * What went, and why each one existed, so nobody re-derives them from scratch:
+     *   · the COMBO mirror (S97 G3b) — rising-edge persist of `world.discoveredCombos` into
+     *     localStorage, because the in-match set is cleared on START_GAME / RETURN_TO_TITLE;
+     *   · the SPAWNER/DEFENDER scan (S104 P3) — unlock-on-build, because the ignition paths only
+     *     dispatch and never unlocked, so those tiles could otherwise never reveal;
+     *   · the TIER-9 BOSS scan (S167) — a boss tower razes itself within its release delay, so a
+     *     10 Hz client could miss it entirely; unlocking off the durable BOSS instead of the tower.
      *
-     * ⚠ STILL A PURE RENDER-SIDE READ OF SYNCED STATE — no sim coupling, `unlockGodly` is
-     * idempotent localStorage, and the mapping is a side-effect-free table lookup.
+     * Every one of them was solving "how does this tile stop saying ???", and there is no longer a
+     * ??? state to escape. The render loop is three scans lighter per frame for it. `world.
+     * discoveredCombos` itself is untouched — it is sim state and still drives the in-play toast.
      */
-    for (const c of world.creatures.values()) {
-      const bossRace = raceForT9BossType(c.type);
-      if (bossRace !== null) unlockGodly(T9_TOWER_IDS[bossRace]);
-    }
     // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
     // S149 P5 — an ARCADE puzzle drives the same shipped overlay through its `override` seam, so
     // there is exactly one NONET implementation rather than an arcade fork of it.

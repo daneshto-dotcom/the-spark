@@ -24,10 +24,18 @@
 import { Controls } from '../input/controls.ts';
 import { NetTransport } from '../net/transport.ts';
 import { CinematicVignetteHandle } from '../render/cinematicVignette.ts';
-// S87 P4 — unlockGodly moved to codexStore.ts (tiny localStorage helper) so this
-// always-eager orchestration no longer drags the heavy CodexOverlay Pixi class
-// into the index chunk; main.ts lazy-loads the overlay UI on first Codex click.
-import { unlockGodly } from '../render/codexStore.ts';
+/*
+ * ⭐ S174 (b) — THE `unlockGodly` IMPORT THAT STOOD HERE IS GONE, AND SO IS `codexStore.ts`.
+ *
+ * Owner, from the live build: *"all the ones that are hidden, that are undiscovered yet — that's
+ * silly, because I've obviously discovered all of them, I play all the games… It should ALL be
+ * discovered right from the start."*
+ *
+ * The codex no longer HAS an unlock set to write into, so the call this docblock's S87 P4 note was
+ * built around (splitting the store out of the overlay to keep Pixi off the eager index chunk) has
+ * nothing left to do. That headroom win survives the deletion — there is now no codex import here
+ * at all, which is strictly lighter than the one it replaced.
+ */
 import { CutsceneOverlay, FADE_MS } from '../render/cutsceneOverlay.ts';
 import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.ts';
 import { playOneShot } from '../render/audioManager.ts';
@@ -90,9 +98,9 @@ export function runGodlyMatcher(
         ctx.netTransport.send({ kind: 'GODLY_TRIGGER', event });
       }
     },
-    afterDispatch: (event) => {
-      // Codex unlock on host (mirrors client-side unlock on receipt).
-      unlockGodly(event.godlyId);
+    afterDispatch: () => {
+      // ⭐ S174 (b) — the `unlockGodly(event.godlyId)` that led this block is gone with the codex's
+      // discovery mechanism. The probe flag is the whole body now; the dispatch itself is untouched.
       ctx.debugProbes.matcherFiredEver = true;
     },
   });

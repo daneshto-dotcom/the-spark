@@ -1,77 +1,31 @@
 /**
- * SPARK — Combo Codex model (S97 G3b): cross-match discovered-combo persistence
- * + the Magic-14 catalog the title-screen Combo Codex renders.
+ * SPARK — Combo Codex model (S97 G3b): the Magic-14 catalog the Codex's COMBOS tab renders.
  *
- * WHY a separate store: in-match discovery (`world.discoveredCombos`) is CLEARED
- * on START_GAME / RETURN_TO_TITLE (worldTypes.ts), so it is gone by the time the
- * player opens the Codex on the title screen. main.ts therefore merges the
- * in-match set into THIS browser-persisted "discovered ever" set whenever it
- * grows (host + the 1v1 client mirror each persist their own witnessed view —
- * the client mirrors the host's authoritative set via the snapshot). Mirrors the
- * codexStore.ts (godly) pattern: tiny, eager, localStorage-backed; the heavy Pixi overlay stays lazy.
- * ⚠ S141 — that overlay used to be named here as `comboCodexOverlay.ts`, which was DELETED in
+ * ## ⭐ S174 (b) — THE "DISCOVERED EVER" STORE IS DELETED, AND THAT WAS THE OTHER HALF OF THIS FILE
+ *
+ * Owner, from the live build: *"all the ones that are hidden, that are undiscovered yet — that's
+ * silly, because I've obviously discovered all of them, I play all the games … We need to REMOVE
+ * the discoverable part where you actually need to use them before you discover them in the codex.
+ * All of it should be visible because now there's a lot. People should be able to see them."*
+ *
+ * `loadDiscoveredCombos` / `mergeDiscoveredCombos` and the `spark:combos:discovered:v1` key they
+ * read and wrote are gone — REMOVED rather than pre-filled, because a store that every reader
+ * treats as full is a store with no readers. main.ts's per-frame rising-edge mirror of
+ * `world.discoveredCombos` went with them.
+ *
+ * ⚠ THE SIM'S OWN `world.discoveredCombos` IS UNTOUCHED. It is per-match state (cleared on
+ * START_GAME / RETURN_TO_TITLE) that drives the in-play combo toast, and it is not the codex's
+ * business. Only the localStorage MIRROR of it is gone.
+ *
+ * ⚠ S141 — the overlay used to be named here as `comboCodexOverlay.ts`, which was DELETED in
  * S104 P3 when the combo codex was folded into the unified `codexOverlay.ts`. The pointer sent
  * readers to a file that has not existed for thirty-seven sessions.
  *
- * Pixi-FREE on purpose so the vitest node env (the project default — no
- * jsdom/localStorage) can exercise it with an injected localStorage mock.
+ * Pixi-FREE on purpose so the vitest node env (the project default) can exercise it directly.
  */
 
 import { SparkType } from '../constants.ts';
 import { MAGIC_COMBO_KEYS, lookupCombo, type ComboKey, type ComboOutcome } from '../combos.ts';
-
-const STORAGE_KEY = 'spark:combos:discovered:v1';
-
-/** The valid, discoverable key universe — guards persistence against stale/garbage entries. */
-const VALID_KEYS: ReadonlySet<ComboKey> = new Set(MAGIC_COMBO_KEYS);
-
-/**
- * Load the persisted "discovered ever" set. Filters to the current Magic-14
- * universe so a removed/renamed combo (or corrupt storage) can never surface a
- * phantom Codex tile. Returns an empty set on any failure (localStorage absent,
- * private mode, malformed JSON).
- */
-export function loadDiscoveredCombos(): Set<ComboKey> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return new Set();
-    const arr = JSON.parse(raw) as unknown;
-    if (!Array.isArray(arr)) return new Set();
-    return new Set(
-      arr.filter((x): x is ComboKey => typeof x === 'string' && VALID_KEYS.has(x as ComboKey)),
-    );
-  } catch {
-    return new Set();
-  }
-}
-
-function persist(set: Set<ComboKey>): void {
-  try {
-    // Sorted → byte-stable storage (matches the discoveredCombos snapshot convention in save.ts).
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...set].sort()));
-  } catch {
-    // localStorage may be disabled (private mode) — silent skip, like codexStore.persistUnlockedSet.
-  }
-}
-
-/**
- * Union the given combo keys into the persisted set. Only valid Magic-14 keys
- * land (defensive — `world.discoveredCombos` only ever holds magic keys, but a
- * filter keeps storage clean regardless). Idempotent; returns true iff anything
- * new was written (so the caller can skip a redundant localStorage write).
- */
-export function mergeDiscoveredCombos(keys: Iterable<ComboKey>): boolean {
-  const set = loadDiscoveredCombos();
-  let changed = false;
-  for (const k of keys) {
-    if (VALID_KEYS.has(k) && !set.has(k)) {
-      set.add(k);
-      changed = true;
-    }
-  }
-  if (changed) persist(set);
-  return changed;
-}
 
 export interface ComboCatalogEntry {
   readonly key: ComboKey;

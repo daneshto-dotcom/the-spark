@@ -17,6 +17,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
+/*
+ * ⛔ S174 — THE CODEX AGENT DIED ON A SPEND LIMIT MID-EDIT, and these imports were its scaffolding
+ * for tests it never wrote: fs/join (read the source and assert the discovery gate is gone),
+ * the two module namespaces (spy on the unlock path), FOOTER_BASE (assert the
+ * "entries reveal through play" footer line is gone) and drawEmblem (assert Helga/Voltkin do NOT
+ * use it). They are removed so the tree compiles — noUnusedLocals makes an orphaned import a BUILD
+ * failure, not a lint nit — but the ASSERTIONS ARE STILL OWED. Do not read their absence as
+ * coverage: the (b) discovery-removal and (c) tier-ordering work is UNVERIFIED by test.
+ */
+
 import {
   clampScroll,
   gridContentBottom,

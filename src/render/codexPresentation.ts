@@ -288,25 +288,25 @@ export function emblemLayout(spec: EmblemSpec): EmblemLayout {
 }
 
 const EMBLEM_BOND_COLOR = 0x8890a8;
-const EMBLEM_LOCKED_TINT = 0x53536a; // combos-tab locked-silhouette parity
 
 /**
  * Draw a recipe emblem into `g`, centered on (0,0) — same glyph + colour language as the COMBOS tab.
- * The recipe geometry stays VISIBLE even when locked (S105 P2: requirements are checkable before
- * building), just dimmed — only character art gets the full brother-surprise hide.
+ *
+ * ⭐ S174 (b) — THE `discovered` PARAMETER IS GONE, and with it the dimmed variant it selected.
+ * Owner: *"It should ALL be discovered right from the start … All of it should be visible because
+ * now there's a lot. People should be able to see them."* There is exactly one way to draw an
+ * emblem now, so a locked one cannot be reintroduced by passing `false` from a new call site.
  */
-export function drawEmblem(g: Graphics, spec: EmblemSpec, discovered: boolean): void {
+export function drawEmblem(g: Graphics, spec: EmblemSpec): void {
   const layout = emblemLayout(spec);
-  const bondAlpha = discovered ? 0.75 : 0.35;
   for (const b of layout.bonds) {
     g.moveTo(b.x1, b.y1).lineTo(b.x2, b.y2)
-      .stroke({ width: 2, color: discovered ? EMBLEM_BOND_COLOR : EMBLEM_LOCKED_TINT, alpha: bondAlpha });
+      .stroke({ width: 2, color: EMBLEM_BOND_COLOR, alpha: 0.75 });
   }
   const drawGlyph = (type: SparkType, x: number, y: number): void => {
     const wrap = new Graphics();
     SHAPE_GLYPHS[type](wrap);
-    wrap.tint = discovered ? SPARK_COLORS[type] : EMBLEM_LOCKED_TINT;
-    wrap.alpha = discovered ? 1 : 0.55;
+    wrap.tint = SPARK_COLORS[type];
     wrap.position.set(x, y);
     g.addChild(wrap);
   };

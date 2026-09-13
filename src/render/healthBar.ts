@@ -62,12 +62,16 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
-import { creatureSpriteScaleMul, towerArtForRecipe } from './towerFrames.ts';
+import { creatureSpriteScaleMul, towerArtForRecipe, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
+import { labelStructureComponents } from './structureComponents.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
-import { componentOf } from '../game/structure.ts';
+import { RACE_FEED_SHAPE } from '../state/races.ts';
+import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
+import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
+import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
@@ -258,16 +262,35 @@ export function drawHealthBars(
  * therefore bar — in steps, without the smooth fill drop that connector damage gives. This is
  * recorded here rather than swept because the owner ruled the bar on connectors in his own words,
  * and a future session finding the bar "under-reporting" should find this paragraph first.
+ *
+ * ## ⛔⛔ S174 (owner) — **IT WALKS THE SHAPES NOW, BECAUSE MOST STRUCTURES HAVE NO TOWER**
+ *
+ * > *"when creatures are attacking a structure that doesn't have a building or doesn't have a
+ * > function, it doesn't show that they're attacking. They just destroy the connectors and that's it.
+ * > But IT IS A STRUCTURE, and it should have a calculated health bar above it no matter what. If
+ * > it's just a free form of connectors, it should already have an HP bar and the same rules of
+ * > engagement and same health as if it were a building producing spawn."*
+ *
+ * S173 reached a structure THROUGH its tower — walk `world.defenders`, walk `world.creatureSpawners`,
+ * `componentOf` each anchor. A freeform lattice is in neither map, so it drew nothing, and the shapes
+ * a player spends the whole BUILD phase placing had no readout at all while they were being eaten.
+ *
+ * ⭐ THE INVERSION IS THE FIX. The towers are now INDEXED by anchor shape, and the loop walks
+ * COMPONENTS — every component with ≥ 1 connector gets exactly one bar, whether a building stands on
+ * it or not. Dedupe is no longer a concern to get right: one component IS one iteration, so the old
+ * `drawn` set and its lowest-id key are simply gone.
+ *
+ * ⚠ THE PERFORMANCE TRAP IN THE OBVIOUS VERSION, and it is the reason `structureComponents.ts`
+ * exists. `componentOf` is a BFS; calling it once per primitive over a 3 000-shape board is
+ * O(V · (V+E)) at 60 Hz. One labelling sweep is O(V + E) for ALL components — the same asymptotic
+ * cost as a SINGLE old-style call. Measured in `structureComponents.test.ts`.
+ *
+ * ⚠ AND THE HONEST EDGE: the pool is `structureDefenceFifths(connectors)`, so a two-shape stick and a
+ * two-shape corner of a tower ring read the SAME health — which is precisely the *"same health as if
+ * it were a building producing spawn"* he asked for. A freeform lattice is not weaker for lacking a
+ * function; it is only smaller if it has fewer connectors.
  */
 function drawStructureBars(g: Graphics, world: World): void {
-  /*
-   * ⚠ DEDUP BY COMPONENT, and the key must be DETERMINISTIC rather than whichever tower was visited
-   * first. `Map` iteration is insertion order, and letting it decide anything is the defect class
-   * this codebase spends most of its comments on — so the key is the component's LOWEST primitive
-   * id, which is the same value whichever member we entered through.
-   */
-  const drawn = new Set<PrimitiveId>();
-
   /**
    * ⛔⛔ S173, SECOND PASS (owner, having PLAYED the first one) — **A BAR INSIDE THE BUILDING IS A
    * BAR HE CANNOT SEE, AND I SHIPPED THAT EXACT DEFECT AGAIN.**
@@ -321,57 +344,26 @@ function drawStructureBars(g: Graphics, world: World): void {
    * bar's length (owner R171-E, *"at least the length of the creature's width"*), and the building
    * really is `sizePx` wide. Only the vertical reading was halved.
    */
-  const spriteBoxFor = (recipeId: GodlyId | null): { w: number; h: number } => {
+  const spriteBoxFor = (recipeId: GodlyId | null): { w: number; h: number } | null => {
     const art = recipeId === null ? null : towerArtForRecipe(recipeId);
     // `null` is the pentagram, the goblin tower and the lightning hub — they have no building art,
-    // so their bar rides above the SHAPES themselves and the small fallback is correct there.
-    if (art === null) return { w: 0, h: FALLBACK_SPRITE_H };
+    // so their bar rides above the SHAPES themselves, exactly like a freeform lattice's does.
+    if (art === null) return null;
     return { w: art.sizePx, h: art.sizePx * 0.5 };
   };
 
-  const bar = (anchorId: PrimitiveId, ownerPlayerId: PlayerId, recipeId: GodlyId | null): void => {
-    const anchor = world.primitives.get(anchorId);
-    if (anchor === undefined) return; // broken between the re-validation poll and this frame
-    if (isConcealed(anchor.pos.x, anchor.pos.y, ownerPlayerId)) return;
-
-    const comp = componentOf(anchor, world.primitives, world.bonds);
-    const n = comp.bondIds.size;
-    if (n === 0) return; // a lone shape has no connectors, so it has no durability to show
-
-    let key: PrimitiveId | null = null;
-    let cx = 0;
-    let cy = 0;
-    let count = 0;
-    for (const id of comp.primitiveIds) {
-      if (key === null || (id as number) < (key as number)) key = id;
-      const p = world.primitives.get(id);
-      if (p === undefined) continue;
-      cx += p.pos.x;
-      cy += p.pos.y;
-      count++;
-    }
-    if (key === null || count === 0) return;
-    if (drawn.has(key)) return;
-    drawn.add(key);
-
-    let damage = 0;
-    for (const bondId of comp.bondIds) damage += world.bonds.get(bondId)?.damageFifths ?? 0;
-
-    const max = structureDefenceFifths(n);
-    const current = Math.max(0, Math.min(max, max - damage));
-    if (current <= 0) return; // already collapsing — the sever path owns the next frame
-
-    const sb = spriteBoxFor(recipeId);
-    // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
-    drawBar(g, cx / count, cy / count, current, max, 1, sb.w, sb.h, buildingTint(current / max));
-  };
-
-  // The two pooled-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`.
+  /*
+   * ⭐ EVERY LIVE TOWER, INDEXED BY THE SHAPE IT STANDS ON. Built once, read per component below —
+   * the inverse of the old walk, which started from the towers and could therefore only ever reach
+   * structures that had one.
+   */
+  const towerAt = new Map<PrimitiveId, { recipeId: GodlyId | null; ownerPlayerId: PlayerId }>();
+  // The two pool-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`. Helga and
+  // anything else with a real pool is drawn by the defender loop above, from its own `ehp`.
   for (const d of world.defenders.values()) {
-    if (d.ehp !== null) continue; // Helga and anything else with a real pool is drawn above
-    bar(d.anchorPrimitiveId, d.ownerPlayerId, null);
+    if (d.ehp !== null) continue;
+    towerAt.set(d.anchorPrimitiveId, { recipeId: null, ownerPlayerId: d.ownerPlayerId });
   }
-
   /*
    * …AND THE SPAWNER TOWERS, which are a SEPARATE MAP and not defenders at all. The goblin tower in
    * the owner's screenshot is one of these, as are the pentagram, the lightning hub, the six race
@@ -379,8 +371,87 @@ function drawStructureBars(g: Graphics, world: World): void {
    * tower kinds and called the job done.
    */
   for (const sp of world.creatureSpawners.values()) {
-    bar(sp.anchorPrimitiveId, sp.ownerPlayerId, sp.recipeId);
+    towerAt.set(sp.anchorPrimitiveId, { recipeId: sp.recipeId, ownerPlayerId: sp.ownerPlayerId });
   }
+
+  for (const comp of labelStructureComponents(world.primitives, world.bonds)) {
+    const n = comp.bondIds.length;
+    if (n === 0) continue; // a lone shape has no connectors, so it has no durability to show
+
+    /*
+     * ⚠ THE LOWEST tower anchor, not the first one found. `comp.primitiveIds` is in traversal order,
+     * which descends from `Map` iteration order, and two towers welded into one lattice would
+     * otherwise hand the sprite box to whichever one the sweep happened to enter through.
+     */
+    let anchorId: PrimitiveId | null = null;
+    for (const id of comp.primitiveIds) {
+      if (!towerAt.has(id)) continue;
+      if (anchorId === null || (id as number) < (anchorId as number)) anchorId = id;
+    }
+    const tower = anchorId === null ? null : towerAt.get(anchorId)!;
+    const sb = tower === null ? null : spriteBoxFor(tower.recipeId);
+
+    /*
+     * ⭐ WHERE THE BAR HANGS, and the two cases are genuinely different anchors.
+     *
+     *   · A TOWER WITH ART hangs off the BUILDING: `towerRenderer` puts the sprite on the RING's
+     *     centroid (not the component's — R136 lets foreign shapes auto-bond onto a ring node, and a
+     *     component centroid visibly DRIFTS the moment one does), so the bar reads the same ring.
+     *     `ringMembersAt` returning `null` mid-teardown falls back to the component centroid, which
+     *     is also where the tower renderer has already stopped drawing.
+     *   · ANYTHING ELSE — a freeform lattice, a pentagram, a goblin tower — has no sprite at all, so
+     *     its bar rides above the SHAPES: the component's own top-most point. Owner: *"if it's just
+     *     a free form of connectors, it should already have an HP bar."*
+     */
+    const art = tower === null || tower.recipeId === null ? null : towerArtForRecipe(tower.recipeId);
+    const ringAt = art === null || anchorId === null ? null : ringCentroid(world, anchorId, art);
+    const x = ringAt?.x ?? comp.cx;
+    const y = ringAt?.y ?? comp.cy;
+    // The RISE above `y` to the top of whatever is drawn — see `drawBar`'s `spriteRise` docblock.
+    const rise = sb === null ? y - comp.topY : sb.h;
+
+    /*
+     * ⚠ THE FOG PROBE IS THE STRUCTURE'S OWN CENTRE, NOT A TOWER'S ANCHOR, because most structures
+     * no longer have a tower to ask. `placedBy` of the key shape is the owner for a freeform lattice;
+     * a tower's own `ownerPlayerId` wins where there is one, since a captured shape can leave the two
+     * disagreeing and the building is the thing being hidden.
+     */
+    if (isConcealed(x, y, tower?.ownerPlayerId ?? comp.placedBy)) continue;
+
+    const max = structureDefenceFifths(n);
+    const current = Math.max(0, Math.min(max, max - comp.damageFifths));
+    if (current <= 0) continue; // already collapsing — the sever path owns the next frame
+
+    // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
+    drawBar(g, x, y, current, max, 1, sb?.w ?? 0, rise, buildingTint(current / max));
+  }
+}
+
+/**
+ * The centroid of the RING a race tower stands on, or `null` when the ring cannot be walked.
+ *
+ * ⚠ THIS DUPLICATES `TowerRenderer.ringOf` + its centroid loop DELIBERATELY, and the alternative was
+ * worse: `TowerRenderer` owns Pixi sprites and importing it here to borrow a number would drag the
+ * whole display list into a module that only draws rectangles. The contract that matters is that both
+ * read `ringMembersAt(world, anchor, RACE_FEED_SHAPE[race], n)` with the SAME `n` — so if one is ever
+ * retuned, the bar and the building it labels come apart, and that is what the shared constants
+ * `RACE_TOWER_SIZE` / `T9_TOWER_SIZE` are here to prevent.
+ */
+function ringCentroid(world: World, anchorId: PrimitiveId, art: TowerArt): { x: number; y: number } | null {
+  const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
+  const ring = ringMembersAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
+  if (ring === null) return null;
+  let cx = 0;
+  let cy = 0;
+  let count = 0;
+  for (const id of ring) {
+    const p = world.primitives.get(id);
+    if (p === undefined) continue;
+    cx += p.pos.x;
+    cy += p.pos.y;
+    count++;
+  }
+  return count === 0 ? null : { x: cx / count, y: cy / count };
 }
 
 /**

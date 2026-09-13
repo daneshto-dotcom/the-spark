@@ -790,3 +790,169 @@ describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds 
     expect(rects.length, 'an enemy tower outside vision is not drawn at all').toBe(0);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+/**
+ * ⭐⭐ S174 (owner) — **EVERY STRUCTURE, NOT ONLY THE ONES THAT DO SOMETHING.**
+ *
+ * > *"when creatures are attacking a structure that doesn't have a building or doesn't have a
+ * > function, it doesn't show that they're attacking. They just destroy the connectors and that's it.
+ * > But IT IS A STRUCTURE, and it should have a calculated health bar above it no matter what. If
+ * > it's just a free form of connectors, it should already have an HP bar and the same rules of
+ * > engagement and same health as if it were a building producing spawn."*
+ *
+ * ⛔ WHY THE S173 TESTS ALL PASSED OVER THIS. Every one of them builds a lattice and then puts a
+ * TOWER on it, because the drawing loop started from `world.creatureSpawners` and `world.defenders`
+ * and a structure with no tower could not be reached at all. The fixture had the defect designed out
+ * of it: there was no test in the file that built shapes and left them alone, which is the single
+ * most common thing a player does.
+ */
+describe('S174 (owner) — a freeform lattice carries a bar with NO tower on it', () => {
+  /** `n` dots in a horizontal chain at `y`, owned by `owner`. No tower, no defender — just shapes. */
+  function chain(world: World, firstId: number, n: number, x0: number, y: number, owner: PlayerId): BondId[] {
+    const made: Primitive[] = [];
+    for (let i = 0; i < n; i++) {
+      const p: Primitive = {
+        id: asPrimitiveId(firstId + i),
+        type: SparkType.Dot,
+        placerColor: PLAYER_COLORS[0]!,
+        placedBy: owner,
+        createdTick: 0,
+        pos: { x: x0 + i * 32, y },
+        prevPos: { x: x0 + i * 32, y },
+        bonds: new Set(),
+        ownerColor: PLAYER_COLORS[0]!,
+        lastOwnershipChange: 0,
+        radius: 8,
+        hp: PRIMITIVE_MAX_HP,
+        origin: null,
+      };
+      world.primitives.set(p.id, p);
+      made.push(p);
+    }
+    const bondIds: BondId[] = [];
+    for (let i = 1; i < n; i++) {
+      const a = made[i - 1]!;
+      const b = made[i]!;
+      const bond: Bond = {
+        id: asBondId(firstId * 100 + i),
+        aId: a.id,
+        bId: b.id,
+        a,
+        b,
+        restLength: 32,
+        stiffnessTier: 'MID',
+        damageFifths: 0,
+        createdTick: 0,
+      };
+      world.bonds.set(bond.id, bond);
+      a.bonds.add(bond.id);
+      b.bonds.add(bond.id);
+      bondIds.push(bond.id);
+    }
+    return bondIds;
+  }
+
+  function rects(world: World): Array<{ x: number; y: number; w: number; h: number }> {
+    const g = new G();
+    beginConcealmentFrame(world, CURSOR);
+    drawHealthBars(g as never, world);
+    return g.rects;
+  }
+
+  it('⭐⭐ THE ASK: shapes with connectors and nothing else still draw a bar', () => {
+    const world = twoSeat();
+    chain(world, 1, 3, 500, 500, P0);
+    expect(world.creatureSpawners.size, 'no tower — that is the whole point').toBe(0);
+    expect(world.defenders.size).toBe(0);
+    expect(rects(world).length, 'one track plus one fill').toBe(2);
+  });
+
+  it('⭐⭐ "the same health as if it were a building producing spawn" — literally the same number', () => {
+    // Two identical 3-chains; one gets a tower stapled to it. The MAX is derived from connectors, so
+    // the pools must be bit-identical — a structure is not weaker for having no function.
+    const bare = twoSeat();
+    chain(bare, 1, 3, 500, 500, P0);
+    const withTower = twoSeat();
+    chain(withTower, 1, 3, 500, 500, P0);
+    withTower.creatureSpawners.set(asSpawnerId(1), {
+      id: asSpawnerId(1),
+      ownerPlayerId: P0,
+      anchorPrimitiveId: asPrimitiveId(1),
+      recipeId: 'goblinTower' as never,
+      nextSpawnTick: 0,
+      lastValidatedTick: 0,
+      spawnedCount: 0,
+      ignitedAtTick: 0,
+    });
+    expect(structureDefenceFifths(2), '2 connectors ⇒ 2 × (2+4)').toBe(12);
+    expect(rects(bare)[0]!.w).toBeCloseTo(rects(withTower)[0]!.w, 6);
+  });
+
+  it('⭐ and it MOVES — connector damage shortens the fill on a bar nobody built a tower for', () => {
+    const world = twoSeat();
+    const bondIds = chain(world, 1, 3, 500, 500, P0);
+    const before = rects(world)[1]!.w;
+    world.bonds.get(bondIds[0]!)!.damageFifths = 3;
+    expect(rects(world)[1]!.w, 'this is what "it doesn\'t show that they\'re attacking" meant')
+      .toBeLessThan(before);
+  });
+
+  it('⭐⭐ it rides above the SHAPES — a lattice has no sprite to measure', () => {
+    /*
+     * The tower arm anchors to the building's roof. A freeform lattice has no building, so the only
+     * honest anchor is its own top-most point: `min(pos.y − radius)` over the members. Dots of radius
+     * 8 standing at y = 500 top out at 492, and the bar clears that by BAR_LIFT.
+     */
+    const world = twoSeat();
+    chain(world, 1, 3, 500, 500, P0);
+    expect(rects(world)[0]!.y).toBeCloseTo(500 - 8 - BAR_LIFT, 6);
+  });
+
+  it('⭐ the anchor follows the tallest shape, not the average one', () => {
+    // A lattice that reaches upward must lift its bar with it, or the bar sits inside the structure —
+    // the same defect the tower bar has now been fixed for twice.
+    const flat = twoSeat();
+    chain(flat, 1, 3, 500, 500, P0);
+    const tall = twoSeat();
+    chain(tall, 1, 3, 500, 500, P0);
+    tall.primitives.get(asPrimitiveId(2))!.pos.y = 400; // one shape raised 100 px
+    expect(rects(tall)[0]!.y, 'the raised shape must push the bar up').toBeLessThan(rects(flat)[0]!.y);
+    expect(rects(tall)[0]!.y).toBeCloseTo(400 - 8 - BAR_LIFT, 6);
+  });
+
+  it('⭐⭐ ONE bar per COMPONENT — two separate lattices draw two, one lattice draws one', () => {
+    const world = twoSeat();
+    chain(world, 1, 3, 500, 500, P0);
+    chain(world, 20, 4, 500, 900, P0); // a second, unconnected structure far below
+    expect(rects(world).length, 'two structures ⇒ two tracks plus two fills').toBe(4);
+  });
+
+  it('⛔ a lone unbonded shape still draws nothing — no connectors, no durability', () => {
+    const world = twoSeat();
+    chain(world, 1, 1, 500, 500, P0); // one shape, zero bonds
+    expect(rects(world).length).toBe(0);
+  });
+
+  it('⛔ a CONCEALED enemy lattice draws no bar — a freeform structure leaks position too', () => {
+    /*
+     * ⚠ The same three-precondition fixture the tower and creature fog tests both record. The old
+     * code probed the fog at a TOWER'S anchor; with no tower there is no anchor to probe, so the
+     * probe moved to the structure's own centre and this pins that it still culls.
+     */
+    const world = twoSeat();
+    chain(world, 1, 3, 4000, 4000, P1);
+    world.gameMode = '1v1';
+    world.gameState = 'PLAYING';
+    world.localPlayerId = P0;
+    world.matchPhase = 'BUILD';
+    expect(rects(world).length, 'an enemy structure outside vision is not drawn at all').toBe(0);
+  });
+
+  it('⛔ a structure damaged past its pool draws nothing — the sever path owns that frame', () => {
+    const world = twoSeat();
+    const bondIds = chain(world, 1, 3, 500, 500, P0);
+    for (const id of bondIds) world.bonds.get(id)!.damageFifths = 999;
+    expect(rects(world).length).toBe(0);
+  });
+});
