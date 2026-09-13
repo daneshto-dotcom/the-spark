@@ -5,6 +5,106 @@
 
 ---
 
+# ⚑ QUEUED — EVERYTHING THE OWNER RAISED IN S173/S174, 2026-09-12/13
+
+Written at his instruction: *"Make sure everything that I mentioned this session has actually been
+logged and carried into the backlog of priorities that we're gonna do — maybe not next session, but
+sometime in the next few sessions."*
+
+Shipped this session and NOT repeated here: tower + castle health bars (over the roof, green for
+buildings, always visible), every-structure bars, the tower shortfall naming its shapes, the lobby
+backdrop split, the seat-count copy, the laser at 2×, the orc “goblins” (they were the artless
+direwolf), the NONET theme, the codex minus its tier order, and the `/veo-generate` protocol.
+
+## 1 — THE ORC WARLORD, AND HE IS NEARLY COMPLETE  ⭐ HIS PICK FOR FIRST
+
+> *"one of them is rage or berserk — he becomes red. You take the whole image and change his colour
+> by changing the contrast into red. We'll make it simple so we don't need to generate anything. And
+> he'll attack two times faster and move two times faster. And the second one is he summons the
+> direwolf. So we'll complete him, which is perfect."*
+
+⭐ **CHEAPER THAN IT LOOKS:** `creatureLifecycle.ts:979` already divides the attack cadence by
+`rageMultiplier(creature)`, so half the mechanic is wired. Owed: the RED tint at render time (a tint
+on the existing atlas — no generation), the 2× move speed, and the summon wired to the direwolf art
+that now exists.
+
+## 2 — THE PHARAOH IS NOT DONE, AND HE SAID SO
+
+> *"the pharaoh [is] not quite done. We didn't do the Ra. We have his locusts, but we don't have his
+> stance when he summons them — we don't have his stance when he does the ritual. Maybe we'll move
+> that as well to next session."*
+
+Two missing STANCES (summon, ritual) plus Ra himself — the giant head from thunder clouds, mouth
+opening, five beams with growing ground shadows (respecified S172). Prior research:
+`.claude/plans/S171_NEXT_SESSION_RESEARCH.md`. ⚠ More than 12 frames ⇒ `framesPerState` goes from a
+scalar to per-state across the packer sites.
+
+## 3 — VLAD'S LIFE SAP STILL LOOKS WRONG
+
+> *"For Vlad, we have the life sap, which kinda looks like shit for now, but whatever."*
+
+Deprioritised by him, not withdrawn. ⚠ The blocker is unchanged and it is a MECHANIC question, not a
+visual one: R140 as ruled is a pure self-heal with NO victim, so a Dota-style tether would paint a
+damage relationship the sim does not have. And every shipped boss ability is Pixi vectors painted
+into an existing `Graphics` — `bossAuras.ts` forbids a new display object because
+`e2e/tower-art.spec.ts` probes children by hardcoded index. Generated art here needs the codebase's
+FIRST ability-VFX render seam.
+
+## 4 — 12 FRAMES PER STATE IS NOT ENOUGH
+
+> *"Remember you've said the twelve cutouts is not enough to make it look good. We'll need to do more
+> frames."*
+
+The packer extracts 12 per state. He has now said twice that bosses want more. Open dial, not a
+decision: raising it costs atlas width × sheet size × the static payload (already 104.8 MiB,
+reported and never gated). Decide the number against a measured sheet, not by feel.
+
+## 5 — NONET NEEDS STAGES
+
+> *"there should be stages — you have to beat like ten stages, and then you get to a harder level of
+> sudoku. We're gonna have to build it in parallel with spark."*
+
+Design note already written: `.claude/plans/S173_NONET_STAGES.md`. Key findings there: difficulty is
+ALREADY a live parameter nothing passes (`generateSudoku`'s `targetGivens`); an ARCADE-only ladder
+costs **no** protocol bump because the arcade is render-only; an IN-MATCH ladder collides with
+`sudokuFiredThisMatch` and needs a required wire field, so **46 → 47**. Eight questions left for him.
+
+## 6 — THE ATLAS DEBT, IN TWO SEPARATE CLASSES
+
+`check:atlas` is red on 15 atlases, and they are NOT one problem:
+- **6 SIZE-MISMATCHED** — need REGENERATED art. Measured twice: the rows differ in SHAPE, not zoom
+  (scarab idle 247×134 vs walk 174×133, heights already equal). The horizontal squash he asked for
+  was BUILT (`normaliseStateWidth`, opt-in, off) and made the spread WORSE, 1.42× → 1.71×, so it was
+  reverted. The flag stays because the measurement is the evidence.
+- **9 FRINGED** — a MATTE problem, and the guard's own advice is to re-matte with a tighter edge
+  rather than re-roll. `scripts/matte-*.py` exist. **This class was never tested and is the cheaper
+  half — try it first.**
+
+⚠ **AND IT HAS A COST BEYOND LOOKS:** `atlas-guard` has been RED on every master run since S171
+while Deploy stays green, so nobody reads it. A permanently-red job is where a real failure hides.
+
+## 7 — THE BOSS VFX DEBT HE SUMMARISED AS *"we still have a lot to do with the bosses"*
+
+Verified against the tree this session: the **Warlord's rage** and **BOTH Archdemon skills** are
+mechanically live and draw NOTHING. No ability-VFX atlas has ever been packed for this game —
+`public/art/race-tier9-bosses/` holds only character sheets.
+
+## 8 — CARRIED WITH THEIR MEASUREMENTS (detail in `.claude/session-state.json`)
+
+- **R173-B** — each connector costs the FULL structure pool, recomputed at the lower count. Ruled, not
+  built. Blast radius measured: 5-connector hub 35 → 130 fifths (3.7×). ⭐ R173-A is WITHDRAWN — his
+  ladder matches the shipped arithmetic exactly (Helga = 60), so nothing is owed there.
+- **CONNECTOR HIDING** — phase the primitives out while the tower stands, back when it breaks.
+  Specified across three sessions now (S170 P11 / R169) and still unbuilt. Renderer-only.
+- **B7 + B8 damage numbers** — plan at `.claude/plans/S174_DAMAGE_NUMBERS_PLAN.md`.
+- **THE VOLTKIN TV** — art cut and sequenced in `assets-source/voltkin-tv/`; implementation owed,
+  including REMOVING the cutscene that stops the game.
+- **THE 8 VEO CLIPS** — packing owed; 3 need re-rolling at a smaller subject size (his lightning, not
+  his body, is what clips the frame).
+- **CODEX TIER ORDER** — and the (b) discovery tests the dead agent never wrote.
+- **THE WEB-RESEARCH SWEEP** — returned NOTHING (died before its first search) and was NOT restarted,
+  by his instruction. Re-run if the veo protocol is to be hardened against outside practice.
+
 # ⚑ QUEUED — THE OWNER'S ART-DIRECTION BRIEF, 2026-09-03 (S162)
 
 **Full spec: [RACE_ZONES_AND_BOSS_TOWERS.md](RACE_ZONES_AND_BOSS_TOWERS.md)** — the brief is quoted
