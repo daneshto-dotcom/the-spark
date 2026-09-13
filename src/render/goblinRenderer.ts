@@ -38,7 +38,7 @@ import { syncCreatureProjectiles } from './creatureProjectile.ts';
 import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 // S169 R152 — the STUN read, for the idle-pose override and the derived "seeing stars".
-import { isStunned } from '../state/creatures/creature.ts';
+import { isStunned, rageMultiplier } from '../state/creatures/creature.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
@@ -207,6 +207,42 @@ const DORMANT_ALPHA = 0.5;
  * white, i.e. no tint at all. 0.8 keeps the seat legible and the artwork intact.
  */
 const TINT_WASH = 0.8;
+
+/**
+ * ⭐⭐ S175 (owner R149/R151, completing the Warlord) — **THE RAGE RED.**
+ *
+ * Owner: *"one of them is rage or berserk — he becomes red. You take the whole image and change his
+ * colour by changing the contrast into red. We'll make it simple so we don't need to generate
+ * anything."*
+ *
+ * ⛔ **AND IT IS NOT `0xff0000`, FOR THE REASON WRITTEN OUT AT `sp.tint` BELOW.** A Pixi tint is a
+ * MULTIPLY. Pure red zeroes the green and blue channels outright, so an already-dark orc boss comes
+ * back as a near-black silhouette — which is exactly the defect S151 shipped with the seat colour
+ * and S152 had to repair. The red is therefore WASHED, by the same helper and for the same reason:
+ * `washTowardsWhite(0xff0000, 0.45)` = `0xff7373`, which leaves the red channel untouched and holds
+ * green and blue at 45%. The art stays readable and reads unmistakably angry.
+ *
+ * ⚠ 0.45 IS MINE, NOT THE OWNER'S. It is the midpoint between "no tint at all" (TINT_WASH 0.8, a
+ * flag) and "a saturated multiply" (0, the S151 bug), picked because rage is a state the player must
+ * read instantly rather than a subtle ownership cue. Overrule it against a screenshot.
+ */
+const RAGE_TINT_WASH = 0.45;
+
+/**
+ * PURE — the tint a creature's sprite should carry. `enraged` overrides the seat wash entirely;
+ * see the long note at the `sp.tint` assignment for why that is safe and why it is not `0xff0000`.
+ */
+export function creatureSpriteTint(seatTint: number, enraged: boolean): number {
+  return enraged ? washTowardsWhite(0xff0000, RAGE_TINT_WASH) : washTowardsWhite(seatTint, TINT_WASH);
+}
+
+/**
+ * PURE — ticks per animation frame, halved while enraged so the drawn swing keeps step with the
+ * cadence `creatureLifecycle` is already dividing. Integer and floored at 1, mirroring that divide.
+ */
+export function animTicksPerFrame(baseTicksPerFrame: number, enraged: boolean): number {
+  return Math.max(1, Math.round(baseTicksPerFrame / rageMultiplier({ enraged })));
+}
 
 /** Lift `color` towards white by `t` (0..1), per channel. Pure — no allocation, no Pixi types. */
 function washTowardsWhite(color: number, t: number): number {
@@ -573,7 +609,7 @@ export class GoblinRenderer {
    */
   private syncSprite(
     id: CreatureId, type: CreatureType, atlas: LoadedAtlas, state: string, ticksInState: number,
-    x: number, y: number, face: 1 | -1, alpha: number, tint: number,
+    x: number, y: number, face: 1 | -1, alpha: number, tint: number, enraged: boolean,
   ): void {
     // FSM state → animation row. SEEKING is the only state a goblin actually travels in, so it is
     // the walk; SPAWNING and DESPAWNING read as idle rather than getting their own art.
@@ -581,7 +617,23 @@ export class GoblinRenderer {
     const row = atlas.cells[name] ?? atlas.cells.idle;
     if (row === undefined || row.length === 0) return;
     const st = atlas.manifest.states[name] ?? atlas.manifest.states.idle;
-    const per = Math.max(1, st?.ticksPerFrame ?? 6);
+    /*
+     * ⭐⭐ S175 (owner) — **AND THE ANIMATION SPEEDS UP WITH HIM.** His words on the rage:
+     * *"So he looks like he attacks two times faster as well. Right?"*
+     *
+     * ⛔ THE CADENCE ALONE IS NOT ENOUGH, AND SHIPPING ONLY THAT WOULD HAVE LOOKED BROKEN.
+     * `creatureLifecycle.ts` already DIVIDES `attackCadenceTicks` by `rageMultiplier`, so an enraged
+     * Warlord swings twice as often — but the swing itself is drawn from `ticksInState / per`, so at
+     * an unchanged `per` the ATTACK ROW would still take its full unhurried length. The strike would
+     * be re-triggered before its own animation finished: the second half of every swing would be cut
+     * off mid-frame and replaced by frame 0. Halving `per` alongside the cadence keeps the row and
+     * the cadence in step, which is what makes the doubling READ as speed rather than as a stutter.
+     *
+     * Integer, tick-derived and floored at 1 — the same shape as the cadence divide it mirrors, so
+     * the two cannot drift. `rageMultiplier` is 1 for every creature that is not an enraged Warlord,
+     * which makes this line byte-identical in behaviour for all twenty-odd other kinds.
+     */
+    const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, enraged);
     // Attack plays ONCE through and holds its last frame; idle and walk loop. A looping attack
     // would re-swing during the recovery half of the cadence and read as two hits for one strike.
     const raw = Math.floor(ticksInState / per);
@@ -621,7 +673,22 @@ export class GoblinRenderer {
      * ⚠ THIS ALSO REPAIRS THE TWO SHIPPED GOBLINS (melee, archer) — they were tinted by the same
      * line, so they have looked like this since S151.
      */
-    sp.tint = washTowardsWhite(tint, TINT_WASH);
+    /*
+     * ⭐⭐ S175 — RAGE OVERRIDES THE SEAT WASH RATHER THAN BLENDING WITH IT, and that is a decision
+     * with a reason rather than a shortcut. The owner asked for *"the whole image"* to go red; a red
+     * blended into six different seat colours would read as six different reds, which is the one
+     * thing a danger cue must not do.
+     *
+     * ⚠ AND IT DOES **NOT** COST THE OWNER CUE, which is the objection this had to answer. S154
+     * AMENDMENT B put a player-coloured ground marker under EVERY spawned creature
+     * (`drawGroundMarker`, called a few hundred lines below), so the seat is still stated beneath an
+     * enraged Warlord even while his sprite is red. The tint was never the only carrier.
+     *
+     * Gated on `enraged` ALONE and never on `type`: this method is shared by all twenty-odd
+     * GOBLIN_KINDS, so the branch is dead for every one of them today, and automatically correct if
+     * rage is ever granted to something else.
+     */
+    sp.tint = creatureSpriteTint(tint, enraged);
   }
 
   /**
@@ -863,7 +930,7 @@ export class GoblinRenderer {
          * the FSM gate stops `ticksInState` advancing.
          */
         const stunnedNow = isStunned(c, world.tick);
-        this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint);
+        this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true);
         // ⭐ S170 P5 — scaled by the sprite multiplier, or the ring sits inside a boss.
         if (stunnedNow) drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, Number(c.id), alpha, creatureSpriteScaleMul(c.type));
       } else {

@@ -1,14 +1,14 @@
 {
   "tool_calls_session_total": 1092,
-  "session_id": "S173",
+  "session_id": "S175",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
   "prior_session_note": "S172 CLOSED. 6 complete, 1 partial (tower bars), 1 parked (stat retune), 2 not started (Pharaoh, Vlad sap). Handoff: HANDOFF_S172_2026-09-10.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
   "phase": "DO",
-  "tier": "Standard",
-  "plan_file": ".claude/plans/PDR-S173-BATCH.md",
-  "session_status": "S173/S174 CLOSING. Live and verified 4/4 at cc319c4. Shipped: P1-P6, B1-B6, the tower/castle bar over the roof, every-structure bars, the codex (a)+(b), and the /veo-generate protocol. CARRIED: Warlord abilities (his pick for first next session), clip packing, the TV, codex tier order + owed tests, connector hiding, R173-B, B7+B8, the scarab, the web-research lane.",
+  "tier": "Full",
+  "plan_file": ".claude/plans/S175_BATCH_PDR.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -50,45 +50,29 @@
     "R171-I LOCUST VFX: BUILD IT PROCEDURALLY. 'you can try building it with code... do the best if you can... But if you can do it, then we might just generate a video loop. I'll do it myself and give it to you.' Target: 'a cloud of little locusts flying and eating enemies', scary-looking. CONFIRMS the P2 plan rather than changing it."
   ],
   "a0_state_discovery": {
-    "status": "complete",
-    "method": "Workflow of 6 probe lanes + 6 adversarial verifiers. AN ORG SPEND LIMIT KILLED 6 OF 8 AGENTS - only probe:vlad-life-sap and probe:repo-and-deploy returned, and BOTH verifiers died. Per the project rule that a hunt returning nothing is not a completed hunt, the four dead lanes (tower-health-bars, attack-speed, pharaoh, art-polish) were RE-RUN BY HAND in-session before the PDR was written, and the two surviving lanes had their load-bearing claims hand-verified because their verifiers never ran.",
-    "fanout_lesson": "All six lanes rode ONE workflow invocation, so a single limit hit cost all six - exactly the S161 failure the project CLAUDE.md warns about. Dispatch lanes as separate smaller runs.",
-    "premises_corrected": [
-      "PROTOCOL_VERSION is 46 (protocol.ts:667, pinned protocol.test.ts:93). CLAUDE.md:141 says 44 - stale. => P3.",
-      "The acquisition-census regex is NOT the whitespace-only form. S172 widened it to also match a short cast-like span, to close the cast blind spot. Reasoning on the old form reasons about already-fixed code.",
-      "The stale-plan WARN scans .claude/plans-archive/, NOT .claude/plans/ (pre-flight.sh:81).",
-      "speedMul (\"with varried speed\", R141) is MOVEMENT speed, not attack speed. Attack cadence really is flat: 60 almost everywhere, 300 on the chewer (a legacy chew SPAN, not a speed), 5*PHYSICS_HZ for the Pharaoh locust; the only modulation is rageMultiplier (creatureLifecycle.ts:979).",
-      "A re-matte tool DOES exist (scripts/matte-*.py, repair-atlas-letterbox.py) - my initial hypothesis that it was absent was wrong."
-    ],
-    "hand_verified_claims": [
-      "e2e/tower-art.spec.ts:152 and :295 DO probe above.children[6] / [11] by hardcoded index, and bossAuras.ts:93 explicitly forbids a new display object for that reason. CONFIRMED by hand after the Vlad verifier died.",
-      "structureDefenceFifths (stats.ts:236) has ZERO production callers - grep across src/ and scripts/ returns tests only.",
-      "Bond.damageFifths is serialized (save.ts:402 type, :1832 emit-when-nonzero) AND hashed (stateHashFull.ts:269 union, :538 projection).",
-      "normaliseStateScale equalises HEIGHT only (build-sprite-atlas.mjs:322, _subject_h) - the handoff mechanism claim is correct.",
-      "5 of 6 size-mismatched atlas PNGs predate scripts/build-sprite-atlas.mjs (2026-09-10 10:39); only t3-mummies-scarab postdates it and still fails."
+    "ran": true,
+    "lanes_dispatched": 7,
+    "lanes_returned": 6,
+    "lane_failed": "P4 codex tier order — died on the 5-hour limit; RE-RUN BY HAND this session (S161 rule)",
+    "deltas_found": 16,
+    "headline_deltas": [
+      "Warlord 2x MOVE speed already wired (creatureVerlet.ts:168) - backlog said owed",
+      "enraged complete at all four sites (factory/serialize/hash/worker)",
+      "direwolf ART exists+committed but RENDERER aliased to goblin-hound (goblinRenderer.ts:180) - no atlas, no spec",
+      "direwolf/walk is a clean PASS today; ART_VEO_PROTOCOL.md verdict table is STALE (walk.mp4 re-rolled after it was written)",
+      "cutscene never gated the sim - no tick gate anywhere; it is a 4.8s opaque rect + input lock",
+      "a SILENT cutscene path already ships and is default for repeat showings",
+      "cutscene is NOT skippable despite its docblock - skipIfActive() has zero callers",
+      "TV has NO ENTITY - voltkin is the only kind:'cinematic' recipe, no spawner/defender",
+      "connector hiding is genuinely renderer-only - no field flips, derived from synced topology",
+      "connector ramp must anchor on Bond.createdTick; ignitedAtTick is stripped on the wire",
+      "atlas: real matte is embedded python in build-sprite-atlas.mjs:203-286, NOT scripts/matte-*.py; no erosion knob exists",
+      "veo cost in ART_VEO_PROTOCOL.md is understated ~5x - owner measured ~$25 for 8 clips"
     ]
   },
-  "reflexion_entries_to_archive": [
-    "P1 #the-function-with-no-callers-was-the-spec: structureDefenceFifths already existed in stats.ts with ZERO production callers, and its docblock said outright that it existed \"so the HUD and the tests can speak their language\". The tower health bar the owner asked for had already been half-written by a past session and never wired - the same shape as S167's t3TowerAtlasBase, where the art shipped with no renderer. Grepping for an unused function that names your feature is cheaper than designing the feature.",
-    "P1b #two-durability-models-and-the-bar-can-only-tell-one-truth: a tower dies EITHER by connector severance (Bond.damageFifths vs connectorCapacityFifths) OR by primitive death (prim.hp -> razePrimitives), and towerRenderer already derives its damaged/destroyed FRAME from the second while the owner's words name the first. I shipped his model and documented the other AT THE SITE rather than picking silently - because a future session finding the bar \"under-reporting\" will otherwise re-derive the whole thing before discovering there were two.",
-    "P1c #vitest-green-and-tsc-red-on-the-same-commit: the full suite passed 4303/4303 while typecheck exited 1 with three errors in the very test file that was passing. Bond.a is a PhysicsBody, not a Primitive, so my adjacency detach was a no-op the assertions could not see. Reading ONE gate's exit code would have shipped it. The project rule is \"read every gate's exit code from a captured $?\" - every, not the slowest one.",
-    "A0 #i-rode-six-lanes-on-one-invocation-and-lost-five: the state-discovery workflow put all six probe lanes in a single Workflow call, an org spend limit hit mid-run, and 6 of 8 agents died - the exact S161 failure this project's CLAUDE.md warns about in a section written after it happened before. I had READ that section during boot. Re-running the four dead lanes by hand cost more than dispatching them separately would have. When the owner later asked for parallel work I used three SEPARATE Agent invocations for that reason.",
-    "P4 #the-agent-refused-my-brief-and-was-right: I briefed the tower-shortfall work at castlePanel's caption from my own grep. CASTLE_BUILD_GRID_ENABLED = false - that panel has been dead code since S149 P5 moved tower-building to the footer band. The agent verified the premise before building on it and redirected to footerBand.ts. I had grepped for the STRING (\"NEED n MORE\") and found a real site, but never asked whether that site was still REACHABLE. A live-looking code path is not the same as a rendered one.",
-    "P4b #two-agents-one-working-tree-sweep-each-other: staging is global, so when two subagents commit into the same checkout, whoever commits second sweeps up the first's staged files - and the first then reports success for a commit that does not contain its work. The P4 agent even NAMED this hazard in its report and still concluded, wrongly, that its work was safe in HEAD. It was uncommitted. VERIFYING THE AGENT'S CLAIM AGAINST THE TREE is what saved it: three greps, and the symbols were absent from every commit. Next time: give parallel agents separate worktrees, or let exactly one of them commit.",
-    "B3 #a-noted-defect-is-still-a-defect: healthBar.ts carried the line \"The castle bar (gathererRenderer.drawKeep) still carries fault 1 - noted, not touched here\" from S171 onward. Fault 1 is hide-while-undamaged, which the owner had ALREADY rejected once for creatures. He then found it on the castle by playing, and reported it a second time. Writing a defect down bought nothing except the ability to say it was known. If it is worth a comment that names it as a fault, it is worth either fixing or a line in the backlog he can see.",
-    "P1/B3 #shipping-half-a-ruling-reads-as-not-shipping-it: P1 gave every tower a health bar and he still said \"the other buildings don't have HP bars\" - because the bar was RED and the castle's is GREEN, so it did not read as the same feature. The mechanic was right and the signal was wrong. Colour was carrying meaning (building vs unit) that nobody had written down, and I had matched the creature convention without asking which family a tower belongs to.",
-    "B5 #my-brief-named-the-wrong-layer-and-the-agent-refused-it: I briefed a wave-indexed ladder falling through to a default creature type, because the owner said \"after wave three the CASTLE starts SPAWNING goblins\" and that sentence sounds like sim. There is no wave->creature table in the tree at all; world.waveNumber has one consumer and it scales a spawn RATE. The real cause was a RENDERER fall-through - direwolf in GOBLIN_KINDS with no atlas, drawn as the pre-veo puppet. TWICE IN ONE SESSION an agent has corrected the layer I aimed it at (P4 was the dead castle panel). The owner describes what he SEES; the word he uses for the mechanism is a guess I should not inherit.",
-    "B5b #a-deliberate-exemption-is-still-a-defect-and-it-was-defended-in-prose: S168 wrote at the constant that the direwolf had NO ATLAS \"deliberately... visible and readable until the art lands\", while the coverage test one paragraph below stated the opposite principle correctly for the locust cloud. The exemption survived because it was ARGUED rather than tested. Same shape as B3 this session, where \"the castle bar still carries fault 1 - noted, not touched here\" sat in a docblock for five sessions until he found it by playing. A defect with a paragraph defending it outlives a defect with nothing.",
-    "P2 #i-had-both-halves-of-the-contradiction-and-shipped-anyway: A.0 established that normaliseStateScale equalises HEIGHT only (_subject_h, no _subject_w exists) AND that 5 of 6 mismatched atlases predated the packer fix. Every failure the guard prints is a WIDTH divergence (\"1.21w(WIDE)\"), so the repack could never have worked - the two findings were in the same write-up and contradicted each other. I built a priority on the mtime half because it was NEW and felt like the stronger signal. The experiment cost one repack to disprove, which is cheap; the lesson is to cross-check a new finding against the mechanism finding BEFORE writing the PDR.",
-    "P2b #a-negative-result-is-a-deliverable: the repack produced no improvement and was reverted, and the session is BETTER for it - the corrected verdict is that ALL SIX size-mismatched atlases need regenerated art, not just the scarab. Recorded with the measurement so the next session does not re-run the same experiment on the other four.",
-    "S174 #i-fell-into-the-shared-tree-hazard-i-warned-four-agents-about: the codex agent had STAGED the deletion of codexStore.ts without finishing its importers. My unrelated clips commit ran git commit, the staged deletion rode along, and the Pages build died on four \"Cannot find module ./codexStore.ts\" errors - the live site sat stale for an hour. I had written the warning about global staging into every one of those four agent briefs. Writing a hazard down does not exempt you from it; `git status` before `git commit` does.",
-    "S174 #a-dead-agent-is-not-an-empty-lane: all four agents died on a spend limit and every one of them had left real work uncommitted - a finished discovery removal, a new structureComponents module, the entire /veo-generate protocol. Their last messages read like they had barely started. Reading the TREE rather than the transcripts recovered ~1,500 lines that would otherwise have been re-paid for. Check what landed before re-running anything.",
-    "S174 #i-bought-the-lesson-that-was-already-in-the-repo: generated 12 veo clips at $0.50 each and 7 were condemned, because I wrote my own prompts and my own seed geometry instead of first reading assets-source/race-tier9-bosses/clip-spec.json - the spec that produced the one boss the owner says looks right. The working recipe was sitting in the tree the whole time. That is now a protocol with STEP ZERO being \"read the last known-good spec\"."
-  ],
+  "reflexion_entries_to_archive": [],
   "budget_total": null,
-  "totals": {
-    "budget_remaining": null
-  },
+  "totals": {},
   "carry_forward_s170": [
     "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
     "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
@@ -624,7 +608,7 @@
     "grok_missed": "Grok ignored the entire Ra half of R142; Gemini caught it and supplied the column arithmetic (15*(5+15)=300 fifths x 5 columns).",
     "internal_panel": "A 4-framing internal proposal+critique+synthesis workflow (wf_ba7fc269-e7a) was also dispatched and is still running at PDR time. It is depth-on-top of the mandated 3-way Council, not a substitute; if it surfaces anything that changes the design it will be recorded as a PRIME-AUDIT delta before the affected stage is executed."
   },
-  "approval_quote": "Owner approved via AskUserQuestion: batch = \"Go - all three\"; tower bar semantics = \"POOL - total remaining (Recommended)\".",
+  "approval_quote": "Owner S175: 'Approve p two, pack the direwolf. Let's do it... Approve p three... Codex tier order approved. Connector hiding approved... P four a b, the TV build structure. Yes. A hundred percent... approved. Everything except for p seven you'll need to explain to me in simple language.' P7 NOT approved pending a plain-language explanation.",
   "scope_amendments_s171": [
     "S171 mid-session (Rule 16): owner added four playtest items. P3 health bars and P4 tower-requirement labels are AUTHORISED FOR THIS SESSION by explicit owner instruction; R171-F damage numbers and R171-G Whopper rebalance are BACKLOG (he said 'we'll do it together' and 'let's add that to the backlog' respectively). P2 the Pharaoh remains the priority in flight and is finished first - he said 'start with P2 and work it well'. Research dispatched for all four at capture time (wf_cc3b099c-54e).",
     "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
@@ -1197,439 +1181,81 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "TOWER HEALTH BARS - the S172 PARTIAL. Owner: \"all towers should have health bars ... how much they take before their first connector dies.\" Durability lives in the CONNECTORS (R76), so this is a connector-derived aggregate, NOT a copy of the Helga fix. OWNER RULED THIS SESSION: POOL semantics (sum of remaining capacity across the structure), chosen over WEAKEST-connector, because it is comparable with every other bar in the game. structureDefenceFifths() at stats.ts:236 already computes the MAX half and has ZERO production callers. No new wire field, no protocol bump, no four-sites work.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "09aebae",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "TOWER HEALTH BARS, POOL SEMANTICS PER HIS RULING THIS SESSION. A tower is skipped by the defender loop at `stats === null` because owner R75 gives it no pool of its own - its durability lives in the CONNECTORS. So the bar is DERIVED, not read: MAX = structureDefenceFifths(n) = n x (n+4), CURRENT = max minus the accumulated Bond.damageFifths over the component. BOTH HALVES WERE ALREADY WRITTEN AND ONE HAD NO CALLER: structureDefenceFifths (stats.ts:236) existed with ZERO production callers and its own docblock says it exists \"so the HUD and the tests can speak their language\" - written FOR this readout and never wired, the S167 t3TowerAtlasBase shape exactly. ZERO WIRE COST, VERIFIED NOT ASSUMED: Bond.damageFifths is already serialized (save.ts:402 type, :1832 emit-when-non-zero) and already hashed (stateHashFull.ts:269 union, :538 :dmg projection), so a peer sees the true number. No new field, no protocol bump (still 46), no four-sites work. ONE BAR PER STRUCTURE, NOT PER TOWER: a pool belongs to a connected component - connectorCapacityFifths reads the CURRENT component count, so two towers welded into one lattice genuinely share one pool. Deduped by the component LOWEST primitive id, which is deterministic whichever member we enter through (Map iteration order must never decide anything in this codebase). IT COVERS TWO MAPS, AND MISSING THE SECOND WOULD HAVE LOOKED DONE: world.defenders holds only turret + stinkTower with a null pool; the GOBLIN TOWER in his screenshot is a world.creatureSpawners entry, as are the pentagram, the lightning hub, the six race towers and the six tier-9 boss towers. HONEST LIMIT, DOCUMENTED AT THE SITE RATHER THAN SWEPT: a tower can also die by PRIMITIVE hp (damageEntity -> prim.hp -= amount -> razePrimitives), a second channel this bar does not show; towerRenderer already picks its intact/damaged/destroyed FRAME from that model via towerHpFrac. He named connectors, so connectors is what ships, with the other channel written where the next session will find it before concluding the bar under-reports. TESTS: 7 new, each guarding a plausible-looking wrong version - appears at all and reads FULL undamaged; MAX is exactly structureDefenceFifths(n) and half the pool is half a bar; connector damage shortens the FILL; losing a connector shortens the TRACK (R76 cascade, pinned so nobody \"fixes\" it); one bar per structure; a lone shape has none; a concealed enemy tower draws nothing. TWO FIXTURE HOLES RECORDED: the fog case needs THREE preconditions (gameMode 1v1 + gameState PLAYING + matchPhase BUILD) plus far placement or the fog is inert and it reads as a renderer leak - the creature fog test's own comment predicted this and I fell into it anyway. And tsc caught what vitest could not: Bond.a/Bond.b are PhysicsBody, not Primitive, so the adjacency detach had to go through world.primitives by id; the test passed either way and only the typecheck exit code disagreed. GATES, each from a captured $?: typecheck 0, healthBar 29/29, full vitest 0 at 4303 tests / 274 files (from the 4296 boot baseline, +7 = exactly the new tests). ⭐ S174 AMENDMENT: the every-structure widening moved the component walk into structureComponents.ts (a single labelling pass, replacing one componentOf per anchor) and lifted the bar onto the ROOF. Two P1 bindings were re-pointed to follow the code rather than pinning a line that no longer exists.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "function drawStructureBars"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "structureDefenceFifths(n)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "import { labelStructureComponents } from './structureComponents.ts';",
-          "_note": "RE-POINTED S174: the component walk MOVED out of healthBar.ts into structureComponents.ts when every-structure bars landed - one labelling pass over world.bonds instead of a componentOf call per anchor, which is a real perf fix, not a rename. The behaviour is unchanged and 4416 tests cover it; the binding follows the code."
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "for (const sp of world.creatureSpawners.values())"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/structureComponents.ts",
-          "needle": "export function labelStructureComponents",
-          "_note": "RE-POINTED S174: the component walk MOVED out of healthBar.ts into structureComponents.ts when every-structure bars landed - one labelling pass over world.bonds instead of a componentOf call per anchor, which is a real perf fix, not a rename. The behaviour is unchanged and 4416 tests cover it; the binding follows the code."
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/healthBar.ts",
-          "needle": "ownerPlayerId as number"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.test.ts",
-          "needle": "ONE bar per STRUCTURE"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/healthBar.ts",
-          "pattern": "drawStructureBars",
-          "op": ">=",
-          "value": 2
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/healthBar.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 20
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "title": "THE ATLAS REPACK EXPERIMENT - 5 of the 6 size-mismatched atlases PREDATE the S171 packer fix (commit 6023b98, \"measure the BODY not every opaque pixel\") and have never been repacked with the corrected measurement. Repack, re-run check:atlas, record the per-atlas delta, ship only strict improvements, record the rest as ART OWED with numbers. MTIME IS NOT PROOF - this is an EXPERIMENT with a recorded verdict, not a claimed fix. check:atlas NEVER gates the deploy.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "THE ATLAS REPACK EXPERIMENT - RUN, AND THE HYPOTHESIS IS REFUTED. THIS IS A NEGATIVE RESULT AND IT IS THE DELIVERABLE. THE HYPOTHESIS (mine, from A.0): 5 of the 6 size-mismatched atlases have PNG mtimes PREDATING the S171 packer fix (commit 6023b98, \"measure the BODY, not every opaque pixel\"), so they had never been packed with the corrected measurement and a free repack might green them. Only the scarab postdates it and still fails. THE EXPERIMENT: backed up all 5, repacked unit-demons via build-atlas-set.mjs (exit 0, 4 states x 12 frames, normaliseStateScale fired: attack median h=635 vs ref 619 -> x0.975), re-ran check:atlas and diffed the row. THE RESULT: essentially NO CHANGE. walk stayed 1.21w(WIDE); attack moved 0.91w -> 0.89w. Still MISMATCH. The repack was reverted from backup rather than shipped, per the PDR rule \"ship only atlases that strictly improve\". Working tree clean under public/art. ⛔ AND THE HYPOTHESIS WAS INTERNALLY INCONSISTENT FROM THE START, WHICH IS THE REAL LESSON. A.0 had ALREADY established that normaliseStateScale equalises HEIGHT only - the function is _subject_h and there is no _subject_w anywhere in the packer. Every one of these six failures is a WIDTH divergence (the guard prints \"1.21w(WIDE)\"). So a repack could never fix them, whatever the packer mtime said. I had both halves of that contradiction in the same A.0 write-up and shipped a priority built on them anyway, because the mtime finding was NEW and therefore felt like the stronger signal. ⭐ THE CORRECTED VERDICT, which is more useful than the one the PDR expected: ALL SIX size-mismatched atlases need ART REGENERATION, not just the scarab. unit-demons, unit-vampires, t3-nagas-piranha, t3-vampires-bat, t9boss-vampires join t3-mummies-scarab on the ART OWED list. The 9 FRINGE atlases are a separate class and remain untested here - the guard's own advice is to re-matte rather than re-roll, and scripts/matte-*.py exist; that is a live lead for the art plan, NOT a closed question. CI CONSEQUENCE, reported not acted on: atlas-guard has been RED on every master run since S171 and Deploy stays green, so nobody reads it. It will stay red until the art is regenerated. A permanently-red job is a real hazard - a genuine failure would hide in it. ⛔ AMENDED AFTER THE OWNER PUSHED BACK: he said the width fix is trivial - \"you take both sides and compact it horizontally\". I BUILT IT (normaliseStateWidth, opt-in, off by default) and MEASURED it on the scarab: the playable-row width spread got WORSE, 1.42x -> 1.71x, so it was reverted rather than shipped. I also tested whether the white fringe was corrupting the width measurement - it is NOT (identical medians with near-white excluded). The rows genuinely differ in SHAPE: idle 247x134, walk 174x133, attack 226x132. Heights already agree; the walk beetle is drawn more head-on. A horizontal stretch widens a foreshortened body, it does not rotate it. NEXT THING TO TRY, cheap and shape-preserving: normalise on subject AREA uniformly rather than height alone.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "scripts/build-sprite-atlas.mjs",
-          "needle": "_subject_h"
-        },
-        {
-          "type": "grep_count",
-          "path": "scripts/build-sprite-atlas.mjs",
-          "pattern": "_subject_w",
-          "op": ">=",
-          "value": 1,
-          "_note": "was ==0 (height-only). I ADDED the opt-in width pass this session, so the assertion had to follow the code rather than the code follow the assertion."
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/build-sprite-atlas.mjs",
-          "needle": "normaliseStateScale"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "title": "THE DOC THAT LIES - CLAUDE.md:141 says PROTOCOL_VERSION is 44; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. \"Comments that lie are a defect class\" - one such paragraph lied for sixteen sessions and caused the S167 accident.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "THE DOC THAT LIED. CLAUDE.md said PROTOCOL_VERSION was \"44 at S167\"; src/net/protocol.ts:667 says 46 and protocol.test.ts:93 pins it. The line was dated, which is what let it survive - it was true when written and simply never followed the constant. Now states 46, notes it is unchanged S172-S173, AND keeps the 44-at-S167 history with the fact that the line went two sessions stale, so the next reader sees the failure mode rather than just a corrected number. Docs-only: deploy.yml's paths filter correctly triggers no deploy run. ⭐ S174 CLOSE: also logged the full S173/S174 owner sweep into BACKLOG.md - the forward plan - so nothing he said this session lives only in a carry-forward the next session might not reach.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**46**"
-        },
-        {
-          "type": "file_lacks",
-          "path": "CLAUDE.md",
-          "needle": "lives in `src/net/protocol.ts` (44 at S167)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "QUEUED — EVERYTHING THE OWNER RAISED IN S173/S174",
-          "_note": "ABSOLUTE by necessity: verify-session-claims normpaths the binding path and compares it against the watch-root diff, which yields absolute paths - a relative path can never match and reads as UNBOUND."
-        }
-      ]
-    },
-    {
-      "id": "P4",
-      "title": "SCOPE AMENDMENT (owner, mid-session, Rule 16) - THE TOWER SHORTFALL MUST NAME THE SHAPES. Owner: \"under the tower, it says need five more ... But it doesn't say what shapes. Some towers need different types of shapes. It's good to know which you're missing ... We need the NEED, and then the SYMBOL. Need three more this and five more this.\" Screenshot supplied: \"GOBLIN TOWER / NEED 5 MORE\". WHY IT IS MICRO: the per-type breakdown ALREADY EXISTS and is ALREADY LATCHED - castlePanel.ts:331 builds missing[] as {type, need, have} per SparkType, and castlePanel.ts:1157 latches it into this.structureMissing[i] for the S145 click-to-order path. Line 339 then throws the breakdown away: short = missing.reduce(sum) => `NEED ${short} MORE`. The SYMBOL renderer also already exists and is already used in this same file: drawSparkGlyph (render/sparkGlyph.ts), imported at castlePanel.ts:60 and drawn for the bank strip at :1101 via the established {glyph: Graphics, count: Text} slot pattern (:573, :671-691). So this is a REUSE of two existing mechanisms, not an invention. THE ONE REAL COST: the caption is a Text object and a shape symbol needs Graphics, so the shortfall readout becomes a small row of glyph+count pairs rather than a string.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "ff045c6",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "THE TOWER SHORTFALL NAMES THE SHAPES. Owner: \"it doesn't say WHAT SHAPES ... We need the NEED, and then the SYMBOL.\" ⛔ MY OWN BRIEF WAS HALF WRONG AND THE AGENT REFUSED IT. I aimed this at castlePanel's caption. But castlePanel.ts:227 reads CASTLE_BUILD_GRID_ENABLED = false - S149 P5 moved tower-building out of the castle on an owner ruling, so the panel's tiles and caption have been DEAD CODE since. The card in his screenshot is the FOOTER BAND's tower card (footerBand.ts:371). Implementing my brief literally would have shipped dead code and he would have seen no change. The model half of the brief WAS right and was reused: castlePanel.ts:333-337 already computed the per-shape `missing` array and :339-340 threw it away by summing into `NEED n MORE`; drawSparkGlyph was already imported and already used for the bank strip. GLYPHS NOT WORDS, MEASURED: the widest real shortfall in the registry is Helga (Triangle + Spiral + Circle) = ~258 px as words at the card's 13 px monospace, in a card with 192 px of room; the same three as glyph pairs are ~124 px. Text cannot carry this readout. Each mark is race-tinted (R153) so it matches the palette button the player is being sent to press. ⭐ A REAL DETERMINISM FIX RODE ALONG: the missing-shape list is now walked in ALL_SPARK_TYPES order rather than blueprintBill's Map order. Helga's leaves are interleaved \"purely cosmetically\" by their own comment, so a node reorder would have reshuffled the readout under the cursor - Map iteration order must never decide anything in this codebase. A TEST WAS WEAKENED BY DESIGN: footerBandLegendRemoved counted exactly 2 race-tinted glyph sites and the third broke it. The tally was replaced by the RULE (every glyph in the file is race-tinted), because a hardcoded count has to be hand-bumped by the same person who would have forgotten to tint, and bumping is indistinguishable from fixing. ⚠ RECOVERED, NOT AS THE AGENT REPORTED. It claimed its work had landed inside another agent's commit and said it had verified the symbols in `git show HEAD:`. It had NOT: no commit in the repo contained shortfallEntries, and the commit it named no longer existed. The work was sitting UNCOMMITTED in the shared working tree, one checkout from being lost. I verified this myself rather than accepting the report, then committed it. ROOT CAUSE, and it will recur: two agents committing into ONE working tree sweep each other's staged files, because staging is global. The agent flagged that hazard in its own report and then fell into it. GATES from a captured $?: typecheck 0, vitest 0 at 275 files / 4331 tests (from the 4303 after P1). 39 new tests. ⚠ NOT EYEBALLED: the glyphs draw in the Pixi sync path and the browser pane never advances world.tick, so only the pure layout is machine-verified. Wants one owner playtest.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "shortfallEntries"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/footerBand.ts",
-          "needle": "shortfallRowLayout"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "SHORTFALL_GLYPH_R"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/footerBand.ts",
-          "needle": "CARD_LABELS"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.structures.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 20
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/footerBand.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 14
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "ALL_SPARK_TYPES",
-          "op": ">=",
-          "value": 1
-        }
-      ],
-      "delegated_to": "agent:tower-shortfall-shapes"
-    },
-    {
-      "id": "P5",
-      "title": "SCOPE AMENDMENT 2 (owner, mid-session, Rule 16) - THE CODEX, THREE PARTS. (a) REMOVE THE \"GODLY COMBOS\" TAB ENTIRELY. Owner: \"I already told you to remove the godly combos because [Voltkin] is no more godly as anything else. It's just a tower now and structure ... So, yeah, remove the whole godly combos.\" AND: \"no [NONET] be anywhere in the codex. Easter egg\" - he talked himself from \"keep the one-trial card\" to removing it outright: \"You can just go straight into [NONET]. It already explains it within [NONET], so you don't need to re-explain it.\" SITES: TabKey union + TABS table (codexOverlay.ts:97-100), the godly field + ctor arg + buildSpriteGrid arm (:106,:113,:126,:264), open(tab: TabKey = \"godly\") default (:249), nonetEntry() (:85-96) deleted, and the main.ts callers. (b) \"TOWERS & STRUCTURES\" MUST SCROLL. Owner: \"it's not scrollable. I can't scroll down and keep seeing all the towers, which is bad.\" CONFIRMED by his screenshot - the SOULEATER / ??? / KRAKEN / PHARAOH row is clipped mid-card at the viewport bottom. COMBOS is fine and he said so (\"Combos, they're all fine. You can see all of them\"), so this is the towers grid only. (c) COMBO CARDS GET A HOVER/CLICK PREVIEW OF THE ACTUAL CONNECTOR. Owner: \"you're showing what shapes you need to make this vortex, but they don't show what this vortex IS, how it looks ... they all look unique, and they have little graphics and little mechanics. Like the vortex, I think, spins, or a warped anchor is like a spiral that's moving and spiraling around. So maybe make those clickable. So when you mouse over each of those combos, you can see how it would look. Just the connector itself. You get, like, a little example.\" He estimates \"It shouldn't be too hard to do\" - to be measured, not assumed.",
+      "title": "Warlord RAGE: washed-red tint + animation speed-up + the missing integration test",
       "status": "in_progress",
       "check_completed": false,
       "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
       "check_method": null,
       "real_context_tokens_at_close": null,
       "verification": [],
-      "delegated_to": "agent:codex"
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2",
+      "title": "Pack the direwolf atlas ($0) and re-point the renderer off the goblin-hound sheet",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "title": "Codex: sort by connector count (R175-A) + the owed discovery-removal tests",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
       "id": "P6",
-      "title": "SCOPE AMENDMENT 3 (owner, mid-session) - THE NONET MUSIC IS GONE. A REGRESSION. Owner: \"I just played NoNet and you have removed the music. Why? Bring it back. It was sick freaking music for NONET.\" ***HE HAS REPORTED THIS BEFORE*** - main.ts:3557 carries an S149 P6 comment quoting him: \"for NONET in arcade you left the music out. bring the music back that we have applied to the NONET it was awesome.\" SECOND RECURRENCE, so the fix owes a GUARD, not just a re-wire. ESTABLISHED AT DISPATCH: the asset still exists (public/audio/nonet-theme.ogg), the machine still exists (audioManager.ts NONET_THEME_URL ~584, getNonetBuffer ~590, enterNonetRealm ~618, exitNonetRealm ~640), and the main.ts edge wiring LOOKS correct and covers both the arcade puzzle and the in-match trial (nonetActiveNow = world.sudoku !== null || arcadeNonet !== null). So the break is downstream. Leading hypothesis handed to the agent: the ogg may not be TRACKED/SERVED in the deployed build - a silent live failure, since the only failure path is a console.warn nobody sees. Other hypotheses: an S165 settings toggle gating the music bus; HELGA/race music taking the bus; enterNonetRealm returning early and silently when musicGainNode is null.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "delegated_to": "agent:nonet-music",
-      "check_method": null,
-      "real_context_tokens_at_close": null,
-      "verification": []
-    },
-    {
-      "id": "P7",
-      "title": "NONET STAGES - DESIGN NOTE ONLY THIS SESSION, NO CODE. Owner: \"we already discussed it before, but there should be STAGES. Right? Like, you have to beat like ten stages, and then you get to a harder level of sudoku. We're gonna have to build it in parallel with spark.\" Deliverable is .claude/plans/S173_NONET_STAGES.md: his words verbatim, what the CURRENT difficulty model is (if difficulty is even a parameter today), what a 10-stage ladder would touch, and what is synced/hashed - NONET state crosses the wire, so a difficulty field may cost a PROTOCOL_VERSION bump (currently 46). Open questions flagged for him, not answered.",
-      "status": "in_progress",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "delegated_to": "agent:nonet-music",
-      "check_method": null,
-      "real_context_tokens_at_close": null,
-      "verification": []
-    },
-    {
-      "id": "B3",
-      "title": "PLAYTEST B3 - BUILDINGS ARE GREEN, CREATURES RED, AND THE CASTLE STOPS HIDING. DONE this session, commit 87c2259. Owner: \"the Castle HP shows a green HP bar, but only once it's attacked. All the other buildings still don't have HP bars ... a green one, exactly the same. While spawn and creatures have the red HP bars.\" TWO halves: (1) P1 shipped tower bars EARLIER THIS SESSION in red - right bar, wrong colour - now on the castle's own green/amber/red ramp, because \"exactly the same\" taken literally means the ramp, not a flat green; (2) drawKeep's `if (hpFrac < 1)` hide-while-full gate is GONE. That gate was fault 1, the same defect he rejected for creatures in S171, and healthBar.ts had carried the line \"the castle bar still carries fault 1 - noted, not touched here\" ever since. RECORDING A DEFECT IS NOT FIXING IT.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "87c2259",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "BUILDINGS GREEN, CREATURES RED, AND THE CASTLE STOPS HIDING (owner, live playtest). TWO halves. (1) COLOUR IS A READING: P1 shipped tower bars EARLIER THIS SESSION in FILL_TINT (red) - the right bar in the wrong colour, which is why he said the buildings still had no bars. buildingTint() is the castle drawKeep ramp verbatim (0x6ee07a / 0xffc14d / 0xff4d4d); \"exactly the same\" is taken literally rather than as a flat green, because a tower matching only the healthy colour would diverge from the castle the moment either took damage. drawBar gained an optional fillTint defaulting to the creature red, so creatures are byte-identical. (2) THE HIDE-WHILE-FULL GATE IS GONE: drawKeep wrapped its bar in , which is fault 1 - the same hide-while-undamaged behaviour he rejected for creatures in S171 - and healthBar.ts had carried the line \"the castle bar still carries fault 1 - noted, not touched here\" ever since. That stale line is replaced by a record of the fix. GATES from a captured $?: typecheck 0, healthBar + gathererRenderer 33/33. NOT machine-verified: the COLOUR itself draws in the Pixi path, so it wants his eye.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "function buildingTint"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "buildingTint(current / max)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "0x6ee07a"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "if (hpFrac < 1) {"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/healthBar.ts",
-          "needle": "still carries fault 1 — noted, not touched here"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/healthBar.ts",
-          "pattern": "fillTint",
-          "op": ">=",
-          "value": 2
-        }
-      ]
-    },
-    {
-      "id": "B5",
-      "title": "PLAYTEST B5 - ORCS, AFTER WAVE 3, THE CASTLE SPAWNS GOBLIN MELEES. A regression with an exact repro that makes race identity vanish mid-match. Delegated.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "e19a002",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "delegated_to": "agent:orcs-wave3",
-      "check_method": "B5 - \"ORCS SPAWN GOBLIN MELEES AFTER WAVE 3\". ⛔ THE PREMISE IN MY OWN BRIEF WAS WRONG AND THE AGENT REFUTED IT BEFORE BUILDING ANYTHING. I briefed a wave-indexed ladder falling through to a default creature type. There is no such ladder: world.waveNumber has exactly ONE functional consumer in the tree, waveSpawnMultiplier (constants.ts:1355), read once in physicsLoop.ts:101 to scale the SHAPE-ARRIVAL RATE. Nothing maps wave to creature type. The castle arm hard-codes the literal `creatureType: raceUnit` (raceUnitEmit.ts:231), and driving the REAL runHostTick wave loop as orcs through wave 5 emits raceUnit at every wave. The only production path to a goblinMelee at all is GOBLIN_FEED_MAP[Triangle] (goblinKinds.ts:62), reachable only by a player feeding a GOBLIN TOWER a Triangle - no castle can reach it. THE REAL CAUSE IS A RENDERER FALL-THROUGH, NOT A SIM BUG: `direwolf` sits in GOBLIN_KINDS with NO ATLASES entry, so goblinRenderer.sync takes the `atlas === undefined` arm and calls drawGoblin - the pre-veo green humanoid puppet with a cleaver. Every detail of his report lands on it: ORC-EXCLUSIVE (only the Warlord summons direwolves), \"after wave three\" (a nine-ring boss tower becomes affordable about then - timing, not an index), \"the castle starts spawning\" (the wolves spawn AT THE BOSS, released at its own tower in the player's own zone, i.e. beside his keep, three at a time up to DIREWOLF_MAX_PER_OWNER = 6), and \"taking us back thirty sessions, the little tiny green\" - literally the procedural puppet. ⛔ AND THE EXEMPTION HAD BEEN WRITTEN DOWN AND DEFENDED: S168 noted at the constant \"It has NO ATLAS yet, deliberately... the wolf is visible and readable until the art lands\", while the coverage test one paragraph later states the opposite principle correctly for the locust cloud (\"satisfying it with the wrong drawing would be gaming it\"). Both stale comments corrected at the site. THE SAME SHAPE AS B3 THIS SESSION: a defect recorded in prose is not a defect fixed. THE FIX, and the all-races half: ATLASES.direwolf now points at the shipped four-legged hound sheet, AND a new gate makes \"in GOBLIN_KINDS implies real art\" a TEST, so the next artless type cannot silently inherit the humanoid puppet the way this one did. Written failing first: expected [direwolf] to deeply equal [], exit 1 before the fix. NO sim change, NO wire change, NO protocol bump - the dispatched creature type is untouched. GATES from a captured exit code: typecheck 0, vitest 0 at 4395 tests / 276 files. ⚠ TWO HONEST CAVEATS, BOTH THE AGENT'S OWN: (1) it could NOT observe the live game - the attribution is exhaustive elimination of every production SPAWN_CREATURE site plus an exact match on race, colour, count, cadence, location and timing, NOT a sighting. Owner confirmation that he had a Warlord out would close it. (2) The hound sheet is the AGENT'S choice, not his: a direwolf and a goblin hound now share a look until real direwolf art lands, flagged at the site as the one path to swap. ⚠ RESIDUAL, AND IT IS NOT A BUG: an OPPONENT feeding a goblin tower Triangles would put real, enemy-tinted goblinMelee units at his walls. If the green goblins he saw carried the enemy seat colour, that is intended play.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "direwolf: '/godly/goblin-hound/anim/goblin-hound'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/raceUnitEmit.test.ts",
-          "needle": "S173 B5"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRendererLazyAtlas.test.ts",
-          "needle": "GOBLIN_KINDS"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/goblinRendererLazyAtlas.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 5
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/raceUnitEmit.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 5
-        }
-      ]
-    },
-    {
-      "id": "B6+B2",
-      "title": "PLAYTEST B6 (laser tower fires 2x faster - an owner RULING with a number) and B2 (\"up to six\" players is a lie, the game seats four; six RACES is true and must be kept). Delegated as one small pair.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "b6a9a93+ce60f87",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "delegated_to": "agent:laser-and-seatcount",
-      "check_method": "B6 LASER TURRET 2x, and B2 THE SEAT-COUNT LIE. B6: the cadence is NOT one number - the FSM is IDLE->WINDUP->FIRE->RECOVER and nextFireTick is re-armed at the RECOVER->IDLE edge, so the true period is fireInterval + windup + FIRE hold + RECOVER. TURRET_FIRE_INTERVAL_TICKS 900->450 (96% of the cycle) and TURRET_WINDUP_TICKS 9->5 (rounded UP so the pre-beam tell survives). Measured 933->479 ticks = 1.95x, NOT a clean 2.00x, and the shortfall is deliberate: DEFENDER_FIRE_HOLD_TICKS and DEFENDER_RECOVER_TICKS are SHARED with Helga and the stink tower, and the FIRE hold is load-bearing at 12 (held >=2 snapshot intervals, or a 10 Hz peer never observes FIRE and the beam never draws). In the unit he actually feels it IS exactly double: beams inside one 2700-tick FIGHT go 3 -> 6. A PRE-EXISTING PROSE DRIFT was found and fixed in passing: an S157 note claimed FOUR shots while the assertion beneath it said three - it counted the interval and forgot the phases. TRIPWIRE CHECKED AND NOT AFFECTED: statsLadder's \"one basic goblin can kill any unit inside a FIGHT phase\" iterates the CREATURE roster, never defenders. No protocol bump - a balance constant is not a wire shape. B2: the real maximum established FROM CODE, not memory - MAX_PLAYERS = 4 (owner R41) and MAX_BOTS = MAX_PLAYERS - 1 = 3; the board agrees because QUADRANTS_4P has exactly four zones, so at six seats zoneOwner has no answer for seats 4 and 5. Two player-facing lies in titleScreen.ts, both stale since S147, both now INTERPOLATED from the constants rather than rewritten as literal 4s (following R42's own ruling for the lobby line) so they cannot drift again. The worse half was \"1-6 AI sparks\", which plus the human promises SEVEN seats - the exact configuration R45 retired the silver colour to make impossible. SIX RACES KEPT: PLAYER_COLORS stays at six (R45: \"its ok to have 6 colors with only 4 players max\"). README, lobbyStateMachine and botSetupOverlay swept and found already correct. GATES from a captured exit code: typecheck 0, vitest 0 at 4368 tests / 276 files, both items. OWED, NOT DONE: lobbyScreen.ts:398 still says \"match up to 6 strangers\" in a COMMENT (no user-visible string). The agent patched it, discovered the file had acquired the B1 agent's in-flight untracked work, and REVERSE-APPLIED ITS OWN EDIT BY HAND rather than git checkout - which would have destroyed that work and flipped line endings. Correct call; the line is still owed.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "TURRET_FIRE_INTERVAL_TICKS = 450"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "TURRET_FIRE_INTERVAL_TICKS = 900"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "TURRET_WINDUP_TICKS = 5"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/titleScreen.ts",
-          "needle": "2–${MAX_PLAYERS} sparks"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/titleScreen.ts",
-          "needle": "1–${MAX_BOTS} AI sparks"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/strikeOrderAndRecall.test.ts",
-          "needle": "479"
-        }
-      ]
-    },
-    {
-      "id": "B1",
-      "title": "PLAYTEST B1 - THE MULTIPLAYER LOBBY SHOWS ONLY PLAYER ONE'S BACKDROP. Must partition by occupied seat count the way the board already does: 2 players = halves, 3-4 = quadrants, each region showing that seat's chosen race backdrop. The twelve per-race backdrops already shipped in S165, so this is COMPOSITION, not art. Delegated.",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "ecc7b04+31aa4dd",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "delegated_to": "agent:lobby-backdrop",
-      "check_method": "THE LOBBY SPLITS BY SEAT. Owner: \"the multiplayer lobby only shows player one background ... however many people are in the lobby has to split the background into the zones or quadrants just like the game has.\" THE CAUSE WAS NOT A MISSING FEATURE: ZoneBackgroundRenderer.sync early-returns on TITLE and nothing else, so in LOBBY it ran its ordinary loop over world.players - which in the lobby holds EXACTLY ONE entry (world.ts:474 seats P1; peers are not seated until Begin mints the dense roster). On the default PITCH_2P board that one seat owns zone 0 = the left half. \"Only player one's background\", with the right half black. THE WRONG ROSTER WAS BEING ASKED. The board's own mapping is REUSED, not re-derived: layoutForSeatCount -> zoneOwner -> zoneRect, the same three calls the board renderer makes. One genuine subtlety reported: it is the DENSE seat, not the rack seat - lobby seats may hold a hole and buildMatchRoster compacts at Begin, so the i-th occupied seat gets board seat i's region and a player warms up on the half he will actually play on. THREE DEFAULTS, each documented at its site: un-picked race resolves to the race the seat will actually play (there is no unpicked state to render) with a fail-closed black arm; the empty quadrant at 3 players is cosmos black, matching the board (R2: no 3-player map); a 1-seat lobby takes the whole canvas, the one deliberate divergence and from nothing real, since a one-seat lobby can never become a match. ⭐ VERIFIED IN THE RUNNING APP, not just by test - and the walkthrough found a SECOND leak the tests could not see: the SELECT screen showed the same half-and-half because with no roster there were no regions, the layer hid itself, and the board renderer got the screen back. Fixed in a second commit; the backing is the lobby's floor and is never hidden. It also landed the one line B2 could not stage (lobbyScreen.ts \"up to 6 strangers\", comment-only) and said so in its commit. GATES from a captured exit code: typecheck 0, vitest 0 at 4395 tests / 276 files. 23 new tests.",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyBackdrop.ts",
-          "needle": "export function lobbyBackdropRegions"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyScreen.ts",
-          "needle": "lobbyBackdrop"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/lobbyScreen.ts",
-          "needle": "'match up to 6 strangers'"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/lobbyBackdrop.test.ts",
-          "pattern": "^\\s*it\\(",
-          "op": ">=",
-          "value": 12
-        }
-      ]
-    },
-    {
-      "id": "B7+B8",
-      "title": "PLAYTEST B7 + B8 - DAMAGE NUMBERS MUST STACK, AND POWERS MUST SHOW THEM. ⛔ DELIBERATELY NOT DELEGATED - RECORDED AS BIGGER, per the owner's own instruction (\"anything that sounds bigger, just record and log for later\"). B7: \"it should be stackable ... any new damage hitting the same target should just layer above. Like, boom boom boom boom ... as many damages as the unit receives.\" B8: \"powers don't show damage, but they should - the red with the white outline font, on powers as well, not just on spawn.\" ⛔ WHY THIS IS NOT A SMALL FIX: S172 derives damage numbers from ehp DELTAS between observations, precisely BECAUSE a one-shot world.effects push is lost ~5/6 of the time on a peer (S171 research). Six simultaneous attackers therefore coalesce into ONE number BY CONSTRUCTION - exactly what he is describing. Making them stack means either per-hit events (the thing that design rejected) or rendering one observed delta as a layered column. AND B8 is the same file's known coverage hole: the design \"covers 3 of damageEntity's 5 arms - bonds and primitives are skipped\". READ .claude/plans/S171_HUD_RESEARCH.md §2 BEFORE PROMISING THE MAPLESTORY LOOK.",
+      "title": "Connector hiding under live towers (renderer-only), incl. defenders per R175-B",
       "status": "pending",
       "check_completed": false,
       "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
-      "id": "B4",
-      "title": "PLAYTEST B4 - THE SCARAB: white fringe AND a ~2x inflated attack row. ⛔ RECORDED, NOT DELEGATED, BECAUSE CODE CANNOT FIX IT. This session measured both defects and proved the scarab is the ONE atlas a repack cannot repair: its PNG POSTDATES the S171 packer fix (10:41 vs 10:39 on 2026-09-10) and still fails, and normaliseStateScale equalises HEIGHT only (_subject_h), so a WIDTH divergence survives it. check:atlas also reports the largest near-white pocket of any unit atlas (47 px) on this asset. HIS OWN CONCLUSION IS CORRECT: \"we'll probably have to regenerate it if you can't make it right.\" The clip needs regenerating - an art action, and he runs the generators.",
+      "id": "P4a",
+      "title": "The Voltkin TV becomes a real structure entity with damage states",
       "status": "pending",
       "check_completed": false,
       "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
-      "id": "B9",
-      "title": "PLAYTEST B9 - VOLTKIN REWORK. Deferred BY HIM: \"obviously rework Volt because he looks like shit, but we have that on priority down the line.\" Consistent with the standing note: new art supplied, no death animation, no build cinematic.",
+      "id": "P4b",
+      "title": "Voltkin's in-game emergence + DROP THE CUTSCENE (folds in old P3)",
       "status": "pending",
       "check_completed": false,
       "checkpoint_commit": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": []
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "scope_amendments_s172": [
@@ -1996,5 +1622,20 @@
   ],
   "parallel_execution_s173": [
     "OWNER DIRECTED PARALLEL EXECUTION: \"send out, like, two agents to do some other priorities ... one agent to do that [the tower shape shortfall]. NoNet, so the Sudoku, another agent to make sure the music is back, and another agent to do the codex. So three agents while you're working on priority one.\" AND: \"we might hit limit ... so make sure to save every step ... even if we do hit limit ... you'll be able to continue exactly where we left off without losing any progress.\" => COMMIT AFTER EVERY GREEN STEP is an explicit owner instruction this session, and it coincides with the standing CLAUDE.md rule that protection against a full window is COMMIT FREQUENCY, not stopping early. DISPATCHED AS THREE SEPARATE Agent INVOCATIONS, deliberately NOT one workflow: the A.0 sweep earlier this session lost 6 of 8 agents to a single org spend-limit hit because all six lanes rode one invocation - the S161 failure the project CLAUDE.md warns about. Separate invocations mean a limit costs one lane. FILE OWNERSHIP, to keep three agents off each other: P4 agent owns castlePanel.ts; P6 agent owns audioManager.ts; P5 agent owns codexOverlay/codexPresentation/codexStore/comboCodexStore AND main.ts; I own healthBar.ts. P1 turned out to need NO main.ts change, which is what freed that file for the codex agent. The P4 and P6 agents were told to REPORT any main.ts edit they need rather than making it."
+  ],
+  "owner_rulings_s175": {
+    "R175-A_codex_tier": "Tier = CONNECTOR COUNT. Sort ascending. If a tower lands in a surprising tier, the GAME's tier is wrong and should be moved - do not pin by hand.",
+    "R175-B_connector_hiding_scope": "Includes defenders (turret, Helga, stink tower) and pentagram, NOT only race towers. Boss towers excluded - 'they get destroyed the minute the fight starts'. General towers have no art yet; focus on the race ones we have.",
+    "R175-C_direwolf_die": "Use the purpose-drawn direwolf-dead.png still. Not the motionless-corpse clip window.",
+    "R175-D_veo_rate": "~$25 for 8 clips = ~$3.10/clip. The documented $0.50 is wrong by ~5x. Record the real figure.",
+    "R175-E_rage_reads_faster": "The Warlord must LOOK like he attacks 2x faster - the animation frame advance scales with rage, not just the cadence.",
+    "R175-F_cutscene_sequencing": "The cutscene is dropped WHEN the in-game TV emergence replaces it, not before. P3 folds into P4.",
+    "R175-G_voltkin_tower": "'for now it's just fucking connectors of four squares and four triangles. It looks stupid.' The TV must become a real tower with a build/emerge/damage/destroy loop."
+  },
+  "carry_forward_s175": [
+    "P7 THE ATLAS DEBT - NOT APPROVED, owner needs a plain-language explanation first.",
+    "R173-B, B7+B8 damage numbers, Pharaoh stances+Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
+    "General/goblin tower art: owner will generate; then damage+destroyed states and the build/destroy loop.",
+    "Voltkin attack+die clips remain UNPACKED - not re-rolled, per the cost ruling."
   ]
 }
