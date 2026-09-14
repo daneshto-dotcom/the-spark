@@ -3,7 +3,7 @@ Generated: 2026-09-14 | Session: S177 | LIVE + verified 4/4
 
 ## Next Steps
 
-1. **HE IS TESTING S177.** Nine priorities shipped; take his verdict before picking anything new.
+1. **HE IS TESTING S177.** Ten priorities shipped; take his verdict before picking anything new.
    Most likely flags, in order:
    - **the numbers on a tower** — the point of the session. A goblin must print the same number on a
      tower that it prints on a goblin. Never 167.
@@ -13,9 +13,9 @@ Generated: 2026-09-14 | Session: S177 | LIVE + verified 4/4
      discharge-and-settle; no creature climbs out of it (the engine draws the real Voltkin over it).
    - **the gait** (`WALK_PX_PER_FRAME = 56`, his x4) - **Helga x2.89** - the laser's THIRD halving -
      60 s fights - win at 2500.
-2. **TWO THINGS HE RAISED AND HAS NOT RULED ON:**
-   - **the Voltkin's DIE is a STILL, not a video** (`voltkin-dead-matted.png` x 20). That is why he
-     said *"it was too quick."* Per his own creature pipeline it should be a clip — ~$3.10, one command.
+2. **ONE THING HE RAISED AND HAS NOT RULED ON:**
+   - **the Voltkin's DEATH is now a clip** (done, P10). Verdict wanted: it starts at the STAGGER, not
+     at the strike flash — frames 8-16 touch the frame edge and are excluded from the packed window.
    - **creature "damaged/hurt" does not exist at all.** `CreatureState` is
      SPAWNING|SEEKING|ATTACKING|DESPAWNING. He asked whether it was implemented; it is not.
 3. **ONE OPEN RULING, recorded at the code:** should a wind-up SURVIVE a target stepping briefly out

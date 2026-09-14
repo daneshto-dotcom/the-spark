@@ -18,6 +18,8 @@
 
 - SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass.
 
+- P10 #the-constraint-that-forbade-the-obvious-fix: the die clip blew the 8192 texture ceiling and dropping one frame was the obvious answer - until a test showed attack.frames x ticksPerFrame must EQUAL the attack cadence, so 20 x 3 is forced and the cell is capped at 409 instead. The fix had to move to the ART (land compact), not the frame count. Two constraints crossing is where a cheap fix usually hides a real one.
+
 ## S176 (2026-09-14) - two priorities, $0.00 of art: the Voltkin finally drawn from a sheet instead of a procedural puppet under two stills, at 20 frames a state (his ruling, the 12-frame dial closed upwards), and his TV given the emergence and destruction SEQUENCES it never had. Every A.0 agent died to the spend limit and every finding came from a hand-run. Also found: a CI failure four commits old that the previous handoff called green.
 
 - P0 #the-hunt-returned-nothing-and-the-rule-held: all FOUR Phase A.0 workflow lanes died to the org monthly spend limit, returning zero findings - the exact S161 failure this project's CLAUDE.md was written about, and the third session in a row to meet it. The difference this time is that the lanes were re-run BY HAND rather than filed as 'the sweep produced nothing'. Every load-bearing fact in the PDR came from those hand-runs; the agents contributed nothing. Delegated investigation is a speed-up, never the deliverable.

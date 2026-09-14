@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 836,
+  "tool_calls_session_total": 844,
   "session_id": "S177",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/S176_BATCH_PDR.md",
-  "session_status": "S177 IN-PROGRESS \u2014 9 priorities, closing with /handoff",
+  "session_status": "S177 IN-PROGRESS \u2014 10 priorities, closing with /handoff",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -370,6 +370,41 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
+    },
+    {
+      "id": "P10",
+      "name": "P10 \u2014 the Voltkin dies: die becomes a real clip",
+      "status": "completed",
+      "checkpoint_commit": "b2a04ad",
+      "check_completed": true,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_method": "`die` was a STILL replicated 20x - his \"it was too quick\". Now a 20-frame clip: struck, stagger, collapse, resting on the dead pose he drew. The inherited S173 die.mp4 cost $0 (--skip-existing) and measured 71/96 edge-touching, which is why S173 used a still. Two paid rolls, each on a measured cause: arcs reaching the edge (normaliseStateScale measures frame 0, so no clean window STARTED standing), then a sprawled corpse widening the shared bbox past the 8192 texture ceiling - and 19 frames is unavailable because attack.frames x ticksPerFrame must equal VOLTKIN_ATTACK_CADENCE_TICKS (60). Final: cell 358, sheet 7160, 20 frames, 8/96 bad frames all outside the sampleStart-21 window. BASE_SCALE 0.17 -> 0.182 measured on the yellow body only. Verified: typecheck 0, vitest 4513/4513, check:atlas 0, build 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
+          "needle": "clips/voltkin/die.mp4"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
+          "needle": "\"sampleStart\": 21"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "const VOLTKIN_SPRITE_BASE_SCALE = 0.182;"
+        },
+        {
+          "type": "grep_count",
+          "path": "public/godly/voltkin/anim/voltkin-anim.json",
+          "pattern": "\"frames\":\\s*20",
+          "op": ">=",
+          "value": 4
+        }
+      ]
     }
   ],
   "verification": [],
@@ -382,7 +417,8 @@
     "P3 #the-change-that-could-not-possibly-do-anything: setting lifetimeTicks on a config whose persistent:true overrides it. Caught only by reading the factory it came from. Same shape as S153 P1.",
     "SESSION #a-test-can-go-green-for-the-wrong-reason: pinnedDeadStats pins SOURCE TEXT, and stayed green because my own new comment happened to contain the retired symbol name it was looking for.",
     "SESSION #an-authorisation-against-a-wrong-price-is-not-an-authorisation: he approved a clip at the ~$3 I quoted; the protocol records HIS measurement of ~$20. Re-ask rather than spend 7x.",
-    "SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass."
+    "SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass.",
+    "P10 #the-constraint-that-forbade-the-obvious-fix: the die clip blew the 8192 texture ceiling, and dropping one frame was the obvious answer - until a test showed attack.frames x ticksPerFrame must EQUAL the attack cadence, so 20 x 3 is forced and the cell is capped at 409 instead. The fix had to move to the ART (land compact), not the frame count. Two constraints crossing is where a cheap fix usually hides a real one."
   ],
   "real_context_tokens_at_close": null,
   "carry_forwards_spawned_in_s176": [
