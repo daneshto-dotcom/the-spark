@@ -357,6 +357,56 @@ export function isWithinAttackRange(world: World, creature: Creature, bondId: Bo
 }
 
 /**
+ * ⭐⭐⭐ S177 P9 (owner) — **NOTHING SWINGS AT NOTHING. THE RULE, IN ONE PLACE.**
+ *
+ * Owner, after being shown that an army stood in a stink cloud swinging at a bag it could not reach:
+ * *"They shouldn't swing at nothing. Enemies should swing at each other or at buildings or at
+ * anything only when they reach it. And they have acquired the target. Like, you're targeting.
+ * You're like, oh, okay. I'm attacking this thing, and that's it. I'm in range. I stop. I'm ready for
+ * my attack. There shouldn't be pretending to attack and not hitting anything. That's just
+ * ridiculous."*
+ *
+ * ⛔ THE BAG WAS ONE INSTANCE OF A GENERAL DEFECT, AND THE GENERAL CASE IS WORSE. Of the six
+ * predicates that decide whether a committed attacker stays in ATTACKING, THREE tested only that the
+ * target still EXISTS — `world.bonds.has(id)`, `world.creatures.has(id)`, `world.primitives.has(id)`
+ * — with no notion of distance at all. That produced both halves of what he is ruling out:
+ *
+ *   · **swinging at nothing** — a creature committed to a SHAPE that drifted out of reach stayed
+ *     ATTACKING (the shape still exists), while the strike arm re-checked range and silently
+ *     `return`ed. Full animation, full cadence, zero damage, forever.
+ *   · **hitting what it has not reached** — the CREATURE and BOND strike arms had no range gate at
+ *     all, so a committed attacker landed blows from any distance whatsoever.
+ *
+ * These two helpers are the missing half. They are deliberately the SAME functions the strike arms
+ * use, because the defect is not that either predicate was wrong — it is that there were TWO of them
+ * and they disagreed. `creatureLifecycle`'s own note already states the principle this restores:
+ * *"every one of these predicates is the SAME function the engage clause uses — not a
+ * re-implementation."*
+ *
+ * ⚠ `attackRange`, NOT `engageRange`. A `holdsRange` unit engages at 0.9× and strikes at 1.0×, so
+ * gating validity on the engage distance would invalidate an archer that is perfectly able to fire.
+ * The predicate that matters is the one the STRIKE uses.
+ */
+export function isWithinAttackRangeOfCreature(
+  world: World, creature: Creature, targetId: CreatureId,
+): boolean {
+  const victim = world.creatures.get(targetId);
+  if (victim === undefined) return false;
+  const range = getCreatureConfig(creature.type).attackRange;
+  return distSq(creature.pos, victim.pos) <= range * range;
+}
+
+/** The shape half of the rule above. See `isWithinAttackRangeOfCreature`. */
+export function isWithinAttackRangeOfPrimitive(
+  world: World, creature: Creature, primId: PrimitiveId,
+): boolean {
+  const prim = world.primitives.get(primId);
+  if (prim === undefined) return false;
+  const range = getCreatureConfig(creature.type).attackRange;
+  return distSq(creature.pos, prim.pos) <= range * range;
+}
+
+/**
  * S103 #8 — the GENERIC nearest-enemy-creature scan, the inverse of `findNearestBondTarget`
  * for the creature population. Returns the `CreatureId` of the nearest LIVE creature owned by
  * a DIFFERENT player than `ownerPlayerId`, within `maxRangeSq` (squared px) of `fromPos`, or

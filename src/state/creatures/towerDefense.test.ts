@@ -207,7 +207,7 @@ describe('Chew loop — 5 hits sever exactly on the 5th; no re-seek mid-chew', (
    * complexity. The commitment behaviour (no re-seek mid-gnaw) is unchanged and still pinned below.
    */
   it('⭐ gnaws on the cadence until the CONNECTOR gives way — bites scale with complexity', () => {
-    spawnChewer(world, { x: 0, y: 0 }, 0);
+    spawnChewer(world, { x: 40, y: 0 }, 0); // ⭐ S177 P9 — was (0,0): 50 px from the bond midpoint (50,0), chewer reach 35
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
     c.state = 'ATTACKING';
@@ -245,7 +245,7 @@ describe('Chew loop — 5 hits sever exactly on the 5th; no re-seek mid-chew', (
   });
 
   it('does not re-seek (chewProgress stays committed) — releases only when the bond vanishes', () => {
-    spawnChewer(world, { x: 0, y: 0 }, 0);
+    spawnChewer(world, { x: 40, y: 0 }, 0); // ⭐ S177 P9 — was (0,0): 50 px from the bond midpoint (50,0), chewer reach 35
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
     c.state = 'ATTACKING';
@@ -330,7 +330,7 @@ describe('Caps — the sentinel backstop; independent populations', () => {
    * counting, and a trap for whoever next builds a movement assertion on this helper.
    */
   function fillChewers(world: World, n: number, spreadSpawners = true): void {
-    spawnChewer(world, { x: 0, y: 0 }, 0);
+    spawnChewer(world, { x: 40, y: 0 }, 0); // ⭐ S177 P9 — was (0,0): 50 px from the bond midpoint (50,0), chewer reach 35
     const seed = [...world.creatures.values()].at(-1);
     expect(seed, 'the seed spawn must land, or every clone below is vacuous').toBeDefined();
     for (let i = world.creatures.size; i < n; i++) {

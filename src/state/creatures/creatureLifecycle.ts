@@ -41,7 +41,7 @@ import {
   isChannellingRa,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, killableDefenderInReach } from './creatureAI.ts';
+import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -983,9 +983,20 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     // that entered ATTACKING for a creature-only target (no bond in range) must NOT bounce out
     // before its FIRE_TICK. When no enemy creatures exist `targetCreatureId` is null →
     // `creatureValid` is always false → this reduces to the original bond-only condition (MF4).
-    const bondValid = creature.targetBondId !== null && world.bonds.has(creature.targetBondId);
+    /*
+     * ⭐⭐ S177 P9 (owner) — **ALL SIX PREDICATES ARE NOW REACH PREDICATES.** Three of them tested
+     * only that the target still EXISTED, which is how a creature came to stand in place swinging at
+     * a shape it could not touch: *"There shouldn't be pretending to attack and not hitting
+     * anything."* Each one below is the SAME function its strike arm uses — the rule this block's
+     * own note states, finally true of every arm rather than of three of them.
+     */
+    const bondValid = creature.targetBondId !== null
+      && world.bonds.has(creature.targetBondId)
+      && isWithinAttackRange(world, creature, creature.targetBondId);
     const creatureValid =
-      creature.targetCreatureId !== null && world.creatures.has(creature.targetCreatureId);
+      creature.targetCreatureId !== null
+      && world.creatures.has(creature.targetCreatureId)
+      && isWithinAttackRangeOfCreature(world, creature, creature.targetCreatureId);
     // ⭐ S139 P2 — THE THIRD ARM, and the whole reason a real-physics test was mandatory.
     //
     // This is the same amendment S103 #8 made one line above for creature targets, applied to shapes.
@@ -996,6 +1007,24 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     // ATTACKING at tick 112 and `ticksInState` was still being reset to 0 at tick 320, with the
     // target shape at full hp the whole time. It closed distance, played the approach, and did
     // literally nothing — the exact "static-parses but never fires" shape as P1's dead dispatcher.
+    /*
+     * ⚠ S177 P9 — THE SHAPE PREDICATE STAYS EXISTENCE-ONLY, AND THE REASON IS MEASURED, NOT ASSUMED.
+     *
+     * Making this reach-aware like its five siblings is the obvious completion of the owner's rule,
+     * and it was built and then REVERTED on evidence. A probe of the real host tick showed why: a
+     * melee unit is frozen while ATTACKING (`creatureVerlet` returns ZERO_ACCEL unless `holdsRange`),
+     * and HELGA WALKS. She stepped out of a goblin's 35 px reach on tick 34 with him standing still,
+     * every other predicate went false with her, and the wind-up was reset before it could ever reach
+     * `attackFireTick` — so a melee unit could never land a blow on any MOVING defender again.
+     *
+     * That is a balance change nobody asked for, so the mime is killed at its SOURCE instead: the
+     * shape strike arm now RELEASES its commitment when out of reach (see `creatureAttack.ts`), which
+     * drops the creature to SEEKING and walks it in. Same outcome he asked for — *"There shouldn't be
+     * pretending to attack and not hitting anything"* — without making Helga unkillable in melee.
+     *
+     * ⭐ OPEN FOR HIM: should a wind-up SURVIVE a target stepping briefly out of reach (hysteresis),
+     * or is losing it correct? That ruling decides whether this predicate can join the other five.
+     */
     const primitiveValid =
       creature.targetPrimitiveId !== null && world.primitives.has(creature.targetPrimitiveId);
     /*

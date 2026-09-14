@@ -38,7 +38,7 @@
 import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
-import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, killableDefenderInReach } from './creatureAI.ts';
+import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { GOBLIN_DAMAGE_VS_CASTLE } from '../../constants.ts';
@@ -150,6 +150,13 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   if (action.targetCreatureId !== undefined && action.targetCreatureId !== null) {
     const victim = world.creatures.get(action.targetCreatureId);
     if (victim === undefined) return world;
+    /*
+     * ⭐ S177 P9 (owner) — *"only when they reach it"*. This arm had NO range gate, so a committed
+     * attacker landed blows from any distance at all. The predicate is the same one
+     * `creatureLifecycle` now holds ATTACKING on, so a creature out of reach is dropped to SEEKING
+     * and walks in rather than striking from across the board — or miming a strike that does nothing.
+     */
+    if (!isWithinAttackRangeOfCreature(world, creature, action.targetCreatureId)) return world;
     /*
      * ⭐ S156 P4 (owner ruling) — A MUTUAL COLLISION IS DECIDED BY A ROLL, NOT BY WHO GOT THERE.
      *
@@ -313,8 +320,26 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     // Range re-check at STRIKE time, not just at engage time: the goblin may have been pushed off
     // by the physics solver during its windup, and a hit landing from out of range would read as a
     // shape taking damage from nothing.
+    /*
+     * ⭐⭐⭐ S177 P9 (owner) — **RELEASE THE COMMITMENT; DO NOT MIME THE SWING.**
+     *
+     * Owner: *"They shouldn't swing at nothing ... only when they reach it. And they have acquired
+     * the target ... I'm in range. I stop. I'm ready for my attack. There shouldn't be pretending to
+     * attack and not hitting anything. That's just ridiculous."*
+     *
+     * ⛔ THIS LINE USED TO `return` AND LEAVE THE COMMITMENT STANDING, which is precisely the mime he
+     * is describing. `creatureLifecycle`'s `primitiveValid` only asks whether the shape still EXISTS,
+     * so a creature whose target drifted out of reach stayed in ATTACKING for ever: full animation,
+     * full cadence, zero damage, and no path back to SEEKING because its commitment never lapsed.
+     *
+     * Dropping `targetPrimitiveId` ends it at the source. The creature falls out of ATTACKING on the
+     * next tick, re-seeks, and WALKS into range — which is the behaviour he asked for.
+     */
     const reach = attackerConfig.attackRange * attackerConfig.attackRange;
-    if (distSq(creature.pos, prim.pos) > reach) return world;
+    if (distSq(creature.pos, prim.pos) > reach) {
+      creature.targetPrimitiveId = null;
+      return world;
+    }
 
     /*
      * ⭐⭐⭐ S177 P1 (owner) — **THE ATTACKER'S OWN STATS, LIKE EVERY OTHER ARM IN THIS FUNCTION.**
@@ -437,6 +462,9 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // Damage POOLS on the bond, so several attackers now cooperate on one connector instead of each
   // starting from scratch — and a laser and a chewer can work on the same strut.
   const attacker = getCreatureConfig(creature.type);
+  // ⭐ S177 P9 (owner) — *"only when they reach it"*. Same gate, same predicate, same reason as the
+  // creature arm above: this one could also sever a connector from any distance whatsoever.
+  if (!isWithinAttackRange(world, creature, action.bondId)) return world;
   const broke = damageConnector(world, action.bondId, attackFifths(attacker.atk, attacker.pen));
 
   /*

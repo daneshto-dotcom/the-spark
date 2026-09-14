@@ -198,7 +198,7 @@ describe('S159 P2 — the chain WALKS: selection', () => {
 
   it('prefers a CREATURE over a BOND at the identical distance — one fixed order across kinds', () => {
     const w = baseWorld();
-    const v = voltkin(w, -200, 0);
+    const v = voltkin(w, -100, 0); // ⭐ S177 P9 — was -200: 240 px to the bond midpoint (40,0), Voltkin reach 180
     const seedUnit = chewer(w, 10, 0, 0);
     const unit = chewer(w, 11, 0, 60); // 60 px from the seed
     // An enemy bond whose MIDPOINT is also exactly 60 px from the seed, on the other side.
@@ -214,7 +214,7 @@ describe('S159 P2 — the chain WALKS: selection', () => {
 
   it('chains over CONNECTORS too, which is half of what the owner asked for', () => {
     const w = baseWorld();
-    const v = voltkin(w, -200, 0);
+    const v = voltkin(w, -100, 0); // ⭐ S177 P9 — was -200: 240 px to the bond midpoint (40,0), Voltkin reach 180
     // A ladder of enemy shapes: bonds 1..3, each midpoint 80 px from the next.
     const ps = [0, 1, 2, 3].map((i) => prim(1 + i, COLOR_P1, i * 80, 0));
     for (const p of ps) w.primitives.set(p.id, p);
@@ -229,7 +229,7 @@ describe('S159 P2 — the chain WALKS: selection', () => {
 
   it('reads enemy-ness off placerColor, not placedBy — the captured-shape case', () => {
     const w = baseWorld();
-    const v = voltkin(w, -200, 0);
+    const v = voltkin(w, -100, 0); // ⭐ S177 P9 — was -200: 240 px to the bond midpoint (40,0), Voltkin reach 180
     const seedUnit = chewer(w, 10, 0, 0);
     // A bond between two shapes the ENEMY placed, but whose `placedBy` is P0 — the shape of a
     // record after a capture, and the exact input that made the first cut of the scan skip it.
@@ -249,7 +249,7 @@ describe('S159 P2 — the chain WALKS: selection', () => {
 describe('S159 P2 — the chain FIRES: damage, arcs and who gets one', () => {
   it('severs the connectors it broke, and emits one ARC_FLASH per hop', () => {
     const w = baseWorld();
-    const v = voltkin(w, -200, 0);
+    const v = voltkin(w, -100, 0); // ⭐ S177 P9 — was -200: 240 px to the bond midpoint (40,0), Voltkin reach 180
     const ps = [0, 1, 2].map((i) => prim(1 + i, COLOR_P1, i * 80, 0));
     for (const p of ps) w.primitives.set(p.id, p);
     const b1 = bondBetween(w, 1, ps[0], ps[1]);
@@ -268,7 +268,7 @@ describe('S159 P2 — the chain FIRES: damage, arcs and who gets one', () => {
 
   it('fires even when the primary connector HELD — the bolt hit it either way', () => {
     const w = baseWorld();
-    const v = voltkin(w, -200, 0);
+    const v = voltkin(w, -100, 0); // ⭐ S177 P9 — was -200: 240 px to the bond midpoint (40,0), Voltkin reach 180
     const ps = [0, 1].map((i) => prim(1 + i, COLOR_P1, i * 80, 0));
     for (const p of ps) w.primitives.set(p.id, p);
     const b1 = bondBetween(w, 1, ps[0], ps[1]);

@@ -30,7 +30,7 @@ import { makeIdlePlayer } from '../../game/player.ts';
 import { makeWorld, type World } from '../world.ts';
 import { applyCreatureAttack } from './creatureAttack.ts';
 import { asCreatureId, makeCreature, makeVoltkinCreature, type Creature } from './creature.ts';
-import { CHEWER_CONFIG } from './voltkin-config.ts';
+import { CHEWER_CONFIG, getCreatureConfig } from './voltkin-config.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -167,7 +167,9 @@ describe('applyCreatureAttack — chewer gnaw vs Voltkin lightning (S102 #2)', (
     base.world.creatures.clear();
     const chewer = makeCreature(CHEWER_CONFIG, {
       id: asCreatureId(0), ownerPlayerId: P0,
-      pos: { x: 50, y: 30 }, targetPos: { x: 10, y: 0 },
+      // ⭐ S177 P9 — was (50,30): 50 px from the bond midpoint (10,0) with a 35 px chewer reach,
+      // i.e. biting from outside its own arm. The test is about the GNAW cause, not the distance.
+      pos: { x: 20, y: 0 }, targetPos: { x: 10, y: 0 },
       spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
     });
     chewer.state = 'ATTACKING';
@@ -192,6 +194,49 @@ describe('applyCreatureAttack — chewer gnaw vs Voltkin lightning (S102 #2)', (
     applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
     expect(world.effects.find((e) => e.kind === 'ARC_FLASH')).toBeUndefined();
   });
+
+  /**
+   * ⭐⭐⭐ S177 P9 (owner) — NOTHING SWINGS AT NOTHING.
+   *
+   * *"They shouldn't swing at nothing. Enemies should swing at each other or at buildings or at
+   * anything only when they reach it. And they have acquired the target ... I'm in range. I stop.
+   * I'm ready for my attack. There shouldn't be pretending to attack and not hitting anything."*
+   */
+  it('⛔ a chewer OUT of reach does not sever the connector it is committed to', () => {
+    const { world, creature, bondId } = setupChewer();
+    // Bond midpoint is (10,0); a chewer reaches 35. Put it well outside that.
+    creature.pos = { x: 400, y: 400 };
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
+    expect(world.bonds.has(bondId), 'a connector cannot be cut from across the board').toBe(true);
+    expect(world.effects.find((e) => e.kind === 'BOND_SEVERED')).toBeUndefined();
+  });
+
+  /**
+   * ⭐⭐ THE MIME, KILLED AT ITS SOURCE. `creatureLifecycle`'s `primitiveValid` asks only whether the
+   * shape still EXISTS, so before this a creature whose target drifted out of reach stayed in
+   * ATTACKING for ever — full animation, full cadence, zero damage, and no path back to SEEKING
+   * because the commitment never lapsed. Releasing it is what lets the creature walk back in.
+   */
+  it('⭐⭐ out of reach of its committed SHAPE it RELEASES it instead of miming a swing', () => {
+    // ⚠ A STRUCTURE-ATTACKER, not the chewer: the shape arm is gated on `targetsStructures`, and a
+    // chewer cuts connectors rather than shapes — it never reaches this branch at all.
+    const { world } = setupChewer();
+    world.creatures.clear();
+    const g = makeCreature(getCreatureConfig('goblinMelee'), {
+      id: asCreatureId(7), ownerPlayerId: asPlayerId(0),
+      pos: { x: 900, y: 900 }, targetPos: { x: 900, y: 900 },
+      spawnedAtTick: 0, sourceSpawnerId: null,
+    });
+    g.state = 'ATTACKING';
+    world.creatures.set(g.id, g);
+    const prim = [...world.primitives.values()][0]!;
+    const hpBefore = prim.hp;
+    g.targetPrimitiveId = prim.id;
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: g.id, bondId: null });
+    expect(prim.hp, 'no damage from out of reach').toBe(hpBefore);
+    expect(g.targetPrimitiveId, 'the commitment is RELEASED so it re-seeks and walks in').toBeNull();
+  });
+
 });
 
 describe('applyCreatureAttack — defense-in-depth guards', () => {
@@ -234,3 +279,4 @@ describe('applyCreatureAttack — defense-in-depth guards', () => {
     expect(world.effects.length).toBe(effectsBefore); // no ARC_FLASH on empty target
   });
 });
+
