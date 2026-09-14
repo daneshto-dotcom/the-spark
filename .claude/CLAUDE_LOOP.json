@@ -1,12 +1,11 @@
 {
-  "project": "the-spark",
+  "project": "The-Spark",
   "loop_name": null,
   "done_predicate": null,
   "budget": {
-    "turns": null,
-    "usd": null
+    "note": "defaults from ~/.claude/memory-packages/CLAUDE_LOOP.defaults.json"
   },
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "No agentic loop this session. Four delegated agents all terminated on an org spend limit; their work was salvaged from the working tree rather than re-run."
+  "last_result": "No agentic loop ran in S175. One Workflow fan-out (Phase A.0, 7 read-only lanes) returned 6/7; the dead lane was re-run BY HAND per the S161 rule, not left as an empty verdict."
 }
