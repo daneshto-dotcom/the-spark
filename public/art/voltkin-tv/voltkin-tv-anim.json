@@ -21,8 +21,18 @@
       "frames": 1,
       "ticksPerFrame": 1
     },
-    "destroyed": {
+    "critical": {
       "row": 3,
+      "frames": 1,
+      "ticksPerFrame": 1
+    },
+    "explosion": {
+      "row": 4,
+      "frames": 1,
+      "ticksPerFrame": 1
+    },
+    "destroyed": {
+      "row": 5,
       "frames": 1,
       "ticksPerFrame": 1
     }

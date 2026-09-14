@@ -16,7 +16,7 @@
     "    damaged   <- tv-3-burning   (his own words: the long-lived state the tower wears most of a match)",
     "    destroyed <- tv-6-ruins",
     "",
-    "⚠ tv-4-critical and tv-5-explosion are NOT packed here. They belong to the DESTRUCTION beat, which is frame-driven and client-local (the TOWER_CRUMBLE_FRAMES shape), not a damage state. tv-2-spawn IS packed, as row 1, because the emergence is a state the TV genuinely holds while the Voltkin comes out of it - see the _why on that entry.",
+    "⭐ S176 P2 - tv-4-critical and tv-5-explosion ARE packed now, as rows the renderer sequences ITSELF. They are still not damage states and are still unreachable from towerStateForHp; what changed is that the destruction beat exists to play them. The paragraph below described the S175 position and is kept because its REASONING is still the live contract - only the packing changed.",
     "and the destruction cinematic, which are frame-driven and client-local (the TOWER_CRUMBLE_FRAMES",
     "shape), not damage states. Packing them into this sheet would put four-of-six rows somewhere no",
     "code reads and invite a future session to 'wire up the missing rows'.",
@@ -51,6 +51,16 @@
           "still": "assets-source/voltkin-tv/tv-3-burning-flat.png",
           "ticksPerFrame": 1,
           "_why": "His BURNING panel, not CRITICAL. He called burning the state the tower wears most of the match; critical is one beat before the explosion and belongs to the destruction sequence."
+        },
+        "critical": {
+          "still": "assets-source/voltkin-tv/tv-4-critical-flat.png",
+          "ticksPerFrame": 1,
+          "_why": "⭐ S176 P2 - THE DESTRUCTION BEAT, FINALLY PACKED. S175 left this panel and the explosion on disk deliberately, on the grounds that they are frame-driven and client-local rather than damage states. That reasoning still holds and is why they are NOT reachable through towerStateForHp: the renderer plays them as a timed sequence when a chain first reads destroyed, exactly the TOWER_CRUMBLE_FRAMES shape. Packing them here costs two rows and no state."
+        },
+        "explosion": {
+          "still": "assets-source/voltkin-tv/tv-5-explosion-flat.png",
+          "ticksPerFrame": 1,
+          "_why": "The second beat of that sequence. See `critical`."
         },
         "destroyed": {
           "still": "assets-source/voltkin-tv/tv-6-ruins-flat.png",

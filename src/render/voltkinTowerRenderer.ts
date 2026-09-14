@@ -26,11 +26,14 @@
  * fix *"it looks stupid"*. This renderer calls `markTowerCover`, so the shapes underneath phase out
  * exactly as they do under a race tower, and phase back in when the chain breaks.
  *
- * ⚠ **THREE STATES, NOT SIX.** His art is a six-panel sequence; the engine's `TowerState` is
- * intact/damaged/destroyed and widening it breaks `tsc` across both row tables. intact ← tv-1,
- * damaged ← tv-3-burning (his own "the state it wears most of the match"), destroyed ← tv-6-ruins.
- * The spawn, critical and explosion panels are the EMERGENCE and the destruction beat — frame-driven
- * and client-local, the `TOWER_CRUMBLE_FRAMES` shape — and are deliberately not damage states.
+ * ⚠ **SIX ROWS, THREE DAMAGE STATES — AND THE DISTINCTION IS THE WHOLE DESIGN.** His art is a
+ * six-panel sequence and S176 P2 packs all six, but the engine's `TowerState` is STILL three-valued
+ * (intact/damaged/destroyed) and widening it would still break `tsc` across both row tables. Only
+ * those three are reachable from `towerStateForHp`: intact ← tv-1, damaged ← tv-3-burning (his own
+ * "the state it wears most of the match"), destroyed ← tv-6-ruins. The spawn, critical and explosion
+ * rows are BEATS this renderer sequences itself — frame-driven, the `TOWER_CRUMBLE_FRAMES` shape —
+ * and are deliberately not damage states. ⛔ A future session must not "complete" the mapping by
+ * adding them to `TowerState`; there is nothing to complete.
  */
 import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
@@ -56,11 +59,13 @@ const TV_SPRITE_PX = 132;
 /** How close a SPAWNING Voltkin must be to a TV for that TV to be the one he is coming out of. */
 const VOLTKIN_EMERGE_MATCH_PX = 160;
 
-/** Four rows, and `spawning` is NOT a `TowerState` — see TV_ROW_ORDER. */
+/** Six rows, and only three of them are `TowerState`s — see TV_ROWS. */
 interface StateTextures {
   readonly intact: Texture;
   readonly spawning: Texture;
   readonly damaged: Texture;
+  readonly critical: Texture;
+  readonly explosion: Texture;
   readonly destroyed: Texture;
 }
 type TvRow = keyof StateTextures;
@@ -75,7 +80,61 @@ interface Manifest { cellW: number; cellH: number; states: Partial<Record<TvRow,
  * holds while the Voltkin climbs out of it — so this renderer owns its own row map and maps the
  * three DAMAGE rows through `towerStateForHp` exactly as before.
  */
-const TV_ROWS: Readonly<Record<TvRow, number>> = { intact: 0, spawning: 1, damaged: 2, destroyed: 3 };
+const TV_ROWS: Readonly<Record<TvRow, number>> = {
+  intact: 0, spawning: 1, damaged: 2, critical: 3, explosion: 4, destroyed: 5,
+};
+
+/*
+ * ⭐⭐ S176 P2 — THE DESTRUCTION BEAT, AND THE EMERGENCE THAT WAS ONE FROZEN PICTURE.
+ *
+ * Owner, S176, with a screenshot: *"you can see the TV broken in him kind of coming out. but it's
+ * stuck in that image. Like, it's not like it's moving anywhere or generating the whole video loop
+ * of him coming out … you should, like, do the whole thing, and then he comes out."*
+ *
+ * ⛔ HE IS RIGHT, AND IT WAS NOT A STUCK FRAME — IT WAS THE ONLY FRAME. S175 packed `spawning` as a
+ * single still at `framesPerState: 1` and held it for the whole 60-tick spawn window. Nothing was
+ * broken; there was simply no sequence to play. Both beats below are therefore SEQUENCES, driven by
+ * frames rather than by damage states, which is the shape S175 named (`TOWER_CRUMBLE_FRAMES`) and
+ * deferred.
+ *
+ * ⭐⭐ AND THE OWNER'S OTHER RULING IS ALREADY SATISFIED BY THE ART, WHICH IS WHY NOTHING CHANGES TO
+ * HONOUR IT. He said: *"then he waits by his TV that's broken, but it's not, like, you know, damaged
+ * or anything. You need to be very consistent about this."* `tv-1-intact` IS a TV with a blown-out,
+ * star-cracked screen on an undamaged chassis — broken, not damaged. So the resting texture after he
+ * emerges is correct as it stands, and the damage rows stay driven by hp alone. ⚠ DO NOT "fix" this
+ * by pointing the resting state at `spawning`: that row has the Voltkin's body IN it, so a TV he has
+ * already left would still be drawing him climbing out of itself.
+ */
+
+/** Wind-up before the burst. The TV sits there, THEN he comes through it. */
+const TV_EMERGE_WINDUP_TICKS = 12;
+/** Destruction beat: ticks on `critical`, then on `explosion`, then ruins forever. */
+const TV_CRITICAL_TICKS = 18;
+const TV_EXPLOSION_TICKS = 18;
+
+/**
+ * PURE — the emergence beat. Exported for test.
+ *
+ * ⚠ Keyed off the Voltkin's OWN `ticksInState`, which is a REQUIRED serialized wire field, so every
+ * peer plays the same beat on the same tick with nothing added to the snapshot.
+ */
+export function tvEmergenceRow(ticksEmerging: number): 'intact' | 'spawning' {
+  return ticksEmerging < TV_EMERGE_WINDUP_TICKS ? 'intact' : 'spawning';
+}
+
+/**
+ * PURE — the destruction beat. Exported for test.
+ *
+ * ⚠ `ticksSinceDestroyed` is CLIENT-LOCAL (the tick this peer first saw the chain read destroyed),
+ * not a synced field — deliberately, and it is the one place this renderer does not derive from the
+ * wire. A tower's death is a one-shot cosmetic; two peers being a frame apart on an explosion is
+ * invisible, whereas putting it on the wire would cost a PROTOCOL bump for a puff of smoke.
+ */
+export function tvDestructionRow(ticksSinceDestroyed: number): 'critical' | 'explosion' | 'destroyed' {
+  if (ticksSinceDestroyed < TV_CRITICAL_TICKS) return 'critical';
+  if (ticksSinceDestroyed < TV_CRITICAL_TICKS + TV_EXPLOSION_TICKS) return 'explosion';
+  return 'destroyed';
+}
 
 /**
  * Is a Voltkin currently climbing out of the TV standing at (cx, cy)?
@@ -86,15 +145,21 @@ const TV_ROWS: Readonly<Record<TvRow, number>> = { intact: 0, spawning: 1, damag
  * generous radius around the sprite is exact in practice and degrades to 'no emergence frame' rather
  * than to a wrong one.
  */
-function isVoltkinEmergingAt(world: World, cx: number, cy: number): boolean {
+function voltkinEmergingTicksAt(world: World, cx: number, cy: number): number {
   const rSq = VOLTKIN_EMERGE_MATCH_PX * VOLTKIN_EMERGE_MATCH_PX;
+  // ⚠ TOTAL ORDER, not Map order: with two Voltkins inside one radius, `Map` iteration would decide
+  // which one's clock drives the TV, and insertion order is not the same on both peers.
+  let best = -1;
+  let bestId = -1;
   for (const c of world.creatures.values()) {
     if (c.type !== 'voltkin' || c.state !== 'SPAWNING') continue;
     const dx = c.pos.x - cx;
     const dy = c.pos.y - cy;
-    if (dx * dx + dy * dy <= rSq) return true;
+    if (dx * dx + dy * dy > rSq) continue;
+    const id = Number(c.id);
+    if (best < 0 || id < bestId) { best = c.ticksInState; bestId = id; }
   }
-  return false;
+  return best;
 }
 
 export class VoltkinTowerRenderer {
@@ -103,6 +168,9 @@ export class VoltkinTowerRenderer {
   private loadStarted = false;
   /** Keyed by the chain's stable identity (its sorted member ids). */
   private readonly sprites = new Map<string, Sprite>();
+  /** S176 P2 — world.tick at which THIS peer first saw a chain read destroyed. Client-local; see
+   *  `tvDestructionRow` for why that is deliberate and costs no protocol bump. */
+  private readonly destroyedAt = new Map<string, number>();
 
   constructor(_app: Application, parent: Container) {
     parent.addChild(this.layer);
@@ -124,7 +192,8 @@ export class VoltkinTowerRenderer {
         });
         this.atlas = {
           intact: cut('intact'), spawning: cut('spawning'),
-          damaged: cut('damaged'), destroyed: cut('destroyed'),
+          damaged: cut('damaged'), critical: cut('critical'),
+          explosion: cut('explosion'), destroyed: cut('destroyed'),
         };
       } catch {
         /*
@@ -185,10 +254,27 @@ export class VoltkinTowerRenderer {
        * all. `Creature.state` and `pos` are REQUIRED, fully-serialized wire fields, so every peer
        * switches to the spawn frame on the same tick, for free. No new state, no bump.
        */
-      const emerging = isVoltkinEmergingAt(world, cx, cy);
-      sprite.texture = emerging
-        ? this.atlas.spawning
-        : this.atlas[towerStateForHp(towerHpFrac(chain, (id) => world.primitives.get(id)?.hp))];
+      const emergingTicks = voltkinEmergingTicksAt(world, cx, cy);
+      const hpState = towerStateForHp(towerHpFrac(chain, (id) => world.primitives.get(id)?.hp));
+      /*
+       * Remember the tick this peer FIRST saw the chain dead, so the beat runs from there. Recorded
+       * before it is read so a chain that is already destroyed on the frame it appears still plays
+       * the sequence rather than snapping to ruins.
+       */
+      if (hpState === 'destroyed') {
+        if (!this.destroyedAt.has(key)) this.destroyedAt.set(key, world.tick);
+      } else {
+        this.destroyedAt.delete(key);
+      }
+      let row: TvRow;
+      if (emergingTicks >= 0) {
+        row = tvEmergenceRow(emergingTicks);
+      } else if (hpState === 'destroyed') {
+        row = tvDestructionRow(world.tick - (this.destroyedAt.get(key) ?? world.tick));
+      } else {
+        row = hpState;
+      }
+      sprite.texture = this.atlas[row];
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = cx;
@@ -217,6 +303,7 @@ export class VoltkinTowerRenderer {
       if (live.has(key)) continue;
       sprite.destroy();
       this.sprites.delete(key);
+      this.destroyedAt.delete(key);
     }
   }
 
@@ -224,5 +311,6 @@ export class VoltkinTowerRenderer {
   clear(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
+    this.destroyedAt.clear();
   }
 }
