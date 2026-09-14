@@ -108,9 +108,19 @@ const TV_ROWS: Readonly<Record<TvRow, number>> = {
 
 /** Wind-up before the burst. The TV sits there, THEN he comes through it. */
 const TV_EMERGE_WINDUP_TICKS = 12;
-/** Destruction beat: ticks on `critical`, then on `explosion`, then ruins forever. */
+/** Destruction beat: ticks on `critical`, then on `explosion`, then ruins. */
 const TV_CRITICAL_TICKS = 18;
 const TV_EXPLOSION_TICKS = 18;
+/**
+ * ⭐ S177 P4 — how long the RUINS linger once the beat has played out.
+ *
+ * Finite, and that is not a detail: a Voltkin chain that has lost a connector no longer matches its
+ * recipe, so `markTowerCover` stops hiding its shapes and they draw themselves again. A ruins sprite
+ * held forever would sit on top of shapes the player can still see, repair and rebuild from.
+ */
+const TV_RUINS_HOLD_TICKS = 42;
+/** Total length of the destruction beat, after which the sprite is released. */
+export const TV_DESTRUCTION_TICKS = TV_CRITICAL_TICKS + TV_EXPLOSION_TICKS + TV_RUINS_HOLD_TICKS;
 
 /**
  * PURE — the emergence beat. Exported for test.
@@ -171,6 +181,34 @@ export class VoltkinTowerRenderer {
   /** S176 P2 — world.tick at which THIS peer first saw a chain read destroyed. Client-local; see
    *  `tvDestructionRow` for why that is deliberate and costs no protocol bump. */
   private readonly destroyedAt = new Map<string, number>();
+  /**
+   * ⭐⭐⭐ S177 P4 (owner) — **THE DESTRUCTION BEAT HAD NO CHANCE TO RUN, AND THIS IS WHY.**
+   *
+   * Owner: *"I didn't see the TV, like, also do a destroyed loop when someone destroyed the first
+   * connector. So I think — I'm not sure — that one wasn't correctly attached. We need to make sure
+   * this is worked to completion. The whole loop correctly."*
+   *
+   * ⛔ HE IS RIGHT, AND IT WAS NEVER ATTACHED TO ANYTHING REACHABLE. The beat was gated on
+   * `towerStateForHp(...) === 'destroyed'` — a chain whose SHAPES have been ground to zero while the
+   * chain still matches its recipe. But the way a Voltkin tower actually dies is a SEVERED
+   * CONNECTOR: the moment one goes, the recipe stops matching, `chain` no longer resolves, the key
+   * drops out of `live`, and the sweep at the bottom of `sync` destroyed the sprite on that very
+   * frame. The TV vanished between two frames and the critical/explosion panels were unreachable.
+   *
+   * So a chain that LEAVES the live set during a fight becomes a ghost: its last position is kept
+   * and the beat plays out there, after the thing itself is gone.
+   *
+   * ⚠ FIGHT-GATED, so scrapping your own tower in BUILD does not detonate it. A structure taken
+   * apart deliberately is not a destruction, which is the same distinction `destroyDefender`'s
+   * "a reset is not a death" rule draws.
+   *
+   * ⚠ CLIENT-LOCAL, like `destroyedAt` beside it and for the same reason: a tower's death is a
+   * one-shot cosmetic, and two peers a frame apart on an explosion is invisible — where putting it
+   * on the wire would cost a PROTOCOL bump for a puff of smoke.
+   */
+  private readonly dying = new Map<string, { at: number; x: number; y: number }>();
+  /** Last drawn centroid per live chain — the anchor a ghost inherits. */
+  private readonly lastPos = new Map<string, { x: number; y: number }>();
 
   constructor(_app: Application, parent: Container) {
     parent.addChild(this.layer);
@@ -296,7 +334,38 @@ export class VoltkinTowerRenderer {
         if (bond.createdTick > newestTick) newestTick = bond.createdTick;
       }
       markTowerCover(chain, bonds, newestTick);
+      this.lastPos.set(key, { x: cx, y: cy });
       live.add(key);
+    }
+
+    /*
+     * ⭐ S177 P4 — a chain that left the live set during a FIGHT does not vanish; it plays out.
+     * Started BEFORE the sweep below so the sprite it needs is still in hand.
+     */
+    for (const key of this.sprites.keys()) {
+      if (live.has(key) || this.dying.has(key)) continue;
+      if (world.matchPhase !== 'FIGHT') continue; // a deliberate scrap is not a destruction
+      const at = this.lastPos.get(key);
+      if (at === undefined) continue;
+      this.dying.set(key, { at: world.tick, x: at.x, y: at.y });
+    }
+
+    const atlas = this.atlas;
+    for (const [key, ghost] of [...this.dying]) {
+      const elapsed = world.tick - ghost.at;
+      const sprite = this.sprites.get(key);
+      // A null atlas means the load failed; the board degrades to plain shapes, exactly as the
+      // load-failure contract above states, rather than holding a ghost that can never be drawn.
+      if (atlas === null || sprite === undefined || elapsed >= TV_DESTRUCTION_TICKS) {
+        this.dying.delete(key);
+        continue;
+      }
+      sprite.texture = atlas[tvDestructionRow(elapsed)];
+      sprite.width = TV_SPRITE_PX;
+      sprite.height = TV_SPRITE_PX;
+      sprite.x = ghost.x;
+      sprite.y = ghost.y + TV_SPRITE_PX * 0.5;
+      live.add(key); // keep it off the reaper for one more frame
     }
 
     for (const [key, sprite] of this.sprites) {
@@ -304,6 +373,8 @@ export class VoltkinTowerRenderer {
       sprite.destroy();
       this.sprites.delete(key);
       this.destroyedAt.delete(key);
+      this.lastPos.delete(key);
+      this.dying.delete(key);
     }
   }
 
@@ -312,5 +383,7 @@ export class VoltkinTowerRenderer {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
     this.destroyedAt.clear();
+    this.dying.clear();
+    this.lastPos.clear();
   }
 }

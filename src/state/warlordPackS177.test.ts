@@ -16,6 +16,7 @@ import {
   PHYSICS_HZ,
 } from '../constants.ts';
 import { DIREWOLF_CONFIG } from './creatures/voltkin-config.ts';
+import { TV_DESTRUCTION_TICKS, tvDestructionRow } from '../render/voltkinTowerRenderer.ts';
 
 describe('S177 P3 — his numbers, asserted', () => {
   it('a maximum of THREE per world lord', () => {
@@ -62,5 +63,34 @@ describe('S177 P3 — his numbers, asserted', () => {
   it('⭐ it is the Pharaoh mechanic — same cadence, same expire-and-replace shape', () => {
     expect(DIREWOLF_SUMMON_INTERVAL_TICKS).toBe(PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS);
     expect(DIREWOLF_CONFIG.persistent).toBe(false);
+  });
+});
+
+/**
+ * S177 P4 (owner) — THE TV'S DESTRUCTION BEAT, AND WHY IT NEVER PLAYED.
+ *
+ * Owner: *"I didn't see the TV, like, also do a destroyed loop when someone destroyed the first
+ * connector. So I think — I'm not sure — that one wasn't correctly attached. We need to make sure
+ * this is worked to completion. The whole loop correctly."*
+ */
+describe('S177 P4 — the destruction beat is finite and ordered', () => {
+  it('runs critical → explosion → ruins, in that order', () => {
+    expect(tvDestructionRow(0)).toBe('critical');
+    expect(tvDestructionRow(17)).toBe('critical');
+    expect(tvDestructionRow(18)).toBe('explosion');
+    expect(tvDestructionRow(35)).toBe('explosion');
+    expect(tvDestructionRow(36)).toBe('destroyed');
+  });
+
+  /**
+   * ⛔ THE RUINS HOLD MUST BE FINITE. A Voltkin chain that has lost a connector no longer matches its
+   * recipe, so `markTowerCover` stops hiding its shapes and they draw themselves again. A ruins
+   * sprite held forever would sit on top of shapes the player can still repair and rebuild from.
+   */
+  it('⛔ and it ENDS — the ruins hold is finite, so the sprite is released', () => {
+    expect(TV_DESTRUCTION_TICKS).toBeGreaterThan(36);
+    expect(Number.isFinite(TV_DESTRUCTION_TICKS)).toBe(true);
+    // The last frame of the beat is still ruins, and one tick later the ghost is released.
+    expect(tvDestructionRow(TV_DESTRUCTION_TICKS - 1)).toBe('destroyed');
   });
 });
