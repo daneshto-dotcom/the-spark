@@ -37,7 +37,7 @@
 
 import { PRIMITIVE_MAX_HP, STINK_BAG_ATK, STINK_BAG_PEN } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
-import { attackFifths, connectorCapacityFifths, primitiveDamageForAtk } from './stats.ts';
+import { attackFifths, primitiveDamageForAtk, structurePoolFifths } from './stats.ts';
 import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import type { Defender } from './defenders/defender.ts';
@@ -289,13 +289,62 @@ export function damageConnector(world: World, bondId: BondId, amountFifths: numb
 
   bond.damageFifths += amountFifths;
 
-  // Capacity is a function of the component this bond is CURRENTLY part of, so it is read fresh on
+  // The pool is a function of the component this bond is CURRENTLY part of, so it is read fresh on
   // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure
   // renderer runs it every frame), so this is not a new cost pattern.
   const anchor = world.primitives.get(bond.aId) ?? world.primitives.get(bond.bId);
   if (anchor === undefined) return true; // orphaned bond — nothing holds it up
-  const connectorCount = componentOf(anchor, world.primitives, world.bonds).bondIds.size;
-  return bond.damageFifths >= connectorCapacityFifths(connectorCount);
+  const comp = componentOf(anchor, world.primitives, world.bonds);
+  const pool = structurePoolFifths(comp.bondIds.size);
+
+  /*
+   * ⭐⭐⭐ S177 P1 (owner R173-B) — **THE POOL IS STRUCTURE-WIDE, NOT PER-BOND.**
+   *
+   * Owner, S177: *"you take five HP, then you times it times two ... and then you times it times
+   * five. So that is fifty HP to destroy the tower ... which also is defined by the first connection
+   * that is destroyed. And there's still four other connectors, and you need to destroy all of them
+   * to completely destroy the building."*
+   *
+   * So ALL the damage standing on a structure counts toward the next connector, wherever it landed.
+   * Before this, damage banked on ONE bond and that bond alone had to reach `n + 4` — 9 fifths for a
+   * 5-connector hub, against his 50. A chewer took the first connector off a lightning hub on its
+   * SECOND bite; under his ruling it needs eight.
+   *
+   * ⚠ NO NEW FIELD AND NO PROTOCOL BUMP. `Bond.damageFifths` is already serialized and hashed;
+   * summing it across the component is a READ, so the wire shape is untouched.
+   */
+  let banked = 0;
+  for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
+  if (banked < pool) return false;
+
+  /*
+   * ⛔ SPEND THE POOL, DO NOT ZERO IT — overkill carries into the next connector, which is what makes
+   * the accelerating collapse he describes continuous rather than lossy.
+   *
+   * ⚠ TOTAL ORDER, NEVER `Map` ORDER. The bond the attacker TARGETED is drained first (R173-C: *"the
+   * damage lands on whatever bond the attacker targeted ... the first connector to be targeted is the
+   * one to fall first"*), then the survivors in ascending id. `Map` iteration is insertion order and
+   * letting it decide which bond keeps the remainder is exactly the class of divergence this codebase
+   * spends most of its comments on.
+   *
+   * ⚠ AND DRAINING RATHER THAN ZEROING KEEPS TWO LIVE CONSUMERS HONEST: `structureRenderer` pins a
+   * connector visible while `damageFifths > 0`, and `structureRepair` gates its FIX button on the
+   * same test. Zeroing survivors would phase a mid-collapse tower's connectors back out and report
+   * "nothing to fix" on a structure one hit from falling.
+   */
+  let toSpend = pool;
+  const drain = (b: { damageFifths: number } | undefined): void => {
+    if (b === undefined || toSpend <= 0) return;
+    const take = Math.min(b.damageFifths, toSpend);
+    b.damageFifths -= take;
+    toSpend -= take;
+  };
+  drain(bond);
+  const survivors = [...comp.bondIds]
+    .filter((id) => id !== bondId)
+    .sort((x, y) => Number(x) - Number(y));
+  for (const id of survivors) drain(world.bonds.get(id));
+  return true;
 }
 
 /*

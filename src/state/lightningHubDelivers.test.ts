@@ -164,7 +164,9 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
      * these constants, and the reason `DRONE_MAX_PER_SPAWNER` is documented as inert slack).
      */
     const slots = Math.floor(FIGHT_PHASE_TICKS / DRONE_EMIT_INTERVAL_TICKS);
-    expect(slots, 'the arithmetic the owner was quoted').toBe(9);
+    // ⛔ RE-PINNED S177 P6 — 9 → 12. The emit cadence is untouched; the FIGHT grew, because he asked
+    // for it: *"make the fight last fifteen seconds longer"* (FIGHT_PHASE_TICKS 2700 → 3600).
+    expect(slots, 'the arithmetic the owner was quoted').toBe(12);
     expect(
       everSeen,
       `one emit per slot: ${FIGHT_PHASE_TICKS} / ${DRONE_EMIT_INTERVAL_TICKS} = ${slots}. A lower ` +

@@ -20,6 +20,7 @@ import {
   attackFifths,
   connectorCapacityFifths,
   structureDefenceFifths,
+  structurePoolFifths,
   CREATURE_TARGETS,
   DEFENDER_TARGETS,
   creatureCanTarget,
@@ -169,9 +170,54 @@ describe('S151 P2 — connector defence (owner R76)', () => {
     expect(asDecimal(connectorCapacityFifths(3))).toBe(1.4);
   });
 
-  it('the structure totals match the owner: 2 connectors → 2.4, 3 connectors → 4.2', () => {
-    expect(asDecimal(structureDefenceFifths(2))).toBe(2.4); // "2HPx1.2DEF which makes it 2.4"
-    expect(asDecimal(structureDefenceFifths(3))).toBe(4.2); // "3hpx1.4 = 4.2"
+  /**
+   * ⛔⛔ RE-PINNED S177, NOT DELETED — R173 SUPERSEDES R76 AND BOTH OF HIS RULINGS STAY ON THE RECORD.
+   *
+   * His R76 words, which this test used to assert: *"2HPx1.2DEF which makes it 2.4"* and
+   * *"3hpx1.4 = 4.2"* — i.e. DEF level = connectors − 1.
+   *
+   * His S173/S177 words, which GOVERN: *"each connector is one HP and one level of defense ... level
+   * five of defense comes out as two ... five HP times two, times five. So that is fifty."* — i.e.
+   * DEF level = connectors. Same quantity, two rulings, both his; the NEWER one wins.
+   */
+  it('the structure totals match the owner R173: 2 connectors → 2.8, 3 connectors → 4.8', () => {
+    expect(asDecimal(structureDefenceFifths(2))).toBe(2.8); // R173 "2 HP x 1.4"  (R76 said 2.4)
+    expect(asDecimal(structureDefenceFifths(3))).toBe(4.8); // R173 "3 HP x 1.6"  (R76 said 4.2)
+  });
+
+  /** ⭐ HIS OWN WORKED TABLE, S177, asserted verbatim — the row he has now given three times. */
+  it('his ladder, exactly: 5 → 50, 4 → 36, 3 → 24, 2 → 14, 1 → 6 fifths', () => {
+    expect(structurePoolFifths(5)).toBe(50); // "five HP times two, times five ... fifty"
+    expect(structurePoolFifths(4)).toBe(36); // "four HP times one point eight ... times five"
+    expect(structurePoolFifths(3)).toBe(24);
+    expect(structurePoolFifths(2)).toBe(14);
+    expect(structurePoolFifths(1)).toBe(6);
+  });
+
+  /**
+   * ⭐ THE ALGEBRAIC FORM HE ALLOWED, S177: *"HP times one plus zero point two times defense ... Sure.
+   * Yeah. That works."* Asserted as a property so the table above cannot drift from its own formula.
+   */
+  it('pool(n) === n × (1 + 0.2n) × 5, for every structure size', () => {
+    for (let n = 1; n <= 200; n++) {
+      expect(structurePoolFifths(n)).toBe(Math.round(n * (1 + 0.2 * n) * 5));
+    }
+  });
+
+  /**
+   * ⭐ HIS CONSEQUENCE, asserted: *"a boss that has twelve attack and five penetration could still
+   * destroy a tower with one hit."*
+   */
+  it("a 12-atk / 5-pen boss takes a 5-connector tower's first connector in ONE hit", () => {
+    expect(attackFifths(12, 5)).toBe(120);
+    expect(attackFifths(12, 5)).toBeGreaterThanOrEqual(structurePoolFifths(5));
+  });
+
+  /** ⭐ The pool is the cost of ONE connector; survivors re-form at the lower count. */
+  it('levelling a 5-connector tower costs 130 fifths in total, accelerating', () => {
+    const ladder = [5, 4, 3, 2, 1].map((n) => structurePoolFifths(n));
+    expect(ladder).toEqual([50, 36, 24, 14, 6]);
+    expect(ladder.reduce((a, b) => a + b, 0)).toBe(130);
   });
 
   /**
@@ -183,7 +229,10 @@ describe('S151 P2 — connector defence (owner R76)', () => {
    */
   it('11 connectors → x3.0 per connector (NOT the x3.2 of the owner\'s first draft)', () => {
     expect(asDecimal(connectorCapacityFifths(11))).toBe(3.0);
-    expect(asDecimal(structureDefenceFifths(11))).toBe(33);
+    // ⛔ RE-PINNED S177 (was 33, under R76's DEF = n−1). R173 gives DEF level = n: 11 × 3.2 × 5 = 176
+    // fifths = 35.2 — which lands on his ORIGINAL "11hp x 3.2def", the draft R76 talked him out of.
+    // His newest ruling agrees with his oldest; it was the middle one that differed.
+    expect(asDecimal(structureDefenceFifths(11))).toBe(35.2);
   });
 
   it('and therefore a 3-ATK laser fells one of its connectors in ONE hit', () => {
@@ -195,9 +244,17 @@ describe('S151 P2 — connector defence (owner R76)', () => {
    * the multiplier itself, because the HP term cancels. If someone later "fixes" the formula by
    * multiplying by connector count somewhere, this fails.
    */
-  it('per-connector share == total / connectors, exactly, for every structure size', () => {
+  /**
+   * ⛔ RE-PINNED S177 — THE DEFINING PROPERTY IS NOW THE OPPOSITE ONE, AND THAT IS THE RULING.
+   *
+   * Under R76 the per-connector share was `total / connectors` and the HP term cancelled. Under
+   * R173-B there is NO per-connector share: *"each connector is worth the full defensive stat sum"* —
+   * one structure-wide pool is depleted to take ONE connector.
+   */
+  it('the R173 pool is n × multiplier(n), i.e. one DEF level above the superseded R76 share', () => {
     for (let c = 1; c <= 200; c++) {
-      expect(structureDefenceFifths(c) / c).toBe(connectorCapacityFifths(c));
+      expect(structurePoolFifths(c)).toBe(c * (connectorCapacityFifths(c) + 1));
+      expect(structureDefenceFifths(c)).toBe(structurePoolFifths(c));
     }
   });
 

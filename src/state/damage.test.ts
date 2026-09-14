@@ -51,7 +51,7 @@ import {
 import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { damageConnector, damageEntity, type DamageTarget } from './damage.ts';
-import { attackFifths, connectorCapacityFifths } from './stats.ts';
+import { attackFifths, structurePoolFifths } from './stats.ts';
 import { restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { makeWorld, type World } from './world.ts';
@@ -258,11 +258,19 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     expect(kinds).not.toContain('defender');
   });
 
-  it('⭐ a connector accumulates damage and severs only when its capacity is reached', () => {
+  /**
+   * ⛔⛔ RE-PINNED S177 (owner R173-B) — THE THRESHOLD IS THE WHOLE STRUCTURE'S POOL, NOT ONE BOND'S.
+   *
+   * Owner: *"you take five HP, then you times it times two ... and then you times it times five. So
+   * that is fifty HP to destroy the tower ... which also is defined by the first connection that is
+   * destroyed."* This test used to assert `connectorCapacityFifths` (n + 4 — 9 fifths for a
+   * 5-connector hub). It now asserts `structurePoolFifths` (n × (n + 5) — his 50).
+   */
+  it('⭐ a connector accumulates damage and severs only when the STRUCTURE pool is reached', () => {
     const { w, a } = chainWorld();
     const bondId = [...w.bonds.keys()][0];
     const connectors = w.bonds.size;
-    const capacity = connectorCapacityFifths(connectors);
+    const capacity = structurePoolFifths(connectors);
     void a;
 
     // One sub-lethal bite: damage banks on the CONNECTOR, and it does not break.
@@ -270,9 +278,12 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     expect(damageConnector(w, bondId, bite)).toBe(false);
     expect(w.bonds.get(bondId)!.damageFifths).toBe(bite);
 
-    // Top it up to exactly capacity — now it reports "sever me".
+    // Top it up to exactly the pool — now it reports "sever me".
     expect(damageConnector(w, bondId, capacity - bite)).toBe(true);
-    expect(w.bonds.get(bondId)!.damageFifths).toBe(capacity);
+    // ⭐ AND THE POOL IS SPENT, NOT LEFT STANDING. R173-B's implementation note: *"on a sever,
+    // subtract the pool rather than zeroing, so overkill carries"*. Exactly `capacity` was banked, so
+    // exactly `capacity` is drained and nothing remains.
+    expect(w.bonds.get(bondId)!.damageFifths).toBe(0);
 
     // ⚠ AND IT HAS NOT REMOVED THE BOND ITSELF. Severance runs through the one SEVER_BOND dispatch;
     // this helper only reports. A caller that forgets is the failure mode the separate function name
@@ -285,10 +296,42 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     // chewers gnawing the same bond each had to do the whole job and neither saw the other's work.
     const { w } = chainWorld();
     const bondId = [...w.bonds.keys()][0];
-    const capacity = connectorCapacityFifths(w.bonds.size);
+    const capacity = structurePoolFifths(w.bonds.size);
     const half = Math.floor(capacity / 2);
     expect(damageConnector(w, bondId, half)).toBe(false);
     expect(damageConnector(w, bondId, capacity - half)).toBe(true);
+  });
+
+  /**
+   * ⭐⭐⭐ S177 P1 (owner R173-B) — **DAMAGE POOLS ACROSS THE WHOLE STRUCTURE, NOT JUST ONE STRUT.**
+   *
+   * This is the property the old per-bond model could not express, and it is the one the owner has
+   * described three separate times: the tower has ONE pool, and every hit anywhere on it counts
+   * toward the next connector to fall.
+   */
+  it('⭐ damage banked on OTHER connectors counts toward the one being attacked', () => {
+    const { w } = chainWorld();
+    const ids = [...w.bonds.keys()];
+    if (ids.length < 2) return; // the fixture is a chain; this property needs two struts
+    const pool = structurePoolFifths(w.bonds.size);
+
+    // Put all but one fifth of the structure's pool on a DIFFERENT strut than the one attacked.
+    expect(damageConnector(w, ids[1], pool - 1)).toBe(false);
+    // One fifth on the targeted strut now tips the SHARED pool over, and it is the TARGETED bond
+    // that reports "sever me" — R173-C: *"the first connector to be targeted is the one to fall"*.
+    expect(damageConnector(w, ids[0], 1)).toBe(true);
+  });
+
+  /** ⭐ R173-B: overkill is CARRIED, not discarded — the collapse stays continuous. */
+  it('⭐ overkill past the pool carries over instead of being thrown away', () => {
+    const { w } = chainWorld();
+    const bondId = [...w.bonds.keys()][0];
+    const pool = structurePoolFifths(w.bonds.size);
+    expect(damageConnector(w, bondId, pool + 7)).toBe(true);
+    // exactly `pool` was spent; the 7 fifths of overkill is still banked on the board.
+    let banked = 0;
+    for (const b of w.bonds.values()) banked += b.damageFifths;
+    expect(banked).toBe(7);
   });
 
   it('a missing bond is an idempotent no-op, not a throw', () => {

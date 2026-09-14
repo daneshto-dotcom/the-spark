@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 45,
+  "tool_calls_session_total": 576,
   "session_id": "S176",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -206,13 +206,13 @@
   ],
   "real_context_tokens_at_close": null,
   "carry_forwards_spawned_in_s176": [
-    "⛔ HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
-    "⚠ THE WALK ROW IS A QUADRUPED. idle/attack/die are upright biped; the walk clip generates him running on all fours, plus yellow speckle debris in the source. It is HIS art and it is dynamic, so it shipped - but it is the most likely thing he flags. Re-rolling walk framed upright costs ~$3.10 AND would drop cellW from 380 toward 256, which buys 32 frames per state inside the same texture ceiling instead of 20.",
+    "\u26d4 HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
+    "\u26a0 THE WALK ROW IS A QUADRUPED. idle/attack/die are upright biped; the walk clip generates him running on all fours, plus yellow speckle debris in the source. It is HIS art and it is dynamic, so it shipped - but it is the most likely thing he flags. Re-rolling walk framed upright costs ~$3.10 AND would drop cellW from 380 toward 256, which buys 32 frames per state inside the same texture ceiling instead of 20.",
     "The 5 WAIVED ATLASES still need regenerated art (unit-demons, t3-mummies-scarab, t3-nagas-piranha, t9boss-nagas, t9boss-vampires) - assets-source/atlas-size-waivers.json.",
     "GENERAL / GOBLIN TOWER ART - his to generate, then ONE markTowerCover call each.",
     "R173-B (each connector costs the FULL structure pool) - RULED in S173, still not implemented. Its plan file is one of only two genuinely-live plans.",
     "NONET stages: 8 questions open. An in-match ladder needs a wire field => PROTOCOL 46 -> 47; arcade-only costs no bump.",
-    "B8 powers · Pharaoh stances + Ra · Vlad life-sap."
+    "B8 powers \u00b7 Pharaoh stances + Ra \u00b7 Vlad life-sap."
   ],
   "analyze": {
     "calibration": [
@@ -262,5 +262,19 @@
       "usable_agent_findings": 0
     }
   },
-  "analyze_completed": true
+  "analyze_completed": true,
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-09-14T12:05:53.353419Z",
+    "fields": [
+      "budget_total",
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }

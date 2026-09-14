@@ -63,13 +63,18 @@ describe('V6-0.2 — tier milestone banner', () => {
     expect(formatTierBanner(2)).toBe(`TIER 2  —  ${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
   });
 
-  it('the shipped constants really do give an exact three-act structure', () => {
-    // The v0.6 diagnosis claims pulses at 500 and 1000 with the win at 1500 — "a three-act
-    // structure nobody can feel". If a future session retunes either constant out of lockstep,
-    // the banner would start naming tiers that do not divide the win score and this fails.
-    expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(3);
-    expect(formatTierBanner(1)).toContain('500/1500');
-    expect(formatTierBanner(2)).toContain('1000/1500');
+  it('the shipped constants really do give an exact tier structure', () => {
+    // ⛔ RE-PINNED S177 P6 (owner) — WAS A THREE-ACT STRUCTURE, IS NOW FIVE. He raised the win target
+    // 1500 → 2500 (*"it ends too quickly now"*); 2500/3 is not an integer, so SCORE_TIER_STEP holds
+    // at 500 and the ladder gains two acts: pulses at 500/1000/1500/2000, WIN at 2500.
+    //
+    // ⚠ The GUARD is unchanged and is the reason this test exists: if a future session retunes either
+    // constant out of lockstep, the banner starts naming tiers that do not divide the win score.
+    // Every literal below is now DERIVED, so the guard cannot be defeated by editing one number.
+    expect(PHASE_1_WIN_SCORE % SCORE_TIER_STEP).toBe(0);
+    expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(5);
+    expect(formatTierBanner(1)).toContain(`${SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
+    expect(formatTierBanner(2)).toContain(`${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
   });
 
   it('holds at full alpha, then fades over the final third', () => {
@@ -135,7 +140,7 @@ describe('V6-0.2 — solo score readout', () => {
     // jitter through decimals every frame.
     expect(formatSoloScore(0)).toBe(`SCORE 0/${PHASE_1_WIN_SCORE}`);
     expect(formatSoloScore(123.987)).toBe(`SCORE 123/${PHASE_1_WIN_SCORE}`);
-    expect(formatSoloScore(PHASE_1_WIN_SCORE)).toBe(`SCORE 1500/${PHASE_1_WIN_SCORE}`);
+    expect(formatSoloScore(PHASE_1_WIN_SCORE)).toBe(`SCORE ${PHASE_1_WIN_SCORE}/${PHASE_1_WIN_SCORE}`);
   });
 
   it('carries no rank, crown or YOU marker', () => {

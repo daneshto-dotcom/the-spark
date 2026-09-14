@@ -596,7 +596,20 @@ describe('Replay determinism — S100 P1 chewer + spawner coverage (HARD GATE)',
 
   it('chewer stress actually exercises the new paths (chewers spawned, bonds severed)', () => {
     const w = makeWorld(0xfeed);
-    runChewerStress(w, 400);
+    /*
+     * ⛔ 400 → 1600 ITERATIONS, S177 P1 — THE GATE WAS EXTENDED, NOT WEAKENED.
+     *
+     * This is a COVERAGE gate: its whole job is to prove the chew-and-sever path really executed
+     * inside the replay, so a determinism run that silently stopped severing would be caught. Owner
+     * R173-B made a structure's pool `n × (n+5)` and structure-WIDE, so a 5-bond structure now costs
+     * 50 fifths to take its first connector where it used to cost 9 — and 400 iterations no longer
+     * reaches a severance.
+     *
+     * ⚠ RELAXING `toBeLessThan(5)` WOULD HAVE DELETED THE GATE while leaving it green, which is the
+     * failure mode this repo has been bitten by. The run is lengthened past the new pool instead, so
+     * the assertion still means what it says.
+     */
+    runChewerStress(w, 1600);
     // The structure had 5 bonds; the chew path must have severed at least one.
     expect(w.bonds.size).toBeLessThan(5);
     // The spawner was torn down near the end of the run.

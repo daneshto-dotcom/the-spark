@@ -370,9 +370,20 @@ describe('S84 P4 — functional-bond complexity (capped) + field-report invarian
 });
 
 describe('S84 P3 — pacing constants coherence', () => {
-  it('tier pulses divide the win target into exact thirds', () => {
+  /**
+   * ⛔ RE-PINNED S177 P6 (owner) — EXACT THIRDS BECAME EXACT FIFTHS, DELIBERATELY.
+   *
+   * He raised the win target: *"we need at least two thousand five hundred instead of one thousand
+   * five hundred because it ends too quickly now."* 2500 / 3 is not an integer, so `SCORE_TIER_STEP`
+   * stays 500 and the ladder becomes FIVE steps — pulses at 500/1000/1500/2000, WIN at 2500.
+   *
+   * ⚠ THE INVARIANT THAT MATTERS IS THE DIVISIBILITY, NOT THE LITERAL 3. A win target that is not a
+   * whole number of tier steps would have the banner naming a tier the player can never reach, which
+   * is the defect this test exists to catch — and that is still asserted, on the first line.
+   */
+  it('tier pulses divide the win target exactly — five steps since S177', () => {
     expect(PHASE_1_WIN_SCORE % SCORE_TIER_STEP).toBe(0);
-    expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(3);
+    expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(5);
   });
 });
 

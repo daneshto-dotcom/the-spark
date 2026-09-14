@@ -265,9 +265,11 @@ describe('S157 B7 / S173 B6 — the laser fires twice as fast, twice', () => {
     // like twice faster ... So two times faster."                                      (900 → 450)
     // The renderer derives charge as `1 - remaining / fireIntervalTicks`, so no render change exists
     // to make — the ring fills against whatever this constant says.
-    expect(TURRET_FIRE_INTERVAL_TICKS).toBe(450);
-    // And it must fit the fight it is used in: 6 windows per 2700-tick FIGHT, not 3.
-    expect(Math.floor(FIGHT_PHASE_TICKS / TURRET_FIRE_INTERVAL_TICKS)).toBe(6);
+    // Owner S177 P7: "Laser tower should have two times more speed. He recharges too slowly and he
+    // costs a lot, so why would I even build one."                                     (450 → 225)
+    expect(TURRET_FIRE_INTERVAL_TICKS).toBe(225);
+    // And it must fit the fight it is used in — which ALSO grew this session (S177 P6, 2700 → 3600).
+    expect(Math.floor(FIGHT_PHASE_TICKS / TURRET_FIRE_INTERVAL_TICKS)).toBe(16);
   });
 
   /*
@@ -281,10 +283,15 @@ describe('S157 B7 / S173 B6 — the laser fires twice as fast, twice', () => {
     const cfg = getDefenderConfig('turret');
     const period = cfg.fireIntervalTicks + cfg.windupTicks
       + DEFENDER_FIRE_HOLD_TICKS + DEFENDER_RECOVER_TICKS;
-    expect(period).toBe(479); // was 933 at the S157 numbers
+    // ⛔ RE-PINNED S177 P7 — the THIRD halving. 225 + 3 + 12 + 12 = 252 (was 479; 933 at S157).
+    // The two SHARED phase constants (12 + 12) are still deliberately NOT halved: HELGA and the
+    // stink tower fire on them, and DEFENDER_FIRE_HOLD_TICKS is load-bearing at 12 so a 10 Hz peer
+    // still OBSERVES the FIRE state. His "two times more speed" is bought with the one constant
+    // that owns the cycle — 479/252 = 1.90×, and the landed-beam count below is what he feels.
+    expect(period).toBe(252);
     // Beams that LAND before the whistle: t = 0, period, 2·period, ... < FIGHT_PHASE_TICKS. The
     // turret fires at t=0 because `standDownDefenders` never re-phases `nextFireTick`, so it is
     // already in the past at every FIGHT edge (measured in S157, unchanged here).
-    expect(Math.ceil(FIGHT_PHASE_TICKS / period)).toBe(6); // was 3
+    expect(Math.ceil(FIGHT_PHASE_TICKS / period)).toBe(15); // was 6, and 3 at the S157 numbers
   });
 });

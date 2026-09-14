@@ -663,7 +663,34 @@ export function enemyStinkCloudInReach(
   let best: StinkCloudId | null = null;
   for (const c of world.stinkClouds.values()) {
     if (c.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
-    if (distSq(creature.pos, c.pos) > reach * reach) continue;
+    /*
+     * ⭐⭐ S177 P5 (owner) — **IF YOU ARE STANDING IN THE SMELL, YOU CAN HIT THE BAG.**
+     *
+     * Owner: *"How much health do the poop bags have? They should be ONE HIT to destroy. Instead I
+     * had two bosses and a whole army trying to destroy them for like six seconds."* And, on the
+     * arithmetic: *"one HP, and then we'll time it times five. It comes out as five ... a monster
+     * that has three attack and one penetration ... comes out as eighteen damage output ... the
+     * eighteen kills it threefold. I don't understand. Like, it's super simple, dude."*
+     *
+     * ⛔ HE IS RIGHT AND THE POOL WAS NEVER THE PROBLEM — IT IS ALREADY 5 FIFTHS AND EVERY ATTACKER
+     * IN THE GAME ONE-SHOTS IT. What he watched was a REACH failure that never let a swing land.
+     * This test measured to the bag's CENTRE at the attacker's `attackRange`, which is **35 px** for
+     * every melee goblin and every boss, while the cloud they are standing in is
+     * `STINK_BAG_RADIUS` = **90 px**. A unit inside the smell but 35–90 px from the bag was
+     * therefore NOT in reach — and `creatureLifecycle.ts`'s sixth clause kept it in ATTACKING
+     * anyway, because a bag WAS in engage range. It swung at nothing, eating aura damage, for the
+     * bag's whole `STINK_CLOUD_LIFETIME_TICKS` (300 ticks = 5 s). ⭐ THAT IS HIS "SIX SECONDS": the
+     * bags were never destroyed, they EXPIRED.
+     *
+     * ⚠ AND THE OLD DOCBLOCK'S TRADE IS KEPT, NOT TRADED AWAY. It argued reach must not be the cloud
+     * radius or *"an archer could pop bags from outside the thing that makes them dangerous"*. A MAX
+     * rather than a SUM is exactly that guarantee: a ranged unit keeps its own reach unchanged (420
+     * > 90, so nothing widens for it), and only units whose arm is SHORTER than the cloud gain
+     * anything — and they gain it precisely by standing in the smell and eating it. That is the
+     * trade he asked for, now actually reachable.
+     */
+    const reachToBag = Math.max(reach, c.radius);
+    if (distSq(creature.pos, c.pos) > reachToBag * reachToBag) continue;
     if (best === null || (c.id as unknown as number) < (best as unknown as number)) best = c.id;
   }
   return best;

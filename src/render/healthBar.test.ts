@@ -572,7 +572,7 @@ describe('S173 (owner) — a tower carries the bar of the STRUCTURE that builds 
     const n = bondIds.length;
     expect(n).toBe(2);
     // 2 connectors ⇒ capacity 2+4 = 6 fifths each ⇒ 12 fifths total.
-    expect(structureDefenceFifths(n)).toBe(12);
+    expect(structureDefenceFifths(n)).toBe(14); // ⛔ RE-PINNED S177 (owner R173): 2 × (2+5), was 2 × (2+4) = 12
 
     // Spend exactly half the pool and the fill must read exactly half.
     const half = structureDefenceFifths(n) / 2;
@@ -885,7 +885,7 @@ describe('S174 (owner) — a freeform lattice carries a bar with NO tower on it'
       spawnedCount: 0,
       ignitedAtTick: 0,
     });
-    expect(structureDefenceFifths(2), '2 connectors ⇒ 2 × (2+4)').toBe(12);
+    expect(structureDefenceFifths(2), '2 connectors ⇒ 2 × (2+5) — owner R173').toBe(14);
     expect(rects(bare)[0]!.w).toBeCloseTo(rects(withTower)[0]!.w, 6);
   });
 

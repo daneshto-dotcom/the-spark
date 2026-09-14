@@ -97,14 +97,26 @@ describe('S158 A3 — a raid hits HELGA, at exactly the published rate', () => {
     expect(w.players.get(P0)!.raidPoints).toBe(before - 1);
   });
 
-  it('⭐ SIX RAIDS KILL HER — the number constants.ts has published since S152', () => {
+  /**
+   * ⛔ RE-PINNED S177 P8 (owner) — SIX BECAME SIXTEEN, because he doubled her.
+   *
+   * *"Helga should have two times the HP and the defense that she currently has. Same attack and
+   * penetration, but two times the HP and the defense."* `unitPoolFifths(6,4)` = 54 became
+   * `unitPoolFifths(12,8)` = 156, so a 10-fifth raid needs 16 hits instead of 6.
+   *
+   * ⚠ AND THE LOOP COUNTS ARE NOW DERIVED, which is the actual repair. The old test hard-coded 5 and
+   * 6 beside a `Math.ceil` that computed the same thing — so a retune broke it in three places at
+   * once and told you about one. Nothing here is a literal any more.
+   */
+  it('⭐ SIXTEEN RAIDS KILL HER — derived from the pool, not published in prose', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    expect(Math.ceil(HELGA_POOL / RAID), 'the published arithmetic itself').toBe(6);
-    for (let i = 0; i < 5; i++) raidDefender(w, h.id);
-    expect(w.defenders.has(h.id), 'five is not enough').toBe(true);
+    const needed = Math.ceil(HELGA_POOL / RAID);
+    expect(needed, 'the published arithmetic itself').toBe(16);
+    for (let i = 0; i < needed - 1; i++) raidDefender(w, h.id);
+    expect(w.defenders.has(h.id), 'one short is not enough').toBe(true);
     raidDefender(w, h.id);
-    expect(w.defenders.has(h.id), 'the sixth finishes her').toBe(false);
+    expect(w.defenders.has(h.id), 'the last one finishes her').toBe(false);
   });
 
   it('emits a RAIDED cloud in the RAIDER’s colour, flagged killed on the blow that lands it', () => {
@@ -116,7 +128,8 @@ describe('S158 A3 — a raid hits HELGA, at exactly the published rate', () => {
     expect(first).toHaveLength(1);
     expect((first[0] as { killed: boolean }).killed).toBe(false);
     expect((first[0] as { color: number }).color).toBe(w.players.get(P0)!.color);
-    for (let i = 0; i < 4; i++) raidDefender(w, h.id);
+    // ⛔ DERIVED S177 P8 — one raid has already landed above, so take her to one short of the kill.
+    for (let i = 0; i < Math.ceil(HELGA_POOL / RAID) - 2; i++) raidDefender(w, h.id);
     w.effects.length = 0;
     raidDefender(w, h.id);
     expect((w.effects.filter((e) => e.kind === 'RAIDED')[0] as { killed: boolean }).killed).toBe(true);

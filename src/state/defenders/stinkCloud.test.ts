@@ -438,17 +438,43 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     expect(enemyStinkCloudInReach(w, g, 60)).toBeNull();
   });
 
-  it('reach is measured to the BAG, not to the edge of its smell', () => {
-    // Otherwise an archer pops bags from outside the thing that makes them dangerous, which removes
-    // the trade the owner asked for.
+  /**
+   * ⛔⛔ RE-PINNED S177 P5 (owner) — **THE OLD RULE WAS THE BUG HE REPORTED, AND IT IS INVERTED HERE.**
+   *
+   * Owner: *"They should be ONE HIT to destroy. Instead I had two bosses and a whole army trying to
+   * destroy them for like six seconds."* The bag's pool was never the problem — it is 5 fifths and
+   * everything one-shots it. This test pinned the reason no swing ever LANDED: reach was measured to
+   * the bag's centre at the attacker's `attackRange`, which is 35 px for every melee goblin and every
+   * boss, while the cloud they stand in is 90 px. They swung at nothing for the bag's whole 5 s life
+   * and then it EXPIRED — his "six seconds".
+   *
+   * ⚠ THE TRADE THE OLD COMMENT PROTECTED IS KEPT, and the second assertion is what proves it: reach
+   * is now `max(attackRange, cloud.radius)`, a MAX and not a SUM, so a ranged unit's reach is
+   * completely unchanged and it still cannot pop a bag it is not already committed to. Only units
+   * whose arm is SHORTER than the cloud gain anything — and they gain it by standing in the smell.
+   */
+  it('a unit standing INSIDE the smell can reach the bag (owner S177 P5)', () => {
     const w = make1v1();
     applySpawnCreature(w, {
       type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
       pos: { x: 500 + STINK_BAG_RADIUS - 5, y: 500 }, targetPos: { x: 0, y: 0 }, sourceSpawnerId: null,
     });
     const g = [...w.creatures.values()].at(-1)!;
+    const cloud = landCloud(w, P0);
+    // 85 px from the bag: well outside a 35 px arm, well inside the 90 px cloud. It used to be null.
+    expect(enemyStinkCloudInReach(w, g, 35), 'inside the smell, so it can hit the bag').toBe(cloud.id);
+  });
+
+  /** ⭐ The other half of the same rule: OUTSIDE the smell, a short arm still cannot reach. */
+  it('a unit outside the smell still cannot reach the bag', () => {
+    const w = make1v1();
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 500 + STINK_BAG_RADIUS + 5, y: 500 }, targetPos: { x: 0, y: 0 }, sourceSpawnerId: null,
+    });
+    const g = [...w.creatures.values()].at(-1)!;
     landCloud(w, P0);
-    expect(enemyStinkCloudInReach(w, g, 35), 'inside the cloud, but not at the bag').toBeNull();
+    expect(enemyStinkCloudInReach(w, g, 35), 'outside the smell entirely').toBeNull();
   });
 
   it('⭐ END TO END — a goblin standing on an enemy bag pops it through the real host tick', () => {

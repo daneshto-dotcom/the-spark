@@ -379,7 +379,22 @@ function readTestWinScore(): number | null {
 // because some structures take so long to build" → ~2× match length so slow/complex structures finish).
 // SCORE_TIER_STEP raised 262→500 in LOCKSTEP below so exact-thirds holds (1500=3×500; pulses at
 // 500/1000, WIN at 1500). HUNTER_TRIGGER_SCORE auto-scales to floor(1500×0.75)=1125. Owner-approved S110.
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
+/**
+ * ⭐⭐ S177 P6 (owner) — **1500 → 2500.** *"We need to make the fight last fifteen seconds longer.
+ * The fighting phase to win point base victory, we need at least two thousand five hundred instead
+ * of one thousand five hundred because it ends too quickly now."*
+ *
+ * ⚠ HE NAMED TWO KNOBS IN ONE BREATH AND BOTH ARE TAKEN (his pick, S177): this target, and
+ * `FIGHT_PHASE_TICKS` 45 s → 60 s. They compound — a longer target means more phase cycles, and each
+ * cycle's fight is now longer.
+ *
+ * ⛔ EXACT-THIRDS IS NOW EXACT-FIFTHS, AND THAT IS THE DELIBERATE PART. `SCORE_TIER_STEP` stays 500
+ * because 2500/3 is not an integer, so the tier ladder becomes 5 steps: pulses at 500/1000/1500/2000,
+ * WIN at 2500. `scoring.test.ts` is RE-PINNED to 5, not silenced — the invariant that matters is
+ * "the win target is a whole number of tier steps", and it still holds.
+ * `HUNTER_TRIGGER_SCORE` auto-scales to floor(2500×0.75) = 1875.
+ */
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 2500;
 
 /* ========================================================================== *
  *          S147 — THE MATCH CLOCK (the tower-defence BUILD/FIGHT cycle)      *
@@ -412,7 +427,7 @@ export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
  */
 export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ; // 5400 ticks = 90 s @ 60 Hz — the BUILD stage
 /** S149 — the FIGHT is half a BUILD: long enough to resolve, short enough not to drag. */
-export const FIGHT_PHASE_TICKS = 45 * PHYSICS_HZ; // 2700 ticks = 45 s @ 60 Hz
+export const FIGHT_PHASE_TICKS = 60 * PHYSICS_HZ; // 3600 ticks = 60 s @ 60 Hz — ⭐ S177 P6 (owner) *"make the fight last fifteen seconds longer"* (was 45 s / 2700)
 
 /**
  * ⭐ HOW LONG `phase` LASTS, in ticks. The ONE place the asymmetry is expressed.
@@ -2070,8 +2085,17 @@ export const DRONE_DEF = 0;
  */
 export const PRINCESS_ATK = 4;
 export const PRINCESS_PEN = 4;
-export const PRINCESS_HP = 6;
-export const PRINCESS_DEF = 4;
+/**
+ * ⭐ S177 P8 (owner) — **DOUBLED, 6 → 12.** *"Helga should have two times the HP and the defense that
+ * she currently has. Same attack and penetration, but two times the HP and the defense."*
+ *
+ * ⚠ HER EFFECTIVE POOL MORE THAN DOUBLES, and that is arithmetic rather than a liberty: DEF is a
+ * MULTIPLIER on the ×5 ladder, so doubling both terms multiplies. `unitPoolFifths(6,4)` = 6 × 9 = 54
+ * becomes `unitPoolFifths(12,8)` = 12 × 13 = **156 fifths**, i.e. ×2.89. His instruction names the
+ * two STATS, and these are those two stats doubled.
+ */
+export const PRINCESS_HP = 12;
+export const PRINCESS_DEF = 8; // ⭐ S177 P8 (owner) — doubled with her HP; see PRINCESS_HP
 /**
  * VOLTKIN — "3 atk (chain lightning …) 6 pierce. 8hp, and 3 def". HP lives in VOLTKIN_HP above
  * (unchanged at 8 since owner R71).
@@ -2449,7 +2473,27 @@ export const ZOMBIE_AURA_RADIUS = 170;
  */
 export const DIREWOLF_STATS = { hp: 3, def: 3, atk: 3, pen: 3 } as const;
 export const DIREWOLF_SUMMON_COUNT = 3;
-export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
+/**
+ * ⭐⭐ S177 P3 (owner) — **15 s → 30 s, AND THE OLD PACK DIES WHEN THE NEW ONE ARRIVES.** *"There
+ * should be a maximum of three direwolves per world lord, and he spawns new ones every thirty
+ * seconds. And the old ones die and despawn — no matter how much health they have left or how many
+ * there are left of them, maybe one left, maybe none, maybe three still. They despawn and die out,
+ * with the whole dying loop, and then new ones spawn. Kind of the same as we tweaked Pharaoh."*
+ *
+ * ⭐ THE PHARAOH IS THE TEMPLATE AND HE SAID SO. `PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS` is already
+ * 30 s and `PHARAOH_LOCUST_LIFETIME_TICKS` already expires the old flight — the direwolf now wears
+ * the same shape, with `DIREWOLF_LIFETIME_TICKS` set EQUAL to the summon interval so a pack dies
+ * exactly as its successor lands. That is what makes the cull deterministic: it is a lifetime
+ * compared against a serialized spawn tick, not a cross-entity sweep that both peers must agree on.
+ */
+export const DIREWOLF_SUMMON_INTERVAL_TICKS = 30 * PHYSICS_HZ;
+
+/**
+ * ⭐ S177 P3 (owner) — how long a summoned pack lives. EQUAL to the summon interval by construction:
+ * *"the old ones die and despawn ... and then new ones spawn."* One expression, so the two can never
+ * drift apart into a gap with no wolves or an overlap with six.
+ */
+export const DIREWOLF_LIFETIME_TICKS = DIREWOLF_SUMMON_INTERVAL_TICKS;
 
 /**
  * ⚠⚠ **THIS CEILING IS MINE, AND WITHOUT ONE THE WARLORD IS THE ONLY BOSS ANYONE PICKS.**
@@ -2470,7 +2514,7 @@ export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
  * its stated arithmetic both promised behaviour the code does not have, and a name that lies is
  * the cheaper half of this repo's recurring stale-docblock defect. The honest fix is the rename.
  */
-export const DIREWOLF_MAX_PER_OWNER = 6;
+export const DIREWOLF_MAX_PER_OWNER = 3; // ⭐ S177 P3 (owner) — *"a maximum of three direwolves per world lord"*. HIS number supersedes the ceiling of 6 the docblock above calls mine.
 
 /*
  * ⭐⭐ S171 (owner R142) — **THE PHARAOH'S LOCUSTS.**
@@ -2974,8 +3018,8 @@ export const STINK_BAG_PEN = 1; // ⭐ R77 — was 0
  * `1 - remaining / config.fireIntervalTicks`, so the ring simply fills twice as fast. The windup tell
  * halves with it to keep the same proportion of the cycle.
  */
-export const TURRET_FIRE_INTERVAL_TICKS = 450; // 7.5 s @ 60 Hz — owner S173 B6 "two times faster" (was 900; S157 had halved 1800→900)
-export const TURRET_WINDUP_TICKS = 5; // the pre-beam tell, halved with the cadence again (9→5, rounded UP so it survives)
+export const TURRET_FIRE_INTERVAL_TICKS = 225; // 3.75 s @ 60 Hz — ⭐ S177 P7 (owner) *"Laser tower should have two times more speed"* — the THIRD halving (1800→900 S157, →450 S173, →225 S177)
+export const TURRET_WINDUP_TICKS = 3; // the pre-beam tell, halved with the cadence a third time (9→5→3, rounded UP so it survives)
 export const TURRET_WINDUP_RINGS = 5; // client-visible charge rings across the fire interval (owner: "5 rings")
 export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 

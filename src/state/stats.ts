@@ -226,6 +226,52 @@ export function connectorCapacityFifths(componentConnectorCount: number): number
 }
 
 /**
+ * ⭐⭐⭐ S177 P1 (owner R173-A/B — RULED S173, NEVER BUILT, RE-STATED IN FULL S177) — **THE STRUCTURE POOL.**
+ *
+ * The canonical system, in his own words, and it is the SAME LADDER every unit already uses — which
+ * is the entire point of it:
+ *
+ * > *"Towers are made of connections of a set of connectors. If there are five connectors ... each
+ * > connector is one HP and one level of defense. So level five of defense comes out as two, because
+ * > the defense ladder goes level one 1.2, level two 1.4, level three 1.6, level four 1.8, and level
+ * > five is two. So you take five HP, then you times it times two. It comes out as ten. And then you
+ * > times it times five. So that is fifty HP to destroy the ... tower."*
+ *
+ * And on the algebraic form, S177: *"HP times one plus zero point two times defense ... Sure. Yeah.
+ * That works. You can define it like that ... And similarly for the ladder of attack."*
+ *
+ * ⇒ **HP = n, DEF level = n, pool = n × (1 + 0.2n) × 5 = `n × (FIFTHS + n)` fifths.**
+ *
+ * | n | his arithmetic | pool |
+ * |---|---|---|
+ * | 5 | 5 × 2.0 × 5 | **50** |
+ * | 4 | 4 × 1.8 × 5 | **36** |
+ * | 3 | 3 × 1.6 × 5 | **24** |
+ * | 2 | 2 × 1.4 × 5 | **14** |
+ * | 1 | 1 × 1.2 × 5 | **6**  |
+ *
+ * ⛔ **THIS FULL POOL IS THE COST OF ONE CONNECTOR, NOT OF THE WHOLE TOWER** (R173-B). He is
+ * explicit: *"which also is defined by the first connection that is destroyed. And there's still four
+ * other connectors, and you need to destroy all of them to completely destroy the building ... Then
+ * it falls down to four connectors left. Four connectors left would be four HP times one point eight
+ * defense, and then times five."* So levelling a 5-connector tower costs
+ * 50 + 36 + 24 + 14 + 6 = **130 fifths**, at an accelerating rate — R76's own intent, unchanged; only
+ * the LADDER moved up a level and the pool became structure-wide instead of per-bond.
+ *
+ * ⛔ SUPERSEDES R76 AS RECORDED IN `connectorCapacityFifths` ABOVE (DEF = n − 1, damage banked on ONE
+ * bond). That function is kept, and kept OUT of the damage path, so both rulings stay legible.
+ *
+ * ⭐ AND THIS IS THE ANSWER TO *"why does a tower show a hundred sixty seven"* — not a display fix. A
+ * tower's pool now lives on the ×5 ladder units already use, so the number a goblin prints on a
+ * connector is the number it prints on a goblin. His worked case: *"a boss that has twelve attack and
+ * five penetration could still destroy a tower with one hit"* — `attackFifths(12,5)` = 12 × 10 =
+ * **120** against a 50 pool. ✓
+ */
+export function structurePoolFifths(componentConnectorCount: number): number {
+  return componentConnectorCount * multiplierFifths(componentConnectorCount);
+}
+
+/**
  * A whole structure's defensive score, in fifths — `connectors × perConnector`.
  *
  * Nothing in the damage path reads this: damage always lands on ONE connector, and the per-connector
@@ -234,7 +280,7 @@ export function connectorCapacityFifths(componentConnectorCount: number): number
  * without re-deriving it and drifting.
  */
 export function structureDefenceFifths(componentConnectorCount: number): number {
-  return componentConnectorCount * connectorCapacityFifths(componentConnectorCount);
+  return structurePoolFifths(componentConnectorCount);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
