@@ -456,8 +456,11 @@ describe('S160 P5 — the drone finally spends its 5 atk / 1 pen in an area of e
     world.primitives.set(asPrimitiveId(77), makePrim(77, 30, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
     dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
     const hit = world.primitives.get(asPrimitiveId(77));
-    expect(hit, 'one blast is 418 of 1000, so the shape survives it').toBeDefined();
-    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - primitiveDamageForAtk(DRONE_ATK));
+    // ⭐ RE-POINTED S177 P1 — one ladder. 30 of 70, so three drones still fell a shape, exactly as
+    // 418 of 1000 did. The relationship survived the rescale; only the obscure number went away.
+    expect(hit, 'one blast is 30 of 70, so the shape survives it').toBeDefined();
+    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - attackFifths(DRONE_ATK, DRONE_PEN));
+    expect(Math.ceil(PRIMITIVE_MAX_HP / attackFifths(DRONE_ATK, DRONE_PEN))).toBe(3);
   });
 
   it('⛔ and the CONNECTOR SEVER IS STILL UNCONDITIONAL — additive, not a conversion', () => {

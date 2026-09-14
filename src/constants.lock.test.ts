@@ -47,12 +47,22 @@ describe('USER-LOCKED constants (LOCKED_DECISIONS.md)', () => {
  */
 describe('S139 P1 — damage-substrate INVARIANTS (relationships, not values)', () => {
   it('the DoT percentages the design actually uses all land on INTEGERS of PRIMITIVE_MAX_HP', () => {
-    // This is why the scale is 1000 and not 100 (constants.ts records the reasoning verbatim).
-    // If someone lowers it, 2.5% stops being an integer and `damageEntity` throws AT RUNTIME —
-    // which no type check would have caught.
-    for (const pct of [1, 2.5, 5]) {
-      const perApplication = (PRIMITIVE_MAX_HP * pct) / 100;
-      expect(Number.isInteger(perApplication)).toBe(true);
+    /*
+     * ⛔⛔ RETIRED S177 P1 — THE PERCENTAGE-OF-MAX-HP DoT MODEL WAS NEVER BUILT, AND THIS GUARDED IT.
+     *
+     * The invariant here was that 1 % / 2.5 % / 5 % of `PRIMITIVE_MAX_HP` land on integers, because
+     * `damageEntity` throws on a fraction. It was the stated reason the scale was 1000. But a sweep
+     * of the whole tree finds the percentage model in exactly THREE DOCBLOCKS and in no code: every
+     * value that reaches `damageEntity({kind:'primitive'})` is an `attackFifths(atk, pen)`, which is
+     * `atk × (5 + pen)` and therefore an integer by construction.
+     *
+     * This repo has a name for that shape — `CONNECTOR_HP` was "documentation shorthand for a
+     * mechanism that did not exist" — so the honest move is to assert the invariant that IS load
+     * bearing rather than keep a guard for a design the owner's ×5 ladder has replaced.
+     */
+    expect(Number.isInteger(PRIMITIVE_MAX_HP)).toBe(true);
+    for (const [atk, pen] of [[1, 0], [2, 1], [4, 0], [5, 1], [12, 5], [15, 15]]) {
+      expect(Number.isInteger(attackFifths(atk, pen)), `attackFifths(${atk},${pen})`).toBe(true);
     }
   });
 

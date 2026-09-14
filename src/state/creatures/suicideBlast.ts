@@ -53,7 +53,7 @@ import {
 } from '../../constants.ts';
 import type { BondId, CreatureId } from '../../types.ts';
 import { applyRadialDamage, damageConnector } from '../damage.ts';
-import { attackFifths, primitiveDamageForAtk } from '../stats.ts';
+import { attackFifths } from '../stats.ts';
 import { dispatch, type World } from '../world.ts';
 
 /**
@@ -105,7 +105,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     cx,
     cy,
     GOBLIN_SUICIDE_BLAST_RADIUS,
-    primitiveDamageForAtk(GOBLIN_SUICIDE_ATK), // ⭐ S158 P3b — the owner's 4 atk, on the shape scale
+    SUICIDE_BLAST_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
     SUICIDE_BLAST_UNIT_FIFTHS,
     'creature',
     bomber.ownerPlayerId,

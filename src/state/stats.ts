@@ -157,6 +157,17 @@ export function attackFifths(atk: number, pen: number): number {
 }
 
 /**
+ * ⛔⛔ **SUPERSEDED S177 P1 — RETIRED, AND NOTHING IN THE DAMAGE PATH CALLS IT.**
+ *
+ * This was the bridge between two damage scales. There is only ONE scale now: the owner's ×5 ladder,
+ * which a shape joined when `PRIMITIVE_MAX_HP` became 70. Owner, S177: *"it would definitely not come
+ * out as a hundred sixty four damage. That's just obscure ... we have a system for this. Like, this
+ * should be the canonical system moving forward."* Every former caller now passes the SAME
+ * `attackFifths(atk, pen)` it already passed for units.
+ *
+ * Kept, unused, next to `connectorCapacityFifths` — the other function a newer ruling superseded —
+ * so the arithmetic that shipped for 19 sessions stays readable to whoever reads the old tests.
+ *
  * ⭐ S158 P3b (owner) — **AN ATK VALUE, ON THE 1000-PER-SHAPE SCALE.**
  *
  * Owner, ruling on the terrorist goblin's blast: *"the 4atk against units + 4 atk against

@@ -37,7 +37,7 @@ import {
   PRIMITIVE_MAX_HP,
   SparkType,
 } from '../../constants.ts';
-import { attackFifths, primitiveDamageForAtk } from '../stats.ts';
+import { attackFifths } from '../stats.ts';
 
 /**
  * The blast's unit damage, derived from the OWNER'S OWN NUMBERS through the shared ladder rather
@@ -180,11 +180,19 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
     const alsoNear = addPrimAt(w, 1, 500, 560); // 60 px — inside 70
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id });
 
-    const expected = primitiveDamageForAtk(GOBLIN_SUICIDE_ATK);
+    /*
+     * ⛔ RE-POINTED S177 P1, AND THE COUNT MOVED 3 → 4 — STATED, NOT SMOOTHED OVER.
+     *
+     * The blast now deals its UNIT number to a shape, because there is only one ladder:
+     * `attackFifths(4, 0)` = 20 against a 70-fifth shape. Under two separate scales the owner's "six
+     * goblin swings" (72) and this "three blasts" (60) could both be true; on one ladder they cannot,
+     * and the six is the number he actually ruled. See `PRIMITIVE_MAX_HP`'s docblock.
+     */
+    const expected = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
     for (const p of [near, alsoNear]) {
       expect(w.primitives.get(p.id)!.hp).toBe(PRIMITIVE_MAX_HP - expected);
     }
-    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'three blasts fell a shape').toBe(3);
+    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'FOUR blasts fell a shape now').toBe(4);
   });
 
   it('⭐ and CUTS ENEMY CONNECTORS in radius — the third target in the same ruling', () => {

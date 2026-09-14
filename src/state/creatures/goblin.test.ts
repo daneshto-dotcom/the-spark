@@ -31,9 +31,10 @@ import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
 import { asPlayerId, asPrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Controls } from '../../input/controls.ts';
-import { unitPoolFifths } from '../stats.ts';
+import { attackFifths, unitPoolFifths } from '../stats.ts';
 import { CHEWER_HP,
-  GOBLIN_DAMAGE_VS_PRIMITIVE,
+  GOBLIN_MELEE_ATK,
+  GOBLIN_MELEE_PEN,
   GOBLIN_MELEE_HP,
   PRIMITIVE_MAX_HP,
   SPAWNER_CENTER_X,
@@ -288,10 +289,17 @@ describe('S139 P2 — config + the owner\'s "6 attacks" rule', () => {
   });
 
   it('SIX strikes fell a full-hp shape, and five do NOT (the owner\'s rule, both directions)', () => {
-    expect(GOBLIN_DAMAGE_VS_PRIMITIVE * 5).toBeLessThan(PRIMITIVE_MAX_HP);
-    expect(GOBLIN_DAMAGE_VS_PRIMITIVE * 6).toBeGreaterThanOrEqual(PRIMITIVE_MAX_HP);
-    // 166 would have given 996 after six — silently making the rule SEVEN attacks.
-    expect(Number.isInteger(GOBLIN_DAMAGE_VS_PRIMITIVE)).toBe(true);
+    /*
+     * ⭐⭐ RE-POINTED S177 P1 — SAME OWNER RULE, NOW ON HIS LADDER. The goblin's swing against a shape
+     * was a flat `GOBLIN_DAMAGE_VS_PRIMITIVE` = 167 of a 1000-point shape; it is now
+     * `attackFifths(2, 1)` = 12 of a 70-fifth shape. His "6 attacks" is unchanged and is still
+     * asserted in BOTH directions — which is what chose 14 HP for a shape rather than 12.
+     */
+    const swing = attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN);
+    expect(swing).toBe(12);
+    expect(swing * 5).toBeLessThan(PRIMITIVE_MAX_HP);
+    expect(swing * 6).toBeGreaterThanOrEqual(PRIMITIVE_MAX_HP);
+    expect(Number.isInteger(swing)).toBe(true);
   });
 
   /**

@@ -41,7 +41,6 @@
 
 import {
   STINK_AURA_CADENCE_TICKS,
-  STINK_AURA_DAMAGE,
   STINK_AURA_UNIT_FIFTHS,
   STINK_BAG_DEF,
   STINK_BAG_HP,
@@ -125,7 +124,7 @@ export function stinkCloudTick(world: World, c: StinkCloud, radialDamage: Radial
   if (world.tick % STINK_AURA_CADENCE_TICKS !== phase) return false;
   radialDamage(
     world, c.pos.x, c.pos.y, c.radius,
-    STINK_AURA_DAMAGE, STINK_AURA_UNIT_FIFTHS,
+    STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
     'aura', c.ownerPlayerId,
   );
   return true;

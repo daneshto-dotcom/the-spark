@@ -2852,7 +2852,35 @@ export const DEFENDER_REACQUIRE_TICKS = 12; // IDLE retry cadence when no enemy 
 // cannot drift, which removes float-determinism risk from the host/worker differential outright
 // rather than relying on both sides rounding identically. Do not lower this to 100 — 2.5% of 100
 // is 2.5 and reintroduces exactly that hazard.
-export const PRIMITIVE_MAX_HP = 1000; // a single placed shape
+/**
+ * ⭐⭐⭐ S177 P1 (owner) — **A SHAPE IS ON THE ×5 LADDER NOW, LIKE EVERYTHING ELSE. 1000 → 70.**
+ *
+ * Owner, S177, on seeing a tower print 167 while a goblin printed 8: *"it would definitely not come
+ * out as a hundred sixty four damage. That's just obscure. That doesn't mean anything ... If a goblin
+ * is hitting another goblin, the damage would show, like, eight ... But then when he attacks the
+ * tower, it shows us a hundred sixty four. That is not consistent. And we have a system for this.
+ * Like, this should be the canonical system moving forward."*
+ *
+ * The 1000-point shape scale was the last thing in the game NOT on his ladder, and
+ * `GOBLIN_DAMAGE_VS_PRIMITIVE` (167) was the bespoke bridge between the two. Both are gone. A shape
+ * is now **14 HP, 0 DEF** — `14 × (1 + 0.2×0) × 5` = **70 fifths** — and every attacker hits it with
+ * the same `attackFifths(atk, pen)` it uses on a creature, a connector, a defender or a bag.
+ *
+ * ⭐⭐ HIS "SIX ATTACKS" RULING IS PRESERVED EXACTLY, AND THAT IS WHY 14 AND NOT 12. A melee goblin
+ * swings `attackFifths(2, 1)` = 12, so five swings leave 10 fifths standing and the SIXTH fells it —
+ * the same six he ruled when 167 was chosen.
+ *
+ * ⭐ AND SO IS ALMOST EVERY OTHER SHIPPED RELATIONSHIP, measured rather than hoped:
+ *   · drone     `attackFifths(5,1)`  = 30  → 3 drones fell a shape   (was 418/1000 → 3) ✓
+ *   · Ra column `attackFifths(15,15)` = 300 → one-shot                (was 1253/1000 → one-shot) ✓
+ *   · stink bag `attackFifths(1,1)`  = 6   → 12 hits                  (was 83/1000 → 13) ≈
+ *
+ * ⚠ ONE RELATIONSHIP MOVED, STATED RATHER THAN BURIED: the suicide goblin
+ * (`attackFifths(4,0)` = 20) now needs **FOUR** blasts where it needed three. Under two separate
+ * scales "six goblin swings" (72) and "three suicide blasts" (60) could both be true; on ONE ladder
+ * they cannot, and the goblin's six is the number the owner actually ruled.
+ */
+export const PRIMITIVE_MAX_HP = 70; // a single placed shape — 14 HP × 1.0 DEF × 5, his ladder
 // ⭐ S139 P1 — THE CADENCE THE PARAGRAPH ABOVE HAS ALWAYS SPECIFIED AND NEVER DECLARED.
 // S138 wrote the "% of max hp on a 0.5 s cadence" model into the comment above but minted no
 // constant for it, so every future DoT author would have re-derived `0.5 * PHYSICS_HZ` by hand —
@@ -2874,7 +2902,15 @@ export const DOT_CADENCE_TICKS = 0.5 * PHYSICS_HZ; // 30 — one damage applicat
 // inert: damageEntity does `hp -= amount` then tests `hp > 0`, so a negative residual simply dies.
 // The lock test pins the RELATIONSHIP (6 hits fells a full-hp shape), not the literal 167 — because
 // if PRIMITIVE_MAX_HP ever moves, 167 silently stops meaning six.
-export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // 6 × 167 = 1002 ≥ PRIMITIVE_MAX_HP 1000
+/**
+ * ⛔⛔ **RETIRED S177 P1 — THIS IS THE 167 THE OWNER COMPLAINED ABOUT, AND NOTHING READS IT NOW.**
+ *
+ * It was a FLAT number every creature in the game dealt to a shape — a melee goblin, an archer and a
+ * tier-9 boss alike — on a 1000-point scale nothing else used. `creatureAttack.ts` now passes
+ * `attackFifths(atk, pen)` like every sibling arm. Kept only so the old tests and the reasoning
+ * behind "six attacks" stay readable; see `PRIMITIVE_MAX_HP` for how that ruling survived the move.
+ */
+export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // ⛔ RETIRED S177 — unread; was 6 × 167 ≥ the old 1000
 // Unit-vs-unit runs on the OTHER hp scale. Creature hp is a hit COUNT (CHEWER_HP 1, VOLTKIN_HP 8)
 // and every single-target hit deals CREATURE_HIT_DAMAGE = 1, so "6 attacks to destroy a UNIT" is
 // expressed as the goblin's own hp being 6. Two scales, one owner-visible rule, all integers.

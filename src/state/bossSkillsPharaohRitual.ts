@@ -49,7 +49,7 @@ import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { isChannellingRa } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
 import { applyRadialDamage } from './damage.ts';
-import { attackFifths, primitiveDamageForAtk } from './stats.ts';
+import { attackFifths } from './stats.ts';
 import type { World } from './world.ts';
 
 /**
@@ -146,7 +146,7 @@ export function runPharaohRitual(world: World): void {
         pos.x,
         pos.y,
         RA_COLUMN_RADIUS,
-        primitiveDamageForAtk(RA_COLUMN_ATK),
+        attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
         attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN),
         'aura',
         null,

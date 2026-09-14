@@ -41,7 +41,7 @@ import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
-import { GOBLIN_DAMAGE_VS_CASTLE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
+import { GOBLIN_DAMAGE_VS_CASTLE } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
 import { applyVoltkinChain } from './voltkinChain.ts';
@@ -316,13 +316,22 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const reach = attackerConfig.attackRange * attackerConfig.attackRange;
     if (distSq(creature.pos, prim.pos) > reach) return world;
 
-    // GOBLIN_DAMAGE_VS_PRIMITIVE is an INTEGER chosen so six strikes fell a full-hp shape
-    // (6 × 167 = 1002 ≥ PRIMITIVE_MAX_HP 1000) — the owner's "6 attacks". `damageEntity` throws on a
-    // fractional amount, so authoring this as PRIMITIVE_MAX_HP/6 would be a runtime crash.
+    /*
+     * ⭐⭐⭐ S177 P1 (owner) — **THE ATTACKER'S OWN STATS, LIKE EVERY OTHER ARM IN THIS FUNCTION.**
+     *
+     * This was a FLAT `GOBLIN_DAMAGE_VS_PRIMITIVE` = 167 for every creature in the game — a melee
+     * goblin, an archer and a tier-9 boss all dealt exactly the same damage to a shape, on a scale
+     * nothing else used. It is the single line that produced the number he complained about:
+     * *"when he attacks the tower, it shows us a hundred sixty four. That is not consistent."*
+     *
+     * Every sibling arm above and below already reads `attackFifths(atk, pen)`; the shape arm was the
+     * odd one out. Now it is not, and a goblin prints the same 12 on a shape that it prints on a
+     * goblin. His six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
+     */
     const died = damageEntity(
       world,
       { kind: 'primitive', id: creature.targetPrimitiveId },
-      GOBLIN_DAMAGE_VS_PRIMITIVE,
+      attackFifths(attackerConfig.atk, attackerConfig.pen),
       'creature',
     );
     if (died) {

@@ -32,9 +32,7 @@
 import {
   STINK_AURA_CADENCE_TICKS,
   STINK_AURA_UNIT_FIFTHS,
-  STINK_AURA_DAMAGE,
   STINK_AURA_RADIUS,
-  STINK_BAG_DAMAGE,
   STINK_BAG_RADIUS,
   STINK_DEATH_BLAST_BASE_DAMAGE,
   STINK_DEATH_BLAST_BASE_RADIUS,
@@ -220,7 +218,7 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
   // but the splash was passing STINK_BAG_DAMAGE = 150 to creatures, which one-shot everything.
   radialDamage(
     world, at.x, at.y, STINK_BAG_RADIUS,
-    STINK_BAG_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
     'hazard', d.ownerPlayerId,
   );
   /*
@@ -286,7 +284,7 @@ export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDam
   if (world.tick % STINK_AURA_CADENCE_TICKS !== phase) return false;
   radialDamage(
     world, d.pos.x, d.pos.y, STINK_AURA_RADIUS,
-    STINK_AURA_DAMAGE, STINK_AURA_UNIT_FIFTHS,
+    STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
     'aura', d.ownerPlayerId,
   );
   return true;

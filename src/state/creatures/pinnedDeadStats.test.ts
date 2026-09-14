@@ -62,7 +62,9 @@ describe('S159 P6 — declared-but-dead stats are pinned, not merely commented',
     expect(drone).toContain('DRONE_MAX_CONNECTORS');
     // It goes through the SHARED helper, not a bespoke second damage path.
     expect(drone).toContain('applyRadialDamage');
-    expect(drone).toContain('primitiveDamageForAtk');
+    // ⛔ RE-POINTED S177 P1 — was `primitiveDamageForAtk`, the bespoke 1000-scale bridge. There is
+    // ONE ladder now, so the thing to pin is that the drone spends its stats through `attackFifths`.
+    expect(drone).toContain('attackFifths');
   });
 
   it('✅ the SIBLING case is live, which is what makes the drone gap a gap and not a design', () => {
@@ -72,7 +74,7 @@ describe('S159 P6 — declared-but-dead stats are pinned, not merely commented',
     const blast = src('suicideBlast.ts');
     expect(blast).toContain('GOBLIN_SUICIDE_ATK');
     expect(blast).toContain('GOBLIN_SUICIDE_PEN');
-    expect(blast).toContain('primitiveDamageForAtk');
+    expect(blast).toContain('attackFifths'); // ⛔ RE-POINTED S177 P1 — see the drone case above
     expect(GOBLIN_SUICIDE_ATK).toBeGreaterThan(0);
     expect(GOBLIN_SUICIDE_PEN).toBeGreaterThanOrEqual(0);
   });

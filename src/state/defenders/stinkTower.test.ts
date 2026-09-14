@@ -113,9 +113,11 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     // This is the whole reason the bridge exists. applyRadialClear would have razed this shape.
     const w = setup();
     const victim = addPrim(w, P1, 300, 300);
-    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
+    // ⭐ S177 P1 — ONE LADDER: the shape arm is now the unit arm, so the splash is UNIT_SPLASH on
+    // both. A full-health shape (70) still survives a 6-fifth bag, which is what this test asserts.
+    applyRadialDamage(w, 300, 300, 200, UNIT_SPLASH, UNIT_SPLASH, 'hazard', P0);
     expect(w.primitives.has(victim.id)).toBe(true);
-    expect(victim.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);
+    expect(victim.hp).toBe(PRIMITIVE_MAX_HP - UNIT_SPLASH);
   });
 
   it('spares everything the blast owner owns, and hits everything they do not', () => {

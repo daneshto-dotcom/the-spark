@@ -6,11 +6,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { attackFifths } from '../stats.ts';
 import {
   DEFENDER_FIRE_HOLD_TICKS,
   DEFENDER_RECOVER_TICKS,
   FIGHT_PHASE_TICKS,
-  GOBLIN_DAMAGE_VS_PRIMITIVE,
+  GOBLIN_MELEE_ATK,
+  GOBLIN_MELEE_PEN,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
   SPARK_VISUAL_SIZE,
@@ -204,7 +206,7 @@ describe('S157 F1 — the castle strike no longer preempts the shape strike', ()
     expect(
       target.hp,
       'the shape took the hit — the castle branch no longer swallows it',
-    ).toBe(hpBefore - GOBLIN_DAMAGE_VS_PRIMITIVE);
+    ).toBe(hpBefore - attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN)); // ⭐ S177 P1 — the attacker's own stats, not a flat 167
   });
 
   it('⛔ ANTI-VACUITY — with NO shape committed, the same goblin still hits the castle', () => {

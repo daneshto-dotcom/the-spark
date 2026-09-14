@@ -37,7 +37,7 @@
 
 import { PRIMITIVE_MAX_HP, STINK_BAG_ATK, STINK_BAG_PEN } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
-import { attackFifths, primitiveDamageForAtk, structurePoolFifths } from './stats.ts';
+import { attackFifths, structurePoolFifths } from './stats.ts';
 import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import type { Defender } from './defenders/defender.ts';
@@ -196,7 +196,7 @@ export function damageEntity(
       world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
       applyRadialDamage(
         world, at.x, at.y, radius,
-        primitiveDamageForAtk(STINK_BAG_ATK),
+        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
         attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
         'hazard', owner,
       );

@@ -143,10 +143,22 @@ describe('S138 P1 — the integer damage contract', () => {
     expect(w.effects.length).toBe(0); // no cosmetic noise for a zero hit
   });
 
-  it('every percentage the DoT model uses is an integer at this scale', () => {
-    // This is the whole reason PRIMITIVE_MAX_HP is 1000 and not 100.
-    for (const pct of [1, 2.5, 5]) {
-      expect(Number.isInteger((PRIMITIVE_MAX_HP * pct) / 100)).toBe(true);
+  it('every damage amount that can reach a shape is an integer, by construction', () => {
+    /*
+     * ⛔⛔ RETIRED S177 P1 — THE PERCENTAGE-OF-MAX-HP DoT MODEL WAS NEVER BUILT, AND THIS GUARDED IT.
+     *
+     * The invariant here was that 1 % / 2.5 % / 5 % of `PRIMITIVE_MAX_HP` land on integers, because
+     * `damageEntity` throws on a fraction. It was the stated reason the scale was 1000. But a sweep
+     * of the whole tree finds the percentage model in exactly THREE DOCBLOCKS and in no code: every
+     * value that reaches `damageEntity({kind:'primitive'})` is an `attackFifths(atk, pen)`, which is
+     * `atk × (5 + pen)` and therefore an integer by construction.
+     *
+     * This repo has a name for that shape — `CONNECTOR_HP` was "documentation shorthand for a
+     * mechanism that did not exist" — so the honest move is to assert the invariant that IS load
+     * bearing rather than keep a guard for a design the owner's ×5 ladder has replaced.
+     */
+    for (const [atk, pen] of [[1, 0], [2, 1], [4, 0], [5, 1], [12, 5], [15, 15]]) {
+      expect(Number.isInteger(attackFifths(atk, pen)), `attackFifths(${atk},${pen})`).toBe(true);
     }
   });
 });
@@ -357,21 +369,21 @@ describe('S138 P1 — the wire stays additive-optional', () => {
 
   it('a DAMAGED primitive emits hp and restores it exactly', () => {
     const { w, a } = chainWorld();
-    damageEntity(w, { kind: 'primitive', id: a.id }, 250, 'aura');
+    damageEntity(w, { kind: 'primitive', id: a.id }, 25, 'aura'); // ⭐ S177 P1 — non-lethal on the 70-fifth scale (was 250 of 1000)
     const snap = JSON.parse(JSON.stringify(snapshot(w))) as {
       primitives: { id: number; hp?: number }[];
     };
     const wire = snap.primitives.find((p) => p.id === (a.id as unknown as number));
-    expect(wire?.hp).toBe(PRIMITIVE_MAX_HP - 250);
+    expect(wire?.hp).toBe(PRIMITIVE_MAX_HP - 25);
 
     const fresh = baseWorld();
     restore(snapshot(w), fresh);
-    expect(fresh.primitives.get(a.id)!.hp).toBe(PRIMITIVE_MAX_HP - 250);
+    expect(fresh.primitives.get(a.id)!.hp).toBe(PRIMITIVE_MAX_HP - 25);
   });
 
   it('a pre-S138 snapshot (no hp anywhere) restores every primitive at FULL health', () => {
     const { w } = chainWorld();
-    damageEntity(w, { kind: 'primitive', id: w.primitives.keys().next().value! }, 250, 'aura');
+    damageEntity(w, { kind: 'primitive', id: w.primitives.keys().next().value! }, 25, 'aura');
     const snap = snapshot(w);
     // Strip hp everywhere, exactly as a pre-S138 save would have it.
     for (const p of (snap as unknown as { primitives: { hp?: number }[] }).primitives) delete p.hp;
@@ -396,8 +408,10 @@ describe('S138 P1 — the differential oracle CAN see non-lethal damage', () => 
     const two = chainWorld();
     expect(hashWorldStateFull(one.w)).toBe(hashWorldStateFull(two.w)); // same to start
 
-    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 250, 'aura');
-    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 260, 'aura');
+    // ⭐ S177 P1 — rescaled to the 70-fifth shape. Still NON-LETHAL on both sides, which is the
+    // whole point of the test: nothing dies, so every collection size stays identical.
+    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 25, 'aura');
+    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 35, 'aura');
 
     // Nothing died, so every collection SIZE is identical — the size-only structuralSignature
     // could not tell these apart. The WIDE hash, which the differential rig actually compares,

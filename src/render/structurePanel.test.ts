@@ -107,7 +107,7 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
 
   it('chip damage alone offers a FREE repair', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 300, 'creature');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature'); // ⭐ S177 P1 — chip damage on the 70-fifth scale
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);
     expect(fix.caption).toBe('REPAIR FREE');

@@ -46,7 +46,6 @@ import {
   STINK_AURA_UNIT_FIFTHS,
   PRIMITIVE_MAX_HP,
   SparkType,
-  STINK_AURA_DAMAGE,
   GOBLIN_SHIELD_ATK,
   GOBLIN_SHIELD_PEN,
   STINK_BAG_ATK,
@@ -121,7 +120,9 @@ describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
     const c = landCloud(w);
     w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS; // land exactly on this cloud's phase
     expect(stinkCloudTick(w, c, applyRadialDamage), 'this must be a cadence tick').toBe(true);
-    expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP - STINK_AURA_DAMAGE);
+    // ⭐ S177 P1 — ONE LADDER: the aura's shape arm is now its UNIT arm (1 fifth), not the old
+    // 1000-scale STINK_AURA_DAMAGE of 20. A 70-fifth shape chips at the same rate a creature does.
+    expect(w.primitives.get(victim.id)!.hp).toBe(PRIMITIVE_MAX_HP - STINK_AURA_UNIT_FIFTHS);
   });
 
   it('does NOTHING on an off-cadence tick — the beat is the point, not a per-tick drip', () => {

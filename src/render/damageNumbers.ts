@@ -359,13 +359,24 @@ export class DamageNumbers {
   /**
    * ⭐⭐ S175 P9 — damage on the things that are NOT creatures.
    *
-   * ⚠ EACH SYSTEM PRINTS IN ITS OWN UNIT, and that is the owner's own distinction rather than an
-   * oversight. He corrected me on it in S174: *"a tower's pool is in FIFTHS, the same unit as a
-   * creature's, so there is NO scale problem for towers"* — and that my question had *"wrongly
-   * lumped towers in with Primitive.hp (1000) and CASTLE_MAX_HP (1500), which are separate
-   * systems."* So a connector, a defender and a bag print fifths exactly like a creature, while a
-   * shape and a castle print their own hit points. Each number then matches the BAR drawn above
-   * that same thing, which is the only consistency a player can actually check.
+   * ⛔⛔ REWRITTEN S177 P1 — **THE SHAPE IS ON THE LADDER NOW, AND THIS DOCBLOCK USED TO SAY
+   * OTHERWISE.** It read: *"EACH SYSTEM PRINTS IN ITS OWN UNIT, and that is the owner's own
+   * distinction rather than an oversight"*, resting on his S174 correction that `Primitive.hp` (1000)
+   * and `CASTLE_MAX_HP` (1500) were *"separate systems"*.
+   *
+   * He watched it and ruled the opposite, S177: *"when he attacks the tower, it shows us a hundred
+   * sixty four. That is not consistent. And we have a system for this. Like, this should be the
+   * canonical system moving forward."* A tower IS shapes plus connectors, so the shape scale was the
+   * thing printing 167 over a tower. It is gone: `PRIMITIVE_MAX_HP` is 70 fifths and every attacker
+   * spends `attackFifths(atk, pen)` on it.
+   *
+   * ⇒ A creature, a connector, a defender, a bag AND a shape now all print the SAME number for the
+   * same swing — which is the teaching channel this feature exists to be.
+   *
+   * ⚠ THE CASTLE IS THE ONE POOL STILL ON ITS OWN SCALE, stated rather than quietly unified: he did
+   * not raise it, a keep at 1500 taking 6 a swing never produced an absurd number, and folding it in
+   * would retune every castle-damage relationship in the game for no complaint. Its number still
+   * matches the BAR above it, which is the consistency a player can actually check.
    */
   private syncStructures(world: World): void {
     const seen = new Set<string>();
@@ -381,7 +392,8 @@ export class DamageNumbers {
       if (d !== null) this.emitAt(world, x, y, d.amount, d.kind, owner);
     };
 
-    // SHAPES — `hp` out of PRIMITIVE_MAX_HP. Its own system; see the unit note above.
+    // SHAPES — `hp` out of PRIMITIVE_MAX_HP, which is 70 FIFTHS since S177 P1. Same ladder as a
+    // creature, so this prints the same number a creature would for the same swing.
     for (const prim of world.primitives.values()) {
       track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true);
     }

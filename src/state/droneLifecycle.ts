@@ -33,7 +33,7 @@ import {
   DRONE_PEN,
 } from '../constants.ts';
 import { applyRadialDamage } from './damage.ts';
-import { attackFifths, primitiveDamageForAtk } from './stats.ts';
+import { attackFifths } from './stats.ts';
 
 /**
  * ⭐ S160 P5 (owner R77) — **THE DRONE'S AoE DAMAGE, WHICH IT NEVER HAD.** The last unbuilt item on
@@ -202,7 +202,7 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     cx,
     cy,
     DRONE_EXPLODE_RADIUS,
-    primitiveDamageForAtk(DRONE_ATK),
+    DRONE_BLAST_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
     DRONE_BLAST_UNIT_FIFTHS,
     'creature',
     drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds

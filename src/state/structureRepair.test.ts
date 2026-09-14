@@ -354,8 +354,8 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     fund(w, 'laserTurret');
     build(w, 'laserTurret');
     const victim = nodesOf(w, 'laserTurret').get(2)!;
-    damageEntity(w, { kind: 'primitive', id: victim }, 400, 'creature');
-    expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP - 400);
+    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature'); // ⭐ S177 P1 — the 70-fifth scale
+    expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP - 40);
 
     const before = totalShapes(w);
     applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: victim });
