@@ -74,6 +74,43 @@ codebase spends most of its comments on.
   coverage contract will fail `tsc` until you do), the hand-written string projection, and the
   per-field contribution test. The union alone only silences the compiler.
 
+## ⛔ THE STAT LADDER IS THE CANON. EVERY POOL, EVERY HIT, ONE UNIT.
+
+Owner, S177, after finding a tower printing 167 while a goblin printed 8: *"That is not consistent.
+And we have a system for this. Like, this should be the canonical system moving forward. Like, I've
+been repeating it so many times now."* He had. This section exists so no session makes him do it again.
+
+```
+pool   = HP  × (1 + 0.2 × DEF) × 5     fifths     `unitPoolFifths(hp, def)`
+damage = ATK × (1 + 0.2 × PEN) × 5     fifths     `attackFifths(atk, pen)`
+```
+
+The ×5 is what makes every number a whole one — *"the stats go by one point two, the secondary
+stats, and when you multiply anything like that by five, it gives you a whole number."* There is
+therefore **no conversion anywhere**: the number the sim subtracts IS the number the player reads.
+
+- **A STRUCTURE IS ON THE SAME LADDER**, and its HP and DEF are both its connector count:
+  `pool(n) = n × (5 + n)` — 5→50 · 4→36 · 3→24 · 2→14 · 1→6 (`structurePoolFifths`). That full pool
+  is the cost of **ONE** connector; the survivors re-form at the lower count, so levelling a
+  5-connector tower costs 130. (R173-A/B, ruled S173, built S177 — it sat unimplemented for 24
+  sessions while the code ran `n − 1` and banked damage per-bond.)
+- **A SHAPE IS ON IT TOO** — `PRIMITIVE_MAX_HP` is **70 fifths** (14 HP / 0 DEF), not the old 1000.
+  His "six goblin swings fell a shape" is what fixes 14: `attackFifths(2,1)` = 12, and 6 × 12 ≥ 70.
+- **THE CASTLE IS THE ONE DELIBERATE EXCEPTION** (`CASTLE_MAX_HP` 1500). He has never raised it, 6
+  into 1500 never read as absurd, and folding it in would retune every castle relationship for no
+  complaint. Stated at `damageNumbers.ts`, not silently tolerated.
+
+⛔ **BEFORE INVENTING A DAMAGE OR HP NUMBER, ASK WHAT ITS HP/DEF OR ATK/PEN IS.** A bespoke constant
+on its own scale is the defect this section exists to prevent — `GOBLIN_DAMAGE_VS_PRIMITIVE` (a flat
+167 every creature in the game dealt to a shape, boss and goblin alike) survived 19 sessions and
+became his S177 bug report. Both it and `primitiveDamageForAtk` are retired in place, unread.
+
+⚠ **AND WHEN THIS LADDER MOVES, TESTS GO RED BY DESIGN — RE-PIN THEM, NEVER SILENCE THEM.** S177
+moved 14 assertions across 9 files. Two rules that paid off: derive the literal from the constant so
+the next retune cannot half-land, and where a count is a COVERAGE gate (the replay chewer stress),
+LENGTHEN the run past the new pool rather than relaxing the assertion — relaxing it would have
+deleted the gate while leaving it green.
+
 ## The four-sites warning
 
 A wide field needs **factory + serialize + hash + worker** (or tests stay green while the feature is
