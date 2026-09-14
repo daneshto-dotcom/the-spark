@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 39,
+  "tool_calls_session_total": 45,
   "session_id": "S176",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S175 CLOSED. 10/10 complete, LIVE + verified 4/4, atlas-guard GREEN. Handoff: HANDOFF_S175_2026-09-14.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "CHECK",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/S176_BATCH_PDR.md",
-  "session_status": "in_progress",
+  "session_status": "S176 CLOSED",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -116,7 +116,8 @@
           "op": "==",
           "value": 0
         }
-      ]
+      ],
+      "analyze_completed": true
     },
     {
       "id": "P2",
@@ -187,7 +188,8 @@
           "op": "==",
           "value": 1
         }
-      ]
+      ],
+      "analyze_completed": true
     }
   ],
   "verification": [],
@@ -211,5 +213,54 @@
     "R173-B (each connector costs the FULL structure pool) - RULED in S173, still not implemented. Its plan file is one of only two genuinely-live plans.",
     "NONET stages: 8 questions open. An in-match ladder needs a wire field => PROTOCOL 46 -> 47; arcade-only costs no bump.",
     "B8 powers · Pharaoh stances + Ra · Vlad life-sap."
-  ]
+  ],
+  "analyze": {
+    "calibration": [
+      {
+        "predicted": "Voltkin attack + die need ~$6.20 of veo re-rolls (inherited from S175's handoff, boot-snapshot and REVIEW card alike).",
+        "actual": "$0.00. attack and die ARE unusable as motion clips - that half was right - but the fix was never money: attack came from a measured amputation-free, scale-stable window (f70..95) and die from the corpse HE had already drawn. The inherited number was a correct diagnosis attached to the wrong remedy.",
+        "verdict": "MISCALIBRATED IN MY FAVOUR - but only because I re-measured. Trusting the handoff would have spent $6.20 to buy nothing."
+      },
+      {
+        "predicted": "P1 is 'fix the Voltkin's animation' (the owner reported him STUCK, which reads as a regression).",
+        "actual": "He had never been animated at all - a procedural puppet under two stills since S110. There was no sequence to regress.",
+        "verdict": "MISCALIBRATED. Phase A.0 caught it before a line was typed; a bug hunt would have found nothing to fix and wasted the session."
+      },
+      {
+        "predicted": "Four parallel A.0 agent lanes would return the state-discovery findings.",
+        "actual": "0 of 4 returned. ~566K subagent tokens spent for zero findings; every fact came from hand-runs afterwards.",
+        "verdict": "MISCALIBRATED, AND FORESEEABLE. This is the THIRD session to lose a fan-out to a spend limit (S161, S173, now). I sized it at 4 lanes on ONE invocation - the exact shape CLAUDE.md warns against - because 4 felt small. The rule is about the invocation, not the lane count."
+      },
+      {
+        "predicted": "The suite, typecheck, build and check:atlas would tell me whether the art was right.",
+        "actual": "All four were green across three separate defective packs. Every real defect (half-size attack, a health bar that would float, a validator's false pass) was found by opening a PNG or reading a script's source.",
+        "verdict": "WELL-CALIBRATED - the project's own rule ('no gate in this project can see a bad PNG') held exactly, for the second session running."
+      },
+      {
+        "predicted": "The gates I inherited were green, per S175's handoff.",
+        "actual": "CI's e2e job had been red for four commits on one assertion. S175 read that gate at BOOT and never at CLOSE.",
+        "verdict": "MISCALIBRATED BY INHERITANCE. I did not re-read e2e at boot either; I found it only because I pushed and watched CI. Had I not pushed mid-session, I would have shipped the same blind spot forward."
+      }
+    ],
+    "promotion_candidates_reviewed": "Boot surfaced three ADVISORY reflexion patterns (>=3x). Reviewed, NOT auto-codified, per the constitution. (1) #empirical-refutes-plausible-criticals (9x) - STRONGLY reinforced this session and now the dominant pattern in the log: the $6.20 verdict, the 'stuck animation' diagnosis and check-clip's idle PASS were all plausible and all wrong, each refuted by one measurement. (2) #raw-code-not-abbreviations (6x) - reinforced: reading check-clip.mjs's actual detector, rather than its summary output, is what exposed the false pass, and reading build-sprite-atlas.mjs is what showed framesPerState has no per-state override. (3) #policy-not-instance (4x) - the honest counter-example this session. I fixed THIS fog assertion but did not build anything that would catch the NEXT renderer added to fogHiddenLayer. RECOMMENDATION for a future META PDR, deliberately not actioned here (out of scope, and the owner is budget-constrained): a gate that fails when a renderer is constructed with a shared parent layer but is absent from fog.spec.ts's roll call. That converts the project's most-repeated display-list defect from prose into enforcement. Do NOT add it without its own PDR.",
+    "what_went_right": [
+      "The S161 rule was applied correctly for the first time under real pressure: 4/4 lanes died and every one was re-run by hand rather than filed as 'the sweep produced nothing'.",
+      "Committing and pushing per priority meant the spend-limit interruption and the weekly-budget squeeze cost nothing - P1 was already live when P2 started.",
+      "The owner's mid-session ruling (20 frames) was absorbed as a scope amendment WITH its companion change (ticksPerFrame rescaled) rather than shipped half-done - the S175 P1c lesson, applied unprompted.",
+      "A defect was found in work I had already committed (the health bar's padded cell) and fixed before the owner saw it."
+    ],
+    "what_to_do_differently": [
+      "RE-READ EVERY GATE AT CLOSE, not only at boot. A boot reading measures the session before yours. This is the single highest-value change and it is what hid a red CI for four commits.",
+      "Dispatch fan-out lanes as SEPARATE invocations. Three sessions have now lost an entire sweep to one spend limit; the cost of splitting is a few seconds.",
+      "Read exit codes from a captured $? at EVERY site, including the ones that feel like bookkeeping. I quoted this rule to the owner and then broke it on the review gate in the same session."
+    ],
+    "cost": {
+      "art_usd": 0.0,
+      "veo_calls": 0,
+      "imagen_calls": 0,
+      "subagent_tokens_wasted": 566394,
+      "usable_agent_findings": 0
+    }
+  },
+  "analyze_completed": true
 }
