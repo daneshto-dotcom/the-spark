@@ -1,6 +1,6 @@
 {
-  "tool_calls_session_total": 644,
-  "session_id": "S176",
+  "tool_calls_session_total": 655,
+  "session_id": "S177",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S175 CLOSED. 10/10 complete, LIVE + verified 4/4, atlas-guard GREEN. Handoff: HANDOFF_S175_2026-09-14.md",
@@ -47,162 +47,102 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "The Voltkin, alive - a real 4-state atlas from his own art, plus a health bar",
+      "name": "tower damage + HP on the owner ladder (R173-A/B/C, and the 167)",
       "status": "completed",
+      "checkpoint_commit": "bcd5f22",
+      "check_completed": true,
+      "check_method": "Implemented R173: structurePoolFifths = n x (5+n), damageConnector accumulates STRUCTURE-WIDE and spends the pool on sever with a total-order drain. Retired the 1000-point shape scale (PRIMITIVE_MAX_HP 1000 -> 70) and the flat GOBLIN_DAMAGE_VS_PRIMITIVE 167; creatureAttack now passes attackFifths like every sibling arm. 14 tests across 9 files RE-PINNED (never silenced), including the replay coverage gate which was LENGTHENED past the new pool rather than relaxed. Verified: typecheck 0, vitest 4511/4511, build 0, check:atlas 0, verify-deploy 4/4.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "3dbe989e5642d9a81488b49a539cd9a755f0d261",
-      "check_method": "RALPH:PATROL by hand (the Council/subagent lanes were unavailable - the org spend limit killed all four A.0 agents). STATIC: typecheck exit 0; vitest exit 0 at 4482 (+13 new in voltkinAtlas.test.ts); build exit 0, 831.5 KiB under the 900 KiB charter. EMPIRICAL, and this is where the real defects were found - three of them, none catchable by any gate: (1) the packed sheet was auditioned on the DARK board colour per protocol 4.1, which showed the attack row rendering the character at HALF size; measuring the yellow BODY apart from the cyan BOLTS proved why (bolts count as subject, so normaliseStateScale declined to scale) and moved the window to f70..95, where it scales x1.51 to within 6% of idle. (2) spriteBoxOf reported the padded CELL, which would have floated the health bar ~29% of a cell above his head - the S172 defect mirrored; now reports a measured per-row content fraction. (3) check-clip.mjs PASSES idle and that is a FALSE PASS - it tests bar PRESENCE across 24 samples, never bar WIDTH; re-running its own detector over all 96 frames showed idle's bars ramp 318->104. VERIFIED NOT REGRESSED: PROTOCOL_VERSION still 46 (renderer-only, all inputs already synced); voltkin deliberately NOT added to GOBLIN_KINDS, so there is no double-draw.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "export function voltkinAtlasRow"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "VOLTKIN_ATLAS_CONTENT"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/creatureRenderer.ts",
-          "pattern": "VOLTKIN_ATLAS_BASE_SCALE\\s*=\\s*0\\.479",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "json_field",
-          "path": "public/godly/voltkin/anim/voltkin-anim.json",
-          "key": "states.idle.frames",
-          "value": 20,
-          "op": "=="
-        },
-        {
-          "type": "json_field",
-          "path": "public/godly/voltkin/anim/voltkin-anim.json",
-          "key": "states.die.row",
-          "value": 3,
-          "op": "=="
-        },
-        {
-          "type": "json_field",
-          "path": "public/godly/voltkin/anim/voltkin-anim.json",
-          "key": "states.attack.ticksPerFrame",
-          "value": 3,
-          "op": "=="
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
-          "needle": "\"framesPerState\": 20"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
-          "needle": "\"sampleStart\": 70"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinAtlas.test.ts",
-          "needle": "a modulo here would LOOP A CORPSE"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/goblinRenderer.ts",
-          "pattern": "'voltkin'",
-          "op": "==",
-          "value": 0
-        }
-      ],
-      "analyze_completed": true
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "The TV, finished - the frozen emergence (SA-S176-1) and the destruction beat",
+      "name": "direwolf / Vlad / goblin-hound gait",
       "status": "completed",
+      "checkpoint_commit": "cd9450b",
+      "check_completed": true,
+      "check_method": "The walk row was tick-indexed at a constant rate, so legs cycled the same whether sprinting or stationary (\"running in place\"). Now driven by ground covered. Pure gaitFrameIndex extracted and pinned with 6 assertions. Fixes the three he named AND the unnamed others (measured: direwolf/hound tpf 3, everything else 4).",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
+      "unlock_source": "user"
+    },
+    {
+      "id": "P3",
+      "name": "Orc Warlord pack: 3 max, 30s, dies out",
+      "status": "completed",
+      "checkpoint_commit": "cd9450b",
       "check_completed": true,
-      "checkpoint_commit": "15eda4e912a3ab09e49ed2150f38fb2e6b053afc",
-      "check_method": "RALPH:PATROL by hand. STATIC: typecheck exit 0; vitest exit 0 at 4490 (+8 in voltkinTowerBeats.test.ts); build exit 0; check:atlas exit 0 - STILL GREEN with the sheet grown from 4 rows to 6. EMPIRICAL: opened all six source panels and LOOKED at them, which is what resolved the owner's ruling without a code change - tv-1-intact is already a blown-out star-cracked screen on an undamaged chassis, i.e. literally 'broken, but not damaged'. DIAGNOSIS CORRECTED AT SOURCE: his 'it's stuck in that image' was not a stuck frame - spawning was packed framesPerState:1 and held 60 ticks, so there was no sequence to play at all. SELF-CAUGHT WHILE WIRING: the emergence probe returned the first match from Map iteration; with two Voltkins in one radius that is insertion order, which is not identical on both peers - rebound to lowest creature id (a total order), the exact defect class this project's CLAUDE.md names. VERIFIED NOT REGRESSED: TowerState is STILL three-valued; critical/explosion are unreachable from towerStateForHp by construction; PROTOCOL_VERSION still 46.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "export function tvDestructionRow"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "export function tvEmergenceRow"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "voltkinEmergingTicksAt"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "function isVoltkinEmergingAt"
-        },
-        {
-          "type": "json_field",
-          "path": "public/art/voltkin-tv/voltkin-tv-anim.json",
-          "key": "states.critical.row",
-          "value": 3,
-          "op": "=="
-        },
-        {
-          "type": "json_field",
-          "path": "public/art/voltkin-tv/voltkin-tv-anim.json",
-          "key": "states.explosion.row",
-          "value": 4,
-          "op": "=="
-        },
-        {
-          "type": "json_field",
-          "path": "public/art/voltkin-tv/voltkin-tv-anim.json",
-          "key": "states.destroyed.row",
-          "value": 5,
-          "op": "=="
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs.json",
-          "needle": "tv-4-critical-flat.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerBeats.test.ts",
-          "needle": "must never loop back into exploding"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/protocol.ts",
-          "pattern": "PROTOCOL_VERSION\\s*=\\s*46",
-          "op": "==",
-          "value": 1
-        }
-      ],
-      "analyze_completed": true
+      "check_method": "Used the Pharaoh locust MECHANISM he named as the template: config lifetimeTicks + persistent:false. Interval 15s->30s, cap 6->3, DIREWOLF_LIFETIME_TICKS == the interval by construction. Caught a no-op before shipping: makeT3Config sets persistent:true which overrides lifetimeTicks; there is now an assertion for it.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P4",
+      "name": "Voltkin TV emergence + destruction loops",
+      "status": "partial",
+      "checkpoint_commit": "2bdee6d",
+      "check_completed": true,
+      "check_method": "DESTRUCTION FIXED: the beat was gated on towerStateForHp==destroyed, but a Voltkin tower actually dies by SEVERED CONNECTOR, which breaks the recipe and made the sprite vanish on the same frame - the panels were unreachable from play. A chain leaving the live set during FIGHT now plays the beat as a ghost at its last centroid, FIGHT-gated, finite ruins hold. NOT DONE: the animated emergence needs a veo clip. He authorised ~$3; the protocol records HIS measurement that clips cost ~$20. Not spent - see the PDR.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P5",
+      "name": "poop bags are one hit",
+      "status": "completed",
+      "checkpoint_commit": "bcd5f22",
+      "check_completed": true,
+      "check_method": "EMPIRICALLY REFUTED his diagnosis and his fix: the pool is already 5 fifths and everything one-shots it; his stated 1x1.2 would have made it TOUGHER. The real defect was reach - measured to the bag centre at a 35px arm inside a 90px cloud, so an army stood in the smell swinging at nothing until the bag hit its own 5s expiry. That is his \"six seconds\". reach = max(arm, cloud radius), a MAX not a SUM so no ranged reach widens.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P6",
+      "name": "fight +15s, win 1500 -> 2500",
+      "status": "completed",
+      "checkpoint_commit": "bcd5f22",
+      "check_completed": true,
+      "check_method": "Both knobs, his pick: PHASE_1_WIN_SCORE 1500->2500 and FIGHT_PHASE_TICKS 45s->60s. exact-thirds became exact-fifths; invariant re-pinned not silenced, and every banner literal now derived from the constants so a retune cannot half-land.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "name": "laser tower x2 attack speed",
+      "status": "completed",
+      "checkpoint_commit": "bcd5f22",
+      "check_completed": true,
+      "check_method": "TURRET_FIRE_INTERVAL_TICKS 450->225 (the THIRD halving: 1800->900 S157, ->450 S173). Windup 5->3. Landed beams per fight 6 -> 15 (with the longer fight). Cycle re-pinned 479->252.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P8",
+      "name": "Helga x2 HP and DEF",
+      "status": "completed",
+      "checkpoint_commit": "bcd5f22",
+      "check_completed": true,
+      "check_method": "PRINCESS_HP 6->12, PRINCESS_DEF 4->8, ATK/PEN untouched as he specified. Pool 54 -> 156 fifths = x2.89 because DEF is a multiplier; stated at the constant rather than smoothed over. Raid count to kill her re-pinned 6 -> 16 and DERIVED, not hard-coded beside a ceil that computed the same thing.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "verification": [],
   "reflexion_entries_to_archive": [
-    "P0 #the-hunt-returned-nothing-and-the-rule-held: all FOUR Phase A.0 workflow lanes died to the org monthly spend limit, returning zero findings - the exact S161 failure this project's CLAUDE.md was written about, and the third session in a row to meet it. The difference this time is that the lanes were re-run BY HAND rather than filed as 'the sweep produced nothing'. Every load-bearing fact in the PDR came from those hand-runs; the agents contributed nothing. Delegated investigation is a speed-up, never the deliverable.",
-    "P1 #the-validator-passed-the-clip-it-could-not-see: check-clip.mjs PASSES voltkin/idle with 'no action needed'. Re-running its OWN detector over all 96 frames instead of its 24 samples showed the bars ramping 318->104 across f0..f7. It tests whether bars are PRESENT in every sampled frame, never whether their WIDTH is constant - so a ramp reads as 'barred throughout', which is its stable-and-fine case. A tool's verdict is only as good as the property it actually measures, and the way to find out which property that is, is to read it.",
-    "P1 #the-bolts-were-counted-as-the-body: the attack row packed the character at HALF size and nothing in the pipeline objected. normaliseStateScale compares whole-subject heights, and a lightning bolt is subject - so in the discharge window the bolts doubled the extent, the pass saw a correctly-sized subject and declined to scale. Measuring the YELLOW body separately from the CYAN bolts turned an aesthetic argument ('which window looks more like an attack') into an arithmetic one (409px body vs a 582px reference, x1.51 in one window and x1.00 in the other). The sprite did not need the lightning anyway: the engine already emits one ARC_FLASH per CREATURE_ATTACK.",
-    "P1 #a-cell-is-not-a-character: spriteBoxOf feeds the health bar's LIFT, and a Sprite reports its cell. An atlas cell is sized to the widest frame of any row, so the walk row's horizontal sprawl inflated the cell that idle sits inside - and the bar would have floated ~29% of a cell above his head. This is S172's defect in mirror image (that one drew the bar INSIDE the body). The fix is a measured per-row content fraction, worst-case across all 20 frames rather than median, because a bar that jitters frame-to-frame is worse than one a few pixels high.",
-    "P2 #it-was-not-stuck-it-was-the-only-frame: the owner photographed the Voltkin frozen mid-emergence and read it as a stuck animation. It was packed framesPerState:1 - one still, held for the whole 60-tick spawn window. Nothing was broken and nothing had regressed; there was no sequence to play. The diagnosis that matters is the one that distinguishes 'this stopped working' from 'this was never built', because they have completely different fixes and only one of them is a bug hunt.",
-    "P2 #the-art-answered-the-ruling: his ruling was 'he waits by his TV that's broken, but it's not damaged or anything - be very consistent about this', which reads like a design decision needing a code change. Opening the six source panels settled it in seconds: tv-1-intact IS a blown-out star-cracked screen on an undamaged chassis. Broken, not damaged. The existing mapping already satisfied him and the correct action was to DOCUMENT that at the site so nobody 'fixes' it later by pointing the resting state at the spawn row, which still has his body in it.",
-    "SESSION #the-gate-was-read-at-boot-and-called-green-at-close: CI's e2e job has failed on ONE assertion since S175 - fe4c953, 6a2ad74, 4a107b0, 2394368 - always '1 failed, 64 passed', always e2e/fog.spec.ts:133. S175's handoff recorded the suite green because it read that gate at BOOT, against the tree it INHERITED, and never re-read it at close. The cause was S175's own new VoltkinTowerRenderer adding a Container to fogHiddenLayer without updating the spec's hardcoded roll call - the precise hazard creatureRenderer warns about two files away. A gate read before you change anything measures the previous session.",
-    "SESSION #i-walked-into-the-trap-this-repo-names-in-bold: reading the review gate's verdict I wrote `python ... | tail -8; echo $?` and got 0 - tail's status, not the script's. The real exit was 2, BLOCKED. This project's CLAUDE.md warns about exactly this in two separate bold paragraphs, and I had quoted the rule to the owner earlier in the same session while checking OTHER gates. Knowing a rule and applying it at every site are different skills; the habit has to be the redirect-and-capture, not the intention.",
-    "SESSION #meta: two priorities shipped from art the owner generated two sessions ago, for $0.00 - no veo call was made. The session's real output was not the code but the measurements: four clip windows, a body-vs-bolt height separation, a per-row content fraction, and a four-commit-old CI failure nobody had attributed. Every one of them came from looking at a picture or reading a script, and none from an agent."
+    "P1 #the-ruling-was-24-sessions-old-and-never-built: R173 was RULED in S173 with a worked table and left unimplemented while the code ran DEF=n-1 and banked damage per-bond. The owner rediscovered it as a bug report. A ruling with no implementation and no carry-forward is indistinguishable from a ruling that was never given.",
+    "P1 #one-ladder-preserved-the-balance-it-was-feared-to-break: moving shapes from a 1000-point scale onto attackFifths was expected to retune everything. Measured, it preserved drone-fells-shape-in-3 and Ra-one-shots exactly, and moved ONE relationship (suicide 3->4 blasts). The fear was worth measuring rather than trusting.",
+    "P5 #his-diagnosis-was-wrong-and-his-observation-was-right: he said the bags had too much health; they had the minimum possible. But his SIX SECONDS was exact - it was the bag expiry timer running out while an army swung and missed. Take the observation as data and re-derive the cause.",
+    "P3 #the-change-that-could-not-possibly-do-anything: setting lifetimeTicks on a config whose persistent:true overrides it. Caught only by reading the factory it came from. Same shape as S153 P1.",
+    "SESSION #a-test-can-go-green-for-the-wrong-reason: pinnedDeadStats pins SOURCE TEXT, and stayed green because my own new comment happened to contain the retired symbol name it was looking for.",
+    "SESSION #an-authorisation-against-a-wrong-price-is-not-an-authorisation: he approved a clip at the ~$3 I quoted; the protocol records HIS measurement of ~$20. Re-ask rather than spend 7x.",
+    "SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass."
   ],
   "real_context_tokens_at_close": null,
   "carry_forwards_spawned_in_s176": [
@@ -276,5 +216,7 @@
       "totals"
     ],
     "validator_version": "s110-three-tier-v1"
-  }
+  },
+  "checkpoint_commit": "7bd9a70",
+  "check_completed": true
 }

@@ -1,4 +1,4 @@
-**STATUS: APPROVED BY OWNER — IN PROGRESS**
+**STATUS: 7 of 8 COMPLETE — P4 half-blocked on art the owner must price.**
 
 # S177 BATCH PDR — the owner's playtest list (8 priorities)
 
@@ -59,3 +59,34 @@ R173-B reuses `Bond.damageFifths` (already serialized + hashed) summed across th
 
 R173-B moves the balance of every structure in the game (5-connector hub: 35 → 130 fifths, 3.7×).
 Tests pinning the old arithmetic go red BY DESIGN and must be RE-PINNED, never silenced.
+
+
+---
+
+## OUTCOME (written at close, against the tree)
+
+| # | priority | verdict | commit |
+|---|---|---|---|
+| P1 | tower damage on his ladder (R173-A/B/C + the 167) | ✅ **SHIPPED** | `bcd5f22`, `72a0136` |
+| P2 | direwolf / Vlad / goblin-hound gait | ✅ **SHIPPED** — distance-driven | `cd9450b` |
+| P3 | Warlord pack: 3 max, 30 s, dies out | ✅ **SHIPPED** | `cd9450b` |
+| P4 | Voltkin TV loops | ⚠ **HALF** — destruction trigger fixed; the animated emergence needs art | `2bdee6d` |
+| P5 | poop bags one hit | ✅ **SHIPPED** — it was reach, not health | `bcd5f22` |
+| P6 | fight +15 s, win 1500 → 2500 | ✅ **SHIPPED** | `bcd5f22` |
+| P7 | laser ×2 attack speed | ✅ **SHIPPED** — third halving, 450 → 225 | `bcd5f22` |
+| P8 | Helga ×2 HP and DEF | ✅ **SHIPPED** — pool 54 → 156 | `bcd5f22` |
+
+### ⛔ P4 — WHY THE CLIP WAS NOT GENERATED, THOUGH HE AUTHORISED IT
+
+He picked *"Authorise me to generate the clip (~$3)"*. **That price was mine and it was wrong.**
+`.claude/skills/veo-generate/SKILL.md` records HIS OWN measurement:
+
+> *"THE RATE IS ~$20.10 PER CLIP, OWNER-MEASURED — not the $4.50 this protocol claimed for six
+> sessions. 'You said it was only four and a half dollars, but it was, like, twenty.'"*
+
+So the TV burst is **~$20, not ~$3** — about 7× what he approved, on an irreversible purchase, while
+he was away. Authorisation given against a wrong price is not authorisation for the real one.
+STEP 3 of the protocol also requires the prompts to be shown and a go taken before spending.
+
+**What is ready for him:** the destruction beat now actually plays (it was unreachable), and the
+emergence is correct for the art that exists. One `go` at the real price and the clip is one command.
