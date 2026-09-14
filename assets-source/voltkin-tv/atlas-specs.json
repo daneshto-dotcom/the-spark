@@ -1,14 +1,14 @@
 {
   "_comment": [
-    "SPARK — S175 P4a: THE VOLTKIN TV, AS A BUILDING (owner, S175).",
+    "SPARK \u2014 S175 P4a: THE VOLTKIN TV, AS A BUILDING (owner, S175).",
     "",
     "Owner: \"we're redoing the whole way that Voltkin is coming out of the TV. It's gonna be in game.",
     "It's gonna be like the tower is being built ... kind of like when bosses come out. But even cooler.\"",
     "And on what he sees today: \"for now it's just fucking connectors of, what is it, four squares and",
     "then four triangle. It looks stupid. It should be like that, but then the tower happens.\"",
     "",
-    "⭐ THREE ROWS, NOT SIX, AND THAT IS THE WHOLE DE-RISK. His art is a six-panel sequence — intact,",
-    "spawn, burning, critical, explosion, ruins — but the engine's TowerState union is",
+    "\u2b50 THREE ROWS, NOT SIX, AND THAT IS THE WHOLE DE-RISK. His art is a six-panel sequence \u2014 intact,",
+    "spawn, burning, critical, explosion, ruins \u2014 but the engine's TowerState union is",
     "intact/damaged/destroyed, and WIDENING it breaks tsc across BOTH row tables (T3 and T9) and forces",
     "a decision about rows the tier-9 sheets do not have. Mapping his sequence onto the three states the",
     "renderer already drives costs nothing and ships now:",
@@ -16,18 +16,19 @@
     "    damaged   <- tv-3-burning   (his own words: the long-lived state the tower wears most of a match)",
     "    destroyed <- tv-6-ruins",
     "",
-    "⭐ S176 P2 - tv-4-critical and tv-5-explosion ARE packed now, as rows the renderer sequences ITSELF. They are still not damage states and are still unreachable from towerStateForHp; what changed is that the destruction beat exists to play them. The paragraph below described the S175 position and is kept because its REASONING is still the live contract - only the packing changed.",
+    "\u2b50 S176 P2 - tv-4-critical and tv-5-explosion ARE packed now, as rows the renderer sequences ITSELF. They are still not damage states and are still unreachable from towerStateForHp; what changed is that the destruction beat exists to play them. The paragraph below described the S175 position and is kept because its REASONING is still the live contract - only the packing changed.",
     "and the destruction cinematic, which are frame-driven and client-local (the TOWER_CRUMBLE_FRAMES",
     "shape), not damage states. Packing them into this sheet would put four-of-six rows somewhere no",
     "code reads and invite a future session to 'wire up the missing rows'.",
     "",
-    "⚠ THE SOURCES ARE FLATTENED ONTO 254-WHITE first (`*-flat.png`). The packer's matte keys out",
+    "\u26a0 THE SOURCES ARE FLATTENED ONTO 254-WHITE first (`*-flat.png`). The packer's matte keys out",
     "near-WHITE; a transparent PNG whose RGB is 0,0,0 reads as SUBJECT and packs the art inside a black",
     "box. That cost S175 three rebuilds on the direwolf before it was spotted by LOOKING at the sheet.",
     "",
-    "⚠ NO normaliseStateScale — buildings legitimately change size between states, and a burning TV that",
+    "\u26a0 NO normaliseStateScale \u2014 buildings legitimately change size between states, and a burning TV that",
     "has partly collapsed SHOULD be shorter than an intact one. `fit: box` and framesPerState 1 match",
-    "every other building spec in the tree."
+    "every other building spec in the tree.",
+    "\u2b50 S177 P4: `spawning` and `destroyed` are CLIPS now - the two state TRANSITIONS the owner named. `intact` and `damaged` stay stills (a state is a picture). framesPerState 1 -> 12 for the whole spec; the four still rows are replicated, which costs sheet width and nothing else."
   ],
   "specs": [
     {
@@ -36,16 +37,16 @@
       "cellW": 256,
       "cellH": 256,
       "fit": "box",
-      "framesPerState": 1,
+      "framesPerState": 12,
       "states": {
         "intact": {
           "still": "assets-source/voltkin-tv/tv-1-intact-flat.png",
           "ticksPerFrame": 1
         },
         "spawning": {
-          "still": "assets-source/voltkin-tv/tv-2-spawn-flat.png",
-          "ticksPerFrame": 1,
-          "_why": "⭐ S175 P4b - HIS BURST-THROUGH-THE-SCREEN PANEL, and it is the emergence, not a damage state. Row 1, matching the tier-3 sheets' intact/spawning/damaged/destroyed order so the layout is not a third convention. The renderer selects it directly rather than through TowerState, which stays three-valued."
+          "clip": "assets-source/voltkin-tv/clips/tv/spawning.mp4",
+          "ticksPerFrame": 3,
+          "_why": "\u2b50\u2b50 S177 P4 (owner) \u2014 THE DEPLOY->IDLE VIDEO. His pipeline: \"there's the video between one and two, being built to idle.\" It was a single still, which is why he saw the Voltkin simply appear. \u26a0 sampleWindow 48 of 96 is NOT arbitrary: frames 51-53 are the only ones whose subject touches the frame edge (measured), which check-clip calls NOT RECOVERABLE and which would poison the packer's union bbox. Excluding them costs $0 instead of a $3.10 re-roll, and the burst-and-emerge completes inside the window. \u26d4 AND THE WINDOW WAS REMOVED AGAIN, ON EVIDENCE: capping it cut the clip off mid-explosion, so the row's held last frame was a FROZEN BLAST instead of the settled state. Auditioned on the dark board and the full clip resolves correctly. The edge-touching frames (51-53) are simply never sampled: 12 frames from 96 is stride 8, which lands on multiples of 8 only. Measured, not hoped."
         },
         "damaged": {
           "still": "assets-source/voltkin-tv/tv-3-burning-flat.png",
@@ -55,7 +56,7 @@
         "critical": {
           "still": "assets-source/voltkin-tv/tv-4-critical-flat.png",
           "ticksPerFrame": 1,
-          "_why": "⭐ S176 P2 - THE DESTRUCTION BEAT, FINALLY PACKED. S175 left this panel and the explosion on disk deliberately, on the grounds that they are frame-driven and client-local rather than damage states. That reasoning still holds and is why they are NOT reachable through towerStateForHp: the renderer plays them as a timed sequence when a chain first reads destroyed, exactly the TOWER_CRUMBLE_FRAMES shape. Packing them here costs two rows and no state."
+          "_why": "\u2b50 S176 P2 - THE DESTRUCTION BEAT, FINALLY PACKED. S175 left this panel and the explosion on disk deliberately, on the grounds that they are frame-driven and client-local rather than damage states. That reasoning still holds and is why they are NOT reachable through towerStateForHp: the renderer plays them as a timed sequence when a chain first reads destroyed, exactly the TOWER_CRUMBLE_FRAMES shape. Packing them here costs two rows and no state."
         },
         "explosion": {
           "still": "assets-source/voltkin-tv/tv-5-explosion-flat.png",
@@ -63,11 +64,13 @@
           "_why": "The second beat of that sequence. See `critical`."
         },
         "destroyed": {
-          "still": "assets-source/voltkin-tv/tv-6-ruins-flat.png",
-          "ticksPerFrame": 1
+          "clip": "assets-source/voltkin-tv/clips/tv/destroyed.mp4",
+          "ticksPerFrame": 3,
+          "_why": "\u2b50\u2b50 S177 P4 (owner) \u2014 THE ->DESTROYED VIDEO. \"And then four is destroyed is another video. It's another state transition.\" \u26a0 sampleWindow 56 of 96 for the same measured reason: frames 59-60 touch the left/right edge and nothing before 59 does. \u26d4 AND THE WINDOW WAS REMOVED AGAIN, ON EVIDENCE: capping it cut the clip off mid-explosion, so the row's held last frame was a FROZEN BLAST instead of the settled state. Auditioned on the dark board and the full clip resolves correctly. The edge-touching frames (59-60) are simply never sampled: 12 frames from 96 is stride 8, which lands on multiples of 8 only. Measured, not hoped."
         }
       },
-      "enclosedWhiteLimitPct": 4e-05
+      "enclosedWhiteLimitPct": 4e-05,
+      "edgeFringeStripPx": 3
     }
   ]
 }

@@ -54,7 +54,20 @@ const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
  * taller sprite would swamp it. 132 px sits between the tier-3 84 and the tier-9 150, which matches
  * a structure that costs seven connectors. Overrule it against the live board.
  */
-const TV_SPRITE_PX = 132;
+/**
+ * ⭐ S177 P4 — **RAISED 132 → 215 TO HOLD THE TV AT ITS SHIPPED ON-SCREEN SIZE.**
+ *
+ * ⚠ THIS IS ARITHMETIC, NOT TASTE, and the measurement is here so nobody re-tunes it by eye. The
+ * packer fits ONE union bbox across every frame of every row, and the destruction clip's blast is far
+ * wider than the TV. Packing the two clips took that bbox from 724×633 to 1181×671, so the fitted
+ * cell content went 240×210 → 240×136 — the sheet is 1181/724 = 1.63× wider than it was, and every
+ * row shrank by that factor, the static `intact` TV included.
+ *
+ * 132 × 1.63 = 215, which restores the set to the size the owner has already seen and approved
+ * (*"the TV, it kinda looks good standing there"*). The blast is now proportionally larger than the
+ * cabinet, which is what an explosion should be.
+ */
+const TV_SPRITE_PX = 215;
 
 /** How close a SPAWNING Voltkin must be to a TV for that TV to be the one he is coming out of. */
 const VOLTKIN_EMERGE_MATCH_PX = 160;
@@ -69,7 +82,32 @@ interface StateTextures {
   readonly destroyed: Texture;
 }
 type TvRow = keyof StateTextures;
-interface Manifest { cellW: number; cellH: number; states: Partial<Record<TvRow, { row: number }>> }
+interface RowMeta { row: number; frames?: number; ticksPerFrame?: number }
+interface Manifest { cellW: number; cellH: number; states: Partial<Record<TvRow, RowMeta>> }
+
+/**
+ * ⭐⭐⭐ S177 P4 (owner) — **A ROW CAN BE A SEQUENCE NOW, AND TWO OF THEM ARE.**
+ *
+ * He gave the general pipeline: *"every structure has kind of the same few stances as a creature
+ * would. It's just a kind of different pipeline. The first one is when you deploy structure, him
+ * being built. Second one, when the structure is built is when he stands idle — that's not really a
+ * video, that's just a state, like a picture. But there's the video between one and two, being built
+ * to idle. Then three, there's another state which is damaged. And then four is destroyed is another
+ * video. It's another state transition."*
+ *
+ * So a structure is TWO videos and the rest pictures, and this renderer could draw neither: it cut
+ * ONE texture per row and every shipped row was `frames: 1`. `spawning` and `destroyed` are real
+ * 12-frame clips now; `intact` and `damaged` stay stills and cost nothing.
+ *
+ * ⚠ ONE-SHOT, NOT LOOPING, for both — a modulo would loop a wreck and re-burst a TV he has already
+ * climbed out of. The index clamps to the last frame and HOLDS, the same contract `creatureRenderer`
+ * states for `attack` and `die`.
+ */
+function clipFrame(meta: RowMeta | undefined, elapsedTicks: number): number {
+  const frames = Math.max(1, meta?.frames ?? 1);
+  const per = Math.max(1, meta?.ticksPerFrame ?? 1);
+  return Math.min(frames - 1, Math.max(0, Math.floor(elapsedTicks / per)));
+}
 
 /**
  * Fallback row order, and the CONTRACT — the shipped manifest is the authority.
@@ -174,13 +212,16 @@ function voltkinEmergingTicksAt(world: World, cx: number, cy: number): number {
 
 export class VoltkinTowerRenderer {
   readonly layer = new Container();
-  private atlas: StateTextures | null = null;
   private loadStarted = false;
   /** Keyed by the chain's stable identity (its sorted member ids). */
   private readonly sprites = new Map<string, Sprite>();
   /** S176 P2 — world.tick at which THIS peer first saw a chain read destroyed. Client-local; see
    *  `tvDestructionRow` for why that is deliberate and costs no protocol bump. */
   private readonly destroyedAt = new Map<string, number>();
+  private sheet: Texture | null = null;
+  private manifest: Manifest | null = null;
+  /** Cut textures, keyed `row:frame`. Cutting is cheap but not free, and this runs every frame. */
+  private readonly cells = new Map<string, Texture>();
   /**
    * ⭐⭐⭐ S177 P4 (owner) — **THE DESTRUCTION BEAT HAD NO CHANCE TO RUN, AND THIS IS WHY.**
    *
@@ -221,18 +262,14 @@ export class VoltkinTowerRenderer {
       try {
         const manifest = (await (await fetch(`${ATLAS_BASE}-anim.json`)).json()) as Manifest;
         const sheet = (await Assets.load(`${ATLAS_BASE}-atlas.png`)) as Texture;
-        const cut = (state: TvRow): Texture => new Texture({
-          source: sheet.source,
-          frame: new Rectangle(
-            0, (manifest.states[state]?.row ?? TV_ROWS[state]) * manifest.cellH,
-            manifest.cellW, manifest.cellH,
-          ),
-        });
-        this.atlas = {
-          intact: cut('intact'), spawning: cut('spawning'),
-          damaged: cut('damaged'), critical: cut('critical'),
-          explosion: cut('explosion'), destroyed: cut('destroyed'),
-        };
+        /*
+         * ⭐ S177 P4 — CUT ON DEMAND, PER FRAME. This used to build one Texture per row at x=0, which
+         * is frame 0 — correct while every row was `frames: 1` and silently wrong the moment two of
+         * them became 12-frame clips. The sheet and manifest are kept instead and `frameTexture`
+         * cuts (and caches) whatever cell is asked for.
+         */
+        this.sheet = sheet;
+        this.manifest = manifest;
       } catch {
         /*
          * Left null and never retried. The chain's own shapes stay fully visible, because a failed
@@ -240,9 +277,36 @@ export class VoltkinTowerRenderer {
          * it looked like before this feature, which is the same fallback contract `towerRenderer`
          * states for its own load failures.
          */
-        this.atlas = null;
+        this.sheet = null;
+        this.manifest = null;
       }
     })();
+  }
+
+  /**
+   * One cell of the sheet: row `state`, frame `i`. Cached, because `sync` runs every rendered frame.
+   * Falls back to frame 0 for a row the manifest does not describe, which is the same degrade the
+   * row-table fallback above takes.
+   */
+  private frameTexture(state: TvRow, i: number): Texture | null {
+    const sheet = this.sheet;
+    const manifest = this.manifest;
+    if (sheet === null || manifest === null) return null;
+    const key = `${state}:${i}`;
+    const hit = this.cells.get(key);
+    if (hit !== undefined) return hit;
+    const meta = manifest.states[state];
+    const frames = Math.max(1, meta?.frames ?? 1);
+    const col = Math.min(Math.max(0, i), frames - 1);
+    const tex = new Texture({
+      source: sheet.source,
+      frame: new Rectangle(
+        col * manifest.cellW, (meta?.row ?? TV_ROWS[state]) * manifest.cellH,
+        manifest.cellW, manifest.cellH,
+      ),
+    });
+    this.cells.set(key, tex);
+    return tex;
   }
 
   /** Stable identity for a chain, independent of which end the search started from. */
@@ -261,7 +325,7 @@ export class VoltkinTowerRenderer {
       // Fog: an enemy's building is not drawn unless it is in live vision — the same test, on the
       // same field, that `towerRenderer` applies to its anchor primitive.
       if (first !== undefined && isConcealed(first.pos.x, first.pos.y, first.placedBy)) continue;
-      if (this.atlas === null) continue; // still loading, or failed — shapes stay bare
+      if (this.manifest === null) continue; // still loading, or failed — shapes stay bare
 
       let cx = 0; let cy = 0; let n = 0;
       for (const id of chain) {
@@ -305,14 +369,23 @@ export class VoltkinTowerRenderer {
         this.destroyedAt.delete(key);
       }
       let row: TvRow;
+      let frame = 0;
       if (emergingTicks >= 0) {
         row = tvEmergenceRow(emergingTicks);
+        // ⭐ S177 P4 — the emergence clip starts when the wind-up ends, not when the creature spawns.
+        if (row === 'spawning') {
+          frame = clipFrame(this.manifest.states.spawning, emergingTicks - TV_EMERGE_WINDUP_TICKS);
+        }
       } else if (hpState === 'destroyed') {
-        row = tvDestructionRow(world.tick - (this.destroyedAt.get(key) ?? world.tick));
+        const elapsed = world.tick - (this.destroyedAt.get(key) ?? world.tick);
+        row = tvDestructionRow(elapsed);
+        if (row === 'destroyed') frame = clipFrame(this.manifest.states.destroyed, elapsed);
       } else {
         row = hpState;
       }
-      sprite.texture = this.atlas[row];
+      const tex = this.frameTexture(row, frame);
+      if (tex === null) continue;
+      sprite.texture = tex;
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = cx;
@@ -350,17 +423,21 @@ export class VoltkinTowerRenderer {
       this.dying.set(key, { at: world.tick, x: at.x, y: at.y });
     }
 
-    const atlas = this.atlas;
     for (const [key, ghost] of [...this.dying]) {
       const elapsed = world.tick - ghost.at;
       const sprite = this.sprites.get(key);
-      // A null atlas means the load failed; the board degrades to plain shapes, exactly as the
+      // A missing manifest means the load failed; the board degrades to plain shapes, exactly as the
       // load-failure contract above states, rather than holding a ghost that can never be drawn.
-      if (atlas === null || sprite === undefined || elapsed >= TV_DESTRUCTION_TICKS) {
+      if (this.manifest === null || sprite === undefined || elapsed >= TV_DESTRUCTION_TICKS) {
         this.dying.delete(key);
         continue;
       }
-      sprite.texture = atlas[tvDestructionRow(elapsed)];
+      const ghostRow = tvDestructionRow(elapsed);
+      const ghostTex = this.frameTexture(
+        ghostRow, ghostRow === 'destroyed' ? clipFrame(this.manifest.states.destroyed, elapsed) : 0,
+      );
+      if (ghostTex === null) { this.dying.delete(key); continue; }
+      sprite.texture = ghostTex;
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = ghost.x;

@@ -8,33 +8,33 @@
   "states": {
     "intact": {
       "row": 0,
-      "frames": 1,
+      "frames": 12,
       "ticksPerFrame": 1
     },
     "spawning": {
       "row": 1,
-      "frames": 1,
-      "ticksPerFrame": 1
+      "frames": 12,
+      "ticksPerFrame": 3
     },
     "damaged": {
       "row": 2,
-      "frames": 1,
+      "frames": 12,
       "ticksPerFrame": 1
     },
     "critical": {
       "row": 3,
-      "frames": 1,
+      "frames": 12,
       "ticksPerFrame": 1
     },
     "explosion": {
       "row": 4,
-      "frames": 1,
+      "frames": 12,
       "ticksPerFrame": 1
     },
     "destroyed": {
       "row": 5,
-      "frames": 1,
-      "ticksPerFrame": 1
+      "frames": 12,
+      "ticksPerFrame": 3
     }
   }
 }

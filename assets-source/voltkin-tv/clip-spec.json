@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "SPARK - S177 P4 (owner): THE TWO CINEMATICS THE VOLTKIN TV NEVER HAD.",
+    "",
+    "Owner, S177, giving the general pipeline: \"every structure has kind of the same few stances as a",
+    "creature would. It's just a kind of different pipeline. The first one is when you deploy structure,",
+    "him being built. Second one, when the structure is built, is when he stands idle - that's not",
+    "really a video, that's just a state, like a picture. But there's the video between one and two,",
+    "being built to idle. Then three, there's another state which is damaged. And then four is",
+    "destroyed, is another video. It's another state transition.\"",
+    "",
+    "So a STRUCTURE needs exactly TWO clips and the rest are stills:",
+    "    deploy -> idle   VIDEO   <- `spawning` below",
+    "    idle             STATE   (tv-1-intact, a picture)",
+    "    damaged          STATE   (tv-3-burning, a picture)",
+    "    -> destroyed     VIDEO   <- `destroyed` below",
+    "",
+    "This is also exactly what the recipe file's subjectKind.BUILDING allows: 'Generate a clip only for",
+    "a genuine cinematic (the spawn burst, the crumble)', with staticSubject:true. The four remaining",
+    "rows stay `still` and cost $0.00.",
+    "",
+    "Cost: 2 clips x ~$3.10 = ~$6.20 (owner-measured rate, .claude/veo-recipes.json -> cost).",
+    "S177 RE-ROLL #1: the first pair FAILED check-clip - 'SUBJECT TOUCHES THE FRAME EDGE, NOT RECOVERABLE' (spawning 4/24 frames, destroyed 7/24). Cause: the burst threw glass and debris to the frame edges, which also poisons the packer's union bbox and would have packed the TV tiny inside a debris-sized box. Fix: seed dropped 52% -> 40% height for margin, the action explicitly contained near centre, and a hard no-edge clause on every state. Rejected clips kept at clips/tv-rejected-s177/ rather than deleted."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "voltkin-tv",
+      "seed": "assets-source/voltkin-tv/tv-seed-16x9.png",
+      "outDir": "assets-source/voltkin-tv/clips/tv",
+      "staticSubject": true,
+      "states": {
+        "spawning": {
+          "prompt": "a small battered vintage cathode-ray television set with a boxy wooden cabinet, stubby legs and a starburst-cracked glass screen, standing upright on the ground, shown SMALL in the centre of the frame with generous empty space all around it . The cracked screen bursts open and a small glowing lightning creature pushes its head and shoulders out through the broken screen and climbs clear of the cabinet , a single continuous burst-and-emerge . Only a few small glass shards fall, close to the set . Thin arcs of blue-white electricity crawl over its casing and the cracked screen flickers; it is old, heavy and charged with something it cannot hold. The television cabinet stays in the SAME SPOT the whole time , upright and square on , and does not tip , slide or travel . By the end of the clip the creature is out and clear and the set is left standing still with a blown-out empty screen . The ENTIRE television and every piece of glass, debris and smoke must stay FULLY INSIDE the frame with a wide clear margin on all four sides at all times ; nothing leaves the frame and nothing touches any edge of the frame . Keep the whole action small and tightly contained near the centre of the frame .",
+          "_why": "The deploy->idle transition. Seeded on tv-1-intact so the clip STARTS at the state the board already shows and ENDS at the blown-out screen the resting texture wears."
+        },
+        "destroyed": {
+          "prompt": "a small battered vintage cathode-ray television set with a boxy wooden cabinet, stubby legs and a starburst-cracked glass screen, standing upright on the ground, shown SMALL in the centre of the frame with generous empty space all around it . The set is destroyed : it sparks , the cabinet breaks apart with a small puff of smoke , and the wreckage collapses straight DOWN ONTO THE GROUND into a motionless heap of broken panels directly beneath where it stood . The debris falls close and stays in a tight pile . Thin arcs of blue-white electricity crawl over its casing and the cracked screen flickers; it is old, heavy and charged with something it cannot hold. It stays in the SAME SPOT and does not travel . It is already coming apart by the middle of the clip , and for the entire second half the wreck lies completely still on the ground , not moving at all . The ENTIRE television and every piece of glass, debris and smoke must stay FULLY INSIDE the frame with a wide clear margin on all four sides at all times ; nothing leaves the frame and nothing touches any edge of the frame . Keep the whole action small and tightly contained near the centre of the frame .",
+          "_why": "The crumble. Shaped on the proven `die` template (down by the halfway point, motionless second half) because that is the one prompt shape measured to end still and in frame."
+        }
+      }
+    }
+  ]
+}
