@@ -1,3 +1,5 @@
+**STATUS: COMPLETED — archived by S176 (shipped in S173/S175 — triaged and landed).**
+
 # S173 — OWNER PLAYTEST, live 2-player over the internet (Romania)
 
 **STATUS: CAPTURED — NOT YET TRIAGED AGAINST THE CODE.** Nine items, recorded verbatim the moment

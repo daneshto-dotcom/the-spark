@@ -1,3 +1,5 @@
+**STATUS: IN-PROGRESS — still owed, carried into the next session.**
+
 # R173 — STRUCTURE HP: THE OWNER'S RULING, AND WHAT IT CHANGES
 
 **STATUS: RULED. Not yet implemented.** Given S173 in response to the divergence report in

@@ -1,3 +1,5 @@
+**STATUS: IN-PROGRESS — still owed, carried into the next session.**
+
 # S173 — NONET STAGES (design note only, NOTHING implemented)
 
 Written during S173 P6 (the NONET-music regression). **No code was written for this.** It records

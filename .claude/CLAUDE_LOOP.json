@@ -7,5 +7,5 @@
   },
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "No agentic loop ran in S175. One Workflow fan-out (Phase A.0, 7 read-only lanes) returned 6/7; the dead lane was re-run BY HAND per the S161 rule, not left as an empty verdict."
+  "last_result": "S176: no agentic loop. ONE Workflow fan-out (Phase A.0, 4 read-only lanes) returned 0/4 - every lane died to the org monthly spend limit. All four were re-run BY HAND in-session per the S161 rule; none was filed as an empty verdict. Net: the workflow contributed nothing and cost ~566K subagent tokens."
 }

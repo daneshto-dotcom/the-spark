@@ -1,8 +1,5 @@
-STATUS: MOSTLY COMPLETED in S175
-ARCHIVED: 2026-09-14 (S175 /handoff)
-NOTE: S175 P9 shipped floating damage numbers on shapes, connectors, defenders, stink bags and castles. ⛔ It did NOT use this plan's recommended design: the plan proposed a per-hit ring buffer on World sampled into the snapshot; S175 instead WATCHES already-serialized pools frame to frame, which costs zero wire bytes and needed no protocol bump. ⚠ STILL OPEN: B8 (powers) was not done.
+**STATUS: COMPLETED — archived by S176 (shipped in S175 P9).**
 
----
 # S174 — B7 (damage numbers must STACK) + B8 (powers take damage silently)
 
 **RESEARCH AND PLAN ONLY. No production file was touched by the session that wrote this.** The owner

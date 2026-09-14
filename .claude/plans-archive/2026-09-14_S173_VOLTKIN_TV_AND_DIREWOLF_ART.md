@@ -1,8 +1,5 @@
-STATUS: COMPLETED in S175
-ARCHIVED: 2026-09-14 (S175 /handoff)
-NOTE: The direwolf was packed from its S173 clips and re-pointed off the goblin-hound stand-in (S175 P2). The Voltkin TV became a real building on its chain with intact/burning/ruins + an emergence row, and the cutscene was removed (S175 P4a/P4b). ⚠ STILL OPEN: tv-4-critical and tv-5-explosion are flattened but not wired - they belong to the destruction beat.
+**STATUS: COMPLETED — archived by S176 (shipped in S175 P2/P4a, and its Voltkin half finished in S176).**
 
----
 # S173 — THE VOLTKIN TV, AND THE DIREWOLF: WHAT TO GENERATE
 
 **STATUS: SPEC CAPTURED. Blocked on the source images reaching disk.** Written the moment he
