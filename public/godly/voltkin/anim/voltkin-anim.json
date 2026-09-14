@@ -1,0 +1,30 @@
+{
+  "cellW": 380,
+  "cellH": 256,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9961
+  },
+  "states": {
+    "idle": {
+      "row": 0,
+      "frames": 20,
+      "ticksPerFrame": 4
+    },
+    "walk": {
+      "row": 1,
+      "frames": 20,
+      "ticksPerFrame": 2
+    },
+    "attack": {
+      "row": 2,
+      "frames": 20,
+      "ticksPerFrame": 3
+    },
+    "die": {
+      "row": 3,
+      "frames": 20,
+      "ticksPerFrame": 3
+    }
+  }
+}
