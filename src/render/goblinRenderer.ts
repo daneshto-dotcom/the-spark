@@ -248,6 +248,29 @@ export function creatureSpriteTint(seatTint: number, enraged: boolean): number {
  * PURE — ticks per animation frame, halved while enraged so the drawn swing keeps step with the
  * cadence `creatureLifecycle` is already dividing. Integer and floored at 1, mirroring that divide.
  */
+/**
+ * ⭐ S177 P2 — how far a creature walks before its gait advances one frame.
+ *
+ * ⚠ THE MEASUREMENT, so the next session does not have to redo it: at the reference top speed
+ * (~208 px/s = 3.47 px/tick) a 12-frame row at `ticksPerFrame` 4 cycled in 48 ticks, i.e. **14 px
+ * per frame**. That is what shipped, and it is what he called *"four times quicker"* than it should
+ * be — so this is **his four**: 14 × 4 = 56.
+ *
+ * ⛔ THE NUMBER IS HIS, THE COUPLING IS THE FIX. Most of what he saw was the gait running at a fixed
+ * rate while the creature was NOT at top speed; tying frames to ground removes that on its own. This
+ * constant only sets the stride length on top of it, and it is one line to dial.
+ */
+export const WALK_PX_PER_FRAME = 56;
+
+/**
+ * PURE — the gait frame for a creature that has travelled `pxTravelled` since it started walking.
+ * Exported for test, like every other frame-selector in this codebase.
+ */
+export function gaitFrameIndex(pxTravelled: number, frames: number): number {
+  if (frames <= 0) return 0;
+  return Math.floor(Math.max(0, pxTravelled) / WALK_PX_PER_FRAME) % frames;
+}
+
 export function animTicksPerFrame(baseTicksPerFrame: number, enraged: boolean): number {
   return Math.max(1, Math.round(baseTicksPerFrame / rageMultiplier({ enraged })));
 }
@@ -400,6 +423,29 @@ export class GoblinRenderer {
    */
   private readonly arrowLayer: Graphics;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
+  /**
+   * ⭐⭐⭐ S177 P2 (owner) — **THE WALK ROW ADVANCES ON GROUND COVERED, NOT ON TICKS.**
+   *
+   * Owner: *"the dire wolves' legs move too quickly when he's running, it looks like a cartoon. Also
+   * Vlad the boss, similarly ... It's not that he's running too quickly, it's that they're moving
+   * like four times quicker — it looks like he's running in place. Also the goblin hound is the same.
+   * Just slow it down, make him look like he's actually running according to his real speed."*
+   *
+   * ⛔ "RUNNING IN PLACE" IS THE LITERAL DIAGNOSIS, AND IT NAMES THE BUG. The walk row was indexed by
+   * `ticksInState / ticksPerFrame`, a CONSTANT rate, so the legs cycled at the same speed whether the
+   * creature was sprinting, shoving through a crowd, or all but stationary. Distance-driven, the gait
+   * cannot desynchronise from the ground: a slow unit's legs are slow, a stopped unit's legs stop,
+   * and a fast one's blur — for every creature, including the *"some other ones"* he suspected and
+   * did not name. Measured, those were real: direwolf and goblin-hound ship at `ticksPerFrame` 3,
+   * and every other unit and boss at 4.
+   *
+   * ⚠ RENDERER-LOCAL AND COSMETIC, which is what makes accumulating a float here legal at all. It is
+   * never hashed, never serialized and never read by the sim. A peer applying snapshots at 10 Hz
+   * accumulates chords where the host accumulates the curve, so the two can sit a frame apart on a
+   * turning creature — the same tolerance `voltkinTowerRenderer` already documents for a one-shot
+   * cosmetic, and invisible next to the defect it replaces.
+   */
+  private readonly gait: Map<CreatureId, { x: number; y: number; px: number }> = new Map();
 
   /** Size lookup for creatures this renderer does not draw — wired to `CreatureRenderer` in main.ts. */
   private extraSpriteBox: ((id: CreatureId) => { w: number; h: number } | null) | null = null;
@@ -644,8 +690,26 @@ export class GoblinRenderer {
     const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, enraged);
     // Attack plays ONCE through and holds its last frame; idle and walk loop. A looping attack
     // would re-swing during the recovery half of the cadence and read as two hits for one strike.
-    const raw = Math.floor(ticksInState / per);
-    const i = name === 'attack' ? Math.min(row.length - 1, raw) : raw % row.length;
+    /*
+     * ⭐ S177 P2 — WALK is distance-driven; idle and attack stay tick-driven.
+     *
+     * Attack MUST stay on `ticksInState`: it is keyed to the strike cadence the sim runs (see the
+     * rage note above), and a stationary attacker covers no ground at all. Idle has no ground to
+     * cover by definition. Only the travelling row is a gait.
+     */
+    let i: number;
+    if (name === 'walk') {
+      const prev = this.gait.get(id);
+      const px = prev === undefined
+        ? 0
+        : prev.px + Math.hypot(x - prev.x, y - prev.y);
+      this.gait.set(id, { x, y, px });
+      i = gaitFrameIndex(px, row.length);
+    } else {
+      this.gait.delete(id); // a creature that stopped travelling starts its next gait from the heel
+      const raw = Math.floor(ticksInState / per);
+      i = name === 'attack' ? Math.min(row.length - 1, raw) : raw % row.length;
+    }
 
     let sp = this.sprites.get(id);
     if (sp === undefined) {
@@ -737,6 +801,7 @@ export class GoblinRenderer {
   private dropSprite(id: CreatureId): void {
     const sp = this.sprites.get(id);
     if (sp !== undefined) { sp.destroy(); this.sprites.delete(id); }
+    this.gait.delete(id);
     // S167 — and its atlas note, or the map grows for the life of the match.
     this.spriteAtlas.delete(id);
   }
@@ -997,6 +1062,9 @@ export class GoblinRenderer {
      * ⚠ A UNIT WITH NO `die` ROW SIMPLY VANISHES, as it always did. The goblins were authored before
      * the row existed; this adds a death for whoever has one rather than demanding one from everyone.
      */
+    for (const [id] of [...this.gait]) {
+      if (!this.sprites.has(id)) this.gait.delete(id);
+    }
     for (const [id, sp] of [...this.sprites]) {
       if (live.has(id)) continue;
       this.sprites.delete(id);

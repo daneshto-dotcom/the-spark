@@ -43,6 +43,7 @@
 import type { CreatureType } from './creature.ts';
 import {
   T3_STATS,
+  DIREWOLF_LIFETIME_TICKS,
   DIREWOLF_STATS,
   T9_BOSS_STATS,
   LOCUST_CLOUD_STATS,
@@ -941,10 +942,41 @@ export const T9_BOSS_DEMONS_CONFIG: CreatureConfig = makeT9BossConfig('t9BossDem
  * ⚠ `speedMul` 1.0 is MINE — he gave four stats and no speed. A wolf should not be slower than the
  * infantry it escorts, and 1.0 is the roster's own baseline rather than a number I invented.
  */
-export const DIREWOLF_CONFIG: CreatureConfig = makeT3Config('direwolf', {
-  ...DIREWOLF_STATS,
-  speedMul: 1.0,
-});
+/**
+ * ⭐⭐⭐ S177 P3 (owner) — **THE PACK NOW DIES OUT AND IS REPLACED, LIKE THE PHARAOH'S LOCUSTS.**
+ *
+ * Owner: *"There should be a maximum of three direwolves per world lord, and he spawns new ones every
+ * thirty seconds. And the old ones die and despawn — no matter how much health they have left or how
+ * many there are left of them, maybe one left, maybe none, maybe three still. They despawn and die
+ * out, with the whole dying loop, and then new ones spawn. Kind of the same as we tweaked Pharaoh ...
+ * the three locusts on the Pharaoh and the three direwolves for the world lord is pretty much the
+ * same mechanic, same ability, just different stats and different looks."*
+ *
+ * ⭐ HE NAMED THE TEMPLATE, SO THIS USES THE TEMPLATE'S MECHANISM RATHER THAN A BESPOKE CULL. The
+ * locust cloud expires on a config `lifetimeTicks`; the direwolf now does too. That buys three things
+ * a hand-rolled sweep would each have had to earn separately:
+ *   · *"the whole dying loop"* — the lifecycle walks it through DESPAWNING, which is the `die` row,
+ *     rather than deleting it out from under the renderer;
+ *   · determinism — an expiry is a comparison against a SERIALIZED spawn tick that both peers
+ *     already agree on, not a cross-entity sweep two peers could order differently;
+ *   · *"no matter how much health they have left"* — a lifetime does not consult hp at all.
+ *
+ * ⚠ `persistent` MUST FLIP, and this is the whole edit: `makeT3Config` sets `persistent: true`, whose
+ * own comment says it *"is what keeps it alive"* past `lifetimeTicks`. Setting the lifetime without
+ * clearing persistence would have been a change that could not possibly do anything — the exact
+ * defect S153 P1 shipped on this same factory's speed fields.
+ *
+ * ⚠ `lifetimeClock` OMITTED (so 'absolute'), mirroring the locust: the summon is PLAYING-gated, and
+ * 'fight' would restart a wolf's clock on a phase edge and strand a pack past its replacement.
+ */
+export const DIREWOLF_CONFIG: CreatureConfig = {
+  ...makeT3Config('direwolf', {
+    ...DIREWOLF_STATS,
+    speedMul: 1.0,
+  }),
+  lifetimeTicks: DIREWOLF_LIFETIME_TICKS,
+  persistent: false,
+};
 
 /**
  * ⭐⭐ S171 (owner R142) — **THE LOCUST CLOUD.** Hand-written rather than `makeT3Config`, because
