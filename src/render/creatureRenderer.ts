@@ -91,7 +91,25 @@ const BODY_W = 14; // body half-width at the waist
 const VOLTKIN_IDLE_URL = '/godly/voltkin/anim/voltkin-idle.png';
 const VOLTKIN_ZAP_URL = '/godly/voltkin/anim/voltkin-zap.png';
 // Base on-screen scale so the ~512px matted art renders at roughly the procedural rig's size.
-const VOLTKIN_SPRITE_BASE_SCALE = 0.17;
+/**
+ * ⭐ S177 P10 — **0.17 → 0.205, TO HOLD HIM AT THE SIZE THE OWNER ALREADY APPROVED.**
+ *
+ * ⚠ ARITHMETIC, MEASURED, NOT AN EYEBALL. Packing `die` as a real clip changed the sheet geometry
+ * (cell 380 → 358) and, more importantly, gave `normaliseStateScale` a new reference: the die row
+ * has no wide aura, so idle — whose blue crackle inflates its measured extent — was the outlier at
+ * median h 661 against a 444 reference and got scaled ×0.672 to agree with the other three rows.
+ *
+ * Measured on the YELLOW BODY ONLY (the aura is cyan, so a plain bbox would measure the glow rather
+ * than the creature): his idle body is 154 px in the old sheet and 128 px in the new one, i.e.
+ * ×0.935. 0.17 / 0.935 = **0.182**, which puts the creature back on screen at the size he has been
+ * playing with. (An earlier compact-less roll measured ×0.831 → 0.205; the final clip lands him in a
+ * tighter heap, so the shared bbox is narrower and the correction is smaller.)
+ *
+ * ⭐ AND THE ROWS NOW AGREE WITH EACH OTHER, which they did not before: equalising idle against
+ * walk/attack/die is `normaliseStateScale` doing the job it exists for — the owner's own S165
+ * complaint was *"size difference between row one and two not consistent"*.
+ */
+const VOLTKIN_SPRITE_BASE_SCALE = 0.182;
 
 /* ===== S176 P1 — THE VOLTKIN IS DRAWN FROM A SHEET NOW, NOT FROM TWO STILLS =====
  *

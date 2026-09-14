@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "SPARK - S177 P10 (owner): THE VOLTKIN'S DEATH, AS A CLIP.",
+    "",
+    "Owner: \"the death should be, like, a clip. Sure. Do it. Three dollars worth it if you actually",
+    "make them. Take the dead Voltkin image that I gave you when I generated the images and make the",
+    "transition between fighting or ... running and dying or whatever ... If he's running towards the",
+    "tower, being attacked by a laser or something and he dies, just that loop of how he dies needs to",
+    "be very coherent and good looking.\"",
+    "",
+    "WHY THIS IS OWED: `die` shipped as a STILL (voltkin-dead-matted.png) replicated 20x, so he did not",
+    "die - he became a corpse on one frame. That is exactly what he meant by \"it was too quick\".",
+    "",
+    "SEED: voltkin-seed-16x9.png - THE SAME seed idle/walk/attack were generated from. Not the dead",
+    "image: the protocol is explicit that a dead still is a REFERENCE for where the clip comes to rest,",
+    "never a second seed, because the seed is the only yardstick the independent generations share.",
+    "The dead pose is described IN THE PROMPT instead (flat on the ground, X-crossed eyes, tongue out)",
+    "so the clip lands on the art he already made.",
+    "",
+    "Cost: 1 clip x ~$3.10 (owner-measured rate, .claude/veo-recipes.json -> cost).",
+    "S177 RE-ROLL #1: the cause was the long lightning arcs, not the framing. See die._why."
+  ],
+  "durationSeconds": 4,
+  "resolution": "720p",
+  "characters": [
+    {
+      "name": "voltkin",
+      "seed": "assets-source/voltkin-tv/voltkin-seed-16x9.png",
+      "outDir": "assets-source/voltkin-tv/clips/voltkin",
+      "states": {
+        "die": {
+          "prompt": "a stocky cartoon electric beast with bright yellow fur, a tall spiked crest and black-tipped spines, a pale cream belly, round red cheek-spots, clawed paws and a jagged lightning-bolt tail is struck a mortal blow in mid-stride . He jerks, staggers, his legs fold under him and he SLUMPS STRAIGHT DOWN ONTO THE GROUND directly beneath himself , coming to rest as a COMPACT HUDDLED HEAP with his limbs tucked in close against his body and his tail curled in beside him , his eyes screwed shut into tight crosses and his tongue lolling out of his open mouth . He is already fully down by the middle of the clip . For the entire second half he lies motionless, completely still, not moving at all . \u26d4 He must NOT sprawl, stretch out, splay his limbs or flop sideways \u2014 he stays TIGHT and COMPACT, no wider than he was standing . \u26d4 ALL electricity stays TIGHT AGAINST HIS BODY as a close crackling glow only a few centimetres deep ; there are NO long lightning bolts, NO arcs shooting outward and NO sparks flying away . He stays in the SAME SPOT and does not travel . The WHOLE creature must stay FULLY INSIDE the frame with a wide clear margin on all four sides ; nothing ever touches the frame edge . Keep him SMALL in the centre of the frame .",
+          "_why": "\u26d4 RE-ROLL #2, S177, ON A HARD CONSTRAINT. Roll 2's arc was right and its arcs were tamed, but the corpse SPRAWLED, and the union bbox is shared by every row: it pushed the cell from 380 to 426, and 20 x 426 = 8520 exceeds the 8192 WebGL texture ceiling. Dropping to 19 frames is not available either \u2014 `attack.frames * ticksPerFrame` must equal VOLTKIN_ATTACK_CADENCE_TICKS (60), so 20 x 3 is forced and the cell is capped at 409. His OWN dead art is 614x412 and would fit; the generated sprawl did not. Hence: land compact."
+        }
+      }
+    }
+  ]
+}
