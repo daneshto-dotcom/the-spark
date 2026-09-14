@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 655,
+  "tool_calls_session_total": 672,
   "session_id": "S177",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -207,7 +207,7 @@
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
-    "budget_status": "GREEN"
+    "budget_status": "statusline_dead"
   },
   "auto_fill_applied": {
     "ts": "2026-09-14T12:05:53.353419Z",
