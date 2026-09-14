@@ -364,11 +364,27 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //      needs its own Graphics — above the sprite layer, or the arrow would vanish
                     //      behind the goblin firing it.
       '_Graphics',  // 13 — turretRenderer                   (S103 P3)
-      '_Container', // 14 — princessRenderer.container       (S103 P4) — HELGA. Owner, explicitly:
+      '_Container', // 14 — voltkinTowerRenderer.layer       (S175 P4a) — the Voltkin TV, drawn as a
+                    //      BUILDING on its chain.
+                    //      ⛔⛔ S176 — **THIS LINE IS THE ONE S175 DID NOT ADD, AND CI HAS BEEN RED
+                    //      EVER SINCE.** The renderer shipped in S175 P4a taking `fogHiddenLayer` as
+                    //      its parent, which is exactly the hazard `creatureRenderer` warns about two
+                    //      files away (*"a new display object would shift `fogHiddenLayer`'s child
+                    //      indices and break the two hardcoded probes"*). The e2e `e2e` job failed on
+                    //      THIS assertion for every S175 commit from `fe4c953` onward — four of them,
+                    //      including the one its handoff called green — and again on the first S176
+                    //      commit, always as the same single failure beside 64 passes. Nothing else
+                    //      in the suite could see it: tsc, 4,490 unit tests and `check:atlas` are all
+                    //      blind to a display-list index.
+                    //      ⚠ AND IT IS AN EXPECTATION UPDATE, NOT A PRODUCT FIX — the TV BELONGS on
+                    //      the concealable layer (an enemy's building must fog like every other), so
+                    //      the roll call was wrong and the code was right. `tower-art.spec.ts` reads
+                    //      indices 6 and 11, both BELOW this insert, so neither probe moves.
+      '_Container', // 15 — princessRenderer.container       (S103 P4) — HELGA. Owner, explicitly:
                     //      *"Also, Helga and stuff, like, all of those need to be hidden."*
-      '_Graphics',  // 15 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
+      '_Graphics',  // 16 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
                     //      procedural because they are STATE READOUTS, not character art.
-      '_Container', // 16 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
+      '_Container', // 17 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
     ]);
 
     /*
