@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1130,
+  "tool_calls_session_total": 1136,
   "session_id": "S175",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
@@ -2047,13 +2047,13 @@
     "R175-G_voltkin_tower": "'for now it's just fucking connectors of four squares and four triangles. It looks stupid.' The TV must become a real tower with a build/emerge/damage/destroy loop."
   },
   "carry_forward_s175": [
-    "P7 THE ATLAS DEBT - explained to the owner at S175 close, still NOT approved. 9 fringed atlases (a matte problem) + 6 width-mismatched (a pose problem). The real matte is embedded python in build-sprite-atlas.mjs:203-286, NOT scripts/matte-*.py, and there is NO tighter-edge knob - erosion is hardcoded at :284, so this means ADDING a knob.",
-    "ART_VEO_PROTOCOL.md is STALE in two places: its S173 verdict table condemns direwolf/walk which now measures a clean PASS, and its section 5 cost table is ~5x low. Fix both before the next generation run.",
-    "Voltkin attack + die clips remain UNPACKED and were NOT re-rolled, per the cost ruling. voltkin/walk was measured RECOVERABLE at $0 (frames 36-71 clean, sampleStart:36 + sampleWindow:36) - the S173 claim that it needed a re-roll is wrong.",
-    "General/goblin tower art: owner will generate; then damage+destroyed states and the build/destroy loop. Connector hiding auto-covers them the moment each draws a tower sprite - one markTowerCover call each.",
-    "tv-4-critical and tv-5-explosion are packed as flats but NOT in the atlas - they belong to the destruction beat (TOWER_CRUMBLE_FRAMES shape), still unbuilt.",
-    "R173-B, B7+B8 damage numbers, Pharaoh stances + Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
-    "The Warlord's attack-cadence WIRING is still uncovered by test (arithmetic only) - stated in warlordRage.integration.test.ts's header, not hidden."
+    "⛔ ART ONLY HE CAN MAKE — the 5 WAIVED sheets need REGENERATED art, not code: unit-demons, t3-mummies-scarab, t3-nagas-piranha, t9boss-nagas, t9boss-vampires. They disagree on WIDTH (pose, not zoom); S173 built the squash and measured it WORSE (1.42x->1.71x). Named+dated in assets-source/atlas-size-waivers.json; delete a line there once its art is redone.",
+    "GENERAL/GOBLIN TOWER ART — he will generate it, then damage+destroyed states and the build/destroy loop. Connector hiding (P6) auto-covers each one the moment it draws a tower sprite: ONE markTowerCover call at its sprite commit, nothing else.",
+    "VOLTKIN attack + die clips remain UNPACKED and were deliberately NOT re-rolled (cost ruling). ⭐ voltkin/walk was measured RECOVERABLE at $0 - frames 36-71 clean, sampleStart:36 + sampleWindow:36 - so the eventual bill is ~$6.20 for two clips, not three.",
+    "THE VOLTKIN TV DESTRUCTION BEAT — tv-4-critical and tv-5-explosion are flattened on disk but NOT in the atlas. They are frame-driven and client-local (the TOWER_CRUMBLE_FRAMES shape), not damage states.",
+    "THE WARLORD'S ATTACK-CADENCE WIRING is still uncovered by test (arithmetic only). Movement IS behaviourally proven. Stated in warlordRage.integration.test.ts's header, not hidden.",
+    "R173-B (each connector costs the FULL structure pool) · B8 powers · Pharaoh stances + Ra · Vlad life-sap · NONET stages (8 questions open) · 12-frames-per-state (his open dial).",
+    "⚠ HE HAS NOT YET PLAYED P9/P10 or the 2x direwolf. He said he would check the game and report what is not perfect. Expect corrections on: the 4.9x brake (he asked for 2x), the direwolf size, and damage-number legibility/volume."
   ],
   "cost_notes": {
     "owner_reported_agent_spend_s175": "~$7.00 for 2026-09-13. ⚠ ZERO art generation this session - no veo, no imagen. That figure is the Phase A.0 subagent sweep: 7 lanes, 1,021,822 subagent tokens, 288 tool uses. Record it as AGENT spend so it does not corrupt the veo rate.",
@@ -2133,5 +2133,6 @@
     ],
     "carried": "P7's 5 waived pose sheets need regenerated art (his budget). Voltkin attack+die unpacked, NOT re-rolled. tv-4-critical / tv-5-explosion flattened but not wired (the destruction beat). The Warlord's attack-CADENCE wiring is still arithmetic-only in test. R173-B, B7 powers, Pharaoh stances + Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
     "session_open": "HELD OPEN AT OWNER INSTRUCTION. /handoff is NOT run until he says so."
-  }
+  },
+  "carry_forward_note_s175": "⛔ THE PREVIOUS VERSION OF THIS LIST WAS STALE AT THE REVIEW GATE and the gate is what caught it. It still said 'P7 THE ATLAS DEBT - still NOT approved' after he approved it and it shipped, and it still said ART_VEO_PROTOCOL.md needed its stale verdict table and cost figure fixed after P8 fixed both. A carry-forward written mid-session and never revisited becomes a lie the next session acts on."
 }
