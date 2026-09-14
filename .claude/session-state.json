@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 769,
+  "tool_calls_session_total": 785,
   "session_id": "S177",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/S176_BATCH_PDR.md",
-  "session_status": "S177 IN-PROGRESS \u2014 7 of 8 shipped; P4 half-done, blocked on the owner re-pricing the veo clip",
+  "session_status": "S177 IN-PROGRESS \u2014 9 priorities, closing with /handoff",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -174,13 +174,47 @@
     {
       "id": "P4",
       "name": "Voltkin TV emergence + destruction loops",
-      "status": "partial",
-      "checkpoint_commit": "2bdee6d",
+      "status": "completed",
+      "checkpoint_commit": "4de3aa9",
       "check_completed": true,
-      "check_method": "DESTRUCTION FIXED: the beat was gated on towerStateForHp==destroyed, but a Voltkin tower actually dies by SEVERED CONNECTOR, which breaks the recipe and made the sprite vanish on the same frame - the panels were unreachable from play. A chain leaving the live set during FIGHT now plays the beat as a ghost at its last centroid, FIGHT-gated, finite ruins hold. NOT DONE: the animated emergence needs a veo clip. He authorised ~$3; the protocol records HIS measurement that clips cost ~$20. Not spent - see the PDR.",
+      "check_method": "The two state TRANSITIONS he named are real 12-frame videos now (spawning = deploy->idle, destroyed = the crumble); intact/damaged stay stills at $0. The renderer could draw neither - it cut ONE texture per row at x=0 - and now cuts any cell, one-shot, holding the last frame. Also fixed the destruction TRIGGER, which was gated on towerStateForHp==destroyed while a Voltkin tower actually dies by a severed connector, so the panels were unreachable from play. Cost $12.40 across two rolls; the protocol caught edge-touching frames, a window that cut both clips off mid-explosion (found only by auditioning on the dark board), a near-white fringe, and a 1.63x shrink of every row that TV_SPRITE_PX now compensates. Verified: typecheck 0, vitest 4513/4513, check:atlas 0, build 0.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "assets-source/voltkin-tv/atlas-specs.json",
+          "needle": "clips/tv/spawning.mp4"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/voltkin-tv/atlas-specs.json",
+          "needle": "clips/tv/destroyed.mp4"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "function clipFrame("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "const TV_SPRITE_PX = 215;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "private frameTexture("
+        },
+        {
+          "type": "grep_count",
+          "path": "public/art/voltkin-tv/voltkin-tv-anim.json",
+          "pattern": "\"frames\":\\s*12",
+          "op": ">=",
+          "value": 6
+        }
+      ]
     },
     {
       "id": "P5",
@@ -303,6 +337,39 @@
           "needle": "export const PRINCESS_PEN = 4;"
         }
       ]
+    },
+    {
+      "id": "P9",
+      "name": "P9 (scope amendment) \u2014 nothing swings at nothing: a strike only lands when it has reached",
+      "status": "completed",
+      "checkpoint_commit": "6e5d140",
+      "check_completed": true,
+      "check_method": "Owner ruling: \"There shouldn't be pretending to attack and not hitting anything.\" Three of the six ATTACKING-hold predicates were EXISTENCE checks with no notion of distance; the creature and bond STRIKE arms had no range gate at all. Creature and bond validity now share ONE reach predicate with their strike arms. The shape case is fixed at its source - the strike arm RELEASES targetPrimitiveId when out of reach so the creature re-seeks and walks in. Making primitiveValid reach-aware was BUILT, PROBED and REVERTED: a melee unit is frozen while ATTACKING and Helga walks, so she left a goblin's 35px reach on tick 34 and no moving defender would ever be killable in melee again. 4 fixtures that struck from outside their own reach were MOVED INTO range, not weakened. Verified: typecheck 0, vitest 4513/4513.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function isWithinAttackRangeOfCreature("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "if (!isWithinAttackRange(world, creature, action.bondId)) return world;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "creature.targetPrimitiveId = null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.test.ts",
+          "needle": "a chewer OUT of reach does not sever the connector it is committed to"
+        }
+      ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "verification": [],
