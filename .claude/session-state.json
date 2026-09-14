@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1122,
+  "tool_calls_session_total": 1130,
   "session_id": "S175",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
@@ -1482,7 +1482,47 @@
       "checkpoint_commit": null,
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "scripts/build-sprite-atlas.mjs",
+          "needle": "edgeFringeStripPx"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "waivedSize"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-atlas-scenery.mjs",
+          "needle": "atlas-size-waivers.json"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/atlas-size-waivers.json",
+          "needle": "t9boss-vampires-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "assets-source/race-tier9-bosses/atlas-specs.json",
+          "needle": "edgeFringeStripPx"
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-tier9-bosses/atlas-specs.json",
+          "pattern": "edgeFringeStripPx",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/race-units/atlas-specs.json",
+          "pattern": "edgeFringeStripPx",
+          "op": ">=",
+          "value": 2
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -1495,7 +1535,43 @@
       "checkpoint_commit": null,
       "check_method": null,
       "real_context_tokens_at_close": null,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "ART_VEO_PROTOCOL.md",
+          "needle": "~$3.10"
+        },
+        {
+          "type": "file_contains",
+          "path": "ART_VEO_PROTOCOL.md",
+          "needle": "AUDITION THE SHEET ON A"
+        },
+        {
+          "type": "file_contains",
+          "path": "ART_VEO_PROTOCOL.md",
+          "needle": "stillHeightRatio"
+        },
+        {
+          "type": "file_lacks",
+          "path": "ART_VEO_PROTOCOL.md",
+          "needle": "720p = $0.50 per clip"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/veo-recipes.json",
+          "needle": "auditionOnDark"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/veo-recipes.json",
+          "needle": "verdictStaleness"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/skills/veo-generate/SKILL.md",
+          "needle": "STEP 7b"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -1508,7 +1584,45 @@
       "checkpoint_commit": "6a2ad744556299a25bc7447e2e2635817ba7f49e",
       "check_method": "Captured $?: typecheck 0; vitest 4463/4463 (+8); build 0. Extended the WATCH (not an event) to primitives/bonds/defenders/stinkClouds/castles - all already-serialized fields, so zero wire cost and PROTOCOL_VERSION stays 46. poolDelta extracted pure and tested, including the RISING inversion for Bond.damageFifths and the never-heal-a-connector rule. P6 interaction fixed: a chewed connector is pinned to 0.85 alpha so the number floats over something visible.",
       "real_context_tokens_at_close": null,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.ts",
+          "needle": "export function poolDelta"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.ts",
+          "needle": "syncStructures"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.ts",
+          "needle": "castleAnchor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRenderer.ts",
+          "needle": "DAMAGED_BOND_MIN_ALPHA"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.test.ts",
+          "needle": "poolDelta"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "DIREWOLF_SPRITE_SCALE_MUL"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/damageNumbers.ts",
+          "pattern": "track\\(",
+          "op": ">=",
+          "value": 5
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -1521,7 +1635,38 @@
       "checkpoint_commit": "4a107b0b1186b65d680dfb0fdd77f48734b2bbf3",
       "check_method": "Captured $?: typecheck 0; vitest 4469/4469 (+6); build 0; check:atlas 0. Settle time MEASURED by probe: 188 ticks (3.13 s) -> 38 ticks (0.63 s), 4.9x. Three coast exemptions (stunned/spawning-despawning/holdsRange) each pinned by a test. creatureVerletStep's new 4th arg defaults to VELOCITY_DAMPING so all other call sites are byte-identical. Expected replay churn did NOT occur - those fixtures drive Voltkin, which holds range.",
       "real_context_tokens_at_close": null,
-      "verification": [],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "CREATURE_BRAKE_DAMPING"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "export function creatureDamping"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "creatureDamping(c, world.tick)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.test.ts",
+          "needle": "CREATURE_BRAKE_DAMPING"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "const vx = (px - c.prevPos.x) * VELOCITY_DAMPING;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "damping: number = VELOCITY_DAMPING"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -1914,7 +2059,7 @@
     "owner_reported_agent_spend_s175": "~$7.00 for 2026-09-13. ⚠ ZERO art generation this session - no veo, no imagen. That figure is the Phase A.0 subagent sweep: 7 lanes, 1,021,822 subagent tokens, 288 tool uses. Record it as AGENT spend so it does not corrupt the veo rate.",
     "veo_rate_correction": "Owner measured ~$25 for the 8 S173 clips => ~$3.10/clip, against the $0.50/clip written in ART_VEO_PROTOCOL.md section 5. Every cost line in that doc is understated ~5x. NOT yet corrected in the doc - carry-forward."
   },
-  "analyze_completed": false,
+  "analyze_completed": true,
   "check_phase": {
     "gates_read_from_captured_exit_codes": true,
     "typecheck": "exit 0",
@@ -1963,5 +2108,30 @@
         "P10 - creatures brake when they stop instead of coasting (the ice-skating)"
       ]
     }
-  ]
+  ],
+  "analyze_s175": {
+    "verdict": "10 priorities + 2 owner rulings shipped, all committed, pushed and deploy-verified 4/4. MCV exit 0 (62 assertions). Gates at close: typecheck 0, vitest 4469/4469 (from 4416, +53), build 0, check:atlas 0 (GREEN for the first time since S171). PROTOCOL_VERSION unchanged at 46 across every priority.",
+    "what_actually_worked": [
+      "Phase A.0 paid for itself twice over. 16 claim-vs-tree deltas BEFORE any code; two of them (rage already wired, direwolf aliased not artless) restructured the batch. Scoping P1 from the backlog would have re-implemented a shipped feature.",
+      "Reading the comment above the code I was about to change gave three diagnoses free: the S152 multiply-tint bug, the codex's own nominated fix site, and P10's entire root cause ('ZERO_ACCEL means COAST, NOT STOP ... ~200 ticks').",
+      "Auditioning the PNG caught what no gate could - three packer defects passed tsc, 4,455 tests AND check:atlas. Now a protocol step (7b) with the dark-background requirement.",
+      "Extracting pure helpers (creatureSpriteTint, animTicksPerFrame, poolDelta, creatureDamping, place) made otherwise Pixi-locked behaviour testable. Every one of those is a test that could not have existed otherwise, and one of them (towerCover) caught a real bug."
+    ],
+    "what_i_got_wrong_and_how_it_was_caught": [
+      "P2: shipped a still-normalisation EXEMPTION that was as wrong as the inflation it fixed - caught by looking at the sheet, not by a gate.",
+      "P2b: my first dead-wolf still was cut from the DARK contact sheet and packed inside a black box. Three rebuilds.",
+      "P6: flip detection inside the alpha getter made the ramp read-order dependent - caught by the only test that could have caught it, which I had just written.",
+      "P7: my P2 commit UNDERSTATED its own blast radius; the canvas fix touched every multi-state atlas, not just mixed specs. Found only because a full rebuild changed 18 files instead of 9.",
+      "P8: truncated SKILL.md to 0 bytes with io.open(p,'w') + a throwing encode. Restored from git; the temp-file-swap rule is now IN the skill.",
+      "CLOSE: marked P7-P10 completed with EMPTY verification[] - the MCV hard-fail caught it, and grep-before-assert then caught one genuinely wrong needle (t9boss-demons is FIXED, not waived)."
+    ],
+    "owner_corrections_this_session": [
+      "The direwolf DOES have art - I described a registry alias as 'no art'. Precision matters more when the owner is right.",
+      "It was the 5-hour limit, not the monthly limit.",
+      "Cost was ~$25 not $4.50 - the in-tree rate was wrong by ~6x and had never been reconciled against a statement.",
+      "A session NEVER closes without a full /handoff, and only on his say-so. S175 wrote a handoff DOCUMENT and treated the session as closed. That is not the same thing."
+    ],
+    "carried": "P7's 5 waived pose sheets need regenerated art (his budget). Voltkin attack+die unpacked, NOT re-rolled. tv-4-critical / tv-5-explosion flattened but not wired (the destruction beat). The Warlord's attack-CADENCE wiring is still arithmetic-only in test. R173-B, B7 powers, Pharaoh stances + Ra, Vlad life-sap, NONET stages, 12-frames-per-state.",
+    "session_open": "HELD OPEN AT OWNER INSTRUCTION. /handoff is NOT run until he says so."
+  }
 }
