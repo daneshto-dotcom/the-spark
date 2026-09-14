@@ -30,6 +30,7 @@ import {
   creatureVerletStep,
   repulseForce,
   seekForce,
+  creatureDamping,
 } from './creatureVerlet.ts';
 import {
   CREATURE_DESPAWNING_TICKS,
@@ -38,7 +39,7 @@ import {
   makeVoltkinCreature,
   type Creature,
 } from '../state/creatures/creature.ts';
-import { POOP_SLOW_MULTIPLIER, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, VELOCITY_DAMPING } from '../constants.ts';
+import {CREATURE_BRAKE_DAMPING, POOP_SLOW_MULTIPLIER, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, VELOCITY_DAMPING } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 
 const SUBSTEP_DT = 1 / 480; // 60 Hz × 8 substeps
@@ -289,3 +290,75 @@ describe('end-to-end smoke — creature in SEEKING actually moves toward target 
 // directly asserted (lifecycle constants are exercised in creatureLifecycle.test.ts).
 void CREATURE_DESPAWNING_TICKS;
 void VOLTKIN_LIFETIME_TICKS;
+
+/**
+ * ⭐⭐ S175 P10 (owner) — THE ICE-SKATING.
+ *
+ * Owner: *"when creatures walk, it takes them a time to stop … they pretend to hit each other, but
+ * they keep sliding forward while hitting … it's like they're ice skating. It's silly. And then they
+ * lose whoever they were attacking, and then they need to move back to him, slide a little bit
+ * closer. That looks ridiculous."*
+ *
+ * The mechanism was already written down at the line that causes it: `ZERO_ACCEL` means COAST, not
+ * STOP. What was missing is a brake, and three places where coasting is the FEATURE.
+ */
+describe('S175 P10 — creatureDamping: brake when standing still, coast where coasting is the point', () => {
+  it('⭐ a melee unit mid-swing BRAKES', () => {
+    const c = makeStubCreature({ state: 'ATTACKING' });
+    expect(creatureDamping(c, 0)).toBe(CREATURE_BRAKE_DAMPING);
+    expect(CREATURE_BRAKE_DAMPING).toBeLessThan(VELOCITY_DAMPING);
+  });
+
+  it('SEEKING coasts — it is steering, and arriveForce already brakes it in', () => {
+    expect(creatureDamping(makeStubCreature({ state: 'SEEKING' }), 0)).toBe(VELOCITY_DAMPING);
+  });
+
+  it('⛔ SPAWNING and DESPAWNING coast — force-free, or the Q7 momentum trap reopens', () => {
+    expect(creatureDamping(makeStubCreature({ state: 'SPAWNING' }), 0)).toBe(VELOCITY_DAMPING);
+    expect(creatureDamping(makeStubCreature({ state: 'DESPAWNING' }), 0)).toBe(VELOCITY_DAMPING);
+  });
+
+  /**
+   * ⛔ THE ONE THAT WOULD HAVE EATEN A SHIPPED FEATURE. R139's sonar wave *"stuns and pushes back"*,
+   * and the stun gate returns ZERO_ACCEL exactly so the unit can slide under that impulse. Braking a
+   * stunned creature makes the knockback land and go nowhere.
+   */
+  it('⛔ a STUNNED creature still coasts, so knockback survives', () => {
+    const c = makeStubCreature({ state: 'ATTACKING' });
+    c.stunnedUntilTick = 100;
+    expect(creatureDamping(c, 50)).toBe(VELOCITY_DAMPING);
+    expect(creatureDamping(c, 150), 'and brakes again once the stun expires')
+      .toBe(CREATURE_BRAKE_DAMPING);
+  });
+});
+
+describe('S175 P10 — the slide is measurably shorter', () => {
+  /** Ticks for a seeded slide to fall below 5% of its starting speed, at 8 substeps a tick. */
+  const settleTicks = (damping: number): number => {
+    const c = makeStubCreature({ pos: { x: 100, y: 0 }, state: 'ATTACKING' });
+    c.prevPos = { x: 99, y: 0 }; // 1 px/substep
+    for (let t = 1; t <= 600; t++) {
+      for (let i = 0; i < 8; i++) creatureVerletStep(c, SUBSTEP_DT, ZERO_ACCEL, damping);
+      if (c.pos.x - c.prevPos.x < 0.05) return t;
+    }
+    return Infinity;
+  };
+
+  it('⭐ braking settles many times faster than coasting — the numbers in the constant', () => {
+    const coast = settleTicks(VELOCITY_DAMPING);
+    const brake = settleTicks(CREATURE_BRAKE_DAMPING);
+    expect(coast).toBeGreaterThan(150);   // ~187 ticks, the 3.1 s he called 'a few seconds'
+    expect(brake).toBeLessThan(50);       // ~37 ticks, ~0.6 s: a body planting its feet
+    expect(coast / brake).toBeGreaterThan(3);
+  });
+
+  it('the default argument is unchanged, so every other call site is byte-identical', () => {
+    const a = makeStubCreature({ pos: { x: 10, y: 0 } }); a.prevPos = { x: 9, y: 0 };
+    const b = makeStubCreature({ pos: { x: 10, y: 0 } }); b.prevPos = { x: 9, y: 0 };
+    for (let i = 0; i < 20; i++) {
+      creatureVerletStep(a, SUBSTEP_DT, ZERO_ACCEL);
+      creatureVerletStep(b, SUBSTEP_DT, ZERO_ACCEL, VELOCITY_DAMPING);
+    }
+    expect(a.pos.x).toBeCloseTo(b.pos.x, 12);
+  });
+});

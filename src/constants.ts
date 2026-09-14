@@ -219,6 +219,33 @@ export const MEMORY_GHOST_ALPHA = 0.5;
 export const PHYSICS_HZ = 60;
 export const PHYSICS_SUBSTEPS = 8;
 export const VELOCITY_DAMPING = 0.998;
+
+/**
+ * ⭐⭐ S175 P10 (owner) — **THE BRAKE. WHAT A CREATURE DAMPS AT WHEN IT IS TRYING TO STAND STILL.**
+ *
+ * Owner: *"when creatures walk, it takes them a time to stop … it looks like they're sliding … they
+ * pretend to hit each other, but they keep sliding forward while hitting … it's like they're ice
+ * skating. It's silly. And then they lose whoever they were attacking, and then they need to move
+ * back to him, slide a little bit closer. That looks ridiculous."*
+ *
+ * ⭐ THE CODE ALREADY DESCRIBED HIS BUG, AT THE LINE THAT CAUSES IT. `creatureVerlet.ts` says:
+ * *"ZERO_ACCEL means COAST, NOT STOP — a creature that enters ATTACKING still carrying velocity
+ * keeps gliding, and VELOCITY_DAMPING is 0.998 per SUBSTEP, so a modest 0.2 px/tick takes ~200
+ * ticks to bleed away."* S154 traced a bat rider engaging at 121 px and drifting to 53.7 px over
+ * three seconds. S154's fix gave `holdsRange` creatures continued steering — but that flag is FALSE
+ * on all seven other configs, so every melee unit he watches has been ice-skating ever since.
+ *
+ * MEASURED, at 8 substeps a tick, time for a slide to fall to ~5% of its speed:
+ *   0.998 → **187 ticks ≈ 3.1 s**  (today: his "few seconds")
+ *   0.996 →  94 ticks ≈ 1.6 s  (a literal "cut in half" — still ice)
+ *   **0.99  →  37 ticks ≈ 0.62 s**  (a body planting its feet)
+ *
+ * ⚠ SO THIS IS ~5x FASTER, NOT THE 2x HE SAID, AND THAT IS DELIBERATE. He hedged the number
+ * (*"maybe"*) and was emphatic about the FEEL (*"not that much"*, *"ice skating"*, *"silly"*).
+ * Halving it leaves a unit still gliding for a second and a half, which is the same complaint
+ * quieter. 0.62 s reads as a stop. The number is MINE — overrule it against the live board.
+ */
+export const CREATURE_BRAKE_DAMPING = 0.99;
 export const POSITION_CORRECTION_CLAMP_RATIO = 0.5;
 
 export type StiffnessTier = 'LOW' | 'MID' | 'HIGH';

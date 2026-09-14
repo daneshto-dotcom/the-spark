@@ -33,6 +33,7 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CREATURE_BRAKE_DAMPING,
   POOP_SLOW_MULTIPLIER,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -78,11 +79,13 @@ const PHI = 1.6180339887498949;
  * Mirrors verletStep (verlet.ts:24-35) exactly: implicit velocity = (pos - prevPos),
  * damped per substep by VELOCITY_DAMPING. accel is in px/s² (multiplied by dt²).
  */
-export function creatureVerletStep(c: Creature, dtSub: number, accel: Vec2 = ZERO_ACCEL): void {
+export function creatureVerletStep(
+  c: Creature, dtSub: number, accel: Vec2 = ZERO_ACCEL, damping: number = VELOCITY_DAMPING,
+): void {
   const px = c.pos.x;
   const py = c.pos.y;
-  const vx = (px - c.prevPos.x) * VELOCITY_DAMPING;
-  const vy = (py - c.prevPos.y) * VELOCITY_DAMPING;
+  const vx = (px - c.prevPos.x) * damping;
+  const vy = (py - c.prevPos.y) * damping;
   const ax = accel.x * dtSub * dtSub;
   const ay = accel.y * dtSub * dtSub;
   c.prevPos.x = px;
@@ -112,6 +115,37 @@ export function creatureVerletStep(c: Creature, dtSub: number, accel: Vec2 = ZER
  * trap (a different and more severe failure mode). The current behavior is the
  * documented cross-resolve.
  */
+/**
+ * ⭐⭐ S175 P10 (owner) — PURE: what this creature's velocity should damp at THIS substep.
+ *
+ * Owner: *"they keep sliding forward while hitting … it's like they're ice skating … then they lose
+ * whoever they were attacking, and then they need to move back to him, slide a little bit closer."*
+ *
+ * A creature that has stopped steering does not stop MOVING — `ZERO_ACCEL` means coast. Braking is
+ * the missing half, and it is applied as DAMPING rather than as an opposing force on purpose: a
+ * counter-accel can overshoot into reverse and jitter, while damping is unconditionally stable and
+ * cannot push a unit backwards.
+ *
+ * ⛔ THREE EXEMPTIONS, AND EVERY ONE OF THEM IS SOMETHING THE CODEBASE ALREADY ARGUED FOR:
+ *
+ *  1. **STUNNED coasts.** R139's sonar wave *"stuns and pushes back"*, and the stun gate returns
+ *     ZERO_ACCEL precisely so the unit is free to slide under that impulse. Braking a stunned
+ *     creature would eat the knockback — two halves of one owner sentence fighting each other.
+ *  2. **SPAWNING and DESPAWNING coast.** Force-free by Q7/Δ4; they are not trying to stand still,
+ *     they are entering and leaving. Touching them reopens the momentum trap.
+ *  3. **A `holdsRange` fighter coasts** — it is the ONE family that keeps steering while attacking
+ *     (S154 P2), and its `arriveForce` already brakes it onto a standoff ring. Damping it too
+ *     would fight the force that is holding its station.
+ *
+ * Which leaves exactly the case he described: a melee unit, mid-swing, still gliding.
+ */
+export function creatureDamping(c: Creature, tick = 0): number {
+  if (c.state !== 'ATTACKING') return VELOCITY_DAMPING;
+  if (isStunned(c, tick)) return VELOCITY_DAMPING;
+  if (getCreatureConfig(c.type).holdsRange) return VELOCITY_DAMPING;
+  return CREATURE_BRAKE_DAMPING;
+}
+
 export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
   /*
    * ⭐ S154 P2 — Δ4 IS NARROWED FOR STANDOFF FIGHTERS, AND ONLY FOR THEM.

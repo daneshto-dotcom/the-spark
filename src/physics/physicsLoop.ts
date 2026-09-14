@@ -64,6 +64,7 @@ import type { ControlsLike } from '../input/controlsCore.ts';
 import { solveBonds, type Bond } from './bonds.ts';
 import {
   computeSteeringAccel,
+  creatureDamping,
   creatureVerletStep,
 } from './creatureVerlet.ts';
 import { verletStepAll } from './verlet.ts';
@@ -236,7 +237,17 @@ export function stepPhysics(
     // world.creatures Map iterates zero times — negligible overhead.
     for (const c of world.creatures.values()) {
       // S109 P2 — thread world.tick so a poop-slowed creature crawls until its poopyUntilTick.
-      creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c, world.tick));
+      /*
+       * ⭐⭐ S175 P10 (owner) — the fourth argument is the BRAKE. A creature that has stopped
+       * steering does not stop moving: `ZERO_ACCEL` means coast, and at the global damping a slide
+       * takes ~3.1 s to bleed off, which is the ice-skating he reported. `creatureDamping` returns
+       * the unchanged global value for every case where coasting is the FEATURE (stunned knockback,
+       * spawning, despawning, a standoff fighter holding its ring) and the brake only for a melee
+       * unit mid-swing.
+       */
+      creatureVerletStep(
+        c, SUBSTEP_DT, computeSteeringAccel(c, world.tick), creatureDamping(c, world.tick),
+      );
     }
     enforceSpawnerBounds(sparkArr, undefined, attractedId);
   }
