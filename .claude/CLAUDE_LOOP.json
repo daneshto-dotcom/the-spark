@@ -1,11 +1,9 @@
 {
   "project": "The-Spark",
-  "loop_name": null,
+  "loop_name": "none",
   "done_predicate": null,
-  "budget": {
-    "note": "defaults from ~/.claude/memory-packages/CLAUDE_LOOP.defaults.json"
-  },
+  "budget": null,
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "S176: no agentic loop. ONE Workflow fan-out (Phase A.0, 4 read-only lanes) returned 0/4 - every lane died to the org monthly spend limit. All four were re-run BY HAND in-session per the S161 rule; none was filed as an empty verdict. Net: the workflow contributed nothing and cost ~566K subagent tokens."
+  "last_result": "no agentic loop; the one A.0 fan-out returned 16/16 and every lane was ALSO hand-run"
 }

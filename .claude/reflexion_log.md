@@ -1,3 +1,23 @@
+## S177 (2026-09-14) - his eight playtest bugs answered, R173 built 24 sessions after it was ruled, the x5 stat ladder made canon in CLAUDE.md, a scope-amendment rule that nothing swings at nothing, and the TV's two state-transition videos generated for $12.40.
+
+- P1 #the-ruling-was-24-sessions-old-and-never-built: R173 was RULED in S173 with a worked table and left unimplemented while the code ran DEF=n-1 and banked damage per-bond. The owner rediscovered it as a bug report. A ruling with no implementation and no carry-forward is indistinguishable from a ruling that was never given.
+
+- P1 #one-ladder-preserved-the-balance-it-was-feared-to-break: moving shapes from a 1000-point scale onto attackFifths was expected to retune everything. Measured, it preserved drone-fells-shape-in-3 and Ra-one-shots exactly, and moved ONE relationship (suicide 3->4 blasts). The fear was worth measuring rather than trusting.
+
+- P5 #his-diagnosis-was-wrong-and-his-observation-was-right: he said the bags had too much health; they had the minimum possible. But his SIX SECONDS was exact - it was the bag expiry timer running out while an army swung and missed. Take the observation as data and re-derive the cause.
+
+- P4 #the-window-i-added-to-be-safe-was-the-defect: both TV clips failed check-clip on edge-touching frames, so I capped sampleWindow. That cut each clip off MID-EXPLOSION and the row's held last frame became a frozen blast instead of the settled state. Measuring which frames actually offended (spawning 51-53, destroyed 59-60) showed 12-of-96 is stride 8 and never samples them - the cap was never needed. Caught ONLY by auditioning the packed sheet on the dark board, which is why that step is in the protocol.
+
+- P9 #a-probe-beats-an-argument: making primitiveValid reach-aware is the obvious completion of the owner's rule and I could argue either way for twenty minutes. A six-predicate probe of the real host tick answered it in one run: Helga steps out of a goblin's 35px reach on tick 34 while he is frozen in ATTACKING, so every moving defender would have become unkillable in melee. Built, measured, reverted - and the shape mime killed at its source instead.
+
+- P3 #the-change-that-could-not-possibly-do-anything: setting lifetimeTicks on a config whose persistent:true overrides it. Caught only by reading the factory it came from. Same shape as S153 P1.
+
+- SESSION #a-test-can-go-green-for-the-wrong-reason: pinnedDeadStats pins SOURCE TEXT, and stayed green because my own new comment happened to contain the retired symbol name it was looking for.
+
+- SESSION #an-authorisation-against-a-wrong-price-is-not-an-authorisation: he approved a clip at the ~$3 I quoted; the protocol records HIS measurement of ~$20. Re-ask rather than spend 7x.
+
+- SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass.
+
 ## S176 (2026-09-14) - two priorities, $0.00 of art: the Voltkin finally drawn from a sheet instead of a procedural puppet under two stills, at 20 frames a state (his ruling, the 12-frame dial closed upwards), and his TV given the emergence and destruction SEQUENCES it never had. Every A.0 agent died to the spend limit and every finding came from a hand-run. Also found: a CI failure four commits old that the previous handoff called green.
 
 - P0 #the-hunt-returned-nothing-and-the-rule-held: all FOUR Phase A.0 workflow lanes died to the org monthly spend limit, returning zero findings - the exact S161 failure this project's CLAUDE.md was written about, and the third session in a row to meet it. The difference this time is that the lanes were re-run BY HAND rather than filed as 'the sweep produced nothing'. Every load-bearing fact in the PDR came from those hand-runs; the agents contributed nothing. Delegated investigation is a speed-up, never the deliverable.

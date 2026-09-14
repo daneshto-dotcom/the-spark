@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — still owed, carried into the next session.**
+**STATUS: IMPLEMENTED S177.** Built at last, 24 sessions after it was ruled: `structurePoolFifths` = n x (5+n), damage pooled STRUCTURE-WIDE, the pool SPENT on a sever so overkill carries, and the targeted bond falls first (R173-C). See commit bcd5f22 and the S177 batch PDR.
 
 # R173 — STRUCTURE HP: THE OWNER'S RULING, AND WHAT IT CHANGES
 

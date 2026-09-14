@@ -1,6 +1,6 @@
 # ⛔ STRUCTURE HP — THE OWNER'S MODEL vs THE SHIPPED CODE
 
-**STATUS: NEEDS TWO OWNER RULINGS. No code changed.** Raised S173 when he corrected my damage-scale
+**STATUS: CLOSED S177.** Both divergences it raised are resolved: the DEF ladder is DEF = n (not n-1), and the pool is structure-wide (not per-bond). The owner re-stated the whole system verbatim in S177 and it is now the canon in the project CLAUDE.md. Raised S173 when he corrected my damage-scale
 question and, in doing so, described the structure HP model he believes is already built.
 
 He is right that it is predefined, and right that there is no scale problem for towers — a tower's
