@@ -22,7 +22,7 @@
  * + exported unchanged (their unit tests still pin the curves; the rig reuses the alpha + facing).
  */
 
-import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
@@ -93,6 +93,112 @@ const VOLTKIN_ZAP_URL = '/godly/voltkin/anim/voltkin-zap.png';
 // Base on-screen scale so the ~512px matted art renders at roughly the procedural rig's size.
 const VOLTKIN_SPRITE_BASE_SCALE = 0.17;
 
+/* ===== S176 P1 — THE VOLTKIN IS DRAWN FROM A SHEET NOW, NOT FROM TWO STILLS =====
+ *
+ * Owner, S176: *"make him attack and die with the new art I generated for him. Make him run. Make
+ * him idle ... the whole loop of him and what he's supposed to do. Very consistent and coherent."*
+ * And, on what he photographed: *"it's stuck in that image. Like, it's not moving anywhere or
+ * generating the whole video loop."*
+ *
+ * ⛔ HE WAS NEVER ANIMATED, AND THAT IS THE ACTUAL DEFECT — not a stuck frame. Two textures have
+ * ever existed for him (`VOLTKIN_IDLE_URL` / `VOLTKIN_ZAP_URL`, S110), swapped on one boolean at the
+ * FIRE tick, over a procedural Pixi.Graphics puppet (S106). There was no walk, no death, and no loop
+ * of any kind. `voltkinFrames.ts` still carries a full atlas mapping — retired in S107 and kept only
+ * as a tested spec — so the shape of this was written down for nine sessions with nothing behind it.
+ *
+ * ⭐ 20 FRAMES PER STATE, which is the owner's ruling of this session and the first sheet in the repo
+ * above 12. See `assets-source/voltkin-tv/atlas-specs-character.json` for why 20 and not more (an
+ * 8192 px texture ceiling that a 24-frame sheet would cross, SILENTLY — a failed atlas here falls
+ * back to the puppet with nothing in any log).
+ *
+ * ⚠ THE TWO STILLS ARE DELIBERATELY LEFT LOADED. `voltkin-zap.png` is the Codex recipe card's
+ * artwork (`codexPresentation.ts`) and both are referenced as string literals by several modules, so
+ * deleting them is a RUNTIME-ONLY failure that tsc and the bundle gate both wave through — the
+ * mistake S141 caught someone about to make. They also remain this renderer's second fallback.
+ */
+const VOLTKIN_ATLAS_BASE = '/godly/voltkin/anim/voltkin';
+
+/** The four rows the sheet ships. NOT a `CreatureState` — the mapping between them is below. */
+export type VoltkinRow = 'idle' | 'walk' | 'attack' | 'die';
+
+interface VoltkinRowMeta { readonly row: number; readonly frames: number; readonly ticksPerFrame: number }
+interface VoltkinManifest {
+  readonly cellW: number;
+  readonly cellH: number;
+  readonly footAnchor: { readonly x: number; readonly y: number };
+  readonly states: Partial<Record<VoltkinRow, VoltkinRowMeta>>;
+}
+
+/**
+ * Base scale, and it is MEASURED so this change alters WHICH pictures are drawn and nothing else.
+ *
+ * Today's shipped sprite is `voltkin-idle.png` (512 px tall) at 0.17 → an 87 px character. In the
+ * packed sheet the character occupies 181 px of the 256 px cell (the rest is the union bbox's
+ * padding), so 87/181 = 0.479 puts him on screen at exactly the size the owner has been playing.
+ * ⚠ A playtest DIAL, like `VOLTKIN_SPRITE_BASE_SCALE` was — overrule it against the live board.
+ */
+const VOLTKIN_ATLAS_BASE_SCALE = 0.479;
+
+/**
+ * ⛔ S176 P1 — WHAT FRACTION OF EACH CELL IS ACTUALLY THE CHARACTER, AND WHY A HEALTH BAR NEEDS IT.
+ *
+ * `spriteBoxOf` feeds `drawHealthBars` (via `GoblinRenderer.setExtraSpriteBox`), which lifts the bar
+ * by the reported HEIGHT. A `Sprite` reports its CELL, and an atlas cell is mostly transparent
+ * padding — the union bbox is one rectangle sized to the widest, tallest frame of any row, so the
+ * walk row's horizontal sprawl inflates the cell that idle then sits inside. Reporting the cell would
+ * float the bar ~29% of a cell above his head, which is the S172 defect in mirror image (that one
+ * drew the bar INSIDE the body; this one would draw it in the sky).
+ *
+ * ⚠ MEASURED off the shipped sheet, per row, as the worst case across all 20 frames of that row —
+ * worst case rather than median because a bar that jitters frame-to-frame is worse than one a few
+ * pixels high. Re-measure if the spec's windows or `framesPerState` change; the numbers are a
+ * property of THIS sheet, not of the pipeline.
+ */
+const VOLTKIN_ATLAS_CONTENT: Readonly<Record<VoltkinRow, { readonly w: number; readonly h: number }>> = {
+  idle: { w: 0.529, h: 0.719 },
+  walk: { w: 0.992, h: 0.762 },
+  attack: { w: 0.689, h: 0.711 },
+  die: { w: 0.566, h: 0.555 },
+};
+
+/**
+ * PURE — which row to draw. Exported for test; no Pixi, no world.
+ *
+ * ⚠ SPAWNING DRAWS `idle`, NOT a bespoke emergence row, and that is deliberate: the emergence is the
+ * TV's beat (`voltkinTowerRenderer` holds its `spawning` row while a Voltkin is SPAWNING nearby), and
+ * giving the creature a second one would mean two renderers narrating the same moment out of step.
+ */
+export function voltkinAtlasRow(state: CreatureState, isMoving: boolean): VoltkinRow {
+  if (state === 'DESPAWNING') return 'die';
+  if (state === 'ATTACKING') return 'attack';
+  if (state === 'SEEKING') return isMoving ? 'walk' : 'idle';
+  return 'idle';
+}
+
+/**
+ * PURE — which frame of that row. Exported for test.
+ *
+ * ⭐ LOOPS KEY OFF `worldTick`, ONE-SHOTS OFF `ticksInState`, and the split is the same one the
+ * retired `currentAnimCell` spec reasoned its way to: a SEEKING re-entry must not restart the gait
+ * mid-stride, while the strike must stay glued to the FSM so the drawn swing lands on the FIRE tick.
+ * Both inputs are synced and hashed, so every peer draws the identical frame with nothing on the wire.
+ */
+export function voltkinAtlasFrame(
+  row: VoltkinRow,
+  ticksInState: number,
+  worldTick: number,
+  frames: number,
+  ticksPerFrame: number,
+): number {
+  const tpf = Math.max(1, ticksPerFrame);
+  if (frames <= 0) return 0;
+  if (row === 'attack' || row === 'die') {
+    // ONE-SHOT: advance, then HOLD the last frame. A modulo here would loop a corpse.
+    return Math.min(frames - 1, Math.floor(ticksInState / tpf));
+  }
+  return Math.floor(worldTick / tpf) % frames;
+}
+
 // ── S103 #8 — lightning-cloud (a Voltkin discombobulated by a kill) ──
 const LIGHTNING_CLOUD_SEC = 0.6; // burst lifetime (expand + fade), render-only wall-clock
 const LIGHTNING_CLOUD_R = 22; // base glow radius (Voltkin reads bigger than a chewer goo-splat)
@@ -146,7 +252,12 @@ export class CreatureRenderer {
    */
   spriteBoxOf(id: CreatureId): { w: number; h: number } | null {
     const sp = this.sprites.get(id);
-    return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };
+    if (sp === undefined) return null;
+    // S176 P1 — on the atlas path, report the CHARACTER, not the padded cell. See VOLTKIN_ATLAS_CONTENT.
+    const row = this.atlasCells === null ? undefined : this.lastRow.get(id);
+    const frac = row === undefined ? undefined : VOLTKIN_ATLAS_CONTENT[row];
+    if (frac === undefined) return { w: Math.abs(sp.width), h: sp.height };
+    return { w: Math.abs(sp.width) * frac.w, h: sp.height * frac.h };
   }
 
   readonly container: Container;
@@ -175,6 +286,14 @@ export class CreatureRenderer {
   private idleTex: Texture | null = null;
   private zapTex: Texture | null = null;
   private texLoadStarted = false;
+  /** S176 P1 — the packed 4-row sheet. Null until it resolves, or forever if it 404s (→ the stills,
+   *  then the procedural rig). Cut once at load; never per frame. */
+  private atlasCells: Partial<Record<VoltkinRow, readonly Texture[]>> | null = null;
+  private atlasMeta: Partial<Record<VoltkinRow, VoltkinRowMeta>> | null = null;
+  private atlasAnchor: { x: number; y: number } = { x: 0.5, y: 0.9961 };
+  /** S176 P1 — last row drawn per creature, so `spriteBoxOf` can report the character rather than
+   *  the padded cell. Render-only bookkeeping; never read by the sim. */
+  private readonly lastRow: Map<CreatureId, VoltkinRow> = new Map();
 
   // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
   // ⭐ S169 — now UNDER the fog (owner ruling); the cross-player-reach argument was overruled.
@@ -211,6 +330,38 @@ export class CreatureRenderer {
         this.idleTex = null;
         this.zapTex = null;
       });
+    /*
+     * S176 P1 — and the SHEET, loaded independently of the two stills so that a failure of either
+     * path degrades one step at a time: atlas → stills → procedural rig. The creature is never blank.
+     */
+    void (async () => {
+      const manifest = (await (await fetch(`${VOLTKIN_ATLAS_BASE}-anim.json`)).json()) as VoltkinManifest;
+      const sheet = (await Assets.load(`${VOLTKIN_ATLAS_BASE}-atlas.png`)) as Texture;
+      const cells: Partial<Record<VoltkinRow, readonly Texture[]>> = {};
+      const meta: Partial<Record<VoltkinRow, VoltkinRowMeta>> = {};
+      for (const name of ['idle', 'walk', 'attack', 'die'] as const) {
+        const st = manifest.states[name];
+        if (st === undefined) continue;
+        const frames: Texture[] = [];
+        for (let i = 0; i < st.frames; i++) {
+          frames.push(new Texture({
+            source: sheet.source,
+            frame: new Rectangle(i * manifest.cellW, st.row * manifest.cellH, manifest.cellW, manifest.cellH),
+          }));
+        }
+        cells[name] = frames;
+        meta[name] = st;
+      }
+      this.atlasAnchor = { x: manifest.footAnchor.x, y: manifest.footAnchor.y };
+      this.atlasMeta = meta;
+      this.atlasCells = cells;
+    })().catch(() => {
+      // A 404 or a malformed manifest → stay on the two stills. SILENT by necessity (there is no
+      // user-facing error surface here), which is exactly why the frame count is capped below the
+      // texture ceiling rather than trusted to fail loudly.
+      this.atlasCells = null;
+      this.atlasMeta = null;
+    });
   }
 
   /**
@@ -218,18 +369,46 @@ export class CreatureRenderer {
    * helpers — determinism-free, same inputs the procedural rig read). Idle texture except during the
    * ATTACKING zap. Returns the (possibly newly created) sprite.
    */
-  private syncVoltkinSprite(creature: Creature, facing: 1 | -1): void {
+  private syncVoltkinSprite(creature: Creature, facing: 1 | -1, worldTick: number, isMoving: boolean): void {
     let sp = this.sprites.get(creature.id);
+    const fresh = sp === undefined;
     if (sp === undefined) {
       sp = new Sprite();
-      sp.anchor.set(0.5, 0.56); // feet a touch below centre so the scale-pulse grows upward
       this.spriteLayer.addChild(sp);
       this.sprites.set(creature.id, sp);
     }
-    const zapping = creature.state === 'ATTACKING' && creature.ticksInState >= VOLTKIN_ATTACK_FIRE_TICK;
-    const tex = zapping ? this.zapTex : this.idleTex;
-    if (tex !== null && sp.texture !== tex) sp.texture = tex;
-    const scale = VOLTKIN_SPRITE_BASE_SCALE * computeCreatureScale(creature.state, creature.ticksInState);
+
+    /*
+     * S176 P1 — THE SHEET, when it has loaded. The anchor differs between the two paths and must be
+     * set per-path rather than once at creation: the stills are anchored (0.5, 0.56) — feet a touch
+     * below centre, so the spawn scale-pulse grows upward — while the sheet carries its own
+     * `footAnchor` (0.5, ~0.996), the convention every other atlas-backed creature uses and the one
+     * the owner-tinted ground marker at `creature.pos` assumes. Anchoring the sheet at 0.56 would
+     * bury him to the waist in his own marker.
+     */
+    const cells = this.atlasCells;
+    const meta = this.atlasMeta;
+    let scaleBase = VOLTKIN_SPRITE_BASE_SCALE;
+    if (cells != null && meta != null) {
+      const row = voltkinAtlasRow(creature.state, isMoving);
+      const rowCells = cells[row] ?? cells.idle;
+      const rowMeta = meta[row] ?? meta.idle;
+      if (rowCells !== undefined && rowCells.length > 0 && rowMeta !== undefined) {
+        const i = voltkinAtlasFrame(row, creature.ticksInState, worldTick, rowCells.length, rowMeta.ticksPerFrame);
+        this.lastRow.set(creature.id, row);
+        const tex = rowCells[Math.max(0, Math.min(rowCells.length - 1, i))];
+        if (tex !== undefined && sp.texture !== tex) sp.texture = tex;
+        sp.anchor.set(this.atlasAnchor.x, this.atlasAnchor.y);
+        scaleBase = VOLTKIN_ATLAS_BASE_SCALE;
+      }
+    } else {
+      if (fresh) sp.anchor.set(0.5, 0.56);
+      const zapping = creature.state === 'ATTACKING' && creature.ticksInState >= VOLTKIN_ATTACK_FIRE_TICK;
+      const tex = zapping ? this.zapTex : this.idleTex;
+      if (tex !== null && sp.texture !== tex) sp.texture = tex;
+    }
+
+    const scale = scaleBase * computeCreatureScale(creature.state, creature.ticksInState);
     sp.scale.set(facing * scale, scale);
     sp.position.set(creature.pos.x, creature.pos.y);
     sp.alpha = computeCreatureAlpha(creature);
@@ -301,8 +480,16 @@ export class CreatureRenderer {
       // the load failed) fall back to the procedural electric-being rig so the creature is never blank.
       // A drone ALWAYS uses the procedural rig (the matted imagen art is the godly Voltkin's; the
       // drone is the smaller procedural electric being). A Voltkin uses the matted sprite once loaded.
-      if (isVoltkin && this.idleTex !== null && this.zapTex !== null) {
-        this.syncVoltkinSprite(creature, facing);
+      const hasArt = this.atlasCells !== null || (this.idleTex !== null && this.zapTex !== null);
+      if (isVoltkin && hasArt) {
+        /*
+         * ⚠ `isMoving` IS THE RENDERER'S OWN ESTIMATE, NOT WIRE VELOCITY, and it has to be: the
+         * NetSnapshot mirror rehydrates `prevPos = pos`, so a client's wire velocity is identically
+         * zero and a Voltkin would walk on the host and moonwalk on the peer. The same estimate
+         * already drives `facing` two lines above — this reuses it rather than inventing a second.
+         */
+        const isMoving = estVelX * estVelX + estVelY * estVelY > FACING_VELOCITY_THRESHOLD * FACING_VELOCITY_THRESHOLD;
+        this.syncVoltkinSprite(creature, facing, world.tick, isMoving);
       } else {
         const pose = voltkinPose(creature.state, creature.ticksInState, world.tick, creature.id as number);
         const alpha = computeCreatureAlpha(creature);
@@ -337,6 +524,7 @@ export class CreatureRenderer {
     if (this.sprites.size > 0) {
       for (const [id, sp] of [...this.sprites]) {
         if (!liveIds.has(id)) {
+          this.lastRow.delete(id);
           sp.destroy();
           this.sprites.delete(id);
         }
