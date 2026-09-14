@@ -1,5 +1,5 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-14 | Session: S177 | LIVE + verified 4/4
+Generated: 2026-09-14 | Session: S177 | Commit: abd9e95 | LIVE + verified 4/4 | art spend $18.60
 
 ## Next Steps
 
