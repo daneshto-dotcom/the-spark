@@ -157,6 +157,24 @@ export const TOWER_SPRITE_ANCHOR = { x: 0.5, y: 1 } as const;
 export const T9_BOSS_SPRITE_SCALE_MUL = 1.6;
 
 /**
+ * ⭐⭐ S175 (owner) — **THE DIREWOLF IS DRAWN AT DOUBLE SIZE.**
+ *
+ * Owner, having played the sheet that landed earlier this session: *"The direwolves need to be two
+ * times bigger. They look too small in the game … people don't understand if those are wolves, dogs,
+ * or whatever … two times bigger so we can actually see them running and attacking."*
+ *
+ * ⭐ AND S168 PREDICTED THIS EXACT RULING AT THIS EXACT CONSTANT. When the wolf was borrowing the
+ * goblin hound's sheet, `goblinRenderer` recorded that they were the same size because
+ * *"`creatureSpriteScaleMul` is 1 for both"* and closed with *"Overrule on sight if the doubling
+ * reads worse than the goblin did."* He has now seen his own art on the board and overruled it.
+ *
+ * ⚠ RENDER-ONLY. This multiplies the SPRITE, not the hitbox, the attack range or the pool. A
+ * direwolf fights exactly as it did; it is simply legible now. Changing its physical size would be a
+ * balance change he did not ask for.
+ */
+export const DIREWOLF_SPRITE_SCALE_MUL = 2;
+
+/**
  * PURE — the extra sprite-scale multiplier for a creature type. `1` for everything that is not a
  * boss, which is every unit shipped before S167.
  *
@@ -165,6 +183,7 @@ export const T9_BOSS_SPRITE_SCALE_MUL = 1.6;
  * has already cost this project a session of invisible art. This cannot return nothing.
  */
 export function creatureSpriteScaleMul(type: CreatureType): number {
+  if (type === 'direwolf') return DIREWOLF_SPRITE_SCALE_MUL;
   return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
 }
 

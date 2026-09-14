@@ -15,7 +15,7 @@ import { makeIdlePlayer } from '../game/player.ts';
 import { attackFifths, unitPoolFifths } from '../state/stats.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, type CreatureId } from '../types.ts';
-import { DAMAGE_LIFT_PX, DAMAGE_TOWARD_ATTACKER, damageAnchor } from './damageNumbers.ts';
+import { DAMAGE_LIFT_PX, DAMAGE_TOWARD_ATTACKER, damageAnchor, poolDelta} from './damageNumbers.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -164,5 +164,67 @@ describe('S172 — the number printed is the STORED INTEGER, with no conversion'
     for (const [atk, pen] of [[1, 0], [3, 1], [10, 10], [25, 5]] as Array<[number, number]>) {
       expect(Number.isInteger(attackFifths(atk, pen))).toBe(true);
     }
+  });
+});
+
+/**
+ * ⭐⭐ S175 P9 (owner) — DAMAGE ON EVERYTHING, NOT JUST CHARACTERS.
+ *
+ * Owner: *"when characters attack a tower, you don't see damage on the tower … I wanna see damage on
+ * a castle. I wanna see damage on connectors. I wanna see damage on all other towers that spawn or
+ * that protect or even on the poop bags that are dropped. You gotta see damage everywhere."*
+ *
+ * The watcher itself lives in a Pixi class and cannot be instantiated here — which is exactly why
+ * the arithmetic was extracted. What follows pins the rule, and above all the INVERSION.
+ */
+describe('S175 P9 — poolDelta: one rule for five different damage systems', () => {
+  it('a pool counting DOWN reports damage', () => {
+    expect(poolDelta(100, 70, false)).toEqual({ amount: 30, kind: 'damage' });
+  });
+
+  it('a pool counting DOWN reports a heal when it goes back up', () => {
+    expect(poolDelta(70, 100, false)).toEqual({ amount: 30, kind: 'heal' });
+  });
+
+  it('no change prints nothing — the common case, every frame, for every shape on the board', () => {
+    expect(poolDelta(100, 100, false)).toBeNull();
+    expect(poolDelta(0, 0, true)).toBeNull();
+  });
+
+  /**
+   * ⛔ THE INVERSION. `Bond.damageFifths` counts UP toward `connectorCapacityFifths`, where every
+   * other pool in the game counts DOWN. Reading it with the normal rule would print a damage number
+   * every time a connector was REPAIRED and nothing at all while it was being chewed — precisely
+   * backwards, on the one thing the owner named twice.
+   */
+  it('⭐ a RISING pool (a connector) reports damage as it accumulates', () => {
+    expect(poolDelta(0, 4, true)).toEqual({ amount: 4, kind: 'damage' });
+    expect(poolDelta(4, 9, true)).toEqual({ amount: 5, kind: 'damage' });
+  });
+
+  it('⛔ a RISING pool NEVER reports a heal — a repaired connector must not flash green', () => {
+    expect(poolDelta(9, 0, true)).toBeNull();
+    expect(poolDelta(9, 4, true)).toBeNull();
+  });
+
+  it('amounts are integers — a fractional pool must not print "3.0000000004"', () => {
+    expect(poolDelta(10, 6.6, false)).toEqual({ amount: 3, kind: 'damage' });
+    expect(poolDelta(0, 2.5, true)).toEqual({ amount: 3, kind: 'damage' });
+  });
+});
+
+describe('S175 P9 — damageAnchor accepts a STRUCTURE (no self-creature to exclude)', () => {
+  it('a null victim resolves without touching world.creatures', () => {
+    const w = makeWorld(2);
+    const at = damageAnchor(w, null, 400, 300, asPlayerId(0));
+    expect(Number.isFinite(at.x)).toBe(true);
+    expect(Number.isFinite(at.y)).toBe(true);
+  });
+
+  it('with no enemies on the board it sits just above the thing that was hit', () => {
+    const w = makeWorld(2);
+    const at = damageAnchor(w, null, 400, 300, asPlayerId(0));
+    expect(at.x).toBe(400);
+    expect(at.y).toBeLessThan(300);
   });
 });

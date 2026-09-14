@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 1121,
+  "tool_calls_session_total": 1122,
   "session_id": "S175",
   "session_kind": "batch",
   "session_start": "2026-09-12T00:00:00+02:00",
   "prior_session_note": "S172 CLOSED. 6 complete, 1 partial (tower bars), 1 parked (stat retune), 2 not started (Pharaoh, Vlad sap). Handoff: HANDOFF_S172_2026-09-10.md",
   "prior_session_archive": ".claude/plans-archive/2026-09-08_PDR_S168_BATCH_PARTIAL.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/S175_BATCH_PDR.md",
-  "session_status": "closing",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -53,7 +53,7 @@
     "ran": true,
     "lanes_dispatched": 7,
     "lanes_returned": 6,
-    "lane_failed": "P4 codex tier order — died on the 5-hour limit; RE-RUN BY HAND this session (S161 rule)",
+    "lane_failed": "P4 codex tier order \u2014 died on the 5-hour limit; RE-RUN BY HAND this session (S161 rule)",
     "deltas_found": 16,
     "headline_deltas": [
       "Warlord 2x MOVE speed already wired (creatureVerlet.ts:168) - backlog said owed",
@@ -91,24 +91,26 @@
     "COST #the-7-dollars-was-agent-spend-not-art-spend: zero veo and zero imagen calls were made all session; the figure is the A.0 sweep (1.02M subagent tokens over 7 lanes). Recording it in the right column keeps the veo rate we are trying to correct from being polluted by it."
   ],
   "budget_total": null,
-  "totals": {},
+  "totals": {
+    "budget_remaining": null
+  },
   "carry_forward_s170": [
     "FOG - DONE this session, four attempts. Per-entity CULLING (render/concealment.ts), the C&C model: 15 of 18 board renderers cull enemy content unless in live vision. The 3 that do NOT are owner-ruled: dragPreviewRenderer (local drag only), zoneBackgroundRenderer + wallRenderer (must always be visible, R162). ONLY OPEN PART: the owner must confirm it LOOKS right - and see the logged test gap below.",
     "OWNER MUST EYEBALL: the outcome of concealment is NOT machine-verified. e2e/fog.spec.ts logs why - Pixi implements alpha masks as filters and renderer.extract does not apply filter effects, so the harness cannot read a composed frame. Culling itself IS unit-tested (concealment.test.ts, 12 tests). Three ways to close the gap are written in the spec: a Playwright screenshot comparison, a RenderTexture readback instead of extract, or per-renderer visibility asserted through the display list.",
     "FOG_SHROUD_ALPHA = 0.55 is MINE, not the owner's. How dark unexplored terrain reads. One dial; he should tune it live.",
-    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. ⇒ OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
-    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). ⛔ BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
+    "VLAD'S TETHER - the visual SHIPPED (cross-player, via the new synced sapFlashUntilTick) but it draws life flowing INWARD with no donor, because R140 AS RULED HAS NO VICTIM: runVladLifeSap is a pure self-heal and drains nobody. The owner asked for the Dota lifesteal LOOK, which implies a tether from a victim. A tether would paint a damage relationship that does not exist. \u21d2 OWNER DECISION: does the life sap start draining a target? That is a MECHANIC change, not a visual one.",
+    "P2 THE PHARAOH (R142) - locust cone + unkillable Ra channel still unbuilt. The untargetable condition SHIPPED (S169 P5, 333e036). \u26d4 BEFORE setting the flag, close SIX paths that bypass the untargetable gate, verified this session: bossSkillsKraken.ts:75 nearestEnemyFor, controls.ts:1430 the player's own right-click raid pick, bossSkillsArchdemon.ts:103 teleport scan, voltkinChain.ts:92 chain hop, seagullLifecycle.ts:254 poop victim, and acquisition-only RETENTION (a defender already locked on keeps firing). Latent only because nothing sets the flag yet.",
     "BOSS VFX needing the owner's generation rounds: the zombie death burst done properly (he says the current one 'looks just like a stink tower radius'), the DIRE WOLVES (no art at all - they fall through to a procedural puppet), the Warlord's RAGE stance, the Archdemon's pit + teleport. The code-only half SHIPPED this session (rot aura, sonar wave, life sap, stun-star fixes).",
     "ARCHDEMON - the owner CORRECTED the S169 diagnosis. It is not only frame sparsity: 'he switches between attack and his loop is really fast... it doesn't look like all of a sudden he has a weapon, then he doesn't and he's walking. It's just not consistent.' A state-switching coherence problem as much as a frame count. He also agreed bosses want MORE FRAMES PER ROW than the packer's 12.",
     "REDO VOLTKIN COMPLETELY - the ask S169's compaction lost entirely. He supplied new art. Voltkin also has no death animation (drawn by creatureRenderer, not the renderer that got die rows) and no build cinematic.",
     "P11 TOWER/CONNECTOR CONSOLIDATION - FULLY SPECIFIED now (R169, all four questions answered, recovered verbatim from the S169 transcript). Build -> pulsate ~2s -> per-race build cinematic -> ONLY THE TOWER (connectors vanish, still simulated + raidable, the TOWER is the raid target) -> damage shows on the tower via one aggregated bar over per-connector HP -> destroyed -> per-race destroy cinematic -> connectors REAPPEAR -> click tower middle or any connector for FIX/SCRAP. Repair/scrap already exists; this is a repoint.",
     "P11b - towers for everything with none: pentagram, drones, goblin tower, chewers, Voltkin. Helga as a Bavarian Oktoberfest tent.",
-    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. ⚠ His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
+    "P10 TECH DRAFT - wave 0 + wave 5 only (R161). WAVE 0 is a choice of two: gatherer speed at level 1 (as if 50 VP spent), or PROTECTOR OF THE LAND - your race's tier-9 boss at your castle from the start, patrolling the castle FOOTPRINT + a Helga radius around it (R164), never marching out. WAVE 5 = the general ATTACK option. \u26a0 His recollection of the ladder had 10 and 15 swapped: the spec (R111) is 5 ATTACK / 10 DEFENCE / 15 HP / 20 PEN, and magnitude is +1 POINT (R118), which equals 20% on DEF and PEN but is a category error on HP/ATK (integer counts). R126 already permits 10/15/20 to ship single-option until race perks are decided.",
     "P12 PER-RACE BORDER WALLS (R163) - NOT SOON, he said 'when we're in June, probably the session after next'. Six wall sets, seat colour on exactly one element, dark desaturated base with the colour the only thing allowed to glow. Cheapest-first: mummies, orcs, demons, vampires, nagas, zombies. R165: walls do NOT persist into the fight - they fall ~2s before it with a per-race cinematic, mirroring the creature retreat that ALREADY EXISTS (ARMY_RETREAT_LEAD_TICKS + ownHomePos). He overruled his own corpse-wall risk: 'the corpse is more like a backdrop, it doesn't have to be actual corpses.'",
     "P15 ART COST PIPELINE - the OTHER thing S169's compaction lost. He generates stills on ChatGPT + Gemini himself, wants the video loops run on HIS OWN accounts or free generators rather than paid API, and assets done ONE BY ONE for coherence. ART_PIPELINE.md kept the technique and lost the whole cost half. It owes: tool routing per asset type, a copy-paste prompt pack with the style block pinned, the one-by-one rule, and a cost-per-asset estimate before 'dozens of buildings' becomes a bill.",
     "P16 BOSS STATS - still mine. He ruled they must 'suit the boss and the race', scaled to each boss's skill load - which can only be settled after the remaining boss skills land.",
     "LOBBY TUTORIAL - backlogged at his instruction, but the signal is strong: 'I've been asked of that already by multiple people.' An artificial 15-30s load after everyone is ready, showing a tutorial. The delay is DELIBERATE (the load is instant; the wait is manufactured to create a teaching moment).",
-    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). ⭐ RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
+    "T9_RELEASE_DELAY_TICKS is bypassed for boss towers built during BUILD (the S169 fight-edge pin sets nextSpawnTick to the bell). \u2b50 RESOLVED AS INTENDED by the owner: that 5s is the Age-of-Mythology style emergence from the building, not a bug.",
     "DOC ROT, low priority: LOCKED_DECISIONS.md still re-ratifies the deleted energy mechanic (4 false claims in the register CLAUDE.md treats as the spec); archive/energy/RESTORE.md's restore command names a commit that never touched 2 of the 3 files it lists."
   ],
   "s170_priorities_archived": [
@@ -633,7 +635,7 @@
     "S171 (Rule 16): owner authorised the check:atlas detector fix + polish pass as P5 - 'fix that detector too while you're at it and polish pass the working guard behind it. do those two things while i check out the game.' Ordered explicitly: P3 health bars FIRST, then P5."
   ],
   "auto_fill_applied": {
-    "ts": "2026-09-09T18:53:30.378173Z",
+    "ts": "2026-09-14T05:38:45.858283Z",
     "fields": [
       "totals.budget_remaining"
     ],
@@ -750,7 +752,7 @@
         {
           "type": "file_contains",
           "path": "BACKLOG.md",
-          "needle": "S171 — OWNER PLAYTEST WITH HIS BROTHER"
+          "needle": "S171 \u2014 OWNER PLAYTEST WITH HIS BROTHER"
         },
         {
           "type": "file_contains",
@@ -760,7 +762,7 @@
         {
           "type": "file_contains",
           "path": "src/state/untargetableGates.test.ts",
-          "needle": "CORRECTED S171 — THE PARAGRAPH THAT STOOD HERE WAS WRONG"
+          "needle": "CORRECTED S171 \u2014 THE PARAGRAPH THAT STOOD HERE WAS WRONG"
         },
         {
           "type": "file_contains",
@@ -770,7 +772,7 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "S171 — OWNER PLAYTEST WITH HIS BROTHER"
+          "needle": "S171 \u2014 OWNER PLAYTEST WITH HIS BROTHER"
         },
         {
           "type": "file_contains",
@@ -800,11 +802,11 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "RALPH:PATROL + hand-verification. GATES, every one from a captured $? (never a pipe, never the wrapper's trailing line): typecheck 0 | vitest 0 = 4223 tests / 269 files (from 4202/267, +21 tests +2 files) | e2e:gating 0 = 65 passed | e2e:races 0 = 5 passed | build 0 = 815.2 KiB of the 900 KiB charter, 84.8 KiB headroom. BEHAVIOURAL COVERAGE: 11 tests in untargetableRetention.test.ts drive the real production entry points - the Kraken aim pick, the Voltkin chain hop, the AUTHORITATIVE RAID_TARGET reducer (both that it refuses AND that it does not spend the point), the Archdemon teleport, the projectile renderer, the shared chokepoint, and RETENTION via applyDefenderTick. Each has a CONTROL arm so it cannot pass vacuously; two of those controls failed first and both were fixture errors, diagnosed and recorded in-test rather than papered over (a chewer DIES to one raid, so the landed raid is a removal not a reduced pool; resolveProjectileShot needs state=ATTACKING inside the flight window). STRUCTURAL COVERAGE: untargetableCallSites.test.ts re-counts every enemy-shaped creature scan in the tree on each run (damage.wired.test.ts import-graph pattern) and requires each to consult the gate or carry a written verdict; its anti-rot arm caught a stale entry on its first run - mine. HASH: the CreatureHashed coverage contract failed tsc on sight as designed; all three sub-sites done (union, projection, and two contribution tests incl. deadline-value distinguishability). CORRECTIONS LANDED: two false completeness docblocks (creatureAI.ts's 'COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'AUDITED RATHER THAN ASSUMED') corrected IN PLACE with the measured numbers, and the readFileSync substring check that passed on a comment mention was replaced. PROTOCOL_VERSION still 45 - raRitualUntilTick is additive-optional, verified against the rule in protocol.ts. NOT CLAIMED: no visual assertion (nothing draws yet); the deploy verification is tracked separately. ⚠ BINDING CORRECTED POST-CLOSE: the original set pinned 'PROTOCOL_VERSION = 45 as const' to evidence P2A's no-bump claim. P2B then bumped it to 46 legitimately and the Stop hook hard-failed the P2A claim. The pin was BRITTLE - it bound a claim to a number that is SUPPOSED to move (the same class verify-session-claims.py already warns about for json_field version keys). The claim itself was never 'the version is 45'; it was 'raRitualUntilTick is additive-optional and so costs no bump'. Rebound onto the MECHANISM that makes that true - the conditional emit/rehydrate pair in save.ts and the optional field declaration - which stays true across every future bump.",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, every one from a captured $? (never a pipe, never the wrapper's trailing line): typecheck 0 | vitest 0 = 4223 tests / 269 files (from 4202/267, +21 tests +2 files) | e2e:gating 0 = 65 passed | e2e:races 0 = 5 passed | build 0 = 815.2 KiB of the 900 KiB charter, 84.8 KiB headroom. BEHAVIOURAL COVERAGE: 11 tests in untargetableRetention.test.ts drive the real production entry points - the Kraken aim pick, the Voltkin chain hop, the AUTHORITATIVE RAID_TARGET reducer (both that it refuses AND that it does not spend the point), the Archdemon teleport, the projectile renderer, the shared chokepoint, and RETENTION via applyDefenderTick. Each has a CONTROL arm so it cannot pass vacuously; two of those controls failed first and both were fixture errors, diagnosed and recorded in-test rather than papered over (a chewer DIES to one raid, so the landed raid is a removal not a reduced pool; resolveProjectileShot needs state=ATTACKING inside the flight window). STRUCTURAL COVERAGE: untargetableCallSites.test.ts re-counts every enemy-shaped creature scan in the tree on each run (damage.wired.test.ts import-graph pattern) and requires each to consult the gate or carry a written verdict; its anti-rot arm caught a stale entry on its first run - mine. HASH: the CreatureHashed coverage contract failed tsc on sight as designed; all three sub-sites done (union, projection, and two contribution tests incl. deadline-value distinguishability). CORRECTIONS LANDED: two false completeness docblocks (creatureAI.ts's 'COVERS EVERY CREATURE-TARGETING PATH IN THE GAME' and untargetableGates.test.ts's 'AUDITED RATHER THAN ASSUMED') corrected IN PLACE with the measured numbers, and the readFileSync substring check that passed on a comment mention was replaced. PROTOCOL_VERSION still 45 - raRitualUntilTick is additive-optional, verified against the rule in protocol.ts. NOT CLAIMED: no visual assertion (nothing draws yet); the deploy verification is tracked separately. \u26a0 BINDING CORRECTED POST-CLOSE: the original set pinned 'PROTOCOL_VERSION = 45 as const' to evidence P2A's no-bump claim. P2B then bumped it to 46 legitimately and the Stop hook hard-failed the P2A claim. The pin was BRITTLE - it bound a claim to a number that is SUPPOSED to move (the same class verify-session-claims.py already warns about for json_field version keys). The claim itself was never 'the version is 45'; it was 'raRitualUntilTick is additive-optional and so costs no bump'. Rebound onto the MECHANISM that makes that true - the conditional emit/rehydrate pair in save.ts and the optional field declaration - which stays true across every future bump.",
       "checkpoint_commit": "6667f46fa10ac388738c4425ae70afd0d0b9c189",
       "real_context_tokens_at_close": 422091,
       "real_context_pct_at_close": 42.21,
-      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers; deploy run 34391063181 concluded success"
+      "deploy_verified": "verify-deploy exit 0 \u2014 4/4 carriers; deploy run 34391063181 concluded success"
     },
     {
       "id": "P2B",
@@ -883,12 +885,12 @@
         {
           "type": "file_contains",
           "path": "src/state/bossSkillsPharaoh.test.ts",
-          "needle": "THE COUNT — a launch produces the WHOLE fan, not one cloud"
+          "needle": "THE COUNT \u2014 a launch produces the WHOLE fan, not one cloud"
         },
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "R171-M — THE ART DIVISION OF LABOUR"
+          "needle": "R171-M \u2014 THE ART DIVISION OF LABOUR"
         },
         {
           "type": "file_contains",
@@ -898,7 +900,7 @@
         {
           "type": "file_contains",
           "path": ".claude/plans/S171_HUD_RESEARCH.md",
-          "needle": "HEALTH BARS (R171-E) — verdict **SOUND_WITH_FIXES**"
+          "needle": "HEALTH BARS (R171-E) \u2014 verdict **SOUND_WITH_FIXES**"
         },
         {
           "type": "file_contains",
@@ -935,8 +937,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "5988dd58f8ac3158235169966321d0f2d9422a77",
-      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4238 tests / 270 files (from 4223/269) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 817.1 KiB of 900 (82.9 headroom). 15 new tests in bossSkillsPharaoh.test.ts, green first run. ⭐ THE COUNT IS THE FIRST ASSERTION, deliberately: the spawn latch would have made the fan 1-of-3 with no error and no red test, and every behavioural test would still have passed. PROTOCOL 45->46 across all six documented sites; protocolVersionSync.test.ts caught my chain entry inserted in DESCENDING order and I repositioned it - the machine-gated half working. FOUR REPO GUARDS FIRED AND ALL FOUR WERE RIGHT: the renderer-invisibility guard (fixed with a REAL procedural renderer, not by dropping the type into GOBLIN_KINDS which would have satisfied it with a humanoid puppet); the hand-maintained CreatureType list (the one site tsc cannot reach); the S169 'nothing is untargetable' test (correctly obsolete on the flag's first consumer - rewritten to the STRONGER claim rather than deleted); and my own P2A census, which flagged bossSkillsPharaoh on the first file written after it shipped - fixed by recognising nearestEnemyFor as the third guarded scanner, which is the honest fix because the file genuinely is guarded. NOT CLAIMED: the cloud's LOOK is unjudged - procedural, and under R171-M new art is the owner's, so he decides whether it earns its place. Stage C (the Ra ritual) is NOT in this commit. ⚠ BINDING CORRECTED (2nd instance of one class this session): P2B pinned grep_count('^export const PHARAOH_LOCUST_') == 7. The locust re-arm fix then added an EIGHTH constant, legitimately, and the Stop hook hard-failed P2B. A HEADCOUNT of same-prefix constants asserts nothing durable - it is designed to change whenever the feature is extended. Rebound onto the six constants BY NAME, which survive extension. Same root cause as the PROTOCOL_VERSION pin corrected earlier today: do not bind a claim to a number that is supposed to move.",
-      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers; run 34394621116 concluded success",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4238 tests / 270 files (from 4223/269) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 817.1 KiB of 900 (82.9 headroom). 15 new tests in bossSkillsPharaoh.test.ts, green first run. \u2b50 THE COUNT IS THE FIRST ASSERTION, deliberately: the spawn latch would have made the fan 1-of-3 with no error and no red test, and every behavioural test would still have passed. PROTOCOL 45->46 across all six documented sites; protocolVersionSync.test.ts caught my chain entry inserted in DESCENDING order and I repositioned it - the machine-gated half working. FOUR REPO GUARDS FIRED AND ALL FOUR WERE RIGHT: the renderer-invisibility guard (fixed with a REAL procedural renderer, not by dropping the type into GOBLIN_KINDS which would have satisfied it with a humanoid puppet); the hand-maintained CreatureType list (the one site tsc cannot reach); the S169 'nothing is untargetable' test (correctly obsolete on the flag's first consumer - rewritten to the STRONGER claim rather than deleted); and my own P2A census, which flagged bossSkillsPharaoh on the first file written after it shipped - fixed by recognising nearestEnemyFor as the third guarded scanner, which is the honest fix because the file genuinely is guarded. NOT CLAIMED: the cloud's LOOK is unjudged - procedural, and under R171-M new art is the owner's, so he decides whether it earns its place. Stage C (the Ra ritual) is NOT in this commit. \u26a0 BINDING CORRECTED (2nd instance of one class this session): P2B pinned grep_count('^export const PHARAOH_LOCUST_') == 7. The locust re-arm fix then added an EIGHTH constant, legitimately, and the Stop hook hard-failed P2B. A HEADCOUNT of same-prefix constants asserts nothing durable - it is designed to change whenever the feature is extended. Rebound onto the six constants BY NAME, which survive extension. Same root cause as the PROTOCOL_VERSION pin corrected earlier today: do not bind a claim to a number that is supposed to move.",
+      "deploy_verified": "verify-deploy exit 0 \u2014 4/4 carriers; run 34394621116 concluded success",
       "real_context_tokens_at_close": 470000
     },
     {
@@ -1021,20 +1023,20 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "R171-N — THE LOADING-SCREEN TUTORIAL"
+          "needle": "R171-N \u2014 THE LOADING-SCREEN TUTORIAL"
         }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "8ee0a15b2e07139cd88b281649c0c43e448a0cf8",
-      "deploy_verified": "verify-deploy exit 0 — 4/4 carriers",
-      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4251 tests / 271 files (from 4238/270) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 818.7 KiB of 900 | verify-deploy 0 = 4/4 carriers, deploy concluded success. 13 new tests. ⛔ THE TESTS CAUGHT A REAL ORDERING BUG IN MY OWN RUNNER: five 2-second columns fill the ritual exactly, so the fifth lands on the same tick isChannellingRa goes false. The first draft checked death first and SWALLOWED THE LAST COLUMN - the ultimate would have shipped as four columns and a corpse. It was caught only because the test counts columns against real victims standing on each landing spot; a spy on applyRadialDamage or a 'some columns landed' assertion would have been green on four. Fixed by firing columns before the death check, which is the owner's sentence in its literal order. REMOVAL CHOKEPOINT: 5 of the 8 delete sites can reach a boss and now route through removeCreature; the 3 that cannot are NAMED with the reason rather than blindly guarded; the ninth class (world.creatures.clear() x3) deliberately does NOT route through it because a reset is not a death. NO PROTOCOL BUMP - raRitualUntilTick shipped additive-optional in P2A. NOT CLAIMED: the ritual's LOOK is unjudged - procedural telegraph + column, owner's eyes needed, and under R171-M the Pharaoh's ritual STANCE is art I owe him separately."
+      "deploy_verified": "verify-deploy exit 0 \u2014 4/4 carriers",
+      "check_method": "RALPH:PATROL + hand-verification. GATES, all from a captured $?: typecheck 0 | vitest 0 = 4251 tests / 271 files (from 4238/270) | e2e:gating 0 = 65 | e2e:races 0 = 5 | check:atlas 0 | build 0 = 818.7 KiB of 900 | verify-deploy 0 = 4/4 carriers, deploy concluded success. 13 new tests. \u26d4 THE TESTS CAUGHT A REAL ORDERING BUG IN MY OWN RUNNER: five 2-second columns fill the ritual exactly, so the fifth lands on the same tick isChannellingRa goes false. The first draft checked death first and SWALLOWED THE LAST COLUMN - the ultimate would have shipped as four columns and a corpse. It was caught only because the test counts columns against real victims standing on each landing spot; a spy on applyRadialDamage or a 'some columns landed' assertion would have been green on four. Fixed by firing columns before the death check, which is the owner's sentence in its literal order. REMOVAL CHOKEPOINT: 5 of the 8 delete sites can reach a boss and now route through removeCreature; the 3 that cannot are NAMED with the reason rather than blindly guarded; the ninth class (world.creatures.clear() x3) deliberately does NOT route through it because a reset is not a death. NO PROTOCOL BUMP - raRitualUntilTick shipped additive-optional in P2A. NOT CLAIMED: the ritual's LOOK is unjudged - procedural telegraph + column, owner's eyes needed, and under R171-M the Pharaoh's ritual STANCE is art I owe him separately."
     },
     {
       "id": "P3",
       "title": "Health bars over every enemy (R171-E)",
-      "description": "Owner authorised for THIS session: 'Technically, you can do the health bars already in this session.' REALLY THIN (said twice), red, white is an open option he wants to see. Bar size scales with creature size - the Kraken's is bigger and thicker. Must cull via isConcealed (an enemy bar is a fog position-tell) and must draw into an EXISTING Graphics (fogHiddenLayer index trap). ⚠ OPEN ENGINEERING QUESTION under research: a bar needs current AND MAX pool, but serializeCreature emits hp only when DAMAGED - establish what a peer can derive first.",
+      "description": "Owner authorised for THIS session: 'Technically, you can do the health bars already in this session.' REALLY THIN (said twice), red, white is an open option he wants to see. Bar size scales with creature size - the Kraken's is bigger and thicker. Must cull via isConcealed (an enemy bar is a fog position-tell) and must draw into an EXISTING Graphics (fogHiddenLayer index trap). \u26a0 OPEN ENGINEERING QUESTION under research: a bar needs current AND MAX pool, but serializeCreature emits hp only when DAMAGED - establish what a peer can derive first.",
       "status": "completed",
       "check_completed": true,
       "verification": [
@@ -1072,12 +1074,12 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "Gates all from a captured $?: typecheck 0 | vitest 0 = 4264/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0 | verify-deploy 4/4 on 773a4db. 10 new tests, each pinning one of the four faults the old pips had. ⛔ THE ENCODING TEST CAUGHT ME: my first draft scaled the whole bar by sprite size, which broke cross-unit fill comparability (boss 14.4px vs goblin 9px for the SAME remaining health). Length is the readout and is now scale-free; thickness and lift still scale. ⚠ Two fixture holes found by their own failures: fogActive needs all four of gameMode/gameState/matchPhase/localPlayerId, and computeVisionSources DEREFERENCES the cursor so null throws. NOT CLAIMED: the look is unjudged by the owner. ⚠ BINDINGS CORRECTED (3rd stale-binding instance this session, third flavour): these pinned the exact SIGNATURE of drawHealthBars and its exact call. P6 legitimately added a sprite-box parameter and both went stale. A signature is a form, not an identity - it is supposed to change when a function gains a capability. Rebound onto the function NAME and the call site. Together with the PROTOCOL_VERSION pin and the constant HEADCOUNT earlier today, the rule generalises: bind to the thing that must remain TRUE, never to the thing's current shape."
+      "check_method": "Gates all from a captured $?: typecheck 0 | vitest 0 = 4264/272 | e2e:gating 0 = 65 | e2e:races 0 | build 0 | verify-deploy 4/4 on 773a4db. 10 new tests, each pinning one of the four faults the old pips had. \u26d4 THE ENCODING TEST CAUGHT ME: my first draft scaled the whole bar by sprite size, which broke cross-unit fill comparability (boss 14.4px vs goblin 9px for the SAME remaining health). Length is the readout and is now scale-free; thickness and lift still scale. \u26a0 Two fixture holes found by their own failures: fogActive needs all four of gameMode/gameState/matchPhase/localPlayerId, and computeVisionSources DEREFERENCES the cursor so null throws. NOT CLAIMED: the look is unjudged by the owner. \u26a0 BINDINGS CORRECTED (3rd stale-binding instance this session, third flavour): these pinned the exact SIGNATURE of drawHealthBars and its exact call. P6 legitimately added a sprite-box parameter and both went stale. A signature is a form, not an identity - it is supposed to change when a function gains a capability. Rebound onto the function NAME and the call site. Together with the PROTOCOL_VERSION pin and the constant HEADCOUNT earlier today, the rule generalises: bind to the thing that must remain TRUE, never to the thing's current shape."
     },
     {
       "id": "P4",
       "title": "Tower requirements must name the shape (R171-H)",
-      "description": "Owner: 'a small one that we can easily fix. We can easily just do it now too.' Replace 'two more needed' with 'two more squares' / 'one more line' / 'four more triangles'. Simple, coherent, minimalistic. ⚠ Enumerate EVERY buildable showing this wording - fixing one and leaving three is the documented recurring defect.",
+      "description": "Owner: 'a small one that we can easily fix. We can easily just do it now too.' Replace 'two more needed' with 'two more squares' / 'one more line' / 'four more triangles'. Simple, coherent, minimalistic. \u26a0 Enumerate EVERY buildable showing this wording - fixing one and leaving three is the documented recurring defect.",
       "status": "pending",
       "check_completed": false,
       "verification": [],
@@ -1104,7 +1106,7 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "MEASURED BEFORE DIAGNOSING. Two independent root causes, neither a threshold: (1) the size check is HEIGHT-ONLY and a side-on beetle carries its scale in WIDTH - scarab width dev 0.27 vs height 0.01, piranha 0.27 vs 0.00, and those two sheets are ranks 1 and 2 of 48 by width; (2) row heights came from the bbox of ALL opaque pixels, so one white sliver scored scarab walk frame 0 at 188px against a 136px beetle and poisoned the median - now measured from the LARGEST CONNECTED COMPONENT (188->136). Plus a NEW check 5: the matte fringe as a POSITION test (near-white with a transparent neighbour), because check 3's docblock correctly refused 'total' - a glint is interior, a fringe hugs the edge. Result: 30-clean -> 6 size-mismatched + 9 fringed, catching every atlas the owner reported plus 13 he had not reached. ⚠ `fringed` is in the exit-code line: a new check omitted there prints FRINGE and still exits 0, which reads as coverage. Deploy is unaffected - build does not call check:atlas.",
+      "check_method": "MEASURED BEFORE DIAGNOSING. Two independent root causes, neither a threshold: (1) the size check is HEIGHT-ONLY and a side-on beetle carries its scale in WIDTH - scarab width dev 0.27 vs height 0.01, piranha 0.27 vs 0.00, and those two sheets are ranks 1 and 2 of 48 by width; (2) row heights came from the bbox of ALL opaque pixels, so one white sliver scored scarab walk frame 0 at 188px against a 136px beetle and poisoned the median - now measured from the LARGEST CONNECTED COMPONENT (188->136). Plus a NEW check 5: the matte fringe as a POSITION test (near-white with a transparent neighbour), because check 3's docblock correctly refused 'total' - a glint is interior, a fringe hugs the edge. Result: 30-clean -> 6 size-mismatched + 9 fringed, catching every atlas the owner reported plus 13 he had not reached. \u26a0 `fringed` is in the exit-code line: a new check omitted there prints FRINGE and still exits 0, which reads as coverage. Deploy is unaffected - build does not call check:atlas.",
       "verification": [
         {
           "type": "file_contains",
@@ -1189,7 +1191,7 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "R171-R — THE STAT PROTOCOL"
+          "needle": "R171-R \u2014 THE STAT PROTOCOL"
         }
       ],
       "pdr_approved": true,
@@ -1242,8 +1244,8 @@
         {
           "type": "file_contains",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "QUEUED — EVERYTHING THE OWNER RAISED",
-          "_why": "⚠ ABSOLUTE, and that is required rather than stylistic: MCV's diff-binding compares asserted paths against the watcher's ABSOLUTE paths, so a relative binding can never satisfy it. BACKLOG.md's mtime moved during S175 while its CONTENT stayed identical to HEAD (git diff HEAD --stat is empty) - this asserts that rather than leaving it silent."
+          "needle": "QUEUED \u2014 EVERYTHING THE OWNER RAISED",
+          "_why": "\u26a0 ABSOLUTE, and that is required rather than stylistic: MCV's diff-binding compares asserted paths against the watcher's ABSOLUTE paths, so a relative binding can never satisfy it. BACKLOG.md's mtime moved during S175 while its CONTENT stayed identical to HEAD (git diff HEAD --stat is empty) - this asserts that rather than leaving it silent."
         }
       ],
       "pdr_approved": true,
@@ -1458,6 +1460,58 @@
           "needle": "export const PROTOCOL_VERSION = 46 as const;"
         }
       ],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P7",
+      "title": "The atlas debt: add the missing erosion knob and re-matte the 9 fringed sheets",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P8",
+      "title": "Fold every art lesson from S173-S175 into the veo/art protocol",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P9",
+      "title": "Visible damage on buildings and connectors when they are attacked",
+      "status": "in_progress",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P10",
+      "title": "Cut the creature slide - brake on arrival instead of coasting",
+      "status": "pending",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "real_context_tokens_at_close": null,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -1802,16 +1856,16 @@
     "P4 ADDED MID-SESSION BY THE OWNER, and recorded as an amendment rather than executed ad-hoc (Rule 16). His words: \"Also, we're gonna add a little micro priority to this session ... Add this to this session priority batch.\" Approval is explicit and in his own message, so no separate go was sought. Ordered AFTER P1 because both touch HUD readouts and P1 is the outstanding item from S172; P4 is independent of it and could move earlier if he prefers.",
     "P5 ADDED MID-SESSION BY THE OWNER (second amendment this session), recorded rather than executed ad-hoc per Rule 16. His words: \"we'll add this too as a micro batch to this priority... to this session.\" Three parts, all in the codex. ORDERING NOTE: P5(a) is a deletion and is the cheapest; P5(b) is a contained scroll container; P5(c) is the only part with real unknown cost because it needs each combo's LIVE appearance, and the combo visuals are drawn by the board renderers rather than by anything the codex can call today.",
     "P6+P7 ADDED MID-SESSION BY THE OWNER (third amendment this session). P6 is a REGRESSION and therefore outranks the rest of the batch on urgency; recorded as an amendment rather than fixed ad-hoc, per the URGENCY PROTOCOL, which says urgency makes the scope gate MORE important, not less. P7 is explicitly design-only this session (\"build it in parallel with spark\").",
-    "AMENDMENT 4 - THE LIVE 2-PLAYER PLAYTEST (Romania). Nine bugs, captured verbatim in .claude/plans/S173_PLAYTEST_BUGS.md and committed BEFORE triage so nothing could be lost to a context window or a usage limit. He then directed parallel execution: \"send out a few agents to fix the little bugs ... anything that sounds bigger, just record and log for later ... don't send out more than three at a time. Three or maybe four.\" THREE dispatched (B5, B6+B2, B1); four recorded (B7+B8, B4, B9) with the reason each is bigger than it looks. ⚠ TWO OF THE NINE LANDED ON WORK SHIPPED EARLIER IN THIS SAME SESSION: B3 corrected P1's bar colour, and B4 confirmed by eye the scarab finding P2 had already measured."
+    "AMENDMENT 4 - THE LIVE 2-PLAYER PLAYTEST (Romania). Nine bugs, captured verbatim in .claude/plans/S173_PLAYTEST_BUGS.md and committed BEFORE triage so nothing could be lost to a context window or a usage limit. He then directed parallel execution: \"send out a few agents to fix the little bugs ... anything that sounds bigger, just record and log for later ... don't send out more than three at a time. Three or maybe four.\" THREE dispatched (B5, B6+B2, B1); four recorded (B7+B8, B4, B9) with the reason each is bigger than it looks. \u26a0 TWO OF THE NINE LANDED ON WORK SHIPPED EARLIER IN THIS SAME SESSION: B3 corrected P1's bar colour, and B4 confirmed by eye the scarab finding P2 had already measured."
   ],
   "carry_forwards_spawned_in_s173": [
     "NEXT SESSION FIRST PRIORITY, HIS OWN CHOICE: THE ORC WARLORD (chieftain) ABILITIES. (1) RAGE / BERSERK - \"he becomes red. You take the whole image and change his colour by changing the contrast into red. We'll make it simple so we don't need to generate anything. And he'll attack two times faster and move two times faster.\" So: a RENDER-TIME tint on the existing atlas, no new art, plus a 2x attack-cadence and 2x move-speed while enraged. NOTE the cadence divisor already exists - creatureLifecycle.ts:979 does Math.round(config.attackCadenceTicks / rageMultiplier(creature)) - so half the mechanic is already wired and only the VISUAL and the move-speed half are missing. (2) SUMMON THE DIREWOLF - already mechanically live (bossSkillsWarlord.ts), and the direwolf now has real art, so the Warlord is nearly COMPLETE. His words: \"so we'll complete him, which is perfect.\"",
-    "THE VEO CLIPS - GENERATED BUT NOT PACKED OR WIRED. 8 clips live at assets-source/direwolf/clips/direwolf/ and assets-source/voltkin-tv/clips/voltkin/. check-clip verdicts: direwolf ATTACK and WALK = PASS, packable as-is. direwolf IDLE and DIE = pillarboxed, RECOVERABLE with sampleStart on the spec. voltkin IDLE = recoverable; voltkin ATTACK, DIE, WALK = subject touches the frame edge, NOT recoverable, must be re-rolled. ⭐ THE REASON, measured and worth more than the clips: a character whose silhouette includes EMITTED VFX (Voltkin's lightning) needs a much SMALLER subject in the seed than a solid-bodied one. The wolf passes at 52% of canvas height; Voltkin's BOLTS hit the frame at that size. Start him near 32-36% and re-measure. Everything else is in ART_VEO_PROTOCOL.md and .claude/veo-recipes.json, and /veo-generate now walks the whole path.",
-    "THE VOLTKIN TV STRUCTURE - art cut out and sequenced, NOT implemented. assets-source/voltkin-tv/ holds tv-1-intact .. tv-6-ruins in HIS order: intact -> spawn (he bursts through the screen) -> BURNING (⭐ the long-lived state neither of his sheets labelled, and what the tower wears most of the match) -> critical -> explosion -> ruins. Maps to the engine as intact / damaged / destroyed, and the tier-3 sheets already carry a SPAWNING row that no code can draw - the spawn cinematic is half paid for. ⛔ AND THE CUTSCENE COMES OUT: \"you know how now there is the cutscene where you can see kind of a TV, and it stops the whole game - we'll remove that and just make it like a cool animation inside the game without a cutscene.\" That is a CODE change, separable from the art.",
-    "⛔ THE CODEX, TWO PARTS STILL OWED. (a) Helga/Voltkin structure diagrams LANDED. (b) the discovery gate is FULLY REMOVED - codexStore.ts deleted, the ??? cards gone, the \"entries reveal through play\" footer clause deleted. (c) TIER ORDERING DID NOT LAND: \"stink tower is last. It should be by tier as well - tier three, tier four, tier five.\" The grid still renders in listRecipes() order, which is module-EVALUATION order and nobody chose it. ⚠ AND THE TESTS FOR (b) ARE OWED: the agent imported fs/join, the module namespaces, FOOTER_BASE and drawEmblem as scaffolding for assertions it never wrote. I removed the orphaned imports so the tree compiles and left a marker at the site. Their absence is NOT coverage.",
-    "⛔ CONNECTOR HIDING - NOT STARTED. Owner: \"when the building is built you shouldn't see the shapes, the primitives, the connectors behind. You should see ONLY the tower until the first connector is destroyed, and then you should see them again ... like you phase them in and out of reality.\" This is the S170 carry-forward P11 (R169), specified across two sessions and still unbuilt. Renderer-only: hide the member primitives + bonds of a component backing a LIVE tower, restore them when it is no longer intact. They stay simulated and raidable. The alpha ramp must be driven off world.tick, never a wall clock.",
+    "THE VEO CLIPS - GENERATED BUT NOT PACKED OR WIRED. 8 clips live at assets-source/direwolf/clips/direwolf/ and assets-source/voltkin-tv/clips/voltkin/. check-clip verdicts: direwolf ATTACK and WALK = PASS, packable as-is. direwolf IDLE and DIE = pillarboxed, RECOVERABLE with sampleStart on the spec. voltkin IDLE = recoverable; voltkin ATTACK, DIE, WALK = subject touches the frame edge, NOT recoverable, must be re-rolled. \u2b50 THE REASON, measured and worth more than the clips: a character whose silhouette includes EMITTED VFX (Voltkin's lightning) needs a much SMALLER subject in the seed than a solid-bodied one. The wolf passes at 52% of canvas height; Voltkin's BOLTS hit the frame at that size. Start him near 32-36% and re-measure. Everything else is in ART_VEO_PROTOCOL.md and .claude/veo-recipes.json, and /veo-generate now walks the whole path.",
+    "THE VOLTKIN TV STRUCTURE - art cut out and sequenced, NOT implemented. assets-source/voltkin-tv/ holds tv-1-intact .. tv-6-ruins in HIS order: intact -> spawn (he bursts through the screen) -> BURNING (\u2b50 the long-lived state neither of his sheets labelled, and what the tower wears most of the match) -> critical -> explosion -> ruins. Maps to the engine as intact / damaged / destroyed, and the tier-3 sheets already carry a SPAWNING row that no code can draw - the spawn cinematic is half paid for. \u26d4 AND THE CUTSCENE COMES OUT: \"you know how now there is the cutscene where you can see kind of a TV, and it stops the whole game - we'll remove that and just make it like a cool animation inside the game without a cutscene.\" That is a CODE change, separable from the art.",
+    "\u26d4 THE CODEX, TWO PARTS STILL OWED. (a) Helga/Voltkin structure diagrams LANDED. (b) the discovery gate is FULLY REMOVED - codexStore.ts deleted, the ??? cards gone, the \"entries reveal through play\" footer clause deleted. (c) TIER ORDERING DID NOT LAND: \"stink tower is last. It should be by tier as well - tier three, tier four, tier five.\" The grid still renders in listRecipes() order, which is module-EVALUATION order and nobody chose it. \u26a0 AND THE TESTS FOR (b) ARE OWED: the agent imported fs/join, the module namespaces, FOOTER_BASE and drawEmblem as scaffolding for assertions it never wrote. I removed the orphaned imports so the tree compiles and left a marker at the site. Their absence is NOT coverage.",
+    "\u26d4 CONNECTOR HIDING - NOT STARTED. Owner: \"when the building is built you shouldn't see the shapes, the primitives, the connectors behind. You should see ONLY the tower until the first connector is destroyed, and then you should see them again ... like you phase them in and out of reality.\" This is the S170 carry-forward P11 (R169), specified across two sessions and still unbuilt. Renderer-only: hide the member primitives + bonds of a component backing a LIVE tower, restore them when it is no longer intact. They stay simulated and raidable. The alpha ramp must be driven off world.tick, never a wall clock.",
     "R173-B - EACH CONNECTOR COSTS THE FULL STRUCTURE POOL. RULED, NOT IMPLEMENTED. See .claude/plans/S173_R173_STRUCTURE_HP_RULING.md. His ladder (DEF = connector count MINUS ONE) matches the shipped arithmetic exactly - structureDefenceFifths(6) = 60 for Helga, which is the number he tested me on - so R173-A is WITHDRAWN and no change is owed there. What IS owed: the pool must be depleted ONCE PER CONNECTOR LOST and recompute at the lower count, where today damageConnector severs an individual bond at its own n+4 share. Measured blast radius: a 5-connector hub goes 35 -> 130 fifths (3.7x), a tier-3 tower 18 -> 44 (2.4x). Raid/chew tests and constants.lock WILL go red - that is the guard working, re-pin them against R173.",
-    "B7+B8 DAMAGE NUMBERS - researched, planned, not built. .claude/plans/S174_DAMAGE_NUMBERS_PLAN.md recommends a per-hit ring buffer on World sampled into the snapshot (TTL >= 12 ticks, monotonic seq), recorded at the damage DISPATCHER so B8 (powers) lands in the same change. No protocol bump - additive-optional, modelled on effects?. ⭐ AND HE CORRECTED MY FRAMING: a tower's pool is in FIFTHS, the same unit as a creature's, so there is NO scale problem for towers and no conversion is needed. My scale question had wrongly lumped towers in with Primitive.hp (1000) and CASTLE_MAX_HP (1500), which are separate systems.",
+    "B7+B8 DAMAGE NUMBERS - researched, planned, not built. .claude/plans/S174_DAMAGE_NUMBERS_PLAN.md recommends a per-hit ring buffer on World sampled into the snapshot (TTL >= 12 ticks, monotonic seq), recorded at the damage DISPATCHER so B8 (powers) lands in the same change. No protocol bump - additive-optional, modelled on effects?. \u2b50 AND HE CORRECTED MY FRAMING: a tower's pool is in FIFTHS, the same unit as a creature's, so there is NO scale problem for towers and no conversion is needed. My scale question had wrongly lumped towers in with Primitive.hp (1000) and CASTLE_MAX_HP (1500), which are separate systems.",
     "B4 THE SCARAB - still needs a regenerated WALK clip. Measured twice now: its PNG postdates the S171 packer fix and still fails, and the rows differ in SHAPE not zoom (idle 247x134, walk 174x133 - heights already equal). I built the horizontal squash he asked for (normaliseStateWidth, opt-in, off by default) and it made the spread WORSE, 1.42x -> 1.71x, so it was reverted. The flag stays because the measurement is the evidence.",
     "THE WEB-RESEARCH LANE RETURNED NOTHING - it died reading, before its first search. NOT restarted this session by his instruction. .claude/plans/VEO_EXTERNAL_RESEARCH.md does not exist. Re-run it next session if the protocol is to be hardened against external practice.",
     "STANDING CI RED: atlas-guard has failed on every master run since S171, and Deploy stays green so nobody reads it. It stays red until the six size-mismatched atlases get regenerated art. A permanently-red job is where a real failure hides."
@@ -1847,33 +1901,57 @@
     "The Warlord's attack-cadence WIRING is still uncovered by test (arithmetic only) - stated in warlordRage.integration.test.ts's header, not hidden."
   ],
   "cost_notes": {
-    "owner_reported_agent_spend_s175": "~$7.00 for 2026-09-13. ⚠ ZERO art generation this session - no veo, no imagen. That figure is the Phase A.0 subagent sweep: 7 lanes, 1,021,822 subagent tokens, 288 tool uses. Record it as AGENT spend so it does not corrupt the veo rate.",
+    "owner_reported_agent_spend_s175": "~$7.00 for 2026-09-13. \u26a0 ZERO art generation this session - no veo, no imagen. That figure is the Phase A.0 subagent sweep: 7 lanes, 1,021,822 subagent tokens, 288 tool uses. Record it as AGENT spend so it does not corrupt the veo rate.",
     "veo_rate_correction": "Owner measured ~$25 for the 8 S173 clips => ~$3.10/clip, against the $0.50/clip written in ART_VEO_PROTOCOL.md section 5. Every cost line in that doc is understated ~5x. NOT yet corrected in the doc - carry-forward."
   },
-  "analyze_completed": true,
+  "analyze_completed": false,
   "check_phase": {
     "gates_read_from_captured_exit_codes": true,
     "typecheck": "exit 0",
-    "vitest": "exit 0 — 4455/4455 across 280 files (baseline 4416/277, +39)",
-    "build": "exit 0 — 828.5 KiB main entry, 900 KiB charter, 73 KiB headroom",
-    "check_atlas": "exit 1 — UNCHANGED from the session baseline (9 fringe + 6 size). Both NEW sheets pass on their own: direwolf 0/3/14 px, voltkin-tv 0/4/10 px. voltkin-tv is now GATED.",
-    "verify_deploy": "exit 0 — 4/4 carriers",
-    "gitleaks": "exit 0 — no leaks, 1423 commits scanned",
-    "mcv": "exit 0 — 35/35 binding assertions pass, 0 UNBOUND (reconciled from an initial hard_fail=7)"
+    "vitest": "exit 0 \u2014 4455/4455 across 280 files (baseline 4416/277, +39)",
+    "build": "exit 0 \u2014 828.5 KiB main entry, 900 KiB charter, 73 KiB headroom",
+    "check_atlas": "exit 1 \u2014 UNCHANGED from the session baseline (9 fringe + 6 size). Both NEW sheets pass on their own: direwolf 0/3/14 px, voltkin-tv 0/4/10 px. voltkin-tv is now GATED.",
+    "verify_deploy": "exit 0 \u2014 4/4 carriers",
+    "gitleaks": "exit 0 \u2014 no leaks, 1423 commits scanned",
+    "mcv": "exit 0 \u2014 35/35 binding assertions pass, 0 UNBOUND (reconciled from an initial hard_fail=7)"
   },
   "analyze": {
     "delivered": "6 of 6 approved priorities, all committed, pushed and verified live.",
     "not_delivered": [
-      "P7 (the atlas debt) — never approved; explained to the owner in plain language at close, awaiting his call.",
+      "P7 (the atlas debt) \u2014 never approved; explained to the owner in plain language at close, awaiting his call.",
       "The Warlord's attack-CADENCE wiring is still uncovered by test (arithmetic only). Movement IS behaviourally proven. Stated in the test header, not hidden.",
       "Voltkin attack+die clips unpacked and un-re-rolled, per the cost ruling.",
-      "tv-4-critical / tv-5-explosion flattened but not in the atlas — they belong to the unbuilt destruction beat."
+      "tv-4-critical / tv-5-explosion flattened but not in the atlas \u2014 they belong to the unbuilt destruction beat."
     ],
     "calibration": [
       "A.0 was worth its cost and then some: 16 claim-vs-tree deltas, four of which changed scope. Without it P1 would have re-implemented a move-speed multiplier shipped in S168.",
-      "A.0 was ALSO wrong twice, and both were caught by doing the work: it predicted replay/differential baseline churn from the P4b retime (did not happen — those suites do not touch the cinematic path), and it proposed scripts/matte-*.py as the re-matte tool when the real matte is embedded in build-sprite-atlas.mjs.",
+      "A.0 was ALSO wrong twice, and both were caught by doing the work: it predicted replay/differential baseline churn from the P4b retime (did not happen \u2014 those suites do not touch the cinematic path), and it proposed scripts/matte-*.py as the re-matte tool when the real matte is embedded in build-sprite-atlas.mjs.",
       "The single highest-yield technique this session was LOOKING AT THE PNG. Three packer defects passed typecheck, the full suite and check:atlas, and were each caught by opening the contact sheet.",
       "Estimation error worth carrying: I scoped P1 as 'the tint alone' and it grew a second correct half (the animation rate) only because the OWNER asked the right question. The A.0 lane had not surfaced it."
     ]
-  }
+  },
+  "scope_amendments_s175": [
+    {
+      "id": "SA-S175-1",
+      "approved_by": "owner, verbatim",
+      "quote": "\"So I approve p seven. And that should be a part of our video generating protocol, shouldn't it? To be able to cut the videos correctly without any white backgrounds, without any stupid shit. We need to go over the video protocol, see if we can optimize it even further based on everything we've learned... And after p seven landed, everything has been committed pushed and deployed. Only then you may run the full and complete /handoff\"",
+      "adds": [
+        "P7 - the atlas debt (the 9 fringed sheets + the missing erosion knob)",
+        "P8 - fold every S173/S174/S175 art lesson back into ART_VEO_PROTOCOL.md, veo-recipes.json and /veo-generate"
+      ],
+      "standing_rule_recorded": "\u26d4 A SESSION NEVER CLOSES UNTIL A FULL /handoff SKILL RUN, AND ONLY WHEN HE SAYS SO. Owner: \"sessions never close until you run a full and complete handoff, the whole skill... You may only close a session with a full and complete /handoff when I say so. Not before, not anytime other than that time.\" S175 wrote a handoff DOCUMENT and treated the session as closed; that is not the same thing and it is not the rule."
+    },
+    {
+      "id": "SA-S175-2",
+      "approved_by": "owner, verbatim, mid-session",
+      "quotes": [
+        "P9: \"when characters attack buildings, you do not see the damage done to the buildings or to the connectors. I don't know if you've implemented that. I thought you did, but I want you to fix it now, make it happen.\"",
+        "P10: \"when creatures walk, it takes them a time to stop... it looks like they're sliding... they pretend to hit each other, but they keep sliding forward while hitting... maybe that sliding motion should be cut in half... it's like they're ice skating... then they lose whoever they were attacking, and then they need to move back to him, slide a little bit closer. That looks ridiculous.\""
+      ],
+      "adds": [
+        "P9 - visible damage feedback on structures and connectors",
+        "P10 - creatures brake when they stop instead of coasting (the ice-skating)"
+      ]
+    }
+  ]
 }

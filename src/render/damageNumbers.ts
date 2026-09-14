@@ -58,6 +58,7 @@
 import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { CreatureId, PlayerId } from '../types.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -108,6 +109,46 @@ const LIFT_PX = 30;
 /** A hard ceiling on live numbers — beyond it the oldest recycles. A brawl must never stutter. */
 const MAX_LIVE = 64;
 
+/**
+ * A non-creature damage pool being watched.
+ *
+ * ⚠ `rising` INVERTS THE TEST, and forgetting it would print a number every time a connector
+ * HEALED. A connector does not carry remaining health — it carries ACCUMULATED damage
+ * (`Bond.damageFifths` counts UP toward `connectorCapacityFifths`), where every other pool here
+ * counts DOWN. One flag, checked once, instead of a second near-identical loop.
+ */
+interface StructWatched {
+  v: number;
+  x: number;
+  y: number;
+  owner: PlayerId;
+  rising: boolean;
+  /** Emit the remainder when it vanishes? False for a pool whose disappearance is not a death. */
+  deathOnVanish: boolean;
+}
+
+/**
+ * PURE — what one frame's change in a damage pool should PRINT, if anything.
+ *
+ * ⭐ EXTRACTED SO THE RULE IS TESTABLE. The watcher that uses it lives inside a Pixi class and
+ * cannot be instantiated in vitest (`damageNumbers.test.ts` covers only pure helpers, and that is
+ * why). The interesting part was never the Text objects — it is the arithmetic, and especially the
+ * INVERSION that connectors need.
+ *
+ * `rising` = the pool counts UP toward a cap (`Bond.damageFifths`) instead of DOWN toward zero.
+ * ⚠ A rising pool can never report a HEAL: `damageFifths` going down means the connector was
+ * repaired or replaced, and printing green over a rebuilt connector would read as the enemy healing
+ * the thing they are chewing.
+ */
+export function poolDelta(
+  prev: number, cur: number, rising: boolean,
+): { amount: number; kind: FloaterKind } | null {
+  const delta = rising ? cur - prev : prev - cur;
+  if (delta > 0) return { amount: Math.round(delta), kind: 'damage' };
+  if (delta < 0 && !rising) return { amount: Math.round(-delta), kind: 'heal' };
+  return null;
+}
+
 interface Floater {
   readonly text: Text;
   age: number;
@@ -150,7 +191,8 @@ export async function loadDamageFont(): Promise<void> {
  */
 export function damageAnchor(
   world: World,
-  victim: CreatureId,
+  /** `null` for a STRUCTURE: there is no self-creature to exclude from the enemy scan. */
+  victim: CreatureId | null,
   vx: number,
   vy: number,
   owner?: PlayerId,
@@ -159,7 +201,7 @@ export function damageAnchor(
   let bestY = vy - 1;
   let bestD = Infinity;
   let bestId = Number.MAX_SAFE_INTEGER;
-  const mine = owner ?? world.creatures.get(victim)?.ownerPlayerId;
+  const mine = owner ?? (victim === null ? undefined : world.creatures.get(victim)?.ownerPlayerId);
   /*
    * ⚠ WRITTEN IN THE PLAIN `ownerPlayerId ===` FORM ON PURPOSE. The S171 acquisition census
    * finds enemy-shaped scans with a regex on `ownerPlayerId` followed by an equality operator,
@@ -213,6 +255,26 @@ export class DamageNumbers {
    * exactly that reason.
    */
   private readonly watched = new Map<CreatureId, Watched>();
+  /**
+   * ⭐⭐ S175 P9 (owner) — **EVERYTHING ELSE THAT TAKES DAMAGE, WATCHED THE SAME WAY.**
+   *
+   * Owner: *"when characters attack a tower, you don't see damage on the tower. You only see the
+   * damage that the tower does to them … I wanna see damage on a castle. I wanna see damage on
+   * connectors. I wanna see damage on all other towers that spawn or that protect or even on the
+   * poop bags that are dropped. You gotta see damage everywhere, not just on characters."*
+   *
+   * ⭐ IT COSTS NOTHING ON THE WIRE, and that is why it is a watch rather than an event. Every pool
+   * this reads is ALREADY a required or already-emitted serialized field — `Primitive.hp`,
+   * `Bond.damageFifths`, `Player.castleHp`, `Defender.ehp`, `StinkCloud.ehp`. Diffing them frame to
+   * frame gives every peer the identical numbers with no new state and **no PROTOCOL_VERSION bump**.
+   * The alternative, pushing a hit event, is the thing this file's own header rules out: a one-shot
+   * `world.effects` push is lost ~5/6 of the time because effects are sampled at 10 Hz.
+   *
+   * Keyed `"<kind>:<id>"` in ONE map rather than five, so the vanish-is-death sweep below stays a
+   * single pass and cannot be implemented four-fifths of the way — the failure mode this codebase
+   * calls the four-sites warning.
+   */
+  private readonly watchedStruct = new Map<string, StructWatched>();
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
@@ -290,7 +352,99 @@ export class DamageNumbers {
       if (last.ehp > 0) this.emit(world, id, last.x, last.y, last.ehp, 'damage', last.owner);
     }
 
+    this.syncStructures(world);
     this.advance();
+  }
+
+  /**
+   * ⭐⭐ S175 P9 — damage on the things that are NOT creatures.
+   *
+   * ⚠ EACH SYSTEM PRINTS IN ITS OWN UNIT, and that is the owner's own distinction rather than an
+   * oversight. He corrected me on it in S174: *"a tower's pool is in FIFTHS, the same unit as a
+   * creature's, so there is NO scale problem for towers"* — and that my question had *"wrongly
+   * lumped towers in with Primitive.hp (1000) and CASTLE_MAX_HP (1500), which are separate
+   * systems."* So a connector, a defender and a bag print fifths exactly like a creature, while a
+   * shape and a castle print their own hit points. Each number then matches the BAR drawn above
+   * that same thing, which is the only consistency a player can actually check.
+   */
+  private syncStructures(world: World): void {
+    const seen = new Set<string>();
+    const track = (
+      key: string, v: number, x: number, y: number, owner: PlayerId,
+      rising: boolean, deathOnVanish: boolean,
+    ): void => {
+      seen.add(key);
+      const prev = this.watchedStruct.get(key);
+      this.watchedStruct.set(key, { v, x, y, owner, rising, deathOnVanish });
+      if (prev === undefined) return; // first sighting is neither a hit nor a heal
+      const d = poolDelta(prev.v, v, rising);
+      if (d !== null) this.emitAt(world, x, y, d.amount, d.kind, owner);
+    };
+
+    // SHAPES — `hp` out of PRIMITIVE_MAX_HP. Its own system; see the unit note above.
+    for (const prim of world.primitives.values()) {
+      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true);
+    }
+
+    /*
+     * CONNECTORS — the one pool that counts UP. Anchored at the bond's MIDPOINT, which is where a
+     * chewer is standing and where the player is already looking.
+     */
+    for (const bond of world.bonds.values()) {
+      const a = world.primitives.get(bond.aId);
+      const b = world.primitives.get(bond.bId);
+      if (a === undefined || b === undefined) continue;
+      track(
+        `b:${bond.id}`, bond.damageFifths,
+        (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2,
+        a.placedBy, true, false,
+      );
+    }
+
+    // DEFENDERS — turret / Helga / stink tower. `ehp` is null for kinds with no unit stats.
+    for (const d of world.defenders.values()) {
+      if (d.ehp === null) continue;
+      track(`d:${d.id}`, d.ehp, d.pos.x, d.pos.y, d.ownerPlayerId, false, true);
+    }
+
+    // LANDED STINK BAGS — his *"even on the poop bags that are dropped"*.
+    for (const cloud of world.stinkClouds.values()) {
+      track(`s:${cloud.id}`, cloud.ehp, cloud.pos.x, cloud.pos.y, cloud.ownerPlayerId, false, true);
+    }
+
+    /*
+     * CASTLES — `deathOnVanish` is FALSE and that is the `damage.ts` contract, not a shortcut: a
+     * castle is NEVER removed. *"A seat with a fallen castle keeps its avatar, its gatherers and
+     * its shapes, it has simply LOST."* Emitting a phantom final number on a player leaving would
+     * be inventing a hit that never happened.
+     */
+    for (const p of world.players.values()) {
+      // Seat IS the PlayerId, cast exactly as creatureAI.ts:599 and castleGuns.ts do.
+      const at = castleAnchor(p.id as unknown as number, world.layout);
+      track(`c:${p.id}`, p.castleHp, at.x, at.y, p.id, false, false);
+    }
+
+    /*
+     * ⭐ THE KILLING BLOW, for structures. Same rule the creature sweep above states: a pool that
+     * VANISHES was destroyed, and what it had left when last seen is the damage that finished it.
+     * A severed connector is skipped (`deathOnVanish: false`) because its pool was counting UP —
+     * there is no remainder to print, and the severance is its own loud event.
+     */
+    for (const [key, last] of this.watchedStruct) {
+      if (seen.has(key)) continue;
+      this.watchedStruct.delete(key);
+      if (last.deathOnVanish && last.v > 0) {
+        this.emitAt(world, last.x, last.y, Math.round(last.v), 'damage', last.owner);
+      }
+    }
+  }
+
+  /** `emit` for a target that is not a creature — no id to exclude from the anchor scan. */
+  private emitAt(
+    world: World, x: number, y: number, amount: number, kind: FloaterKind, owner: PlayerId,
+  ): void {
+    if (amount <= 0) return;
+    this.place(damageAnchor(world, null, x, y, owner), amount, kind);
   }
 
   private emit(
@@ -303,8 +457,18 @@ export class DamageNumbers {
     owner: PlayerId,
   ): void {
     if (amount <= 0) return;
-    const { x, y } = damageAnchor(world, victim, vx, vy, owner);
+    this.place(damageAnchor(world, victim, vx, vy, owner), amount, kind);
+  }
 
+  /**
+   * Put one floater on screen at an already-resolved anchor.
+   *
+   * ⭐ EXTRACTED IN S175 P9 so the creature path and the structure path cannot diverge in stacking,
+   * pooling or the alternating drift. Two copies of this would drift the moment one of them was
+   * retuned — the duplication class this codebase keeps paying for.
+   */
+  private place(at: { x: number; y: number }, amount: number, kind: FloaterKind): void {
+    const { x, y } = at;
     let stack = 0;
     for (const f of this.live) {
       if (Math.abs(f.x - x) < 12 && Math.abs(f.y - y) < ROW_STACK_PX) stack++;

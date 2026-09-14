@@ -34,6 +34,14 @@ import type { PrimitiveId } from '../types.ts';
 import { drawBondVisual } from './bondVisualRenderer.ts';
 import { isConcealed } from './concealment.ts';
 import { TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, pruneTowerCover } from './towerCover.ts';
+
+/**
+ * How visible a DAMAGED connector stays even when a tower is standing on it.
+ *
+ * ⚠ MINE, not the owner's. 0.85 rather than 1.0 so the connector still reads as *underneath* the
+ * building rather than punching through it — he asked to see the damage, not to undo the phase-out.
+ */
+const DAMAGED_BOND_MIN_ALPHA = 0.85;
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
@@ -189,7 +197,24 @@ export class StructureRenderer {
        * ⭐⭐ S175 P6 — the connector's phase-out. Fully hidden means SKIP: this bond draws into a
        * shared Graphics and an alpha-0 stroke still costs the geometry.
        */
-      const coverAlpha = coverAlphaForBond(bond.id);
+      /*
+       * ⛔⛔ S175 P9 — **A CHEWED CONNECTOR IS NEVER HIDDEN, AND P6 WOULD OTHERWISE HAVE MADE THIS
+       * WORSE THAN IT WAS.**
+       *
+       * Owner: *"I wanna see damage on connectors … you gotta see damage everywhere."* Earlier this
+       * same session P6 started phasing the connectors OUT under a standing tower — which is what he
+       * asked for, and which on its own would mean a raider eats a hidden connector with nothing on
+       * screen at all until the tower suddenly breaks. His two rulings only look opposed: he wants
+       * the clean tower AND he wants to see it being hurt.
+       *
+       * So cover yields to damage. The instant `damageFifths` is non-zero the connector is pinned
+       * back to legible, and it stays legible while it is under attack — the floating number now
+       * appears over a connector the player can actually see. An untouched connector still phases
+       * away exactly as P6 shipped it.
+       */
+      const coverAlpha = bond.damageFifths > 0
+        ? Math.max(coverAlphaForBond(bond.id), DAMAGED_BOND_MIN_ALPHA)
+        : coverAlphaForBond(bond.id);
       if (coverAlpha <= TOWER_COVER_DRAW_EPSILON) continue;
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;
