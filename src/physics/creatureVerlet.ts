@@ -124,10 +124,13 @@ export function creatureVerletStep(
  *     LEASH — the anti-kite gate the owner asked for after *"she effectively lasers across the
  *     map"* — so she has no path to an edge in the first place. Clamping her would be dead code
  *     today and would silently become her real bound if that leash were ever retuned.
- *   · `hunters/hunterAI.ts` is the same shape and MUST NOT be clamped without a ruling: the hunter
- *     legitimately spawns from OUTSIDE the board (`hunterLifecycle` seeds it off-canvas) and the
- *     seagull's `SEAGULL_DEPART_MARGIN` shows the codebase deliberately lets some entities live
- *     past the edge. A clamp here would trap a hunter at its own spawn point.
+ *   · `hunters/hunterAI.ts` is the same shape and is left alone because a clamp would be DEAD CODE
+ *     today: `hunterLifecycle` spawns it at `{x: CANVAS_WIDTH / 2, y: 60}` — (960, 60), comfortably
+ *     inside this margin — and its own AI keeps it on the avatar. ⛔ S178 SECOND PASS: an earlier
+ *     version of this note claimed the hunter *"legitimately spawns from OUTSIDE the board"*. It
+ *     does not, and a future session acting on that would have been acting on a false fact. What IS
+ *     true is that this family has a depart-past-the-edge idiom (`SEAGULL_DEPART_MARGIN`), so
+ *     clamping that integrator is a ruling rather than a tidy-up.
  * Both are latent rather than live. Named in the S178 open questions rather than guessed at.
  */
 export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {

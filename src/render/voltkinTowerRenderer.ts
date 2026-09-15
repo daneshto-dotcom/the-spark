@@ -41,7 +41,7 @@ import type { BondId, PrimitiveId } from '../types.ts';
 import { findAllVoltkinChains } from '../state/godlyRecipes/voltkin.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
-import { T9_TOWER_SPRITE_PX, TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
+import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
 
 const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
 
@@ -88,17 +88,53 @@ const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
  * hung between +46 and +107 px BELOW the structure centroid instead of straddling it the way every
  * other tower does. Small, and sitting in the wrong place.
  *
- * ⚠ THE TARGET IS TIER-9 PARITY, AND THAT CHOICE IS MINE, NOT HIS. `TV_ART_PX` is set to
- * `T9_TOWER_SPRITE_PX` so the Voltkin's building reads at exactly the size of the other tier-9
- * buildings it stands beside — the most defensible target available without his eye on it. The
- * measured fill converts that into a sprite box. If he wants it bigger or smaller, `TV_ART_PX` is
- * the one dial, and nothing else needs touching.
+ * ⛔⛔ S178 SECOND PASS — **"TIER-9 PARITY" WAS SET TO 150 AND THAT REPEATED THE ORIGINAL MISTAKE IN
+ * THE OPPOSITE DIRECTION.** `T9_TOWER_SPRITE_PX` = 150 is a tier-9 tower's SPRITE BOX, not the size
+ * its art draws at — which is the exact box-vs-art confusion that produced the 61 px bug. Measured
+ * off the shipped tier-9 sheets, a tower's art fills 68–91 % of its own 256 px cell and therefore
+ * DRAWS at **103–137 px** (median 111). Setting the TV's ART to 150 made it the tallest building on
+ * the board.
+ *
+ * ⚠ THE TARGET IS THE MEASURED MEDIAN, AND IT IS MINE, NOT HIS: 112 px, so the TV reads as one of
+ * the tier-9 buildings it stands beside rather than as the biggest thing on screen. `TV_ART_PX` is
+ * the single dial — 61 px was the bug, 150 px was my overshoot, 112 px is the measurement.
  */
 /** Measured off `voltkin-tv-atlas.png` at S178: the steady rows fill 73 of each 256 px cell. */
 const TV_SUBJECT_FILL = 73 / 256;
-/** How tall the TV should actually READ on the board. Tier-9 parity. */
-const TV_ART_PX = T9_TOWER_SPRITE_PX;
+/**
+ * How tall the TV's ART should READ on the board. MEASURED against what a tier-9 race tower actually
+ * draws (103–137 px across the six sheets, median 111), not against its sprite box.
+ */
+const TV_ART_PX = 112;
 const TV_SPRITE_PX = Math.round(TV_ART_PX / TV_SUBJECT_FILL);
+
+/**
+ * ⭐⭐⭐ S178 SECOND PASS — **WHERE EACH ROW'S FEET ACTUALLY ARE, so the TV does not FLOAT.**
+ *
+ * The manifest carries ONE `footAnchor` (y 0.9961) and it is true of only four of the six rows.
+ * Measured bottom of the drawn subject, per row, in a 256 px cell:
+ *
+ *     intact 255 · damaged 255 · critical 255 · explosion 255   ← the still rows, foot == cell bottom
+ *     spawning 212 · destroyed 217                              ← 38–43 px of empty cell BELOW the art
+ *
+ * So the emergence and the ruins were always drawn hovering above the ground line the intact TV
+ * stands on, and scaling the sprite box scales that gap with it — the S178 first pass would have
+ * amplified an existing pop by 2.45×. Offsetting each row by ITS OWN foot removes the gap entirely
+ * instead, for every row, which is a fix rather than a mitigation.
+ */
+const TV_ROW_FOOT_FRAC: Readonly<Record<TvRow, number>> = {
+  intact: 256 / 256,
+  damaged: 256 / 256,
+  critical: 256 / 256,
+  explosion: 256 / 256,
+  spawning: 213 / 256,
+  destroyed: 218 / 256,
+};
+
+/** The y a sprite must be given so THIS row's drawn feet land on the ground line `groundY`. */
+function tvSpriteY(row: TvRow, groundY: number): number {
+  return groundY + TV_SPRITE_PX * (1 - TV_ROW_FOOT_FRAC[row]);
+}
 
 /** How close a SPAWNING Voltkin must be to a TV for that TV to be the one he is coming out of. */
 const VOLTKIN_EMERGE_MATCH_PX = 160;
@@ -202,18 +238,30 @@ const TV_EMERGE_WINDUP_TICKS = 12;
 /**
  * Destruction beat: ticks on `critical`, then on `explosion`, then ruins.
  *
- * ⭐⭐ S178 (owner: *"I didn't see destroyed"*) — EACH WINDOW NOW HOLDS ITS WHOLE ROW, AND THAT IS
- * WHAT THE NUMBERS ARE. Both were 18 ticks (0.30 s) against twelve-frame rows, so even once the
- * rows were made to animate at all there was not time to play them. Each is now
- * `frames × ticksPerFrame` on the shipped sheet — 12 × 3 and 12 × 4 — so a beat plays exactly once
- * and lands on its final frame as the next begins. The whole death reads in 1.4 s instead of 0.6 s.
+ * ⛔⛔⛔ S178 SECOND PASS — **THESE WERE WIDENED TO 36 / 48 AND THAT WAS A REGRESSION. RESTORED.**
  *
- * ⚠ KEEP THESE PAIRED WITH `voltkin-tv-anim.json`. If a row's `ticksPerFrame` moves, move its window
- * with it, or the beat either strobes short or freezes on its last frame waiting for the next.
- * `voltkinTowerBeats.test.ts` derives its expectations from these constants for that reason.
+ * The first pass read the manifest, saw `frames: 12` on `critical` and `explosion`, and widened each
+ * window to `frames × ticksPerFrame` so a twelve-frame row would have time to play. A verification
+ * pass then MEASURED THE SHIPPED PNG instead of trusting the manifest, and the twelve frames are a
+ * lie the sheet tells: on `intact`, `damaged`, `critical` and `explosion` all twelve cells are
+ * **BYTE-IDENTICAL COPIES OF ONE STILL** (total absolute pixel difference from frame 0: zero, for
+ * all eleven). Only `spawning` and `destroyed` carry real motion.
+ *
+ * So widening them did not buy animation — there is none to buy. It bought **1.4 s of staring at two
+ * frozen pictures** before the only genuinely animated destruction row begins, where it used to be
+ * 0.6 s. That is strictly worse against the complaint it cited (*"I didn't see destroyed"*): the
+ * thing he did not see is `destroyed`, and the fix DELAYED it.
+ *
+ * ⚠ A STILL SHOULD BE HELD BRIEFLY AND THEN GOT OUT OF THE WAY. 18 ticks (0.30 s) each, as shipped
+ * before S178. The budget belongs to `destroyed` — 12 real frames at `ticksPerFrame` 3 = 36 ticks,
+ * comfortably inside `TV_RUINS_HOLD_TICKS` (42), so the one animation in the sequence plays in full.
+ *
+ * ⭐ `loopFrame` / `beatFrame` ARE KEPT even though they are no-ops on four of six rows today. They
+ * are correct, they are what the sequence needs the moment those rows carry real frames, and on
+ * `spawning` and `destroyed` they are doing real work right now.
  */
-export const TV_CRITICAL_TICKS = 36;
-export const TV_EXPLOSION_TICKS = 48;
+export const TV_CRITICAL_TICKS = 18;
+export const TV_EXPLOSION_TICKS = 18;
 /**
  * ⭐ S177 P4 — how long the RUINS linger once the beat has played out.
  *
@@ -493,7 +541,7 @@ export class VoltkinTowerRenderer {
        * Half the ART straddles the centroid exactly the way `towerRenderer` does, and it now stays
        * put when `TV_ART_PX` is re-dialled.
        */
-      sprite.y = cy + TV_ART_PX * 0.5;
+      sprite.y = tvSpriteY(row, cy + TV_ART_PX * 0.5);
 
       /*
        * ⭐ Declared HERE, at the point the sprite is committed, and never re-derived inside
@@ -547,7 +595,7 @@ export class VoltkinTowerRenderer {
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = ghost.x;
-      sprite.y = ghost.y + TV_ART_PX * 0.5; // S178 — same art-not-box offset as the live site
+      sprite.y = tvSpriteY(ghostRow, ghost.y + TV_ART_PX * 0.5); // S178 — per-row foot, as the live site
       live.add(key); // keep it off the reaper for one more frame
     }
 

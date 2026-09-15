@@ -119,7 +119,13 @@ const MAGICAL: Array<[SparkType, SparkType, ComboOutcome]> = [
     areaMultiplier: 2.0,
     visualEffectId: 'fx.vortex',
     isMagical: true,
-    description: 'Pulls nearby free sparks toward it (anchor pull)',
+    // ⛔ S178 (owner ruling) — **THIS STRING IS THE ONLY AUTHORITY THE MECHANIC EVER HAD, AND IT IS
+    // NOT AN OWNER RULING.** S89 P6 elected to "realize its own table description" and built real
+    // physics from it; the owner, on meeting it in a match: *"How is that a mechanic? When did we
+    // ever say that it should be a mechanic? ... it should definitely not affect free shapes, free
+    // primitives."* The pull is unwired in `physicsLoop.ts`. The text is kept as the combo's flavour
+    // and MUST NOT be treated as a specification again.
+    description: 'Pulls nearby free sparks toward it (anchor pull) — FLAVOUR ONLY; unwired S178',
   }],
   [SparkType.Spiral, SparkType.Line, {
     resultName: 'Whip',

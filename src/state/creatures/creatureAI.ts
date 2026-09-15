@@ -630,8 +630,14 @@ export function standoffTargetPos(
    * different way rather than fixed. Clamping the DESTINATION lets a cornered standoff unit slide
    * along the edge instead of grinding into it.
    *
-   * ⚠ THE RING IS NOT SHORTENED, ONLY BOUNDED. A unit with its back to the wall keeps its own
-   * `attackRange`; it simply cannot ask to stand somewhere that does not exist.
+   * ⚠ AND THIS DOES SHORTEN THE RING WHEN THE EDGE IS CLOSE — say so plainly. ⛔ S178 SECOND PASS:
+   * an earlier version of this note claimed the ring was *"NOT SHORTENED, ONLY BOUNDED"*, which is
+   * false: clamping the DESTINATION moves it off the ring, so a standoff unit backed against the
+   * wall ends up closer to its victim than its `attackRange` wants — sometimes into melee. That is
+   * the honest consequence of having an edge at all, and it is the LESSER of the two evils (the
+   * alternative is the unit walking off the board, which is the bug being fixed). Whether a cornered
+   * archer should instead SLIDE ALONG the edge to keep its range is a combat-feel decision the owner
+   * has ruled on twice, so it is in the S178 open questions rather than decided here.
    */
   const rx = target.x + Math.cos(angle) * ring;
   const ry = target.y + Math.sin(angle) * ring;

@@ -441,3 +441,51 @@ describe('S178 — an enemy that walks into fog must not be read as dead', () =>
     ).toBe(0);
   });
 });
+
+/**
+ * ⛔⛔ S178 SECOND PASS — the regression a verification agent found in S178's OWN fog fix.
+ *
+ * Moving `liveIds.add` above the concealment gate (correct) while leaving `lastSeenPos.set` below it
+ * (also correct — we only know where we last SAW something) made `lastSeenPos` a strict SUBSET of
+ * `liveIds`. The death watcher's fast-path guard was `lastSeenPos.size > liveIds.size`, which is only
+ * a valid proxy for "someone is missing" while the two maps have identical membership.
+ *
+ * The case it silently drops: one creature VISIBLE, one CONCEALED, and the visible one dies. Sizes
+ * come out 1 and 1, the guard is false, and a real death is never reaped — no splat, and the entry
+ * leaks. Pinned here because the fix (deleting the guard) is invisible in a diff and a future session
+ * might "optimise" it back.
+ */
+describe('S178 second pass — a death is reaped even while another creature is in fog', () => {
+  beforeEach(() => { resetConcealmentForTest(); });
+
+  it('reaps a VISIBLE death while a second creature sits concealed', () => {
+    const w = makeWorld();
+    const m = w as unknown as {
+      gameMode: string; gameState: string; localPlayerId: number; matchPhase: string;
+      creatures: Map<unknown, { id: unknown; ownerPlayerId: number; pos: { x: number; y: number }; type: string }>;
+    };
+    m.gameMode = '1v1'; m.gameState = 'PLAYING'; m.matchPhase = 'BUILD'; m.localPlayerId = 0;
+
+    // A: the local player's own chewer — never concealed, so always drawn and tracked.
+    const a = [...m.creatures.values()][0]!;
+    a.ownerPlayerId = 0;
+    a.pos.x = 300; a.pos.y = 300;
+    // B: an ENEMY chewer far away in the dark — live, but never drawn.
+    const b = { ...a, id: 'B', ownerPlayerId: 1, pos: { x: 1850, y: 1000 }, type: 'chewer' };
+    m.creatures.set('B', b as never);
+
+    const r = new ChewerRenderer(stubApp(), stubParent());
+    beginConcealmentFrame(w, { x: 300, y: 300 });
+    r.sync(w);
+    expect(r.inspectState().lastSeenPos, 'only the drawn one is position-tracked').toBe(1);
+
+    // A dies. B is still alive and still concealed.
+    m.creatures.delete(a.id);
+    beginConcealmentFrame(w, { x: 300, y: 300 });
+    r.sync(w);
+    expect(
+      r.inspectState().lastSeenPos,
+      "A's death must be reaped even though B keeps liveIds non-empty",
+    ).toBe(0);
+  });
+});

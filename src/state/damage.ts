@@ -19,10 +19,12 @@
  * - **Host-only.** Callers are host-authoritative reducers, exactly as `damageCreature` documents.
  *   Never call this from a renderer: on a client it would mutate a mirrored world the host is
  *   about to overwrite, and the two seats would disagree until the next snapshot.
- * - **Integer damage only.** Enforced. The owner-ruled DoT model authors effects as a PERCENTAGE
- *   of max hp, and `PRIMITIVE_MAX_HP = 1000` is chosen so every percentage in use lands on an
- *   integer (1% = 10, 2.5% = 25, 5% = 50). Integer arithmetic cannot drift, so the host and the
- *   `?worker=1` mirror cannot diverge by a rounding ulp. A fractional `amount` is a bug at the
+ * - **Integer damage only.** Enforced. ⛔ S178: this said `PRIMITIVE_MAX_HP = 1000` *"is chosen so
+ *   every percentage in use lands on an integer"*. It is **70** — owner R173/S177 P1 put shapes on
+ *   the ×5 ladder (14 HP × 0 DEF × 5), and this header had gone on teaching the retired scale at the
+ *   top of the one file every damage path enters. Integrality now comes from the ladder itself: the
+ *   ×5 is precisely what makes every stat a whole number. Integer arithmetic cannot drift, so the
+ *   host and the `?worker=1` mirror cannot diverge by a rounding ulp. A fractional `amount` is a bug at the
  *   *authoring* site — it means someone wrote a per-engine-tick value instead of a total.
  * - **Tick-domain, no RNG, no wall-clock.** Nothing here reads `Math.random` or a clock.
  * - **Pushes no bespoke effect kind.** A razed primitive reuses the existing `SEVER_ERASE`
@@ -496,7 +498,13 @@ export interface RadialDamageResult {
  * whose single-target punch is deliberately the weakest in the game, and it was in fact one-shotting
  * every unit in its radius.
  *
- * `primitiveAmount` stays on the 1000-per-shape scale (where the owner-ruled DoT percentages land on
+ * ⛔⛔ S178 — `primitiveAmount` IS FIFTHS, like every other number in the game. This line said it
+ * *"stays on the 1000-per-shape scale"* — the single most load-bearing stale comment left after
+ * S177 P1, because it sits on the ONE real implementation every radial hazard calls, and S178 found
+ * the stink tower's death blast still obeying it (100–400 against a 70-fifth shape). All seven
+ * production radial sites now pass a ladder number to BOTH arms.
+ *
+ * The superseded wording: `primitiveAmount` stayed on the 1000-per-shape scale (where the owner-ruled DoT percentages land on
  * integers). `unitAmountFifths` is on the stat ladder. Neither can be read as the other.
  */
 export function applyRadialDamage(

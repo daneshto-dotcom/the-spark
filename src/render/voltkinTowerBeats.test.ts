@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   TV_CRITICAL_TICKS,
+  TV_DESTRUCTION_TICKS,
   TV_EXPLOSION_TICKS,
   tvDestructionRow,
   tvEmergenceRow,
@@ -69,18 +70,27 @@ describe('tvDestructionRow', () => {
     expect(tvDestructionRow(TV_CRITICAL_TICKS + TV_EXPLOSION_TICKS)).toBe('destroyed');
   });
 
-  it('gives every beat enough ticks to play its whole row — the owner never saw the explosion', () => {
-    // Each window must hold `frames x ticksPerFrame` of its own row, or the beat freezes on a
-    // mid-frame and the next one starts. This is the assertion that would have caught 18 ticks
-    // against a twelve-frame sheet.
-    for (const [row, window] of [
-      ['critical', TV_CRITICAL_TICKS],
-      ['explosion', TV_EXPLOSION_TICKS],
-    ] as const) {
-      const meta = manifest.states[row];
-      expect(meta, row).toBeDefined();
-      expect(meta.frames * meta.ticksPerFrame, `${row} row must fit inside its beat`).toBe(window);
-    }
+  /*
+   * ⛔⛔ S178 SECOND PASS — **THIS ASSERTION WAS THE FIRST PASS'S OWN MISTAKE, WRITTEN DOWN.**
+   *
+   * It required `frames × ticksPerFrame === window` for `critical` and `explosion`, on the belief
+   * that they were twelve-frame rows needing time to play. A pixel diff of the shipped PNG says
+   * otherwise: on `intact`, `damaged`, `critical` and `explosion` all twelve cells are BYTE-IDENTICAL
+   * (absolute difference from frame 0 is exactly zero for all eleven), and `atlas-specs.json`
+   * declares them `still:`. There is no animation in those rows to make room for — so the assertion
+   * was enforcing dead air, and the widened windows it justified held two frozen pictures on screen
+   * for 1.4 s before the one genuinely animated row began.
+   *
+   * The real invariant is about the rows that DO move: `destroyed` must fit inside the hold it is
+   * given, or the one animation in the death sequence is cut off. That is what is pinned now.
+   */
+  it('the ANIMATED destruction row fits inside its hold — the rest are stills, deliberately', () => {
+    const ruins = manifest.states.destroyed;
+    expect(ruins).toBeDefined();
+    expect(
+      ruins.frames * ruins.ticksPerFrame,
+      'the ruins clip must finish inside TV_RUINS_HOLD_TICKS or the collapse is cut off',
+    ).toBeLessThanOrEqual(TV_DESTRUCTION_TICKS - TV_CRITICAL_TICKS - TV_EXPLOSION_TICKS);
   });
 
   it('HOLDS ruins forever — a destroyed tower must never loop back into exploding', () => {

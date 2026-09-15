@@ -574,7 +574,23 @@ export class CreatureRenderer {
     // lightning-cloud + zap-burst at its last position (reliable on host AND the 1v1 client; both render
     // the same synced snapshot). A natural lifetime despawn passes through DESPAWNING (~60 ticks ≈ 10
     // snapshots) so it never mis-fires. Guarded on PLAYING so a match-end creature wipe doesn't discharge.
-    if (this.lastSeenPos.size > liveIds.size) {
+    /*
+     * ⛔⛔ S178 SECOND PASS — **THE SIZE GUARD IS GONE, AND REMOVING IT IS THE FIX.**
+     *
+     * This ran the sweep only `if (this.lastSeenPos.size > liveIds.size)`. That was sound while the
+     * two maps had IDENTICAL membership — every drawn creature was in both. The S178 fog fix broke
+     * exactly that: `liveIds` is now populated ABOVE the concealment gate (every live creature) while
+     * `lastSeenPos` is still populated BELOW it (only the ones actually drawn). So `lastSeenPos` is
+     * now a SUBSET of `liveIds`, and the comparison can be false while a real death is sitting in it.
+     *
+     * Concretely: A is visible (in both maps), B is concealed (in `liveIds` only). A is killed.
+     * `liveIds` = {B}, `lastSeenPos` = {A} — sizes 1 and 1, the guard is false, and A's death is
+     * never reaped: no splat, and its entry leaks until something else changes the sizes.
+     *
+     * The inner loop already asks the only question that matters — `liveIds.has(id)` — so the guard
+     * bought a skipped iteration over a handful of ids and cost a missed death. Dropped.
+     */
+    {
       const playing = world.gameState === 'PLAYING';
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
@@ -748,6 +764,7 @@ export class CreatureRenderer {
     this.lastSeenPos.clear();
     this.facings.clear();
     this.lastSeenState.clear();
+    this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
     this.lightningClouds.length = 0;
     this.cloudGfx.clear();
   }
@@ -758,6 +775,7 @@ export class CreatureRenderer {
     this.lastSeenPos.clear();
     this.facings.clear();
     this.lastSeenState.clear();
+    this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
     this.lightningClouds.length = 0;
     this.cloudGfx.destroy();
     this.container.destroy({ children: true });

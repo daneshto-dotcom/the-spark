@@ -44,7 +44,7 @@
  *      this atomic reducer's delegation step.)
  */
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, POOP_PICKUP_ARRIVAL_RADIUS, REASONABLE_PICKUP_REACH, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, type StiffnessTier } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, POOP_PICKUP_ARRIVAL_RADIUS, REASONABLE_PICKUP_REACH, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, type StiffnessTier, WORLD_EDGE_MARGIN } from '../constants.ts';
 import { pickup as fsmPickup } from '../game/player.ts';
 import { isCruiserDebuffed } from './gameMode.ts';
 import {
@@ -260,8 +260,24 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
  * is the player's own validated cursor.
  */
 function isValidPlacementPos(pos: Vec2, avatarPos: Vec2): boolean {
-  if (pos.x < 0 || pos.x > CANVAS_WIDTH) return false;
-  if (pos.y < 0 || pos.y > CANVAS_HEIGHT) return false;
+  /*
+   * ⛔⛔⛔ S178 SECOND PASS — **A SHAPE MAY NOT BE PLACED WHERE NO CREATURE CAN REACH IT.**
+   *
+   * This bounded placement to the raw canvas, `[0, CANVAS_WIDTH]`. Harmless while creatures could
+   * walk anywhere — and an EXPLOIT the moment A10 gave the sim a playfield: a creature is now clamped
+   * to `[WORLD_EDGE_MARGIN, CANVAS_WIDTH − WORLD_EDGE_MARGIN]`, so a shape hand-placed past x = 1915
+   * sits outside the furthest a unit can stand plus its 35 px melee arm. A structure built in that
+   * band would be permanently immune to every melee unit in the game.
+   *
+   * A verification pass caught this as a NEW BUG introduced by A10: the clamp landed on MOVEMENT but
+   * not on EXISTENCE, so build legality and the playfield disagreed. They agree now.
+   *
+   * ⚠ THE BLUEPRINT PATH WAS ALREADY SAFE and is deliberately untouched — `blueprintLegality`'s
+   * `EDGE_PAD` of 8 bounds a stamp's whole FOOTPRINT, landing its centre at x ≤ 1904, which is 24 px
+   * from a clamped attacker and inside a 35 px arm. This free-placement path was the only hole.
+   */
+  if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;
+  if (pos.y < WORLD_EDGE_MARGIN || pos.y > CANVAS_HEIGHT - WORLD_EDGE_MARGIN) return false;
   const dx = pos.x - avatarPos.x;
   const dy = pos.y - avatarPos.y;
   return dx * dx + dy * dy <= REASONABLE_PICKUP_REACH * REASONABLE_PICKUP_REACH;

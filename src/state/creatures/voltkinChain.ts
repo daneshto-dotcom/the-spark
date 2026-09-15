@@ -49,9 +49,12 @@
  * ## What counts as a link
  *
  * Enemy CREATURES and enemy CONNECTORS, because the owner's sentence names both
- * (*"connectors/targets"*). Each takes the Voltkin's own `attackFifths(atk, pen)` — the same hit the
- * primary took, with **no falloff**; both that and the hop range are flagged as MINE at
- * `VOLTKIN_CHAIN_HOP_RANGE`.
+ * (*"connectors/targets"*). Each takes the Voltkin's own `attackFifths(atk, pen)` **HALVED ONCE PER
+ * JUMP** — 33 · 16 · 8 · 4 · 2 · 1 — after the owner's S178 ruling (*"it should be chain lightning
+ * with a diminishing power per attack"*). ⛔ S178: this paragraph said *"the same hit the primary
+ * took, with no falloff"* and was left contradicting the loop 160 lines below it in this same file.
+ * The seed still takes the FULL hit, from the caller; jump 1 is the first link. See
+ * `VOLTKIN_CHAIN_JUMP_DIVISOR`, where the curve is flagged as MINE.
  *
  * ⛔ NOT castles, NOT defenders, NOT landed bags. Each of those would be a new balance claim rather
  * than a reading of R77, and a chain that walked into a keep would let one unit bypass the whole

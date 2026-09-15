@@ -58,7 +58,11 @@ import { dispatch, type World } from '../world.ts';
 
 /**
  * The unit half of the blast, on the stat ladder. Named rather than inlined so the two damage scales
- * cannot be confused at the call site: `applyRadialDamage` takes a 1000-per-shape amount and a
+ * cannot be confused at the call site. ⛔ S178: this said `applyRadialDamage` *"takes a
+ * 1000-per-shape amount"* — it does not, and has not since S177 P1 put shapes on the ×5 ladder at
+ * `PRIMITIVE_MAX_HP` 70. BOTH of its amounts are fifths; the two parameters stay separate only so a
+ * future effect MAY hit shapes and units differently, not because they are different units.
+ * The historical wording: `applyRadialDamage` took a 1000-per-shape amount and a
  * fifths amount ADJACENTLY, and swapping them typechecks silently.
  */
 const SUICIDE_BLAST_UNIT_FIFTHS = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);

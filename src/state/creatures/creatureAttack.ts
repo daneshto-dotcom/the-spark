@@ -320,13 +320,13 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
    *
    * ⛔ THE POOL WAS NEVER THE PROBLEM AND S177 P5 ALREADY FIXED THE REACH. `STINK_BAG_HP` is 1,
    * `ehp` is `unitPoolFifths(1,0)` = 5 fifths, and EVERY attacker in the game one-shots it —
-   * `_s178_bagprobe.test.ts` measures a bag dead in 60 ticks, one strike, for a goblin and for
+   * `bagStrikeS178.test.ts` measures a bag dead in 60 ticks, one strike, for a goblin and for
    * every boss, at every distance inside the cloud. THE DEADLOCK IS THE ARM ORDER:
    *
    *   1. `creatureLifecycle`'s bag clause keeps a creature in ATTACKING while a bag is in engage
    *      range, so it never re-seeks and never walks;
    *   2. this arm runs BEFORE the bag arm and returned even when it struck nothing;
-   *   3. `hostTick` re-acquires `targetPrimitiveId` (the nearest enemy shape) every tick.
+   *   3. the creature holds a `targetPrimitiveId` commit for as long as the shape exists.
    *
    * So every tick: commit set → shape out of reach → release → **return**, and the bag arm 100 lines
    * below is never reached. The same probe measures `ticksToDie = null` over 900 ticks with a shape

@@ -269,7 +269,23 @@ export class ChewerRenderer {
     // + a wet fly-splat SFX — reliable on host AND the 1v1 client (both render the same snapshot)
     // and it covers EVERY chewer death with zero wire/effect surface. Guarded on PLAYING so a
     // match-end / title-return creature wipe doesn't spuriously splat.
-    if (this.lastSeenPos.size > liveIds.size) {
+    /*
+     * ⛔⛔ S178 SECOND PASS — **THE SIZE GUARD IS GONE, AND REMOVING IT IS THE FIX.**
+     *
+     * This ran the sweep only `if (this.lastSeenPos.size > liveIds.size)`. That was sound while the
+     * two maps had IDENTICAL membership — every drawn creature was in both. The S178 fog fix broke
+     * exactly that: `liveIds` is now populated ABOVE the concealment gate (every live creature) while
+     * `lastSeenPos` is still populated BELOW it (only the ones actually drawn). So `lastSeenPos` is
+     * now a SUBSET of `liveIds`, and the comparison can be false while a real death is sitting in it.
+     *
+     * Concretely: A is visible (in both maps), B is concealed (in `liveIds` only). A is killed.
+     * `liveIds` = {B}, `lastSeenPos` = {A} — sizes 1 and 1, the guard is false, and A's death is
+     * never reaped: no splat, and its entry leaks until something else changes the sizes.
+     *
+     * The inner loop already asks the only question that matters — `liveIds.has(id)` — so the guard
+     * bought a skipped iteration over a handful of ids and cost a missed death. Dropped.
+     */
+    {
       const playing = world.gameState === 'PLAYING';
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
@@ -519,6 +535,7 @@ export class ChewerRenderer {
       hopPhase: this.hopPhase.size,
       facing: this.facing.size,
       lastSeenState: this.lastSeenState.size,
+      lastSeenOwner: this.lastSeenOwner.size, // ⭐ S178 second pass — measured like every sibling map
       lastChewBucket: this.lastChewBucket.size,
     };
   }
@@ -529,6 +546,7 @@ export class ChewerRenderer {
     this.hopPhase.clear();
     this.facing.clear();
     this.lastSeenState.clear();
+    this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
     this.lastChewBucket.clear();
     this.gooSplats.length = 0; // S102 #1 — drop in-flight splats on a hard reset (no spurious goo)
     this.prevNowSec = -1;
@@ -540,6 +558,7 @@ export class ChewerRenderer {
     this.hopPhase.clear();
     this.facing.clear();
     this.lastSeenState.clear();
+    this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
     this.lastChewBucket.clear();
     this.gooSplats.length = 0;
   }

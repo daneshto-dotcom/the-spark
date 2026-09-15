@@ -117,11 +117,16 @@ export const CANVAS_HEIGHT = 1080;
  * anchor simply sits at x = 1800, **120 px** from the 1920 edge, which is 1.18 s at a goblin
  * archer's ~102 px/s. Seat 0 has the identical exposure to the west. He played seat 2, so he saw east.
  *
- * ⚠ 40 IS MINE, NOT HIS, AND IT IS THE ONE NUMBER HERE THAT IS A JUDGEMENT. Measured against the HUD
- * it has to clear: the seat-1 keep box spans x 1763–1837 and the energy gauge sits at x 1896–1904, so
- * a sprite clamped to exactly 1920 would half-vanish and overlap the gauge. 40 px keeps a unit fully
- * drawn and clear of the furniture, at the cost of an invisible wall 40 px in from the edge. Overrule
- * it on sight — it is a single constant and nothing else needs touching.
+ * ⚠ 40 IS MINE, NOT HIS, AND IT IS THE ONE NUMBER HERE THAT IS A JUDGEMENT. A sprite is FOOT-anchored
+ * and drawn up to ~150 px tall, so a unit clamped to exactly 1920 would be half off-screen and
+ * unclickable; 40 px keeps it fully drawn, and it clears the seat-1 keep box (x 1763–1837) without
+ * eating playable ground. The cost is an invisible wall 40 px in from the edge.
+ *
+ * ⛔ S178 SECOND PASS — AN EARLIER VERSION OF THIS PARAGRAPH JUSTIFIED 40 BY THE ENERGY GAUGE AT
+ * x 1896–1904. **That instrument was REMOVED in S169** (`exitButton.ts` records it), so the number
+ * was being defended with a citation to something that no longer exists — in the very docblock that
+ * asks the owner to rule on it. The measurement above is what actually holds it up. Overrule it on
+ * sight: it is a single constant and nothing else needs touching.
  */
 export const WORLD_EDGE_MARGIN = 40;
 // V6-1.2 (owner instruction 2026-08-09) — HALVED 250 -> 125. The spawn zone is no longer the place
@@ -2181,7 +2186,13 @@ export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
  *     measured containment guarantee here, and the six victims of one bolt need not belong to one
  *     base. 120 may still be the right dial; what it does not have is a second reason.
  *
- * ⚠ AND NO DAMAGE FALLOFF, WHICH IS ALSO MINE — KEPT AT S160 P3. Every link takes the Voltkin's full
+ * ⛔⛔ SUPERSEDED S178 — **THERE IS FALLOFF NOW. SEE `VOLTKIN_CHAIN_JUMP_DIVISOR`.** The paragraph
+ * below is kept because the S178 change rests on it: it is the record that no-falloff was MINE and
+ * PROVISIONAL, and it pre-registered its own trigger (*"if it plays too strong the dial is here"*),
+ * which the owner then pulled after playing it. Read it as history, not as policy — a link now takes
+ * `attackFifths >> jump`, i.e. 33 · 16 · 8 · 4 · 2 · 1.
+ *
+ * ⚠ AND NO DAMAGE FALLOFF, WHICH WAS ALSO MINE — KEPT AT S160 P3, RETIRED AT S178. Every link took the Voltkin's full
  * `attackFifths(VOLTKIN_ATK, VOLTKIN_PEN)`, computed once outside the loop. R77 gives the unit's
  * atk/pen and the target count and says nothing about decay, so a decay curve would be balance the
  * owner never asked for, on a mechanic they have not yet played.
