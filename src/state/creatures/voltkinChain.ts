@@ -68,7 +68,7 @@ import { bondMidpoint, distSq, isEnemyBond } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
-import { VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
+import { VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_JUMP_DIVISOR, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
 
 /** One link in the bolt: what it is, which entity, and where the arc is drawn to. */
 export type ChainLink =
@@ -173,16 +173,54 @@ export function voltkinChainFrom(world: World, attacker: Creature, seed: ChainLi
  * bond's endpoint primitives may already be gone by the time this runs — the same pre-mutation
  * snapshot discipline `creatureAttack.ts` uses for its own arc endpoints.
  */
+/**
+ * PURE — what the `jump`-th link of a chain takes, in fifths. Jump 0 is the seed (full strike).
+ *
+ * ⛔ INTEGER ONLY, AND THAT IS NOT A STYLE CHOICE. Float accumulators are banned in this sim: a
+ * fractional per-link damage would drift between the host and the `?worker=1` mirror and drift in a
+ * damage figure is a desync, not a rounding nit. `Math.floor` of an integer divisor keeps every term
+ * a whole number on the owner's ×5 ladder, so the number the sim subtracts is still the number the
+ * player reads.
+ *
+ * ⚠ THE FLOOR OF 1 IS DELIBERATE. Every link draws an ARC_FLASH, and an arc the player can SEE that
+ * deals literally nothing reads as a bug. At the Voltkin's own 33 the floor never binds (33 · 16 · 8
+ * · 4 · 2 · 1); it only matters for a weaker chainer, or a deeper chain, than ships today.
+ */
+export function chainJumpFifths(baseFifths: number, jump: number): number {
+  if (jump <= 0) return baseFifths;
+  const divided = Math.floor(baseFifths / Math.pow(VOLTKIN_CHAIN_JUMP_DIVISOR, jump));
+  return Math.max(1, divided);
+}
+
 export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainLink): number {
   const links = voltkinChainFrom(world, attacker, seed);
   if (links.length === 0) return 0;
 
   const cfg = getCreatureConfig(attacker.type);
-  const hit = attackFifths(cfg.atk, cfg.pen);
+  const baseHit = attackFifths(cfg.atk, cfg.pen);
   const toSever: BondId[] = [];
 
   let from = seed.pos;
+  /*
+   * ⛔ THE FIRST CHAIN LINK IS JUMP **1**, NOT JUMP 0, AND A TEST CAUGHT THIS. `links` excludes the
+   * SEED: the seed has already taken the attacker's full strike from `applyCreatureAttack`'s own
+   * arm — `damageEntity` for a creature seed, `damageConnector` for a bond seed — before this
+   * function is called at all. Starting the counter at 0 would hand the first ARC the full strike a
+   * second time, so a bolt would land TWO undiminished hits and bank 96 fifths into a 50-fifth tower
+   * instead of 64. Jump 0 is the seed, and it is spent elsewhere.
+   */
+  let jump = 1;
   for (const link of links) {
+    /*
+     * ⭐⭐⭐ S178 (owner) — **THE BOLT WEAKENS AS IT WALKS.** *"It should be chain lightning with a
+     * diminishing power per attack."* This was `attackFifths(cfg.atk, cfg.pen)` computed once,
+     * OUTSIDE the loop, so every one of up to six links took the Voltkin's full strike — and
+     * because severs are dispatched only after the loop, the component never shrank mid-bolt and
+     * all six banked into one unshrinking `structurePoolFifths` pool. See
+     * `VOLTKIN_CHAIN_JUMP_DIVISOR` for the arithmetic that turned that into three connectors a bolt.
+     */
+    const hit = chainJumpFifths(baseHit, jump);
+    jump += 1;
     world.effects.push({
       kind: 'ARC_FLASH',
       tick: world.tick,

@@ -2156,10 +2156,22 @@ export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
  * atk/pen and the target count and says nothing about decay, so a decay curve would be balance the
  * owner never asked for, on a mechanic they have not yet played.
  *
- * ⭐ THE CONSEQUENCE, RE-DERIVED AT S160 P3 RATHER THAN REPEATED. `attackFifths(3, 6) = 3 × (5+6) =
- * 33` fifths; `connectorCapacityFifths(n) = n + 4`; the sever test is inclusive `>=`. So 33 ≥ n + 4
- * iff **n ≤ 29** — verified on both sides of the boundary (n=29 capacity 33 severs; n=30 capacity 34
- * holds). "≤ 29 connectors" is EXACT.
+ * ⛔⛔⛔ S178 — **THE "≤ 29 CONNECTORS" FIGURE BELOW WAS WRONG BY A FACTOR OF TEN FOR A WHOLE
+ * SESSION, AND A GREEN TEST WAS ASSERTING IT.** It was re-derived at S160 P3 against
+ * `connectorCapacityFifths(n)` = `n + 4`, which owner R173-B SUPERSEDED at S177 P1: `damageConnector`
+ * has read `structurePoolFifths(n)` = `n × (n + 5)` ever since. Against the shipped pool a LONE
+ * 33-fifth link severs only while `n × (n + 5) ≤ 33`, i.e. **n ≤ 3** — a 29-connector structure
+ * costs **986** fifths, not 33. The claim survived because `connectorCapacityFifths` is still a
+ * valid pure function that nothing in the damage path calls, so the assertion in
+ * `voltkinChain.test.ts` was a tautology wearing a guard's uniform. Both are re-pinned at S178.
+ *
+ * ⚠ AND A SINGLE-LINK CEILING WAS NEVER THE INTERESTING NUMBER, which is the deeper reason this
+ * went unnoticed: a bolt is up to SIX links, they all bank into ONE structure-wide pool, and severs
+ * are dispatched only AFTER the loop so that pool does not shrink mid-bolt. That is what took three
+ * connectors off a five-connector tower per bolt until `VOLTKIN_CHAIN_JUMP_DIVISOR` landed.
+ *
+ * The superseded derivation, kept for provenance only: `attackFifths(3, 6)` = 33 fifths against
+ * `connectorCapacityFifths(n)` = `n + 4`, inclusive `>=`, giving n ≤ 29.
  *
  * ⚠ BUT "SIX CONNECTORS IN ONE STRIKE" IS A CEILING, NOT A TYPICAL CASE, and the earlier wording did
  * not say so. Creatures and bonds compete for the SAME six link slots in one nearest-first contest,
@@ -3335,6 +3347,58 @@ export const PEER_DROP_FORFEIT_TICKS = 20 * PHYSICS_HZ;
 // the snapshot to clients — clients never recompute the force). The pull is a Verlet velocity
 // impulse (shift prevPos), so the 8 substeps carry it; terminal pull speed ≈ ACCEL / (1 −
 // VELOCITY_DAMPING^PHYSICS_SUBSTEPS). Conservative defaults — #1 Vortex playtest-feel knob.
+/**
+ * ⭐⭐⭐ S178 (owner) — **THE CHAIN DIMINISHES PER JUMP.** Each link takes the previous link's
+ * damage divided by this, floored, with a floor of 1 so an arc you can SEE always does something.
+ *
+ * Owner, S178, after playing it: *"Voltkin kills everything — structures, connectors, creatures —
+ * with one hit. So he has chain lightning, right? But I feel like his chain lightning doesn't follow
+ * attack stats. It just follows chain lightning plus kill everything that it chains. So it chained
+ * what, like four times or six times, and every connector along the way dies, every creature along
+ * the way dies. It should be chain lightning with a DIMINISHING POWER PER ATTACK."*
+ *
+ * ⚠ HE DID NOT RULE THIS BEFORE, AND THE OLD BEHAVIOUR WAS NOT AN IGNORED RULING — it was MINE, and
+ * it was explicitly provisional. R77 gives the unit's atk/pen and the target count
+ * (*"maywe we do max6 or something"*) and says nothing about decay, and `VOLTKIN_CHAIN_HOP_RANGE`'s
+ * docblock says so in as many words: *"AND NO DAMAGE FALLOFF, WHICH IS ALSO MINE — KEPT AT S160 P3
+ * … a decay curve would be balance the owner never asked for, on a mechanic they have not yet
+ * played."* The same block pre-registered the trigger: *"If it plays too strong the dial is here,
+ * and falloff is the obvious first thing to add."* He has now played it. The condition fired.
+ *
+ * ## WHY ONE BOLT REALLY DID TAKE A WHOLE TOWER — the arithmetic he could not see
+ *
+ * `attackFifths(3, 6)` = **33** fifths was computed ONCE outside the link loop and applied to all
+ * six links. Severs are queued and dispatched only AFTER the loop, so the component never shrinks
+ * mid-bolt and the pool stays `structurePoolFifths(5)` = **50** for every link. Damage banks
+ * structure-wide (R173-B) and overkill CARRIES on a sever, so on a 5-connector tower:
+ *
+ *     L1  33  <50 hold · L2  66 >=50 **SEVER** (drain 50, 16 left) · L3  49 <50 hold
+ *     L4  82 >=50 **SEVER** (16 left) · L5  65 >=50 **SEVER** (15 left) · L6  48 <50 hold
+ *
+ * **Three of five connectors to ONE bolt**, and the 2-connector remnant left holding 48 against a
+ * 14 pool — already over, so the next hit of anything finishes it. Verbatim his *"every connector
+ * along the way dies"*.
+ *
+ * ⚠ AND R173 MADE IT WORSE, WHICH NOBODY MODELLED. Before R173 each bond carried its own `n + 4`
+ * capacity; now all six links COMPOUND into one structure-wide pool. Toughening towers against a
+ * single attacker made them more fragile against a multi-link strike.
+ *
+ * ## WHAT 2 BUYS, MEASURED ON THE SAME TOWER
+ *
+ * Halving gives 33 · 16 · 8 · 4 · 2 · 1 (64 fifths total, down from 198):
+ *
+ *     L1 33 <50 · L2 49 <50 · L3 57 >=50 **SEVER** (drain 50, 7 left) · L4 11 · L5 13 · L6 14
+ *
+ * **Exactly one connector per bolt**, while the first two links still one-shot a goblin (pool 7–16)
+ * and the tail fades — which is what "diminishing" should look like on screen.
+ *
+ * ⚠ THE CURVE IS MINE, NOT HIS. He said "diminishing", not "halving". 2 is chosen because it matches
+ * this repo's existing halving idiom (the laser's three halvings) and because every term stays a
+ * whole number on his ×5 ladder — no float accumulators, which are banned in the sim. Raise it for a
+ * steeper drop, lower it toward 1 to restore the old behaviour. Flagged for his dial in the S178 PDR.
+ */
+export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;
+
 export const VORTEX_PULL_RADIUS = 220; // px — reach within which a free spark feels the pull
 export const VORTEX_PULL_MIN_DIST = 12; // px — inside the core: no pull (avoid a singular yank/jitter)
 export const VORTEX_PULL_ACCEL = 0.04; // px/tick velocity added toward the anchor AT the core,

@@ -26,23 +26,27 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CHEWER_DEF,
+  CHEWER_HP,
   PLAYER_COLORS,
   SparkType,
   PRIMITIVE_MAX_HP,
   VOLTKIN_ATK,
   VOLTKIN_CHAIN_HOP_RANGE,
+  VOLTKIN_CHAIN_JUMP_DIVISOR,
   VOLTKIN_CHAIN_MAX_TARGETS,
   VOLTKIN_PEN,
 } from '../../constants.ts';
-import { attackFifths, connectorCapacityFifths } from '../stats.ts';
+import { attackFifths, connectorCapacityFifths, structurePoolFifths, unitPoolFifths } from '../stats.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId } from '../../types.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeWorld, type World } from '../world.ts';
 import { applyCreatureAttack } from './creatureAttack.ts';
-import { voltkinChainFrom, type ChainLink } from './voltkinChain.ts';
+import { chainJumpFifths, voltkinChainFrom, type ChainLink } from './voltkinChain.ts';
 import { asCreatureId, makeCreature, makeVoltkinCreature, type Creature } from './creature.ts';
+import { maxPoolFifths } from '../damageOverTime.ts';
 import { CHEWER_CONFIG } from './voltkin-config.ts';
 
 const P0 = asPlayerId(0);
@@ -147,11 +151,44 @@ describe('S159 P2 — the chain WALKS: selection', () => {
         .map((c) => c.id as unknown as number)
         .join(',')}`,
     );
-    expect(alive).toHaveLength(1);
-    // ⭐ THE ASSERTION GEMINI ASKED FOR: not "six died" but "THIS one lived" — the far end of the
-    // line, which is also the highest id. A broken tie-break leaves a different survivor.
-    expect(alive[0].id).toBe(line[6].id);
-    expect(v.killCount).toBe(VOLTKIN_CHAIN_MAX_TARGETS);
+    /*
+     * ⛔⛔ S178 — RE-PINNED, AND THE OLD ASSERTION WAS CONFLATING TWO DIFFERENT CLAIMS.
+     *
+     * This asserted `alive).toHaveLength(1)` — i.e. that the bolt KILLED six — as the way of proving
+     * it STOPPED at six. Those were the same statement only because every link took the Voltkin's
+     * full 33 fifths and a chewer's pool is 5, so touching and killing were indistinguishable.
+     * Under the owner's S178 falloff ruling they are not: the links take 33 · 16 · 8 · 4 · 2 · 1, so
+     * links 4–6 reach their target and leave it standing. That is the ruling working, not a break.
+     *
+     * So the cap is now pinned by what it actually means — **the seventh was never touched** — and
+     * the reach of the bolt is pinned separately, by the first six all having taken damage. A
+     * regression in the CAP and a regression in the DAMAGE CURVE now fail different assertions.
+     */
+    // The far end of the line is untouched: the cap stopped the bolt before it, not the falloff.
+    const seventh = w.creatures.get(line[6].id);
+    expect(seventh, 'the seventh must still exist').toBeDefined();
+    expect(seventh!.ehp, 'the seventh must be UNDAMAGED — the cap, not the curve').toBe(
+      maxPoolFifths(seventh!.type),
+    );
+    // ...and every one of the first six WAS reached, whether or not it survived being reached.
+    for (let i = 0; i < VOLTKIN_CHAIN_MAX_TARGETS; i++) {
+      const c = w.creatures.get(line[i].id);
+      const reached = c === undefined || c.ehp < maxPoolFifths(c.type);
+      expect(reached, `link ${i} must have been reached by the bolt`).toBe(true);
+    }
+    // ⭐ AND THE KILL COUNT IS NOW A CURVE READING, NOT A CAP READING. A chewer's pool is 5 fifths
+    // (CHEWER_HP 1, CHEWER_DEF 0), so only the links carrying >= 5 fifths kill: 33, 16 and 8. The
+    // 4 / 2 / 1 tail wounds and moves on. Derived from the curve so a re-dial of
+    // VOLTKIN_CHAIN_JUMP_DIVISOR moves this with it instead of half-landing.
+    const base = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
+    const chewerPool = unitPoolFifths(CHEWER_HP, CHEWER_DEF);
+    // The SEED is jump 0 and is killed by the primary strike, not by this chain; the chain then
+    // walks jumps 1..(MAX-1). So the kill count is 1 + however many JUMPS still carry a lethal load.
+    const jumpKills = Array.from(
+      { length: VOLTKIN_CHAIN_MAX_TARGETS - 1 },
+      (_, i) => chainJumpFifths(base, i + 1),
+    ).filter((d) => d >= chewerPool).length;
+    expect(v.killCount).toBe(1 + jumpKills);
   });
 
   it('a gap wider than the hop range stops the bolt, however much is behind it', () => {
@@ -361,18 +398,83 @@ describe('S160 P3 — the ≤ 29 CONNECTOR CEILING, the number the owner is quot
    * boundary instead of reddening for no reason — while an ACCIDENTAL change to atk, pen or the
    * capacity curve still shows up as a moved ceiling.
    */
-  it('⭐ the ceiling is exactly 29, and it is a boundary on both sides', () => {
+  /*
+   * ⛔⛔⛔ S178 — **THIS TEST ASSERTED A THRESHOLD THAT HAD BEEN SUPERSEDED FOR A WHOLE SESSION, AND
+   * IT PASSED GREEN THE ENTIRE TIME.** It measured a 33-fifth bolt against
+   * `connectorCapacityFifths(n)` = `n + 4` and concluded "≤ 29 connectors" — a claim also written as
+   * derived fact in `constants.ts`. But `damageConnector` has read `structurePoolFifths(n)` =
+   * `n × (n + 5)` since S177 P1 (owner R173-B), and against THAT a lone 33-fifth bolt severs only
+   * while `n × (n + 5) ≤ 33`, i.e. **n ≤ 3**. The old figure was wrong by a factor of ten, and the
+   * test kept passing because `connectorCapacityFifths` is still a valid pure function — it is
+   * simply one nothing in the damage path calls any more. A tautology wearing a guard's uniform.
+   *
+   * Re-pinned against the function the sim actually reads. The single-bolt ceiling is now stated in
+   * the same breath as the thing that makes it misleading on its own: ONE bolt is not one hit, it is
+   * up to six, and before S178 they compounded into an unshrinking pool.
+   */
+  it('⭐ a SINGLE link severs only the smallest structures — n ≤ 3, not the retired n ≤ 29', () => {
     const bolt = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
     expect(bolt, 'a bolt is 33 fifths').toBe(33);
 
-    // Largest structure whose connectors still fall to one bolt.
     let ceiling = 0;
-    for (let n = 1; n <= 200; n++) if (bolt >= connectorCapacityFifths(n)) ceiling = n;
-    expect(ceiling, `${bolt} fifths against a capacity of n + 4`).toBe(29);
+    for (let n = 1; n <= 200; n++) if (bolt >= structurePoolFifths(n)) ceiling = n;
+    expect(ceiling, `${bolt} fifths against a STRUCTURE pool of n x (n + 5)`).toBe(3);
 
-    // And prove it is a BOUNDARY, not merely a number that happens to satisfy the inequality.
-    expect(bolt >= connectorCapacityFifths(29), 'n=29: capacity 33, severs').toBe(true);
-    expect(bolt >= connectorCapacityFifths(30), 'n=30: capacity 34, HOLDS').toBe(false);
+    // A boundary on both sides, against the shipped pool.
+    expect(bolt >= structurePoolFifths(3), 'n=3: pool 24, severs').toBe(true);
+    expect(bolt >= structurePoolFifths(4), 'n=4: pool 36, HOLDS').toBe(false);
+
+    // ⚠ AND THE RETIRED FUNCTION IS NAMED HERE SO THE NEXT READER SEES THE GAP RATHER THAN THE
+    // NUMBER. `connectorCapacityFifths` still returns n + 4; it just does not govern anything.
+    expect(connectorCapacityFifths(29)).toBe(33);
+    expect(structurePoolFifths(29)).toBe(986); // what a 29-connector structure ACTUALLY costs
+  });
+
+  /*
+   * ⭐⭐⭐ S178 (owner) — **THE FALLOFF, AND THE OUTCOME HE ASKED FOR.**
+   *
+   * *"It should be chain lightning with a diminishing power per attack."* This pins BOTH halves:
+   * the curve itself, and the thing the curve exists to prevent — one bolt taking a whole tower.
+   */
+  describe('S178 — the bolt diminishes as it walks', () => {
+    it('halves per jump, integer-only, with the seed at full strength', () => {
+      const base = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
+      expect(base).toBe(33);
+      const curve = Array.from({ length: VOLTKIN_CHAIN_MAX_TARGETS }, (_, j) => chainJumpFifths(base, j));
+      expect(curve).toEqual([33, 16, 8, 4, 2, 1]);
+      // Every term whole — float accumulators are banned in the sim.
+      for (const d of curve) expect(Number.isInteger(d)).toBe(true);
+      // Monotonically weakening, and never zero: an ARC the player can SEE always does something.
+      for (let i = 1; i < curve.length; i++) expect(curve[i]).toBeLessThan(curve[i - 1]);
+      for (const d of curve) expect(d).toBeGreaterThanOrEqual(1);
+      expect(VOLTKIN_CHAIN_JUMP_DIVISOR).toBe(2);
+    });
+
+    it('⛔ ONE BOLT NO LONGER LEVELS A 5-CONNECTOR TOWER — his "every connector along the way dies"', () => {
+      /*
+       * Walk the real banking rule by hand: damage pools STRUCTURE-WIDE (R173-B), severs are queued
+       * and dispatched only after the loop so the pool does NOT shrink mid-bolt, and a sever SPENDS
+       * the pool while overkill CARRIES. Before the falloff every link took 33: the bank ran
+       * 33 · 66(SEVER) · 49 · 82(SEVER) · 65(SEVER) · 48 — THREE of five connectors to one bolt,
+       * leaving a 2-connector remnant holding 48 against a 14 pool. Now it takes exactly one.
+       */
+      const base = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
+      const pool = structurePoolFifths(5);
+      expect(pool).toBe(50);
+
+      const sever = (perLink: (j: number) => number): number => {
+        let banked = 0;
+        let severs = 0;
+        for (let j = 0; j < VOLTKIN_CHAIN_MAX_TARGETS; j++) {
+          banked += perLink(j);
+          if (banked >= pool) { banked -= pool; severs += 1; }
+        }
+        return severs;
+      };
+
+      expect(sever(() => base), 'the OLD flat bolt').toBe(3);
+      expect(sever((j) => chainJumpFifths(base, j)), 'the S178 bolt').toBe(1);
+    });
   });
 
   it('⚠ and the SIX is a ceiling, not a typical case — units compete for the same slots', () => {
