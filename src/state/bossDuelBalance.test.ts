@@ -13,8 +13,12 @@
  *     WARLORD worst damage taken 80%  ->  dead
  *
  * ⛔ THE ASYMMETRY IS THE ABILITIES, NOT THE STATS.
- *   · Vlad's life-sap (R140) is +20% of max, three uses, below 40% — an effective pool of
- *     260 + 3x52 = **416 fifths, i.e. +60% free health**, and it is a PURE SELF-HEAL with no victim.
+ *   · Vlad's life-sap is +20% of max, below 40%, and ⭐ S179 (owner) cut it from THREE uses to TWO
+ *     (*"Life-sap TWICE, not three times"*) — an effective pool of 260 + 2x52 = **364 fifths,
+ *     i.e. +40% free health** (it was 416 / +60%). A PURE SELF-HEAL with no victim.
+ *     ⚠ THIS FILE PRINTS AND DOES NOT GATE, so the duel verdict below is now STALE by one
+ *     exchange: at three saps the Warlord needed 4 strikes to fell Vlad, at two he needs 3.
+ *     Re-run it to re-measure rather than trusting the numbers quoted underneath.
  *   · The Warlord's rage is an attack-CADENCE doubling below 25%, which against Vlad can barely
  *     fire: 25% of 374 is 93.5 fifths and Vlad's strike is 150, so the Warlord falls 224 -> 74 in one
  *     blow and skips straight past the window into death.

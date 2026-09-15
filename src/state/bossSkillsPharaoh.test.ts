@@ -17,6 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  LOCUST_CLOUD_STATS,
   PHARAOH_LOCUST_CADENCE_TICKS,
   PHARAOH_LOCUST_LAUNCH_INTERVAL_TICKS,
   PHARAOH_LOCUST_CONE_HALF_ANGLE,
@@ -235,17 +236,35 @@ describe('S171 R142 — determinism and bounds', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('S171 R142 — the cloud itself carries his numbers', () => {
-  it('⭐⭐ 10 ATK / 10 PEN = 150 fifths, and that one-shots every boss in the game', () => {
+  it('⭐⭐ S179 (owner) — 5 ATK / 5 PEN = 50 fifths, not the 150 he called too strong', () => {
     /*
-     * His two numbers, pinned as arithmetic rather than as trust. 150 is exactly Vlad's strike — the
-     * hardest hitter in the game — on a disposable summon, and the largest pool in the game is the
-     * Pharaoh's own 143. This is why STRIKES ARE KILLS for the locusts, and therefore why cadence and
-     * cloud count (which R142 does NOT rule on) are the whole balance.
+     * ⭐⭐ HIS AMENDMENT: *"Locusts too strong — 50 damage each, not 150."* The damage is his; the
+     * 5/5 decomposition is mine (see LOCUST_CLOUD_STATS for why 5/5 and not 10/0).
+     *
+     * ⛔ THIS TEST WAS WRONG IN TWO MORE WAYS THAN THE NUMBER, and both are corrected here rather
+     * than carried:
+     *   1. Its title claimed a locust "one-shots every boss in the game". That was FALSE ALREADY at
+     *      150 — the smallest tier-9 pool is 260 fifths (Vlad / the Archdemon), so 150 never
+     *      one-shot any boss. It one-shot CHAFF, which is a different and much smaller claim.
+     *   2. It pinned `unitPoolFifths(11, 8)` = 143 as *"the Pharaoh, the biggest pool on the board"*.
+     *      That is the PRE-S172 Pharaoh. His *"double their health and defense"* made the real
+     *      Pharaoh `unitPoolFifths(22, 16)` = **462**, so the line was quoting a pool that had not
+     *      existed for seven sessions and reading durability ~3x low.
+     *
+     * What is true at 50: a locust still deletes chaff (a goblinShield's pool is 7 fifths, a
+     * goblinMelee's 12), and is now firmly NOT a boss-killer — it needs 6 strikes to fell the
+     * softest boss rather than 2. That is the direction he asked for.
      */
     const cfg = getCreatureConfig('locustCloud');
-    expect(attackFifths(cfg.atk, cfg.pen)).toBe(150);
-    expect(unitPoolFifths(11, 8), 'the Pharaoh, the biggest pool on the board').toBe(143);
-    expect(attackFifths(cfg.atk, cfg.pen)).toBeGreaterThan(unitPoolFifths(11, 8));
+    expect(attackFifths(cfg.atk, cfg.pen), 'his 50').toBe(50);
+    expect(attackFifths(cfg.atk, cfg.pen)).toBe(attackFifths(LOCUST_CLOUD_STATS.atk, LOCUST_CLOUD_STATS.pen));
+
+    const softestBoss = unitPoolFifths(20, 8); // Vlad / the Archdemon, the smallest tier-9 pool
+    expect(softestBoss).toBe(260);
+    expect(attackFifths(cfg.atk, cfg.pen), 'NOT a boss one-shot, and never was').toBeLessThan(softestBoss);
+    expect(Math.ceil(softestBoss / attackFifths(cfg.atk, cfg.pen)), 'six strikes on the softest boss').toBe(6);
+
+    expect(unitPoolFifths(22, 16), 'the REAL post-S172 Pharaoh').toBe(462);
   });
 
   it('⭐ it CANNOT BE TARGETED, and it is finite', () => {

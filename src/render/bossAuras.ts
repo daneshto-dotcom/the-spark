@@ -295,7 +295,7 @@ function drawSonarWave(
 
 
 /* ── LIFE SAP dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R140: heals 20% of his health,
- * three uses, only below 40%) and for the LOOK gave a reference rather than geometry: *"It needs to be
+ * two uses since S179, only below 40%) and for the LOOK gave a reference rather than geometry: *"It needs to be
  * looking scary and cool, like life sap, you know, and Dota... research Lifesap in Dota and you'll see
  * how it looks."* */
 const SAP_MOTES = 18;

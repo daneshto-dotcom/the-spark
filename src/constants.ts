@@ -2487,12 +2487,26 @@ export const T9_ZOMBIE_DEATH_BLAST_RADIUS = 380;
  */
 export const VLAD_LIFE_SAP_HEAL_PCT = 20;
 export const VLAD_LIFE_SAP_TRIGGER_PCT = 40;
-export const VLAD_LIFE_SAP_USES = 3;
+/*
+ * ⭐⭐ S179 (owner) — **3 → 2. HIS AMENDMENT TO R140, AND THE R140 QUOTE ABOVE IS KEPT AS HISTORY.**
+ *
+ * *"Life-sap TWICE, not three times."* Nothing else about the skill moves: the heal is still 20%
+ * (18 fifths of his 90) and the trigger is still below 40% (36). Only the ALLOWANCE changes.
+ *
+ * ⭐ WHY THE TESTS STAY GREEN. `bossSkills.test.ts` never pins the literal 3 — both assertions read
+ * `VLAD_LIFE_SAP_USES` and the loop counts to it, so they follow this constant. Their TITLES said
+ * "three" and "the fourth attempt" and have been re-worded; the bodies were already correct.
+ *
+ * ⚠ THE CONSEQUENCE HE WAS ANSWERING. S178 measured Vlad winning a boss duel by exactly one
+ * exchange because three saps lifted his effective pool from 260 to 416 fifths (+60%). Two saps
+ * make that 260 + 2×52 = **364 fifths, +40%** — the Warlord now needs 3 strikes rather than 4.
+ */
+export const VLAD_LIFE_SAP_USES = 2;
 /*
  * ⭐ S170 P7 — how long the life-sap flash is drawn for, in ticks. ⚠ THIS NUMBER IS MINE, NOT THE
  * OWNER'S. He asked for the effect to be *"looking scary and cool, like life sap in Dota"* and gave
- * no duration. ~0.6 s is long enough to register on a busy board and short enough that three saps
- * over a fight read as three distinct events rather than as a permanent aura.
+ * no duration. ~0.6 s is long enough to register on a busy board and short enough that two saps
+ * over a fight read as distinct events rather than as a permanent aura.
  */
 export const VLAD_SAP_FLASH_TICKS = 36;
 
@@ -2689,8 +2703,29 @@ export const PHARAOH_LOCUST_TRIGGER_RANGE = 260;
  */
 export const PHARAOH_LOCUST_MAX_PER_OWNER = PHARAOH_LOCUST_COUNT * 2;
 
-/** ⚠ MINE. A cloud is a swarm of insects: it dies to a breath of area damage, and should. */
-export const LOCUST_CLOUD_STATS = { hp: 1, def: 0, atk: 10, pen: 10 } as const;
+/**
+ * ⚠ THE POOL IS MINE. A cloud is a swarm of insects: it dies to a breath of area damage, and should.
+ *
+ * ⭐⭐ S179 (owner) — **THE DAMAGE IS HIS: 150 → 50 FIFTHS.** *"Locusts too strong — 50 damage
+ * each, not 150."* He named the number a player READS, which on this ladder is the number the sim
+ * subtracts, so there is nothing to convert.
+ *
+ * ⚠ THE DECOMPOSITION IS MINE, NOT HIS. `attackFifths(atk, pen) = atk × (5 + pen)`, so 50 has
+ * exactly two decompositions inside the 1..12 stat bands the rest of the game uses:
+ *   · `attackFifths(10, 0)` = 10 × 5 = 50 — keeps his old ATK, drops PEN to nothing;
+ *   · `attackFifths(5, 5)`  = 5 × 10 = 50 — halves both, keeping the symmetric x/x shape.
+ * I took **5 / 5**. It preserves the 10/10 reading ("the same creature, weaker") and a swarm with
+ * ZERO penetration reads wrong for the one unit whose whole identity is getting inside armour.
+ * A number from him supersedes this.
+ *
+ * ⭐ NOTHING ELSE MOVES. `hp`/`def` are untouched, so the cloud's own pool is still
+ * `unitPoolFifths(1, 0)` = 5 fifths; `LOCUST_CLOUD_SPEED_MUL` and the range are separate constants.
+ * ATK/PEN feed damage and nothing else.
+ *
+ * ⚠ HE IS NOT SURE THIS IS FAR ENOUGH — he said *"still very strong"* and trailed off.
+ * Re-ask after he has played it.
+ */
+export const LOCUST_CLOUD_STATS = { hp: 1, def: 0, atk: 5, pen: 5 } as const;
 
 /** ⚠ MINE. Flight reads fast; the Pharaoh himself is 0.75, and the cloud should outpace its maker. */
 export const LOCUST_CLOUD_SPEED_MUL = 1.35;
@@ -2775,7 +2810,27 @@ export const RA_COLUMN_SPREAD = 150;
  * ⚠ "FOR THE REST OF HIS LIFETIME" MEANS IT LATCHES. A flag derived from current HP would switch
  * OFF again if he were ever healed back over the line, which is the opposite of what he ruled.
  */
-export const WARLORD_RAGE_TRIGGER_PCT = 25;
+/*
+ * ⭐⭐ S179 (owner) — **25 → 50, AND HE WAS ASKED ABOUT THE CONSEQUENCE BEFORE IT WAS MADE.**
+ *
+ * *"Rage triggers at 50% health, not below 25%."* Told that this collapses the hysteresis band the
+ * R151 docblock below was written to protect, and offered a raised CLEAR to keep one, he ruled:
+ *
+ *   ⭐ *"enrage at 49 calm at 50 so the literall meaning of below 50."*
+ *
+ * ⚠ SO THE BAND IS DELIBERATELY ZERO-WIDTH NOW, AND THAT IS NOT AN OVERSIGHT. Read off the
+ * branches in `bossSkillsWarlord.ts`: at 49% a calm Warlord ENRAGES (49 < 50) and an enraged one
+ * stays (49 > 50 is false); at 51% a calm one stays calm and an enraged one CALMS; at exactly 50%
+ * NEITHER branch fires, so he keeps whatever state he is in. That is his "below 50" exactly.
+ *
+ * ⚠ AND THE FLICKER THE OLD BAND GUARDED AGAINST IS UNREACHABLE TODAY. Flicker needs hp to CROSS
+ * the line repeatedly, i.e. a heal. Every `.ehp =` write in the sim that RAISES a pool is gated to
+ * another race — Vlad's sap heals only Vlad (`bossSkills.ts:119`) and the Ra restore only the
+ * mummies boss (`creatureLifecycle.ts:577`). The Warlord's pool is monotonically non-increasing,
+ * so he crosses 50% exactly once, in one direction. **If a Warlord healer is ever added, this is
+ * the line to revisit — and it is his call, not a bug to fix silently.**
+ */
+export const WARLORD_RAGE_TRIGGER_PCT = 50;
 export const WARLORD_RAGE_MULTIPLIER = 2;
 
 /**
@@ -2809,7 +2864,22 @@ export const WARLORD_RAGE_CLEAR_PCT = 50;
  * victim is then REMOVED — an execute, not a hit — so `damageEntity`'s throw-on-fraction guard is
  * never even reached.
  */
-export const ARCHDEMON_HELL_THRESHOLD_PCT = 5;
+/*
+ * ⭐⭐ S179 (owner) — **5 → 10. HIS AMENDMENT TO R150; the R150 quote above stands as history.**
+ *
+ * *"Taken to hell threshold BELOW 10%, not 5%."*
+ *
+ * ⭐ STILL EXACTLY INTEGRAL, and it is worth re-checking rather than assuming, because the docblock
+ * above earned its place by proving 5 was. The test is `ehp * 100 < max * PCT` — an integer
+ * comparison on both sides, producing no fraction at any pool. The victim is then REMOVED (an
+ * execute, not a hit), so `damageEntity`'s throw-on-fraction guard is never reached either.
+ *
+ * ⚠ AND IT IS NOT A COSMETIC DOUBLING — IT TURNS THE SKILL ON FOR UNITS IT COULD NEVER TOUCH.
+ * At 5%, a pool of 20 fifths or less can never satisfy `ehp * 100 < max * 5` at any ehp ≥ 1
+ * (20 × 5 = 100, and ehp × 100 ≥ 100), so the smallest units in the game were silently immune.
+ * At 10% the same pool needs ehp × 100 < 200, i.e. ehp = 1 — reachable. The doom now bites chaff.
+ */
+export const ARCHDEMON_HELL_THRESHOLD_PCT = 10;
 export const ARCHDEMON_TELEPORT_INTERVAL_TICKS = 7 * PHYSICS_HZ;
 
 /**

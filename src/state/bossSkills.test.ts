@@ -127,7 +127,7 @@ describe('S168 P7 — Vlad life sap (R140)', () => {
     }
   });
 
-  it('⭐ three uses and no more', () => {
+  it('⭐ two uses and no more (S179 — his amendment; the body derives from the constant)', () => {
     const { world, id } = worldWithVlad();
     const ledger: SapLedger = new Map();
     for (let i = 0; i < 10; i++) {
@@ -137,7 +137,7 @@ describe('S168 P7 — Vlad life sap (R140)', () => {
     expect(ledger.get(id), 'spent exactly the ruled number of charges').toBe(VLAD_LIFE_SAP_USES);
   });
 
-  it('⭐ the fourth attempt genuinely does nothing — the cap is not just a counter', () => {
+  it('⭐ the attempt AFTER the cap genuinely does nothing — the cap is not just a counter', () => {
     const { world, id } = worldWithVlad();
     const ledger: SapLedger = new Map();
     for (let i = 0; i < VLAD_LIFE_SAP_USES; i++) {

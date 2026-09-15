@@ -88,10 +88,15 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
     expect(world.creatures.get(id)!.enraged).not.toBe(true);
   });
 
-  it('⛔ is not enraged at exactly 25% — "drops to 25%" is read as strictly below', () => {
+  /*
+   * ⭐ S179 — the literal 25 is gone; this now DERIVES the boundary from the constant, so a future
+   * retune cannot half-land (the number moving while a hard-coded test keeps asserting the old one).
+   * The RULE under test is unchanged and is still his: the threshold is read as STRICTLY BELOW.
+   */
+  it('⛔ is not enraged at exactly the trigger — the threshold is strictly below', () => {
     const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
     const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
-    world.creatures.get(id)!.ehp = (max * 25) / 100;
+    world.creatures.get(id)!.ehp = Math.round((max * WARLORD_RAGE_TRIGGER_PCT) / 100);
     runWarlordRage(world);
     expect(world.creatures.get(id)!.enraged).not.toBe(true);
   });
@@ -144,12 +149,38 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
   });
 
   /*
-   * ⭐ THE HYSTERESIS IS THE POINT OF HAVING TWO NUMBERS. With one threshold, a boss hovering at the
-   * line would flicker in and out of a x2 speed and attack multiplier on every point of damage.
-   * Asserted so nobody "simplifies" the two constants into one.
+   * ⭐⭐ S179 (owner) — **RE-PINNED, NOT DELETED. THE BAND IS ZERO-WIDTH NOW, BY HIS RULING.**
+   *
+   * This asserted `CLEAR > TRIGGER`, because a hysteresis band was the point of having two numbers.
+   * He moved the trigger to 50, where CLEAR already sat. He was told to his face that this collapses
+   * the band, and was offered a raised CLEAR to keep one. He ruled:
+   *
+   *   ⭐ *"enrage at 49 calm at 50 so the literall meaning of below 50."*
+   *
+   * ⛔ THE OLD ASSERTION IS THEREFORE FALSE BY DESIGN, AND SILENCING IT WOULD HAVE DELETED THE GATE
+   * WHILE LEAVING IT GREEN. What replaces it pins the BEHAVIOUR he described at all three points
+   * around the line. That is strictly stronger than the inequality ever was: it fails if someone
+   * re-separates the constants to "restore" a band, and it fails if either branch's comparison flips.
    */
-  it('⭐ the two thresholds are DIFFERENT — a single line would flicker the multiplier', () => {
-    expect(WARLORD_RAGE_CLEAR_PCT).toBeGreaterThan(WARLORD_RAGE_TRIGGER_PCT);
+  it('⭐⭐ HIS RULING — enrage at 49, calm at 51, and exactly 50 changes nothing', () => {
+    expect(WARLORD_RAGE_TRIGGER_PCT, 'below 50').toBe(50);
+    expect(WARLORD_RAGE_CLEAR_PCT, 'CLEAR stays where R151 put it').toBe(50);
+
+    const at = (pct: number, enraged: boolean): boolean => {
+      const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
+      const boss = world.creatures.get(id)!;
+      boss.ehp = Math.round((maxPoolFifths(boss.type) * pct) / 100);
+      boss.enraged = enraged;
+      runWarlordRage(world);
+      return world.creatures.get(id)!.enraged === true;
+    };
+
+    expect(at(49, false), '49% calm → ENRAGES').toBe(true);
+    expect(at(49, true), '49% enraged → stays enraged').toBe(true);
+    expect(at(51, false), '51% calm → stays calm').toBe(false);
+    expect(at(51, true), '51% enraged → CALMS').toBe(false);
+    expect(at(50, false), 'exactly 50 keeps him calm').toBe(false);
+    expect(at(50, true), 'exactly 50 keeps him enraged').toBe(true);
   });
 
   it('⭐ rage is one multiplier, and it is the owner x2', () => {

@@ -14,7 +14,7 @@
  * It is safe against the `?worker=1` mirror because the worker runs the same sim and derives the
  * same counter from the same inputs; the counter is never compared across the wire, only used.
  *
- * ⛔ THE COST, NAMED: a HOST MIGRATION resets the counter, so a Vlad who had spent all three saps
+ * ⛔ THE COST, NAMED: a HOST MIGRATION resets the counter, so a Vlad who had spent both saps
  * gets them back under the new host. The alternative is a synced field with a protocol bump for an
  * edge case measured in one handover per match. Recorded here rather than discovered later.
  */
@@ -102,7 +102,7 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
      * ⚠ AND THE LEDGER IS NOT TOUCHED, which is the point of gating here rather than lower down: a
      * stun must COST him nothing. Skipping after the `spent` bookkeeping would be the same shape of
      * mistake as gating the FSM above its end-of-life bookkeeping — the stun would silently consume
-     * one of his three uses.
+     * one of his two uses (S179 — was three).
      */
     if (isStunned(vlad, world.tick)) continue;
     const spent = ledger.get(id) ?? 0;
