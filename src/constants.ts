@@ -3185,6 +3185,19 @@ export const STINK_AURA_RADIUS = 120;
 // Death blast — the owner's "bigger cooler explosion", scaling with the bags left unthrown. A tower
 // killed while full is a bomb; one killed after it has spent its magazine is nearly harmless. That
 // is the whole tactical read: starve it first, or eat the blast.
+/**
+ * ⛔⛔ RETIRED S178 — **UNREAD BY THE DAMAGE PATH**, exactly as `GOBLIN_DAMAGE_VS_PRIMITIVE` was
+ * retired at S177 P1. This and `STINK_DEATH_BLAST_PER_BAG_DAMAGE` were the last bespoke damage
+ * numbers on the retired 1000-per-shape scale: `stinkDeathBlast` fed `100 + bags × 60` to shapes
+ * that are **70** fifths, while handing creatures `attackFifths(1, 4)` = 9 from the same explosion.
+ * The blast is now the owner's R77 number on both arms. `stinkBlastFor` still computes this field
+ * and its tests still pin the arithmetic; nothing in production reads the result any more.
+ *
+ * ⚠ ONE QUESTION FOR THE OWNER RIDES ON THIS: the magazine no longer scales the blast's POWER, only
+ * its RADIUS (240 px full, 110 px empty). If he wants a fuller tower to hit HARDER as well as
+ * WIDER, that has to be expressed as ATK/PEN on the ladder, not as a second scale. Logged in the
+ * S178 PDR rather than invented here.
+ */
 export const STINK_DEATH_BLAST_BASE_DAMAGE = 100;
 /**
  * S151 P2 — the death blast's ATK against UNITS, on the shared ladder. Laser-weight (6) because a

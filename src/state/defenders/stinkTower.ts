@@ -66,9 +66,16 @@ export type RadialDamageFn = (
   cx: number,
   cy: number,
   radius: number,
-  /** On the 1000-per-shape scale. */
+  /**
+   * ⛔ S178 — **ALSO FIFTHS. THE 1000-PER-SHAPE SCALE IS GONE.** This said *"On the 1000-per-shape
+   * scale"*, and it was the last surviving instruction to put a second scale on the wire between two
+   * arms of one explosion. `PRIMITIVE_MAX_HP` has been **70** since S177 P1; every caller now passes
+   * the SAME ladder number into both arms. The two parameters are kept distinct only because a
+   * future effect may legitimately want to hit shapes and units differently — not because they are
+   * measured in different units.
+   */
   primitiveAmount: number,
-  /** On the stat ladder, in fifths — see `state/stats.ts`. NOT interchangeable with the above. */
+  /** On the stat ladder, in fifths — see `state/stats.ts`. The same unit as the above. */
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
@@ -130,7 +137,7 @@ export function stinkShardDir(defenderId: number, tick: number, index: number): 
  * player who built it. Being killed is punishment enough without also demolishing your own base.
  */
 export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialDamageFn): void {
-  const { damage, radius } = stinkBlastFor(d.bagsRemaining);
+  const { radius } = stinkBlastFor(d.bagsRemaining);
   // The visible burst, pushed BEFORE the damage so its position is recorded independently of what
   // the damage then razes — the same ordering rule razePrimitives documents for SEVER_ERASE.
   world.effects.push({
@@ -139,11 +146,34 @@ export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialD
     pos: { x: d.pos.x, y: d.pos.y },
     radius,
   });
-  // S151 P2 — the detonation hits UNITS hard (a laser-weight 6 ATK); it is a one-off death blast,
-  // not the tower's chip damage, so it is the one stink effect that is not on the bag's 1 ATK.
+  /*
+   * ⭐⭐⭐ S178 — **ONE LADDER: THE SHAPE ARM IS THE UNIT ARM.** This was the SEVENTH radial site and
+   * the one S177 P1 missed, so it went on paying shapes on the retired 1000-per-shape scale for a
+   * whole session while its six siblings had been converted.
+   *
+   * ⛔ WHAT IT WAS DOING. `stinkBlastFor` returns `STINK_DEATH_BLAST_BASE_DAMAGE 100 + bags × 60` —
+   * 100/160/220/280/340/400 — and that went into `primitiveAmount`. A shape is **70**. So every bag
+   * count one-shot a shape and a full magazine was 5.7× overkill, while the SAME explosion dealt
+   * `attackFifths(1, 4)` = **9 fifths** to a creature standing in it. One tower's death levelled
+   * every enemy shape within 240 px. That is verbatim the boss-and-goblin-print-different-numbers
+   * defect the owner reported in S177 — *"that is not consistent ... we have a system for this"*.
+   *
+   * ⛔ AND THE SUITE COULD NOT SEE IT. `stinkTower.test.ts` asserts `stinkBlastFor` is linear,
+   * clamped and integer — never which SCALE the result lands on. Green while broken. A scale
+   * assertion is added there now.
+   *
+   * ⚠ THE NUMBER IS THE OWNER'S, NOT A NEW ONE. R77: *"the tree blows up with 1atk and 4pierce"*,
+   * i.e. `attackFifths(1, 4)` = 9 — which the UNIT arm has always used. Only the shape arm was off
+   * the roster. The blast's RADIUS still scales with the magazine (240 down to 110 as it empties),
+   * so "more bags, bigger boom" survives as area rather than as a second damage scale.
+   *
+   * ⚠ AND THE COMMENT THIS REPLACES WAS ALSO STALE: it claimed the detonation *"hits UNITS hard (a
+   * laser-weight 6 ATK)"*. It never did — the unit arm has been ATK 1 / PEN 4 (9 fifths) all along.
+   */
+  const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);
   radialDamage(
     world, d.pos.x, d.pos.y, radius,
-    damage, attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN),
+    blastFifths, blastFifths,
     'hazard', d.ownerPlayerId,
   );
 }

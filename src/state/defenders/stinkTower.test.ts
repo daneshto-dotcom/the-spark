@@ -28,7 +28,8 @@ import type { Primitive } from '../../game/primitive.ts';
 import { applyRadialDamage, destroyDefender } from '../damage.ts';
 import { applyDefenderTick, applyRemoveDefender, applyRegisterDefender, teardownDefenders } from './defenderLifecycle.ts';
 import { getDefenderConfig, makeDefender, type Defender } from './defender.ts';
-import { stinkBlastFor, stinkShardDir, stinkIsDepleted } from './stinkTower.ts';
+import { stinkBlastFor, stinkDeathBlast, stinkShardDir, stinkIsDepleted } from './stinkTower.ts';
+import { STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN } from '../../constants.ts';
 import { snapshot, restore } from '../save.ts';
 import { determinismParts } from '../stateHashFull.ts';
 import { STINK_HUB_TYPE } from '../godlyRecipes/stinkTower.ts';
@@ -72,6 +73,58 @@ function addTower(w: World, x = 300, y = 300, bags = STINK_TOWER_BAGS): Defender
   w.defenders.set(d.id, d);
   return d;
 }
+
+/**
+ * ⭐⭐⭐ S178 — **WHICH SCALE THE DEATH BLAST LANDS ON.** The assertion this file was missing, and the
+ * reason a bug the owner would have called ridiculous survived a whole session in plain sight.
+ *
+ * The suite below pins that `stinkBlastFor` is LINEAR, CLAMPED and INTEGER. Every one of those was
+ * true while `stinkDeathBlast` fed that number — 100 to 400 — into the SHAPE arm of its explosion,
+ * against shapes worth **70**, while handing creatures `attackFifths(1, 4)` = 9 from the same blast.
+ * One tower's death levelled every enemy shape within 240 px, and not a single test noticed, because
+ * none of them ever asked what the number MEANT.
+ *
+ * So this drives the real `stinkDeathBlast` and asserts the two arms it actually passes.
+ */
+describe('S178 — the death blast is on ONE ladder, and the shape arm is the unit arm', () => {
+  interface Call { primitiveAmount: number; unitAmountFifths: number; radius: number }
+
+  function capture(bags: number): Call {
+    const w = makeWorld(0);
+    w.players.set(P0, makeIdlePlayer(P0, 0));
+    const d = addTower(w, 300, 300, bags);
+    let seen: Call | null = null;
+    stinkDeathBlast(w, d, (_w, _cx, _cy, radius, primitiveAmount, unitAmountFifths) => {
+      seen = { primitiveAmount, unitAmountFifths, radius };
+      return undefined;
+    });
+    expect(seen, 'stinkDeathBlast must call radialDamage').not.toBeNull();
+    return seen!;
+  }
+
+  it('passes the SAME ladder number to shapes and to units, at every magazine level', () => {
+    const owner = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN); // R77: "1atk and 4pierce"
+    expect(owner).toBe(9);
+    for (let n = 0; n <= STINK_TOWER_BAGS; n++) {
+      const c = capture(n);
+      expect(c.unitAmountFifths, `bags=${n} unit arm`).toBe(owner);
+      expect(c.primitiveAmount, `bags=${n} shape arm`).toBe(owner);
+      expect(c.primitiveAmount, `bags=${n}: the two arms must agree`).toBe(c.unitAmountFifths);
+    }
+  });
+
+  it('⛔ never passes the retired 1000-scale blast figure to shapes again', () => {
+    for (let n = 1; n <= STINK_TOWER_BAGS; n++) {
+      // `stinkBlastFor(n).damage` is 160..400 — every one of them a one-shot against a 70-fifth
+      // shape. If this ever matches again, the seventh radial site has regressed.
+      expect(capture(n).primitiveAmount).not.toBe(stinkBlastFor(n).damage);
+    }
+  });
+
+  it('⚠ the magazine still scales the blast, as AREA — "more bags, bigger boom" survives', () => {
+    expect(capture(STINK_TOWER_BAGS).radius).toBeGreaterThan(capture(0).radius);
+  });
+});
 
 describe('S141 P1 — the death blast scales with the unthrown magazine', () => {
   it('is linear in bags and clamped at both ends', () => {
