@@ -58,6 +58,12 @@ import {
   t9TowerAtlasBase,
 } from '../state/t9BossIds.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
+// ⭐ S178 — for `towerRingCentroid` / `towerAnchorAtPoint`; see the block at the end of this file.
+import type { World } from '../state/world.ts';
+import { RACE_FEED_SHAPE } from '../state/races.ts';
+import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
+import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
+import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** The three conditions a tower can be drawn in. Atlas ROW ORDER — see `TOWER_STATE_ROWS`. */
@@ -313,4 +319,77 @@ export function crumbleAlpha(elapsed: number, total: number): number {
 /** Where a race's destroy cinematic lives, or `null` if that tier has none built yet. */
 export function destroyAtlasBase(race: RaceId, tier: 3 | 9): string {
   return tier === 9 ? t9DestroyAtlasBase(race) : t3DestroyAtlasBase(race);
+}
+
+/**
+ * ⭐⭐⭐ S178 (owner) — **WHERE A TOWER IS DRAWN, AND WHETHER A POINT IS ON IT.**
+ *
+ * Owner, S178: *"A building — a connector in the building — is not clickable in its whole image.
+ * Only if you click, like, one specific spot of the building, then you can see the scrap versus fix
+ * buttons on it, and that's wrong. We need to be able to click the whole image of a building and
+ * manipulate it as we see fit."*
+ *
+ * ⛔ THE MEASUREMENT BEHIND HIS COMPLAINT. `controls.pickOwnPrimitive` hit-tests `prim.radius + 6`
+ * around each member SHAPE's centre, and `primitive.ts` gives a shape a radius of 8–10.8 — so the
+ * click target was a **14–17 px circle per shape**, while a tier-9 tower DRAWS at
+ * `T9_TOWER_SPRITE_PX` = **150×150**. Roughly 15 % of the visible building, as a handful of
+ * disconnected dots with dead space between them. Exactly *"one specific spot"*.
+ *
+ * ⚠ THIS LIVES HERE BECAUSE THIS FILE ALREADY OWNS THE ANSWER. `towerArtForRecipe`, the two sprite
+ * sizes and `TOWER_SPRITE_ANCHOR` are all here; putting the geometry anywhere else would have made
+ * a THIRD copy of the ring-centroid walk (`TowerRenderer.ringOf` and `healthBar.ringCentroid` are
+ * the first two, and healthBar's own docblock complains about being the second). `healthBar` now
+ * delegates here, so the bar, the building and the click target cannot drift apart.
+ */
+export function towerRingCentroid(
+  world: World, anchorId: PrimitiveId, art: TowerArt,
+): { x: number; y: number } | null {
+  const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
+  const ring = ringMembersAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
+  if (ring === null) return null;
+  let cx = 0;
+  let cy = 0;
+  let count = 0;
+  for (const id of ring) {
+    const p = world.primitives.get(id);
+    if (p === undefined) continue;
+    cx += p.pos.x;
+    cy += p.pos.y;
+    count++;
+  }
+  return count === 0 ? null : { x: cx / count, y: cy / count };
+}
+
+/**
+ * The ANCHOR primitive of the tower whose drawn sprite contains `(x, y)`, or null.
+ *
+ * ⚠ THE BOX IS THE SPRITE'S, NOT THE RING'S. `TOWER_SPRITE_ANCHOR` is bottom-centre and the renderer
+ * places the foot at `centroid.y + sizePx * 0.5`, so the drawn square is centred on the ring
+ * centroid and `sizePx` on a side. This mirrors that exactly — if the renderer's placement ever
+ * moves, this must move with it, which is why both now read the same `towerRingCentroid`.
+ *
+ * ⚠ SMALLEST TOWER WINS AN OVERLAP, deterministically. Two towers can only overlap when their rings
+ * do, and preferring the smaller box means the click lands on the building whose silhouette the
+ * cursor is most specifically inside rather than on whichever spawner `Map` iteration reached first
+ * — `Map` order deciding a player-visible outcome is the class of defect this codebase spends most
+ * of its comments on. Ties break on the lower spawner id so two peers agree.
+ */
+export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {
+  let bestAnchor: PrimitiveId | null = null;
+  let bestSize = Infinity;
+  let bestSpawner = Infinity;
+  for (const sp of world.creatureSpawners.values()) {
+    const art = towerArtForRecipe(sp.recipeId);
+    if (art === null) continue; // pentagram / goblin tower / lightning hub draw no building
+    const c = towerRingCentroid(world, sp.anchorPrimitiveId, art);
+    if (c === null) continue;
+    const half = art.sizePx * 0.5;
+    if (Math.abs(x - c.x) > half || Math.abs(y - c.y) > half) continue;
+    const id = sp.id as unknown as number;
+    if (art.sizePx > bestSize || (art.sizePx === bestSize && id >= bestSpawner)) continue;
+    bestSize = art.sizePx;
+    bestSpawner = id;
+    bestAnchor = sp.anchorPrimitiveId;
+  }
+  return bestAnchor;
 }

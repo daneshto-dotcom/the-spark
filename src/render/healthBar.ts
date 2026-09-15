@@ -62,16 +62,12 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
-import { creatureSpriteScaleMul, towerArtForRecipe, type TowerArt } from './towerFrames.ts';
+import { creatureSpriteScaleMul, towerArtForRecipe, towerRingCentroid, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { labelStructureComponents } from './structureComponents.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
-import { RACE_FEED_SHAPE } from '../state/races.ts';
-import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
-import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
@@ -461,21 +457,14 @@ function drawStructureBars(g: Graphics, world: World): void {
  * retuned, the bar and the building it labels come apart, and that is what the shared constants
  * `RACE_TOWER_SIZE` / `T9_TOWER_SIZE` are here to prevent.
  */
+/**
+ * ⭐ S178 — DELEGATES NOW. This was the SECOND hand-rolled copy of the ring walk, and its own
+ * docblock above said so. S178 needed a THIRD for the click target, so the walk moved to
+ * `towerFrames` — which already owns `towerArtForRecipe`, both sprite sizes and the anchor — and the
+ * bar, the building and the click box now read one function. They cannot drift apart any more.
+ */
 function ringCentroid(world: World, anchorId: PrimitiveId, art: TowerArt): { x: number; y: number } | null {
-  const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
-  const ring = ringMembersAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
-  if (ring === null) return null;
-  let cx = 0;
-  let cy = 0;
-  let count = 0;
-  for (const id of ring) {
-    const p = world.primitives.get(id);
-    if (p === undefined) continue;
-    cx += p.pos.x;
-    cy += p.pos.y;
-    count++;
-  }
-  return count === 0 ? null : { x: cx / count, y: cy / count };
+  return towerRingCentroid(world, anchorId, art);
 }
 
 /**

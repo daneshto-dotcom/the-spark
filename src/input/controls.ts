@@ -72,6 +72,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // S152 A5 — UI click cues. ⚠ SAFE FOR THIS FILE: audioManager imports only constants + types, no
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
+import { towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { seatGoblinTowerAt } from '../state/goblinKinds.ts';
 
 /**
@@ -636,7 +637,38 @@ export class Controls {
       bestId = prim.id;
       bestDistSq = d2;
     }
-    return bestId;
+    if (bestId !== null) return bestId;
+
+    /*
+     * ⭐⭐⭐ S178 (owner) — **AND IF NOTHING PRECISE WAS HIT, THE WHOLE BUILDING IS A TARGET.**
+     *
+     * Owner, S178: *"A building — a connector in the building — is not clickable in its whole image.
+     * Only if you click, like, one specific spot of the building, then you can see the scrap versus
+     * fix buttons on it, and that's wrong. We need to be able to click the whole image of a building
+     * and manipulate it as we see fit."*
+     *
+     * ⛔ THE SCAN ABOVE IS THE "ONE SPECIFIC SPOT". It tests `prim.radius + 6`, and `primitive.ts`
+     * gives a shape a radius of 8–10.8, so the target was a **14–17 px circle per member shape**
+     * against a tier-9 tower that DRAWS at 150×150 — about 15 % of the visible building, as a few
+     * disconnected dots with dead space between them. The shapes are also PHASED OUT under a tower
+     * (`markTowerCover`), so the player is aiming at dots they cannot even see.
+     *
+     * ⚠ ORDERED AS A FALLBACK, NOT A REPLACEMENT, AND THAT IS DELIBERATE. The precise scan still wins
+     * outright, so every click that worked before still resolves to exactly the same shape — this
+     * only catches the ones that previously hit nothing. A tower's box is up to 150 px across and
+     * letting it pre-empt a bare shape sitting on its roof would trade his bug for a different one.
+     *
+     * The same gates apply as above: own seat, and either buildable ground or a live goblin tower —
+     * a popover the reducer would refuse to act on is a dead zone, which is the trap the narrow
+     * version of this check was written to avoid.
+     */
+    const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
+    if (towerAnchor === null) return null;
+    const anchorPrim = this.world.primitives.get(towerAnchor);
+    if (anchorPrim === undefined || anchorPrim.placedBy !== this.playerId) return null;
+    const anchorTower = seatGoblinTowerAt(this.world, this.playerId, anchorPrim.id);
+    if (!canBuildNow(this.world, anchorPrim.pos, this.playerId) && anchorTower === null) return null;
+    return anchorPrim.id;
   }
 
   private isPointerOverPanel(): boolean {
