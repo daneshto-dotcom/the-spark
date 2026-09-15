@@ -5,5 +5,5 @@
   "budget": null,
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "no agentic loop; the one A.0 fan-out returned 16/16 and every lane was ALSO hand-run"
+  "last_result": "S178 closed by owner direction; no agentic loop left open. The overnight sweep died to the org spend limit (15/20 lanes) and was hand-run or salvaged per the S161 rule; five lanes remain NOT RUN and are carried forward."
 }
