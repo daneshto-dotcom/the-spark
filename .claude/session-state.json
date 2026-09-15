@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1412,
+  "tool_calls_session_total": 1417,
   "session_id": "S178",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -703,15 +703,6 @@
     }
   ],
   "real_context_tokens_at_close": null,
-  "carry_forwards_spawned_in_s176": [
-    "⛔ HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
-    "⚠ THE WALK ROW IS A QUADRUPED. idle/attack/die are upright biped; the walk clip generates him running on all fours, plus yellow speckle debris in the source. It is HIS art and it is dynamic, so it shipped - but it is the most likely thing he flags. Re-rolling walk framed upright costs ~$3.10 AND would drop cellW from 380 toward 256, which buys 32 frames per state inside the same texture ceiling instead of 20.",
-    "The 5 WAIVED ATLASES still need regenerated art (unit-demons, t3-mummies-scarab, t3-nagas-piranha, t9boss-nagas, t9boss-vampires) - assets-source/atlas-size-waivers.json.",
-    "GENERAL / GOBLIN TOWER ART - his to generate, then ONE markTowerCover call each.",
-    "R173-B (each connector costs the FULL structure pool) - RULED in S173, still not implemented. Its plan file is one of only two genuinely-live plans.",
-    "NONET stages: 8 questions open. An in-match ladder needs a wire field => PROTOCOL 46 -> 47; arcade-only costs no bump.",
-    "B8 powers · Pharaoh stances + Ra · Vlad life-sap."
-  ],
   "analyze": {
     "calibration": [
       {
@@ -776,5 +767,15 @@
     "validator_version": "s110-three-tier-v1"
   },
   "checkpoint_commit": "8e0bf77497656b35c8eefb1cb38caa74d30ac068",
-  "check_completed": true
+  "check_completed": true,
+  "carry_forwards_spawned_in_s178": [
+    "⛔ #1 NEXT SESSION — THE LONE-SHAPE RULE. Owner: 'a single primitive has ONE health... one hit to destroy by anyone' / 'for every time there's a single shape, it's always worth five'. NOT BUILT. Attempted twice, reverted twice. Design settled in S179_CARRY_FORWARD.md: new LONE_PRIMITIVE_POOL_FIFTHS=5 + a one-line Math.min cap in damage.ts gated on prim.bonds.size===0. PRIMITIVE_MAX_HP STAYS 70. The work is re-pinning ~13 fixtures across 7 files with REAL partner shapes (a sentinel bond id corrupts the recipe gates: 13 red -> 28 red).",
+    "BOSS REWORK, his numbers verbatim: Vlad life-sap 2 uses not 3; Warlord rage at 50% not 25% and doubles attack AND movement speed; direwolves up to 3 at a time, summon every 30s; Archdemon 'taken to hell' below 10% not 5%; Kraken KEEPS sonar and GAINS up to 6 tentacles (NEW, undesigned); Pharaoh locusts 50 damage each not 150 (he then said 'still very strong' — re-check after he plays); Whopper unchanged ('looks sick').",
+    "⚠ CORRECTION HE NEEDS FIRST: he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra ritual are unbuilt. They ARE built and called every host tick (hostTick.ts:1830-1848). S179 ADJUSTS numbers; it does not build them. Only the Kraken tentacles are new.",
+    "VOLTKIN TV — two transition videos, ~EUR 20: (1) TV appears/breaks open + Voltkin CLIMBS OUT (he already has the climbing-out still — wire it, don't generate it), (2) damaged -> destroyed explosion. NO video between intact and damaged.",
+    "NO DAMAGE NUMBERS ON SCRAP — ruled. Design settled (pendingCreatureDeaths is the non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.",
+    "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
+    "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
+    "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
+  ]
 }
