@@ -309,61 +309,85 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     return world;
   }
 
+  /*
+   * ⛔⛔⛔ S178 (owner) — **A NO-OP ARM MUST NOT CONSUME THE STRIKE.** This block used to `return`
+   * on ALL THREE of its exits, including the two that deal no damage, and that is what made the
+   * owner's poop bag immortal.
+   *
+   * Owner, S178: *"The poop bag is still freaking unkillable. Vlad killed the orc warlord within,
+   * like, freaking three hits, but it took him, like, maybe fifty hits. He was just standing there
+   * and attacking a poop bag, and the poop bag didn't explode or anything."*
+   *
+   * ⛔ THE POOL WAS NEVER THE PROBLEM AND S177 P5 ALREADY FIXED THE REACH. `STINK_BAG_HP` is 1,
+   * `ehp` is `unitPoolFifths(1,0)` = 5 fifths, and EVERY attacker in the game one-shots it —
+   * `_s178_bagprobe.test.ts` measures a bag dead in 60 ticks, one strike, for a goblin and for
+   * every boss, at every distance inside the cloud. THE DEADLOCK IS THE ARM ORDER:
+   *
+   *   1. `creatureLifecycle`'s bag clause keeps a creature in ATTACKING while a bag is in engage
+   *      range, so it never re-seeks and never walks;
+   *   2. this arm runs BEFORE the bag arm and returned even when it struck nothing;
+   *   3. `hostTick` re-acquires `targetPrimitiveId` (the nearest enemy shape) every tick.
+   *
+   * So every tick: commit set → shape out of reach → release → **return**, and the bag arm 100 lines
+   * below is never reached. The same probe measures `ticksToDie = null` over 900 ticks with a shape
+   * anywhere on the board — even 300 px away. Fifty swings is fifty seconds of exactly that.
+   *
+   * ⭐ AND IT IS S177 P9'S OWN BUG, REOPENED BY ITS NEIGHBOUR. P9 cured *"they shouldn't swing at
+   * nothing"* for the shape case by releasing the commitment here. The BAG case re-creates it,
+   * because the bag is what holds the creature in ATTACKING while this commit eats the strike.
+   *
+   * THE FIX IS NOT A REORDER. The arm order is deliberate and documented at the bag arm (*"a unit
+   * deals with the enemy in front of it first … popping the bag it is standing in comes between the
+   * two"*). All that changes is that the two exits which deal NO damage now fall through to the arms
+   * below instead of ending the strike. Only a real hit still returns.
+   */
   if (attackerConfig.targetsStructures && creature.targetPrimitiveId !== null) {
     const prim = world.primitives.get(creature.targetPrimitiveId);
     // The shape died between target selection and this fire tick (another goblin, a potato, a
-    // sever cascade). Release the commit; the FSM re-seeks next tick.
-    if (prim === undefined) {
+    // sever cascade), OR it drifted out of strike reach during the wind-up. Release the commit —
+    // the FSM re-seeks next tick — and FALL THROUGH: this strike has not been spent on anything.
+    const reachSq = attackerConfig.attackRange * attackerConfig.attackRange;
+    if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {
       creature.targetPrimitiveId = null;
+    } else {
+      /*
+       * ⭐⭐⭐ S177 P9 (owner) — **RELEASE THE COMMITMENT; DO NOT MIME THE SWING.**
+       *
+       * Owner: *"They shouldn't swing at nothing ... only when they reach it. And they have acquired
+       * the target ... I'm in range. I stop. I'm ready for my attack. There shouldn't be pretending
+       * to attack and not hitting anything. That's just ridiculous."*
+       *
+       * ⛔ THE RANGE RE-CHECK IT ADDED NOW SITS IN THE `if` ABOVE — range is re-tested at STRIKE
+       * time, not merely at engage time, because the physics solver can push a goblin off its target
+       * during the wind-up and a hit landing from out of range reads as a shape taking damage from
+       * nothing. S178 only moved it up and made its exit FALL THROUGH instead of returning; the
+       * behaviour P9 asked for is unchanged, and the strike it was silently eating is now free to
+       * reach the bag arm below.
+       */
+      /*
+       * ⭐⭐⭐ S177 P1 (owner) — **THE ATTACKER'S OWN STATS, LIKE EVERY OTHER ARM IN THIS FUNCTION.**
+       *
+       * This was a FLAT `GOBLIN_DAMAGE_VS_PRIMITIVE` = 167 for every creature in the game — a melee
+       * goblin, an archer and a tier-9 boss all dealt exactly the same damage to a shape, on a scale
+       * nothing else used. It is the single line that produced the number he complained about:
+       * *"when he attacks the tower, it shows us a hundred sixty four. That is not consistent."*
+       *
+       * Every sibling arm already reads `attackFifths(atk, pen)`; the shape arm was the odd one out.
+       * Now it is not, and a goblin prints the same 12 on a shape that it prints on a goblin. His
+       * six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
+       */
+      const died = damageEntity(
+        world,
+        { kind: 'primitive', id: prim.id },
+        attackFifths(attackerConfig.atk, attackerConfig.pen),
+        'creature',
+      );
+      if (died) {
+        creature.killCount += 1;
+        creature.targetPrimitiveId = null; // commit released — re-seek next tick
+      }
       return world;
     }
-    // Range re-check at STRIKE time, not just at engage time: the goblin may have been pushed off
-    // by the physics solver during its windup, and a hit landing from out of range would read as a
-    // shape taking damage from nothing.
-    /*
-     * ⭐⭐⭐ S177 P9 (owner) — **RELEASE THE COMMITMENT; DO NOT MIME THE SWING.**
-     *
-     * Owner: *"They shouldn't swing at nothing ... only when they reach it. And they have acquired
-     * the target ... I'm in range. I stop. I'm ready for my attack. There shouldn't be pretending to
-     * attack and not hitting anything. That's just ridiculous."*
-     *
-     * ⛔ THIS LINE USED TO `return` AND LEAVE THE COMMITMENT STANDING, which is precisely the mime he
-     * is describing. `creatureLifecycle`'s `primitiveValid` only asks whether the shape still EXISTS,
-     * so a creature whose target drifted out of reach stayed in ATTACKING for ever: full animation,
-     * full cadence, zero damage, and no path back to SEEKING because its commitment never lapsed.
-     *
-     * Dropping `targetPrimitiveId` ends it at the source. The creature falls out of ATTACKING on the
-     * next tick, re-seeks, and WALKS into range — which is the behaviour he asked for.
-     */
-    const reach = attackerConfig.attackRange * attackerConfig.attackRange;
-    if (distSq(creature.pos, prim.pos) > reach) {
-      creature.targetPrimitiveId = null;
-      return world;
-    }
-
-    /*
-     * ⭐⭐⭐ S177 P1 (owner) — **THE ATTACKER'S OWN STATS, LIKE EVERY OTHER ARM IN THIS FUNCTION.**
-     *
-     * This was a FLAT `GOBLIN_DAMAGE_VS_PRIMITIVE` = 167 for every creature in the game — a melee
-     * goblin, an archer and a tier-9 boss all dealt exactly the same damage to a shape, on a scale
-     * nothing else used. It is the single line that produced the number he complained about:
-     * *"when he attacks the tower, it shows us a hundred sixty four. That is not consistent."*
-     *
-     * Every sibling arm above and below already reads `attackFifths(atk, pen)`; the shape arm was the
-     * odd one out. Now it is not, and a goblin prints the same 12 on a shape that it prints on a
-     * goblin. His six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
-     */
-    const died = damageEntity(
-      world,
-      { kind: 'primitive', id: creature.targetPrimitiveId },
-      attackFifths(attackerConfig.atk, attackerConfig.pen),
-      'creature',
-    );
-    if (died) {
-      creature.killCount += 1;
-      creature.targetPrimitiveId = null; // commit released — re-seek next tick
-    }
-    return world;
   }
 
   /*
