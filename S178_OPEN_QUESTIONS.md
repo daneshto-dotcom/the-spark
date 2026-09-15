@@ -51,11 +51,19 @@ and the whole structure-durability system stops mattering.**
 **⭐ HIS OWN SENTENCE CONTAINS THE FIX:** *"The defence times HP times five only happens once it's
 starting to connect."* — i.e. **once a shape is connected, its durability IS the structure pool.**
 
-**→ THE ONE QUESTION (C1):** when something attacks a shape that is *part of a structure*, should the
-damage go to the **structure's connector pool** instead of the shape's own HP? That makes it one
-durability number per building and makes his ruling safe to ship. **I recommend yes.** A lone shape
-then has 1 HP (5 fifths, one-shot, same as a poop bag), and a connected shape is defended by its
-structure exactly as he describes.
+✅ **RULED — S178, in his words:** *"Two shapes connected has six fifths of durability. One shape not
+connected has one durability, no durability. **New rule. Shape standing by itself with no connectors
+has no durability. So just one, literally one hit from anything.**"*
+
+**THE RULE, stated once so it cannot be misread:** **durability comes from CONNECTORS.**
+· a shape with **no** connectors → **1 hit from anything** kills it (same as a poop bag);
+· a shape **with** connectors → it is defended by its STRUCTURE's pool, `n × (5 + n)`, and its own
+  HP must no longer be a second, faster way to kill it.
+
+**BUILD NOTE for next session:** the second half is the real work. `damage.ts` currently does
+`prim.hp -= amount` for any shape and erases its connectors when it dies, so the shape arm has to be
+re-pointed at `damageConnector` for a CONNECTED shape. Without that half, dropping the constant makes
+every tower one-swing paper.
 
 ## C2 · NO DAMAGE NUMBERS WHEN YOU SCRAP YOUR OWN BUILDING
 
@@ -114,16 +122,17 @@ towers as **ruins**. The version gate should refuse such tabs but wasn't bumped,
 ✅ **THE WALL IS APPROVED.** *"Do you mean around the edges of the map? Yeah. I mean, sure. They
 shouldn't be able to leave the map. That's ridiculous. So definitely."* The 40 px edge stays as shipped.
 
-**What is still open is one small consequence of it:** when an archer gets backed up against that
-wall, it can no longer hold its shooting distance. Should it be **dragged into melee** (it is *"the
-flimsiest thing the tower makes"*, so it dies), or **slide sideways along the wall** to keep its
-range? You have ruled on archer standoff behaviour twice before, so I did not choose for you.
-⚠ Low stakes — it only matters for a unit fighting in the outer 200 px.
+✅ **AND THE ARCHER IS RULED TOO — no new mechanic.** *"Cornered archer is not dragged into melee.
+He still shoots just from melee range, obviously. You don't need to make new mechanics. It's stupid."*
+**Nothing to build:** a ranged unit already fires from wherever it stands, so an archer pressed
+against the wall simply keeps shooting from closer. The shipped behaviour is already what he wants.
+**Closed.**
 
-### Q-D · A FULL STINK TOWER — bigger boom, or stronger boom?
-Its death explosion now deals your ruled 1 atk / 4 pierce. A full magazine makes it **wider** (radius
-240 vs 110) but **not stronger**. Should a full tower hit *harder* too? If yes I need an atk/pierce
-number, since it has to be on the ladder.
+### Q-D · THE STINK TOWER — ✅ **RULED: LEAVE IT.**
+*"Did I tell you something about the Stink Tower? It has a good explosion. It does damage. Everything
+is fine for now."* Correct — and I muddled this by listing it as a question at all. The S178 fix was
+to its death-blast SCALE (it was one-shotting shapes on a retired scale); the tower itself is fine
+and no further change is wanted. **Closed.**
 
 ---
 
