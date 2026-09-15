@@ -450,6 +450,47 @@ describe('S160 P3 — the ≤ 29 CONNECTOR CEILING, the number the owner is quot
       expect(VOLTKIN_CHAIN_JUMP_DIVISOR).toBe(2);
     });
 
+    /*
+     * ⭐⭐⭐ S178 (OWNER, CONFIRMING THE CURVE) — **HIS OWN ARITHMETIC, PINNED.**
+     *
+     * He approved halving by re-deriving the consequence himself, unprompted and correctly:
+     * *"a three connector tower, so a stink tower, would have three times one point six times five
+     * would have twenty four HP for the first three connectors. So it's one hit for the tower to be
+     * destroyed... Then there's two connectors left, two times one point four times five is then they
+     * each have fourteen... But for towers that have six connectors, so it'll be six times two point
+     * two times five. So we'll have sixty six HP. So he will need two attacks to destroy the first
+     * connector. Okay. That makes sense."*
+     *
+     * His `n x (1 + 0.2n) x 5` IS `structurePoolFifths(n)` — 24, 14, 66 — and the shipped bolt
+     * reproduces both counts exactly. This is the strongest kind of pin available: the owner stating
+     * the expected outcome in his own numbers, independently of the implementation.
+     */
+    it('⭐ OWNER-CONFIRMED: one bolt takes a 3-connector tower, TWO take a 6-connector one', () => {
+      const base = attackFifths(VOLTKIN_ATK, VOLTKIN_PEN);
+      const curve = Array.from({ length: VOLTKIN_CHAIN_MAX_TARGETS }, (_, j) => chainJumpFifths(base, j));
+
+      /** Bolts needed before the component's banked damage first reaches its pool. */
+      const boltsToFirstSever = (connectors: number): number => {
+        const pool = structurePoolFifths(connectors);
+        let banked = 0;
+        for (let bolt = 1; bolt <= 8; bolt++) {
+          for (const d of curve) {
+            banked += d;
+            if (banked >= pool) return bolt;
+          }
+        }
+        return Infinity;
+      };
+
+      // His three numbers, checked against the function the sim actually reads.
+      expect(structurePoolFifths(3), 'his "three times one point six times five"').toBe(24);
+      expect(structurePoolFifths(2), 'his "two times one point four times five"').toBe(14);
+      expect(structurePoolFifths(6), 'his "six times two point two times five"').toBe(66);
+
+      expect(boltsToFirstSever(3), 'stink tower: "one hit for the tower to be destroyed"').toBe(1);
+      expect(boltsToFirstSever(6), 'high tower: "he will need two attacks"').toBe(2);
+    });
+
     it('⛔ ONE BOLT NO LONGER LEVELS A 5-CONNECTOR TOWER — his "every connector along the way dies"', () => {
       /*
        * Walk the real banking rule by hand: damage pools STRUCTURE-WIDE (R173-B), severs are queued
