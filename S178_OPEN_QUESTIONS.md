@@ -1,184 +1,195 @@
-# S178 — OPEN QUESTIONS
+# S178 — OPEN QUESTIONS, in plain language
 
-Everything below is **NOT BUILT**. Each one is either a decision only you can make, or something I
-was not confident enough about to ship while you were asleep. They are ordered by how much they
-change the game, not by how hard they are.
+Rewritten S178 after the owner asked for these "in a more expanded but simple terms so I can
+understand them." No jargon, no code names where a plain word works.
 
-Your instruction governed what got built: *"only if you understand them completely and you know that
-those bugs are real … and everything that you're still not sure about, then you leave for me to
-judge before working it."*
+**Already answered by him this session** — recorded at the bottom, not repeated as questions.
 
 ---
 
-## 1. BOSS-VS-BOSS TIME-TO-KILL — and "Vlad is OP" is **not a code defect**
+## Q1 · VLAD vs THE WARLORD — the real problem is the ABILITIES, not the stats
 
-You asked how Vlad kills the Orc Warlord in three attacks. He does, and it is exactly your ladder:
+**What you saw:** the Warlord barely scratched Vlad before dying.
+
+**What I measured** (a real duel, run in the game's own engine, 12 times):
 
 ```
-Vlad's strike   attackFifths(10, 10) = 10 × 15 = 150 fifths
-Warlord's pool  unitPoolFifths(22, 12) = 22 × 17 = 374 fifths
-ceil(374 / 150) = 3          ← not "about three": the remainder is 74/150, nowhere near 2 or 4
+6.1 seconds.  Vlad wins every single time.
+Vlad   takes 66% damage  →  ends at 46% damage   (he heals 20% back)
+Warlord takes 80% damage →  dead
 ```
 
-It is symmetric — the Warlord needs `ceil(260/112)` = 3 back — and your R140 life-sap (3 uses × 52)
-lifts Vlad's effective pool to 416, so **Vlad needs 3 and the Warlord needs 4**. Vlad wins a boss
-duel by exactly one exchange, before rage or direwolves.
+So the Warlord *did* hurt him — about two thirds — and then **Vlad healed it back**, which is why
+his bar looked barely touched. Your read of the bar was right.
 
-⭐ **AND YOUR OWN S172 RULING PRODUCED IT**, verbatim: *"bosses should be a lot stronger. So let's
-double their health and defense, whatever it is right now. Double it for all the bosses. **Keep
-their damage as is**."* Pre-S172 the Warlord's pool was 121 against Vlad's 150 — a **one-shot**. The
-doubling moved boss duels from 1 hit to 3. It worked. You now want more than 3.
+**Why it is unfair, in one line each:**
 
-**THE QUESTION:** how many exchanges should a boss duel last? The lever is yours:
-- **Double HP/DEF again** → Warlord 1276 / Vlad 840 ⇒ **9 and 8 strikes**.
-- **Cut boss damage** — which S172 explicitly declined.
+- **Vlad heals himself 3 times, 20% each.** That is +60% free health on top of his pool. Nothing is
+  drained from anyone — it is a pure heal.
+- **The Warlord's "rage" only starts when he drops below 25% health.** But Vlad hits so hard that
+  the Warlord jumps from 60% straight to 20% in one blow — **he skips over his own rage window and
+  dies.** He has an ability that, against Vlad, basically never happens.
 
-⚠ Either choice also re-tunes boss-vs-army, where every boss already one-shots every regular unit
-(recorded on the books at `constants.ts` before you played it).
+**THE QUESTION — pick one (or say something else):**
 
-⚠ AND A FREE FINDING: **WARLORD_RAGE is near-unusable.** It arms below 25% of 374 = 93.5, and he is
-at 74 after two Vlad strikes — so it lasts exactly one swing before he dies.
+- **(a)** Give the Warlord's rage a bigger window so it can actually fire (trigger at 50% instead of 25%).
+- **(b)** Cut Vlad's healing (2 uses instead of 3, or 10% instead of 20%).
+- **(c)** Give the Warlord his own survival ability so both bosses have one that matters.
+- **(d)** Leave it — Vlad is meant to be the scary one.
 
----
-
-## 2. THE VOLTKIN TV — I fixed what I could measure; two things are yours
-
-**FIXED:** it drew at 61 px (smaller than a tier-3 tower) and now draws at a measured 112 px —
-tier-9 parity against what tower art *actually* draws, not its sprite box. Each row also lands on its
-own feet now, so the emergence and the ruins no longer float above the ground line.
-
-**⛔ WHAT I FOUND AND COULD NOT FIX — THE SHEET IS MOSTLY STILLS.** I measured the shipped PNG:
-
-| row | frames | reality |
-|---|---|---|
-| intact · damaged · critical · explosion | 12 each | **12 byte-identical copies of one still** |
-| spawning · destroyed | 12 each | genuinely animated |
-
-So "the TV is not done" is **true at the art, not at the code**. There is no idle animation, no
-burning animation and no explosion animation to play — only a ruins clip. I made the renderer animate
-every row correctly (it does real work on the two that move), but four rows have nothing to show.
-
-**THE QUESTION:** do you want those four rows generated as real clips? That is an art spend, and the
-real veo cost you measured is **~$20/clip**, not the ~$3.10 an older note assumed.
-
-## 3. THE TV EMERGENCE STILL HAS NO VOLTKIN CLIMBING OUT
-
-You asked for this explicitly — *"even half a second in the loop, you see him kind of coming out."*
-The shipped emergence clip is a discharge-and-settle with no creature in it. Two routes:
-- **(a) regenerate the clip** (~$20, and the last attempt came back as a discharge again), or
-- **(b) composite the real Voltkin sprite over the TV with a scripted rise, derived from synced
-  state** — $0, and it is the route the engine already uses for every per-strike visual.
-
-**I recommend (b).** Your call before I spend anything.
-
-## 4. THE VOLTKIN'S WALK IS A QUADRUPED
-
-You said he looks ~30% bigger running than idling. **The cause is measurable:** the packer's
-`normaliseStateScale` IS on, but it fits on the whole alpha subject's HEIGHT — and the walk clip is a
-horizontal four-legged dash, so its subject is short and the pass scales it UP.
-
-A per-row height correction fixes the SIZE for $0 (the packer already has this shape for `die` rows
-via `stillHeightRatio`). It cannot make him run upright — that needs a re-rolled walk clip at ~$20.
-
-**THE QUESTION:** size-only fix now, or re-roll the walk?
+⚠ Whatever you pick, **every boss should get the same audit.** Right now only two of the six have an
+ability that changes a fight at all.
 
 ---
 
-## 5. THE CHAIN-LIGHTNING CURVE IS MINE, NOT YOURS
+## Q5 · WHAT A "FALLOFF CURVE" IS
 
-You said *"diminishing power per attack"*; you did not say by how much. I used **halving**:
-`33 · 16 · 8 · 4 · 2 · 1`, which gives **exactly one connector per bolt** on a 5-connector tower
-(it was taking three) while the first links still one-shot a goblin and the tail fades.
+The Voltkin's lightning jumps from target to target — up to 6 things per bolt. **"Falloff" just means
+each jump is weaker than the last.** The "curve" is how fast it weakens.
 
-Halving matches the repo's existing idiom (the laser's three halvings) and keeps every term a whole
-number on your ×5 ladder. A gentler curve (−25%/jump: `33 · 24 · 18 · 13 · 10 · 7`) still cascades.
-**Confirm halving, or name a curve.** One constant: `VOLTKIN_CHAIN_JUMP_DIVISOR`.
+I used **halving**:
 
-⚠ HONEST CAVEAT: "one connector per bolt" is true of the **first** bolt on an undamaged tower.
-Overkill carries and the pool shrinks, so a second bolt takes more.
+```
+1st thing hit: 33 damage
+2nd:           16
+3rd:            8
+4th:            4
+5th:            2
+6th:            1
+```
 
-## 6. DOES THE SPINDLE DIE WITH THE VORTEX?
+Before, all six took the full 33 — which is why one bolt wiped a whole tower.
 
-You ruled the Vortex must not touch free primitives. The **Spindle** (Line↔Circle) is the same class
-of thing doing the same thing tangentially to the same victims, so I unwired both — the conservative
-reading. Say if the Spindle should stay.
+**THE QUESTION:** is halving right, or should it fade slower? A slower fade would be e.g.
+`33 → 24 → 18 → 13 → 10 → 7`, which still kills a lot. Halving means the bolt really only *hurts*
+the first two or three things and tickles the rest.
 
-⭐ And your creature-drag idea is recorded at the code, not lost: *"pull in creatures … if they're
-running against it, it will pull them closer, make them slower; if they run [with] it, it'll make him
-faster."* Both modules are intact and one line from being re-armed against that new victim.
-
-## 7. THE PLAYFIELD MARGIN IS MINE — 40 px
-
-The sim never had a board; it does now. `WORLD_EDGE_MARGIN = 40` keeps a foot-anchored sprite fully
-drawn and clears your keep box (x 1763–1837). The cost is an invisible wall 40 px in from the edge.
-**Overrule it on sight** — it is one constant.
-
-⚠ AND ONE COMBAT-FEEL DECISION I DELIBERATELY DID NOT MAKE: when a standoff archer is backed against
-that wall, its ring is clamped and it ends up **closer than its attack range wants — sometimes into
-melee**. The alternative is that it SLIDES ALONG the edge to keep its range. You have ruled on
-standoff behaviour twice, so I would not pick for you.
-
-## 8. SHOULD A FULLER STINK TOWER HIT *HARDER*, OR JUST *WIDER*?
-
-Its death blast was still on the retired 1000-point scale (100–400 against a 70-fifth shape) — fixed,
-and it now deals your R77 number (`1 atk / 4 pierce` = 9 fifths) to shapes and units alike. The
-magazine still scales the blast **as area** (radius 240 full → 110 spent).
-
-**THE QUESTION:** should a full tower also hit *harder*? On the ladder that has to be ATK/PEN, not a
-bespoke curve — so it needs your number.
-
-## 9. `PRIMITIVE_MAX_HP` MOVED 1000 → 70 WITH NO PROTOCOL BUMP (S177)
-
-`hp` is an absent-field default both peers compute themselves, so a **stale pre-S177 tab is still
-ACCEPTED** by the version gate and reads every undamaged shape as 1000 — drawing destroyed-tower
-frames over buildings the host has at 83% health. Bumping `PROTOCOL_VERSION` 46 → 47 refuses stale
-tabs outright. **I recommend yes.** It is a wire decision, so it is yours.
-
-## 10. SCRAP PRINTS PHANTOM DAMAGE OVER SHAPES YOU WERE JUST REFUNDED
-
-Nine red `70`s bloom over your own base after a SCRAP that cost nothing — same on the tier-9 boss
-release and the lightning-hub self-destruct. **I did not guess at this one.** Telling "destroyed"
-from "deliberately consumed" needs a `cause` threaded through `razePrimitives` into a client-visible
-channel, and every cheap discriminator I tried misfires on a one-shot kill. That is a wire-surface
-decision.
-
-## 11. CREATURE "DAMAGED / HURT" STILL DOES NOT EXIST
-
-You asked in S177. `CreatureState` is `SPAWNING | SEEKING | ATTACKING | DESPAWNING`. ⚠ A verification
-lane found that a **fifth state is forbidden by your own standing rule (R152)**, recorded at three
-sites — and that the repo has solved this twice without touching the union: a **tick stamp**
-(`stunnedUntilTick`, `poopyUntilTick`) that lands additive-optional with no protocol bump, plus a
-render-only sentinel. So the real deliverable is a `hurtUntilTick` stamp, not a new state. Say the
-word and it is a small piece of work.
-
-## 12. THE BIG ONE — CHARACTER SHEETS ON CLICK
-
-Not started; it is the largest thing you named and its survey lane died to the spend limit. Before I
-build it I need two answers:
-- **which entity kinds ship first** (creature / tower / connector structure / free-form / castle), and
-- **may the enemy panel show LIVE health?** A peer may not receive enough state for that. If it needs
-  new *required* wire fields it costs a `PROTOCOL_VERSION` bump.
-
-I will bring you a costed plan, not questions, once you pick the slice.
+*(One dial, one number. Say "halving is fine" or "make it slower" and it is a one-line change.)*
 
 ---
 
-# ⚠ THINGS I SHIPPED THAT YOU SHOULD KNOW ABOUT
+## Q9 · WHAT "PRIMITIVE_MAX_HP 1000 → 70" MEANS
 
-1. **A9 (whole-building clicking) has no unit test.** It is a pure fallback that cannot change any
-   click that already worked, and typecheck + the full suite are green — but the geometry rests on
-   review, not on a test. A valid race-tower fixture needs a real ring and the existing tower
-   fixtures all use `goblinTower`, which has no art.
-2. **Two sibling integrators are deliberately unclamped** — Helga (held by her hub leash) and the
-   hunter (spawns inside the board, bounded by its own AI). Both latent, neither live, reason
-   recorded at the code.
-3. **A4 had a side effect I did not plan:** because the shape arm now falls through, a
-   structure-attacker whose committed shape is out of reach continues to the bag and castle arms in
-   the same strike instead of ending there. That is the fix working, but it is a real behaviour change.
+A **primitive** is one placed shape — a single square, circle, triangle you put on the board.
 
-# ⛔ FIVE SWEEP LANES WERE NEVER RUN
+It used to have **1000 health**, on a scale nothing else in the game used. In S177 you ruled
+everything onto one scale, so a shape became **70** — which is your "six goblin swings kill a shape"
+(a goblin swing is 12; six of them is 72).
 
-The org spend limit killed 15 of 20 agent lanes overnight. Eleven were hand-run or salvaged. These
-five were not, and per this project's own S161 rule they are named here rather than buried:
-**`determinism`, `foursites`, `lifecycle`, `wire`, `hostmig`** — the five broadest sweep lanes. They
-still owe a verdict.
+**Here is the problem, and it is a multiplayer one.** The game only sends a shape's health over the
+network *when it is damaged*. If it is undamaged, nothing is sent and each player's game fills in the
+number from its own copy of the code.
+
+So: if your brother has the game open in an old browser tab from before that change, **his tab still
+thinks a full-health shape is 1000 while yours says 70.** His screen would draw your healthy towers
+as wrecked ruins. The game has a version check that is supposed to refuse old tabs — but this change
+didn't bump the version number, so **old tabs are still let in.**
+
+**THE QUESTION:** shall I bump the version number so old tabs are refused outright? The only cost is
+that anyone with a stale tab open has to refresh. **I recommend yes.**
+
+---
+
+## Q11 · THE "HURT" STATE
+
+You asked in S177 whether creatures have a "damaged/hurt" look. They don't — a creature is only ever
+*spawning, walking, attacking, or dying*.
+
+**Here's the twist I found:** you already ruled (R152) that we must **not** add a fifth state to that
+list — and the game has already solved this exact thing twice without one, for **stunned** and for
+**poopy**. Both work the same simple way: stamp a "hurt until tick N" marker on the creature, and the
+drawing code flashes it while the marker is live. It expires by itself, costs no network change, and
+adds no new state.
+
+**THE QUESTION:** do you want a hurt flash at all? If yes, it's a small piece of work using the
+pattern that already exists. *(Not started — next session.)*
+
+---
+
+## Q7 · THE INVISIBLE WALL — how far in from the edge?
+
+The game never actually had a boundary; creatures could walk off the screen forever. That's fixed —
+there's now a wall **40 pixels in from the edge**.
+
+40 is my number, not yours. Too small and a creature is half off-screen and unclickable; too big and
+you lose playable ground.
+
+**THE QUESTION:** is 40 fine, or do you want it tighter/looser? *(One constant.)*
+
+**AND A SECOND, SEPARATE ONE:** when an archer gets backed up against that wall, it can't keep its
+shooting distance any more — so **it ends up dragged into melee**. The alternative is that it
+*slides sideways along the wall* to keep its range. Which do you want? You've ruled on archer
+standoff behaviour twice before, so I didn't pick for you.
+
+---
+
+## Q8 · SHOULD A FULL STINK TOWER HIT HARDER, OR JUST WIDER?
+
+When a stink tower dies it explodes. Its explosion was on the old broken scale — it was one-shotting
+shapes. Fixed: it now deals your own ruled number (1 attack / 4 pierce).
+
+Right now, **a tower full of bags makes a BIGGER explosion (wider radius), but not a STRONGER one.**
+
+**THE QUESTION:** should a full tower also hit *harder*, not just wider? If yes I need a number from
+you in attack/pierce terms, because "harder" has to be on the ladder like everything else.
+
+---
+
+## Q10 · THE FAKE DAMAGE NUMBERS WHEN YOU SCRAP
+
+When you press SCRAP on your own building, you get **your shapes refunded** — but the game pops red
+damage numbers over them as if they'd been destroyed. Nine shapes = nine red "70"s over your own base
+for something that cost you nothing. (Same when a tier-9 boss is released and when a lightning hub
+self-destructs.)
+
+I did not guess at a fix. The game currently can't tell "destroyed by an enemy" from "dismantled on
+purpose" — they go through the same code. Telling them apart means threading a reason through it,
+which touches the network layer, so it's your call whether that's worth it.
+
+**THE QUESTION:** worth fixing, or live with it? *(Not started — next session.)*
+
+---
+
+## Q12 · CHARACTER SHEETS — **ANSWERED: not this session.**
+
+Carried to next session. When we do it, I need two things from you:
+1. **which things get a sheet first** — creatures, towers, structures, castles?
+2. **may the enemy's sheet show their LIVE health?** If yes it may need new network data (and a
+   version bump). If "just their stats, not live health", it's much cheaper.
+
+---
+
+# ✅ RULINGS YOU GAVE THIS SESSION — recorded, not questions
+
+**THE SPINDLE — "you should just unwire the mechanic that pulls shapes to it."**
+✅ **Already exactly what shipped.** The spinning spiral you see is drawn by a completely separate
+piece of code (`bondVisualRenderer` → `drawSpindle`) that never touched the pulling. I only removed
+the pull. Verified: no renderer references the pull functions at all. **The spiral still spins.**
+
+**THE TV ART — the stills are by design; what's missing is the video BETWEEN states.**
+✅ Corrected my finding. Not "four rows are broken stills" — the stills ARE the states, from your own
+images. What's missing is **two transition videos**:
+1. **The TV appearing** — electricity in the background, the TV appears/breaks open, **Voltkin climbs
+   out**, then he stands idle beside it. *(You have a still of him climbing out — we wire that in.)*
+2. **Damaged → destroyed** — the explosion.
+
+No video needed between intact→damaged (that's just a state swap). Estimated ~€20. **Not started —
+next session**, per your instruction that unstarted work carries forward.
+
+**CHARACTER SHEETS — not this session.** ✅
+
+---
+
+# ⚠ THINGS ALREADY SHIPPED THAT YOU SHOULD KNOW
+
+1. **Clicking a whole building has no automated test** — it's a pure add-on that can't break any
+   click that already worked, but the geometry rests on my review, not a test.
+2. **Helga and the hunter** still use the old unbounded movement code. Neither can actually reach an
+   edge today (she's leashed to her hub; he's bounded by his own AI), so it's harmless — but it's
+   recorded so nobody "finishes the job" without thinking.
+
+# ⛔ FIVE SEARCHES WERE NEVER RUN
+
+The overnight agent budget ran out and killed 15 of 20 search lanes. Eleven I re-ran by hand. **Five
+were never run at all** and still owe an answer: determinism, the four-sites check, creature
+lifecycle, the network protocol, and host-migration. Named here rather than quietly dropped.
