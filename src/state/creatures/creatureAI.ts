@@ -525,6 +525,15 @@ export function pickNavUnit(
     if (
       quarry !== undefined &&
       quarry.ownerPlayerId !== creature.ownerPlayerId &&
+      // ⭐⭐ S179 (owner) — **RETENTION MUST RE-CHECK UNTARGETABILITY, NOT ONLY ACQUISITION.**
+      // The defender half of this was fixed in S171 (`defenderLifecycle.ts`, "without this line
+      // every turret already locked onto him keeps firing into a creature that is between
+      // realities"); the CREATURE half never was, and `creature.ts` asserts the rule is universal.
+      // Consequence the owner approved fixing: a Pharaoh entering his 10 s Ra ritual becomes
+      // untargetable, every unit already locked on him renewed that lock here, and because
+      // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
+      // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
+      !isUntargetable(quarry, world.tick) &&
       distSq(creature.pos, quarry.pos) <= leashRadiusSq
     ) {
       return held;

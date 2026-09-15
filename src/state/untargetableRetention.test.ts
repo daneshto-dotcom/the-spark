@@ -44,7 +44,8 @@ import { nearestEnemyFor } from './bossSkillsKraken.ts';
 import { runArchdemonTeleport } from './bossSkillsArchdemon.ts';
 import { resolveProjectileShot } from '../render/creatureProjectile.ts';
 import { ARCHDEMON_TELEPORT_INTERVAL_TICKS } from '../constants.ts';
-import { findNearestEnemyCreatureFrom } from './creatures/creatureAI.ts';
+import { findNearestEnemyCreatureFrom, pickNavUnit } from './creatures/creatureAI.ts';
+import { applyCreatureTick } from './creatures/creatureLifecycle.ts';
 import { voltkinChainFrom } from './creatures/voltkinChain.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { isChannellingRa, isUntargetable, type CreatureType } from './creatures/creature.ts';
@@ -312,5 +313,108 @@ describe('S171 — the two gates that are easy to forget: a boss REPOSITION and 
       // point at the cloud. With no other enemy and no committed shape, the honest answer is null.
       expect(shot, 'no arrow may be drawn at an untargetable unit').toBeNull();
     });
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+/*
+ * ⭐⭐ S179 (owner) — **THE CREATURE HALF OF RETENTION, WHICH THIS FILE'S OWN DOCBLOCK NAMED AS
+ * MISSING AND WHICH THEN SHIPPED MISSING FOR EIGHT MORE SESSIONS.**
+ *
+ * The header above says the S171 audit "missed ... the whole retention family". The DEFENDER half
+ * was fixed that session (`defenderLifecycle.ts`, "without this line every turret already locked
+ * onto him keeps firing into a creature that is between realities"). The CREATURE half never was:
+ * `isUntargetable` appeared in `creatureAI` only inside the ACQUISITION scan, in
+ * `creatureLifecycle` only inside a COMMENT, and in `creatureAttack` not at all.
+ *
+ * ⛔ THE SYMPTOM THE OWNER APPROVED FIXING, and it is his own S177 P9 complaint reopened:
+ * *"There shouldn't be pretending to attack and not hitting anything. That's just ridiculous."*
+ * A Pharaoh dropping to a lethal blow enters the Ra ritual for 600 ticks (10 s) and becomes
+ * untargetable. Every unit already locked on him RENEWED that lock every tick, re-entered ATTACKING
+ * on every cadence, dealt nothing (damageCreature returns false while channelling) — and because
+ * ATTACKING yields ZERO_ACCEL, stood FROZEN IN PLACE for the full ten seconds.
+ *
+ * Driven, not grepped — the rule this file exists to enforce.
+ */
+describe('S179 — a creature RE-CHECKS untargetability on a target it already holds', () => {
+  /** Put a real Pharaoh into a real Ra ritual the way the deferred-death sweep does. */
+  function ritualing(world: World, id: CreatureId): void {
+    world.creatures.get(id)!.raRitualUntilTick = world.tick + 600;
+    expect(isChannellingRa(world.creatures.get(id)!, world.tick), 'fixture: is channelling').toBe(true);
+  }
+
+  it('⭐⭐ pickNavUnit DROPS a held lock when the quarry phases out — it does not renew it', () => {
+    const world = twoSeat();
+    const hunter = spawn(world, 'goblinMelee', P0, 500);
+    const boss = spawn(world, 't9BossMummies', P1, 540);
+
+    // Before the ritual the lock is held — otherwise this test would pass vacuously.
+    expect(
+      pickNavUnit(world, world.creatures.get(hunter)!, boss, 400 * 400, 600 * 600),
+      'holds a normal target',
+    ).toBe(boss);
+
+    ritualing(world, boss);
+
+    expect(
+      pickNavUnit(world, world.creatures.get(hunter)!, boss, 400 * 400, 600 * 600),
+      'the phased boss is NOT renewed as the held target',
+    ).not.toBe(boss);
+  });
+
+  it('⭐⭐ THE FREEZE ITSELF — a committed unit clears its target and is free to move again', () => {
+    const world = twoSeat();
+    const hunter = spawn(world, 'goblinMelee', P0, 500);
+    const boss = spawn(world, 't9BossMummies', P1, 520);
+
+    /*
+     * Commit the goblin the way the game does. ⚠ THE STATE MATTERS AND THE FIRST DRAFT OF THIS TEST
+     * GOT IT WRONG: the re-validation block is gated on `state === 'ATTACKING'`, which is exactly
+     * where the freeze lives (ATTACKING is what returns ZERO_ACCEL). A fixture left in SEEKING
+     * passes through no retention code at all and would have reported the fix as broken.
+     */
+    const g = world.creatures.get(hunter)!;
+    g.targetCreatureId = boss;
+    g.state = 'ATTACKING';
+    g.ticksInState = 0;
+    ritualing(world, boss);
+
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: hunter } as never);
+
+    expect(
+      world.creatures.get(hunter)!.targetCreatureId,
+      'the commit on an untargetable boss is RELEASED, so the unit leaves ATTACKING and moves',
+    ).toBeNull();
+  });
+
+  it('⛔ and it is not vacuous — a NORMAL boss keeps its committed hunter', () => {
+    const world = twoSeat();
+    const hunter = spawn(world, 'goblinMelee', P0, 500);
+    const boss = spawn(world, 't9BossOrcs', P1, 520);
+    const g = world.creatures.get(hunter)!;
+    g.targetCreatureId = boss;
+    g.state = 'ATTACKING';
+    g.ticksInState = 0;
+
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: hunter } as never);
+
+    expect(
+      world.creatures.get(hunter)!.targetCreatureId,
+      'a targetable boss is still held — the fix must not drop every commit',
+    ).toBe(boss);
+  });
+
+  it('⭐ the ritual ENDS and the boss becomes targetable again (the gate is not a one-way latch)', () => {
+    const world = twoSeat();
+    const boss = spawn(world, 't9BossMummies', P1, 520);
+    ritualing(world, boss);
+    expect(isUntargetable(world.creatures.get(boss)!, world.tick)).toBe(true);
+
+    world.tick += 600;
+    expect(
+      isUntargetable(world.creatures.get(boss)!, world.tick),
+      'the deadline tick is the first targetable tick again',
+    ).toBe(false);
   });
 });
