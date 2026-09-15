@@ -50,9 +50,14 @@ export interface Bond {
    * Owner R75: *"towers have attack and piercing but not def and hp because they are based on the
    * connectors that build them. its the connectors that have different hp and def."*
    *
-   * A connector's DURABILITY is not stored — it is derived every time from the current connector
-   * count of this bond's connected component (`connectorCapacityFifths`, = `count + 4` fifths). Only
-   * the damage taken is state. The bond severs when `damageFifths >= capacity`.
+   * A structure's DURABILITY is not stored — it is derived every time from the current connector
+   * count of this bond's connected component (`structurePoolFifths`, = `n × (n + 5)` fifths). Only
+   * the damage taken is state.
+   *
+   * ⛔ S178 — CORRECTED. This said `connectorCapacityFifths`, = `count + 4`, and 'the bond severs
+   * when damageFifths >= capacity'. Both halves were superseded by owner R173-B in S177: the pool
+   * is STRUCTURE-WIDE, so a sever is decided by the SUM of `damageFifths` across the whole
+   * component against `structurePoolFifths(n)` — never by this one bond's field against `n + 4`.
    *
    * ⚠ **THIS FIELD REPLACES A COUNTER THAT LIVED ON THE ATTACKER.** Before S151 a connector's
    * toughness was `CREATURE_CONFIGS[type].chewHits` and its progress was the chewer's own

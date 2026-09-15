@@ -245,16 +245,25 @@ export function damageEntity(
 }
 
 /**
- * ⭐ S151 P2 (owner R76) — DAMAGE ONE CONNECTOR. The tower-durability path.
+ * ⭐ S177 P1 (owner R173-B) — DAMAGE ONE CONNECTOR. The tower-durability path.
  *
- * Owner R76 fixes a connector's durability by its structure's complexity:
+ * ⛔⛔ THE RULE BELOW IS THE SHIPPED ONE. Until S178 this docblock opened by stating R76's
+ * `count + 4` per-bond capacity as current — thirty lines above a body that has computed
+ * `structurePoolFifths(comp.bondIds.size)` since S177 P1. The correction was present but buried
+ * INSIDE the function at the pool read, and a reader hits the docblock first. R76 is SUPERSEDED;
+ * `connectorCapacityFifths` survives only as an unread arithmetic helper.
+ *
+ * THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**, not per-bond.
+ * `structurePoolFifths(n)` = `n × (5 + n)` fifths for a component of `n` connectors — 5→50, 4→36,
+ * 3→24, 2→14, 1→6 — and ALL damage standing anywhere on the structure counts toward the next
+ * connector, wherever it landed. It is **derived live, never stored** (the count is re-read every
+ * hit, which is what makes the collapse accelerate); only the accumulated damage is state
+ * (`Bond.damageFifths`).
+ *
+ * The R76 ruling it replaced, kept for provenance only:
  * *"if there are three shapes connected in a row so with only two connectors … each of those two
  * connectors are 1.2. now if those three shapes are connected in a triangle form making 3 connectors
  * … each of those connectors will be 1.4."*
- *
- * So capacity is `connectorCapacityFifths(componentConnectorCount)` = `count + 4` fifths, and it is
- * **derived live, never stored** — which is what makes the collapse accelerate. Only the accumulated
- * damage is state (`Bond.damageFifths`).
  *
  * ⚠ **RETURNS "SHOULD SEVER", AND THE CALLER MUST ACTUALLY SEVER.** This function deliberately does
  * NOT remove the bond. Severance has to run through the one `SEVER_BOND` path — it splits topology,

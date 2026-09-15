@@ -1606,9 +1606,23 @@ export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
  *
  * ## And what it costs to kill one
  *
- * `unitPoolFifths` ⇒ Pharaoh 143 · Warlord 121 · Kraken 132 · Whopper 120 · Vlad 90 · Archdemon 90.
- * One goblinMelee (12 fifths/swing, 1/s) needs 8–12 s; a squad of five needs 2–3 s. Both sit inside
- * a ~45 s FIGHT phase, which is the bound `statsLadder.test.ts` actually enforces.
+ * ⛔⛔ RE-DERIVED S178 — THIS PARAGRAPH HAD GONE STALE AND ITS NEIGHBOUR HAD NOT, WHICH IS THE
+ * DANGEROUS SHAPE. The `attackFifths` line above still matches `T9_BOSS_STATS` to the fifth; this
+ * one was still quoting the PRE-S172 pools (Pharaoh 143 · Warlord 121 · Kraken 132 · Whopper 120 ·
+ * Vlad 90 · Archdemon 90) — the numbers from before the owner's *"double their health and defense …
+ * keep their damage as is"*. A reader who trusted it was reading durability ~3× low while reading
+ * damage exactly right, i.e. every boss looked like glass.
+ *
+ * `unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374 · Whopper 360 · Vlad 260 · Archdemon 260.
+ * One goblinMelee (12 fifths/swing, 1/s) needs 22–39 s; a squad of five needs 4.3–7.7 s. Only the
+ * SQUAD now fits comfortably inside a ~45 s FIGHT phase — a lone melee goblin sent at the Pharaoh
+ * runs out of phase before it runs out of boss, which is the S172 doubling working as asked.
+ *
+ * ⚠ AND THIS IS WHERE HIS S178 *"Vlad is OP"* COMES FROM — it is arithmetic, not a defect.
+ * Vlad 150/strike into the Warlord's 374 is `ceil(374/150)` = **3 strikes**; the Warlord's 112 into
+ * Vlad's 260 is 3 back, and Vlad's life-sap (3 × 52) lifts his effective pool to 416, so the Warlord
+ * needs **4**. Vlad wins a boss duel by exactly one exchange. Recorded here so the next session does
+ * not re-investigate it as a bug.
  *
  * ⚠ SPEED IS STILL A MULTIPLIER AND ALL SIX ARE ≤ 1.0. "Varried" is satisfied with six DISTINCT
  * values; the ≤ 1.0 ceiling is kept for the reason stated above — a boss that outruns its escort

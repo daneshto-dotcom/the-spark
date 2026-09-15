@@ -23,8 +23,8 @@ the code in the session that wrote it, not copied from a handoff.
 
 ```bash
 npm run typecheck        # tsc -b --noEmit
-npx vitest run           # the unit suite — 3755 tests / 241 files at S165 close
-npm run e2e:gating       # Playwright, the shared gating lane — 62 tests / 16 files at S165 close
+npx vitest run           # the unit suite — 4513 tests / 284 files, measured S178
+npm run e2e:gating       # Playwright, the shared gating lane — 65 tests / 17 files, measured S178
 npm run e2e:races        # S165 — the @races lane: castle emitter, backdrops, settings toggles.
                          # GATING via its own `e2e-races` CI job, inverted OUT of e2e:gating
                          # because each observation costs ~30 s of SIM time and it starved the
@@ -42,10 +42,10 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (900 KiB; 784.8 KiB
-  used at S165). It is a design constraint, not a platform limit — if a real feature needs the room,
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (900 KiB; 834.1 KiB
+  used S178 — 65.9 KiB of headroom left). It is a design constraint, not a platform limit — if a real feature needs the room,
   raise the charter with a note. Do not contort code to fit it, and never let it block a live deploy.
-  It also now PRINTS the static-asset payload (62 MiB at S165) — reported, never gated, for the
+  It also now PRINTS the static-asset payload (105.8 MiB / 171 files at S178) — reported, never gated, for the
   reason in the next bullet.
 - ⛔ **AN ASSET-QUALITY OPINION MUST NEVER BLOCK A LIVE DEPLOY, and S165 proved the rule by breaking
   it.** `check:atlas` (`scripts/check-atlas-scenery.mjs`) reads shipped sprite-sheet PNGs for three

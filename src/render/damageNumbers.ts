@@ -114,7 +114,8 @@ const MAX_LIVE = 64;
  *
  * ⚠ `rising` INVERTS THE TEST, and forgetting it would print a number every time a connector
  * HEALED. A connector does not carry remaining health — it carries ACCUMULATED damage
- * (`Bond.damageFifths` counts UP toward `connectorCapacityFifths`), where every other pool here
+ * (`Bond.damageFifths` counts UP, and the component's SUM is tested against `structurePoolFifths`
+ * — S178: this said `connectorCapacityFifths`, retired by R173-B), where every other pool here
  * counts DOWN. One flag, checked once, instead of a second near-identical loop.
  */
 interface StructWatched {

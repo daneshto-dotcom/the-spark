@@ -456,8 +456,10 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // ⛔ WHAT THIS REPLACES. Every creature strike on a bond used to sever it outright, and the
   // "toughness" of a connector was the attacker's `chewHits` — a flat 5 bites for every bond in the
   // game, whether it was half of a loose pair or one strut of a forty-connector fortress. Owner R76
-  // moves durability onto the connector, where a structure's complexity can defend it:
-  // `connectorCapacityFifths(count)` = `count + 4` fifths.
+  // moved durability onto the connector; owner R173-B (S177) then moved it onto the STRUCTURE:
+  // `structurePoolFifths(n)` = `n × (n + 5)` fifths, summed across the component.
+  // ⛔ S178 — this comment said `connectorCapacityFifths(count)` = `count + 4`, directly above the
+  // `damageConnector` call that has not read that function since S177.
   //
   // Damage POOLS on the bond, so several attackers now cooperate on one connector instead of each
   // starting from scratch — and a laser and a chewer can work on the same strut.

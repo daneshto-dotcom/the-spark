@@ -224,7 +224,10 @@ export function drawHealthBars(
  *
  * ## THE AGGREGATE, AND WHY BOTH HALVES WERE ALREADY WRITTEN
  *
- *   · MAX — `structureDefenceFifths(n)` = `n × connectorCapacityFifths(n)` = `n × (n + 4)`.
+ *   · MAX — `structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`.
+ *     ⛔ S178: this line read `n × connectorCapacityFifths(n)` = `n × (n + 4)` until now. The CODE
+ *     followed R173-B automatically in S177 (`stats.ts` re-pointed `structureDefenceFifths`); only
+ *     the comment was left describing the superseded R76 scale.
  *     ⭐ This function already existed (`stats.ts`) with **zero production callers**. Its own
  *     docblock says it exists *"because the owner reasons about structures in these terms … so the
  *     HUD and the tests can speak their language"* — it was written FOR this readout and never

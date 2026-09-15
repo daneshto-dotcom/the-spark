@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 862,
-  "session_id": "S177",
+  "tool_calls_session_total": 939,
+  "session_id": "S178",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
-  "prior_session_note": "S175 CLOSED. 10/10 complete, LIVE + verified 4/4, atlas-guard GREEN. Handoff: HANDOFF_S175_2026-09-14.md",
+  "prior_session_note": "S177 closed 10/10; S178 opened on the owner playtest verdict + an agentic sweep (15/20 lanes died to the org spend limit and were hand-run or salvaged per the S161 rule).",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/S176_BATCH_PDR.md",
-  "session_status": "S177 IN-PROGRESS \u2014 10 priorities, closing with /handoff",
+  "plan_file": ".claude/plans/2026-09-15_S178_BATCH_PDR.md",
+  "session_status": "S178 IN-PROGRESS",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "I approve three and four ... finish those two priorities that I've mentioned, make them land, uh, check that they landed, then close off with a full handoff skill.",
+  "owner_approval_verbatim": "I'm gonna bed, you keep working them, fix everything that I mentioned for sure, that anything else you found that you can fix, anything you can fix, and the council does know how to fix. It's an actual issue, and you're not reverting changes or unbuilding the project or anything stupid... then leave it for the end. Do not close this session.",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -46,389 +46,137 @@
   },
   "priorities": [
     {
-      "id": "P1",
-      "name": "tower damage + HP on the owner ladder (R173-A/B/C, and the 167)",
-      "status": "completed",
-      "checkpoint_commit": "bcd5f22",
-      "check_completed": true,
-      "check_method": "Implemented R173: structurePoolFifths = n x (5+n), damageConnector accumulates STRUCTURE-WIDE and spends the pool on sever with a total-order drain. Retired the 1000-point shape scale (PRIMITIVE_MAX_HP 1000 -> 70) and the flat GOBLIN_DAMAGE_VS_PRIMITIVE 167; creatureAttack now passes attackFifths like every sibling arm. 14 tests across 9 files RE-PINNED (never silenced), including the replay coverage gate which was LENGTHENED past the new pool rather than relaxed. Verified: typecheck 0, vitest 4511/4511, build 0, check:atlas 0, verify-deploy 4/4.",
+      "id": 1,
+      "name": "A1 — Documentation truth pass — the superseded connector rule (n+4 -> n*(5+n)) and stale gate/pool numbers",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.ts",
-          "needle": "export function structurePoolFifths"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.ts",
-          "needle": "return componentConnectorCount * multiplierFifths(componentConnectorCount);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/damage.ts",
-          "needle": "const pool = structurePoolFifths(comp.bondIds.size);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/damage.ts",
-          "needle": "connectorCapacityFifths(connectorCount)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PRIMITIVE_MAX_HP = 70;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "import { GOBLIN_DAMAGE_VS_CASTLE } from '../../constants.ts';"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stats.test.ts",
-          "needle": "expect(structurePoolFifths(5)).toBe(50);"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "pattern": "attackFifths\\(attackerConfig\\.atk, attackerConfig\\.pen\\)",
-          "op": ">=",
-          "value": 3
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P2",
-      "name": "direwolf / Vlad / goblin-hound gait",
-      "status": "completed",
-      "checkpoint_commit": "cd9450b",
-      "check_completed": true,
-      "check_method": "The walk row was tick-indexed at a constant rate, so legs cycled the same whether sprinting or stationary (\"running in place\"). Now driven by ground covered. Pure gaitFrameIndex extracted and pinned with 6 assertions. Fixes the three he named AND the unnamed others (measured: direwolf/hound tpf 3, everything else 4).",
+      "id": 2,
+      "name": "A2 — Voltkin TV reads tiny (29% cell fill -> ~61px) and its spawning/explosion beats are 0.6s/0.2s",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "export const WALK_PX_PER_FRAME = 56;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "export function gaitFrameIndex"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/goblinRenderer.ts",
-          "needle": "i = gaitFrameIndex(px, row.length);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gaitFrameIndex.test.ts",
-          "needle": "expect(WALK_PX_PER_FRAME).toBe(14 * 4);"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P3",
-      "name": "Orc Warlord pack: 3 max, 30s, dies out",
-      "status": "completed",
-      "checkpoint_commit": "cd9450b",
-      "check_completed": true,
-      "check_method": "Used the Pharaoh locust MECHANISM he named as the template: config lifetimeTicks + persistent:false. Interval 15s->30s, cap 6->3, DIREWOLF_LIFETIME_TICKS == the interval by construction. Caught a no-op before shipping: makeT3Config sets persistent:true which overrides lifetimeTicks; there is now an assertion for it.",
+      "id": 3,
+      "name": "A3 — OWNER RULING S178: the Vortex/Spindle must not touch free sparks — unwire from physicsLoop",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const DIREWOLF_MAX_PER_OWNER = 3;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const DIREWOLF_SUMMON_INTERVAL_TICKS = 30 * PHYSICS_HZ;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const DIREWOLF_LIFETIME_TICKS = DIREWOLF_SUMMON_INTERVAL_TICKS;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "needle": "lifetimeTicks: DIREWOLF_LIFETIME_TICKS,"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/warlordPackS177.test.ts",
-          "needle": "expect(DIREWOLF_CONFIG.persistent).toBe(false);"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P4",
-      "name": "Voltkin TV emergence + destruction loops",
-      "status": "completed",
-      "checkpoint_commit": "4de3aa9",
-      "check_completed": true,
-      "check_method": "The two state TRANSITIONS he named are real 12-frame videos now (spawning = deploy->idle, destroyed = the crumble); intact/damaged stay stills at $0. The renderer could draw neither - it cut ONE texture per row at x=0 - and now cuts any cell, one-shot, holding the last frame. Also fixed the destruction TRIGGER, which was gated on towerStateForHp==destroyed while a Voltkin tower actually dies by a severed connector, so the panels were unreachable from play. Cost $12.40 across two rolls; the protocol caught edge-touching frames, a window that cut both clips off mid-explosion (found only by auditioning on the dark board), a near-white fringe, and a 1.63x shrink of every row that TV_SPRITE_PX now compensates. Verified: typecheck 0, vitest 4513/4513, check:atlas 0, build 0.",
+      "id": 4,
+      "name": "A4 — Poop bag unkillable whenever any enemy shape exists — the shape arm's no-op exits steal the strike",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs.json",
-          "needle": "clips/tv/spawning.mp4"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs.json",
-          "needle": "clips/tv/destroyed.mp4"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "function clipFrame("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "const TV_SPRITE_PX = 215;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "private frameTexture("
-        },
-        {
-          "type": "grep_count",
-          "path": "public/art/voltkin-tv/voltkin-tv-anim.json",
-          "pattern": "\"frames\":\\s*12",
-          "op": ">=",
-          "value": 6
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P5",
-      "name": "poop bags are one hit",
-      "status": "completed",
-      "checkpoint_commit": "bcd5f22",
-      "check_completed": true,
-      "check_method": "EMPIRICALLY REFUTED his diagnosis and his fix: the pool is already 5 fifths and everything one-shots it; his stated 1x1.2 would have made it TOUGHER. The real defect was reach - measured to the bag centre at a 35px arm inside a 90px cloud, so an army stood in the smell swinging at nothing until the bag hit its own 5s expiry. That is his \"six seconds\". reach = max(arm, cloud radius), a MAX not a SUM so no ranged reach widens.",
+      "id": 5,
+      "name": "A5 — Chain lightning has no per-jump falloff; one bolt cascades 3 of 5 connectors",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "const reachToBag = Math.max(reach, c.radius);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/defenders/stinkCloud.test.ts",
-          "needle": "inside the smell, so it can hit the bag"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const STINK_BAG_HP = 1;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const STINK_BAG_DEF = 0;"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P6",
-      "name": "fight +15s, win 1500 -> 2500",
-      "status": "completed",
-      "checkpoint_commit": "bcd5f22",
-      "check_completed": true,
-      "check_method": "Both knobs, his pick: PHASE_1_WIN_SCORE 1500->2500 and FIGHT_PHASE_TICKS 45s->60s. exact-thirds became exact-fifths; invariant re-pinned not silenced, and every banner literal now derived from the constants so a retune cannot half-land.",
+      "id": 6,
+      "name": "A6 — Stink tower death blast still on the retired 1000-per-shape scale (100-400 vs a 70 shape)",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 2500;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const FIGHT_PHASE_TICKS = 60 * PHYSICS_HZ;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/scoring.test.ts",
-          "needle": "expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(5);"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P7",
-      "name": "laser tower x2 attack speed",
-      "status": "completed",
-      "checkpoint_commit": "bcd5f22",
-      "check_completed": true,
-      "check_method": "TURRET_FIRE_INTERVAL_TICKS 450->225 (the THIRD halving: 1800->900 S157, ->450 S173). Windup 5->3. Landed beams per fight 6 -> 15 (with the longer fight). Cycle re-pinned 479->252.",
+      "id": 7,
+      "name": "A7 — Three renderer false-death bugs — concealment `continue` runs before live.add",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const TURRET_FIRE_INTERVAL_TICKS = 225;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const TURRET_WINDUP_TICKS = 3;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/strikeOrderAndRecall.test.ts",
-          "needle": "expect(TURRET_FIRE_INTERVAL_TICKS).toBe(225);"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P8",
-      "name": "Helga x2 HP and DEF",
-      "status": "completed",
-      "checkpoint_commit": "bcd5f22",
-      "check_completed": true,
-      "check_method": "PRINCESS_HP 6->12, PRINCESS_DEF 4->8, ATK/PEN untouched as he specified. Pool 54 -> 156 fifths = x2.89 because DEF is a multiplier; stated at the constant rather than smoothed over. Raid count to kill her re-pinned 6 -> 16 and DERIVED, not hard-coded beside a ceil that computed the same thing.",
+      "id": 8,
+      "name": "A8 — SCRAP prints phantom damage over refunded shapes; structure loses its health bar entirely",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PRINCESS_HP = 12;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PRINCESS_DEF = 8;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PRINCESS_ATK = 4;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PRINCESS_PEN = 4;"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P9",
-      "name": "P9 (scope amendment) \u2014 nothing swings at nothing: a strike only lands when it has reached",
-      "status": "completed",
-      "checkpoint_commit": "6e5d140",
-      "check_completed": true,
-      "check_method": "Owner ruling: \"There shouldn't be pretending to attack and not hitting anything.\" Three of the six ATTACKING-hold predicates were EXISTENCE checks with no notion of distance; the creature and bond STRIKE arms had no range gate at all. Creature and bond validity now share ONE reach predicate with their strike arms. The shape case is fixed at its source - the strike arm RELEASES targetPrimitiveId when out of reach so the creature re-seeks and walks in. Making primitiveValid reach-aware was BUILT, PROBED and REVERTED: a melee unit is frozen while ATTACKING and Helga walks, so she left a goblin's 35px reach on tick 34 and no moving defender would ever be killable in melee again. 4 fixtures that struck from outside their own reach were MOVED INTO range, not weakened. Verified: typecheck 0, vitest 4513/4513.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function isWithinAttackRangeOfCreature("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "if (!isWithinAttackRange(world, creature, action.bondId)) return world;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "creature.targetPrimitiveId = null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.test.ts",
-          "needle": "a chewer OUT of reach does not sever the connector it is committed to"
-        }
-      ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": "P10",
-      "name": "P10 \u2014 the Voltkin dies: die becomes a real clip",
-      "status": "completed",
-      "checkpoint_commit": "b2a04ad",
-      "check_completed": true,
+      "id": 9,
+      "name": "A9 — A building is clickable only on ~15px dots of a 150px image",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_method": "`die` was a STILL replicated 20x - his \"it was too quick\". Now a 20-frame clip: struck, stagger, collapse, resting on the dead pose he drew. The inherited S173 die.mp4 cost $0 (--skip-existing) and measured 71/96 edge-touching, which is why S173 used a still. Two paid rolls, each on a measured cause: arcs reaching the edge (normaliseStateScale measures frame 0, so no clean window STARTED standing), then a sprawled corpse widening the shared bbox past the 8192 texture ceiling - and 19 frames is unavailable because attack.frames x ticksPerFrame must equal VOLTKIN_ATTACK_CADENCE_TICKS (60). Final: cell 358, sheet 7160, 20 frames, 8/96 bad frames all outside the sampleStart-21 window. BASE_SCALE 0.17 -> 0.182 measured on the yellow body only. Verified: typecheck 0, vitest 4513/4513, check:atlas 0, build 0.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
-          "needle": "clips/voltkin/die.mp4"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/voltkin-tv/atlas-specs-character.json",
-          "needle": "\"sampleStart\": 21"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "const VOLTKIN_SPRITE_BASE_SCALE = 0.182;"
-        },
-        {
-          "type": "grep_count",
-          "path": "public/godly/voltkin/anim/voltkin-anim.json",
-          "pattern": "\"frames\":\\s*20",
-          "op": ">=",
-          "value": 4
-        }
-      ]
+      "verification": []
+    },
+    {
+      "id": 10,
+      "name": "A10 — Creatures walk off the board — no world-bounds clamp exists in any integrator",
+      "status": "pending",
+      "checkpoint_commit": null,
+      "check_completed": false,
+      "check_method": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": []
     }
   ],
   "verification": [],
-  "reflexion_entries_to_archive": [
-    "P1 #the-ruling-was-24-sessions-old-and-never-built: R173 was RULED in S173 with a worked table and left unimplemented while the code ran DEF=n-1 and banked damage per-bond. The owner rediscovered it as a bug report. A ruling with no implementation and no carry-forward is indistinguishable from a ruling that was never given.",
-    "P1 #one-ladder-preserved-the-balance-it-was-feared-to-break: moving shapes from a 1000-point scale onto attackFifths was expected to retune everything. Measured, it preserved drone-fells-shape-in-3 and Ra-one-shots exactly, and moved ONE relationship (suicide 3->4 blasts). The fear was worth measuring rather than trusting.",
-    "P5 #his-diagnosis-was-wrong-and-his-observation-was-right: he said the bags had too much health; they had the minimum possible. But his SIX SECONDS was exact - it was the bag expiry timer running out while an army swung and missed. Take the observation as data and re-derive the cause.",
-    "P4 #the-window-i-added-to-be-safe-was-the-defect: both TV clips failed check-clip on edge-touching frames, so I capped sampleWindow. That cut each clip off MID-EXPLOSION and the row's held last frame became a frozen blast instead of the settled state. Measuring which frames actually offended (spawning 51-53, destroyed 59-60) showed 12-of-96 is stride 8 and never samples them - the cap was never needed. Caught ONLY by auditioning the packed sheet on the dark board, which is why that step is in the protocol.",
-    "P9 #a-probe-beats-an-argument: making primitiveValid reach-aware is the obvious completion of the owner's rule and I could argue either way for twenty minutes. A six-predicate probe of the real host tick answered it in one run: Helga steps out of a goblin's 35px reach on tick 34 while he is frozen in ATTACKING, so every moving defender would have become unkillable in melee. Built, measured, reverted - and the shape mime killed at its source instead.",
-    "P3 #the-change-that-could-not-possibly-do-anything: setting lifetimeTicks on a config whose persistent:true overrides it. Caught only by reading the factory it came from. Same shape as S153 P1.",
-    "SESSION #a-test-can-go-green-for-the-wrong-reason: pinnedDeadStats pins SOURCE TEXT, and stayed green because my own new comment happened to contain the retired symbol name it was looking for.",
-    "SESSION #an-authorisation-against-a-wrong-price-is-not-an-authorisation: he approved a clip at the ~$3 I quoted; the protocol records HIS measurement of ~$20. Re-ask rather than spend 7x.",
-    "SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass.",
-    "P10 #the-constraint-that-forbade-the-obvious-fix: the die clip blew the 8192 texture ceiling, and dropping one frame was the obvious answer - until a test showed attack.frames x ticksPerFrame must EQUAL the attack cadence, so 20 x 3 is forced and the cell is capped at 409 instead. The fix had to move to the ART (land compact), not the frame count. Two constraints crossing is where a cheap fix usually hides a real one."
-  ],
+  "reflexion_entries_to_archive": [],
   "real_context_tokens_at_close": null,
   "carry_forwards_spawned_in_s176": [
-    "\u26d4 HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
-    "\u26a0 THE WALK ROW IS A QUADRUPED. idle/attack/die are upright biped; the walk clip generates him running on all fours, plus yellow speckle debris in the source. It is HIS art and it is dynamic, so it shipped - but it is the most likely thing he flags. Re-rolling walk framed upright costs ~$3.10 AND would drop cellW from 380 toward 256, which buys 32 frames per state inside the same texture ceiling instead of 20.",
+    "⛔ HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
+    "⚠ THE WALK ROW IS A QUADRUPED. idle/attack/die are upright biped; the walk clip generates him running on all fours, plus yellow speckle debris in the source. It is HIS art and it is dynamic, so it shipped - but it is the most likely thing he flags. Re-rolling walk framed upright costs ~$3.10 AND would drop cellW from 380 toward 256, which buys 32 frames per state inside the same texture ceiling instead of 20.",
     "The 5 WAIVED ATLASES still need regenerated art (unit-demons, t3-mummies-scarab, t3-nagas-piranha, t9boss-nagas, t9boss-vampires) - assets-source/atlas-size-waivers.json.",
     "GENERAL / GOBLIN TOWER ART - his to generate, then ONE markTowerCover call each.",
     "R173-B (each connector costs the FULL structure pool) - RULED in S173, still not implemented. Its plan file is one of only two genuinely-live plans.",
     "NONET stages: 8 questions open. An in-match ladder needs a wire field => PROTOCOL 46 -> 47; arcade-only costs no bump.",
-    "B8 powers \u00b7 Pharaoh stances + Ra \u00b7 Vlad life-sap."
+    "B8 powers · Pharaoh stances + Ra · Vlad life-sap."
   ],
   "analyze": {
     "calibration": [
@@ -478,7 +226,7 @@
       "usable_agent_findings": 0
     }
   },
-  "analyze_completed": true,
+  "analyze_completed": false,
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
@@ -493,6 +241,6 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "7bd9a70",
-  "check_completed": true
+  "checkpoint_commit": null,
+  "check_completed": false
 }
