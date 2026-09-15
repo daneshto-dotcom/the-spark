@@ -41,7 +41,7 @@ import type { BondId, PrimitiveId } from '../types.ts';
 import { findAllVoltkinChains } from '../state/godlyRecipes/voltkin.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
-import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
+import { T9_TOWER_SPRITE_PX, TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
 
 const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
 
@@ -67,7 +67,38 @@ const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
  * (*"the TV, it kinda looks good standing there"*). The blast is now proportionally larger than the
  * cabinet, which is what an explosion should be.
  */
-const TV_SPRITE_PX = 215;
+/*
+ * ⭐⭐⭐ S178 (owner) — **AND THE OTHER HALF OF "NOT DONE" IS THAT IT DRAWS AT 61 px.**
+ *
+ * Owner, S178: *"Now it looks tiny … See how small it is compared to the laser tower? Just tiny."*
+ *
+ * ⛔ 215 WAS DERIVED AGAINST A MODEL OF THE SHEET, NOT AGAINST THE SHEET. The block above reasoned
+ * that the destruction clip widened the union bbox 1.63×, so fitted cell content went 240×210 →
+ * 240×136, and set 132 × 1.63 = 215 to restore the size he had approved. MEASURED off the shipped
+ * PNG at S178, the cell content is not 136 px tall — it is **73**:
+ *
+ *     row        subject h   fill of the 256 px cell
+ *     intact        73 px      28.5 %      damaged   65 px   25.4 %
+ *     critical      64 px      25.0 %      explosion 73 px   28.5 %
+ *     spawning  58–111 px      43 %        destroyed 28–108 px  42 %
+ *
+ * So the drawn TV was `215 × 0.285` = **61 px**, against `T3_TOWER_SPRITE_PX` 84 and
+ * `T9_TOWER_SPRITE_PX` 150. His hero building rendered smaller than a tier-3 tower — and, because
+ * the subject's foot IS the cell's bottom row (botFrac 1.000) under a bottom anchor, the whole 61 px
+ * hung between +46 and +107 px BELOW the structure centroid instead of straddling it the way every
+ * other tower does. Small, and sitting in the wrong place.
+ *
+ * ⚠ THE TARGET IS TIER-9 PARITY, AND THAT CHOICE IS MINE, NOT HIS. `TV_ART_PX` is set to
+ * `T9_TOWER_SPRITE_PX` so the Voltkin's building reads at exactly the size of the other tier-9
+ * buildings it stands beside — the most defensible target available without his eye on it. The
+ * measured fill converts that into a sprite box. If he wants it bigger or smaller, `TV_ART_PX` is
+ * the one dial, and nothing else needs touching.
+ */
+/** Measured off `voltkin-tv-atlas.png` at S178: the steady rows fill 73 of each 256 px cell. */
+const TV_SUBJECT_FILL = 73 / 256;
+/** How tall the TV should actually READ on the board. Tier-9 parity. */
+const TV_ART_PX = T9_TOWER_SPRITE_PX;
+const TV_SPRITE_PX = Math.round(TV_ART_PX / TV_SUBJECT_FILL);
 
 /** How close a SPAWNING Voltkin must be to a TV for that TV to be the one he is coming out of. */
 const VOLTKIN_EMERGE_MATCH_PX = 160;
@@ -110,6 +141,28 @@ function clipFrame(meta: RowMeta | undefined, elapsedTicks: number): number {
 }
 
 /**
+ * ⭐⭐ S178 (owner) — A ROW THAT LOOPS FOREVER, rather than one that plays once and freezes.
+ *
+ * Owner, S178: *"Voltkin TV is not done … I didn't see it generate. I didn't see destroyed. It was
+ * just a tiny TV."*
+ *
+ * ⛔ AND THE REASON IS THAT NOTHING BUT `spawning` AND `destroyed` WAS EVER ANIMATED. The draw block
+ * below opened with `let frame = 0` and only ever reassigned it on those two rows, so `intact`,
+ * `damaged`, `critical` and `explosion` — all twelve-frame rows on the shipped sheet — were each
+ * drawn as **frozen frame 0**. The TV had no idle at all, and its destruction cinematic was two
+ * still pictures. That is the whole of *"not done"*: the frames were on disk the entire time.
+ *
+ * `clipFrame` CLAMPS, which is right for a one-shot beat that must settle on its last frame. A
+ * steady state needs the opposite, so this wraps. Driven by `world.tick`, which is synced, so every
+ * peer draws the same frame of the same idle.
+ */
+function loopFrame(meta: RowMeta | undefined, elapsedTicks: number): number {
+  const frames = Math.max(1, meta?.frames ?? 1);
+  const per = Math.max(1, meta?.ticksPerFrame ?? 1);
+  return Math.floor(Math.max(0, elapsedTicks) / per) % frames;
+}
+
+/**
  * Fallback row order, and the CONTRACT — the shipped manifest is the authority.
  *
  * ⭐ `spawning` LIVES HERE AND NOT IN `TowerState`, DELIBERATELY. The engine's damage union is three
@@ -146,9 +199,21 @@ const TV_ROWS: Readonly<Record<TvRow, number>> = {
 
 /** Wind-up before the burst. The TV sits there, THEN he comes through it. */
 const TV_EMERGE_WINDUP_TICKS = 12;
-/** Destruction beat: ticks on `critical`, then on `explosion`, then ruins. */
-const TV_CRITICAL_TICKS = 18;
-const TV_EXPLOSION_TICKS = 18;
+/**
+ * Destruction beat: ticks on `critical`, then on `explosion`, then ruins.
+ *
+ * ⭐⭐ S178 (owner: *"I didn't see destroyed"*) — EACH WINDOW NOW HOLDS ITS WHOLE ROW, AND THAT IS
+ * WHAT THE NUMBERS ARE. Both were 18 ticks (0.30 s) against twelve-frame rows, so even once the
+ * rows were made to animate at all there was not time to play them. Each is now
+ * `frames × ticksPerFrame` on the shipped sheet — 12 × 3 and 12 × 4 — so a beat plays exactly once
+ * and lands on its final frame as the next begins. The whole death reads in 1.4 s instead of 0.6 s.
+ *
+ * ⚠ KEEP THESE PAIRED WITH `voltkin-tv-anim.json`. If a row's `ticksPerFrame` moves, move its window
+ * with it, or the beat either strobes short or freezes on its last frame waiting for the next.
+ * `voltkinTowerBeats.test.ts` derives its expectations from these constants for that reason.
+ */
+export const TV_CRITICAL_TICKS = 36;
+export const TV_EXPLOSION_TICKS = 48;
 /**
  * ⭐ S177 P4 — how long the RUINS linger once the beat has played out.
  *
@@ -288,6 +353,26 @@ export class VoltkinTowerRenderer {
    * Falls back to frame 0 for a row the manifest does not describe, which is the same degrade the
    * row-table fallback above takes.
    */
+  /**
+   * ⭐ S178 — WHICH FRAME OF A DESTRUCTION BEAT IS SHOWING, given ticks since the chain died.
+   *
+   * ONE place, because there are TWO draw paths — the live sprite and the `dying` ghost — and before
+   * this they disagreed: the live path animated only `destroyed` and the ghost path passed a literal
+   * `0` for everything but `destroyed`. Each row is offset by the beats that run before it, so every
+   * one opens on its own frame 0 and `clipFrame` settles it on its last.
+   */
+  private beatFrame(row: TvRow, elapsed: number): number {
+    if (this.manifest === null) return 0;
+    if (row === 'critical') return clipFrame(this.manifest.states.critical, elapsed);
+    if (row === 'explosion') {
+      return clipFrame(this.manifest.states.explosion, elapsed - TV_CRITICAL_TICKS);
+    }
+    if (row === 'destroyed') {
+      return clipFrame(this.manifest.states.destroyed, elapsed - TV_CRITICAL_TICKS - TV_EXPLOSION_TICKS);
+    }
+    return 0;
+  }
+
   private frameTexture(state: TvRow, i: number): Texture | null {
     const sheet = this.sheet;
     const manifest = this.manifest;
@@ -379,9 +464,18 @@ export class VoltkinTowerRenderer {
       } else if (hpState === 'destroyed') {
         const elapsed = world.tick - (this.destroyedAt.get(key) ?? world.tick);
         row = tvDestructionRow(elapsed);
-        if (row === 'destroyed') frame = clipFrame(this.manifest.states.destroyed, elapsed);
+        /*
+         * ⭐ S178 — ALL THREE DESTRUCTION ROWS ANIMATE NOW, not just the ruins. `critical` and
+         * `explosion` reached `frameTexture` with `frame` still 0, so the burst the owner went
+         * looking for was a single held picture. Each row is offset by the beats that precede it,
+         * so every one starts at its own frame 0 when its window opens.
+         */
+        frame = this.beatFrame(row, elapsed);
       } else {
         row = hpState;
+        // ⭐ S178 — the STEADY rows loop instead of holding frame 0. `intact`, `damaged` and
+        // `critical` are twelve-frame idles on the sheet and had never once been played.
+        frame = loopFrame(this.manifest.states[row], world.tick);
       }
       const tex = this.frameTexture(row, frame);
       if (tex === null) continue;
@@ -389,9 +483,17 @@ export class VoltkinTowerRenderer {
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = cx;
-      // The sprite's FOOT sits at the centroid, so the TV stands ON the shapes rather than being
-      // buried to its waist in them — the CASTLE_SPRITE_ANCHOR lesson, which cost a capture once.
-      sprite.y = cy + TV_SPRITE_PX * 0.5;
+      /*
+       * The sprite's FOOT sits at the centroid, so the TV stands ON the shapes rather than being
+       * buried to its waist in them — the CASTLE_SPRITE_ANCHOR lesson, which cost a capture once.
+       *
+       * ⭐ S178 — OFFSET BY THE ART, NOT BY THE BOX. The bottom anchor means the sprite BOX is
+       * centred on the centroid, and the art occupies only the bottom `TV_SUBJECT_FILL` of it — so
+       * offsetting by half the BOX pushed the whole TV below the shapes it is supposed to stand on.
+       * Half the ART straddles the centroid exactly the way `towerRenderer` does, and it now stays
+       * put when `TV_ART_PX` is re-dialled.
+       */
+      sprite.y = cy + TV_ART_PX * 0.5;
 
       /*
        * ⭐ Declared HERE, at the point the sprite is committed, and never re-derived inside
@@ -432,16 +534,20 @@ export class VoltkinTowerRenderer {
         this.dying.delete(key);
         continue;
       }
+      /*
+       * ⭐ S178 — THE GHOST ANIMATES THE SAME THREE BEATS AS THE LIVE SPRITE. This passed a literal
+       * `0` for `critical` and `explosion`, so the death of a chain that had already lost its recipe
+       * — which is the death the owner is MOST likely to watch, since losing a connector is what
+       * kills a Voltkin TV — played as two frozen pictures. Same offsets as the live path.
+       */
       const ghostRow = tvDestructionRow(elapsed);
-      const ghostTex = this.frameTexture(
-        ghostRow, ghostRow === 'destroyed' ? clipFrame(this.manifest.states.destroyed, elapsed) : 0,
-      );
+      const ghostTex = this.frameTexture(ghostRow, this.beatFrame(ghostRow, elapsed));
       if (ghostTex === null) { this.dying.delete(key); continue; }
       sprite.texture = ghostTex;
       sprite.width = TV_SPRITE_PX;
       sprite.height = TV_SPRITE_PX;
       sprite.x = ghost.x;
-      sprite.y = ghost.y + TV_SPRITE_PX * 0.5;
+      sprite.y = ghost.y + TV_ART_PX * 0.5; // S178 — same art-not-box offset as the live site
       live.add(key); // keep it off the reaper for one more frame
     }
 

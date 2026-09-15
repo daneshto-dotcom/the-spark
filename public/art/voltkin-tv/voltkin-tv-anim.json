@@ -9,7 +9,7 @@
     "intact": {
       "row": 0,
       "frames": 12,
-      "ticksPerFrame": 1
+      "ticksPerFrame": 5
     },
     "spawning": {
       "row": 1,
@@ -19,17 +19,17 @@
     "damaged": {
       "row": 2,
       "frames": 12,
-      "ticksPerFrame": 1
+      "ticksPerFrame": 5
     },
     "critical": {
       "row": 3,
       "frames": 12,
-      "ticksPerFrame": 1
+      "ticksPerFrame": 3
     },
     "explosion": {
       "row": 4,
       "frames": 12,
-      "ticksPerFrame": 1
+      "ticksPerFrame": 4
     },
     "destroyed": {
       "row": 5,

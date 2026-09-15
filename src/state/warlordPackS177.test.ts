@@ -16,7 +16,7 @@ import {
   PHYSICS_HZ,
 } from '../constants.ts';
 import { DIREWOLF_CONFIG } from './creatures/voltkin-config.ts';
-import { TV_DESTRUCTION_TICKS, tvDestructionRow } from '../render/voltkinTowerRenderer.ts';
+import { TV_DESTRUCTION_TICKS, tvDestructionRow, TV_CRITICAL_TICKS, TV_EXPLOSION_TICKS } from '../render/voltkinTowerRenderer.ts';
 
 describe('S177 P3 — his numbers, asserted', () => {
   it('a maximum of THREE per world lord', () => {
@@ -74,12 +74,18 @@ describe('S177 P3 — his numbers, asserted', () => {
  * this is worked to completion. The whole loop correctly."*
  */
 describe('S177 P4 — the destruction beat is finite and ordered', () => {
+  // ⛔ S178 — RE-PINNED, DERIVED. These were the same `18`/`36` literals as
+  // `voltkinTowerBeats.test.ts`, in a file whose name gives no hint it guards the TV — which is why
+  // widening the beats turned up a SECOND red test after the obvious one was fixed. Grep for the
+  // clause, never for the files you remember touching.
   it('runs critical → explosion → ruins, in that order', () => {
+    const boom = TV_CRITICAL_TICKS;
+    const ruins = TV_CRITICAL_TICKS + TV_EXPLOSION_TICKS;
     expect(tvDestructionRow(0)).toBe('critical');
-    expect(tvDestructionRow(17)).toBe('critical');
-    expect(tvDestructionRow(18)).toBe('explosion');
-    expect(tvDestructionRow(35)).toBe('explosion');
-    expect(tvDestructionRow(36)).toBe('destroyed');
+    expect(tvDestructionRow(boom - 1)).toBe('critical');
+    expect(tvDestructionRow(boom)).toBe('explosion');
+    expect(tvDestructionRow(ruins - 1)).toBe('explosion');
+    expect(tvDestructionRow(ruins)).toBe('destroyed');
   });
 
   /**
