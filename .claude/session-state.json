@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1356,
+  "tool_calls_session_total": 1365,
   "session_id": "S178",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -55,7 +55,33 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/effects.ts",
+          "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "4513 tests / 284 files, measured S178"
+        }
+      ]
     },
     {
       "id": 2,
@@ -67,7 +93,35 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "function loopFrame("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "const TV_ART_PX = 112;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "pattern": "sprite\\.y = tvSpriteY\\(",
+          "op": "==",
+          "value": 2
+        }
+      ]
     },
     {
       "id": 3,
@@ -79,7 +133,28 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "applyVortexPull(world, attractedId);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "applySpindlePull(world, attractedId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/vortex.ts",
+          "needle": "export function applyVortexPull"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/vortexUnwired.test.ts",
+          "needle": "a live VORTEX sitting on a free spark does not move it"
+        }
+      ]
     },
     {
       "id": 4,
@@ -91,7 +166,28 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/bagStrikeS178.test.ts",
+          "needle": "still pops the bag while committed to an unreachable shape"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const STINK_BAG_HP = 1;"
+        }
+      ]
     },
     {
       "id": 5,
@@ -103,7 +199,33 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.ts",
+          "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.ts",
+          "needle": "let jump = 1;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/creatures/voltkinChain.ts",
+          "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/voltkinChain.test.ts",
+          "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
+        }
+      ]
     },
     {
       "id": 6,
@@ -115,7 +237,28 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkTower.ts",
+          "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkTower.ts",
+          "needle": "blastFifths, blastFifths,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/stinkTower.test.ts",
+          "needle": "never passes the retired 1000-scale blast figure to shapes again"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/damage.ts",
+          "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
+        }
+      ]
     },
     {
       "id": 7,
@@ -127,7 +270,40 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/render/chewerRenderer.ts",
+          "pattern": "liveIds\\.add\\(c\\.id\\);",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/chewerRenderer.ts",
+          "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "PRESENCE BEFORE THE FOG SKIP"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerRenderer.ts",
+          "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/chewerRenderer.ts",
+          "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+        }
+      ]
     },
     {
       "id": 8,
@@ -139,7 +315,25 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "const shown = Math.max(1, current);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/healthBar.ts",
+          "pattern": "^\\s+if \\(current <= 0\\) continue;",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.test.ts",
+          "needle": "but a structure that is actually GONE still draws nothing"
+        }
+      ]
     },
     {
       "id": 9,
@@ -151,7 +345,28 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export function towerRingCentroid("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/healthBar.ts",
+          "needle": "return towerRingCentroid(world, anchorId, art);"
+        }
+      ]
     },
     {
       "id": 10,
@@ -163,11 +378,330 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "verification": []
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const WORLD_EDGE_MARGIN = 40;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/creatureVerlet.ts",
+          "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/playfieldBounds.test.ts",
+          "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/placeFromFree.ts",
+          "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+        }
+      ]
     }
   ],
-  "verification": [],
-  "reflexion_entries_to_archive": [],
+  "verification": [
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/damage.ts",
+      "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/game/effects.ts",
+      "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
+    },
+    {
+      "type": "file_contains",
+      "path": "CLAUDE.md",
+      "needle": "4513 tests / 284 files, measured S178"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function loopFrame("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "const TV_ART_PX = 112;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "pattern": "sprite\\.y = tvSpriteY\\(",
+      "op": "==",
+      "value": 2
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applyVortexPull(world, attractedId);"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applySpindlePull(world, attractedId);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/vortex.ts",
+      "needle": "export function applyVortexPull"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/vortexUnwired.test.ts",
+      "needle": "a live VORTEX sitting on a free spark does not move it"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/bagStrikeS178.test.ts",
+      "needle": "still pops the bag while committed to an unreachable shape"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const STINK_BAG_HP = 1;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "let jump = 1;"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.test.ts",
+      "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "blastFifths, blastFifths,"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.test.ts",
+      "needle": "never passes the retired 1000-scale blast figure to shapes again"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/damage.ts",
+      "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/chewerRenderer.ts",
+      "pattern": "liveIds\\.add\\(c\\.id\\);",
+      "op": "==",
+      "value": 1
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "PRESENCE BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerRenderer.ts",
+      "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "const shown = Math.max(1, current);"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/healthBar.ts",
+      "pattern": "^\\s+if \\(current <= 0\\) continue;",
+      "op": "==",
+      "value": 0
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.test.ts",
+      "needle": "but a structure that is actually GONE still draws nothing"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerRingCentroid("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/input/controls.ts",
+      "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "return towerRingCentroid(world, anchorId, art);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const WORLD_EDGE_MARGIN = 40;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/playfieldBounds.test.ts",
+      "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/placeFromFree.ts",
+      "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+    }
+  ],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": 1,
+      "tag": "#stale-doc-is-a-live-hazard",
+      "lesson": "A stale comment half-updated is worse than one wholly stale. constants.ts' boss block had a CURRENT attackFifths line beside a PRE-S172 unitPoolFifths line, so a reader saw damage exactly right and durability 3x low. Fix both halves of a table or neither."
+    },
+    {
+      "priority": 2,
+      "tag": "#measure-the-artifact-not-the-manifest",
+      "lesson": "I read `frames: 12` from a manifest and built a fix on it. A pixel diff showed four of six rows are 12 BYTE-IDENTICAL copies of one still. The manifest describes the packer's output shape, not the art. Measure the shipped bytes before reasoning about what a player sees."
+    },
+    {
+      "priority": 3,
+      "tag": "#flavour-text-is-not-a-ruling",
+      "lesson": "The Vortex's only authority was a description string in a combo table that a later session chose to 'realize' as physics. The owner had never ruled it. Before implementing to a label, grep for the owner quote; if there is none, the label is flavour and the mechanic is a proposal."
+    },
+    {
+      "priority": 4,
+      "tag": "#a-probe-beats-an-argument",
+      "lesson": "Three sessions reasoned about the poop bag from the code and got it wrong. A 40-line probe settled it in one run: dead in 60 ticks with no shape, ticksToDie=null with a shape 300px away. Write the probe before the theory, and keep it as the regression test."
+    },
+    {
+      "priority": 5,
+      "tag": "#a-provisional-decision-needs-its-trigger-watched",
+      "lesson": "No-falloff was MINE, was labelled provisional, and pre-registered its own trigger ('if it plays too strong the dial is here'). Nobody watched the trigger; the owner pulled it by playing. A recorded trigger with no watcher is a note, not a plan."
+    },
+    {
+      "priority": 6,
+      "tag": "#convert-all-N-sites-or-none",
+      "lesson": "S177 P1 converted six radial damage sites to the ladder and missed the seventh, which then paid shapes on a retired 1000-point scale for a whole session. The suite could not see it because it asserted the number was linear and integer, never which SCALE it landed on."
+    },
+    {
+      "priority": 7,
+      "tag": "#presence-is-not-visibility",
+      "lesson": "Three renderers shared one bug: the fog `continue` ran before the id was registered as live, so leaving vision was indistinguishable from dying. Nothing tested the distinction, so a mechanic could be armed or disarmed with the suite fully green."
+    },
+    {
+      "priority": 8,
+      "tag": "#a-test-can-pin-the-defect",
+      "lesson": "A test asserted 'a structure damaged past its pool draws nothing' with a fixture the sim cannot produce, while the reachable version of that state was a real bug. A green test pinning an unreachable fixture is worse than no test: it certifies the wrong thing."
+    },
+    {
+      "priority": 9,
+      "tag": "#collapse-duplication-when-you-would-add-the-third",
+      "lesson": "The ring-centroid walk existed twice and I needed a third. Moving it to the file that already owned the sizes and the anchor left one definition, so the health bar, the building and the click target cannot drift apart."
+    },
+    {
+      "priority": 10,
+      "tag": "#a-clamp-on-movement-is-not-a-clamp-on-existence",
+      "lesson": "Giving the sim a playfield fixed creatures walking off the board and immediately created a new exploit: build legality had no edge term, so a shape placed past the clamp was unreachable by every melee unit. When you add a rule, ask which other subsystem now disagrees with it."
+    },
+    {
+      "priority": 11,
+      "tag": "#verify-the-fix-not-just-the-gates",
+      "lesson": "Every gate was green on work that contained three regressions I had introduced: widened frozen stills, a size target measured against the wrong thing, and a broken death-watcher guard. Gates prove the suite still passes; only an adversarial read of the diff against the requirement proves the fix is right."
+    },
+    {
+      "priority": 11,
+      "tag": "#file_lacks-is-the-wrong-binding-in-this-repo",
+      "lesson": "Three verification bindings failed because this codebase QUOTES the superseded text at the correction, so the old string legitimately survives in a comment. Assert the new code positively, or anchor a grep so a comment line cannot satisfy it."
+    }
+  ],
   "real_context_tokens_at_close": null,
   "carry_forwards_spawned_in_s176": [
     "⛔ HIS ~6 PLAYTEST BUGS - held deliberately. He said: 'I won't tell you, because you're gonna start researching them and using more tokens from the weekly'. They are the FIRST thing next session asks for.",
