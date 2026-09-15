@@ -32,7 +32,13 @@
  */
 
 import type { Bond } from '../../physics/bonds.ts';
-import { ARMY_RETREAT_LEAD_TICKS, PLAYER_COLORS } from '../../constants.ts';
+import {
+  ARMY_RETREAT_LEAD_TICKS,
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  PLAYER_COLORS,
+  WORLD_EDGE_MARGIN,
+} from '../../constants.ts';
 import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
@@ -604,7 +610,35 @@ export function standoffTargetPos(
   const GOLDEN_ANGLE = 2.399963229728653; // π(3 − √5) — the same idiom as `spreadTargetPos`
   const arc = Math.cos(((creatureId as unknown as number) + 1) * GOLDEN_ANGLE) * STANDOFF_ARC_RAD;
   const angle = base + arc;
-  return { x: target.x + Math.cos(angle) * ring, y: target.y + Math.sin(angle) * ring };
+  /*
+   * ⛔⛔⛔ S178 (owner) — **AND THE RING IS CLAMPED TO THE PLAYFIELD, BECAUSE IT IS THE ONE TARGET
+   * PRODUCER THAT CAN POINT OFF THE BOARD.**
+   *
+   * Owner, S178: *"it just chased them out of bounds, like, above my castle to the east."*
+   *
+   * Every other producer in this file returns an entity position ±26–46 px. This one projects a
+   * destination `ring` px AWAY from the victim — 176 px for a goblin archer — and anchors it to a
+   * VICTIM THAT KEEPS CLOSING. So each cadence the ring is regenerated further out while the chaser
+   * sits at 35 px: a demanded ~141 px/s of retreat against the archer's own ~102 px/s, sustained, in
+   * whatever direction the chase presses. Seat 1's keep is 120 px from the east edge — 1.18 s of that
+   * — and `pickNavUnit`'s leash cannot save it, because that leash is measured from the creature's
+   * OWN position and is therefore a dead-band that never breaks during a chase.
+   *
+   * ⚠ THE INTEGRATOR CLAMP ALONE IS NOT ENOUGH, which is why this is here as well. `creatureVerletStep`
+   * now refuses to move a unit past the edge, but a destination that still sits outside keeps the
+   * whole clump pressed flat against an invisible wall for the rest of the FIGHT — broken in a
+   * different way rather than fixed. Clamping the DESTINATION lets a cornered standoff unit slide
+   * along the edge instead of grinding into it.
+   *
+   * ⚠ THE RING IS NOT SHORTENED, ONLY BOUNDED. A unit with its back to the wall keeps its own
+   * `attackRange`; it simply cannot ask to stand somewhere that does not exist.
+   */
+  const rx = target.x + Math.cos(angle) * ring;
+  const ry = target.y + Math.sin(angle) * ring;
+  return {
+    x: Math.max(WORLD_EDGE_MARGIN, Math.min(CANVAS_WIDTH - WORLD_EDGE_MARGIN, rx)),
+    y: Math.max(WORLD_EDGE_MARGIN, Math.min(CANVAS_HEIGHT - WORLD_EDGE_MARGIN, ry)),
+  };
 }
 
 /**

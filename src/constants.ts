@@ -94,6 +94,36 @@ export const MAX_BOTS = MAX_PLAYERS - 1;
 // === Canvas, Spawner, Vision ===
 export const CANVAS_WIDTH = 1920;
 export const CANVAS_HEIGHT = 1080;
+
+/**
+ * ⭐⭐⭐ S178 (owner) — **HOW FAR INSIDE THE EDGE A MOVING THING IS HELD. THERE WAS NO EDGE.**
+ *
+ * Owner, S178: *"My brother sent a bunch of goblins and a bunch of creatures, and they just chased
+ * my creatures behind my castle. I was playing as player two. And it just chased them out of bounds,
+ * like, above my castle to the east. What the shit? How does that happen?"*
+ *
+ * ⛔ IT HAPPENS BECAUSE THE SIM HAS NEVER HAD A PLAYFIELD. `CANVAS_WIDTH`/`CANVAS_HEIGHT` above are
+ * used for build legality, fog grid indices and a bot's avatar flee — never once as a per-tick
+ * confinement. `creatureVerletStep` writes `c.pos` with no bound and its only caller adds none; the
+ * sim's single geometric confinement, `enforceSpawnerBounds`, is a quarry-disc reflector that
+ * `continue`s on everything that is not a Free spark. `walls.ts` is pure derived geometry with one
+ * consumer — `wallRenderer` — so the border walls are a DRAWING, not a barrier.
+ *
+ * ⚠ AND `SPARK_TD_SESSION_SPECS.md` ASSERTS TWICE THAT THIS CLAMP ALREADY EXISTED — *"the same
+ * movement clamp that already keeps sparks in bounds"*. It did not, and never had. A doc describing
+ * a mechanism that does not exist is the `CONNECTOR_HP` failure this repo has recorded before.
+ *
+ * ⚠ WHY SEAT 2 SAW IT AND SEAT 1 WOULD SEE THE MIRROR. There is NO seat-mirroring bug: seat 1's keep
+ * anchor simply sits at x = 1800, **120 px** from the 1920 edge, which is 1.18 s at a goblin
+ * archer's ~102 px/s. Seat 0 has the identical exposure to the west. He played seat 2, so he saw east.
+ *
+ * ⚠ 40 IS MINE, NOT HIS, AND IT IS THE ONE NUMBER HERE THAT IS A JUDGEMENT. Measured against the HUD
+ * it has to clear: the seat-1 keep box spans x 1763–1837 and the energy gauge sits at x 1896–1904, so
+ * a sprite clamped to exactly 1920 would half-vanish and overlap the gauge. 40 px keeps a unit fully
+ * drawn and clear of the furniture, at the cost of an invisible wall 40 px in from the edge. Overrule
+ * it on sight — it is a single constant and nothing else needs touching.
+ */
+export const WORLD_EDGE_MARGIN = 40;
 // V6-1.2 (owner instruction 2026-08-09) — HALVED 250 -> 125. The spawn zone is no longer the place
 // the player works; it is the gatherers' quarry, and a tighter disc makes the haul legible (a
 // gatherer visibly leaves the zone, crosses open ground, and arrives home). Tests derive from this

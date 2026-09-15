@@ -63,20 +63,30 @@ function makeStubCreature(opts: {
 }
 
 describe('creatureVerletStep', () => {
+  /*
+   * ⛔ S178 — THESE FIXTURES MOVED OFF (0, 0), AND THE REASON IS THE POINT OF THE CHANGE. The sim now
+   * has a playfield (`WORLD_EDGE_MARGIN`), and (0, 0) is OUTSIDE it — so a creature seeded there is
+   * legitimately clamped to the corner and the delta assertions below stopped measuring what they
+   * claim to measure. Every assertion here is about the integrator's DELTAS, so relocating the origin
+   * to open ground preserves the intent exactly while keeping the fixture in a state the sim can
+   * actually reach. The clamp itself is covered by `playfieldBounds.test.ts`.
+   */
+  const OPEN = { x: 500, y: 500 };
+
   it('applies acceleration in the correct direction + updates prevPos to old pos', () => {
-    const c = makeStubCreature({ pos: { x: 0, y: 0 }, targetPos: { x: 1000, y: 0 } });
+    const c = makeStubCreature({ pos: { ...OPEN }, targetPos: { x: 1000, y: OPEN.y } });
     expect(c.prevPos).toEqual(c.pos); // factory snaps prevPos = pos
     creatureVerletStep(c, SUBSTEP_DT, { x: CREATURE_MAX_ACCEL, y: 0 });
-    expect(c.pos.x).toBeGreaterThan(0);
-    expect(c.pos.y).toBeCloseTo(0, 12);
-    expect(c.prevPos.x).toBeCloseTo(0, 12);
-    expect(c.prevPos.y).toBeCloseTo(0, 12);
+    expect(c.pos.x).toBeGreaterThan(OPEN.x);
+    expect(c.pos.y).toBeCloseTo(OPEN.y, 12);
+    expect(c.prevPos.x).toBeCloseTo(OPEN.x, 12);
+    expect(c.prevPos.y).toBeCloseTo(OPEN.y, 12);
   });
 
   it('preserves implicit velocity (pos - prevPos) across multi-step with damping decay', () => {
     // Seed an initial velocity by manually offsetting prevPos relative to pos.
-    const c = makeStubCreature({ pos: { x: 100, y: 0 } });
-    c.prevPos = { x: 99, y: 0 }; // implicit velocity = +1 px/substep on x
+    const c = makeStubCreature({ pos: { x: 100, y: OPEN.y } });
+    c.prevPos = { x: 99, y: OPEN.y }; // implicit velocity = +1 px/substep on x
     // Run 100 substeps with NO accel — pure damping.
     for (let i = 0; i < 100; i++) creatureVerletStep(c, SUBSTEP_DT, ZERO_ACCEL);
     // After 100 substeps × 0.998 damping, residual velocity ≈ 0.998^100 ≈ 0.819.
@@ -84,7 +94,7 @@ describe('creatureVerletStep', () => {
     expect(finalVelocity).toBeGreaterThan(0.7);
     expect(finalVelocity).toBeLessThan(0.85);
     // Y axis stays untouched.
-    expect(c.pos.y).toBeCloseTo(0, 12);
+    expect(c.pos.y).toBeCloseTo(OPEN.y, 12);
     // Damping coefficient sanity-check (does not drift to negative).
     expect(VELOCITY_DAMPING).toBeGreaterThan(0.99);
   });

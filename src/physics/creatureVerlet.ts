@@ -39,6 +39,7 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   VELOCITY_DAMPING,
+  WORLD_EDGE_MARGIN,
 } from '../constants.ts';
 import type { Creature } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -92,6 +93,57 @@ export function creatureVerletStep(
   c.prevPos.y = py;
   c.pos.x = px + vx + ax;
   c.pos.y = py + vy + ay;
+  clampIntoPlayfield(c.pos, c.prevPos);
+}
+
+/**
+ * ⭐⭐⭐ S178 (owner) — **THE PLAYFIELD EDGE. THE SIM HAD NEVER HAD ONE.**
+ *
+ * Owner, S178: *"they just chased my creatures behind my castle … it just chased them out of bounds,
+ * like, above my castle to the east. What the shit? How does that happen?"*
+ *
+ * ⛔ IT LIVES INSIDE THE INTEGRATOR, AND THAT IS LOAD-BEARING RATHER THAN TIDY. `stepPhysics` is
+ * driven by the host AND by `workerSim` / `simWorker`, and both reach a creature only through
+ * `creatureVerletStep`. Clamping in `physicsLoop` or in `hostTick` instead would leave the worker
+ * mirror unclamped and convert a gameplay bug into a HOST-VS-WORKER DIVERGENCE, which is the one
+ * defect class this codebase treats as worse than the bug being fixed.
+ *
+ * ⛔⛔ AND `prevPos` MOVES WITH `pos`, WHICH IS THE WHOLE TRAP. This is a Verlet integrator: velocity
+ * is implicit in `pos − prevPos`. Clamping the position ALONE manufactures a one-frame velocity of
+ * exactly the overshoot, pointing back inward, and the next substep FLINGS the unit across the
+ * board. Shifting `prevPos` by the identical delta preserves the velocity the creature actually had,
+ * so a unit pressed against the edge simply stays pressed against it. `recallArmies` documents this
+ * same trap at its own teleport (*"⚠ prevPos MOVES WITH pos"*).
+ *
+ * ⚠ PURE: no clock, no rng, no accumulator. Two sims stepping identical state produce identical
+ * clamps, so this adds no divergence surface of its own.
+ *
+ * ⚠⚠ TWO SIBLING INTEGRATORS ARE DELIBERATELY NOT CLAMPED, AND THE REASON IS RECORDED HERE SO THE
+ * NEXT SESSION DOES NOT "FINISH THE JOB" AND BREAK SOMETHING.
+ *   · `defenders/defenderMotion.ts` (Helga) writes `pos` unbounded too, but she is held by her HUB
+ *     LEASH — the anti-kite gate the owner asked for after *"she effectively lasers across the
+ *     map"* — so she has no path to an edge in the first place. Clamping her would be dead code
+ *     today and would silently become her real bound if that leash were ever retuned.
+ *   · `hunters/hunterAI.ts` is the same shape and MUST NOT be clamped without a ruling: the hunter
+ *     legitimately spawns from OUTSIDE the board (`hunterLifecycle` seeds it off-canvas) and the
+ *     seagull's `SEAGULL_DEPART_MARGIN` shows the codebase deliberately lets some entities live
+ *     past the edge. A clamp here would trap a hunter at its own spawn point.
+ * Both are latent rather than live. Named in the S178 open questions rather than guessed at.
+ */
+export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {
+  const lo = WORLD_EDGE_MARGIN;
+  const hiX = CANVAS_WIDTH - WORLD_EDGE_MARGIN;
+  const hiY = CANVAS_HEIGHT - WORLD_EDGE_MARGIN;
+  const cx = pos.x < lo ? lo : pos.x > hiX ? hiX : pos.x;
+  const cy = pos.y < lo ? lo : pos.y > hiY ? hiY : pos.y;
+  if (cx !== pos.x) {
+    prevPos.x += cx - pos.x;
+    pos.x = cx;
+  }
+  if (cy !== pos.y) {
+    prevPos.y += cy - pos.y;
+    pos.y = cy;
+  }
 }
 
 /**
