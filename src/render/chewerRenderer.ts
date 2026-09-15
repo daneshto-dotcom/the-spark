@@ -48,6 +48,7 @@ import type { World } from '../state/world.ts';
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
 import { isConcealed } from './concealment.ts';
+import type { PlayerId } from '../types.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { CreatureId } from '../types.ts';
@@ -92,6 +93,12 @@ export class ChewerRenderer {
   private readonly graphics: Graphics;
   /** Render-side last-seen position per chewer (per-frame velocity estimator). */
   private readonly lastSeenPos: Map<CreatureId, { x: number; y: number }> = new Map();
+  /**
+   * ⭐ S178 — the seat a chewer belonged to when last seen, so a death that happens INSIDE fog can
+   * be culled. Needed because the creature is already gone from `world.creatures` by the time the
+   * watcher runs, so its owner cannot be looked up any more.
+   */
+  private readonly lastSeenOwner: Map<CreatureId, PlayerId> = new Map();
   /** Accumulated hop phase per chewer (0..1 wraps = one hop). Render-only. */
   private readonly hopPhase: Map<CreatureId, number> = new Map();
   /** Last horizontal facing per chewer (+1 right, -1 left). Anti-jitter hold. */
@@ -139,11 +146,29 @@ export class ChewerRenderer {
 
     for (const c of world.creatures.values()) {
       if (c.type !== 'chewer') continue;
+      /*
+       * ⛔⛔⛔ S178 — **PRESENCE IS REGISTERED BEFORE THE FOG SKIP. THESE TWO LINES USED TO SIT
+       * BELOW IT, AND THAT MADE LEAVING VISION INDISTINGUISHABLE FROM DYING.**
+       *
+       * The death watcher below fires on `lastSeenPos.size > liveIds.size`. With `liveIds.add`
+       * underneath the concealment `continue`, an enemy chewer that merely walked into fog — or that
+       * the player's cursor stopped hovering — dropped out of `liveIds` and was read as KILLED: a
+       * green-goo splat and a positional `playSplatSFX` at its last position, for a unit at full
+       * health. Waggling the cursor on and off it replayed the death indefinitely, and it MASS-FIRED
+       * at every FIGHT→BUILD flip, because `stepFogAlpha` snaps the fog on instantly over every
+       * enemy creature that survived the phase (which `recallArmies` documents as normal).
+       *
+       * PRESENCE AND VISIBILITY ARE DIFFERENT QUESTIONS. `world.creatures` is the authority on
+       * whether a chewer EXISTS — it is the same synced snapshot on every peer — and fog decides
+       * only whether we DRAW it. So membership is recorded for every live chewer, and the
+       * `continue` below now skips nothing but the drawing.
+       */
+      liveIds.add(c.id);
+      this.lastSeenState.set(c.id, c.state);
+      this.lastSeenOwner.set(c.id, c.ownerPlayerId);
       // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
       // see render/concealment.ts. Own entities are never concealed.
       if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
-      liveIds.add(c.id);
-      this.lastSeenState.set(c.id, c.state);
       // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a
       // glance whose soldiers those are. One shared definition in `creatureLift.ts`, called from all
       // three creature renderers, because the owner's requirement was explicitly that it be
@@ -253,10 +278,20 @@ export class ChewerRenderer {
         // through DESPAWNING (faded above) and dies QUIETLY — no kill-VFX on natural expiry
         // (mirrors the Voltkin death-watcher's DESPAWNING discriminator).
         const wasState = this.lastSeenState.get(id);
-        if (playing && wasState !== undefined && wasState !== 'DESPAWNING') {
+        /*
+         * ⭐ S178 — AND A DEATH THE PLAYER CANNOT SEE MAKES NO NOISE. Now that presence survives the
+         * fog, this watcher fires only on a REAL removal — including one that happens inside the
+         * fog, which would otherwise splat and play a panned SFX at an enemy position the player is
+         * not entitled to. Same rule `effectsRenderer` already applies to one-shot effects by
+         * position: *"a bond-commit flash, a sever erase or a chew bite is a precise position tell"*.
+         */
+        const owner = this.lastSeenOwner.get(id);
+        const hidden = owner !== undefined && isConcealed(pos.x, pos.y, owner);
+        if (playing && !hidden && wasState !== undefined && wasState !== 'DESPAWNING') {
           this.gooSplats.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 2.39 });
           void playSplatSFX({ x: pos.x, y: pos.y });
         }
+        this.lastSeenOwner.delete(id);
         this.lastSeenPos.delete(id);
         this.hopPhase.delete(id);
         this.facing.delete(id);

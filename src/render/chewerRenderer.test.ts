@@ -24,7 +24,7 @@
  * which is correct for render-only code per the layer brief.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Application, Container } from 'pixi.js';
 import { ChewerRenderer } from './chewerRenderer.ts';
 import { SpawnerZoneRenderer } from './spawnerZoneRenderer.ts';
@@ -111,6 +111,8 @@ vi.mock('pixi.js', () => ({
   Container: class { addChild(): void {} },
   Application: class {},
 }));
+
+import { beginConcealmentFrame, resetConcealmentForTest } from './concealment.ts';
 
 const stubParent = (): Container => ({ addChild: () => undefined } as unknown as Container);
 const stubApp = (): Application => ({ stage: { addChild: () => undefined } } as unknown as Application);
@@ -356,5 +358,86 @@ describe('S100 P1 — SpawnerZoneRenderer', () => {
     w.primitives.delete(asPrimitiveId(900)); // anchor gone this frame
     expect(() => r.sync(w)).not.toThrow();
     r.destroy();
+  });
+});
+
+/**
+ * ⭐⭐⭐ S178 — **LEAVING VISION IS NOT DYING.** The regression guard for the bug class that hit
+ * THREE renderers at once (chewer, Voltkin/drone, race tower) with one shared shape: the fog
+ * `continue` ran BEFORE the id was registered as live, so the death watcher — which fires on
+ * `lastSeenPos.size > liveIds.size` — read a concealed enemy as killed.
+ *
+ * What the player saw: an enemy chewer at full health emitting a green-goo splat and a panned
+ * splat SFX the moment the cursor stopped hovering it, replayable by waggling the cursor, and
+ * mass-firing at every FIGHT→BUILD flip when `stepFogAlpha` snaps the fog on over every enemy
+ * creature that survived the phase.
+ *
+ * ⛔ AND NOTHING CAUGHT IT FOR EIGHT SESSIONS BECAUSE NOTHING TESTED PRESENCE-vs-VISIBILITY. That is
+ * the real finding, and it is why this test asserts the INVARIANT rather than the symptom: the
+ * watcher's bookkeeping for a creature that still exists must survive the creature being hidden.
+ *
+ * ⚠ SCOPE, STATED HONESTLY: this covers the chewer, which is the one renderer of the three that
+ * exposes `inspectState()`. `creatureRenderer` and `towerRenderer` were fixed with the identical
+ * shape in the same commit and are NOT behaviourally covered here — they have no inspection hook to
+ * assert against. Named rather than implied.
+ */
+describe('S178 — an enemy that walks into fog must not be read as dead', () => {
+  beforeEach(() => { resetConcealmentForTest(); });
+
+  /** A networked match in BUILD — per `concealment.test.ts`, the state in which fog is up (R62). */
+  function fogWorld(): World {
+    const w = makeWorld();
+    const mutable = w as unknown as {
+      gameMode: string; gameState: string; localPlayerId: number; matchPhase: string;
+      creatures: Map<unknown, { ownerPlayerId: number; pos: { x: number; y: number } }>;
+    };
+    mutable.gameMode = '1v1';
+    mutable.gameState = 'PLAYING';
+    mutable.matchPhase = 'BUILD';
+    mutable.localPlayerId = 0;
+    // The chewer belongs to the OTHER seat and stands far from anything the local player can see.
+    for (const c of mutable.creatures.values()) {
+      c.ownerPlayerId = 1;
+      c.pos.x = 1850;
+      c.pos.y = 1000;
+    }
+    return w;
+  }
+
+  it('keeps its watcher bookkeeping when an enemy chewer is concealed, so no death fires', () => {
+    const w = fogWorld();
+    const r = new ChewerRenderer(stubApp(), stubParent());
+
+    // FRAME 1 — visible. A cursor right on top of it is a vision source, so it is drawn and tracked.
+    beginConcealmentFrame(w, { x: 1850, y: 1000 });
+    r.sync(w);
+    const tracked = r.inspectState().lastSeenPos;
+    expect(tracked, 'the chewer must be tracked while visible').toBe(1);
+
+    // FRAME 2 — the cursor moves away. The chewer is UNCHANGED and still in world.creatures; only
+    // our view of it changed. Before S178 the watcher deleted its entry here and splatted goo.
+    beginConcealmentFrame(w, { x: 20, y: 20 });
+    r.sync(w);
+    expect(
+      r.inspectState().lastSeenPos,
+      'a chewer that merely left vision must still be tracked — it did not die',
+    ).toBe(tracked);
+  });
+
+  it('still reaps a chewer that is REALLY gone, so the fix did not disable the watcher', () => {
+    const w = fogWorld();
+    const r = new ChewerRenderer(stubApp(), stubParent());
+    beginConcealmentFrame(w, { x: 1850, y: 1000 });
+    r.sync(w);
+    expect(r.inspectState().lastSeenPos).toBe(1);
+
+    // Remove it from the synced snapshot — the only thing that counts as death.
+    (w as unknown as { creatures: Map<unknown, unknown> }).creatures.clear();
+    beginConcealmentFrame(w, { x: 1850, y: 1000 });
+    r.sync(w);
+    expect(
+      r.inspectState().lastSeenPos,
+      'a chewer gone from world.creatures must be reaped',
+    ).toBe(0);
   });
 });

@@ -223,9 +223,34 @@ export class TowerRenderer {
        * hide-list names buildings first. Keyed on the anchor primitive, which is where the structure
        * physically stands and whose `placedBy` is its owner.
        */
+      /*
+       * ⛔⛔⛔ S178 — **A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT.** `live.add(sp.id)`
+       * used to sit at the BOTTOM of this loop, past all five draw gates — no art, fogged, atlas
+       * still loading, ring unresolved, ring empty. The crumble loop below treats absence from
+       * `live` as DEATH, so every one of those gates played an undamaged enemy tower's full
+       * destruction cinematic and then destroyed its sprite.
+       *
+       * The fog gate is the one the player meets constantly: sweep the cursor over an enemy tower
+       * and off again and it collapses on screen, repeatably. It also MASS-FIRES at every
+       * FIGHT→BUILD boundary, because `stepFogAlpha` snaps the fog on instantly and every enemy
+       * tower that was visible during the FIGHT crumbles at once.
+       *
+       * THE INVARIANT IS THE SPAWNER, NOT THE DRAW. A tower crumbles when it is gone from
+       * `world.creatureSpawners` — synced state every peer agrees on — and not one moment sooner.
+       * So membership is recorded HERE, above every gate, and the gates now skip only the drawing.
+       * `voltkinTowerRenderer` already keyed its ghost off real disappearance; this matches it.
+       */
+      live.add(sp.id);
       const towerAnchor = world.primitives.get(sp.anchorPrimitiveId);
       if (towerAnchor !== undefined
-        && isConcealed(towerAnchor.pos.x, towerAnchor.pos.y, towerAnchor.placedBy)) continue;
+        && isConcealed(towerAnchor.pos.x, towerAnchor.pos.y, towerAnchor.placedBy)) {
+        // ⚠ AND HIDE THE SPRITE WHILE IT IS FOGGED. Keeping the id in `live` keeps the Sprite in
+        // `this.sprites`, so without this it would keep drawing at its last position — a fogged
+        // building frozen on screen, which is a worse bug than the one being fixed.
+        const hidden = this.sprites.get(sp.id);
+        if (hidden !== undefined) hidden.visible = false;
+        continue;
+      }
       this.ensureAtlas(art);
       this.ensureDestroyRow(art);
       const atlas = this.atlases.get(art.atlasBase);
@@ -258,6 +283,7 @@ export class TowerRenderer {
         this.layer.addChild(sprite);
         this.sprites.set(sp.id, sprite);
       }
+      sprite.visible = true; // ⭐ S178 — back in vision after a fogged frame (see the gate above)
       sprite.texture = atlas[towerStateForHp(frac)];
       sprite.width = art.sizePx;
       sprite.height = art.sizePx;
@@ -285,7 +311,7 @@ export class TowerRenderer {
        */
       const ringBonds = ringBondsOf(world, ring);
       markTowerCover(ring, ringBonds.ids, ringBonds.newestTick);
-      live.add(sp.id);
+      // ⭐ S178 — `live.add(sp.id)` MOVED to the top of this loop; see the block at the fog gate.
       // Cached for the crumble, which happens after both the spawner and the ring are gone.
       this.lastSeen.set(sp.id, { x: cx, y: cy + art.sizePx * 0.5, art });
     }

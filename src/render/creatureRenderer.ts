@@ -30,7 +30,7 @@ import { drawStunStars } from './stunStars.ts';
 import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
-import type { Vec2 } from '../types.ts';
+import type { PlayerId, Vec2 } from '../types.ts';
 import { playZapBurstSFX } from './audioManager.ts';
 import {
   CREATURE_DESPAWNING_TICKS,
@@ -284,6 +284,11 @@ export class CreatureRenderer {
   /** Renderer-side last-seen position per creature (velocity estimator — drives the facing flip; wire
    *  prevPos is dead on the 1v1 client mirror). Doubles as the death-watcher's "who was alive" set. */
   private readonly lastSeenPos: Map<CreatureId, Vec2> = new Map();
+  /**
+   * ⭐ S178 — the seat this creature belonged to when last seen, so a death INSIDE fog can be
+   * culled. The creature is gone from `world.creatures` by the time the watcher runs.
+   */
+  private readonly lastSeenOwner: Map<CreatureId, PlayerId> = new Map();
   /** Per-creature horizontal facing (+1 right / -1 left). Anti-jitter hold below the velocity floor. */
   private readonly facings: Map<CreatureId, 1 | -1> = new Map();
   /**
@@ -470,11 +475,26 @@ export class CreatureRenderer {
       const isVoltkin = creature.type === 'voltkin';
       const isDrone = creature.type === 'lightningDrone';
       if (!isVoltkin && !isDrone) continue;
+      /*
+       * ⛔⛔⛔ S178 — **PRESENCE BEFORE THE FOG SKIP.** These two lines sat BELOW the concealment
+       * `continue`, so an enemy Voltkin or lightning drone that merely left vision dropped out of
+       * `liveIds` and the death watcher below read it as KILLED: a crackling lightning cloud and a
+       * panned `playZapBurstSFX` for a creature at full health, replayable by moving the cursor on
+       * and off it, and mass-firing at every FIGHT→BUILD flip when the fog snaps on.
+       *
+       * ⚠ WORSE HERE THAN FOR THE CHEWER, which is why it is called out: a drone's REAL death is a
+       * DETONATION, so the player is trained to read that cloud as *"a drone just blew up near my
+       * structures"*. A false one is actively misinforming, not merely cosmetic.
+       *
+       * `world.creatures` is the authority on EXISTENCE and fog decides only DRAWING. Membership is
+       * recorded for every live creature; the `continue` now skips nothing but the draw.
+       */
+      liveIds.add(creature.id);
+      this.lastSeenState.set(creature.id, creature.state);
+      this.lastSeenOwner.set(creature.id, creature.ownerPlayerId);
       // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
       // see render/concealment.ts. Own entities are never concealed.
       if (isConcealed(creature.pos.x, creature.pos.y, creature.ownerPlayerId)) continue;
-      liveIds.add(creature.id);
-      this.lastSeenState.set(creature.id, creature.state);
       // ⭐ S154 AMENDMENT B (owner) — the OWNER-COLOURED ground marker, so a crowded board says at a
       // glance whose soldiers those are. One shared definition in `creatureLift.ts`, called from all
       // three creature renderers, because the owner's requirement was explicitly that it be
@@ -559,13 +579,18 @@ export class CreatureRenderer {
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
         const wasState = this.lastSeenState.get(id);
-        if (playing && wasState !== undefined && wasState !== 'DESPAWNING') {
+        // ⭐ S178 — a death the player cannot see makes no light and no noise. Same rule
+        // `effectsRenderer` applies to one-shot effects by position.
+        const owner = this.lastSeenOwner.get(id);
+        const hidden = owner !== undefined && isConcealed(pos.x, pos.y, owner);
+        if (playing && !hidden && wasState !== undefined && wasState !== 'DESPAWNING') {
           this.lightningClouds.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 1.732 + 0.61 });
           void playZapBurstSFX({ x: pos.x, y: pos.y });
         }
         this.lastSeenPos.delete(id);
         this.facings.delete(id);
         this.lastSeenState.delete(id);
+        this.lastSeenOwner.delete(id);
       }
     }
 
