@@ -70,10 +70,11 @@ import {
 import { verletStepAll } from './verlet.ts';
 import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
-import { applyVortexPull } from '../state/vortex.ts';
 import { applyAnchorStabilize } from '../state/anchorStabilize.ts';
 import { applyKeystoneAnchor } from '../state/keystoneAnchor.ts';
-import { applySpindlePull } from '../state/spindle.ts';
+// ⛔ S178 (owner ruling) — `applyVortexPull` / `applySpindlePull` are NO LONGER IMPORTED. Both
+// modules are kept and still tested; they are simply not wired into the loop. See the ruling block
+// in `stepPhysics` below for why, and for the creature-drag idea he left the door open for.
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
@@ -189,17 +190,40 @@ export function stepPhysics(
   // no live Anchor / no anchored magic neighbor sagging in enemy territory.
   applyKeystoneAnchor(world);
 
-  // S89 P6 (G1b) — Vortex anchor-pull: a Dot→Spiral magic combo pulls nearby FREE sparks toward
-  // it. Once per tick (like tickCruiserChase, BEFORE the substeps), host-only; the substep Verlet
-  // then carries + damps the injected velocity. No-op when no live Vortex exists. Skips the
-  // currently AttractDragged spark so the pull never fights the player's drag.
-  applyVortexPull(world, attractedId);
-
-  // S115 P2 (G2-PROMO Phase-2) — Spindle tangential swirl: a Line→Circle magic combo pushes nearby FREE
-  // sparks PERPENDICULAR (around it) so they orbit, distinct from the Vortex radial suck-in. Same once-
-  // per-tick host-only slot; the per-tick push is bounded by a tangential-SPEED cap (non-accumulating —
-  // no escape velocity). No-op when no live Spindle exists. Skips the AttractDragged spark.
-  applySpindlePull(world, attractedId);
+  /*
+   * ⛔⛔⛔ S178 (OWNER RULING) — **NOTHING PULLS FREE SPARKS. THE VORTEX AND THE SPINDLE ARE
+   * UNWIRED FROM THE LOOP, AND THIS IS THE LINE THAT DOES IT.**
+   *
+   * Owner, S178, on seeing it in a match: *"How is that a mechanic? When did we ever say that it
+   * should be a mechanic? Dot-spiral combo will pull free sparks. That's ridiculous. [Did] we ever
+   * say that? … for now, it should definitely not affect free shapes, free primitives."*
+   *
+   * ⛔ AND HE IS RIGHT THAT HE NEVER SAID IT. The only authority this mechanic ever had was a
+   * FLAVOUR STRING in a table — `combos.ts` *"Pulls nearby free sparks toward it (anchor pull)"* —
+   * which S89 P6 elected to "realize" under a self-set *"Make the geometry matter"* roadmap item
+   * (see `state/vortex.ts`'s own header). There is no owner quote anywhere near it, in a file that
+   * is otherwise dense with them. It was self-authorised from a description of itself, and the
+   * Spindle (S115 P2) was then built by analogy to it.
+   *
+   * ⛔ WHAT HE ACTUALLY CAUGHT, and it is worse than flavour. `enforceSpawnerBounds` confines every
+   * non-escrowed Free spark to the 125 px quarry disc, and `applyVortexPull` had no quarry guard —
+   * so a Vortex built within `VORTEX_PULL_RADIUS` of the disc rakes the ENTIRE SHARED SPAWN POOL
+   * into one arc beside its owner's base, and his gatherers collect from a heap. His brother found
+   * it in a live match and used it: *"that's like a cheat code he found … We definitely have to
+   * fucking get rid of that."*
+   *
+   * ⚠ THE MODULES AND THEIR TESTS ARE KEPT, DELIBERATELY. Nothing is deleted: `state/vortex.ts` and
+   * `state/spindle.ts` still compile, still pass their unit tests, and are one line from being
+   * re-armed. He left the door open — *"it could be a cool mechanic to pull in CREATURES … tag on
+   * them so if they're running against it, it will pull them closer, make them slower; if they run
+   * [with] it, it'll make him faster. We can discuss it"* — and that is a different victim, not a
+   * different radius. When that is specified, it is re-wired here against creatures.
+   *
+   * ⚠ THE SPINDLE IS MY READING OF HIS RULING, NOT HIS WORDS. He named the Dot→Spiral Vortex; the
+   * Spindle is the same class of thing (Line↔Circle) doing the same thing tangentially to the same
+   * victims, so leaving it armed would answer the letter of *"should not affect free primitives"*
+   * and none of its point. Flagged for him in the S178 PDR's open questions.
+   */
 
   for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
     controls.applyPerSubstep();
