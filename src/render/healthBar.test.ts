@@ -949,10 +949,44 @@ describe('S174 (owner) — a freeform lattice carries a bar with NO tower on it'
     expect(rects(world).length, 'an enemy structure outside vision is not drawn at all').toBe(0);
   });
 
-  it('⛔ a structure damaged past its pool draws nothing — the sever path owns that frame', () => {
+  /*
+   * ⛔⛔⛔ S178 — **RE-PINNED, AND THE OLD ASSERTION WAS PROTECTING A STATE THAT CANNOT HAPPEN WHILE
+   * MISSING ONE THAT DOES.**
+   *
+   * This asserted that a structure damaged past its pool draws NO bar, on the reasoning that *"the
+   * sever path owns that frame"*. That reasoning holds only for the instant a connector actually
+   * pops — and in that instant the component is gone, so this loop never sees it. The fixture below
+   * (999 fifths on every bond of a live 3-chain) is a state the sim will not hold either:
+   * `damageConnector` severs the moment banked ≥ pool, inside the same call.
+   *
+   * ⭐ MEANWHILE THE REACHABLE VERSION DREW NOTHING AND WAS A REAL DEFECT. A sever DRAINS only `pool`
+   * fifths, targeted bond first, so overkill leaves the survivors' damage standing while the
+   * component SHRINKS: a 3-connector triangle (pool 24) with 20 banked on B1 takes a 150-fifth hit
+   * on B2 → B2 severs, the drain spends its 24 on B2 alone, and the surviving 2-connector structure
+   * (pool 14) still carries B1's 20. `max - damage` = −6, and the bar vanished off a structure the
+   * player could still see, hit and repair — and stayed gone until something hit it again.
+   *
+   * A missing bar among structures that all carry one reads as "not a thing to worry about", which
+   * is the exact opposite of one hit from collapse. A LIVE structure always draws; the floor is one
+   * fifth so it draws as near-empty as the bar can render.
+   */
+  it('⭐ a structure damaged past its SHRUNKEN pool still draws a bar — it is alive, so it shows', () => {
     const world = twoSeat();
     const bondIds = chain(world, 1, 3, 500, 500, P0);
     for (const id of bondIds) world.bonds.get(id)!.damageFifths = 999;
+    expect(
+      rects(world).length,
+      'a live structure must never go barless — it reads as healthy when it is nearly dead',
+    ).toBeGreaterThan(0);
+  });
+
+  it('⛔ but a structure that is actually GONE still draws nothing', () => {
+    // The genuinely-collapsed case, which is what "the sever path owns that frame" was reaching for:
+    // no component left to iterate, so no bar — and this is the assertion that keeps the floor above
+    // from resurrecting bars for structures that no longer exist.
+    const world = twoSeat();
+    chain(world, 1, 3, 500, 500, P0);
+    world.bonds.clear();
     expect(rects(world).length).toBe(0);
   });
 });

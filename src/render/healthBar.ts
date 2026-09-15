@@ -423,10 +423,31 @@ function drawStructureBars(g: Graphics, world: World): void {
 
     const max = structureDefenceFifths(n);
     const current = Math.max(0, Math.min(max, max - comp.damageFifths));
-    if (current <= 0) continue; // already collapsing — the sever path owns the next frame
+    /*
+     * ⛔⛔ S178 — **A STILL-STANDING STRUCTURE MUST ALWAYS DRAW A BAR.** This read
+     * `if (current <= 0) continue;` on the theory that a zeroed pool means *"already collapsing —
+     * the sever path owns the next frame"*. That is true for the frame a connector actually pops,
+     * and false for a structure that simply carries more banked damage than its SHRUNKEN pool.
+     *
+     * HOW THAT HAPPENS, and it needs no exotic play. `damageConnector` drains only `pool` fifths on
+     * a sever — targeted bond first — so an overkill hit exhausts the drain before it reaches the
+     * survivors and leaves their damage standing while the component gets SMALLER. Concretely: a
+     * 3-connector triangle, `structurePoolFifths(3)` = 24. A chewer banks 20 on B1. Vlad then hits
+     * B2 for `attackFifths(10,10)` = 150 — banked 170 ≥ 24, so the drain takes 24 from B2 and stops.
+     * B2 severs and leaves; the component is now 2 connectors worth 14 fifths, still carrying B1's
+     * 20. `max - comp.damageFifths` = −6, `current` clamps to 0, and the bar VANISHES off a
+     * two-connector structure the player can still see, still hit, and still repair. Nothing
+     * recomputes until the next `damageConnector`, so it can stay gone indefinitely.
+     *
+     * A bar that disappears reads as *"this is fine"*, which is the opposite of the truth. The floor
+     * is one fifth: the structure is alive, so it draws, and it draws as close to empty as the bar
+     * can render. The genuinely-gone case is already handled — a collapsed structure has no
+     * component here to iterate at all.
+     */
+    const shown = Math.max(1, current);
 
     // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
-    drawBar(g, x, y, current, max, 1, sb?.w ?? 0, rise, buildingTint(current / max));
+    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max));
   }
 }
 
