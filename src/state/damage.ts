@@ -350,6 +350,18 @@ export function damageConnector(world: World, bondId: BondId, amountFifths: numb
    * same test. Zeroing survivors would phase a mid-collapse tower's connectors back out and report
    * "nothing to fix" on a structure one hit from falling.
    */
+  /*
+   * ⭐⭐⭐ S179 (owner) — **THE BREAKING HIT MUST STILL SHOW ITS NUMBER.**
+   *
+   * *"Make sure that a hit on a connector and a hit on a unit shows the same number."*
+   *
+   * Everything below SPENDS the pool, so every bond's `damageFifths` drops. `DamageNumbers` infers a
+   * connector's number by diffing that counter upward, so a drop prints nothing — and the swing that
+   * actually broke a connector was invisible. Measured: 12, nothing, 12, nothing. Recorded here, at
+   * the only place that knows both the hit and that it landed the finishing blow.
+   */
+  world.connectorBreakHits.push({ bondId, amount: amountFifths });
+
   let toSpend = pool;
   const drain = (b: { damageFifths: number } | undefined): void => {
     if (b === undefined || toSpend <= 0) return;

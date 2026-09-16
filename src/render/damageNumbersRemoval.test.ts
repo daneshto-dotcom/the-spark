@@ -39,7 +39,7 @@ const { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, GOBLIN_MELEE_ATK, GOBLIN_MEL
 const { makeIdlePlayer } = await import('../game/player.ts');
 const { makeWorld } = await import('../state/world.ts');
 const { razePrimitives } = await import('../state/razePrimitives.ts');
-const { damageEntity } = await import('../state/damage.ts');
+const { damageEntity, damageConnector } = await import('../state/damage.ts');
 const { attackFifths } = await import('../state/stats.ts');
 const { asBondId, asPlayerId, asPrimitiveId } = await import('../types.ts');
 const { DamageNumbers } = await import('./damageNumbers.ts');
@@ -149,6 +149,43 @@ describe('S179 — removed is not killed', () => {
     const nums = printed(dn).slice(before);
     expect(w.primitives.has(b.id), 'fixture: the orphan really was taken too').toBe(false);
     expect(nums, 'exactly one number — the hit, not the orphan is 70').toEqual([String(swing)]);
+  });
+
+  it('⭐⭐ HIS RULE — EVERY swing on a connector prints the SAME number a unit would', () => {
+    /*
+     * *"Make sure that a hit on a connector and a hit on a unit shows the same number and it's the
+     * same number output."*
+     *
+     * ⛔ MEASURED BEFORE THE FIX: chewing a 3-connector triangle printed 12, NOTHING, 12, NOTHING.
+     * The number is inferred by diffing `Bond.damageFifths`, which counts UP — and the hit that
+     * fills the structure pool makes `damageConnector` SPEND it across the component, so every
+     * counter DROPS and a falling rising-pool prints nothing. The one swing that actually broke a
+     * connector was the one swing he could not see.
+     */
+    const w = twoSeat();
+    const a = shape(w, 400, 400);
+    const b = shape(w, 432, 400);
+    const c = shape(w, 416, 428);
+    const b1 = connect(w, a, b); connect(w, b, c); connect(w, c, a);
+
+    const swing = attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN);
+    const dn = new DamageNumbers();
+    dn.sync(w);
+
+    const perSwing: string[][] = [];
+    let seen = 0;
+    for (let i = 0; i < 4; i++) {
+      damageConnector(w, b1, swing);
+      dn.sync(w);
+      const all = printed(dn);
+      perSwing.push(all.slice(seen));
+      seen = all.length;
+    }
+
+    expect(
+      perSwing,
+      'four swings, four numbers, every one of them the swing itself',
+    ).toEqual([[String(swing)], [String(swing)], [String(swing)], [String(swing)]]);
   });
 
   it('⭐ the list is per-FRAME and wiped by the consumer, like `effects`', () => {

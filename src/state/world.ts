@@ -397,6 +397,7 @@ export function makeWorld(rngSeed: number): World {
     lastWinnerId: null,
     effects: [],
     razedNotKilled: [],
+    connectorBreakHits: [],
     scoreProgress: 0,
     scoreByPlayer: new Map(),
     cinematicsEnabled: true,

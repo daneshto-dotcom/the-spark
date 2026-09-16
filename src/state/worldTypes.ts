@@ -169,6 +169,23 @@ export interface World {
    */
   razedNotKilled: PrimitiveId[];
   /**
+   * ⭐⭐⭐ S179 (owner) — **THE HIT THAT BREAKS A CONNECTOR, WHICH USED TO PRINT NOTHING.**
+   *
+   * *"Make sure that a hit on a connector and a hit on a unit shows the same number and it's the
+   * same number output."*
+   *
+   * ⛔ MEASURED: a goblin chewing a 3-connector triangle printed 12, then NOTHING, then 12, then
+   * NOTHING. `DamageNumbers` infers a connector's number by DIFFING `Bond.damageFifths`, which counts
+   * UP — and on the hit that fills the structure pool, `damageConnector` SPENDS that pool across the
+   * component, so every bond's counter DROPS. A falling rising-pool yields no number at all, so the
+   * one swing that actually broke something was the one swing the player could not see. That is the
+   * opposite of S172's *"Always damage should be visible"*.
+   *
+   * Per-FRAME, same lifetime as `effects` and `razedNotKilled`: written by `damageConnector`, wiped
+   * by `DamageNumbers.sync`, never serialized, never hashed.
+   */
+  connectorBreakHits: { bondId: BondId; amount: number }[];
+  /**
    * S9 P3 / S15 P2: combo-weighted progress. In solo, equals the lone
    * player's progress. In 1v1, equals max(scoreByPlayer.values()) — i.e.
    * the leader's score, which drives the WIN check. Per-player scores are

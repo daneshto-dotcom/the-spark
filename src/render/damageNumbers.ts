@@ -394,6 +394,21 @@ export class DamageNumbers {
      */
     const removedNotKilled = new Set<string>(world.razedNotKilled.map((id) => `p:${id}`));
     world.razedNotKilled.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
+
+    /*
+     * ⭐⭐ S179 (owner) — the swing that BREAKS a connector, which the diff below cannot see because
+     * `damageConnector` spends the structure pool and every counter drops. Emitted from the recorded
+     * hit so it is the SAME number a unit would show for the same swing, which is what he asked for.
+     */
+    for (const hit of world.connectorBreakHits) {
+      const bond = world.bonds.get(hit.bondId);
+      if (bond === undefined) continue;
+      const a = world.primitives.get(bond.aId);
+      const b = world.primitives.get(bond.bId);
+      if (a === undefined || b === undefined) continue;
+      this.emitAt(world, (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2, hit.amount, 'damage', a.placedBy);
+    }
+    world.connectorBreakHits.length = 0;
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,

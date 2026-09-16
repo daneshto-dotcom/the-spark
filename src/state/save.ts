@@ -1557,7 +1557,8 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // stays valid. Replacement (not append) prevents stale-effect accumulation
   // on the client even if a snapshot is dropped/replayed.
   world.effects.length = 0;
-  world.razedNotKilled.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
+  world.razedNotKilled.length = 0;
+  world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   if (snap.effects !== undefined) {
     for (const se of snap.effects) {
       world.effects.push(deserializeEffect(se));

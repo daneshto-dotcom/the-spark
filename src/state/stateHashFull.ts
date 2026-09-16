@@ -189,6 +189,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    * hashing it would compare a host-only scratch buffer against nothing.
    */
   razedNotKilled: 'acknowledged',
+  /* ⭐ S179 — the same per-FRAME renderer contract as the two entries above. Never on the wire. */
+  connectorBreakHits: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
   pendingCinematics: 'acknowledged',
   /** Presentation-only; `activeCinematicPlayerId` carries the sim-visible part. */

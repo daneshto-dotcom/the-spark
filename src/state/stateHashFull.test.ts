@@ -449,6 +449,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
          * nothing puts it on the wire; hashing it would compare a host scratch buffer against
          * nothing. Listed here deliberately rather than dodged, which is what this test forces.
          */
+        'connectorBreakHits',
         'razedNotKilled',
         // S165 - `players` LEFT this set. Six sim-authoritative fields are now projected as the
         // `pl{seat}:` part (castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints,
