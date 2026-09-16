@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1749,
+  "tool_calls_session_total": 1757,
   "session_id": "S180",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -69,7 +69,107 @@
       "status": "completed",
       "check_completed": true,
       "check_method": "Hand-verified against the tree, not carried from notes: 14 damageEntity production call sites counted by grep; targetsStructures true on 21 of 24 creature configs (makeT3Config factory + 6 goblins + raceUnit + locustCloud); findNearestEnemyPrimitiveFrom skips bonds.size>0, introduced in 00e02bf (git log -S); targetBondId nulled at hostTick.ts:1419; damageConnector banks structure-wide and SPENDS the pool (overkill cascades); T9_BOSS_STATS read from constants.ts:1666 refuting UNIT_STAT_TABLE.md by ~3x; check:atlas exit 0 / 31 clean; typecheck exit 0; vitest 4569 pass exit 0; verify-deploy 4/4. Deliverables on disk: S180_BACKLOG.md, S180_TARGETING_TABLE.md.",
-      "checkpoint_commit": null
+      "checkpoint_commit": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "S180_TARGETING_TABLE.md",
+          "needle": "the rule is currently broken for 21 of 24 unit types",
+          "why": "the headline finding, stated in the owner-facing table"
+        },
+        {
+          "type": "file_contains",
+          "path": "S180_TARGETING_TABLE.md",
+          "needle": "Only Voltkin, the pencil chewer and the lightning drone",
+          "why": "the corrected survivor list — the direwolf is NOT among them"
+        },
+        {
+          "type": "file_contains",
+          "path": "S180_BACKLOG.md",
+          "needle": "ALREADY DONE — the backlog was stale about these",
+          "why": "the four stale-backlog corrections are presented, not buried"
+        },
+        {
+          "type": "grep_count",
+          "path": "S180_BACKLOG.md",
+          "pattern": "VERIFIED",
+          "op": ">=",
+          "value": 5,
+          "why": "at least three items are marked VERIFIED rather than carried"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
+          "needle": "AWAITING OWNER APPROVAL",
+          "why": "the PDR does not claim approval"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
+          "needle": "COUNCIL — what changed because of it",
+          "why": "the 3-way Council is recorded with its deltas"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
+          "needle": "REFUTED — GROK",
+          "why": "the refuted challenge is named, not silently dropped"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "if (prim.bonds.size > 0) continue;",
+          "why": "the line that makes every connected shape untargetable — the cause of the bug"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "creature.targetBondId = null;",
+          "why": "the structure-attacker branch has no connector target"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/voltkin-config.ts",
+          "pattern": "targetsStructures: true",
+          "op": ">=",
+          "value": 8,
+          "why": "the affected family is wide — 6 goblins + raceUnit + locustCloud plus two factories"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "overkill carries into the next connector",
+          "why": "the cascade already ships — this is what made the targeting recommendation cheap"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "vampires: { hp: 20, def: 8, atk: 10, pen: 10",
+          "why": "Vlad is 260 pool in code; UNIT_STAT_TABLE.md says 90 — the stale-doc finding"
+        },
+        {
+          "type": "file_contains",
+          "path": "UNIT_STAT_TABLE.md",
+          "needle": "| Vampires | Vlad | 10 | 4 |",
+          "why": "the stale row itself, so the ~3x discrepancy is machine-checkable rather than asserted"
+        },
+        {
+          "type": "json_field",
+          "path": ".claude/session-state.json",
+          "key": "pdr_approved",
+          "op": "==",
+          "value": false,
+          "why": "no self-approval — the owner has not said go"
+        },
+        {
+          "type": "json_field",
+          "path": ".claude/session-state.json",
+          "key": "session_status",
+          "op": "==",
+          "value": "S180 IN PROGRESS",
+          "why": "the session is not closed"
+        }
+      ]
     }
   ],
   "verification": [
