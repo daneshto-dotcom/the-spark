@@ -175,3 +175,31 @@ can exist in a shipped match).
   the org spend limit in S178 and the session recorded it as owed. Run properly in S180.
 - **`BACKLOG.md` is 3 359 lines and is now wrong in at least four places** (§0 above). It should be
   cut down to the forward list plus a link to the archive.
+
+---
+
+# ⚑ THE TEN, FOR S181 — he asked for these to be ready
+
+> *"Then you can present to me the next 10 priorities, anything that I've mentioned this session or
+> that we currently have in the backlog or anything else, and I'll tell you what to work on."*
+
+Ordered by my reading of value, not by his — **he picks.** Each line says what it costs and what,
+if anything, it is blocked on.
+
+| # | | cost | blocked on |
+|---|---|---|---|
+| **1** | **THE TARGETING FIX.** Fully ruled by him in S180-A2 and NOT built. Restore a connector target for the 21 unit types that lost one; aim at the nearest **structure**, damage its connectors. Suicide bomber: buildings first, and below ~50% health it takes whatever is closest. Chewers: never people, ever. | ~1 day | nothing — his rulings are complete |
+| **2** | **`DEFENDER_TARGETS.turret` → units only.** He CHANGED R72 in S180: *"maybe it doesn't do both. It does only creatures, so that's fine."* The declared table still says BOTH and has been recording an intention as behaviour since S151. One line, no behaviour change. | minutes | nothing |
+| **3** | **The SOUL / feed button on tier-3 towers.** He wants to check whether every race has it, then *"rework it so it actually produces the character it says"*. ⭐ Audited this session: all six races already produce the right unit at the right place — the demon he saw was the castle's own free unit on its 30 s clock. So the likely work is CLARITY, not correctness. | small | his verdict after playing |
+| **4** | **Castle + Helga portraits on the character sheet.** Both have real art on disk; the card currently shows a labelled plate for them because wiring their atlases is its own small job. | small | nothing |
+| **5** | **The castle card should carry its BUY functions** — gatherer, speed, regen — so the keep is one panel like a tower is. He described the sheet as absorbing what a thing can do. | small | nothing |
+| **6** | **END-OF-MATCH STAT BOARD.** Researched and costed in S180 and parked when he redirected. The whole end-of-match screen is still ONE LINE OF TEXT. Castle damage is the cheap headline stat and is now attributable. | medium | nothing |
+| **7** | **PER-RACE BORDER WALL ART.** His S180 ask: *"for every race the border needs to look — not just the color… we'll generate like a cool line looking for every race."* Six treatments. | art spend | his go on the spend |
+| **8** | **BOSS ABILITY ART.** All six bosses are mechanically live and **visually silent** — no ability VFX atlas has ever been packed. The Warlord's red rage tint is the only exception. | art spend | his go |
+| **9** | **KRAKEN TENTACLES.** The one genuinely unbuilt boss skill. He wants the whole Kraken reworked including its video. | medium + art | his design word |
+| **10** | **CONNECTOR HIDING.** Phase the shapes out while a tower stands, back when it breaks. Specified across three sessions (S170 P11 / R169), renderer-only, still absent. | small | nothing |
+
+**Also live, below the ten:** no damage numbers when you scrap (~20 min) · NONET stages · the
+continuous city (needs one ruling: can a shape belong to two recipes?) · codex tier order · R145
+castle units one point weaker than tier-3 (blocked on his two answers) · more than 12 frames per
+state · the Voltkin TV's two transition videos.

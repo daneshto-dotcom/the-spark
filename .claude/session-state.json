@@ -936,5 +936,13 @@
       ]
     }
   ],
-  "s179_status": "S179 CLOSED"
+  "s179_status": "S179 CLOSED",
+  "s180_audit": {
+    "method": "HAND-RUN. All three auditor agents died to the org monthly spend limit mid-flight. Per the CONSTITUTIONAL S161 rule — a hunt that returns nothing is not a completed hunt — the lanes fell back to this session by hand rather than being recorded as \"the sweep produced nothing\".",
+    "lane1_did_it_land": "PASS — all 11 wire points present in main.ts and controls.ts (construct, sync, setter, clear, portrait source; own building, own castle, enemy castle, any creature, any structure, ordered-last arm).",
+    "lane2_regressions": "PASS — no Math.random / wall clock in either sheet module; the only .push hits are a LOCAL stats array, never world; S180 touched NO wire file (protocol.ts, save.ts, stateHash*.ts all outside f96c0d8~1..HEAD — the earlier flag was S179 commits inside the same calendar day); castle damage is atk x (5 + pen), integers only, so damageEntity cannot throw. Blast radius is 11 source files and exactly ONE is sim code.",
+    "lane3_obedience": "PASS — PROTOCOL_VERSION still 46; castleGuns.ts, potatoLifecycle.ts untouched; nextPulledSparkId appears only in a backlog markdown line, no source change. No skills row. Actions gated on ownership. Derived numbers on the ATK and HP rows only. TARGETING UNTOUCHED (creatureAI.ts / hostTick.ts / stats.ts all outside the S180 diff) and DEFENDER_TARGETS.turret still reads BOTH — he ruled it should become units-only but did not authorise the work.",
+    "gates": "typecheck exit 0 · vitest 293 files exit 0 · build exit 0 (845.5 KiB / 1000 cap) · check:atlas exit 0 (31 clean) · verify-deploy 4/4 on c0dead0. Every exit code captured from $?.",
+    "one_failed_command_named": "An earlier vitest run died with \"Worker exited unexpectedly\" (tinypool). Re-run on the same tree: exit 0. VERDICT: benign infrastructure flake, not reproducible."
+  }
 }
