@@ -425,7 +425,8 @@ export function applyReturnToTitle(world: World): World {
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();
-  world.effects.length = 0;
+  world.effects.length = 0;
+  world.razedNotKilled.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.lastWinnerId = null;
   world.nextPrimitiveId = 0;
   world.nextBondId = 0;

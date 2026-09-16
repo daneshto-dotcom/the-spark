@@ -381,6 +381,19 @@ export class DamageNumbers {
    */
   private syncStructures(world: World): void {
     const seen = new Set<string>();
+    /*
+     * ⭐⭐⭐ S179 (owner) — **A SHAPE THAT WAS REMOVED DID NOT TAKE A HIT, SO IT PRINTS NOTHING.**
+     *
+     * *"a basic creature ... has a total damage output of six ... But then he attacks a building.
+     * And it shows 56 freaking damage. Why? It's the same system for buildings and for people."*
+     *
+     * He is right and nothing dealt 56. The vanish sweep below prints a vanished pool's REMAINDER —
+     * correct for a killing blow, a lie for a shape the raze contract took when its connector gave
+     * way. Measured before fixing: a two-shape structure whose bond was severed printed **"56"** and
+     * **"70"**, two numbers for hits that never happened.
+     */
+    const removedNotKilled = new Set<string>(world.razedNotKilled.map((id) => `p:${id}`));
+    world.razedNotKilled.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
@@ -446,6 +459,8 @@ export class DamageNumbers {
     for (const [key, last] of this.watchedStruct) {
       if (seen.has(key)) continue;
       this.watchedStruct.delete(key);
+      // ⭐ S179 — removed, not killed: no hit happened, so no number. See the note at the top.
+      if (removedNotKilled.has(key)) continue;
       if (last.deathOnVanish && last.v > 0) {
         this.emitAt(world, last.x, last.y, Math.round(last.v), 'damage', last.owner);
       }

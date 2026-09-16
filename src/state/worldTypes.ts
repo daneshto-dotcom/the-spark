@@ -153,6 +153,22 @@ export interface World {
   lastWinnerId: PlayerId | null;
   effects: GameEffect[];
   /**
+   * ⭐⭐⭐ S179 (owner) — **SHAPES THAT WERE REMOVED, NOT KILLED.** Per-FRAME, exactly like
+   * `effects` above: written by the reducer, WIPED BY THE CONSUMER (`DamageNumbers.sync`). Never
+   * serialized, never hashed — its lifetime is shorter than a tick.
+   *
+   * Owner, playing S179: *"a basic creature ... has a total damage output of six ... But then he
+   * attacks a building. And it shows 56 freaking damage. Why? It's the same system for buildings
+   * and for people."*
+   *
+   * ⛔ NOTHING DEALT 56. The floating number for a pool that VANISHES is that pool's REMAINDER —
+   * "what it had left when last seen is the damage that finished it", which is right for a killing
+   * blow and a lie for a shape that was removed structurally. When a connector gives way, the raze
+   * contract takes the orphaned shapes with it, and each printed its untouched pool as if something
+   * had hit it that hard. This list is how the renderer tells the two apart.
+   */
+  razedNotKilled: PrimitiveId[];
+  /**
    * S9 P3 / S15 P2: combo-weighted progress. In solo, equals the lone
    * player's progress. In 1v1, equals max(scoreByPlayer.values()) — i.e.
    * the leader's score, which drives the WIN check. Per-player scores are

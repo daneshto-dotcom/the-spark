@@ -69,6 +69,15 @@ export function razePrimitives(
    * decided while the owner is asleep. Left for them to rule on; recorded rather than assumed.
    */
   razeOrphans = false,
+  /**
+   * ⭐⭐ S179 (owner) — **DID THE NAMED SHAPES DIE OF DAMAGE, OR WERE THEY JUST REMOVED?**
+   *
+   * Only `damage.ts`'s primitive arm passes `true`, and only for the shape whose pool actually
+   * reached zero. Everything else — a sever, a scrap, a consumed boss ring, a hub self-destruct,
+   * and ALWAYS the orphans dragged down with any of them — is a REMOVAL, and a removal must not
+   * print a floating damage number for a hit that never happened. See `World.razedNotKilled`.
+   */
+  killedByDamage = false,
 ): void {
   // Collect first, mutate second. Deriving the incident set from the live primitives BEFORE
   // any deletion is what makes "taking [0,1,2]" safe here — cf. the bankTake splice trap.
@@ -115,6 +124,8 @@ export function razePrimitives(
     world.bonds.delete(bondId);
   }
 
+  // ⭐ S179 — tell the renderer which of these were removed rather than killed (see the param).
+  if (!killedByDamage) for (const primId of doomedPrims) world.razedNotKilled.push(primId);
   for (const primId of doomedPrims) world.primitives.delete(primId);
 
   /*
@@ -151,6 +162,12 @@ export function razePrimitives(
         color: prim.placerColor,
         radius: prim.radius,
       });
+      /*
+       * ⭐ S179 — AN ORPHAN IS ALWAYS A REMOVAL, even when the shape that stranded it WAS killed by
+       * damage. Nothing hit this one; it is here because its last connector went. This is the exact
+       * case the owner saw as *"56"*.
+       */
+      world.razedNotKilled.push(primId);
       world.primitives.delete(primId);
     }
   }

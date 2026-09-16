@@ -440,6 +440,16 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         // boundary and there is nothing for a snapshot, a save or either hash to observe. Listed
         // here deliberately rather than dodged, which is exactly what this test exists to force.
         'pendingCreatureDeaths',
+        /*
+         * ⭐ S179 (owner) — a PER-FRAME renderer signal with exactly the `effects` lifetime two
+         * entries up: written by `razePrimitives`, WIPED BY `DamageNumbers.sync`, never serialized.
+         * It carries no sim meaning at all — it only says which vanished shapes were REMOVED rather
+         * than KILLED, so the renderer does not print a floating damage number for a hit that never
+         * happened (his *"it shows 56 freaking damage"*). A peer's copy is always empty, because
+         * nothing puts it on the wire; hashing it would compare a host scratch buffer against
+         * nothing. Listed here deliberately rather than dodged, which is what this test forces.
+         */
+        'razedNotKilled',
         // S165 - `players` LEFT this set. Six sim-authoritative fields are now projected as the
         // `pl{seat}:` part (castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints,
         // raidProgress); the avatar and its carry union stay out, which is what the old

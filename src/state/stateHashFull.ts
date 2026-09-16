@@ -183,6 +183,12 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    * sides legitimately hold different contents at any instant.
    */
   effects: 'acknowledged',
+  /*
+   * ⭐ S179 — same reason as `effects` directly above, and the same lifetime: a per-FRAME renderer
+   * signal wiped by `DamageNumbers.sync`. Never serialized, so a peer's copy is always empty and
+   * hashing it would compare a host-only scratch buffer against nothing.
+   */
+  razedNotKilled: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
   pendingCinematics: 'acknowledged',
   /** Presentation-only; `activeCinematicPlayerId` carries the sim-visible part. */

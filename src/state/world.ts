@@ -396,6 +396,7 @@ export function makeWorld(rngSeed: number): World {
     nextPulledSparkId: -1,
     lastWinnerId: null,
     effects: [],
+    razedNotKilled: [],
     scoreProgress: 0,
     scoreByPlayer: new Map(),
     cinematicsEnabled: true,

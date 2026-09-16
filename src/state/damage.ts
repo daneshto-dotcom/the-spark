@@ -176,7 +176,7 @@ export function damageEntity(
       // ⭐ S157 B2 — killing one half of a two-shape structure must not leave the other half
       // standing as unkillable clutter. Same rule as the sever path; review caught that fixing only
       // the sever site would miss this door.
-      razePrimitives(world, [target.id], undefined, true);
+      razePrimitives(world, [target.id], undefined, true, /* killedByDamage */ true);
       return true;
     }
 
