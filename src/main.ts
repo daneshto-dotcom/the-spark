@@ -178,6 +178,7 @@ import { TowerRenderer } from './render/towerRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
 import { StructurePanel } from './render/structurePanel.ts';
+import { CharacterSheet } from './render/characterSheet.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
@@ -711,6 +712,12 @@ async function bootstrap(): Promise<void> {
   // a castle-panel row — short version: the castle is inventory now, and FIX/SCRAP act on ONE
   // structure among several identical ones, so the player has to be able to point at it.
   const structurePanel = new StructurePanel(app);
+  /*
+   * ⭐ S180 (owner) — THE CHARACTER SHEET. Constructed AFTER the popover so it draws above the
+   * button row rather than under it: his ruling is that they are one panel, with FIX / SCRAP sitting
+   * beneath the card on a building of yours.
+   */
+  const characterSheet = new CharacterSheet(app);
   // ⭐ S149 P5 — ARCADE. The menu and its live puzzle are RENDER state only: `world.sudoku` is a
   // hashed, wire-carried field describing a host-authoritative MATCH event, and a title-screen
   // puzzle is none of those things. The event is handed to the overlay's `override` parameter
@@ -989,6 +996,15 @@ async function bootstrap(): Promise<void> {
   // S152 — the popover needs the same click-guard treatment the panel and the band get, or a
   // press on SCRAP would also act on the board underneath it.
   controls.setStructurePanel(structurePanel);
+  controls.setCharacterSheet(characterSheet);
+  /*
+   * ⭐ The portrait comes off the sprite sheet ALREADY IN MEMORY for a unit that is on screen — his
+   * *"just take from the generated images that we made for them."* Injected rather than imported so
+   * the sheet never depends on the sprite renderer; `main.ts` already owns both.
+   */
+  characterSheet.setPortraitSource((spec) =>
+    spec.kind === 'creatureFrame' ? goblinRenderer.portraitTexture(spec.creatureType, spec.race) : null,
+  );
   // S152 — FIX / SCRAP commit through the SAME `dispatchFn` seam every other player intent
   // uses, so they route on all three paths (networked joiner → wire intent; worker mode →
   // postIntent; solo/host → direct dispatch).
@@ -1059,6 +1075,7 @@ async function bootstrap(): Promise<void> {
   footerBand.bringToFront();
   // S152 — same rule, same reason: UI chrome belongs above every board renderer AND the fog.
   structurePanel.bringToFront();
+  characterSheet.bringToFront();
   /*
    * ⭐ S153 A1 (owner R81, CORRECTED) — LIFT THE AVATAR, NOT THE FREE SPARKS.
    *
@@ -1879,6 +1896,7 @@ Network routes: ${v.detail}`;
       get footerBand() { return footerBand; },
       // S152 — live FIX/SCRAP button geometry for e2e (the S85 P4c geometry-getter convention).
       get structurePanel() { return structurePanel; },
+      get characterSheet() { return characterSheet; },
       // S149 P5 — live arcade-menu geometry for e2e.
       get arcadeOverlay() { return arcadeOverlay; },
       // S150 P3 — live timer / initials / board geometry for e2e.
@@ -2628,6 +2646,8 @@ Network routes: ${v.detail}`;
         footerBand.clear();
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
         structurePanel.clear();
+        // S180 — and the character sheet with it, or a card floats over the title screen.
+        characterSheet.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S167 — and the tower buildings with it, or six towers float over the title screen.
@@ -3710,6 +3730,8 @@ Network routes: ${v.detail}`;
     // shot apart between two frames, and the popover must not outlive it. `sync` drops its own
     // selection when the model comes back null, so there is no stale-selection cleanup here.
     structurePanel.sync(world, world.localPlayerId);
+    // S180 — unconditional, and it drops its OWN selection when the subject leaves the world.
+    characterSheet.sync(world, world.localPlayerId);
     spawnerZoneRenderer.sync(world);
     // S167 — the tower sprite sits on its aura. Cheap when no race tower is live: it iterates
     // world.creatureSpawners and `towerArtForRecipe` returns null for every non-race recipe.

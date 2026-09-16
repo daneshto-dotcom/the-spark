@@ -618,6 +618,26 @@ export class GoblinRenderer {
    *
    * Called on demand from `sync` the first time a unit of that race is actually on the board.
    */
+  /**
+   * ⭐ S180 — ONE STILL FRAME, FOR THE CHARACTER SHEET'S PORTRAIT.
+   *
+   * Owner: *"you can just take like from the generated images, obviously, that we made for them,
+   * just a regular idle or whatever from afar, like zoomed in on their face."*
+   *
+   * ⚠ IT COSTS NOTHING AND FETCHES NOTHING. The sheet is only ever open on a unit that is ON SCREEN,
+   * so that unit's sheet is already resolved and in texture memory — this hands back a reference to
+   * the idle row's first cell, never a new load. `null` while a sheet is still in flight (or for a
+   * kind that is puppet-backed), and the card draws its plate alone rather than popping in late.
+   *
+   * ⚠ RACE-KEYED FOR `raceUnit` ONLY, matching `ensureRaceAtlas` — every other kind is keyed by TYPE.
+   * Getting that wrong is how the castle unit would silently draw another race's art.
+   */
+  portraitTexture(type: CreatureType, race: RaceId | null): Texture | null {
+    const key = type === 'raceUnit' && race !== null ? `raceUnit:${race}` : type;
+    const idle = this.atlases.get(key)?.cells['idle'];
+    return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
+  }
+
   private ensureRaceAtlas(race: RaceId): void {
     if (this.raceLoadStarted.has(race)) return;
     this.raceLoadStarted.add(race);

@@ -123,6 +123,18 @@ export interface FooterBandLike {
  * WHICH SHAPE, and a string kind cannot. This widening is what forced `main.ts` to be updated in
  * the same edit instead of silently dropping the payload.
  */
+/**
+ * ⭐ S180 — the CHARACTER SHEET, as the input layer sees it. Spelled out here rather than imported
+ * for the reason the note above gives for `StructurePanelLike`: a structural type keeps this layer
+ * free of the renderer, and `tsc` still catches a drift at `setCharacterSheet`.
+ */
+export interface CharacterSheetLike {
+  select(target: { kind: 'creature'; id: CreatureId } | { kind: 'structure'; primitiveId: PrimitiveId } | { kind: 'defender'; id: DefenderId } | null): void;
+  selection(): unknown;
+  ownedRowAt(x: number, y: number): { kind: 'creature'; id: CreatureId } | { kind: 'structure'; primitiveId: PrimitiveId } | { kind: 'defender'; id: DefenderId } | null;
+  isOver(x: number, y: number): boolean;
+}
+
 export interface StructurePanelLike {
   isOverButtons(x: number, y: number): boolean;
   /** S152 A5 — includes DISABLED buttons, so a refusal can be told apart from a miss. */
@@ -428,6 +440,10 @@ export class Controls {
   }
 
   /** S152 — main.ts injects the FIX / SCRAP popover (built after Controls, like the other two). */
+  setCharacterSheet(sheet: CharacterSheetLike): void {
+    this.characterSheet = sheet;
+  }
+
   setStructurePanel(panel: StructurePanelLike): void {
     this.structurePanel = panel;
   }
@@ -452,6 +468,7 @@ export class Controls {
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
   private structurePanel: StructurePanelLike | null = null;
+  private characterSheet: CharacterSheetLike | null = null;
   private onStructureAction:
     | ((
         action:
@@ -595,6 +612,61 @@ export class Controls {
    * would read as broken. Clicking empty ground dismisses an open popover and returns false so the
    * same click still acts on the board: the RTS convention the castle panel already follows.
    */
+  /**
+   * ⭐ S180 — open a card on whatever is under the cursor, whoever owns it.
+   *
+   * ⚠ IT READS SIM POSITIONS, NEVER SPRITE BOUNDS. GEMINI-AUDITOR raised the alternative in Council:
+   * a pick off interpolated Pixi bounds is coupled to the renderer and cannot be driven headlessly.
+   * `pickOwnPrimitive` already picks off `prim.pos` + radius, and this follows it, so the whole
+   * gesture is testable without a canvas.
+   */
+  private handleSheetSelect(): boolean {
+    if (this.characterSheet === null || this.world.gameState !== 'PLAYING') return false;
+    // A click on the card itself re-aims it at the unit a building fields, and never falls through
+    // to the board underneath.
+    const owned = this.characterSheet.ownedRowAt(this.cursor.x, this.cursor.y);
+    if (owned !== null) {
+      this.characterSheet.select(owned);
+      return true;
+    }
+    if (this.characterSheet.isOver(this.cursor.x, this.cursor.y)) return true;
+
+    let bestCreature: CreatureId | null = null;
+    let bestDist = CREATURE_PICK_DIST;
+    for (const c of this.world.creatures.values()) {
+      const d = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestCreature = c.id;
+      }
+    }
+    if (bestCreature !== null) {
+      this.characterSheet.select({ kind: 'creature', id: bestCreature });
+      return true;
+    }
+
+    let bestPrim: PrimitiveId | null = null;
+    let bestPrimD2 = Infinity;
+    for (const prim of this.world.primitives.values()) {
+      const dx = prim.pos.x - this.cursor.x;
+      const dy = prim.pos.y - this.cursor.y;
+      const d2 = dx * dx + dy * dy;
+      const r = prim.radius + 6; // the same forgiveness every other pick radius here uses
+      if (d2 > r * r || d2 >= bestPrimD2) continue;
+      bestPrimD2 = d2;
+      bestPrim = prim.id;
+    }
+    if (bestPrim !== null) {
+      this.characterSheet.select({ kind: 'structure', primitiveId: bestPrim });
+      return true;
+    }
+
+    // Clicking empty ground dismisses the card and returns false, so the same click still acts on
+    // the board — the RTS convention the popover already follows.
+    this.characterSheet.select(null);
+    return false;
+  }
+
   private handleStructureSelect(): boolean {
     if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
     const hit = this.pickOwnPrimitive();
@@ -858,6 +930,18 @@ export class Controls {
         // this seat's own structures. See `handleStructureSelect` for why it sits here and not
         // above the spark grab.
         if (this.handleStructureSelect()) return;
+        /*
+         * ⭐ S180 (owner) — **AND THE CHARACTER SHEET, ORDERED LAST OF ALL.**
+         *
+         * Placed below every existing gesture on purpose: a click that wanted a spark, a hazard, or
+         * the FIX/SCRAP popover has already returned, so opening a card can never steal one of them.
+         * That ordering is the whole risk mitigation for touching this file, and the reason the
+         * precedence is pinned by a test rather than left to reading.
+         *
+         * ⚠ SEAT-AGNOSTIC, unlike every other LMB pick here — an ENEMY's card is the feature
+         * (owner S180: an enemy sheet shows LIVE health), so there is deliberately no owner filter.
+         */
+        if (this.handleSheetSelect()) return;
       }
     } else if (e.button === 2) {
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
