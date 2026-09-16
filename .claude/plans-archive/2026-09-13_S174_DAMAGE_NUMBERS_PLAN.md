@@ -1,4 +1,9 @@
-> **STATUS: IN-PROGRESS** — archived 2026-09-13 (S173/S174).
+> **STATUS: ARCHIVED (S179)** — ⭐ SHIPPED. The line below is out of date.
+> It said *"Not built"*. Floating damage numbers shipped in S172 (`src/render/damageNumbers.ts`), were re-pointed onto the one stat ladder in S177, and S179 fixed two further defects the owner found in play — removed-vs-killed, and the invisible connector-breaking hit.
+>
+> ⚠ S179 — this file carried an in-progress status marker, which is what the stale-plan
+> pre-flight matches on, so SIX consecutive sessions were told to read all six of these
+> "ACTIVE PLAN(S)" before starting work. Superseded detail, kept for provenance:
 > Researched and recommended (per-hit ring buffer, no protocol bump). Not built.
 
 # S174 — B7 (damage numbers must STACK) + B8 (powers take damage silently)

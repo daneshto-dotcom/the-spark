@@ -1,4 +1,9 @@
-> **STATUS: IN-PROGRESS** — archived 2026-09-13 (S173/S174).
+> **STATUS: ARCHIVED (S179)** — art shipped; the two TV transition VIDEOS remain, carried elsewhere.
+> The direwolf sheet shipped S175 and S178 fixed the TV's frozen rows and its size. What is still owed is only the two transition videos (~€20), which the owner DEFERRED in S179 (*"we're going to make the art later, next session"*) and which are carried in the S179 handoff, not here.
+>
+> ⚠ S179 — this file carried an in-progress status marker, which is what the stale-plan
+> pre-flight matches on, so SIX consecutive sessions were told to read all six of these
+> "ACTIVE PLAN(S)" before starting work. Superseded detail, kept for provenance:
 > Art cut out and sequenced; clips generated. Implementation owed, including removing the cutscene that stops the game.
 
 # S173 — THE VOLTKIN TV, AND THE DIREWOLF: WHAT TO GENERATE

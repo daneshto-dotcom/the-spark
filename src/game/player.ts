@@ -37,9 +37,12 @@ interface PlayerCommon {
    * one raid (cost 1) leaves a player unable to sever at all, so every offensive click would be a
    * tax on defence. Both Council seats reached "separate currency" independently.
    *
-   * ⚠ SERIALIZED BUT NOT HASHED, following `disruptionCharges` exactly (it is absent from
-   * `stateHashFull`). The hash covers the families a divergence check needs; currencies are
-   * host-authoritative and mirrored by snapshot.
+   * ⛔ S179 — **THIS COMMENT WAS FALSE AND SAID THE OPPOSITE OF THE CODE.** It read *"SERIALIZED
+   * BUT NOT HASHED … it is absent from `stateHashFull`"*. `raidPoints` IS hashed: `stateHashFull.ts`
+   * projects it by name (`${pl.raidPoints},${pl.raidProgress}`) and the `players` family is marked
+   * `'hashed'`, not `'acknowledged'`. The line dates from before S165 promoted the player family into
+   * the wide hash and was never updated. A research agent reading it this session built a whole
+   * recommendation on the wrong fact, which is what these two words cost.
    */
   raidPoints: number;
   /**

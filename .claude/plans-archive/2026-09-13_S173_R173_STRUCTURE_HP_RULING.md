@@ -1,4 +1,9 @@
-> **STATUS: IN-PROGRESS** — archived 2026-09-13 (S173/S174).
+> **STATUS: ARCHIVED (S179)** — ⭐ SHIPPED. The line below is out of date.
+> It said *"R173-B is RULED but NOT IMPLEMENTED"*. It WAS implemented in S177: `structurePoolFifths(n) = n × (n + 5)` is live, damage lands on a connector and is tested structure-wide, and S179 pinned the ladder (6/14/24/50/66) in `loneShapeRule.test.ts`.
+>
+> ⚠ S179 — this file carried an in-progress status marker, which is what the stale-plan
+> pre-flight matches on, so SIX consecutive sessions were told to read all six of these
+> "ACTIVE PLAN(S)" before starting work. Superseded detail, kept for provenance:
 > R173-B is RULED but NOT IMPLEMENTED: each connector must cost the FULL structure pool, recomputed at the lower count. Blast radius measured (5-connector hub 35 -> 130 fifths).
 
 # R173 — STRUCTURE HP: THE OWNER'S RULING, AND WHAT IT CHANGES

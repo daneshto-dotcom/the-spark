@@ -23,7 +23,7 @@ the code in the session that wrote it, not copied from a handoff.
 
 ```bash
 npm run typecheck        # tsc -b --noEmit
-npx vitest run           # the unit suite — 4513 tests / 284 files, measured S178
+npx vitest run           # the unit suite — 4569 tests / 290 files, measured S179
 npm run e2e:gating       # Playwright, the shared gating lane — 65 tests / 17 files, measured S178
 npm run e2e:races        # S165 — the @races lane: castle emitter, backdrops, settings toggles.
                          # GATING via its own `e2e-races` CI job, inverted OUT of e2e:gating

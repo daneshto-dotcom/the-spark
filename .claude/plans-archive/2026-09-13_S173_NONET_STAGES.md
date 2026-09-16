@@ -1,4 +1,9 @@
-> **STATUS: IN-PROGRESS** — archived 2026-09-13 (S173/S174).
+> **STATUS: ARCHIVED (S179)** — design note, never an implementation plan.
+> Eight questions were open for the owner and are NOT on his current list; he re-set priorities in S179. Nothing here is owed by the next session. Live record: `S179_FINDINGS.md`.
+>
+> ⚠ S179 — this file carried an in-progress status marker, which is what the stale-plan
+> pre-flight matches on, so SIX consecutive sessions were told to read all six of these
+> "ACTIVE PLAN(S)" before starting work. Superseded detail, kept for provenance:
 > Design note only, by his instruction. Eight questions open for him.
 
 # S173 — NONET STAGES (design note only, NOTHING implemented)

@@ -64,7 +64,11 @@ export function runWarlordRage(world: World): void {
 }
 
 /**
- * ⭐ **THE DIREWOLF SUMMON.** Three wolves every fifteen seconds, at 3/3/3/3 each.
+ * ⭐ **THE DIREWOLF SUMMON.** Three wolves every THIRTY seconds, at 3/3/3/3 each.
+ * ⚠ S179 — this said *"fifteen"*, which was R149's original and has not been the shipped number
+ * since S177 P3 set `DIREWOLF_SUMMON_INTERVAL_TICKS` to 30 s on his *"only summon them every 30
+ * seconds"*. The R149 quotes elsewhere in the tree are PROVENANCE and stay; this line asserted
+ * current behaviour in its own voice and was simply wrong.
  *
  * ⚠ STATELESS CADENCE, phase-spread by the boss's own id: `(tick + id) % interval`. Nothing has to
  * be remembered between summons, so no ledger exists to desync, and two Warlords on the board never

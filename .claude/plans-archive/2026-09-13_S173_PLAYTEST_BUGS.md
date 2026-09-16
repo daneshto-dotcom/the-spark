@@ -1,4 +1,9 @@
-> **STATUS: IN-PROGRESS** — archived 2026-09-13 (S173/S174).
+> **STATUS: ARCHIVED (S179)** — partially shipped, remainder superseded.
+> B1/B2/B3/B5/B6 shipped. B9 (Voltkin) has art. B4/B7/B8 were never built and are NOT on the owner's current list — S178 answered a fresh set of playtest bugs and S179 re-set priorities again. Do not resurrect these as active work; ask him what he sees in play.
+>
+> ⚠ S179 — this file carried an in-progress status marker, which is what the stale-plan
+> pre-flight matches on, so SIX consecutive sessions were told to read all six of these
+> "ACTIVE PLAN(S)" before starting work. Superseded detail, kept for provenance:
 > B1/B2/B3/B5/B6 SHIPPED. B4 (scarab) needs regenerated art, B7+B8 (damage stacking + powers) are planned not built, B9 (Voltkin) was deferred by the owner and now HAS art.
 
 # S173 — OWNER PLAYTEST, live 2-player over the internet (Romania)

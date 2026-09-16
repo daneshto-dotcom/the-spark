@@ -121,7 +121,9 @@ export function damageEntity(
    * That is not theoretical harm. `save.ts` emits `castleHp` only when it is BELOW max and
    * rehydrates an absent value as `CASTLE_MAX_HP`, so any over-max value a heal produced would be
    * emitted as NOTHING and read by every peer as 1500 — a silent divergence on the match-ending
-   * number, invisible to both hash oracles because `stateHashFull` marks `players:'acknowledged'`.
+   * number, invisible to both hash oracles. ⛔ S179 — THE REASON GIVEN HERE WAS FALSE: this said
+   * *"because `stateHashFull` marks `players:'acknowledged'`"*, and it does not — it marks them
+   * `'hashed'` and projects six sim-authoritative fields. Same pre-S165 drift as `player.ts`.
    *
    * Healing has a real path now (`castleRegen.ts`, owner R128) and it is clamped at both ends. This
    * function stays what its name says: damage only, non-negative, integer.
