@@ -41,7 +41,6 @@ import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
-import { GOBLIN_DAMAGE_VS_CASTLE } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
 import { applyVoltkinChain } from './voltkinChain.ts';
@@ -461,7 +460,32 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       getCreatureConfig(creature.type).attackRange,
     );
     if (castleSeat !== null) {
-      damageEntity(world, { kind: 'castle', seat: castleSeat }, GOBLIN_DAMAGE_VS_CASTLE, 'creature');
+      /*
+       * ⭐⭐⭐ S180 (owner) — **THE KEEP IS ON THE LADDER LIKE EVERYTHING ELSE.**
+       *
+       * > *"Why does every attacker hit the castle for a flat six? That's not correct. Every attacker
+       * > hits anything, anything based on its like damage output, which we know the algorithm for.
+       * > Doesn't matter if it's a connector, a castle, or another enemy. That's what I need you to
+       * > get. And to actually wire. Like, this has to be the consistent way to do this."*
+       *
+       * ⛔ WHAT THIS RETIRES. `GOBLIN_DAMAGE_VS_CASTLE` was a FLAT 6 that every creature in the game
+       * dealt to a keep — a melee goblin and Vlad, identically. It was the LAST surviving instance of
+       * the `GOBLIN_DAMAGE_VS_PRIMITIVE` defect class: a bespoke constant on its own scale, exactly
+       * what he blew up about in S177 (*"that is not consistent. And we have a system for this."*).
+       * Every sibling arm in this function already reads `attackFifths(atk, pen)`; the castle arm was
+       * the odd one out, and now it is not.
+       *
+       * ⚠ THIS IS A LARGE BALANCE MOVE AND IT IS HIS, STATED RATHER THAN SLIPPED IN. Against
+       * `CASTLE_MAX_HP` 1500: a melee goblin goes 250 swings → 125, and Vlad goes 250 → **10**. The
+       * castle-gun cadence (`CASTLE_FIRE_INTERVAL_TICKS`, 240) was measured against the flat 6, so
+       * the whole siege relationship is retuned by this line. He ruled it knowing that.
+       */
+      damageEntity(
+        world,
+        { kind: 'castle', seat: castleSeat },
+        attackFifths(attackerConfig.atk, attackerConfig.pen),
+        'creature',
+      );
     }
     return world;
   }

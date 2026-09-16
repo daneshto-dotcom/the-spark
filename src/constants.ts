@@ -2043,6 +2043,22 @@ export const CASTLE_FIRE_INTERVAL_TICKS = 240; // 4 s — NOT Q3's 45. See the r
  * falls to a SUSTAINED ARMY, not to one leaked unit. Ten goblins bring it inside a couple of FIGHT
  * phases, which is the pace the owner asked for with *"it would take quite a bit to destroy it"*.
  */
+/*
+ * ⛔⛔⛔ S180 (owner) — **RETIRED IN PLACE, UNREAD.** The castle is on the ONE ladder now.
+ *
+ * > *"Why does every attacker hit the castle for a flat six? That's not correct. Every attacker hits
+ * > anything based on its damage output, which we know the algorithm for. Doesn't matter if it's a
+ * > connector, a castle, or another enemy."*
+ *
+ * `creatureAttack.ts` now deals `attackFifths(atk, pen)` to a keep, exactly as it already did to a
+ * creature, a shape, a bag and a connector. This was the LAST bespoke damage constant in the game —
+ * the same defect class as `GOBLIN_DAMAGE_VS_PRIMITIVE`, which survived nineteen sessions on its own
+ * scale and became his S177 bug report.
+ *
+ * ⚠ KEPT RATHER THAN DELETED because the docblocks below and at `CASTLE_FIRE_INTERVAL_TICKS` are the
+ * PROVENANCE of the castle-gun tuning, which was measured against this 6. Deleting the number would
+ * orphan that reasoning. Nothing reads it.
+ */
 export const GOBLIN_DAMAGE_VS_CASTLE = 6;
 
 /* ── S151 P3 — THE GOBLIN TOWER (owner R70) ─────────────────────────────────────────────────────

@@ -79,22 +79,35 @@ the 24 in a single blow.
 
 ---
 
-## 3 · THE CASTLE — and the one thing that does not obey the ladder
+## 3 · THE CASTLE
 
 | | |
 |---|---|
 | Castle pool | **1500** (`CASTLE_MAX_HP`) |
-| Damage every attacker deals to it | **6 a swing, flat** (`GOBLIN_DAMAGE_VS_CASTLE`) |
+| Damage an attacker deals to it | **its own `attackFifths(atk, pen)`** — the same ladder as everything else |
 
-⛔ **THAT FLAT 6 CONTRADICTS THE OWNER'S STATED RULE AND IS LOGGED AS A DEFECT.** He restated the
-rule in S180: *"if it has 10 attack and 10 penetration like Vlad then it hits for 150 a swing."* On
-the ladder Vlad would fell a 1500 castle in **10 swings**; today he needs **250**, the same as a
-melee goblin. This is the last surviving instance of the `GOBLIN_DAMAGE_VS_PRIMITIVE` defect class.
+⭐ **BOTH OF THIS SECTION'S OPEN QUESTIONS WERE ANSWERED BY THE OWNER IN S180.**
 
-⚠ **AND THE CASTLE POOL IS DISPUTED.** He said *"a castle has 2,500 points in total"*; the code says
-1500. One of the two has to move, and it is his call — the numbers are in §7.
+**The pool is 1500, and 2500 is the WIN SCORE, not castle health.** *"I think the castle pool was
+1,500 before. Oh yeah, yeah, yeah, it's 1,500. And the 2,500 is how many points someone needs to
+win."* (`PHASE_1_WIN_SCORE`.)
 
----
+**And the flat 6 is gone.** *"Why does every attacker hit the castle for a flat of six? That's not
+correct. Every attacker hits anything based on its damage output, which we know the algorithm for.
+Doesn't matter if it's a connector, a castle, or another enemy. That's what I need you to get. And to
+actually wire."*
+
+So a melee goblin deals **12** to a keep and Vlad deals **150**, off the one ladder.
+`GOBLIN_DAMAGE_VS_CASTLE` is retired in place, unread — the last bespoke damage constant in the game.
+
+⚠ **AND IT RETUNED THE SIEGE, MEASURED RATHER THAN ESTIMATED.** Through the real host tick
+(`castleGuns.test.ts`), the number of melee goblins needed to fell a keep moved from about **fifteen
+to between eight and ten**: 8 leaves it at 264, 10 takes it. One leaker still deals nothing — the
+castle gun kills it before its first swing. Read that as one fixture's reading, not a law.
+
+⛔ **THE CASTLE IS STILL THE ONE EXCEPTION ON THE OTHER SIDE OF THE LADDER:** its POOL is a flat 1500
+rather than `hp × (1 + 0.2 × def) × 5`. Its DAMAGE TAKEN is now fully on the ladder; its pool is not,
+and the owner has never asked for it to be.
 
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
@@ -146,12 +159,9 @@ recompute it identically from the type. **A live enemy health readout therefore 
 
 ## 7 · ⛔ OPEN — needs the owner, do not guess
 
-1. **Castle pool: 1500 or 2500?**
-2. **Castle damage: put it on the ladder?** Vlad 150 a swing instead of 6. Consequence, stated
-   honestly: the castle-gun cadence was measured against the flat 6, so this retunes the whole
-   castle-siege relationship. At 1500 pool Vlad fells a castle in 10 swings; at 2500, 17.
-
----
+*(Both of S180's castle questions were answered — see §3. Nothing is currently open here. When
+something is, it goes here AND gets an assertion in `src/canon.test.ts`, so a later session cannot
+quietly tidy it away without a ruling.)*
 
 ## 8 · HOW TO KEEP THIS HONEST
 

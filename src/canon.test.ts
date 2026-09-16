@@ -29,7 +29,6 @@ import { describe, expect, it } from 'vitest';
 import {
   CASTLE_ATTACK_RANGE,
   CASTLE_MAX_HP,
-  GOBLIN_DAMAGE_VS_CASTLE,
   HAZARD_SPAWN_ENABLED,
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
@@ -61,7 +60,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
 
   it('prints the castle numbers that are actually shipped', () => {
     expect(canonSays(`**${CASTLE_MAX_HP}** (\`CASTLE_MAX_HP\`)`)).toBe(true);
-    expect(canonSays(`**${GOBLIN_DAMAGE_VS_CASTLE} a swing, flat**`)).toBe(true);
+    // ⭐ S180: the flat constant is RETIRED. The canon must say the ladder, not the number.
+    expect(canonSays('its own `attackFifths(atk, pen)`')).toBe(true);
   });
 
   /**
@@ -99,23 +99,25 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   /**
-   * ⛔ THE TWO OPEN QUESTIONS MUST STAY VISIBLE UNTIL HE ANSWERS THEM. If someone "tidies" §7 away
-   * without a ruling, this goes red — which is the whole difference between a carry-forward and a
-   * note that quietly disappears.
+   * ⭐ S180 — BOTH CASTLE QUESTIONS WERE ANSWERED, so the canon must now record the ANSWERS and the
+   * consequence, not the questions. This asserts the ruling is written down where the next session
+   * reads it, and that the retired constant is described as retired rather than as live behaviour.
    */
-  it('keeps the two disputed castle questions open and unanswered', () => {
-    expect(canonSays('Castle pool: 1500 or 2500?')).toBe(true);
-    expect(canonSays('Castle damage: put it on the ladder?')).toBe(true);
+  it('records the castle rulings the owner gave, and the siege cost they moved', () => {
+    expect(canonSays('2500 is the WIN SCORE, not castle health')).toBe(true);
+    expect(canonSays('the flat 6 is gone')).toBe(true);
+    expect(canonSays('retired in place, unread')).toBe(true);
+    expect(canonSays('between eight and ten')).toBe(true);
   });
 
   /**
-   * ⚠ A GUARD ON THE DEFECT ITSELF. When the castle damage is put on the ladder, this test fails and
-   * forces the canon to be updated in the same commit — it cannot half-land the way the shape-damage
-   * retune nearly did.
+   * ⚠ THE GUARD THAT OUTLIVES THE FIX: the keep must keep taking LADDER damage. If a future session
+   * reintroduces a bespoke castle constant, the canon stops being true and this goes red.
    */
-  it('flags the flat castle damage as a defect for as long as it is flat', () => {
-    const flat = typeof GOBLIN_DAMAGE_VS_CASTLE === 'number';
-    expect(flat).toBe(true);
-    expect(canonSays('CONTRADICTS THE OWNER')).toBe(true);
+  it('keeps the castle on the ladder — no second damage scale may come back', () => {
+    const attack = readFileSync(new URL('./state/creatures/creatureAttack.ts', import.meta.url), 'utf8');
+    const castleArm = attack.slice(attack.indexOf("kind: 'castle'"));
+    expect(castleArm.slice(0, 400)).toContain('attackFifths(');
+    expect(castleArm.slice(0, 400)).not.toContain('GOBLIN_DAMAGE_VS_CASTLE');
   });
 });

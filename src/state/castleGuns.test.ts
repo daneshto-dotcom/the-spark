@@ -296,10 +296,33 @@ describe('S160 P4b — ⛔ WHAT THE GUN COSTS THE CASTLE-KILL WIN CONDITION, MEA
     return { fell: hpLeft <= 0, hpLeft };
   };
 
-  it('⭐ ONE leaker cannot scratch it, but FIFTEEN bring it down', () => {
-    expect(pushOf(1).hpLeft, 'a lone unit deals nothing').toBe(CASTLE_MAX_HP);
-    expect(pushOf(10).fell, 'TEN is no longer enough — the shipped tuning assumed it was').toBe(false);
-    expect(pushOf(15).fell, 'FIFTEEN still takes the castle, so the win condition survives').toBe(true);
+  /**
+   * ⭐⭐ S180 (owner) — **RE-MEASURED, NOT RELAXED, after the keep went onto the ladder.**
+   *
+   * > *"Every attacker hits anything based on its damage output… doesn't matter if it's a connector,
+   * > a castle, or another enemy."*
+   *
+   * A melee goblin deals `attackFifths(2, 1)` = **12** to a keep now, where the retired flat constant
+   * gave every creature in the game 6. So the ORDERING this gate exists to protect is unchanged —
+   * one leaker still cannot scratch it, a sustained push still takes it, and the castle-kill victory
+   * is still reachable rather than deleted — but the PRICE moved, and the honest thing is to re-run
+   * the fixture and write down what it now costs rather than loosen the assertion until it passes.
+   *
+   * MEASURED through the real host tick, this file's own `pushOf`:
+   *   ·  1 → 1500 (untouched; shot before its first swing)      ·  6 → 876
+   *   ·  2 → 1476                                                ·  7 → 588
+   *   ·  4 → 1260                                                ·  8 → 264  (holds, just)
+   *   ·  5 → 1104                                                · 10 → FALLS
+   *
+   * ⇒ **the threshold moved from about fifteen to between eight and ten.** Read it as a reading off
+   * ONE fixture — goblins spawned in contact on an empty board — exactly as the S160 note it replaces
+   * warned: *"15 is the number for THAT fixture and nothing more."*
+   */
+  it('⭐ ONE leaker cannot scratch it, EIGHT nearly do, TEN bring it down', () => {
+    expect(pushOf(1).hpLeft, 'a lone unit deals nothing — the gun kills it first').toBe(CASTLE_MAX_HP);
+    expect(pushOf(8).fell, 'EIGHT still cannot quite finish it, so a push is still a commitment').toBe(false);
+    expect(pushOf(8).hpLeft, 'and it is CLOSE — this is the number that moves if the gun is retuned').toBeLessThan(CASTLE_MAX_HP / 2);
+    expect(pushOf(10).fell, 'TEN takes the castle, so the win condition survives the ladder change').toBe(true);
   });
 
   it('the castle-kill path is not merely reachable but reachable INSIDE one fight', () => {

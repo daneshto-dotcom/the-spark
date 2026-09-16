@@ -216,8 +216,28 @@ export class CharacterSheet {
         this.emblem.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);
         this.emblem.scale.set(0.55);
         drawEmblem(this.emblem, em);
+        return;
       }
     }
+    /*
+     * ⚠ AND WHEN THERE IS NO ART AT ALL — a keep, Helga, or a sheet still in flight — the plate
+     * carries a WORD rather than sitting empty. An empty box reads as broken; a labelled one reads
+     * as deliberate, and it still tells the player what they clicked. The castle and the unit-class
+     * defenders have real art on disk and wiring them in is its own small job, named rather than
+     * quietly left as a blank square.
+     */
+    const word =
+      spec.kind === 'castleFrame'
+        ? 'KEEP'
+        : spec.kind === 'defenderFrame'
+          ? spec.defenderKind.slice(0, 6).toUpperCase()
+          : '…';
+    const t = this.take();
+    t.text = word;
+    t.style.fontSize = 13;
+    t.style.fill = DIM;
+    t.anchor.set(0.5, 0.5);
+    t.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);
   }
 
   private text(s: string, x: number, y: number, size: number, fill: number): void {
