@@ -263,6 +263,31 @@ export function creatureSpriteTint(seatTint: number, enraged: boolean): number {
 export const WALK_PX_PER_FRAME = 56;
 
 /**
+ * ⭐⭐⭐ S179 (owner) — **THE GROUND-DRIVEN GAIT IS SCOPED BACK TO THE THREE HE ACTUALLY NAMED.**
+ *
+ * > *"I only told you about those three. I don't know why the fuck you did all of that for. I didn't
+ * > ask you to do this."* · *"now everyone looks like they're walking really slowly even though the
+ * > speed is normal ... you've actually broken it more than you fixed it."*
+ *
+ * ⛔ WHAT WENT WRONG, AND IT WAS SCOPE, NOT ARITHMETIC. His S177 report named the direwolf, Vlad
+ * and the goblin hound. S177 P2 applied the distance-driven walk to EVERY creature in the game and
+ * wrote its own justification into the docblock above — *"for every creature, including the 'some
+ * other ones' he suspected and did not name."* He had not asked for that, and the result is visible:
+ * `WALK_PX_PER_FRAME` = 56 px of ground per frame is tuned for the three FAST units he complained
+ * about, so every ordinary unit — which never approaches the reference top speed — now advances a
+ * frame only every ~16 ticks instead of every 4, and reads as walking in slow motion.
+ *
+ * ⚠ THE THREE KEEP THE FIX, because for them it was right and he said so. Everything else returns
+ * to the tick-driven row it shipped with for twenty sessions, which is byte-identical to pre-S177.
+ * If he later reports a fourth unit, ADD IT HERE — do not re-generalise.
+ */
+export const GROUND_DRIVEN_GAIT: ReadonlySet<string> = new Set([
+  'direwolf',        // *"the dire wolves' legs move too quickly when he's running"*
+  't9BossVampires',  // *"Also Vlad the boss, similarly"*
+  'goblinHound',     // *"Also the goblin hound is the same"*
+]);
+
+/**
  * PURE — the gait frame for a creature that has travelled `pxTravelled` since it started walking.
  * Exported for test, like every other frame-selector in this codebase.
  */
@@ -698,7 +723,9 @@ export class GoblinRenderer {
      * cover by definition. Only the travelling row is a gait.
      */
     let i: number;
-    if (name === 'walk') {
+    // ⭐ S179 (owner) — ground-driven for the three he named; everything else is tick-driven as
+    // before. See GROUND_DRIVEN_GAIT for why the global version was wrong.
+    if (name === 'walk' && GROUND_DRIVEN_GAIT.has(type)) {
       const prev = this.gait.get(id);
       const px = prev === undefined
         ? 0
