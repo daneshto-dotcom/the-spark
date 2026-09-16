@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 1758,
+  "tool_calls_session_total": 1765,
   "session_id": "S180",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S177 closed 10/10; S178 opened on the owner playtest verdict + an agentic sweep (15/20 lanes died to the org spend limit and were hand-run or salvaged per the S161 rule).",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
-  "session_status": "S180 IN PROGRESS",
+  "session_status": "S180 CLOSED",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -129,11 +129,54 @@
     {
       "id": 1,
       "name": "Character sheets v1 — creatures AND buildings, absorbing FIX/SCRAP (owner amendment S180-A1)",
-      "status": "in_progress",
+      "status": "completed",
       "note": "APPROVED. Scope expanded by the owner in the approval turn — see scope_amendments S180-A1.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "831aaf9",
+      "check_method": "Shipped, REJECTED BY THE OWNER IN PLAY, then finished. v1 was wired in e363c93 and he found within a minute that clicking his own building opened nothing: the patch adding that call had silently failed to apply while typecheck, 4588 tests, the build and the deploy all stayed green. Fixed in 1cf4ee2 with the own-building wire, real stats on buildings (CONNECTORS + SHAPES + emplacement ATK/PEN/RANGE), a castle card (pool, SHOT, RANGE, RELOAD, REGEN; yours and enemy), and characterSheet.wired.test.ts, a source-text tripwire asserting each of the 11 call sites EXISTS, proven both directions (deleting the own-building line turns it red, restoring it green). 14 headless model tests walk the whole 24-type roster with every expectation derived from its constant. Re-verified by grep at close: all 11 wire points present.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet?.select({ kind: 'structure', primitiveId: hit })",
+          "why": "THE line that silently failed to apply and shipped the feature dead"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet?.select({ kind: 'castle', seat: this.playerId })",
+          "why": "his \"even the castle should have the same thing\""
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "characterSheet.sync(world, world.localPlayerId)",
+          "why": "the card is re-derived every frame and drops its own selection"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "label: 'CONNECTORS'",
+          "why": "a building card is no longer statless, his headline complaint"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "const stats: SheetStatRow[] = [];",
+          "why": "the empty array that was the defect is gone"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/characterSheet.wired.test.ts",
+          "pattern": "expect\\(controls\\)",
+          "op": ">=",
+          "value": 5,
+          "why": "the tripwire asserts the wire itself, the grep I failed to run by hand"
+        }
+      ]
     },
     {
       "id": 2,
@@ -247,8 +290,8 @@
           "path": ".claude/session-state.json",
           "key": "session_status",
           "op": "==",
-          "value": "S180 IN PROGRESS",
-          "why": "the session is not closed"
+          "value": "S180 CLOSED",
+          "why": "the session records itself as closed, and the close gate can check that claim"
         },
         {
           "type": "grep_count",
@@ -265,17 +308,87 @@
           "op": ">=",
           "value": 1,
           "why": "his targeting rulings are recorded as a scope amendment, not carried loose in conversation"
+        },
+        {
+          "type": "grep_count",
+          "path": ".claude/session-state.json",
+          "pattern": "\"status\": \"blocked\"",
+          "op": ">=",
+          "value": 1,
+          "why": "P2 TARGETING is still marked BLOCKED — an unbuilt priority must never be rolled up as complete at close"
         }
       ]
     },
     {
       "id": 4,
       "name": "SPARK_CANON.md + canon.test.ts + mandatory-read pointer",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "note": "Owner-directed in S180-A3. He asked for it explicitly and in the same breath as approving the work."
+      "note": "Owner-directed in S180-A3. He asked for it explicitly and in the same breath as approving the work.",
+      "check_completed": true,
+      "checkpoint_commit": "831aaf9",
+      "check_method": "SPARK_CANON.md written and bound by src/canon.test.ts (9 assertions). PROVEN TO HAVE TEETH: changing one digit of the structure ladder in the canon turned the suite red (exit 1); restoring it turned it green (exit 0). CLAUDE.md now opens with a mandatory-read pointer, since it is the only file auto-loaded each session. Updated at close to carry his two castle rulings plus a guard that no second castle damage scale can return.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "READ `SPARK_CANON.md` BEFORE ANSWERING ANYTHING ABOUT THE GAME",
+          "why": "the pointer is in the one auto-loaded file"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "Seagulls and poop",
+          "why": "the archived list he had to repeat is written down"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "2500 is the WIN SCORE, not castle health",
+          "why": "his ruling, recorded where the next session reads it"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/canon.test.ts",
+          "pattern": "it\\(",
+          "op": ">=",
+          "value": 8,
+          "why": "the canon is pinned, not merely written"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "The keep is on the ladder - every attacker hits it for its own damage",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "831aaf9",
+      "check_method": "GOBLIN_DAMAGE_VS_CASTLE (a flat 6 every creature dealt to a keep) retired in place, unread; the castle arm of applyCreatureAttack now deals attackFifths(atk, pen) like every sibling arm. RE-MEASURED rather than relaxed, through the real host tick: the goblins needed to fell a keep moved from about 15 to between 8 and 10 (8 leaves it at 264, 10 takes it, 1 still deals nothing). Integer-safe: attackFifths is atk x (5 + pen) and no config carries a fractional atk or pen, so damageEntity cannot throw.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "{ kind: 'castle', seat: castleSeat },",
+          "why": "the castle arm still exists"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/creatures/creatureAttack.ts",
+          "needle": "import { GOBLIN_DAMAGE_VS_CASTLE }",
+          "why": "the bespoke constant is no longer read in production"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "EIGHT nearly do, TEN bring it down",
+          "why": "the coverage gate was re-measured, not relaxed"
+        }
+      ]
     }
   ],
   "verification": [
@@ -517,7 +630,12 @@
     "S180 — THE STALE DOC IS MORE DANGEROUS THAN NO DOC. UNIT_STAT_TABLE.md lists Vlad at 90 pool; constants.ts:1666 says 260. A character sheet built from the repo own stat document would have printed a wrong number for every boss. Read numbers from the code at runtime, never from a generated table. #raw-code-not-abbreviations",
     "S180 — FOUR BACKLOG ITEMS WERE ALREADY DONE: the atlas debt (guard green, 31 clean, CI green), the Orc Warlord, the four boss numbers, the per-connector pool. Presenting a stale backlog as live scope is how the owner time gets wasted; verify every line before it reaches him. #policy-not-instance",
     "S180 — AN EXTERNAL REVIEWER CONFIDENT EXECUTION CLAIM STILL NEEDS THE TREE. GROK asserted live enemy health demands per-frame polling and a protocol bump; the mirrored ehp the health bars already draw refutes it outright. GEMINI overkill-is-wasted concern was likewise refuted by damageConnector own spend-not-zero comment. #check-reviewer-fabricated-execution-claims",
-    "S180 — THE BEST DESIGN CAME FROM THE SEAT TOLD TO DISAGREE. Gemini was prompted to stress-test Grok rather than agree, and produced a third option (aim at the building, land damage on the connectors) neither I nor Grok had. Adversarial framing beat consensus framing. #adversarial-beats-consensus"
+    "S180 — THE BEST DESIGN CAME FROM THE SEAT TOLD TO DISAGREE. Gemini was prompted to stress-test Grok rather than agree, and produced a third option (aim at the building, land damage on the connectors) neither I nor Grok had. Adversarial framing beat consensus framing. #adversarial-beats-consensus",
+    "S180 - GREEN GATES ARE NOT PROOF A FEATURE IS WIRED. A patch adding the sheet to the own-building click silently failed to apply. typecheck, 4588 tests, the build, the bundle charter and the deploy were ALL green, because nothing covers the pointer path. The owner found it in the first minute of play. The fix is a source-text tripwire asserting each call site exists - the grep I should have run by hand. #verify-the-wire-not-just-the-gates",
+    "S180 - A PATCH THAT DOES NOT APPLY IS THE SAME BUG TWICE. The identical line-ending mismatch dropped a setter earlier in the same session, and I caught THAT one only because typecheck failed. When the dropped line sits in an untested path, nothing tells you. Every patch now ends with a grep for the line it claims to have added. #verify-the-wire-not-just-the-gates",
+    "S180 - I SHIPPED A HALF-FEATURE AND CALLED IT DONE. The card had no stats on buildings, no castle at all and no tower stats, and I told him to go play it. Read your own code for what it OMITS before announcing completion: an empty stats array was sitting there in plain sight. #read-what-it-omits",
+    "S180 - THE OWNER WAS RIGHT THAT SOMETHING WAS NEW AND WRONG ABOUT WHICH. He believed I had added the SOUL feed chip. git settled it in one command: structurePanel.ts last modified 2026-09-07. PROVE PROVENANCE WITH GIT, never with memory - it protects him from a wrong fix and me from a wrong denial. #prove-it-with-git",
+    "S180 - THE THIRD AGENT RUN THIS SESSION DIED TO THE SAME SPEND LIMIT, and the S161 rule paid for the third time: the audit lanes were hand-run and all three passed. The hand pass also found what no agent had - that damageConnector already cascades overkill, which made the targeting recommendation far cheaper than either option I was about to put to him. #a-dead-agent-run-is-not-a-verdict"
   ],
   "real_context_tokens_at_close": null,
   "analyze": {
@@ -544,16 +662,6 @@
   },
   "checkpoint_commit": "8e0bf77497656b35c8eefb1cb38caa74d30ac068",
   "check_completed": true,
-  "carry_forwards_spawned_in_s178": [
-    "⛔ #1 NEXT SESSION — THE LONE-SHAPE RULE. Owner: 'a single primitive has ONE health... one hit to destroy by anyone' / 'for every time there's a single shape, it's always worth five'. NOT BUILT. Attempted twice, reverted twice. Design settled in S179_CARRY_FORWARD.md: new LONE_PRIMITIVE_POOL_FIFTHS=5 + a one-line Math.min cap in damage.ts gated on prim.bonds.size===0. PRIMITIVE_MAX_HP STAYS 70. The work is re-pinning ~13 fixtures across 7 files with REAL partner shapes (a sentinel bond id corrupts the recipe gates: 13 red -> 28 red).",
-    "BOSS REWORK, his numbers verbatim: Vlad life-sap 2 uses not 3; Warlord rage at 50% not 25% and doubles attack AND movement speed; direwolves up to 3 at a time, summon every 30s; Archdemon 'taken to hell' below 10% not 5%; Kraken KEEPS sonar and GAINS up to 6 tentacles (NEW, undesigned); Pharaoh locusts 50 damage each not 150 (he then said 'still very strong' — re-check after he plays); Whopper unchanged ('looks sick').",
-    "⚠ CORRECTION HE NEEDS FIRST: he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra ritual are unbuilt. They ARE built and called every host tick (hostTick.ts:1830-1848). S179 ADJUSTS numbers; it does not build them. Only the Kraken tentacles are new.",
-    "VOLTKIN TV — two transition videos, ~EUR 20: (1) TV appears/breaks open + Voltkin CLIMBS OUT (he already has the climbing-out still — wire it, don't generate it), (2) damaged -> destroyed explosion. NO video between intact and damaged.",
-    "NO DAMAGE NUMBERS ON SCRAP — ruled. Design settled (pendingCreatureDeaths is the non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.",
-    "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
-    "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
-    "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
-  ],
   "s179": {
     "session_id": "S179",
     "session_kind": "scoping",
@@ -944,5 +1052,25 @@
     "lane3_obedience": "PASS — PROTOCOL_VERSION still 46; castleGuns.ts, potatoLifecycle.ts untouched; nextPulledSparkId appears only in a backlog markdown line, no source change. No skills row. Actions gated on ownership. Derived numbers on the ATK and HP rows only. TARGETING UNTOUCHED (creatureAI.ts / hostTick.ts / stats.ts all outside the S180 diff) and DEFENDER_TARGETS.turret still reads BOTH — he ruled it should become units-only but did not authorise the work.",
     "gates": "typecheck exit 0 · vitest 293 files exit 0 · build exit 0 (845.5 KiB / 1000 cap) · check:atlas exit 0 (31 clean) · verify-deploy 4/4 on c0dead0. Every exit code captured from $?.",
     "one_failed_command_named": "An earlier vitest run died with \"Worker exited unexpectedly\" (tinypool). Re-run on the same tree: exit 0. VERDICT: benign infrastructure flake, not reproducible."
-  }
+  },
+  "carry_forwards_spawned_in_s178_RESOLVED": [
+    "⛔ #1 NEXT SESSION — THE LONE-SHAPE RULE. Owner: 'a single primitive has ONE health... one hit to destroy by anyone' / 'for every time there's a single shape, it's always worth five'. NOT BUILT. Attempted twice, reverted twice. Design settled in S179_CARRY_FORWARD.md: new LONE_PRIMITIVE_POOL_FIFTHS=5 + a one-line Math.min cap in damage.ts gated on prim.bonds.size===0. PRIMITIVE_MAX_HP STAYS 70. The work is re-pinning ~13 fixtures across 7 files with REAL partner shapes (a sentinel bond id corrupts the recipe gates: 13 red -> 28 red).",
+    "BOSS REWORK, his numbers verbatim: Vlad life-sap 2 uses not 3; Warlord rage at 50% not 25% and doubles attack AND movement speed; direwolves up to 3 at a time, summon every 30s; Archdemon 'taken to hell' below 10% not 5%; Kraken KEEPS sonar and GAINS up to 6 tentacles (NEW, undesigned); Pharaoh locusts 50 damage each not 150 (he then said 'still very strong' — re-check after he plays); Whopper unchanged ('looks sick').",
+    "⚠ CORRECTION HE NEEDS FIRST: he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra ritual are unbuilt. They ARE built and called every host tick (hostTick.ts:1830-1848). S179 ADJUSTS numbers; it does not build them. Only the Kraken tentacles are new.",
+    "VOLTKIN TV — two transition videos, ~EUR 20: (1) TV appears/breaks open + Voltkin CLIMBS OUT (he already has the climbing-out still — wire it, don't generate it), (2) damaged -> destroyed explosion. NO video between intact and damaged.",
+    "NO DAMAGE NUMBERS ON SCRAP — ruled. Design settled (pendingCreatureDeaths is the non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.",
+    "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
+    "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
+    "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
+  ],
+  "carry_forwards": [
+    "P2 TARGETING — fully ruled by him in S180-A2, NOT built and NOT approved to build. Restore a connector target for the 21 unit types that lost one; aim at the nearest STRUCTURE and damage its connectors (his Option A, widened: \"the closest thing that has connectors... any structure\"). Suicide bomber: buildings first, and below ~50% health take whatever is closest. Chewers: never people, ever. Voltkin falls back to your own connectors ONLY when no enemy units and no enemy buildings remain. THE CASCADE HALF IS ALREADY BUILT — damageConnector banks structure-wide and spends overkill into the next connector.",
+    "DEFENDER_TARGETS.turret should become UNITS_ONLY — he CHANGED R72 in S180 (\"maybe it doesnt do both, it does only creatures, so thats fine\"). One line, no behaviour change, not authorised yet.",
+    "The SOUL / feed chip on tier-3 towers — he wants to play the other races and decide whether to keep it. AUDITED S180: all six races already produce the correct unit at the tower; the demon he saw was the castle free raceUnit on its own 30s clock. Likely work is CLARITY, not correctness.",
+    "Castle + Helga PORTRAITS on the character sheet — both have real art on disk; the card shows a labelled plate for them today.",
+    "The castle card should carry its BUY functions (gatherer, speed, regen) so the keep is one panel like a tower is.",
+    "PER-RACE BORDER WALL ART — his S180 ask, six treatments, art spend.",
+    "END-OF-MATCH STAT BOARD — researched and costed S180, parked when he redirected. The whole end-of-match screen is still ONE LINE OF TEXT."
+  ],
+  "real_context_note": "statusline reported dead all session (stale pidfile); no trustworthy real-token reading was available. Recorded as unavailable rather than estimated — per the rule that a token reading is informational and must never be invented."
 }
