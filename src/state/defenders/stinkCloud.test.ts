@@ -35,7 +35,7 @@ import {
   stinkCloudTick,
   sweepExpiredStinkClouds,
 } from './stinkCloud.ts';
-import { asPlayerId, asPrimitiveId, asStinkCloudId } from '../../types.ts';
+import { asPlayerId, asPrimitiveId, asStinkCloudId, type BondId } from '../../types.ts';
 import { enemyStinkCloudInReach } from '../creatures/creatureAI.ts';
 import { attackFifths, unitPoolFifths } from '../stats.ts';
 import type { Primitive } from '../../game/primitive.ts';
@@ -93,6 +93,34 @@ function addPrimAt(world: World, seat: 0 | 1, x: number, y: number): Primitive {
   return prim;
 }
 
+/*
+ * ⭐⭐ S179 (owner) — **A SHAPE THAT MUST SURVIVE A BLAST NEEDS A REAL CONNECTOR.**
+ *
+ * His rule: no connectors ⇒ `LONE_PRIMITIVE_POOL_FIFTHS` (5), dies to anything. A fixture asserting
+ * a shape SURVIVES is therefore a claim about a STRUCTURE MEMBER (still 70), which is what it meant.
+ *
+ * ⚠ THE PARTNER IS PLACED FAR AWAY ON PURPOSE. These blasts SEVER connectors in radius, and the
+ * shared raze contract then takes any shape left with none at all (S157 B2) — so a partner placed
+ * NEXT to the victim gets its connector cut and the victim is removed as an orphan, failing the test
+ * for a reason unrelated to what it pins. Far partner ⇒ the bond midpoint is outside the blast.
+ *
+ * ⛔ And the bond is REAL, registered on both endpoints — a sentinel id with no bond behind it
+ * corrupts the recipe gates, which is how a previous attempt turned 13 red into 28.
+ */
+function bondedPrimAt(world: World, seat: 0 | 1, x: number, y: number): Primitive {
+  const a = addPrimAt(world, seat, x, y);
+  const b = addPrimAt(world, seat, x, y + 600); // far: keeps the bond midpoint out of every blast
+  const id = world.nextBondId++ as unknown as BondId;
+  const bond = {
+    id, aId: a.id, bId: b.id, a, b,
+    restLength: 600, stiffnessTier: 'MID' as const, damageFifths: 0, createdTick: 0,
+  };
+  world.bonds.set(id, bond as never);
+  a.bonds.add(id);
+  b.bonds.add(id);
+  return a;
+}
+
 /** A cloud at (500,500) owned by `owner`, landing on the tick the world is currently at. */
 function landCloud(w: World, owner = P0, idNum = 0) {
   const id = asStinkCloudId(idNum);
@@ -116,7 +144,7 @@ function plantVoltkinAt(w: World, x: number, y: number) {
 describe('S158 P6 — a landed bag stinks, on the shared beat', () => {
   it('⭐ damages an ENEMY shape inside the radius on its cadence tick', () => {
     const w = make1v1();
-    const victim = addPrimAt(w, 1, 520, 500); // 20 px from the cloud centre
+    const victim = bondedPrimAt(w, 1, 520, 500); // 20 px from the cloud centre
     const c = landCloud(w);
     w.tick = (c.id as unknown as number) % STINK_AURA_CADENCE_TICKS; // land exactly on this cloud's phase
     expect(stinkCloudTick(w, c, applyRadialDamage), 'this must be a cadence tick').toBe(true);

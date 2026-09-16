@@ -3018,6 +3018,37 @@ export const DEFENDER_REACQUIRE_TICKS = 12; // IDLE retry cadence when no enemy 
  * they cannot, and the goblin's six is the number the owner actually ruled.
  */
 export const PRIMITIVE_MAX_HP = 70; // a single placed shape — 14 HP × 1.0 DEF × 5, his ladder
+/*
+ * ⭐⭐⭐ S179 (owner) — **A LONE SHAPE IS WORTH FIVE, AND DIES TO ANYTHING.**
+ *
+ * *"A single primitive placed in a player's quadrant has ONE health, no defense, no attack, no
+ * penetration. Just stands there and one hit to destroy by anyone."* · *"For every time there's a
+ * single shape, it's always worth five."* · *"Similarly with a poop bag. Poop bag is just like one
+ * shape, same system."*
+ *
+ * ⭐ FIVE **IS** "ANYTHING", AND THAT IS NOT A COINCIDENCE — IT IS THE LADDER AGREEING WITH HIM.
+ * He also floated dropping HP entirely: *"any one shape by itself doesn't even have HP ... whatever
+ * the damage output it gives, it dies."* The two formulations are the SAME RULE, because the
+ * weakest attack that exists in this game is the goblin shield at 1 ATK / 0 PEN =
+ * `attackFifths(1, 0)` = **exactly 5 fifths**. A 5-fifth pool therefore dies in one hit to the
+ * feeblest thing on the board, and to everything above it. `unitPoolFifths(1, 0)` = 5 says the same
+ * from the other side: 1 HP, no DEF — which is his sentence, verbatim, expressed on the ladder.
+ * So this stays a POOL rather than a special-case "dies to any hit" branch: same ladder, no second
+ * system, and a future 1-fifth attack would still need two swings, correctly.
+ *
+ * ⛔ WHY HE HAD TO SAY IT FOUR TIMES. His argument is monotonicity and it is unanswerable:
+ * *"It doesn't make sense if one shape by itself has more defense than two shapes connected with
+ * one connector."* Two shapes on one connector are `structurePoolFifths(1)` = **6**. A lone shape
+ * at the old `PRIMITIVE_MAX_HP` of 70 was ELEVEN TIMES tougher than the smallest real structure.
+ * With 5 the ladder finally runs the right way: 5 → 6 → 14 → 24 → 36 → 50.
+ *
+ * ⚠ THE CAP IS `Math.min`, NEVER AN ASSIGNMENT — an already-chipped shape must not be HEALED by
+ * being hit. And it is read at the moment of the hit off the LIVE connector count, so it also
+ * covers the case he named: *"anyone that has his tower destroyed and has one shape left on the
+ * screen without any connectors."* He confirmed that case explicitly: *"Yes. Dies from anything."*
+ */
+export const LONE_PRIMITIVE_POOL_FIFTHS = 5;
+
 // ⭐ S139 P1 — THE CADENCE THE PARAGRAPH ABOVE HAS ALWAYS SPECIFIED AND NEVER DECLARED.
 // S138 wrote the "% of max hp on a 0.5 s cadence" model into the comment above but minted no
 // constant for it, so every future DoT author would have re-derived `0.5 * PHYSICS_HZ` by hand —

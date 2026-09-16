@@ -93,6 +93,34 @@ function addPrimAt(world: World, seat: 0 | 1, x: number, y: number): Primitive {
 }
 
 /** A bond between two fresh shapes owned by `seat`, centred on (x, y). */
+/*
+ * ⭐⭐ S179 (owner) — **A SHAPE THAT MUST SURVIVE A BLAST NEEDS A REAL CONNECTOR.**
+ *
+ * His rule: no connectors ⇒ `LONE_PRIMITIVE_POOL_FIFTHS` (5), dies to anything. A fixture asserting
+ * a shape SURVIVES is therefore a claim about a STRUCTURE MEMBER (still 70), which is what it meant.
+ *
+ * ⚠ THE PARTNER IS PLACED FAR AWAY ON PURPOSE. These blasts SEVER connectors in radius, and the
+ * shared raze contract then takes any shape left with none at all (S157 B2) — so a partner placed
+ * NEXT to the victim gets its connector cut and the victim is removed as an orphan, failing the test
+ * for a reason unrelated to what it pins. Far partner ⇒ the bond midpoint is outside the blast.
+ *
+ * ⛔ And the bond is REAL, registered on both endpoints — a sentinel id with no bond behind it
+ * corrupts the recipe gates, which is how a previous attempt turned 13 red into 28.
+ */
+function bondedPrimAt(world: World, seat: 0 | 1, x: number, y: number): Primitive {
+  const a = addPrimAt(world, seat, x, y);
+  const b = addPrimAt(world, seat, x, y + 600); // far: keeps the bond midpoint out of every blast
+  const id = world.nextBondId++ as unknown as BondId;
+  const bond = {
+    id, aId: a.id, bId: b.id, a, b,
+    restLength: 600, stiffnessTier: 'MID' as const, damageFifths: 0, createdTick: 0,
+  };
+  world.bonds.set(id, bond as never);
+  a.bonds.add(id);
+  b.bonds.add(id);
+  return a;
+}
+
 function addBondAt(world: World, seat: 0 | 1, x: number, y: number): BondId {
   const a = addPrimAt(world, seat, x - 10, y);
   const b = addPrimAt(world, seat, x + 10, y);
@@ -176,8 +204,8 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
   it('⭐ damages every enemy shape in radius by the owner’s 4 ATK (three blasts fell a shape)', () => {
     const w = make1v1();
     const bomber = spawn(w, 'goblinSuicide', 0, 500, 500);
-    const near = addPrimAt(w, 1, 520, 500); // 20 px  — inside 70
-    const alsoNear = addPrimAt(w, 1, 500, 560); // 60 px — inside 70
+    const near = bondedPrimAt(w, 1, 520, 500); // 20 px  — inside 70
+    const alsoNear = bondedPrimAt(w, 1, 500, 560); // 60 px — inside 70
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id });
 
     /*
@@ -209,8 +237,8 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
   it('⭐ uses ITS OWN 70 px radius, not the drone\'s 110 — the owner ruled the drone bigger', () => {
     const w = make1v1();
     const bomber = spawn(w, 'goblinSuicide', 0, 500, 500);
-    const inside = addPrimAt(w, 1, 500 + GOBLIN_SUICIDE_BLAST_RADIUS - 5, 500);
-    const between = addPrimAt(w, 1, 500 + GOBLIN_SUICIDE_BLAST_RADIUS + 20, 500);
+    const inside = bondedPrimAt(w, 1, 500 + GOBLIN_SUICIDE_BLAST_RADIUS - 5, 500);
+    const between = bondedPrimAt(w, 1, 500 + GOBLIN_SUICIDE_BLAST_RADIUS + 20, 500);
     // CONTROL — `between` sits inside the DRONE's radius and outside the goblin's, so it is exactly
     // the shape that separates the two behaviours. Under the old code it would have been hit.
     expect(GOBLIN_SUICIDE_BLAST_RADIUS + 20).toBeLessThan(DRONE_EXPLODE_RADIUS);
@@ -266,7 +294,7 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
   it('is idempotent on a bomber that is already gone (the stale fan-out defence)', () => {
     const w = make1v1();
     const bomber = spawn(w, 'goblinSuicide', 0, 500, 500);
-    const victim = addPrimAt(w, 1, 520, 500);
+    const victim = bondedPrimAt(w, 1, 520, 500);
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id });
     const hpAfterOne = w.primitives.get(victim.id)!.hp;
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id }); // second dispatch

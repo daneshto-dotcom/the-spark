@@ -40,6 +40,7 @@
 import { PRIMITIVE_MAX_HP, STINK_BAG_ATK, STINK_BAG_PEN } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
 import { attackFifths, structurePoolFifths } from './stats.ts';
+import { LONE_PRIMITIVE_POOL_FIFTHS } from '../constants.ts';
 import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import type { Defender } from './defenders/defender.ts';
@@ -154,6 +155,12 @@ export function damageEntity(
     case 'primitive': {
       const prim = world.primitives.get(target.id);
       if (prim === undefined) return false;
+      /*
+       * ⭐⭐⭐ S179 (owner) — **A SHAPE WITH NO CONNECTORS IS WORTH FIVE.** See
+       * `LONE_PRIMITIVE_POOL_FIFTHS`. Gated on the LIVE connector count, so a shape inside any
+       * structure never reaches it and `PRIMITIVE_MAX_HP` still governs those.
+       */
+      if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
       prim.hp -= amount;
       if (prim.hp > 0) return false;
       // Visible death, reusing the kind the potato blast already emits for an erased primitive.

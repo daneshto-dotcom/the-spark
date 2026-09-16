@@ -23,7 +23,7 @@ import {
   STINK_BAG_DAMAGE, STINK_DEATH_BLAST_BASE_DAMAGE, STINK_DEATH_BLAST_BASE_RADIUS,
   STINK_DEATH_BLAST_PER_BAG_DAMAGE, STINK_DEATH_BLAST_PER_BAG_RADIUS, STINK_TOWER_BAGS,
 } from '../../constants.ts';
-import { asDefenderId, asPlayerId, asPrimitiveId } from '../../types.ts';
+import { asBondId, asDefenderId, asPlayerId, asPrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { applyRadialDamage, destroyDefender } from '../damage.ts';
 import { applyDefenderTick, applyRemoveDefender, applyRegisterDefender, teardownDefenders } from './defenderLifecycle.ts';
@@ -60,6 +60,32 @@ function addPrim(w: World, owner = P1, x = 300, y = 300, type = SparkType.Circle
   };
   w.primitives.set(p.id, p);
   return p;
+}
+
+/*
+ * ⭐⭐ S179 (owner) — **A SHAPE THAT MUST SURVIVE A BLAST NEEDS A REAL CONNECTOR NOW.**
+ *
+ * His rule: a shape with NO connectors is worth `LONE_PRIMITIVE_POOL_FIFTHS` (5) and dies to
+ * anything — *"It doesn't make sense if one shape by itself has more defense than two shapes
+ * connected with one connector."* So a fixture asserting a shape SURVIVES a blast is asserting
+ * something about a STRUCTURE MEMBER, which is what it always meant.
+ *
+ * ⛔ THE BOND MUST BE REAL. A previous attempt faked it with a sentinel id and no bond behind it;
+ * the recipe gates WALK `prim.bonds`, and that turned 13 red into 28 red. This registers the bond in
+ * `world.bonds` AND on BOTH endpoints, exactly as production does.
+ */
+let nextTestBond = 9000;
+function bonded(w: World, owner = P1, x = 300, y = 300, type = SparkType.Circle): Primitive {
+  const a = addPrim(w, owner, x, y, type);
+  const b = addPrim(w, owner, x + 32, y, type); // a real partner, one rest-length away
+  const bond = {
+    id: asBondId(nextTestBond++), aId: a.id, bId: b.id, a, b,
+    restLength: 32, stiffnessTier: 'MID' as const, damageFifths: 0, createdTick: 0,
+  };
+  w.bonds.set(bond.id, bond as never);
+  a.bonds.add(bond.id);
+  b.bonds.add(bond.id);
+  return a;
 }
 
 /** A live stink tower anchored on a real Square primitive at (x, y). */
@@ -165,7 +191,9 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
   it('⭐ a full-health primitive in radius SURVIVES (it is damaged, not erased)', () => {
     // This is the whole reason the bridge exists. applyRadialClear would have razed this shape.
     const w = setup();
-    const victim = addPrim(w, P1, 300, 300);
+    // ⭐ S179 — BONDED: at 70 it survives, which is now explicitly a claim about a STRUCTURE
+    // MEMBER. A LONE shape is 5 under his rule and would correctly be erased by this blast.
+    const victim = bonded(w, P1, 300, 300);
     // ⭐ S177 P1 — ONE LADDER: the shape arm is now the unit arm, so the splash is UNIT_SPLASH on
     // both. A full-health shape (70) still survives a 6-fifth bag, which is what this test asserts.
     applyRadialDamage(w, 300, 300, 200, UNIT_SPLASH, UNIT_SPLASH, 'hazard', P0);
@@ -175,8 +203,8 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
 
   it('spares everything the blast owner owns, and hits everything they do not', () => {
     const w = setup();
-    const mine = addPrim(w, P0, 300, 300);
-    const theirs = addPrim(w, P1, 305, 300);
+    const mine = bonded(w, P0, 300, 300);
+    const theirs = bonded(w, P1, 305, 300);
     applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
     expect(mine.hp).toBe(PRIMITIVE_MAX_HP); // untouched
     expect(theirs.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);

@@ -36,6 +36,7 @@ import { CHEWER_HP,
   GOBLIN_MELEE_ATK,
   GOBLIN_MELEE_PEN,
   GOBLIN_MELEE_HP,
+  GOBLIN_ATTACK_RANGE,
   PRIMITIVE_MAX_HP,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -373,20 +374,34 @@ describe('S139 P2 — REAL-PHYSICS acceptance (the actual host tick, not state p
 
     const d = deps();
     const st = makeHostTickState(w);
-    // Long enough to cover SPAWNING (30) + travel + a windup + at least one fire tick.
-    for (let t = 0; t < 400; t++) runHostTick(w, d, st);
+    /*
+     * ⭐⭐ S179 (owner) — **MEASURED AT THE STRIKE, NOT 400 TICKS LATER.**
+     *
+     * His rule makes a shape with no connectors worth `LONE_PRIMITIVE_POOL_FIFTHS` (5), so a melee
+     * goblin's `attackFifths(2, 1)` = 12 ERASES this one on the first swing instead of chipping it.
+     * That is the intended behaviour — *"one hit to destroy by anyone"* — but it breaks the old
+     * shape of this test: once the shape is gone the goblin has no target, marches on the keep, and
+     * the distance read at tick 400 says nothing about whether it ever closed. So the run stops at
+     * the moment the strike lands and reads the frame that actually matters.
+     */
+    let endDist = startDist;
+    let destroyedAt = -1;
+    for (let t = 0; t < 400; t++) {
+      runHostTick(w, d, st);
+      const g = w.creatures.get(goblin.id);
+      if (g !== undefined) endDist = Math.hypot(victim.pos.x - g.pos.x, victim.pos.y - g.pos.y);
+      if (!w.primitives.has(victim.id)) { destroyedAt = t; break; }
+    }
 
-    const live = w.creatures.get(goblin.id);
-    expect(live, 'the goblin should still be alive').toBeDefined();
-    const endDist = Math.hypot(victim.pos.x - live!.pos.x, victim.pos.y - live!.pos.y);
+    expect(w.creatures.get(goblin.id), 'the goblin should still be alive').toBeDefined();
     // (a) it MOVED toward the shape — real Verlet integration, not a teleport
     expect(endDist).toBeLessThan(startDist);
-    // (b) and the shape genuinely took damage. This is the assertion that would have caught P1's
-    // dead dispatcher: it proves the damage path is REACHED, not merely present.
-    const after = w.primitives.get(victim.id);
-    if (after !== undefined) {
-      expect(after.hp).toBeLessThan(PRIMITIVE_MAX_HP);
-    } // else it was destroyed outright, which is a stronger pass
+    // (b) and the damage path was genuinely REACHED, which is what would have caught P1's dead
+    // dispatcher. Under his rule the proof is that the lone shape is GONE, in one swing.
+    expect(destroyedAt, 'the committed shape was struck and erased').toBeGreaterThanOrEqual(0);
+    expect(w.primitives.has(victim.id)).toBe(false);
+    // (c) and it closed to within reach before striking — it did not hit from across the board.
+    expect(endDist).toBeLessThanOrEqual(GOBLIN_ATTACK_RANGE + 2);
   });
 
   it('⭐ is DETERMINISTIC: two identical runs agree on hashWorldStateFull', () => {

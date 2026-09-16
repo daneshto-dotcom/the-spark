@@ -171,6 +171,33 @@ export function findNearestEnemyPrimitiveFrom(
   for (const [primId, prim] of world.primitives) {
     if (prim.placerColor === ownerColor) continue; // never your own builder's shapes
     if (prim.hp <= 0) continue;
+    /*
+     * ⭐⭐⭐ S179 (owner) — **A BUILDING IS KILLED THROUGH ITS CONNECTORS, NOT BY EATING ITS BRICKS.**
+     *
+     * *"A creature stops targeting shapes that have connectors. That's it... He targets the
+     * connectors. The whole building. A building that's built from many bricks... needs to be
+     * destroyed by removing everything that sticks these bricks together."*
+     *
+     * ⛔ THIS IS THE HALF THAT TWO PREVIOUS ATTEMPTS MISSED, AND WHY THE RULE TOOK THREE SESSIONS.
+     * This scan returned ANY enemy shape, connected or not. So the game had TWO parallel health
+     * systems for one structure, and they disagreed:
+     *   · attack its CONNECTOR → `structurePoolFifths(3)` = 24, then 14, then 6 — his ladder;
+     *   · attack a MEMBER SHAPE → `PRIMITIVE_MAX_HP` = 70 — a separate number that ignored it.
+     * Because killing a shape razes its incident bonds, the second path let a creature dismantle a
+     * tower while never touching the pool that is supposed to defend it. Both earlier attempts tried
+     * to fix the lone shape by retuning `PRIMITIVE_MAX_HP` — which, with this scan unchanged, made
+     * every tower member a 5-fifth brick and one swing took a triangle from 3 connectors to 1.
+     *
+     * ⭐ WITH THIS LINE THERE IS ONE SYSTEM. A shape in a structure is simply not a target; the
+     * structure is its connectors. A shape with NO connectors is the only shape that can be attacked
+     * directly, and it is worth 5 — dies to anything. The ladder finally runs one way:
+     * 5 (lone) → 6 (two shapes, one connector) → 14 → 24 → 36 → 50.
+     *
+     * ⚠ NOT TOUCHED, DELIBERATELY: `applyRadialDamage` still damages member shapes. An explosion is
+     * area damage, not target ACQUISITION — it was never part of what he approved here, and
+     * `damage.ts` documents that blasts take structures apart through their shapes on purpose.
+     */
+    if (prim.bonds.size > 0) continue;
     const dSq = distSq(creature.pos, prim.pos);
     if (
       dSq < bestDistSq ||

@@ -13,6 +13,7 @@ import {
   FIGHT_PHASE_TICKS,
   GOBLIN_MELEE_ATK,
   GOBLIN_MELEE_PEN,
+  LONE_PRIMITIVE_POOL_FIFTHS,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
   SPARK_VISUAL_SIZE,
@@ -197,16 +198,28 @@ describe('S157 F1 — the castle strike no longer preempts the shape strike', ()
     g.targetPrimitiveId = target.id;
     world.creatures.set(g.id, g);
 
-    const hpBefore = target.hp;
     applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: g.id, bondId: null });
 
     // Before the fix the castle branch ran first and swallowed the strike: the shape stayed at full
     // HP forever while the castle drained, and the goblin kept its commit to a shape it could never
     // hurt. With a 220px-range archer that was a dead zone around every keep.
+    /*
+     * ⭐⭐ S179 (owner) — **THE PROOF IS NOW ERASURE, AND IT IS A STRONGER ONE.**
+     *
+     * This asserted `hp === 70 - 12`. His rule caps a shape with NO connectors at
+     * `LONE_PRIMITIVE_POOL_FIFTHS` (5) — *"one hit to destroy by anyone"* — so a 12-fifth swing
+     * takes it off the board outright. The thing this test exists to catch is the castle branch
+     * SWALLOWING the strike, and "the shape is gone" proves the strike landed at least as firmly as
+     * a subtraction did, without re-pinning a number that is no longer the rule.
+     */
     expect(
-      target.hp,
-      'the shape took the hit — the castle branch no longer swallows it',
-    ).toBe(hpBefore - attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN)); // ⭐ S177 P1 — the attacker's own stats, not a flat 167
+      world.primitives.has(target.id),
+      'the shape took the hit and was erased — the castle branch no longer swallows it',
+    ).toBe(false);
+    expect(
+      attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN),
+      'and the swing really is bigger than a lone shape is worth, which is why one is enough',
+    ).toBeGreaterThanOrEqual(LONE_PRIMITIVE_POOL_FIFTHS);
   });
 
   it('⛔ ANTI-VACUITY — with NO shape committed, the same goblin still hits the castle', () => {

@@ -453,7 +453,23 @@ describe('S160 P5 — the drone finally spends its 5 atk / 1 pen in an area of e
   it('⭐ damages an enemy SHAPE by the owner atk value on the shape scale', () => {
     const world = makeWorld(1);
     addDrone(world, 500);
+    /*
+     * ⭐ S179 (owner) — BONDED, and that is the POINT of this test now. A shape with no connectors
+     * is `LONE_PRIMITIVE_POOL_FIFTHS` (5) and dies to anything; a STRUCTURE MEMBER is still 70. The
+     * "three drones fell a shape" relationship this test pins was always about the 70, i.e. about a
+     * shape that is part of something.
+     *
+     * ⚠ AND THE PARTNER IS PLACED FAR AWAY ON PURPOSE. The drone SEVERS enemy connectors whose
+     * MIDPOINT is in radius, and the shared raze contract then takes any shape left with no
+     * connectors at all (S157 B2). A partner 32 px away put the bond midpoint inside the blast, so
+     * the connector was cut, shape 77 was orphaned, and it was removed by that rule rather than by
+     * damage — the test failed for a reason that had nothing to do with what it pins. At x=400 the
+     * midpoint (215) is outside DRONE_EXPLODE_RADIUS (110), so the connector survives, 77 stays a
+     * structure member, and the 30-of-70 arithmetic is what is actually measured.
+     */
     world.primitives.set(asPrimitiveId(77), makePrim(77, 30, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
+    world.primitives.set(asPrimitiveId(78), makePrim(78, 400, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
+    addBond(world, 320, 77, 78);
     dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
     const hit = world.primitives.get(asPrimitiveId(77));
     // ⭐ RE-POINTED S177 P1 — one ladder. 30 of 70, so three drones still fell a shape, exactly as
