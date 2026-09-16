@@ -86,7 +86,13 @@ interface PlayerCommon {
    * placing to "everyone died at the end"; writing it on a client would let two peers disagree about
    * who lost first.
    *
-   * ⚠ SERIALIZED BUT NOT HASHED, and additive-optional — emitted only once set, so every
+   * ⛔ S179 — **"NOT HASHED" IS FALSE AND HAS BEEN SINCE S165.** `eliminatedAtTick` IS projected
+   * into the wide hash (`stateHashFull.ts`, the `pl{seat}:` part, as `n(pl.eliminatedAtTick ?? null)`)
+   * and the `players` family is marked `'hashed'`. THIS IS THE THIRD FIELD IN THIS FILE carrying the
+   * same dead sentence — see `raidPoints` and `raceId` — all written before the player family was
+   * promoted into the hash, none updated since.
+   *
+   * ⚠ Serialized and additive-optional — emitted only once set, so every
    * pre-existing save still loads. It follows `benchedUntilTick`'s shape exactly (an optional tick
    * stamp whose absence means "never"), which is also why it needs no default in `makeIdlePlayer`.
    */
@@ -105,10 +111,13 @@ interface PlayerCommon {
    * Begin (one player per race, R110). After `applyStartGame` stamps it, nothing writes it again —
    * which is exactly the immutability the B5 no-hash decision rests on. See `state/races.ts`.
    *
-   * ⚠ SERIALIZED BUT NOT HASHED. Additive-optional in `SerializedPlayer`, emitted only when it is
-   * not this seat's default, so every pre-existing save still loads. ⛔ Do NOT read the
-   * `raidPoints` docblock above as the precedent for the *not hashed* half — that is a currency
-   * nothing simulates from, and `raceId` is a real sim input. The argument is written out in full at
+   * ⛔ S179 — **"NOT HASHED" IS FALSE.** `raceId` IS projected into the wide hash
+   * (`stateHashFull.ts`, the `pl{seat}:` part) and the `players` family is marked `'hashed'`. The
+   * warning below is doubly stale: it told the reader not to follow `raidPoints` as precedent for
+   * "not hashed", when BOTH are hashed and neither is a precedent for anything.
+   *
+   * ⚠ Serialized, additive-optional in `SerializedPlayer`, emitted only when it is
+   * not this seat's default, so every pre-existing save still loads. The argument is written out in full at
    * `state/races.ts`, and it does not transfer to the tech perks.
    */
   raceId: RaceId;
