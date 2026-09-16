@@ -1,105 +1,82 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-16 | Session: S179 | LIVE + verify-deploy 4/4 | 6 commits
+Generated: 2026-09-17 | Session: S180 | LIVE + verify-deploy 4/4 | 9 commits
 
-## ⛔ HOW TO OPEN S180 — HE SET THIS EXPLICITLY
+## ⛔ READ `SPARK_CANON.md` BEFORE ANSWERING ANYTHING ABOUT THE GAME
 
-He named the starting list himself. **Use it. Do not re-derive one from a handoff.**
+New this session, and it exists because he had to repeat archived facts for the third time:
+*"let's resolve all of this once and for all… this should be in our canonical document somewhere
+that you go to to see how things are."* It says what is LIVE vs ARCHIVED, the one stat ladder, what
+can and cannot be attacked, and the wire rules. **`src/canon.test.ts` pins every number in it to its
+constant**, so it cannot rot the way `UNIT_STAT_TABLE.md` did (still ~3× wrong on the bosses).
 
-> *"Next session, we will start with the end of session stat board, end of match stat board. We will
-> start with character sheets. We will start with maybe Kraken Tentacles and Vulcan TV art."*
+⛔ **AND THE LESSON THAT COST HIM THE MOST TIME THIS SESSION: GREEN GATES ARE NOT PROOF A FEATURE IS
+WIRED.** A patch adding the character sheet to a click silently failed to apply. typecheck, 4,588
+tests, the build, the charter and the deploy were ALL green and the feature was dead. He found it in
+the first minute of play. **After writing a patch, grep for the line you believe you added.**
 
-⛔ **AND DO NOT RAISE ANYTHING HE DECLINED.** His words: *"Everything I declined, do not bring up in
-the next session. I declined it for a reason. Note it and see why I declined it so you don't
-fucking waste our time bringing it up."* The declined list and his reasons are in **DECLINED**
-below — read it before proposing anything.
+## HOW TO OPEN S181 — he set this explicitly
 
-⚠ S179 opened by presenting the S178 handoff's numbered list as a plan and he stopped the session
-for it: *"i think you are tripping about the priority list."* A handoff is CONTEXT, not a mandate.
+> *"Next session, we'll open the handoff. From the handoff, I will test everything. I will tell you
+> if I found any bugs or anything that's not good enough. We'll fix it. Then you can present to me
+> the next 10 priorities… and I'll tell you what to work on."*
 
-## Next Steps
+**So: he tests first. His bug list outranks everything.** The ten are already written up in
+`S180_BACKLOG.md` under **"THE TEN, FOR S181"** — do not re-derive them, and do not present them as
+a plan. They are a menu he picks from, after he has played.
 
-1. **END-OF-MATCH STAT BOARD v1** — his pick for first. Research is DONE (3 agents, genre +
-   codebase + design) and the v1 is designed; see `S179_FINDINGS.md` and the handoff. Key facts:
-   SPARK tracks **none** of the five stats today; **damage TAKEN is ~6 lines** (the victim's owner is
-   known where damage lands) while **damage DONE is an 18-site refactor** (the attacker is never
-   passed — `damageEntity` literally has `void source; // attribution only for now`); ⭐ **castle
-   damage is the headline stat and is cheap**, which no single research lane spotted. Counters go
-   **world-level per-seat**, NOT on the player object (it is rebuilt field-by-field on every
-   pickup/drop — four documented traps). `matchPlacings()` already gives a correct finishing order
-   and is currently consumed only by a `console.info`. **No protocol bump. No graph in v1.**
-2. **CHARACTER SHEETS** — needs ONE answer from him first: *when you click an ENEMY, does their
-   sheet show LIVE health, or just stats?* Stats-only is local and cheap; live enemy health may need
-   new wire fields and a PROTOCOL BUMP, which locks out old tabs. Everything else is ready: every
-   entity already has real stats on the one ladder, and click hit-testing was fixed in S178 A9.
-3. **KRAKEN TENTACLES** — *"maybe"*. ⚠ He also said **the whole Kraken needs reworking, including
-   its video**. A design exists (derived effect, no bump, 6 tentacles superseding R139's 3) but he
-   has NOT reviewed it. Ask before building.
-4. **VOLTKIN TV ART** — the two transition videos (~€20). ⚠ He said **Voltkin needs reworking on a
-   lot of things**. He already has the climbing-out still — wire it rather than generate it.
+## What shipped in S180 (all live on spark-online.space)
+
+1. **THE CHARACTER SHEET.** Click any unit, building or castle — yours or theirs. Portrait, name,
+   live health (bar *and* number), stats. Your own building keeps FIX/SCRAP/FEED beneath the card;
+   an enemy's has no buttons. A building that fields a unit (Helga's hub, the Voltkin TV) shows that
+   unit underneath with its own health, and clicking it re-aims the card. The card **freezes** on
+   death or fog rather than vanishing. No skills row — he ruled it out twice.
+2. **THE KEEP IS ON THE ONE LADDER.** `GOBLIN_DAMAGE_VS_CASTLE` (a flat 6 every creature dealt to a
+   castle) is retired unread; an attacker now deals its own `attackFifths(atk, pen)`. Re-measured,
+   not relaxed: the goblins needed to fell a keep moved from ~15 to **between 8 and 10**.
+3. **`SPARK_CANON.md` + `src/canon.test.ts` + the mandatory-read pointer in `CLAUDE.md`.**
+4. **The bundle charter 900 → 1000 KiB**, in its own commit before the feature that needed it.
 
 ## Blockers
 
-- **Character sheets** are blocked on the live-enemy-health answer above.
-- **Art only he can make:** the two TV transition videos, the 5 waived atlases, general/goblin tower art.
-- **He is testing the live build now** and will report bugs at the start of S180. Expect that list to
-  outrank everything above.
+- **Nothing is blocked on me.** P2 TARGETING is fully ruled and NOT built — he did not authorise the
+  build. It is item #1 of the ten.
+- **Art he alone can make:** per-race border walls, boss ability VFX, the two Voltkin TV videos.
 
-## ⛔ DECLINED — DO NOT RAISE THESE AGAIN
+## ⛔ THE BUG HE FOUND AND I HAVE NOT FIXED — it is still live
 
-| | why he declined |
-|---|---|
-| **Boss-ring orphan shape** | Explained; he did not approve. **Now moot** — that orphan is a lone shape and dies to anything under the S179 rule. |
-| **Castle gun firing at a corpse** | *"I did not see it fire at a corpse because corpses disappear usually... So cancel that."* |
-| **Spark-id counter (`nextPulledSparkId`)** | Explained as latent, never observed in play. He did not approve. Real but dormant. |
-| **Protocol bump for stale browser tabs** | Ruled S178: *"Nobody cares. They'll just figure it out."* An agent WILL propose this again. |
-| **Potato blast** | ARCHIVED and he was right — `HAZARD_SPAWN_ENABLED` is false, only a Playwright seam flips it. No potato can exist in a shipped match. |
-
-## Allowed, but NOT next session
-
-**Building a continuous city** — structures keeping their function when extended.
-*"We will allow that starting like a future session or whatever. Not in the next session though."*
-Full write-up in `STRUCTURE_EXTENSION_DESIGN.md`, including the one ruling needed BEFORE any code
-(can one shape belong to two recipes?) and the two halves that already exist.
-
-## ⚠ OPEN WITH HIM, HE PARKED IT HIMSELF
-
-The **untargetable freeze**. S179 shipped units DROPPING a target that phases out, so they stop
-standing still dealing zero. He then said the S177 complaint I cited was about a poop bag, not the
-Pharaoh, and that showing `0, 0, 0` on something phased out *"makes total sense"*. So the shipped
-behaviour may not be what he wants. His words: *"We'll bring that up later. Don't worry about it."*
-**Do not re-litigate unprompted; have the one-line revert ready if he raises it.**
+**Nothing can attack a building.** Shipped in S179's lone-shape commit (`00e02bf`). The shape scan
+skips every shape that has a connector, and the same branch nulls the connector target — so a
+standing building is invisible and the castle march is all that is left. **21 of 24 unit types**;
+only Voltkin, the pencil chewer and the lightning drone can still break a building. His targeting
+rulings fix it and are complete; the work is not started.
 
 ## Pending Backlog
 
-(no unchecked items — the forward list is the numbered steps above)
+See `S180_BACKLOG.md` — §1 bugs, §2 the targeting table, §3 bosses, §4 art, §5 ruled-not-built, and
+**THE TEN, FOR S181** at the end.
 
 ## Recent Reflexion (last 2 sessions)
 
-See `.claude/reflexion_log.md` — the S179 block is at the top (12 entries), S178 beneath it.
+`.claude/reflexion_log.md` — S180 at the top (11 entries), S179 beneath it. 45 entries, under the cap.
 
 ## Muscle memory (auto) [Vigil]
 
-- Traces: `C:\Users\onesh\.claude\traces\2026-09-16\The-Spark.jsonl`
+- Traces: `C:\Users\onesh\.claude\traces\2026-09-17\The-Spark.jsonl`
 - Last decisions:
-  - **The list has to be HIS.** A handoff's priority order is a previous session's reading of a
-    previous conversation. Presenting it as a plan is what broke this session's opening.
-  - **Speak in what he sees, not what the code is called.** Four options naming `potatoLifecycle.ts`
-    and `deathOnVanish` read to him as noise, and he said so.
-  - **Measure, don't estimate.** The lone-shape fixture cost was settled by applying the rule and
-    running the suite (13 red / 7 files), then restoring byte-exactly — never `git checkout`, which
-    flips line endings.
-  - **Half a rule is worse than none.** The lone-shape rule failed twice because each attempt capped
-    the shape without stopping creatures targeting member shapes.
-  - **Prove it before explaining it to him.** My first account of his "56" was a theory; he rejected
-    it and re-measuring found a second, independent defect.
-  - **A dead verifier is not a refutation** — my own sweep filed unverified findings as refuted when
-    their verifiers died to a spend limit.
-  - **A binding that asserts ABSENCE finds what reading misses** — it caught two more stale comments.
-- CLAUDE_LOOP: **closed** (no loop open; two workflows completed, an earlier pair died to the org
-  spend limit and was re-dispatched + hand-run, so all five sweep lanes now have a verdict)
+  - **Green gates are not proof a feature is wired.** Grep for the line you believe you added.
+  - **A dead agent run is not a verdict.** Three auditors died to the spend limit; the lanes were
+    hand-run and all three passed — and the hand pass found what no agent had (`damageConnector`
+    already cascades overkill), which made the targeting fix far cheaper.
+  - **Prove provenance with git.** He believed I had added the SOUL feed chip; one command showed
+    the file last changed nine days earlier. It protected him from a wrong fix and me from a wrong denial.
+  - **A canon doc rots unless it is pinned.** Proven: one stale digit turns `canon.test.ts` red.
+  - **Re-measure a coverage gate, never relax it.** The castle threshold was re-run, not loosened.
+  - **Speak in what he sees.** *"I don't know what is 21 of 24 unit types. What the fuck does that mean?"*
+- CLAUDE_LOOP: **closed**
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] latest HANDOFF: `HANDOFF_S179_2026-09-16.md`
-  - [x] `S179_FINDINGS.md` — the verified findings, incl. the stat-board research
-  - [x] `STRUCTURE_EXTENSION_DESIGN.md` — the city idea, recorded not built
+  - [x] `SPARK_CANON.md` — read it FIRST
+  - [x] latest HANDOFF: `HANDOFF_S180_2026-09-17.md`
+  - [x] `S180_BACKLOG.md` (incl. THE TEN) · `S180_TARGETING_TABLE.md`
   - [x] traces jsonl path above

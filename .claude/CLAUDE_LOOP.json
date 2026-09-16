@@ -5,5 +5,5 @@
   "budget": null,
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "No agentic loop open. Two research/sweep workflows ran and COMPLETED; an earlier pair was killed by the org spend limit and was re-dispatched + hand-run per the S161 rule, so all five sweep lanes now have a verdict."
+  "last_result": "S180 closed: character sheet shipped+fixed, canon pinned, keep on the ladder. No loop open."
 }
