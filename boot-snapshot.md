@@ -1,38 +1,73 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-15 | Session: S178 | LIVE + verify-deploy 4/4 | 15 commits
+Generated: 2026-09-16 | Session: S179 | LIVE + verify-deploy 4/4 | 6 commits
+
+## ⛔ HOW TO OPEN S180 — HE SET THIS EXPLICITLY
+
+He named the starting list himself. **Use it. Do not re-derive one from a handoff.**
+
+> *"Next session, we will start with the end of session stat board, end of match stat board. We will
+> start with character sheets. We will start with maybe Kraken Tentacles and Vulcan TV art."*
+
+⛔ **AND DO NOT RAISE ANYTHING HE DECLINED.** His words: *"Everything I declined, do not bring up in
+the next session. I declined it for a reason. Note it and see why I declined it so you don't
+fucking waste our time bringing it up."* The declined list and his reasons are in **DECLINED**
+below — read it before proposing anything.
+
+⚠ S179 opened by presenting the S178 handoff's numbered list as a plan and he stopped the session
+for it: *"i think you are tripping about the priority list."* A handoff is CONTEXT, not a mandate.
 
 ## Next Steps
 
-1. **⛔ THE LONE-SHAPE RULE — his top ask, NOT BUILT, attempted twice and reverted twice.**
-   Owner: *"a single primitive has ONE health... one hit to destroy by anyone"* / *"for every time
-   there's a single shape, it's always worth five"* / *"You're not to touch the whole system we've
-   built so far."* **Design is settled — do not redesign it**, read `S179_CARRY_FORWARD.md` §1:
-   a new `LONE_PRIMITIVE_POOL_FIFTHS = 5` plus a one-line `Math.min` cap in `damage.ts` gated on
-   `prim.bonds.size === 0`. **`PRIMITIVE_MAX_HP` STAYS 70.**
-   ⛔ Two things already failed: retuning 70→5 makes every building one-swing paper (measured: one
-   12-fifth swing took a 3-shape triangle from 3 bonds to 1), and marking fixtures "connected" with
-   a sentinel bond id corrupts the recipe gates (13 red → 28 red). **The real job is re-pinning ~13
-   fixtures across 7 files with REAL partner shapes** — all enumerated in the carry-forward.
-2. **THE BOSS REWORK, his numbers verbatim** — Vlad sap 2 uses not 3; Warlord rage at 50% not 25%,
-   doubling attack AND movement speed; direwolves 3 at a time, every 30 s; Archdemon hell below 10%
-   not 5%; Kraken keeps sonar and **gains up to 6 tentacles** (NEW, undesigned); Pharaoh locusts
-   **50 damage each not 150**; Whopper unchanged.
-   ⚠ **TELL HIM FIRST:** he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra
-   ritual are unbuilt. They are **built and called every tick** (`hostTick.ts:1830-1848`). S179
-   ADJUSTS numbers; only the tentacles are new. Full data: `BOSS_STATS_TABLE.md`.
-3. **THE VOLTKIN TV — two transition videos, ~€20.** (a) the TV appears / breaks open and **Voltkin
-   climbs out** — he already has the climbing-out still, wire it rather than generate it; (b)
-   damaged → destroyed. **No video between intact and damaged.**
-4. **No damage numbers when you SCRAP.** Ruled. Design settled (`pendingCreatureDeaths` is the
-   non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.
-5. **Character sheets** — he deferred them explicitly. Needs two answers before building: which
-   entity kinds first, and may an enemy sheet show LIVE health (that may cost wire fields + a bump).
+1. **END-OF-MATCH STAT BOARD v1** — his pick for first. Research is DONE (3 agents, genre +
+   codebase + design) and the v1 is designed; see `S179_FINDINGS.md` and the handoff. Key facts:
+   SPARK tracks **none** of the five stats today; **damage TAKEN is ~6 lines** (the victim's owner is
+   known where damage lands) while **damage DONE is an 18-site refactor** (the attacker is never
+   passed — `damageEntity` literally has `void source; // attribution only for now`); ⭐ **castle
+   damage is the headline stat and is cheap**, which no single research lane spotted. Counters go
+   **world-level per-seat**, NOT on the player object (it is rebuilt field-by-field on every
+   pickup/drop — four documented traps). `matchPlacings()` already gives a correct finishing order
+   and is currently consumed only by a `console.info`. **No protocol bump. No graph in v1.**
+2. **CHARACTER SHEETS** — needs ONE answer from him first: *when you click an ENEMY, does their
+   sheet show LIVE health, or just stats?* Stats-only is local and cheap; live enemy health may need
+   new wire fields and a PROTOCOL BUMP, which locks out old tabs. Everything else is ready: every
+   entity already has real stats on the one ladder, and click hit-testing was fixed in S178 A9.
+3. **KRAKEN TENTACLES** — *"maybe"*. ⚠ He also said **the whole Kraken needs reworking, including
+   its video**. A design exists (derived effect, no bump, 6 tentacles superseding R139's 3) but he
+   has NOT reviewed it. Ask before building.
+4. **VOLTKIN TV ART** — the two transition videos (~€20). ⚠ He said **Voltkin needs reworking on a
+   lot of things**. He already has the climbing-out still — wire it rather than generate it.
 
 ## Blockers
 
-- **Five sweep lanes were never run** — determinism, four-sites, creature lifecycle, wire/protocol,
-  host-migration. Killed by the org spend limit, never hand-run. They still owe a verdict.
-- **Art only he can make:** the two TV transition videos; the 5 waived atlases; general/goblin tower art.
+- **Character sheets** are blocked on the live-enemy-health answer above.
+- **Art only he can make:** the two TV transition videos, the 5 waived atlases, general/goblin tower art.
+- **He is testing the live build now** and will report bugs at the start of S180. Expect that list to
+  outrank everything above.
+
+## ⛔ DECLINED — DO NOT RAISE THESE AGAIN
+
+| | why he declined |
+|---|---|
+| **Boss-ring orphan shape** | Explained; he did not approve. **Now moot** — that orphan is a lone shape and dies to anything under the S179 rule. |
+| **Castle gun firing at a corpse** | *"I did not see it fire at a corpse because corpses disappear usually... So cancel that."* |
+| **Spark-id counter (`nextPulledSparkId`)** | Explained as latent, never observed in play. He did not approve. Real but dormant. |
+| **Protocol bump for stale browser tabs** | Ruled S178: *"Nobody cares. They'll just figure it out."* An agent WILL propose this again. |
+| **Potato blast** | ARCHIVED and he was right — `HAZARD_SPAWN_ENABLED` is false, only a Playwright seam flips it. No potato can exist in a shipped match. |
+
+## Allowed, but NOT next session
+
+**Building a continuous city** — structures keeping their function when extended.
+*"We will allow that starting like a future session or whatever. Not in the next session though."*
+Full write-up in `STRUCTURE_EXTENSION_DESIGN.md`, including the one ruling needed BEFORE any code
+(can one shape belong to two recipes?) and the two halves that already exist.
+
+## ⚠ OPEN WITH HIM, HE PARKED IT HIMSELF
+
+The **untargetable freeze**. S179 shipped units DROPPING a target that phases out, so they stop
+standing still dealing zero. He then said the S177 complaint I cited was about a poop bag, not the
+Pharaoh, and that showing `0, 0, 0` on something phased out *"makes total sense"*. So the shipped
+behaviour may not be what he wants. His words: *"We'll bring that up later. Don't worry about it."*
+**Do not re-litigate unprompted; have the one-line revert ready if he raises it.**
 
 ## Pending Backlog
 
@@ -40,30 +75,31 @@ Generated: 2026-09-15 | Session: S178 | LIVE + verify-deploy 4/4 | 15 commits
 
 ## Recent Reflexion (last 2 sessions)
 
-See `.claude/reflexion_log.md` — the S178 block is at the top (12 entries), S177 beneath it.
+See `.claude/reflexion_log.md` — the S179 block is at the top (12 entries), S178 beneath it.
 
 ## Muscle memory (auto) [Vigil]
 
-- Traces: `C:\Users\onesh\.claude\traces\2026-09-15\The-Spark.jsonl`
+- Traces: `C:\Users\onesh\.claude\traces\2026-09-16\The-Spark.jsonl`
 - Last decisions:
-  - **A probe beats an argument, twice.** The poop bag (`ticksToDie=null` whenever any enemy shape
-    exists) and the Vlad duel (wins 12/12, heals 20% back) were both settled by measurement after
-    reasoning had got them wrong for sessions.
-  - **Gates are not verification.** Every gate was green on work containing three regressions I had
-    shipped. The owner-requested verification pass is what found them.
-  - **Measure the artifact, not the manifest.** The TV manifest says `frames: 12`; four of six rows
-    are twelve byte-identical copies of one still. Building on the manifest made his complaint worse.
-  - **Flavour text is not a ruling.** The Vortex's only authority was a description string a session
-    chose to "realize" as physics.
-  - **A clamp on movement is not a clamp on existence** — adding a playfield instantly created an
-    unreachable-structure exploit.
-  - **Stop short of a known break.** The lone-shape rule was held twice rather than shipped broken.
-  - **`file_lacks` is the wrong binding here** — this repo quotes superseded text at the correction.
-- CLAUDE_LOOP: **closed** (no agentic loop open; the overnight sweep died to the spend limit and was
-  hand-run or salvaged per the S161 rule — five lanes remain NOT RUN, carried forward)
+  - **The list has to be HIS.** A handoff's priority order is a previous session's reading of a
+    previous conversation. Presenting it as a plan is what broke this session's opening.
+  - **Speak in what he sees, not what the code is called.** Four options naming `potatoLifecycle.ts`
+    and `deathOnVanish` read to him as noise, and he said so.
+  - **Measure, don't estimate.** The lone-shape fixture cost was settled by applying the rule and
+    running the suite (13 red / 7 files), then restoring byte-exactly — never `git checkout`, which
+    flips line endings.
+  - **Half a rule is worse than none.** The lone-shape rule failed twice because each attempt capped
+    the shape without stopping creatures targeting member shapes.
+  - **Prove it before explaining it to him.** My first account of his "56" was a theory; he rejected
+    it and re-measuring found a second, independent defect.
+  - **A dead verifier is not a refutation** — my own sweep filed unverified findings as refuted when
+    their verifiers died to a spend limit.
+  - **A binding that asserts ABSENCE finds what reading misses** — it caught two more stale comments.
+- CLAUDE_LOOP: **closed** (no loop open; two workflows completed, an earlier pair died to the org
+  spend limit and was re-dispatched + hand-run, so all five sweep lanes now have a verdict)
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] latest HANDOFF: `HANDOFF_S178_2026-09-15.md`
-  - [x] `S179_CARRY_FORWARD.md` — read this before picking work
-  - [x] `BOSS_STATS_TABLE.md`, `S178_OPEN_QUESTIONS.md`
+  - [x] latest HANDOFF: `HANDOFF_S179_2026-09-16.md`
+  - [x] `S179_FINDINGS.md` — the verified findings, incl. the stat-board research
+  - [x] `STRUCTURE_EXTENSION_DESIGN.md` — the city idea, recorded not built
   - [x] traces jsonl path above

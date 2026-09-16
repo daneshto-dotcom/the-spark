@@ -1,6 +1,6 @@
 {
-  "tool_calls_session_total": 1429,
-  "session_id": "S178",
+  "tool_calls_session_total": 1703,
+  "session_id": "S179",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S177 closed 10/10; S178 opened on the owner playtest verdict + an agentic sweep (15/20 lanes died to the org spend limit and were hand-run or salvaged per the S161 rule).",
@@ -8,12 +8,12 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-15_S178_BATCH_PDR.md",
-  "session_status": "S178 IN-PROGRESS",
+  "session_status": "S179 CLOSED",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "I'm gonna bed, you keep working them, fix everything that I mentioned for sure, that anything else you found that you can fix, anything you can fix, and the council does know how to fix. It's an actual issue, and you're not reverting changes or unbuilding the project or anything stupid... then leave it for the end. Do not close this session.",
+  "owner_approval_verbatim": "the four boss numbers I approve. Number two. Number three, I approve. Four. Yes, definitely approved. Five ... I approve. Six ... I do not approve. [seven] cancel that. Eight ... I do not approve. Nine ... not there yet. Ten ... next session.",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -47,362 +47,339 @@
   "priorities": [
     {
       "id": 1,
-      "name": "A1 — Documentation truth pass — the superseded connector rule (n+4 -> n*(5+n)) and stale gate/pool numbers",
+      "name": "Boss numbers (Vlad sap 3->2, Archdemon 5->10, locusts 150->50, Warlord rage trigger 25->50)",
       "status": "completed",
-      "checkpoint_commit": "4dc87d7",
-      "check_completed": true,
-      "check_method": "Re-read every corrected comment against the shipped code (structurePoolFifths in damage.ts:298 vs the n+4 claims). Boss pools re-derived from T9_BOSS_STATS by hand: 22*(5+12)=374 etc. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (4531).",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "2c46d53",
+      "check_method": "RALPH:PATROL by hand. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (4547 tests/288 files), BUILD_EXIT=0 (834.2 KiB, 65.8 KiB headroom), GITLEAKS_EXIT=0. Verified each of the 4 constants reads its new value by grep. 3 tests went red BY DESIGN and were RE-PINNED not silenced: the CLEAR>TRIGGER band guard replaced with his 49/50/51 rule; the 25pct boundary now derived from the constant; the locust test corrected for the number AND two pre-existing false claims (one-shots every boss - false at 150 too since smallest boss pool is 260; unitPoolFifths(11,8)=143 as biggest pool - the pre-S172 Pharaoh, real is 462). Prose moved at 7 sites; owner quotes kept as provenance.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/damage.ts",
-          "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
+          "path": "src/constants.ts",
+          "needle": "export const VLAD_LIFE_SAP_USES = 2;"
         },
         {
           "type": "file_contains",
           "path": "src/constants.ts",
-          "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
+          "needle": "export const ARCHDEMON_HELL_THRESHOLD_PCT = 10;"
         },
         {
           "type": "file_contains",
-          "path": "src/game/effects.ts",
-          "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
+          "path": "src/constants.ts",
+          "needle": "export const LOCUST_CLOUD_STATS = { hp: 1, def: 0, atk: 5, pen: 5 } as const;"
         },
         {
           "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "4513 tests / 284 files, measured S178"
+          "path": "src/constants.ts",
+          "needle": "export const WARLORD_RAGE_TRIGGER_PCT = 50;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const WARLORD_RAGE_CLEAR_PCT = 50;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "enrage at 49 calm at 50 so the literall meaning of below 50."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "Life-sap TWICE, not three times."
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/bossSkillsLate.test.ts",
+          "pattern": "toBeGreaterThan\\(WARLORD_RAGE_TRIGGER_PCT\\)",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsLate.test.ts",
+          "needle": "enrage at 49, calm at 51, and exactly 50 changes nothing"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/bossSkillsLate.test.ts",
+          "pattern": "max \\* 25\\) / 100",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/bossSkillsPharaoh.test.ts",
+          "pattern": "it\\('.*one-shots every boss in the game",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaoh.test.ts",
+          "needle": "the REAL post-S172 Pharaoh"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/bossSkills.ts",
+          "pattern": "three saps|three uses",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/hostTick.ts",
+          "pattern": "his three saps",
+          "op": "eq",
+          "value": 0
         }
       ]
     },
     {
       "id": 2,
-      "name": "A2 — Voltkin TV reads tiny (29% cell fill -> ~61px) and its spawning/explosion beats are 0.6s/0.2s",
+      "name": "Units freeze pretending to attack an untargetable boss (creature-side isUntargetable retention re-check)",
       "status": "completed",
-      "checkpoint_commit": "e00399f",
-      "check_completed": true,
-      "check_method": "Measured the shipped PNG with PIL (73/256 = 28.5% fill) rather than trusting the 136px model in the old docblock. Verified frame=0 was never reassigned for intact/damaged/critical/explosion by reading the draw block. Two test files went red on the widened beats and were RE-PINNED against the exported constants, not relaxed; added an assertion that each window holds frames*ticksPerFrame. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4532).",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "fe558a4",
+      "check_method": "RALPH:PATROL by hand. Fixed all 4 creature-side retention sites (creatureAI.pickNavUnit hold branch; creatureLifecycle unitInReach / stillValid / creatureValid). 4 tests added to untargetableRetention.test.ts, DRIVEN not grepped. TWO bugs in my own first-draft tests were caught by driving real code: the fixture sat in SEEKING (re-validation is gated on ATTACKING) and the action omitted creatureId so applyCreatureTick returned at line 2. One test is an explicit counter-test (a NORMAL boss keeps its committed hunter). Gates: TYPECHECK=0 VITEST=0 (4551/288) BUILD=0 GITLEAKS=0.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "function loopFrame("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "const TV_ART_PX = 112;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "!isUntargetable(quarry, world.tick) &&"
         },
         {
           "type": "grep_count",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "pattern": "sprite\\.y = tvSpriteY\\(",
-          "op": "==",
-          "value": 2
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "name": "A3 — OWNER RULING S178: the Vortex/Spindle must not touch free sparks — unwire from physicsLoop",
-      "status": "completed",
-      "checkpoint_commit": "b0b7996",
-      "check_completed": true,
-      "check_method": "Traced the mechanic's authority to a flavour string in combos.ts:122 — no owner ruling exists. Confirmed enforceSpawnerBounds confines every non-escrowed Free spark to the quarry, so the pull could only ever rake the commons. NEGATIVE-CONTROLLED the new wiring test: re-arming the pull turns 2 of 3 red, reverting turns them green. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4535).",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "src/physics/physicsLoop.ts",
-          "needle": "applyVortexPull(world, attractedId);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/physics/physicsLoop.ts",
-          "needle": "applySpindlePull(world, attractedId);"
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "pattern": "isUntargetable\\(",
+          "op": "gte",
+          "value": 3
         },
         {
           "type": "file_contains",
-          "path": "src/state/vortex.ts",
-          "needle": "export function applyVortexPull"
+          "path": "src/state/untargetableRetention.test.ts",
+          "needle": "THE FREEZE ITSELF"
         },
         {
           "type": "file_contains",
-          "path": "src/physics/vortexUnwired.test.ts",
-          "needle": "a live VORTEX sitting on a free spark does not move it"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "name": "A4 — Poop bag unkillable whenever any enemy shape exists — the shape arm's no-op exits steal the strike",
-      "status": "completed",
-      "checkpoint_commit": "2f875d2",
-      "check_completed": true,
-      "check_method": "Root cause PROVEN by a probe, not argued: bag dies in 60 ticks with no shape, ticksToDie=null with a shape anywhere (even 300px). Re-ran the probe after the fix and got 60 in all six cases. Probe promoted to bagStrikeS178.test.ts as a MEASUREMENT (reports the death tick) and holds off the 5s expiry so a pass cannot mean 'it timed out'. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4529).",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/bagStrikeS178.test.ts",
-          "needle": "still pops the bag while committed to an unreachable shape"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const STINK_BAG_HP = 1;"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "name": "A5 — Chain lightning has no per-jump falloff; one bolt cascades 3 of 5 connectors",
-      "status": "completed",
-      "checkpoint_commit": "7ba6c63",
-      "check_completed": true,
-      "check_method": "Archive-searched the falloff ruling and found it was MINE and provisional, with its trigger pre-registered at the constant. A test caught a real error in the first cut (seed is jump 0, already struck — chain must start at jump 1, else 96 fifths banked instead of 64). Re-pinned the cap test to separate 'reached' from 'killed', and corrected the ≤29 claim (wrong by 10x, asserted green by a tautology). TYPECHECK_EXIT=0, VITEST_EXIT=0 (4531); hunter e2e re-run clean after a concurrent-edit false failure.",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.ts",
-          "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.ts",
-          "needle": "let jump = 1;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/creatures/voltkinChain.ts",
-          "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkinChain.test.ts",
-          "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
+          "path": "src/state/untargetableRetention.test.ts",
+          "needle": "a NORMAL boss keeps its committed hunter"
         }
       ]
     },
     {
       "id": 6,
-      "name": "A6 — Stink tower death blast still on the retired 1000-per-shape scale (100-400 vs a 70 shape)",
+      "name": "THE LONE-SHAPE RULE (his top ask) - lone shape = 5, and creatures target connectors not member shapes",
       "status": "completed",
-      "checkpoint_commit": "ba239e5",
-      "check_completed": true,
-      "check_method": "Verified the 1000-scale call by reading stinkTower.ts:146 and RadialDamageFn's own type comment. Confirmed only ONE production consumer of stinkBlastFor, so retiring the damage field is safe. New test drives the real stinkDeathBlast and captures both arms — the assertion the suite never had. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4534).",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "00e02bf",
+      "owner_approval_verbatim": "So yes, part two is approved if that is the fix and you can actually fix it like that. ... Yes. Dies from anything. Right. Correct. Correct. Finally. Jesus Christ. Now approved.",
+      "check_method": "RALPH:PATROL by hand. BOTH halves shipped: LONE_PRIMITIVE_POOL_FIFTHS=5 + Math.min cap in damage.ts gated on bonds.size===0, AND findNearestEnemyPrimitiveFrom now skips shapes with connectors (the half both previous attempts missed). 13 fixtures across 7 files re-pinned with REAL partner shapes and REAL bonds, never sentinels. New guard file loneShapeRule.test.ts (13 tests) whose COUNTER-guards are the point: a connected shape still has 70 and survives a swing; one swing does NOT dismantle a triangle (attempt 1 took it 3 bonds -> 1); PRIMITIVE_MAX_HP still 70; ladder still 6/14/24/50/66. Gates: TYPECHECK=0 VITEST=0 (4564/289) BUILD=0 (834.4 KiB) GITLEAKS=0.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/state/defenders/stinkTower.ts",
-          "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
+          "path": "src/constants.ts",
+          "needle": "export const LONE_PRIMITIVE_POOL_FIFTHS = 5;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/defenders/stinkTower.ts",
-          "needle": "blastFifths, blastFifths,"
+          "path": "src/constants.ts",
+          "needle": "export const PRIMITIVE_MAX_HP = 70;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/defenders/stinkTower.test.ts",
-          "needle": "never passes the retired 1000-scale blast figure to shapes again"
-        },
-        {
-          "type": "file_lacks",
           "path": "src/state/damage.ts",
-          "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
+          "needle": "if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "if (prim.bonds.size > 0) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/loneShapeRule.test.ts",
+          "needle": "ONE SWING DOES NOT DISMANTLE A TRIANGLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/loneShapeRule.test.ts",
+          "needle": "a CONNECTED shape still has the full pool and survives a goblin swing"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/loneShapeRule.test.ts",
+          "pattern": "asBondId\\(9178\\)",
+          "op": "eq",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "End-of-match stat board v1",
+      "status": "carry_forward",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "carry_reason": "owner re-prioritised mid-session; research + v1 design COMPLETE and recorded, build not started"
+    },
+    {
+      "id": 4,
+      "name": "Character sheets (blocked on owner answer: enemy sheet live health vs stats-only)",
+      "status": "carry_forward",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "carry_reason": "blocked on ONE owner answer: does an ENEMY sheet show LIVE health, or stats only"
+    },
+    {
+      "id": 5,
+      "name": "Housekeeping: two stale comments that contradict the code, direwolf prose, CLAUDE.md test count",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "5ef918f",
+      "check_method": "Each claim verified against the tree BEFORE editing. player.ts and damage.ts both asserted the player family is not hashed; stateHashFull.ts:179 says hashed and :511 projects raidPoints by name. bossSkillsWarlord prose said fifteen seconds against a 30s constant (R149 quotes elsewhere left as provenance). CLAUDE.md count re-measured. Six ARCHIVED plans carried an in-progress marker - which is what the stale-plan pre-flight matches - and were stamped with accurate terminal status; two of them claimed work that has since shipped. S173_NONET_STAGES was DELIBERATELY left in-progress because it genuinely is. Nothing deleted; all edits additive. [NOTE: recorded twice — this is the approved P5 slot; id 8 is the same work, kept for its verification bindings.]",
+      "verification": [
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "SERIALIZED BUT NOT HASHED",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "THE REASON GIVEN HERE WAS FALSE"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/bossSkillsWarlord.ts",
+          "pattern": "Three wolves every fifteen seconds",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "4569 tests / 290 files, measured S179"
+        },
+        {
+          "type": "grep_count",
+          "path": ".claude/plans-archive/2026-09-13_S173_R173_STRUCTURE_HP_RULING.md",
+          "pattern": "STATUS: ARCHIVED \\(S179\\)",
+          "op": "eq",
+          "value": 1
         }
       ]
     },
     {
       "id": 7,
-      "name": "A7 — Three renderer false-death bugs — concealment `continue` runs before live.add",
+      "name": "S179 SCOPE AMENDMENT (owner, mid-play) — the 56, the connector number, and the gait regression",
       "status": "completed",
-      "checkpoint_commit": "beacdd7",
-      "check_completed": true,
-      "check_method": "Verified the concealment-before-live.add ordering by reading all three renderers. Fixed towerRenderer GENERALLY (live.add sat past five draw gates, not just fog) and hid its sprite while fogged so a live id cannot leave a frozen building on screen. Added a death-VFX concealment cull so the fix does not trade a false death for an information leak. NEGATIVE-CONTROLLED the new test: old line order -> red, fix -> green, and the companion 'really gone is still reaped' test stays green in both. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4536).",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "3b49ede",
+      "owner_approval_verbatim": "I want you to fix that this session. I already told you about that. ... Make sure that a hit on a connector and a hit on a unit shows the same number and it is the same number output.",
+      "check_method": "Three defects, each MEASURED with a throwaway probe driving the real renderer before being fixed, probes deleted after. (a) removed-vs-killed: a severed 2-shape structure printed [\"56\",\"70\"] for hits that never happened -> World.razedNotKilled, per-frame, consumer-wiped. (b) the connector-BREAKING swing printed NOTHING (measured 12/nothing/12/nothing) because the structure pool drains and a falling rising-pool yields no delta -> World.connectorBreakHits. (c) the S177 ground-driven gait was applied to EVERY creature when he named three -> GROUND_DRIVEN_GAIT, a 3-entry set. Also verified while re-investigating: damageConnector is the ONLY gameplay writer of damageFifths, the drain only SUBTRACTS (so no phantom high connector number is possible), and the retired 167-scale constants have no production reader. Gates: TYPECHECK=0 VITEST=0 (4569/290) BUILD=0 GITLEAKS=0 VERIFY_DEPLOY=4/4.",
       "verification": [
         {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "razedNotKilled: PrimitiveId[];"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "connectorBreakHits: { bondId: BondId; amount: number }[];"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "world.connectorBreakHits.push({ bondId, amount: amountFifths });"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/razePrimitives.ts",
+          "needle": "killedByDamage = false,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/goblinRenderer.ts",
+          "needle": "export const GROUND_DRIVEN_GAIT: ReadonlySet<string> = new Set(["
+        },
+        {
           "type": "grep_count",
-          "path": "src/render/chewerRenderer.ts",
-          "pattern": "liveIds\\.add\\(c\\.id\\);",
-          "op": "==",
+          "path": "src/render/goblinRenderer.ts",
+          "pattern": "GROUND_DRIVEN_GAIT\\.has\\(type\\)",
+          "op": "eq",
           "value": 1
         },
         {
           "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "PRESENCE BEFORE THE FOG SKIP"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/towerRenderer.ts",
-          "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "if (this.lastSeenPos.size > liveIds.size) {"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+          "path": "src/render/damageNumbersRemoval.test.ts",
+          "needle": "EVERY swing on a connector prints the SAME number a unit would"
         }
       ]
     },
     {
       "id": 8,
-      "name": "A8 — SCRAP prints phantom damage over refunded shapes; structure loses its health bar entirely",
+      "name": "DUPLICATE RECORD of P5 (same work, same commits) — kept for provenance",
       "status": "completed",
-      "checkpoint_commit": "4f498da",
-      "check_completed": true,
-      "check_method": "Confirmed the drain-overkill path by re-deriving damageConnector's spend: a sever drains only `pool`, targeted bond first, so survivors keep damage while the component shrinks. Found a test PINNING the old draws-nothing behaviour and re-pinned it rather than deleting, naming its fixture as a state the sim cannot hold. Added the genuinely-gone assertion so the new floor cannot resurrect dead structures. Deliberately did NOT guess the SCRAP phantom-number fix — needs a cause threaded through razePrimitives; logged as an open question. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4537).",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "5d4818c",
+      "check_method": "Each claim verified against the tree BEFORE editing. player.ts and damage.ts both asserted the player family is not hashed; stateHashFull.ts:179 says hashed and :511 projects raidPoints by name. bossSkillsWarlord prose said fifteen seconds against a 30s constant (R149 quotes elsewhere left as provenance). CLAUDE.md count re-measured. Six ARCHIVED plans carried an in-progress marker - which is what the stale-plan pre-flight matches - and were stamped with accurate terminal status; two of them claimed work that has since shipped. S173_NONET_STAGES was DELIBERATELY left in-progress because it genuinely is. Nothing deleted; all edits additive.",
       "verification": [
         {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "const shown = Math.max(1, current);"
-        },
-        {
           "type": "grep_count",
-          "path": "src/render/healthBar.ts",
-          "pattern": "^\\s+if \\(current <= 0\\) continue;",
-          "op": "==",
+          "path": "src/game/player.ts",
+          "pattern": "SERIALIZED BUT NOT HASHED",
+          "op": "eq",
           "value": 0
         },
         {
           "type": "file_contains",
-          "path": "src/render/healthBar.test.ts",
-          "needle": "but a structure that is actually GONE still draws nothing"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "name": "A9 — A building is clickable only on ~15px dots of a 150px image",
-      "status": "completed",
-      "checkpoint_commit": "b5a0cba",
-      "check_completed": true,
-      "check_method": "Measured the defect: 14-17px pick circle per shape vs a 150px drawn tower, ~15% coverage as disconnected dots over shapes that are phased out. Implemented as a FALLBACK after the precise scan so no click that worked before changes. Collapsed a duplication rather than adding one (healthBar now delegates to towerFrames). ⚠ HONEST GAP: towerAnchorAtPoint has no unit test — a valid race-tower ring fixture is substantial and existing tower fixtures use goblinTower, which has no art. Stated in the commit and carried to open questions. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4537).",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
+          "path": "src/state/damage.ts",
+          "needle": "THE REASON GIVEN HERE WAS FALSE"
+        },
         {
-          "type": "file_contains",
-          "path": "src/render/towerFrames.ts",
-          "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
+          "type": "grep_count",
+          "path": "src/state/bossSkillsWarlord.ts",
+          "pattern": "Three wolves every fifteen seconds",
+          "op": "eq",
+          "value": 0
         },
         {
           "type": "file_contains",
-          "path": "src/render/towerFrames.ts",
-          "needle": "export function towerRingCentroid("
+          "path": "CLAUDE.md",
+          "needle": "4569 tests / 290 files, measured S179"
         },
         {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/healthBar.ts",
-          "needle": "return towerRingCentroid(world, anchorId, art);"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "name": "A10 — Creatures walk off the board — no world-bounds clamp exists in any integrator",
-      "status": "completed",
-      "checkpoint_commit": "8e0bf77",
-      "check_completed": true,
-      "check_method": "Clamp placed INSIDE creatureVerletStep because host and worker both reach creatures only through it — anywhere else would convert a gameplay bug into a desync. prevPos moves with pos (the Verlet fling trap) with a dedicated test. standoffTargetPos clamped too, or the army pins flat against an invisible wall. Two verlet tests seeded at (0,0) went red and were re-pinned by moving the fixture into open ground, preserving delta intent. Two sibling integrators (Helga, hunter) deliberately NOT clamped, with the reason recorded at the code. TYPECHECK_EXIT=0, VITEST_EXIT=0 (4544).",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const WORLD_EDGE_MARGIN = 40;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/creatureVerlet.ts",
-          "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/creatureVerlet.ts",
-          "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/playfieldBounds.test.ts",
-          "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/placeFromFree.ts",
-          "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+          "type": "grep_count",
+          "path": ".claude/plans-archive/2026-09-13_S173_R173_STRUCTURE_HP_RULING.md",
+          "pattern": "STATUS: ARCHIVED \\(S179\\)",
+          "op": "eq",
+          "value": 1
         }
       ]
     }
@@ -642,116 +619,75 @@
   ],
   "reflexion_entries_to_archive": [
     {
+      "priority": 0,
+      "tag": "#the-list-has-to-be-his",
+      "lesson": "I opened by presenting the S178 handoff's numbered priority list as this session's plan. It was a previous session's reading of a previous conversation, not a mandate. He stopped the session: 'i think you are tripping about the priority list'. A handoff carries CONTEXT; the priorities come from asking what is wrong when he plays it."
+    },
+    {
+      "priority": 0,
+      "tag": "#speak-in-what-he-sees",
+      "lesson": "I put four options to him naming potatoLifecycle.ts and deathOnVanish. Reply: 'what are you talking about even!?!? i have no idea what are those fucking options'. He is the owner of the GAME, not of the symbol table. Re-asked in plain terms (a number pops over a shape) and he answered instantly."
+    },
+    {
       "priority": 1,
-      "tag": "#stale-doc-is-a-live-hazard",
-      "lesson": "A stale comment half-updated is worse than one wholly stale. constants.ts' boss block had a CURRENT attackFifths line beside a PRE-S172 unitPoolFifths line, so a reader saw damage exactly right and durability 3x low. Fix both halves of a table or neither."
+      "tag": "#measure-dont-estimate-the-blast-radius",
+      "lesson": "Before building the lone-shape rule I applied it, ran the suite, captured the exact red list (13 tests / 7 files), then restored the files BYTE-EXACTLY from copies rather than git checkout (which would have flipped line endings). The estimate and the measurement agreed, but only the measurement was evidence."
+    },
+    {
+      "priority": 1,
+      "tag": "#half-a-rule-is-worse-than-none",
+      "lesson": "The lone-shape rule failed twice across two sessions because each attempt shipped only HALF: cap the lone shape, but leave creatures targeting member shapes. That left two health systems for one structure, disagreeing (24 per connector vs 70 per brick). The second half was one line. Before building, ask what ELSE reads the number you are changing."
+    },
+    {
+      "priority": 1,
+      "tag": "#a-fixture-with-side-effects-is-worse-than-no-fixture",
+      "lesson": "Re-pinning the standoff tests I tried a bonded pair (died to one arrow), then a 25-connector chain: the structure survived but the SHOOTER vanished at t=960, because the fixture had started producing something that killed it. A durable inert anchor was the answer. A fixture that changes the world is not a fixture."
     },
     {
       "priority": 2,
-      "tag": "#measure-the-artifact-not-the-manifest",
-      "lesson": "I read `frames: 12` from a manifest and built a fix on it. A pixel diff showed four of six rows are 12 BYTE-IDENTICAL copies of one still. The manifest describes the packer's output shape, not the art. Measure the shipped bytes before reasoning about what a player sees."
-    },
-    {
-      "priority": 3,
-      "tag": "#flavour-text-is-not-a-ruling",
-      "lesson": "The Vortex's only authority was a description string in a combo table that a later session chose to 'realize' as physics. The owner had never ruled it. Before implementing to a label, grep for the owner quote; if there is none, the label is flavour and the mechanic is a proposal."
-    },
-    {
-      "priority": 4,
-      "tag": "#a-probe-beats-an-argument",
-      "lesson": "Three sessions reasoned about the poop bag from the code and got it wrong. A 40-line probe settled it in one run: dead in 60 ticks with no shape, ticksToDie=null with a shape 300px away. Write the probe before the theory, and keep it as the regression test."
-    },
-    {
-      "priority": 5,
-      "tag": "#a-provisional-decision-needs-its-trigger-watched",
-      "lesson": "No-falloff was MINE, was labelled provisional, and pre-registered its own trigger ('if it plays too strong the dial is here'). Nobody watched the trigger; the owner pulled it by playing. A recorded trigger with no watcher is a note, not a plan."
-    },
-    {
-      "priority": 6,
-      "tag": "#convert-all-N-sites-or-none",
-      "lesson": "S177 P1 converted six radial damage sites to the ladder and missed the seventh, which then paid shapes on a retired 1000-point scale for a whole session. The suite could not see it because it asserted the number was linear and integer, never which SCALE it landed on."
+      "tag": "#a-test-that-cannot-reach-its-code-passes-for-the-wrong-reason",
+      "lesson": "Two of my own first-draft tests for the untargetable fix were broken: one sat in SEEKING when the re-validation is gated on ATTACKING, the other passed an action with no creatureId so the reducer returned at line 2. Both would have gone green on a deleted fix. Drive the real entry point and assert a counter-case."
     },
     {
       "priority": 7,
-      "tag": "#presence-is-not-visibility",
-      "lesson": "Three renderers shared one bug: the fog `continue` ran before the id was registered as live, so leaving vision was indistinguishable from dying. Nothing tested the distinction, so a mechanic could be armed or disarmed with the suite fully green."
+      "tag": "#prove-it-before-explaining-it-to-him",
+      "lesson": "I told him his '56' was a shape's leftover pool. Partly right, and he rejected it: he saw the number on a connector that survived. Re-measured properly and found a SECOND, independent defect (the connector-breaking swing printed nothing at all). My explanation was a theory dressed as a finding."
+    },
+    {
+      "priority": 7,
+      "tag": "#a-dead-verifier-is-not-a-refutation",
+      "lesson": "My sweep workflow classified findings as REFUTED when every one of their verifier agents had died to the spend limit — live.length===0 fell through to survives:false. Unverified and refuted are opposite verdicts. The salvage run distinguishes UNVERIFIED explicitly."
     },
     {
       "priority": 8,
-      "tag": "#a-test-can-pin-the-defect",
-      "lesson": "A test asserted 'a structure damaged past its pool draws nothing' with a fixture the sim cannot produce, while the reachable version of that state was a real bug. A green test pinning an unreachable fixture is worse than no test: it certifies the wrong thing."
+      "tag": "#write-bindings-that-assert-absence-then-run-them",
+      "lesson": "A verification binding asserting ZERO occurrences of 'SERIALIZED BUT NOT HASHED' in player.ts came back with two. I had fixed one stale comment and would have shipped the other two — raceId and eliminatedAtTick carried the same dead sentence. The binding found what reading did not."
     },
     {
-      "priority": 9,
-      "tag": "#collapse-duplication-when-you-would-add-the-third",
-      "lesson": "The ring-centroid walk existed twice and I needed a third. Moving it to the file that already owned the sizes and the anchor left one definition, so the health bar, the building and the click target cannot drift apart."
+      "priority": 8,
+      "tag": "#never-falsify-a-status-to-silence-a-warning",
+      "lesson": "Six archived plans carried an in-progress marker, so six sessions were told to read six 'ACTIVE PLANS'. I stamped five terminal and left S173_NONET_STAGES in-progress because it genuinely is. Silencing the sixth would have traded a noisy-but-true warning for a quiet lie."
     },
     {
-      "priority": 10,
-      "tag": "#a-clamp-on-movement-is-not-a-clamp-on-existence",
-      "lesson": "Giving the sim a playfield fixed creatures walking off the board and immediately created a new exploit: build legality had no edge term, so a shape placed past the clamp was unreachable by every melee unit. When you add a rule, ask which other subsystem now disagrees with it."
+      "priority": 0,
+      "tag": "#he-is-a-source-of-truth-about-the-game",
+      "lesson": "He said the potato blast is archived; the source still had spawn cadence, fuse, blast radius and bot errands for it. He was right: HAZARD_SPAWN_ENABLED is false and only a Playwright seam can flip it. When he contradicts the code about what the GAME does, check the gate before defending the code."
     },
     {
-      "priority": 11,
-      "tag": "#verify-the-fix-not-just-the-gates",
-      "lesson": "Every gate was green on work that contained three regressions I had introduced: widened frozen stills, a size target measured against the wrong thing, and a broken death-watcher guard. Gates prove the suite still passes; only an adversarial read of the diff against the requirement proves the fix is right."
-    },
-    {
-      "priority": 11,
-      "tag": "#file_lacks-is-the-wrong-binding-in-this-repo",
-      "lesson": "Three verification bindings failed because this codebase QUOTES the superseded text at the correction, so the old string legitimately survives in a comment. Assert the new code positively, or anchor a grep so a comment line cannot satisfy it."
+      "priority": 0,
+      "tag": "#scope-creep-inside-a-fix-is-itself-the-defect",
+      "lesson": "S177 was asked to slow the leg animation on THREE named units and applied a distance-driven gait to every creature, writing its own justification into the docblock. The stride was tuned for the fast three, so every ordinary unit crawled. He noticed: 'I didn't ask you to do this'. The fix is a three-entry set with a note saying ADD to it, never re-generalise."
     }
   ],
   "real_context_tokens_at_close": null,
   "analyze": {
-    "calibration": [
-      {
-        "predicted": "Voltkin attack + die need ~$6.20 of veo re-rolls (inherited from S175's handoff, boot-snapshot and REVIEW card alike).",
-        "actual": "$0.00. attack and die ARE unusable as motion clips - that half was right - but the fix was never money: attack came from a measured amputation-free, scale-stable window (f70..95) and die from the corpse HE had already drawn. The inherited number was a correct diagnosis attached to the wrong remedy.",
-        "verdict": "MISCALIBRATED IN MY FAVOUR - but only because I re-measured. Trusting the handoff would have spent $6.20 to buy nothing."
-      },
-      {
-        "predicted": "P1 is 'fix the Voltkin's animation' (the owner reported him STUCK, which reads as a regression).",
-        "actual": "He had never been animated at all - a procedural puppet under two stills since S110. There was no sequence to regress.",
-        "verdict": "MISCALIBRATED. Phase A.0 caught it before a line was typed; a bug hunt would have found nothing to fix and wasted the session."
-      },
-      {
-        "predicted": "Four parallel A.0 agent lanes would return the state-discovery findings.",
-        "actual": "0 of 4 returned. ~566K subagent tokens spent for zero findings; every fact came from hand-runs afterwards.",
-        "verdict": "MISCALIBRATED, AND FORESEEABLE. This is the THIRD session to lose a fan-out to a spend limit (S161, S173, now). I sized it at 4 lanes on ONE invocation - the exact shape CLAUDE.md warns against - because 4 felt small. The rule is about the invocation, not the lane count."
-      },
-      {
-        "predicted": "The suite, typecheck, build and check:atlas would tell me whether the art was right.",
-        "actual": "All four were green across three separate defective packs. Every real defect (half-size attack, a health bar that would float, a validator's false pass) was found by opening a PNG or reading a script's source.",
-        "verdict": "WELL-CALIBRATED - the project's own rule ('no gate in this project can see a bad PNG') held exactly, for the second session running."
-      },
-      {
-        "predicted": "The gates I inherited were green, per S175's handoff.",
-        "actual": "CI's e2e job had been red for four commits on one assertion. S175 read that gate at BOOT and never at CLOSE.",
-        "verdict": "MISCALIBRATED BY INHERITANCE. I did not re-read e2e at boot either; I found it only because I pushed and watched CI. Had I not pushed mid-session, I would have shipped the same blind spot forward."
-      }
-    ],
-    "promotion_candidates_reviewed": "Boot surfaced three ADVISORY reflexion patterns (>=3x). Reviewed, NOT auto-codified, per the constitution. (1) #empirical-refutes-plausible-criticals (9x) - STRONGLY reinforced this session and now the dominant pattern in the log: the $6.20 verdict, the 'stuck animation' diagnosis and check-clip's idle PASS were all plausible and all wrong, each refuted by one measurement. (2) #raw-code-not-abbreviations (6x) - reinforced: reading check-clip.mjs's actual detector, rather than its summary output, is what exposed the false pass, and reading build-sprite-atlas.mjs is what showed framesPerState has no per-state override. (3) #policy-not-instance (4x) - the honest counter-example this session. I fixed THIS fog assertion but did not build anything that would catch the NEXT renderer added to fogHiddenLayer. RECOMMENDATION for a future META PDR, deliberately not actioned here (out of scope, and the owner is budget-constrained): a gate that fails when a renderer is constructed with a shared parent layer but is absent from fog.spec.ts's roll call. That converts the project's most-repeated display-list defect from prose into enforcement. Do NOT add it without its own PDR.",
-    "what_went_right": [
-      "The S161 rule was applied correctly for the first time under real pressure: 4/4 lanes died and every one was re-run by hand rather than filed as 'the sweep produced nothing'.",
-      "Committing and pushing per priority meant the spend-limit interruption and the weekly-budget squeeze cost nothing - P1 was already live when P2 started.",
-      "The owner's mid-session ruling (20 frames) was absorbed as a scope amendment WITH its companion change (ticksPerFrame rescaled) rather than shipped half-done - the S175 P1c lesson, applied unprompted.",
-      "A defect was found in work I had already committed (the health bar's padded cell) and fixed before the owner saw it."
-    ],
-    "what_to_do_differently": [
-      "RE-READ EVERY GATE AT CLOSE, not only at boot. A boot reading measures the session before yours. This is the single highest-value change and it is what hid a red CI for four commits.",
-      "Dispatch fan-out lanes as SEPARATE invocations. Three sessions have now lost an entire sweep to one spend limit; the cost of splitting is a few seconds.",
-      "Read exit codes from a captured $? at EVERY site, including the ones that feel like bookkeeping. I quoted this rule to the owner and then broke it on the review gate in the same session."
-    ],
-    "cost": {
-      "art_usd": 0.0,
-      "veo_calls": 0,
-      "imagen_calls": 0,
-      "subagent_tokens_wasted": 566394,
-      "usable_agent_findings": 0
-    }
+    "session": "S179",
+    "shipped": 6,
+    "carried": 2,
+    "headline": "The session opened by presenting the S178 handoff list as a plan and he stopped it. Then his three rulings shipped plus two damage-number defects he found mid-play. All five S178 sweep lanes finally have a verdict.",
+    "owner_next_session_verbatim": "Next session, we will start with the end of session stat board, end of match stat board. We will start with character sheets. We will start with maybe Kraken Tentacles and Vulcan TV art. ... Everything I declined, do not bring up in the next session."
   },
-  "analyze_completed": false,
+  "analyze_completed": true,
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
@@ -777,5 +713,47 @@
     "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
     "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
     "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
-  ]
+  ],
+  "s179": {
+    "session_id": "S179",
+    "session_kind": "scoping",
+    "pdr_approved": false,
+    "unlock_source": null,
+    "priorities_approved": 0,
+    "implementation": "none - no source file was changed",
+    "files_changed_in_src": [],
+    "gates": {
+      "typecheck": 0,
+      "vitest": 0,
+      "vitest_counts": "4547 tests / 288 files",
+      "ci": "0 failures, 0 cancelled"
+    },
+    "sweep_lanes_now_verdicted": [
+      "determinism",
+      "four-sites",
+      "lifecycle",
+      "wire",
+      "hostmig"
+    ],
+    "confirmed_by_hand": [
+      "isUntargetable never re-checked on a held target by creatures (creatureAI.ts:463 is acquisition only; creatureLifecycle.ts has it only in a comment at :538; creatureAttack.ts zero) - defenderLifecycle.ts:159 is the fixed half",
+      "nextPulledSparkId four-sites violation - hashed at stateHashFull.ts:140/:469, sim-mutated at gathererLifecycle.ts:222, absent from save.ts entirely",
+      "damageNumbers.ts has no reset; world.primitives.clear() at gameState.ts:227 / gameMode.ts:425 / save.ts:1346 prints a number over every shape",
+      "SCRAP carry-forward design unworkable: number is a renderer-local diff (damageNumbers.ts:399) and SCRAP dispatches outside the ticker (main.ts:1025-1029 -> :603)",
+      "lone-shape rule MEASURED: exactly 13 failures across 7 files; files restored byte-exactly",
+      "boss: Archdemon/Kraken/Pharaoh skills already live; direwolf cap+interval already satisfied; rage already doubles both",
+      "S161 droneLifecycle:153 carry-forward REFUTED - already fixed"
+    ],
+    "owner_answered_not_built": "Warlord rage trigger 25->50, CLEAR stays 50 (his literal below-50). bossSkillsLate.test.ts:151-153 asserts CLEAR>TRIGGER and must be re-pinned when built.",
+    "cleanup": "removed src/state/__tmp_pulledid.test.ts (sweep-agent debris that was polluting the suite)",
+    "open_question_for_owner": "character sheets - does an ENEMY sheet show LIVE health? stats-only is local+cheap; live health may need wire fields + a protocol bump"
+  },
+  "not_approved": {
+    "lone_shape_rule": "owner wants to see the exact fix first - presented, awaiting his word",
+    "boss_ring_orphan": "NOT APPROVED - explained; optional if lone-shape ships",
+    "castle_gun_corpse": "CANCELLED by owner - he has never seen it",
+    "spark_id_counter": "NOT APPROVED - explained as latent, not observed",
+    "kraken_tentacles": "DEFERRED - owner: whole Kraken needs rework incl. video",
+    "voltkin_tv_art": "DEFERRED to next session - owner: Voltkin needs reworking on a lot of things"
+  }
 }

@@ -1,3 +1,28 @@
+## S179 (2026-09-16) - he stopped the session over a priority list that was not his, then three of his rulings shipped: the lone-shape rule (open three sessions), the four boss numbers, and two damage-number defects he found while playing mid-session.
+
+- P0 #the-list-has-to-be-his: I opened by presenting the S178 handoff's numbered priority list as this session's plan. It was a previous session's reading of a previous conversation, not a mandate. He stopped the session: 'i think you are tripping about the priority list'. A handoff carries CONTEXT; the priorities come from asking what is wrong when he plays it.
+
+- P0 #speak-in-what-he-sees: I put four options to him naming potatoLifecycle.ts and deathOnVanish. Reply: 'what are you talking about even!?!? i have no idea what are those fucking options'. He is the owner of the GAME, not of the symbol table. Re-asked in plain terms (a number pops over a shape) and he answered instantly.
+
+- P1 #measure-dont-estimate-the-blast-radius: Before building the lone-shape rule I applied it, ran the suite, captured the exact red list (13 tests / 7 files), then restored the files BYTE-EXACTLY from copies rather than git checkout (which would have flipped line endings). The estimate and the measurement agreed, but only the measurement was evidence.
+
+- P1 #half-a-rule-is-worse-than-none: The lone-shape rule failed twice across two sessions because each attempt shipped only HALF: cap the lone shape, but leave creatures targeting member shapes. That left two health systems for one structure, disagreeing (24 per connector vs 70 per brick). The second half was one line. Before building, ask what ELSE reads the number you are changing.
+
+- P1 #a-fixture-with-side-effects-is-worse-than-no-fixture: Re-pinning the standoff tests I tried a bonded pair (died to one arrow), then a 25-connector chain: the structure survived but the SHOOTER vanished at t=960, because the fixture had started producing something that killed it. A durable inert anchor was the answer. A fixture that changes the world is not a fixture.
+
+- P2 #a-test-that-cannot-reach-its-code-passes-for-the-wrong-reason: Two of my own first-draft tests for the untargetable fix were broken: one sat in SEEKING when the re-validation is gated on ATTACKING, the other passed an action with no creatureId so the reducer returned at line 2. Both would have gone green on a deleted fix. Drive the real entry point and assert a counter-case.
+
+- P7 #prove-it-before-explaining-it-to-him: I told him his '56' was a shape's leftover pool. Partly right, and he rejected it: he saw the number on a connector that survived. Re-measured properly and found a SECOND, independent defect (the connector-breaking swing printed nothing at all). My explanation was a theory dressed as a finding.
+
+- P7 #a-dead-verifier-is-not-a-refutation: My sweep workflow classified findings as REFUTED when every one of their verifier agents had died to the spend limit — live.length===0 fell through to survives:false. Unverified and refuted are opposite verdicts. The salvage run distinguishes UNVERIFIED explicitly.
+
+- P8 #write-bindings-that-assert-absence-then-run-them: A verification binding asserting ZERO occurrences of 'SERIALIZED BUT NOT HASHED' in player.ts came back with two. I had fixed one stale comment and would have shipped the other two — raceId and eliminatedAtTick carried the same dead sentence. The binding found what reading did not.
+
+- P8 #never-falsify-a-status-to-silence-a-warning: Six archived plans carried an in-progress marker, so six sessions were told to read six 'ACTIVE PLANS'. I stamped five terminal and left S173_NONET_STAGES in-progress because it genuinely is. Silencing the sixth would have traded a noisy-but-true warning for a quiet lie.
+
+- P0 #he-is-a-source-of-truth-about-the-game: He said the potato blast is archived; the source still had spawn cadence, fuse, blast radius and bot errands for it. He was right: HAZARD_SPAWN_ENABLED is false and only a Playwright seam can flip it. When he contradicts the code about what the GAME does, check the gate before defending the code.
+
+- P0 #scope-creep-inside-a-fix-is-itself-the-defect: S177 was asked to slow the leg animation on THREE named units and applied a distance-driven gait to every creature, writing its own justification into the docblock. The stride was tuned for the fast three, so every ordinary unit crawled. He noticed: 'I didn't ask you to do this'. The fix is a three-entry set with a note saying ADD to it, never re-generalise.
 ## S178 (2026-09-15) - his S178 playtest verdict answered end to end: the poop bag proven unkillable by probe and fixed, chain lightning given the falloff he ruled, the vortex exploit unwired, the playfield edge that never existed, the TV's frozen rows, and a verification pass that found three regressions I had shipped.
 
 - P1 #stale-doc-is-a-live-hazard: A stale comment half-updated is worse than one wholly stale. constants.ts' boss block had a CURRENT attackFifths line beside a PRE-S172 unitPoolFifths line, so a reader saw damage exactly right and durability 3x low. Fix both halves of a table or neither.

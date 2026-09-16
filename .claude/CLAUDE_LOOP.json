@@ -1,9 +1,9 @@
 {
   "project": "The-Spark",
-  "loop_name": "none",
+  "loop_name": null,
   "done_predicate": null,
   "budget": null,
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "S178 closed by owner direction; no agentic loop left open. The overnight sweep died to the org spend limit (15/20 lanes) and was hand-run or salvaged per the S161 rule; five lanes remain NOT RUN and are carried forward."
+  "last_result": "No agentic loop open. Two research/sweep workflows ran and COMPLETED; an earlier pair was killed by the org spend limit and was re-dispatched + hand-run per the S161 rule, so all five sweep lanes now have a verdict."
 }
