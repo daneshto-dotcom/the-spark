@@ -8,6 +8,27 @@ Created S159 — the boot pre-flight had been warning "No CLAUDE.md found in pro
 doc says each project's own CLAUDE.md declares its workflow. Everything below was verified against
 the code in the session that wrote it, not copied from a handoff.
 
+## ⛔⛔ READ `SPARK_CANON.md` BEFORE ANSWERING ANYTHING ABOUT THE GAME
+
+**It is the answer to "is X still in the game?" and "how much does Y hit for?".** Read it before
+writing a table, a plan, a PDR, or a question to the owner.
+
+Owner, S180, after being asked a third time about mechanics archived dozens of sessions ago:
+*"let's resolve all of this once and for all so I don't have to go over all those things … this
+should be in our canonical document somewhere that you go to to see how things are. It seems like you
+fucking come back to the same things … this is fucking enervating and just annoying and just wasting
+time and money and tokens."*
+
+⛔ **THE FAILURE WAS NOT MISSING INFORMATION — IT WAS UNREAD INFORMATION.** S180 published a targeting
+table listing seagulls as a live mechanic while `constants.ts` said, in as many words, that four
+whole subsystems are unreachable in production. Nothing was hidden. Nobody looked.
+
+⭐ **AND THE CANON CANNOT ROT**: `src/canon.test.ts` pins every load-bearing number in it to the
+constant it describes, so drift turns a test RED instead of quietly misleading the next session. That
+is the difference between it and `UNIT_STAT_TABLE.md`, which has been ~3× wrong on the bosses for
+three sessions with nothing to catch it. **A number goes into the canon only with its constant, and
+its assertion lands in the same commit.**
+
 ## Workflow
 
 - **Commit directly to `master`.** No feature branches, no worktrees (GitButler was dropped

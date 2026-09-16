@@ -116,6 +116,11 @@ today in order, with the ranges. What is already known to disagree with his rule
 - **12 FRAMES PER STATE IS NOT ENOUGH** — he has said it twice. Raising it costs atlas width × sheet
   size against a 105.8 MiB static payload. Decide against a measured sheet, not by feel.
 - **General / goblin tower art** — still owed.
+- ⭐ **PER-RACE BORDER WALL ART — new, he raised it in S180.** *"We wanted the border wall to be a
+  racial art, so for every race the border needs to look — not just the color. Now it's just like a
+  line with the color. It has to be like a general, we'll generate like a cool line looking for every
+  race."* Six border treatments, one per race. He asked for it to be logged as a priority for a later
+  session.
 - **8 veo clips** — packing owed; 3 need re-rolling at a smaller subject size.
 
 ---
