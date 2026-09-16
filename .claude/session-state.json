@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 1705,
-  "session_id": "S179",
+  "tool_calls_session_total": 1749,
+  "session_id": "S180",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S177 closed 10/10; S178 opened on the owner playtest verdict + an agentic sweep (15/20 lanes died to the org spend limit and were hand-run or salvaged per the S161 rule).",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "DO",
+  "phase": "PLAN",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-15_S178_BATCH_PDR.md",
-  "session_status": "S179 CLOSED",
+  "plan_file": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
+  "session_status": "S180 IN PROGRESS",
   "protocol_version": 46,
-  "pdr_approved": true,
+  "pdr_approved": false,
   "deliberation_completed": true,
-  "unlock_source": "user",
-  "owner_approval_verbatim": "the four boss numbers I approve. Number two. Number three, I approve. Four. Yes, definitely approved. Five ... I approve. Six ... I do not approve. [seven] cancel that. Eight ... I do not approve. Nine ... not there yet. Ten ... next session.",
+  "unlock_source": null,
+  "owner_approval_verbatim": null,
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -45,6 +45,352 @@
     ]
   },
   "priorities": [
+    {
+      "id": 1,
+      "name": "Character sheets v1 (creature cards)",
+      "status": "pending",
+      "note": "PDR written + Council run. BLOCKED on 3 owner answers: own-tower click, skills in/out, buildings in/out.",
+      "pdr_approved": false,
+      "deliberation_completed": true,
+      "unlock_source": null
+    },
+    {
+      "id": 2,
+      "name": "Targeting fix — restore a connector target for the 21 broken types",
+      "status": "pending",
+      "note": "Regression shipped S179 in 00e02bf, LIVE. Council resolved the design fork; recommendation recorded in S180_TARGETING_TABLE.md Q1.",
+      "pdr_approved": false,
+      "deliberation_completed": true,
+      "unlock_source": null
+    },
+    {
+      "id": 3,
+      "name": "Backlog + targeting table delivered to owner",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "Hand-verified against the tree, not carried from notes: 14 damageEntity production call sites counted by grep; targetsStructures true on 21 of 24 creature configs (makeT3Config factory + 6 goblins + raceUnit + locustCloud); findNearestEnemyPrimitiveFrom skips bonds.size>0, introduced in 00e02bf (git log -S); targetBondId nulled at hostTick.ts:1419; damageConnector banks structure-wide and SPENDS the pool (overkill cascades); T9_BOSS_STATS read from constants.ts:1666 refuting UNIT_STAT_TABLE.md by ~3x; check:atlas exit 0 / 31 clean; typecheck exit 0; vitest 4569 pass exit 0; verify-deploy 4/4. Deliverables on disk: S180_BACKLOG.md, S180_TARGETING_TABLE.md.",
+      "checkpoint_commit": null
+    }
+  ],
+  "verification": [
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/damage.ts",
+      "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/game/effects.ts",
+      "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
+    },
+    {
+      "type": "file_contains",
+      "path": "CLAUDE.md",
+      "needle": "4513 tests / 284 files, measured S178"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function loopFrame("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "const TV_ART_PX = 112;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "pattern": "sprite\\.y = tvSpriteY\\(",
+      "op": "==",
+      "value": 2
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applyVortexPull(world, attractedId);"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applySpindlePull(world, attractedId);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/vortex.ts",
+      "needle": "export function applyVortexPull"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/vortexUnwired.test.ts",
+      "needle": "a live VORTEX sitting on a free spark does not move it"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/bagStrikeS178.test.ts",
+      "needle": "still pops the bag while committed to an unreachable shape"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const STINK_BAG_HP = 1;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "let jump = 1;"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.test.ts",
+      "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "blastFifths, blastFifths,"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.test.ts",
+      "needle": "never passes the retired 1000-scale blast figure to shapes again"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/damage.ts",
+      "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/chewerRenderer.ts",
+      "pattern": "liveIds\\.add\\(c\\.id\\);",
+      "op": "==",
+      "value": 1
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "PRESENCE BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerRenderer.ts",
+      "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "const shown = Math.max(1, current);"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/healthBar.ts",
+      "pattern": "^\\s+if \\(current <= 0\\) continue;",
+      "op": "==",
+      "value": 0
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.test.ts",
+      "needle": "but a structure that is actually GONE still draws nothing"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerRingCentroid("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/input/controls.ts",
+      "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "return towerRingCentroid(world, anchorId, art);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const WORLD_EDGE_MARGIN = 40;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/playfieldBounds.test.ts",
+      "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/placeFromFree.ts",
+      "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+    }
+  ],
+  "reflexion_entries_to_archive": [
+    "S180 — HALF A RULE IS WORSE THAN NONE, AND S179 DID IT AGAIN. The lone-shape ruling had two halves: stop targeting connected shapes, AND target the connectors instead. Only the first half shipped, so 21 of 24 unit types lost the ability to damage a building at all and marched on the castle instead. The owner found it by playing. #half-a-rule #ship-both-halves",
+    "S180 — A DEAD AGENT RUN IS NOT A COMPLETED LANE (S161 rule, applied). The org spend limit killed 5 targeting verifiers and the character-sheet design synthesis mid-run. Both were redone BY HAND rather than recorded as unavailable. The hand pass is what found that damageConnector already cascades overkill, which changed the recommendation. #empirical-refutes-plausible-criticals",
+    "S180 — THE STALE DOC IS MORE DANGEROUS THAN NO DOC. UNIT_STAT_TABLE.md lists Vlad at 90 pool; constants.ts:1666 says 260. A character sheet built from the repo own stat document would have printed a wrong number for every boss. Read numbers from the code at runtime, never from a generated table. #raw-code-not-abbreviations",
+    "S180 — FOUR BACKLOG ITEMS WERE ALREADY DONE: the atlas debt (guard green, 31 clean, CI green), the Orc Warlord, the four boss numbers, the per-connector pool. Presenting a stale backlog as live scope is how the owner time gets wasted; verify every line before it reaches him. #policy-not-instance",
+    "S180 — AN EXTERNAL REVIEWER CONFIDENT EXECUTION CLAIM STILL NEEDS THE TREE. GROK asserted live enemy health demands per-frame polling and a protocol bump; the mirrored ehp the health bars already draw refutes it outright. GEMINI overkill-is-wasted concern was likewise refuted by damageConnector own spend-not-zero comment. #check-reviewer-fabricated-execution-claims",
+    "S180 — THE BEST DESIGN CAME FROM THE SEAT TOLD TO DISAGREE. Gemini was prompted to stress-test Grok rather than agree, and produced a third option (aim at the building, land damage on the connectors) neither I nor Grok had. Adversarial framing beat consensus framing. #adversarial-beats-consensus"
+  ],
+  "real_context_tokens_at_close": null,
+  "analyze": {
+    "session": "S179",
+    "shipped": 6,
+    "carried": 2,
+    "headline": "The session opened by presenting the S178 handoff list as a plan and he stopped it. Then his three rulings shipped plus two damage-number defects he found mid-play. All five S178 sweep lanes finally have a verdict.",
+    "owner_next_session_verbatim": "Next session, we will start with the end of session stat board, end of match stat board. We will start with character sheets. We will start with maybe Kraken Tentacles and Vulcan TV art. ... Everything I declined, do not bring up in the next session."
+  },
+  "analyze_completed": true,
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "statusline_dead"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-09-14T12:05:53.353419Z",
+    "fields": [
+      "budget_total",
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  },
+  "checkpoint_commit": "8e0bf77497656b35c8eefb1cb38caa74d30ac068",
+  "check_completed": true,
+  "carry_forwards_spawned_in_s178": [
+    "⛔ #1 NEXT SESSION — THE LONE-SHAPE RULE. Owner: 'a single primitive has ONE health... one hit to destroy by anyone' / 'for every time there's a single shape, it's always worth five'. NOT BUILT. Attempted twice, reverted twice. Design settled in S179_CARRY_FORWARD.md: new LONE_PRIMITIVE_POOL_FIFTHS=5 + a one-line Math.min cap in damage.ts gated on prim.bonds.size===0. PRIMITIVE_MAX_HP STAYS 70. The work is re-pinning ~13 fixtures across 7 files with REAL partner shapes (a sentinel bond id corrupts the recipe gates: 13 red -> 28 red).",
+    "BOSS REWORK, his numbers verbatim: Vlad life-sap 2 uses not 3; Warlord rage at 50% not 25% and doubles attack AND movement speed; direwolves up to 3 at a time, summon every 30s; Archdemon 'taken to hell' below 10% not 5%; Kraken KEEPS sonar and GAINS up to 6 tentacles (NEW, undesigned); Pharaoh locusts 50 damage each not 150 (he then said 'still very strong' — re-check after he plays); Whopper unchanged ('looks sick').",
+    "⚠ CORRECTION HE NEEDS FIRST: he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra ritual are unbuilt. They ARE built and called every host tick (hostTick.ts:1830-1848). S179 ADJUSTS numbers; it does not build them. Only the Kraken tentacles are new.",
+    "VOLTKIN TV — two transition videos, ~EUR 20: (1) TV appears/breaks open + Voltkin CLIMBS OUT (he already has the climbing-out still — wire it, don't generate it), (2) damaged -> destroyed explosion. NO video between intact and damaged.",
+    "NO DAMAGE NUMBERS ON SCRAP — ruled. Design settled (pendingCreatureDeaths is the non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.",
+    "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
+    "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
+    "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
+  ],
+  "s179": {
+    "session_id": "S179",
+    "session_kind": "scoping",
+    "pdr_approved": false,
+    "unlock_source": null,
+    "priorities_approved": 0,
+    "implementation": "none - no source file was changed",
+    "files_changed_in_src": [],
+    "gates": {
+      "typecheck": 0,
+      "vitest": 0,
+      "vitest_counts": "4547 tests / 288 files",
+      "ci": "0 failures, 0 cancelled"
+    },
+    "sweep_lanes_now_verdicted": [
+      "determinism",
+      "four-sites",
+      "lifecycle",
+      "wire",
+      "hostmig"
+    ],
+    "confirmed_by_hand": [
+      "isUntargetable never re-checked on a held target by creatures (creatureAI.ts:463 is acquisition only; creatureLifecycle.ts has it only in a comment at :538; creatureAttack.ts zero) - defenderLifecycle.ts:159 is the fixed half",
+      "nextPulledSparkId four-sites violation - hashed at stateHashFull.ts:140/:469, sim-mutated at gathererLifecycle.ts:222, absent from save.ts entirely",
+      "damageNumbers.ts has no reset; world.primitives.clear() at gameState.ts:227 / gameMode.ts:425 / save.ts:1346 prints a number over every shape",
+      "SCRAP carry-forward design unworkable: number is a renderer-local diff (damageNumbers.ts:399) and SCRAP dispatches outside the ticker (main.ts:1025-1029 -> :603)",
+      "lone-shape rule MEASURED: exactly 13 failures across 7 files; files restored byte-exactly",
+      "boss: Archdemon/Kraken/Pharaoh skills already live; direwolf cap+interval already satisfied; rage already doubles both",
+      "S161 droneLifecycle:153 carry-forward REFUTED - already fixed"
+    ],
+    "owner_answered_not_built": "Warlord rage trigger 25->50, CLEAR stays 50 (his literal below-50). bossSkillsLate.test.ts:151-153 asserts CLEAR>TRIGGER and must be re-pinned when built.",
+    "cleanup": "removed src/state/__tmp_pulledid.test.ts (sweep-agent debris that was polluting the suite)",
+    "open_question_for_owner": "character sheets - does an ENEMY sheet show LIVE health? stats-only is local+cheap; live health may need wire fields + a protocol bump"
+  },
+  "not_approved": {
+    "lone_shape_rule": "owner wants to see the exact fix first - presented, awaiting his word",
+    "boss_ring_orphan": "NOT APPROVED - explained; optional if lone-shape ships",
+    "castle_gun_corpse": "CANCELLED by owner - he has never seen it",
+    "spark_id_counter": "NOT APPROVED - explained as latent, not observed",
+    "kraken_tentacles": "DEFERRED - owner: whole Kraken needs rework incl. video",
+    "voltkin_tv_art": "DEFERRED to next session - owner: Voltkin needs reworking on a lot of things"
+  },
+  "s179_priorities": [
     {
       "id": 1,
       "name": "Boss numbers (Vlad sap 3->2, Archdemon 5->10, locusts 150->50, Warlord rage trigger 25->50)",
@@ -384,376 +730,5 @@
       ]
     }
   ],
-  "verification": [
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/damage.ts",
-      "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/game/effects.ts",
-      "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
-    },
-    {
-      "type": "file_contains",
-      "path": "CLAUDE.md",
-      "needle": "4513 tests / 284 files, measured S178"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "function loopFrame("
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "const TV_ART_PX = 112;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "pattern": "sprite\\.y = tvSpriteY\\(",
-      "op": "==",
-      "value": 2
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/physics/physicsLoop.ts",
-      "needle": "applyVortexPull(world, attractedId);"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/physics/physicsLoop.ts",
-      "needle": "applySpindlePull(world, attractedId);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/vortex.ts",
-      "needle": "export function applyVortexPull"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/vortexUnwired.test.ts",
-      "needle": "a live VORTEX sitting on a free spark does not move it"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/creatureAttack.ts",
-      "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/creatureAttack.ts",
-      "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/bagStrikeS178.test.ts",
-      "needle": "still pops the bag while committed to an unreachable shape"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const STINK_BAG_HP = 1;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "let jump = 1;"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.test.ts",
-      "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.ts",
-      "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.ts",
-      "needle": "blastFifths, blastFifths,"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.test.ts",
-      "needle": "never passes the retired 1000-scale blast figure to shapes again"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/state/damage.ts",
-      "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/chewerRenderer.ts",
-      "pattern": "liveIds\\.add\\(c\\.id\\);",
-      "op": "==",
-      "value": 1
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/chewerRenderer.ts",
-      "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/creatureRenderer.ts",
-      "needle": "PRESENCE BEFORE THE FOG SKIP"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerRenderer.ts",
-      "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/render/chewerRenderer.ts",
-      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/render/creatureRenderer.ts",
-      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "const shown = Math.max(1, current);"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/healthBar.ts",
-      "pattern": "^\\s+if \\(current <= 0\\) continue;",
-      "op": "==",
-      "value": 0
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.test.ts",
-      "needle": "but a structure that is actually GONE still draws nothing"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerFrames.ts",
-      "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerFrames.ts",
-      "needle": "export function towerRingCentroid("
-    },
-    {
-      "type": "file_contains",
-      "path": "src/input/controls.ts",
-      "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "return towerRingCentroid(world, anchorId, art);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const WORLD_EDGE_MARGIN = 40;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/creatureVerlet.ts",
-      "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/creatureVerlet.ts",
-      "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/playfieldBounds.test.ts",
-      "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/placeFromFree.ts",
-      "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
-    }
-  ],
-  "reflexion_entries_to_archive": [
-    {
-      "priority": 0,
-      "tag": "#the-list-has-to-be-his",
-      "lesson": "I opened by presenting the S178 handoff's numbered priority list as this session's plan. It was a previous session's reading of a previous conversation, not a mandate. He stopped the session: 'i think you are tripping about the priority list'. A handoff carries CONTEXT; the priorities come from asking what is wrong when he plays it."
-    },
-    {
-      "priority": 0,
-      "tag": "#speak-in-what-he-sees",
-      "lesson": "I put four options to him naming potatoLifecycle.ts and deathOnVanish. Reply: 'what are you talking about even!?!? i have no idea what are those fucking options'. He is the owner of the GAME, not of the symbol table. Re-asked in plain terms (a number pops over a shape) and he answered instantly."
-    },
-    {
-      "priority": 1,
-      "tag": "#measure-dont-estimate-the-blast-radius",
-      "lesson": "Before building the lone-shape rule I applied it, ran the suite, captured the exact red list (13 tests / 7 files), then restored the files BYTE-EXACTLY from copies rather than git checkout (which would have flipped line endings). The estimate and the measurement agreed, but only the measurement was evidence."
-    },
-    {
-      "priority": 1,
-      "tag": "#half-a-rule-is-worse-than-none",
-      "lesson": "The lone-shape rule failed twice across two sessions because each attempt shipped only HALF: cap the lone shape, but leave creatures targeting member shapes. That left two health systems for one structure, disagreeing (24 per connector vs 70 per brick). The second half was one line. Before building, ask what ELSE reads the number you are changing."
-    },
-    {
-      "priority": 1,
-      "tag": "#a-fixture-with-side-effects-is-worse-than-no-fixture",
-      "lesson": "Re-pinning the standoff tests I tried a bonded pair (died to one arrow), then a 25-connector chain: the structure survived but the SHOOTER vanished at t=960, because the fixture had started producing something that killed it. A durable inert anchor was the answer. A fixture that changes the world is not a fixture."
-    },
-    {
-      "priority": 2,
-      "tag": "#a-test-that-cannot-reach-its-code-passes-for-the-wrong-reason",
-      "lesson": "Two of my own first-draft tests for the untargetable fix were broken: one sat in SEEKING when the re-validation is gated on ATTACKING, the other passed an action with no creatureId so the reducer returned at line 2. Both would have gone green on a deleted fix. Drive the real entry point and assert a counter-case."
-    },
-    {
-      "priority": 7,
-      "tag": "#prove-it-before-explaining-it-to-him",
-      "lesson": "I told him his '56' was a shape's leftover pool. Partly right, and he rejected it: he saw the number on a connector that survived. Re-measured properly and found a SECOND, independent defect (the connector-breaking swing printed nothing at all). My explanation was a theory dressed as a finding."
-    },
-    {
-      "priority": 7,
-      "tag": "#a-dead-verifier-is-not-a-refutation",
-      "lesson": "My sweep workflow classified findings as REFUTED when every one of their verifier agents had died to the spend limit — live.length===0 fell through to survives:false. Unverified and refuted are opposite verdicts. The salvage run distinguishes UNVERIFIED explicitly."
-    },
-    {
-      "priority": 8,
-      "tag": "#write-bindings-that-assert-absence-then-run-them",
-      "lesson": "A verification binding asserting ZERO occurrences of 'SERIALIZED BUT NOT HASHED' in player.ts came back with two. I had fixed one stale comment and would have shipped the other two — raceId and eliminatedAtTick carried the same dead sentence. The binding found what reading did not."
-    },
-    {
-      "priority": 8,
-      "tag": "#never-falsify-a-status-to-silence-a-warning",
-      "lesson": "Six archived plans carried an in-progress marker, so six sessions were told to read six 'ACTIVE PLANS'. I stamped five terminal and left S173_NONET_STAGES in-progress because it genuinely is. Silencing the sixth would have traded a noisy-but-true warning for a quiet lie."
-    },
-    {
-      "priority": 0,
-      "tag": "#he-is-a-source-of-truth-about-the-game",
-      "lesson": "He said the potato blast is archived; the source still had spawn cadence, fuse, blast radius and bot errands for it. He was right: HAZARD_SPAWN_ENABLED is false and only a Playwright seam can flip it. When he contradicts the code about what the GAME does, check the gate before defending the code."
-    },
-    {
-      "priority": 0,
-      "tag": "#scope-creep-inside-a-fix-is-itself-the-defect",
-      "lesson": "S177 was asked to slow the leg animation on THREE named units and applied a distance-driven gait to every creature, writing its own justification into the docblock. The stride was tuned for the fast three, so every ordinary unit crawled. He noticed: 'I didn't ask you to do this'. The fix is a three-entry set with a note saying ADD to it, never re-generalise."
-    }
-  ],
-  "real_context_tokens_at_close": null,
-  "analyze": {
-    "session": "S179",
-    "shipped": 6,
-    "carried": 2,
-    "headline": "The session opened by presenting the S178 handoff list as a plan and he stopped it. Then his three rulings shipped plus two damage-number defects he found mid-play. All five S178 sweep lanes finally have a verdict.",
-    "owner_next_session_verbatim": "Next session, we will start with the end of session stat board, end of match stat board. We will start with character sheets. We will start with maybe Kraken Tentacles and Vulcan TV art. ... Everything I declined, do not bring up in the next session."
-  },
-  "analyze_completed": true,
-  "budget_total": 1000000,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "statusline_dead"
-  },
-  "auto_fill_applied": {
-    "ts": "2026-09-14T12:05:53.353419Z",
-    "fields": [
-      "budget_total",
-      "totals"
-    ],
-    "validator_version": "s110-three-tier-v1"
-  },
-  "checkpoint_commit": "8e0bf77497656b35c8eefb1cb38caa74d30ac068",
-  "check_completed": true,
-  "carry_forwards_spawned_in_s178": [
-    "⛔ #1 NEXT SESSION — THE LONE-SHAPE RULE. Owner: 'a single primitive has ONE health... one hit to destroy by anyone' / 'for every time there's a single shape, it's always worth five'. NOT BUILT. Attempted twice, reverted twice. Design settled in S179_CARRY_FORWARD.md: new LONE_PRIMITIVE_POOL_FIFTHS=5 + a one-line Math.min cap in damage.ts gated on prim.bonds.size===0. PRIMITIVE_MAX_HP STAYS 70. The work is re-pinning ~13 fixtures across 7 files with REAL partner shapes (a sentinel bond id corrupts the recipe gates: 13 red -> 28 red).",
-    "BOSS REWORK, his numbers verbatim: Vlad life-sap 2 uses not 3; Warlord rage at 50% not 25% and doubles attack AND movement speed; direwolves up to 3 at a time, summon every 30s; Archdemon 'taken to hell' below 10% not 5%; Kraken KEEPS sonar and GAINS up to 6 tentacles (NEW, undesigned); Pharaoh locusts 50 damage each not 150 (he then said 'still very strong' — re-check after he plays); Whopper unchanged ('looks sick').",
-    "⚠ CORRECTION HE NEEDS FIRST: he believes the Archdemon's skills, the Kraken's sonar and the Pharaoh's Ra ritual are unbuilt. They ARE built and called every host tick (hostTick.ts:1830-1848). S179 ADJUSTS numbers; it does not build them. Only the Kraken tentacles are new.",
-    "VOLTKIN TV — two transition videos, ~EUR 20: (1) TV appears/breaks open + Voltkin CLIMBS OUT (he already has the climbing-out still — wire it, don't generate it), (2) damaged -> destroyed explosion. NO video between intact and damaged.",
-    "NO DAMAGE NUMBERS ON SCRAP — ruled. Design settled (pendingCreatureDeaths is the non-serialized per-tick precedent); only the set's lifetime is open. ~20 min.",
-    "CHARACTER SHEETS — deferred by him. Needs two answers first: which entity kinds ship first, and may an enemy sheet show LIVE health (that may cost wire fields + a protocol bump).",
-    "⛔ FIVE SWEEP LANES NEVER RUN — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by the org spend limit and never hand-run. They still owe a verdict.",
-    "RULED CLOSED, do not re-open: chain falloff halving (he re-derived 24/14/66 himself); no hurt state (R152 stands); spindle visual stays / pull gone; map edge approved; cornered archer needs NO new mechanic; stink tower fine as-is; NO protocol bump for stale tabs ('nobody cares')."
-  ],
-  "s179": {
-    "session_id": "S179",
-    "session_kind": "scoping",
-    "pdr_approved": false,
-    "unlock_source": null,
-    "priorities_approved": 0,
-    "implementation": "none - no source file was changed",
-    "files_changed_in_src": [],
-    "gates": {
-      "typecheck": 0,
-      "vitest": 0,
-      "vitest_counts": "4547 tests / 288 files",
-      "ci": "0 failures, 0 cancelled"
-    },
-    "sweep_lanes_now_verdicted": [
-      "determinism",
-      "four-sites",
-      "lifecycle",
-      "wire",
-      "hostmig"
-    ],
-    "confirmed_by_hand": [
-      "isUntargetable never re-checked on a held target by creatures (creatureAI.ts:463 is acquisition only; creatureLifecycle.ts has it only in a comment at :538; creatureAttack.ts zero) - defenderLifecycle.ts:159 is the fixed half",
-      "nextPulledSparkId four-sites violation - hashed at stateHashFull.ts:140/:469, sim-mutated at gathererLifecycle.ts:222, absent from save.ts entirely",
-      "damageNumbers.ts has no reset; world.primitives.clear() at gameState.ts:227 / gameMode.ts:425 / save.ts:1346 prints a number over every shape",
-      "SCRAP carry-forward design unworkable: number is a renderer-local diff (damageNumbers.ts:399) and SCRAP dispatches outside the ticker (main.ts:1025-1029 -> :603)",
-      "lone-shape rule MEASURED: exactly 13 failures across 7 files; files restored byte-exactly",
-      "boss: Archdemon/Kraken/Pharaoh skills already live; direwolf cap+interval already satisfied; rage already doubles both",
-      "S161 droneLifecycle:153 carry-forward REFUTED - already fixed"
-    ],
-    "owner_answered_not_built": "Warlord rage trigger 25->50, CLEAR stays 50 (his literal below-50). bossSkillsLate.test.ts:151-153 asserts CLEAR>TRIGGER and must be re-pinned when built.",
-    "cleanup": "removed src/state/__tmp_pulledid.test.ts (sweep-agent debris that was polluting the suite)",
-    "open_question_for_owner": "character sheets - does an ENEMY sheet show LIVE health? stats-only is local+cheap; live health may need wire fields + a protocol bump"
-  },
-  "not_approved": {
-    "lone_shape_rule": "owner wants to see the exact fix first - presented, awaiting his word",
-    "boss_ring_orphan": "NOT APPROVED - explained; optional if lone-shape ships",
-    "castle_gun_corpse": "CANCELLED by owner - he has never seen it",
-    "spark_id_counter": "NOT APPROVED - explained as latent, not observed",
-    "kraken_tentacles": "DEFERRED - owner: whole Kraken needs rework incl. video",
-    "voltkin_tv_art": "DEFERRED to next session - owner: Voltkin needs reworking on a lot of things"
-  }
+  "s179_status": "S179 CLOSED"
 }
