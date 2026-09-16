@@ -12,13 +12,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS } from '../constants.ts';
+import { CASTLE_ATTACK_RANGE, CASTLE_MAX_HP, PLAYER_COLORS, TURRET_ATTACK_RANGE } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { applySpawnCreature } from '../state/creatures/creatureLifecycle.ts';
-import { attackFifths, unitPoolFifths } from '../state/stats.ts';
+import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
+import { componentOf } from '../game/structure.ts';
+import { blueprintBill } from '../state/blueprints.ts';
+import { applyBuildBlueprint } from '../state/blueprintBuild.ts';
+import { makeCastleBank } from '../state/castleBank.ts';
+import { castleShotFifths } from '../state/castleGuns.ts';
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import { asPlayerId, type CreatureId } from '../types.ts';
 import { characterSheetModel, creatureDisplayName, statRowsFor } from './characterSheetModel.ts';
@@ -163,5 +168,72 @@ describe('characterSheetModel — the card a player reads', () => {
     const id = put(w, T9_BOSS_TYPE.vampires);
     const view = characterSheetModel(w, P0, { kind: 'creature', id })!;
     expect(Object.keys(view)).not.toContain('skills');
+  });
+});
+
+describe('the BUILDING and CASTLE cards — the half the owner found empty', () => {
+  /**
+   * ⛔ HIS REPORT, VERBATIM: *"I don't see the tower stats … there's no nothing."* The building card
+   * shipped with `stats: []`. This is the test that would have caught it.
+   */
+  it('gives a building real stats, not an empty list', () => {
+    const w = world2();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('laserTurret')) {
+      bank[type as number] = (bank[type as number] ?? 0) + count;
+    }
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre: { x: 300, y: 300 } });
+    const anyPrim = [...w.primitives.values()][0]!;
+    const view = characterSheetModel(w, P0, { kind: 'structure', primitiveId: anyPrim.id })!;
+    expect(view).not.toBeNull();
+    expect(view.stats.length).toBeGreaterThan(0);
+
+    // The connector row IS the building's health, on the one ladder — derived, never typed.
+    const comp = componentOf(anyPrim, w.primitives, w.bonds);
+    const connectors = view.stats.find((r) => r.label === 'CONNECTORS')!;
+    expect(connectors.points).toBe(comp.bondIds.size);
+    expect(connectors.derived).toBe(`${structurePoolFifths(comp.bondIds.size)} pool`);
+    expect(view.health.max).toBe(structurePoolFifths(comp.bondIds.size));
+  });
+
+  it('shows a shooting tower its OWN attack rows, off the shipped config', () => {
+    const w = world2();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('laserTurret')) {
+      bank[type as number] = (bank[type as number] ?? 0) + count;
+    }
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre: { x: 300, y: 300 } });
+    const anyPrim = [...w.primitives.values()][0]!;
+    const view = characterSheetModel(w, P0, { kind: 'structure', primitiveId: anyPrim.id })!;
+    const range = view.stats.find((r) => r.label === 'RANGE');
+    // A turret is present in this fixture, so the emplacement rows must be too.
+    if (range !== undefined) {
+      expect(range.points).toBe(TURRET_ATTACK_RANGE);
+      const atk = view.stats.find((r) => r.label === 'ATK')!;
+      expect(atk.derived).toContain('a shot');
+    }
+  });
+
+  /** ⭐ *"Even the castle, it should have the same thing … with the castle stats."* */
+  it('gives the castle a card with its real pool and its real stats', () => {
+    const w = world2();
+    const view = characterSheetModel(w, P0, { kind: 'castle', seat: P0 })!;
+    expect(view).not.toBeNull();
+    expect(view.title).toBe('CASTLE');
+    expect(view.health.max).toBe(CASTLE_MAX_HP);
+    expect(view.health.cur).toBe(w.players.get(P0)!.castleHp);
+    expect(view.stats.find((r) => r.label === 'SHOT')!.points).toBe(castleShotFifths());
+    expect(view.stats.find((r) => r.label === 'RANGE')!.points).toBe(CASTLE_ATTACK_RANGE);
+  });
+
+  it("shows an ENEMY castle the same card, so you can read how close they are to falling", () => {
+    const w = world2();
+    w.players.get(P1)!.castleHp = 400;
+    const view = characterSheetModel(w, P0, { kind: 'castle', seat: P1 })!;
+    expect(view.subtitle).toContain('ENEMY');
+    expect(view.health.cur).toBe(400);
+    expect(view.health.max).toBe(CASTLE_MAX_HP);
   });
 });

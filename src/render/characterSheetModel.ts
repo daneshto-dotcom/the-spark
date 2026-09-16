@@ -44,7 +44,16 @@
  * reason the footer band's layout lives in free functions.
  */
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  CASTLE_ATTACK_RANGE,
+  CASTLE_FIRE_INTERVAL_TICKS,
+  CASTLE_MAX_HP,
+  PHYSICS_HZ,
+} from '../constants.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { castleShotFifths } from '../state/castleGuns.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -62,7 +71,13 @@ import { structureActionModel, type StructureActionView } from './structurePanel
 export type SheetTarget =
   | { readonly kind: 'creature'; readonly id: CreatureId }
   | { readonly kind: 'defender'; readonly id: DefenderId }
-  | { readonly kind: 'structure'; readonly primitiveId: PrimitiveId };
+  | { readonly kind: 'structure'; readonly primitiveId: PrimitiveId }
+  /**
+   * ⭐ S180 (owner playtest) — **THE CASTLE GETS ONE TOO.** *"Even the castle, it should have the
+   * same thing, the unit stats, but with the gatherer, with the speed, with everything, with the
+   * castle stats. There's no nothing."* Keyed by SEAT because there is exactly one per player.
+   */
+  | { readonly kind: 'castle'; readonly seat: PlayerId };
 
 /**
  * How the little picture is obtained. Owner: *"you can just take like from the generated images,
@@ -79,7 +94,9 @@ export type PortraitSpec =
   /** A structure the codex knows — drawn as the recipe emblem, exactly as the codex draws it. */
   | { readonly kind: 'emblem'; readonly recipeId: string }
   /** Helga and the like: a unit-class defender with its own art. */
-  | { readonly kind: 'defenderFrame'; readonly defenderKind: string };
+  | { readonly kind: 'defenderFrame'; readonly defenderKind: string }
+  /** The seat's keep, drawn in its race's castle art. */
+  | { readonly kind: 'castleFrame'; readonly race: RaceId | null };
 
 export interface SheetHealth {
   readonly cur: number;
@@ -106,7 +123,8 @@ export interface SheetHealth {
  * > HP row is."*
  */
 export interface SheetStatRow {
-  readonly label: 'ATK' | 'PEN' | 'HP' | 'DEF';
+  /** 'ATK' | 'PEN' | 'HP' | 'DEF' for a unit; a building and the castle add their own rows. */
+  readonly label: string;
   readonly points: number;
   readonly derived: string | null;
 }
@@ -253,6 +271,7 @@ export function characterSheetModel(
 ): CharacterSheetView | null {
   if (target.kind === 'creature') return creatureSheet(world, seat, target);
   if (target.kind === 'defender') return defenderSheet(world, seat, target);
+  if (target.kind === 'castle') return castleSheet(world, seat, target);
   return structureSheet(world, seat, target);
 }
 
@@ -341,7 +360,25 @@ function structureSheet(
   // planner is the reducer's own, never a lookalike: see this module's docblock.
   const actions = mine ? structureActionModel(world, seat, target.primitiveId) : null;
 
-  const stats: SheetStatRow[] = [];
+  /*
+   * ⛔ S180 (owner playtest) — **THIS ARRAY WAS EMPTY AND THAT WAS THE BUG HE REPORTED.** *"I don't
+   * see the tower stats … there's no nothing."* A building's card was a name, a portrait and a bar.
+   *
+   * What a building HAS, on the one ladder: its connector count is both its HP and its DEF, so
+   * CONNECTORS is the honest first row and the pool beside it is the same arithmetic the sim
+   * subtracts. A tower that also SHOOTS carries its emplacement's own attack rows, read from the
+   * shipped config rather than restated.
+   */
+  const stats: SheetStatRow[] = [
+    { label: 'CONNECTORS', points: comp.bondIds.size, derived: `${pool} pool` },
+    { label: 'SHAPES', points: comp.primitiveIds.size, derived: null },
+  ];
+  const emplacement = towerStatsIn(world, comp.primitiveIds);
+  if (emplacement !== null) {
+    stats.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });
+    stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
+    stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
+  }
   const h = heightFor(stats.length, owned !== null);
   return {
     target,
@@ -356,6 +393,57 @@ function structureSheet(
     actions,
     rect: rectFor(prim.pos, h),
   };
+}
+
+/**
+ * ⭐ S180 — THE CASTLE'S OWN CARD: its health on the same bar as everything else, and the stats it
+ * actually has. `CASTLE_MAX_HP` is the ONE deliberate exception to the ladder (see `SPARK_CANON.md`),
+ * so the pool is printed as the flat number it is rather than dressed up as `hp × def`.
+ */
+function castleSheet(
+  world: World,
+  seat: PlayerId,
+  target: { readonly kind: 'castle'; readonly seat: PlayerId },
+): CharacterSheetView | null {
+  const p = world.players.get(target.seat);
+  if (p === undefined) return null;
+  const mine = target.seat === seat;
+  const anchor = castleAnchor(target.seat as unknown as number, world.layout);
+  const stats: SheetStatRow[] = [
+    { label: 'SHOT', points: castleShotFifths(), derived: 'a shot' },
+    { label: 'RANGE', points: CASTLE_ATTACK_RANGE, derived: 'px' },
+    { label: 'RELOAD', points: Math.round(CASTLE_FIRE_INTERVAL_TICKS / PHYSICS_HZ), derived: 'seconds' },
+    { label: 'REGEN', points: p.castleRegenLevel, derived: p.castleRegenLevel === 0 ? 'not bought' : 'level' },
+  ];
+  return {
+    target,
+    title: 'CASTLE',
+    subtitle: `${mine ? 'YOURS' : 'ENEMY'} · ${(p.raceId ?? 'unaligned').toUpperCase()}`,
+    portrait: { kind: 'castleFrame', race: p.raceId ?? null },
+    health: {
+      cur: Math.max(0, p.castleHp),
+      max: CASTLE_MAX_HP,
+      frozen: isConcealed(anchor.x, anchor.y, target.seat),
+    },
+    stats,
+    owned: null,
+    actions: null,
+    rect: rectFor(anchor, heightFor(stats.length, false)),
+  };
+}
+
+/** The shooting emplacement inside a structure, if it has one — a turret's or a stink tower's. */
+function towerStatsIn(
+  world: World,
+  members: ReadonlySet<PrimitiveId>,
+): { atk: number; pen: number; range: number } | null {
+  for (const d of world.defenders.values()) {
+    if (!members.has(d.anchorPrimitiveId)) continue;
+    const cfg = getDefenderConfig(d.kind as Parameters<typeof getDefenderConfig>[0]);
+    if (cfg === undefined) continue;
+    return { atk: cfg.atk, pen: cfg.pen, range: cfg.attackRange };
+  }
+  return null;
 }
 
 /**

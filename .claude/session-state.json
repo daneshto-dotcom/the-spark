@@ -81,6 +81,26 @@
         "CASTLE POOL — he said 2500; CASTLE_MAX_HP is 1500. Needs his word: raise it, or was 2500 a misremember.",
         "CASTLE DAMAGE IS A FLAT 6 FOR EVERY ATTACKER (GOBLIN_DAMAGE_VS_CASTLE = 6) — which CONTRADICTS the rule he just restated (\"if it has 10 attack and 10 penetration like Vlad then it hits for 150 a swing\"). This is the LAST surviving instance of the GOBLIN_DAMAGE_VS_PRIMITIVE defect class he blew up about in S177."
       ]
+    },
+    {
+      "id": "S180-A4",
+      "when": "2026-09-16",
+      "source": "owner playtest of the shipped build — he is angry, and he is right",
+      "title": "The character sheet shipped HALF DONE. Finish it.",
+      "what_he_saw": "Clicking his own Souleater tower gave the old FIX/SCRAP popover and NO card at all.",
+      "defects_confirmed_by_reading_my_own_code": [
+        "MINE — `handleStructureSelect` never opens the card. The edit that was supposed to add `characterSheet.select({kind:\"structure\"})` beside `structurePanel.select(hit)` SILENTLY FAILED TO APPLY (line-ending mismatch, the same way the setter did earlier in the session) and I did not re-verify it. So a click on your own building returns true at the popover and the card is never selected. This is exactly his screenshot.",
+        "MINE — a building card carries NO STATS AT ALL. `structureSheet` sets `const stats: SheetStatRow[] = []`. Even when it opens, it is a name, a portrait and a health bar. That is most of \"I do not see the tower stats\".",
+        "MINE — there is NO CASTLE SHEET. Not built, not designed, never in the PDR.",
+        "MINE — tower stats (attack, penetration, range, cadence) are shown nowhere."
+      ],
+      "not_mine_but_he_believes_it_is": "The SOUL feed chip on the tier-3 tower is NOT new. It shipped in S166 (40e2168) with the tier-3 race towers. `structurePanel.ts` was not touched this session at all. He says he did not ask for it — that is a separate ruling to take, not a regression to fix.",
+      "new_scope_he_stated": [
+        "The CASTLE gets a sheet: castle health, castle stats, AND the functions it already has (buy gatherer, speed, regen). \"even the castle, it should have the same thing, the unit stats, but with the gatherer, with the speed, with everything, with the castle stats.\"",
+        "A TOWER must show its own stats, not just its connector health.",
+        "It must work for enemy buildings and enemy creatures during FIGHT."
+      ],
+      "process_lesson": "I ran typecheck and the full suite and both were green, because a silently-dropped patch to an untested call path breaks NOTHING a test watches. Green gates are not proof a feature is wired. VERIFY THE WIRE ITSELF — grep for the line you believe you added."
     }
   ],
   "boot_preflight": {

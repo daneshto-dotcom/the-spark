@@ -128,10 +128,17 @@ export interface FooterBandLike {
  * for the reason the note above gives for `StructurePanelLike`: a structural type keeps this layer
  * free of the renderer, and `tsc` still catches a drift at `setCharacterSheet`.
  */
+/** Everything the card can be pointed at. Kept structural so this layer stays free of the renderer. */
+export type SheetSelectable =
+  | { readonly kind: 'creature'; readonly id: CreatureId }
+  | { readonly kind: 'structure'; readonly primitiveId: PrimitiveId }
+  | { readonly kind: 'defender'; readonly id: DefenderId }
+  | { readonly kind: 'castle'; readonly seat: PlayerId };
+
 export interface CharacterSheetLike {
-  select(target: { kind: 'creature'; id: CreatureId } | { kind: 'structure'; primitiveId: PrimitiveId } | { kind: 'defender'; id: DefenderId } | null): void;
+  select(target: SheetSelectable | null): void;
   selection(): unknown;
-  ownedRowAt(x: number, y: number): { kind: 'creature'; id: CreatureId } | { kind: 'structure'; primitiveId: PrimitiveId } | { kind: 'defender'; id: DefenderId } | null;
+  ownedRowAt(x: number, y: number): SheetSelectable | null;
   isOver(x: number, y: number): boolean;
 }
 
@@ -631,6 +638,19 @@ export class Controls {
     }
     if (this.characterSheet.isOver(this.cursor.x, this.cursor.y)) return true;
 
+    /*
+     * ⭐ S180 — AN ENEMY KEEP IS CLICKABLE TOO. `handleCastleClick` above only ever tests YOUR seat,
+     * because the castle panel is yours alone; the card has no such limit — reading an opponent's
+     * castle health is the point of it.
+     */
+    for (const id of this.world.players.keys()) {
+      const seatN = id as unknown as number;
+      if (isPointInKeep(this.cursor.x, this.cursor.y, seatN, this.world.layout)) {
+        this.characterSheet.select({ kind: 'castle', seat: id });
+        return true;
+      }
+    }
+
     let bestCreature: CreatureId | null = null;
     let bestDist = CREATURE_PICK_DIST;
     for (const c of this.world.creatures.values()) {
@@ -675,6 +695,17 @@ export class Controls {
       return false;
     }
     this.structurePanel.select(hit);
+    /*
+     * ⭐ S180 (owner) — **AND THE CARD OPENS ON THE SAME CLICK.** His ruling is that the card and the
+     * popover are ONE thing: *"click on your own tower, you can see the character sheet with the fix
+     * scrape as today … you're just adding those two options to there."*
+     *
+     * ⛔ THIS LINE WAS WRITTEN ONCE AND SILENTLY DID NOT APPLY, and typecheck plus 4,588 tests all
+     * stayed green because nothing covers this call path. The owner found it in the first minute of
+     * play: a click on his own tower gave the popover and no card at all. Green gates are not proof
+     * a feature is wired.
+     */
+    this.characterSheet?.select({ kind: 'structure', primitiveId: hit });
     return true;
   }
 
@@ -773,6 +804,10 @@ export class Controls {
       )
     ) {
       this.castlePanel.toggle(this.playerId as unknown as number);
+      // ⭐ S180 (owner playtest) — *"even the castle, it should have the same thing … with the castle
+      // stats. There's no nothing."* The panel keeps every function it already has; the card adds
+      // the health and the stats it never showed.
+      this.characterSheet?.select({ kind: 'castle', seat: this.playerId });
       return true;
     }
     // A click anywhere else dismisses an open panel, then falls through so the same click still acts
