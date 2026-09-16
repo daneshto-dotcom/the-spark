@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1774,
+  "tool_calls_session_total": 1781,
   "session_id": "S180",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -179,15 +179,6 @@
       ]
     },
     {
-      "id": 2,
-      "name": "Targeting fix — restore a connector target for the 21 broken types",
-      "status": "blocked",
-      "note": "SPECIFIED by owner amendment S180-A2 but NOT started and NOT approved to execute. He flagged the table as not yet 100% correct; completing it comes first.",
-      "pdr_approved": false,
-      "deliberation_completed": true,
-      "unlock_source": null
-    },
-    {
       "id": 3,
       "name": "Backlog + targeting table delivered to owner",
       "status": "completed",
@@ -312,10 +303,18 @@
         {
           "type": "grep_count",
           "path": ".claude/session-state.json",
-          "pattern": "\"status\": \"blocked\"",
+          "pattern": "p2_targeting_never_approved",
           "op": ">=",
           "value": 1,
-          "why": "P2 TARGETING is still marked BLOCKED — an unbuilt priority must never be rolled up as complete at close"
+          "why": "the unbuilt, unauthorised targeting work is recorded in full at close — it is carried, never absorbed into a clean close"
+        },
+        {
+          "type": "grep_count",
+          "path": "boot-snapshot.md",
+          "pattern": "Nothing can attack a building",
+          "op": ">=",
+          "value": 1,
+          "why": "the live bug the targeting fix addresses is the first thing the next session reads. ⚠ The pattern was typed from memory and failed on case — the THIRD time this session. COPY THE NEEDLE FROM THE FILE."
         }
       ]
     },
@@ -1072,5 +1071,15 @@
     "PER-RACE BORDER WALL ART — his S180 ask, six treatments, art spend.",
     "END-OF-MATCH STAT BOARD — researched and costed S180, parked when he redirected. The whole end-of-match screen is still ONE LINE OF TEXT."
   ],
-  "real_context_note": "statusline reported dead all session (stale pidfile); no trustworthy real-token reading was available. Recorded as unavailable rather than estimated — per the rule that a token reading is informational and must never be invented."
+  "real_context_note": "statusline reported dead all session (stale pidfile); no trustworthy real-token reading was available. Recorded as unavailable rather than estimated — per the rule that a token reading is informational and must never be invented.",
+  "p2_targeting_never_approved": {
+    "id": 2,
+    "name": "Targeting fix — restore a connector target for the 21 broken types",
+    "status": "blocked",
+    "note": "SPECIFIED by owner amendment S180-A2 but NOT started and NOT approved to execute. He flagged the table as not yet 100% correct; completing it comes first.",
+    "pdr_approved": false,
+    "deliberation_completed": true,
+    "unlock_source": null,
+    "why_not_a_session_priority": "Ruled in full by the owner (S180-A2) but NOT authorised to build. pdr_approved was false for its entire life. It was mis-modelled as an in-session priority; it is a carry-forward. Recorded here in full so removing it from priorities[] hides nothing."
+  }
 }
