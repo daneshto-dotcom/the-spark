@@ -351,6 +351,31 @@ export class ChewerRenderer {
    * the direction of travel. `nowSec` drives ONLY the cosmetic graphite jitter +
    * leg wiggle (render-only wall-clock; the hop arc itself is physics-keyed).
    */
+  /**
+   * ⭐⭐ S181 (owner) — **THE PENCIL CHEWER'S PORTRAIT, PAINTED RATHER THAN LOOKED UP.**
+   *
+   * > *"Look at the pencil chewer. Why don't you just put the pencil chewer picture? You didn't put
+   * > his picture there. We actually have him, the character, the hero, how he looks."*
+   *
+   * ⚠ ONE CORRECTION TO HIM, AND IT IS WHY THIS IS A PAINTER AND NOT AN ATLAS ACCESSOR: the chewer
+   * has NO sprite sheet. It has never had one. Everything the player sees of it — the graphite body,
+   * the buck overbite, the stalk eyes, the hop — is drawn procedurally by `drawChewer` in this file.
+   * The S181 audit checked every creature type: the chewer, the lightning drone and the locust cloud
+   * are the only three with no atlas at all.
+   *
+   * ⭐ SO THE PORTRAIT DRAWS THE REAL PUPPET. It is the same function the board uses, at a neutral
+   * pose, so the face on the card IS the creature he is looking at rather than an approximation —
+   * and it costs no art. If a sheet is ever generated for him, this becomes an atlas accessor like
+   * every other and nothing else changes.
+   *
+   * ⚠ NEUTRAL PARAMETERS, CHOSEN NOT DEFAULTED: `phase` 0 puts him on the ground rather than
+   * mid-hop (an airborne portrait reads as a mistake), `face` +1 looks right in a left-anchored box,
+   * `lean` 0 stands him up, and `nowSec` 0 freezes the crackle so the portrait does not shimmer.
+   */
+  drawPortraitInto(g: Graphics, x: number, y: number): void {
+    this.drawChewer(g, x, y, 0, 1, 0, 0, { id: 0 as unknown as CreatureId }, 1);
+  }
+
   private drawChewer(
     g: Graphics,
     px: number,

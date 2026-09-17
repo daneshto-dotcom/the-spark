@@ -51,6 +51,9 @@ import {
   CASTLE_FIRE_INTERVAL_TICKS,
   CASTLE_MAX_HP,
   PHYSICS_HZ,
+  RACE_TOWER_EMIT_INTERVAL_TICKS,
+  ALL_SPARK_TYPES,
+  SparkType,
 } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { castleShotFifths } from '../state/castleGuns.ts';
@@ -63,7 +66,9 @@ import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stat
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
-import { codexCopyFor } from './codexPresentation.ts';
+import { codexCopyFor, type EmblemSpec } from './codexPresentation.ts';
+import { blueprintBill } from '../state/blueprints.ts';
+import { RACE_TOWER_UNIT, raceForTowerId } from '../state/raceTowerIds.ts';
 import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
@@ -111,6 +116,39 @@ export type PortraitSpec =
    * for having something to show.
    */
   | { readonly kind: 'towerFrame'; readonly atlasBase: string; readonly recipeId: string }
+  /**
+   * ⭐⭐ S181 (owner) — **A BUILDING WITH ITS OWN ONE-OFF ATLAS**, which is every art-backed building
+   * that is NOT one of the twelve race towers: the stink tower and the Voltkin TV.
+   *
+   * > *"Why is it showing the codex shape structure? It should show the stink tower picture because
+   * > we do have a picture for it … When we have an actual tower, you don't put a codex."*
+   *
+   * ⛔ WHY NOT `towerFrame`. `TowerArt` requires a `RaceId` and a `tier: 3 | 9`, and
+   * `voltkinTowerRenderer`'s own docblock already refused the widening: *"widening either to fit
+   * would ripple into `destroyAtlasBase` and both row tables for one structure."* A named building
+   * has neither a race nor a tier, so it gets a kind that carries neither.
+   *
+   * `recipeId` rides along for the same reason `towerFrame` carries it: the atlas loads lazily, so
+   * the first frames after a card opens fall back to the codex emblem rather than an empty plate.
+   */
+  | { readonly kind: 'namedBuildingFrame'; readonly building: 'stinkTower' | 'voltkin'; readonly recipeId: string }
+  /**
+   * ⭐⭐ S181 (owner) — **A CREATURE WITH NO SHEET, PAINTED FROM ITS OWN PUPPET.**
+   *
+   * > *"Look at the pencil chewer. Why don't you just put the pencil chewer picture? … the electric
+   * > drone, yeah, lightning drone too. It doesn't have the picture, even though there is a
+   * > character."*
+   *
+   * ⚠ HE BELIEVES THESE HAVE ART AND THEY DO NOT — that is the one place his report is wrong, and
+   * it is worth being exact about because the fix differs. The S181 audit swept every `CreatureType`:
+   * the pencil chewer, the lightning drone and the locust cloud are the ONLY three with no atlas.
+   * Everything the player sees of them is drawn procedurally every frame.
+   *
+   * ⭐ SO THEY ARE PAINTED, NOT LOOKED UP, and the result is what he asked for anyway: the portrait
+   * is the real puppet at a neutral pose, so the face on the card IS the creature. `portraitSource`
+   * answers null for this kind by construction — a painter channel handles it instead.
+   */
+  | { readonly kind: 'proceduralFrame'; readonly creature: 'chewer' | 'lightningDrone' }
   /** Helga and the like: a unit-class defender with its own art. */
   | { readonly kind: 'defenderFrame'; readonly defenderKind: string }
   /** The seat's keep, drawn in its race's castle art. */
@@ -193,6 +231,55 @@ export interface CharacterSheetView {
    * makes it *"distinct"* at a glance and is the whole point of the seat colour being race identity.
    */
   readonly accent: number | null;
+
+  /**
+   * ⭐⭐ S181 (owner) — **WHAT THIS THING IS, IN THE EMPTY SPACE UNDER THE HEALTH.**
+   *
+   * > *"there should be a description of the tower. So maybe we have all this empty space just under
+   * > the tower health, underneath it. You can just say like spawning bats every this much seconds,
+   * > for example."*
+   *
+   * ⚠ IT IS THE CODEX'S OWN `recipe` LINE, NOT A SECOND BODY OF COPY. `CodexCopy.recipe` is already
+   * *"precise build recipe + what it does"*, already ≤150 chars, already written for every entry and
+   * already pinned by the codex tests. Authoring a parallel description per building is how the two
+   * drift apart, and the codex would be the one that rots because nobody reads it mid-match.
+   *
+   * ⭐ THE CADENCE IS APPENDED, DERIVED FROM THE SHIPPED CONSTANT. His example — *"spawning bats
+   * every this much seconds"* — is a NUMBER the codex line does not carry, so it is computed from
+   * `RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ` rather than written down anywhere.
+   */
+  readonly description: string | null;
+
+  /**
+   * ⭐⭐ S181 (owner) — **WHAT IT TAKES TO BUILD, AS A TINY GLYPH ABOVE THE HEALTH BAR.**
+   *
+   * > *"above the health bar, another good thing to have is how many connectors it takes to build
+   * > it, the exact kind. So maybe a little picture on the right side, just like you have in the
+   * > codex, in the right corner above the health bar, that shows what it takes to build it, and
+   * > then to the left of it maybe like an explanation. So like three triangles built in a triangle."*
+   *
+   * So: the codex EMBLEM in the top-right corner, and the "explanation" to its left is the build
+   * bill in words. Both come from the codex, which is exactly the *"just like you have in the
+   * codex"* he asked for.
+   *
+   * ⚠ NULL IS A REAL CASE, NOT A HOLE. `CodexCopy.emblem` is deliberately absent when a recipe *"is
+   * not expressible as a ring or a star"* — Helga's two-leaf hub, Voltkin's chain. The card then
+   * shows the words alone rather than an invented shape.
+   */
+  readonly buildEmblem: EmblemSpec | null;
+  /** The words beside that glyph — e.g. "3 TRIANGLES". Null when the recipe is not a known one. */
+  readonly buildBill: string | null;
+
+  /**
+   * ⭐⭐ S181 (owner) — **THE CAPTION OVER THE FEED STRIP.**
+   *
+   * > *"underneath where it shows like triangle, where you build bats, and people need to know what
+   * > it does. So just be like 'to build more bats' or something. Click this."*
+   *
+   * Null unless this card is showing a tower that can actually be fed, so the line never appears
+   * over a strip that is not there.
+   */
+  readonly feedHint: string | null;
   /** Where the card body goes. The action row, when there is one, keeps its shipped geometry. */
   readonly rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
 }
@@ -310,6 +397,113 @@ export function statValueColumnPx(
 }
 
 /**
+ * ⭐⭐ S181 (owner) — PURE — the one-line "what is this and what does it do" under the health bar,
+ * and the build recipe above it.
+ *
+ * > *"there should be a description of the tower … you can just say like spawning bats every this
+ * > much seconds"* and *"above the health bar … a little picture on the right side, just like you
+ * > have in the codex … and then to the left of it maybe like an explanation. So like three
+ * > triangles built in a triangle."*
+ *
+ * ⚠ EVERYTHING HERE COMES FROM THE CODEX OR A SHIPPED CONSTANT. Nothing is authored twice: the prose
+ * is `CodexCopy.recipe`, the glyph is `CodexCopy.emblem`, the bill is `blueprintBill`, and the
+ * cadence is derived from `RACE_TOWER_EMIT_INTERVAL_TICKS`. A second body of per-building copy is how
+ * the card and the codex would start disagreeing, and the codex would lose because nobody reads it
+ * mid-match.
+ */
+/**
+ * A card with nothing to say about construction: a creature, a defender, the keep. Spelled as one
+ * constant so the four branches cannot drift into three different shapes of "no info".
+ */
+/**
+ * PURE — the caption over a feedable tower's shape strip, or null.
+ *
+ * ⚠ THE GOBLIN TOWER GETS NONE, DELIBERATELY. Its six shapes each produce a DIFFERENT goblin
+ * (`fedCreatureType`), so a single "to build more X" line would be false for five of the six. The
+ * shapes teaching their own outputs is that tower's mechanic; a summary would flatten it.
+ */
+export function feedHintFor(recipeId: string | null): string | null {
+  if (recipeId === null) return null;
+  const race = raceForTowerId(recipeId as GodlyId);
+  if (race === null) return null;
+  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[RACE_TOWER_UNIT[race]]}S`;
+}
+
+const NO_BUILD_INFO = { description: null, buildEmblem: null, buildBill: null } as const;
+
+export function buildInfoFor(recipeId: string | null): {
+  description: string | null;
+  buildEmblem: EmblemSpec | null;
+  buildBill: string | null;
+} {
+  if (recipeId === null) {
+    // A hand-bonded freeform structure has no recipe, so there is nothing true to say about it.
+    return { description: null, buildEmblem: null, buildBill: null };
+  }
+  const copy = codexCopyFor(recipeId);
+  let description: string | null = copy.recipe ?? null;
+
+  /*
+   * ⭐ HIS OWN EXAMPLE, and the only part the codex cannot supply: *"spawning bats every this much
+   * seconds"*. A race tower's cadence is a constant, so the sentence is derived rather than written.
+   */
+  const race = raceForTowerId(recipeId as GodlyId);
+  if (race !== null) {
+    const every = Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ);
+    const unit = CREATURE_NAME[RACE_TOWER_UNIT[race]];
+    description = `Spawns a ${unit.toLowerCase()} every ${every}s.`;
+  }
+
+  let buildBill: string | null = null;
+  try {
+    const bill = blueprintBill(recipeId as GodlyId);
+    const parts: string[] = [];
+    for (const t of ALL_SPARK_TYPES) {
+      const n = bill.get(t) ?? 0;
+      if (n > 0) parts.push(`${n} ${SPARK_WORD[t]}${n > 1 ? 'S' : ''}`);
+    }
+    if (parts.length > 0) buildBill = parts.join(' + ');
+  } catch {
+    /*
+     * ⚠ NOT EVERY RECIPE IS A BLUEPRINT. `blueprintBill` indexes `BLUEPRINTS[id]` directly and
+     * throws for anything absent, which is the honest answer for a structure the player welded by
+     * hand or a recipe with no stamp. Swallowed to null rather than crashing a card mid-match.
+     */
+  }
+  return { description, buildEmblem: copy.emblem ?? null, buildBill };
+}
+
+/** Player-facing word for each shape, for the build bill. Lower case is applied at the call site. */
+const SPARK_WORD: Readonly<Record<SparkType, string>> = {
+  [SparkType.Dot]: 'DOT',
+  [SparkType.Line]: 'BAR',
+  [SparkType.Triangle]: 'TRIANGLE',
+  [SparkType.Square]: 'SQUARE',
+  [SparkType.Circle]: 'CIRCLE',
+  [SparkType.Spiral]: 'SPIRAL',
+};
+
+/**
+ * ⭐⭐ S181 — PURE — which portrait a CREATURE shows: its sprite sheet, or its own procedural puppet
+ * for the three types that have never had a sheet.
+ *
+ * ⚠ THE LIST IS SHORT AND EXPLICIT BECAUSE IT IS A FACT ABOUT THE ART, NOT A RULE. `goblinRenderer`
+ * returns null for any type it has no atlas key for, which is indistinguishable from "the atlas has
+ * not loaded yet" — so the card could not tell a missing sheet from a slow fetch and drew `'…'` for
+ * both. Naming the three makes the difference explicit, and the audit that produced the list swept
+ * every `CreatureType` rather than the two the owner happened to notice.
+ *
+ * ⚠ LOCUST CLOUD IS DELIBERATELY NOT HERE. It is also procedural, but the canon records that it
+ * *"cannot be targeted back"* — so no card can be opened on one and a portrait would be unreachable
+ * code. Named so the omission reads as a decision.
+ */
+export function portraitForCreature(type: CreatureType, race: RaceId | null): PortraitSpec {
+  if (type === 'chewer') return { kind: 'proceduralFrame', creature: 'chewer' };
+  if (type === 'lightningDrone') return { kind: 'proceduralFrame', creature: 'lightningDrone' };
+  return { kind: 'creatureFrame', creatureType: type, race };
+}
+
+/**
  * ⭐⭐ S181 (owner) — PURE — which portrait a structure shows: its finished ART when it has any, the
  * codex emblem when it does not.
  *
@@ -335,9 +529,21 @@ export function portraitForStructure(recipeId: string | null): PortraitSpec {
    * already total over strings.
    */
   const art = towerArtForRecipe(recipeId as GodlyId);
-  return art === null
-    ? { kind: 'emblem', recipeId }
-    : { kind: 'towerFrame', atlasBase: art.atlasBase, recipeId };
+  if (art !== null) return { kind: 'towerFrame', atlasBase: art.atlasBase, recipeId };
+  /*
+   * ⭐⭐ S181 (owner) — **THE NAMED BUILDINGS THAT HAVE ART BUT ARE NOT RACE TOWERS.** His report was
+   * the stink tower; the S181 audit then found the Voltkin TV was worse off still, falling past the
+   * emblem arm entirely to a literal `'…'` because its codex entry carries no emblem.
+   *
+   * ⚠ A SHORT EXPLICIT LIST, and that is deliberate rather than lazy. `towerArtForRecipe` can answer
+   * for the race towers because they are generated from one table; these two are one-off sheets with
+   * one-off renderers, so there is nothing to derive from. It is two entries, and a third would be
+   * one line — but the moment a THIRD appears, that is the signal to give these renderers a shared
+   * accessor interface instead of extending this.
+   */
+  if (recipeId === 'stinkTower') return { kind: 'namedBuildingFrame', building: 'stinkTower', recipeId };
+  if (recipeId === 'voltkin') return { kind: 'namedBuildingFrame', building: 'voltkin', recipeId };
+  return { kind: 'emblem', recipeId };
 }
 
 /**
@@ -461,12 +667,38 @@ export function layoutSheetActions(
 }
 
 /** Height of a card carrying these parts. Derived, so nothing has to be kept in sync by hand. */
-function heightFor(stats: number, owned: boolean, actions: readonly { kind: string }[] = []): number {
+function heightFor(
+  stats: number,
+  owned: boolean,
+  actions: readonly { kind: string }[] = [],
+  extras = 0,
+): number {
   return (
     PAD + HEADER_H + PORTRAIT + 6 + BAR_H + 8 + stats * ROW_H + (owned ? OWNED_H + 6 : 0) +
-    actionBlockHeight(actions) + PAD
+    extras + actionBlockHeight(actions) + PAD
   );
 }
+
+/**
+ * ⭐ S181 — height the build-recipe strip and the description need, or 0 when there is neither.
+ *
+ * ⚠ DERIVED, so the card cannot clip them. `heightFor` not knowing about a new block is exactly how
+ * the FIX/SCRAP row came to be computed and never drawn earlier this session — nothing looked
+ * clipped because no space was reserved for it in the first place.
+ */
+export function buildInfoHeight(info: {
+  description: string | null;
+  buildBill: string | null;
+}): number {
+  let h = 0;
+  if (info.buildBill !== null) h += BUILD_ROW_H;
+  if (info.description !== null) h += DESC_ROW_H;
+  return h;
+}
+
+const BUILD_ROW_H = 30;
+/** Two lines at 10px with leading — `CodexCopy.recipe` is capped at 150 chars and wraps to two. */
+const DESC_ROW_H = 30;
 
 /**
  * Place the card above `anchor`, clamped so it is never half off the board.
@@ -546,12 +778,14 @@ function creatureSheet(
     target,
     title: creatureDisplayName(c.type),
     subtitle: `${tierOf(c.type)} · ${(race ?? 'unaligned').toUpperCase()}` + (c.ownerPlayerId === seat ? '' : ' · ENEMY'),
-    portrait: { kind: 'creatureFrame', creatureType: c.type, race },
+    portrait: portraitForCreature(c.type, race),
     health: { cur: Math.max(0, c.ehp), max, frozen },
     stats,
     owned: null,
     actions: null,
     accent: accentFor(world, c.ownerPlayerId),
+    ...NO_BUILD_INFO,
+    feedHint: null,
     rect: rectFor(c.pos, h),
   };
 }
@@ -583,6 +817,8 @@ function defenderSheet(
     owned: null,
     actions: null,
     accent: accentFor(world, d.ownerPlayerId),
+    ...NO_BUILD_INFO,
+    feedHint: null,
     rect: rectFor(d.pos, h),
   };
 }
@@ -635,7 +871,10 @@ function structureSheet(
     stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
     stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
   }
-  const h = heightFor(stats.length, owned !== null, actions?.buttons ?? []);
+  const info = buildInfoFor(recipeId);
+  const h = heightFor(
+    stats.length, owned !== null, actions?.buttons ?? [], buildInfoHeight(info),
+  );
   return {
     target,
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
@@ -646,6 +885,14 @@ function structureSheet(
     owned,
     actions,
     accent: accentFor(world, owner),
+    ...info,
+    /*
+     * ⭐ S181 — DERIVED FROM THE TOWER'S OWN UNIT TABLE, so a bat tower says bat and a piranha
+     * tower says piranha with no second table in the renderer. Null for the goblin tower, whose
+     * six shapes each make a DIFFERENT goblin — one caption cannot state that truthfully, and a
+     * wrong-but-tidy label is worse than none.
+     */
+    feedHint: feedHintFor(recipeId),
     rect: rectFor(prim.pos, h),
   };
 }
@@ -684,6 +931,8 @@ function castleSheet(
     owned: null,
     actions: null,
     accent: accentFor(world, target.seat),
+    ...NO_BUILD_INFO,
+    feedHint: null,
     /*
      * ⭐ S181 — the keep's card is `PANEL_W` wide, not `SHEET_W`. It is the HEADER of the one merged
      * castle window; `castlePanel` docks flush beneath it and the shared edge is what makes the two

@@ -64,6 +64,27 @@ const BODY_W = 30;
 const BODY_H = 26;
 
 export class StinkTowerRenderer {
+  /**
+   * ⭐⭐ S181 (owner) — **THE STINK TOWER'S PORTRAIT.** He named this one outright:
+   *
+   * > *"Look at this stink tower. Why is it showing the codex shape structure? It should show the
+   * > stink tower picture because we do have a picture for it … When we have an actual tower, you
+   * > don't put a codex. You use the codex only above the health bar, in a very small tiny logo."*
+   *
+   * He is right and the art has been loading in this very renderer since S151 P3
+   * (`/godly/stink-tower/anim/stink-tower-atlas.png`). The card was asking `portraitForStructure`,
+   * whose only art arm was `towerArtForRecipe` — which answers for the twelve RACE towers and
+   * returns null for everything else, so the stink tower fell to the codex emblem.
+   *
+   * ⚠ `idle` frame 0, for the same reason the tower and castle portraits use `intact`: a portrait is
+   * an identity, not a status read, and the health bar beside it already says how hurt it is. A frame
+   * from the `attack` row reads as a blur at 76px.
+   */
+  portraitTexture(): Texture | null {
+    const idle = this.atlas?.cells['idle'];
+    return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
+  }
+
   private readonly graphics: Graphics;
   /** Per-tower last-seen FSM state — used to fire the lob VFX on the entry edge, not every frame. */
   private readonly lastState: Map<DefenderId, string> = new Map();

@@ -1029,6 +1029,18 @@ async function bootstrap(): Promise<void> {
         return goblinRenderer.portraitTexture(spec.creatureType, spec.race);
       case 'towerFrame':
         return towerRenderer.portraitTexture(spec.atlasBase);
+      case 'namedBuildingFrame':
+        /*
+         * ⭐⭐ S181 (owner) — the stink tower and the Voltkin TV, each with its own one-off sheet
+         * already loading in its own renderer for the board. *"It should show the stink tower
+         * picture because we do have a picture for it."*
+         */
+        return spec.building === 'stinkTower'
+          ? stinkTowerRenderer.portraitTexture()
+          : voltkinTowerRenderer.portraitTexture();
+      case 'proceduralFrame':
+        // ⭐ S181 — no texture EXISTS for these; `setPortraitPainter` below draws the real puppet.
+        return null;
       case 'emblem':
         // No texture by design — the emblem is drawn procedurally by `drawPortrait`'s own arm.
         return null;
@@ -1069,6 +1081,28 @@ async function bootstrap(): Promise<void> {
    * resolve differently on a frame where the tower is mid-collapse — offering a row for one tower
    * and feeding another.
    */
+  /*
+   * ⭐⭐ S181 (owner) — **THE PAINTER, for the two creatures that have no sprite sheet at all.**
+   *
+   * > *"Look at the pencil chewer. Why don't you just put the pencil chewer picture? … the electric
+   * > drone, yeah, lightning drone too. It doesn't have the picture, even though there is a
+   * > character."*
+   *
+   * ⚠ ONE CORRECTION TO HIM: they have a CHARACTER but not a SHEET. Both are procedural rigs drawn
+   * every frame — `creatureRenderer`'s own comment says *"a drone ALWAYS uses the procedural rig"*.
+   * So the card paints the same rig the board paints, which gives him the picture he asked for with
+   * no art spend, and turns into an ordinary atlas accessor the day a sheet is generated.
+   */
+  characterSheet.setPortraitPainter((spec, g, x, y) => {
+    if (spec.kind !== 'proceduralFrame') return false;
+    if (spec.creature === 'chewer') {
+      chewerRenderer.drawPortraitInto(g, x, y);
+      return true;
+    }
+    creatureRenderer.drawDronePortraitInto(g, x, y);
+    return true;
+  });
+
   controls.setSheetActionHandler((action, primitiveId) => {
     if (action.kind === 'FEED') {
       const spawnerId = characterSheet.actionFeedSpawnerId();

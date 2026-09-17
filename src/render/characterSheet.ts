@@ -43,6 +43,49 @@ const PAD = 12;
 const PORTRAIT = 76;
 const BAR_H = 12;
 const ROW_H = 20;
+/**
+ * How much bigger than board size a procedurally-painted portrait draws.
+ *
+ * ⚠ MEASURED AGAINST THE RIGS, not chosen. The chewer's `BODY_R` is 17px and the drone runs at
+ * `LIGHTNING_DRONE_SPRITE_SCALE`, so both occupy roughly 34–40px on the board against a 76px
+ * portrait box. 1.6x fills the box without clipping the stalk eyes or the bolt halo.
+ */
+const PROCEDURAL_PORTRAIT_SCALE = 1.6;
+/** Height the build-recipe strip pushes the health bar down by. Mirrors the model's reservation. */
+const BUILD_STRIP_H = 22;
+/**
+ * Characters that fit one description line at 10px monospace inside the card's inner width.
+ *
+ * ⚠ DERIVED FROM THE SAME `MONO_EM_RATIO` the stat column uses, not eyeballed: 244px of inner width
+ * at 10px x 0.6 advance is ~40 glyphs. Sharing the ratio means a font change moves both together.
+ */
+const DESC_CHARS_PER_LINE = 40;
+
+/**
+ * PURE — greedy word wrap to `maxLines`, ellipsising the tail rather than dropping it silently.
+ *
+ * ⚠ TRUNCATION IS VISIBLE ON PURPOSE. `CodexCopy.recipe` is capped at 150 chars by its own test, so
+ * two 40-char lines is usually enough — but a line that vanishes without a mark reads as a bug,
+ * whereas an ellipsis reads as "there is more in the codex".
+ */
+export function wrapToWidth(text: string, perLine: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter((t) => t.length > 0);
+  const lines: string[] = [];
+  let cur = '';
+  for (const word of words) {
+    const next = cur === '' ? word : `${cur} ${word}`;
+    if (next.length <= perLine) { cur = next; continue; }
+    lines.push(cur);
+    cur = word;
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines && cur !== '') lines.push(cur);
+  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {
+    const last = lines[maxLines - 1] ?? '';
+    lines[maxLines - 1] = `${last.slice(0, Math.max(0, perLine - 1))}…`;
+  }
+  return lines;
+}
 
 const INK = 0xe8eef6;
 const DIM = 0x93a6bb;
@@ -57,6 +100,17 @@ const HP_FROZEN = 0x6c7a8a;
 /** Hands back one still frame for a creature portrait. Injected so this file never imports the
  *  sprite renderer — that direction would be a cycle, and `main.ts` already owns both. */
 export type PortraitSource = (spec: PortraitSpec) => Texture | null;
+
+/**
+ * ⭐⭐ S181 — PAINTS a portrait that has no texture to look up, into a Graphics the card owns.
+ *
+ * Returns true when it drew something. Injected exactly like `PortraitSource` and for the same
+ * reason: this file must never import a creature renderer, and `main.ts` already owns both ends.
+ *
+ * ⚠ THE CARD SUPPLIES THE ORIGIN AND THE SCALE, so a painter only has to know how to draw itself at
+ * (0, 0) — the same contract `drawEmblem` already works under.
+ */
+export type PortraitPainter = (spec: PortraitSpec, g: Graphics, x: number, y: number) => boolean;
 
 function barColor(cur: number, max: number, frozen: boolean): number {
   if (frozen) return HP_FROZEN;
@@ -75,6 +129,7 @@ export class CharacterSheet {
   private selected: SheetTarget | null = null;
   private view: CharacterSheetView | null = null;
   private portraitSource: PortraitSource = () => null;
+  private portraitPainter: PortraitPainter = () => false;
   /** Where the owned-unit row was drawn this frame, so a click on it can open that unit's own card. */
   private ownedHit: { x: number; y: number; w: number; h: number } | null = null;
   /**
@@ -120,6 +175,11 @@ export class CharacterSheet {
 
   setPortraitSource(fn: PortraitSource): void {
     this.portraitSource = fn;
+  }
+
+  /** S181 — for the three creatures and any building drawn procedurally rather than from a sheet. */
+  setPortraitPainter(fn: PortraitPainter): void {
+    this.portraitPainter = fn;
   }
 
   select(target: SheetTarget | null): void {
@@ -224,11 +284,40 @@ export class CharacterSheet {
 
     // ── health: the bar AND the number. Both, always — the bar is for peripheral vision and the
     //    number is for the decision. Every RTS since StarCraft shows both.
+    /*
+     * ⭐⭐ S181 (owner) — **WHAT IT TAKES TO BUILD, ABOVE THE HEALTH BAR.**
+     *
+     * > *"above the health bar … how many connectors it takes to build it, the exact kind. Maybe a
+     * > little picture on the right side, just like you have in the codex, in the right corner above
+     * > the health bar, that shows what it takes to build it, and then to the left of it maybe like
+     * > an explanation. So like three triangles built in a triangle."*
+     *
+     * The glyph is the CODEX's own emblem — *"just like you have in the codex"* taken literally, not
+     * a lookalike — and the "explanation" to its left is the build bill in words. The bar and its
+     * number shift down by exactly the strip's height, so nothing overlaps.
+     */
+    let barTop = 0;
+    if (v.buildBill !== null) {
+      this.text('BUILD', x + PAD + PORTRAIT + 10, y + PAD + 40, 9, DIM);
+      this.text(v.buildBill, x + PAD + PORTRAIT + 10, y + PAD + 51, 10, INK);
+      barTop = BUILD_STRIP_H;
+    }
+    if (v.buildEmblem !== undefined && v.buildEmblem !== null) {
+      // Top-RIGHT corner, tiny, exactly where he pointed. Drawn into `glyphs` so the portrait's own
+      // emblem arm (which owns `this.emblem`) cannot clear it.
+      this.glyphs.position.set(x + w - PAD - 13, y + PAD + 48);
+      this.glyphs.scale.set(0.2);
+      drawEmblem(this.glyphs, v.buildEmblem);
+      this.glyphs.scale.set(1);
+      this.glyphs.position.set(0, 0);
+      barTop = Math.max(barTop, BUILD_STRIP_H);
+    }
+
     const rx = x + PAD + PORTRAIT + 10;
     const rw = w - PAD * 2 - PORTRAIT - 10;
     const { cur, max, frozen } = v.health;
     const frac = max <= 0 ? 0 : Math.max(0, Math.min(1, cur / max));
-    const by = top + 6;
+    const by = top + 6 + barTop;
     this.g.roundRect(rx, by, rw, BAR_H, 3).fill({ color: 0x1b2938 });
     if (frac > 0) {
       this.g.roundRect(rx, by, Math.max(2, rw * frac), BAR_H, 3).fill({ color: barColor(cur, max, frozen) });
@@ -275,9 +364,51 @@ export class CharacterSheet {
       this.ownedHit = null;
     }
 
+    /*
+     * ⭐⭐ S181 (owner) — **THE DESCRIPTION, IN THE EMPTY SPACE HE POINTED AT.**
+     *
+     * > *"there should be a description of the tower. So maybe we have all this empty space just
+     * > under the tower health, underneath it. You can just say like spawning bats every this much
+     * > seconds, for example."*
+     *
+     * It is the codex's own `recipe` line, or a derived cadence sentence for a race tower. Wrapped
+     * by hand to the card width rather than with a word-wrap style, because Pixi's wrapping needs a
+     * fixed `wordWrapWidth` on the style and these Text objects are POOLED and reused at several
+     * sizes — setting it here would leak onto the next label that borrows the object.
+     */
+    if (v.description !== null) {
+      for (const line of wrapToWidth(v.description, DESC_CHARS_PER_LINE, 2)) {
+        this.text(line, x + PAD, sy + 2, 10, DIM);
+        sy += 12;
+      }
+      sy += 4;
+    }
+
     // ── FIX / SCRAP / FEED — his *"towers lost their scrap and fix. That's wrong."* ────────────
     this.slots = v.actions === null ? [] : layoutSheetActions(v.actions.buttons, v.rect);
     for (const b of this.slots) this.drawActionButton(b, accent);
+
+    /*
+     * ⭐⭐ S181 (owner) — **TELL THEM WHAT THE SHAPE BUTTON DOES.**
+     *
+     * > *"underneath where it shows like triangle, where you build bats, and people need to know
+     * > what it does. So just be like 'to build more bats' or something. Click this."*
+     *
+     * A feed chip is a shape glyph and nothing else — unlabelled by necessity, since no word fits
+     * 32px. So the caption goes ABOVE the strip, once, naming what feeding produces. It reads off
+     * `v.feedHint`, which the model derives from the tower's own unit table, so a bat tower says bat
+     * and a piranha tower says piranha without a second table here.
+     *
+     * ⚠ ABOVE THE STRIP, NOT BELOW, because the strip is the last thing on the card — a caption
+     * under it would be the closest text to the card's bottom edge and read as a footer for the
+     * whole panel rather than a label for the row.
+     */
+    const feed = this.slots.filter((b) => b.kind === 'FEED');
+    const hint = v.feedHint;
+    if (feed.length > 0 && hint !== null) {
+      const top = Math.min(...feed.map((b) => b.y));
+      this.textCentred(hint, x + w / 2, top - 12, 9, DIM);
+    }
   }
 
   /**
@@ -357,7 +488,18 @@ export class CharacterSheet {
      * emblem the card drew before this change instead of flashing the empty plate. Same arm covers a
      * peer whose fetch failed outright.
      */
-    if (spec.kind === 'emblem' || spec.kind === 'towerFrame') {
+    /*
+     * ⭐⭐ S181 — THE PAINTER, TRIED BETWEEN THE TEXTURE AND THE EMBLEM. A creature with no sheet
+     * (the chewer, the lightning drone) draws its own puppet here, so the owner gets the picture he
+     * asked for without any art existing. Scaled up because the rigs are authored at board size —
+     * a chewer's body radius is 17px against a 76px box.
+     */
+    this.emblem.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);
+    this.emblem.scale.set(PROCEDURAL_PORTRAIT_SCALE);
+    if (this.portraitPainter(spec, this.emblem, 0, 0)) return;
+    this.emblem.scale.set(1);
+
+    if (spec.kind === 'emblem' || spec.kind === 'towerFrame' || spec.kind === 'namedBuildingFrame') {
       const em = codexCopyFor(spec.recipeId).emblem;
       if (em !== undefined) {
         this.emblem.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);

@@ -623,6 +623,23 @@ export class CreatureRenderer {
    * visibly winds up and DISCHARGES at FIRE. `face` mirrors X; `alpha` fades on natural despawn. The
    * crackle jitter uses wall-clock `nowSec` (render-only cosmetic — the pose/timing is tick-deterministic).
    */
+  /**
+   * ⭐⭐ S181 (owner) — **THE LIGHTNING DRONE'S PORTRAIT.** *"the electric drone … yeah, lightning
+   * drone too. It doesn't have the picture, even though there is a character."*
+   *
+   * ⚠ SAME CORRECTION AS THE CHEWER: there is no drone sheet. This renderer's own comment says so —
+   * *"a drone ALWAYS uses the procedural rig (the matted imagen art is the godly Voltkin's; the
+   * drone is the smaller procedural electric being)"*. So the portrait draws the rig, at the same
+   * `LIGHTNING_DRONE_SPRITE_SCALE` the board uses, and the picture on the card is the creature.
+   *
+   * ⚠ A STILL POSE: `voltkinPose` is fed tick 0 and `nowSec` 0 so the bolt charge and crackle are
+   * frozen. A portrait that flickers reads as broken.
+   */
+  drawDronePortraitInto(g: Graphics, x: number, y: number): void {
+    const pose = voltkinPose('SEEKING', 0, 0, 0);
+    this.drawVoltkin(g, x, y, 1, 1, pose, 0, 0, LIGHTNING_DRONE_SPRITE_SCALE);
+  }
+
   private drawVoltkin(
     g: Graphics, x: number, y: number, face: 1 | -1, alpha: number, pose: VoltkinPose, nowSec: number, idSeed: number,
     scaleMul: number = 1, // S113 Batch C — 0.5 for a lightning-drone ("the Voltkin design, smaller")

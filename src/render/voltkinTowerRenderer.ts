@@ -421,6 +421,23 @@ export class VoltkinTowerRenderer {
     return 0;
   }
 
+  /**
+   * ⭐⭐ S181 — **THE TV'S PORTRAIT, and the card was showing a literal ellipsis for it.**
+   *
+   * Found by the S181 portrait audit rather than by the owner, and it is worse than the emblem case
+   * he reported: `CODEX_COPY.voltkin` deliberately carries NO `emblem` field (a chain is neither
+   * ring nor star), so `drawPortrait`'s emblem arm cannot fire and the spec fell all the way through
+   * to the word plate — which prints `'…'` for an `emblem` kind. An empty box with three dots.
+   *
+   * ⚠ IT CANNOT RIDE `towerFrame`, and this renderer's own docblock already ruled on why:
+   * `TowerArt` requires a `RaceId` and a `tier: 3 | 9` that a race-agnostic TV does not have, and
+   * *"widening either to fit would ripple into `destroyAtlasBase` and both row tables for one
+   * structure"*. So it gets its own accessor and its own spec arm.
+   */
+  portraitTexture(): Texture | null {
+    return this.frameTexture('intact', 0);
+  }
+
   private frameTexture(state: TvRow, i: number): Texture | null {
     const sheet = this.sheet;
     const manifest = this.manifest;

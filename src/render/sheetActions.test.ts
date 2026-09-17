@@ -124,7 +124,20 @@ describe('S181 — ⛔ THE CALL SITES EXIST (the S180 green-gates tripwire)', ()
   });
 
   it('the structure branch RESERVES the action height', () => {
-    expect(model).toContain('heightFor(stats.length, owned !== null, actions?.buttons ?? [])');
+    /*
+     * ⚠ RE-PINNED IN S181 FROM A LITERAL CALL STRING TO THE RELATIONSHIP. This asserted
+     * `heightFor(stats.length, owned !== null, actions?.buttons ?? [])` verbatim and went red when a
+     * fourth argument was added for the description + build-recipe strip — a correct change. An
+     * assertion that breaks on a new argument is measuring the SPELLING of a call, which is exactly
+     * the brittle shape `verify-session-claims` warns about for chained commands.
+     *
+     * What must stay true is that the ACTION BUTTONS reach `heightFor`, because a block that is
+     * drawn without being reserved is the defect this whole file exists for — and it is invisible,
+     * since nothing looks clipped when no space was ever allocated.
+     */
+    expect(model).toMatch(/heightFor\([\s\S]{0,160}?actions\?\.buttons \?\? \[\]/);
+    // And the new blocks are reserved the same way, by the same function.
+    expect(model).toContain('buildInfoHeight(info)');
   });
 
   it('⛔ the action click is tested BEFORE the card swallows the click', () => {
