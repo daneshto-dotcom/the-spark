@@ -116,6 +116,13 @@
       "id": "SA-S181-3",
       "source": "owner, mid-turn, \"this is your last priority after all the other ones\"",
       "text": "THREE more, ordered LAST: 14: PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/char || 15: STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They  || 16: ⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the crea"
+    },
+    {
+      "id": "SA-S182-1",
+      "reason": "Owner redefined this session as ORCHESTRATOR ONLY. It implements no priority. It produces per-branch brief files + starter prompts, then merges the branches to master at the end.",
+      "owner_verbatim": "This is the main orchestrator session that is used to basically define what others need to do, and then in the end, integrate it into main. You will not work any of the priorities.",
+      "approved": true,
+      "unlock_source": "user"
     }
   ],
   "boot_preflight": {
@@ -152,6 +159,20 @@
       "owner_approval_verbatim": "yes, confirmed on worktrees — update CLAUDE.md and give me the list",
       "scope": [
         "CLAUDE.md"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "S182 P2 (ORCHESTRATOR) — author one self-contained brief file per parallel branch, with the verified findings, file:line sites, fix shape, determinism hazards, tests owed, gates, branch name and file boundaries; plus a starter prompt per session. This session implements NO game code.",
+      "status": "in_progress",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "owner_approval_verbatim": "Once everything has landed, give me the spread with all the priorities in different files ... you premake their MD files ... where you give them the priorities with all your findings",
+      "scope": [
+        ".claude/branch-briefs/*.md",
+        "S182_BACKLOG.md"
       ]
     }
   ],
@@ -2057,5 +2078,102 @@
         }
       ]
     }
-  ]
+  ],
+  "owner_rulings_s182": [
+    {
+      "id": "R182-A",
+      "topic": "Lightning hub self-destruct threshold is HUB-ONLY, not a general tower rule",
+      "verbatim": "I understand that from thirty two percent, it will just get just self destroyed, but it is a suicide drone building. So it makes sense. We won't do it for every building.",
+      "means": "The 24-FRAME DAMAGE RAMP generalises to all towers. The SELF-DESTRUCT AT ~33% DOES NOT — it is justified by the hub being a suicide-drone building and applies to the hub alone. Do not propagate the self-destruct threshold to the other 12 towers when migrating them off towerHpFrac.",
+      "status": "ACCEPTED BY OWNER 2026-09-17 (confirmed after initial doubt)",
+      "note": "Claude proposed these as readings of his words; he rejected both. His reasoning is OWED and must be captured before any hub work is scoped. Kept in place rather than deleted so a later session cannot resurrect them as settled.",
+      "owner_confirmation": "R182-A is correct. The thirty three and less percent destruct stays true because it is a fucking suicide drone hub, so it's correct."
+    },
+    {
+      "id": "R182-B",
+      "topic": "The damage percentage is scoped to the hub's OWN star, not the welded component",
+      "verbatim": "If the hub is auto bonded to neighboring shapes — yeah, I guess they're protecting it then, and it's fine. Then until its own connectors are destroyed to the thirty three percent of its own structure from his side, not from the whole shape, from his side, that's what matters, then he will go to self destruct, and he will also bring down some of his own connectors because he will blow up destroying shit.",
+      "means": "Pool = the hub star ONLY: its 5 own bonds, pool 50 fifths. Sum damageFifths over those 5 bonds, not over the connected component. Neighbouring auto-bonded shapes legitimately PROTECT the hub (they absorb attacks that never reach its own connectors) and he has accepted that as sensible. The SELF-DESTRUCT TRIGGER is star-scoped too, which makes it independent of the component pool the sim uses for severing — that divergence is deliberate and must be stated at the constant.",
+      "status": "ACCEPTED BY OWNER 2026-09-17 (confirmed after initial doubt)",
+      "note": "Claude proposed these as readings of his words; he rejected both. His reasoning is OWED and must be captured before any hub work is scoped. Kept in place rather than deleted so a later session cannot resurrect them as settled.",
+      "owner_confirmation": "A hub welded into a big lattice can reach thirty three percent on its own bonds. The sim still considers the wider structure healthy, but we don't care about that. If its own bonds are destroyed, then he will blow up.",
+      "clarifies": "The star-scoped trigger vs component-scoped severing divergence is ACCEPTED DELIBERATELY. Do not \"reconcile\" the three systems by making the trigger component-scoped — he ruled the star is what matters."
+    },
+    {
+      "id": "R182-C",
+      "topic": "Lightning hub self-destruct DAMAGE OUTPUT",
+      "status": "RULED, BUT SEE THE TWO FINDINGS — owner believed it was undefined; it is defined, differently",
+      "verbatim": "I don't know if we've defined damage output of his self destruction. If we haven't, then we should. It should be three times a drone's damage. So there you go. Done. You know what? Five times. No. Four times a drone's damage.",
+      "means": "Target = 4 x the lightning drone blast = 4 x attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 x 30 = 120 FIFTHS.",
+      "finding_1": "IT IS ALREADY DEFINED, AND NOT AS DAMAGE. applyStructureSelfDestruct (potatoLifecycle.ts:370) calls applyRadialClear - it DELETES every enemy creature and primitive inside 240px outright. It is an instant-kill radius, not a number on the ladder. Moving to 120 fifths is therefore a LARGE NERF: 120 would not kill a tier-9 boss (pools 260-462) where the current raze deletes one outright.",
+      "finding_2": "HIS 'he will also bring down some of his own connectors' IS NOT CURRENT BEHAVIOUR. S157 P0, on his own ruling (\"lightning hubs blow up own structures or nearby friendlies ... they shouldnt be able to hit friendlies in friendly territory\"), the blast SPARES the owner's own shapes and units. If he now wants self-damage, that REVERSES S157 and must be ruled explicitly.",
+      "owner_decision_owed": "(1) Confirm 120 fifths replacing the raze, knowing it stops one-shotting bosses. (2) Confirm whether the blast should now damage HIS OWN connectors, which would reverse his S157 ruling."
+    },
+    {
+      "id": "R182-D",
+      "topic": "The damage ramp PLAYS THROUGH intervening frames — it never snaps",
+      "status": "RULED",
+      "verbatim": "If a structure is not connected to anything it has a very low pool, so fifty, and the goblin's twelve-fifth swing walks the health a hundred, seventy six, fifty two. Yeah. It runs through a loop. You just make like a video from seventy six to fifty two, however many cutouts that is, in a loop, in a shot. You don't skip them, you just run them through, which is perfect. It makes it look like a video. In fact, the more damage is done, the more it looks like a whole video loop. If he destroys a whole structure in one hit, within like one second it looks like a whole structure got destroyed, which looks sick.",
+      "means": "The health fraction gives a TARGET frame. The renderer ANIMATES from the current frame to the target, playing every frame between, rather than snapping. A big hit therefore plays a longer run and a one-shot kill plays the full 24-frame destruction. ⭐ THIS TURNS THE COARSE-QUANTUM FINDING INTO THE FEATURE: the bigger the hit, the more cinematic the collapse. Renderer-only; needs a per-structure current-frame cursor that eases toward the target, and it must be client-local presentation state, never sim state."
+    },
+    {
+      "id": "R182-E",
+      "topic": "Repair cost for a STANDING damaged structure = ONE shape",
+      "status": "RULED AND COMPLETE (both cases) — one tie-break left to him",
+      "verbatim": "A tower that is missing one of its connectors — so there's no tower anymore — takes one shape or two shapes, whatever many shapes are missing to rebuild this tower. If there's only an amount of HP missing for that tower but it hasn't had a connector destroyed, so it's still intact and producing characters, then it takes one shape. So far it takes NO shape, it's like free to rebuild or to fix. That's not correct. It takes one shape. No matter how much HP is missing, as long as no connector is severed, it takes one shape. Whether it's one HP or fifty HP.",
+      "means": "Two repair cases, priced differently. (1) MISSING NODES (a connector/shape gone): cost = the missing shapes, as today. (2) INTACT BUT DAMAGED (banked connector damage, no sever): cost = EXACTLY ONE SHAPE, flat, regardless of damage amount. TODAY CASE 2 IS FREE — planStructureRepair returns an empty bill and planPaymentForTypes([]) returns [], so FIX clears every damageFifths for nothing (structureRepair.ts:239). He has ruled that wrong.",
+      "open": "WHICH shape type does the one shape cost? He did not say. Cheapest available? The recipe's most common type? Any type? NEEDS HIS ANSWER before build.",
+      "owner_answer_on_which_shape": "I mean, the main shape that's used to build this tower. So if it's a fucking pencil chewer then it's a triangle. If it's a goblin tower, it's probably a circle. You gotta just define what it is right now, and that's it. Or whatever shape was destroyed — whatever shape is missing, that's the shape that needs to be rebuilt.",
+      "derived_rule": "CASE 1 (intact, damaged, no sever) = ONE shape of the recipe's MAIN type, where MAIN = the most numerous SparkType in the blueprint. Read from src/state/blueprints.ts: pentagram 5xTriangle -> Triangle (matches his own example); goblinTower Circle hub + 4 Circle -> Circle (matches his own example); lightningHub Dot hub + 5 Circle -> Circle; stinkTower Square hub + N Circle -> Circle; laserTurret Line hub + 6 Spiral -> Spiral. CASE 2 (missing nodes) = the missing shapes themselves, which is ALREADY the shipped behaviour and needs no change.",
+      "ties_open": "Two recipes have NO majority: helga (Triangle hub + 3 Spiral + 3 Circle) and voltkin (equal Square/Triangle, no hub). Claude PROPOSED: on a tie use the hub type -> helga = Triangle; voltkin has no hub so needs an explicit pick (Claude default: Square, for determinism only). OWNER HAS NOT RULED THE TIES.",
+      "build_note": "The main-type must be DERIVED from BLUEPRINTS at build time, never hand-listed in a second table — a hand-copied list is the drift defect this repo names as its most repeated. Derive + assert each of the seven in a test.",
+      "owner_accepted_build_only": "And yes, repair only works during build. I understand that. That's fine.",
+      "owner_final_clarification": "It doesn't matter what you just gave me. Now spiral, circle, circle, triangle — whatever shape is missing to recreate that tower is the shape that you need to rebuild. That's that.",
+      "resolution": "CASE 2 is his rule verbatim and is already how it ships: the bill is the MISSING shapes, whatever they are. CASE 1 (intact, damaged, nothing missing) keeps his earlier explicit ruling of ONE shape flat (\"as long as no connector is severed it takes one shape, whether it is one HP or fifty HP\"). He has dismissed the main-shape TABLE as over-thinking, so the tie-break is NOT his to answer: per this repo's own convention, the type picked for case 1 is CLAUDE'S and must say so at the constant, derived from the blueprint's most numerous SparkType with hub-type as the tie-break, overrulable on sight. DO NOT ASK HIM AGAIN."
+    },
+    {
+      "id": "R182-F",
+      "topic": "OPEN — repair scoping across multiple towers joined by shared shapes",
+      "status": "RESEARCH OWED, NOT RULED",
+      "verbatim": "If a tower is connected to many other connectors and shapes, we would have to record each. Actually that needs investigation. Let's say we have three towers connected with a bunch of shapes in between, and then someone destroys them. Do we click on the whole shape that connects them and we're like, oh, it takes that many shapes to rebuild all those towers, or that whole shape? I'm not sure. We'll need to research it. But that I think has to do with another priority down the line, which is to remove any shapes that made a tower — once you build a tower, the shapes that made it disappear, they're not there anymore, there's only that tower, so it looks like a real tower defense. I've already discussed it in detail two or three sessions ago. That has to be considered thoroughly when we run our next mini session batches.",
+      "means": "Repair currently scopes to componentOf() — the WHOLE connected component — which is the same over-wide scoping that already breaks blueprintGroupOf when one hand-placed shape touches a lattice. He has linked it to the SHAPES-DISAPPEAR-UNDER-A-TOWER priority he specified 2-3 sessions ago. ⭐ CROSS-REFERENCE: towerCover.ts (S175, commit b10e772) ALREADY ships the VISUAL half of that - shapes phase out under a standing tower and back in when it breaks. The MECHANICAL half (repair scoping, \"there is only that tower\") is what is unbuilt. Research both together."
+    }
+  ],
+  "s182_owner_cut": {
+    "recorded": "2026-09-17",
+    "B2_DIAGNOSIS_WRONG": {
+      "verbatim": "B2 is inherently wrong because it's not when you hit quick match at the same moment. It's literally like a minute apart. I put quick match, I go into the server. My brother comes on like three minutes later, and he goes into the server. For him it shows that he's P1. For me it shows that I'm P1. So that's not the right identifier for the B2. I mean, it could be one issue, but it's not the issue.",
+      "means": "The simultaneous-dual-promote race the recon found is NOT the reported bug. Real repro: host starts, joiner arrives ~1-3 MINUTES later, and BOTH see themselves as P1. B2 MUST BE RE-RESEARCHED against this repro. The dual-promote finding may still be a real second defect but it does not explain what he saw."
+    },
+    "H2_REJECTED": {
+      "verbatim": "H2 no. Do not approve. Not every tower in the game has damaged appearance. I mean, yes they do — the ones that we have already wired. But we're gonna do this one at a time. We're not gonna do all of them because it's not gonna work, you're gonna get confused, you're gonna get things wrong. Currently you're just gonna focus on the lightning hub. Other towers that we've already implemented already have damaged art. Some of it sucks, some of it not. But I will present them one after another.",
+      "means": "NO 13-tower migration. The hub lane touches THE LIGHTNING HUB ONLY. He will bring the other towers one at a time. Do not generalise unasked."
+    },
+    "P4_OFF": {
+      "verbatim": "P4 Voltkin TV — first of all it's super low quality art because I've given you the screenshot of it, it's not the original one. I will give you the original one. Take P4 off the menu. We're not gonna work it. I'm gonna give you all of Voltkin. There's a few things we wanna do about Voltkin. I'm not done with him yet. We will work it later.",
+      "means": "P4 REMOVED from this run. Voltkin is a future owner-led batch with original art."
+    },
+    "A0_REJECTED_KEEP_THE_SOUND": {
+      "verbatim": "For the arcade Sudoku Audio Oracle — the sound is intentional. You will keep it, and you will ignore A0. That's a whole thing that I have actually defined. Keep it. Don't worry about it for now.",
+      "means": "A0 is NOT a defect. The correct/incorrect chirp is a deliberate design he has already settled. DO NOT remove or gate it. Claude previously argued it invalidates a timed leaderboard — that argument is OVERRULED and must not be re-raised."
+    },
+    "A1_IN": "Shared leaderboard — APPROVED, build it.",
+    "A2_IN_BUT_NOT_ITS_OWN_SESSION": {
+      "verbatim": "Just do the shared leaderboard and the sudoku consistency, and make it look cooler. The other two you can just put in one of the other sessions, it doesn't have to be its own session.",
+      "means": "A2 rides along inside another session rather than owning one. Plus a LOOK-AND-FEEL improvement pass."
+    },
+    "NEW_SUDOKU_STAGES": {
+      "verbatim": "We have like different levels of Sudoku. We had like ten levels of the first level, then ten levels of the second level, then ten of the third. Like, we have to start building this. Let's build the first thirty ones. So we'll have also leaderboards for the first... because how is it working now? I don't even know. Like, we generate a random Sudoku every time. Is there difficulty? We need to rework it a little bit.",
+      "means": "NEW SCOPE: a 30-stage ladder (3 difficulty tiers x 10 stages) with per-stage leaderboards. OPEN QUESTIONS HE ASKED AND EXPECTS ANSWERED: how does puzzle generation work today, is it random per run, does a difficulty parameter exist and is anything passing it? RESEARCH OWED before scoping."
+    },
+    "P6_DEFERRED": "End-of-match stat board — its own big session later. Not in this run.",
+    "STEAM_EXPLORE_NOT_BUILD": {
+      "verbatim": "Steam, Electron or whatever we've defined — we're gonna do now instead of actually starting to build it, we're gonna explore it further and run more agents to explore and study and plan and architect. We're gonna take a few sessions. We're NOT gonna start building it right away. We're still building this game.",
+      "means": "NO port work. Continued multi-session RESEARCH/ARCHITECTURE only."
+    },
+    "P5_P8_SHOW_ME_FIRST": {
+      "verbatim": "The P8 and P5 — we have to rerun. I wanna make sure the five code audits within several project documents states are correct, because some of them might have been backlog priorities that we just didn't work yet. How do I know? There might be things that I wanna work but we didn't work yet. You didn't give me the whole output of them. I need to see what they are about before going forward.",
+      "means": "⛔ SHARP AND CORRECT CHALLENGE. A doc line saying 'X is absent' may be an UNWORKED BACKLOG ITEM, not doc rot. Claude must NOT 'correct' such lines away. P5 and P8 are BLOCKED until their full contents are presented to him item by item for his verdict."
+    }
+  }
 }
