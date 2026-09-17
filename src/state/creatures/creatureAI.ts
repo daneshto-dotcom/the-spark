@@ -160,6 +160,73 @@ function isEnemyBondWithColor(world: World, ownerColor: number, bond: Bond): boo
  *
  * Pure. Does not mutate world or creature.
  */
+/**
+ * ⭐⭐⭐ S181 (owner) — **THE CLOSEST ATTACKABLE THING THAT IS NOT A CREATURE**: a lone shape, or a
+ * standing building reached through its nearest connector — whichever is genuinely nearer.
+ *
+ * > *"All the creatures are targeting the castle rather than the towers and the connectors …
+ * > there's stink towers and it's not even targeting it. That's wrong."*
+ *
+ * > *"Default, everything: prefer units inside its radius. With no unit in radius, attack the
+ * > closest building, whatever it is. Because units are attacking you, so if someone is attacking,
+ * > you're gonna want to attack them back. Same with buildings. If there's a defensive building like
+ * > a stink tower, you know you want to attack it."*
+ *
+ * ## ⛔ WHY BOTH SCANS, AND WHY THE NEARER ONE WINS
+ *
+ * `findNearestEnemyPrimitiveFrom` deliberately skips any shape WITH a connector — S179's lone-shape
+ * rule, and the owner's own reasoning: *"a building is killed through its connectors, not by eating
+ * its bricks."* That left the 21 structure-attacking types with nothing to aim at once every loose
+ * brick was gone, so they fell through to the castle march. `findNearestBondTarget` is the other
+ * half, and it already existed — the lightning drone has used it since S113.
+ *
+ * ⛔ **PICKING THE NEARER IS THE WHOLE RULE, NOT A TIE-BREAK.** A shape-first ladder would re-create
+ * his complaint in a new costume: a unit standing beside a stink tower would turn round and walk to a
+ * loose brick on the far side of the map, because a lone shape existed *somewhere*. "The closest
+ * building, whatever it is" only means anything if distance decides.
+ *
+ * ## THE PER-TYPE EXCEPTIONS HE RULED, ALL THREE HONOURED HERE
+ *
+ * · **Pencil chewer — connectors ONLY.** *"never people, ever."* It does not take this path at all
+ *   (`targetsStructures` is false for it; it keeps its own committed-bond branch), so its behaviour
+ *   is untouched by this function. Recorded here because a reader will ask.
+ * · **Goblin suicide bomber — buildings first.** It is `selfExplode` + `targetsStructures`, so it
+ *   arrives here and now gets the building it was ruled to prefer. Its health-based fallback is
+ *   NOT built (see the carry-forward) and is not pretended to be.
+ * · **Lightning drone — connectors only**, `targetsStructures: false`, its own every-tick branch.
+ *
+ * ⚠ TOTAL ORDER, SO TWO SIMS CANNOT DISAGREE. Both scans already break ties on id; the comparison
+ * between them is on squared distance with the SHAPE winning an exact tie, deterministically. A
+ * float compare of two squared integers is exact at these magnitudes, and `Map` iteration decides
+ * nothing — which is the defect class this codebase spends most of its comments on.
+ */
+export function structureTargets(
+  world: World,
+  creature: Creature,
+): { primitiveId: PrimitiveId | null; bondId: BondId | null } {
+  const primitiveId = findNearestEnemyPrimitiveFrom(world, creature);
+  const bondId = findNearestBondTarget(world, creature, true);
+  if (primitiveId === null) return { primitiveId: null, bondId };
+  if (bondId === null) return { primitiveId, bondId: null };
+
+  const prim = world.primitives.get(primitiveId);
+  const bond = world.bonds.get(bondId);
+  if (prim === undefined) return { primitiveId: null, bondId };
+  if (bond === undefined) return { primitiveId, bondId: null };
+
+  const mid = bondMidpoint(bond);
+  const dPrim = distSq(creature.pos, prim.pos);
+  const dBond = distSq(creature.pos, mid);
+  /*
+   * ⛔ EXACTLY ONE OF THE TWO IS RETURNED. Setting both would put the creature into ATTACKING
+   * against a bond while its navigation walked to a shape — the "pretending to attack and not
+   * hitting anything" defect S177 P9 was written to kill.
+   */
+  return dBond < dPrim
+    ? { primitiveId: null, bondId }
+    : { primitiveId, bondId: null };
+}
+
 export function findNearestEnemyPrimitiveFrom(
   world: World,
   creature: Creature,

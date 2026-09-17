@@ -72,7 +72,7 @@ import {
   spreadTargetPos,
   standoffTargetPos,
   enemyCastleMarchPos,
-  findNearestEnemyPrimitiveFrom,
+  structureTargets,
   isWithinAttackRange,
   killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
   enemyStinkCloudInReach, // S158 A2 — the sixth: a destructible landed bag (R77)
@@ -1414,9 +1414,53 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         //    hitting a wall.
         // Re-selected every tick (no stickiness): a goblin is not glued to a shape the way a
         // chewer is glued to a bond, so it retargets the moment its shape dies under it.
-        const nextPrim = findNearestEnemyPrimitiveFrom(world, creature);
-        creature.targetPrimitiveId = nextPrim;
-        creature.targetBondId = null;
+        /*
+         * ⛔⛔⛔ S181 (owner) — **THIS IS THE LINE THAT MADE EVERY UNIT MARCH PAST EVERY BUILDING.**
+         *
+         * > *"All the creatures are targeting the castle rather than the towers and the connectors.
+         * > Everything is going straight for the castle … there's stink towers and it's not even
+         * > targeting it. That's wrong. I already told you the targeting rules so we've already
+         * > defined it and it's not working. Rework it, make it correct and coherent and consistent
+         * > with what we want it to be."*
+         *
+         * He is right on every count, including that it was already ruled. Two halves caused it, and
+         * both are on this line:
+         *
+         *  1. S179's lone-shape rule made `findNearestEnemyPrimitiveFrom` SKIP any shape that has a
+         *     connector — correct in itself, and the owner's own words (*"a building is killed
+         *     through its connectors, not by eating its bricks"*). But nothing was given a CONNECTOR
+         *     to aim at instead.
+         *  2. `targetBondId` was then forced to `null` here, because in S139 a goblin was defined as
+         *     a shape-eater that "never commits to a connector".
+         *
+         * Together: a standing building became invisible to 21 of 24 unit types, and the castle march
+         * was the only thing left in the ladder. Only Voltkin, the chewer and the drone could touch a
+         * building at all.
+         *
+         * ⭐ HIS RULE, RESTORED AS ONE COHERENT LADDER: *"prefer units inside its radius. With no unit
+         * in radius, attack the closest building, whatever it is … if there's a defensive building
+         * like a stink tower, you know you want to attack it."* Units are already preferred (the
+         * `targetCreatureId` opportunism below, checked first at strike time). What was missing is
+         * the BUILDING, and a building is reached through its connectors.
+         *
+         * ⛔ **CLOSEST OF THE TWO, NOT SHAPE-THEN-BOND.** Preferring the lone shape whenever one
+         * exists anywhere on the map would re-create his complaint in a new costume: a unit standing
+         * beside a stink tower would walk away to a loose brick across the board. `structureTargets`
+         * returns whichever is genuinely nearer, so *"the closest building, whatever it is"* is what
+         * the unit actually walks to.
+         *
+         * ⚠ THE STRIKE AND DAMAGE PATHS NEEDED NO CHANGE, which is how we know this is the one
+         * defect: the fan-out already forwards `after.targetBondId`, `bondValid` is already an arm of
+         * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)`
+         * through `damageConnector` with no `targetsStructures` gate. `damageConnector` already banks
+         * structure-wide and spends overkill into the next connector (R173-A/B), so a boss's 150
+         * takes the 50, then the 36, then the 24 in one blow. Everything downstream was waiting.
+         */
+        const st = structureTargets(world, creature);
+        creature.targetPrimitiveId = st.primitiveId;
+        creature.targetBondId = st.bondId;
+        // Kept under its shipped name so the steering + standoff code below reads unchanged.
+        const nextPrim = st.primitiveId;
 
         // ⭐ S153 P1 (owner R83) — UNITS FIRST, THEN STRUCTURES.
         //
@@ -1499,6 +1543,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const prim = world.primitives.get(nextPrim);
           if (prim !== undefined) steerTo = prim.pos;
         }
+        /*
+         * ⭐⭐⭐ S181 (owner) — **WALK TO THE BUILDING, ABOVE THE CASTLE MARCH.** Without this arm the
+         * unit would acquire a connector and then still steer to the keep, which is his report
+         * exactly: *"everything is going straight for the castle … there's stink towers and it's not
+         * even targeting it."* Acquisition without navigation is the same bug wearing a hat.
+         *
+         * ⚠ ORDERED LAST BEFORE THE MARCH, so every shipped steer — go-home, an enemy unit, a landed
+         * bag, a lone shape — still wins. The castle is what a unit walks to when there is genuinely
+         * nothing else, which is the only reading under which S154's *"a castle in reach is a reason
+         * to engage"* does not cannibalise a siege.
+         */
+        if (steerTo === null && creature.targetBondId !== null) {
+          const bond = world.bonds.get(creature.targetBondId);
+          if (bond !== undefined) steerTo = bondMidpoint(bond);
+        }
         if (steerTo === null) steerTo = enemyCastleMarchPos(world, creature);
 
         /*
@@ -1522,7 +1581,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // the very cloud it can already shoot from outside. `bagId` is only non-null inside
         // STINK_BAG_AGGRO_RADIUS, so this cannot fire on a bag the unit is not going to.
         const hasVictim =
-          goingHome === null && (navUnit !== null || bagId !== null || nextPrim !== null);
+          goingHome === null &&
+          // S181 — a committed CONNECTOR is a victim too, or a ranged unit that has acquired a
+          // building would refuse to hold station against it and close to melee instead.
+          (navUnit !== null || bagId !== null || nextPrim !== null || creature.targetBondId !== null);
         if (steerTo !== null && holdsRange && hasVictim) {
           // ⚠ AND IT REPLACES THE TRANSLATIONAL SPREAD BELOW, rather than composing with it:
           // `standoffTargetPos` already scatters the squad by ROTATING along the ring, which keeps
