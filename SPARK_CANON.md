@@ -83,14 +83,35 @@ the 24 in a single blow.
 
 | | |
 |---|---|
-| Castle pool | **1500** (`CASTLE_MAX_HP`) |
+| Castle pool | **2500** (`CASTLE_MAX_HP`) — raised from 1500 by the owner in S181 |
+| Its gun's shot | **40** fifths — `attackFifths(5, 3)`, i.e. `CASTLE_ATK` 5 / `CASTLE_PEN` 3 |
 | Damage an attacker deals to it | **its own `attackFifths(atk, pen)`** — the same ladder as everything else |
+| Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
+| Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level (1.0–1.8 % of the pool) |
 
-⭐ **BOTH OF THIS SECTION'S OPEN QUESTIONS WERE ANSWERED BY THE OWNER IN S180.**
+⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
 
-**The pool is 1500, and 2500 is the WIN SCORE, not castle health.** *"I think the castle pool was
-1,500 before. Oh yeah, yeah, yeah, it's 1,500. And the 2,500 is how many points someone needs to
-win."* (`PHASE_1_WIN_SCORE`.)
+*"Raise tower total health to two thousand five hundred points, just like how much you need to win.
+So far it's a thousand five hundred."* and *"the damage output of the tower should be stronger. It
+should be like five times more than it is now."*
+
+⛔ **THIS IS NOT A CONTRADICTION OF HIS S180 RULING, AND THE NEXT SESSION MUST NOT "FIX" IT BACK.**
+In S180 he was asked whether the pool was 2500 and answered *"the castle pool was 1,500 … and the
+2,500 is how many points someone needs to win"* (`PHASE_1_WIN_SCORE`) — he was correcting what 2500
+MEANT, not refusing it as a pool. In S181 he chose to move the pool to it, deliberately matching the
+win score. A clarification, then a decision. Both are his.
+
+⚠ **AND THE ×5 WENT ON THE LADDER, NOT ON THE NUMBER.** `CASTLE_ATK` 1 → 5 with `CASTLE_PEN` held at
+3, so `attackFifths(5, 3)` = 40 = exactly five times the old 8. Multiplying a flat 8 would have been
+a castle number on its own scale again, 19 sessions after `GOBLIN_DAMAGE_VS_CASTLE` was retired for
+being one. **A consequence he chose knowingly: the castle now one-shots a shield goblin**, so it no
+longer merely punishes leakers.
+
+⚠ **THE REGEN ROSE WITH THE POOL, AND HE DID NOT ASK FOR THAT IN WORDS.** R128 was given in PERCENT
+(1.0–1.8 % of max per level); `15/18/21/24/27` was its consequence at a 1500 pool, never the ruling.
+At 2500 the same percentages give 25/30/35/40/45 — a ~67 % buff that rode along. Honouring the
+percentage is honouring the ruling, but it is flagged here because it is a balance change nobody
+asked for out loud. One line in `CASTLE_REGEN_PCT_BASE` reverses it if he wants the old rates back.
 
 **And the flat 6 is gone.** *"Why does every attacker hit the castle for a flat of six? That's not
 correct. Every attacker hits anything based on its damage output, which we know the algorithm for.
@@ -100,14 +121,18 @@ actually wire."*
 So a melee goblin deals **12** to a keep and Vlad deals **150**, off the one ladder.
 `GOBLIN_DAMAGE_VS_CASTLE` is retired in place, unread — the last bespoke damage constant in the game.
 
-⚠ **AND IT RETUNED THE SIEGE, MEASURED RATHER THAN ESTIMATED.** Through the real host tick
-(`castleGuns.test.ts`), the number of melee goblins needed to fell a keep moved from about **fifteen
-to between eight and ten**: 8 leaves it at 264, 10 takes it. One leaker still deals nothing — the
-castle gun kills it before its first swing. Read that as one fixture's reading, not a law.
+⚠ **AND IT RETUNED THE SIEGE TWICE, MEASURED RATHER THAN ESTIMATED BOTH TIMES.** Through the real
+host tick (`castleGuns.test.ts`): S180's ladder change moved the melee goblins needed to fell a keep
+from about **fifteen to between eight and ten**; S181's pool-and-gun change moved it to **between ten
+and twelve** — 10 leaves it at 532, 12 takes it. ⭐ Note that is only ~1.2× harder, not the 1.67× the
+pool ratio suggests: the gun got five times stronger at the same time and thins the push. **Guessing
+from the pool alone would have been wrong, which is why the fixture is re-run and never reasoned
+about.** One leaker still deals nothing — the gun kills it before its first swing. One fixture's
+reading, not a law.
 
-⛔ **THE CASTLE IS STILL THE ONE EXCEPTION ON THE OTHER SIDE OF THE LADDER:** its POOL is a flat 1500
-rather than `hp × (1 + 0.2 × def) × 5`. Its DAMAGE TAKEN is now fully on the ladder; its pool is not,
-and the owner has never asked for it to be.
+⛔ **THE CASTLE IS STILL THE ONE EXCEPTION ON THE OTHER SIDE OF THE LADDER:** its POOL is a flat 2500
+rather than `hp × (1 + 0.2 × def) × 5`. Its DAMAGE TAKEN and its DAMAGE DEALT are both fully on the
+ladder; its pool is not, and the owner has never asked for it to be.
 
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 

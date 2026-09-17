@@ -20,11 +20,16 @@ import { asPlayerId, asSparkId } from '../types.ts';
 import {
   CASTLE_MAX_HP,
   CASTLE_MAX_REGEN_LEVEL,
+  CASTLE_REGEN_PCT_BASE,
+  CASTLE_REGEN_PCT_PER_LEVEL,
   CASTLE_REGEN_UPGRADE_PRICE,
   GATHERER_MAX_SPEED_LEVEL,
+  GOBLIN_MELEE_ATK,
+  GOBLIN_MELEE_PEN,
   PHYSICS_HZ,
   PLAYER_COLORS,
 } from '../constants.ts';
+import { attackFifths } from './stats.ts';
 
 const P = (n: number) => asPlayerId(n);
 
@@ -41,17 +46,44 @@ function board(seats = 2): World {
 }
 
 describe('S164 P1 — the regen rate ladder (R128/R130)', () => {
-  it("⭐ THE OWNER'S LADDER, in whole HP per second — 15/18/21/24/27", () => {
+  it("⭐ THE OWNER'S LADDER — his PERCENTAGES, whatever the pool is (S181: 25/30/35/40/45)", () => {
     /*
-     * R128 gave 1.0 / 1.2 / 1.4 / 1.6 % of max per level. Against CASTLE_MAX_HP 1500 those are
-     * EXACT integers, which is the whole reason this feature needs no float accumulator and no
-     * rounding rule. If CASTLE_MAX_HP ever moves, this case is the one that should go red first.
+     * ⭐⭐⭐ S181 — **THIS CASE PREDICTED ITS OWN FAILURE AND THEN CAUGHT IT.** The docblock that
+     * stood here read: *"If CASTLE_MAX_HP ever moves, this case is the one that should go red
+     * first."* The owner moved it (1500 → 2500) and this was indeed the first thing red. The guard
+     * worked; what follows is the ruling it forced someone to re-read.
+     *
+     * ⛔ **R128 WAS GIVEN IN PERCENT, NOT IN WHOLE HP** — 1.0 / 1.2 / 1.4 / 1.6 / 1.8 % of max per
+     * level. `15/18/21/24/27` was the CONSEQUENCE of those percentages at a 1500 pool, never the
+     * ruling itself. So raising the pool legitimately raises the regen with it, to 25/30/35/40/45,
+     * and pinning the old absolute numbers would have OVERRIDDEN his percentage ruling rather than
+     * honouring it.
+     *
+     * ⚠ AND IT IS A ~67% REGEN BUFF HE DID NOT ASK FOR IN WORDS. He asked for pool and damage; this
+     * rode along. It is surfaced to him rather than silently taken, and it is a one-line change to
+     * `CASTLE_REGEN_PCT_BASE` if he wants the old absolute rates back at the new pool.
+     *
+     * ⭐ THE PROPERTY THAT ACTUALLY MATTERS SURVIVED: every level is still WHOLE HP, which is why
+     * this feature needs no float accumulator and no rounding rule. 2500 × 1.0% = 25 exactly, and so
+     * on up the ladder — asserted below over every level rather than assumed.
      */
-    expect(castleRegenPerSecond(1)).toBe(15);
-    expect(castleRegenPerSecond(2)).toBe(18);
-    expect(castleRegenPerSecond(3)).toBe(21);
-    expect(castleRegenPerSecond(4)).toBe(24);
-    expect(castleRegenPerSecond(5)).toBe(27);
+    /*
+     * ⚠ `toBeCloseTo`, NOT `toBe`, AND THE REASON IS THE POINT OF THE ASSERTION BELOW IT. The
+     * percentage arithmetic is float: `2500 × 1.2 / 100` is 30.000000000000004 in IEEE754.
+     * Production applies `Math.round` — documented there as *"a guard against a future CASTLE_MAX_HP
+     * that does not divide cleanly, not a live rounding rule"*. So the right pair of claims is
+     * "within a hair of his percentage" AND "a whole number after the guard", which is exactly what
+     * keeps this feature free of a float accumulator.
+     */
+    const pct = (l: number): number =>
+      (CASTLE_MAX_HP * (CASTLE_REGEN_PCT_BASE + CASTLE_REGEN_PCT_PER_LEVEL * l)) / 100;
+    for (let l = 1; l <= CASTLE_MAX_REGEN_LEVEL; l++) {
+      expect(castleRegenPerSecond(l), `level ${l} is his percentage of the pool`).toBeCloseTo(pct(l), 6);
+      expect(Number.isInteger(castleRegenPerSecond(l)), `level ${l} is whole HP`).toBe(true);
+    }
+    // The shipped ladder, written out so a reader sees the numbers without deriving them.
+    expect(castleRegenPerSecond(1)).toBe(25);
+    expect(castleRegenPerSecond(5)).toBe(45);
     for (let l = 1; l <= CASTLE_MAX_REGEN_LEVEL; l++) {
       expect(Number.isInteger(castleRegenPerSecond(l)), `level ${l} is whole HP`).toBe(true);
     }
@@ -78,9 +110,22 @@ describe('S164 P1 — the regen rate ladder (R128/R130)', () => {
      * i.e. it out-heals 150 attackers and the castle can never fall. This case pins the ruled
      * reading so a future edit cannot quietly reintroduce the per-tick one.
      */
-    const goblinDps = 6; // GOBLIN_DAMAGE_VS_CASTLE per 60-tick cadence
-    expect(castleRegenPerSecond(1) / goblinDps).toBeCloseTo(2.5, 5);
-    expect(castleRegenPerSecond(5) / goblinDps).toBeCloseTo(4.5, 5);
+    /*
+     * ⭐⭐ S181 — the goblin's damage to a keep is no longer a flat 6. `GOBLIN_DAMAGE_VS_CASTLE` was
+     * RETIRED in S180 when the keep went onto the stat ladder (owner: *"every attacker hits anything
+     * based on its damage output"*), so a melee goblin deals `attackFifths(2, 1)` = 12 per swing.
+     *
+     * ⛔ THE RULING UNDER TEST IS *"PER SECOND, NOT PER TICK"*, AND THAT IS WHAT IS PINNED — not the
+     * literal 2.5. The per-TICK reading would make level 1 heal `rate × 60` per second, which
+     * out-heals any plausible army and makes a keep unfallable. So the assertion is the ORDER OF
+     * MAGNITUDE: regen offsets a handful of attackers, not a hundred of them.
+     */
+    const goblinDps = attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN); // one swing per second
+    const offsets = castleRegenPerSecond(1) / goblinDps;
+    expect(offsets).toBeGreaterThan(1);
+    expect(offsets, 'a handful of goblins, never 150 — the per-tick reading').toBeLessThan(10);
+    // And the per-tick reading, stated as the thing that must stay false.
+    expect((castleRegenPerSecond(1) * PHYSICS_HZ) / goblinDps).toBeGreaterThan(100);
   });
 });
 
@@ -103,14 +148,15 @@ describe('S164 P1 — the cadence is a pure function of (seat, tick)', () => {
 });
 
 describe('S164 P1 — castleRegenTick', () => {
-  it('a damaged castle at level 1 regains exactly 15 HP on its scheduled tick', () => {
+  it('a damaged castle at level 1 regains exactly its level-1 rate on its scheduled tick', () => {
+    // S181 — DERIVED from the rate rather than the literal 1015, so a pool retune re-pins itself.
     const w = board();
     const me = w.players.get(P(0))!;
     me.castleHp = 1000;
     me.castleRegenLevel = 1;
     while (!castleRegensOnTick(0, w.tick)) w.tick++;
     castleRegenTick(w);
-    expect(w.players.get(P(0))!.castleHp).toBe(1015);
+    expect(w.players.get(P(0))!.castleHp).toBe(1000 + castleRegenPerSecond(1));
   });
 
   it('⛔ NEVER FROM ZERO (R131) — a fallen castle stays fallen', () => {

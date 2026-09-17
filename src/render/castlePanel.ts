@@ -761,6 +761,8 @@ export class CastlePanel {
   private onBuyGatherer: (() => void) | null = null;
   private onUpgradeSpeed: (() => void) | null = null;
   private onCastleRegen: (() => void) | null = null;
+  /** S181 — when set, the panel docks flush beneath the character card instead of beside the keep. */
+  private dock: { x: number; y: number; w: number; h: number } | null = null;
   /** Latched per frame from `castleControlsModel`, so a pointertap cannot fire a disabled row. */
   private enabled: boolean[] = [];
   /** Armed on a successful spend so the HUD can withhold its "you were robbed" drop-flash. */
@@ -1088,10 +1090,56 @@ export class CastlePanel {
    * bottom 7.8% went inert) the panel is a small floating box, so swallowing clicks on its padding
    * and title is correct — those are the panel, not the board.
    */
+  /**
+   * ⭐⭐ S181 (owner) — **THE CASTLE IS ONE WINDOW, NOT TWO.**
+   *
+   * > *"Look at the castle. You've made a new thing while I told you that the castle inventory with
+   * > the little selectors, the gatherers, the gatherer speed upgrade, the castle regen and
+   * > everything, that should be a part of the castle character sheet, just an expanded form. I
+   * > don't need two windows. It's confusing this way."*
+   *
+   * ⛔ **DOCKED, NOT DUPLICATED, AND THAT IS THE WHOLE DESIGN DECISION.** This panel owns THREE
+   * interactive strips — the buy rows (`activate`), the bank pull (`pull`) and the blueprint tiles
+   * (`armTile`). Re-implementing them inside `characterSheet` would be ~600 lines of second copy of
+   * logic that must agree, which is the defect this codebase spends most of its comments on and
+   * which `rowsTop`'s own docblock records happening here before: the rows DREW at one y while
+   * `getUiPoints` reported another, so every click landed on empty plate and a screenshot looked
+   * perfect. So the card keeps the identity (portrait, name, health, stats) and this panel docks
+   * flush beneath it as the expanded body. One outline, one window, zero duplicated controls.
+   *
+   * ⚠ NOTHING IS LOST BY DOCKING RATHER THAN FOLDING. Measured in the live client this session: the
+   * FOOTER BAND already carries the full build surface — the blueprint chips for complexity 3..9 and
+   * all six palette shapes. The panel's tiles and bank are the SECOND copy, not the only one, which
+   * is why absorbing this panel wholesale was never necessary.
+   */
+  setDock(rect: { x: number; y: number; w: number; h: number } | null): void {
+    this.dock = rect;
+  }
+
+  /**
+   * The panel's top-left: docked under the card when one is open on this keep, else its own
+   * keep-anchored placement.
+   *
+   * ⛔ ONE RESOLVER, THREE CALLERS — `isOverPanel`, `getUiPoints` and `sync` each computed
+   * `panelOrigin(a.x, a.y, rows)` separately. That is the exact triplication `rowsTop` was extracted
+   * to end, and docking from only two of the three would put the plate in one place and the click
+   * geometry in another.
+   */
+  private originNow(a: { x: number; y: number }): { x: number; y: number } {
+    if (this.dock !== null) {
+      const h = panelHeight(this.rows.length);
+      // Clamped like `panelOrigin` does, so a keep low on the ring cannot push its own controls off
+      // the bottom of the canvas.
+      const y = Math.min(CANVAS_HEIGHT - 8 - h, this.dock.y + this.dock.h);
+      return { x: this.dock.x, y: Math.max(8, y) };
+    }
+    return panelOrigin(a.x, a.y, this.rows.length);
+  }
+
   isOverPanel(x: number, y: number): boolean {
     if (this.selected === null) return false;
     const a = castleAnchor(this.selected, this.layout);
-    const r = panelRect(panelOrigin(a.x, a.y, this.rows.length), this.rows.length);
+    const r = panelRect(this.originNow(a), this.rows.length);
     return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   }
 
@@ -1128,7 +1176,7 @@ export class CastlePanel {
       };
     }
     const a = castleAnchor(this.selected, this.layout);
-    const o = panelOrigin(a.x, a.y, this.rows.length);
+    const o = this.originNow(a);
     const keys = CASTLE_ROW_KEYS;
     return {
       open: true,
@@ -1203,7 +1251,7 @@ export class CastlePanel {
     this.reasons = model.map((m) => m.reason);
 
     const a = castleAnchor(this.selected, this.layout);
-    const o = panelOrigin(a.x, a.y, this.rows.length);
+    const o = this.originNow(a);
     const r = panelRect(o, this.rows.length);
     this.container.position.set(o.x, o.y);
 
@@ -1221,7 +1269,13 @@ export class CastlePanel {
     const bank = bankOf(world.castleBanks, world.localPlayerId);
     let bankTotal = 0;
     for (const c of bank) bankTotal += c;
-    this.titleText.text = `CASTLE   INVENTORY ${bankTotal}`;
+    /*
+     * ⭐ S181 (owner) — DROP THE REDUNDANT WORD WHEN DOCKED. The card immediately above already
+     * says CASTLE in the race colour, at 17px; repeating it 40px lower is the *"confusing this
+     * way"* he objected to, in miniature. The INVENTORY count is NOT redundant and stays either way
+     * — it is the only readout of how many shapes the keep is holding.
+     */
+    this.titleText.text = this.dock !== null ? `INVENTORY ${bankTotal}` : `CASTLE   INVENTORY ${bankTotal}`;
     for (let i = 0; i < this.slots.length; i++) {
       const slot = this.slots[i];
       const slotType = ALL_SPARK_TYPES[i]!;

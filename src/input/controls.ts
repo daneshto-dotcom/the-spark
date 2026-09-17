@@ -54,7 +54,7 @@ import type { World } from '../state/world.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { isUntargetable } from '../state/creatures/creature.ts';
-import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, SpawnerId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 
@@ -140,6 +140,19 @@ export interface CharacterSheetLike {
   selection(): unknown;
   ownedRowAt(x: number, y: number): SheetSelectable | null;
   isOver(x: number, y: number): boolean;
+  /**
+   * S181 — the card's own FIX / SCRAP / FEED. Structurally typed for the same reason
+   * `StructurePanelLike` is: this layer must not import the renderer, and the e2e seam substitutes
+   * a plain object.
+   */
+  actionAt(
+    x: number,
+    y: number,
+  ): { readonly kind: string; readonly sparkType?: number } | null;
+  /** Includes DISABLED buttons, so a refusal can be told apart from a miss (the S152 contract). */
+  isOverAnyAction(x: number, y: number): boolean;
+  actionPrimitiveId(): PrimitiveId | null;
+  actionFeedSpawnerId(): SpawnerId | null;
 }
 
 export interface StructurePanelLike {
@@ -451,6 +464,17 @@ export class Controls {
     this.characterSheet = sheet;
   }
 
+  /**
+   * S181 — `main.ts` injects the card's FIX / SCRAP / FEED dispatch, exactly as it already does for
+   * the popover's. Same `dispatchFn` seam, so the three network paths (wire intent / postIntent /
+   * direct) keep working with no second code path.
+   */
+  setSheetActionHandler(
+    fn: (action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void,
+  ): void {
+    this.onSheetAction = fn;
+  }
+
   setStructurePanel(panel: StructurePanelLike): void {
     this.structurePanel = panel;
   }
@@ -476,6 +500,9 @@ export class Controls {
   private footerBand: FooterBandLike | null = null;
   private structurePanel: StructurePanelLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
+  private onSheetAction:
+    | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
+    | null = null;
   private onStructureAction:
     | ((
         action:
@@ -634,6 +661,31 @@ export class Controls {
     const owned = this.characterSheet.ownedRowAt(this.cursor.x, this.cursor.y);
     if (owned !== null) {
       this.characterSheet.select(owned);
+      return true;
+    }
+    /*
+     * ⭐⭐ S181 (owner) — **THE CARD'S OWN FIX / SCRAP / FEED, TESTED BEFORE THE SWALLOW.**
+     *
+     * ⛔ ORDER IS THE WHOLE BUG RISK HERE. The `isOver` line below consumes every click that lands
+     * on the card so the board underneath cannot also act — which, once buttons live ON the card,
+     * would eat them all. The action test must come first, and the swallow stays as the catch-all
+     * for the plate around them.
+     *
+     * ⭐ AND A REFUSED CLICK STILL SOUNDS DIFFERENT FROM A MISSED ONE, carried over from S152:
+     * `actionAt` ignores disabled buttons by design (they explain, they do not act), so the disabled
+     * case is detected separately and given its own cue rather than being silence.
+     */
+    const sheetAction = this.characterSheet.actionAt(this.cursor.x, this.cursor.y);
+    if (sheetAction !== null) {
+      const prim = this.characterSheet.actionPrimitiveId();
+      if (prim !== null) {
+        void playUiClickSFX();
+        this.onSheetAction?.(sheetAction, prim);
+        return true;
+      }
+    }
+    if (this.characterSheet.isOverAnyAction(this.cursor.x, this.cursor.y)) {
+      void playUiRefusedSFX();
       return true;
     }
     if (this.characterSheet.isOver(this.cursor.x, this.cursor.y)) return true;

@@ -58,13 +58,14 @@ import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
-import type { RaceId } from '../state/races.ts';
+import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import { codexCopyFor } from './codexPresentation.ts';
 import { isConcealed } from './concealment.ts';
+import { PANEL_W } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -172,6 +173,26 @@ export interface CharacterSheetView {
   readonly owned: SheetOwnedUnit | null;
   /** FIX / SCRAP / FEED. Non-null ONLY for a building this seat owns — his "obviously you can't". */
   readonly actions: StructureActionView | null;
+  /**
+   * ⭐⭐ S181 (owner) — **THE CARD WEARS ITS SUBJECT'S RACE COLOUR.**
+   *
+   * > *"that red outline with the red text and everything, that looks good … for the character
+   * > sheet, do it like that. Every race will have his own outline. The writing, any titles or
+   * > anything, will be with the race's color. It needs to be distinct."*
+   *
+   * ⭐ THE RED HE LIKED WAS ALREADY RACE-DERIVED AND NOBODY HAD SAID SO. He was looking at his
+   * Vampires castle panel: `RACE_COLORS.vampires` is `0xff3b6b`. So this is not a new palette, it is
+   * the existing seat/race identity finally reaching the card — the same table the lobby roster, the
+   * palette glyphs and the zone banners already read.
+   *
+   * ⛔ A RESOLVED COLOUR, NOT A `RaceId`, so the renderer never needs the race table and an
+   * unaligned seat is one `null` check rather than a lookup that can miss. `null` keeps the shipped
+   * neutral edge.
+   *
+   * ⚠ IT IS THE SUBJECT'S RACE, NOT THE VIEWER'S — an enemy's card wears THEIR colour, which is what
+   * makes it *"distinct"* at a glance and is the whole point of the seat colour being race identity.
+   */
+  readonly accent: number | null;
   /** Where the card body goes. The action row, when there is one, keeps its shipped geometry. */
   readonly rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
 }
@@ -319,18 +340,147 @@ export function portraitForStructure(recipeId: string | null): PortraitSpec {
     : { kind: 'towerFrame', atlasBase: art.atlasBase, recipeId };
 }
 
+/**
+ * PURE — the race accent for the seat that owns the subject, or null for an unaligned/absent one.
+ *
+ * ONE resolver for all four card branches: a creature, a defender, a structure and the keep must
+ * never disagree about what colour a seat is, and four copies of `RACE_COLORS[...]` is how they
+ * would start to.
+ */
+function accentFor(world: World, owner: PlayerId | null | undefined): number | null {
+  if (owner === null || owner === undefined) return null;
+  const race = world.players.get(owner)?.raceId;
+  return race === undefined || race === null ? null : RACE_COLORS[race];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * S181 — THE ACTION ROW. FIX / SCRAP / FEED, ON THE CARD.
+ * ═════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⭐⭐ S181 (owner playtest) — **THE BUTTONS WERE COMPUTED AND NEVER DRAWN.**
+ *
+ * > *"Similarly, towers lost their scrap and fix. That's wrong. So when you click on Piranha Tower,
+ * > you should see everything you see now … and underneath, it should have also scrap or fix, and
+ * > how much it costs to fix."*
+ *
+ * And, the same turn, on what else belongs there:
+ *
+ * > *"if it's like a bat tower, a tier three tower, they can pay to buy more tier three soldiers.
+ * > Just like it used to be last session, before you removed the scrape and the fix and the buy a
+ * > character with the primitive."*
+ *
+ * ⛔ HE IS DESCRIBING A RENDERER GAP, NOT MISSING LOGIC. `CharacterSheetView.actions` has carried
+ * the full `StructureActionView` since S180 — every button, its caption, its enabled state and the
+ * `feedSpawnerId` — and `characterSheet.draw` read none of it. `heightFor` did not reserve a pixel
+ * for it either, which is why nothing even looked clipped. The model was right; the card was blind.
+ *
+ * ⭐ SO NOTHING ABOUT COST OR AFFORDABILITY IS RE-DERIVED HERE. `structureActionModel` already
+ * prices FIX at what was LOST (`COSTS n`), already says `NEED n MORE` when the seat is short,
+ * already says `RETURNS n` for scrap's survivors, and already offers six FEED shapes whether or not
+ * you hold them. That is his *"how much it costs to fix"* — it exists, and a second pricing path
+ * here would be the bespoke-constant defect the stat ladder section of CLAUDE.md forbids.
+ */
+const ACT_BTN_H = 34;
+const ACT_GAP = 10;
+const ACT_ROW_GAP = 8;
+const FEED_BTN = 32;
+const FEED_GAP = 4;
+
+/** One laid-out button: the popover's descriptor, re-placed in CARD-LOCAL space. */
+export interface SheetActionSlot {
+  readonly kind: string;
+  readonly sparkType?: number;
+  readonly label: string;
+  readonly caption: string;
+  readonly enabled: boolean;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * PURE — how tall the action block is for this button set, and therefore what `heightFor` must add.
+ *
+ * ⚠ ZERO WHEN THERE ARE NO BUTTONS, so an enemy building's card is exactly the height it is today.
+ * `actions` is already null for anything you do not own (his *"obviously you can't do fix scrape to
+ * enemy towers"*), and this keeps that costing nothing.
+ */
+export function actionBlockHeight(buttons: readonly { kind: string }[]): number {
+  if (buttons.length === 0) return 0;
+  const hasWide = buttons.some((b) => b.kind !== 'FEED');
+  const hasFeed = buttons.some((b) => b.kind === 'FEED');
+  let h = ACT_ROW_GAP;
+  if (hasWide) h += ACT_BTN_H;
+  if (hasFeed) h += (hasWide ? ACT_ROW_GAP : 0) + FEED_BTN;
+  return h;
+}
+
+/**
+ * PURE — the popover's buttons re-laid-out inside the card, in ABSOLUTE canvas coordinates.
+ *
+ * ⛔ **THE INCOMING x/y ARE DISCARDED ON PURPOSE.** `structureActionModel` positions its buttons for
+ * a free-floating popover anchored to the structure on the board. Re-using those coordinates inside
+ * the card would scatter the buttons across the screen — they are the right BUTTONS with the wrong
+ * geometry. Everything else on the descriptor (kind, label, caption, enabled, sparkType) is taken
+ * verbatim, because that is the part the reducer and the pricing logic own.
+ *
+ * ⚠ FEED GETS ITS OWN ROW BENEATH. Six shape chips and two wide buttons do not share a line at
+ * 236px, and the wide row is the one he named first.
+ */
+export function layoutSheetActions(
+  buttons: readonly SheetActionSlot[],
+  rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
+): SheetActionSlot[] {
+  if (buttons.length === 0) return [];
+  const inner = rect.w - PAD * 2;
+  const wide = buttons.filter((b) => b.kind !== 'FEED');
+  const feed = buttons.filter((b) => b.kind === 'FEED');
+  const out: SheetActionSlot[] = [];
+
+  let y = rect.y + rect.h - PAD - actionBlockHeight(buttons) + ACT_ROW_GAP;
+
+  if (wide.length > 0) {
+    const w = (inner - ACT_GAP * (wide.length - 1)) / wide.length;
+    wide.forEach((b, i) => {
+      out.push({ ...b, x: rect.x + PAD + i * (w + ACT_GAP), y, w, h: ACT_BTN_H });
+    });
+    y += ACT_BTN_H + ACT_ROW_GAP;
+  }
+
+  if (feed.length > 0) {
+    // Centred on its own occupancy, so a five-shape strip does not sit left-aligned with a dead gap.
+    const stripW = feed.length * FEED_BTN + (feed.length - 1) * FEED_GAP;
+    const left = rect.x + (rect.w - stripW) / 2;
+    feed.forEach((b, i) => {
+      out.push({ ...b, x: left + i * (FEED_BTN + FEED_GAP), y, w: FEED_BTN, h: FEED_BTN });
+    });
+  }
+  return out;
+}
+
 /** Height of a card carrying these parts. Derived, so nothing has to be kept in sync by hand. */
-function heightFor(stats: number, owned: boolean): number {
+function heightFor(stats: number, owned: boolean, actions: readonly { kind: string }[] = []): number {
   return (
-    PAD + HEADER_H + PORTRAIT + 6 + BAR_H + 8 + stats * ROW_H + (owned ? OWNED_H + 6 : 0) + PAD
+    PAD + HEADER_H + PORTRAIT + 6 + BAR_H + 8 + stats * ROW_H + (owned ? OWNED_H + 6 : 0) +
+    actionBlockHeight(actions) + PAD
   );
 }
 
-/** Place the card above `anchor`, clamped so it is never half off the board. */
-function rectFor(anchor: Vec2, h: number): CharacterSheetView['rect'] {
-  const x = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - SHEET_W - EDGE_MARGIN, anchor.x - SHEET_W / 2));
+/**
+ * Place the card above `anchor`, clamped so it is never half off the board.
+ *
+ * ⭐ S181 — `w` IS A PARAMETER NOW, for exactly one caller: the keep. Its card is the header of a
+ * single merged window whose body is `castlePanel`, so the two must share an edge — a 236px card
+ * over a 268px panel reads as the two windows the owner asked us to stop drawing. Everything else
+ * keeps `SHEET_W`, because *"one width for everything, so a goblin and a boss read as the same kind
+ * of object"* is still right for the floating cards.
+ */
+function rectFor(anchor: Vec2, h: number, w: number = SHEET_W): CharacterSheetView['rect'] {
+  const x = Math.max(EDGE_MARGIN, Math.min(CANVAS_WIDTH - w - EDGE_MARGIN, anchor.x - w / 2));
   const y = Math.max(EDGE_MARGIN, Math.min(CANVAS_HEIGHT - h - EDGE_MARGIN, anchor.y - LIFT - h));
-  return { x, y, w: SHEET_W, h };
+  return { x, y, w, h };
 }
 
 /**
@@ -376,6 +526,7 @@ function creatureSheet(
     stats,
     owned: null,
     actions: null,
+    accent: accentFor(world, c.ownerPlayerId),
     rect: rectFor(c.pos, h),
   };
 }
@@ -406,6 +557,7 @@ function defenderSheet(
     stats,
     owned: null,
     actions: null,
+    accent: accentFor(world, d.ownerPlayerId),
     rect: rectFor(d.pos, h),
   };
 }
@@ -458,7 +610,7 @@ function structureSheet(
     stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
     stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
   }
-  const h = heightFor(stats.length, owned !== null);
+  const h = heightFor(stats.length, owned !== null, actions?.buttons ?? []);
   return {
     target,
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
@@ -468,6 +620,7 @@ function structureSheet(
     stats,
     owned,
     actions,
+    accent: accentFor(world, owner),
     rect: rectFor(prim.pos, h),
   };
 }
@@ -505,7 +658,13 @@ function castleSheet(
     stats,
     owned: null,
     actions: null,
-    rect: rectFor(anchor, heightFor(stats.length, false)),
+    accent: accentFor(world, target.seat),
+    /*
+     * ⭐ S181 — the keep's card is `PANEL_W` wide, not `SHEET_W`. It is the HEADER of the one merged
+     * castle window; `castlePanel` docks flush beneath it and the shared edge is what makes the two
+     * read as a single panel rather than the *"two windows"* he asked us to stop drawing.
+     */
+    rect: rectFor(anchor, heightFor(stats.length, false), PANEL_W),
   };
 }
 

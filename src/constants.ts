@@ -1884,7 +1884,31 @@ export const ARMY_RETREAT_LEAD_TICKS = 180;
  * castle HP or castle damage off the player's race/colour. When upgrades arrive they follow the
  * GATHERER precedent (points from `scoreByPlayer`, a level, a cap) rather than a per-race stat line.
  */
-export const CASTLE_MAX_HP = 1500;
+/**
+ * ⭐⭐⭐ S181 (owner) — **2500, AND IT IS THE WIN SCORE ON PURPOSE.**
+ *
+ * > *"Raise tower total health to two thousand five hundred points, just like how much you need to
+ * > win. So far it's a thousand five hundred. So bring it up to two thousand five hundred."*
+ *
+ * ⚠ READ THIS BEFORE "CORRECTING" THE CANON: IT IS NOT A CONTRADICTION OF HIS S180 RULING. In S180
+ * he was asked whether the keep's pool was 2500 and answered *"the castle pool was 1,500 … and the
+ * 2,500 is how many points someone needs to win"* — i.e. he was correcting a misread of what 2500
+ * MEANT. In S181 he chose to move the pool TO 2500. The two statements are a clarification followed
+ * by a decision, and both are his. The shared magnitude is the same argument the 1500 carried: two
+ * victory conditions that feel like equal-length races.
+ *
+ * ⛔ AND IT MOVES THE SIEGE BY A MEASURED 5/3. The keep is still the ONE deliberate exception to the
+ * stat ladder — a flat pool rather than `hp × (1 + 0.2 × def) × 5` — so nothing else re-derives from
+ * it, but every "how many goblins fell a keep" figure scales. `castleGuns.test.ts` was RE-MEASURED
+ * through the real host tick, never relaxed, per the rule that a coverage gate is re-run rather than
+ * loosened.
+ *
+ * ⛔ ONE CONSTANT FOR EVERY SEAT, AND IT MUST STAY THAT WAY FOR NOW. Owner ruling R88, restated in
+ * the S154 castle-races addendum: *"all castles and their spawn will have the same strengh and hp to
+ * start with - later we will add castle upgrades like we have for the gatherers"*. So nothing may key
+ * castle HP or castle damage off the player's race/colour.
+ */
+export const CASTLE_MAX_HP = 2500;
 
 /*
  * ⭐ S164 P1 (owner R128–R131) — **CASTLE HP REGENERATION, BOUGHT WITH VICTORY POINTS.** This is the
@@ -1964,7 +1988,27 @@ export const CASTLE_ATTACK_RANGE = 300; // px — Q3. Shorter than the laser tur
  * does NOT one-shot a shield goblin (16). A castle punishes leakers and loses to a real push, which
  * is the shape the owner asked for.
  */
-export const CASTLE_ATK = 1;
+/**
+ * ⭐⭐⭐ S181 (owner) — **FIVE TIMES THE OUTPUT: 8 FIFTHS BECOMES 40.**
+ *
+ * > *"And also the damage output of the tower should be stronger. It should be like five times more
+ * > than it is now."*
+ *
+ * ⛔ TAKEN ON THE LADDER, NOT AS A BESPOKE NUMBER — which is the rule this file's stat-ladder section
+ * exists to enforce. His ×5 is expressed by moving ATK 1 → 5 and leaving PEN at 3:
+ *
+ *     attackFifths(5, 3) = 5 × (1 + 0.2 × 3) × 5 = 5 × 8 = 40 fifths
+ *
+ * exactly 5 × the shipped 8. ⚠ PEN DELIBERATELY UNCHANGED: raising PEN instead would have changed
+ * how the shot behaves against DEF rather than simply making it hit harder, and "stronger" is what
+ * he asked for. Multiplying a flat 8 by five would have been the `GOBLIN_DAMAGE_VS_CASTLE` defect in
+ * reverse — a castle number on its own scale again, 19 sessions after the last one was retired.
+ *
+ * ⚠ WHAT 40 FIFTHS NOW DOES, so the reader does not have to derive it: it one-shots every grunt it
+ * already one-shot, and now also one-shots a shield goblin (16) and a bat. The castle stops merely
+ * punishing leakers. He asked for that knowingly, one turn after being shown the 8.
+ */
+export const CASTLE_ATK = 5;
 export const CASTLE_PEN = 3;
 /**
  * ⭐ NO STORED TIMER, AND THAT IS THE DESIGN — the castle's fire schedule is a pure function of

@@ -13,9 +13,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CASTLE_ATK,
   CASTLE_ATTACK_RANGE,
   CASTLE_FIRE_INTERVAL_TICKS,
   CASTLE_MAX_HP,
+  CASTLE_PEN,
   FIGHT_PHASE_TICKS,
   GOBLIN_SHIELD_ATK,
   GOBLIN_SHIELD_DEF,
@@ -39,7 +41,7 @@ import { asPlayerId, asSpawnerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { castleFiresOnTick, castleGunsTick, castleShotFifths } from './castleGuns.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
-import { unitPoolFifths } from './stats.ts';
+import { attackFifths, unitPoolFifths } from './stats.ts';
 import { ALL_RACES } from './races.ts';
 import type { CreatureId } from '../types.ts';
 
@@ -232,21 +234,38 @@ describe('S160 P4b — R94: the castle is STAT-IDENTICAL for every race, forever
 });
 
 describe('S160 P4b — the shot sits on the shared fifths ladder', () => {
-  it("Q3's 'damage 8' is exact on the ladder, not approximated", () => {
-    expect(castleShotFifths()).toBe(8);
+  it("the shot is exact on the ladder, not approximated — S181: x5, so 40", () => {
+    /*
+     * ⭐⭐ S181 (owner) — *"the damage output of the tower should be stronger. It should be like five
+     * times more than it is now."* Taken ON the ladder: ATK 1 → 5 with PEN held at 3, so
+     * `attackFifths(5, 3)` = 40 = exactly 5 × the shipped 8.
+     *
+     * ⛔ DERIVED FROM THE CONSTANTS, NOT RE-TYPED. The old assertion was the literal `8`, which is
+     * why this file went red the moment the owner retuned the gun — correct behaviour for a gate,
+     * but the re-pin should not need doing a third time. Writing it as `attackFifths(CASTLE_ATK,
+     * CASTLE_PEN)` keeps the LADDER as the thing under test while letting him retune freely.
+     */
+    expect(castleShotFifths()).toBe(attackFifths(CASTLE_ATK, CASTLE_PEN));
+    expect(castleShotFifths()).toBe(40);
   });
 
-  it('⭐ it one-shots the roster floor and does NOT one-shot a shield goblin', () => {
-    // The documented intent: a castle punishes leakers and loses to a real push. Asserted so the
-    // docblock's kill table cannot go stale.
-    expect(castleShotFifths()).toBeGreaterThanOrEqual(unitPoolFifths(1, 0)); // chewer, 5
-    expect(castleShotFifths()).toBeGreaterThanOrEqual(unitPoolFifths(1, 1)); // race unit, 6
-    expect(castleShotFifths()).toBeGreaterThanOrEqual(unitPoolFifths(1, 2)); // melee goblin, 7
-    expect(
-      castleShotFifths(),
-      'a shield goblin must survive a single castle shot',
-    ).toBeLessThan(unitPoolFifths(2, GOBLIN_SHIELD_DEF));
-    expect(GOBLIN_SHIELD_ATK).toBe(1); // control: the constants are the ones I think they are
+  it('⭐⭐ S181 — it now one-shots the shield goblin too, and that is the owner asking for it', () => {
+    /*
+     * ⛔ THIS ASSERTION WAS INVERTED BY AN OWNER DECISION, NOT BY A BUG, and the inversion is the
+     * whole point of recording it here. Until S181 the gate read *"a shield goblin must survive a
+     * single castle shot"* — the castle punished leakers and lost to a real push, which was the
+     * shape he had asked for. Then, one turn after being shown that the shot was 8:
+     *
+     * > *"the damage output of the tower should be stronger. It should be like five times more."*
+     *
+     * At 40 fifths the shield goblin's 16-fifth pool no longer survives. So the castle no longer
+     * merely punishes leakers — it beats anything that arrives in ones and twos. He chose that with
+     * the number in front of him, so the gate now pins the NEW truth rather than being deleted.
+     *
+     * ⚠ AND THE PUSH MEASUREMENT BELOW IS WHAT KEEPS IT HONEST: a sustained push still takes a keep,
+     * so the castle-kill win condition survives the buff instead of being quietly switched off.
+     */
+    expect(castleShotFifths()).toBeGreaterThanOrEqual(unitPoolFifths(GOBLIN_SHIELD_ATK, GOBLIN_SHIELD_DEF));
   });
 });
 
@@ -297,32 +316,42 @@ describe('S160 P4b — ⛔ WHAT THE GUN COSTS THE CASTLE-KILL WIN CONDITION, MEA
   };
 
   /**
-   * ⭐⭐ S180 (owner) — **RE-MEASURED, NOT RELAXED, after the keep went onto the ladder.**
+   * ⭐⭐ S181 (owner) — **RE-MEASURED AGAIN, NOT RELAXED, after the keep went to 2500 and its gun x5.**
    *
-   * > *"Every attacker hits anything based on its damage output… doesn't matter if it's a connector,
-   * > a castle, or another enemy."*
+   * > *"Raise tower total health to two thousand five hundred points, just like how much you need to
+   * > win."* · *"And also the damage output of the tower should be stronger. It should be like five
+   * > times more than it is now."*
    *
-   * A melee goblin deals `attackFifths(2, 1)` = **12** to a keep now, where the retired flat constant
-   * gave every creature in the game 6. So the ORDERING this gate exists to protect is unchanged —
-   * one leaker still cannot scratch it, a sustained push still takes it, and the castle-kill victory
-   * is still reachable rather than deleted — but the PRICE moved, and the honest thing is to re-run
-   * the fixture and write down what it now costs rather than loosen the assertion until it passes.
+   * ⭐ THE TWO CHANGES PULL IN OPPOSITE DIRECTIONS AND THE MEASUREMENT IS THE ONLY HONEST ANSWER.
+   * The pool went up 5/3, which should make a keep proportionally harder to fell — but the gun went
+   * up 5x, so it now kills a shield goblin outright and thins the push that is trying to fell it.
+   * Guessing "about fifteen" from the pool ratio alone would have been wrong: the real threshold
+   * moved from between eight and ten to **between ten and twelve**, a factor of ~1.2 rather than the
+   * 1.67 the pool suggests. That gap IS the gun buff, and it is why this fixture gets re-run rather
+   * than reasoned about.
    *
-   * MEASURED through the real host tick, this file's own `pushOf`:
-   *   ·  1 → 1500 (untouched; shot before its first swing)      ·  6 → 876
-   *   ·  2 → 1476                                                ·  7 → 588
-   *   ·  4 → 1260                                                ·  8 → 264  (holds, just)
-   *   ·  5 → 1104                                                · 10 → FALLS
+   * MEASURED through the real host tick, this file's own `pushOf`, S181:
+   *   ·  1 → 2500 (untouched; shot before its first swing)      ·  8 → 1264
+   *   ·  2 → 2476                                                · 10 →  532  (holds, just)
+   *   ·  4 → 2260                                                · 12 → FALLS
+   *   ·  6 → 1876
    *
-   * ⇒ **the threshold moved from about fifteen to between eight and ten.** Read it as a reading off
-   * ONE fixture — goblins spawned in contact on an empty board — exactly as the S160 note it replaces
-   * warned: *"15 is the number for THAT fixture and nothing more."*
+   * ⇒ **ten nearly do it, twelve bring it down.** Read it as a reading off ONE fixture — goblins
+   * spawned in contact on an empty board — exactly as the S160 note warned: *"15 is the number for
+   * THAT fixture and nothing more."*
+   *
+   * ⛔ AND THE ORDERING THIS GATE ACTUALLY PROTECTS IS UNCHANGED, which is the point of keeping it:
+   * one leaker still cannot scratch a keep, and a sustained push still takes one. The castle-kill
+   * victory is still reachable rather than deleted by the buff.
    */
-  it('⭐ ONE leaker cannot scratch it, EIGHT nearly do, TEN bring it down', () => {
+  it('⭐ ONE leaker cannot scratch it, TEN nearly do, TWELVE bring it down', () => {
     expect(pushOf(1).hpLeft, 'a lone unit deals nothing — the gun kills it first').toBe(CASTLE_MAX_HP);
-    expect(pushOf(8).fell, 'EIGHT still cannot quite finish it, so a push is still a commitment').toBe(false);
-    expect(pushOf(8).hpLeft, 'and it is CLOSE — this is the number that moves if the gun is retuned').toBeLessThan(CASTLE_MAX_HP / 2);
-    expect(pushOf(10).fell, 'TEN takes the castle, so the win condition survives the ladder change').toBe(true);
+    expect(pushOf(10).fell, 'TEN still cannot quite finish it, so a push is still a commitment').toBe(false);
+    expect(
+      pushOf(10).hpLeft,
+      'and it is CLOSE — this is the number that moves if the keep or the gun is retuned',
+    ).toBeLessThan(CASTLE_MAX_HP / 2);
+    expect(pushOf(12).fell, 'TWELVE takes the castle, so the win condition survives the buff').toBe(true);
   });
 
   it('the castle-kill path is not merely reachable but reachable INSIDE one fight', () => {

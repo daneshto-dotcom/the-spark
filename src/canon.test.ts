@@ -28,7 +28,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CASTLE_ATTACK_RANGE,
+  CASTLE_ATK,
   CASTLE_MAX_HP,
+  CASTLE_PEN,
   HAZARD_SPAWN_ENABLED,
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
@@ -40,6 +42,8 @@ import {
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
 import { structurePoolFifths, unitPoolFifths } from './state/stats.ts';
+import { castleShotFifths } from './state/castleGuns.ts';
+import { castleRegenPerSecond } from './state/castleRegen.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -62,6 +66,37 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`**${CASTLE_MAX_HP}** (\`CASTLE_MAX_HP\`)`)).toBe(true);
     // ⭐ S180: the flat constant is RETIRED. The canon must say the ladder, not the number.
     expect(canonSays('its own `attackFifths(atk, pen)`')).toBe(true);
+    /*
+     * ⭐⭐ S181 — the gun's own shot is now a canon number, so it is pinned like every other one.
+     * It is DERIVED from the constants here, so the owner can retune the gun and this asserts the
+     * doc followed him rather than asserting a literal that must be hand-edited twice.
+     */
+    expect(canonSays(`**${castleShotFifths()}** fifths`)).toBe(true);
+    expect(canonSays(`\`attackFifths(${CASTLE_ATK}, ${CASTLE_PEN})\``)).toBe(true);
+  });
+
+  /**
+   * ⭐⭐ S181 — **THE CANON MUST CARRY THE CLARIFY-THEN-DECIDE HISTORY OF THE 2500, NOT JUST THE
+   * NUMBER.** In S180 the owner said 2500 was the WIN SCORE and the pool was 1500; in S181 he moved
+   * the pool to 2500. A session reading only the first statement would "fix" the pool back to 1500
+   * and think it was restoring his ruling. So the doc has to say both things and say they are not a
+   * contradiction — and this case is what keeps that paragraph from being tidied away.
+   */
+  it('records that 2500 was the win score FIRST and the pool SECOND, as two owner statements', () => {
+    expect(canonSays('This is not a contradiction of his S180 ruling'.toUpperCase())
+      || canonSays('NOT A CONTRADICTION OF HIS S180 RULING')).toBe(true);
+    expect(canonSays('he was correcting what 2500')).toBe(true);
+    expect(canonSays('PHASE_1_WIN_SCORE')).toBe(true);
+  });
+
+  /**
+   * ⚠ THE REGEN BUFF THE POOL CHANGE CARRIED WITH IT. R128 was given in PERCENT, so raising the pool
+   * raised the absolute rates — a change the owner did not ask for in words. It is surfaced in the
+   * canon rather than left for him to discover mid-match, and this pins that it stays surfaced.
+   */
+  it('surfaces the regen rates the pool change moved, derived from the shipped ladder', () => {
+    const rates = [1, 2, 3, 4, 5].map((l) => castleRegenPerSecond(l)).join(' / ');
+    expect(canonSays(`**${rates}** HP per second`)).toBe(true);
   });
 
   /**
@@ -104,7 +139,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
    * reads it, and that the retired constant is described as retired rather than as live behaviour.
    */
   it('records the castle rulings the owner gave, and the siege cost they moved', () => {
-    expect(canonSays('2500 is the WIN SCORE, not castle health')).toBe(true);
+    // ⭐ S181 — REWORDED, not deleted: the canon now states the clarification AND the later
+    // decision (see the dedicated case above). The old exact phrase is gone because the pool IS
+    // 2500 now, and asserting it would force the doc to keep a sentence that is no longer true.
+    expect(canonSays('2,500 is how many points someone needs to win')).toBe(true);
     expect(canonSays('the flat 6 is gone')).toBe(true);
     expect(canonSays('retired in place, unread')).toBe(true);
     expect(canonSays('between eight and ten')).toBe(true);

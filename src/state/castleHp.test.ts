@@ -47,9 +47,22 @@ function fightWorld(): World {
   return w;
 }
 
-describe('S154 AMENDMENT C — the castle starts at 1500 and takes damage', () => {
+describe('S154 AMENDMENT C / S181 — the castle starts at CASTLE_MAX_HP and takes damage', () => {
   it('every seat opens with CASTLE_MAX_HP, and it is the owner number', () => {
-    expect(CASTLE_MAX_HP).toBe(1500);
+    /*
+     * ⭐⭐ S181 (owner) — **2500, RAISED FROM 1500 BY HIM**: *"Raise tower total health to two
+     * thousand five hundred points, just like how much you need to win. So far it's a thousand five
+     * hundred."*
+     *
+     * ⚠ NOT A CONTRADICTION OF HIS S180 CLARIFICATION. Asked then whether the pool was 2500 he said
+     * *"the castle pool was 1,500 … and the 2,500 is how many points someone needs to win"* — he was
+     * correcting what 2500 MEANT, not refusing it as a pool. In S181 he chose to move the pool to it.
+     *
+     * ⛔ THE LITERAL IS KEPT DELIBERATELY. This one assertion is the tripwire that makes a change to
+     * an OWNER NUMBER visible: it must go red and force a human to re-read his ruling, which is
+     * exactly what it did this session. Every other consumer in this file derives from the constant.
+     */
+    expect(CASTLE_MAX_HP).toBe(2500);
     const w = fightWorld();
     expect(w.players.size).toBeGreaterThan(1);
     for (const p of w.players.values()) expect(p.castleHp).toBe(CASTLE_MAX_HP);

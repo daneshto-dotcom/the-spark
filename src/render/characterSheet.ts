@@ -25,10 +25,15 @@ import { Application, Container, Graphics, Sprite, Text, TextStyle, Texture } fr
 import type { PlayerId } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
 import { codexCopyFor, drawEmblem } from './codexPresentation.ts';
+import { drawSparkGlyph } from './sparkGlyph.ts';
+import { SparkType } from '../constants.ts';
+import type { PrimitiveId, SpawnerId } from '../types.ts';
 import {
   characterSheetModel,
+  layoutSheetActions,
   SHEET_W,
   statValueColumnPx,
+  type SheetActionSlot,
   type CharacterSheetView,
   type PortraitSpec,
   type SheetTarget,
@@ -63,6 +68,7 @@ export class CharacterSheet {
   private readonly container: Container;
   private readonly g: Graphics;
   private readonly emblem: Graphics;
+  private readonly glyphs: Graphics;
   private readonly portrait: Sprite;
   private readonly labels: Text[] = [];
   private used = 0;
@@ -71,16 +77,28 @@ export class CharacterSheet {
   private portraitSource: PortraitSource = () => null;
   /** Where the owned-unit row was drawn this frame, so a click on it can open that unit's own card. */
   private ownedHit: { x: number; y: number; w: number; h: number } | null = null;
+  /**
+   * ⭐ S181 — the action buttons AS DRAWN this frame, and the only thing a click is tested against.
+   *
+   * ⛔ RECORDED FROM THE DRAW, NOT RE-LAID-OUT AT CLICK TIME. `castlePanel.rowsTop`'s docblock
+   * records the exact bug the other way round: the rows DREW at one y while `getUiPoints` reported
+   * another, so every click landed on empty plate while a screenshot looked perfect. One layout, one
+   * consumer.
+   */
+  private slots: SheetActionSlot[] = [];
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
     this.container.eventMode = 'none'; // the board underneath stays clickable
     this.g = new Graphics();
     this.emblem = new Graphics();
+    // S181 — its own child so a feed chip's glyph is not wiped by the plate's `clear()` ordering.
+    this.glyphs = new Graphics();
     this.portrait = new Sprite();
     this.portrait.visible = false;
     this.container.addChild(this.g);
     this.container.addChild(this.emblem);
+    this.container.addChild(this.glyphs);
     this.container.addChild(this.portrait);
     parent.addChild(this.container);
   }
@@ -104,6 +122,18 @@ export class CharacterSheet {
     if (h === null || owned === null) return null;
     if (x < h.x || x > h.x + h.w || y < h.y || y > h.y + h.h) return null;
     return owned.target;
+  }
+
+  /**
+   * S181 — the card's rect AS DRAWN this frame, or null when it is closed.
+   *
+   * Exists so `castlePanel` can dock flush beneath the keep's card and the two read as one window.
+   * The panel must not recompute the card's geometry: one layout, one consumer — the same rule the
+   * action slots follow, and the one `rowsTop` was extracted to enforce inside the panel itself.
+   */
+  rect(): { x: number; y: number; w: number; h: number } | null {
+    const r = this.view?.rect;
+    return r === undefined ? null : { x: r.x, y: r.y, w: r.w, h: r.h };
   }
 
   /** True while the pointer is over the card, so a click on it does not also act on the board. */
@@ -134,10 +164,29 @@ export class CharacterSheet {
 
   private draw(v: CharacterSheetView): void {
     const { x, y, w, h } = v.rect;
-    this.g.roundRect(x, y, w, h, 8).fill({ color: PLATE, alpha: 0.94 }).stroke({ color: EDGE, width: 1 });
+    /*
+     * ⭐⭐ S181 (owner) — **THE RACE OUTLINE.** *"That red outline with the red text and everything,
+     * that looks good … for the character sheet, do it like that. Every race will have his own
+     * outline. The writing, any titles, will be with the race's color. It needs to be distinct."*
+     *
+     * A 2px accent edge with a soft outer halo, over the shipped dark plate. The halo is two
+     * concentric rounded strokes at low alpha rather than a blur filter: a filter on this container
+     * would force Pixi to allocate a render texture per frame for an overlay that redraws every
+     * frame anyway, and at this size the two strokes are visually identical.
+     */
+    const accent = v.accent ?? EDGE;
+    if (v.accent !== null) {
+      this.g.roundRect(x - 3, y - 3, w + 6, h + 6, 11).stroke({ color: accent, width: 1, alpha: 0.12 });
+      this.g.roundRect(x - 1.5, y - 1.5, w + 3, h + 3, 9.5).stroke({ color: accent, width: 1, alpha: 0.26 });
+    }
+    this.g
+      .roundRect(x, y, w, h, 8)
+      .fill({ color: PLATE, alpha: 0.94 })
+      .stroke({ color: accent, width: v.accent === null ? 1 : 2 });
 
     // ── header: the name, largest thing on the card, and one identity line ────────────────────
-    this.text(v.title, x + PAD, y + PAD - 2, 17, INK);
+    //    The TITLE takes the race colour; the identity line stays dim so the name still leads.
+    this.text(v.title, x + PAD, y + PAD - 2, 17, v.accent ?? INK);
     this.text(v.subtitle, x + PAD, y + PAD + 18, 11, DIM);
 
     const top = y + PAD + 36;
@@ -201,6 +250,53 @@ export class CharacterSheet {
     } else {
       this.ownedHit = null;
     }
+
+    // ── FIX / SCRAP / FEED — his *"towers lost their scrap and fix. That's wrong."* ────────────
+    this.slots = v.actions === null ? [] : layoutSheetActions(v.actions.buttons, v.rect);
+    for (const b of this.slots) this.drawActionButton(b, accent);
+  }
+
+  /**
+   * ⭐⭐ S181 (owner) — one control, drawn the way he asked for it: *"beautiful outline, buttons
+   * glowing, rounded edges, you know, everything very user-friendly and simple."*
+   *
+   * ⛔ A DISABLED BUTTON IS DRAWN, DIMMED, AND STILL SAYS WHY — never hidden. That is this
+   * codebase's standing contract for a refused control (`castleStructuresModel`: *"a disabled tile
+   * must SAY why, never read as absent"*), and the reason the owner can learn that a shape feeds a
+   * particular unit while holding none of it. The caption is the model's, not invented here.
+   */
+  private drawActionButton(b: SheetActionSlot, accent: number): void {
+    const feed = b.kind === 'FEED';
+    const r = feed ? 6 : 8;
+    // The glow is what reads as "glowing" without a filter: a wider, fainter stroke outside the
+    // crisp one. Only an ENABLED control glows — that is what makes the affordable ones pop.
+    if (b.enabled) {
+      this.g.roundRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4, r + 2)
+        .stroke({ color: accent, width: 2, alpha: 0.18 });
+    }
+    this.g
+      .roundRect(b.x, b.y, b.w, b.h, r)
+      .fill({ color: b.enabled ? 0x16283a : 0x111c28, alpha: 0.96 })
+      .stroke({ color: b.enabled ? accent : EDGE, width: b.enabled ? 1.5 : 1, alpha: b.enabled ? 0.9 : 0.55 });
+
+    if (feed) {
+      // The shape glyph IS the label for a feed chip — a word would not fit 32px and the player
+      // recognises the shape from the palette they built with.
+      // Signature is (g, x, y, r, shape, color) — the glyph carries the accent when affordable so
+      // the strip reads as "these are yours to spend", and greys out when it is not.
+      drawSparkGlyph(
+        this.glyphs,
+        b.x + b.w / 2,
+        b.y + b.h / 2,
+        9,
+        (b.sparkType ?? 0) as SparkType,
+        b.enabled ? accent : DIM,
+      );
+      return;
+    }
+    const cx = b.x + b.w / 2;
+    this.textCentred(b.label, cx, b.y + 6, 13, b.enabled ? INK : DIM);
+    if (b.caption !== '') this.textCentred(b.caption, cx, b.y + 21, 9, DIM);
   }
 
   private drawPortrait(spec: PortraitSpec, px: number, py: number): void {
@@ -265,6 +361,15 @@ export class CharacterSheet {
     t.position.set(x, y);
   }
 
+  private textCentred(s: string, cx: number, y: number, size: number, fill: number): void {
+    const t = this.take();
+    t.text = s;
+    t.style.fontSize = size;
+    t.style.fill = fill;
+    t.anchor.set(0.5, 0);
+    t.position.set(cx, y);
+  }
+
   private textRight(s: string, x: number, y: number, size: number, fill: number): void {
     const t = this.take();
     t.text = s;
@@ -290,6 +395,8 @@ export class CharacterSheet {
   private reset(): void {
     this.g.clear();
     this.emblem.clear();
+    this.glyphs.clear();
+    this.slots = [];
     this.portrait.visible = false;
     for (const t of this.labels) t.visible = false;
     this.used = 0;
@@ -313,6 +420,45 @@ export class CharacterSheet {
       owned: this.view?.owned?.name ?? null,
       hasActions: this.view?.actions != null,
     };
+  }
+
+  /**
+   * ⭐ S181 — the ENABLED action under (x, y), or null.
+   *
+   * ⚠ DISABLED BUTTONS ARE DELIBERATELY IGNORED HERE, exactly as `StructurePanel.buttonAt` ignores
+   * them: they explain, they do not act. `isOverAnyAction` is the separate question the refused-click
+   * cue asks, so a player who clicks an unaffordable FIX hears the refusal rather than silence —
+   * owner S152: *"so we know when we have clicked something and it simply didn't work"*.
+   */
+  actionAt(x: number, y: number): { kind: string; sparkType?: number } | null {
+    for (const b of this.slots) {
+      if (!b.enabled) continue;
+      if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue;
+      return b.sparkType === undefined ? { kind: b.kind } : { kind: b.kind, sparkType: b.sparkType };
+    }
+    return null;
+  }
+
+  /** True over ANY action button, enabled or not — the refused-click cue's question. */
+  isOverAnyAction(x: number, y: number): boolean {
+    return this.slots.some((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+  }
+
+  /**
+   * The spawner a FEED click must name.
+   *
+   * ⛔ READ OFF THE VIEW, NEVER RE-LOOKED-UP. `main.ts` records the reason at the FEED dispatch: the
+   * model already resolved primitive → spawner when it decided to SHOW the row, and re-deriving it
+   * at click time could resolve differently on a frame where the tower is mid-collapse — offering a
+   * row for one tower and feeding another.
+   */
+  actionFeedSpawnerId(): SpawnerId | null {
+    return this.view?.actions?.feedSpawnerId ?? null;
+  }
+
+  /** The primitive the action row belongs to, for the FIX / SCRAP intents. */
+  actionPrimitiveId(): PrimitiveId | null {
+    return this.view?.actions?.primitiveId ?? null;
   }
 
   bringToFront(): void {

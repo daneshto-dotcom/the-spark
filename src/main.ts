@@ -1064,6 +1064,41 @@ async function bootstrap(): Promise<void> {
   // could resolve differently on a frame where the tower is mid-collapse — offering a row for one
   // tower and feeding another. Same reason the intent names the SELECTED primitive rather than
   // whatever lies under the cursor.
+  /*
+   * ⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED DISPATCH.** His report: *"towers lost their
+   * scrap and fix. That's wrong."* plus *"if it's a bat tower, a tier three tower, they can pay to
+   * buy more tier three soldiers. Just like it used to be last session."*
+   *
+   * ⛔ IT ROUTES THROUGH THE SAME `dispatchFn` SEAM as the popover's handler below, and deliberately
+   * NOT through a second path. Everything that docblock says still holds: FIX/SCRAP/FEED are not in
+   * PREDICTABLE_ACTIONS, because an optimistic local FIX would mint primitives into a render mirror
+   * that the next snapshot silently overwrites, and an optimistic SCRAP would credit the bank and
+   * then have it taken back. They land when the authoritative snapshot does.
+   *
+   * ⚠ FEED READS THE SPAWNER OFF THE CARD, exactly as the popover reads it off the panel, and for
+   * the identical reason: the model resolved primitive → spawner when it decided to SHOW the row,
+   * and re-deriving it here could resolve differently on a frame where the tower is mid-collapse —
+   * offering a row for one tower and feeding another.
+   */
+  controls.setSheetActionHandler((action, primitiveId) => {
+    if (action.kind === 'FEED') {
+      const spawnerId = characterSheet.actionFeedSpawnerId();
+      if (spawnerId === null) return; // unreachable: the row cannot draw without one
+      dispatchFn({
+        type: 'FEED_TOWER',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+      });
+      return;
+    }
+    dispatchFn(
+      action.kind === 'FIX'
+        ? { type: 'REPAIR_STRUCTURE', playerId: world.localPlayerId, primitiveId }
+        : { type: 'SCRAP_STRUCTURE', playerId: world.localPlayerId, primitiveId },
+    );
+  });
+
   controls.setStructureActionHandler((action, primitiveId) => {
     if (action.kind === 'FEED') {
       const spawnerId = structurePanel.feedSpawnerId();
@@ -3874,6 +3909,24 @@ Network routes: ${v.detail}`;
     // latch is still CONSUMED so it cannot stick armed forever if the bar ever returns.
     void castlePanel.consumeSpendArmed();
     hud.sync(world);
+    /*
+     * ⭐⭐ S181 (owner) — **DOCK THE CASTLE PANEL UNDER THE CASTLE CARD, so the keep is ONE window.**
+     *
+     * > *"I don't need two windows. It's confusing this way. So we just need one that covers both."*
+     *
+     * ⚠ SET BEFORE `castlePanel.sync`, WHICH IS WHERE THE PLATE IS POSITIONED. Setting it after
+     * would place the panel from last frame's dock — a one-frame lag that reads as a jitter every
+     * time the card opens, and is invisible in a screenshot.
+     *
+     * ⚠ AND ONLY WHEN THE CARD IS SHOWING THE SAME SEAT'S KEEP. The card follows whatever you last
+     * clicked; docking to a goblin's card would fling the castle controls across the board. `null`
+     * restores the panel's own keep-anchored placement.
+     */
+    const sheetSel = characterSheet.selection();
+    const sheetRect = characterSheet.rect();
+    castlePanel.setDock(
+      sheetSel !== null && sheetSel.kind === 'castle' && sheetRect !== null ? sheetRect : null,
+    );
     castlePanel.sync(world);
     // S144 P3 — the ghost follows the cursor. Synced AFTER the panel so the armed id it reads is the
     // one this frame's panel just latched, and fed `controls.cursor` (already mapped to 1920x1080
