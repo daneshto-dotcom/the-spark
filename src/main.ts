@@ -177,7 +177,6 @@ import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { TowerRenderer } from './render/towerRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
-import { StructurePanel } from './render/structurePanel.ts';
 import { CharacterSheet } from './render/characterSheet.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
@@ -708,10 +707,16 @@ async function bootstrap(): Promise<void> {
   const footerBand = new FooterBand(app);
   // ⭐ S152 (R13) — THE FIX / SCRAP POPOVER. On `app.stage` for the same reason the band is:
   // it is UI chrome floating over the board, not a board object, so it must draw over the fog
-  // and the walls. See `structurePanel.ts` for why this is a selected-tower popover rather than
-  // a castle-panel row — short version: the castle is inventory now, and FIX/SCRAP act on ONE
-  // structure among several identical ones, so the player has to be able to point at it.
-  const structurePanel = new StructurePanel(app);
+  /*
+   * ⛔⛔ S181 — THE FIX / SCRAP / FEED POPOVER IS NO LONGER CONSTRUCTED. The character sheet carries
+   * all three controls, and running both surfaces is exactly what the owner reported: *"there's a
+   * double now … the buttons behind is the one that's wired. You need to rewire it and remove the
+   * old ones."* Two sets of buttons, only the hidden set live.
+   *
+   * ⚠ `render/structurePanel.ts` STAYS ON DISK and is still imported — for `structureActionModel`,
+   * the pure planner that prices FIX, refunds SCRAP and enumerates the FEED shapes. The card reads
+   * exactly that. The RENDERER class is what is retired.
+   */
   /*
    * ⭐ S180 (owner) — THE CHARACTER SHEET. Constructed AFTER the popover so it draws above the
    * button row rather than under it: his ruling is that they are one panel, with FIX / SCRAP sitting
@@ -995,7 +1000,6 @@ async function bootstrap(): Promise<void> {
   controls.setFooterBand(footerBand);
   // S152 — the popover needs the same click-guard treatment the panel and the band get, or a
   // press on SCRAP would also act on the board underneath it.
-  controls.setStructurePanel(structurePanel);
   controls.setCharacterSheet(characterSheet);
   /*
    * ⭐ The portrait comes off the sprite sheet ALREADY IN MEMORY for a unit that is on screen — his
@@ -1045,40 +1049,25 @@ async function bootstrap(): Promise<void> {
       }
     }
   });
-  // S152 — FIX / SCRAP commit through the SAME `dispatchFn` seam every other player intent
-  // uses, so they route on all three paths (networked joiner → wire intent; worker mode →
-  // postIntent; solo/host → direct dispatch).
-  //
-  // ⚠ DELIBERATELY NOT IN PREDICTABLE_ACTIONS, and it is the S144 P3 lesson repeated. An
-  // optimistic local FIX would mint primitives and bonds into a RENDER MIRROR on a joiner,
-  // where the next snapshot silently overwrites them — shapes that appear, then vanish, with no
-  // error. A local SCRAP is worse: it would credit the bank locally and then have the host's
-  // snapshot take the shapes back, so the player would watch their inventory tick up and down.
-  // Both land when the authoritative snapshot does, which is also what makes them honest.
-  // ⭐ S152 P2 — FEED_TOWER JOINS THEM, AND IT IS THE GESTURE S151 P3 SHIPPED WITHOUT. `applyFeedTower`
-  // was fully built, gated and covered by 13 tests with NOTHING DISPATCHING IT, so the goblin tower's
-  // entire mechanic — one tower, six outputs — was unreachable in play. This line is the wire.
-  //
-  // ⚠ FEED READS THE SPAWNER ID OFF THE PANEL, not from a fresh lookup here. The panel already
-  // resolved primitive → spawner when it decided to SHOW the row, and re-deriving it at click time
-  // could resolve differently on a frame where the tower is mid-collapse — offering a row for one
-  // tower and feeding another. Same reason the intent names the SELECTED primitive rather than
-  // whatever lies under the cursor.
   /*
-   * ⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED DISPATCH.** His report: *"towers lost their
-   * scrap and fix. That's wrong."* plus *"if it's a bat tower, a tier three tower, they can pay to
-   * buy more tier three soldiers. Just like it used to be last session."*
+   * ⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED DISPATCH, AND IT IS THE ONLY ONE.**
    *
-   * ⛔ IT ROUTES THROUGH THE SAME `dispatchFn` SEAM as the popover's handler below, and deliberately
-   * NOT through a second path. Everything that docblock says still holds: FIX/SCRAP/FEED are not in
-   * PREDICTABLE_ACTIONS, because an optimistic local FIX would mint primitives into a render mirror
-   * that the next snapshot silently overwrites, and an optimistic SCRAP would credit the bank and
-   * then have it taken back. They land when the authoritative snapshot does.
+   * > *"I'm trying to click on the soul to build more soul eaters … but it's not wired — only the
+   * > buttons behind. You need to rewire it and remove the old ones."*
    *
-   * ⚠ FEED READS THE SPAWNER OFF THE CARD, exactly as the popover reads it off the panel, and for
-   * the identical reason: the model resolved primitive → spawner when it decided to SHOW the row,
-   * and re-deriving it here could resolve differently on a frame where the tower is mid-collapse —
-   * offering a row for one tower and feeding another.
+   * ⛔ IT ROUTES THROUGH THE SAME `dispatchFn` SEAM the retired popover used, deliberately NOT a
+   * second path, so all three network modes (wire intent / postIntent / direct dispatch) keep
+   * working unchanged. And none of the three actions is in PREDICTABLE_ACTIONS: an optimistic local
+   * FIX would mint primitives and bonds into a RENDER MIRROR on a joiner where the next snapshot
+   * silently overwrites them — shapes that appear, then vanish, with no error. A local SCRAP is
+   * worse: it would credit the bank locally and then have the host's snapshot take the shapes back,
+   * so the player would watch their inventory tick up and down. Both land when the authoritative
+   * snapshot does, which is also what makes them honest.
+   *
+   * ⚠ FEED READS THE SPAWNER OFF THE CARD, not from a fresh lookup here. The model already resolved
+   * primitive → spawner when it decided to SHOW the row, and re-deriving it at click time could
+   * resolve differently on a frame where the tower is mid-collapse — offering a row for one tower
+   * and feeding another.
    */
   controls.setSheetActionHandler((action, primitiveId) => {
     if (action.kind === 'FEED') {
@@ -1099,26 +1088,18 @@ async function bootstrap(): Promise<void> {
     );
   });
 
-  controls.setStructureActionHandler((action, primitiveId) => {
-    if (action.kind === 'FEED') {
-      const spawnerId = structurePanel.feedSpawnerId();
-      // The row cannot be drawn without a spawner, so this is unreachable in practice — but a
-      // silent no-op beats dispatching FEED_TOWER with a fabricated id.
-      if (spawnerId === null) return;
-      dispatchFn({
-        type: 'FEED_TOWER',
-        playerId: world.localPlayerId,
-        spawnerId,
-        sparkType: action.sparkType as SparkType,
-      });
-      return;
-    }
-    dispatchFn(
-      action.kind === 'FIX'
-        ? { type: 'REPAIR_STRUCTURE', playerId: world.localPlayerId, primitiveId }
-        : { type: 'SCRAP_STRUCTURE', playerId: world.localPlayerId, primitiveId },
-    );
-  });
+  /*
+   * ⛔⛔ S181 — THE POPOVER'S OWN DISPATCH IS RETIRED. `controls.setSheetActionHandler` above is now
+   * the single route for FIX / SCRAP / FEED, and it commits through the identical `dispatchFn` seam
+   * for the identical reasons (recorded at that call site): none of the three is in
+   * PREDICTABLE_ACTIONS, because an optimistic local FIX would mint primitives into a render mirror
+   * the next snapshot overwrites, and an optimistic SCRAP would credit the bank and then have it
+   * taken back.
+   *
+   * ⚠ AND THE FEED SPAWNER IS READ OFF THE CARD, not off the deleted panel. Same rule as before: the
+   * model resolved primitive -> spawner when it decided to SHOW the row, and re-deriving it at click
+   * time could resolve differently on a frame where the tower is mid-collapse.
+   */
   // S144 P3 — the held tower's ghost. Constructed AFTER the panel so it draws above the board; it is
   // eventMode 'none', so it cannot swallow the click that places it.
   const blueprintGhost = new BlueprintGhost(app);
@@ -1149,7 +1130,6 @@ async function bootstrap(): Promise<void> {
   // chrome: nothing on the board should ever draw over it.
   footerBand.bringToFront();
   // S152 — same rule, same reason: UI chrome belongs above every board renderer AND the fog.
-  structurePanel.bringToFront();
   characterSheet.bringToFront();
   /*
    * ⭐ S153 A1 (owner R81, CORRECTED) — LIFT THE AVATAR, NOT THE FREE SPARKS.
@@ -1970,7 +1950,7 @@ Network routes: ${v.detail}`;
       // S149 P4 — live footer-band geometry for e2e (the S85 P4c geometry-getter convention).
       get footerBand() { return footerBand; },
       // S152 — live FIX/SCRAP button geometry for e2e (the S85 P4c geometry-getter convention).
-      get structurePanel() { return structurePanel; },
+      // S181 — `structurePanel` is retired; the card is the FIX/SCRAP/FEED surface now.
       get characterSheet() { return characterSheet; },
       // S149 P5 — live arcade-menu geometry for e2e.
       get arcadeOverlay() { return arcadeOverlay; },
@@ -2720,7 +2700,6 @@ Network routes: ${v.detail}`;
         wallRenderer.clear();
         footerBand.clear();
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
-        structurePanel.clear();
         // S180 — and the character sheet with it, or a card floats over the title screen.
         characterSheet.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
@@ -3804,7 +3783,6 @@ Network routes: ${v.detail}`;
     // S152 — re-derived from `world` every frame ON PURPOSE: the structure it describes can be
     // shot apart between two frames, and the popover must not outlive it. `sync` drops its own
     // selection when the model comes back null, so there is no stale-selection cleanup here.
-    structurePanel.sync(world, world.localPlayerId);
     // S180 — unconditional, and it drops its OWN selection when the subject leaves the world.
     characterSheet.sync(world, world.localPlayerId);
     spawnerZoneRenderer.sync(world);

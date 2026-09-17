@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2265,
+  "tool_calls_session_total": 2380,
   "session_id": "S181",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-17_PDR_S181_CHARSHEET_POLISH.md",
-  "session_status": "S181 IN PROGRESS — 7/7 approved items shipped + 1 self-inflicted regression found and fixed",
+  "session_status": "S181 IN PROGRESS — 7 shipped; SA-S181-2 (6 more) in flight",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -106,6 +106,16 @@
       "id": "SA-S181-1",
       "source": "owner, mid-turn, approved in the same breath (\"Keep working. I approve.\")",
       "text": "(a) CASTLE pool 1500 -> 2500, 'just like how much you need to win'. (b) CASTLE damage output x5 (shot 8 -> 40). BOTH AT THE END, after the six sheet items. (c) EXPANDS P3: the tier-3 tower card must also carry FEED - 'if it's a bat tower, a tier three tower, they can pay to buy more tier three soldiers. Just like it used to be last session, before you removed the scrape and the fix and the buy-a-character-with-the-primitive.' So all THREE popover controls come into the card, not two. (d) EXPANDS P4 styling: 'beautiful outline, buttons glowing, rounded edges, user-friendly and simple' - the sheet is a TEACHING surface: 'so players can learn how to play... they can see the stats, they can see anything they can do with that tower.'"
+    },
+    {
+      "id": "SA-S181-2",
+      "source": "owner, playtest of the shipped card, approved in-message (\"let us fix those things\")",
+      "text": "SIX items, enumerated and read back to him before starting: 8: ⛔ RETIRE THE OLD POPOVER AND WIRE THE CARD. His: \"there is still the original scrape or fi || 9: LABEL THE FEED CHIP. \"underneath where it shows like triangle, where you build bats, and p || 10: TOWER DESCRIPTION in the empty space under the health. \"there should be a description of t || 11: THE BUILD RECIPE ABOVE THE HEALTH BAR. \"above the health bar... how many connectors it tak || 12: ⛔ DAMAGE NUMBERS ARE CAPPED AT THE TARGET POOL AND THAT IS A LIE. \"it says it hits 40 per  || 13: HOVER STATE ON EVERY CLICKABLE BUTTON. \"the buttons scrape or fix or the triangle button, "
+    },
+    {
+      "id": "SA-S181-3",
+      "source": "owner, mid-turn, \"this is your last priority after all the other ones\"",
+      "text": "THREE more, ordered LAST: 14: PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/char || 15: STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They  || 16: ⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the crea"
     }
   ],
   "boot_preflight": {
@@ -440,6 +450,78 @@
           "needle": "records that 2500 was the win score FIRST and the pool SECOND"
         }
       ]
+    },
+    {
+      "id": 8,
+      "title": "⛔ RETIRE THE OLD POPOVER AND WIRE THE CARD. His: \"there is still the original scrape or fix behind it... they are also clickable, so there is a double now... you gotta remove the old one behind it and keep just the new one\" + the sharper half: \"I am trying to click on the soul to build more soul eaters but it is not wired - only the buttons behind... you need to rewire it and remove the old ones.\" ROOT CAUSE FOUND: controls.ts:947 tests handleStructureActionClick (the POPOVER) in onDown, while the card actionAt route sits at line 1084 in a later branch - so the popover always wins the click. The card action route must TAKE the popover precedence slot (a button press must still not also grab a spark underneath), and structurePanel must stop being synced, aimed and hit-tested.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 9,
+      "title": "LABEL THE FEED CHIP. \"underneath where it shows like triangle, where you build bats, and people need to know what it does. So just be like to build more bats or something. Click this.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 10,
+      "title": "TOWER DESCRIPTION in the empty space under the health. \"there should be a description of the tower... we have all this empty space just under the tower health... you can just say like spawning bats every this much seconds, for example.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 11,
+      "title": "THE BUILD RECIPE ABOVE THE HEALTH BAR. \"above the health bar... how many connectors it takes to build it, the exact kind. Maybe a little picture on the right side, just like you have in the codex, in the right corner above the health bar, that shows what it takes to build it, and then to the left of it maybe like an explanation. So like three triangles built in a triangle or whatever.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 12,
+      "title": "⛔ DAMAGE NUMBERS ARE CAPPED AT THE TARGET POOL AND THAT IS A LIE. \"it says it hits 40 per shot but it only does 6 damage... now I saw it hit the hound the zombie hound for 10 because that is his total HP so it only shows the maximum... We need to show the ACTUAL damage being taken. And if it is over his total health amount, that is fine. He just dies. It should not be capped at his health.\" NOTE he reasoned to this himself mid-sentence - the readout was showing min(damage, remaining pool).",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 13,
+      "title": "HOVER STATE ON EVERY CLICKABLE BUTTON. \"the buttons scrape or fix or the triangle button, if it is a tier three bat tower or any button that is clickable should, when you mouse over it, slightly change hue. So it looks like it is popping out. So user knows it is clickable.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 14,
+      "title": "PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/characters and show a codex emblem or a \"...\" plate. \"When we have an actual tower, you don't put a codex. You use the codex only above the health bar, in a very small tiny logo.\" AUDIT EVERY clickable entity, not just the ones he named — \"I bet there's other ones too. You gotta work it to completion.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 15,
+      "title": "STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They should have a stat too... it should show how much damage they're doing per second. ANYTHING that has an aura, damage per second, should show how much damage per second. So the zombie boss, the stink tower.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 16,
+      "title": "⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the creatures are targeting the castle rather than the towers and the connectors. Everything is going straight for the castle... there's stink towers and it's not even targeting it. That's wrong. I already told you the targeting rules so we've already defined it and it's not working. Rework it, make it correct and coherent and consistent with what we want it to be.\" ROOT CAUSE ALREADY CONFIRMED AT BOOT: creatureAI.ts:200 `if (prim.bonds.size > 0) continue;` from S179 00e02bf skips every shape that has a connector, so a standing building is not a target and the castle march is all that is left. His rulings are complete in S180_TARGETING_TABLE.md. THIS IS THE CARRY-FORWARD P2 THAT WAS NEVER AUTHORISED UNTIL NOW.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1211,6 +1293,78 @@
           "needle": "records that 2500 was the win score FIRST and the pool SECOND"
         }
       ]
+    },
+    {
+      "id": 8,
+      "name": "⛔ RETIRE THE OLD POPOVER AND WIRE THE CARD. His: \"there is still the original scrape or fix behind it... they are also clickable, so there is a double now... you gotta remove the old one behind it and keep just the new one\" + the sharper half: \"I am trying to click on the soul to build more soul eaters but it is not wired - only the buttons behind... you need to rewire it and remove the old ones.\" ROOT CAUSE FOUND: controls.ts:947 tests handleStructureActionClick (the POPOVER) in onDown, while the card actionAt route sits at line 1084 in a later branch - so the popover always wins the click. The card action route must TAKE the popover precedence slot (a button press must still not also grab a spark underneath), and structurePanel must stop being synced, aimed and hit-tested.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 9,
+      "name": "LABEL THE FEED CHIP. \"underneath where it shows like triangle, where you build bats, and people need to know what it does. So just be like to build more bats or something. Click this.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 10,
+      "name": "TOWER DESCRIPTION in the empty space under the health. \"there should be a description of the tower... we have all this empty space just under the tower health... you can just say like spawning bats every this much seconds, for example.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 11,
+      "name": "THE BUILD RECIPE ABOVE THE HEALTH BAR. \"above the health bar... how many connectors it takes to build it, the exact kind. Maybe a little picture on the right side, just like you have in the codex, in the right corner above the health bar, that shows what it takes to build it, and then to the left of it maybe like an explanation. So like three triangles built in a triangle or whatever.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 12,
+      "name": "⛔ DAMAGE NUMBERS ARE CAPPED AT THE TARGET POOL AND THAT IS A LIE. \"it says it hits 40 per shot but it only does 6 damage... now I saw it hit the hound the zombie hound for 10 because that is his total HP so it only shows the maximum... We need to show the ACTUAL damage being taken. And if it is over his total health amount, that is fine. He just dies. It should not be capped at his health.\" NOTE he reasoned to this himself mid-sentence - the readout was showing min(damage, remaining pool).",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 13,
+      "name": "HOVER STATE ON EVERY CLICKABLE BUTTON. \"the buttons scrape or fix or the triangle button, if it is a tier three bat tower or any button that is clickable should, when you mouse over it, slightly change hue. So it looks like it is popping out. So user knows it is clickable.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 14,
+      "name": "PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/characters and show a codex emblem or a \"...\" plate. \"When we have an actual tower, you don't put a codex. You use the codex only above the health bar, in a very small tiny logo.\" AUDIT EVERY clickable entity, not just the ones he named — \"I bet there's other ones too. You gotta work it to completion.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 15,
+      "name": "STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They should have a stat too... it should show how much damage they're doing per second. ANYTHING that has an aura, damage per second, should show how much damage per second. So the zombie boss, the stink tower.\"",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 16,
+      "name": "⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the creatures are targeting the castle rather than the towers and the connectors. Everything is going straight for the castle... there's stink towers and it's not even targeting it. That's wrong. I already told you the targeting rules so we've already defined it and it's not working. Rework it, make it correct and coherent and consistent with what we want it to be.\" ROOT CAUSE ALREADY CONFIRMED AT BOOT: creatureAI.ts:200 `if (prim.bonds.size > 0) continue;` from S179 00e02bf skips every shape that has a connector, so a standing building is not a target and the castle march is all that is left. His rulings are complete in S180_TARGETING_TABLE.md. THIS IS THE CARRY-FORWARD P2 THAT WAS NEVER AUTHORISED UNTIL NOW.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "owner_art_correction_s181": "Art does NOT exist for: pentagram, laser tower, Helga, goblin tower. It DOES for \"all the new ones\" - the six tier-3 race towers, the six tier-9 race towers, castles. So P1 needs a real fallback, not a blanket swap.",

@@ -86,6 +86,21 @@ export class CharacterSheet {
    * consumer.
    */
   private slots: SheetActionSlot[] = [];
+  /**
+   * ⭐⭐ S181 (owner) — **A CLICKABLE THING MUST LOOK CLICKABLE UNDER THE POINTER.**
+   *
+   * > *"the buttons scrape or fix or the triangle button … any button that's clickable should, when
+   * > you mouse over it, slightly change hue. So it looks like it's popping out. So user knows it's
+   * > clickable."*
+   *
+   * This is his R81 restated for the card — *"everything clickable should pop out, be highlighted
+   * and/or make a sound"* — which the footer band and the retired popover both already honoured.
+   *
+   * ⛔ FED FROM THE SAME `actionAt`/`isOverAnyAction` PREDICATES THE CLICK PATH USES, never a
+   * parallel hit test. `controls.updateHoverCursor` records why in full: a highlight that can
+   * disagree with what a click would hit is worse than no highlight at all.
+   */
+  private hover: { x: number; y: number } | null = null;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
@@ -113,6 +128,15 @@ export class CharacterSheet {
 
   selection(): SheetTarget | null {
     return this.selected;
+  }
+
+  /** S181 — the pointer moved; light whatever control is under it. Null clears the highlight. */
+  setHover(x: number, y: number): void {
+    this.hover = { x, y };
+  }
+
+  clearHover(): void {
+    this.hover = null;
   }
 
   /** The owned-unit row's target if (x, y) is on it — his *"you can either click on that"*. */
@@ -268,16 +292,27 @@ export class CharacterSheet {
   private drawActionButton(b: SheetActionSlot, accent: number): void {
     const feed = b.kind === 'FEED';
     const r = feed ? 6 : 8;
+    /*
+     * ⭐ S181 — THE HOVER LIFT. Only an ENABLED control lights: a disabled one must still read as
+     * refused, and making it glow under the pointer would promise a click that `actionAt`
+     * deliberately ignores. A refused control explains itself through its caption instead.
+     */
+    const h = this.hover;
+    const hot =
+      b.enabled &&
+      h !== null &&
+      h.x >= b.x && h.x <= b.x + b.w && h.y >= b.y && h.y <= b.y + b.h;
     // The glow is what reads as "glowing" without a filter: a wider, fainter stroke outside the
     // crisp one. Only an ENABLED control glows — that is what makes the affordable ones pop.
     if (b.enabled) {
-      this.g.roundRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4, r + 2)
-        .stroke({ color: accent, width: 2, alpha: 0.18 });
+      // The glow widens and brightens on hover — that is the whole "popping out" he described.
+      this.g.roundRect(b.x - (hot ? 4 : 2), b.y - (hot ? 4 : 2), b.w + (hot ? 8 : 4), b.h + (hot ? 8 : 4), r + 2)
+        .stroke({ color: accent, width: hot ? 3 : 2, alpha: hot ? 0.42 : 0.18 });
     }
     this.g
       .roundRect(b.x, b.y, b.w, b.h, r)
-      .fill({ color: b.enabled ? 0x16283a : 0x111c28, alpha: 0.96 })
-      .stroke({ color: b.enabled ? accent : EDGE, width: b.enabled ? 1.5 : 1, alpha: b.enabled ? 0.9 : 0.55 });
+      .fill({ color: b.enabled ? (hot ? 0x1f3850 : 0x16283a) : 0x111c28, alpha: 0.96 })
+      .stroke({ color: b.enabled ? accent : EDGE, width: b.enabled ? (hot ? 2 : 1.5) : 1, alpha: b.enabled ? (hot ? 1 : 0.9) : 0.55 });
 
     if (feed) {
       // The shape glyph IS the label for a feed chip — a word would not fit 32px and the player
@@ -410,6 +445,20 @@ export class CharacterSheet {
     stats: { label: string; points: number; derived: string | null }[];
     owned: string | null;
     hasActions: boolean;
+    /**
+     * ⭐⭐ S181 — THE ACTION BUTTONS' LIVE GEOMETRY, and it is not decoration: it is the e2e seam the
+     * retired popover used to provide through `structurePanel.getUiPoints`. `feed-tower.spec.ts`
+     * drives a real FEED click through these coordinates, so removing the popover without exposing
+     * them here would have deleted that lane's coverage rather than moving it.
+     *
+     * ⛔ REPORTED FROM THE SLOTS AS DRAWN, never re-laid-out. `castlePanel.rowsTop`'s docblock
+     * records the bug the other way round: rows DREW at one y while `getUiPoints` reported another,
+     * so every e2e click landed on empty plate while a screenshot looked perfect.
+     */
+    actions: {
+      kind: string; sparkType?: number; label: string; caption: string; enabled: boolean;
+      x: number; y: number; w: number; h: number;
+    }[];
   } {
     return {
       selected: this.selected,
@@ -419,6 +468,7 @@ export class CharacterSheet {
       stats: (this.view?.stats ?? []).map((r) => ({ ...r })),
       owned: this.view?.owned?.name ?? null,
       hasActions: this.view?.actions != null,
+      actions: this.slots.map((b) => ({ ...b })),
     };
   }
 

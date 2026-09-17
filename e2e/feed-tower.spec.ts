@@ -62,17 +62,42 @@ async function bandPoints(page: import('@playwright/test').Page) {
   });
 }
 
+/**
+ * ⭐⭐ S181 — **RE-POINTED FROM THE RETIRED POPOVER TO THE CHARACTER SHEET.**
+ *
+ * The owner's report: *"there's a double now … the buttons behind is the one that's wired. You need
+ * to rewire it and remove the old ones."* The FIX/SCRAP/FEED popover is gone and the card carries
+ * all three controls, so this lane now drives the card's own geometry.
+ *
+ * ⛔ THE COVERAGE IS MOVED, NOT DELETED, WHICH IS THE POINT. This spec is the only thing that drives
+ * a REAL FEED click end-to-end — build, ignite, click, a shield goblin walks out, the bank is
+ * debited. Retiring the surface it drove without re-pointing it would have removed the only proof
+ * that `FEED_TOWER` is reachable in play, which is precisely the defect S152 P2 was written to fix
+ * (`applyFeedTower` was built, gated, covered by 13 unit tests and dispatched by NOTHING).
+ *
+ * `selected`/`title` are taken from the card's own fields; `buttons` is its live action geometry.
+ */
 async function panelPoints(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
-    const sp = (window as { __SPARK__?: { structurePanel?: { getUiPoints?: () => unknown } } }).__SPARK__;
-    if (sp?.structurePanel?.getUiPoints === undefined) throw new Error('structurePanel.getUiPoints unavailable');
-    return sp.structurePanel.getUiPoints() as {
-      selected: number | null;
+    const sp = (window as { __SPARK__?: { characterSheet?: { getUiPoints?: () => unknown } } }).__SPARK__;
+    if (sp?.characterSheet?.getUiPoints === undefined) {
+      throw new Error('characterSheet.getUiPoints unavailable');
+    }
+    const ui = sp.characterSheet.getUiPoints() as {
+      selected: { kind: string; primitiveId?: number } | null;
       title: string;
-      buttons: Array<{
+      actions: Array<{
         kind: string; sparkType?: number; caption: string; enabled: boolean;
         x: number; y: number; w: number; h: number;
       }>;
+    };
+    return {
+      selected:
+        ui.selected !== null && ui.selected.kind === 'structure'
+          ? (ui.selected.primitiveId ?? null)
+          : null,
+      title: ui.title,
+      buttons: ui.actions,
     };
   });
 }
@@ -100,7 +125,7 @@ async function buildGoblinTower(page: import('@playwright/test').Page): Promise<
   await page.waitForTimeout(400);
 }
 
-test.describe('S152 P2 — FEED_TOWER through the real popover (owner R70)', () => {
+test.describe('S152 P2 — FEED_TOWER through the real CARD (owner R70; re-pointed S181)', () => {
   test('build → ignite → FEED click → a shield goblin walks out and the bank is debited', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));

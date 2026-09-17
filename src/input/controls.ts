@@ -73,7 +73,6 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
-import { seatGoblinTowerAt } from '../state/goblinKinds.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -153,23 +152,20 @@ export interface CharacterSheetLike {
   isOverAnyAction(x: number, y: number): boolean;
   actionPrimitiveId(): PrimitiveId | null;
   actionFeedSpawnerId(): SpawnerId | null;
+  /** S181 — the pointer moved; light the control under it (owner: "slightly changes hue"). */
+  setHover(x: number, y: number): void;
 }
 
-export interface StructurePanelLike {
-  isOverButtons(x: number, y: number): boolean;
-  /** S152 A5 — includes DISABLED buttons, so a refusal can be told apart from a miss. */
-  isOverAnyButton(x: number, y: number): boolean;
-  buttonAt(
-    x: number,
-    y: number,
-  ): { readonly kind: 'FIX' } | { readonly kind: 'SCRAP' } | { readonly kind: 'FEED'; readonly sparkType: number } | null;
-  selection(): PrimitiveId | null;
-  select(primitiveId: PrimitiveId | null): void;
-  /** S153 P4 (R81) — the pointer moved; light the button under it. */
-  setHover(x: number, y: number): void;
-  /** S153 P4 (R81) — the pointer is down; sink it. */
-  setPressed(down: boolean): void;
-}
+/*
+ * ⛔⛔ S181 — `StructurePanelLike` IS RETIRED IN PLACE, UNREAD. The FIX/SCRAP/FEED popover it typed
+ * is gone: the character sheet carries all three controls now, and keeping a second live surface is
+ * what produced the owner's S181 report — two sets of buttons, only the hidden set wired.
+ *
+ * ⚠ `render/structurePanel.ts` ITSELF STAYS, and deleting it would be a mistake: it exports
+ * `structureActionModel`, the PURE planner that prices FIX, refunds SCRAP and enumerates the FEED
+ * shapes. The card imports exactly that and nothing else. What is retired is the RENDERER class and
+ * this input seam, not the logic — the same split the project made for `GOBLIN_DAMAGE_VS_CASTLE`.
+ */
 
 export interface CastlePanelLike {
   isOpen(): boolean;
@@ -475,42 +471,18 @@ export class Controls {
     this.onSheetAction = fn;
   }
 
-  setStructurePanel(panel: StructurePanelLike): void {
-    this.structurePanel = panel;
-  }
 
   /**
    * S152 — main.ts injects the REPAIR_STRUCTURE / SCRAP_STRUCTURE / FEED_TOWER dispatch for the
    * local seat. The action is passed through whole, payload included, so this layer never has to
    * know that FEED means a shape and the other two do not.
    */
-  setStructureActionHandler(
-    fn: (
-      action:
-        | { readonly kind: 'FIX' }
-        | { readonly kind: 'SCRAP' }
-        | { readonly kind: 'FEED'; readonly sparkType: number },
-      primitiveId: PrimitiveId,
-    ) => void,
-  ): void {
-    this.onStructureAction = fn;
-  }
 
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
-  private structurePanel: StructurePanelLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
-    | null = null;
-  private onStructureAction:
-    | ((
-        action:
-          | { readonly kind: 'FIX' }
-          | { readonly kind: 'SCRAP' }
-          | { readonly kind: 'FEED'; readonly sparkType: number },
-        primitiveId: PrimitiveId,
-      ) => void)
     | null = null;
 
   /**
@@ -608,29 +580,28 @@ export class Controls {
    * again. SCRAP dismisses implicitly — the panel drops a selection whose structure has stopped
    * existing, which is `StructurePanel.sync`'s job and not this call site's.
    */
-  private handleStructureActionClick(): boolean {
-    if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
-    const action = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);
+  private handleSheetActionClick(): boolean {
+    if (this.characterSheet === null || this.world.gameState !== 'PLAYING') return false;
+    const action = this.characterSheet.actionAt(this.cursor.x, this.cursor.y);
     if (action === null) {
       /*
-       * ⭐ S152 A5 — A REFUSED CLICK NOW SOUNDS DIFFERENT FROM A MISSED ONE.
+       * ⭐ S152 A5, CARRIED — A REFUSED CLICK SOUNDS DIFFERENT FROM A MISSED ONE.
        *
-       * Owner: *"so we know when we have clicked something and it simply didnt work"*. Clicking an
-       * unaffordable FEED shape used to be silent and indistinguishable from clicking bare board.
-       * `buttonAt` ignores disabled buttons by design (they explain, they do not act), so the
-       * DISABLED case is detected separately and given its own cue — and the click is still
-       * CONSUMED, because the player did hit a control and the board underneath must not also act.
+       * Owner: *"so we know when we have clicked something and it simply didnt work"*. `actionAt`
+       * ignores disabled buttons by design (they explain, they do not act), so the DISABLED case is
+       * detected separately and given its own cue — and the click is still CONSUMED, because the
+       * player did hit a control and the board underneath must not also act.
        */
-      if (this.structurePanel.isOverAnyButton(this.cursor.x, this.cursor.y)) {
+      if (this.characterSheet.isOverAnyAction(this.cursor.x, this.cursor.y)) {
         void playUiRefusedSFX();
         return true;
       }
       return false;
     }
-    const target = this.structurePanel.selection();
-    if (target === null) return false;
+    const primitiveId = this.characterSheet.actionPrimitiveId();
+    if (primitiveId === null) return false;
     void playUiClickSFX();
-    this.onStructureAction?.(action, target);
+    this.onSheetAction?.(action, primitiveId);
     return true;
   }
 
@@ -792,92 +763,32 @@ export class Controls {
     return false;
   }
 
-  private handleStructureSelect(): boolean {
-    if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
-    const hit = this.pickOwnPrimitive();
-    if (hit === null) {
-      if (this.structurePanel.selection() !== null) this.structurePanel.select(null);
-      return false;
-    }
-    this.structurePanel.select(hit);
-    /*
-     * ⭐ S180 (owner) — **AND THE CARD OPENS ON THE SAME CLICK.** His ruling is that the card and the
-     * popover are ONE thing: *"click on your own tower, you can see the character sheet with the fix
-     * scrape as today … you're just adding those two options to there."*
-     *
-     * ⛔ THIS LINE WAS WRITTEN ONCE AND SILENTLY DID NOT APPLY, and typecheck plus 4,588 tests all
-     * stayed green because nothing covers this call path. The owner found it in the first minute of
-     * play: a click on his own tower gave the popover and no card at all. Green gates are not proof
-     * a feature is wired.
-     */
-    this.characterSheet?.select({ kind: 'structure', primitiveId: hit });
-    return true;
-  }
-
-  /**
-   * The closest of THIS seat's own placed primitives under the cursor, or null.
+  /*
+   * ⛔⛔ S181 — `handleStructureSelect` IS RETIRED, and its removal is the other half of his report.
    *
-   * Own shapes only, and only where this seat may build: FIX and SCRAP are both refused by the
-   * reducer for anything else, so selecting an enemy tower could only ever produce a popover with
-   * nothing on it.
+   * It aimed the FIX/SCRAP popover at one of your own shapes and opened the card on the same click.
+   * With the popover gone there is nothing to aim, and the card is opened by `handleSheetSelect`
+   * below — which is seat-agnostic (an enemy's card is a feature) and reaches a tower through its
+   * whole ART BOX rather than a member shape's small radius, so it is strictly MORE generous than
+   * the `pickOwnPrimitive` this used.
+   *
+   * ⚠ ITS PRECEDENCE MATTERED AND IS PRESERVED: it sat ABOVE the spark grab for own structures.
+   * That is now irrelevant, because the only thing it did above the grab was aim a popover that no
+   * longer exists; opening a card is explicitly ordered LAST so it can never steal a spark, a
+   * hazard or a build click. See `handleSheetSelect`'s docblock.
    */
-  private pickOwnPrimitive(): PrimitiveId | null {
-    let bestId: PrimitiveId | null = null;
-    let bestDistSq = Infinity;
-    for (const prim of this.world.primitives.values()) {
-      if (prim.placedBy !== this.playerId) continue;
-      const dx = prim.pos.x - this.cursor.x;
-      const dy = prim.pos.y - this.cursor.y;
-      const d2 = dx * dx + dy * dy;
-      const r = prim.radius + 6; // a little forgiveness, like every other pick radius here
-      if (d2 > r * r || d2 >= bestDistSq) continue;
-      // S153 P3 (owner R79) — *"i should be able to build goblins during fight stage"*.
-      //
-      // R19 still owns FIX and SCRAP: outside BUILD the panel draws neither. What changes is
-      // that a LIVE GOBLIN TOWER can still be aimed at, because FEED is the one action on this
-      // popover that was never BUILD-only in the first place — `applyFeedTower` has no phase
-      // gate at all. The restriction was inherited from the surface that happened to carry it.
-      //
-      // ⚠ NARROW ON PURPOSE. Accepting any own shape here would swallow every FIGHT-phase click
-      // on your own structures into a popover the model then refuses to draw — a dead zone.
-      const towerHere = seatGoblinTowerAt(this.world, this.playerId, prim.id);
-      if (!canBuildNow(this.world, prim.pos, this.playerId) && towerHere === null) continue;
-      bestId = prim.id;
-      bestDistSq = d2;
-    }
-    if (bestId !== null) return bestId;
 
-    /*
-     * ⭐⭐⭐ S178 (owner) — **AND IF NOTHING PRECISE WAS HIT, THE WHOLE BUILDING IS A TARGET.**
-     *
-     * Owner, S178: *"A building — a connector in the building — is not clickable in its whole image.
-     * Only if you click, like, one specific spot of the building, then you can see the scrap versus
-     * fix buttons on it, and that's wrong. We need to be able to click the whole image of a building
-     * and manipulate it as we see fit."*
-     *
-     * ⛔ THE SCAN ABOVE IS THE "ONE SPECIFIC SPOT". It tests `prim.radius + 6`, and `primitive.ts`
-     * gives a shape a radius of 8–10.8, so the target was a **14–17 px circle per member shape**
-     * against a tier-9 tower that DRAWS at 150×150 — about 15 % of the visible building, as a few
-     * disconnected dots with dead space between them. The shapes are also PHASED OUT under a tower
-     * (`markTowerCover`), so the player is aiming at dots they cannot even see.
-     *
-     * ⚠ ORDERED AS A FALLBACK, NOT A REPLACEMENT, AND THAT IS DELIBERATE. The precise scan still wins
-     * outright, so every click that worked before still resolves to exactly the same shape — this
-     * only catches the ones that previously hit nothing. A tower's box is up to 150 px across and
-     * letting it pre-empt a bare shape sitting on its roof would trade his bug for a different one.
-     *
-     * The same gates apply as above: own seat, and either buildable ground or a live goblin tower —
-     * a popover the reducer would refuse to act on is a dead zone, which is the trap the narrow
-     * version of this check was written to avoid.
-     */
-    const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
-    if (towerAnchor === null) return null;
-    const anchorPrim = this.world.primitives.get(towerAnchor);
-    if (anchorPrim === undefined || anchorPrim.placedBy !== this.playerId) return null;
-    const anchorTower = seatGoblinTowerAt(this.world, this.playerId, anchorPrim.id);
-    if (!canBuildNow(this.world, anchorPrim.pos, this.playerId) && anchorTower === null) return null;
-    return anchorPrim.id;
-  }
+  /*
+   * ⛔ S181 — `pickOwnPrimitive` IS RETIRED WITH ITS ONLY CALLER. It was the own-shapes-only pick
+   * that aimed the FIX/SCRAP popover, and `handleStructureSelect` above was the only thing that
+   * called it. The card's own pick supersedes it and is more generous (a tower's whole art box).
+   *
+   * ⚠ FOUR COMMENTS ELSEWHERE STILL CITE IT AS THE PRECEDENT FOR "pick off `prim.pos` + radius,
+   * never sprite bounds" — `handleSheetSelect` here, `towerFrames.ts:365`, and two notes in
+   * `feed-tower.spec.ts`. Those references are to the RULE, which still holds and is still
+   * implemented by the card's pick; they are left standing deliberately rather than scrubbed, since
+   * the reasoning they record is what keeps the gesture headlessly drivable.
+   */
 
   private isPointerOverPanel(): boolean {
     return (
@@ -927,7 +838,6 @@ export class Controls {
     // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
     // acts on the click is the frame that shows it being taken.
     this.footerBand?.setPressed(true);
-    this.structurePanel?.setPressed(true);
     // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
     // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
@@ -940,11 +850,27 @@ export class Controls {
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
     if (e.button === 0 && this.handleFooterChipClick()) return;
-    // S152 — the FIX / SCRAP popover, same rule and same reason as the two guards above: this
-    // handler hit-tests world objects with no notion of UI, so pressing SCRAP would otherwise ALSO
-    // grab a spark or sever a bond underneath the button. Buttons only — the rest of the board
-    // around the popover stays live.
-    if (e.button === 0 && this.handleStructureActionClick()) return;
+    /*
+     * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
+     * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
+     *
+     * > *"I'm trying to click on the soul to build more soul eaters within the soul eater tower but
+     * > it's not wired — only the buttons behind. So the scrape, the fix and the soul underneath,
+     * > behind the actual current tower sheet, is the one that's wired. You need to rewire it and
+     * > remove the old ones."*
+     *
+     * S181's earlier commit drew the buttons on the card and routed their clicks inside
+     * `handleSheetSelect` — which sits near the BOTTOM of this handler, below every world pick.
+     * `handleStructureActionClick` (the popover) sat HERE, at the top. So the popover won every
+     * click and the card's buttons were decoration. Both surfaces existed, only one was live, and
+     * the live one was the one he could see behind the other.
+     *
+     * ⛔ IT MUST STAY IN THIS SLOT, ABOVE THE WORLD HIT-TESTS, for the reason the popover's own
+     * comment gave: this handler tests world objects with no notion of UI, so pressing SCRAP would
+     * otherwise ALSO grab a spark or sever a bond underneath the button. Buttons only — the rest of
+     * the board around the card stays live.
+     */
+    if (e.button === 0 && this.handleSheetActionClick()) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -1066,10 +992,7 @@ export class Controls {
           }
           return;
         }
-        // S152 — nothing else wanted this click, so it may aim the FIX / SCRAP popover at one of
-        // this seat's own structures. See `handleStructureSelect` for why it sits here and not
-        // above the spark grab.
-        if (this.handleStructureSelect()) return;
+
         /*
          * ⭐ S180 (owner) — **AND THE CHARACTER SHEET, ORDERED LAST OF ALL.**
          *
@@ -1191,7 +1114,10 @@ export class Controls {
   private updateHoverCursor(): void {
     const overUi =
       this.isPointerOverFooterChip() ||
-      (this.structurePanel?.isOverButtons(this.cursor.x, this.cursor.y) ?? false) ||
+      // ⭐⭐ S181 — the CARD's buttons, replacing the retired popover's. Includes DISABLED ones on
+      // purpose: the pointer should say "this is a control" even when the control is refusing, which
+      // is what makes a greyed FIX read as deliberate rather than as dead plate.
+      (this.characterSheet?.isOverAnyAction(this.cursor.x, this.cursor.y) ?? false) ||
       (this.castlePanel?.isOpen() === true &&
         this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
     /*
@@ -1204,7 +1130,10 @@ export class Controls {
      * highlight that can disagree with the click path is worse than none.
      */
     this.footerBand?.setHover(this.cursor.x, this.cursor.y);
-    this.structurePanel?.setHover(this.cursor.x, this.cursor.y);
+    // ⭐⭐ S181 (owner) — *"any button that's clickable should, when you mouse over it, slightly
+    // change hue. So it looks like it's popping out."* Fed from the SAME predicate evaluated three
+    // lines above, never a parallel hit test — see this function's own docblock.
+    this.characterSheet?.setHover(this.cursor.x, this.cursor.y);
     const want = overUi ? 'pointer' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
     // a canvas that already moves the cursor every frame.
@@ -1224,7 +1153,6 @@ export class Controls {
     // release off the board still arrives — otherwise dragging off a pressed chip would leave it
     // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
     this.footerBand?.setPressed(false);
-    this.structurePanel?.setPressed(false);
     // S72 P3 — place a carried potato on LMB-up (the carry is world state, not an
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
     if (e.button === 0) {
