@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 1800,
-  "session_id": "S180",
+  "tool_calls_session_total": 2105,
+  "session_id": "S181",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
-  "prior_session_note": "S177 closed 10/10; S178 opened on the owner playtest verdict + an agentic sweep (15/20 lanes died to the org spend limit and were hand-run or salvaged per the S161 rule).",
+  "prior_session_note": "S180 closed: character sheet v1 + canon doc + keep on the ladder. S181 opened on his playtest verdict: six character-sheet defects, whole batch approved in one go.",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
-  "session_status": "S180 CLOSED",
+  "plan_file": ".claude/plans/2026-09-17_PDR_S181_CHARSHEET_POLISH.md",
+  "session_status": "S181 IN PROGRESS",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "Start working. I approve. Uh, make sure to have noted everything I said now and to do this correctly to the best of your ability.",
+  "owner_approval_verbatim": "I approve this whole batch okay fix it make it look awesome and then tell me when it's all done then we'll keep working.",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -101,6 +101,11 @@
         "It must work for enemy buildings and enemy creatures during FIGHT."
       ],
       "process_lesson": "I ran typecheck and the full suite and both were green, because a silently-dropped patch to an untested call path breaks NOTHING a test watches. Green gates are not proof a feature is wired. VERIFY THE WIRE ITSELF — grep for the line you believe you added."
+    },
+    {
+      "id": "SA-S181-1",
+      "source": "owner, mid-turn, approved in the same breath (\"Keep working. I approve.\")",
+      "text": "(a) CASTLE pool 1500 -> 2500, 'just like how much you need to win'. (b) CASTLE damage output x5 (shot 8 -> 40). BOTH AT THE END, after the six sheet items. (c) EXPANDS P3: the tier-3 tower card must also carry FEED - 'if it's a bat tower, a tier three tower, they can pay to buy more tier three soldiers. Just like it used to be last session, before you removed the scrape and the fix and the buy-a-character-with-the-primitive.' So all THREE popover controls come into the card, not two. (d) EXPANDS P4 styling: 'beautiful outline, buttons glowing, rounded edges, user-friendly and simple' - the sheet is a TEACHING surface: 'so players can learn how to play... they can see the stats, they can see anything they can do with that tower.'"
     }
   ],
   "boot_preflight": {
@@ -128,266 +133,59 @@
   "priorities": [
     {
       "id": 1,
-      "name": "Character sheets v1 — creatures AND buildings, absorbing FIX/SCRAP (owner amendment S180-A1)",
-      "status": "completed",
-      "note": "APPROVED. Scope expanded by the owner in the approval turn — see scope_amendments S180-A1.",
+      "title": "Portraits use the REAL tower/castle art where it exists; diagram fallback where it does not (owner: not pentagram, not laser tower, not Helga, not goblin tower)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "831aaf9",
-      "check_method": "Shipped, REJECTED BY THE OWNER IN PLAY, then finished. v1 was wired in e363c93 and he found within a minute that clicking his own building opened nothing: the patch adding that call had silently failed to apply while typecheck, 4588 tests, the build and the deploy all stayed green. Fixed in 1cf4ee2 with the own-building wire, real stats on buildings (CONNECTORS + SHAPES + emplacement ATK/PEN/RANGE), a castle card (pool, SHOT, RANGE, RELOAD, REGEN; yours and enemy), and characterSheet.wired.test.ts, a source-text tripwire asserting each of the 11 call sites EXISTS, proven both directions (deleting the own-building line turns it red, restoring it green). 14 headless model tests walk the whole 24-type roster with every expectation derived from its constant. Re-verified by grep at close: all 11 wire points present.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "this.characterSheet?.select({ kind: 'structure', primitiveId: hit })",
-          "why": "THE line that silently failed to apply and shipped the feature dead"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "this.characterSheet?.select({ kind: 'castle', seat: this.playerId })",
-          "why": "his \"even the castle should have the same thing\""
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "characterSheet.sync(world, world.localPlayerId)",
-          "why": "the card is re-derived every frame and drops its own selection"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "label: 'CONNECTORS'",
-          "why": "a building card is no longer statless, his headline complaint"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "const stats: SheetStatRow[] = [];",
-          "why": "the empty array that was the defect is gone"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/characterSheet.wired.test.ts",
-          "pattern": "expect\\(controls\\)",
-          "op": ">=",
-          "value": 5,
-          "why": "the tripwire asserts the wire itself, the grep I failed to run by hand"
-        }
-      ]
+      "unlock_source": "user"
+    },
+    {
+      "id": 2,
+      "title": "CASTLE MERGE - the buy/inventory panel becomes the castle character sheet's expanded body. ONE window.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
       "id": 3,
-      "name": "Backlog + targeting table delivered to owner",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "Hand-verified against the tree, not carried from notes: 14 damageEntity production call sites counted by grep; targetsStructures true on 21 of 24 creature configs (makeT3Config factory + 6 goblins + raceUnit + locustCloud); findNearestEnemyPrimitiveFrom skips bonds.size>0, introduced in 00e02bf (git log -S); targetBondId nulled at hostTick.ts:1419; damageConnector banks structure-wide and SPENDS the pool (overkill cascades); T9_BOSS_STATS read from constants.ts:1666 refuting UNIT_STAT_TABLE.md by ~3x; check:atlas exit 0 / 31 clean; typecheck exit 0; vitest 4569 pass exit 0; verify-deploy 4/4. Deliverables on disk: S180_BACKLOG.md, S180_TARGETING_TABLE.md.",
-      "checkpoint_commit": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "S180_TARGETING_TABLE.md",
-          "needle": "the rule is currently broken for 21 of 24 unit types",
-          "why": "the headline finding, stated in the owner-facing table"
-        },
-        {
-          "type": "file_contains",
-          "path": "S180_TARGETING_TABLE.md",
-          "needle": "Only Voltkin, the pencil chewer and the lightning drone",
-          "why": "the corrected survivor list — the direwolf is NOT among them"
-        },
-        {
-          "type": "file_contains",
-          "path": "S180_BACKLOG.md",
-          "needle": "ALREADY DONE — the backlog was stale about these",
-          "why": "the four stale-backlog corrections are presented, not buried"
-        },
-        {
-          "type": "grep_count",
-          "path": "S180_BACKLOG.md",
-          "pattern": "VERIFIED",
-          "op": ">=",
-          "value": 5,
-          "why": "at least three items are marked VERIFIED rather than carried"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
-          "needle": "AWAITING OWNER APPROVAL",
-          "why": "the PDR does not claim approval"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
-          "needle": "COUNCIL — what changed because of it",
-          "why": "the 3-way Council is recorded with its deltas"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-16_PDR_S180_CHARACTER_SHEETS.md",
-          "needle": "REFUTED — GROK",
-          "why": "the refuted challenge is named, not silently dropped"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "if (prim.bonds.size > 0) continue;",
-          "why": "the line that makes every connected shape untargetable — the cause of the bug"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "creature.targetBondId = null;",
-          "why": "the structure-attacker branch has no connector target"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "pattern": "targetsStructures: true",
-          "op": ">=",
-          "value": 8,
-          "why": "the affected family is wide — 6 goblins + raceUnit + locustCloud plus two factories"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/damage.ts",
-          "needle": "overkill carries into the next connector",
-          "why": "the cascade already ships — this is what made the targeting recommendation cheap"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "vampires: { hp: 20, def: 8, atk: 10, pen: 10",
-          "why": "Vlad is 260 pool in code; UNIT_STAT_TABLE.md says 90 — the stale-doc finding"
-        },
-        {
-          "type": "file_contains",
-          "path": "UNIT_STAT_TABLE.md",
-          "needle": "| Vampires | Vlad | 10 | 4 |",
-          "why": "the stale row itself, so the ~3x discrepancy is machine-checkable rather than asserted"
-        },
-        {
-          "type": "json_field",
-          "path": ".claude/session-state.json",
-          "key": "unlock_source",
-          "op": "==",
-          "value": "user",
-          "why": "the approval is OWNER-minted. Claude must never write this — it is the one field that cannot be self-granted."
-        },
-        {
-          "type": "json_field",
-          "path": ".claude/session-state.json",
-          "key": "session_status",
-          "op": "==",
-          "value": "S180 CLOSED",
-          "why": "the session records itself as closed, and the close gate can check that claim"
-        },
-        {
-          "type": "grep_count",
-          "path": ".claude/session-state.json",
-          "pattern": "owner_approval_verbatim",
-          "op": ">=",
-          "value": 1,
-          "why": "his words are recorded verbatim beside the flag, so the approval can be audited against what he actually said"
-        },
-        {
-          "type": "grep_count",
-          "path": ".claude/session-state.json",
-          "pattern": "S180-A2",
-          "op": ">=",
-          "value": 1,
-          "why": "his targeting rulings are recorded as a scope amendment, not carried loose in conversation"
-        },
-        {
-          "type": "grep_count",
-          "path": ".claude/session-state.json",
-          "pattern": "p2_targeting_never_approved",
-          "op": ">=",
-          "value": 1,
-          "why": "the unbuilt, unauthorised targeting work is recorded in full at close — it is carried, never absorbed into a clean close"
-        },
-        {
-          "type": "grep_count",
-          "path": "boot-snapshot.md",
-          "pattern": "Nothing can attack a building",
-          "op": ">=",
-          "value": 1,
-          "why": "the live bug the targeting fix addresses is the first thing the next session reads. ⚠ The pattern was typed from memory and failed on case — the THIRD time this session. COPY THE NEEDLE FROM THE FILE."
-        }
-      ]
+      "title": "TOWER MERGE - SCRAP/FIX return under the tower card, with the cost to fix shown in shapes",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     },
     {
       "id": 4,
-      "name": "SPARK_CANON.md + canon.test.ts + mandatory-read pointer",
-      "status": "completed",
+      "title": "Per-race outline + title colour on the card (the red-outline look he approved)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "note": "Owner-directed in S180-A3. He asked for it explicitly and in the same breath as approving the work.",
-      "check_completed": true,
-      "checkpoint_commit": "831aaf9",
-      "check_method": "SPARK_CANON.md written and bound by src/canon.test.ts (9 assertions). PROVEN TO HAVE TEETH: changing one digit of the structure ladder in the canon turned the suite red (exit 1); restoring it turned it green (exit 0). CLAUDE.md now opens with a mandatory-read pointer, since it is the only file auto-loaded each session. Updated at close to carry his two castle rulings plus a guard that no second castle damage scale can return.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "READ `SPARK_CANON.md` BEFORE ANSWERING ANYTHING ABOUT THE GAME",
-          "why": "the pointer is in the one auto-loaded file"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "Seagulls and poop",
-          "why": "the archived list he had to repeat is written down"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "2500 is the WIN SCORE, not castle health",
-          "why": "his ruling, recorded where the next session reads it"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/canon.test.ts",
-          "pattern": "it\\(",
-          "op": ">=",
-          "value": 8,
-          "why": "the canon is pinned, not merely written"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": 5,
-      "name": "The keep is on the ladder - every attacker hits it for its own damage",
-      "status": "completed",
+      "title": "Click anywhere on a unit/tower opens its sheet (Vlad needed a knee click)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "831aaf9",
-      "check_method": "GOBLIN_DAMAGE_VS_CASTLE (a flat 6 every creature dealt to a keep) retired in place, unread; the castle arm of applyCreatureAttack now deals attackFifths(atk, pen) like every sibling arm. RE-MEASURED rather than relaxed, through the real host tick: the goblins needed to fell a keep moved from about 15 to between 8 and 10 (8 leaves it at 264, 10 takes it, 1 still deals nothing). Integer-safe: attackFifths is atk x (5 + pen) and no config carries a fractional atk or pen, so damageEntity cannot throw.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "{ kind: 'castle', seat: castleSeat },",
-          "why": "the castle arm still exists"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "import { GOBLIN_DAMAGE_VS_CASTLE }",
-          "why": "the bespoke constant is no longer read in production"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.test.ts",
-          "needle": "EIGHT nearly do, TEN bring it down",
-          "why": "the coverage gate was re-measured, not relaxed"
-        }
-      ]
+      "unlock_source": "user"
+    },
+    {
+      "id": 6,
+      "title": "The CONNECTORS label/number overlap - characterSheet.ts:168 draws the number at a hard-coded +42px",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 7,
+      "title": "AMENDMENT SA-S181-1 (a+b): CASTLE_MAX_HP 1500->2500 + castle gun damage x5 (8->40). Canon doc + canon.test.ts re-pinned in the SAME commit.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "verification": [
@@ -1081,5 +879,66 @@
     "deliberation_completed": true,
     "unlock_source": null,
     "why_not_a_session_priority": "Ruled in full by the owner (S180-A2) but NOT authorised to build. pdr_approved was false for its entire life. It was mis-modelled as an in-session priority; it is a carry-forward. Recorded here in full so removing it from priorities[] hides nothing."
-  }
+  },
+  "s181_priorities": [
+    {
+      "id": 1,
+      "name": "Portraits use the REAL tower/castle art where it exists; diagram fallback where it does not (owner: not pentagram, not laser tower, not Helga, not goblin tower)",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 2,
+      "name": "CASTLE MERGE - the buy/inventory panel becomes the castle character sheet's expanded body. ONE window.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 3,
+      "name": "TOWER MERGE - SCRAP/FIX return under the tower card, with the cost to fix shown in shapes",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 4,
+      "name": "Per-race outline + title colour on the card (the red-outline look he approved)",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 5,
+      "name": "Click anywhere on a unit/tower opens its sheet (Vlad needed a knee click)",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 6,
+      "name": "The CONNECTORS label/number overlap - characterSheet.ts:168 draws the number at a hard-coded +42px",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 7,
+      "name": "AMENDMENT SA-S181-1 (a+b): CASTLE_MAX_HP 1500->2500 + castle gun damage x5 (8->40). Canon doc + canon.test.ts re-pinned in the SAME commit.",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    }
+  ],
+  "owner_art_correction_s181": "Art does NOT exist for: pentagram, laser tower, Helga, goblin tower. It DOES for \"all the new ones\" - the six tier-3 race towers, the six tier-9 race towers, castles. So P1 needs a real fallback, not a blanket swap.",
+  "owner_note_s181_fixscrap": "Owner: fix/scrap is the SAME JOB as the castle merge - \"we had a bubble or a sheet that opened up when you clicked on a tower and it would say scrap and fix and now you are basically merging it with the character sheet, super easy.\"",
+  "s181_recon_verdict": "All six recon lanes HAND-RUN and verified against the tree (S161 rule closure #2). The agent workflow was stopped once the hand pass had every answer. Findings: P1 towerArtFor() in render/towerFrames.ts already returns null for exactly the recipes the owner named as art-less (pentagram, goblin tower, lightning hub) - reuse it, do not write a new map. P2 castlePanel.ts was BUILT around a swappable PanelControl list for this exact merge (\"a tower gets its own panel later by supplying a different list\"). P3 the popover is render/structurePanel.ts + input/controls.ts:152, and it carries FIX/SCRAP/FEED. P4 RACE_COLORS in state/races.ts is authoritative; vampires=0xff3b6b IS the red he likes, so the look is already race-derived. P5 input/controls.ts:210 CREATURE_PICK_DIST=34 flat for every creature, while creatureSpriteScaleMul() gives a boss 1.6x on top of a 320-vs-200 atlas cell = ~2.6x a grunt. Hence the knee click. P6 render/characterSheet.ts:168 draws the number at a hard-coded +42px from the label origin; \"CONNECTORS\" is wider than 42px at 11px font, \"SHAPES\" is not - exactly matching his screenshots. BOTH panels are render-local (castlePanel: selectedSeat \"never serialized, never hashed, never sent\") so the whole merge carries NO wire or determinism cost."
 }

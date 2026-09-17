@@ -240,6 +240,37 @@ export function statRowsFor(hp: number, def: number, atk: number, pen: number): 
   ];
 }
 
+/**
+ * ⭐⭐ S181 (owner playtest) — **THE STAT NUMBER MUST CLEAR ITS OWN LABEL.** This is the fix for the
+ * defect he screenshotted four times: the card read `CONNECT4RS`, `CONNECT3RS`, `CONNECT9RS`.
+ *
+ * `characterSheet.draw` printed the value at a HARD-CODED `+42px` from the label origin. At 11px
+ * monospace `SHAPES` (6 chars ≈ 40px) clears 42 and `CONNECTORS` (10 chars ≈ 66px) does not — so the
+ * number landed inside the word, and only on the longest label. That is exactly the pattern in his
+ * screenshots, where `SHAPES 4` is clean on the same card whose `CONNECTORS` is mangled.
+ *
+ * ⛔ SO THE COLUMN IS DERIVED FROM THE WIDEST LABEL PRESENT, never from a constant. A future stat
+ * row with a longer name (`RELOAD`, `RANGE`, anything the castle adds) cannot re-create this bug,
+ * which a bumped-but-still-fixed `+72` would happily do the next time someone adds a word.
+ *
+ * Monospace is what makes this exact rather than a guess: every glyph is the same advance, so the
+ * width of a label IS its character count. `MONO_EM_RATIO` is that advance as a fraction of the font
+ * size, measured from the shipped face rather than assumed — see `characterSheetModel.test.ts`.
+ */
+export const MONO_EM_RATIO = 0.6;
+/** Breathing room between the longest label and the value column. */
+export const STAT_GAP_PX = 8;
+
+/** PURE — the x offset (from the label origin) at which stat VALUES may print without collision. */
+export function statValueColumnPx(
+  labels: readonly string[],
+  labelFontSize: number,
+): number {
+  let widest = 0;
+  for (const l of labels) widest = Math.max(widest, l.length);
+  return Math.ceil(widest * labelFontSize * MONO_EM_RATIO) + STAT_GAP_PX;
+}
+
 /** Height of a card carrying these parts. Derived, so nothing has to be kept in sync by hand. */
 function heightFor(stats: number, owned: boolean): number {
   return (

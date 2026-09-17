@@ -193,6 +193,39 @@ export function creatureSpriteScaleMul(type: CreatureType): number {
   return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
 }
 
+/**
+ * ⭐⭐ S181 (owner playtest) — **THE BOSS ATLAS CELL IS 1.6x THE UNIT CELL**, named at last.
+ *
+ * Owner: *"characters and towers aren't clickable everywhere. Like Vlad, I had to click on his
+ * knees to open his character sheet. That's stupid."*
+ *
+ * This ratio was until now only PROSE, in `T9_BOSS_SPRITE_SCALE_MUL`'s docblock above: *"the boss
+ * sheets were authored at 320px against the units' 200px, i.e. 1.6x"*. The cell itself arrives at
+ * runtime in the atlas manifest, so nothing could read it — and the one consumer that needed to
+ * know how big a boss actually DRAWS (the click pick) had no way to ask. That is precisely how a
+ * boss ended up with a grunt's hitbox.
+ *
+ * ⚠ IT IS A MEASUREMENT OF THE SHIPPED ART, not a tunable. `bossPickRadius.test.ts` asserts it
+ * against the real `-anim.json` cell widths on disk, so re-authoring a sheet at a different cell
+ * turns a test red instead of silently shrinking the click target again.
+ */
+export const T9_BOSS_ATLAS_CELL_RATIO = 1.6;
+
+/**
+ * PURE — how large `type` DRAWS relative to a goblin grunt, combining both factors that differ:
+ * the atlas CELL the art was authored at, and the per-type sprite multiplier.
+ *
+ * Vlad: `1.6 × 1.6` = **2.56x**. A direwolf: `1 × 2` = **2x**. Every grunt: **1x**.
+ *
+ * ⛔ THIS IS THE ONE PLACE THE TWO FACTORS ARE COMBINED. `goblinRenderer` multiplies the cell (from
+ * the manifest) by `GOBLIN_SPRITE_BASE_SCALE × creatureSpriteScaleMul`; a second hand-rolled copy of
+ * that product is how a hitbox and a sprite drift apart, which is the bug this fixes.
+ */
+export function creatureDrawnSizeRatio(type: CreatureType): number {
+  const cell = isT9BossType(type) ? T9_BOSS_ATLAS_CELL_RATIO : 1;
+  return cell * creatureSpriteScaleMul(type);
+}
+
 /** What the renderer needs to draw one tower. `null` when the spawner is not a race tower. */
 export interface TowerArt {
   readonly atlasBase: string;

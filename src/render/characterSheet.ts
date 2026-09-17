@@ -28,6 +28,7 @@ import { codexCopyFor, drawEmblem } from './codexPresentation.ts';
 import {
   characterSheetModel,
   SHEET_W,
+  statValueColumnPx,
   type CharacterSheetView,
   type PortraitSpec,
   type SheetTarget,
@@ -164,9 +165,16 @@ export class CharacterSheet {
 
     // ── the four stats. `derived` prints on the row it comes FROM — his own correction. ────────
     let sy = top + PORTRAIT + 10;
+    /*
+     * ⭐⭐ S181 (owner) — THE VALUE COLUMN IS DERIVED FROM THE WIDEST LABEL, not a constant. The
+     * shipped `x + PAD + 42` printed the number INSIDE the word on every label longer than 42px,
+     * which is why his screenshots read `CONNECT4RS` / `CONNECT9RS` while `SHAPES 4` beside it was
+     * clean. See `statValueColumnPx` for why this is exact rather than a nudged magic number.
+     */
+    const valueCol = statValueColumnPx(v.stats.map((r) => r.label), 11);
     for (const row of v.stats) {
       this.text(row.label, x + PAD, sy, 11, DIM);
-      this.text(String(row.points), x + PAD + 42, sy, 13, INK);
+      this.text(String(row.points), x + PAD + valueCol, sy, 13, INK);
       if (row.derived !== null) this.textRight(row.derived, x + w - PAD, sy, 11, DIM);
       sy += ROW_H;
     }

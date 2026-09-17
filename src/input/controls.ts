@@ -72,7 +72,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // S152 A5 — UI click cues. ⚠ SAFE FOR THIS FILE: audioManager imports only constants + types, no
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
-import { towerAnchorAtPoint } from '../render/towerFrames.ts';
+import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { seatGoblinTowerAt } from '../state/goblinKinds.ts';
 
 /**
@@ -651,17 +651,70 @@ export class Controls {
       }
     }
 
+    /*
+     * ⭐⭐ S181 (owner) — **THE PICK SCALES WITH HOW BIG THE THING DRAWS.** His report: *"Like Vlad,
+     * I had to click on his knees to open his character sheet. That's stupid. You should be able to
+     * open it anywhere on him."*
+     *
+     * `CREATURE_PICK_DIST` is 34 px and was flat for EVERY creature. It is tuned for a grunt, whose
+     * sprite is ≈60 px — so a 34 px circle about the sim position covers a goblin. Vlad draws
+     * `creatureDrawnSizeRatio` = 2.56x that, ≈152 px, while keeping the same 34 px circle: the
+     * clickable zone was a small disc around his feet-anchored centre, i.e. THE KNEES. Exactly what
+     * he described, and the arithmetic says so rather than my taste.
+     *
+     * ⛔ ONLY THIS PICK CHANGES. The chewer picks below keep the flat radius on purpose — they are
+     * gameplay gestures with their own tuning and a `ratio` return that feeds aim assist, and
+     * widening those would be a balance change he did not ask for.
+     *
+     * ⚠ AND IT STILL READS SIM POSITIONS, NEVER SPRITE BOUNDS — the constraint this function's own
+     * docblock sets out, so the whole gesture stays drivable headlessly. The SIZE is derived from
+     * the art's authored geometry, not measured off a live Pixi object.
+     *
+     * ⭐ NEAREST-BY-RATIO, NOT NEAREST-BY-PIXELS. With unequal radii a raw distance compare would
+     * hand a click inside Vlad to a goblin standing 40 px away, because 40 < 87. Comparing the
+     * FRACTION of each creature's own radius keeps "I clicked on him" meaning the thing the cursor
+     * is actually inside, and ties break on id so two stacked creatures resolve identically on
+     * every machine.
+     */
     let bestCreature: CreatureId | null = null;
-    let bestDist = CREATURE_PICK_DIST;
+    let bestScore = Infinity;
     for (const c of this.world.creatures.values()) {
-      const d = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y);
-      if (d < bestDist) {
-        bestDist = d;
-        bestCreature = c.id;
+      const r = CREATURE_PICK_DIST * creatureDrawnSizeRatio(c.type);
+      const score = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y) / r;
+      if (score >= 1) continue; // outside its OWN radius is a miss, whatever its size
+      if (bestCreature !== null) {
+        if (score > bestScore) continue;
+        // An exact tie falls to the lower id, so two stacked creatures resolve the same way twice.
+        if (score === bestScore && (c.id as unknown as number) >= (bestCreature as unknown as number)) {
+          continue;
+        }
       }
+      bestScore = score;
+      bestCreature = c.id;
     }
     if (bestCreature !== null) {
       this.characterSheet.select({ kind: 'creature', id: bestCreature });
+      return true;
+    }
+
+    /*
+     * ⭐⭐ S181 (owner) — **A TOWER IS CLICKABLE ANYWHERE ON ITS ART**, the building half of his
+     * *"characters and towers aren't clickable everywhere"*.
+     *
+     * The per-shape scan below only ever hit a MEMBER SHAPE's own little radius. A tier-9 tower is a
+     * 150 px sprite standing on a ring of small shapes, so the cursor was inside the building the
+     * player can see while being outside every shape — clicking the middle of Vlad's tower did
+     * nothing at all. `towerAnchorAtPoint` is the sprite's box and already existed for the FEED
+     * gesture; the card simply never asked it.
+     *
+     * ⭐ IT IS TRIED FIRST, and the shape scan stays as the fallback. That ordering is what keeps a
+     * hand-bonded freeform structure (which draws no sprite, so the art box cannot match) and the
+     * three art-less recipes — the pentagram, the goblin tower, the lightning hub — clickable
+     * exactly as they are today.
+     */
+    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
+    if (towerHit !== null) {
+      this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
       return true;
     }
 
