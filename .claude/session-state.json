@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 2784,
-  "session_id": "S181",
+  "tool_calls_session_total": 2861,
+  "session_id": "S182",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
   "prior_session_note": "S180 closed: character sheet v1 + canon doc + keep on the ladder. S181 opened on his playtest verdict: six character-sheet defects, whole batch approved in one go.",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "ANALYZE",
-  "tier": "Full",
+  "phase": "DO",
+  "tier": "Micro",
   "plan_file": ".claude/plans/2026-09-17_PDR_S181_CHARSHEET_POLISH.md",
-  "session_status": "S181 CLOSED",
+  "session_status": "S182 ACTIVE",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "I approve this whole batch okay fix it make it look awesome and then tell me when it's all done then we'll keep working.",
+  "owner_approval_verbatim": "yes, confirmed on worktrees — update CLAUDE.md and give me the list",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -143,594 +143,15 @@
   "priorities": [
     {
       "id": 1,
-      "title": "Portraits use the REAL tower/castle art where it exists; diagram fallback where it does not (owner: not pentagram, not laser tower, not Helga, not goblin tower)",
-      "status": "completed",
+      "title": "S182 P1 — CLAUDE.md workflow section: adopt parallel worktrees + branches (owner reversed the solo/no-worktree rule this session), and correct the stale bundle charter (900 KiB -> 1000 KiB, raised S180).",
+      "status": "in_progress",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function portraitForStructure"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "kind: 'towerFrame', atlasBase: art.atlasBase, recipeId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/towerRenderer.ts",
-          "needle": "portraitTexture(atlasBase: string): Texture | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/gathererRenderer.ts",
-          "needle": "castlePortraitTexture(race: RaceId): Texture | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/princessRenderer.ts",
-          "needle": "portraitTexture(): Texture | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "towerRenderer.portraitTexture(spec.atlasBase)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "gathererRenderer.castlePortraitTexture(spec.race)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/towerPortrait.test.ts",
-          "needle": "no art-less recipe id is hard-coded in characterSheetModel"
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "CASTLE MERGE - the buy/inventory panel becomes the castle character sheet's expanded body. ONE window.",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "setDock(rect: { x: number; y: number; w: number; h: number } | null): void"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "private originNow(a: { x: number; y: number })"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "export function castleBlockOrigin"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "castlePanel.setDock("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "function castleCardRect"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "rect(): { x: number; y: number; w: number; h: number } | null"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "castleBlockOrigin\\(ax, ay,",
-          "op": ">=",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "TOWER MERGE - SCRAP/FIX return under the tower card, with the cost to fix shown in shapes",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function layoutSheetActions"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function actionBlockHeight"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "layoutSheetActions(v.actions.buttons, v.rect)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "private drawActionButton"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "this.characterSheet.actionAt("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "controls.setSheetActionHandler("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "characterSheet.actionFeedSpawnerId()"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/sheetActions.test.ts",
-          "needle": "the action click is tested BEFORE the card swallows the click"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Per-race outline + title colour on the card (the red-outline look he approved)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "function accentFor(world: World, owner: PlayerId | null | undefined)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "readonly accent: number | null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "const accent = v.accent ?? EDGE;"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/characterSheetModel.ts",
-          "pattern": "accent: accentFor\\(world,",
-          "op": ">=",
-          "value": 4
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Click anywhere on a unit/tower opens its sheet (Vlad needed a knee click)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/towerFrames.ts",
-          "needle": "export function creatureDrawnSizeRatio"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/towerFrames.ts",
-          "needle": "export const T9_BOSS_ATLAS_CELL_RATIO"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "CREATURE_PICK_DIST * creatureDrawnSizeRatio(c.type)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bossPickRadius.test.ts",
-          "needle": "boss cell height / unit cell height IS the constant"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "The CONNECTORS label/number overlap - characterSheet.ts:168 draws the number at a hard-coded +42px",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function statValueColumnPx"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "statValueColumnPx(v.stats.map((r) => r.label), 11)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "x + PAD + valueCol"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/characterSheet.ts",
-          "needle": "String(row.points), x + PAD + 42"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/statColumn.test.ts",
-          "needle": "the value column clears CONNECTORS"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "AMENDMENT SA-S181-1 (a+b): CASTLE_MAX_HP 1500->2500 + castle gun damage x5 (8->40). Canon doc + canon.test.ts re-pinned in the SAME commit.",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_MAX_HP = 2500;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_ATK = 5;"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "**2500** (`CASTLE_MAX_HP`)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleGuns.test.ts",
-          "needle": "TWELVE bring it down"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "he was correcting what 2500"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/canon.test.ts",
-          "needle": "records that 2500 was the win score FIRST and the pool SECOND"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "⛔ RETIRE THE OLD POPOVER AND WIRE THE CARD. His: \"there is still the original scrape or fix behind it... they are also clickable, so there is a double now... you gotta remove the old one behind it and keep just the new one\" + the sharper half: \"I am trying to click on the soul to build more soul eaters but it is not wired - only the buttons behind... you need to rewire it and remove the old ones.\" ROOT CAUSE FOUND: controls.ts:947 tests handleStructureActionClick (the POPOVER) in onDown, while the card actionAt route sits at line 1084 in a later branch - so the popover always wins the click. The card action route must TAKE the popover precedence slot (a button press must still not also grab a spark underneath), and structurePanel must stop being synced, aimed and hit-tested.",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "if (e.button === 0 && this.handleSheetActionClick()) return;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "private handleSheetActionClick(): boolean {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "controls.setSheetActionHandler("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.wired.test.ts",
-          "needle": "the retired popover is not constructed, synced or routed anywhere"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "new StructurePanel("
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "LABEL THE FEED CHIP. \"underneath where it shows like triangle, where you build bats, and people need to know what it does. So just be like to build more bats or something. Click this.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function feedHintFor"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "this.textCentred(hint, x + w / 2, top - 12, 9, DIM);"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "title": "TOWER DESCRIPTION in the empty space under the health. \"there should be a description of the tower... we have all this empty space just under the tower health... you can just say like spawning bats every this much seconds, for example.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "export function buildInfoFor"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "wrapToWidth(v.description, DESC_CHARS_PER_LINE, DESC_MAX_LINES)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/s181Regressions.test.ts",
-          "needle": "the owned block advances the layout cursor past itself"
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "title": "THE BUILD RECIPE ABOVE THE HEALTH BAR. \"above the health bar... how many connectors it takes to build it, the exact kind. Maybe a little picture on the right side, just like you have in the codex, in the right corner above the health bar, that shows what it takes to build it, and then to the left of it maybe like an explanation. So like three triangles built in a triangle or whatever.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "drawEmblem(this.buildGlyphG, v.buildEmblem)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "fitChars(v.buildBill, BILL_CHARS)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/characterSheet.ts",
-          "needle": "drawEmblem(this.glyphs,"
-        }
-      ]
-    },
-    {
-      "id": 12,
-      "title": "⛔ DAMAGE NUMBERS ARE CAPPED AT THE TARGET POOL AND THAT IS A LIE. \"it says it hits 40 per shot but it only does 6 damage... now I saw it hit the hound the zombie hound for 10 because that is his total HP so it only shows the maximum... We need to show the ACTUAL damage being taken. And if it is over his total health amount, that is fine. He just dies. It should not be capped at his health.\" NOTE he reasoned to this himself mid-sentence - the readout was showing min(damage, remaining pool).",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/damageNumbers.ts",
-          "needle": "export function fatalBlowFifths"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "world.creatureKillHits.push({"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/damageNumbers.ts",
-          "needle": "world.creatureKillHits.length = 0;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/killSwing.test.ts",
-          "needle": "damageCreature pushes the full amount when the pool empties"
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "title": "HOVER STATE ON EVERY CLICKABLE BUTTON. \"the buttons scrape or fix or the triangle button, if it is a tier three bat tower or any button that is clickable should, when you mouse over it, slightly change hue. So it looks like it is popping out. So user knows it is clickable.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "private hover: { x: number; y: number } | null = null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheet.ts",
-          "needle": "const ownedHot ="
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "this.characterSheet?.setHover(this.cursor.x, this.cursor.y);"
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "title": "PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/characters and show a codex emblem or a \"...\" plate. \"When we have an actual tower, you don't put a codex. You use the codex only above the health bar, in a very small tiny logo.\" AUDIT EVERY clickable entity, not just the ones he named — \"I bet there's other ones too. You gotta work it to completion.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/stinkTowerRenderer.ts",
-          "needle": "portraitTexture(): Texture | null {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/voltkinTowerRenderer.ts",
-          "needle": "portraitTexture(): Texture | null {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "drawPortraitInto(g: Graphics, x: number, y: number): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/creatureRenderer.ts",
-          "needle": "drawDronePortraitInto(g: Graphics, x: number, y: number): void {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "characterSheet.setPortraitPainter("
-        }
-      ]
-    },
-    {
-      "id": 15,
-      "title": "STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They should have a stat too... it should show how much damage they're doing per second. ANYTHING that has an aura, damage per second, should show how much damage per second. So the zombie boss, the stink tower.\"",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "function stinkCloudSheet("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "this.characterSheet.select({ kind: 'stinkCloud', id: bag.id })"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "function zombieAuraPercentPerSecond()"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/auraStats.test.ts",
-          "needle": "the card does not reference the retired constant at all"
-        }
-      ]
-    },
-    {
-      "id": 16,
-      "title": "⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the creatures are targeting the castle rather than the towers and the connectors. Everything is going straight for the castle... there's stink towers and it's not even targeting it. That's wrong. I already told you the targeting rules so we've already defined it and it's not working. Rework it, make it correct and coherent and consistent with what we want it to be.\" ROOT CAUSE ALREADY CONFIRMED AT BOOT: creatureAI.ts:200 `if (prim.bonds.size > 0) continue;` from S179 00e02bf skips every shape that has a connector, so a standing building is not a target and the castle march is all that is left. His rulings are complete in S180_TARGETING_TABLE.md. THIS IS THE CARRY-FORWARD P2 THAT WAS NEVER AUTHORISED UNTIL NOW.",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
-      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "export function structureTargets"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "const st = structureTargets(world, creature);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "if (atShape || atUnit || atConnector || fuseExpiring) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/buildingTargeting.test.ts",
-          "needle": "a standing building IS a target again, through its connector"
-        }
+      "owner_approval_verbatim": "yes, confirmed on worktrees — update CLAUDE.md and give me the list",
+      "scope": [
+        "CLAUDE.md"
       ]
     }
   ],
@@ -2042,5 +1463,599 @@
     }
   ],
   "real_context_pct_at_close": 77.61,
-  "subagent_spend_s181": "TWO workflows: the portrait/stat audit (6 agents, 859,951 subagent tokens, 305 tool uses) and the nine-item adversarial verification (6 agents over 3 lanes with a refute round each, 1,304,604 subagent tokens, 422 tool uses, 53 min). The second one found EIGHT real defects that had all shipped green — it paid for itself several times over and the owner was right to ask for it."
+  "subagent_spend_s181": "TWO workflows: the portrait/stat audit (6 agents, 859,951 subagent tokens, 305 tool uses) and the nine-item adversarial verification (6 agents over 3 lanes with a refute round each, 1,304,604 subagent tokens, 422 tool uses, 53 min). The second one found EIGHT real defects that had all shipped green — it paid for itself several times over and the owner was right to ask for it.",
+  "s181_priorities_full": [
+    {
+      "id": 1,
+      "title": "Portraits use the REAL tower/castle art where it exists; diagram fallback where it does not (owner: not pentagram, not laser tower, not Helga, not goblin tower)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function portraitForStructure"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "kind: 'towerFrame', atlasBase: art.atlasBase, recipeId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerRenderer.ts",
+          "needle": "portraitTexture(atlasBase: string): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "castlePortraitTexture(race: RaceId): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/princessRenderer.ts",
+          "needle": "portraitTexture(): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "towerRenderer.portraitTexture(spec.atlasBase)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "gathererRenderer.castlePortraitTexture(spec.race)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerPortrait.test.ts",
+          "needle": "no art-less recipe id is hard-coded in characterSheetModel"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "CASTLE MERGE - the buy/inventory panel becomes the castle character sheet's expanded body. ONE window.",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "setDock(rect: { x: number; y: number; w: number; h: number } | null): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "private originNow(a: { x: number; y: number })"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "export function castleBlockOrigin"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "castlePanel.setDock("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function castleCardRect"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "rect(): { x: number; y: number; w: number; h: number } | null"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "castleBlockOrigin\\(ax, ay,",
+          "op": ">=",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "TOWER MERGE - SCRAP/FIX return under the tower card, with the cost to fix shown in shapes",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function layoutSheetActions"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function actionBlockHeight"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "layoutSheetActions(v.actions.buttons, v.rect)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "private drawActionButton"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet.actionAt("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "controls.setSheetActionHandler("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "characterSheet.actionFeedSpawnerId()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sheetActions.test.ts",
+          "needle": "the action click is tested BEFORE the card swallows the click"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Per-race outline + title colour on the card (the red-outline look he approved)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function accentFor(world: World, owner: PlayerId | null | undefined)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "readonly accent: number | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "const accent = v.accent ?? EDGE;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/characterSheetModel.ts",
+          "pattern": "accent: accentFor\\(world,",
+          "op": ">=",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Click anywhere on a unit/tower opens its sheet (Vlad needed a knee click)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export function creatureDrawnSizeRatio"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export const T9_BOSS_ATLAS_CELL_RATIO"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "CREATURE_PICK_DIST * creatureDrawnSizeRatio(c.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossPickRadius.test.ts",
+          "needle": "boss cell height / unit cell height IS the constant"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "The CONNECTORS label/number overlap - characterSheet.ts:168 draws the number at a hard-coded +42px",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function statValueColumnPx"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "statValueColumnPx(v.stats.map((r) => r.label), 11)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "x + PAD + valueCol"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/characterSheet.ts",
+          "needle": "String(row.points), x + PAD + 42"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/statColumn.test.ts",
+          "needle": "the value column clears CONNECTORS"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "AMENDMENT SA-S181-1 (a+b): CASTLE_MAX_HP 1500->2500 + castle gun damage x5 (8->40). Canon doc + canon.test.ts re-pinned in the SAME commit.",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_MAX_HP = 2500;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_ATK = 5;"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "**2500** (`CASTLE_MAX_HP`)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "TWELVE bring it down"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "he was correcting what 2500"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "records that 2500 was the win score FIRST and the pool SECOND"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "⛔ RETIRE THE OLD POPOVER AND WIRE THE CARD. His: \"there is still the original scrape or fix behind it... they are also clickable, so there is a double now... you gotta remove the old one behind it and keep just the new one\" + the sharper half: \"I am trying to click on the soul to build more soul eaters but it is not wired - only the buttons behind... you need to rewire it and remove the old ones.\" ROOT CAUSE FOUND: controls.ts:947 tests handleStructureActionClick (the POPOVER) in onDown, while the card actionAt route sits at line 1084 in a later branch - so the popover always wins the click. The card action route must TAKE the popover precedence slot (a button press must still not also grab a spark underneath), and structurePanel must stop being synced, aimed and hit-tested.",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "if (e.button === 0 && this.handleSheetActionClick()) return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "private handleSheetActionClick(): boolean {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "controls.setSheetActionHandler("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.wired.test.ts",
+          "needle": "the retired popover is not constructed, synced or routed anywhere"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "new StructurePanel("
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "LABEL THE FEED CHIP. \"underneath where it shows like triangle, where you build bats, and people need to know what it does. So just be like to build more bats or something. Click this.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function feedHintFor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "this.textCentred(hint, x + w / 2, top - 12, 9, DIM);"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "TOWER DESCRIPTION in the empty space under the health. \"there should be a description of the tower... we have all this empty space just under the tower health... you can just say like spawning bats every this much seconds, for example.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function buildInfoFor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "wrapToWidth(v.description, DESC_CHARS_PER_LINE, DESC_MAX_LINES)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/s181Regressions.test.ts",
+          "needle": "the owned block advances the layout cursor past itself"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "THE BUILD RECIPE ABOVE THE HEALTH BAR. \"above the health bar... how many connectors it takes to build it, the exact kind. Maybe a little picture on the right side, just like you have in the codex, in the right corner above the health bar, that shows what it takes to build it, and then to the left of it maybe like an explanation. So like three triangles built in a triangle or whatever.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "drawEmblem(this.buildGlyphG, v.buildEmblem)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "fitChars(v.buildBill, BILL_CHARS)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/characterSheet.ts",
+          "needle": "drawEmblem(this.glyphs,"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "⛔ DAMAGE NUMBERS ARE CAPPED AT THE TARGET POOL AND THAT IS A LIE. \"it says it hits 40 per shot but it only does 6 damage... now I saw it hit the hound the zombie hound for 10 because that is his total HP so it only shows the maximum... We need to show the ACTUAL damage being taken. And if it is over his total health amount, that is fine. He just dies. It should not be capped at his health.\" NOTE he reasoned to this himself mid-sentence - the readout was showing min(damage, remaining pool).",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.ts",
+          "needle": "export function fatalBlowFifths"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "needle": "world.creatureKillHits.push({"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/damageNumbers.ts",
+          "needle": "world.creatureKillHits.length = 0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/killSwing.test.ts",
+          "needle": "damageCreature pushes the full amount when the pool empties"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "HOVER STATE ON EVERY CLICKABLE BUTTON. \"the buttons scrape or fix or the triangle button, if it is a tier three bat tower or any button that is clickable should, when you mouse over it, slightly change hue. So it looks like it is popping out. So user knows it is clickable.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "private hover: { x: number; y: number } | null = null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "const ownedHot ="
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet?.setHover(this.cursor.x, this.cursor.y);"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "PORTRAIT COMPLETENESS — his \"you skipped a lot\": STINK TOWER, PENCIL CHEWER, LIGHTNING DRONE all have art/characters and show a codex emblem or a \"...\" plate. \"When we have an actual tower, you don't put a codex. You use the codex only above the health bar, in a very small tiny logo.\" AUDIT EVERY clickable entity, not just the ones he named — \"I bet there's other ones too. You gotta work it to completion.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkTowerRenderer.ts",
+          "needle": "portraitTexture(): Texture | null {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/voltkinTowerRenderer.ts",
+          "needle": "portraitTexture(): Texture | null {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/chewerRenderer.ts",
+          "needle": "drawPortraitInto(g: Graphics, x: number, y: number): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "drawDronePortraitInto(g: Graphics, x: number, y: number): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "characterSheet.setPortraitPainter("
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "STINK/POOP BAGS ARE UNCLICKABLE and must have a card with DAMAGE PER SECOND. \"poop bags are unclickable. They should have a stat too... it should show how much damage they're doing per second. ANYTHING that has an aura, damage per second, should show how much damage per second. So the zombie boss, the stink tower.\"",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function stinkCloudSheet("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet.select({ kind: 'stinkCloud', id: bag.id })"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function zombieAuraPercentPerSecond()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/auraStats.test.ts",
+          "needle": "the card does not reference the retired constant at all"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "⛔⛔ TARGETING REWORK — HIS LAST PRIORITY THIS SESSION, and he is right that it was already ruled. \"All the creatures are targeting the castle rather than the towers and the connectors. Everything is going straight for the castle... there's stink towers and it's not even targeting it. That's wrong. I already told you the targeting rules so we've already defined it and it's not working. Rework it, make it correct and coherent and consistent with what we want it to be.\" ROOT CAUSE ALREADY CONFIRMED AT BOOT: creatureAI.ts:200 `if (prim.bonds.size > 0) continue;` from S179 00e02bf skips every shape that has a connector, so a standing building is not a target and the castle march is all that is left. His rulings are complete in S180_TARGETING_TABLE.md. THIS IS THE CARRY-FORWARD P2 THAT WAS NEVER AUTHORISED UNTIL NOW.",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "SHIPPED + ADVERSARIALLY VERIFIED + LIVE-CONFIRMED. Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (301 files / 4702 tests, +37 across 5 new files); BUILD_EXIT=0 (147.5 KiB headroom); ATLAS_EXIT=0 (31 clean); GATING_EXIT=0 (65 passed, run on EVERY geometry/sim commit); feed-tower 2/2 (a REAL FEED click through the card, which is the proof his SOUL button works); castle-panel 8/8; PUSH_EXIT=0; Deploy completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers) on every push. LIVE SITE CONFIRMED BY HAND at spark-online.space: castle card 2500/2500 with SHOT 40, real castle art, Vampires red outline, docked panel measured sameLeft/sameWidth/gap=0; hover lights a row; keep click closes. Chewer portrait confirmed drawing its real puppet locally where a \"...\" plate used to be. ADVERSARIAL VERIFICATION: 6 agents over 3 lanes with a refute round each (1.3M subagent tokens) found EIGHT real defects in my own work, ALL of which shipped green - incl. a REGRESSION I caused (the suicide bomber stopped detonating once targeting gave it a bond), an unwiped per-frame array my own comment claimed was wiped, and a build glyph rendering at the canvas origin. All eight fixed; s181Regressions.test.ts (23 cases) guards each. A NINTH was found by my own live test (the merged castle window closed halfway). NOT VERIFIED IN A LIVE MATCH, stated plainly: the tower FIX/SCRAP/FEED row, the description, the recipe glyph and the bag card all need a built tower or a landed bag, which the browser pane cannot reach without real play - all are covered by unit tests plus source-text tripwires on the call sites and the click ordering.",
+      "checkpoint_commit": "a54ebf41f0e431004e38ab7b57eb79a7250ac3c2",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creatureAI.ts",
+          "needle": "export function structureTargets"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "const st = structureTargets(world, creature);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "if (atShape || atUnit || atConnector || fuseExpiring) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildingTargeting.test.ts",
+          "needle": "a standing building IS a target again, through its connector"
+        }
+      ]
+    }
+  ]
 }

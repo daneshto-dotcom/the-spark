@@ -31,8 +31,38 @@ its assertion lands in the same commit.**
 
 ## Workflow
 
-- **Commit directly to `master`.** No feature branches, no worktrees (GitButler was dropped
-  2026-04-20 across Founder DNA). Solo, one session per project.
+⭐⭐ **S182 — THE OWNER REVERSED THE SOLO/NO-WORKTREE RULE. PARALLEL WORKTREES ARE NOW THE PATTERN.**
+*"I want to open multiple sessions and work trees … I'll give each session different priorities and
+different branches of the same repo. And then when everything is done, you, as the main session, will
+merge everything to main once it's all done."*
+
+⛔ **DO NOT "CORRECT" THIS BACK TO THE OLD RULE.** The old rule (below, kept because the reasoning
+still holds for its own case) was written against *GitButler in a solo pattern*, where parallel
+branches produced "which branch has the real work?" confusion for no gain. What he asked for in S182
+is different in kind: deliberate parallelism, one priority set per session, with a **named merge
+owner**. Both are his; the later one governs.
+
+- **A worktree session commits to ITS OWN branch, never to `master`.** Only the merge owner pushes
+  `master`.
+- **`EnterWorktree` is the tool.** It creates the worktree under `.claude/worktrees/` on a new branch
+  and switches that session into it. Base ref defaults to `fresh` (branches from `origin/master`),
+  not local HEAD. ⭐ Verified S182: **git auto-ignores nested worktrees** — a live worktree under
+  `.claude/worktrees/` leaves the parent's `git status` clean, so no `.gitignore` entry is needed.
+- ⭐ **A BRANCH CANNOT SHIP BY ACCIDENT, AND THAT IS WHAT MAKES THIS SAFE.** `deploy.yml:25` triggers
+  on `push` to `master` only. `e2e.yml` additionally runs on `pull_request`, so every parallel branch
+  gets the full gating lane before it merges, for free.
+- ⚠ **Each worktree needs its own `npm install` (~172 MB).** Do NOT share one `node_modules` by
+  junction: Vite caches into `node_modules/.vite` and parallel sessions corrupt each other's cache.
+- ⚠ **The merge owner re-runs the gates after EVERY merge, not once at the end.** Two branches that
+  are each green can be red together — the bundle charter is shared, and so is every four-sites
+  contract (`worldTypes` + factory + hash + worker). A file touched by two branches is the hazard;
+  scope the branches so their file sets are disjoint.
+
+**The superseded rule, kept for its reasoning:** *"Commit directly to `master`. No feature branches,
+no worktrees (GitButler was dropped 2026-04-20 across Founder DNA). Solo, one session per project."*
+It remains correct for an ORDINARY single-session day — worktrees are the exception he opens
+deliberately, not the new default for one session working alone.
+
 - **Pushing `master` IS shipping to production.** The GitHub Actions "Deploy to GitHub Pages"
   workflow builds from a clean checkout and publishes. There is no second deploy path —
   `npm run deploy` was deleted in S126 deliberately.
@@ -63,8 +93,12 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (900 KiB; 834.1 KiB
-  used S178 — 65.9 KiB of headroom left). It is a design constraint, not a platform limit — if a real feature needs the room,
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1000 KiB**;
+  **852.2 KiB used, 147.8 KiB of headroom — measured S182 by running `npm run build`**, not carried
+  from a handoff). ⚠ This line said *"900 KiB; 834.1 KiB used S178 —
+  65.9 KiB of headroom"* until S182: the charter was raised 900→1000 in S180 (`CAP_KIB` at
+  `check-bundle-size.mjs:19`) and this doc never followed. **Read the constant, not this sentence** —
+  and when parallel branches are open, remember the headroom is SHARED between them. It is a design constraint, not a platform limit — if a real feature needs the room,
   raise the charter with a note. Do not contort code to fit it, and never let it block a live deploy.
   It also now PRINTS the static-asset payload (105.8 MiB / 171 files at S178) — reported, never gated, for the
   reason in the next bullet.
