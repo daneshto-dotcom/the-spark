@@ -591,6 +591,23 @@ export class Controls {
    * again. SCRAP dismisses implicitly — the panel drops a selection whose structure has stopped
    * existing, which is `StructurePanel.sync`'s job and not this call site's.
    */
+  /**
+   * ⭐⭐ S181 — **IS THE POINTER OVER THE CHARACTER CARD?** Used by the PLACE commit gates below.
+   *
+   * ⛔ IT EXISTS BECAUSE THE CARD BECAME A UI SURFACE AND WAS NOT REGISTERED AS ONE. Three separate
+   * guards in this file enumerate UI surfaces BY HAND — the two PLACE commit gates and
+   * `updateHoverCursor` — and S181 added a large new always-on-top panel without adding it to the
+   * first two. So opening a card and then releasing a spark drag over it PLACED A SHAPE underneath
+   * the card, on ground the player could not see. The castle panel is excluded there with the stated
+   * reason *"it would be hidden beneath it"*, which applies to the card word for word.
+   *
+   * ⚠ The card is drawn ABOVE everything (`main.ts` calls `characterSheet.bringToFront()`), so this
+   * is not a theoretical overlap — it is the most-covered rectangle on the screen.
+   */
+  private isPointerOverCard(): boolean {
+    return this.characterSheet?.isOver(this.cursor.x, this.cursor.y) ?? false;
+  }
+
   private handleSheetActionClick(): boolean {
     if (this.characterSheet === null || this.world.gameState !== 'PLAYING') return false;
     const action = this.characterSheet.actionAt(this.cursor.x, this.cursor.y);
@@ -849,15 +866,44 @@ export class Controls {
       )
     ) {
       this.castlePanel.toggle(this.playerId as unknown as number);
-      // ⭐ S180 (owner playtest) — *"even the castle, it should have the same thing … with the castle
-      // stats. There's no nothing."* The panel keeps every function it already has; the card adds
-      // the health and the stats it never showed.
-      this.characterSheet?.select({ kind: 'castle', seat: this.playerId });
+      /*
+       * ⭐ S180 (owner playtest) — *"even the castle, it should have the same thing … with the castle
+       * stats. There's no nothing."* The panel keeps every function it already has; the card adds
+       * the health and the stats it never showed.
+       *
+       * ⭐⭐ S181 — **AND THE TWO NOW OPEN AND CLOSE AS ONE THING**, because they are drawn as one
+       * thing. Found by testing the LIVE build rather than by a test: clicking the keep a second
+       * time collapsed the docked panel and left the card header floating, so half of the merged
+       * window vanished and the other half stayed. That is incoherent with the whole point of the
+       * merge — *"I don't need two windows. It's confusing this way. So we just need one that covers
+       * both."* A window that closes halfway is a third confusing state, not a fix.
+       *
+       * ⚠ THE PANEL IS THE SOURCE OF TRUTH for which way the toggle went, read AFTER `toggle` so
+       * there is no second opinion about it. When it closed, the card closes with it; when it
+       * opened, the card aims at the keep.
+       */
+      if (this.castlePanel.isOpen()) {
+        this.characterSheet?.select({ kind: 'castle', seat: this.playerId });
+      } else {
+        this.characterSheet?.select(null);
+      }
       return true;
     }
-    // A click anywhere else dismisses an open panel, then falls through so the same click still acts
-    // on the board — the RTS convention, and it keeps the game from feeling like it ate an input.
-    if (this.castlePanel.isOpen()) this.castlePanel.close();
+    /*
+     * A click anywhere else dismisses an open panel, then falls through so the same click still acts
+     * on the board — the RTS convention, and it keeps the game from feeling like it ate an input.
+     *
+     * ⭐⭐ S181 — and it takes the KEEP's card with it, for the same one-window reason as above. Only
+     * the keep's: a click that dismisses the castle panel must not close a card the player opened on
+     * a goblin, which is a different object and a different gesture.
+     */
+    if (this.castlePanel.isOpen()) {
+      this.castlePanel.close();
+      const sel = this.characterSheet?.selection();
+      if (sel !== null && sel !== undefined && (sel as { kind?: string }).kind === 'castle') {
+        this.characterSheet?.select(null);
+      }
+    }
     return false;
   }
 
@@ -1147,6 +1193,10 @@ export class Controls {
       // purpose: the pointer should say "this is a control" even when the control is refusing, which
       // is what makes a greyed FIX read as deliberate rather than as dead plate.
       (this.characterSheet?.isOverAnyAction(this.cursor.x, this.cursor.y) ?? false) ||
+      // ⭐ S181 — the OWNED-UNIT ROW is clickable too (it re-aims the card at the unit a building
+      // fields — his *"you can either click on that"*), and it had no cursor and no highlight. It
+      // is on the same card as the buttons, so a player learns the card lies about what is live.
+      (this.characterSheet?.ownedRowAt(this.cursor.x, this.cursor.y) ?? null) !== null ||
       (this.castlePanel?.isOpen() === true &&
         this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
     /*
@@ -1189,7 +1239,14 @@ export class Controls {
       // S136 P0 — do not PLANT a potato under the castle panel (it would be hidden beneath it).
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
-      if (meNow !== undefined && meNow.carriedPotatoId !== undefined && !this.isPointerOverPanel()) {
+      // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
+      // drawn above everything, so a release over it would drop a potato on unseen ground.
+      if (
+        meNow !== undefined &&
+        meNow.carriedPotatoId !== undefined &&
+        !this.isPointerOverPanel() &&
+        !this.isPointerOverCard()
+      ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
           playerId: this.playerId,
@@ -1274,7 +1331,13 @@ export class Controls {
         // DROP_SPARK above has already released the claim, so the spark stays Free where physics
         // put it and the player is Idle. Routing through the existing reject path (rather than an
         // early return) is what guarantees no stuck "glued spark" state — the S52/S58 lesson.
-        if (gates.commit && !this.isPointerOverPanel() && !this.isPointerOverFooterChip()) {
+        if (
+          gates.commit &&
+          !this.isPointerOverPanel() &&
+          !this.isPointerOverFooterChip() &&
+          // S181 — and not over the character card, which is drawn above every other surface.
+          !this.isPointerOverCard()
+        ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
           // critical defect for the joiner: when PLACE_PRIMITIVE silently

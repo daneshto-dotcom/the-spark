@@ -1705,7 +1705,24 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const reach = bomberCfg.attackRange * bomberCfg.attackRange;
           const atShape = prim !== undefined && distSq(droneCandidate.pos, prim.pos) <= reach;
           const atUnit = quarry !== undefined && distSq(droneCandidate.pos, quarry.pos) <= reach;
-          if (atShape || atUnit || fuseExpiring) {
+          /*
+           * ⛔⛔⛔ S181 — **A THIRD ARRIVAL ARM, AND ITS ABSENCE WAS A REGRESSION I SHIPPED EARLIER
+           * THIS SESSION.** The targeting rework gave structure-attackers a CONNECTOR target when no
+           * lone shape is nearer — and the suicide bomber is a structure-attacker. So its
+           * `targetPrimitiveId` is now often null with `targetBondId` set, both `atShape` and
+           * `atUnit` were false, and the bomber walked onto the building and just STOOD THERE until
+           * its fuse ran out. The owner's ruling for it is *"buildings only; with no buildings,
+           * people"* — the one unit most defined by blowing up buildings had stopped blowing up
+           * buildings.
+           *
+           * ⚠ IT REUSES `isWithinAttackRange`, THE SAME PREDICATE THE DRONE ARM BELOW ALREADY USES
+           * for exactly this question, rather than a second distance test against a bond midpoint.
+           * The whole class of bug here is a rule applied at some of its sites and not the rest.
+           */
+          const atConnector =
+            droneCandidate.targetBondId !== null &&
+            isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
+          if (atShape || atUnit || atConnector || fuseExpiring) {
             dispatch(world, { type: 'SUICIDE_BLAST', creatureId: id });
             continue;
           }

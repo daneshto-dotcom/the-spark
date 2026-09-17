@@ -241,6 +241,47 @@ describe('S181 — structureTargets: the CLOSEST attackable thing, not shape-the
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+describe("S181 — ⛔ THE STINK TOWER HE NAMED IS REACHABLE, and nothing filters a recipe out", () => {
+  /**
+   * Owner: *"there's stink towers and it's not even targeting it. That's wrong."*
+   *
+   * ⭐ THE GENERAL GUARANTEE IS STRONGER THAN A STINK-TOWER FIXTURE, so that is what is asserted:
+   * `findNearestBondTarget` filters on OWNER COLOUR ALONE. It has no recipe test, no defender test
+   * and no tower test — so every structure in the game is reachable through its connectors by the
+   * same code path, including the stink tower, the laser turret's host structure and a pair of
+   * shapes a player welded by hand.
+   *
+   * ⛔ THE REGRESSION THIS GUARDS is someone "fixing" a future targeting complaint by excluding a
+   * recipe here. That would silently un-target one building and reproduce his report for that one
+   * thing only — the hardest version of this bug to find, because 23 of 24 cases would still work.
+   */
+  it('the bond scan rejects on ownership and NOTHING else', () => {
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const src = readFileSync('src/state/creatures/creatureAI.ts', 'utf-8');
+    const start = src.indexOf('export function findNearestBondTarget');
+    expect(start).toBeGreaterThan(-1);
+    // ⚠ NO ESCAPE IN A GENERATED STRING — a literal newline injected into a TS string
+    //   literal is what broke this file's first cut. Slice a generous window instead.
+    const body = src.slice(start, start + 4000);
+    // The one legitimate filter.
+    expect(body).toContain('isEnemyBondWithColor');
+    // ⛔ and no recipe / defender / tower exclusion has crept in beside it.
+    for (const smell of ['recipeId', 'stinkTower', 'laserTurret', 'defenders', 'isRaceTowerId']) {
+      expect(body.includes(smell), `bond scan must not filter on ${smell}`).toBe(false);
+    }
+  });
+
+  it('a structure of ANY size is reachable — 1 connector through 5', () => {
+    for (const n of [1, 2, 3, 4, 5]) {
+      const w = twoSeat();
+      sturdyBuilding(w, P1, 500, 500, n);
+      const st = structureTargets(w, goblinAt(w, P0, 495, 500));
+      expect(st.bondId, `${n}-connector structure must be targetable`).not.toBeNull();
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 describe('S181 — ⭐⭐⭐ MEASURED THROUGH THE REAL HOST TICK, because a target id proves nothing', () => {
   it("a goblin beside a standing building DAMAGES it — the owner's whole report", () => {
     const w = twoSeat();

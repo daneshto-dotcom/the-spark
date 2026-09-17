@@ -717,8 +717,15 @@ export function buildInfoHeight(info: {
 }
 
 const BUILD_ROW_H = 30;
-/** Two lines at 10px with leading — `CodexCopy.recipe` is capped at 150 chars and wraps to two. */
-const DESC_ROW_H = 30;
+/**
+ * ⚠ FIVE lines at 10px with 12px leading, plus the 4px gap the renderer adds after the block.
+ *
+ * ⛔ IT SAID TWO, AND THAT WAS A MEASURED MISTAKE. `CodexCopy.recipe` is capped at 150 characters
+ * and the card fits ~35 per line, so two lines could hold 70 of 150 — every long description lost
+ * a third to half of itself to an ellipsis. The renderer's `DESC_MAX_LINES` and this reservation
+ * must agree or the card clips: they are 5 and 5 × 12 + 4.
+ */
+const DESC_ROW_H = 5 * 12 + 4;
 
 /**
  * Place the card above `anchor`, clamped so it is never half off the board.

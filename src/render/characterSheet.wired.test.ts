@@ -109,6 +109,35 @@ describe('the character sheet is reachable from a real click', () => {
     expect(action).toBeLessThan(sheet);
   });
 
+  /**
+   * ⭐⭐ S181 — **THE MERGED CASTLE WINDOW OPENS AND CLOSES AS ONE THING.**
+   *
+   * Found by testing the LIVE deploy by hand, not by a test: clicking the keep a second time
+   * collapsed the docked panel and left the card header floating above nothing. Half the window
+   * gone, half still there — a third confusing state, when the whole point of the merge was
+   * *"I don't need two windows. It's confusing this way. So we just need one that covers both."*
+   *
+   * ⚠ THE PANEL IS THE SOURCE OF TRUTH for the toggle direction, read AFTER `toggle()`. Deriving it
+   * from a local boolean here would be a second opinion about one piece of state, which is how the
+   * card and the panel would drift into disagreeing about whether the window is open.
+   */
+  it('⭐ the keep toggle closes the CARD with the panel, never half the window', () => {
+    const open = controls.indexOf('this.castlePanel.toggle(this.playerId as unknown as number)');
+    expect(open).toBeGreaterThan(-1);
+    // Both arms must exist: it aims the card when the panel opened, and clears it when it closed.
+    const after = controls.slice(open, open + 1800);
+    expect(after).toContain("this.characterSheet?.select({ kind: 'castle', seat: this.playerId })");
+    expect(after).toContain('this.characterSheet?.select(null)');
+    expect(after).toContain('if (this.castlePanel.isOpen())');
+  });
+
+  it("⚠ dismissing the panel from empty ground closes ONLY a castle card, not a goblin's", () => {
+    // A click that dismisses the castle panel must not close a card the player opened on a unit —
+    // different object, different gesture. Pinned because the cheap version of the fix above would
+    // have cleared every selection.
+    expect(controls).toMatch(/castlePanel\.close\(\);[\s\S]{0,400}?kind === 'castle'/);
+  });
+
   it('⛔ the retired popover is not constructed, synced or routed anywhere', () => {
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const main = readFileSync('src/main.ts', 'utf-8');

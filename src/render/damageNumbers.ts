@@ -545,6 +545,24 @@ export class DamageNumbers {
       this.emit(world, id, last.x, last.y, swing ?? last.ehp, 'damage', last.owner);
     }
 
+    /*
+     * ⛔⛔ S181 — **WIPE THE UNCLAIMED KILL-SWING RECORDS. THIS LINE WAS MISSING AND MY OWN COMMENT
+     * CLAIMED IT EXISTED** — `worldTypes` said the field is *"wiped by the consumer"*, and the
+     * consumer only ever SPLICED the records it matched. Anything unclaimed stayed forever.
+     *
+     * ⚠ AND UNCLAIMED RECORDS ARE GUARANTEED, NOT THEORETICAL. `damageCreature` pushes BEFORE the
+     * channelling-Pharaoh branch restores `ehp = 1` and returns without a death — correct, the blow
+     * was dealt — but that creature never vanishes, so nothing claims its record. On a host that is
+     * an array growing for the whole match, and a stale swing waiting to be mis-attributed to the
+     * next creature that happens to die near where it was pushed.
+     *
+     * ⭐ ITS TWO SIBLINGS EACH HAVE FOUR SITES — three phase resets plus the consumer's wipe. I
+     * matched the three and missed the fourth, which is the exact "populated in three of four
+     * places" failure the project's four-sites rule is about. `killSwing.test.ts` now asserts this
+     * line too, because its original version only checked the three phase files.
+     */
+    world.creatureKillHits.length = 0;
+
     this.syncStructures(world);
     this.advance();
   }

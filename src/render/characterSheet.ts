@@ -31,6 +31,7 @@ import type { PrimitiveId, SpawnerId } from '../types.ts';
 import {
   characterSheetModel,
   layoutSheetActions,
+  MONO_EM_RATIO,
   SHEET_W,
   statValueColumnPx,
   type SheetActionSlot,
@@ -53,13 +54,38 @@ const ROW_H = 20;
 const PROCEDURAL_PORTRAIT_SCALE = 1.6;
 /** Height the build-recipe strip pushes the health bar down by. Mirrors the model's reservation. */
 const BUILD_STRIP_H = 22;
+/** Tiny, as he asked — *"a little picture … in the right corner"*. */
+const BUILD_EMBLEM_SCALE = 0.2;
 /**
- * Characters that fit one description line at 10px monospace inside the card's inner width.
+ * Characters of build bill that fit between the portrait and the emblem slot.
  *
- * ⚠ DERIVED FROM THE SAME `MONO_EM_RATIO` the stat column uses, not eyeballed: 244px of inner width
- * at 10px x 0.6 advance is ~40 glyphs. Sharing the ratio means a font change moves both together.
+ * ⚠ MEASURED, NOT GUESSED: the bill starts at `PAD + PORTRAIT + 10` = 98px in, and must stop ~30px
+ * short of the right edge to clear the emblem. At 10px monospace x 0.6 advance that is ~18 glyphs on
+ * the 236px card. Short, so long bills ellipsise — the codex carries the full recipe.
  */
-const DESC_CHARS_PER_LINE = 40;
+const BILL_CHARS = 18;
+
+/** PURE — clip to `n` characters with a visible ellipsis, never a silent truncation. */
+export function fitChars(text: string, n: number): string {
+  return text.length <= n ? text : `${text.slice(0, Math.max(0, n - 1))}…`;
+}
+/**
+ * Characters that fit one description line, and how many lines the card gives it.
+ *
+ * ⚠ BOTH NUMBERS WERE WRONG IN THE FIRST CUT, and the measurement is why they are here rather than
+ * inline. I derived the width from `PANEL_W` (268 — the CASTLE card's width) when the ordinary card
+ * is `SHEET_W` 236, and then gave it two lines for a blurb `CodexCopy.recipe` caps at 150 chars.
+ * The result: every long description lost 30–50% of itself to an ellipsis.
+ *
+ * ⭐ DERIVED FROM `SHEET_W` AND THE SAME `MONO_EM_RATIO` the stat column uses, so a font change moves
+ * both together: `(236 - 2*12) / (10 * 0.6)` ≈ 35 glyphs, and 5 lines hold 150 chars with room.
+ */
+const DESC_CHARS_PER_LINE = Math.floor((SHEET_W - PAD * 2) / (10 * MONO_EM_RATIO));
+const DESC_MAX_LINES = 5;
+/*
+ * ⛔ `DESC_MAX_LINES` AND THE MODEL'S `DESC_ROW_H` MUST AGREE, or the card clips its own text. The
+ * model reserves `5 * 12 + 4`; a test asserts the pair rather than trusting this comment.
+ */
 
 /**
  * PURE — greedy word wrap to `maxLines`, ellipsising the tail rather than dropping it silently.
@@ -75,16 +101,34 @@ export function wrapToWidth(text: string, perLine: number, maxLines: number): st
   for (const word of words) {
     const next = cur === '' ? word : `${cur} ${word}`;
     if (next.length <= perLine) { cur = next; continue; }
-    lines.push(cur);
-    cur = word;
-    if (lines.length === maxLines) break;
+    /*
+     * ⛔ THE EMPTY-LINE BUG, FOUND BY RUNNING IT RATHER THAN READING IT. When the FIRST word is
+     * longer than the line, `cur` is still '' here and the original pushed that empty string as a
+     * line — a blank row in the middle of the description. Guarded, and an over-long word is now
+     * HARD-BROKEN across lines instead of being emitted whole (which overflowed the card silently).
+     */
+    if (cur !== '') lines.push(cur);
+    if (lines.length >= maxLines) { cur = ''; break; }
+    let rest = word;
+    while (rest.length > perLine && lines.length < maxLines) {
+      lines.push(rest.slice(0, perLine));
+      rest = rest.slice(perLine);
+    }
+    cur = rest;
+    if (lines.length >= maxLines) { cur = ''; break; }
   }
   if (lines.length < maxLines && cur !== '') lines.push(cur);
-  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {
+  /*
+   * ⚠ TRUNCATION IS VISIBLE, and the comparison is on the CONSUMED text rather than a join of the
+   * output — a hard-broken word changes the spacing, so comparing joins reported a phantom overflow.
+   */
+  const emitted = lines.join('').replace(/\s+/g, '').length;
+  const total = words.join('').length;
+  if (lines.length === maxLines && emitted < total) {
     const last = lines[maxLines - 1] ?? '';
     lines[maxLines - 1] = `${last.slice(0, Math.max(0, perLine - 1))}…`;
   }
-  return lines;
+  return lines.filter((l) => l !== '');
 }
 
 const INK = 0xe8eef6;
@@ -123,6 +167,9 @@ export class CharacterSheet {
   private readonly g: Graphics;
   private readonly emblem: Graphics;
   private readonly glyphs: Graphics;
+  /** S181 — the build-recipe emblem lives alone, because `drawEmblem` ADDS CHILDREN (see draw). */
+  private readonly buildGlyph: Container;
+  private readonly buildGlyphG: Graphics;
   private readonly portrait: Sprite;
   private readonly labels: Text[] = [];
   private used = 0;
@@ -164,11 +211,15 @@ export class CharacterSheet {
     this.emblem = new Graphics();
     // S181 — its own child so a feed chip's glyph is not wiped by the plate's `clear()` ordering.
     this.glyphs = new Graphics();
+    this.buildGlyph = new Container();
+    this.buildGlyphG = new Graphics();
+    this.buildGlyph.addChild(this.buildGlyphG);
     this.portrait = new Sprite();
     this.portrait.visible = false;
     this.container.addChild(this.g);
     this.container.addChild(this.emblem);
     this.container.addChild(this.glyphs);
+    this.container.addChild(this.buildGlyph);
     this.container.addChild(this.portrait);
     parent.addChild(this.container);
   }
@@ -299,17 +350,36 @@ export class CharacterSheet {
     let barTop = 0;
     if (v.buildBill !== null) {
       this.text('BUILD', x + PAD + PORTRAIT + 10, y + PAD + 40, 9, DIM);
-      this.text(v.buildBill, x + PAD + PORTRAIT + 10, y + PAD + 51, 10, INK);
+      /*
+       * ⚠ TRUNCATED TO THE SPACE THAT ACTUALLY EXISTS. The bill starts right of the portrait and
+       * must stop short of the emblem slot, which is ~14px + padding from the right edge. Helga's
+       * `1 TRIANGLE + 3 CIRCLES + 3 SPIRALS` ran ~66px past the card before this.
+       */
+      this.text(fitChars(v.buildBill, BILL_CHARS), x + PAD + PORTRAIT + 10, y + PAD + 51, 10, INK);
       barTop = BUILD_STRIP_H;
     }
     if (v.buildEmblem !== undefined && v.buildEmblem !== null) {
-      // Top-RIGHT corner, tiny, exactly where he pointed. Drawn into `glyphs` so the portrait's own
-      // emblem arm (which owns `this.emblem`) cannot clear it.
-      this.glyphs.position.set(x + w - PAD - 13, y + PAD + 48);
-      this.glyphs.scale.set(0.2);
-      drawEmblem(this.glyphs, v.buildEmblem);
-      this.glyphs.scale.set(1);
-      this.glyphs.position.set(0, 0);
+      /*
+       * ⛔⛔ S181 — **ITS OWN CONTAINER, AND THE FIRST CUT PUT THE GLYPH ON THE CANVAS ORIGIN.**
+       *
+       * Two real defects in one block, both found by verifying rather than by a test:
+       *
+       *  1. I drew into `this.glyphs`, then RESET its position and scale on the next two lines so
+       *     the feed chips could keep using absolute coordinates. But a Graphics renders with its
+       *     transform AS OF DRAW TIME — so resetting after `drawEmblem` rendered the emblem at
+       *     (0, 0) at full size. A large recipe diagram in the top-left corner of the SCREEN, and
+       *     an empty top-right corner on the card where he asked for it.
+       *  2. `drawEmblem` ends in `g.addChild(wrap)` — and `Graphics.clear()` does NOT remove
+       *     children. So every frame added another child and the pile grew for as long as a card
+       *     stayed open.
+       *
+       * ⭐ FIXED BY GIVING IT A CONTAINER NOBODY ELSE TOUCHES, whose transform is set once and never
+       * reset, and whose children are destroyed in `reset()`. That is also why it is a `Container`
+       * and not a `Graphics`: `drawEmblem` wants a parent, not a canvas.
+       */
+      this.buildGlyph.position.set(x + w - PAD - 14, y + PAD + 48);
+      this.buildGlyph.scale.set(BUILD_EMBLEM_SCALE);
+      drawEmblem(this.buildGlyphG, v.buildEmblem);
       barTop = Math.max(barTop, BUILD_STRIP_H);
     }
 
@@ -345,10 +415,27 @@ export class CharacterSheet {
     if (v.owned !== null) {
       const oy = sy + 4;
       const oh = 40;
+      /*
+       * ⭐⭐ S181 — **THE OWNED-UNIT ROW LIGHTS UP TOO.** It is clickable — it re-aims the card at the
+       * unit a building fields, his *"you can either click on that"* — and it had a fixed plate with
+       * no hover and no pointer cursor, on the same card as buttons that have both. A control that
+       * is live but looks inert teaches the player that the card lies about what can be clicked,
+       * which is worse than one that is plainly disabled.
+       *
+       * Same predicate the click path uses, so the highlight and the hit can never disagree.
+       */
+      const h = this.hover;
+      const ownedHot =
+        h !== null &&
+        h.x >= x + PAD && h.x <= x + w - PAD && h.y >= oy && h.y <= oy + oh;
+      if (ownedHot) {
+        this.g.roundRect(x + PAD - 2, oy - 2, w - PAD * 2 + 4, oh + 4, 8)
+          .stroke({ color: accent, width: 2, alpha: 0.35 });
+      }
       this.g
         .roundRect(x + PAD, oy, w - PAD * 2, oh, 6)
-        .fill({ color: 0x14212e })
-        .stroke({ color: EDGE, width: 1 });
+        .fill({ color: ownedHot ? 0x1b2c3c : 0x14212e })
+        .stroke({ color: ownedHot ? accent : EDGE, width: ownedHot ? 1.5 : 1 });
       this.text(v.owned.name, x + PAD + 46, oy + 6, 12, INK);
       const ow = w - PAD * 2 - 52;
       const of_ = v.owned.health.max <= 0 ? 0 : v.owned.health.cur / v.owned.health.max;
@@ -360,6 +447,13 @@ export class CharacterSheet {
       }
       this.g.roundRect(x + PAD + 4, oy + 4, 32, 32, 4).fill({ color: 0x101a26 }).stroke({ color: EDGE, width: 1 });
       this.ownedHit = { x: x + PAD, y: oy, w: w - PAD * 2, h: oh };
+      /*
+       * ⛔ S181 — **ADVANCE `sy` PAST THE BLOCK.** It did not, and the description added this
+       * session was therefore drawn straight across the owned-unit row while ~80px sat empty at the
+       * bottom of the card. Helga's hub was the visible case: her name and health bar with a
+       * sentence printed over them.
+       */
+      sy = oy + oh + 6;
     } else {
       this.ownedHit = null;
     }
@@ -377,7 +471,7 @@ export class CharacterSheet {
      * sizes — setting it here would leak onto the next label that borrows the object.
      */
     if (v.description !== null) {
-      for (const line of wrapToWidth(v.description, DESC_CHARS_PER_LINE, 2)) {
+      for (const line of wrapToWidth(v.description, DESC_CHARS_PER_LINE, DESC_MAX_LINES)) {
         this.text(line, x + PAD, sy + 2, 10, DIM);
         sy += 12;
       }
@@ -573,6 +667,14 @@ export class CharacterSheet {
     this.g.clear();
     this.emblem.clear();
     this.glyphs.clear();
+    /*
+     * ⛔ `Graphics.clear()` DOES NOT REMOVE CHILDREN, and `drawEmblem` adds one every call. Both
+     * emblem surfaces therefore need their children destroyed, not just cleared — otherwise the pile
+     * grows every frame a card is open and the oldest copies keep rendering.
+     */
+    this.buildGlyphG.clear();
+    for (const c of this.buildGlyphG.removeChildren()) c.destroy({ children: true });
+    for (const c of this.emblem.removeChildren()) c.destroy({ children: true });
     this.slots = [];
     this.portrait.visible = false;
     for (const t of this.labels) t.visible = false;
