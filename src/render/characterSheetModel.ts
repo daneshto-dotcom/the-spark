@@ -66,6 +66,8 @@ import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../typ
 import { codexCopyFor } from './codexPresentation.ts';
 import { isConcealed } from './concealment.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
+import { towerArtForRecipe } from './towerFrames.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** What the sheet is pointed at. An id, NEVER an object — see the note on `characterSheetModel`. */
 export type SheetTarget =
@@ -93,6 +95,21 @@ export type PortraitSpec =
   | { readonly kind: 'creatureFrame'; readonly creatureType: CreatureType; readonly race: RaceId | null }
   /** A structure the codex knows — drawn as the recipe emblem, exactly as the codex draws it. */
   | { readonly kind: 'emblem'; readonly recipeId: string }
+  /**
+   * ⭐⭐ S181 (owner) — **A TOWER WITH FINISHED ART SHOWS THE ART.**
+   *
+   * > *"For buildings that have towers that we have generated art for, you need to use the art,
+   * > right? So Vlad Tower, Bat Tower, Piranha Tower, castles, those have pictures. They have the
+   * > art. You've already implemented that for all the creatures … but you did not do that for
+   * > towers."*
+   *
+   * ⛔ `recipeId` RIDES ALONG DELIBERATELY, and it is what stops this being a regression for the
+   * first frame. A tower atlas loads lazily, so `portraitTexture` answers null until the fetch
+   * lands; carrying the recipe lets `drawPortrait` fall back to the SAME emblem it used to draw
+   * rather than flashing an empty plate. The art is an upgrade over the emblem, never a replacement
+   * for having something to show.
+   */
+  | { readonly kind: 'towerFrame'; readonly atlasBase: string; readonly recipeId: string }
   /** Helga and the like: a unit-class defender with its own art. */
   | { readonly kind: 'defenderFrame'; readonly defenderKind: string }
   /** The seat's keep, drawn in its race's castle art. */
@@ -271,6 +288,37 @@ export function statValueColumnPx(
   return Math.ceil(widest * labelFontSize * MONO_EM_RATIO) + STAT_GAP_PX;
 }
 
+/**
+ * ⭐⭐ S181 (owner) — PURE — which portrait a structure shows: its finished ART when it has any, the
+ * codex emblem when it does not.
+ *
+ * ⛔ **THE ART-LESS SET IS NOT HARD-CODED HERE, AND THAT IS THE WHOLE TRICK.** `towerArtForRecipe`
+ * already answers null for exactly the recipes the owner named as having no picture — its own
+ * comment reads *"the pentagram, the goblin tower and the lightning hub have no structure art"*,
+ * and he independently listed *"not for pentagram, not for laser tower, not for Helga … not for the
+ * goblin tower"*. So the fallback is the EXISTING lookup's null arm rather than a second list that
+ * would have to be maintained beside it and would rot the first time art is packed for one of them.
+ * Pack a pentagram sheet and this starts showing it with no edit here.
+ *
+ * ⚠ `freeform` is the hand-bonded case — shapes a player welded together with no recipe at all. It
+ * has no art and no codex entry, and keeps the emblem path that already handled it.
+ */
+export function portraitForStructure(recipeId: string | null): PortraitSpec {
+  if (recipeId === null) return { kind: 'emblem', recipeId: 'freeform' };
+  /*
+   * ⚠ THE PARAMETER IS A PLAIN STRING, NOT `GodlyId`, AND THAT IS ON PURPOSE. It arrives as
+   * `prim.origin.blueprintId`, which is every blueprint in the game and not only the godly recipes.
+   * `towerArtForRecipe` answers by comparing against `RACE_TOWER_IDS` / `T9_TOWER_IDS` by value, so
+   * a non-godly blueprint simply misses both tables and returns null — the emblem arm. Narrowing the
+   * signature to `GodlyId` would force a cast at every call site and buy nothing: the lookup is
+   * already total over strings.
+   */
+  const art = towerArtForRecipe(recipeId as GodlyId);
+  return art === null
+    ? { kind: 'emblem', recipeId }
+    : { kind: 'towerFrame', atlasBase: art.atlasBase, recipeId };
+}
+
 /** Height of a card carrying these parts. Derived, so nothing has to be kept in sync by hand. */
 function heightFor(stats: number, owned: boolean): number {
   return (
@@ -415,9 +463,7 @@ function structureSheet(
     target,
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
     subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
-    portrait: recipeId === null
-      ? { kind: 'emblem', recipeId: 'freeform' }
-      : { kind: 'emblem', recipeId },
+    portrait: portraitForStructure(recipeId),
     health: { cur: Math.max(0, pool - banked), max: pool, frozen },
     stats,
     owned,

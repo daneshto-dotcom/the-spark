@@ -216,9 +216,17 @@ export class CharacterSheet {
       this.portrait.visible = true;
       return;
     }
-    // ⭐ HIS FALLBACK, NOT A PLACEHOLDER: *"the ones that don't have a tower yet, you just use the
-    // one that you used in the codex, like the shape connectors, how it looks."*
-    if (spec.kind === 'emblem') {
+    /*
+     * ⭐ HIS FALLBACK, NOT A PLACEHOLDER: *"the ones that don't have a tower yet, you just use the
+     * one that you used in the codex, like the shape connectors, how it looks."*
+     *
+     * ⭐⭐ S181 — **`towerFrame` FALLS DOWN THE SAME CHAIN**, which is what makes the art an upgrade
+     * rather than a risk. A tower atlas is fetched lazily, so `portraitTexture` answers null for the
+     * first frames after a card opens; carrying `recipeId` on the spec lets those frames draw the
+     * emblem the card drew before this change instead of flashing the empty plate. Same arm covers a
+     * peer whose fetch failed outright.
+     */
+    if (spec.kind === 'emblem' || spec.kind === 'towerFrame') {
       const em = codexCopyFor(spec.recipeId).emblem;
       if (em !== undefined) {
         this.emblem.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);

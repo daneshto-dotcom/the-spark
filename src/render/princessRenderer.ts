@@ -85,6 +85,24 @@ export class PrincessRenderer {
    * drawn inside her at the 26 px fallback. Owner: *"Helga doesn't have a health bar."*
    * ⚠ `Math.abs` on the width because the X scale is negative when she faces left.
    */
+  /**
+   * ⭐⭐ S181 — **HELGA'S PORTRAIT, AND A CORRECTION TO THE OWNER.** He listed her with the art-less
+   * things — *"not for pentagram, not for laser tower, not for Helga"* — but her veo atlas has been
+   * on disk and loading in this renderer since S112 (`/godly/helga/anim/helga-atlas.png`). What he
+   * is right about is her HUB: the building she is fielded from has no structure art, so that one
+   * keeps the emblem. Her own card gets her face.
+   *
+   * ⚠ `idle` frame 0 — the neutral stance, not a mid-slap frame. A portrait taken from an action row
+   * reads as a blur at 76px.
+   *
+   * ⚠ NULL BEFORE THE ATLAS RESOLVES, and on a peer whose fetch failed. The card's labelled plate is
+   * the fallback for that window, exactly as the procedural puppet is on the board.
+   */
+  portraitTexture(): Texture | null {
+    const idle = this.atlas?.cells['idle'];
+    return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
+  }
+
   spriteBoxOf(id: DefenderId): { w: number; h: number } | null {
     const sp = this.sprites.get(id);
     return sp === undefined ? null : { w: Math.abs(sp.width), h: sp.height };

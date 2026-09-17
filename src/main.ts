@@ -1002,9 +1002,49 @@ async function bootstrap(): Promise<void> {
    * *"just take from the generated images that we made for them."* Injected rather than imported so
    * the sheet never depends on the sprite renderer; `main.ts` already owns both.
    */
-  characterSheet.setPortraitSource((spec) =>
-    spec.kind === 'creatureFrame' ? goblinRenderer.portraitTexture(spec.creatureType, spec.race) : null,
-  );
+  /*
+   * ⭐⭐ S181 (owner playtest) — **EVERY SPEC KIND NOW RESOLVES TO REAL ART.** This arrow answered
+   * `creatureFrame` and returned null for the other three, which is the single line behind two of
+   * the defects he reported: a building drew the codex recipe emblem (*"what are those blue squares
+   * that have nothing to do"*) and the keep drew a plate reading KEEP.
+   *
+   * > *"For buildings that have towers that we have generated art for, you need to use the art …
+   * > You've already implemented that for all the creatures … but you did not do that for towers."*
+   *
+   * The art was never missing: twelve tower atlases and six castle atlases were already loading in
+   * the renderers below for the board. Only the ASK was missing.
+   *
+   * ⛔ THE RENDERERS ARE THE TEXTURE OWNERS AND STAY THAT WAY. Each accessor reads the atlas that
+   * renderer already fetched lazily for the board, so opening a card costs no second fetch and a
+   * card cannot pull art for something the board never drew. Null from any of them means "not loaded
+   * yet", and the card's own fallback chain draws the emblem for that window.
+   */
+  characterSheet.setPortraitSource((spec) => {
+    switch (spec.kind) {
+      case 'creatureFrame':
+        return goblinRenderer.portraitTexture(spec.creatureType, spec.race);
+      case 'towerFrame':
+        return towerRenderer.portraitTexture(spec.atlasBase);
+      case 'emblem':
+        // No texture by design — the emblem is drawn procedurally by `drawPortrait`'s own arm.
+        return null;
+      case 'castleFrame':
+        return spec.race === null ? null : gathererRenderer.castlePortraitTexture(spec.race);
+      case 'defenderFrame':
+        // Helga is the only unit-class defender with an atlas; anything else keeps the plate.
+        return spec.defenderKind === 'princess' ? princessRenderer.portraitTexture() : null;
+      default: {
+        /*
+         * ⛔ A COMPILE-TIME COVERAGE CONTRACT, the same device the hashed-entity union uses. Adding a
+         * fifth `PortraitSpec` kind without deciding where its texture comes from fails `tsc` here
+         * instead of silently drawing a `…` plate — which is precisely the failure mode this whole
+         * priority is fixing.
+         */
+        const unreachable: never = spec;
+        return unreachable;
+      }
+    }
+  });
   // S152 — FIX / SCRAP commit through the SAME `dispatchFn` seam every other player intent
   // uses, so they route on all three paths (networked joiner → wire intent; worker mode →
   // postIntent; solo/host → direct dispatch).

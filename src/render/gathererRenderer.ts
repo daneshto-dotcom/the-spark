@@ -208,6 +208,20 @@ export class GathererRenderer {
   private readonly castleSprites: Map<number, Sprite> = new Map();
   /** Per-race atlas cache. A key present with `null` means "tried, failed — use the fallback". */
   private readonly atlases: Map<RaceId, CastleAtlas | null> = new Map();
+
+  /**
+   * ⭐⭐ S181 (owner) — **THE KEEP'S OWN PORTRAIT.** The card showed a plate reading `KEEP` because
+   * `setPortraitSource` in `main.ts` answered `creatureFrame` and nothing else, so every other spec
+   * kind fell through to a word. All six castle atlases were already loading here for the board.
+   *
+   * Carried on the handoff as *"Castle and Helga portraits are a labelled plate — their art exists
+   * but is unwired"*, and this is the wire.
+   *
+   * ⚠ `intact` for the same reason the tower portrait uses it: the bar beside it owns the condition.
+   */
+  castlePortraitTexture(race: RaceId): Texture | null {
+    return this.atlases.get(race)?.intact ?? null;
+  }
   private readonly atlasLoadStarted: Set<RaceId> = new Set();
 
   constructor(app: Application, parent: Container = app.stage) {

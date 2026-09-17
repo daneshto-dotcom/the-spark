@@ -377,6 +377,28 @@ export class TowerRenderer {
    * inside that window, so without this line a tower would finish falling over the title screen —
    * the same orphan-sprite class every other renderer's `clear` exists to prevent.
    */
+  /**
+   * ⭐⭐ S181 (owner) — **THE CHARACTER SHEET'S TOWER PORTRAIT.** His playtest ask, verbatim:
+   *
+   * > *"for buildings that have towers that we have generated art for, you need to use the art,
+   * > right? Vlad Tower, Bat Tower, Piranha Tower, castles, those have pictures."*
+   *
+   * The card was drawing the CODEX RECIPE EMBLEM for every building — the ring of blue squares and
+   * red triangles in his screenshots — while twelve finished tower sheets sat loaded in this very
+   * map. Nothing was missing; nothing asked for it.
+   *
+   * ⚠ `intact`, ALWAYS. A portrait is an identity, not a status read: the health bar directly beside
+   * it already says how hurt the building is, and a portrait that swapped to the damaged sheet would
+   * say it twice while making the tower harder to recognise. `towerFrames` keeps `damaged` and
+   * `destroyed` for the board.
+   *
+   * ⚠ NULL WHILE THE ATLAS IS STILL IN FLIGHT, which is the normal first-frame case and not an
+   * error — the card falls back to the emblem for exactly that window. See `drawPortrait`.
+   */
+  portraitTexture(atlasBase: string): Texture | null {
+    return this.atlases.get(atlasBase)?.intact ?? null;
+  }
+
   clear(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
