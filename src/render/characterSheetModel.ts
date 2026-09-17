@@ -65,7 +65,7 @@ import type { World } from '../state/worldTypes.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import { codexCopyFor } from './codexPresentation.ts';
 import { isConcealed } from './concealment.ts';
-import { PANEL_W } from './castlePanel.ts';
+import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -484,6 +484,31 @@ function rectFor(anchor: Vec2, h: number, w: number = SHEET_W): CharacterSheetVi
 }
 
 /**
+ * ⭐⭐ S181 — PURE — the keep's card rect: the TOP SLICE of the merged castle window, placed **BESIDE
+ * the keep** rather than above it.
+ *
+ * ⛔ **BESIDE, NOT ABOVE, AND AN E2E TEST IS WHY — NOT TASTE.** The first attempt at the owner's one
+ * window used the ordinary floating placement (above the subject, like every other card) with the
+ * panel docked below. `castle-panel.spec.ts` went red on *"clicking the castle again closes it"* and
+ * the arithmetic says why: card 240 + panel 292 = a 532px block, and the keep sits at y≈516, so the
+ * block cannot fit above it. `rectFor`'s bottom clamp then slid it back DOWN over the keep,
+ * `onDown`'s `isPointerOverPanel()` early-return swallowed the second click, and the panel became
+ * impossible to close. Raising the lift could not fix it; there is no room up there.
+ *
+ * ⭐ SO THE MERGED WINDOW GOES WHERE THE PANEL HAS ALWAYS GONE: beside the keep, via the panel's own
+ * `castleBlockOrigin` flip-and-clamp. The owner has been playing with it there since S136, the keep
+ * stays clickable, and the only change is that the card is now the top of the same box.
+ *
+ * `castlePanel.setDock` then places the panel at `y + cardH` — verified in the live client as
+ * sameLeft / sameWidth / gap 0, i.e. one window by arithmetic rather than by eye.
+ */
+function castleCardRect(anchor: Vec2, cardH: number): CharacterSheetView['rect'] {
+  const blockH = cardH + panelHeight(CASTLE_ROW_KEYS.length);
+  const o = castleBlockOrigin(anchor.x, anchor.y, blockH);
+  return { x: o.x, y: o.y, w: PANEL_W, h: cardH };
+}
+
+/**
  * ⭐ PURE — everything the card shows for `target`, or `null` when there is nothing to show.
  *
  * ⛔ **THE TARGET IS AN ID AND IS RE-LOOKED-UP EVERY FRAME.** GEMINI-AUDITOR raised this in Council
@@ -664,7 +689,8 @@ function castleSheet(
      * castle window; `castlePanel` docks flush beneath it and the shared edge is what makes the two
      * read as a single panel rather than the *"two windows"* he asked us to stop drawing.
      */
-    rect: rectFor(anchor, heightFor(stats.length, false), PANEL_W),
+    // ⭐⭐ S181 — beside the keep, as the top slice of the one merged window. See `castleCardRect`.
+    rect: castleCardRect(anchor, heightFor(stats.length, false)),
   };
 }
 

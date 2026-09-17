@@ -629,13 +629,37 @@ export function panelOrigin(
   rows: number,
   cap: number = INVENTORY_SLOTS,
 ): { x: number; y: number } {
-  const h = panelHeight(rows, cap);
+  return castleBlockOrigin(ax, ay, panelHeight(rows, cap));
+}
+
+/**
+ * ⭐⭐ S181 — PURE — where a castle-anchored box of height `blockH` goes: **BESIDE the keep**, flipping
+ * to its other side when it would overflow, vertically centred on it and clamped on-canvas.
+ *
+ * ⛔ **THIS EXISTS BECAUSE "ABOVE THE KEEP" IS GEOMETRICALLY IMPOSSIBLE FOR THE MERGED WINDOW, AND
+ * AN E2E TEST PROVED IT RATHER THAN A HUNCH.** The first attempt at the owner's one-window castle
+ * floated the card above the keep with the panel docked below it; `castle-panel.spec.ts`
+ * ("clicking the castle again closes it") went red. The arithmetic says why: card 240 + panel 292 =
+ * a 532px block, and the keep sits at y≈516, so the block cannot fit above it. The bottom clamp
+ * then slid it back DOWN over the keep, `onDown`'s `isPointerOverPanel()` early-return swallowed
+ * the second click, and the toggle never fired — the panel became impossible to close.
+ *
+ * ⭐ SO THE MERGED WINDOW GOES WHERE THE PANEL ALWAYS WENT: beside the keep. The owner has been
+ * playing with it there since S136, the keep stays clickable, and the only thing that changed is
+ * that the card is now the top of the same box.
+ *
+ * ⚠ ONE PLACEMENT RULE, TWO CALLERS. `panelOrigin` delegates here rather than keeping its own copy
+ * of the flip-and-clamp — the same discipline `rowsTop` and `CASTLE_ROW_KEYS` were extracted for in
+ * this very file, and for the same reason: a second copy is how the plate and the click geometry
+ * start disagreeing.
+ */
+export function castleBlockOrigin(ax: number, ay: number, blockH: number): { x: number; y: number } {
   let x = ax + KEEP_H / 2 + ANCHOR_GAP;
   if (x + PANEL_W > CANVAS_WIDTH - 8) x = ax - KEEP_H / 2 - ANCHOR_GAP - PANEL_W;
   if (x < 8) x = 8;
-  let y = ay - h / 2;
+  let y = ay - blockH / 2;
   if (y < 8) y = 8;
-  if (y + h > CANVAS_HEIGHT - 8) y = CANVAS_HEIGHT - 8 - h;
+  if (y + blockH > CANVAS_HEIGHT - 8) y = CANVAS_HEIGHT - 8 - blockH;
   return { x, y };
 }
 
