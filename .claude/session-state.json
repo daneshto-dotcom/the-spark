@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2245,
+  "tool_calls_session_total": 2257,
   "session_id": "S181",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -8,7 +8,7 @@
   "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-17_PDR_S181_CHARSHEET_POLISH.md",
-  "session_status": "S181 IN PROGRESS",
+  "session_status": "S181 IN PROGRESS — 7/7 approved items shipped + 1 self-inflicted regression found and fixed",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -140,7 +140,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 2,
@@ -151,7 +151,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 3,
@@ -162,7 +162,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 4,
@@ -173,7 +173,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 5,
@@ -184,7 +184,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 6,
@@ -195,7 +195,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 7,
@@ -206,7 +206,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     }
   ],
   "verification": [
@@ -450,7 +450,10 @@
     "A TEST THAT PREDICTS ITS OWN FAILURE IS THE CHEAPEST GUARD THERE IS. castleRegen.test.ts said \"if CASTLE_MAX_HP ever moves, this case is the one that should go red first.\" It was, and it forced a human to re-read R128 instead of the buff shipping silently. Write that sentence when a value is derived.",
     "DOCK, DO NOT DUPLICATE, WHEN MERGING TWO INTERACTIVE SURFACES. The castle panel owns three click strips; folding them into the card would have been ~600 lines of second copy that must agree - the exact bug rowsTop records happening in that file before. Docking gave him ONE window with zero duplicated logic. And measuring the LIVE client first (the footer already carries the whole build surface) is what proved nothing would be lost.",
     "THE SHELL IS A REAL FAILURE MODE HERE, AGAIN. A heredoc carrying a TS test file died on quoting, and a python-written \"\\n\" inside a TS string literal broke the source. Write source files with the file tool or plain concatenation; keep newlines out of python-injected string literals.",
-    "A NESTED BACKGROUND WATCHER SILENTLY DID NOTHING. `(loop) > file 2>&1 &` inside the Bash tool own backgrounding exited code 0 having run nothing, and the notification reported success. A zero exit from a wrapper is not evidence the work happened - the same class as the [exited with code 0] trap. Hand-ran the poll instead."
+    "A NESTED BACKGROUND WATCHER SILENTLY DID NOTHING. `(loop) > file 2>&1 &` inside the Bash tool own backgrounding exited code 0 having run nothing, and the notification reported success. A zero exit from a wrapper is not evidence the work happened - the same class as the [exited with code 0] trap. Hand-ran the poll instead.",
+    "I SHIPPED A REGRESSION AND ONLY CI CAUGHT IT, BECAUSE I VERIFIED THE FEATURE AND NOT THE GESTURE. I opened the merged castle window in the live client, measured gap=0 / sameLeft / sameWidth, screenshotted it and called it verified — and never clicked the keep a SECOND time. The panel was covering the keep and could not be closed. Verifying that a thing APPEARS is not verifying that it still TOGGLES: when a change moves geometry, re-run the open/close cycle, not just the open.",
+    "RUN THE GATING E2E LANE BEFORE PUSHING WHEN A CHANGE MOVES UI GEOMETRY. It costs 4.4 minutes locally and it would have caught this before production. typecheck + vitest + build + a screenshot all passed on a broken gesture; the lane that drives real clicks did not.",
+    "JQ `//` DOES NOT FALL BACK ON AN EMPTY STRING. `.conclusion // .status` printed nothing for in-progress jobs (conclusion is \"\" not null), my grep for in_progress/queued missed the empty field, and the poller announced SETTLED while three jobs were still running. Same family as the [exited with code 0] trap: I read a DERIVED signal instead of the real field. Poll `.status` explicitly."
   ],
   "real_context_tokens_at_close": null,
   "analyze": {
@@ -475,7 +478,7 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6",
+  "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
   "check_completed": true,
   "s179": {
     "session_id": "S179",
@@ -908,7 +911,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 2,
@@ -919,7 +922,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 3,
@@ -930,7 +933,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 4,
@@ -941,7 +944,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 5,
@@ -952,7 +955,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 6,
@@ -963,7 +966,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     },
     {
       "id": 7,
@@ -974,7 +977,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "043a761828a3c0302c098038ec335e88702bb8a6"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
     }
   ],
   "owner_art_correction_s181": "Art does NOT exist for: pentagram, laser tower, Helga, goblin tower. It DOES for \"all the new ones\" - the six tier-3 race towers, the six tier-9 race towers, castles. So P1 needs a real fallback, not a blanket swap.",
@@ -987,5 +990,12 @@
     "pages": "completed/success",
     "verify_deploy": "PASS 4/4",
     "e2e_at_report_time": "4/7 jobs green (e2e-races, e2e-protocol, e2e-lobby, atlas-guard); e2e (gating), e2e-soak, e2e-quarantine still in_progress - OWED A VERDICT, not assumed green"
+  },
+  "s181_ci_verdict": {
+    "first_push_043a761": "Deploy success + verify-deploy 4/4. E2E: 4/7 jobs green; e2e (GATING), e2e-soak, e2e-quarantine FAILED.",
+    "failure_1_MINE": "castle-panel.spec.ts \"clicking the castle again closes it\" — A REAL REGRESSION I SHIPPED. The merged castle window was placed with the ordinary floating card placement (above the subject) and the panel docked below; card 240 + panel 292 = a 532px block while the keep sits at y~516, so it cannot fit above. rectFor bottom-clamped it back DOWN onto the keep, onDown isPointerOverPanel() early-return swallowed the second click, and the panel became impossible to close. FIXED in db52b38 by placing the merged window BESIDE the keep via castleBlockOrigin (panelOrigin now delegates to it — one placement rule, two callers). Re-run: castle-panel 8/8, GATING_EXIT=0 with 65 passed.",
+    "failures_2_3_4_NOT_MINE": "hunter.spec.ts, raid.spec.ts, worker-heap.spec.ts all failed on ONE signature — waitForWorld timeout (15000ms): \"placement landed near (x,y) (prims 0 -> >=1) [attempt 4/4]\", i.e. a gatherer had not banked a shape in time on a slow shared runner. RULED BENIGN WITH REASONS, not shrugged: (a) all three PASS locally at this HEAD (hunter 1/1, raid 2/2, worker-heap baseline 1/1 in 3.8m); (b) none of the three files was touched this session; (c) the code argument is run-independent — with no card open actionAt returns null on an empty slot list, isOverAnyAction is false, isOver is false on an undefined view and towerAnchorAtPoint is null with no towers, so the placement path is behaviourally identical to before; (d) two of the three jobs declare themselves non-gating in their own names.",
+    "second_push_db52b38": "Deploy success + VERIFY_DEPLOY_EXIT=0 (4/4). E2E at time of writing: e2e-races, e2e-lobby, e2e-protocol, atlas-guard all success; e2e (gating), e2e-soak, e2e-quarantine still in_progress. OWED A VERDICT — the local gating lane is GATING_EXIT=0 / 65 passed, which is the same suite, but the CI verdict is not yet in and is NOT being claimed.",
+    "final_db52b38": "ALL SETTLED, EVERY JOB GIVEN A VERDICT. e2e (GATING)=success · e2e-soak=success · e2e-races=success · e2e-lobby=success · e2e-protocol=success · atlas-guard=success · e2e-quarantine=FAILURE. QUARANTINE RULED BENIGN WITH EVIDENCE, NOT SHRUGGED: every failing test in it is peer-to-peer (joiner placement/bonding, 3- and 4-player FFA, worker-duel) and the runner log says net::ERR_ADDRESS_UNREACHABLE / \"sendto() has failed twice returning a transient error\" - WebRTC is blocked on the shared runner, so no P2P test can pass there. Proven historical rather than assumed: quarantine=failure on ALL SIX most recent E2E runs (db52b38, 043a761, c0dead0, 1cf4ee2, e363c93, ca39c83), five of which predate this session. The lane declares itself non-gating in its own job name. AND THE 043a761 SOAK FAILURE IS CONFIRMED FLAKE, not a lasting defect: soak is success again at db52b38 with nothing soak-related changed between the two commits."
   }
 }
