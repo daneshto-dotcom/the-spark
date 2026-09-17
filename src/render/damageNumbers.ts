@@ -59,6 +59,14 @@ import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { CreatureId, PlayerId } from '../types.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
+// S181 — everything `fatalBlowFifths` needs, and every one of them is DERIVABLE ON BOTH PEERS from
+// state already held: per-type attack config, the shared fifths ladder, and the keep's pure
+// (seat, tick) firing schedule. No new wire field, no protocol bump.
+import { CASTLE_ATTACK_RANGE } from '../constants.ts';
+import { castleFiresOnTick, castleShotFifths } from '../state/castleGuns.ts';
+import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
+import { getDefenderConfig } from '../state/defenders/defender.ts';
+import { attackFifths } from '../state/stats.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -141,6 +149,153 @@ interface StructWatched {
  * repaired or replaced, and printing green over a rebuilt connector would read as the enemy healing
  * the thing they are chewing.
  */
+/**
+ * ⭐⭐⭐ S181 (owner) — **THE FLOATER MUST BE THE SWING, NOT WHAT WAS LEFT TO TAKE.**
+ *
+ * > *"it says that it hits 40 per shot, but it only does 6 damage … oh yeah, it is, because now I
+ * > saw it hit the zombie hound for 10, because that's his total HP, so it only shows the maximum.
+ * > We need to show the ACTUAL damage being taken. And if it's over his total health amount, that's
+ * > fine. He just dies. It shouldn't be capped at his health."*
+ *
+ * And again, on creatures, so it is not only a castle problem: *"my soul eaters are fighting the
+ * zombie. Soul eater supposed to do fourteen a swing … but they're only doing like six. It's the
+ * same issue … it's capped when buildings are targeted and the same when creatures are targeted."*
+ *
+ * ## WHY THE OLD NUMBER WAS WRONG, AND WHY IT WAS DELIBERATE
+ *
+ * A creature is deleted from `world.creatures` on the same tick its pool hits zero, so the fatal hit
+ * is never observable as a delta. S172 printed **what it had left when last seen**, and wrote down
+ * the trade: *"overkill is discarded at the damage site and never serialized … it also makes the
+ * arithmetic come out exact: the numbers over a creature's whole life sum to precisely its pool."*
+ * That summing property is what the owner has now overruled. He wants the SWING.
+ *
+ * ## ⛔ WHY THE KILLER IS DERIVED FROM REACH RATHER THAN READ FROM A FIELD
+ *
+ * `targetCreatureId` would answer this outright — and `trimMirrorCreature` STRIPS IT FROM THE WIRE.
+ * It is the ONE field it strips (this file's own note at the `damageAnchor` docblock says so), so a
+ * joiner cannot know which creature struck. Sending the amount instead is worse: a one-shot push
+ * rides `world.effects`, which is sampled at 10 Hz and wiped by the renderer at 60, so it is lost
+ * ~5/6 of the time. Everything below is re-derived every frame from state BOTH peers already hold —
+ * positions, owners, types — which is this codebase's standing rule for per-strike visuals.
+ *
+ * ## THE RULE
+ *
+ * Enumerate everything hostile to the victim that could have reached its last position: enemy
+ * creatures inside their own `attackRange`, enemy unit-class defenders inside theirs, and an enemy
+ * keep that FIRED THIS TICK with the victim inside `CASTLE_ATTACK_RANGE` (`castleFiresOnTick` is a
+ * pure function of `(seat, tick)` and exists precisely so a renderer can re-derive the shot without
+ * a wire field). The biggest swing among them is the blow that finished it.
+ *
+ * ⚠ **THE LARGEST, NOT THE NEAREST, AND NOT A SUM.** A creature dies to ONE blow; showing a sum
+ * would invent damage. Taking the largest is right in the case that matters — the number he is
+ * checking against the card is the big one — and where several things could have landed it, the
+ * largest is also the only choice that can never print LESS than the pool that was actually
+ * consumed, which is the specific lie he reported.
+ *
+ * ⚠ RENDER-ONLY, SO A MIS-ATTRIBUTION COSTS A WRONG NUMBER AND NEVER A DESYNC. Ties are broken by
+ * magnitude alone, so both peers compute the same figure from the same snapshot.
+ *
+ * Returns `null` when nothing hostile was in reach — an aura tick, a blast, a scrap — and the caller
+ * then falls back to the remaining pool, which is still better than printing nothing.
+ */
+/**
+ * How close a recorded kill-hit must be to a vanished creature's last seen position to be ITS hit.
+ *
+ * ⚠ NOT ZERO, because the two are sampled at different instants: the record is written at the tick
+ * the blow landed, while `last` is the position from the previous snapshot the renderer saw. A
+ * creature moves a few px per tick, so an exact match would reject the correct record.
+ */
+const KILL_HIT_MATCH_PX = 40;
+
+/**
+ * ⭐⭐ S181 — PURE-ish — CONSUME the recorded fatal swing for the creature that died near `(x, y)`.
+ *
+ * ⛔ IT REMOVES THE ENTRY IT USES, and that matters when two creatures die on the same tick in the
+ * same melee: without consuming, both floaters would read the larger of the two swings. Each record
+ * is spent once, nearest-first.
+ *
+ * ⚠ THE ARRAY IS WIPED BY ITS CONSUMER, the `effects` contract this codebase uses for every
+ * per-frame presentational channel (`razedNotKilled`, `connectorBreakHits`). Anything left unclaimed
+ * at the end of the sweep is dropped by the caller.
+ */
+function takeKillHitNear(world: World, x: number, y: number, owner: PlayerId): number | null {
+  let bestIdx = -1;
+  let bestD2 = KILL_HIT_MATCH_PX * KILL_HIT_MATCH_PX;
+  for (let i = 0; i < world.creatureKillHits.length; i++) {
+    const h = world.creatureKillHits[i];
+    if (h === undefined || h.owner !== owner) continue;
+    const dx = h.pos.x - x;
+    const dy = h.pos.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > bestD2) continue;
+    bestD2 = d2;
+    bestIdx = i;
+  }
+  if (bestIdx < 0) return null;
+  const hit = world.creatureKillHits[bestIdx];
+  world.creatureKillHits.splice(bestIdx, 1);
+  return hit?.amount ?? null;
+}
+
+export function fatalBlowFifths(
+  world: World,
+  at: { x: number; y: number },
+  victimOwner: PlayerId,
+): number | null {
+  let best = 0;
+
+  for (const a of world.creatures.values()) {
+    if (a.ownerPlayerId === victimOwner) continue;
+    const cfg = getCreatureConfig(a.type);
+    const r = cfg.attackRange + FATAL_REACH_SLACK;
+    const dx = a.pos.x - at.x;
+    const dy = a.pos.y - at.y;
+    if (dx * dx + dy * dy > r * r) continue;
+    best = Math.max(best, attackFifths(cfg.atk, cfg.pen));
+  }
+
+  for (const d of world.defenders.values()) {
+    if (d.ownerPlayerId === victimOwner) continue;
+    const cfg = getDefenderConfig(d.kind);
+    const r = cfg.attackRange + FATAL_REACH_SLACK;
+    const dx = d.pos.x - at.x;
+    const dy = d.pos.y - at.y;
+    if (dx * dx + dy * dy > r * r) continue;
+    best = Math.max(best, attackFifths(cfg.atk, cfg.pen));
+  }
+
+  /*
+   * ⭐ THE KEEP, AND IT IS THE CASE HE REPORTED FIRST. Gated on `castleFiresOnTick` so a keep only
+   * claims a kill on a tick it actually shot — without that gate every death anywhere near a keep
+   * would print 40.
+   */
+  for (const [seat, p] of world.players) {
+    if (seat === victimOwner) continue;
+    if (p.castleHp <= 0) continue;
+    const seatN = seat as unknown as number;
+    if (!castleFiresOnTick(seatN, world.tick)) continue;
+    const c = castleAnchor(seatN, world.layout);
+    const dx = c.x - at.x;
+    const dy = c.y - at.y;
+    const r = CASTLE_ATTACK_RANGE + FATAL_REACH_SLACK;
+    if (dx * dx + dy * dy > r * r) continue;
+    best = Math.max(best, castleShotFifths());
+  }
+
+  return best > 0 ? best : null;
+}
+
+/**
+ * How much further than its stated reach an attacker may be and still be credited.
+ *
+ * ⚠ IT EXISTS BECAUSE THE VICTIM HAS ALREADY MOVED. The position used here is where the victim was
+ * last SEEN, one snapshot before it vanished, while the attacker has kept walking — so an exact
+ * reach compare would miss the true killer on the frame that matters. A goblin's reach is 35 px;
+ * this is deliberately small next to that, enough to cover one snapshot of drift without letting a
+ * distant unit claim a kill.
+ */
+const FATAL_REACH_SLACK = 24;
+
 export function poolDelta(
   prev: number, cur: number, rising: boolean,
 ): { amount: number; kind: FloaterKind } | null {
@@ -341,16 +496,53 @@ export class DamageNumbers {
      * fatal hit is never observable as a delta — the creature simply VANISHES. The disappearance
      * IS the event, and what it had left when last seen is the damage that finished it.
      *
-     * ⚠ THE NUMBER IS THE REMAINING POOL, NOT THE SWING. Overkill is discarded at the damage site
-     * and never serialized, so a 7-point goblin hit for 30 prints 7. That is the honest count of
-     * damage actually dealt TO THAT CREATURE, and it is the most either peer can know without a new
-     * synced field. It also makes the arithmetic he wants players to learn come out exact: the
-     * numbers over a creature's whole life now sum to precisely its pool.
+     * ⛔⛔ S181 — **THIS USED TO PRINT THE REMAINING POOL AND THE OWNER OVERRULED IT.** The note that
+     * stood here argued: *"overkill is discarded at the damage site and never serialized, so a
+     * 7-point goblin hit for 30 prints 7 … it also makes the arithmetic come out exact: the numbers
+     * over a creature's whole life sum to precisely its pool."* That summing property was the
+     * reason, and it is no longer wanted:
+     *
+     * > *"it says that it hits 40 per shot, but it only does 6 damage … I saw it hit the zombie
+     * > hound for 10 because that's his total HP, so it only shows the maximum. We need to show the
+     * > ACTUAL damage being taken. And if it's over his total health amount, that's fine. He just
+     * > dies. It shouldn't be capped at his health."*
+     *
+     * `fatalBlowFifths` now derives the real swing from reach (see its docblock for why reach and
+     * not `targetCreatureId`, which is stripped from the wire). The remainder survives ONLY as the
+     * fallback when nothing hostile was in reach.
      */
     for (const [id, last] of this.watched) {
       if (seen.has(id)) continue;
       this.watched.delete(id);
-      if (last.ehp > 0) this.emit(world, id, last.x, last.y, last.ehp, 'damage', last.owner);
+      if (last.ehp <= 0) continue;
+      /*
+       * ⭐⭐⭐ S181 (owner) — **PRINT THE SWING, AND ONLY FALL BACK TO THE REMAINDER.** His report in
+       * one line: *"it says it hits 40 per shot but it only does 6 damage … we need to show the
+       * actual damage being taken, and if it's over his total health amount, that's fine, he just
+       * dies."* `fatalBlowFifths` derives the real blow from reach; `last.ehp` is kept as the
+       * fallback for a death nothing hostile was standing next to — an aura tick, a blast, a scrap —
+       * because printing the remainder still beats printing nothing, which is what S172 fixed.
+       */
+      /*
+       * ⭐⭐⭐ S181 — THREE SOURCES, BEST FIRST, AND THE ORDER IS THE WHOLE DESIGN.
+       *
+       *  1. `world.creatureKillHits` — the EXACT swing, recorded by `damageCreature` at the moment
+       *     the pool emptied. Authoritative wherever the sim runs in-process (solo, vs-bots, host).
+       *  2. `fatalBlowFifths` — derived from reach when no record arrived. That is the JOINER case:
+       *     `creatureKillHits` is per-frame and host-local, so a peer applying snapshots has no
+       *     record to read, and `targetCreatureId` (which would name the killer outright) is the one
+       *     field `trimMirrorCreature` strips from the wire.
+       *  3. `last.ehp` — the remainder, S172's number, kept for a death nothing hostile was standing
+       *     next to at all: an aura tick, a blast, a scrap. Printing the remainder still beats
+       *     printing nothing, which is the defect S172 existed to fix.
+       *
+       * ⚠ MATCHED BY POSITION, NOT BY ID. The record cannot carry a `CreatureId` usefully: the
+       * creature is deleted in the same tick, so the id is meaningless to a consumer that only
+       * learns of the death by the entry VANISHING from the map. Position is what both halves share.
+       */
+      const recorded = takeKillHitNear(world, last.x, last.y, last.owner);
+      const swing = recorded ?? fatalBlowFifths(world, { x: last.x, y: last.y }, last.owner);
+      this.emit(world, id, last.x, last.y, swing ?? last.ehp, 'damage', last.owner);
     }
 
     this.syncStructures(world);

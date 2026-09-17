@@ -31,7 +31,7 @@ import type { Gatherer } from './gatherers/gatherer.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
-import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId, StinkCloudId } from '../types.ts';
+import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId, StinkCloudId, Vec2 } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -185,6 +185,29 @@ export interface World {
    * by `DamageNumbers.sync`, never serialized, never hashed.
    */
   connectorBreakHits: { bondId: BondId; amount: number }[];
+
+  /**
+   * ⭐⭐⭐ S181 (owner) — **THE SWING THAT KILLED A CREATURE, so the floater can print it.**
+   *
+   * > *"it says that it hits 40 per shot, but it only does 6 damage … I saw it hit the zombie hound
+   * > for 10 because that's his total HP, so it only shows the maximum. We need to show the ACTUAL
+   * > damage being taken. And if it's over his total health amount, that's fine. He just dies."*
+   *
+   * ⛔ WHY A RECORDED HIT AND NOT A DIFF. A creature is deleted from `world.creatures` on the same
+   * tick its pool hits zero, so the fatal blow is invisible to the renderer's delta watcher — it can
+   * only see what the victim HAD LEFT, which is exactly the cap he reported. The overkill is
+   * discarded at the damage site, so the damage site is the only place that still knows the number.
+   *
+   * ⭐ THIS IS `connectorBreakHits` REPEATED FOR CREATURES, deliberately. S179 solved the identical
+   * problem for the swing that BREAKS a connector — *"emitted from the recorded hit so it is the
+   * SAME number a unit would show for the same swing"* — and that is precisely the consistency he
+   * is asking for again. One pattern, both halves of his complaint.
+   *
+   * Per-FRAME, same lifetime as `effects`, `razedNotKilled` and `connectorBreakHits`: written by
+   * `damageCreature`, wiped by the consumer. `'acknowledged'` in the full hash for the same reason
+   * they are — it is a presentational record of something that already happened, never sim input.
+   */
+  creatureKillHits: { pos: Vec2; amount: number; owner: PlayerId }[];
   /**
    * S9 P3 / S15 P2: combo-weighted progress. In solo, equals the lone
    * player's progress. In 1v1, equals max(scoreByPlayer.values()) — i.e.

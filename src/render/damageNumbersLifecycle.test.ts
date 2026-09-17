@@ -64,11 +64,37 @@ describe('S172 P5 — the KILLING BLOW is drawn, and it points the right way', (
      * to. That is the exact line the owner noticed was missing.
      */
     const s = src();
+    /*
+     * ⚠ THE WINDOW IS WIDE ON PURPOSE (S181). It was 300 characters, and it went red when the
+     * three-source comment explaining swing-vs-remainder landed between the `continue` and the
+     * `emit`. The CLAIM is "the emit lives inside the death sweep", not "within 300 characters of
+     * it" — a window tight enough to break on a comment is measuring prose, not behaviour. Widened
+     * rather than dropped, because proximity is still what proves the emit is in THIS loop and not
+     * somewhere else in the file.
+     */
     expect(s, 'the death sweep must EMIT, not merely delete').toMatch(
-      /if \(seen\.has\(id\)\) continue;[\s\S]{0,300}?this\.emit\(/,
+      /if \(seen\.has\(id\)\) continue;[\s\S]{0,2500}?this\.emit\(/,
     );
+    /*
+     * ⭐⭐⭐ S181 (owner) — **RE-PINNED: THE NUMBER IS NO LONGER `last.ehp`.** This asserted the
+     * remainder verbatim, which was S172's deliberate choice and is the cap he has now reported:
+     *
+     * > *"it says that it hits 40 per shot, but it only does 6 damage … I saw it hit the zombie
+     * > hound for 10 because that's his total HP, so it only shows the maximum. We need to show the
+     * > ACTUAL damage being taken … it shouldn't be capped at his health."*
+     *
+     * What this case exists to protect is UNCHANGED and still asserted: the death sweep must EMIT,
+     * and it must carry the REMEMBERED POSITION AND OWNER (both unavailable once the creature has
+     * left `world.creatures` — see the two cases below). Only the amount moved, so the assertion is
+     * re-stated as "the remembered anchor, with a swing-or-remainder amount" rather than deleted.
+     */
     expect(s, 'and it must carry the remembered position and owner').toMatch(
-      /this\.emit\(world, id, last\.x, last\.y, last\.ehp, 'damage', last\.owner\)/,
+      /this\.emit\(world, id, last\.x, last\.y, swing \?\? last\.ehp, 'damage', last\.owner\)/,
+    );
+    // ⛔ AND THE REMAINDER MUST REMAIN THE LAST RESORT, NOT THE FIRST. If a future edit drops the
+    // recorded-swing lookup, this goes red rather than the cap returning silently.
+    expect(s, 'the recorded swing is consulted before the remainder').toMatch(
+      /takeKillHitNear\([\s\S]{0,200}?fatalBlowFifths\(/,
     );
   });
 

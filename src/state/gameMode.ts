@@ -37,7 +37,8 @@ import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
-
+
+
 import { CASTLE_MAX_HP } from '../constants.ts';
 /* ────────────────────────── Action types ───────────────────────────── */
 
@@ -425,9 +426,11 @@ export function applyReturnToTitle(world: World): World {
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();
-  world.effects.length = 0;
+  world.effects.length = 0;
+
   world.razedNotKilled.length = 0;
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
+  world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   world.lastWinnerId = null;
   world.nextPrimitiveId = 0;
   world.nextBondId = 0;

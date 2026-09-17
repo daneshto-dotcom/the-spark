@@ -427,6 +427,18 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         'cinematicIsFirstShowing',
         'cinematicsEnabled',
         'comboToastTick',
+        /*
+         * ⭐⭐ S181 (owner) — the SWING that killed a creature, so the floater can print the real
+         * number instead of the victim's remaining health: *"we need to show the actual damage being
+         * taken, and if it's over his total health amount, that's fine, he just dies."*
+         *
+         * ⛔ ACKNOWLEDGED FOR THE SAME REASON `connectorBreakHits` IS, and this entry is where that
+         * claim has to survive review. It is a PER-FRAME PRESENTATIONAL RECORD of something that has
+         * already been applied to `ehp`, wiped by its consumer, and read back by nothing in the sim.
+         * Two peers disagreeing about it produce identical sim state — the same argument
+         * `effects` and `razedNotKilled` above make. It is not a sim input and never becomes one.
+         */
+        'creatureKillHits',
         'currentCinematicEvent',
         'diagnostics',
         'effects',

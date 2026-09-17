@@ -1556,9 +1556,11 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // mirrored array. Pre-S31 saves (no `effects` field) → array cleared, world
   // stays valid. Replacement (not append) prevents stale-effect accumulation
   // on the client even if a snapshot is dropped/replayed.
-  world.effects.length = 0;
+  world.effects.length = 0;
+
   world.razedNotKilled.length = 0;
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
+  world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   if (snap.effects !== undefined) {
     for (const se of snap.effects) {
       world.effects.push(deserializeEffect(se));

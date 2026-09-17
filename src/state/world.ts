@@ -398,6 +398,7 @@ export function makeWorld(rngSeed: number): World {
     effects: [],
     razedNotKilled: [],
     connectorBreakHits: [],
+    creatureKillHits: [], // S181 — per-frame, wiped by the consumer (see worldTypes)
     scoreProgress: 0,
     scoreByPlayer: new Map(),
     cinematicsEnabled: true,

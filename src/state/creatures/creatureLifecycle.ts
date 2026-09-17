@@ -550,6 +550,37 @@ export function damageCreature(
   c.ehp -= amountFifths;
   if (c.ehp <= 0) {
     /*
+     * ⭐⭐⭐ S181 (owner) — **RECORD THE SWING THAT KILLED IT, BECAUSE THIS IS THE LAST PLACE THAT
+     * KNOWS.** His report: *"it says that it hits 40 per shot, but it only does 6 damage … I saw it
+     * hit the zombie hound for 10 because that's his total HP, so it only shows the maximum. We need
+     * to show the ACTUAL damage being taken. And if it's over his total health amount, that's fine.
+     * He just dies."*
+     *
+     * ⛔ THE RENDERER STRUCTURALLY CANNOT SEE THIS. It prints damage by DIFFING `ehp` between
+     * snapshots, and a creature is gone from `world.creatures` on the same tick its pool empties —
+     * so the fatal blow is never a diff. All it could ever print was the remainder, which is the cap
+     * he noticed. The overkill is discarded on the line above; recording `amountFifths` here is the
+     * only way the true number survives.
+     *
+     * ⭐ SAME DEVICE S179 USED FOR THE CONNECTOR-BREAKING SWING (`connectorBreakHits`), and for the
+     * same stated reason: *"emitted from the recorded hit so it is the SAME number a unit would show
+     * for the same swing"*. That consistency between units and buildings is what he asked for both
+     * times.
+     *
+     * ⚠ PRESENTATIONAL, PER-FRAME, HASH-ACKNOWLEDGED, wiped by the consumer. It is a record of
+     * something that already happened and is never read back as sim input, so it cannot affect a
+     * divergence — the identical contract `effects`, `razedNotKilled` and `connectorBreakHits` hold.
+     *
+     * ⚠ AND IT IS PUSHED BEFORE THE PHARAOH BRANCH BELOW, which restores `ehp` to 1 and returns
+     * WITHOUT a death. That is correct: the blow WAS dealt and should print, exactly as it would on
+     * any other creature that survived it.
+     */
+    world.creatureKillHits.push({
+      pos: { x: c.pos.x, y: c.pos.y },
+      amount: amountFifths,
+      owner: c.ownerPlayerId,
+    });
+    /*
      * ⭐⭐ S171 (owner R142) — **THE RITUAL FIRES HERE, AND THIS IS THE ONLY HONEST READING OF HIS
      * TRIGGER.**
      *
