@@ -586,10 +586,11 @@ export class Controls {
    * button floating above the board, and whatever world object happens to lie beneath that button
    * has nothing to do with the structure being acted on.
    *
-   * ⚠ THE POPOVER IS NOT DISMISSED ON FIX. A repair usually leaves the tower standing and often
-   * still short of something, so keeping it selected lets the player see the caption change and act
-   * again. SCRAP dismisses implicitly — the panel drops a selection whose structure has stopped
-   * existing, which is `StructurePanel.sync`'s job and not this call site's.
+   * ⚠ THE CARD IS NOT DISMISSED ON FIX. A repair usually leaves the tower standing and often still
+   * short of something, so keeping it selected lets the player see the caption change and act again.
+   * SCRAP dismisses implicitly — ⭐ S181: that is now `characterSheet.sync`'s job, which drops a
+   * selection whose model returns null. The note here used to name `StructurePanel.sync`, a method
+   * that no longer exists; the BEHAVIOUR was always preserved, only the cited owner was stale.
    */
   /**
    * ⭐⭐ S181 — **IS THE POINTER OVER THE CHARACTER CARD?** Used by the PLACE commit gates below.
@@ -663,30 +664,23 @@ export class Controls {
       return true;
     }
     /*
-     * ⭐⭐ S181 (owner) — **THE CARD'S OWN FIX / SCRAP / FEED, TESTED BEFORE THE SWALLOW.**
+     * ⛔⛔ S181 — **THE ACTION-CLICK ARM THAT STOOD HERE IS REMOVED, BECAUSE IT WAS A SECOND COPY
+     * THAT COULD NEVER RUN.** Found by the adversarial verification pass and confirmed by trace.
      *
-     * ⛔ ORDER IS THE WHOLE BUG RISK HERE. The `isOver` line below consumes every click that lands
-     * on the card so the board underneath cannot also act — which, once buttons live ON the card,
-     * would eat them all. The action test must come first, and the swallow stays as the catch-all
-     * for the plate around them.
+     * `handleSheetActionClick` is tested at the TOP of `onDown`, in the slot the retired popover's
+     * buttons held. It consumes every click over any slot — through its dispatch arm for an enabled
+     * button, and through its refusal arm for a disabled one — so this branch was unreachable for
+     * every input that could have reached it:
+     *   · `StructureActionView.primitiveId` is REQUIRED and non-nullable, and `this.slots` is
+     *     non-empty only when `view.actions` is non-null, so the top-of-onDown test never falls
+     *     through on a slot hit;
+     *   · this function is LMB-only, so RMB could not arrive here either.
      *
-     * ⭐ AND A REFUSED CLICK STILL SOUNDS DIFFERENT FROM A MISSED ONE, carried over from S152:
-     * `actionAt` ignores disabled buttons by design (they explain, they do not act), so the disabled
-     * case is detected separately and given its own cue rather than being silence.
+     * ⚠ AND THAT IS EXACTLY THE DIVERGENCE TRAP THIS PROJECT KEEPS PAYING FOR — two copies of one
+     * rule, one of them never executed, waiting for someone to edit the dead one and conclude the
+     * feature is broken. Deleted rather than commented out; the live ordering is pinned by
+     * `characterSheet.wired.test.ts`.
      */
-    const sheetAction = this.characterSheet.actionAt(this.cursor.x, this.cursor.y);
-    if (sheetAction !== null) {
-      const prim = this.characterSheet.actionPrimitiveId();
-      if (prim !== null) {
-        void playUiClickSFX();
-        this.onSheetAction?.(sheetAction, prim);
-        return true;
-      }
-    }
-    if (this.characterSheet.isOverAnyAction(this.cursor.x, this.cursor.y)) {
-      void playUiRefusedSFX();
-      return true;
-    }
     if (this.characterSheet.isOver(this.cursor.x, this.cursor.y)) return true;
 
     /*

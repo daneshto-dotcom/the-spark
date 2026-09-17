@@ -15,7 +15,7 @@
  * handoff's "it builds, it IGNITES, it tears down" was two-of-three.
  *
  * So every hop below is a real click: tier chip → tower card → world click → the host sweep ignites
- * it → click the tower → the popover's FEED row → a goblin walks out and the bank is debited.
+ * it → click the tower → the CARD's FEED row (S181 — the popover is retired) → a goblin walks out and the bank is debited.
  */
 
 import { expect, test } from '@playwright/test';
@@ -223,7 +223,7 @@ test.describe('S152 P2 — FEED_TOWER through the real CARD (owner R70; re-point
    *
    * THIS TEST EXISTS BECAUSE THE UNIT TESTS CANNOT REACH THE BUG IT GUARDS. `structureActionModel`
    * is now happy to build a FEED-only popover in FIGHT, and six unit tests prove it — but the model
-   * is only consulted if `controls.pickOwnPrimitive` lets the click through, and that gate is a
+   * is only consulted if the card's own structure pick (S181: `pickOwnPrimitive` was retired with the popover) lets the click through, and that gate is a
    * SEPARATE change in a SEPARATE file. Exactly one session ago this repo shipped a goblin tower
    * whose recipe was registered, gated and covered by 34 green tests and which never ignited,
    * because the one production caller named its recipes by hand. A green model test proves the
