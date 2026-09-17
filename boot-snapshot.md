@@ -1,82 +1,86 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-17 | Session: S180 | LIVE + verify-deploy 4/4 | 9 commits
+Generated: 2026-09-17 | Session: S181 | LIVE + verify-deploy 4/4 | 12 commits, 16/16 priorities
 
-## ⛔ READ `SPARK_CANON.md` BEFORE ANSWERING ANYTHING ABOUT THE GAME
+## ⛔ READ `SPARK_CANON.md` FIRST
 
-New this session, and it exists because he had to repeat archived facts for the third time:
-*"let's resolve all of this once and for all… this should be in our canonical document somewhere
-that you go to to see how things are."* It says what is LIVE vs ARCHIVED, the one stat ladder, what
-can and cannot be attacked, and the wire rules. **`src/canon.test.ts` pins every number in it to its
-constant**, so it cannot rot the way `UNIT_STAT_TABLE.md` did (still ~3× wrong on the bosses).
+It says what is LIVE vs ARCHIVED and how every number works, and `src/canon.test.ts` pins it so it
+cannot rot. **It moved this session:** the castle pool is now **2500** and its gun hits for **40**.
 
-⛔ **AND THE LESSON THAT COST HIM THE MOST TIME THIS SESSION: GREEN GATES ARE NOT PROOF A FEATURE IS
-WIRED.** A patch adding the character sheet to a click silently failed to apply. typecheck, 4,588
-tests, the build, the charter and the deploy were ALL green and the feature was dead. He found it in
-the first minute of play. **After writing a patch, grep for the line you believe you added.**
+## ⛔ THE ONE LESSON FROM S181, AND IT IS WORTH MORE THAN THE FEATURE LIST
 
-## HOW TO OPEN S181 — he set this explicitly
+**Every defect this session was a rule applied at SOME of its sites and not the rest.** Three of four
+wipe sites for a per-frame array. Two of three arrival arms for the suicide bomber. One of three
+UI-surface guards for the card. A transform set and then reset. A block that draws but never advances
+the layout cursor. That is the four-sites law in `CLAUDE.md`, and it bit **five more times in one
+session** — and every single one shipped with typecheck, 4,700 tests, the build and the deploy green.
 
-> *"Next session, we'll open the handoff. From the handoff, I will test everything. I will tell you
-> if I found any bugs or anything that's not good enough. We'll fix it. Then you can present to me
-> the next 10 priorities… and I'll tell you what to work on."*
+⭐ **WHAT CAUGHT THEM: SOURCE-TEXT TRIPWIRES ON THE CALL SITES.** Not behaviour tests — those stayed
+green throughout, because the failure mode is *unreached code*, not wrong code. When you add a rule,
+enumerate its sites and assert each one exists.
 
-**So: he tests first. His bug list outranks everything.** The ten are already written up in
-`S180_BACKLOG.md` under **"THE TEN, FOR S181"** — do not re-derive them, and do not present them as
-a plan. They are a menu he picks from, after he has played.
+⚠ **AND RUN `npm run e2e:gating` BEFORE PUSHING ANYTHING THAT MOVES UI GEOMETRY OR TOUCHES THE SIM.**
+Pushed the castle merge without it → CI caught a panel that could not be closed. Pushed the targeting
+fix with it → clean. 4.3 minutes against a bug he hits in his first minute.
 
-## What shipped in S180 (all live on spark-online.space)
+## Next Steps
 
-1. **THE CHARACTER SHEET.** Click any unit, building or castle — yours or theirs. Portrait, name,
-   live health (bar *and* number), stats. Your own building keeps FIX/SCRAP/FEED beneath the card;
-   an enemy's has no buttons. A building that fields a unit (Helga's hub, the Voltkin TV) shows that
-   unit underneath with its own health, and clicking it re-aims the card. The card **freezes** on
-   death or fog rather than vanishing. No skills row — he ruled it out twice.
-2. **THE KEEP IS ON THE ONE LADDER.** `GOBLIN_DAMAGE_VS_CASTLE` (a flat 6 every creature dealt to a
-   castle) is retired unread; an attacker now deals its own `attackFifths(atk, pen)`. Re-measured,
-   not relaxed: the goblins needed to fell a keep moved from ~15 to **between 8 and 10**.
-3. **`SPARK_CANON.md` + `src/canon.test.ts` + the mandatory-read pointer in `CLAUDE.md`.**
-4. **The bundle charter 900 → 1000 KiB**, in its own commit before the feature that needed it.
+1. **HE TESTS FIRST.** 16 priorities shipped and deployed; his bug list outranks everything below.
+2. **The remainder cap is fixed for CREATURES ONLY.** The verification pass found four other pools
+   still print the victim's *remaining* health on a killing blow — shapes, defenders and **the landed
+   bag** among them. Same class he has now reported twice.
+3. **Portraits still on a placeholder, and the reason differs.** NO ART EXISTS: laser turret,
+   pentagram, goblin tower, lightning hub (procedural puppets — the emblem is honest). ART EXISTS BUT
+   UNWIRED: **Helga's hub**, the **landed stink bag** (it has its own 12-frame atlas), the **Voltkin
+   creature** (not the TV).
+4. **The Voltkin TV is barely clickable** — it registers no spawner, so `towerAnchorAtPoint` skips it
+   and only its eight member shapes can be hit. Its portrait is now wired, which makes this *more*
+   visible, not less.
+5. **The suicide bomber's below-50%-health fallback** is ruled and unbuilt (buildings-first is done).
+6. **`DEFENDER_TARGETS.turret` still declares BOTH** while he ruled units-only in S180. One line.
+7. **END-OF-MATCH STAT BOARD** — still one line of text. **CONNECTOR HIDING** — specified across
+   three sessions, renderer-only, still absent.
+8. **Five S161 sweep lanes still owe a verdict** (determinism, four-sites, creature lifecycle, wire,
+   host-migration). This session is the third time their class produced a live defect.
+9. **His open question, answered but not decided: Steam?** My recommendation was no to Steam yet — a
+   permanent review score against a game where four systems were visibly lying — but yes to shipping
+   publicly at spark-online.space for feedback with no score attached. Signal to wait for: an evening
+   of play that yields only balance complaints, not broken systems. **His call.**
 
 ## Blockers
 
-- **Nothing is blocked on me.** P2 TARGETING is fully ruled and NOT built — he did not authorise the
-  build. It is item #1 of the ten.
-- **Art he alone can make:** per-race border walls, boss ability VFX, the two Voltkin TV videos.
-
-## ⛔ THE BUG HE FOUND AND I HAVE NOT FIXED — it is still live
-
-**Nothing can attack a building.** Shipped in S179's lone-shape commit (`00e02bf`). The shape scan
-skips every shape that has a connector, and the same branch nulls the connector target — so a
-standing building is invisible and the castle march is all that is left. **21 of 24 unit types**;
-only Voltkin, the pencil chewer and the lightning drone can still break a building. His targeting
-rulings fix it and are complete; the work is not started.
+- **Nothing is blocked on me.**
+- **Art only he can make:** per-race border walls, boss ability VFX, the two Voltkin TV videos
+  (~EUR 20/clip measured).
 
 ## Pending Backlog
 
-See `S180_BACKLOG.md` — §1 bugs, §2 the targeting table, §3 bosses, §4 art, §5 ruled-not-built, and
-**THE TEN, FOR S181** at the end.
+See `S180_BACKLOG.md`. Of THE TEN, this session shipped #1 (targeting), #2 partially, #4 (portraits),
+#5 (castle buy functions, via the merge) and #10's sibling work. Unshipped from the ten: #3 SOUL/feed
+clarity, #6 end-of-match board, #7 border art, #8 boss VFX, #9 Kraken, #10 connector hiding.
 
 ## Recent Reflexion (last 2 sessions)
 
-`.claude/reflexion_log.md` — S180 at the top (11 entries), S179 beneath it. 45 entries, under the cap.
+`.claude/reflexion_log.md` — S181 at the top (20 entries), S180 beneath it. 43 entries, under the cap
+(S177 and S178 blocks pruned this handoff; they survive in `.handoff-archive/`).
 
 ## Muscle memory (auto) [Vigil]
 
 - Traces: `C:\Users\onesh\.claude\traces\2026-09-17\The-Spark.jsonl`
 - Last decisions:
-  - **Green gates are not proof a feature is wired.** Grep for the line you believe you added.
-  - **A dead agent run is not a verdict.** Three auditors died to the spend limit; the lanes were
-    hand-run and all three passed — and the hand pass found what no agent had (`damageConnector`
-    already cascades overkill), which made the targeting fix far cheaper.
-  - **Prove provenance with git.** He believed I had added the SOUL feed chip; one command showed
-    the file last changed nine days earlier. It protected him from a wrong fix and me from a wrong denial.
-  - **A canon doc rots unless it is pinned.** Proven: one stale digit turns `canon.test.ts` red.
-  - **Re-measure a coverage gate, never relax it.** The castle threshold was re-run, not loosened.
-  - **Speak in what he sees.** *"I don't know what is 21 of 24 unit types. What the fuck does that mean?"*
+  - **A rule applied at some of its sites is the defect.** Enumerate the sites before claiming done.
+  - **Adversarial verification before he tests pays for itself** — 6 agents found 8 defects that had
+    all shipped green, including a regression my own fix caused. The refute round kept false alarms out.
+  - **Run the click-driven e2e lane before pushing geometry or sim changes.**
+  - **A blind renderer looks exactly like missing logic** — grep whether the VIEW already carries it.
+  - **He can be wrong about the cause and right about the bug** (the chewer has no sheet; he still
+    deserved his hero's face on the card).
+  - **An owner number given in percent is not its consequence** — surface derived changes, don't choose.
+  - **Write source and long prose with the file tool, not a heredoc** — three quoting failures cost
+    four retries that produced nothing.
 - CLAUDE_LOOP: **closed**
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] `SPARK_CANON.md` — read it FIRST
-  - [x] latest HANDOFF: `HANDOFF_S180_2026-09-17.md`
-  - [x] `S180_BACKLOG.md` (incl. THE TEN) · `S180_TARGETING_TABLE.md`
+  - [x] `SPARK_CANON.md` — read it FIRST (castle numbers moved)
+  - [x] latest HANDOFF: `HANDOFF_S181_2026-09-17.md`
+  - [x] `S180_BACKLOG.md` · `S180_TARGETING_TABLE.md` (its GROUP A warning is now STALE — fixed)
   - [x] traces jsonl path above

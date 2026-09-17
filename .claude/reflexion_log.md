@@ -1,3 +1,45 @@
+## S181 (2026-09-17) - he playtested the S180 character sheet and reported nine defects across five messages; all nine shipped plus his castle amendment and the targeting rework he had ruled in S180 and never authorised until now. Then he asked for adversarial verification BEFORE testing, and it found EIGHT more defects - every one mine, every one already green and deployed.
+
+- S181 - THE ART WAS NEVER MISSING, THE ASK WAS. Twelve tower atlases and six castle atlases were already being fetched by the renderers for the BOARD while the card drew codex diagrams; setPortraitSource answered creatureFrame and returned null for every other spec kind. Before building a missing asset, grep whether something already loads it. #s181-1 #art-exists-nobody-asked
+
+- S181 - WHEN MERGING TWO INTERACTIVE SURFACES, DOCK, DO NOT FOLD. The castle panel owns three click strips; re-implementing them in the card would have been ~600 lines of second copy that must agree - and that file's own rowsTop docblock records that exact bug happening in it before. Measuring the LIVE client first (the footer already carried the whole build surface) is what proved nothing would be lost. #s181-2 #dock-dont-duplicate
+
+- S181 - A BLIND RENDERER LOOKS EXACTLY LIKE MISSING LOGIC. FIX/SCRAP/FEED had been computed on the view since S180 and characterSheet.draw read none of it; heightFor reserved no space, so nothing even looked clipped. Ask whether the VIEW already carries the feature before building it. #s181-3 #computed-never-drawn
+
+- S181 - THE RED HE LIKED WAS ALREADY RACE-DERIVED AND NOBODY HAD SAID SO. He was looking at his Vampires castle and RACE_COLORS.vampires is 0xff3b6b. Add a per-race palette was really let the existing seat identity reach one more surface. #s181-4 #the-colour-was-already-his
+
+- S181 - A BOSS HAD A GRUNT'S HITBOX because CREATURE_PICK_DIST was flat at 34px while a boss draws 2.56x bigger - hence I had to click on his knees. The atlas-cell ratio existed only as PROSE in a docblock, so nothing could read it. When a number is only in a comment, the consumer that needs it cannot ask. #s181-5 #hitbox-must-follow-the-sprite
+
+- S181 - DERIVE THE LITERAL FROM THE CONSTANT OR THE RE-PIN HAPPENS A THIRD TIME. A hard-coded +42px column printed the value inside the word CONNECTORS but cleared SHAPES - exactly the split his screenshots showed. Bumping 42 to 72 would have fixed the screenshot and re-broken on the next longer label. The column is now computed from the widest label present. #s181-6 #derive-the-literal
+
+- S181 - AN OWNER NUMBER GIVEN IN PERCENT IS NOT THE SAME AS ITS CONSEQUENCE. R128 was 1.0-1.8% of max; 15/18/21/24/27 was only what that meant at a 1500 pool. Raising the pool legitimately raised regen to 25/30/35/40/45, and pinning the old absolutes would have OVERRIDDEN his ruling while looking like honouring it. Surface the derived change; do not choose for him. #s181-7 #percent-is-not-its-consequence
+
+- S181 - HIS THE BUTTONS AREN'T WIRED WAS A PRECEDENCE BUG, NOT A DRAWING ONE. The card's action click was routed inside the LAST arm of onDown while the retired popover's sat at the TOP, so the popover won every click and the visible buttons were decoration. Two surfaces, one live, and the live one was the hidden one. When a control does nothing, check the ORDER before the renderer. #s181-8 #precedence-not-drawing
+
+- S181 - A GLYPH-ONLY CONTROL NEEDS ITS CAPTION SOMEWHERE ELSE. A 32px feed chip cannot hold a word, so the explanation goes above the strip - and the goblin tower gets NO caption because its six shapes each make a different goblin, so one line would be false for five of them. A tidy label that is wrong is worse than none. #s181-9 #unlabelled-by-necessity
+
+- S181 - THE DESCRIPTION IS THE CODEX'S OWN LINE, NOT A SECOND BODY OF COPY. CodexCopy.recipe is already written, already capped and already tested for every entry; authoring parallel per-building prose is how the card and the codex drift, and the codex would lose because nobody reads it mid-match. Only the cadence number is derived, because the codex cannot carry it. #s181-10 #one-source-for-copy
+
+- S181 - A GRAPHICS RENDERS WITH ITS TRANSFORM AS OF DRAW TIME. I set the emblem's position and scale, drew, then RESET them so another consumer could use absolute coords - so the glyph rendered at the canvas origin at full size. And drawEmblem ends in addChild, which clear() does not remove, so children piled up every frame. A shared Graphics with two coordinate conventions is the trap. #s181-11 #transform-at-draw-time
+
+- S181 - RECORD A NUMBER AT THE SITE THAT STILL HAS IT. A creature leaves the map on the tick its pool empties, so the fatal blow is never a diff and the renderer could only ever print the remainder - his cap. The overkill is discarded one line earlier, so damageCreature is the only place that knows. S179 had already solved this shape for connectors; I reused its device instead of inventing one. #s181-12 #the-last-place-that-knows
+
+- S181 - A CONTROL THAT IS LIVE BUT LOOKS INERT TEACHES THE PLAYER THAT THE CARD LIES. The owned-unit row was clickable with no hover and no pointer cursor, sitting on the same card as buttons that had both. Any button that is clickable means enumerating every clickable surface, not just the ones the feature touched. #s181-13 #live-but-looks-inert
+
+- S181 - HE BELIEVED THE CHEWER HAD ART; IT NEVER HAS. It is a procedural Graphics puppet, as is the drone. He was RIGHT that the card should show his hero and WRONG about why it did not - so the fix was a painter channel drawing the real rig, not an atlas lookup. Correct the premise out loud, then deliver what he actually asked for. #s181-14 #he-can-be-wrong-and-still-right
+
+- S181 - STINK_AURA_DAMAGE is 20, reads exactly like how much does the aura do, and has been retired and unread since S157. Printing it would have been the GOBLIN_DAMAGE_VS_PRIMITIVE defect for the fourth time. A test now asserts neither card file READS it, comments excepted - because the comment naming it as a trap is worth keeping. #s181-15 #retired-constants-look-like-answers
+
+- S181 - THE TARGETING BUG WAS ONE LINE FROM EACH OF TWO COMMITS, NEITHER WRONG ALONE. S179 made connected shapes untargetable (correct, his own ruling) and S139 had already forced targetBondId to null for structure-attackers (correct when a goblin was a shape-eater). Together: 21 of 24 types had nothing to aim at and the castle march was all that was left. Look for the INTERACTION, not the culprit. #s181-16 #two-correct-lines-one-broken-game
+
+- S181 - EVERY DEFECT THIS SESSION HAD ONE SHAPE - three of four wipe sites, two of three arrival arms, one of three UI-surface guards, a transform set then reset, a block that draws but does not advance the cursor. That is the four-sites law, and it bit five more times in one session. What caught them was SOURCE-TEXT TRIPWIRES ON THE CALL SITES; every behaviour test stayed green throughout. #s181-meta #rule-applied-at-some-of-its-sites
+
+- S181 - HE ASKED FOR ADVERSARIAL VERIFICATION BEFORE HE TESTED, AND IT FOUND EIGHT REAL DEFECTS THAT HAD ALL SHIPPED GREEN - including a regression my own targeting fix caused (the suicide bomber stopped detonating). 1.3M subagent tokens against eight live bugs he would otherwise have found by playing. A refute round on each lane is what kept the false alarms out. #s181-verify #the-verification-paid-for-itself
+
+- S181 - I pushed the castle merge WITHOUT the gating e2e lane and CI caught a regression that made the panel impossible to close; I pushed the targeting fix WITH it and it was clean. 4.3 minutes against a defect he would hit in his first minute. Typecheck, 4,700 unit tests, the build and a screenshot all passed on a broken GESTURE. #s181-gates #run-the-click-lane-before-pushing-geometry
+
+- S181 - THREE TIMES this session a heredoc or a python-injected string literal broke - a TS regex escape, an apostrophe in prose, a literal newline inside a JS string. Write source and long prose with the file tool; keep shell heredocs for short mechanical commands. It cost four retries that produced nothing. #s181-shell #write-the-file-dont-quote-it
+
 ## S180 (2026-09-16/17) - he approved a character sheet, played it within the minute, and found it dead: a patch had silently not applied while every gate stayed green. Also: the keep went onto the one stat ladder, and a canonical doc now exists BECAUSE he had to repeat archived facts for the third time.
 
 - S180 — HALF A RULE IS WORSE THAN NONE, AND S179 DID IT AGAIN. The lone-shape ruling had two halves: stop targeting connected shapes, AND target the connectors instead. Only the first half shipped, so 21 of 24 unit types lost the ability to damage a building at all and marched on the castle instead. The owner found it by playing. #half-a-rule #ship-both-halves
@@ -47,50 +89,3 @@
 - P0 #he-is-a-source-of-truth-about-the-game: He said the potato blast is archived; the source still had spawn cadence, fuse, blast radius and bot errands for it. He was right: HAZARD_SPAWN_ENABLED is false and only a Playwright seam can flip it. When he contradicts the code about what the GAME does, check the gate before defending the code.
 
 - P0 #scope-creep-inside-a-fix-is-itself-the-defect: S177 was asked to slow the leg animation on THREE named units and applied a distance-driven gait to every creature, writing its own justification into the docblock. The stride was tuned for the fast three, so every ordinary unit crawled. He noticed: 'I didn't ask you to do this'. The fix is a three-entry set with a note saying ADD to it, never re-generalise.
-## S178 (2026-09-15) - his S178 playtest verdict answered end to end: the poop bag proven unkillable by probe and fixed, chain lightning given the falloff he ruled, the vortex exploit unwired, the playfield edge that never existed, the TV's frozen rows, and a verification pass that found three regressions I had shipped.
-
-- P1 #stale-doc-is-a-live-hazard: A stale comment half-updated is worse than one wholly stale. constants.ts' boss block had a CURRENT attackFifths line beside a PRE-S172 unitPoolFifths line, so a reader saw damage exactly right and durability 3x low. Fix both halves of a table or neither.
-
-- P2 #measure-the-artifact-not-the-manifest: I read `frames: 12` from a manifest and built a fix on it. A pixel diff showed four of six rows are 12 BYTE-IDENTICAL copies of one still. The manifest describes the packer's output shape, not the art. Measure the shipped bytes before reasoning about what a player sees.
-
-- P3 #flavour-text-is-not-a-ruling: The Vortex's only authority was a description string in a combo table that a later session chose to 'realize' as physics. The owner had never ruled it. Before implementing to a label, grep for the owner quote; if there is none, the label is flavour and the mechanic is a proposal.
-
-- P4 #a-probe-beats-an-argument: Three sessions reasoned about the poop bag from the code and got it wrong. A 40-line probe settled it in one run: dead in 60 ticks with no shape, ticksToDie=null with a shape 300px away. Write the probe before the theory, and keep it as the regression test.
-
-- P5 #a-provisional-decision-needs-its-trigger-watched: No-falloff was MINE, was labelled provisional, and pre-registered its own trigger ('if it plays too strong the dial is here'). Nobody watched the trigger; the owner pulled it by playing. A recorded trigger with no watcher is a note, not a plan.
-
-- P6 #convert-all-N-sites-or-none: S177 P1 converted six radial damage sites to the ladder and missed the seventh, which then paid shapes on a retired 1000-point scale for a whole session. The suite could not see it because it asserted the number was linear and integer, never which SCALE it landed on.
-
-- P7 #presence-is-not-visibility: Three renderers shared one bug: the fog `continue` ran before the id was registered as live, so leaving vision was indistinguishable from dying. Nothing tested the distinction, so a mechanic could be armed or disarmed with the suite fully green.
-
-- P8 #a-test-can-pin-the-defect: A test asserted 'a structure damaged past its pool draws nothing' with a fixture the sim cannot produce, while the reachable version of that state was a real bug. A green test pinning an unreachable fixture is worse than no test: it certifies the wrong thing.
-
-- P9 #collapse-duplication-when-you-would-add-the-third: The ring-centroid walk existed twice and I needed a third. Moving it to the file that already owned the sizes and the anchor left one definition, so the health bar, the building and the click target cannot drift apart.
-
-- P10 #a-clamp-on-movement-is-not-a-clamp-on-existence: Giving the sim a playfield fixed creatures walking off the board and immediately created a new exploit: build legality had no edge term, so a shape placed past the clamp was unreachable by every melee unit. When you add a rule, ask which other subsystem now disagrees with it.
-
-- P11 #verify-the-fix-not-just-the-gates: Every gate was green on work that contained three regressions I had introduced: widened frozen stills, a size target measured against the wrong thing, and a broken death-watcher guard. Gates prove the suite still passes; only an adversarial read of the diff against the requirement proves the fix is right.
-
-- P11 #file_lacks-is-the-wrong-binding-in-this-repo: Three verification bindings failed because this codebase QUOTES the superseded text at the correction, so the old string legitimately survives in a comment. Assert the new code positively, or anchor a grep so a comment line cannot satisfy it.
-
-## S177 (2026-09-14) - his eight playtest bugs answered, R173 built 24 sessions after it was ruled, the x5 stat ladder made canon in CLAUDE.md, a scope-amendment rule that nothing swings at nothing, and the TV's two state-transition videos generated for $12.40.
-
-- P1 #the-ruling-was-24-sessions-old-and-never-built: R173 was RULED in S173 with a worked table and left unimplemented while the code ran DEF=n-1 and banked damage per-bond. The owner rediscovered it as a bug report. A ruling with no implementation and no carry-forward is indistinguishable from a ruling that was never given.
-
-- P1 #one-ladder-preserved-the-balance-it-was-feared-to-break: moving shapes from a 1000-point scale onto attackFifths was expected to retune everything. Measured, it preserved drone-fells-shape-in-3 and Ra-one-shots exactly, and moved ONE relationship (suicide 3->4 blasts). The fear was worth measuring rather than trusting.
-
-- P5 #his-diagnosis-was-wrong-and-his-observation-was-right: he said the bags had too much health; they had the minimum possible. But his SIX SECONDS was exact - it was the bag expiry timer running out while an army swung and missed. Take the observation as data and re-derive the cause.
-
-- P4 #the-window-i-added-to-be-safe-was-the-defect: both TV clips failed check-clip on edge-touching frames, so I capped sampleWindow. That cut each clip off MID-EXPLOSION and the row's held last frame became a frozen blast instead of the settled state. Measuring which frames actually offended (spawning 51-53, destroyed 59-60) showed 12-of-96 is stride 8 and never samples them - the cap was never needed. Caught ONLY by auditioning the packed sheet on the dark board, which is why that step is in the protocol.
-
-- P9 #a-probe-beats-an-argument: making primitiveValid reach-aware is the obvious completion of the owner's rule and I could argue either way for twenty minutes. A six-predicate probe of the real host tick answered it in one run: Helga steps out of a goblin's 35px reach on tick 34 while he is frozen in ATTACKING, so every moving defender would have become unkillable in melee. Built, measured, reverted - and the shape mime killed at its source instead.
-
-- P3 #the-change-that-could-not-possibly-do-anything: setting lifetimeTicks on a config whose persistent:true overrides it. Caught only by reading the factory it came from. Same shape as S153 P1.
-
-- SESSION #a-test-can-go-green-for-the-wrong-reason: pinnedDeadStats pins SOURCE TEXT, and stayed green because my own new comment happened to contain the retired symbol name it was looking for.
-
-- SESSION #an-authorisation-against-a-wrong-price-is-not-an-authorisation: he approved a clip at the ~$3 I quoted; the protocol records HIS measurement of ~$20. Re-ask rather than spend 7x.
-
-- SESSION #the-background-subshell-died-with-its-parent: `(cmd; echo $? > f) &` inside a backgrounded Bash call produced a log truncated at test 23 and NO exit file, while the harness printed [exited with code 0]. Absence of a captured $? is not a pass.
-
-- P10 #the-constraint-that-forbade-the-obvious-fix: the die clip blew the 8192 texture ceiling and dropping one frame was the obvious answer - until a test showed attack.frames x ticksPerFrame must EQUAL the attack cadence, so 20 x 3 is forced and the cell is capped at 409 instead. The fix had to move to the ART (land compact), not the frame count. Two constraints crossing is where a cheap fix usually hides a real one.
