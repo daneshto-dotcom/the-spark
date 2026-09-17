@@ -67,7 +67,18 @@ describe('characterSheetModel — the card a player reads', () => {
       // already had to fix once.
       expect(view!.title, type).not.toBe(type);
       expect(view!.title.length, type).toBeGreaterThan(0);
-      expect(view!.stats, type).toHaveLength(4);
+      /*
+       * ⭐ S181 — **THE FOUR LADDER ROWS ARE THE CONTRACT; EXTRAS ARE ALLOWED.** This asserted
+       * exactly four and went red when the zombie boss gained a ROT row — the owner's *"anything
+       * that has an aura, damage per second, should show how much damage per second."*
+       *
+       * Pinning the COUNT made "no card may say anything beyond the ladder" the contract, which was
+       * never the intent: what matters is that every creature shows ATK / PEN / HP / DEF, so no unit
+       * is missing its stats and no raw id leaks. A unit with an aura legitimately has more to say.
+       */
+      const labels = view!.stats.map((r) => r.label);
+      expect(labels, type).toEqual(expect.arrayContaining(['ATK', 'PEN', 'HP', 'DEF']));
+      expect(view!.stats.length, type).toBeGreaterThanOrEqual(4);
     }
   });
 

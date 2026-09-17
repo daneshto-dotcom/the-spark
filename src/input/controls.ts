@@ -54,7 +54,7 @@ import type { World } from '../state/world.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { isUntargetable } from '../state/creatures/creature.ts';
-import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, SpawnerId, Vec2 } from '../types.ts';
+import type { DefenderId, BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, SpawnerId, StinkCloudId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 
@@ -132,7 +132,10 @@ export type SheetSelectable =
   | { readonly kind: 'creature'; readonly id: CreatureId }
   | { readonly kind: 'structure'; readonly primitiveId: PrimitiveId }
   | { readonly kind: 'defender'; readonly id: DefenderId }
-  | { readonly kind: 'castle'; readonly seat: PlayerId };
+  | { readonly kind: 'castle'; readonly seat: PlayerId }
+  // ⭐⭐ S181 (owner) — *"poop bags are unclickable. They should have a stat too."* A landed bag lives
+  // in its own `world.stinkClouds` map, which is why every pick arm missed it.
+  | { readonly kind: 'stinkCloud'; readonly id: StinkCloudId };
 
 export interface CharacterSheetLike {
   select(target: SheetSelectable | null): void;
@@ -217,6 +220,14 @@ const BOND_PICK_DIST = 8;
 // click "on" a hopping chewer reliably pops it). Bigger than BOND_PICK_DIST (a creature is a
 // fat blob; a bond is a thin segment).
 const CREATURE_PICK_DIST = 34;
+/**
+ * S181 — a landed bag's clickable radius.
+ *
+ * ⚠ NOT `bag.radius`, DELIBERATELY. That is the AURA's reach (120px) — clicking anywhere in the
+ * cloud would swallow clicks on everything standing in it. This is the drawn bag, which is a small
+ * object, plus the same forgiveness every other pick here uses.
+ */
+const BAG_PICK_R = 26;
 
 /**
  * ⭐ S168 P1 — one raid candidate and HOW DELIBERATE the click on it was.
@@ -699,6 +710,24 @@ export class Controls {
      * is actually inside, and ties break on id so two stacked creatures resolve identically on
      * every machine.
      */
+    /*
+     * ⭐⭐ S181 (owner) — **A LANDED BAG IS PICKABLE**, tried ahead of the creature scan because a bag
+     * is a small static object that units stand on top of: after the creature arm a bag would be
+     * unreachable whenever anything was fighting over it, which is most of the time one is on the
+     * board.
+     *
+     * ⚠ SAME SIM-POSITION RULE as every other arm here — `bag.pos` and `bag.radius`, never sprite
+     * bounds, so the gesture stays drivable headlessly.
+     */
+    for (const bag of this.world.stinkClouds.values()) {
+      const r = BAG_PICK_R;
+      const dx = bag.pos.x - this.cursor.x;
+      const dy = bag.pos.y - this.cursor.y;
+      if (dx * dx + dy * dy > r * r) continue;
+      this.characterSheet.select({ kind: 'stinkCloud', id: bag.id });
+      return true;
+    }
+
     let bestCreature: CreatureId | null = null;
     let bestScore = Infinity;
     for (const c of this.world.creatures.values()) {

@@ -54,6 +54,12 @@ import {
   RACE_TOWER_EMIT_INTERVAL_TICKS,
   ALL_SPARK_TYPES,
   SparkType,
+  STINK_AURA_CADENCE_TICKS,
+  STINK_AURA_UNIT_FIFTHS,
+  STINK_BAG_DEF,
+  STINK_BAG_HP,
+  STINK_CLOUD_LIFETIME_TICKS,
+  ZOMBIE_AURA_PER_MILLE,
 } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { castleShotFifths } from '../state/castleGuns.ts';
@@ -65,7 +71,7 @@ import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/worldTypes.ts';
-import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
+import type { CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId, Vec2 } from '../types.ts';
 import { codexCopyFor, type EmblemSpec } from './codexPresentation.ts';
 import { blueprintBill } from '../state/blueprints.ts';
 import { RACE_TOWER_UNIT, raceForTowerId } from '../state/raceTowerIds.ts';
@@ -85,7 +91,21 @@ export type SheetTarget =
    * same thing, the unit stats, but with the gatherer, with the speed, with everything, with the
    * castle stats. There's no nothing."* Keyed by SEAT because there is exactly one per player.
    */
-  | { readonly kind: 'castle'; readonly seat: PlayerId };
+  | { readonly kind: 'castle'; readonly seat: PlayerId }
+  /**
+   * ⭐⭐ S181 (owner) — **A LANDED STINK BAG IS CLICKABLE NOW.**
+   *
+   * > *"poop bags are unclickable. They should have a stat too. When you click on them, it should
+   * > show how much damage they're doing per second. Anything that has an aura, damage per second,
+   * > should show how much damage per second."*
+   *
+   * ⚠ IT IS NOT A CREATURE, A DEFENDER, A STRUCTURE OR A KEEP — it lives in its own
+   * `world.stinkClouds` map, which is exactly why it was unreachable: every pick arm tested one of
+   * the other four families and a bag matched none of them. The canon already says a landed bag is
+   * a destructible lone shape at 1 HP / 0 DEF, so it always had a pool to show; nothing could select
+   * it to show it.
+   */
+  | { readonly kind: 'stinkCloud'; readonly id: StinkCloudId };
 
 /**
  * How the little picture is obtained. Owner: *"you can just take like from the generated images,
@@ -758,6 +778,7 @@ export function characterSheetModel(
   if (target.kind === 'creature') return creatureSheet(world, seat, target);
   if (target.kind === 'defender') return defenderSheet(world, seat, target);
   if (target.kind === 'castle') return castleSheet(world, seat, target);
+  if (target.kind === 'stinkCloud') return stinkCloudSheet(world, seat, target);
   return structureSheet(world, seat, target);
 }
 
@@ -773,6 +794,17 @@ function creatureSheet(
   const race = world.players.get(c.ownerPlayerId)?.raceId ?? null;
   const frozen = isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId);
   const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen);
+  /*
+   * ⭐⭐ S181 (owner) — **THE ZOMBIE BOSS SHOWS ITS ROT.** *"Anything that has an aura, damage per
+   * second, should show how much damage per second. So the zombie boss, the stink tower."*
+   *
+   * ⚠ A PERCENTAGE, NOT A NUMBER, and `zombieAuraPercentPerSecond` records why in full: the rot is a
+   * per-mille drain, so its fifths-per-second is a constant FRACTION of whatever it is eating. Any
+   * flat figure would be right for exactly one target and wrong for every other.
+   */
+  if (c.type === T9_BOSS_TYPE.zombies) {
+    stats.push({ label: 'ROT', points: zombieAuraPercentPerSecond(), derived: '% of pool a second' });
+  }
   const h = heightFor(stats.length, false);
   return {
     target,
@@ -865,6 +897,23 @@ function structureSheet(
     { label: 'CONNECTORS', points: comp.bondIds.size, derived: `${pool} pool` },
     { label: 'SHAPES', points: comp.primitiveIds.size, derived: null },
   ];
+  /*
+   * ⭐⭐ S181 (owner) — **ANYTHING WITH AN AURA SHOWS ITS DAMAGE PER SECOND.**
+   *
+   * > *"Anything that has an aura, damage per second, should show how much damage per second. So the
+   * > zombie boss, the stink tower … you can put it under range, for example."*
+   *
+   * ⚠ DERIVED FROM THE CADENCE, and it must not print `STINK_AURA_DAMAGE`: that constant is 20, it
+   * looks like the answer, and it has been retired and unread since S157 B9. The S181 audit named it
+   * as a trap. The real aura is `STINK_AURA_UNIT_FIFTHS` once per `STINK_AURA_CADENCE_TICKS`.
+   */
+  if (auraOwnerIn(world, comp.primitiveIds)) {
+    stats.push({
+      label: 'AURA',
+      points: (STINK_AURA_UNIT_FIFTHS * PHYSICS_HZ) / STINK_AURA_CADENCE_TICKS,
+      derived: 'a second',
+    });
+  }
   const emplacement = towerStatsIn(world, comp.primitiveIds);
   if (emplacement !== null) {
     stats.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });
@@ -940,6 +989,90 @@ function castleSheet(
      */
     // ⭐⭐ S181 — beside the keep, as the top slice of the one merged window. See `castleCardRect`.
     rect: castleCardRect(anchor, heightFor(stats.length, false)),
+  };
+}
+
+/**
+ * PURE — does this component contain a stink tower, i.e. does the building carry an aura?
+ *
+ * ⚠ BY DEFENDER KIND, not by recipe id. The aura is attached to the DEFENDER the recipe spawns, and
+ * `stinkAuraTick` iterates defenders — so asking the same question the sim asks keeps the readout
+ * and the damage from drifting apart.
+ */
+function auraOwnerIn(world: World, members: ReadonlySet<PrimitiveId>): boolean {
+  for (const d of world.defenders.values()) {
+    if (d.kind !== 'stinkTower') continue;
+    if (members.has(d.anchorPrimitiveId)) return true;
+  }
+  return false;
+}
+
+/**
+ * ⭐⭐ S181 (owner) — the ZOMBIE BOSS's rot aura, as a share of the victim's pool per second.
+ *
+ * > *"Anything that has an aura, damage per second, should show how much damage per second. So the
+ * > zombie boss, the stink tower."*
+ *
+ * ⛔ IT CANNOT BE A FLAT NUMBER, AND THAT IS THE INTERESTING PART. The rot is a PER-MILLE DRAIN:
+ * `dotIntervalTicks(pool, perMille)` spaces single-fifth ticks so that the interval shrinks as the
+ * victim's pool grows. Work it through and the fifths-per-second is `pool × perMille / 1000` — i.e.
+ * a constant FRACTION of whatever it is eating, 2.5% per second at the shipped 25‰, identical for a
+ * chewer and for Vlad. So the honest readout is the percentage, not a number that would be wrong for
+ * every target but one.
+ */
+function zombieAuraPercentPerSecond(): number {
+  return ZOMBIE_AURA_PER_MILLE / 10; // per-mille -> percent
+}
+
+/**
+ * ⭐⭐ S181 (owner) — **THE LANDED BAG'S CARD, with the damage-per-second he asked for.**
+ *
+ * > *"When you click on them, it should show how much damage they're doing per second. Anything that
+ * > has an aura, damage per second, should show how much damage per second."*
+ *
+ * ⛔ THE DPS IS DERIVED FROM THE SHIPPED CADENCE, NOT WRITTEN DOWN. `STINK_AURA_UNIT_FIFTHS` per
+ * `STINK_AURA_CADENCE_TICKS` against `PHYSICS_HZ` is the whole calculation, so retuning the aura
+ * retunes the readout and the card cannot go stale.
+ *
+ * ⚠ AND IT MUST NOT PRINT `STINK_AURA_DAMAGE`. That constant is 20, it LOOKS like the answer, and it
+ * has been retired and unread by production since S157 B9 — the S181 audit flagged it by name as a
+ * trap. Printing it would be a bespoke number on its own scale, which is the defect the stat-ladder
+ * section of CLAUDE.md exists to prevent.
+ */
+function stinkCloudSheet(
+  world: World,
+  seat: PlayerId,
+  target: { readonly kind: 'stinkCloud'; readonly id: StinkCloudId },
+): CharacterSheetView | null {
+  const bag = world.stinkClouds.get(target.id);
+  if (bag === undefined) return null;
+  const mine = bag.ownerPlayerId === seat;
+
+  const perSecond = (STINK_AURA_UNIT_FIFTHS * PHYSICS_HZ) / STINK_AURA_CADENCE_TICKS;
+  const stats: SheetStatRow[] = [
+    { label: 'AURA', points: perSecond, derived: 'a second' },
+    { label: 'RANGE', points: bag.radius, derived: 'px' },
+    { label: 'LASTS', points: Math.round(STINK_CLOUD_LIFETIME_TICKS / PHYSICS_HZ), derived: 'seconds' },
+  ];
+  const h = heightFor(stats.length, false);
+  return {
+    target,
+    title: 'STINK BAG',
+    subtitle: mine ? 'YOURS · AURA' : 'ENEMY · AURA',
+    // A bag has its own art in the stink-tower sheet's family; until that is wired it keeps a plate.
+    portrait: { kind: 'emblem', recipeId: 'stinkTower' },
+    health: {
+      cur: Math.max(0, bag.ehp),
+      max: unitPoolFifths(STINK_BAG_HP, STINK_BAG_DEF),
+      frozen: isConcealed(bag.pos.x, bag.pos.y, bag.ownerPlayerId),
+    },
+    stats,
+    owned: null,
+    actions: null,
+    accent: accentFor(world, bag.ownerPlayerId),
+    ...NO_BUILD_INFO,
+    feedHint: null,
+    rect: rectFor(bag.pos, h),
   };
 }
 
