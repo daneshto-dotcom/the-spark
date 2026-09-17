@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2257,
+  "tool_calls_session_total": 2265,
   "session_id": "S181",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -140,7 +140,49 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function portraitForStructure"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "kind: 'towerFrame', atlasBase: art.atlasBase, recipeId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerRenderer.ts",
+          "needle": "portraitTexture(atlasBase: string): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "castlePortraitTexture(race: RaceId): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/princessRenderer.ts",
+          "needle": "portraitTexture(): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "towerRenderer.portraitTexture(spec.atlasBase)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "gathererRenderer.castlePortraitTexture(spec.race)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerPortrait.test.ts",
+          "needle": "no art-less recipe id is hard-coded in characterSheetModel"
+        }
+      ]
     },
     {
       "id": 2,
@@ -151,7 +193,46 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "setDock(rect: { x: number; y: number; w: number; h: number } | null): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "private originNow(a: { x: number; y: number })"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "export function castleBlockOrigin"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "castlePanel.setDock("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function castleCardRect"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "rect(): { x: number; y: number; w: number; h: number } | null"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "castleBlockOrigin\\(ax, ay,",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 3,
@@ -162,7 +243,49 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function layoutSheetActions"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function actionBlockHeight"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "layoutSheetActions(v.actions.buttons, v.rect)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "private drawActionButton"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet.actionAt("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "controls.setSheetActionHandler("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "characterSheet.actionFeedSpawnerId()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sheetActions.test.ts",
+          "needle": "the action click is tested BEFORE the card swallows the click"
+        }
+      ]
     },
     {
       "id": 4,
@@ -173,7 +296,31 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function accentFor(world: World, owner: PlayerId | null | undefined)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "readonly accent: number | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "const accent = v.accent ?? EDGE;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/characterSheetModel.ts",
+          "pattern": "accent: accentFor\\(world,",
+          "op": ">=",
+          "value": 4
+        }
+      ]
     },
     {
       "id": 5,
@@ -184,7 +331,34 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export function creatureDrawnSizeRatio"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export const T9_BOSS_ATLAS_CELL_RATIO"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "CREATURE_PICK_DIST * creatureDrawnSizeRatio(c.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossPickRadius.test.ts",
+          "needle": "boss cell height / unit cell height IS the constant"
+        }
+      ]
     },
     {
       "id": 6,
@@ -195,7 +369,34 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function statValueColumnPx"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "statValueColumnPx(v.stats.map((r) => r.label), 11)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "x + PAD + valueCol"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/characterSheet.ts",
+          "needle": "String(row.points), x + PAD + 42"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/statColumn.test.ts",
+          "needle": "the value column clears CONNECTORS"
+        }
+      ]
     },
     {
       "id": 7,
@@ -206,240 +407,39 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
-    }
-  ],
-  "verification": [
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/damage.ts",
-      "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/game/effects.ts",
-      "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
-    },
-    {
-      "type": "file_contains",
-      "path": "CLAUDE.md",
-      "needle": "4513 tests / 284 files, measured S178"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "function loopFrame("
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "const TV_ART_PX = 112;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/voltkinTowerRenderer.ts",
-      "pattern": "sprite\\.y = tvSpriteY\\(",
-      "op": "==",
-      "value": 2
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/physics/physicsLoop.ts",
-      "needle": "applyVortexPull(world, attractedId);"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/physics/physicsLoop.ts",
-      "needle": "applySpindlePull(world, attractedId);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/vortex.ts",
-      "needle": "export function applyVortexPull"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/vortexUnwired.test.ts",
-      "needle": "a live VORTEX sitting on a free spark does not move it"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/creatureAttack.ts",
-      "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/creatureAttack.ts",
-      "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/bagStrikeS178.test.ts",
-      "needle": "still pops the bag while committed to an unreachable shape"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const STINK_BAG_HP = 1;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "let jump = 1;"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/state/creatures/voltkinChain.ts",
-      "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/creatures/voltkinChain.test.ts",
-      "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.ts",
-      "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.ts",
-      "needle": "blastFifths, blastFifths,"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/defenders/stinkTower.test.ts",
-      "needle": "never passes the retired 1000-scale blast figure to shapes again"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/state/damage.ts",
-      "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/chewerRenderer.ts",
-      "pattern": "liveIds\\.add\\(c\\.id\\);",
-      "op": "==",
-      "value": 1
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/chewerRenderer.ts",
-      "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/creatureRenderer.ts",
-      "needle": "PRESENCE BEFORE THE FOG SKIP"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerRenderer.ts",
-      "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/render/chewerRenderer.ts",
-      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
-    },
-    {
-      "type": "file_lacks",
-      "path": "src/render/creatureRenderer.ts",
-      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "const shown = Math.max(1, current);"
-    },
-    {
-      "type": "grep_count",
-      "path": "src/render/healthBar.ts",
-      "pattern": "^\\s+if \\(current <= 0\\) continue;",
-      "op": "==",
-      "value": 0
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.test.ts",
-      "needle": "but a structure that is actually GONE still draws nothing"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerFrames.ts",
-      "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/towerFrames.ts",
-      "needle": "export function towerRingCentroid("
-    },
-    {
-      "type": "file_contains",
-      "path": "src/input/controls.ts",
-      "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/render/healthBar.ts",
-      "needle": "return towerRingCentroid(world, anchorId, art);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/constants.ts",
-      "needle": "export const WORLD_EDGE_MARGIN = 40;"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/creatureVerlet.ts",
-      "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/creatureVerlet.ts",
-      "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/physics/playfieldBounds.test.ts",
-      "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
-    },
-    {
-      "type": "file_contains",
-      "path": "src/state/placeFromFree.ts",
-      "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_MAX_HP = 2500;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_ATK = 5;"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "**2500** (`CASTLE_MAX_HP`)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "TWELVE bring it down"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "he was correcting what 2500"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "records that 2500 was the win score FIRST and the pool SECOND"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -911,7 +911,49 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function portraitForStructure"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "kind: 'towerFrame', atlasBase: art.atlasBase, recipeId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerRenderer.ts",
+          "needle": "portraitTexture(atlasBase: string): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/gathererRenderer.ts",
+          "needle": "castlePortraitTexture(race: RaceId): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/princessRenderer.ts",
+          "needle": "portraitTexture(): Texture | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "towerRenderer.portraitTexture(spec.atlasBase)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "gathererRenderer.castlePortraitTexture(spec.race)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerPortrait.test.ts",
+          "needle": "no art-less recipe id is hard-coded in characterSheetModel"
+        }
+      ]
     },
     {
       "id": 2,
@@ -922,7 +964,46 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "setDock(rect: { x: number; y: number; w: number; h: number } | null): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "private originNow(a: { x: number; y: number })"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "export function castleBlockOrigin"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "castlePanel.setDock("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function castleCardRect"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "rect(): { x: number; y: number; w: number; h: number } | null"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/castlePanel.ts",
+          "pattern": "castleBlockOrigin\\(ax, ay,",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 3,
@@ -933,7 +1014,49 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function layoutSheetActions"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function actionBlockHeight"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "layoutSheetActions(v.actions.buttons, v.rect)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "private drawActionButton"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.characterSheet.actionAt("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "controls.setSheetActionHandler("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "characterSheet.actionFeedSpawnerId()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sheetActions.test.ts",
+          "needle": "the action click is tested BEFORE the card swallows the click"
+        }
+      ]
     },
     {
       "id": 4,
@@ -944,7 +1067,31 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "function accentFor(world: World, owner: PlayerId | null | undefined)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "readonly accent: number | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "const accent = v.accent ?? EDGE;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/characterSheetModel.ts",
+          "pattern": "accent: accentFor\\(world,",
+          "op": ">=",
+          "value": 4
+        }
+      ]
     },
     {
       "id": 5,
@@ -955,7 +1102,34 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export function creatureDrawnSizeRatio"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerFrames.ts",
+          "needle": "export const T9_BOSS_ATLAS_CELL_RATIO"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "CREATURE_PICK_DIST * creatureDrawnSizeRatio(c.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossPickRadius.test.ts",
+          "needle": "boss cell height / unit cell height IS the constant"
+        }
+      ]
     },
     {
       "id": 6,
@@ -966,7 +1140,34 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "export function statValueColumnPx"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "statValueColumnPx(v.stats.map((r) => r.label), 11)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "x + PAD + valueCol"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/characterSheet.ts",
+          "needle": "String(row.points), x + PAD + 42"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/statColumn.test.ts",
+          "needle": "the value column clears CONNECTORS"
+        }
+      ]
     },
     {
       "id": 7,
@@ -977,7 +1178,39 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "HAND-RUN + LIVE-CLIENT VERIFIED, not gate-green-only (the S180 lesson). Gates from captured $?: TYPECHECK_EXIT=0; VITEST_EXIT=0 (297 files / 4642 tests, +42 new across 4 new files); BUILD_EXIT=0 (849.8 KiB, 150.2 KiB headroom under the 1000 charter); ATLAS_EXIT=0 (31 atlases clean); PUSH_EXIT=0; Deploy to GitHub Pages = completed/success; VERIFY_DEPLOY_EXIT=0 (4/4 carriers). EVERY added line grep-verified in place after patching. LIVE CLIENT (vite 5173, 1-player match): castle card renders 2500/2500 with SHOT 40, its REAL castle art in the portrait, the Vampires red outline and red title; card+panel measured sameLeft=true sameWidth=true gap=0 through the geometry seam - i.e. ONE window by arithmetic, not by eye. THREE DEFECTS THE TESTS CAUGHT IN MY OWN WORK: (1) boss type ids typed from memory as t9Vlad when they are per-race t9BossVampires - the guard would have been vacuous; (2) the never-exhaustiveness default caught a 4-case switch over a 5-member PortraitSpec union (emblem missing); (3) my first pick tie-break claimed an id order in a comment while the branch was unreachable behind score>=bestScore, leaving Map order to decide - rewritten as a real total order before commit. NOT VERIFIED IN THE CLIENT, stated plainly: the CONNECTORS-overlap fix and the tower FIX/SCRAP/FEED row need a built tower, and no structure can be reached in the browser pane without real play. Both are pinned by unit tests (statColumn 7/7, sheetActions 16/16) INCLUDING source-text tripwires that assert the call sites exist and that the action click is tested BEFORE the card swallows it.",
-      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e"
+      "checkpoint_commit": "db52b38971358acda1cc15b0a96bc493d2d6b01e",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_MAX_HP = 2500;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_ATK = 5;"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "**2500** (`CASTLE_MAX_HP`)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.test.ts",
+          "needle": "TWELVE bring it down"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "he was correcting what 2500"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "records that 2500 was the win score FIRST and the pool SECOND"
+        }
+      ]
     }
   ],
   "owner_art_correction_s181": "Art does NOT exist for: pentagram, laser tower, Helga, goblin tower. It DOES for \"all the new ones\" - the six tier-3 race towers, the six tier-9 race towers, castles. So P1 needs a real fallback, not a blanket swap.",
@@ -997,5 +1230,238 @@
     "failures_2_3_4_NOT_MINE": "hunter.spec.ts, raid.spec.ts, worker-heap.spec.ts all failed on ONE signature — waitForWorld timeout (15000ms): \"placement landed near (x,y) (prims 0 -> >=1) [attempt 4/4]\", i.e. a gatherer had not banked a shape in time on a slow shared runner. RULED BENIGN WITH REASONS, not shrugged: (a) all three PASS locally at this HEAD (hunter 1/1, raid 2/2, worker-heap baseline 1/1 in 3.8m); (b) none of the three files was touched this session; (c) the code argument is run-independent — with no card open actionAt returns null on an empty slot list, isOverAnyAction is false, isOver is false on an undefined view and towerAnchorAtPoint is null with no towers, so the placement path is behaviourally identical to before; (d) two of the three jobs declare themselves non-gating in their own names.",
     "second_push_db52b38": "Deploy success + VERIFY_DEPLOY_EXIT=0 (4/4). E2E at time of writing: e2e-races, e2e-lobby, e2e-protocol, atlas-guard all success; e2e (gating), e2e-soak, e2e-quarantine still in_progress. OWED A VERDICT — the local gating lane is GATING_EXIT=0 / 65 passed, which is the same suite, but the CI verdict is not yet in and is NOT being claimed.",
     "final_db52b38": "ALL SETTLED, EVERY JOB GIVEN A VERDICT. e2e (GATING)=success · e2e-soak=success · e2e-races=success · e2e-lobby=success · e2e-protocol=success · atlas-guard=success · e2e-quarantine=FAILURE. QUARANTINE RULED BENIGN WITH EVIDENCE, NOT SHRUGGED: every failing test in it is peer-to-peer (joiner placement/bonding, 3- and 4-player FFA, worker-duel) and the runner log says net::ERR_ADDRESS_UNREACHABLE / \"sendto() has failed twice returning a transient error\" - WebRTC is blocked on the shared runner, so no P2P test can pass there. Proven historical rather than assumed: quarantine=failure on ALL SIX most recent E2E runs (db52b38, 043a761, c0dead0, 1cf4ee2, e363c93, ca39c83), five of which predate this session. The lane declares itself non-gating in its own job name. AND THE 043a761 SOAK FAILURE IS CONFIRMED FLAKE, not a lasting defect: soak is success again at db52b38 with nothing soak-related changed between the two commits."
-  }
+  },
+  "verification_s180_archived": [
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "`structureDefenceFifths(n)` = `structurePoolFifths(n)` = `n × (n + 5)`"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/damage.ts",
+      "needle": "THE SHIPPED RULE — owner R173-B, S177: the pool is **STRUCTURE-WIDE**"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "unitPoolFifths` ⇒ Pharaoh 462 · Kraken 408 · Warlord 374"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/game/effects.ts",
+      "needle": "A SYMBOL NAME\n * IS GREPPABLE AND CANNOT DRIFT"
+    },
+    {
+      "type": "file_contains",
+      "path": "CLAUDE.md",
+      "needle": "4513 tests / 284 files, measured S178"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function loopFrame("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "private beatFrame(row: TvRow, elapsed: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "const TV_ART_PX = 112;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "needle": "function tvSpriteY(row: TvRow, groundY: number): number {"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/voltkinTowerRenderer.ts",
+      "pattern": "sprite\\.y = tvSpriteY\\(",
+      "op": "==",
+      "value": 2
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applyVortexPull(world, attractedId);"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/physics/physicsLoop.ts",
+      "needle": "applySpindlePull(world, attractedId);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/vortex.ts",
+      "needle": "export function applyVortexPull"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/vortexUnwired.test.ts",
+      "needle": "a live VORTEX sitting on a free spark does not move it"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "if (prim === undefined || distSq(creature.pos, prim.pos) > reachSq) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/creatureAttack.ts",
+      "needle": "A NO-OP ARM MUST NOT CONSUME THE STRIKE"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/bagStrikeS178.test.ts",
+      "needle": "still pops the bag while committed to an unreachable shape"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const STINK_BAG_HP = 1;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const VOLTKIN_CHAIN_JUMP_DIVISOR = 2;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "export function chainJumpFifths(baseFifths: number, jump: number): number {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "let jump = 1;"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/creatures/voltkinChain.ts",
+      "needle": "const hit = attackFifths(cfg.atk, cfg.pen);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/creatures/voltkinChain.test.ts",
+      "needle": "expect(curve).toEqual([33, 16, 8, 4, 2, 1]);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "const blastFifths = attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.ts",
+      "needle": "blastFifths, blastFifths,"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/defenders/stinkTower.test.ts",
+      "needle": "never passes the retired 1000-scale blast figure to shapes again"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/state/damage.ts",
+      "needle": "`primitiveAmount` stays on the 1000-per-shape scale"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/chewerRenderer.ts",
+      "pattern": "liveIds\\.add\\(c\\.id\\);",
+      "op": "==",
+      "value": 1
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "PRESENCE IS REGISTERED BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "PRESENCE BEFORE THE FOG SKIP"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerRenderer.ts",
+      "needle": "A TOWER THAT EXISTS IS LIVE, WHATEVER STOPS US DRAWING IT"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/chewerRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_lacks",
+      "path": "src/render/creatureRenderer.ts",
+      "needle": "if (this.lastSeenPos.size > liveIds.size) {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "const shown = Math.max(1, current);"
+    },
+    {
+      "type": "grep_count",
+      "path": "src/render/healthBar.ts",
+      "pattern": "^\\s+if \\(current <= 0\\) continue;",
+      "op": "==",
+      "value": 0
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.test.ts",
+      "needle": "but a structure that is actually GONE still draws nothing"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/towerFrames.ts",
+      "needle": "export function towerRingCentroid("
+    },
+    {
+      "type": "file_contains",
+      "path": "src/input/controls.ts",
+      "needle": "const towerAnchor = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/render/healthBar.ts",
+      "needle": "return towerRingCentroid(world, anchorId, art);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/constants.ts",
+      "needle": "export const WORLD_EDGE_MARGIN = 40;"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/creatureVerlet.ts",
+      "needle": "clampIntoPlayfield(c.pos, c.prevPos);"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/physics/playfieldBounds.test.ts",
+      "needle": "moves prevPos with pos, so a clamped unit is not FLUNG back across the board"
+    },
+    {
+      "type": "file_contains",
+      "path": "src/state/placeFromFree.ts",
+      "needle": "if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;"
+    }
+  ]
 }
