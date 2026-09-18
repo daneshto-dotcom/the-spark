@@ -22,7 +22,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { netSnapshot, applyNetSnapshot, snapshot, wireNumberReplacer } from './save.ts';
+import {
+  netSnapshot,
+  applyNetSnapshot,
+  snapshot,
+  stripWirePrevPos,
+  wireNumberReplacer,
+} from './save.ts';
 import { hashWorldState } from './stateHash.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
@@ -38,9 +44,25 @@ const P1 = asPlayerId(0);
 /** A boss: the widest optional-field set on the wire, so the strictest creature budget. */
 const CREATURE_TYPE_FOR_BUDGET = T9_BOSS_TYPE.vampires;
 
-/** The wire form of a world, exactly as `NetTransport.send` produces it for a NETSNAPSHOT. */
+/**
+ * The wire form of a world, exactly as `NetTransport.send` produces it for a NETSNAPSHOT: the
+ * prevPos strip AND the number replacer, in that order. Both live at the transport boundary, so a
+ * test that applied only one of them would not be testing the wire.
+ */
 function wireJson(world: World): string {
-  return JSON.stringify(netSnapshot(world), wireNumberReplacer);
+  const msg = { kind: 'NETSNAPSHOT' as const, snapshotSeq: 1, snapshot: netSnapshot(world) };
+  return JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer);
+}
+
+/** The snapshot a peer reconstructs: the wire string, parsed, unwrapped from its envelope. */
+function wireSnapshot(world: World) {
+  return JSON.parse(wireJson(world)).snapshot;
+}
+
+/** Just the primitives array as it reaches the wire. */
+function wirePrimitives(world: World) {
+  const msg = { kind: 'NETSNAPSHOT' as const, snapshotSeq: 1, snapshot: netSnapshot(world) };
+  return stripWirePrevPos(msg).snapshot.primitives;
 }
 
 /**
@@ -131,9 +153,31 @@ describe('S182 LEVER 2 — the quantiser shrinks the wire', () => {
 
 describe('⭐ S182 LEVER 2 — prevPos leaves the wire (protocol 47)', () => {
   it('no primitive on the wire carries prevPos', () => {
+    const prims = wirePrimitives(buildBoard(12));
+    expect(prims.length).toBe(12);
+    for (const p of prims) expect(p.prevPos).toBeUndefined();
+  });
+
+  it('⛔⛔ netSnapshot() ITSELF STILL CARRIES prevPos — the worker mirror depends on it', () => {
+    // THE AUDIT FINDING THIS PINS. `netSnapshot` is NOT the wire: `workerSim.ts` uses it for the
+    // worker->main mirror transfer over structuredClone, and `main.ts`'s worker-failure
+    // direct-resume ADOPTS that mirror and resumes simulating it. Stripping prevPos there would
+    // restart every primitive from a standstill, because Verlet velocity IS pos - prevPos.
+    //
+    // ⚠ NOTHING ELSE WOULD CATCH IT. The worker hash oracle projects pos only (stateHash.ts:110)
+    // and cannot see prevPos — which is exactly how the first cut shipped green.
     const snap = netSnapshot(buildBoard(12));
     expect(snap.primitives.length).toBe(12);
-    for (const p of snap.primitives) expect(p.prevPos).toBeUndefined();
+    for (const p of snap.primitives) expect(p.prevPos).toBeDefined();
+  });
+
+  it('stripWirePrevPos does not mutate its input — the mirror must stay intact', () => {
+    // main.ts applies the worker's snapshot to the mirror and THEN hands the same object to send().
+    // An in-place strip would reach back into the mirror it already applied.
+    const snap = netSnapshot(buildBoard(12));
+    const msg = { kind: 'NETSNAPSHOT' as const, snapshotSeq: 1, snapshot: snap };
+    stripWirePrevPos(msg);
+    for (const p of snap.primitives) expect(p.prevPos).toBeDefined();
   });
 
   it('⛔ but the DISK form still carries it on every primitive', () => {
@@ -150,7 +194,7 @@ describe('⭐ S182 LEVER 2 — prevPos leaves the wire (protocol 47)', () => {
     // makes the protocol bump's whole argument concrete.
     const host = buildBoard(12);
     const client = makeWorld(0);
-    applyNetSnapshot(JSON.parse(wireJson(host)), client);
+    applyNetSnapshot(wireSnapshot(host), client);
     for (const p of client.primitives.values()) {
       expect(Number.isFinite(p.prevPos.x)).toBe(true);
       expect(Number.isFinite(p.prevPos.y)).toBe(true);
@@ -176,8 +220,8 @@ describe('⭐ S182 LEVER 2 — prevPos leaves the wire (protocol 47)', () => {
 
   it('the strip is worth real bytes on a built board', () => {
     const world = buildBoard(40);
-    const withPrev = JSON.stringify(snapshot(world).primitives).length;
-    const withoutPrev = JSON.stringify(netSnapshot(world).primitives).length;
+    const withPrev = JSON.stringify(netSnapshot(world).primitives).length;
+    const withoutPrev = JSON.stringify(wirePrimitives(world)).length;
     expect(1 - withoutPrev / withPrev).toBeGreaterThan(0.15);
   });
 });
@@ -315,29 +359,45 @@ describe('⛔ S182 LEVER 2 — what the quantiser must NEVER reach', () => {
     }
   });
 
-  it('SOURCE TRIPWIRE: netSnapshot does not round', () => {
+  it('SOURCE TRIPWIRE: netSnapshot neither rounds NOR strips prevPos', () => {
     const start = SAVE_SRC.indexOf('export function netSnapshot');
     const rest = SAVE_SRC.slice(start);
     const end = rest.search(/\r?\n(export )?(function|const) /);
-    const body = rest.slice(0, end === -1 ? undefined : end);
+    // ⚠ STRIP COMMENTS FIRST. The sliced body now runs up against `stripWirePrevPos`'s docblock,
+    // which NAMES both transforms precisely in order to explain why neither belongs here — and the
+    // first cut of this assertion matched that explanation. A tripwire that cannot tell code from
+    // the comment describing the code is not a tripwire. Second time in this file.
+    const body = rest
+      .slice(0, end === -1 ? undefined : end)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
     expect(body).not.toContain('NET_WIRE_SCALE');
     expect(body).not.toContain('wireNumberReplacer');
+    // ⭐ THE NEW HALF, and the reason it matters: if the prevPos strip moves back in here, the
+    // worker→main mirror loses its Verlet velocity and main.ts's worker-failure direct-resume
+    // restarts every primitive from a standstill. Nothing else in the suite would notice.
+    expect(body).not.toContain('delete p.prevPos');
+    expect(body).not.toContain('stripWirePrevPos(');
+    // Guard the guard: prove the comment-stripper left real code behind.
+    expect(body).toContain('trimMirrorSpawner');
   });
 
   it('SOURCE TRIPWIRE: the replacer is applied to NETSNAPSHOT only, in the send path', () => {
     // Scoped to the one high-rate kind. Applying it to every message would be harmless but would
     // put a per-number callback on the rare control traffic for no gain.
-    expect(TRANSPORT_SRC).toContain('JSON.stringify(msg, wireNumberReplacer)');
-    const guardAt = TRANSPORT_SRC.indexOf("msg.kind === 'NETSNAPSHOT'\n        ? JSON.stringify(msg, wireNumberReplacer)");
-    const guardAtCrlf = TRANSPORT_SRC.indexOf("msg.kind === 'NETSNAPSHOT'\r\n        ? JSON.stringify(msg, wireNumberReplacer)");
-    expect(Math.max(guardAt, guardAtCrlf)).toBeGreaterThan(-1);
+    // BOTH wire transforms live here, in one place, gated on the one high-rate kind.
+    expect(TRANSPORT_SRC).toContain('JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)');
+    const guardAt = TRANSPORT_SRC.indexOf("msg.kind === 'NETSNAPSHOT'");
+    const callAt = TRANSPORT_SRC.indexOf('JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)');
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(callAt).toBeGreaterThan(guardAt);
   });
 });
 
 describe('S182 LEVER 2 — round trip', () => {
   /** What a peer actually reconstructs: parse the wire string, then apply it. */
   function applyWire(host: World, client: World): void {
-    applyNetSnapshot(JSON.parse(wireJson(host)), client);
+    applyNetSnapshot(wireSnapshot(host), client);
   }
 
   it('a quantised snapshot applies onto a client world with positions within tolerance', () => {

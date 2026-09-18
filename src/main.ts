@@ -2852,6 +2852,20 @@ Network routes: ${v.detail}`;
       // REUSE live entity ids and replay stale streams. Repair once with the host-migration
       // D-A rebuild rules (HOST_MIGRATION_DESIGN.md §4): allocators = max(live)+1, streams
       // reseeded (a one-time cadence discontinuity — the ratified reconnect UX class).
+      //
+      // ⭐ S182 — WHY `prevPos` IS NOT IN THAT LIST, ALTHOUGH IT IS NOW REMOVED FROM THE WIRE.
+      // It is removed at the WIRE BOUNDARY (`stripWirePrevPos`, applied by `NetTransport.send`),
+      // NOT by `netSnapshot()`. This mirror arrives from the worker over `postMessage` /
+      // structuredClone and never crosses that boundary, so it still carries true `prevPos` — and
+      // therefore true Verlet velocity, since velocity IS `pos − prevPos`. There is nothing to
+      // repair, and this block correctly omits it.
+      //
+      // ⛔ THAT IS A PROPERTY OF WHERE THE STRIP LIVES, NOT A LUCKY ACCIDENT. The first cut of S182
+      // stripped inside `netSnapshot()`, which WOULD have landed here: the mirror would have
+      // resumed with every primitive at a standstill. Nothing would have caught it — the worker
+      // hash oracle projects `pos` only (`stateHash.ts:110`) and cannot see `prevPos`. If a future
+      // session moves the strip back into `netSnapshot()`, this comment becomes a lie and
+      // `prevPos` must join the repair list above.
       if (simWorkerDriver !== null && simWorkerDriver.failed && !workerFallbackRepaired) {
         workerFallbackRepaired = true;
         // ⛔ S141 P3 — THIS USED TO BE A HAND-INLINED COPY OF THE THREE-LOOP SCAN, AND IT CARRIED THE

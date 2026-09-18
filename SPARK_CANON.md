@@ -193,6 +193,23 @@ oscillating.
 also the worker→main mirror transfer, and that mirror is hash-compared** — rounding there turned
 `?worker=1` red on `HASH MISMATCH` while all 4747 unit tests stayed green.
 
+⭐ **MEASURED, S182 — the brother's wave-5 board (250 primitives / 260 bonds / 120 creatures):**
+
+| stage | snapshot | host uplink |
+|---|---:|---:|
+| pre-S182 (full precision, `prevPos` on, sent twice) | 107.5 KiB | 17.61 Mbit/s |
+| + coordinate rounding | 92.4 KiB | 15.14 Mbit/s |
+| + `prevPos` off the wire | 84.0 KiB | 13.77 Mbit/s |
+| + one strategy instead of two | 84.0 KiB | **6.88 Mbit/s** |
+
+**2.56× less upload**, 107.5 → 84.0 KiB per snapshot. ⚠ These are Claude's measurements, taken from
+the shipped serializers at the brief's entity counts; the baseline row reproduces the brief's
+independently-measured ~107 KiB / ~17.6 Mbit/s, which is what makes the rest comparable. It is
+application-level payload — WebRTC/DTLS/SCTP framing is on top, so treat every figure as a floor.
+⛔ **2.56× is not "fixed".** ~6.9 Mbit/s of sustained upload is still more than many home
+connections carry. Delta encoding — cost scaling with what MOVES rather than what EXISTS — is the
+structural fix and is not on this branch.
+
 ⭐ **Snapshots take ONE strategy; everything else still takes all of them.**
 `SNAPSHOT_SINGLE_STRATEGY` is **true** (owner ruling, S182: *"if it halves our bandwidth, then of
 course we need to do it"*). `HELLO`, `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT` and `MIGRATION_CLAIM`

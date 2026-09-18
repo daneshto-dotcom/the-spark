@@ -1220,30 +1220,79 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
-  // ⭐ S182 LEVER 2 (protocol 47) — STRIP `prevPos` FROM EVERY PRIMITIVE ON THE WIRE.
-  //
-  // It is ~34% of a primitive's wire cost and it is DEAD ON THE CLIENT: every primitive `prevPos`
-  // reader in the tree is sim code (`game/verlet`, `game/spawner`, `game/invariants`,
-  // `input/controls`), and a joiner runs no sim. At the brother's wave-5 board that is a quarter of
-  // a ~100 KiB payload, shipped ten times a second, to be discarded on arrival.
-  //
-  // ⛔ WHY THIS ONE *IS* SAFE IN `netSnapshot`, WHEN THE QUANTISER WAS NOT. The quantiser had to move
-  // out to a stringify replacer because `netSnapshot` is ALSO the worker→main mirror transfer, and
-  // `main.ts` hash-compares the mirror against the worker's own hash. That objection does not apply
-  // here: `hashWorldState` projects `p.pos.x, p.pos.y` ONLY (`stateHash.ts:110`) and never reads
-  // `prevPos`, so the mirror losing it cannot move the hash. Verified, not assumed — the worker
-  // e2e specs assert 0 mismatches.
-  //
-  // ⚠ CONSEQUENCE, STATED RATHER THAN SLIPPED IN — see the commit message. A client promoted on host
-  // migration inherits every primitive at ZERO VELOCITY, because `deserializePrimitive` defaults
-  // `prevPos` to `pos`. A settled board (the overwhelmingly common case) is unaffected: its
-  // primitives already have `prevPos ≈ pos`. A board caught MID-SWING loses that momentum and its
-  // structures settle rather than continuing to oscillate. This WIDENS AN ALREADY-ACCEPTED GAP
-  // rather than opening a new one: `save.ts`'s own migration docblock records that a successor's
-  // world is already not equal to its predecessor's, with `prevPos`, `targetPos` and `spawnedAtTick`
-  // never travelling for creatures. It is now true for primitives too.
-  for (const p of rest.primitives) delete p.prevPos;
+  // ⛔ S182 — `prevPos` IS **NOT** STRIPPED HERE. IT IS STRIPPED AT THE WIRE BOUNDARY.
+  // See `stripWirePrevPos` below for why this distinction is load-bearing, and what breaks when the
+  // strip lives in this function instead.
   return rest;
+}
+
+/**
+ * ⭐ S182 LEVER 2 (protocol 47) — REMOVE `prevPos` FROM EVERY PRIMITIVE **ON THE WIRE**.
+ *
+ * Returns a shallow-rebuilt copy; the input is never mutated. Applied by `NetTransport.send` for
+ * `NETSNAPSHOT` only, beside `wireNumberReplacer`.
+ *
+ * ## What it buys
+ *
+ * `prevPos` is ~34% of a primitive's wire cost and it is DEAD ON A JOINER: every primitive `prevPos`
+ * reader in the tree is sim code (`game/verlet`, `game/spawner`, `game/invariants`,
+ * `input/controls`), and a joiner runs no sim. At the brother's wave-5 board that is a quarter of a
+ * ~100 KiB payload, shipped ten times a second, to be discarded on arrival.
+ *
+ * ## ⛔ WHY IT IS HERE AND NOT IN `netSnapshot()` — THE SAME LESSON AS THE QUANTISER, TWICE
+ *
+ * The first implementation stripped it inside `netSnapshot()`. Every test stayed green and the
+ * worker hash oracle stayed green too — because `hashWorldState` projects `pos` only
+ * (`stateHash.ts:110`) and cannot see `prevPos`. It was still wrong, and audit caught it:
+ *
+ * **`netSnapshot()` IS NOT THE WIRE.** `workerSim.ts` builds the worker→main mirror transfer with
+ * it, and that transfer is a `structuredClone` over `postMessage` — stripping there saves NOTHING
+ * (no bytes cross a network) and COSTS the mirror its Verlet velocity, since velocity IS
+ * `pos − prevPos`. The damage lands at `main.ts`'s worker-failure direct-resume repair: main adopts
+ * that mirror and resumes simulating it, so every primitive would restart from a standstill.
+ *
+ * Stripping at the wire boundary instead gives both paths what they need: the worker mirror keeps
+ * true velocity, and the network still stops carrying a field nobody reads.
+ *
+ * ⭐ THE GENERAL RULE, WORTH MORE THAN THIS FIELD: **making a field "netSnapshot-stripped" has
+ * consumers beyond the wire.** `netSnapshot` feeds three things — the network, the worker→main
+ * mirror, and (through that mirror) two authority-adoption paths. A strip that is correct for the
+ * first can be silently wrong for the others, and the hash oracle will not tell you.
+ *
+ * ## ⚠ WHAT REMAINS ACCEPTED, STATED RATHER THAN SLIPPED IN
+ *
+ * A client promoted on HOST MIGRATION still inherits every primitive at ZERO VELOCITY, because its
+ * world was built from wire snapshots where `prevPos` genuinely never travelled and
+ * `deserializePrimitive` defaults it to `pos` (`main.ts`'s TAKEOVER path). A settled board — the
+ * overwhelmingly common case — is unaffected, since its primitives already have `prevPos ≈ pos`; a
+ * board caught MID-SWING loses that momentum and its structures settle rather than continuing to
+ * oscillate. No NaN, no divergence, no desync.
+ *
+ * This WIDENS AN ALREADY-ACCEPTED GAP rather than opening a new one: this file's own migration
+ * docblock records that a successor's world is already not equal to its predecessor's, with
+ * `prevPos`, `targetPos` and `spawnedAtTick` never travelling for creatures. It is now true for
+ * primitives too — and ONLY across the network, no longer across a worker handoff.
+ */
+export function stripWirePrevPos<T extends { readonly snapshot: NetSnapshot }>(msg: T): T {
+  const prims = msg.snapshot?.primitives;
+  // ⛔ TOTAL BY CONSTRUCTION. This runs inside `NetTransport.send`, which must never throw on the
+  // SHAPE of a payload — a throw there kills the snapshot send for the rest of the match, which is
+  // strictly worse than shipping a few extra bytes. Caught by a minimal test fixture whose snapshot
+  // had no `primitives` array at all; a partial or future envelope shape would do the same in
+  // production. Anything unexpected passes straight through, unstripped.
+  if (!Array.isArray(prims)) return msg;
+  // Nothing to do (and nothing to allocate) when the field is already absent.
+  let present = false;
+  for (const p of prims) {
+    if (p.prevPos !== undefined) { present = true; break; }
+  }
+  if (!present) return msg;
+  const stripped = prims.map((p) => {
+    const { prevPos: _dropped, ...rest } = p;
+    void _dropped;
+    return rest;
+  });
+  return { ...msg, snapshot: { ...msg.snapshot, primitives: stripped } };
 }
 
 /**
