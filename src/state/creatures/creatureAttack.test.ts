@@ -239,6 +239,80 @@ describe('applyCreatureAttack — chewer gnaw vs Voltkin lightning (S102 #2)', (
 
 });
 
+/**
+ * ⛔⛔ S182 — THE ARC IS VOLTKIN'S SIGNATURE, AND ONLY VOLTKIN'S.
+ *
+ * Owner: *"Why does my fucking zombie boss have Voltkin music and electric beams going through
+ * towers and connectors? How does that make sense?"*
+ *
+ * The bond-strike arm gated its ARC_FLASH on `!isChewer`, which meant "is the Voltkin" only while
+ * Voltkin and the chewer were the sole creatures that could reach a connector. S181's targeting
+ * rework gave `targetBondId` to every `targetsStructures` creature — 21 unit types and all six
+ * tier-9 bosses — and every one of them started firing the Voltkin's cyan bolt, plus the screen
+ * shake `main.ts` derives from it.
+ *
+ * ⚠ THESE ARE BEHAVIOUR TESTS AND THEY ARE NOT SUFFICIENT ON THEIR OWN. The failure mode of this
+ * bug class is a predicate that is still TRUE for the wrong set, so `s181Regressions.test.ts` R9
+ * carries the source-text tripwire that the guard NAMES the type instead of negating another one.
+ * Both halves, or a future negation passes these while re-breaking the game.
+ */
+describe('S182 — only the VOLTKIN emits ARC_FLASH on a bond strike', () => {
+  /** The same enemy bond as `setupWorld` (midpoint 10,0), struck by an arbitrary creature type. */
+  function strikeWith(type: Parameters<typeof getCreatureConfig>[0]): World {
+    const base = setupWorld();
+    base.world.creatures.clear();
+    const c = makeCreature(getCreatureConfig(type), {
+      id: asCreatureId(0), ownerPlayerId: P0,
+      // ON the bond midpoint, so no unit's attackRange can decide this test for it.
+      pos: { x: 10, y: 0 }, targetPos: { x: 10, y: 0 },
+      spawnedAtTick: 0, sourceSpawnerId: null,
+    });
+    c.state = 'ATTACKING';
+    c.targetBondId = base.bondId;
+    base.world.creatures.set(c.id, c);
+    applyCreatureAttack(base.world, {
+      type: 'CREATURE_ATTACK', creatureId: c.id, bondId: base.bondId,
+    });
+    // Every type below out-damages a lone connector's 6-fifth pool, so the sever arm IS reached —
+    // which is the whole point: reaching it without emitting is the fix.
+    expect(base.world.bonds.has(base.bondId), `${type} must actually sever, or the test proves nothing`).toBe(false);
+    return base.world;
+  }
+
+  it('⛔ the ZOMBIE BOSS — the owner\'s own bug report — draws NO lightning', () => {
+    const w = strikeWith('t9BossZombies');
+    expect(w.effects.find((e) => e.kind === 'ARC_FLASH')).toBeUndefined();
+  });
+
+  it('⛔ and no screen shake either — main.ts derives it from the ARC_FLASH emission', () => {
+    // The third symptom, unreported: `main.ts` scans world.effects for ARC_FLASH and triggers the
+    // shake off the latest tick it finds. No emit, no shake — asserted at the source of both.
+    const w = strikeWith('t9BossZombies');
+    expect(w.effects.filter((e) => e.kind === 'ARC_FLASH')).toHaveLength(0);
+  });
+
+  it('a GOBLIN draws no lightning (21 unit types reach this arm since S181)', () => {
+    const w = strikeWith('goblinMelee');
+    expect(w.effects.find((e) => e.kind === 'ARC_FLASH')).toBeUndefined();
+  });
+
+  it('⭐ every one of the six tier-9 bosses is silent', () => {
+    for (const boss of [
+      't9BossVampires', 't9BossNagas', 't9BossMummies',
+      't9BossZombies', 't9BossOrcs', 't9BossDemons',
+    ] as const) {
+      const w = strikeWith(boss);
+      expect(w.effects.find((e) => e.kind === 'ARC_FLASH'), `${boss} must not zap`).toBeUndefined();
+    }
+  });
+
+  it('⭐ AND THE VOLTKIN STILL DOES — the fix removes a leak, not the mechanic', () => {
+    const w = strikeWith('voltkin');
+    const arc = w.effects.find((e) => e.kind === 'ARC_FLASH');
+    expect(arc, 'the arc IS Voltkin\'s signature and must survive').toBeDefined();
+  });
+});
+
 describe('applyCreatureAttack — defense-in-depth guards', () => {
   it('no-op when creature is missing from world.creatures (race: peer-drop)', () => {
     const { world, bondId } = setupWorld();

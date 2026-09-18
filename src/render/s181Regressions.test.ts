@@ -265,3 +265,59 @@ describe('S181 R7 — the renderer and the model agree on the description height
     expect(sheet).not.toContain('const DESC_CHARS_PER_LINE = 40;');
   });
 });
+
+describe('S182 R9 — the SEVENTH defect of the same rework: the zombie boss fired Voltkin lightning', () => {
+  /**
+   * ⛔⛔ THE OWNER FOUND THIS ONE HIMSELF, and it is the same shape as the six above — *a rule
+   * applied at some of its sites and not the rest*. Its R1 is the suicide bomber breaking for the
+   * identical reason: `structureTargets` handed a structure-attacker a BOND and a downstream arm
+   * was not ready for it.
+   *
+   * *"Why does my fucking zombie boss have Voltkin music and electric beams going through towers and
+   * connectors? How does that make sense?"*
+   *
+   * ⭐ AND THE FIX ALREADY EXISTED, ONE ARM AWAY. `creatureAttack.ts` has TWO ARC_FLASH emits: the
+   * creature-vs-creature arm and the bond-strike arm. S154 P2 fixed the first for this exact bug
+   * from this exact cause, and left the second. This guard is written over BOTH so a third arm
+   * cannot be added as a negation either.
+   *
+   * ⚠ A SOURCE-TEXT TRIPWIRE, NOT A BEHAVIOUR TEST, AND DELIBERATELY SO. The failure mode here is
+   * UNREACHED CODE — a predicate that is still true for the wrong set. A behaviour test passes the
+   * day someone re-broadens the gate to a new negation that happens to exclude the fixtures. The
+   * behaviour half lives in `creatureAttack.test.ts`; it takes both.
+   */
+  const attack = read('src/state/creatures/creatureAttack.ts');
+
+  it('⛔ EVERY ARC_FLASH emit in the file is gated on the TYPE, never on a negation', () => {
+    // Walk back from each emit to the nearest `if (` above it and demand it names voltkin.
+    const emits: number[] = [];
+    for (let i = attack.indexOf("kind: 'ARC_FLASH'"); i !== -1; i = attack.indexOf("kind: 'ARC_FLASH'", i + 1)) {
+      emits.push(i);
+    }
+    expect(emits.length, 'the file has two ARC_FLASH emits; both are guarded').toBe(2);
+    for (const at of emits) {
+      const guard = attack.lastIndexOf('if (', at);
+      const clause = attack.slice(guard, at);
+      expect(clause, 'the arc is Voltkin\'s signature — name it').toContain("creature.type === 'voltkin'");
+    }
+  });
+
+  it('⛔ the stale `!isChewer` gate is GONE — that negation is the whole bug', () => {
+    // `isChewer` itself survives: it still picks the SEVER_BOND cause, which is a real chewer/not
+    // distinction. What must never come back is it standing in for "is the Voltkin".
+    expect(attack).not.toContain('if (!isChewer) {');
+  });
+
+  it('⚠ and the comment no longer explains the gate as a chewer EXEMPTION', () => {
+    // The old comment was as wrong as the code — it told the next reader the gate meant "everyone
+    // but the chewer", which is exactly what made the defect invisible for 21 unit types.
+    // ⚠ ANCHORED ON THE BOND ARM'S OWN COMMENT, not on `creature.killCount += 1;` — that string
+    // appears in the creature-vs-creature arm FIRST, so `indexOf` on it reads the wrong block
+    // entirely. Precisely the brittle-proximity trap R1 above records.
+    const i = attack.indexOf('S36 P3 — increment kill counter');
+    expect(i).toBeGreaterThan(-1);
+    const block = attack.slice(i, i + 2600);
+    expect(block).toContain('S182');
+    expect(block).toContain("creature.type === 'voltkin'");
+  });
+});

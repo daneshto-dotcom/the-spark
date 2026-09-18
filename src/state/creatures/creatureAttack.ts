@@ -562,11 +562,36 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     // branch (`voltkinFrames.currentFrameKey`). Tick-deterministic — same
     // success guard as the visual emission so the two stay in lockstep.
     creature.killCount += 1;
-    // S102 #2 — a chewer's bite is a GNAW, not a lightning zap: emit NO ARC_FLASH for
-    // a chewer. This also suppresses the creature-attack screen-shake (main.ts gates the
-    // shake on an ARC_FLASH emission this tick), so a chewer chewing through a connector
-    // is quiet + un-flashy — just the gnaw. Voltkin keeps its lightning arc + shake.
-    if (!isChewer) {
+    /*
+     * ⛔ S182 — THE ZOMBIE BOSS WAS FIRING VOLTKIN'S LIGHTNING, AND THIS NEGATION IS WHY.
+     *
+     * Owner: *"Why does my fucking zombie boss have Voltkin music and electric beams going through
+     * towers and connectors? How does that make sense?"*
+     *
+     * This gate read `if (!isChewer)`, and the comment that stood here explained it as a CHEWER
+     * exemption: *"a chewer's bite is a GNAW, not a lightning zap: emit NO ARC_FLASH for a chewer …
+     * Voltkin keeps its lightning arc + shake."* That was true when S102 wrote it, because Voltkin
+     * and the chewer were the ONLY two creatures that could ever reach a connector — so "not a
+     * chewer" and "is the Voltkin" were the same set.
+     *
+     * S181's targeting rework (`4b66ade`) ended that. It sets `creature.targetBondId = st.bondId`
+     * for every `targetsStructures` creature — all 21 goblin/race/tier-3 types AND all six tier-9
+     * bosses. Every one of them now arrives here, and every one of them emitted Voltkin's signature
+     * cyan bolt (`render/effects/arcFlash.ts` is the only file in `src/` drawing those colours) from
+     * its feet to the connector — plus the screen-shake, since `main.ts` gates the creature-attack
+     * shake on an ARC_FLASH emission this tick. That shake was a third symptom nobody had reported.
+     *
+     * ⚠ KEYED ON THE TYPE, DELIBERATELY, and NOT on a negation — the identical fix S154 P2 applied
+     * to this file's SIBLING arm (the creature-vs-creature emit at the top of this file), for the
+     * identical bug from the identical cause. S154 fixed one of the two arms and left this one.
+     * The arc IS Voltkin's signature; naming it says so, and a negation cannot go stale the day a
+     * new unit learns to touch a connector.
+     *
+     * The chewer stays silent here for its original reason — it emits its own CHEW_BITE from the
+     * FSM and its final bite is a beaver GNAW — it is now simply one of the many types that are
+     * not the Voltkin, rather than the one exception the gate was written around.
+     */
+    if (creature.type === 'voltkin') {
       world.effects.push({
         kind: 'ARC_FLASH',
         tick: world.tick,
