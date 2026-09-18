@@ -17,11 +17,54 @@
  *     Trystero P2P over real signaling/STUN/ICE is the WHOLE surface being
  *     tested; mocking it defeats the harness's purpose.
  *
- * webServer launches `npm run dev` on a fixed port (5173 — Vite default).
+ * webServer launches `npm run dev` on a PER-WORKTREE port (see `e2ePort` below — it was a fixed
+ * 5173 until S182, which made parallel worktrees run each other's code).
  * E2E tests target DEV build (NOT prod) so __SPARK__ debug accessor is
  * available. Prod deploy.yml is unrelated to e2e workflow.
  */
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * ⛔⛔ S182 — **THE DEV-SERVER PORT IS PER-WORKTREE, AND A FIXED ONE SILENTLY RAN THE WRONG CODE.**
+ *
+ * This was `--port 5173` with `reuseExistingServer: !CI`. With several git worktrees open at once
+ * (the S182 parallel-branch pattern in CLAUDE.md), the SECOND session to run `npm run e2e:gating`
+ * did not start a server — it ADOPTED whichever branch's Vite already held 5173 and ran its specs
+ * against that branch's code.
+ *
+ * ⛔ IT FAILS IN BOTH DIRECTIONS, AND THE QUIET ONE IS WORSE. Measured on `s182/damage-truth`: one
+ * run produced failure stack traces rooted in `worktrees/s182-mp-identity-*` and
+ * `worktrees/s182-placement-*`; a later run reported 8 scattered failures that vanished completely
+ * (65/65) when re-run on a private port. A branch can go falsely RED — a session then chases a
+ * phantom — or falsely GREEN, having proved nothing about its own code.
+ *
+ * ⭐ DERIVED FROM THE WORKTREE PATH, not from an env var or a dotfile, because neither is reliable
+ * here: `SESSION_PORT` is not exported into the Node process, and `.claude/session-port.json` is
+ * gitignored and gets auto-cleaned between sessions. A hash of `process.cwd()` needs no plumbing,
+ * is STABLE for a given worktree across runs (so a debugging URL keeps working), and is distinct
+ * for every sibling. CI has a single checkout, so it simply gets its own stable port.
+ *
+ * ⚠ `reuseExistingServer` stays on locally and is now SAFE: the only server that can be listening
+ * on this port is this worktree's own.
+ *
+ * Range 20000-39999: clear of the well-known ports, clear of Vite's 5173, ~0.06% collision chance
+ * across six worktrees. Override with SPARK_E2E_PORT when you want a fixed one.
+ */
+function e2ePort(): number {
+  const override = Number(process.env.SPARK_E2E_PORT ?? '');
+  if (Number.isInteger(override) && override > 0 && override < 65536) return override;
+  // FNV-1a over the absolute worktree path — tiny, dependency-free, well-spread.
+  let h = 0x811c9dc5;
+  const cwd = process.cwd();
+  for (let i = 0; i < cwd.length; i++) {
+    h ^= cwd.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return 20000 + (h % 20000);
+}
+
+const E2E_PORT = e2ePort();
+const E2E_ORIGIN = `http://localhost:${E2E_PORT}`;
 
 // S126 — per-lane GLOBAL timeout, in MINUTES, supplied by each CI job's `env:`.
 //
@@ -96,7 +139,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: E2E_ORIGIN,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,8 +167,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
+    command: `npm run dev -- --port ${E2E_PORT} --host`,
+    url: `${E2E_ORIGIN}/?debug=1`,
+    // Safe now that the port is this worktree's alone — see `e2ePort`.
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
