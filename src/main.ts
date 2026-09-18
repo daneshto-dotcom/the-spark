@@ -1108,7 +1108,12 @@ async function bootstrap(): Promise<void> {
          * failing `tsc`. `spec.defenderKind` is typed `string`, so the exhaustiveness is enforced
          * against the real `DefenderKind` union via the explicit cast below rather than by `never`.
          */
-        switch (spec.defenderKind as DefenderKind) {
+        // ⭐ S182 MERGE — the cast is HOISTED so the default arm narrows to a genuine `never`.
+        // It was `switch (spec.defenderKind as DefenderKind)` with `const x: never = spec.defenderKind
+        // as never` in the default — and `as never` ALWAYS compiles, so the exhaustiveness contract
+        // the comment above claims did not exist. Switching on a typed local restores it.
+        const defenderKind = spec.defenderKind as DefenderKind;
+        switch (defenderKind) {
           case 'princess':
             return princessRenderer.portraitTexture();
           case 'stinkTower':
@@ -1116,8 +1121,11 @@ async function bootstrap(): Promise<void> {
           case 'turret':
             return null; // genuinely no art; the card falls back to its named plate
           default: {
-            const unreachableDefender: never = spec.defenderKind as never;
-            return unreachableDefender;
+            // Genuine compile-time coverage: a 4th DefenderKind fails `tsc` here. And the safe
+            // runtime fallback is RESTORED — the previous form returned the unknown kind itself.
+            const unreachableDefender: never = defenderKind;
+            void unreachableDefender;
+            return null;
           }
         }
       default: {

@@ -230,7 +230,9 @@ export function captureSeverToast(
       cause = e.cause;
       actor = e.actor;
     } else {
-      if (e.cause !== cause) mixedCause = true;
+      // S182: compare the RENDERED class, not the raw discriminant. `cause` is non-null here (it was
+      // set on the count===0 pass), but the guard keeps that obvious to the compiler and to a reader.
+      if (cause !== null && severCopyClass(e.cause) !== severCopyClass(cause)) mixedCause = true;
       if (e.actor !== actor) mixedActor = true;
     }
     count++;
@@ -245,6 +247,22 @@ export function captureSeverToast(
   if (!mixedActor && actor !== undefined) agent = seatLabel(actor, botSeats);
 
   return { text: severToastCopy(mixedCause ? null : cause, agent, count), count };
+}
+
+/**
+ * ⭐⭐ S182 MERGE — TWO DISCRIMINANTS THAT RENDER THE SAME SENTENCE MUST COUNT AS ONE.
+ *
+ * `severToastCopy` deliberately falls `'creature'` through into `'unit'`: a Voltkin and a goblin
+ * both read "<SEAT>'S CREATURE CUT YOUR BOND". But `captureSeverToast` compared the RAW cause, so a
+ * Voltkin and a goblin owned by the SAME seat severing in one frame set `mixedCause` and collapsed
+ * the batch to the weak default — "P2 BROKE YOUR BOND ×2" — which is exactly the downgrade the
+ * S182 cause split was fixing, surviving on the mixed path.
+ *
+ * Before the split both were `'creature'` and the question could not arise. Comparing the rendered
+ * CLASS rather than the discriminant is the form that stays correct as more causes are added.
+ */
+function severCopyClass(c: SeverCause): SeverCause {
+  return c === 'unit' ? 'creature' : c;
 }
 
 /** P3 (S131) — toast plate padding. Larger than the banner's because the font is 30px bold. */
