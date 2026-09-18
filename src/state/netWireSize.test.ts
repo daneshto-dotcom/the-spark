@@ -81,7 +81,12 @@ function buildBoard(primCount: number, opts: { chain?: boolean } = {}): World {
     // ⚠ `% 4` (x ≤ 670), not `% 8`. Measured: a free PLACE_PRIMITIVE is refused past x ≈ 980, so the
     // wider grid silently dropped placements. The envelope belongs to build legality — branch 3's
     // subject — and this file must not couple to it.
-    const gx = 200 + (group % 4) * 130;
+    // ⛔ S182 MERGE — 281, NOT 200. Branch 3's castle keep-out (CASTLE_NO_BUILD_RADIUS, zones.ts)
+    // landed after this fixture was written and refuses a placement near a castle anchor. At 200
+    // the first column fell inside it, PLACE_PRIMITIVE was refused SILENTLY, and the board came
+    // out undersized — which reads as a wire-budget failure rather than as the legality change it
+    // is. Neither branch could see this alone; it appeared only on the merged tree.
+    const gx = 281 + (group % 4) * 130;
     const gy = 300.1234567890123 + Math.floor(group / 4) * 90.7777777;
     const s = makeFreeSpark({
       id: asSparkId(7000 + i),
