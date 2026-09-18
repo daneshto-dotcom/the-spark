@@ -25,7 +25,7 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import { blueprintRadius } from '../state/blueprints.ts';
+import { blueprintExtent } from '../state/blueprints.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
 import { drawBlueprintShape } from './blueprintGlyph.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -38,19 +38,20 @@ const BAD_TINT = 0xff6b6b;
 export class BlueprintGhost {
   private readonly container: Container;
   private readonly art: Graphics;
-  private readonly ring: Graphics;
+  /** S182 — the footprint BOX. Named `ring` until it stopped being one; see `sync`. */
+  private readonly outline: Graphics;
   private readonly reasonText: Text;
 
   constructor(app: Application) {
     this.container = new Container();
     this.art = new Graphics();
-    this.ring = new Graphics();
+    this.outline = new Graphics();
     this.reasonText = new Text({
       text: '',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: BAD_TINT }),
     });
     this.reasonText.anchor.set(0.5, 0);
-    this.container.addChild(this.ring);
+    this.container.addChild(this.outline);
     this.container.addChild(this.art);
     this.container.addChild(this.reasonText);
     // ⚠ NON-INTERACTIVE, and this matters: the ghost sits directly under the pointer, so if it took
@@ -79,12 +80,23 @@ export class BlueprintGhost {
     const refusal = stampRefusalAt(world, cursor, world.localPlayerId, armed);
     const tint = refusal === null ? OK_TINT : BAD_TINT;
 
-    // FOOTPRINT RING — shows the space the build will actually occupy, which is the one thing a
-    // node-only drawing cannot convey. It is also the radius the legality check clears, so the player
-    // can see WHY a spot near their own structures is refused.
-    const r = blueprintRadius(armed);
-    this.ring.clear();
-    this.ring.circle(0, 0, r).stroke({ width: 2, color: tint, alpha: 0.35 });
+    /*
+     * FOOTPRINT OUTLINE — shows the space the build will actually occupy, which is the one thing a
+     * node-only drawing cannot convey. It is also the shape the legality check clears, so the
+     * player can see WHY a spot is refused.
+     *
+     * ⭐⭐ S182 — A **BOX**, NOT A RING, AND THAT IS THE WHOLE POINT OF THE CHANGE MADE THIS
+     * SESSION. This drew a circle at `blueprintRadius`, the distance to the farthest node — so for
+     * VOLTKIN (280 px wide, 0 px tall) it drew a 152 px disc around a flat chain and told the
+     * player that the tower needs vertical room it does not need. The legality arms now measure the
+     * true per-side extent, and a ghost whose outline disagrees with the rule it previews is the
+     * exact "teaches the player to distrust it" failure this file's docblock opens with.
+     */
+    const e = blueprintExtent(armed);
+    this.outline.clear();
+    this.outline
+      .roundRect(e.minDx, e.minDy, e.maxDx - e.minDx, e.maxDy - e.minDy, 6)
+      .stroke({ width: 2, color: tint, alpha: 0.35 });
 
     this.art.clear();
     this.art.alpha = refusal === null ? 0.85 : 0.5;
@@ -92,8 +104,10 @@ export class BlueprintGhost {
 
     // Name the blocker instead of just going red — the same contract the panel honours for a disabled
     // control. "BLOCKED" and "ENEMY GROUND" call for completely different moves by the player.
+    // S182 — under the footprint's own BOTTOM edge, so a flat recipe no longer floats its label
+    // 152 px below itself. `'CASTLE'` is the new word this can carry (S182 item 2).
     this.reasonText.text = refusal ?? '';
     this.reasonText.style.fill = tint;
-    this.reasonText.position.set(0, r + 6);
+    this.reasonText.position.set(0, e.maxDy + 6);
   }
 }

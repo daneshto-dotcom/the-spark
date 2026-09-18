@@ -27,7 +27,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { BOT_CONFIGS } from './botConfig.ts';
-import { chooseGoal, chooseTowerOrder, chooseTowerPlan, seatTowerRungs } from './botBrain.ts';
+import {
+  chooseGoal, chooseTowerOrder, chooseTowerPlan, seatTowerRungs,
+  TOWER_SITE_ANGLES, TOWER_SITE_OFFSET,
+} from './botBrain.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { zoneCount, type ZoneLayout } from '../state/zones.ts';
+import { ALL_BLUEPRINT_IDS } from '../state/blueprints.ts';
 import { BotManager } from './botManager.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
@@ -471,5 +477,58 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
       peakStamped,
       `a HARD bot on the REAL clock in a FOUR-SEAT match raised a structure (first tower at tick ${firstTowerTick})`,
     ).toBeGreaterThanOrEqual(blueprintCost(cheapest(w)));
+  });
+});
+
+/* ========================================================================== *
+ *   ⭐⭐ S182 — THE CASTLE KEEP-OUT MUST NOT STRAND THE BOT
+ * ========================================================================== */
+
+/**
+ * ⚠ THE HAZARD, STATED BEFORE IT IS TESTED. S182 added `CASTLE_NO_BUILD_RADIUS` (121) around every
+ * anchor, and the bot plants at `TOWER_SITE_OFFSET` (210) from THAT SAME anchor. The margin is
+ * therefore 89 px — and the widest recipe, VOLTKIN, reaches 152 px toward the anchor along its
+ * chain, so its two horizontal candidate angles are now genuinely refused as `CASTLE`.
+ *
+ * `chooseTowerPlan` cannot SPIN on that — it walks a fixed 10-angle list and returns null, and
+ * `botController` simply does not build this think. The real risk is quieter: a recipe for which
+ * ALL TEN angles are refused becomes permanently unbuildable by every bot, with nothing red.
+ * That is what this sweeps for, directly against the shipped constants.
+ */
+describe('S182 — every recipe still has a legal bot site on every board and every seat', () => {
+  const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
+
+  it.each(ALL_BLUEPRINT_IDS)('%s: at least one candidate angle survives the keep-out', (id) => {
+    for (const layout of LAYOUTS) {
+      const w = botsWorld();
+      w.layout = layout;
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const a = castleAnchor(seat, layout);
+        const legal = TOWER_SITE_ANGLES.filter((ang) => {
+          // The exact expression `chooseTowerPlan` uses — angle + π, never a paraphrase.
+          const centre = {
+            x: a.x + Math.cos(ang + Math.PI) * TOWER_SITE_OFFSET,
+            y: a.y + Math.sin(ang + Math.PI) * TOWER_SITE_OFFSET,
+          };
+          return stampRefusalAt(w, centre, asPlayerId(seat), id) === null;
+        });
+        expect(
+          legal.length,
+          `${id} on ${layout} seat ${seat} has NO legal bot site — the keep-out has stranded it`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('⚠ ANTI-VACUITY — the keep-out really does refuse some of them, so the sweep has teeth', () => {
+    // VOLTKIN along ±x is the measured case: 210 − 152 = 58 px from the anchor, inside the 121 px
+    // keep-out. If this ever stops being refused the sweep above is asserting nothing.
+    // ⚠ +x, i.e. the `Math.PI` entry in the angle list. The 0 entry points the other way, and from
+    // seat 0's goalmouth at x = 120 that lands off the arena — an `OFF SCREEN` refusal would have
+    // made this assertion green for the wrong reason.
+    const w = botsWorld();
+    const a = castleAnchor(0, w.layout);
+    const straightOut = { x: a.x + TOWER_SITE_OFFSET, y: a.y };
+    expect(stampRefusalAt(w, straightOut, asPlayerId(0), 'voltkin')).toBe('CASTLE');
   });
 });

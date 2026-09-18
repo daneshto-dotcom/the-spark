@@ -953,6 +953,25 @@ export class Controls {
         return;
       }
       if (e.button === 0) {
+        /*
+         * ⛔⛔ S182 — **NEVER STAMP A TOWER ON GROUND THE CARD IS COVERING.** This is the S181
+         * defect in a FOURTH place, found by enumerating the UI-surface guards rather than by a
+         * new report.
+         *
+         * `isPointerOverCard` was added in S181 to the two PLACE commit gates in `onUp` — and this
+         * arm is neither of them. The castle panel is guarded at the top of `onDown` and a footer
+         * chip/strip press is consumed by `handleFooterChipClick` above, but the CARD's body is not
+         * consumed until `handleSheetSelect`, which sits BELOW here. So arming a tower and clicking
+         * anywhere on an open character card that is not one of its buttons stamped a structure on
+         * board the player could not see — word for word what S181's own docblock says the
+         * predicate exists to prevent.
+         *
+         * ⚠ SWALLOWED, NOT FALLEN THROUGH, and deliberately: *"A HELD TOWER OWNS THE NEXT CLICK"*
+         * is the rule three lines above, and the tower stays in hand, which is fully reversible —
+         * the same reasoning `onUp`'s potato guard states for staying carried. The card's own
+         * FIX / SCRAP / FEED buttons still work, because `handleSheetActionClick` runs ABOVE this.
+         */
+        if (this.isPointerOverCard()) return;
         const centre = { x: this.cursor.x, y: this.cursor.y };
         // ⚠ THE LOCAL GATE DECIDES WHETHER TO *KEEP HOLDING*, NOT WHETHER THE BUILD IS LEGAL.
         //
@@ -1235,10 +1254,23 @@ export class Controls {
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
       // drawn above everything, so a release over it would drop a potato on unseen ground.
+      /*
+       * ⛔⛔ S182 — `&& !this.isPointerOverFooterChip()` WAS MISSING HERE, AND THE CODEBASE SAID IT
+       * WAS PRESENT. `footerBand.isOverShapeStrip`'s own docblock enumerates the four places
+       * `controls.ts` consults this predicate and names *"the potato plant"* as one of them. It was
+       * not one of them. Reachable in one gesture: carry a potato, press a tier chip or a palette
+       * button — `onDown` consumes the press, then this `onUp` PLANTS THE POTATO under the band.
+       *
+       * Found S182 by enumerating every UI-surface guard rather than by a report, which is the
+       * point: a surface registered in SOME guards and not others is this file's signature defect
+       * (S181 shipped exactly it for the character card), and the docblock claiming otherwise is
+       * what makes it survive review.
+       */
       if (
         meNow !== undefined &&
         meNow.carriedPotatoId !== undefined &&
         !this.isPointerOverPanel() &&
+        !this.isPointerOverFooterChip() &&
         !this.isPointerOverCard()
       ) {
         this.dispatchFn({

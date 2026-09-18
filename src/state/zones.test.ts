@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_PORCH_OFFSET_Y,
+  CASTLE_PORCH_PITCH_X,
+  CASTLE_PORCH_SLOTS,
+  CASTLE_PORCH_SLOT_CLEAR_RADIUS,
   FOOTER_TOP_Y,
   GATHERER_DEPOSIT_OFFSET_Y,
   KEEP_H,
@@ -12,8 +16,11 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from '../constants.ts';
+import { CASTLE_SPRITE_PX } from '../render/castleFrames.ts';
 import {
+  CASTLE_NO_BUILD_RADIUS,
   canBuildAt,
+  isInsideCastleKeepOut,
   layoutForSeatCount,
   MAX_SEATS_WITH_GROUND,
   zoneCastleAnchor,
@@ -316,5 +323,97 @@ describe('S149 P1 — zone fixtures are legal on every board, for every seat', (
         expect(own.x === foe.x && own.y === foe.y).toBe(false);
       }
     }
+  });
+});
+
+/* ========================================================================== *
+ *   ⭐⭐ S182 (owner) — THE CASTLE KEEP-OUT
+ * ========================================================================== */
+
+/**
+ * > *"You can place any tower over the castle. The castle doesn't read anything. Castle should have
+ * > an area around it where you can't place anything. At least in the immediate vicinity."*
+ *
+ * ⛔ `CASTLE_NO_BUILD_RADIUS` IS A LITERAL IN `zones.ts` BY DESIGN — `Math.hypot` is not guaranteed
+ * identical across JS engines and two peers may be on different browsers, which is rule 2 of that
+ * file's docblock. The arithmetic behind the literal therefore lives HERE, re-derived from the
+ * shipped constants, so a sprite resize or a porch retune turns this RED instead of silently
+ * shrinking the keep-out under the castle it is supposed to protect.
+ */
+describe('S182 — CASTLE_NO_BUILD_RADIUS is derived, not guessed', () => {
+  /** The outermost porch slot's offset from the anchor: slots fan symmetrically about the gate. */
+  const outerPorchDx = ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
+
+  it('it covers the castle SPRITE, corner included', () => {
+    // `castleFrames.ts`: the cell draws at CASTLE_SPRITE_PX, anchored x 0.5 / y 1 on the keep box's
+    // foot at KEEP_H / 2. So the sprite's far corner is its half-width against its full height
+    // minus that foot offset.
+    const halfW = CASTLE_SPRITE_PX / 2;
+    const up = CASTLE_SPRITE_PX - KEEP_H / 2;
+    expect(Math.hypot(halfW, up)).toBeLessThan(CASTLE_NO_BUILD_RADIUS);
+  });
+
+  it('it covers the PORCH — where every gathered shape actually lands', () => {
+    const reach = Math.hypot(outerPorchDx, CASTLE_PORCH_OFFSET_Y) + CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+    expect(reach).toBeLessThan(CASTLE_NO_BUILD_RADIUS);
+  });
+
+  it('⚠ and it is not BLOATED — one porch-slot clearance of air past the porch, no more', () => {
+    // The other half of the safety direction. A radius that kept growing would quietly delete the
+    // opening build space this game is played in; 121 is 104 (the porch reach, rounded up) + 17.
+    const reach = Math.hypot(outerPorchDx, CASTLE_PORCH_OFFSET_Y) + CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+    expect(CASTLE_NO_BUILD_RADIUS - reach).toBeLessThanOrEqual(CASTLE_PORCH_SLOT_CLEAR_RADIUS + 1);
+  });
+
+  it('the keep BOX is comfortably inside it, on both boards', () => {
+    for (const layout of LAYOUTS) {
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const a = zoneCastleAnchor(seat, layout);
+        for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+          const corner = { x: a.x + (sx * KEEP_W) / 2, y: a.y + (sy * KEEP_H) / 2 };
+          expect(isInsideCastleKeepOut(corner, layout)).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe('S182 — canBuildAt asks the keep-out FIRST, and it is total', () => {
+  it.each(LAYOUTS)('%s — no seat may build on ANY castle, its own included', (layout) => {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      for (let other = 0; other < zoneCount(layout); other++) {
+        expect(canBuildAt(zoneCastleAnchor(other, layout), seat, layout)).toBe(false);
+      }
+    }
+  });
+
+  it.each(LAYOUTS)('%s — the boundary decides it, one pixel either side', (layout) => {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      const a = zoneCastleAnchor(seat, layout);
+      // Along +y: on both boards the anchors are insets, so this stays inside the seat's own zone.
+      expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS - 1 }, layout)).toBe(true);
+      expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS }, layout)).toBe(false);
+      expect(canBuildAt({ x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS - 1 }, seat, layout)).toBe(false);
+      expect(canBuildAt({ x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS }, seat, layout)).toBe(true);
+    }
+  });
+
+  it.each(LAYOUTS)('%s — ⚠ ANTI-VACUITY: it refuses a keep-out sliver, not the board', (layout) => {
+    // A 20 px sweep. The keep-out must account for a SMALL, bounded share of each seat's ground —
+    // if it ever swallowed the zone this would catch it, and if it stopped refusing anything at all
+    // the count would drop to zero.
+    let refusedForCastle = 0;
+    let allowed = 0;
+    for (let x = 20; x < CANVAS_WIDTH; x += 20) {
+      for (let y = 20; y < CANVAS_HEIGHT; y += 20) {
+        const p = { x, y };
+        if (isInsideCastleKeepOut(p, layout)) refusedForCastle++;
+        else if (canBuildAt(p, 0, layout)) allowed++;
+      }
+    }
+    expect(refusedForCastle).toBeGreaterThan(20);
+    // ~π·121² px² per anchor ÷ 400 px² per sample ≈ 115 samples each; well under a zone's share.
+    expect(refusedForCastle).toBeLessThan(150 * zoneCount(layout));
+    expect(allowed).toBeGreaterThan(500);
   });
 });
