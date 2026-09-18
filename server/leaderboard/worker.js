@@ -1,14 +1,18 @@
 /**
  * SPARK — the shared arcade leaderboard. A Cloudflare Worker over D1.
  *
- * ⛔⛔ **NOT DEPLOYED, AND NOT DEPLOYABLE WITHOUT THE OWNER'S EXPLICIT GO.**
+ * ⭐⭐ **LIVE SINCE S182 — this is the first server SPARK has ever had.**
  *
- * SPARK has never had a backend. Every `fetch()` in `src/` is a same-origin static asset; the only
- * socket is a WebRTC signalling probe; the site is a static artifact on GitHub Pages. Standing this
- * up creates a Cloudflare ACCOUNT, a billing relationship, an uptime surface and a public write
- * endpoint — four things the project has never had and that only he can agree to. This file exists
- * so that "yes" costs ten minutes instead of a session. It is not wired to anything: the client
- * selects it only when `VITE_LEADERBOARD_URL` is set at build time, and it is set nowhere.
+ * Deployed to `https://spark-leaderboard.saras-fdtta.workers.dev` on the owner's own Cloudflare
+ * account after he approved it in S182. Everything before it in this repo is static: every other
+ * `fetch()` in `src/` is a same-origin asset, the only socket is a WebRTC signalling probe, and the
+ * game itself is a static artifact on GitHub Pages behind `public/CNAME`.
+ *
+ * ⚠ **THE GAME'S DOMAIN IS NOT ON CLOUDFLARE AND DOES NOT NEED TO BE.** `spark-online.space` is
+ * registered through Squarespace and its nameservers are Google's; the live site is served by GitHub
+ * Pages (`Server: GitHub.com`, no `cf-ray`). This worker is a separate thing on a `workers.dev`
+ * hostname that the game calls cross-origin — which is why the Origin allowlist below is the whole
+ * access-control story. Nothing about the domain changed to make this work, and nothing has to.
  *
  * ## Why Workers + D1, and the one choice that would have quietly broken it
  *
@@ -19,8 +23,9 @@
  * query this table needs is an indexed `ORDER BY ms LIMIT 25`, which is what a relational store is
  * for. Durable Objects would also work and cost more thought for no gain at this size.
  *
- * ⚠ **Free-tier figures are as of the pricing page read in May 2026 and MUST be re-checked before
- * signing up.** Cloudflare has changed them before. See `README.md` in this directory.
+ * ⚠ **Free-tier figures re-read off Cloudflare's own pricing pages on 2026-09-18**, not carried
+ * from a handout: Workers 100k requests/DAY, D1 5M rows read/day + 100k rows written/day + 5 GB.
+ * Cloudflare has changed these before — re-check rather than trusting this line. See `README.md`.
  *
  * ## ⛔ CHEATING IS BOUNDED HERE, NOT SOLVED, AND SAYING SO IS PART OF THE DESIGN
  *
@@ -41,13 +46,29 @@ const TOP_N = 25;
  * ⛔ PINNED TO THE ONE ORIGIN, NEVER `*`.
  *
  * `*` on a public write endpoint means any page on the internet can POST to this board from a
- * visitor's browser — including a page that does it in a loop to fill the table with garbage. The
- * localhost entry is for `npm run dev` and is deliberately the DEV port only.
+ * visitor's browser — including a page that does it in a loop to fill the table with garbage.
+ * Local dev origins are handled separately by `isAllowedOrigin` below.
  */
-const ALLOWED_ORIGINS = new Set([
-  'https://spark-online.space',
-  'http://localhost:5173',
-]);
+const ALLOWED_ORIGINS = new Set(['https://spark-online.space']);
+
+/**
+ * Local dev, on ANY port.
+ *
+ * ⚠ THE FIRST CUT HARDCODED `http://localhost:5173` AND THAT PORT IS NOT RELIABLE HERE. This project
+ * assigns a RANDOM session port to every dev server so parallel sessions cannot collide, so the one
+ * port in the allowlist is the one a developer is least likely to be on. Writes would 403 during
+ * local testing while working perfectly in production — the most confusing possible split.
+ *
+ * ⛔ AND WIDENING IT COSTS NOTHING SECURITY-WISE, which is the part worth stating rather than
+ * assuming. `Origin` is set by the BROWSER and cannot be forged by a remote page: a site at
+ * evil.example cannot make a visitor's browser send `Origin: http://localhost:1234`. The only party
+ * who can present a localhost origin is someone already running code on the machine, who could POST
+ * directly with curl regardless of what this list says.
+ */
+function isAllowedOrigin(origin) {
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  return /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/.test(origin);
+}
 
 /**
  * Plausibility bounds on a submitted time.
@@ -95,7 +116,7 @@ function normaliseName(raw) {
 }
 
 function corsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.has(origin) ? origin : 'https://spark-online.space';
+  const allowed = isAllowedOrigin(origin) ? origin : 'https://spark-online.space';
   return {
     'access-control-allow-origin': allowed,
     'access-control-allow-methods': 'GET, POST, OPTIONS',
@@ -206,7 +227,7 @@ async function handle(request, env, origin) {
     // enforced by the BROWSER on the response; it does not stop the request reaching this worker or
     // the row being written. A script posting from another page would have its reply blocked and its
     // garbage row stored anyway — the check has to happen here to mean anything.
-    if (!ALLOWED_ORIGINS.has(origin)) return json({ error: 'forbidden' }, 403, origin);
+    if (!isAllowedOrigin(origin)) return json({ error: 'forbidden' }, 403, origin);
 
     let body;
     try {

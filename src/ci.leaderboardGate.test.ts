@@ -148,7 +148,12 @@ describe('S182 — the worker, if and when the owner ever says yes', () => {
     // CORS is enforced by the browser on the RESPONSE. It does not stop the request arriving or the
     // row being written — a script posting from another page would have its reply blocked and its
     // garbage stored anyway.
-    expect(WORKER_SRC).toMatch(/if \(!ALLOWED_ORIGINS\.has\(origin\)\) return json\(\{ error: 'forbidden' \}/);
+    expect(WORKER_SRC).toMatch(/if \(!isAllowedOrigin\(origin\)\) return json\(\{ error: 'forbidden' \}/);
+    // ⚠ AND THE LOCALHOST EXEMPTION MUST NOT LEAK INTO PRODUCTION ORIGINS. `isAllowedOrigin` widens
+    // the allowlist to any localhost PORT (this project assigns a random one per session), which is
+    // safe only because `Origin` is browser-set and unforgeable by a remote page. The regex must stay
+    // anchored to localhost — a stray `.*` here would make the whole check meaningless.
+    expect(WORKER_SRC).toMatch(/\^http:\\\/\\\/\(\?:localhost\|127\\\.0\\\.0\\\.1\|\\\[::1\\\]\)/);
   });
 
   it('⛔ it is D1, NOT Workers KV — whose free tier is 1,000 writes per DAY', () => {
