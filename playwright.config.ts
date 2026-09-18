@@ -23,6 +23,30 @@
  */
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * ⭐⭐ S182 (owner) — **THE E2E PORT IS PARAMETERISED, BECAUSE A HARDCODED ONE LIES UNDER PARALLEL
+ * WORKTREES.**
+ *
+ * This pinned 5173 with `reuseExistingServer: !CI`. Under the S182 parallel-worktree pattern the
+ * owner runs ~6 sessions at once, so a local `npm run e2e:gating` silently ATTACHED to whichever
+ * branch's vite already held 5173 — reporting a verdict about somebody else's code, and dying
+ * mid-suite with `ERR_CONNECTION_REFUSED` when that session restarted its server. S182 measured
+ * both halves: 13 phantom "failures" on a shared server, 65/65 green on a private one.
+ *
+ * `SPARK_E2E_PORT=$SESSION_PORT npm run e2e:gating` now gives a worktree its own server. Unset, the
+ * behaviour is byte-identical to before (5173, reuse allowed), so CI and single-session use are
+ * untouched.
+ *
+ * ⚠ AND AN EMPTY VALUE FALLS BACK RATHER THAN BECOMING PORT 0. `SPARK_E2E_PORT=$SESSION_PORT` with
+ * `SESSION_PORT` unset expands to the empty string, and `Number('')` is `0` — which Playwright dutifully
+ * tries to serve on and then fails with a bare 60 s webServer timeout that names nothing. Measured
+ * S182, first run. Anything not a usable port number is ignored.
+ */
+const E2E_PORT = ((): number => {
+  const raw = Number(process.env.SPARK_E2E_PORT);
+  return Number.isInteger(raw) && raw >= 1024 && raw <= 65535 ? raw : 5173;
+})();
+
 // S126 — per-lane GLOBAL timeout, in MINUTES, supplied by each CI job's `env:`.
 //
 // Why this exists: when the runner's own `timeout-minutes` fires, GitHub SIGKILLs the
@@ -96,7 +120,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${E2E_PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,9 +148,14 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev -- --port ${E2E_PORT} --host`,
+    url: `http://localhost:${E2E_PORT}/?debug=1`,
+    /*
+     * ⛔ S182 — **REUSE ONLY WHEN THE PORT IS THE SHARED DEFAULT.** With `SPARK_E2E_PORT` set this
+     * run owns its server; attaching to someone else's would defeat the point of asking for a
+     * private port. See `E2E_PORT` above for what that silently cost.
+     */
+    reuseExistingServer: !process.env.CI && process.env.SPARK_E2E_PORT === undefined,
     timeout: 60_000,
   },
 });

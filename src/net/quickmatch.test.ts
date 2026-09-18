@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   decideQuickmatch,
+  parseQmBeacon,
   qmPromoteDelayMs,
   TICK_INTERVAL_MS,
   type QmAnnouncement,
@@ -266,9 +267,81 @@ describe('S182 — the promote clock races the discovery handshake, and often wi
     expect(demote).toEqual({ kind: 'join', code: 'AAAAAA' });
   });
 
-  it('only a sub-2 s beacon could have produced a direct join — the case that does not occur', () => {
-    // Stated as the counterexample so the claim above is falsifiable rather than merely asserted:
-    // the election is NOT broken, it is starved. Give it a beacon inside the window and it joins.
+  it('⭐ a beacon INSIDE the window produces a direct join — the race the seeker can win', () => {
+    /*
+     * ⛔ S182 SELF-AUDIT — **THIS TEST'S TITLE WAS THE FOURTH SITE OF THE RETRACTED "ALWAYS" CLAIM,
+     * AND IT WAS THE ONE THE FIRST CORRECTION PASS MISSED.** It read *"only a sub-2 s beacon could
+     * have produced a direct join — the case that does not occur"*. Three prose sites were reworded
+     * to say the promote-vs-handshake outcome is a RACE; this title went on asserting the opposite,
+     * in the file whose whole job is to pin that mechanism.
+     *
+     * ⚠ That is this project's signature defect — a rule applied at SOME of its sites — occurring
+     * inside the self-audit that was written to catch it. Prose corrections need the same
+     * enumerate-every-site discipline as code ones; a test NAME is a site.
+     *
+     * The assertion itself was always right and is unchanged: give the election a beacon inside the
+     * promote window and it joins directly. That case is uncommon, not impossible.
+     */
     expect(runUntilDecided(2500, 1000)).toEqual({ kind: 'join', atMs: 1400 });
+  });
+});
+
+/**
+ * ⛔⛔ S182 (owner) — **THE DISCOVERY ROOM IS A PUBLIC TRUST BOUNDARY, AND IT IS THE ONLY PLACE A
+ * BAD CODE CAN STILL BE REFUSED FOR FREE.**
+ *
+ * `spark-qm-v{PROTO}` is joined by every seeker on the internet, and `decideQuickmatch` takes the
+ * lexicographically SMALLEST advertised code — so whatever lands in `heard` can win the election
+ * outright. The beacon parse is therefore the boundary, and everything downstream of it has already
+ * committed: by `applyQuickmatchJoining` the transport has been torn down and reconnected, so a
+ * refusal there would leave the lobby claiming to host a room it had left (the two-P1 bug).
+ *
+ * ⚠ NAMED HONESTLY: this is HYGIENE, NOT A SECURITY BOUNDARY. A well-formed low-sorting code
+ * (`222222`) passes every format check there is — the last test below proves it rather than letting
+ * the docblock claim otherwise. What actually defends the player is that a bogus room never answers
+ * and an unverifiable host never latches (`hostAuthFilter`).
+ */
+describe('S182 — parseQmBeacon guards the public discovery room', () => {
+  const beacon = (o: unknown): string => JSON.stringify(o);
+
+  it('accepts a well-formed host beacon and canonicalises its code', () => {
+    expect(parseQmBeacon(beacon({ t: 'host', code: 'A2B3C4', full: false }))).toEqual({
+      t: 'host',
+      code: 'A2B3C4',
+      full: false,
+    });
+    // `parseRoomCode` upper-cases and trims, so a sloppy-but-legal beacon still lands canonical.
+    expect(parseQmBeacon(beacon({ t: 'host', code: ' a2b3c4 ' }))?.code).toBe('A2B3C4');
+  });
+
+  it('⛔ REFUSES everything that must never reach the election', () => {
+    for (const raw of [
+      'not json at all',
+      beacon({ t: 'nothost', code: 'A2B3C4' }),
+      beacon({ t: 'host' }),
+      beacon({ t: 'host', code: 42 }),
+      beacon({ t: 'host', code: '' }),
+      beacon({ t: 'host', code: 'ABC' }),
+      beacon({ t: 'host', code: 'ABCDEFG' }),
+      beacon({ t: 'host', code: 'AB0DEF' }), // 0 is excluded from the alphabet
+      beacon({ t: 'host', code: 'ABIDEF' }), // so is I
+      beacon({ t: 'host', code: '!!!!!!' }),
+      beacon({ t: 'host', code: '../../etc' }),
+    ]) {
+      expect(parseQmBeacon(raw), raw).toBeNull();
+    }
+  });
+
+  it('⚠ and is HONEST about what it cannot stop — a valid low-sorting code still wins', () => {
+    /*
+     * The negative control for the docblock. A previous version of this guard lived in the lobby
+     * reducer and claimed to stop "a stranger publishing a code sorting below every real one".
+     * It never could: that code is well-formed. Proving the limit here is what keeps the comment
+     * above from becoming the next session's false premise.
+     */
+    const hostile = parseQmBeacon(beacon({ t: 'host', code: '222222' }));
+    expect(hostile).not.toBeNull();
+    const d = decideQuickmatch(seeking({ elapsedMs: 100 }), heard(['222222', false], ['ZZZZZZ', false]));
+    expect(d).toEqual({ kind: 'join', code: '222222' });
   });
 });

@@ -436,12 +436,16 @@ export function creatureDisplayName(type: CreatureType): string {
  *     with no recipe) fell straight through. `portraitForStructure`'s own docblock claimed it *"keeps
  *     the emblem path that already handled it"*; `codexCopyFor('freeform')` returns the unmapped
  *     fallback, which carries no emblem, so the emblem path never handled it at all.
- *   · **Creatures with no `ATLASES` entry** that are not `proceduralFrame` drew dots. ⚠ S182
- *     SELF-AUDIT CORRECTION: the first version of this list said *"three — voltkin, direwolf and
- *     locustCloud"*. **`direwolf` is wrong** — `goblinRenderer.ts:188` maps it to
- *     `/godly/direwolf/anim/direwolf` and the art is on disk (landed S173). The claim is corrected
- *     rather than deleted because a wrong enumeration in a docblock is what the next session
- *     reasons from. The list is derived by the sweep, not by this prose — read the test.
+ *   · **Creatures with no art drew dots — and the list of WHICH was wrong twice.** ⛔ S182
+ *     SELF-AUDIT: it said *"three — voltkin, direwolf and locustCloud have no `ATLASES` entry"*.
+ *     Both errors came from reading ONE table as though it were the whole world:
+ *       · **`direwolf`** has had an `ATLASES` entry since S173 (`goblinRenderer.ts:188`).
+ *       · **`voltkin`** ships 20 frames each of idle/walk/attack/die at
+ *         `/godly/voltkin/anim/voltkin-atlas.png`, loaded since S110 P5 — just not by
+ *         `goblinRenderer`, because **the Voltkin is not a goblin**; `creatureRenderer` owns it.
+ *         "No `ATLASES` entry" was true, irrelevant, and cost a finished character its portrait.
+ *     The set is DERIVED by the sweep now, and the Voltkin is wired to its own renderer's
+ *     accessor — read the test, not this prose.
  *
  * ⭐ SO THE DECISION IS A TOTAL FUNCTION OVER `PortraitSpec` WITH A `never` ARM. A new spec kind
  * cannot compile without deciding what its plate says, and no arm can return an ellipsis because

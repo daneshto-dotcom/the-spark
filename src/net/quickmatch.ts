@@ -40,8 +40,8 @@
 import { joinRoom as joinNostr, selfId } from '@trystero-p2p/nostr';
 import type { MessageAction, Room } from '@trystero-p2p/core';
 import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from './iceConfig.ts';
-import { MAX_PLAYERS } from '../constants.ts';
-import { PROTOCOL_VERSION } from './protocol.ts';
+import { MAX_PLAYERS, NET_ROOM_CODE_LENGTH } from '../constants.ts';
+import { parseRoomCode, PROTOCOL_VERSION } from './protocol.ts';
 
 /* ════════════════════════ DISCOVERY ELECTION (pure) ═══════════════════════ */
 
@@ -121,6 +121,50 @@ export function qmPromoteDelayMs(id: string, minMs = 2000, maxMs = 3500): number
 }
 
 /* ════════════════════════ DISCOVERY PLUMBING (thin) ═══════════════════════ */
+
+/**
+ * ⭐ S182 — PURE beacon parse, EXPORTED so the trust boundary is testable without a Trystero room
+ * (`#test-via-pure-helper-export`, the pattern `lobbyRoster.ts` names). Returns null for anything
+ * that must not reach the election.
+ *
+ * ⛔⛔ **VALIDATE AT THE INGEST BOUNDARY, WHICH IS HERE AND NOWHERE DOWNSTREAM.**
+ *
+ * This accepted any `{t:'host', code:<string>}` published into the PUBLIC discovery room, and
+ * `decideQuickmatch` sorts lexicographically and takes the smallest — so a junk string could win the
+ * election outright. The first S182 self-audit tried to fix that in the LOBBY REDUCER
+ * (`QM_JOIN_START`), and that was wrong twice over:
+ *
+ *   1. **IT DID NOT STOP THE ATTACK ITS OWN COMMENT DESCRIBED.** `isValidRoomCode('222222')` is
+ *      TRUE — an attacker simply picks a well-formed code that sorts below every real one.
+ *   2. **AND REFUSING THERE RE-CREATED THE VERY DESYNC THIS BRANCH EXISTS TO KILL.** By the time
+ *      `applyQuickmatchJoining` runs, `tick()` has ALREADY called `teardownHost()` and `joinCode()`
+ *      — the transport is irreversibly a client in someone else's room. A reducer returning `state`
+ *      unchanged there leaves `mode === 'hosting'`: a peer painting "P1  HOST" while being a client.
+ *      That IS the two-P1 bug, reintroduced on the malformed-code path by its own fix.
+ *
+ * ⭐ SO THE CHECK LIVES WHERE REFUSING IS STILL FREE. A rejected beacon never enters `heard`, never
+ * reaches the election, and nothing downstream has committed. `parseRoomCode` is the net-layer
+ * canonicaliser (`protocol.ts`), deliberately NOT `render/lobbyGeometry`'s `isValidRoomCode` —
+ * `net/` must not import from `render/`.
+ *
+ * ⚠ AND THIS IS HYGIENE, NOT A SECURITY BOUNDARY. It cannot stop point 1. What actually stops a
+ * hostile code is that the room does not answer — the join stalls and `joinTrust` surfaces it — and
+ * that a host we cannot cryptographically verify never latches (`hostAuthFilter`).
+ */
+export function parseQmBeacon(raw: string): QmAnnouncement | null {
+  try {
+    const a = JSON.parse(raw) as Partial<QmAnnouncement>;
+    if (a.t !== 'host' || typeof a.code !== 'string') return null;
+    const code = parseRoomCode(a.code, NET_ROOM_CODE_LENGTH);
+    if (code === null) return null;
+    return { t: 'host', code, full: a.full === true };
+  } catch {
+    // Malformed JSON — ignore (a public stranger room can carry junk).
+    return null;
+  }
+}
+
+
 
 /** Well-known discovery room — version-scoped so only same-protocol peers meet. */
 export const QM_DISCOVERY_ROOM = `spark-qm-v${PROTOCOL_VERSION}`;
@@ -212,14 +256,8 @@ export class QuickmatchDiscovery {
   }
 
   private onBeacon(raw: string): void {
-    try {
-      const a = JSON.parse(raw) as Partial<QmAnnouncement>;
-      if (a.t === 'host' && typeof a.code === 'string') {
-        this.heard.set(a.code, { t: 'host', code: a.code, full: a.full === true });
-      }
-    } catch {
-      // Malformed beacon — ignore (a stranger room can carry junk).
-    }
+    const a = parseQmBeacon(raw);
+    if (a !== null) this.heard.set(a.code, a);
   }
 
   private tick(): void {

@@ -1068,11 +1068,22 @@ export class LobbyScreen {
      * the host had never been told — a ready-gate that can never fire, and a player with no way to
      * know: pressing the button again only toggles them to NOT ready.
      *
-     * Clearing it here is the honest state and matches the session it mirrors.
+     * Clearing it is the honest state and matches the session it mirrors.
+     *
+     * ⛔ S182 — **BUT THE REDUCER DECIDES FIRST, AND THE SHELL FOLLOWS.** This cleared `selfReady`
+     * and repainted the button BEFORE dispatching, so on any transition the reducer declined the
+     * button would have said NOT READY while the state still said hosting-and-ready — shell and
+     * state disagreeing, which is the whole class of bug this branch is about. `QM_JOIN_START` is
+     * unconditional today, so that window was not reachable; ordering it correctly means it cannot
+     * become reachable if a refusal path is ever added back. Same `next !== this.state` idiom as
+     * `updatePeerStatus` / `updatePresence`.
      */
-    this.selfReady = false;
-    this.paintReadyButton();
-    this.state = lobbyReduce(this.state, { type: 'QM_JOIN_START', code });
+    const next = lobbyReduce(this.state, { type: 'QM_JOIN_START', code });
+    if (next !== this.state) {
+      this.selfReady = false;
+      this.paintReadyButton();
+    }
+    this.state = next;
     this.applyView();
     this.updateInputVisibility();
   }

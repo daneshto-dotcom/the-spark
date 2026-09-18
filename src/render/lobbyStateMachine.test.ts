@@ -732,21 +732,29 @@ describe('S182 — the quickmatch demote leaves exactly ONE peer claiming seat 0
     expect(selfSeats(swallowed)).toEqual([0]); // …and the stale P1 claim it used to leave behind
   });
 
-  it('⛔ QM_JOIN_START still VALIDATES the code — it is unvalidated network input', () => {
+  it('⛔ QM_JOIN_START IS UNCONDITIONAL — it may never refuse, even a malformed code', () => {
     /*
-     * S182 SELF-AUDIT. The first version of this arm dropped `isValidRoomCode` along with the mode
-     * guard. Only the MODE guard was meant to go: the code arrives from `onBeacon`, which accepts any
-     * `{t:'host', code:<string>}` published into the PUBLIC discovery room, and `decideQuickmatch`
-     * takes the lexicographically smallest — so a stranger could advertise a code sorting below every
-     * real one and drive every seeker's lobby into 'joining' against a room that cannot exist.
+     * ⛔⛔ S182 — **THIS TEST ASSERTED THE OPPOSITE AND THE ASSERTION ITSELF WAS THE BUG.**
+     *
+     * A mid-session self-audit added `isValidRoomCode` to this arm, "restoring" a guard, and pinned
+     * it here. Both halves were wrong:
+     *
+     *   1. It did not stop the attack its own comment described — `isValidRoomCode('222222')` is
+     *      TRUE, so a hostile peer just picks a well-formed low-sorting code.
+     *   2. Worse, refusing here RE-CREATES THE TWO-P1 DESYNC THIS WHOLE BRANCH EXISTS TO KILL. By
+     *      the time this event fires, `quickmatch.ts` tick() has already run `teardownHost()` and
+     *      `joinCode()`: the transport IS a client in someone else's room. Leaving the reducer in
+     *      'hosting' paints "P1  HOST" on a client — the exact defect, on the malformed path.
+     *
+     * ⭐ THE RULE: a transition that REPORTS a completed side effect can never be conditional.
+     * Validation moved to `parseQmBeacon`, where refusing is still free.
      */
     const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
-    for (const bad of ['', 'zz', 'ABC', 'ABCDEFG', 'AB0DEF', 'ABIDEF', '!!!!!!']) {
-      const after = lobbyReduce(hosting, { type: 'QM_JOIN_START', code: bad });
-      expect(after, `"${bad}" must not enter joining`).toBe(hosting);
+    for (const code of ['', 'zz', 'ABC', 'AB0DEF', '!!!!!!', VALID_CODE]) {
+      const after = lobbyReduce(hosting, { type: 'QM_JOIN_START', code });
+      expect(after.mode, `"${code}" must still leave hosting behind`).toBe('joining');
+      expect(after.code, `"${code}" is recorded verbatim`).toBe(code);
     }
-    // …and a real code still transitions.
-    expect(lobbyReduce(hosting, { type: 'QM_JOIN_START', code: VALID_CODE }).mode).toBe('joining');
   });
 
   it('QM_JOIN_START is UNGUARDED BY MODE — it transitions from hosting, joining and select alike', () => {
@@ -837,15 +845,28 @@ describe('S182 — no seat identity is derived from local mode outside fallbackS
     const SCREEN_CODE = readFileSync(SCREEN_PATH, 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
-    // ⚠ The body also clears the READY latch before dispatching (S182 self-audit), so this matches
-    // the DISPATCH rather than pinning the whole body — it is the event choice that is load-bearing.
+    // The event choice is the load-bearing half: a demote must never ride the user-input event.
     expect(SCREEN_CODE).toMatch(
       /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?lobbyReduce\(this\.state, \{ type: 'QM_JOIN_START', code \}\)/,
     );
-    // ⛔ and the latch clear must stay INSIDE that method — a demoted peer arriving in someone
-    // else's lobby still painted READY ✓ is a ready-gate that can never fire.
+    /*
+     * ⛔ S182 — **THE LATCH CLEAR MUST COME AFTER THE DISPATCH, AND THE ORDER IS THE ASSERTION.**
+     *
+     * Two things are pinned at once. The clear must EXIST (a demoted peer arriving in someone else's
+     * lobby still painted READY ✓ is a ready-gate that can never fire, because `teardownNet` already
+     * cleared the session's half). And it must come AFTER `lobbyReduce` — the first version mutated
+     * shell state and repainted the button BEFORE dispatching, so any transition the reducer declined
+     * would leave the button and the state disagreeing. That is the same shell-vs-state contradiction
+     * this whole branch exists to remove, in miniature.
+     */
     expect(SCREEN_CODE).toMatch(
-      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?this\.selfReady = false;[\s\S]*?QM_JOIN_START/,
+      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?QM_JOIN_START[\s\S]*?this\.selfReady = false;/,
+    );
+    expect(
+      SCREEN_CODE,
+      'the shell must not mutate before the reducer decides',
+    ).not.toMatch(
+      /applyQuickmatchJoining\(code: string\): void \{[^}]*?this\.selfReady = false;[\s\S]*?lobbyReduce/,
     );
     // JOIN_ATTEMPT survives for the one thing it is: the Connect button.
     expect((SCREEN_CODE.match(/'JOIN_ATTEMPT'/g) ?? [])).toHaveLength(1);

@@ -178,6 +178,8 @@ import { TowerRenderer } from './render/towerRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
 import { CharacterSheet } from './render/characterSheet.ts';
+// ⭐ S182 — type-only, for the exhaustive defenderFrame portrait switch (erased at build).
+import type { DefenderKind } from './state/defenders/defender.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
@@ -1026,6 +1028,13 @@ async function bootstrap(): Promise<void> {
   characterSheet.setPortraitSource((spec) => {
     switch (spec.kind) {
       case 'creatureFrame':
+        /*
+         * ⭐ S182 (owner) — **THE VOLTKIN IS NOT A GOBLIN AND ITS SHEET IS NOT IN `ATLASES`.**
+         * `goblinRenderer.portraitTexture` answers from that one table, so the Voltkin missed it and
+         * fell to a text plate — with the false excuse that it had no art. `creatureRenderer` owns
+         * the Voltkin and has had its 20-frame sheet loaded since S110 P5.
+         */
+        if (spec.creatureType === 'voltkin') return creatureRenderer.voltkinPortraitTexture();
         return goblinRenderer.portraitTexture(spec.creatureType, spec.race);
       case 'towerFrame':
         return towerRenderer.portraitTexture(spec.atlasBase);
@@ -1082,13 +1091,24 @@ async function bootstrap(): Promise<void> {
          * DEAD CODE TODAY and are labelled so, rather than left looking like a shipped fix. A wrong
          * root cause in a docblock is what the next session reasons from.
          */
-        switch (spec.defenderKind) {
+        /*
+         * ⚠ S182 — EXHAUSTIVE, for the same reason the `namedBuildingFrame` switch above is. This
+         * arm shipped with `default: return null` in the very commit that insisted on a `never` arm
+         * fifteen lines below — so a fourth `DefenderKind` would silently get no portrait instead of
+         * failing `tsc`. `spec.defenderKind` is typed `string`, so the exhaustiveness is enforced
+         * against the real `DefenderKind` union via the explicit cast below rather than by `never`.
+         */
+        switch (spec.defenderKind as DefenderKind) {
           case 'princess':
             return princessRenderer.portraitTexture();
           case 'stinkTower':
             return stinkTowerRenderer.portraitTexture();
-          default:
-            return null;
+          case 'turret':
+            return null; // genuinely no art; the card falls back to its named plate
+          default: {
+            const unreachableDefender: never = spec.defenderKind as never;
+            return unreachableDefender;
+          }
         }
       default: {
         /*

@@ -169,7 +169,27 @@ describe('e2e lane composition is a decision, not an accident', () => {
      */
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const { join } = require('node:path') as typeof import('node:path');
-    const yml = readFileSync(join(ROOT, '.github', 'workflows', 'e2e.yml'), 'utf8');
+    /*
+     * ⛔ S182 — **NORMALISE LINE ENDINGS AT THE READ, AND THAT IS WHY IT IS DONE HERE RATHER THAN IN
+     * THE ONE REGEX BELOW.**
+     *
+     * SPARK has no `.gitattributes` and this project's Windows checkout has `core.autocrlf=true`, so
+     * `e2e.yml` arrives CRLF while git stores LF. The job-boundary search below is
+     * `/\n {2}[a-z][a-z0-9-]*:\n/` — a trailing `:\r\n` does not match `:\n`, so `nextJob` came back
+     * `-1`, the "block" for `e2e-races` silently became THE WHOLE REST OF THE FILE, and it picked up
+     * a `continue-on-error` belonging to an entirely different job. The lane is gating; the parse was
+     * not.
+     *
+     * ⚠ THE FAILURE IS WINDOWS-ONLY AND CI IS GREEN, which is the dangerous half: the ubuntu runner
+     * checks out LF, so this only ever reddened the local pre-commit run and read as somebody else's
+     * broken test. That is the "gate that cries wolf" shape — it trains its reader to skip the run
+     * where the gate is right. It went unfixed across at least two sessions for exactly that reason.
+     *
+     * Normalising once at the read fixes every pattern in this block at once, including the two
+     * sibling `.includes('\n  ' + job + ':')` probes, rather than leaving the next one to be found.
+     */
+    const readText = (p: string): string => readFileSync(p, 'utf8').split('\r\n').join('\n');
+    const yml = readText(join(ROOT, '.github', 'workflows', 'e2e.yml'));
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;
     };

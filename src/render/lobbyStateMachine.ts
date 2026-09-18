@@ -261,14 +261,22 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
       // hosting-only so nothing renders it, but leaving the stale code in state is how a later
       // reader talks itself back into believing we still host it.
       //
-      // ⛔ S182 SELF-AUDIT — **BUT STILL VALIDATED, AND THE FIRST VERSION OF THIS ARM WAS NOT.**
-      // Dropping the MODE guard is the point; dropping `isValidRoomCode` was an accident, and it
-      // mattered because this code is UNVALIDATED NETWORK INPUT. `quickmatch.ts`'s `onBeacon`
-      // accepts any `{t:'host', code:<string>}` from the PUBLIC discovery room, and
-      // `decideQuickmatch` sorts lexicographically and takes the smallest — so any stranger could
-      // publish a code sorting below every real one and drive every seeker's lobby into 'joining'
-      // against a room that cannot exist. A malformed code now leaves us exactly where we were.
-      if (!isValidRoomCode(event.code)) return state;
+      //
+      // ⛔⛔ S182 — **AND UNCONDITIONAL, INCLUDING ON THE CODE. THIS ARM MUST NOT HAVE A REFUSAL
+      // PATH AT ALL**, which a mid-session "fix" briefly gave it by adding `isValidRoomCode` here.
+      // That was wrong twice:
+      //
+      //   1. It did not stop what its own comment claimed. `isValidRoomCode('222222')` is TRUE, so
+      //      an attacker simply picks a well-formed code that sorts below every real one.
+      //   2. Far worse, REFUSING HERE RE-CREATES THE EXACT DESYNC THIS BRANCH EXISTS TO KILL. By the
+      //      time this event fires, `quickmatch.ts` tick() has ALREADY run `teardownHost()` and
+      //      `joinCode()` — the transport is irreversibly a client in someone else's room. Returning
+      //      `state` unchanged leaves `mode === 'hosting'`, i.e. a peer painting "P1  HOST" while
+      //      being a client. That IS the two-P1 bug, reintroduced on the malformed-code path.
+      //
+      // ⭐ THE RULE THIS ENCODES: a transition that REPORTS a completed side effect can never be
+      // conditional. Validation belongs where refusing is still free — `onBeacon`, at ingest, which
+      // is where it now lives.
       return enterJoining(state, event.code);
 
     case 'PEER_STATUS': {

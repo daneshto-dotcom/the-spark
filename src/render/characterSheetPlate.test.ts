@@ -21,10 +21,11 @@
  *     player hand-bonds with no recipe. `portraitForStructure`'s own docblock asserted it *"keeps the
  *     emblem path that already handled it"* — `codexCopyFor('freeform')` hits the unmapped fallback,
  *     which carries no emblem, so that path never handled it.
- *   · **More creatures than the brief named** have no `ATLASES` entry and are not
- *     `proceduralFrame`, so each drew dots. ⚠ S182 SELF-AUDIT: the first version of this list said
- *     *"three — voltkin, direwolf and locustCloud"* and **`direwolf` was wrong** — it has had an
- *     atlas since S173. The set is now DERIVED from `ATLASES` below rather than typed out here.
+ *   · **Creatures with no art drew dots** — but the list of WHICH was wrong twice, and both errors
+ *     came from treating `goblinRenderer`'s `ATLASES` as the whole world. `direwolf` has had an entry
+ *     since S173; `voltkin` has a 20-frame sheet loaded by `creatureRenderer` instead, because the
+ *     Voltkin is not a goblin. The set is DERIVED below, and the sweep deliberately treats "has a
+ *     texture" as a per-renderer question rather than an `ATLASES` lookup.
  *   · ⚠ **A CLAIM THIS FILE ITSELF GOT WRONG, KEPT AS THE LESSON:** the first version said
  *     `defenderFrame{stinkTower}` printed `STINKT` in production. It never did — `defenderSheet`
  *     returns null on `ehp === null`, and every `DefenderKind` but `princess` is a tower with a null
@@ -66,6 +67,13 @@ const plate = (spec: PortraitSpec, hasTexture: boolean) =>
 
 /** ⚠ `DefenderKind` is not exported as a value; these are its three union members, pinned below. */
 const DEFENDER_KINDS = ['turret', 'princess', 'stinkTower'] as const;
+
+/**
+ * ⭐ S182 (owner) — creature types whose sheet is owned by a renderer OTHER than `goblinRenderer`,
+ * so `ATLASES` does not know about them. Reading that table as the whole world is exactly what routed
+ * the Voltkin — a finished 20-frame character — to a text plate.
+ */
+const RENDERED_ELSEWHERE: ReadonlySet<string> = new Set(['voltkin']);
 
 /**
  * Every portrait spec the game can put on a card.
@@ -223,14 +231,22 @@ describe('S182 — every portrait plate is art, a puppet, an emblem or a NAME', 
        * actually shipping. It also listed `direwolf`, which HAS had an atlas since S173
        * (`goblinRenderer.ts:188`), so a third of the table was wrong as well as unchecked.
        *
-       * ⭐ DERIVED, NOT TYPED: the atlas-less set comes from `ATLASES` itself, so packing art for
-       * one of them moves this test instead of rotting it.
+       * ⭐ DERIVED, NOT TYPED, so packing art for one of these moves the test instead of rotting it.
+       *
+       * ⛔ AND `ATLASES` ALONE IS NOT THE QUESTION — that misreading is what cost the Voltkin its
+       * portrait. `ATLASES` is `goblinRenderer`'s table; the Voltkin's 20-frame sheet is loaded by
+       * `creatureRenderer`, and `main.ts` routes its `creatureFrame` there. So a type counts as
+       * art-less only when NO renderer owns a sheet for it, which `RENDERED_ELSEWHERE` records.
        */
       const atlasless = (Object.keys(CREATURE_CONFIGS) as CreatureType[]).filter(
-        (t) => ATLASES[t] === undefined && portraitForCreature(t, null).kind === 'creatureFrame',
+        (t) =>
+          ATLASES[t] === undefined &&
+          !RENDERED_ELSEWHERE.has(t) &&
+          portraitForCreature(t, null).kind === 'creatureFrame',
       );
-      expect(atlasless.length, 'there is at least one atlas-less creature to guard').toBeGreaterThan(0);
+      expect(atlasless.length, 'there is at least one art-less creature to guard').toBeGreaterThan(0);
       expect(atlasless, 'direwolf has had an atlas since S173').not.toContain('direwolf');
+      expect(atlasless, 'the Voltkin sheet is loaded by creatureRenderer').not.toContain('voltkin');
       for (const type of atlasless) {
         const p = plate(portraitForCreature(type, null), false);
         expect(p, type).toEqual({ kind: 'word', text: creatureDisplayName(type).toUpperCase() });
