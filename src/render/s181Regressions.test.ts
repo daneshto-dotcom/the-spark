@@ -16,6 +16,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { wrapToWidth, fitChars } from './characterSheet.ts';
 import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
+import { severToastCopy, captureSeverToast, type SeverCause } from './severToastRenderer.ts';
+import { asPlayerId } from '../types.ts';
+import type { GameEffect } from '../game/effects.ts';
 
 const read = (f: string): string => readFileSync(f, 'utf-8');
 
@@ -267,6 +270,48 @@ describe('S181 R7 — the renderer and the model agree on the description height
   });
 });
 
+/**
+ * ⛔⛔ S182 — **THE TWO REGRESSIONS THE CAUSE SPLIT INTRODUCED.** Both were behavioural, neither
+ * was caught by tsc, and both come from the same mistake: adding a value to a discriminated union
+ * and visiting only the consumers the COMPILER forces.
+ *
+ * `severToastRenderer` is the consumer that stayed silent — its switch has a tolerant default and
+ * its suppression list is a plain `if`. Nothing failed to compile; the player just stopped being
+ * told what hit them.
+ */
+describe('S182 — the sever TOAST survived the cause split', () => {
+  it('⛔ a `unit` sever keeps the CREATURE verb — it must not fall to the tolerant default', () => {
+    // Before the split every goblin/boss was `'creature'` and read "X'S CREATURE CUT YOUR BOND".
+    // Falling through to the default would have silently downgraded all of them to "BROKE".
+    expect(severToastCopy('unit', 'P2', 1)).toBe("P2'S CREATURE CUT YOUR BOND");
+    expect(severToastCopy('unit', 'P2', 3)).toBe("P2'S CREATURE CUT YOUR BOND ×3");
+    // ⭐ NOT VACUOUS: the default it must NOT reach is a different, weaker string.
+    expect(severToastCopy('godly', 'P2', 1)).toBe('P2 BROKE YOUR BOND');
+  });
+
+  it('⭐ and the Voltkin keeps the same wording — the split changed SOUND, not copy', () => {
+    expect(severToastCopy('creature', 'P2', 1)).toBe("P2'S CREATURE CUT YOUR BOND");
+  });
+
+  it('⛔ an enemy SUICIDE GOBLIN still reaches the victim — `bomb` would suppress it', () => {
+    /*
+     * The regression in full: `'bomb'` is dropped unconditionally by `captureSeverToast`, so
+     * routing the blast through it made a deliberate hostile act completely silent. This asserts
+     * the CAPTURE, not just the copy — the suppression lives there.
+     */
+    const victim = asPlayerId(0);
+    const attacker = asPlayerId(1);
+    const sever = (cause: SeverCause): GameEffect => ({
+      kind: 'BOND_SEVERED', tick: 10, pos: { x: 0, y: 0 }, cause, actor: attacker, victim,
+    });
+    const got = captureSeverToast([sever('unit')], victim, new Set());
+    expect(got.count, 'a suicide-goblin sever must be narrated').toBe(1);
+    expect(got.text, 'and it names the mechanism, not the tolerant default').toContain('CREATURE CUT YOUR BOND');
+    // ⭐ NOT VACUOUS: the same effect as 'bomb' IS suppressed, which is what bit me.
+    expect(captureSeverToast([sever('bomb')], victim, new Set()).count).toBe(0);
+  });
+});
+
 describe('S182 R9 — the SEVENTH defect of the same rework: the zombie boss fired Voltkin lightning', () => {
   /**
    * ⛔⛔ THE OWNER FOUND THIS ONE HIMSELF, and it is the same shape as the six above — *a rule
@@ -324,8 +369,17 @@ describe('S182 R9 — the SEVENTH defect of the same rework: the zombie boss fir
      */
     const dispatches = blast.match(/dispatch\(world, \{ type: 'SEVER_BOND'[^}]*\}/g) ?? [];
     expect(dispatches.length, 'the blast has exactly one sever dispatch').toBe(1);
-    expect(dispatches[0]).toContain("cause: 'bomb'");
+    /*
+     * ⛔ S182 — RE-PINNED FROM `'bomb'` TO `'unit'`, AND THE REASON IS A REGRESSION I SHIPPED.
+     *
+     * `'bomb'` silenced the lightning and ALSO silenced the victim: `severToastRenderer` has an
+     * unconditional `if (e.cause === 'bomb') continue`, so an enemy suicide goblin cutting your
+     * bond produced NO toast at all. That suppression encodes owner ruling S130 F3-C about a
+     * PLAYER-PLACED bomb hitting collateral — not a general rule about explosions.
+     */
+    expect(dispatches[0], 'a hostile creature act must still reach the victim').toContain("cause: 'unit'");
     expect(dispatches[0], 'an explosion is not a lightning strike').not.toContain("cause: 'creature'");
+    expect(dispatches[0], "'bomb' is suppressed in the sever toast").not.toContain("cause: 'bomb'");
   });
 
   it('⛔ CREATURE_CHARGE is keyed on the electric units, not on `!chewsConnectors`', () => {

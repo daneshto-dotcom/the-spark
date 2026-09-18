@@ -159,13 +159,27 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
        * 700 ms, which is the "Voltkin music" half of the owner's report. Found by enumerating the
        * CLAUSE across src/ rather than the files I remembered touching.
        *
-       * ⭐ `'bomb'` IS ALREADY IN THE `cause` UNION, so this costs NO PROTOCOL_VERSION bump — every
-       * peer already parses it. It is also the semantically true answer: this sever IS a bomb going
-       * off. `'bomb'` has no BOND_SEVERED audio arm, and it needs none — the blast already emits
-       * `BOMB_EXPLODE` a few lines above, which plays the boom. The sound was never missing; it was
-       * being drowned by a lightning bolt that belongs to a different unit.
+       * ⛔⛔ AND IT IS `'unit'`, NOT `'bomb'` — A CORRECTION TO MY OWN FIX, WHICH WAS A REGRESSION.
+       *
+       * I first wrote `'bomb'` because it existed and therefore cost no bump. It silenced the
+       * lightning and ALSO silenced the victim: `severToastRenderer` carries
+       * `if (e.cause === 'bomb') continue` — an UNCONDITIONAL suppression — so an enemy suicide
+       * goblin cutting your bond went from *"<SEAT>'S CREATURE CUT YOUR BOND"* to NOTHING AT ALL.
+       *
+       * ⚠ THAT SUPPRESSION IS NOT A RULE ABOUT EXPLOSIONS. Its own docblock records owner ruling
+       * S130 F3-C about a PLAYER-PLACED bomb reaching a bond it does not own (two live seats can
+       * share a palette colour after a rainbow shuffle), i.e. collateral the picker never aimed at.
+       * An enemy creature detonating on your structure is a DELIBERATE HOSTILE ACT and is exactly
+       * what that toast exists to narrate. Reusing `'bomb'` borrowed a suppression written for a
+       * different situation — the cheap value was not the true one.
+       *
+       * ⭐ `'unit'` IS THE HONEST CAUSE and costs nothing extra: it is already in the union (this
+       * session), it is a CREATURE sever like every other goblin's, it is silent so the lightning
+       * stays gone, and the boom still comes from the `BOMB_EXPLODE` emitted a few lines above.
+       * Attribution and the auth bypass are unchanged — `severActor` and `disruptionManager` treat
+       * `'unit'` exactly as they treat `'bomb'`.
        */
-      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'bomb' });
+      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'unit' });
     }
   }
 

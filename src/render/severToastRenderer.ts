@@ -140,6 +140,20 @@ export function severToastCopy(
     case 'player':
       return `${agent} SEVERED YOUR BOND${burst}`;
     case 'creature':
+    /*
+     * ⛔ S182 — `'unit'` SHARES THE `'creature'` WORDING, AND THAT IS THE POINT.
+     *
+     * Splitting the cause (so only the Voltkin plays the lightning crackle) moved every goblin,
+     * race unit and tier-9 boss from `'creature'` to `'unit'`. This switch has a TOLERANT DEFAULT,
+     * so tsc stayed silent and all of them silently fell through to *"BROKE YOUR BOND"* — losing
+     * the verb they had shipped with. A discriminated union gains a value only when EVERY consumer
+     * has been visited, not only the ones the compiler forces.
+     *
+     * ⚠ IDENTICAL STRING ON PURPOSE. The player must see exactly what they saw before the split;
+     * giving the Voltkin its own wording would be a NEW copy decision, and this change is a
+     * regression fix, not a rewrite.
+     */
+    case 'unit':
       return `${agent}'S CREATURE CUT YOUR BOND${burst}`;
     case 'chewer':
       return `${agent}'S CHEWER GNAWED YOUR BOND${burst}`;

@@ -194,7 +194,17 @@ describe('e2e lane composition is a decision, not an accident', () => {
       // The gating half: slice this job's block and require no continue-on-error inside it.
       const start = yml.indexOf(`\n  ${job}:`);
       const rest = yml.slice(start + 1);
-      const nextJob = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
+      /*
+       * ⛔ S182 — `[\r\n]`, NOT `\n`. This anchor was `\n  name:\n`, and git checks `e2e.yml` out
+       * with CRLF on Windows (`core.autocrlf=true`), so the trailing `\n` never matched: the search
+       * returned -1, the block ran to END OF FILE, and it swallowed a LATER job's
+       * `continue-on-error` comment. The test was RED on every Windows checkout and green in CI,
+       * which reads as somebody else's broken test rather than an anchor bug.
+       *
+       * Measured before fixing: CRLF gave a 15394-char block that matched; LF gave 1136 and did not.
+       * `e2e-races` carries no `continue-on-error` and always gated correctly.
+       */
+      const nextJob = rest.search(/[\r\n]  [a-z][a-z0-9-]*:[\r\n]/);
       const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
       expect(
         block.includes('continue-on-error'),
