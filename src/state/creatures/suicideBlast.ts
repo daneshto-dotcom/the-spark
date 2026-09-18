@@ -152,7 +152,20 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
   for (const bondId of hitBonds) {
     if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
     if (damageConnector(world, bondId, blastFifths)) {
-      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'creature' });
+      /*
+       * ⛔ S182 — **THIS WAS `cause: 'creature'`, SO AN EXPLOSION PLAYED VOLTKIN'S LIGHTNING
+       * CRACKLE.** A separate producer of the same stale clause the ARC_FLASH gate carried:
+       * `audioManager` routes `cause: 'creature'` to `lightning-crackle.ogg` and ducks the music
+       * 700 ms, which is the "Voltkin music" half of the owner's report. Found by enumerating the
+       * CLAUSE across src/ rather than the files I remembered touching.
+       *
+       * ⭐ `'bomb'` IS ALREADY IN THE `cause` UNION, so this costs NO PROTOCOL_VERSION bump — every
+       * peer already parses it. It is also the semantically true answer: this sever IS a bomb going
+       * off. `'bomb'` has no BOND_SEVERED audio arm, and it needs none — the blast already emits
+       * `BOMB_EXPLODE` a few lines above, which plays the boom. The sound was never missing; it was
+       * being drowned by a lightning bolt that belongs to a different unit.
+       */
+      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'bomb' });
     }
   }
 

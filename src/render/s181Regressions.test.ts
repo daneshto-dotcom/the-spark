@@ -308,6 +308,59 @@ describe('S182 R9 — the SEVENTH defect of the same rework: the zombie boss fir
     expect(attack).not.toContain('if (!isChewer) {');
   });
 
+  /**
+   * ⛔ TWO MORE PRODUCERS OF THE SAME STALE CLAUSE, found by enumerating it across src/ rather
+   * than by re-reading the file the bolt came from. Neither is in `creatureAttack.ts`.
+   */
+  it('⛔ the SUICIDE BLAST severs as a BOMB, not as Voltkin lightning', () => {
+    const blast = read('src/state/creatures/suicideBlast.ts');
+    // `cause: 'creature'` routes audioManager to lightning-crackle.ogg + a 700 ms music duck, so
+    // the goblin's EXPLOSION played the Voltkin's zap. 'bomb' is already in the union -> no bump.
+    /*
+     * ⚠ SCOPED TO THE DISPATCH LINES, not the whole file. The first draft asserted the file did not
+     * contain `cause: 'creature'` at all and went red on the DOCBLOCK explaining the fix — a
+     * source-text guard that reads its own prose as code. Match the statement, not the essay.
+     */
+    const dispatches = blast.match(/dispatch\(world, \{ type: 'SEVER_BOND'[^}]*\}/g) ?? [];
+    expect(dispatches.length, 'the blast has exactly one sever dispatch').toBe(1);
+    expect(dispatches[0]).toContain("cause: 'bomb'");
+    expect(dispatches[0], 'an explosion is not a lightning strike').not.toContain("cause: 'creature'");
+  });
+
+  it('⛔ CREATURE_CHARGE is keyed on the electric units, not on `!chewsConnectors`', () => {
+    const life = read('src/state/creatures/creatureLifecycle.ts');
+    const i = life.indexOf("kind: 'CREATURE_CHARGE'");
+    expect(i).toBeGreaterThan(-1);
+    const guard = life.lastIndexOf('if (', i);
+    const clause = life.slice(guard, i);
+    expect(clause).toContain("creature.type === 'voltkin'");
+    expect(clause, 'the drone is the other lightning unit').toContain("creature.type === 'lightningDrone'");
+    expect(clause, 'the stale negation is what made it latent').not.toContain('!config.chewsConnectors');
+  });
+
+  it('⚠ the CREATURE_CHARGE fix is byte-identical today — the measurement behind the pair', () => {
+    /*
+     * The guard above is only safe to narrow because those two configs are the ONLY ones with
+     * `chewsConnectors: false` AND a nonzero `attackChargeEngageTick`. Every other unit carries 0,
+     * and `ticksInState` is post-increment (>= 1), so the equality could never hold for them. If a
+     * future retune gives a third config a nonzero tick, THIS test goes red and the pair gets
+     * re-examined on purpose — which is the whole point of pinning a measurement.
+     */
+    const cfg = read('src/state/creatures/voltkin-config.ts');
+    const reachable: string[] = [];
+    // ⚠ `[\r\n]+` rather than `\n`: this repo checks out CRLF on Windows and LF on the CI runner,
+    // and a `\n`-only anchor silently matches nothing on one of them. `ci.e2eLanes.test.ts` is
+    // currently red on exactly that mistake.
+    const re = /(\w+_CONFIG)[^=]*=\s*\{([\s\S]*?)[\r\n]+\};/g;
+    for (let m = re.exec(cfg); m !== null; m = re.exec(cfg)) {
+      const body = m[2] ?? '';
+      const chews = /chewsConnectors:\s*(true|false)/.exec(body);
+      const eng = /attackChargeEngageTick:\s*(-?\d+)/.exec(body);
+      if (chews?.[1] === 'false' && eng !== null && eng[1] !== '0') reachable.push(m[1] ?? '');
+    }
+    expect(reachable.sort()).toEqual(['LIGHTNING_DRONE_CONFIG', 'VOLTKIN_CONFIG']);
+  });
+
   it('⚠ and the comment no longer explains the gate as a chewer EXEMPTION', () => {
     // The old comment was as wrong as the code — it told the next reader the gate meant "everyone
     // but the chewer", which is exactly what made the defect invisible for 21 unit types.

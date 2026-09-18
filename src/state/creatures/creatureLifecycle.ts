@@ -792,8 +792,28 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //  module const). The CREATURE_CHARGE lion-form audio cue is a Voltkin-only flourish
   //  (the chewer uses the CHEW_BITE effect instead), so it is gated to the non-chew
   //  (single-fire) path. For Voltkin `config.chewHits === 0`, so this is byte-identical.
+  /*
+   * ⛔ S182 — **WAS `!config.chewsConnectors`, WHICH IS TRUE FOR EVERY BOSS AND EVERY GOBLIN.**
+   *
+   * The comment above already states the intent — *"a Voltkin-only flourish"* — and the predicate
+   * did not say it. It is the third leak of the one stale negation this session fixed in
+   * `creatureAttack.ts`: "does not chew" meant "is the Voltkin" only while those were the only two
+   * creatures in the game.
+   *
+   * ⚠ IT WAS LATENT, NOT LIVE, AND ONLY BY ACCIDENT. Every goblin/race/tier-3/tier-9 config
+   * carries `attackChargeEngageTick: 0`, while `ticksInState` is POST-INCREMENT here and so is
+   * >= 1 on every visit — the equality can never hold. **It fires the day any unit is given a
+   * nonzero charge tick**, which is a config edit away, and would hand that unit the Voltkin's
+   * charge-up whine. Guarding it now costs nothing; finding it later costs another bug report.
+   *
+   * ⭐ KEYED ON THE ELECTRIC UNITS BY NAME, and the pair is measured rather than assumed: those two
+   * configs are the ONLY ones in the game with `chewsConnectors: false` AND a nonzero
+   * `attackChargeEngageTick` (both 15), so this is byte-identical today and stays correct after a
+   * retune. The drone is kept deliberately — it is the other lightning unit, and `droneLifecycle`
+   * already emits its ARC_FLASH on the same grounds.
+   */
   if (
-    !config.chewsConnectors &&
+    (creature.type === 'voltkin' || creature.type === 'lightningDrone') &&
     creature.state === 'ATTACKING' &&
     creature.ticksInState === config.attackChargeEngageTick
   ) {
