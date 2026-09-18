@@ -194,6 +194,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatureKillHits: 'acknowledged', // S181 — presentational per-frame record, never sim input
   /* ⭐ S182 — identical contract to the four entries above: per-frame, host-local, never on the wire. */
   structureKillHits: 'acknowledged',
+  /* ⭐ S182 — a renderer cue for mass clears. Host-local, never on the wire, never a sim input. */
+  structureWatchEpoch: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
   pendingCinematics: 'acknowledged',
   /** Presentation-only; `activeCinematicPlayerId` carries the sim-visible part. */

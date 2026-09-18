@@ -297,3 +297,75 @@ describe('S182 — the new array is wiped at all FIVE sites, and so are its thre
     expect(dmg).toContain('key: `d:${d.id}`');
   });
 });
+
+/**
+ * ⛔⛔ S182 — **A MASS CLEAR IS NOT A MASSACRE.**
+ *
+ * `DamageNumbers` is built ONCE (`main.ts:775`), `sync()` is the only method it has, and there is
+ * no reset path in the file — so `watchedStruct` outlives every match. Nine mid-match paths clear
+ * the world's structure maps, and to the vanish sweep that is indistinguishable from every shape,
+ * bag and Helga on the board dying in the same frame. A new match opened in a shower of numbers.
+ */
+describe('S182 — a mass clear drops the watch instead of printing a massacre', () => {
+  it('⭐⭐ a cleared board prints NOTHING, however many structures were on it', () => {
+    const w = twoSeat();
+    const a = shape(w, 400, 400);
+    const b = shape(w, 432, 400);
+    connect(w, a, b);
+    bag(w, 5);
+    helga(w, 156);
+
+    const out = newFloaters(w, () => {
+      // Exactly what applyStartGame / applyReturnToTitle / softReset / applyGodlyAbort do.
+      w.primitives.clear();
+      w.bonds.clear();
+      w.stinkClouds.clear();
+      w.defenders.clear();
+      w.structureWatchEpoch += 1;
+    });
+
+    expect(out, 'nothing was killed — the match simply ended').toEqual([]);
+  });
+
+  it('⛔ NOT VACUOUS — without the epoch bump the same clear DOES print a massacre', () => {
+    /*
+     * The exact defect, reproduced. This is what shipped before the cue existed, and it is why the
+     * test above cannot be satisfied by the sweep simply being quiet.
+     */
+    const w = twoSeat();
+    const a = shape(w, 400, 400);
+    const b = shape(w, 432, 400);
+    connect(w, a, b);
+
+    const out = newFloaters(w, () => {
+      w.primitives.clear();
+      w.bonds.clear();
+      // no epoch bump
+    });
+
+    expect(out.length, 'the un-cued sweep invents a number per shape').toBeGreaterThan(0);
+  });
+
+  it('⛔ the epoch is bumped at all FOUR mass-clear sites', () => {
+    for (const f of [
+      'src/state/gameMode.ts', // applyStartGame AND applyReturnToTitle
+      'src/state/gameState.ts', // softReset
+      'src/state/godlyActions.ts', // applyGodlyAbort
+    ]) {
+      expect(read(f).includes('world.structureWatchEpoch += 1;'), `${f} must bump the epoch`).toBe(true);
+    }
+    // gameMode has TWO of the four — match start and title return are different functions.
+    const gm = read('src/state/gameMode.ts');
+    expect(gm.split('world.structureWatchEpoch += 1;').length - 1).toBe(2);
+  });
+
+  it('⛔ and it is NOT bumped in applySnapshotCore — that would blind every peer', () => {
+    /*
+     * THE LOAD-BEARING EXCLUSION. A peer's damage numbers come from diffing successive snapshots
+     * against this very watch. Bumping per snapshot would clear it every time and a client would
+     * never see a damage number again — a silent, total regression that no other test would catch,
+     * because every other test runs on a host.
+     */
+    expect(read('src/state/save.ts')).not.toContain('structureWatchEpoch');
+  });
+});

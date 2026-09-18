@@ -249,6 +249,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S103 P2 — clear any lingering defender at match start (same all-hazards invariant).
   world.defenders.clear();
   world.nextDefenderId = 0;
+  // ⭐ S182 — a mass clear is not a massacre: tell the renderer to drop its structure watch,
+  // or its vanish sweep prints a full-pool number for every shape, bag and Helga on the board.
+  world.structureWatchEpoch += 1;
   // V6-1.1 — clear any lingering gatherer at match start (same all-hazards invariant).
   world.gatherers.clear();
   world.nextGathererId = 0;
@@ -432,6 +435,9 @@ export function applyReturnToTitle(world: World): World {
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
+  // ⭐ S182 — a mass clear is not a massacre: tell the renderer to drop its structure watch,
+  // or its vanish sweep prints a full-pool number for every shape, bag and Helga on the board.
+  world.structureWatchEpoch += 1;
   world.lastWinnerId = null;
   world.nextPrimitiveId = 0;
   world.nextBondId = 0;

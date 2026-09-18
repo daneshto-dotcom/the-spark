@@ -465,6 +465,13 @@ describe('FIELD_COVERAGE — the forcing function', () => {
          */
         'structureKillHits',
         /*
+         * ⭐ S182 — the mass-clear cue. A RENDERER signal, not a sim value: `DamageNumbers` keeps
+         * its own copy and drops its structure watch when the two differ, so a cleared board does
+         * not read as every structure on it dying at once. Nothing in the sim reads it back, it is
+         * never serialized, and two peers holding different counts produce identical sim state.
+         */
+        'structureWatchEpoch',
+        /*
          * ⭐ S179 (owner) — a PER-FRAME renderer signal with exactly the `effects` lifetime two
          * entries up: written by `razePrimitives`, WIPED BY `DamageNumbers.sync`, never serialized.
          * It carries no sim meaning at all — it only says which vanished shapes were REMOVED rather

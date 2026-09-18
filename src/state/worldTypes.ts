@@ -239,6 +239,30 @@ export interface World {
    */
   structureKillHits: { key: string; amount: number | null }[];
   /**
+   * ⭐⭐ S182 — **THE MASS-CLEAR CUE, and without it a new match opens in a shower of phantom
+   * damage numbers.**
+   *
+   * `DamageNumbers.watchedStruct` is a renderer-side Map that survives everything: the object is
+   * built ONCE at `main.ts:775`, `sync()` is the only method anyone calls, and there is no reset
+   * path anywhere in the file. Nine mid-match paths `.clear()` the world's structure maps
+   * (`applyStartGame`, `applyReturnToTitle`, `softReset`, `applyGodlyAbort`), and to the vanish
+   * sweep a cleared map is indistinguishable from every shape, bag and Helga on the board being
+   * killed in one frame. It printed a full-pool number for each.
+   *
+   * A monotonic counter rather than a flag: the renderer keeps its own copy and clears its watch
+   * when the two differ, so no site has to know whether the renderer has read it yet, and an extra
+   * increment is harmless.
+   *
+   * ⛔ DELIBERATELY *NOT* INCREMENTED IN `applySnapshotCore`, and that is the load-bearing
+   * distinction. The other per-frame arrays ARE wiped there because they are host-local scratch;
+   * this is the opposite kind of thing. A peer's damage numbers come from DIFFING successive
+   * snapshots against exactly this watch, so incrementing per snapshot would clear the watch every
+   * time and a client would never see a damage number again.
+   *
+   * `'acknowledged'` in the full hash: a renderer cue, never a sim input, never on the wire.
+   */
+  structureWatchEpoch: number;
+  /**
    * S9 P3 / S15 P2: combo-weighted progress. In solo, equals the lone
    * player's progress. In 1v1, equals max(scoreByPlayer.values()) — i.e.
    * the leader's score, which drives the WIN check. Per-player scores are

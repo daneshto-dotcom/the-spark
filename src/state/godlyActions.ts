@@ -133,6 +133,9 @@ export function applyGodlyAbort(world: World): World {
   // outliving the tower that threw it would keep damaging a board nobody is playing on any more.
   world.stinkClouds.clear();
   world.nextStinkCloudId = 0;
+  // ⭐ S182 — a mass clear is not a massacre: tell the renderer to drop its structure watch,
+  // or its vanish sweep prints a full-pool number for every shape, bag and Helga on the board.
+  world.structureWatchEpoch += 1;
   /*
    * ⭐ S158 P4 (CF-S157-f) — THE ONE THING THE TEARDOWN FORGOT.
    *

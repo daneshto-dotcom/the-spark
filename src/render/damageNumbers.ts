@@ -431,6 +431,11 @@ export class DamageNumbers {
    * calls the four-sites warning.
    */
   private readonly watchedStruct = new Map<string, StructWatched>();
+  /**
+   * ⭐ S182 — the last mass-clear epoch this renderer has seen. See `World.structureWatchEpoch`.
+   * Starts at 0, matching a fresh World, so a normal boot clears nothing.
+   */
+  private watchEpoch = 0;
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
@@ -591,6 +596,21 @@ export class DamageNumbers {
    */
   private syncStructures(world: World): void {
     const seen = new Set<string>();
+    /*
+     * ⭐⭐ S182 — **A MASS CLEAR IS NOT A MASSACRE.** Nine mid-match paths `.clear()` the world's
+     * structure maps (match start, title return, soft reset, godly abort). This Map is built ONCE
+     * in `main.ts` and `sync` is the only method that exists — there is no reset path — so on the
+     * next frame the vanish sweep below saw every watched key gone at once and printed a full-pool
+     * damage number for each: a new match opening in a shower of numbers nobody dealt.
+     *
+     * ⛔ CLEARED WITHOUT EMITTING, and BEFORE the sweep. Dropping the watch is exactly right: those
+     * entities did not die, they ceased to be the subject of a match. The next `sync` re-seeds the
+     * watch, and a first sighting is neither a hit nor a heal (see `track`).
+     */
+    if (world.structureWatchEpoch !== this.watchEpoch) {
+      this.watchEpoch = world.structureWatchEpoch;
+      this.watchedStruct.clear();
+    }
     /*
      * ⭐⭐⭐ S179 (owner) — **A SHAPE THAT WAS REMOVED DID NOT TAKE A HIT, SO IT PRINTS NOTHING.**
      *
