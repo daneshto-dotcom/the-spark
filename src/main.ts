@@ -187,11 +187,13 @@ import type { DefenderKind } from './state/defenders/defender.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
-  commitRun,
+  beginSubmit,
   cycleLetter,
   finishRun,
   moveCursor,
+  revealBoard,
   startRun,
+  submitRun,
   typeLetter,
   type ArcadeRun,
 } from './render/arcadeRun.ts';
@@ -1433,11 +1435,45 @@ async function bootstrap(): Promise<void> {
         case 'ArrowDown': arcadeRun = cycleLetter(run, -1); break;
         case 'ArrowLeft': arcadeRun = moveCursor(run, -1); break;
         case 'ArrowRight': arcadeRun = moveCursor(run, 1); break;
-        // `at` is a wall-clock stamp used only to break exact-time ties, never to measure the run.
-        case 'Enter': arcadeRun = commitRun(run, Date.now()); break;
+        case 'Enter': {
+          /*
+           * ⭐⭐ R182-G STEP 3 — SUBMIT, THEN RECAP, THEN THE BOARD. Never the board directly.
+           *
+           * `submitRun` folds this run into the player's average and comes back with everything the
+           * cinematic needs. It NEVER throws and never loses the run: a network failure degrades to
+           * the offline tier and queues the run for the next successful submit, because under an
+           * average a dropped run is not a missed row — it is a permanently wrong number.
+           *
+           * ⛔ `beginSubmit` FIRST, so the screen says SAVING… rather than appearing frozen while a
+           * request crosses the network. It also latches `submitting`, which makes a second ENTER a
+           * no-op — double-submitting would fold the same run in twice and skew the mean forever.
+           *
+           * ⛔ AND THE IDENTITY RE-CHECK IS NOT DEFENSIVE PADDING. This resolves one or more frames
+           * later, and `arcadeRun` is reassigned by ESC (to null), by BACK, and by ENTER on the
+           * BOARD screen starting a WHOLE NEW RUN. Without `arcadeRun === pending`, a slow reply
+           * would paint a finished run's ranking over a run already in progress.
+           */
+          if (run.submitting) break;
+          const pending = beginSubmit(run);
+          arcadeRun = pending;
+          // ⛔ A THUNK, NOT `performance.now()` — the stamp must be taken AFTER the round trip or a
+          // slow submit starts the recap already finished. See `submitRun`.
+          void submitRun(pending, () => performance.now()).then((next) => {
+            if (arcadeRun === pending) arcadeRun = next;
+          });
+          break;
+        }
         default: arcadeRun = typeLetter(run, e.key); return; // ignores anything off the alphabet
       }
       e.preventDefault(); // arrows scroll the page otherwise
+      return;
+    }
+
+    // RECAP — ENTER leaves the cinematic for the ranking. ⛔ This is the ONLY door to the board,
+    // which is what makes "you cannot see the names before you put your name" structural.
+    if (run.phase === 'RECAP' && e.key === 'Enter') {
+      arcadeRun = revealBoard(run);
+      e.preventDefault();
       return;
     }
 

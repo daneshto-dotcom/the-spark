@@ -20,7 +20,37 @@ export const SUDOKU_N = 6; // grid side
 export const SUDOKU_CELLS = 36; // N*N
 export const SUDOKU_BOX_H = 2; // box height (rows)
 export const SUDOKU_BOX_W = 3; // box width (cols)
-/** Default clue count for the 6×6 trial — ~16 of 36 reads as a real puzzle, ~30–90s solve. */
+/**
+ * Default clue count for the 6×6 trial — ~16 of 36 reads as a real puzzle, ~30–90s solve.
+ *
+ * ## ⛔ R182-H (owner, S182) — DIFFICULTY WILL BE **ADAPTIVE**, AND IT IS DEFERRED. DO NOT BUILD IT.
+ *
+ * > *"The difficulty should be adapted to a player's scoring. So players that reach an average
+ * > scoring of less than a minute should have more difficult games. So as long as players don't have
+ * > their own accounts and don't log in, we don't know how good the player is — we only record them
+ * > by name in our leaderboard. So we will keep it for later as the subject to open up. It's good
+ * > that the difficulty dial exists, but we won't implement it just yet."*
+ *
+ * ⭐ **THE BLOCKER IS IDENTITY, NOT THE DIAL.** The second parameter of `generateSudoku` already
+ * works and the digger honours it; what is missing is any trustworthy answer to *"who is this
+ * player?"* Identity today is three typed characters on a leaderboard, which two people can share and
+ * anyone can borrow — so "this player averages under a minute, give them a harder puzzle" would
+ * regularly hand a hard grid to whoever typed `DAN` next. Real identity arrives with a Steam or
+ * Google login, and this unblocks then.
+ *
+ * ⚠ **AND WHEN IT IS OPENED, IT COLLIDES WITH R182-G — WORTH KNOWING BEFORE, NOT DURING.** The
+ * ranking is an average across runs, and its fairness rests on every player facing the same
+ * *distribution* of puzzles: random grids vary, but the variance washes out over N runs. Adaptive
+ * difficulty breaks exactly that. A player who gets harder puzzles *because* they are fast posts
+ * slower times and drifts DOWN a table that is still comparing raw averages — so the better you get,
+ * the worse you rank. Whoever opens this has to solve the ranking question at the same time
+ * (difficulty-weighted times, or a board per tier); it is not a dial-turning task.
+ *
+ * ⚠ Measured S182 against the shipped generator, 300 seeds per setting: at this value **100% of
+ * puzzles fall to naked singles alone** — the easiest class it can produce. The usable range is
+ * ~16 → ~10 realised clues and yields about three distinguishable rungs, not thirty. Full table in
+ * `NONET_STAGE_LADDER.md`.
+ */
 export const SUDOKU_DEFAULT_GIVENS = 16;
 
 export interface SudokuPuzzle {

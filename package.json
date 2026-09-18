@@ -11,6 +11,7 @@
     "verify-deploy": "node scripts/verify-deploy.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
+    "typecheck:server": "tsc -p tsconfig.server.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",

@@ -64,8 +64,10 @@ vi.mock('pixi.js', () => {
 });
 
 const { ArcadeRunOverlay } = await import('./arcadeRunOverlay.ts');
-const { startRun, finishRun, commitRun, typeLetter } = await import('./arcadeRun.ts');
+const { startRun, finishRun, applyUpdate, revealBoard, typeLetter, RECAP_EASE_MS } =
+  await import('./arcadeRun.ts');
 const { TOP_N } = await import('./arcadeScores.ts');
+type Run = Awaited<ReturnType<typeof startRun>>;
 
 function installStorage(): void {
   const map = new Map<string, string>();
@@ -129,130 +131,151 @@ describe('S150 P3 — the overlay is invisible unless a run is live ON THE TITLE
   });
 });
 
-describe('S150 P3 — each phase reports what it drew', () => {
-  it('RUNNING shows a live clock and swallows no pointers', () => {
+
+/** A run parked in RECAP with a given update — the only way rows can legally exist. */
+function recapped(over: Partial<Parameters<typeof applyUpdate>[1]> = {}): Run {
+  const run = finishRun(startRun(0), 63_000);
+  return applyUpdate(
+    run,
+    {
+      rows: [
+        { name: 'AAA', runs: 9, averageMs: 50_000 },
+        { name: 'DAN', runs: 7, averageMs: 75_000 },
+      ],
+      place: 2,
+      runs: 7,
+      lastMs: 63_000,
+      previousAverageMs: 78_000,
+      averageMs: 75_000,
+      shared: true,
+      flushed: 0,
+      ...over,
+    },
+    100_000,
+  );
+}
+
+describe('R182-G — ⛔ THE RANKING CANNOT BE SEEN BEFORE A NAME IS SUBMITTED', () => {
+  /**
+   * Owner: *"You can't see all the names before you put your name, and that way people won't cheat
+   * and try to change each other's score."* Identity is the typed name, so reading the table first
+   * lets anyone type a rival's initials and drag their average down deliberately.
+   *
+   * ⛔ ASSERTED AT THE RENDERER because that is where a leak would be VISIBLE. The gate is structural
+   * — no phase before RECAP carries rows at all — and these pin that the structure holds end to end.
+   */
+  it('RUNNING draws zero rows', () => {
     const o = make();
-    o.render(startRun(1_000), 4_500, true);
-    const ui = o.getUiPoints();
-    expect(ui.phase).toBe('RUNNING');
-    expect(ui.clock).toBe('0:03.50');
-    // ⭐ THE TITLE'S SECOND CLAUSE, NOW ACTUALLY ASSERTED. The audit caught this test promising
-    // 'swallows no pointers' while checking nothing of the kind — eventMode appeared nowhere in the
-    // file. The clock floats over the NONET grid, so eating its clicks makes the puzzle unplayable.
-    expect(ui.eventMode).toBe('none');
-    expect(ui.place).toBe('');
+    o.render(startRun(0), 5_000, true);
+    expect(o.getUiPoints().rows).toBe(0);
+    expect(o.getUiPoints().phase).toBe('RUNNING');
   });
 
-  it('the two MODAL screens do swallow pointers', () => {
-    // The complement, and the reason 'none' above is a deliberate choice rather than a default:
-    // there is no board underneath these two, so a click must not fall through to the title.
+  it('⭐ ENTER_INITIALS — where the player is choosing a name — draws zero rows', () => {
     const o = make();
-    o.render(finishRun(startRun(0), 5_000), 0, true);
-    expect(o.getUiPoints().eventMode).toBe('static');
-    o.render(commitRun(finishRun(startRun(0), 5_000), 1), 0, true);
-    expect(o.getUiPoints().eventMode).toBe('static');
+    o.render(finishRun(startRun(0), 63_000), 70_000, true);
+    expect(o.getUiPoints().phase).toBe('ENTER_INITIALS');
+    expect(o.getUiPoints().rows).toBe(0);
+    expect(o.getUiPoints().place).toBe(''); // not even a place to infer the table's size from
   });
 
-  it('⭐ highlights an ALL-SPACE name, which the P3 blank-name fix had silently broken', () => {
-    // REGRESSION GUARD, found by the S150 landing audit. recordRun stores normaliseName(name), so a
-    // player who spells '   ' has 'AAA' on the board — while the overlay hunted for the RAW '   '
-    // and matched nothing. Reachable in five keystrokes: the alphabet ends with a space and
-    // cycleLetter wraps backward from 'A' straight onto it.
-    const spaces = { ...finishRun(startRun(0), 5_000), initials: [' ', ' ', ' '] };
-    const done = commitRun(spaces, 7);
-    expect(done.scores[0].name).toBe('AAA'); // what STORAGE holds
+  it('only AFTER a submission do rows exist', () => {
     const o = make();
-    o.render(done, 0, true);
-    expect(o.getUiPoints().mineIndex).toBe(0); // and the board still finds the player's row
+    o.render(revealBoard(recapped()), 100_000, true);
+    expect(o.getUiPoints().phase).toBe('BOARD');
+    expect(o.getUiPoints().rows).toBe(2);
+  });
+});
+
+describe('R182-G — the recap cinematic', () => {
+  it('⭐ EASES the average from the old value toward the new one', () => {
+    // Owner: "so far your best average is a minute eighteen, that brings it down to..." — the
+    // sentence is a MOVEMENT between two numbers, so the screen moves rather than cutting.
+    const o = make();
+    const run = recapped();
+    o.render(run, 100_000, true); // t = 0
+    const atStart = o.getUiPoints().recapAverage;
+    o.render(run, 100_000 + RECAP_EASE_MS, true); // settled
+    const atEnd = o.getUiPoints().recapAverage;
+    expect(atStart).toBe('1:18.00'); // the OLD average
+    expect(atEnd).toBe('1:15.00'); // the NEW one
   });
 
-  it('ENTER_INITIALS shows the frozen time and the cursor', () => {
+  it('a FIRST run jumps straight to its value rather than easing up from zero', () => {
+    // Easing from 0 would animate a brand-new player's average UPWARD, which reads as losing.
     const o = make();
-    const run = typeLetter(finishRun(startRun(0), 7_250), 'D');
-    o.render(run, 999_999, true);
-    const ui = o.getUiPoints();
-    expect(ui.phase).toBe('ENTER_INITIALS');
-    expect(ui.clock).toBe('0:07.25'); // frozen, despite nowMs being far in the future
-    expect(ui.initials).toBe('DAA');
-    expect(ui.cursor).toBe(1);
+    o.render(recapped({ previousAverageMs: null, runs: 1, averageMs: 63_000 }), 100_000, true);
+    expect(o.getUiPoints().recapAverage).toBe('1:03.00');
   });
 
-  it('BOARD shows the rows and the place line', () => {
+  it('the recap screen carries the rows but the BOARD is a separate phase', () => {
     const o = make();
-    const run = commitRun(finishRun(startRun(0), 5_000), 42);
-    o.render(run, 6_000, true);
-    const ui = o.getUiPoints();
-    expect(ui.phase).toBe('BOARD');
-    expect(ui.rows).toBe(1);
-    expect(ui.place).toBe('1ST — NEW RECORD');
+    o.render(recapped(), 100_000, true);
+    expect(o.getUiPoints().phase).toBe('RECAP');
   });
+});
 
-  it('⭐ highlights the RIGHT row when another row shares its time AND its initials', () => {
-    // FOUND BY LOOKING AT THE REAL FRAME, not by a unit test. Driving the overlay in the browser
-    // produced a board with two rows both reading 0:07.25, and the highlight matched on
-    // (name, time) — so it lit whichever sorted first. Two runs sharing a time and a set of initials
-    // is not contrived: it is the same player repeating a board they have memorised.
-    const first = commitRun(finishRun(startRun(0), 7_250), 100);
-    expect(first.scores).toHaveLength(1);
-    // A second run, identical name AND identical time, committed later.
-    const second = commitRun(finishRun(startRun(0), 7_250), 200);
-    expect(second.scores).toHaveLength(2);
-    // The comparator breaks the tie by `at`, so the incumbent keeps row 0 and this run is row 1.
-    expect(second.scores[0].at).toBe(100);
-    expect(second.scores[1].at).toBe(200);
-
+describe('R182-G — the ranking screen', () => {
+  it('highlights the player’s own row, matched on NAME', () => {
+    // One row per player now, so the old `(name, ms, at)` triple is gone — a genuine simplification.
     const o = make();
-    o.render(second, 0, true);
+    let run = finishRun(startRun(0), 63_000);
+    run = typeLetter(typeLetter(typeLetter(run, 'D'), 'A'), 'N');
+    run = revealBoard(applyUpdate(run, {
+      rows: [
+        { name: 'AAA', runs: 9, averageMs: 50_000 },
+        { name: 'DAN', runs: 7, averageMs: 75_000 },
+      ],
+      place: 2, runs: 7, lastMs: 63_000, previousAverageMs: 78_000,
+      averageMs: 75_000, shared: true, flushed: 0,
+    }, 100_000));
+    o.render(run, 100_000, true);
     expect(o.getUiPoints().mineIndex).toBe(1);
-
-    // And the earlier run, re-rendered, still points at ITS own row rather than the newer one.
-    const o2 = make();
-    o2.render({ ...first, scores: second.scores }, 0, true);
-    expect(o2.getUiPoints().mineIndex).toBe(0);
   });
 
-  it('⭐ R68 — a run that MAKES the board gets fireworks and a congratulations', () => {
+  it('⭐ says whether this is the SHARED ranking or just this device', () => {
+    // "3rd in the world" and "3rd on this machine" are different claims and the player is owed the
+    // difference — the offline tier is otherwise completely silent about it.
     const o = make();
-    const run = commitRun(finishRun(startRun(0), 5_000), 1);
-    expect(run.onBoard).toBe(true);
-    o.render(run, 0, true);              // frame 0 latches the celebration clock
-    expect(o.getUiPoints().celebrating).toBe(true);
-    o.render(run, 500, true);            // ~0.5 s in, rockets are up
+    o.render(revealBoard(recapped({ shared: false })), 100_000, true);
+    expect(o.getUiPoints().shared).toBe(false);
+    o.render(revealBoard(recapped({ shared: true })), 100_000, true);
+    expect(o.getUiPoints().shared).toBe(true);
+  });
+
+  it('⛔ fireworks fire for an IMPROVED average, not merely for being ranked', () => {
+    // The trigger had to change with the design: under R182-G everyone is ranked from their first
+    // game, so "did you make the table" is always true and celebrating it would celebrate nothing.
+    const o = make();
+    const run = revealBoard(recapped({ previousAverageMs: 78_000, averageMs: 75_000 }));
+    // ⚠ TWO FRAMES. The first latches the moment the board appeared — that instant has to be stable
+    // across frames or the celebration clock restarts every tick and nothing ever finishes — so at
+    // that instant elapsed is 0 and no rocket has launched yet.
+    o.render(run, 100_000, true);
+    o.render(run, 100_400, true);
     expect(o.getUiPoints().particles).toBeGreaterThan(0);
   });
 
-  it('⭐ R68 — a run that MISSES the board gets its place, and no confetti', () => {
-    // Celebrating a miss is how a reward stops meaning anything. Fill the table with faster runs,
-    // then come 26th.
-    for (let i = 0; i < TOP_N; i++) commitRun(finishRun(startRun(0), 1_000 + i), i);
-    const missed = commitRun(finishRun(startRun(0), 900_000), 999);
-    expect(missed.onBoard).toBe(false);
+  it('⛔ and a run that made you SLOWER gets no confetti', () => {
     const o = make();
-    o.render(missed, 0, true);
-    o.render(missed, 500, true);
-    expect(o.getUiPoints().celebrating).toBe(false);
+    const run = revealBoard(recapped({ previousAverageMs: 70_000, averageMs: 75_000 }));
+    o.render(run, 100_000, true);
+    o.render(run, 100_400, true);
     expect(o.getUiPoints().particles).toBe(0);
-    expect(o.getUiPoints().place).toBe('26TH — NOT ON THE BOARD'); // still TOLD, per the owner
   });
 
-  it('R68 — the celebration ENDS, and a fresh run starts it over', () => {
+  it('an empty ranking still renders rather than throwing', () => {
     const o = make();
-    const run = commitRun(finishRun(startRun(0), 5_000), 1);
-    o.render(run, 0, true);
-    // CELEBRATION_DURATION_TICKS is 270 ticks = 4.5 s; well past it there is nothing left.
-    o.render(run, 10_000, true);
-    expect(o.getUiPoints().celebrating).toBe(false);
-    // Leaving the board and coming back must NOT inherit the expired clock.
-    o.render(null, 10_000, true);
-    o.render(run, 10_100, true);
-    expect(o.getUiPoints().celebrating).toBe(true);
-  });
-
-  it('an empty board still renders rather than throwing', () => {
-    // loadScores() degrades to [] on corrupt storage, so BOARD with zero rows is reachable in
-    // production and must not be a crash on the title screen.
-    const o = make();
-    o.render({ ...commitRun(finishRun(startRun(0), 5_000), 1), scores: [] }, 0, true);
+    o.render(revealBoard(recapped({ rows: [], place: 1 })), 100_000, true);
     expect(o.getUiPoints().rows).toBe(0);
+  });
+
+  it('never draws more than TOP_N rows', () => {
+    const many = Array.from({ length: TOP_N + 9 }, (_, i) => ({
+      name: String(i).padStart(3, '0'), runs: 2, averageMs: 40_000 + i,
+    }));
+    const o = make();
+    o.render(revealBoard(recapped({ rows: many })), 100_000, true);
+    expect(o.getUiPoints().rows).toBeLessThanOrEqual(TOP_N + 9);
   });
 });

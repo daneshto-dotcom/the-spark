@@ -15,6 +15,12 @@ import {
   NONET_SHAPE_COUNT,
   NONET_TIMEOUT_TICKS,
   NONET_RESOLVE_DISPLAY_TICKS,
+  NONET_LOSER_MULT,
+  NONET_WINNER_MULT,
+  NONET_LOSER_CUT_PCT,
+  nonetStakesLine,
+  nonetLoserLine,
+  nonetTicksRemaining,
 } from './sudokuEvent.ts';
 import { netSnapshot, applyNetSnapshot } from './save.ts';
 import { castleStructuresModel } from '../render/castlePanel.ts';
@@ -321,5 +327,75 @@ describe('S164 P4 — the NONET / boss-tower separation', () => {
     expect(names.some((n) => n.includes('nonet') || n.includes('sudoku'))).toBe(false);
     // Anti-vacuity: the model is not simply empty, so the assertion above means something.
     expect(names.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * ⛔ S182 SI-B — THE BANNER LIED BY TWENTY POINTS FOR 76 SESSIONS.
+ *
+ * S106 moved `NONET_LOSER_MULT` 0.5 → 0.4 (losing costs 60% of your banked score, not half). Three
+ * hand-typed UI strings still said "halved". Nothing was red, because no test compared the prose to
+ * the constant — and prose is not usually something a suite looks at.
+ *
+ * ⭐ THESE ASSERT THE DERIVATION, NOT THE LITERAL. Pinning "60%" here would buy one session of
+ * correctness and re-arm exactly the same trap for the next person who retunes the multiplier.
+ */
+describe('S182 SI-B — the stakes copy is DERIVED from the multiplier it describes', () => {
+  it('the loser line states the real cut, whatever NONET_LOSER_MULT currently is', () => {
+    const expected = Math.round((1 - NONET_LOSER_MULT) * 100);
+    expect(NONET_LOSER_CUT_PCT).toBe(expected);
+    expect(nonetLoserLine('player 2')).toContain(`${expected}%`);
+  });
+
+  it('the banner states the real cut and the real winner multiplier', () => {
+    expect(nonetStakesLine()).toContain(`${NONET_LOSER_CUT_PCT}%`);
+    expect(nonetStakesLine()).toContain(`x${NONET_WINNER_MULT}`);
+  });
+
+  it('⛔ neither string says "halved", which is the regression itself', () => {
+    // ⚠ Stated flatly rather than guarded on `NONET_LOSER_MULT !== 0.5`: the compiler narrows an
+    // exported literal to its own value, so that comparison is a TYPE ERROR rather than a runtime
+    // check (tsc: "types '0.4' and '0.5' have no overlap"). The CONTROL below is what keeps this
+    // honest — if the multiplier ever returns to one half, that test fails first and says so.
+    expect(nonetStakesLine().toLowerCase()).not.toContain('halve');
+    expect(nonetLoserLine('player 2').toLowerCase()).not.toContain('halve');
+  });
+
+  it('CONTROL — the multiplier really is the S106 value, so the tests above are not vacuous', () => {
+    expect(NONET_LOSER_MULT).toBe(0.4);
+    expect(NONET_LOSER_CUT_PCT).toBe(60);
+  });
+});
+
+/**
+ * ⛔ S182 SI-C — `startTick` WAS SERIALIZED, HASHED AND REGENERATED ON EVERY PEER FOR 89 SESSIONS
+ * WHILE NO RENDERER READ IT. A 180-second timeout that freezes an entire duel ran with no clock on
+ * screen, while the arcade — same puzzle, played alone, no timeout at all — has a prominent one.
+ */
+describe('S182 SI-C — the trial countdown', () => {
+  it('starts at the full window and counts down with the tick', () => {
+    expect(nonetTicksRemaining(100, 100)).toBe(NONET_TIMEOUT_TICKS);
+    expect(nonetTicksRemaining(100, 160)).toBe(NONET_TIMEOUT_TICKS - 60);
+  });
+
+  it('⛔ clamps at zero rather than counting into the past', () => {
+    expect(nonetTicksRemaining(0, NONET_TIMEOUT_TICKS + 5000)).toBe(0);
+  });
+
+  it('⛔ never reports MORE than the window when a client tick lags the host start', () => {
+    // A peer applying a snapshot can briefly hold a `tick` below the host's `startTick`; a naive
+    // subtraction would render a countdown longer than the trial can possibly last.
+    expect(nonetTicksRemaining(500, 100)).toBe(NONET_TIMEOUT_TICKS);
+  });
+
+  it('⭐ hits zero at exactly the tick `tickSudoku` resolves the timeout', () => {
+    // The clock and the rule it describes must agree, or the trial ends while the clock still shows
+    // time left (or the reverse) — which is the whole class of defect SI-B is about.
+    const world = makeWorld(1234);
+    startSudoku(world, P1, 42);
+    world.tick = world.sudoku!.startTick + NONET_TIMEOUT_TICKS;
+    expect(nonetTicksRemaining(world.sudoku!.startTick, world.tick)).toBe(0);
+    tickSudoku(world);
+    expect(world.sudoku!.resolvedTick).not.toBeNull();
   });
 });

@@ -535,3 +535,40 @@ jobs:
           path: test-results-quarantine/
           retention-days: 14
           if-no-files-found: ignore
+
+  # ════════════════════════════════════════════════════════════════════════════════════════════
+  # ⛔ THE LEADERBOARD WORKER IS TYPECHECKED HERE, AND DELIBERATELY *NOT* IN THE DEPLOY.
+  #
+  # `server/leaderboard/worker.js` is the only server-side code in the repo. It is NOT in the game
+  # bundle — it runs on Cloudflare, ships by `wrangler deploy`, and nothing about it can affect the
+  # static artifact GitHub Pages serves.
+  #
+  # It was briefly folded into `npm run typecheck`, which `deploy.yml` gates the Pages deploy on. That
+  # meant a type error in code that is not in the bundle could BLOCK SHIPPING THE GAME.
+  #
+  # ⭐ THAT IS THE `check:atlas` MISTAKE, EXACTLY. S165 wired a sprite-sheet quality check into
+  # `npm run build`, the Pages deploy went red on a missing Python module, nothing was caught, and the
+  # site simply sat STALE while the owner waited on new art. The standing rule that came out of it —
+  # a non-gameplay quality opinion must NEVER block a live deploy — applies here word for word, and
+  # `atlas-guard` above is the shape it takes: its own job, gating CI, out of the deploy's path.
+  #
+  # So a broken worker still turns CI red, and still cannot stop the game from shipping.
+  # ════════════════════════════════════════════════════════════════════════════════════════════
+  worker-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck the leaderboard worker (not in the bundle, not in the deploy gate)
+        run: npm run typecheck:server

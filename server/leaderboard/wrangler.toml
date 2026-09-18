@@ -1,0 +1,25 @@
+# SPARK — shared arcade leaderboard worker.
+#
+# ⭐ LIVE since S182 — the owner approved the account and logged in; the database below is real.
+#
+# ⚠ `database_id` IS NOT A SECRET and is committed deliberately. It is an opaque identifier that does
+# nothing without account auth, and wrangler needs it in this file to deploy at all. The one value
+# here that IS a secret — `IP_SALT` — is set out of band and must never be written into this file;
+# `src/ci.leaderboardGate.test.ts` asserts it is not.
+#
+# Region WEUR (Western Europe), chosen by Cloudflare at creation. See README.md for the runbook.
+
+name = "spark-leaderboard"
+main = "worker.js"
+compatibility_date = "2026-05-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spark-leaderboard"
+database_id = "a3db764b-1982-46ef-9d29-7c5f54d3aa93"
+
+# IP_SALT is a SECRET, not a var — it is what keeps the stored ip_hash from being a reversible
+# encoding of a player's IP address (there are only 2^32 IPv4 addresses; an unsalted SHA-256 of one
+# is brute-forced in seconds). Set it out of band, never in this file:
+#
+#   npx wrangler secret put IP_SALT

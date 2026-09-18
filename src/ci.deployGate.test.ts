@@ -296,12 +296,31 @@ describe('S158 P1 — the TURN credentials reach the production build', () => {
     }
   });
 
-  it('the wiring REPORT sees the same names as the build, so a green log cannot lie', () => {
+  it('the wiring REPORT sees the same TURN names as the build, so a green log cannot lie', () => {
     // The report step is what the owner reads to confirm their secrets landed. If it were given a
     // different (or smaller) set than the build, it could print "RELAY WILL BE SHIPPED" for a build
     // that shipped nothing — worse than no report at all.
-    const build = [...envOfStepRunning('npm run build').keys()].sort();
-    const report = [...envOfStepRunning('node scripts/turn-wiring-report.mjs').keys()].sort();
+    //
+    // ⚠ S182 — SCOPED TO `VITE_TURN_*`, AND THE NARROWING IS DELIBERATE RATHER THAN A GATE BEING
+    // RELAXED TO LET A CHANGE THROUGH. This was a whole-set equality, which silently encoded an
+    // assumption that never had to be true: that the build reads EXACTLY the variables the TURN
+    // report reads. The shared leaderboard (S182) added `VITE_LEADERBOARD_URL`, which the build
+    // needs and which `turn-wiring-report.mjs` has no opinion about whatsoever — so whole-set
+    // equality would have failed for a build that is entirely correct, and the only way to satisfy
+    // it would have been to feed the TURN report a variable it does not read. That is worse: it
+    // makes the report's input set a lie in order to keep a test green.
+    //
+    // The GUARANTEE the test exists for is unchanged and is asserted in both directions below: the
+    // TURN report must see every TURN key the build sees (or it could print a green tick for a
+    // relay that was not shipped) and no TURN key the build does not (or it could warn about one
+    // that was). The leaderboard has its own report step with the same property, asserted in
+    // `ci.leaderboardGate.test.ts`.
+    const turnOnly = (m: ReadonlyMap<string, string>): string[] =>
+      [...m.keys()].filter((k) => k.startsWith('VITE_TURN_')).sort();
+    const build = turnOnly(envOfStepRunning('npm run build'));
+    const report = turnOnly(envOfStepRunning('node scripts/turn-wiring-report.mjs'));
+    // Anti-vacuity: if the filter ever matched nothing, the equality below would pass on two empties.
+    expect(build.length, 'the build step must pass at least the three TURN keys').toBeGreaterThanOrEqual(3);
     expect(report).toEqual(build);
   });
 

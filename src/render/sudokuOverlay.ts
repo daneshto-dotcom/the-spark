@@ -18,6 +18,7 @@ import { Application, Assets, Container, type FederatedPointerEvent, Graphics, S
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { SudokuEvent } from '../state/sudoku.ts';
+import { nonetLoserLine, nonetStakesLine, nonetTicksRemaining } from '../state/sudokuEvent.ts';
 import {
   blinkPulse,
   floodAlpha,
@@ -99,7 +100,103 @@ const BX = (CANVAS_WIDTH - BOARD) / 2; // 690
 const BY = 320;
 const GOLD = 0xe8c66a;
 
+/**
+ * S182 SI-C — countdown plate geometry. **Kept byte-identical to `arcadeRunOverlay.ts`'s clock**
+ * (`CLOCK_Y = 54`, 210×52, centred) because the whole complaint being answered is that the same
+ * puzzle treats time differently depending on where you opened it.
+ */
+const CLOCK_Y = 54;
+const CLOCK_W = 210;
+const CLOCK_H = 52;
+/** Under this many ticks left the readout turns red. 30 s at 60 Hz — mine, not an owner number. */
+const CLOCK_URGENT_TICKS = 1800;
+
 export type SubmitFn = (grid: number[]) => boolean;
+
+/**
+ * ⛔ S182 SI-A — **THE ARROW KEYS COULD PARK THE CURSOR ON A GIVEN, AND THE GAME THEN READ AS FROZEN.**
+ *
+ * Owner, S182: *"we have a nice Sudoku, it looked good, but it's not consistent."*
+ *
+ * This is the mechanism behind a large part of that. `onKey`'s arrow branches used to do nothing but
+ * clamp an index — `Math.min(CELLS - 1, this.selected + 1)` and its three siblings — so the cursor
+ * could land on a **given** clue. Digit entry is gated on `this.givens[this.selected] === 0`, so from
+ * there **every single keystroke was silently swallowed**: no digit, no sound, no flash, no reason
+ * offered. The board looked perfect and did nothing, which is indistinguishable from a hang.
+ *
+ * ⚠ THE SAME CLASS AS THE S149 BUG HE ALREADY REPORTED ONCE — *"nonet is not really working like you
+ * cant imput anything in the box"*. That one was fixed for the ARCADE SEAM (the handlers read the
+ * wrong event) and the identical symptom via NAVIGATION was left live for 33 sessions. Fixing a
+ * symptom at one of its causes is this project's signature defect.
+ *
+ * The rule: **a move lands on an editable cell or it does not happen.** Step in the requested
+ * direction; if that cell is a given, keep stepping the SAME way until an editable cell or the edge.
+ * Hitting the edge with nothing editable behind it returns the original selection unchanged — a
+ * refused move, not a move to somewhere useless.
+ *
+ * ⭐ AND HORIZONTAL MOVES STAY ON THEIR ROW. `+1` off the last column used to walk onto column 0 of
+ * the NEXT row (and `-1` off column 0 onto the previous row's last cell), which no grid UI anywhere
+ * does — the cursor simply teleported across the board. `dr`/`dc` are applied to the row and column
+ * separately and bounds-checked as a 2-D position, so a horizontal move cannot change rows at all.
+ *
+ * PURE and exported so all of this is testable headlessly, without Pixi and without a DOM.
+ */
+export function moveSelection(
+  selected: number,
+  givens: readonly number[],
+  dr: number,
+  dc: number,
+): number {
+  // No selection yet (an all-given row can leave `findIndex` at -1): treat the first move as
+  // "select the first editable cell" rather than as a move from an imaginary position.
+  if (selected < 0) return givens.findIndex((g) => g === 0);
+  let r = Math.floor(selected / N);
+  let c = selected % N;
+  for (;;) {
+    r += dr;
+    c += dc;
+    if (r < 0 || r >= N || c < 0 || c >= N) return selected; // walked off the grid — refuse the move
+    const idx = r * N + c;
+    if (givens[idx] === 0) return idx;
+  }
+}
+
+/**
+ * ⭐ S182 SI-D — the next empty editable cell AFTER `from`, wrapping once through the grid.
+ *
+ * ⛔ THE OLD AUTO-ADVANCE SEARCHED FROM INDEX 0 EVERY TIME (`this.entries.findIndex(…)`), so filling
+ * the last cell of the bottom row threw the cursor back to the top-left. The player's eye is where
+ * their hand just was; a cursor that jumps to the other end of the board after every digit is the
+ * other half of *"it's not consistent"*, and it compounds SI-A — the two together are why the
+ * keyboard feels like it has a mind of its own.
+ *
+ * Returns -1 when the grid is full, which is the caller's signal to leave the cursor where it is
+ * (and, separately, what makes `maybeSubmit` the next thing that happens).
+ */
+export function nextEditableCell(
+  entries: readonly number[],
+  givens: readonly number[],
+  from: number,
+): number {
+  for (let step = 1; step <= CELLS; step++) {
+    const i = (from + step + CELLS) % CELLS;
+    if (entries[i] === 0 && givens[i] === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * S182 SI-C — ticks → the countdown's `M:SS` readout. PURE.
+ *
+ * ⭐ CEILING, NOT FLOOR, and the difference is visible every single second. `Math.floor` would show
+ * "0:00" for the whole final second while the trial is still live and still winnable — a clock that
+ * reads zero while the game continues is the kind of small lie that makes a UI feel broken. Ceiling
+ * means the readout hits 0:00 exactly when `nonetTicksRemaining` does.
+ */
+export function formatCountdown(ticks: number): string {
+  const secs = Math.ceil(Math.max(0, ticks) / 60);
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
 
 export class SudokuOverlay {
   readonly container: Container;
@@ -108,6 +205,17 @@ export class SudokuOverlay {
   private readonly banner: Text;
   private readonly result: Text;
   private readonly hint: Text;
+  /**
+   * ⭐ S182 SI-C — the match trial's countdown. See `nonetTicksRemaining`.
+   *
+   * ⚠ MATCH ONLY, AND HIDDEN IN THE ARCADE ON PURPOSE. An arcade run has no timeout — `tickSudoku`
+   * never runs on the title screen and `makeArcadeNonet` hands in `startTick: 0` as a filler — so a
+   * countdown there would be pure fiction. The arcade's own clock counts UP, in `arcadeRunOverlay`,
+   * because the arcade is a time TRIAL and the match is a time LIMIT. Deliberately the same plate
+   * geometry and the same screen position as that one, so the two read as one family.
+   */
+  private readonly clockPlate: Graphics;
+  private readonly clock: Text;
   // S95 — winner-colour resolve flood + its rising-edge latch + fade state.
   private readonly flood: Graphics;
   private floodStartTick = -1;
@@ -138,6 +246,8 @@ export class SudokuOverlay {
   private entries: number[] = new Array(CELLS).fill(0);
   private givens: number[] = new Array(CELLS).fill(0);
   private selected = -1;
+  /** Last countdown string drawn, reported by `getUiPoints`. Empty while the clock is hidden. */
+  private countdownText = '';
   private activeSeed: number | null = null;
   private wrongFlash = 0;
   private readonly onSubmit: SubmitFn;
@@ -197,12 +307,24 @@ export class SudokuOverlay {
     this.container.addChild(title);
 
     this.banner = new Text({
-      text: 'first to solve · winner x2 · everyone else halved',
+      text: nonetStakesLine(),
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: 0xffe9b8, letterSpacing: 1 }),
     });
     this.banner.anchor.set(0.5);
     this.banner.position.set(CANVAS_WIDTH / 2, BY - 18);
     this.container.addChild(this.banner);
+
+    // ── S182 SI-C: the countdown plate, top-centre, matching the arcade clock's geometry exactly ──
+    this.clockPlate = new Graphics();
+    this.clockPlate.eventMode = 'none';
+    this.container.addChild(this.clockPlate);
+    this.clock = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 34, fill: 0xffd60a }),
+    });
+    this.clock.anchor.set(0.5);
+    this.clock.position.set(CANVAS_WIDTH / 2, CLOCK_Y);
+    this.container.addChild(this.clock);
 
     // ── board slot + dynamic cell graphics ──
     const slot = new Graphics();
@@ -562,7 +684,7 @@ export class SudokuOverlay {
     // the overlay lying about the stakes. Caught by reading a screenshot, not by a test.
     this.banner.text = override !== null
       ? 'arcade · solve it at your own pace · Esc to leave'
-      : 'first to solve · winner x2 · everyone else halved';
+      : nonetStakesLine();
     if (ev === null) {
       this.container.visible = false;
       this.setVideosPlaying(false); // pause the realm loops while the overlay is dismissed
@@ -640,6 +762,10 @@ export class SudokuOverlay {
 
     if (this.wrongFlash > 0) this.wrongFlash--;
 
+    // S182 SI-C — the countdown. Match only, and gone the moment the trial is decided (the result
+    // line owns the screen from then on; a clock still ticking under "TIME'S UP" would be absurd).
+    this.drawCountdown(override === null && !resolved ? nonetTicksRemaining(ev.startTick, world.tick) : null);
+
     // banner / result
     if (resolved) {
       this.banner.visible = false;
@@ -653,7 +779,7 @@ export class SudokuOverlay {
         this.result.text = 'SOLVED FIRST!  your score x2';
         this.result.style.fill = 0x8fffc0;
       } else {
-        this.result.text = `player ${(ev.solvedBy as number) + 1} solved it — your score halved`;
+        this.result.text = nonetLoserLine(`player ${(ev.solvedBy as number) + 1}`);
         this.result.style.fill = 0xff9a9a;
       }
     } else {
@@ -704,6 +830,49 @@ export class SudokuOverlay {
     }
   }
 
+  /**
+   * S182 SI-C — draw (or hide) the countdown. `null` ticks ⇒ hidden.
+   *
+   * ⚠ AN OPAQUE PLATE, NOT A BARE GLYPH, and that is a lesson already paid for once: the arcade
+   * clock's own docblock records that a bare numeral over the light NONET board was unreadable, and
+   * that no unit test can see contrast. Same plate, same reason.
+   */
+  private drawCountdown(ticks: number | null): void {
+    this.clockPlate.clear();
+    if (ticks === null) {
+      this.clockPlate.visible = false;
+      this.clock.visible = false;
+      this.countdownText = '';
+      return;
+    }
+    const urgent = ticks <= CLOCK_URGENT_TICKS;
+    const tint = urgent ? 0xff6b6b : 0xffd60a;
+    const x = (CANVAS_WIDTH - CLOCK_W) / 2;
+    this.clockPlate
+      .roundRect(x, CLOCK_Y - CLOCK_H / 2, CLOCK_W, CLOCK_H, 10)
+      .fill({ color: 0x05070c, alpha: 0.88 });
+    this.clockPlate
+      .roundRect(x, CLOCK_Y - CLOCK_H / 2, CLOCK_W, CLOCK_H, 10)
+      .stroke({ width: 2, color: tint, alpha: 0.85 });
+    this.countdownText = formatCountdown(ticks);
+    this.clock.text = this.countdownText;
+    this.clock.style.fill = tint;
+    this.clockPlate.visible = true;
+    this.clock.visible = true;
+  }
+
+  /**
+   * S85 P4c geometry-getter convention — what is actually on screen, for e2e and unit assertions.
+   *
+   * ⚠ EXISTS BECAUSE THE COUNTDOWN IS OTHERWISE INVISIBLE TO EVERY TEST IN THE SUITE. `startTick`
+   * was serialized, hashed and regenerated on every peer for 89 sessions while no renderer read it,
+   * and nothing went red — precisely the "unreached code stays green" failure this repo keeps
+   * shipping. A reported value is what makes the wiring assertable rather than merely present.
+   */
+  getUiPoints(): { readonly countdown: string; readonly countdownVisible: boolean } {
+    return { countdown: this.countdownText, countdownVisible: this.clock.visible };
+  }
+
   /** S97 P4 — kick off the winner-only jackpot (SFX + fireworks + banner). Cosmetic + local. */
   private startCelebration(tick: number): void {
     playNonetJackpot();
@@ -752,7 +921,8 @@ export class SudokuOverlay {
         // render-local — no sim, determinism, or wire impact.
         if (ev.puzzle.solution[this.selected] === digit) playNonetYey();
         else playNonetOww();
-        const next = this.entries.findIndex((v, i) => v === 0 && this.givens[i] === 0);
+        // S182 SI-D — advance FORWARD from where the hand is, not back to the first hole in the grid.
+        const next = nextEditableCell(this.entries, this.givens, this.selected);
         if (next >= 0) this.selected = next;
         this.maybeSubmit();
       }
@@ -761,14 +931,21 @@ export class SudokuOverlay {
       if (this.selected >= 0 && this.givens[this.selected] === 0) this.entries[this.selected] = 0;
       e.preventDefault();
     } else if (e.key === 'ArrowRight') {
-      this.selected = Math.min(CELLS - 1, this.selected + 1);
+      this.selected = moveSelection(this.selected, this.givens, 0, 1);
+      e.preventDefault();
     } else if (e.key === 'ArrowLeft') {
-      this.selected = Math.max(0, this.selected - 1);
+      this.selected = moveSelection(this.selected, this.givens, 0, -1);
+      e.preventDefault();
     } else if (e.key === 'ArrowDown') {
-      this.selected = Math.min(CELLS - 1, this.selected + N);
+      this.selected = moveSelection(this.selected, this.givens, 1, 0);
+      e.preventDefault();
     } else if (e.key === 'ArrowUp') {
-      this.selected = Math.max(0, this.selected - N);
+      this.selected = moveSelection(this.selected, this.givens, -1, 0);
+      e.preventDefault();
     }
+    // ⚠ S182 — the arrow branches now `preventDefault()` like every other branch here. They did not,
+    // and the digit branch's own comment two screens up says why it matters: *"arrows scroll the page
+    // otherwise"*. The rule was known, written down, and applied to three of the four key groups.
   };
 
   /** When the grid is full, submit it; a wrong grid just flashes (host rejects, race continues). */

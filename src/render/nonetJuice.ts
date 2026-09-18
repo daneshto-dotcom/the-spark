@@ -131,7 +131,13 @@ export function playNonetJackpot(): void {
   blip(196, 262, 0.7, 'sawtooth', 0.06, 0.0); // warm low swell
 }
 
-/** Someone else solved (your score halved) — a gentle descending "aww". */
+/**
+ * Someone else solved (you lose `NONET_LOSER_CUT_PCT` of your banked score) — a descending "aww".
+ *
+ * ⚠ S182 — this said *"your score halved"*, the FOURTH copy of the S106 drift that SI-B fixed in the
+ * three UI strings. A comment cannot mislead a player, but it misleads the next reader deciding how
+ * hard this sting should land, which is how the wrong number propagates in the first place.
+ */
 export function playNonetLose(): void {
   blip(587, 440, 0.34, 'sine', 0.13);
 }

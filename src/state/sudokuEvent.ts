@@ -58,6 +58,54 @@ export const NONET_RESOLVE_DISPLAY_TICKS = 180; // ~3 s
 export const NONET_TIMEOUT_TICKS = 10800; // ~180 s (S94 — +60 s per user request)
 
 /**
+ * ⛔ S182 SI-B — **THE BANNER LIED BY TWENTY POINTS FOR 76 SESSIONS, AND THESE FUNCTIONS EXIST SO IT
+ * CANNOT HAPPEN AGAIN.**
+ *
+ * S106 changed `NONET_LOSER_MULT` from 0.5 to 0.4 — losing a NONET stopped costing you half your
+ * banked score and started costing you **60%** of it. The constant moved; three hand-typed UI strings
+ * did not. `sudokuOverlay.ts` told every player *"everyone else halved"* on the title plate, said it
+ * again on the arcade seam's match branch, and then told the loser *"your score halved"* on the
+ * result line — three separate assertions that the simulation contradicts, in the one screen whose
+ * whole job is to explain the stakes before you commit to racing for them.
+ *
+ * ⭐ THE FIX IS NOT "RETYPE 60". A number typed into prose is exactly what failed here; typing a
+ * different number into the same prose buys one session of correctness and re-arms the trap. The
+ * copy is now DERIVED from the constant it describes, so the next person who retunes the multiplier
+ * moves the UI with it whether they think about it or not — and `sudokuEvent.test.ts` asserts the
+ * derivation rather than the literal, so it cannot be re-pinned to a stale figure either.
+ */
+export const NONET_LOSER_CUT_PCT = Math.round((1 - NONET_LOSER_MULT) * 100);
+
+/** The stakes, as the pre-solve banner states them. Derived — never retype the number. */
+export function nonetStakesLine(): string {
+  return `first to solve · winner x${NONET_WINNER_MULT} · everyone else loses ${NONET_LOSER_CUT_PCT}%`;
+}
+
+/** What the losing player is told after someone else solves it. Derived — never retype the number. */
+export function nonetLoserLine(seatLabel: string): string {
+  return `${seatLabel} solved it — you lose ${NONET_LOSER_CUT_PCT}% of your score`;
+}
+
+/**
+ * ⭐ S182 SI-C — ticks left before the no-solver timeout fires. PURE.
+ *
+ * `startTick` has been on the event, serialized and regenerated on every peer since S93, and until
+ * S182 **the overlay never read it** — `grep startTick src/render/sudokuOverlay.ts` returned nothing.
+ * So a 180-second trial that freezes an entire duel ran with no clock anywhere on screen, while the
+ * ARCADE — the same puzzle, played alone, with nothing at stake and no timeout at all — has a
+ * prominent one. Same puzzle, opposite treatment of time; that is the inconsistency, not the missing
+ * widget.
+ *
+ * Clamped at both ends: a client whose `tick` briefly runs ahead of the host's `startTick` must not
+ * render a negative countdown, and an expired trial reads `0` rather than counting into the past.
+ */
+export function nonetTicksRemaining(startTick: number, nowTick: number): number {
+  const elapsed = nowTick - startTick;
+  if (elapsed <= 0) return NONET_TIMEOUT_TICKS;
+  return Math.max(0, NONET_TIMEOUT_TICKS - elapsed);
+}
+
+/**
  * Sweep all connected components for a NONET — a component with **AT LEAST `NONET_CONNECTOR_COUNT`
  * CONNECTORS** whose primitives are ALL the SAME SparkType (12+ bonds among squares, OR among
  * circles, OR among spirals, …). Owner R159, S170: *"Twelve connectors... or more."* Returns that
