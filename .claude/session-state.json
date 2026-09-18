@@ -2175,5 +2175,40 @@
       "verbatim": "The P8 and P5 — we have to rerun. I wanna make sure the five code audits within several project documents states are correct, because some of them might have been backlog priorities that we just didn't work yet. How do I know? There might be things that I wanna work but we didn't work yet. You didn't give me the whole output of them. I need to see what they are about before going forward.",
       "means": "⛔ SHARP AND CORRECT CHALLENGE. A doc line saying 'X is absent' may be an UNWORKED BACKLOG ITEM, not doc rot. Claude must NOT 'correct' such lines away. P5 and P8 are BLOCKED until their full contents are presented to him item by item for his verdict."
     }
+  },
+  "s182_merge_record": {
+    "merged": "2026-09-18",
+    "order": [
+      "damage-truth",
+      "net-bandwidth",
+      "placement",
+      "lightning-hub",
+      "mp-identity",
+      "arcade"
+    ],
+    "order_note": "Reordered from the plan after an agent PERFORMED the merge in a throwaway worktree rather than predicting it: the original 4->3->6->2->5->1 died at step 2 on playwright.config.ts. arcade moved to LAST because merging it turns on a live Cloudflare service.",
+    "conflicts_resolved": {
+      "playwright.config.ts": "FIVE branches, five incompatible designs. Kept damage-truth's (the only one safe without remembering to export an env var).",
+      "src/ci.e2eLanes.test.ts": "THREE branches, two spellings of the same CRLF fix. Kept the merged base.",
+      "src/net/protocol.ts + SPARK_CANON.md + e2e/smoke.spec.ts": "TWO branches both bumped 46->47 for DIFFERENT wire changes (a new BOND_SEVERED cause discriminant; prevPos leaving the wire). Kept BOTH histories at 47 - dropping either would leave a live wire change undocumented."
+    },
+    "merge_owner_fixes": [
+      "netWireSize.test.ts gx 200->281 - a regression that existed ONLY on the merged tree (placement's castle keep-out silently refused net-bandwidth's fixture placements). Neither branch could have seen it.",
+      "severToastRenderer mixed-cause collapse - compare the RENDERED class, not the raw discriminant.",
+      "main.ts exhaustiveness contract that always compiled (as never) and had replaced a safe fallback.",
+      "Two stale doc claims corrected mid-merge: the suicide blast no longer uses cause bomb, and the prevPos strip is at the TRANSPORT boundary not in netSnapshot().",
+      "R182-G and R182-H into SPARK_CANON.md with four canon.test.ts assertions - both rulings existed only in commit messages on an unmerged branch."
+    ],
+    "gates_on_merged_tree": {
+      "vitest": "EXIT=0, 5238 tests / 319 files",
+      "typecheck": "EXIT=0",
+      "typecheck_server": "EXIT=0",
+      "build": "EXIT=0, 875.0 KiB of the 1000 KiB charter",
+      "e2e_gating": "in flight at record time"
+    },
+    "measured_outcomes": {
+      "peer_lag": "2.56x less host uplink - 107.5 -> 84.0 KiB per snapshot, 17.61 -> 6.88 Mbit/s, independently re-measured through the shipped serializers.",
+      "hub_seam_cost": "~17 code lines + one ~20-line data file per additional tower. Four towers ~= 91 lines. An afternoon, not a month."
+    }
   }
 }
