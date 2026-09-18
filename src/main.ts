@@ -145,6 +145,8 @@ import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { resolveMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
+// S182 STEP 0 — net bandwidth + snapshot-arrival counters, armed from the URL (see the call site).
+import { netStats, netStatsRequested } from './net/netStats.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
@@ -2225,6 +2227,30 @@ Network routes: ${v.detail}`;
       debugOverlay = m.createDebugOverlay();
       console.log('[debug] overlay enabled via ?debug=1 — copy snapshot by clicking panel');
     });
+  }
+  // ⭐ S182 STEP 0 — arm the net-bandwidth counters (bytes/sec out per strategy; accepted,
+  // duplicate and inter-arrival snapshot stats on the joiner). Press ~ to read them.
+  //
+  // ⛔ THIS IS DELIBERATELY *NOT* BEHIND `import.meta.env.DEV`. The reading it exists to produce can
+  // only be taken in the match that shows the bug — two people on spark-online.space, i.e. a
+  // PRODUCTION build, from which a DEV-gated counter is tree-shaken. `?debug=1` is the seam this
+  // repo already ships to production for exactly this class of question; `?netstats=1` is the same
+  // gate without paying for the debug overlay's lazy chunk. Disabled is the default and every call
+  // site tests `isEnabled()` before evaluating its arguments, so a normal build pays one boolean
+  // read per send/receive (~20/sec) and never reads a clock. See netStats.ts.
+  if (netStatsRequested(window.location.search)) {
+    netStats.enable();
+    // A console accessor alongside the overlay, so a reading can be COPIED as JSON rather than
+    // transcribed from a screenshot. Attached only when armed, so an ordinary session has no such
+    // property. `reset()` re-zeroes mid-match for A-B probing (the snapshotProbe precedent).
+    (window as unknown as Record<string, unknown>).__SPARK_NETSTATS__ = {
+      read: () => netStats.read(performance.now()),
+      reset: () => netStats.reset(),
+    };
+    console.log(
+      '[net] S182 step-0 counters ARMED — press ~ for the overlay, or __SPARK_NETSTATS__.read() ' +
+        'in the console. BOTH players need the URL param.',
+    );
   }
   // S50 P2 — lastCinematicOwner migrated to godlyState (above).
   // S31 P0-4 — `cinematicTimer` REMOVED. Previously this main.ts-scoped

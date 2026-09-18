@@ -44,6 +44,7 @@ import {
 } from '@trystero-p2p/nostr';
 import type { MessageAction, Room } from '@trystero-p2p/core';
 import { parseNetMessage, PROTOCOL_VERSION, type NetMessage } from './protocol.ts';
+import { netStats } from './netStats.ts';
 import {
   APP_ID,
   HANDSHAKE_TIMEOUT_MS,
@@ -228,6 +229,10 @@ export class NetTransport {
    * subsequent messages.
    */
   handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+    // S182 STEP 0 — count inbound bytes BEFORE the parse and before any gate, so the reading
+    // includes the redundant second-strategy copy. That copy is not free on the joiner: it is a
+    // full JSON.parse of a ~100 KiB payload that is then discarded on ClientSync's seq gate.
+    if (netStats.isEnabled()) netStats.recordReceive(data.length, performance.now());
     // Parse on the receive boundary so malformed peer messages don't
     // poison handlers (Audit Pass-1 fix d3f0e22b preserved).
     let parsed: unknown;
@@ -561,6 +566,13 @@ export class NetTransport {
     for (const handle of this.strategies.values()) {
       if (handle.action === null) continue;
       dispatched++;
+      // S182 STEP 0 — measure the doubling AT THE POINT IT HAPPENS. Recording inside the loop (not
+      // once above it) is deliberate: the per-strategy rows are what turn "the host sends twice"
+      // from a code reading into a number the owner can see. `isEnabled()` is tested BEFORE the
+      // arguments are evaluated so a normal build never calls performance.now(). See netStats.ts.
+      if (netStats.isEnabled()) {
+        netStats.recordSend(handle.name, msg.kind, serialized.length, performance.now());
+      }
       handle.action.send(serialized).catch((err: unknown) => {
         // Per-strategy send failure: warn, do not escalate UI unless all
         // strategies have failed.

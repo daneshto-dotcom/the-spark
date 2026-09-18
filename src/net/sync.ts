@@ -21,6 +21,7 @@ import type { NetSnapshot, NetSnapshotMsg, IntentMsg } from './protocol.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { netSnapshot, applyNetSnapshot } from '../state/save.ts';
 import { lerp01 } from './lerp.ts';
+import { netStats } from './netStats.ts';
 import type { SparkId, Vec2 } from '../types.ts';
 
 /**
@@ -124,8 +125,20 @@ export class ClientSync {
     // host in D3+). PROVABLY INERT in D2: absent epoch = 0 and currentEpoch = 0, so 0 < 0 is false and
     // every snapshot passes exactly as pre-D2. Placed before the seq gate so a zombie's seq can't
     // advance our watermark.
-    if ((msg.epoch ?? 0) < this.currentEpoch) return false;
-    if (msg.snapshotSeq <= this.lastSeq) return false;
+    // S182 STEP 0 — instrument BOTH arms of this gate. The drop arm is not an error path here: in a
+    // 1v1 where both `iceConfig` strategies carry the peer, the second copy of every snapshot lands
+    // on `snapshotSeq <= lastSeq` and is discarded. So `dup ≈ accepted` IS the double-send, measured
+    // on the wire rather than inferred from `transport.send`'s loop. `now` is the caller's clock —
+    // no wall clock is read here. See netStats.ts.
+    if ((msg.epoch ?? 0) < this.currentEpoch) {
+      if (netStats.isEnabled()) netStats.recordSnapshotDropped(now);
+      return false;
+    }
+    if (msg.snapshotSeq <= this.lastSeq) {
+      if (netStats.isEnabled()) netStats.recordSnapshotDropped(now);
+      return false;
+    }
+    if (netStats.isEnabled()) netStats.recordSnapshotAccepted(now);
     this.lastSeq = msg.snapshotSeq;
     this.lastAcceptedAtMs = now;
     this.currentSnap = msg.snapshot;
