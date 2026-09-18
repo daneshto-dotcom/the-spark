@@ -236,4 +236,34 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // And S157 P0's owner-exemption is still the thing that spares his own base.
     expect(body).toContain('ownerPlayerId');
   });
+
+  /**
+   * S182 - THE ARCADE BOARD (R182-G) AND ADAPTIVE DIFFICULTY (R182-H).
+   *
+   * Both are OWNER RULINGS that lived only in commit messages and code comments on an unmerged
+   * branch until this merge. The canon rule is that a ruling lands HERE, with its assertion, or it
+   * rots - so these pin the two claims a future session is most likely to undo by accident.
+   */
+  it('records that the arcade ranks by AVERAGE, from run 1, on a random puzzle set', () => {
+    expect(canonSays('RANKING IS AN AVERAGE, NOT A BEST TIME')).toBe(true);
+    // The load-bearing half: the average is only FAIR because puzzles are random and many.
+    expect(canonSays('washes')).toBe(true);
+    // No minimum run count - he ruled this explicitly against Claude's proposal.
+    expect(canonSays('No minimum run count')).toBe(true);
+    // Lossless storage: a mean-of-means would silently drift and cannot be recovered.
+    expect(canonSays('never a mean')).toBe(true);
+  });
+
+  /**
+   * R182-H - the difficulty dial must stay BUILT and UNWIRED. A session tidying dead code would
+   * delete it; a session being helpful would wire it. Both are wrong, and this is the tripwire.
+   */
+  it('keeps the difficulty dial unwired, and records why', () => {
+    expect(canonSays('nothing passes it')).toBe(true);
+    expect(canonSays('do not delete it as dead code, and do not wire it')).toBe(true);
+    // The collision that must be solved BEFORE H ships, stated so it cannot be rediscovered late.
+    expect(canonSays('improving would make you')).toBe(true);
+    // And that H and the Steam login are ONE dependency, not two.
+    expect(canonSays('ONE dependency, not two')).toBe(true);
+  });
 });

@@ -320,7 +320,47 @@ nothing:
 
 ---
 
-## 9 · ⛔ OPEN — needs the owner, do not guess
+## 9 · ⭐ THE ARCADE BOARD — RANKING IS AN AVERAGE, NOT A BEST TIME (S182)
+
+**R182-G, ruled by the owner in S182.** The NONET arcade board ranks each player by their
+**average** completion time across all their runs, recomputed after every game. Not a best time.
+
+> *"The leaderboard will hold the average time it takes a user to complete … so people are
+> competing over a long span. And then that is your ranking."*
+
+⭐ **WHY THIS MAKES A RANDOM PUZZLE SET FAIR, WHICH IS THE WHOLE INSIGHT.** Puzzles are GENERATED,
+not premade — `generateSudoku(seed)` with a clock-derived seed, so two players never draw the same
+grid. A best-time board across different puzzles compares nothing. An AVERAGE over many runs washes
+the difficulty variance out, so the randomness stops being a defect and becomes the mechanism.
+**This is why the 30-stage fixed-seed ladder was WITHDRAWN** — it existed only to make per-puzzle
+boards possible, and per-puzzle boards are no longer needed.
+
+| | |
+|---|---|
+| Ranked from | **run 1.** No minimum run count — ruled explicitly. |
+| Identity | **the typed name.** Two players choosing the same name MERGE, and he accepted that: *"hold people at their same name, if not then who cares, come back to it later."* |
+| Stored | `runs` + `total_ms` per player — never a mean, so the average is LOSSLESS |
+| Board visibility | ⛔ **gated on submission.** You cannot see the names until you enter yours. That is an anti-griefing measure, not a UI flourish. |
+
+⭐ **AND IT IS HARDER TO CHEAT THAN A BEST-TIME BOARD.** One faked 0:01 owns a best-time board
+forever; against an average over twenty runs it barely registers.
+
+### ⚠ R182-H — adaptive difficulty is RULED and DEFERRED, and it COLLIDES with R182-G
+
+The difficulty dial exists (`generateSudoku`'s second argument) and **nothing passes it**. Keep it
+that way: do not delete it as dead code, and do not wire it. The intended design is that a player
+whose average beats a threshold is promoted to harder grids.
+
+⛔ **IT IS BLOCKED ON PERSISTENT IDENTITY, AND THAT IS THE SAME DEPENDENCY AS THE STEAM LOGIN.**
+Tiers need to know who a player is across sessions; R182-G deliberately accepted name collisions.
+Both unblock at the same moment — they are ONE dependency, not two.
+
+⛔ **AND THE COLLISION, WHICH MUST BE SOLVED BEFORE H IS BUILT:** an average board is only fair
+while every player draws from the SAME distribution. If strong players start drawing harder grids
+they post slower times and drift DOWN a table comparing raw averages — **improving would make you
+rank worse.** Whoever builds H has to normalise for difficulty or the board stops meaning anything.
+
+## 10 · ⛔ OPEN — needs the owner, do not guess
 
 *(Both of S180's castle questions were answered — see §3.)*
 
@@ -387,7 +427,7 @@ longer run for that directory**:
 bar — both still run and both score a clean zero. If a future dark sheet needs a
 near-black-pocket check, that is a NEW check, not a threshold tweak to these two.
 
-## 10 · HOW TO KEEP THIS HONEST
+## 11 · HOW TO KEEP THIS HONEST
 
 - Add a number here only with the constant it comes from, and add its assertion to `src/canon.test.ts`
   in the same commit.
