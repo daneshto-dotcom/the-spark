@@ -160,6 +160,27 @@ jobs:
           VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
           VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
 
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      # ⭐ S182 — THE SHARED LEADERBOARD, AND IT IS THE TURN STORY AGAIN WITH A DIFFERENT KEY.
+      #
+      # The owner reported that the arcade high-score board showed only his own runs — he and a friend
+      # each held a private localStorage table of one row, so both were permanently "1ST". The fix is
+      # a Cloudflare Worker, and it reaches the game by exactly one route: `VITE_LEADERBOARD_URL`,
+      # inlined into the bundle at build time by `vite.config.ts`'s `define`.
+      #
+      # ⛔ SO THE FAILURE MODE IS INDISTINGUISHABLE FROM THE ORIGINAL BUG. A misspelled variable, a
+      # value set on the wrong repository, a URL pasted with a path or without the `s` in `https` —
+      # every one produces a green deploy and a board that still shows only your own scores. The
+      # report below is the only thing that would tell him which he is looking at.
+      #
+      # ⚠ UNSET IS A SUPPORTED STATE. `parseLeaderboardBase` returns '' and the client uses the local
+      # board exactly as it has since S149. Nothing here can break a deploy by being missing.
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      - name: Leaderboard wiring report (never fails the build)
+        run: node scripts/leaderboard-wiring-report.mjs
+        env:
+          VITE_LEADERBOARD_URL: ${{ vars.VITE_LEADERBOARD_URL || secrets.VITE_LEADERBOARD_URL }}
+
       - name: Build (vite + tsc + bundle cap)
         run: npm run build
         env:
@@ -168,6 +189,9 @@ jobs:
           VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS || secrets.VITE_TURN_URLS }}
           VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
           VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+          # A worker URL is not a credential — it is a public endpoint anyone can see in devtools the
+          # moment the game calls it — so a repo VARIABLE is the natural home, secret as a fallback.
+          VITE_LEADERBOARD_URL: ${{ vars.VITE_LEADERBOARD_URL || secrets.VITE_LEADERBOARD_URL }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

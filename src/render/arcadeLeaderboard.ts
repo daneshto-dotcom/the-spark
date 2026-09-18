@@ -204,6 +204,68 @@ export class RemoteLeaderboard implements LeaderboardClient {
 }
 
 /**
+ * ⚠ MUST MATCH `LEADERBOARD_ORIGIN_RE` in `scripts/leaderboard-wiring-report.mjs` BYTE FOR BYTE —
+ * pinned by `ci.leaderboardGate.test.ts`, exactly as `ICE_URL_RE` is pinned between `iceConfig.ts`
+ * and `turn-wiring-report.mjs`.
+ *
+ * A bare ORIGIN: scheme, host, optional port. No path, no query, no fragment, no userinfo.
+ */
+const LEADERBOARD_ORIGIN_RE =
+  /^https?:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(?::\d{1,5})?$/i;
+
+/** Hosts for which plain `http:` is legitimate — a dev server on the same machine. */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * ⛔ IS IT *USABLE* — not "is it set". PURE. Returns a clean base, or `''` for anything unusable.
+ *
+ * ⚠ THIS EXISTS BECAUSE THE REPO HAS ALREADY PAID FOR THE LESSON ONCE, IN THE SAME SHAPE. S162:
+ * `turn-wiring-report.mjs` printed `✅ RELAY WILL BE SHIPPED` for a build whose ICE config THREW,
+ * because it validated `v.trim() !== ''` and nothing else — *"a watchdog that shares the watched
+ * code's blind spot is not a watchdog."* The owner had pasted a value off a dashboard that arrived
+ * wrapped as `urls: "turn:…"`, and lost multiplayer on every network behind a green deploy.
+ *
+ * The first cut of THIS module did `REMOTE_BASE === ''` and a trailing-slash trim. That accepts
+ * every one of these, and each fails silently at runtime with the board falling back to local:
+ *
+ * · **`http://…`** — the site is served over HTTPS, so the browser blocks a plain-http fetch as
+ *   mixed content. Nothing reaches the network; the client's catch reads it as "offline". THE most
+ *   likely real mistake, because a worker URL copied from an older doc or typed by hand loses the s.
+ * · **a missing scheme** (`spark-leaderboard.x.workers.dev`) — `fetch` resolves it RELATIVE to
+ *   spark-online.space, quietly requesting a path on the game's own origin.
+ * · **a trailing path or query** (`…workers.dev/board`) — every request is then misrouted to
+ *   `/board/board/nonet`, which the worker 404s.
+ * · **a wrapped or quoted paste** (`url: "https://…"`, a trailing comma) — the S162 shape exactly.
+ * · **stray whitespace or a newline** — trivially added by a copy-paste into a web form, and
+ *   `new URL()` on it throws inside `fetch`.
+ * · **the literal strings `undefined` / `null` / `false`** — what a mis-templated CI expression
+ *   produces, and all three are truthy non-empty strings.
+ */
+export function parseLeaderboardBase(raw: string): string {
+  if (typeof raw !== 'string') return '';
+  let s = raw.trim();
+  // Unwrap a dashboard/CI paste: an optional `KEY:` label, surrounding quotes, a trailing comma.
+  // ⚠ THE `(?!\/\/)` IS LOAD-BEARING AND ITS ABSENCE WAS CAUGHT BY RUNNING THIS, NOT BY READING IT.
+  // Without it this label-stripper reads `https:` in `https://host` as a `key:` prefix and eats the
+  // scheme, so the parser rejected every VALID url and accepted only wrapped ones — precisely
+  // inverted. A scheme is a colon followed by `//`; a pasted label never is.
+  s = s.replace(/^[A-Za-z_][A-Za-z0-9_]*\s*[:=]\s*(?!\/\/)/, '').trim();
+  s = s.replace(/,+$/, '').trim();
+  const quoted = /^(['"`])([\s\S]*)\1$/.exec(s);
+  if (quoted !== null) s = quoted[2].trim();
+  s = s.replace(/\/+$/, '');
+  if (s === '' || s === 'undefined' || s === 'null' || s === 'false') return '';
+  if (!LEADERBOARD_ORIGIN_RE.test(s)) return '';
+  // ⛔ Reject plain http EXCEPT on a local dev host. A cross-origin http fetch from the deployed
+  // https site is blocked by the browser before it leaves the page.
+  if (s.toLowerCase().startsWith('http://')) {
+    const host = s.slice('http://'.length).split(':')[0].toLowerCase();
+    if (!LOCAL_HOSTS.has(host)) return '';
+  }
+  return s;
+}
+
+/**
  * ⛔ THE GATE, IN ONE CONSTANT. Empty in every build shipped today.
  *
  * Read in the DOTTED form (`import.meta.env.VITE_LEADERBOARD_URL`) and declared in `vite.config.ts`,
@@ -213,7 +275,7 @@ export class RemoteLeaderboard implements LeaderboardClient {
  * emit different BYTES from a local build, which breaks `verify-deploy`'s content-hash carrier on
  * every green deploy. `ci.leaderboardGate.test.ts` pins both halves.
  */
-const REMOTE_BASE: string = import.meta.env.VITE_LEADERBOARD_URL ?? '';
+const REMOTE_BASE: string = parseLeaderboardBase(import.meta.env.VITE_LEADERBOARD_URL ?? '');
 
 let client: LeaderboardClient | null = null;
 

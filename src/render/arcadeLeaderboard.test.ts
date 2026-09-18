@@ -21,6 +21,7 @@ import {
   getLeaderboard,
   isSharedBoardConfigured,
   LocalLeaderboard,
+  parseLeaderboardBase,
   RemoteLeaderboard,
   setLeaderboardForTests,
   type LeaderboardClient,
@@ -61,6 +62,77 @@ function stubFetch(body: unknown, status = 200): { calls: Array<[string, Request
   });
   return { calls };
 }
+
+describe('S182 — parseLeaderboardBase: "is it USABLE", never "is it set"', () => {
+  /**
+   * ⛔ THE S162 FAILURE, RE-ARMED. `turn-wiring-report.mjs` printed a green tick for a build whose
+   * ICE config threw, because it asked whether a value was non-empty. The owner lost multiplayer on
+   * every network behind that tick. Every case below is a value that IS set, IS non-empty, and
+   * silently ships no shared board.
+   */
+  it('accepts a real Cloudflare worker origin', () => {
+    expect(parseLeaderboardBase('https://spark-leaderboard.dan.workers.dev'))
+      .toBe('https://spark-leaderboard.dan.workers.dev');
+  });
+
+  it('accepts a custom domain — the rule is host-agnostic, not workers.dev-specific', () => {
+    // He may well move it behind board.spark-online.space later; a workers.dev regex would have
+    // silently rejected that and sent him back to the runbook with no idea why.
+    expect(parseLeaderboardBase('https://board.spark-online.space'))
+      .toBe('https://board.spark-online.space');
+  });
+
+  it('trims a trailing slash so URL joins stay predictable', () => {
+    expect(parseLeaderboardBase('https://x.workers.dev/')).toBe('https://x.workers.dev');
+  });
+
+  it('⛔ REJECTS plain http on a public host — the browser blocks it as mixed content', () => {
+    // THE most likely real mistake: a URL typed by hand or copied from an older note loses the `s`.
+    // The site is HTTPS, so the request never leaves the page and the client reads it as "offline".
+    expect(parseLeaderboardBase('http://x.workers.dev')).toBe('');
+  });
+
+  it('but ALLOWS http on localhost — a dev server on the same machine is legitimate', () => {
+    expect(parseLeaderboardBase('http://localhost:5173')).toBe('http://localhost:5173');
+    expect(parseLeaderboardBase('http://127.0.0.1:8787')).toBe('http://127.0.0.1:8787');
+  });
+
+  it('⛔ REJECTS a missing scheme — fetch would resolve it against spark-online.space', () => {
+    expect(parseLeaderboardBase('spark-leaderboard.dan.workers.dev')).toBe('');
+  });
+
+  it('⛔ REJECTS a path or query — every request would be misrouted to /board/board/nonet', () => {
+    expect(parseLeaderboardBase('https://x.workers.dev/board')).toBe('');
+    expect(parseLeaderboardBase('https://x.workers.dev?a=1')).toBe('');
+  });
+
+  it('⭐ RECOVERS a wrapped paste — the exact S162 shape that killed multiplayer', () => {
+    expect(parseLeaderboardBase('url: "https://x.workers.dev",')).toBe('https://x.workers.dev');
+    expect(parseLeaderboardBase('VITE_LEADERBOARD_URL=https://x.workers.dev')).toBe('https://x.workers.dev');
+  });
+
+  it('⛔ and recovering a paste must NOT eat the scheme of a clean value', () => {
+    // The regression this file caught by RUNNING it: without a `(?!//)` lookahead the label-stripper
+    // reads `https:` as a `key:` prefix, so the parser accepted ONLY wrapped values and rejected
+    // every correct one — exactly inverted, and it would have looked like the feature simply
+    // did not work.
+    expect(parseLeaderboardBase('https://x.workers.dev')).not.toBe('');
+  });
+
+  it('strips surrounding whitespace and a newline from a form paste', () => {
+    expect(parseLeaderboardBase('  https://x.workers.dev\n')).toBe('https://x.workers.dev');
+  });
+
+  it('⛔ REJECTS the literal strings a mis-templated CI expression produces', () => {
+    // All three are truthy, non-empty strings that would sail past an `=== ''` check.
+    for (const s of ['undefined', 'null', 'false']) expect(parseLeaderboardBase(s)).toBe('');
+  });
+
+  it('an unset value is the supported state, not an error', () => {
+    expect(parseLeaderboardBase('')).toBe('');
+    expect(parseLeaderboardBase('   ')).toBe('');
+  });
+});
 
 describe('S182 — the LOCAL board still behaves exactly as it always did', () => {
   it('is what a build with no configured backend selects', () => {

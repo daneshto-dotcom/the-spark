@@ -83,27 +83,62 @@ DELETE FROM scores WHERE board = 'nonet';
 
 ---
 
-## Deploying it, once he has said yes
+## Deploying it — APPROVED S182, and these are the only steps left
+
+⛔ **Steps 1 and 2 require Daniel's own Cloudflare credentials and cannot be done for him.**
+`wrangler login` is a browser OAuth flow against his account. Everything after them is mechanical.
 
 ```bash
 cd server/leaderboard
-npx wrangler login
-npx wrangler d1 create spark-leaderboard          # prints database_id → paste into wrangler.toml
+npx wrangler login                                 # ← HIS browser, HIS account. Step 1.
+npx wrangler d1 create spark-leaderboard           # ← prints database_id. Step 2.
+                                                   #    paste it into wrangler.toml
 npx wrangler d1 execute spark-leaderboard --remote --file=./schema.sql
-npx wrangler secret put IP_SALT                    # any long random string; never commit it
-npx wrangler deploy                                # prints the worker URL
+npx wrangler secret put IP_SALT                    # ⛔ MANDATORY — see below
+npx wrangler deploy                                # prints https://spark-leaderboard.<sub>.workers.dev
 ```
 
-Then point the game at it. The client reads **one** build-time variable and there is no second code
-path:
+⛔ **`IP_SALT` IS NOT OPTIONAL AND THE WORKER NOW REFUSES WRITES WITHOUT IT.** It used to default to
+the literal `'spark'` — a constant published in this public repo — which would have made the stored
+`ip_hash` column a brute-forceable encoding of players' IP addresses (there are only 2^32 IPv4
+addresses) while the code claimed the opposite. Skipping one line of a runbook must not silently
+downgrade a privacy property, so a missing or short salt is now a loud `503`, recoverable in one
+command. Use something long and random:
 
-- **GitHub → Settings → Secrets and variables → Actions → Variables** → add
-  `VITE_LEADERBOARD_URL` = the worker URL (no trailing slash).
-- Add it to the `env:` block of the build step in `.github/workflows/deploy.yml`, alongside the
-  three `VITE_TURN_*` keys that are already there.
-- Push `master`. That is the deploy.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 
+```
+
+⚠ **`workers.dev` is a Free-tier hostname and Cloudflare's own docs call it "intended for personal
+or hobby projects that aren't business-critical".** That is exactly what this is, so it is the right
+choice — but if the board ever matters more, put it behind a custom domain. The client accepts any
+https origin, so that move is a variable change and nothing else.
+
+Then point the game at it:
+
+```bash
+gh variable set VITE_LEADERBOARD_URL --body "https://spark-leaderboard.<sub>.workers.dev"
+```
+
+and push `master`. The deploy log will print a `── SPARK leaderboard wiring ──` block saying either
+`✅ SHARED BOARD WILL BE SHIPPED` or exactly what is wrong with the value. **Read that block** — it
+is the only thing that distinguishes a working board from the original bug, which looks identical.
+
+To check a value before committing to it:
+
+```bash
+VITE_LEADERBOARD_URL="https://..." node scripts/leaderboard-wiring-report.mjs
+```
 
 Unset, or set to the empty string, the game uses the local-only board exactly as it does today.
+
+⚠ **ORDERING: deploy the worker BEFORE setting the variable.** Between the two, nothing breaks —
+the variable is only read at build time, so the live site keeps using the local board until the next
+push. There is no window where the game is pointed at a worker that does not exist yet.
+
+**Rolling back** is the same property in reverse: `gh variable delete VITE_LEADERBOARD_URL` and push.
+The next build ships the local board again and no player loses a run, because every local row was
+written before the network call. Nothing here is irreversible except the Cloudflare account itself.
 
 ⚠ **It is already declared in `vite.config.ts` and that is load-bearing.** An undeclared `VITE_` key
 is *absent* in a local build and *present-but-empty* in CI, the two bundles then differ by those

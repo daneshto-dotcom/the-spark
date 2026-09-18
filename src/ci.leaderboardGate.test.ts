@@ -77,6 +77,65 @@ describe('S182 — the backend is OFF, and shipping the seam did not ship the de
   });
 });
 
+describe('S182 — the wiring REPORT, and the S162 rule it exists to obey', () => {
+  const REPORT_SRC = read('../scripts/leaderboard-wiring-report.mjs');
+
+  /**
+   * ⛔ THE S162 REGRESSION, RE-ARMED FOR A NEW KEY. `turn-wiring-report.mjs` once printed
+   * `✅ RELAY WILL BE SHIPPED` for a build whose ICE config THREW, because it checked
+   * `v.trim() !== ''` — the same insufficient test as the code it was watching. The recorded lesson:
+   * *"A watchdog that shares the watched code's blind spot is not a watchdog."*
+   *
+   * These assertions are what stop the leaderboard report and the leaderboard client drifting apart.
+   */
+  const originRe = (src: string): string | undefined =>
+    /const LEADERBOARD_ORIGIN_RE =\s*(\/.*\/[a-z]*);/.exec(src)?.[1];
+
+  it('CONTROL — both files declare a LEADERBOARD_ORIGIN_RE (else the comparison is vacuous)', () => {
+    expect(originRe(CLIENT_SRC)).toBeDefined();
+    expect(originRe(REPORT_SRC)).toBeDefined();
+  });
+
+  it('⭐ the two LEADERBOARD_ORIGIN_RE literals are byte-identical', () => {
+    expect(originRe(REPORT_SRC)).toBe(originRe(CLIENT_SRC));
+  });
+
+  it('⭐ the report validates SHAPE, not mere presence — it runs the same parse the client runs', () => {
+    expect(REPORT_SRC).toContain('function parseLeaderboardBase');
+    expect(CLIENT_SRC).toContain('export function parseLeaderboardBase');
+    // It must be ABLE to say the words for "set, non-empty, and unusable" — the state that would
+    // otherwise render as a green deploy and a board that still shows only your own scores.
+    expect(REPORT_SRC).toMatch(/SET but UNUSABLE/);
+    expect(REPORT_SRC).toMatch(/mixed content/);
+  });
+
+  it('⛔ the report can NEVER fail the deploy — an undeployed worker is a supported state', () => {
+    // The S165 rule: an opinion about a not-yet-configured extra must never block shipping the game.
+    expect(REPORT_SRC).toContain('process.exit(0)');
+    expect(REPORT_SRC).not.toMatch(/process\.exit\([1-9]/);
+  });
+
+  it('⭐ the scheme-eating regression cannot come back — the label strip skips `//`', () => {
+    // Caught by RUNNING the report, not by reading it: without the negative lookahead the stripper
+    // reads `https:` as a `key:` prefix and eats the scheme, so every VALID url was rejected and
+    // only wrapped ones survived. Pinned in both copies.
+    for (const [name, src] of [['client', CLIENT_SRC], ['report', REPORT_SRC]] as const) {
+      expect(src, `${name} must not strip a scheme as if it were a pasted label`).toContain('(?!\\/\\/)');
+    }
+  });
+
+  it('deploy.yml runs the report AND passes the key to the build — both, or it is decoration', () => {
+    const yml = read('../.github/workflows/deploy.yml').split('\r\n').join('\n');
+    expect(yml).toContain('node scripts/leaderboard-wiring-report.mjs');
+    // The build is the only step whose env actually reaches the bundle. A report without it would
+    // print a confident green tick for a build that shipped nothing.
+    const buildIdx = yml.indexOf('run: npm run build');
+    expect(buildIdx).toBeGreaterThan(-1);
+    const buildBlock = yml.slice(buildIdx, buildIdx + 800);
+    expect(buildBlock).toContain('VITE_LEADERBOARD_URL');
+  });
+});
+
 describe('S182 — the worker, if and when the owner ever says yes', () => {
   it('⛔ CORS is PINNED to the one origin and is never `*`', () => {
     // `*` on a public WRITE endpoint lets any page on the internet POST to this board from a
@@ -95,6 +154,66 @@ describe('S182 — the worker, if and when the owner ever says yes', () => {
   it('⛔ it is D1, NOT Workers KV — whose free tier is 1,000 writes per DAY', () => {
     expect(WORKER_SRC).toContain('env.DB.prepare');
     expect(WORKER_SRC).not.toMatch(/\benv\.[A-Z_]*KV\b/);
+  });
+
+  /**
+   * ⛔ THE RATE LIMITER COUNTED A TABLE IT ALSO PRUNED, so every submission that missed the top 25
+   * erased its own evidence and the per-IP counter never rose above zero. Unlimited unauthenticated
+   * writes from one IP. Four independent reviewers found this separately.
+   */
+  it('⛔ the rate limit counts `writes`, a table nothing prunes — never `scores`', () => {
+    expect(WORKER_SRC).toMatch(/SELECT COUNT\(\*\) AS n FROM writes WHERE ip_hash/);
+    expect(
+      WORKER_SRC,
+      'counting `scores` is self-defeating — the prune deletes the very rows being counted',
+    ).not.toMatch(/COUNT\(\*\)[^;]*FROM scores/);
+    expect(SCHEMA_SQL).toMatch(/CREATE TABLE IF NOT EXISTS writes/);
+    // The prune must never touch the limiter's table.
+    expect(WORKER_SRC).not.toMatch(/DELETE FROM writes WHERE board/);
+  });
+
+  it('⛔ the marker is inserted BEFORE the count, so a race over-counts rather than under-counts', () => {
+    const insertAt = WORKER_SRC.indexOf('INSERT INTO writes');
+    const countAt = WORKER_SRC.indexOf('COUNT(*) AS n FROM writes');
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(countAt).toBeGreaterThan(insertAt);
+  });
+
+  it('⛔ IP_SALT fails CLOSED — a skipped setup step must not silently publish a known salt', () => {
+    // Was `env.IP_SALT ?? 'spark'`: skipping one optional-looking runbook line salted every hash
+    // with a constant published in this public repo, making the column a reversible encoding of
+    // players' IP addresses while the code claimed otherwise.
+    // ⚠ SCAN THE CODE, NOT THE PROSE — and the first cut of this guard failed on exactly that.
+    // The worker's own docblock QUOTES the banned `env.IP_SALT ?? 'spark'` form in order to explain
+    // why it is gone, so the assertion was reading the explanation as the defect. `ci.deployGate`
+    // records this same trap two screens up in its own file; comments are stripped first, and the
+    // CONTROL below proves the stripping did not simply empty the haystack.
+    const code = WORKER_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code, 'comment-stripping must not have eaten the module').toContain('async function handle');
+    expect(code).not.toMatch(/IP_SALT\s*\?\?/);
+    expect(code).toMatch(/IP_SALT unset/);
+  });
+
+  it('⛔ every path is wrapped — an unhandled D1 error answers with NO CORS headers at all', () => {
+    // Cloudflare's own 1101 error page carries no CORS headers, so the browser rejects it before the
+    // client can read the status: a dead backend becomes pixel-identical to being offline.
+    expect(WORKER_SRC).toMatch(/return await handle\(request, env, origin\)/);
+    expect(WORKER_SRC).toMatch(/catch \(err\)/);
+    expect(WORKER_SRC, 'the 500 must carry CORS headers like every other reply').toMatch(
+      /json\(\{ error: 'server error' \}, 500, origin\)/,
+    );
+  });
+
+  it('⛔ the board namespace is bounded by a registry, not by the id regex', () => {
+    // BOARD_RE bounds the SHAPE of an id, not how many exist — and the prune only trims WITHIN a
+    // board, so unlimited invented boards is unlimited storage that looks correctly capped.
+    expect(WORKER_SRC).toMatch(/FROM boards WHERE board = \?1/);
+    expect(SCHEMA_SQL).toMatch(/CREATE TABLE IF NOT EXISTS boards/);
+    expect(SCHEMA_SQL).toMatch(/INSERT OR IGNORE INTO boards \(board\) VALUES \('nonet'\)/);
+  });
+
+  it('a malformed percent-escape in the path is a 400, not an uncaught URIError', () => {
+    expect(WORKER_SRC).toMatch(/try \{\s*board = decodeURIComponent/);
   });
 
   it('⭐ stage scoping is a COLUMN on day one, so the 30-stage ladder is not a migration', () => {
@@ -129,8 +248,40 @@ describe('S182 — the worker, if and when the owner ever says yes', () => {
     expect(workerN).toBe(clientN);
   });
 
-  it("nothing in the repo deploys it — `wrangler.toml` still carries a placeholder id", () => {
-    // The gate is the owner's, and it is not mine to quietly open by leaving a working config behind.
-    expect(read('../server/leaderboard/wrangler.toml')).toContain('PASTE-THE-ID-FROM');
+  /**
+   * ⛔⛔ THIS ASSERTION USED TO BE `toContain('PASTE-THE-ID-FROM')`, AND IT WAS A TRAP THAT WOULD HAVE
+   * FIRED ON EXACTLY THE DAY THE FEATURE WAS TURNED ON.
+   *
+   * The intent was honest: while the owner had not approved a Cloudflare account, prove the repo
+   * could not deploy one. But `deploy.yml` runs `npx vitest run` as a GATING step, so the first push
+   * after pasting a real `database_id` into `wrangler.toml` would have gone red — and not red with a
+   * leaderboard error, red with a failing unit test that stops the GitHub Pages deploy of the entire
+   * game. The owner's reward for following the runbook would have been a dead site.
+   *
+   * ⚠ THE GENERAL LESSON, because this is the second time this project has built one: A GATE THAT
+   * ASSERTS A TEMPORARY STATE MUST NOT LIVE IN A LANE THAT BLOCKS SHIPPING. `check:atlas` made the
+   * same mistake in S165 (an asset-quality opinion wired into `npm run build`, which reddened the
+   * Pages deploy on a missing Python module while the site sat stale). The standing rule that came
+   * out of it — an opinion must never block a live deploy — applies to a gate guarding an approval
+   * just as much as to one guarding a sprite sheet.
+   *
+   * What replaces it is the assertion that stays true forever and is the one that actually matters:
+   * no SECRET is ever committed. `database_id` is not a credential — it is an opaque identifier that
+   * is useless without account auth — but `IP_SALT` is, and `wrangler.toml` is exactly where a
+   * hurried person would paste it, because the file is full of other settings.
+   */
+  it('⛔ no secret is committed in wrangler.toml — the id is not one, IP_SALT is', () => {
+    const toml = read('../server/leaderboard/wrangler.toml');
+    // The salt must be set out of band with `wrangler secret put`, never written into the repo.
+    expect(toml).not.toMatch(/^\s*IP_SALT\s*=/m);
+    expect(toml, 'the runbook for setting IP_SALT must stay in the file').toContain('wrangler secret put IP_SALT');
+  });
+
+  it('the README runbook never tells the owner to do something the test suite forbids', () => {
+    // The trap above was only reachable BECAUSE the runbook instructed the paste. If a future gate
+    // re-appears, this is the assertion that catches the contradiction between docs and tests.
+    const readme = read('../server/leaderboard/README.md');
+    expect(readme).toContain('database_id');
+    expect(readme).toContain('wrangler secret put IP_SALT');
   });
 });

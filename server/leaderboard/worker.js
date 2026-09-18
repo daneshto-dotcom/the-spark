@@ -135,8 +135,33 @@ async function readBoard(env, board) {
 }
 
 export default {
+  /**
+   * ⛔ EVERY PATH IS WRAPPED, AND WITHOUT THIS A MISCONFIGURED BACKEND IS INVISIBLE.
+   *
+   * Nothing below caught anything in the first cut. A missing `DB` binding, an unapplied schema, a
+   * transient D1 error or an exhausted daily quota all throw straight out of the handler, and
+   * Cloudflare then answers with its OWN error page — which carries **no CORS headers at all**. The
+   * browser rejects that before the client can read the status, the client's catch treats it like
+   * being offline, and the board silently falls back to local. A completely dead backend and a
+   * healthy one look identical on the owner's screen.
+   *
+   * So: catch, log (visible in `wrangler tail`), and answer with a CORS-bearing 500 that the client
+   * can actually distinguish.
+   */
   async fetch(request, env) {
     const origin = request.headers.get('Origin') ?? '';
+    try {
+      return await handle(request, env, origin);
+    } catch (err) {
+      console.error('leaderboard worker error:', err && err.stack ? err.stack : String(err));
+      // Never echo `err` to the client — it can carry schema and binding details.
+      return json({ error: 'server error' }, 500, origin);
+    }
+  },
+};
+
+async function handle(request, env, origin) {
+  {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
@@ -146,7 +171,15 @@ export default {
     const match = /^\/board\/([^/]+)$/.exec(url.pathname);
     if (match === null) return json({ error: 'not found' }, 404, origin);
 
-    const board = decodeURIComponent(match[1]).toLowerCase();
+    // ⚠ `decodeURIComponent` THROWS on a malformed escape — `/board/%` is a URIError, which before
+    // the wrapper above became an uncaught 1101 with no CORS headers. Decoded defensively so a
+    // stray percent sign is an ordinary 400 rather than a server error.
+    let board;
+    try {
+      board = decodeURIComponent(match[1]).toLowerCase();
+    } catch {
+      return json({ error: 'bad board' }, 400, origin);
+    }
     if (!BOARD_RE.test(board)) return json({ error: 'bad board' }, 400, origin);
 
     if (request.method === 'GET') {
@@ -154,6 +187,20 @@ export default {
     }
 
     if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405, origin);
+
+    /*
+     * ⛔ FAIL CLOSED ON A MISSING SALT. This was `env.IP_SALT ?? 'spark'` — so skipping
+     * `wrangler secret put IP_SALT`, one optional-looking line in a five-line runbook, silently
+     * salted every hash with a constant published in this public repo. There are only 2^32 IPv4
+     * addresses; a known-salt SHA-256 of one is brute-forced in seconds, so the column would have
+     * been a reversible encoding of players' IP addresses while the code claimed otherwise.
+     *
+     * A privacy property that degrades quietly when a setup step is skipped is not a privacy
+     * property. Refusing writes is loud, recoverable in one command, and cannot leak anything.
+     */
+    if (typeof env.IP_SALT !== 'string' || env.IP_SALT.length < 16) {
+      return json({ error: 'server misconfigured: IP_SALT unset' }, 503, origin);
+    }
 
     // ⛔ REJECT A CROSS-ORIGIN WRITE OUTRIGHT, rather than relying on CORS to discourage it. CORS is
     // enforced by the BROWSER on the response; it does not stop the request reaching this worker or
@@ -176,14 +223,36 @@ export default {
     const at = Number.isFinite(Number(body?.at)) ? Math.trunc(Number(body.at)) : Date.now();
     const now = Date.now();
 
+    // ⛔ ONLY A REGISTERED BOARD MAY BE WRITTEN TO. `BOARD_RE` bounds the SHAPE of an id, not how
+    // many distinct ids exist — and the prune only trims WITHIN a board, so unlimited invented
+    // boards means unlimited storage while every individual board still looks correctly capped.
+    const known = await env.DB.prepare('SELECT 1 AS ok FROM boards WHERE board = ?1').bind(board).first();
+    if (known === null || known === undefined) return json({ error: 'unknown board' }, 404, origin);
+
     const ip = request.headers.get('CF-Connecting-IP') ?? '0.0.0.0';
-    const ipHash = await hashIp(ip, env.IP_SALT ?? 'spark');
+    const ipHash = await hashIp(ip, env.IP_SALT);
+
+    /*
+     * ⛔ THE LIMITER COUNTS `writes`, NOT `scores`, AND THE FIRST CUT GOT THIS EXACTLY BACKWARDS.
+     *
+     * Counting `scores` meant counting rows the prune below deletes moments later. Every submission
+     * that missed the top 25 — i.e. every submission an attacker makes once a board is full — left
+     * no trace, so the counter never rose above zero and the limit never fired. The check erased its
+     * own evidence.
+     *
+     * ⚠ THE MARKER IS INSERTED BEFORE THE COUNT, WHICH IS THE SAFE ORDER. D1 does not give these two
+     * statements a transaction, so concurrent requests can interleave; inserting first makes a race
+     * OVER-count (two racers each see the other's marker and one is refused a write it could have
+     * had) rather than UNDER-count (both see zero and both get through). A rate limit that fails
+     * open under exactly the load it exists to stop is not a rate limit.
+     */
+    await env.DB.prepare('INSERT INTO writes (ip_hash, created) VALUES (?1, ?2)').bind(ipHash, now).run();
     const recent = await env.DB.prepare(
-      'SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?1 AND created > ?2',
+      'SELECT COUNT(*) AS n FROM writes WHERE ip_hash = ?1 AND created > ?2',
     )
       .bind(ipHash, now - RATE_LIMIT_WINDOW_MS)
       .first();
-    if (Number(recent?.n ?? 0) >= RATE_LIMIT_WRITES) {
+    if (Number(recent?.n ?? 0) > RATE_LIMIT_WRITES) {
       // ⚠ 429 AND THE BOARD ANYWAY. A rate-limited player must still SEE the table — they have just
       // finished a run, the local client already recorded it, and answering with a bare error would
       // blank the screen they came to look at.
@@ -212,6 +281,9 @@ export default {
       .bind(board, TOP_N)
       .run();
 
+    // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
+    await env.DB.prepare('DELETE FROM writes WHERE created <= ?1').bind(now - RATE_LIMIT_WINDOW_MS).run();
+
     return json({ scores: await readBoard(env, board) }, 200, origin);
-  },
-};
+  }
+}
