@@ -1062,19 +1062,35 @@ export class Controls {
           return;
         }
 
-        /*
-         * ⭐ S180 (owner) — **AND THE CHARACTER SHEET, ORDERED LAST OF ALL.**
-         *
-         * Placed below every existing gesture on purpose: a click that wanted a spark, a hazard, or
-         * the FIX/SCRAP popover has already returned, so opening a card can never steal one of them.
-         * That ordering is the whole risk mitigation for touching this file, and the reason the
-         * precedence is pinned by a test rather than left to reading.
-         *
-         * ⚠ SEAT-AGNOSTIC, unlike every other LMB pick here — an ENEMY's card is the feature
-         * (owner S180: an enemy sheet shows LIVE health), so there is deliberately no owner filter.
-         */
-        if (this.handleSheetSelect()) return;
       }
+
+      /*
+       * ⭐ S180 (owner) — **THE CHARACTER SHEET, ORDERED LAST OF ALL.**
+       *
+       * Placed below every existing gesture on purpose: a click that wanted a spark, a hazard, or
+       * the FIX/SCRAP popover has already returned, so opening a card can never steal one of them.
+       * That ordering is the whole risk mitigation for touching this file, and the reason the
+       * precedence is pinned by a test rather than left to reading.
+       *
+       * ⚠ SEAT-AGNOSTIC, unlike every other LMB pick here — an ENEMY's card is the feature
+       * (owner S180: an enemy sheet shows LIVE health), so there is deliberately no owner filter.
+       *
+       * ⛔⛔ S182 (owner: *"sometimes player two can't click and see the stat sheets, either of his
+       * own characters or of the enemies"*) — **AND IT IS OUTSIDE THE IDLE GATE, WHICH IS WHY THE
+       * BRACE ABOVE MOVED.** S180 nested this inside
+       * `player?.kind === 'Idle' && player.carriedPotatoId === undefined`, so a player who was
+       * carrying a potato, mid-spark-drag, or in any non-Idle state could not open ANY card — not
+       * an enemy's, not their own.
+       *
+       * ⭐ THE EXEMPTION IS PRINCIPLED, NOT A LOOSENING: every other pick in that block MUTATES the
+       * world (`SET_GATHERER_PREFERENCE`, `TRIGGER_BOMB`, `TRIGGER_RAINBOW`, `PICKUP_POTATO`,
+       * `PICKUP_SPARK`), and the Idle gate exists so a busy avatar cannot start a second gesture.
+       * **Opening a card mutates nothing** — `handleSheetSelect` is render-only selection, dispatches
+       * no action and captures no pointer — so there is no second gesture to guard against. It stays
+       * LAST, so a click that wanted one of those gestures still wins; it simply no longer needs the
+       * avatar to be free in order to be READ.
+       */
+      if (this.handleSheetSelect()) return;
     } else if (e.button === 2) {
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
       // Pre-S53 this branch ALSO entered ConnectDrag when player.kind was

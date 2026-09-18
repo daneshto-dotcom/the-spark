@@ -149,3 +149,77 @@ describe('the character sheet is reachable from a real click', () => {
     expect(model).toContain("structureActionModel");
   });
 });
+
+/**
+ * ⛔⛔ S182 (owner) — **A CARD IS READ-ONLY, SO A BUSY AVATAR MUST STILL BE ABLE TO OPEN ONE.**
+ *
+ * > *"Sometimes player two can't click and see the stat sheets, either of his own characters or of
+ * > the enemies. That's an unfinished pathway or a bug."*
+ *
+ * S180 nested the card's only open gesture inside the LMB Idle gate —
+ * `player?.kind === 'Idle' && player.carriedPotatoId === undefined`. Every OTHER pick in that block
+ * mutates the world (`SET_GATHERER_PREFERENCE`, `TRIGGER_BOMB`, `TRIGGER_RAINBOW`, `PICKUP_POTATO`,
+ * `PICKUP_SPARK`), which is what the gate is for: a busy avatar must not start a second gesture.
+ * **Opening a card starts no gesture** — `handleSheetSelect` dispatches nothing and captures no
+ * pointer — so the gate cost the player the ability to READ anything while carrying a spark, which
+ * in this game is most of the time they are doing something.
+ *
+ * ⚠ THE ASSERTION IS BRACE-MATCHED, NOT A SUBSTRING. A plain `indexOf` comparison would pass the
+ * moment the call merely moved further down inside the same block, which is the bug wearing a hat.
+ *
+ * ⚠ AND IT IS A TRIPWIRE, NOT A BEHAVIOUR TEST, for this file's stated reason: `Controls` binds
+ * canvas + window listeners in its constructor, so vitest cannot instantiate it (`controls.test.ts`
+ * header). Nothing in the suite can drive a real pointer down this path — which is precisely how
+ * S180 shipped the nesting green.
+ */
+describe('S182 — the card opens regardless of what the avatar is holding', () => {
+  /** Index just past the `}` that closes the block opened at `openIdx`. */
+  const endOfBlock = (src: string, openIdx: number): number => {
+    let depth = 0;
+    for (let i = src.indexOf('{', openIdx); i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) return i + 1;
+    }
+    throw new Error('unbalanced braces');
+  };
+
+  const GATE = "if (player?.kind === 'Idle' && player.carriedPotatoId === undefined) {";
+  const SHEET = 'if (this.handleSheetSelect()) return;';
+
+  it('⛔ handleSheetSelect is OUTSIDE the Idle / carried-potato gate', () => {
+    const gateIdx = controls.indexOf(GATE);
+    expect(gateIdx, 'the Idle gate still exists and is worth guarding against').toBeGreaterThan(0);
+    const sheetIdx = controls.indexOf(SHEET);
+    expect(sheetIdx, 'the card still has exactly one open gesture').toBeGreaterThan(0);
+    expect(controls.indexOf(SHEET, sheetIdx + 1), 'and only one').toBe(-1);
+    // THE ASSERTION: the gate's block has already closed by the time the card is offered.
+    expect(sheetIdx).toBeGreaterThan(endOfBlock(controls, gateIdx));
+  });
+
+  it('⭐ …and still LAST, so it can never steal a spark, a bomb or a potato click', () => {
+    const sheetIdx = controls.indexOf(SHEET);
+    for (const earlier of [
+      "type: 'SET_GATHERER_PREFERENCE'",
+      "type: 'TRIGGER_BOMB'",
+      "type: 'TRIGGER_RAINBOW'",
+      "type: 'PICKUP_POTATO'",
+      "type: 'PICKUP_SPARK'",
+    ]) {
+      expect(controls.indexOf(earlier), `${earlier} must be offered before the card`).toBeLessThan(
+        sheetIdx,
+      );
+    }
+    // Still inside the LMB arm — it must not have escaped into the RMB branch.
+    expect(sheetIdx).toBeLessThan(controls.indexOf('} else if (e.button === 2) {'));
+  });
+
+  it('⭐ the exemption is SOUND: handleSheetSelect mutates nothing and captures no pointer', () => {
+    // This is the whole justification for lifting it out of a gate that guards against a SECOND
+    // gesture. If the card ever starts dispatching, the exemption stops being safe and this fails.
+    const start = controls.indexOf('private handleSheetSelect()');
+    const body = controls.slice(start, endOfBlock(controls, start));
+    expect(body).not.toContain('this.dispatchFn(');
+    expect(body).not.toContain('acquirePointerCapture');
+    expect(body).not.toContain('this.state =');
+  });
+});

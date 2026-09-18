@@ -32,6 +32,7 @@ import {
   characterSheetModel,
   layoutSheetActions,
   MONO_EM_RATIO,
+  portraitPlateFor,
   SHEET_W,
   statValueColumnPx,
   type SheetActionSlot,
@@ -593,8 +594,25 @@ export class CharacterSheet {
     if (this.portraitPainter(spec, this.emblem, 0, 0)) return;
     this.emblem.scale.set(1);
 
-    if (spec.kind === 'emblem' || spec.kind === 'towerFrame' || spec.kind === 'namedBuildingFrame') {
-      const em = codexCopyFor(spec.recipeId).emblem;
+    /*
+     * ⭐⭐ S182 — **THE DECISION IS NO LONGER MADE HERE.** `portraitPlateFor` is a total function over
+     * `PortraitSpec` with a `never` arm, so a new spec kind cannot reach a fall-through, and no arm
+     * can produce the `'…'` this block used to end on. See its docblock for the full enumeration —
+     * including the three cases (`freeform`, and the `voltkin` / `direwolf` / `locustCloud`
+     * creatures) that no comment in this file had ever named.
+     *
+     * ⚠ `hasTexture` is FALSE HERE BY CONSTRUCTION: the texture arm above already returned. Passing
+     * it explicitly rather than hard-coding `false` inside the resolver is what lets the test walk
+     * both states of every spec without a Pixi canvas.
+     */
+    const plate = portraitPlateFor(
+      spec,
+      false,
+      (id) => codexCopyFor(id).emblem !== undefined,
+      (id) => codexCopyFor(id).name,
+    );
+    if (plate.kind === 'emblem') {
+      const em = codexCopyFor(plate.recipeId).emblem;
       if (em !== undefined) {
         this.emblem.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);
         this.emblem.scale.set(0.55);
@@ -603,20 +621,13 @@ export class CharacterSheet {
       }
     }
     /*
-     * ⚠ AND WHEN THERE IS NO ART AT ALL — a keep, Helga, or a sheet still in flight — the plate
-     * carries a WORD rather than sitting empty. An empty box reads as broken; a labelled one reads
-     * as deliberate, and it still tells the player what they clicked. The castle and the unit-class
-     * defenders have real art on disk and wiring them in is its own small job, named rather than
-     * quietly left as a blank square.
+     * ⚠ AND WHEN THERE IS NO ART AND NO EMBLEM, the plate carries a WORD rather than sitting empty.
+     * An empty box reads as broken; a labelled one reads as deliberate, and it still tells the
+     * player what they clicked. The word is the thing's NAME — a creature's display name, a
+     * defender's proper name, a recipe's codex name — never a truncation artefact and never dots.
      */
-    const word =
-      spec.kind === 'castleFrame'
-        ? 'KEEP'
-        : spec.kind === 'defenderFrame'
-          ? spec.defenderKind.slice(0, 6).toUpperCase()
-          : '…';
     const t = this.take();
-    t.text = word;
+    t.text = plate.kind === 'word' ? plate.text : '';
     t.style.fontSize = 13;
     t.style.fill = DIM;
     t.anchor.set(0.5, 0.5);

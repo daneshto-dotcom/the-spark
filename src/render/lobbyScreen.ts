@@ -1027,12 +1027,28 @@ export class LobbyScreen {
   }
 
   /**
-   * S87 P4 — the discovery told us to JOIN an advertised host. Drive the same
-   * reducer transition the friends Connect button does (the discovered code is
-   * a real, valid room code, so JOIN_ATTEMPT transitions to 'joining').
+   * S87 P4 — the discovery told us to JOIN an advertised host.
+   *
+   * ⛔ S182 — **THIS DISPATCHED `JOIN_ATTEMPT` AND THAT IS THE "WHO THE FUCK IS PLAYER ONE" BUG.**
+   * Owner: *"I started the game and I'm player one, and then he joins in — he's player one."*
+   *
+   * The demote arrives here with `mode === 'hosting'` (we were a peerless quickmatch host), and
+   * `JOIN_ATTEMPT` is select-only guarded, so the transition was swallowed SAME-REF: the screen
+   * went on believing it hosted a room it had already torn down, kept painting its own dead room
+   * code, and kept the own-seat glow on the "P1  HOST" cell — while the peer it had just joined
+   * painted the identical thing. Two P1s, every time, for as long as the join handshake took.
+   *
+   * ⚠ AND IT IS NOT THE RARE RACE IT LOOKS LIKE. A seeker self-promotes after 2000–3500 ms
+   * (`qmPromoteDelayMs`) but can only hear an incumbent over a discovery-room data channel the
+   * transport itself budgets 30 s for (`HANDSHAKE_TIMEOUT_MS`). A second player is therefore ALWAYS
+   * a host before it can have heard anything — arriving three minutes later changes nothing — so
+   * the demote is not an edge case, it is the ONLY path by which two quickmatch players ever meet.
+   * This line ran on every single pairing.
+   *
+   * `QM_JOIN_START` is the same transition without the user-input guard.
    */
   applyQuickmatchJoining(code: string): void {
-    this.state = lobbyReduce(this.state, { type: 'JOIN_ATTEMPT', code });
+    this.state = lobbyReduce(this.state, { type: 'QM_JOIN_START', code });
     this.applyView();
     this.updateInputVisibility();
   }

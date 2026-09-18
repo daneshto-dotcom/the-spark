@@ -167,3 +167,78 @@ describe('S87 P4 — rosterWithReady + qmReadyCount', () => {
     expect(qmReadyCount(out)).toEqual({ ready: 2, total: 3 });
   });
 });
+
+/**
+ * ⛔⛔ S182 — WHY EVERY QUICKMATCH PAIRING GOES THROUGH THE DEMOTE, AND WHY THE GAP BETWEEN THE TWO
+ * CLICKS IS IRRELEVANT.
+ *
+ * The owner rejected "you both hit Quick Match at the same moment" as the explanation for his two-P1
+ * bug, and he was right: *"It's literally like a minute apart … My brother comes on like three
+ * minutes later."* These tests pin the mechanism that DOES explain it.
+ *
+ * A seeker can only join an incumbent by RECEIVING its `{t:'host'}` beacon. That beacon is a
+ * Trystero data-channel broadcast (`action.send`) in the discovery room: it reaches only peers whose
+ * WebRTC channel is already open, it is not persisted by the relay, and there is no
+ * announce-on-peer-join hook — only a 2000 ms interval. So the second player has to complete a full
+ * nostr-relay + ICE + data-channel handshake inside its own promote window of 2000–3500 ms.
+ *
+ * ⭐ THE TRANSPORT'S OWN BUDGET FOR THAT SAME HANDSHAKE IS `HANDSHAKE_TIMEOUT_MS = 30000` — an order
+ * of magnitude more. The clock also starts at CLICK time (`QuickmatchDiscovery.start()` sets
+ * `startedMs` before `joinNostr`), so the relay connect is inside the window too. A second player
+ * therefore promotes itself to host essentially always, whenever it arrives, and the two hosts then
+ * resolve via the demote arm — the path whose lobby transition S182 found was being swallowed.
+ */
+describe('S182 — the seeker promotes before any incumbent beacon can physically arrive', () => {
+  // The real loop: `tick()` every TICK_INTERVAL_MS, `elapsedMs` measured from start().
+  const TICK_INTERVAL_MS = 700;
+  const HANDSHAKE_TIMEOUT_MS = 30000; // net/iceConfig.ts — the transport's own budget
+
+  /** Run the election loop until it leaves 'wait', with a beacon that lands at `beaconAtMs`. */
+  const runUntilDecided = (
+    promoteDelayMs: number,
+    beaconAtMs: number,
+  ): { kind: string; atMs: number } => {
+    for (let atMs = TICK_INTERVAL_MS; atMs <= 60000; atMs += TICK_INTERVAL_MS) {
+      const d = decideQuickmatch(
+        seeking({ elapsedMs: atMs, promoteDelayMs }),
+        atMs >= beaconAtMs ? heard(['AAAAAA', false]) : heard(),
+      );
+      if (d.kind !== 'wait') return { kind: d.kind, atMs };
+    }
+    throw new Error('never decided');
+  };
+
+  it('the WHOLE jitter range expires inside one tick of ~4.2 s, far under the handshake budget', () => {
+    // qmPromoteDelayMs is [2000, 3500]; the tick granularity rounds that up to at most 4200 ms.
+    const worst = 3500 + TICK_INTERVAL_MS;
+    expect(worst).toBeLessThan(HANDSHAKE_TIMEOUT_MS / 5);
+    // And the jitter is deterministic per id, so this is a property of every peer, not an average.
+    for (const id of ['alice', 'bob', 'carol', 'a', '', 'ZZZZZZZZZZ']) {
+      expect(qmPromoteDelayMs(id)).toBeGreaterThanOrEqual(2000);
+      expect(qmPromoteDelayMs(id)).toBeLessThanOrEqual(3500);
+    }
+  });
+
+  it('a beacon arriving after a REALISTIC handshake (5 s) always loses to the promote clock', () => {
+    for (const id of ['alice', 'bob', 'carol']) {
+      expect(runUntilDecided(qmPromoteDelayMs(id), 5000).kind).toBe('promote');
+    }
+  });
+
+  it('⛔ arriving THREE MINUTES after the incumbent changes nothing — still promote, then demote', () => {
+    // The incumbent has been announcing on a 2 s cadence for 180 s. None of it reached this peer:
+    // its discovery channel did not exist yet. The first beacon it can see lands one handshake
+    // after ITS OWN click, not after the incumbent's.
+    const promoteDelayMs = qmPromoteDelayMs('the-brother');
+    expect(runUntilDecided(promoteDelayMs, 6000).kind).toBe('promote');
+    // Now it is a peerless host that finally hears a SMALLER code: the demote arm, every time.
+    const demote = decideQuickmatch(hosting('ZZZZZZ'), heard(['AAAAAA', false]));
+    expect(demote).toEqual({ kind: 'join', code: 'AAAAAA' });
+  });
+
+  it('only a sub-2 s beacon could have produced a direct join — the case that does not occur', () => {
+    // Stated as the counterexample so the claim above is falsifiable rather than merely asserted:
+    // the election is NOT broken, it is starved. Give it a beacon inside the window and it joins.
+    expect(runUntilDecided(2500, 1000)).toEqual({ kind: 'join', atMs: 1400 });
+  });
+});

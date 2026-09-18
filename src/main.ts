@@ -1035,9 +1035,18 @@ async function bootstrap(): Promise<void> {
          * already loading in its own renderer for the board. *"It should show the stink tower
          * picture because we do have a picture for it."*
          */
-        return spec.building === 'stinkTower'
-          ? stinkTowerRenderer.portraitTexture()
-          : voltkinTowerRenderer.portraitTexture();
+        /*
+         * ⭐ S182 — `'stinkBag'` joins them: the LANDED bag draws its own sheet rather than the
+         * stink TOWER's codex constellation on a card titled STINK BAG.
+         */
+        switch (spec.building) {
+          case 'stinkTower':
+            return stinkTowerRenderer.portraitTexture();
+          case 'stinkBag':
+            return stinkCloudRenderer.portraitTexture();
+          default:
+            return voltkinTowerRenderer.portraitTexture();
+        }
       case 'proceduralFrame':
         // ⭐ S181 — no texture EXISTS for these; `setPortraitPainter` below draws the real puppet.
         return null;
@@ -1047,8 +1056,26 @@ async function bootstrap(): Promise<void> {
       case 'castleFrame':
         return spec.race === null ? null : gathererRenderer.castlePortraitTexture(spec.race);
       case 'defenderFrame':
-        // Helga is the only unit-class defender with an atlas; anything else keeps the plate.
-        return spec.defenderKind === 'princess' ? princessRenderer.portraitTexture() : null;
+        /*
+         * ⭐ S182 — **THE STINK TOWER IS A DEFENDER TOO, AND ITS ART WAS ALREADY WIRED ONE ARM UP.**
+         * `DefenderKind` is `'turret' | 'princess' | 'stinkTower'`; the comment here said Helga was
+         * *"the only unit-class defender with an atlas"*, which is true of UNIT-class defenders and
+         * missed that `stinkTower` reaches this switch as well — through `defenderSheet`, not
+         * `portraitForStructure`. So clicking the tower's emplacement drew the plate word `STINKT`
+         * (a `slice(0, 6)` artefact) while clicking its structure drew the real sheet.
+         *
+         * ⚠ THE TURRET GENUINELY HAS NO ART and keeps a plate — but a named one now, and its
+         * `laserTurret` codex emblem is unreachable from here by design: a defender spec carries no
+         * `recipeId`, and inventing one would be a second mapping beside `portraitForStructure`'s.
+         */
+        switch (spec.defenderKind) {
+          case 'princess':
+            return princessRenderer.portraitTexture();
+          case 'stinkTower':
+            return stinkTowerRenderer.portraitTexture();
+          default:
+            return null;
+        }
       default: {
         /*
          * ⛔ A COMPILE-TIME COVERAGE CONTRACT, the same device the hashed-entity union uses. Adding a
