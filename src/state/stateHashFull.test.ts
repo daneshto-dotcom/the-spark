@@ -453,6 +453,18 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         // here deliberately rather than dodged, which is exactly what this test exists to force.
         'pendingCreatureDeaths',
         /*
+         * ⭐⭐ S182 (owner, reported twice) — the SWING that killed a shape / a landed stink bag /
+         * Helga, plus the `amount: null` marker for a pool that was REMOVED rather than hit (an
+         * expired bag, a broken recipe, a scrapped building) so the sweep prints nothing for it.
+         *
+         * ⛔ ACKNOWLEDGED ON THE SAME GROUNDS AS `creatureKillHits` ABOVE, and this entry is where
+         * the claim has to survive review. Per-frame presentational record of something already
+         * applied to `hp`/`ehp`, wiped by its consumer, read back by nothing in the sim. Two peers
+         * disagreeing about it produce identical sim state. It is not a sim input and never becomes
+         * one — a peer has no record at all and falls back to the remainder.
+         */
+        'structureKillHits',
+        /*
          * ⭐ S179 (owner) — a PER-FRAME renderer signal with exactly the `effects` lifetime two
          * entries up: written by `razePrimitives`, WIPED BY `DamageNumbers.sync`, never serialized.
          * It carries no sim meaning at all — it only says which vanished shapes were REMOVED rather

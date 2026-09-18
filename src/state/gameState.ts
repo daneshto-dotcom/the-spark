@@ -234,6 +234,7 @@ export function softReset(world: World, extras: GameStateExtras): void {
   world.razedNotKilled.length = 0;
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
+  world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
   world.scoreProgress = 0;
   // S79 P6 — hazard + foul teardown parity with WIN_TRIGGER/START_GAME (S78 audit LOW;
   // inert on today's paths because those transitions already tear down before any

@@ -1561,6 +1561,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.razedNotKilled.length = 0;
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
+  world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
   if (snap.effects !== undefined) {
     for (const se of snap.effects) {
       world.effects.push(deserializeEffect(se));

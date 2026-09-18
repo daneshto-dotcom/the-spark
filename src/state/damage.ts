@@ -165,6 +165,10 @@ export function damageEntity(
       if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
       prim.hp -= amount;
       if (prim.hp > 0) return false;
+      // ⭐⭐ S182 — THE SWING THAT KILLED IT, recorded before the remainder is lost. The renderer's
+      // vanish sweep can only see what the shape had LEFT; the overkill is discarded on the line
+      // above, so this is the last place that still knows the real number. See `structureKillHits`.
+      world.structureKillHits.push({ key: `p:${prim.id}`, amount });
       // Visible death, reusing the kind the potato blast already emits for an erased primitive.
       world.effects.push({
         kind: 'SEVER_ERASE',
@@ -200,6 +204,8 @@ export function damageEntity(
       if (cloud === undefined) return false;
       cloud.ehp -= amount;
       if (cloud.ehp > 0) return false;
+      // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
+      world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
       const at = { x: cloud.pos.x, y: cloud.pos.y };
       const owner = cloud.ownerPlayerId;
       const radius = cloud.radius;
@@ -229,6 +235,8 @@ export function damageEntity(
       if (d === undefined || d.ehp === null) return false;
       d.ehp -= amount;
       if (d.ehp > 0) return false;
+      // ⭐ S182 — the killing blow on Helga (the one defender kind with a pool), same reason again.
+      world.structureKillHits.push({ key: `d:${d.id}`, amount });
       // She is gone. Same visible death the erased primitive gets, so a client with no idea WHY
       // she vanished still sees something happen where she stood.
       world.effects.push({
@@ -425,6 +433,13 @@ export function damageConnector(world: World, bondId: BondId, amountFifths: numb
  * own poll slot.
  */
 export function destroyDefender(world: World, d: Defender): void {
+  /*
+   * ⭐⭐ S182 — **A DESTROYED HELGA WAS PRINTING A PHANTOM 156.** This path runs on a recipe or
+   * ANCHOR break, not on damage: nothing subtracted from `ehp`, so the vanish sweep saw her full
+   * pool disappear and printed it as a hit. The damage path has its own record (pushed inside
+   * `damageEntity`); this one is a REMOVAL and must print nothing. `amount: null` says so.
+   */
+  if (d.ehp !== null) world.structureKillHits.push({ key: `d:${d.id}`, amount: null });
   // 1. Out of the map first (idempotence + stop it acting on its death tick).
   world.defenders.delete(d.id);
 

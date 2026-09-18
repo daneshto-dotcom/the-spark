@@ -538,6 +538,30 @@ export function applyTickBatch(
   // Renderer-equivalent effects wipe (post-matcher, post-snapshot — the exact direct-mode
   // frame lifecycle; effectsRenderer clears the mirror's own copy on main).
   world.effects.length = 0;
+  /*
+   * ⛔⛔ S182 — **THE FOUR SIBLINGS OF `effects` WERE NEVER WIPED HERE, AND THAT IS A LIVE LEAK.**
+   *
+   * `effects` has four per-frame siblings under exactly the same contract — written by the sim,
+   * wiped by the consumer, never serialized, never hashed. In DIRECT mode `DamageNumbers.sync` is
+   * that consumer and wipes all of them every frame. **In `?worker=1` there is no `DamageNumbers` on
+   * this thread at all**: the worker owns the World, the renderer lives on main and reads
+   * `positions` + a copied `effects` array. So nothing ever emptied them and all three existing
+   * arrays grew for the whole match — unbounded, on the sim thread, for as long as anyone played.
+   *
+   * ⚠ THIS IS THE FIFTH WIPE SITE, and the repo's own tests do not cover it: `s181Regressions`
+   * asserts FOUR sites for `creatureKillHits` (three phase resets + the consumer) and this file is
+   * not one of them, which is precisely why three separate sessions each added an array here and
+   * none of them noticed. Found by enumerating the CONTRACT rather than the files.
+   *
+   * ⭐ SAFE BECAUSE IT IS THE FRAME BOUNDARY, not a convenience: this is the post-snapshot,
+   * post-matcher point of the batch, the same instant direct mode clears `effects` above. Anything
+   * these arrays recorded has already been applied to the sim and already ridden out in the
+   * snapshot; they carry presentation, never sim input, so emptying them cannot change a hash.
+   */
+  world.razedNotKilled.length = 0;
+  world.connectorBreakHits.length = 0;
+  world.creatureKillHits.length = 0;
+  world.structureKillHits.length = 0;
 
   return {
     type: 'BATCH_RESULT',

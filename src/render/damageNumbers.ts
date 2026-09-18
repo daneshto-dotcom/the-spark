@@ -606,6 +606,27 @@ export class DamageNumbers {
     world.razedNotKilled.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
 
     /*
+     * ⭐⭐⭐ S182 (owner, REPORTED TWICE) — **THE SWING, NOT THE REMAINDER**, for the three pools
+     * that still lied after S181 fixed creatures: shapes, landed stink bags and Helga.
+     *
+     * The sweep below can only see what a vanished pool had LEFT, so a goblin swinging 12 into a
+     * 5-fifth remainder printed "5". `damageEntity` records the real number at the moment it lands
+     * (the only place that still knows it — the overkill is discarded there), keyed by the same
+     * watch key this sweep uses, so joining the two needs no proximity matching.
+     *
+     * ⚠ A `null` amount is the OTHER half: the key was REMOVED, not hit (an expired bag, a broken
+     * Helga recipe, a scrapped building). Those printed a full-pool phantom. `null` suppresses the
+     * number entirely — the `razedNotKilled` line directly above, generalised to any watch key.
+     *
+     * ⚠ LAST WRITE WINS on a duplicate key, which is the correct precedence: the only way a key
+     * gets both records in one frame is damage landing and THEN a removal path taking it, and the
+     * removal is what actually ended it.
+     */
+    const killBlow = new Map<string, number | null>();
+    for (const h of world.structureKillHits) killBlow.set(h.key, h.amount);
+    world.structureKillHits.length = 0; // wipe 4 of 5 — the consumer's, per the `effects` contract
+
+    /*
      * ⭐⭐ S179 (owner) — the swing that BREAKS a connector, which the diff below cannot see because
      * `damageConnector` spends the structure pool and every counter drops. Emitted from the recorded
      * hit so it is the SAME number a unit would show for the same swing, which is what he asked for.
@@ -686,8 +707,19 @@ export class DamageNumbers {
       this.watchedStruct.delete(key);
       // ⭐ S179 — removed, not killed: no hit happened, so no number. See the note at the top.
       if (removedNotKilled.has(key)) continue;
-      if (last.deathOnVanish && last.v > 0) {
-        this.emitAt(world, last.x, last.y, Math.round(last.v), 'damage', last.owner);
+      if (!last.deathOnVanish) continue;
+      /*
+       * ⭐ S182 — the recorded swing if the host has one, the remainder if it does not.
+       *
+       * ⚠ THE FALLBACK IS NOT LAZINESS, it is the peer path: `structureKillHits` is host-local and
+       * never serialized, so a client applying snapshots has no record and keeps exactly the
+       * behaviour it had before this change. Same shape as `fatalBlowFifths` for creatures.
+       */
+      const blow = killBlow.get(key);
+      if (blow === null) continue; // removed, not killed — print nothing
+      const amount = blow ?? last.v;
+      if (amount > 0) {
+        this.emitAt(world, last.x, last.y, Math.round(amount), 'damage', last.owner);
       }
     }
   }

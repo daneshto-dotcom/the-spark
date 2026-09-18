@@ -141,5 +141,14 @@ export function sweepExpiredStinkClouds(world: World): void {
   for (const c of world.stinkClouds.values()) {
     if (world.tick >= stinkCloudExpiryTick(c)) dead.push(c.id);
   }
+  /*
+   * ⭐⭐ S182 — **AN EXPIRED BAG WAS PRINTING A PHANTOM NUMBER.** Its `ehp` is untouched here —
+   * the bag ran out its lifetime, nobody shot it — so the renderer's vanish sweep saw a full pool
+   * disappear and printed "5" for a blow that never landed. Exactly the `razedNotKilled` defect
+   * S179 fixed for shapes, in the one place it was never applied.
+   *
+   * `amount: null` is the marker for *removed, not killed*. See `World.structureKillHits`.
+   */
+  for (const id of dead) world.structureKillHits.push({ key: `s:${id}`, amount: null });
   for (const id of dead) world.stinkClouds.delete(id);
 }

@@ -209,6 +209,36 @@ export interface World {
    */
   creatureKillHits: { pos: Vec2; amount: number; owner: PlayerId }[];
   /**
+   * ⭐⭐⭐ S182 (owner, REPORTED TWICE) — **THE KILLING BLOW ON A STRUCTURE POOL, and the removals
+   * that are not blows at all.**
+   *
+   * S181 fixed this for CREATURES. Three structure pools still lied: when a hit KILLS a shape, a
+   * landed stink bag or Helga, the floater printed what the victim had LEFT rather than the swing
+   * that finished it — a goblin doing 12 into a 5-fifth remainder printed "5". The vanish sweep in
+   * `DamageNumbers` can only see the remainder, because the entity is gone from its map by the time
+   * the sweep runs; the overkill is discarded at the damage site, so the damage site is the only
+   * place that still knows the true number.
+   *
+   * ⭐ ONE ARRAY COVERS ALL THREE because `damageEntity` is the single host-side choke point — every
+   * downward write to `prim.hp`, `cloud.ehp` and `defender.ehp` lives inside it.
+   *
+   * ⛔ AND `amount: null` IS THE OTHER HALF, NOT AN AFTERTHOUGHT. A pool can also VANISH WITHOUT
+   * BEING HIT — a stink bag reaching its lifetime, a Helga whose recipe or anchor broke, a building
+   * the player SCRAPPED. The sweep printed a full-pool number for each of those: damage nobody
+   * dealt. `null` means *"this key was removed, not killed — print nothing"*, which is exactly the
+   * `razedNotKilled` contract generalised from a PrimitiveId to any watch key. Two problems, one
+   * mechanism, one set of wipe sites.
+   *
+   * The `key` is the renderer's WATCH KEY (`p:<id>` / `d:<id>` / `s:<id>`), not a position: the
+   * sweep is keyed, so a key joins the two halves with no proximity matching to get wrong.
+   *
+   * Per-FRAME, same lifetime as `effects`, `razedNotKilled`, `connectorBreakHits` and
+   * `creatureKillHits`: written on the host, wiped by the consumer, never serialized, never hashed.
+   * A peer applying snapshots has no record and falls back to the remainder, exactly as
+   * `fatalBlowFifths` does for creatures.
+   */
+  structureKillHits: { key: string; amount: number | null }[];
+  /**
    * S9 P3 / S15 P2: combo-weighted progress. In solo, equals the lone
    * player's progress. In 1v1, equals max(scoreByPlayer.values()) — i.e.
    * the leader's score, which drives the WIN check. Per-player scores are

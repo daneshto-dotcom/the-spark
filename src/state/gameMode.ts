@@ -431,6 +431,7 @@ export function applyReturnToTitle(world: World): World {
   world.razedNotKilled.length = 0;
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
+  world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
   world.lastWinnerId = null;
   world.nextPrimitiveId = 0;
   world.nextBondId = 0;
