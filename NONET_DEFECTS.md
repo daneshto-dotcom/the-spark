@@ -6,7 +6,8 @@
 You asked to be **told** the list. It existed only inside a commit message, which is not somewhere
 you read. This is the list.
 
-Eleven defects. Seven are fixed, one is ruled out by you, three are decisions waiting on you.
+Eleven items. **Seven are fixed**, **two you have ruled on** (difficulty, and the chirp), and **two**
+are decisions still waiting on you.
 
 ---
 
@@ -71,9 +72,37 @@ stray row — it permanently skews your average. **Fixed:** recording the same r
 
 ---
 
-## ⛔ RULED OUT BY YOU — not touched
+## ⛔ RULED BY YOU — recorded, not built
 
-### 8. The correct/incorrect chirp
+### 8. Difficulty will be ADAPTIVE, and it waits for logins *(R182-H, S182)*
+
+> *"The difficulty should be adapted to a player's scoring. So players that reach an average scoring
+> of less than a minute should have more difficult games. So as long as players don't have their own
+> accounts and don't log in, we don't know how good the player is — we only record them by name in
+> our leaderboard. So we will keep it for later as the subject to open up. It's good that the
+> difficulty dial exists, but we won't implement it just yet."*
+
+**Nothing was built.** The dial stays where it is, untouched and unturned.
+
+For the record, so it is not re-derived: at the clue count that ships, **100% of puzzles fall to
+"find a cell with only one possible answer, fill it, repeat"** — measured against the real generator
+across 300 puzzles per setting. That is the easiest class it can produce, and it is why NONET has
+never felt like a real sudoku. The dial has three usable rungs, not thirty; full numbers in
+[NONET_STAGE_LADDER.md](NONET_STAGE_LADDER.md).
+
+⭐ **The blocker is identity, not the dial.** "This player averages under a minute" needs to know who
+the player *is*, and today that is three typed characters anyone can borrow — so the rule would
+regularly hand a hard grid to whoever typed `DAN` next. It unblocks with a Steam or Google login.
+
+⚠ **And one thing worth having in hand before you open it:** adaptive difficulty collides with the
+average ranking you just specified. That ranking is fair *because* every player faces the same spread
+of random puzzles — the variance washes out over enough runs. If good players start getting harder
+grids, they post slower times and drift **down** a table still comparing raw averages, so improving
+makes you rank worse. Whoever picks this up has to answer the ranking question at the same time
+(weight times by difficulty, or run a board per tier). It is not a one-line change once identity
+exists — that part I got wrong earlier and it's better said now than discovered then.
+
+### 9. The correct/incorrect chirp
 
 An earlier analysis argued the per-cell sound lets someone solve by ear, making a timed board
 meaningless. You overruled it: *"The sound is intentional. You will keep it, and you will ignore A0.
@@ -83,21 +112,9 @@ That's a whole thing that I have actually defined."*
 
 ---
 
-## ⚠ WAITING ON YOU — three decisions I won't make for you
+## ⚠ WAITING ON YOU — two decisions I won't make for you
 
-### 9. Every NONET is the easiest puzzle the generator can produce
-
-I measured this against the real generator, 300 puzzles per setting. At the clue count that ships,
-**100% of puzzles can be solved by "find a cell with only one possible answer, fill it, repeat."** No
-scanning, no deduction, no technique at all. That is why it has never felt like a real sudoku — it
-isn't your imagination and it isn't the presentation.
-
-The generator has a difficulty dial that **nothing in the game has ever turned.** Turning it down
-gives you three genuinely distinguishable levels — not more, because the puzzle runs out of room
-before it runs out of dial. Full numbers in [NONET_STAGE_LADDER.md](NONET_STAGE_LADDER.md).
-
-**The question:** do you want the arcade NONET made harder? It's a one-line change once you say which
-of the three.
+*(The difficulty question that used to be here is **answered** — see the RULED section below.)*
 
 ### 10. The loser line names a seat, not a player
 

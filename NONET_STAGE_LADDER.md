@@ -138,7 +138,28 @@ live data plus a client that handles both shapes; adding it now cost one paramet
 
 ---
 
-## ⛔ THE EIGHT OPEN QUESTIONS
+## ⭐ SUPERSEDED IN PART — R182-H AND R182-G HAVE ANSWERED SOME OF THIS
+
+Two rulings landed after this note was written, and they close several questions below.
+
+**R182-G — ranking is by AVERAGE, and puzzles stay RANDOM.** The fixed-seed stage ladder this
+document was written to cost out is **withdrawn**. Difficulty variance washes out over a mean, so
+random generation is fair without it. Questions 1, 4, 5, 6, 7 and 9 below are moot.
+
+**R182-H — difficulty will be ADAPTIVE to a player's average, and is DEFERRED until logins exist.**
+> *"Players that reach an average scoring of less than a minute should have more difficult games.
+> So as long as players don't have their own accounts and don't log in, we don't know how good the
+> player is... we won't implement it just yet."*
+
+That closes questions 2 and 3: the lever will be the existing clue-count dial, and a bigger grid is
+off the table (nine digits would need nine spark colours; the game has six).
+
+⚠ **The measurement in §3 is still the live, load-bearing part of this document** — it is what says
+the dial has three usable rungs rather than thirty, and it is what whoever opens R182-H will need.
+
+---
+
+## ⛔ THE EIGHT OPEN QUESTIONS (historical — see above for which survive)
 
 You were told eight questions were open and never shown them. They are real — they are §4 of
 `.claude/plans/S173_NONET_STAGES.md`, written in S173 and carried through four handoffs as a number
