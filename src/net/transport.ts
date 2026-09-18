@@ -52,6 +52,8 @@ import {
   ICE_POLL_MAX_DURATION_MS,
   ICE_SERVERS,
   NOSTR_RELAYS,
+  SNAPSHOT_SINGLE_STRATEGY,
+  SNAPSHOT_STRATEGY_PREFERENCE,
   STRATEGY_FLAGS,
   TORRENT_TRACKERS,
   classifyJoinError,
@@ -63,6 +65,44 @@ export { classifyJoinError };
 // the broadcast roster (each client matches its own seat by peerId === selfId).
 // selfId is a stable per-page-load constant, identical across all strategies.
 export { selfId };
+
+/** S182 LEVER 1 — the per-strategy facts `pickSnapshotStrategy` routes on. */
+export interface StrategyRouteInfo {
+  readonly name: StrategyName;
+  /** Has a bound `MessageAction` — i.e. it can actually send. */
+  readonly ready: boolean;
+  /** Peers this strategy currently sees. Zero means it is carrying nobody. */
+  readonly peerCount: number;
+}
+
+/**
+ * S182 LEVER 1 — choose the ONE strategy that carries high-rate `NETSNAPSHOT` traffic, or `null`
+ * to fall back to broadcasting on all of them.
+ *
+ * Pure + exported so the routing decision is unit-testable without a live Trystero room — the same
+ * pattern as `detectProtocolMismatch` and `handleRawMessage` above, and for the same reason: this is
+ * the half of the change that can silently cost the owner a playable match.
+ *
+ * THE RULES, in order:
+ *   1. Prefer the first strategy in `SNAPSHOT_STRATEGY_PREFERENCE` that is READY **and actually has
+ *      a peer**. Readiness alone is not enough — a strategy that joined the room but never completed
+ *      a handshake would swallow every snapshot into nothing.
+ *   2. ⭐ If NO ready strategy has a peer, return `null` and broadcast. That is the deliberately
+ *      conservative arm: with nobody visible anywhere there is no information to route on, and the
+ *      pre-S182 behaviour is strictly safer than picking one at random. Costs nothing — with no
+ *      peers there is no traffic to double.
+ *
+ * Called per send, so a strategy that loses its peer is abandoned on the next snapshot (≤100 ms at
+ * `NET_SNAPSHOT_HZ`). ⚠ It cannot detect a strategy that still REPORTS the peer while delivering
+ * nothing; see the `SNAPSHOT_SINGLE_STRATEGY` docblock on that residual risk.
+ */
+export function pickSnapshotStrategy(strategies: ReadonlyArray<StrategyRouteInfo>): StrategyName | null {
+  for (const preferred of SNAPSHOT_STRATEGY_PREFERENCE) {
+    const match = strategies.find((s) => s.name === preferred);
+    if (match !== undefined && match.ready && match.peerCount > 0) return preferred;
+  }
+  return null;
+}
 
 export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void;
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
@@ -562,9 +602,24 @@ export class NetTransport {
       throw new Error('NetTransport not connected');
     }
     const serialized = JSON.stringify(msg);
+    // S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
+    // the pre-S182 behaviour AND the shipped default (SNAPSHOT_SINGLE_STRATEGY is false pending the
+    // owner's decision). Only NETSNAPSHOT is ever eligible: the rare control messages keep their
+    // redundancy, because that is what multi-strategy is FOR.
+    const only =
+      SNAPSHOT_SINGLE_STRATEGY && msg.kind === 'NETSNAPSHOT'
+        ? pickSnapshotStrategy(
+            Array.from(this.strategies.values()).map((h) => ({
+              name: h.name,
+              ready: h.action !== null,
+              peerCount: h.peers.size,
+            })),
+          )
+        : null;
     let dispatched = 0;
     for (const handle of this.strategies.values()) {
       if (handle.action === null) continue;
+      if (only !== null && handle.name !== only) continue;
       dispatched++;
       // S182 STEP 0 — measure the doubling AT THE POINT IT HAPPENS. Recording inside the loop (not
       // once above it) is deliberate: the per-strategy rows are what turn "the host sends twice"

@@ -98,6 +98,50 @@ export const STRATEGY_FLAGS = {
 export type StrategyName = keyof typeof STRATEGY_FLAGS;
 
 /**
+ * ⛔ S182 LEVER 1 — ROUTE HIGH-RATE SNAPSHOT TRAFFIC OVER ONE STRATEGY. **DEFAULT OFF, AND IT STAYS
+ * OFF UNTIL THE OWNER SAYS OTHERWISE.**
+ *
+ * ## What it does
+ *
+ * `STRATEGY_FLAGS` has both `nostr` and `torrent` on, and `NetTransport.send` loops every ready
+ * strategy — so the host opens two independent `RTCPeerConnection`s **to the same machine** and every
+ * byte goes out twice. At the brother's wave-5 board that is a measured-class ~107 KiB snapshot at
+ * 10 Hz becoming ~17.6 Mbit/s of upload instead of ~8.8. The joiner then `JSON.parse`s both copies
+ * and discards the second on `ClientSync`'s seq gate.
+ *
+ * With this ON, only `NETSNAPSHOT` is routed to a single chosen strategy. Everything rare and
+ * small — `HELLO`, `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT`, `MIGRATION_CLAIM` — keeps the
+ * redundant broadcast, because those are exactly what multi-strategy redundancy exists to protect.
+ * −50% of all bytes, no wire-format change, no `PROTOCOL_VERSION` bump.
+ *
+ * ## ⛔ WHY IT IS OFF, AND WHY A FUTURE SESSION MUST NOT JUST FLIP IT
+ *
+ * It trades connectivity redundancy the owner **deliberately paid for** in S157/S162. The docblock
+ * directly below this one records him unable to play with his brother in Israel because every TURN
+ * URL errored and ICE gathered `relay: 0`. A second strategy is an uncorrelated failure domain, and
+ * losing multiplayer entirely is a far worse outcome than a laggy peer.
+ *
+ * ⚠ AND THE FAILOVER HERE IS NOT FREE. `pickSnapshotStrategy` re-picks per send, so a strategy that
+ * drops the peer is abandoned on the NEXT snapshot (≤100 ms). But a strategy that is *degrading*
+ * rather than gone — still reporting the peer while delivering nothing — keeps the route, and the
+ * joiner starves with the redundant path sitting idle beside it. That is the residual risk, and it
+ * is the owner's call to accept, not this session's.
+ *
+ * ⭐ **DECIDE IT WITH THE STEP 0 NUMBERS, NOT WITH THIS REASONING.** Arm `?netstats=1`, play one
+ * match, read `dup` on the joiner. `dup ≈ accepted` means both strategies really are carrying every
+ * snapshot and this flag is worth ~50% of all bytes. `dup ≈ 0` means one strategy never carried the
+ * peer, the doubling is already absent, and flipping this would trade real redundancy for nothing.
+ */
+export const SNAPSHOT_SINGLE_STRATEGY = false;
+
+/**
+ * S182 LEVER 1 — preference order when `SNAPSHOT_SINGLE_STRATEGY` routes snapshots to one strategy.
+ * Nostr first: `transport.ts` calls it the primary and it is the only always-on, eagerly-imported
+ * strategy. Torrent is the declared fallback; mqtt is an opt-in operator lever and comes last.
+ */
+export const SNAPSHOT_STRATEGY_PREFERENCE: readonly StrategyName[] = ['nostr', 'torrent', 'mqtt'];
+
+/**
  * ⭐ S157 N1 — **THE TURN SERVERS WERE DEAD, AND THAT IS WHY MULTIPLAYER HANGS ON "Connecting...".**
  *
  * Owner, after trying to play with his brother in Israel: *"we still could not connect to each
