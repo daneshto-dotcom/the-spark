@@ -1,25 +1,25 @@
 /**
- * SPARK — S182 LEVER 1: the SEND FAN-OUT, driven end-to-end through `NetTransport.send`.
+ * SPARK — S182 LEVER 1: THE ESCAPE HATCH, driven end-to-end through `NetTransport.send`.
  *
- * ⛔ THIS IS THE TEST THE BRANCH BRIEF NAMED, AND THE FIRST CUT OF THIS BRANCH DID NOT HAVE IT.
- * `snapshotRouting.test.ts` proves `pickSnapshotStrategy` picks correctly and pins the call shape by
- * source text — but neither of those actually watches a message leave. The brief asked for exactly
- * one thing: *"a test that `NETSNAPSHOT` goes out on exactly one strategy while `HELLO` goes out on
- * all"*. A routing bug that dropped every snapshot, or that narrowed HELLO too, would have passed
- * every other test on this branch.
+ * ## Why this file mocks `iceConfig` — AND WHY THE MOCK FLIPPED IN S182
+ *
+ * It used to mock `SNAPSHOT_SINGLE_STRATEGY` **ON**, because the shipped default was OFF pending the
+ * owner's ruling. He has now ruled — *"if it halves our bandwidth, then of course we need to do it"*
+ * — so ON is the default, and `snapshotRouting.test.ts` covers it unmocked on the real send path.
+ *
+ * This file therefore now mocks the flag **OFF**, because the escape hatch is the thing that is no
+ * longer exercised by default and so the thing that can silently rot. A constant documented as
+ * *"flip it back if snapshot delivery ever looks worse in the field than the doubling was"* is worth
+ * nothing if flipping it back has quietly stopped working. The way back is a feature, and features
+ * need tests.
+ *
+ * ## Why `send()` gets a harness at all
  *
  * `transport.test.ts` opens by saying the `send()` happy path "requires a live network and is
  * validated via production playtest". That was true while `send()` was an unconditional broadcast
- * loop. It stopped being true the moment the loop grew a routing decision, so `send()` gets a real
- * harness here: fake `StrategyHandle`s injected into the private map, each recording what it was
- * handed. No Trystero room, no network.
- *
- * ## Why this file mocks `iceConfig`
- *
- * `SNAPSHOT_SINGLE_STRATEGY` is a `const false` — that is the point of it, and a test must not be
- * able to flip the shipped default at runtime. So the ON path is exercised by module-mocking the
- * config for this file only. The OFF path (what actually ships today) is asserted in
- * `snapshotRouting.test.ts` against the unmocked module.
+ * loop. It stopped being true the moment that loop grew a routing decision. Fake `StrategyHandle`s
+ * are injected into the private map, each recording what it was handed — no Trystero room, no
+ * network.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -29,7 +29,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 vi.mock('./iceConfig.ts', async (importOriginal) => {
   // `importOriginal()` is typed `unknown`; the cast is what lets the spread compile.
   const actual = (await importOriginal()) as Record<string, unknown>;
-  return { ...actual, SNAPSHOT_SINGLE_STRATEGY: true };
+  return { ...actual, SNAPSHOT_SINGLE_STRATEGY: false };
 });
 
 const { NetTransport } = await import('./transport.ts');
@@ -43,7 +43,7 @@ interface Recorder {
 
 /**
  * Inject fake strategies into a connected transport and return one recorder per strategy.
- * `peerCount > 0` is what makes a strategy eligible to carry snapshots — see `pickSnapshotStrategy`.
+ * A strategy carries snapshots only if it reaches EVERY peer — see `pickSnapshotStrategy`.
  */
 function harness(
   specs: ReadonlyArray<{ name: string; ready?: boolean; peers?: number }>,
@@ -56,10 +56,10 @@ function harness(
   };
   priv.connected = true;
   priv.strategies = new Map();
-  // ⭐ THE UNION MATTERS NOW. Routing requires a strategy to carry EVERY peer at the table, so a
-  // harness that populated per-strategy peers but left `peerSet` empty would make totalPeers 0 and
-  // silently exercise the broadcast arm for every case. Peer ids are SHARED across strategies here
-  // (`peer-0`, `peer-1`, …) because that is the real topology: one peer, two signalling paths.
+  // ⭐ THE UNION MATTERS. Routing requires a strategy to carry EVERY peer at the table, so a harness
+  // that populated per-strategy peers but left `peerSet` empty would make totalPeers 0 and silently
+  // exercise the broadcast arm in every case. Peer ids are SHARED across strategies here
+  // (`peer-0`, `peer-1`, …) because that is the real topology: one machine, two signalling paths.
   priv.peerSet = new Set();
   const recorders: Recorder[] = [];
   for (const spec of specs) {
@@ -97,7 +97,7 @@ function snapMsg(seq: number): never {
 }
 
 function helloMsg(): never {
-  return { kind: 'HELLO', protoVersion: 46 } as never;
+  return { kind: 'HELLO', protoVersion: 47 } as never;
 }
 
 function byName(recorders: Recorder[], name: string): Recorder {
@@ -106,63 +106,39 @@ function byName(recorders: Recorder[], name: string): Recorder {
   return r;
 }
 
-describe('S182 LEVER 1 — send fan-out with the routing flag ON', () => {
+describe('⛔ S182 LEVER 1 — THE ESCAPE HATCH: flag OFF restores the pre-S182 broadcast', () => {
   beforeEach(() => {
     // Guard the guard: if the module mock ever stops applying, every assertion in this file would
-    // silently become a test of the OFF path and pass for the wrong reason.
-    expect(SNAPSHOT_SINGLE_STRATEGY).toBe(true);
+    // silently become a test of the shipped ON path and pass for the wrong reason.
+    expect(SNAPSHOT_SINGLE_STRATEGY).toBe(false);
   });
 
-  it('⭐ NETSNAPSHOT goes out on EXACTLY ONE strategy while HELLO goes out on ALL', () => {
+  it('⭐ NETSNAPSHOT goes back to EVERY strategy, exactly as before S182', () => {
     const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
-    transport.send(snapMsg(1));
-    transport.send(helloMsg());
-
-    const nostr = byName(recorders, 'nostr');
-    const torrent = byName(recorders, 'torrent');
-
-    // The snapshot took one route — nostr, the preferred strategy.
-    const snapSends = recorders.flatMap((r) => r.sent.filter((s) => s.includes('NETSNAPSHOT')));
-    expect(snapSends).toHaveLength(1);
-    expect(nostr.sent.filter((s) => s.includes('NETSNAPSHOT'))).toHaveLength(1);
-    expect(torrent.sent.filter((s) => s.includes('NETSNAPSHOT'))).toHaveLength(0);
-
-    // The rare control message kept its redundancy — this is the half that must NOT change.
-    expect(nostr.sent.filter((s) => s.includes('HELLO'))).toHaveLength(1);
-    expect(torrent.sent.filter((s) => s.includes('HELLO'))).toHaveLength(1);
-  });
-
-  it('halves snapshot traffic exactly — 10 snapshots produce 10 sends, not 20', () => {
-    const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
-    for (let i = 1; i <= 10; i++) transport.send(snapMsg(i));
-    const total = recorders.reduce((n, r) => n + r.sent.length, 0);
-    expect(total).toBe(10);
-  });
-
-  it('fails over to torrent when nostr has lost its peer — the snapshot is NOT dropped', () => {
-    const { transport, recorders } = harness([
-      { name: 'nostr', peers: 0 },
-      { name: 'torrent', peers: 1 },
-    ]);
-    transport.send(snapMsg(1));
-    expect(byName(recorders, 'nostr').sent).toHaveLength(0);
-    expect(byName(recorders, 'torrent').sent).toHaveLength(1);
-  });
-
-  it('⛔ when NO strategy has a peer it broadcasts rather than dropping the snapshot', () => {
-    // The conservative arm of pickSnapshotStrategy. Dropping here would be strictly worse than the
-    // doubling this lever removes: a silent total loss of snapshots is the freeze the owner's
-    // brother already reported, caused by the fix for it.
-    const { transport, recorders } = harness([
-      { name: 'nostr', peers: 0 },
-      { name: 'torrent', peers: 0 },
-    ]);
     transport.send(snapMsg(1));
     expect(byName(recorders, 'nostr').sent).toHaveLength(1);
     expect(byName(recorders, 'torrent').sent).toHaveLength(1);
   });
 
-  it('a not-ready strategy is skipped entirely and never receives anything', () => {
+  it('the doubling returns in full — 10 snapshots produce 20 sends', () => {
+    // This is the cost the owner approved removing. Pinning it here makes the escape hatch a real,
+    // measured way back rather than a comment claiming there is one.
+    const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
+    for (let i = 1; i <= 10; i++) transport.send(snapMsg(i));
+    expect(recorders.reduce((n, r) => n + r.sent.length, 0)).toBe(20);
+  });
+
+  it('control traffic is unchanged either way', () => {
+    const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
+    transport.send(helloMsg());
+    for (const kind of ['INTENT', 'START_GAME_SIGNAL', 'LOBBY_PRESENCE', 'MIGRATION_CLAIM']) {
+      transport.send({ kind } as never);
+    }
+    expect(byName(recorders, 'nostr').sent).toHaveLength(5);
+    expect(byName(recorders, 'torrent').sent).toHaveLength(5);
+  });
+
+  it('a not-ready strategy is still skipped entirely', () => {
     const { transport, recorders } = harness([
       { name: 'nostr', ready: false, peers: 0 },
       { name: 'torrent', peers: 1 },
@@ -171,21 +147,6 @@ describe('S182 LEVER 1 — send fan-out with the routing flag ON', () => {
     transport.send(helloMsg());
     expect(byName(recorders, 'nostr').sent).toHaveLength(0);
     expect(byName(recorders, 'torrent').sent).toHaveLength(2);
-  });
-
-  it('a single-strategy session is unaffected — the snapshot still goes out', () => {
-    const { transport, recorders } = harness([{ name: 'nostr' }]);
-    transport.send(snapMsg(1));
-    expect(byName(recorders, 'nostr').sent).toHaveLength(1);
-  });
-
-  it('every other message kind keeps the redundant broadcast', () => {
-    const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
-    for (const kind of ['INTENT', 'START_GAME_SIGNAL', 'LOBBY_PRESENCE', 'MIGRATION_CLAIM']) {
-      transport.send({ kind } as never);
-    }
-    expect(byName(recorders, 'nostr').sent).toHaveLength(4);
-    expect(byName(recorders, 'torrent').sent).toHaveLength(4);
   });
 });
 
@@ -218,5 +179,19 @@ describe('S182 LEVER 2 — the replacer, observed on the actual send path', () =
     };
     transport.send(msg as never);
     expect(msg.snapshot.pos.x).toBe(812.3358154296875);
+  });
+
+  it('⭐ a large integer survives the wire EXACTLY — the replacer never touches integers', () => {
+    // `v * 100` exceeds 2^53 above ~9.0e13, so the old arithmetic could hand back a DIFFERENT
+    // integer than it was given. `tick` and `snapshotSeq` are nowhere near that today, but a counter
+    // that is exact on the host and altered on the wire is the quietest possible desync.
+    const big = 9_007_199_254_740_991; // Number.MAX_SAFE_INTEGER
+    const { transport, recorders } = harness([{ name: 'nostr' }]);
+    transport.send({
+      kind: 'NETSNAPSHOT',
+      snapshotSeq: 1,
+      snapshot: { schemaVersion: 1, tick: big },
+    } as never);
+    expect(byName(recorders, 'nostr').sent[0]).toContain(String(big));
   });
 });

@@ -102,6 +102,20 @@ export interface NetStatsReading {
   readonly dupTotal: number;
   /** Cumulative EPOCH-gate drops since the counter was enabled. */
   readonly epochDropTotal: number;
+  /**
+   * ⭐ MILLISECONDS SINCE THE LAST ACCEPTED SNAPSHOT, LIVE. −1 before the first one arrives.
+   *
+   * ⛔ THIS IS THE ONE READING THAT SHOWS A FREEZE **WHILE IT IS HAPPENING**, and the first cut of
+   * this instrument did not have it. Every other gap field — `gapLastMs`, `gapAvgMs`, `gapMaxMs` —
+   * is written inside `recordSnapshotAccepted`, so during a stall NOTHING MOVES: the display holds
+   * whatever it showed when the last snapshot landed and looks merely stale, not broken. A 4-second
+   * freeze is indistinguishable from a paused game until the snapshot that ENDS it finally arrives
+   * and retroactively reveals the gap.
+   *
+   * The owner's brother was frozen for ~5 seconds at a time. This field counts up in real time
+   * while that is happening, which is exactly the evidence his video could not carry.
+   */
+  readonly msSinceLastAcceptMs: number;
   /** Gap between the two most recent ACCEPTED snapshots, ms. */
   readonly gapLastMs: number;
   /** Mean accepted-snapshot gap over the current window, ms. */
@@ -360,6 +374,8 @@ export class NetStats {
       acceptedTotal: this.acceptedTotal,
       dupTotal: this.dupTotal,
       epochDropTotal: this.epochDropTotal,
+      // Computed from `now` at READ time, not at record time — that is the whole point of it.
+      msSinceLastAcceptMs: this.hasAccepted ? now - this.lastAcceptMs : -1,
       gapLastMs: this.gapLastMs,
       gapAvgMs: this.gapAvgMs,
       gapMaxMs: this.gapMaxMs,

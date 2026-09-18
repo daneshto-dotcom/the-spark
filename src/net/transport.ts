@@ -646,14 +646,6 @@ export class NetTransport {
             this.peerSet.size,
           )
         : null;
-    // S182 STEP 0 — the ENVELOPE is counted ONCE per send() call, before the fan-out loop, so
-    // `snap tx` reads the host's real cadence (10 Hz) rather than 10 × the strategy count. The
-    // per-strategy BYTES are counted inside the loop, because that duplication is the phenomenon
-    // under measurement. Conflating the two put a 20/s figure directly above a 10/s one on the
-    // overlay, on different scales, under labels that implied the same scale.
-    if (netStats.isEnabled()) {
-      netStats.recordSendEnvelope(msg.kind, serialized.length, performance.now());
-    }
     let dispatched = 0;
     for (const handle of this.strategies.values()) {
       if (handle.action === null) continue;
@@ -675,6 +667,19 @@ export class NetTransport {
           this.emitError(errMsg);
         }
       });
+    }
+    // ⛔ S182 STEP 0 — THE ENVELOPE IS COUNTED **AFTER** THE LOOP, AND ONLY IF IT ACTUALLY WENT OUT.
+    // Counted once per send() call, so `snap tx` reads the host's real cadence (10 Hz) rather than
+    // 10 × the strategy count; the per-strategy BYTES are counted inside the loop, because that
+    // duplication is the phenomenon under measurement.
+    //
+    // ⚠ The `dispatched > 0` guard is not decoration. Recording before the loop counted a snapshot
+    // as SENT even when no strategy was ready and Trystero dropped it on the floor — see the warn
+    // immediately below, which exists precisely because that happens during the startup window. An
+    // instrument that reports a healthy 10 Hz tx while nothing is leaving the machine would send the
+    // next session hunting on the joiner for a fault that is on the host.
+    if (netStats.isEnabled() && dispatched > 0) {
+      netStats.recordSendEnvelope(msg.kind, serialized.length, performance.now());
     }
     if (dispatched === 0) {
       // No strategy ready yet; messages sent during startup window are lost

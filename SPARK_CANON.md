@@ -172,9 +172,32 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **46**. A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **47**. A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
+
+⭐ **AND SO DOES REMOVING A REQUIRED ONE — S182 is the first bump in this repo's history for a
+REMOVAL.** `netSnapshot()` now strips `prevPos` from every primitive (it is ~34% of a primitive's
+wire cost and a joiner runs no sim, so nothing reads it). Stripping an already-*optional* field —
+`trimMirrorCreature`, `trimMirrorSpawner` — is free, because a stale peer's deserializer already had
+a default and simply never misses it. `prevPos` was **required**, and a v46 peer does
+`{ ...s.prevPos }`: handed `undefined` that yields `{}`, and the first Verlet substep on a promoted
+successor turns every position into NaN. **A stale peer does not ignore a missing required field, it
+dereferences it.** ⚠ Consequence, accepted: a successor promoted on host migration inherits
+primitives at zero velocity — a settled board is unaffected, a mid-swing one settles instead of
+oscillating.
+
+⭐ **Coordinates ride the wire rounded to 2 decimal places** (`wireNumberReplacer`, applied by
+`NetTransport.send` for `NETSNAPSHOT` only). Integers pass through untouched. The rounding is a
+`JSON.stringify` replacer rather than a pass over `netSnapshot()`'s output **because `netSnapshot` is
+also the worker→main mirror transfer, and that mirror is hash-compared** — rounding there turned
+`?worker=1` red on `HASH MISMATCH` while all 4747 unit tests stayed green.
+
+⭐ **Snapshots take ONE strategy; everything else still takes all of them.**
+`SNAPSHOT_SINGLE_STRATEGY` is **true** (owner ruling, S182: *"if it halves our bandwidth, then of
+course we need to do it"*). `HELLO`, `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT` and `MIGRATION_CLAIM`
+keep the full multi-strategy broadcast — those decide whether a match can *start*. The chosen
+strategy must carry **every** peer at the table, not merely one, or a 3–4 seat match starves a seat.
 
 Already on the wire, so a client can read them for free: creature `ehp`, defender `ehp`, primitive
 `hp`, and `castleHp`. Each is emitted **only when damaged**; absent means full, and both peers

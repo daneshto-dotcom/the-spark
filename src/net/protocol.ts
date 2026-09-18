@@ -663,8 +663,23 @@ export type { NetSnapshot };
  *   · R150 teleport / taken-to-hell — a position write and a creature removal, both already synced.
  * So the DISCRIMINANT half of this bump is the direwolf and nothing else — but the wire format also
  * gained one optional boolean under it, which is recorded here rather than left to be discovered.
+ *
+ * ## S182 bumped 46 → 47 — `prevPos` LEAVES THE WIRE (a REQUIRED field becoming ABSENT)
+ *
+ * `netSnapshot()` now strips `prevPos` from every primitive. It is ~34% of a primitive's wire cost
+ * and dead on the client — every primitive `prevPos` reader in the tree is sim code, and a joiner
+ * runs no sim. `SerializedPrimitive.prevPos` becomes additive-OPTIONAL and `deserializePrimitive`
+ * defaults it to `pos`.
+ *
+ * ⛔ WHY THIS COSTS A BUMP WHEN `trimMirrorCreature`'s STRIPS DID NOT. Those removed fields that were
+ * ALREADY optional, whose deserializer already had a default — a stale peer reading them is fine.
+ * `prevPos` was REQUIRED, and a v46 peer's `deserializePrimitive` does `{ ...s.prevPos }`. Handed
+ * `undefined` that yields `{}`, so `prevPos.x === undefined`, and the first Verlet substep on a
+ * promoted successor turns every position into NaN. Removing a REQUIRED field is the dangerous
+ * direction: the stale peer does not ignore the absence, it dereferences it. A v46 peer is refused
+ * outright, which is exactly what this gate is for.
  */
-export const PROTOCOL_VERSION = 46 as const;
+export const PROTOCOL_VERSION = 47 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -906,6 +921,19 @@ export interface HelloMsg {
    * under 45. The `untargetable` condition costs nothing either; it is a CONFIG flag, not a wire
    * field.)
    *
+   * S182: 46->47 (`prevPos` LEAVES THE WIRE — the peer-lag fix. `netSnapshot()` strips `prevPos`
+   * from every primitive: ~34% of a primitive's wire cost, sent 10×/sec, and DEAD on a client that
+   * runs no sim. ⛔ THE FIRST BUMP IN THIS LIST FOR A **REMOVAL** RATHER THAN AN ADDITION, and that
+   * is precisely why it costs one. Every strip before it — `trimMirrorCreature`, `trimMirrorSpawner`
+   * — removed fields that were ALREADY additive-optional with a deserializer default, so a stale
+   * peer simply never missed them. `SerializedPrimitive.prevPos` was REQUIRED, and a v46 peer's
+   * `deserializePrimitive` does `{ ...s.prevPos }`: handed `undefined` that yields `{}`, and the
+   * first Verlet substep on a promoted successor turns every position into NaN. A stale peer does
+   * not IGNORE a missing required field, it DEREFERENCES it. `prevPos` is now additive-optional and
+   * defaults to `pos`. ⚠ Consequence: a successor promoted on host migration inherits primitives at
+   * zero velocity — a settled board is unaffected, a mid-swing one settles instead of oscillating;
+   * this widens the already-accepted migration gap that `save.ts` records for creatures.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -943,7 +971,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 46;
+  readonly protoVersion: 47;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

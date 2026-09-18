@@ -171,6 +171,9 @@ export class StatsOverlay {
       .join(' · ');
     const rxStarved = n.acceptedTotal > 0 && n.snapRxPerSec < SNAP_RX_STARVED_HZ;
     const gapBad = n.gapMaxMs > SNAP_GAP_BAD_MS;
+    // `since` is live, so its threshold flags a freeze IN PROGRESS rather than one already over.
+    const sinceBad = n.msSinceLastAcceptMs > SNAP_GAP_BAD_MS;
+    const sinceText = n.msSinceLastAcceptMs < 0 ? '—' : n.msSinceLastAcceptMs.toFixed(0);
     return (
       `\n--- net (S182 step 0) ---\n` +
       `out     ${kibPerSec(n.outBytesPerSec)} KiB/s${perStrategy === '' ? '' : `  [${perStrategy}]`}\n` +
@@ -181,6 +184,10 @@ export class StatsOverlay {
       `snap n  ${n.acceptedTotal} ok / ${n.dupTotal} dup` +
       (n.epochDropTotal > 0 ? ` / ${n.epochDropTotal} epoch` : '') +
       '\n' +
+      // ⭐ THE LIVE ONE. Counts up in real time during a stall; every other gap field is frozen
+      // until the snapshot that ENDS the stall arrives. This is the line that shows a freeze
+      // WHILE it is happening.
+      `since   ${sinceText.padStart(7, ' ')} ms${sinceBad ? ' !! FROZEN' : ''}\n` +
       `gap     last ${n.gapLastMs.toFixed(0)} avg ${n.gapAvgMs.toFixed(0)} ` +
       `max ${n.gapMaxMs.toFixed(0)} ms${gapBad ? ' !' : ''}`
     );

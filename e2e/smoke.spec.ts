@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 46; // S171 — 45 → 46 (THE PHARAOH'S LOCUST CLOUD: one new serialized CreatureType, owner R142)
+const LOCAL_PROTO_V = 47; // S182 — 46 → 47 (prevPos LEAVES THE WIRE: a REQUIRED field becomes absent; the peer-lag fix)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

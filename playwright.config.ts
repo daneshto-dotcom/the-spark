@@ -84,6 +84,36 @@ if (retriesRaw !== undefined && retriesRaw !== '' && !/^\d+$/.test(retriesRaw)) 
 const retriesOverride =
   retriesRaw !== undefined && retriesRaw !== '' ? Number(retriesRaw) : undefined;
 
+/**
+ * ⭐ S182 — THE DEV-SERVER PORT IS NO LONGER HARDCODED.
+ *
+ * `SPARK_E2E_PORT` overrides the Vite default (5173). Unset, behaviour is byte-identical to before,
+ * so CI and every existing invocation are untouched.
+ *
+ * ⛔ WHY IT EXISTS. The S182 parallel-worktree split runs several sessions against clones of this
+ * repo at once, and `reuseExistingServer: !CI` means a local Playwright run ATTACHES to whatever is
+ * already listening on 5173 — which may be a SIBLING BRANCH'S dev server. This session measured the
+ * result: 15 spurious failures in one `e2e:gating` run, 11 of them `ERR_CONNECTION_REFUSED` when the
+ * other session's server went away mid-run. All 15 passed on a re-run against an uncontended port.
+ * A gate that reds for a reason unrelated to the diff is worse than no gate, because the next
+ * session learns to discount it.
+ *
+ * Pass the session's assigned port: `SPARK_E2E_PORT=$SESSION_PORT npm run e2e:gating`.
+ */
+const E2E_PORT = (() => {
+  const raw = process.env.SPARK_E2E_PORT?.trim();
+  if (raw === undefined || raw === '') return 5173;
+  const n = Number(raw);
+  // Fail loudly rather than silently falling back — a typo that quietly reused 5173 would
+  // reintroduce exactly the cross-worktree contention this exists to remove.
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    throw new Error(`SPARK_E2E_PORT must be an integer 1-65535, got ${JSON.stringify(raw)}`);
+  }
+  return n;
+})();
+
+const E2E_ORIGIN = `http://localhost:${E2E_PORT}`;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -96,7 +126,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: E2E_ORIGIN,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,8 +154,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
+    command: `npm run dev -- --port ${E2E_PORT} --host`,
+    url: `${E2E_ORIGIN}/?debug=1`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

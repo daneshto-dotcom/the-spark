@@ -26,36 +26,41 @@ function s(name: StrategyRouteInfo['name'], ready: boolean, peerCount: number): 
   return { name, ready, peerCount };
 }
 
-describe('⛔ S182 LEVER 1 — the owner gate', () => {
-  it('SNAPSHOT_SINGLE_STRATEGY ships OFF — the owner has not ruled on this', () => {
-    expect(SNAPSHOT_SINGLE_STRATEGY).toBe(false);
+describe('⭐ S182 LEVER 1 — the owner ruled: ON', () => {
+  it('SNAPSHOT_SINGLE_STRATEGY ships ON', () => {
+    // Owner, S182: "if it halves our bandwidth, then of course we need to do it."
+    expect(SNAPSHOT_SINGLE_STRATEGY).toBe(true);
   });
 
-  it('the constant carries the reasoning, so nobody flips it without meeting the argument', () => {
+  it('the constant still carries the argument AND the escape hatch', () => {
     const at = ICECONFIG_SRC.indexOf('export const SNAPSHOT_SINGLE_STRATEGY');
     expect(at).toBeGreaterThan(-1);
-    const docblock = ICECONFIG_SRC.slice(Math.max(0, at - 3000), at);
-    // The three facts a future session needs before touching it.
-    expect(docblock).toContain('DEFAULT OFF');
+    const docblock = ICECONFIG_SRC.slice(Math.max(0, at - 4000), at);
+    // The ruling, the cost it accepts, and the way back — a future session must find all three.
+    expect(docblock).toContain('THE OWNER RULED');
     expect(docblock).toContain('S157/S162');
-    expect(docblock).toMatch(/relay: 0|redundancy/);
+    expect(docblock).toMatch(/escape hatch/i);
+    expect(docblock).toMatch(/residual risk/i);
   });
 
-  it('OFF means every strategy still gets the snapshot — the pre-S182 path is untouched', () => {
+  it('routing is still gated on the NETSNAPSHOT kind, not applied to all traffic', () => {
     expect(TRANSPORT_SRC).toContain("SNAPSHOT_SINGLE_STRATEGY && msg.kind === 'NETSNAPSHOT'");
   });
 
-  it('⭐ AND THAT IS OBSERVED, NOT ONLY ASSERTED: a real send() reaches BOTH strategies', () => {
-    // The shipped default, driven through the actual send path. `snapshotFanout.test.ts` covers the
-    // ON path by module-mocking the flag; this is its unmocked counterpart, and together they are
-    // the brief's "NETSNAPSHOT on one strategy, HELLO on all" obligation in both flag states.
+  it('⭐ OBSERVED ON THE REAL SEND PATH: one snapshot copy, but HELLO still goes to both', () => {
+    // The shipped default now, driven through the actual send path — no module mock.
+    // `snapshotFanout.test.ts` is the counterpart that mocks the flag OFF to prove the escape hatch.
     const transport = new NetTransport();
     const priv = transport as unknown as {
       connected: boolean;
       strategies: Map<string, Record<string, unknown>>;
+      peerSet: Set<string>;
     };
     priv.connected = true;
     priv.strategies = new Map();
+    // ONE peer, reachable on BOTH strategies — the owner's 1v1, and the topology the doubling came
+    // from. Shared id across strategies, because it is the same machine on two signalling paths.
+    priv.peerSet = new Set(['peer-0']);
     const sent: Record<string, string[]> = { nostr: [], torrent: [] };
     for (const name of ['nostr', 'torrent']) {
       priv.strategies.set(name, {
@@ -63,7 +68,7 @@ describe('⛔ S182 LEVER 1 — the owner gate', () => {
         room: null,
         action: { send: (d: string) => { sent[name].push(d); return Promise.resolve(); } },
         state: 'ready',
-        peers: new Set([`peer-${name}`]),
+        peers: new Set(['peer-0']),
         relayUrls: [],
         getSockets: null,
         lastError: null,
@@ -76,10 +81,14 @@ describe('⛔ S182 LEVER 1 — the owner gate', () => {
       snapshotSeq: 1,
       snapshot: { schemaVersion: 1, tick: 1 },
     } as never);
-    // ⛔ TWO COPIES. This is the doubling the owner's brother is paying for, pinned as the CURRENT,
-    // SHIPPED behaviour — so if anyone flips the flag, this test goes red and forces the decision to
-    // be made deliberately rather than noticed in a playtest.
+    // ⭐ ONE COPY. The doubling the owner's brother was paying for is gone.
     expect(sent.nostr).toHaveLength(1);
+    expect(sent.torrent).toHaveLength(0);
+
+    transport.send({ kind: 'HELLO', protoVersion: 47 } as never);
+    // …and the message that decides whether a match can START still gets both paths. That is the
+    // half of the redundancy the ruling did NOT trade away.
+    expect(sent.nostr).toHaveLength(2);
     expect(sent.torrent).toHaveLength(1);
   });
 });

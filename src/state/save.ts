@@ -356,7 +356,20 @@ interface SerializedPrimitive {
   placedBy: PlayerId;
   createdTick: number;
   pos: Vec2;
-  prevPos: Vec2;
+  /**
+   * ⛔ S182 LEVER 2 — ADDITIVE-OPTIONAL SINCE PROTOCOL 47, AND ABSENT ON THE WIRE BY DESIGN.
+   *
+   * `serializePrimitive` still ALWAYS emits it, so the disk save, `workerSim.restore()` and
+   * `save.replay`'s byte-identity gate are untouched. `netSnapshot()` strips it, because it is dead
+   * weight for a joiner: every primitive `prevPos` reader in the tree is sim code (`game/verlet`,
+   * `game/spawner`, `game/invariants`, `input/controls`) and a joiner runs no sim. It was ~34% of a
+   * primitive's wire cost, sent 10×/second, to be ignored.
+   *
+   * `deserializePrimitive` defaults it to `pos` when absent — zero implicit velocity, the same
+   * neutral default `makePrimitiveFromSpark` uses at placement and `deserializeDefender` uses for
+   * its own optional `prevPos`.
+   */
+  prevPos?: Vec2;
   bonds: BondId[];
   ownerColor: number;
   lastOwnershipChange: number;
@@ -1207,6 +1220,29 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
+  // ⭐ S182 LEVER 2 (protocol 47) — STRIP `prevPos` FROM EVERY PRIMITIVE ON THE WIRE.
+  //
+  // It is ~34% of a primitive's wire cost and it is DEAD ON THE CLIENT: every primitive `prevPos`
+  // reader in the tree is sim code (`game/verlet`, `game/spawner`, `game/invariants`,
+  // `input/controls`), and a joiner runs no sim. At the brother's wave-5 board that is a quarter of
+  // a ~100 KiB payload, shipped ten times a second, to be discarded on arrival.
+  //
+  // ⛔ WHY THIS ONE *IS* SAFE IN `netSnapshot`, WHEN THE QUANTISER WAS NOT. The quantiser had to move
+  // out to a stringify replacer because `netSnapshot` is ALSO the worker→main mirror transfer, and
+  // `main.ts` hash-compares the mirror against the worker's own hash. That objection does not apply
+  // here: `hashWorldState` projects `p.pos.x, p.pos.y` ONLY (`stateHash.ts:110`) and never reads
+  // `prevPos`, so the mirror losing it cannot move the hash. Verified, not assumed — the worker
+  // e2e specs assert 0 mismatches.
+  //
+  // ⚠ CONSEQUENCE, STATED RATHER THAN SLIPPED IN — see the commit message. A client promoted on host
+  // migration inherits every primitive at ZERO VELOCITY, because `deserializePrimitive` defaults
+  // `prevPos` to `pos`. A settled board (the overwhelmingly common case) is unaffected: its
+  // primitives already have `prevPos ≈ pos`. A board caught MID-SWING loses that momentum and its
+  // structures settle rather than continuing to oscillate. This WIDENS AN ALREADY-ACCEPTED GAP
+  // rather than opening a new one: `save.ts`'s own migration docblock records that a successor's
+  // world is already not equal to its predecessor's, with `prevPos`, `targetPos` and `spawnedAtTick`
+  // never travelling for creatures. It is now true for primitives too.
+  for (const p of rest.primitives) delete p.prevPos;
   return rest;
 }
 
@@ -1252,11 +1288,23 @@ const NET_WIRE_SCALE = 10 ** NET_WIRE_DECIMALS;
  * `hashWorldState` — every one of which consumes objects, never this JSON string. The worker↔main
  * transfer uses `structuredClone` via `postMessage` and never passes through here at all.
  *
- * Integers (`tick`, `snapshotSeq`, `epoch`, `color`, counts) round to themselves, so the replacer is
- * an identity on everything that is not a coordinate.
+ * ## ⚠ INTEGERS ARE RETURNED UNTOUCHED, AND THE EARLY EXIT IS LOAD-BEARING
+ *
+ * This docblock used to claim integers "round to themselves, so the replacer is an identity on
+ * everything that is not a coordinate". **That was false above ~9.0e13**: `v * 100` exceeds
+ * `Number.MAX_SAFE_INTEGER` (2^53), so the multiply loses precision and `Math.round(v*100)/100` can
+ * hand back a DIFFERENT integer than it was given. `tick`, `snapshotSeq`, `epoch` and `color` are
+ * nowhere near that today, but a counter that is exact on the host and altered on the wire is the
+ * quietest possible desync, and "it can't get that big" is the kind of assumption this codebase has
+ * been bitten by before.
+ *
+ * `Number.isInteger` makes the identity claim TRUE rather than merely reworded: integers never enter
+ * the arithmetic at all. It also skips the multiply for `tick`, ids and enum values on every
+ * snapshot, which is most of the numbers in the payload.
  */
 export function wireNumberReplacer(_key: string, value: unknown): unknown {
   if (typeof value !== 'number') return value;
+  if (Number.isInteger(value)) return value;
   const rounded = Math.round(value * NET_WIRE_SCALE) / NET_WIRE_SCALE;
   // ⚠ `value * 100` overflows to Infinity above ~1.79e306, and `JSON.stringify(Infinity)` is `null`
   // — so a finite number would have left as a value and come back as null. Unreachable with game
@@ -1677,7 +1725,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
         tick: p.createdTick,
       }),
       pos: { ...p.pos },
-      prevPos: { ...p.prevPos },
+      // S182 LEVER 2 — same default as `deserializePrimitive`: absent `prevPos` means zero implicit
+      // velocity, never `{}`. Both rehydrate paths need it or one of them NaNs on the first substep.
+      prevPos: p.prevPos !== undefined ? { ...p.prevPos } : { x: p.pos.x, y: p.pos.y },
       bonds: new Set(p.bonds),
       ownerColor: p.ownerColor,
       lastOwnershipChange: p.lastOwnershipChange,
@@ -1790,7 +1840,13 @@ function deserializeSpark(s: SerializedSpark): Spark {
       createdTick: s.createdTick,
     }),
     pos: { ...s.pos },
-    prevPos: { ...s.prevPos },
+    // ⛔ S182 LEVER 2 — `prevPos` is ABSENT from the wire (see the field's docblock). Defaulting to
+    // `pos` means zero implicit velocity, which is the same neutral value placement itself uses.
+    // ⚠ WITHOUT THIS LINE THE SPREAD OF `undefined` YIELDS `{}`, i.e. `prevPos.x === undefined`, and
+    // the FIRST Verlet substep on a promoted successor turns every position into NaN. That is why
+    // this field's removal earns a PROTOCOL_VERSION bump rather than riding as additive-optional:
+    // absence is only safe on a peer whose deserializer knows to default it.
+    prevPos: s.prevPos !== undefined ? { ...s.prevPos } : { x: s.pos.x, y: s.pos.y },
     state: s.state,
     poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
     escrow: s.escrow, // V6-1.2 — gatherer haul/bank escrow

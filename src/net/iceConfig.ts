@@ -98,8 +98,20 @@ export const STRATEGY_FLAGS = {
 export type StrategyName = keyof typeof STRATEGY_FLAGS;
 
 /**
- * ⛔ S182 LEVER 1 — ROUTE HIGH-RATE SNAPSHOT TRAFFIC OVER ONE STRATEGY. **DEFAULT OFF, AND IT STAYS
- * OFF UNTIL THE OWNER SAYS OTHERWISE.**
+ * ⭐ S182 LEVER 1 — ROUTE HIGH-RATE SNAPSHOT TRAFFIC OVER ONE STRATEGY. **ON. THE OWNER RULED.**
+ *
+ * Owner, S182, asked to weigh the bandwidth against the connectivity redundancy he paid for in
+ * S157/S162: *"if it halves our bandwidth, then of course we need to do it."*
+ *
+ * `true` is therefore the shipped default. The constant REMAINS as an escape hatch: if snapshot
+ * delivery ever looks worse in the field than the doubling was, flip it to `false` and the pre-S182
+ * redundant broadcast comes straight back, with no other edit and no protocol implication.
+ *
+ * ⚠ WHAT THE RULING DOES AND DOES NOT COVER. He approved trading the SNAPSHOT's redundancy for
+ * bandwidth. He did not approve narrowing anything else, and this does not: `HELLO`,
+ * `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT` and `MIGRATION_CLAIM` keep the full multi-strategy
+ * broadcast. Those are the messages that decide whether a match can START, which is the failure he
+ * actually lived through in Israel — and they are rare and small, so keeping them costs nothing.
  *
  * ## What it does
  *
@@ -114,25 +126,26 @@ export type StrategyName = keyof typeof STRATEGY_FLAGS;
  * redundant broadcast, because those are exactly what multi-strategy redundancy exists to protect.
  * −50% of all bytes, no wire-format change, no `PROTOCOL_VERSION` bump.
  *
- * ## ⛔ WHY IT IS OFF, AND WHY A FUTURE SESSION MUST NOT JUST FLIP IT
+ * ## ⚠ THE RESIDUAL RISK HE IS ACCEPTING, STATED PLAINLY
  *
- * It trades connectivity redundancy the owner **deliberately paid for** in S157/S162. The docblock
- * directly below this one records him unable to play with his brother in Israel because every TURN
- * URL errored and ICE gathered `relay: 0`. A second strategy is an uncorrelated failure domain, and
- * losing multiplayer entirely is a far worse outcome than a laggy peer.
+ * `pickSnapshotStrategy` re-picks per send, so a strategy that DROPS a peer is abandoned on the next
+ * snapshot (≤100 ms at `NET_SNAPSHOT_HZ`). What it cannot see is a strategy that is *degrading*
+ * rather than gone — still reporting its peers while delivering nothing. In that state the joiner
+ * starves with the redundant path sitting idle beside it, where before S182 the second copy would
+ * have covered it.
  *
- * ⚠ AND THE FAILOVER HERE IS NOT FREE. `pickSnapshotStrategy` re-picks per send, so a strategy that
- * drops the peer is abandoned on the NEXT snapshot (≤100 ms). But a strategy that is *degrading*
- * rather than gone — still reporting the peer while delivering nothing — keeps the route, and the
- * joiner starves with the redundant path sitting idle beside it. That is the residual risk, and it
- * is the owner's call to accept, not this session's.
+ * That is the real cost of this ruling, it is not hypothetical, and the mitigation is the Step 0
+ * instrument rather than more code: `?netstats=1` shows `snap rx`, `since` and `gap` on the joiner,
+ * so a starving peer is now VISIBLE instead of being guessed at from a video. If it happens, flip
+ * this constant back.
  *
- * ⭐ **DECIDE IT WITH THE STEP 0 NUMBERS, NOT WITH THIS REASONING.** Arm `?netstats=1`, play one
- * match, read `dup` on the joiner. `dup ≈ accepted` means both strategies really are carrying every
- * snapshot and this flag is worth ~50% of all bytes. `dup ≈ 0` means one strategy never carried the
- * peer, the doubling is already absent, and flipping this would trade real redundancy for nothing.
+ * ⛔ AND ONE THING THIS FLAG MUST NEVER BE ALLOWED TO DO IS STARVE A SEAT BY DESIGN. See
+ * `pickSnapshotStrategy`: a strategy is chosen only if it carries EVERY peer at the table. The first
+ * cut of this lever asked merely "does it have A peer", which silently starved one seat of a 3–4
+ * player match for the whole game. That bug was caught in audit before the owner was ever asked to
+ * rule, which is the only reason this ruling is safe to apply.
  */
-export const SNAPSHOT_SINGLE_STRATEGY = false;
+export const SNAPSHOT_SINGLE_STRATEGY = true;
 
 /**
  * S182 LEVER 1 — preference order when `SNAPSHOT_SINGLE_STRATEGY` routes snapshots to one strategy.

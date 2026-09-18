@@ -27,6 +27,7 @@ import { hashWorldState } from './stateHash.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType } from '../constants.ts';
+import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { asPlayerId, asPrimitiveId, asSparkId } from '../types.ts';
 
 const SAVE_SRC = readFileSync(new URL('./save.ts', import.meta.url), 'utf8');
@@ -34,6 +35,8 @@ const TRANSPORT_SRC = readFileSync(new URL('../net/transport.ts', import.meta.ur
 
 /** `makeWorld` already seats player 0 — the save.replay.test.ts convention. */
 const P1 = asPlayerId(0);
+/** A boss: the widest optional-field set on the wire, so the strictest creature budget. */
+const CREATURE_TYPE_FOR_BUDGET = T9_BOSS_TYPE.vampires;
 
 /** The wire form of a world, exactly as `NetTransport.send` produces it for a NETSNAPSHOT. */
 function wireJson(world: World): string {
@@ -44,7 +47,7 @@ function wireJson(world: World): string {
  * A board with settled, irrational-looking coordinates — the state a real match is in. Placement
  * positions carry long binary fractions so a quantiser that silently did nothing would be visible.
  */
-function buildBoard(primCount: number): World {
+function buildBoard(primCount: number, opts: { chain?: boolean } = {}): World {
   const world = makeWorld(1);
   for (let i = 0; i < primCount; i++) {
     // Chained in groups of 3, laid out as a grid of small components. A single ever-growing chain
@@ -71,7 +74,7 @@ function buildBoard(primCount: number): World {
     dispatch(world, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
-      targetPrimitiveId: col === 0 ? null : asPrimitiveId(i - 1),
+      targetPrimitiveId: opts.chain === false || col === 0 ? null : asPrimitiveId(i - 1),
       stiffnessTier: 'MID',
     });
   }
@@ -126,6 +129,59 @@ describe('S182 LEVER 2 — the quantiser shrinks the wire', () => {
   });
 });
 
+describe('⭐ S182 LEVER 2 — prevPos leaves the wire (protocol 47)', () => {
+  it('no primitive on the wire carries prevPos', () => {
+    const snap = netSnapshot(buildBoard(12));
+    expect(snap.primitives.length).toBe(12);
+    for (const p of snap.primitives) expect(p.prevPos).toBeUndefined();
+  });
+
+  it('⛔ but the DISK form still carries it on every primitive', () => {
+    // serializePrimitive is untouched: the disk save, workerSim.restore() and save.replay's
+    // byte-identity gate all still see prevPos. Only netSnapshot strips it.
+    const disk = snapshot(buildBoard(12));
+    expect(disk.primitives.length).toBe(12);
+    for (const p of disk.primitives) expect(p.prevPos).toBeDefined();
+  });
+
+  it('a client rehydrates prevPos to pos — zero velocity, never undefined', () => {
+    // ⚠ THE NaN GUARD. Without the default, `{ ...undefined }` yields `{}` and the first Verlet
+    // substep on a promoted successor turns every position into NaN. This is the assertion that
+    // makes the protocol bump's whole argument concrete.
+    const host = buildBoard(12);
+    const client = makeWorld(0);
+    applyNetSnapshot(JSON.parse(wireJson(host)), client);
+    for (const p of client.primitives.values()) {
+      expect(Number.isFinite(p.prevPos.x)).toBe(true);
+      expect(Number.isFinite(p.prevPos.y)).toBe(true);
+      expect(p.prevPos.x).toBe(p.pos.x);
+      expect(p.prevPos.y).toBe(p.pos.y);
+    }
+  });
+
+  it('⭐ the STRIP alone leaves hashWorldState identical — it projects pos only, never prevPos', () => {
+    // This is exactly why the strip is safe inside netSnapshot while the quantiser had to move out
+    // to the transport boundary: the worker mirror is hash-compared, and the hash cannot see prevPos.
+    //
+    // ⚠ NOTE THE UNROUNDED ROUND-TRIP. Applying the QUANTISED wire form would move the hash — the
+    // narrow hash projects `pos`, and rounding pos to 2 dp changes it by design. That is harmless
+    // (host↔client hashes are never compared; only host↔worker, which never passes through the
+    // replacer) but it would confound this assertion. Isolating the strip is the point here, and the
+    // first cut of this test conflated the two.
+    const host = buildBoard(12);
+    const client = makeWorld(0);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), client);
+    expect(hashWorldState(client)).toBe(hashWorldState(host));
+  });
+
+  it('the strip is worth real bytes on a built board', () => {
+    const world = buildBoard(40);
+    const withPrev = JSON.stringify(snapshot(world).primitives).length;
+    const withoutPrev = JSON.stringify(netSnapshot(world).primitives).length;
+    expect(1 - withoutPrev / withPrev).toBeGreaterThan(0.15);
+  });
+});
+
 describe('S182 LEVER 2 — per-entity wire budgets (a future field addition must show up)', () => {
   /**
    * Marginal cost of ONE primitive + its bond, measured by differencing two boards rather than by
@@ -154,6 +210,60 @@ describe('S182 LEVER 2 — per-entity wire budgets (a future field addition must
         JSON.stringify(netSnapshot(buildBoard(10))).length) /
       20;
     expect(marginalWireBytesPerPrimitive()).toBeLessThan(unroundedPer);
+  });
+
+  /**
+   * ⛔ CREATURES AND BONDS NEED THEIR OWN BUDGETS, AND THE FIRST CUT HAD NEITHER.
+   *
+   * A primitives-only budget is not a wire budget. On the board that actually broke the owner's
+   * brother the brief counted 250 primitives against 260 BONDS and 120 CREATURES — so the majority
+   * of the payload sat entirely outside the one assertion guarding it, and a new always-emitted
+   * field on `SerializedCreature` (the class of change that produced this whole branch) would have
+   * landed completely unmeasured.
+   */
+  function marginalWireBytesPerBond(): number {
+    // Differencing boards whose PRIMITIVE count is equal but whose BOND count differs isolates the
+    // bond: `buildBoard` chains in groups of 3, so each group of 3 carries 2 bonds. Comparing a
+    // fully-chained board against an all-singleton board of the same size leaves only the bonds.
+    const chained = buildBoard(30);
+    const singles = buildBoard(30, { chain: false });
+    expect(chained.primitives.size).toBe(singles.primitives.size);
+    expect(singles.bonds.size).toBe(0);
+    const delta = wireJson(chained).length - wireJson(singles).length;
+    return delta / chained.bonds.size;
+  }
+
+  it('one bond — plus the two primitive-side id references it adds — costs under 200 chars', () => {
+    // ⚠ CLAUDE'S BUDGET, MEASURED at ~169 chars for this fixture, with headroom.
+    // ⚠ AND THE NAME IS PRECISE ON PURPOSE. The differencing cannot isolate the bond OBJECT alone:
+    // committing a bond also appends its id to `bonds[]` on BOTH endpoint primitives, so the delta
+    // is the object plus those two references. Calling this "one bond" and budgeting ~104 would have
+    // been a number that looked measured and was not — the first cut did exactly that and went red.
+    const per = marginalWireBytesPerBond();
+    expect(per).toBeGreaterThan(0);
+    expect(per).toBeLessThan(200);
+  });
+
+  it('one creature costs under 340 chars on the wire', () => {
+    // ⚠ CLAUDE'S BUDGET, measured with headroom. Creatures carry the widest optional field set on
+    // the wire (hp, chewProgress, targetBondId, despawnAtTick, sourceSpawnerId, enraged…), which is
+    // exactly why an unbudgeted always-emitted addition here would be costly.
+    const bare = buildBoard(6);
+    const withCreatures = buildBoard(6);
+    const N = 10;
+    for (let i = 0; i < N; i++) {
+      dispatch(withCreatures, {
+        type: 'SPAWN_CREATURE',
+        creatureType: CREATURE_TYPE_FOR_BUDGET,
+        ownerPlayerId: P1,
+        pos: { x: 400 + i * 7.3333333, y: 600.5555555 },
+        targetPos: { x: 500.111111, y: 700.222222 },
+      });
+    }
+    expect(withCreatures.creatures.size).toBe(N);
+    const per = (wireJson(withCreatures).length - wireJson(bare).length) / N;
+    expect(per).toBeGreaterThan(0);
+    expect(per).toBeLessThan(340);
   });
 });
 
