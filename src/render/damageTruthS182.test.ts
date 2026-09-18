@@ -43,7 +43,7 @@ const { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, GOBLIN_MELEE_ATK, GOBLIN_MEL
   await import('../constants.ts');
 const { makeIdlePlayer } = await import('../game/player.ts');
 const { makeWorld } = await import('../state/world.ts');
-const { damageEntity } = await import('../state/damage.ts');
+const { damageEntity, destroyDefender } = await import('../state/damage.ts');
 const { attackFifths } = await import('../state/stats.ts');
 const { sweepExpiredStinkClouds, stinkCloudExpiryTick } = await import('../state/defenders/stinkCloud.ts');
 const { asBondId, asPlayerId, asPrimitiveId } = await import('../types.ts');
@@ -52,6 +52,25 @@ const { DamageNumbers } = await import('./damageNumbers.ts');
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
 const read = (f: string): string => readFileSync(f, 'utf-8');
+
+/**
+ * ⛔⛔ SOURCE TEXT WITH THE COMMENTS TAKEN OUT, and this exists because the obvious version was
+ * WRONG TWICE IN ONE SESSION.
+ *
+ * A source-text tripwire that greps the whole FILE is satisfied by the docblock that EXPLAINS the
+ * fix. Both mistakes were the same: `expect(read(f)).toContain("cause: 'creature'")` matched the
+ * comment describing the old bug, and `expect(read('damage.ts')).toContain('amount: null')` matched
+ * the sentence `… `amount: null` says so.` directly above the producer. Deleting the producer left
+ * the test GREEN — measured, by deleting it and re-running.
+ *
+ * ⭐ STRIPPING COMMENTS KILLS THE WHOLE CLASS rather than the two instances, so the next tripwire
+ * written in this file cannot be born vacuous. Crude on purpose: block comments, then line comments
+ * (the `[^:]` guard keeps `https://` intact). It is only ever used for `toContain` on real code.
+ */
+const readCode = (f: string): string =>
+  read(f)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 /** The swing every "a goblin hits it" case below uses — the one ladder, never a bespoke number. */
 const GOBLIN_SWING = attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN);
@@ -219,6 +238,43 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
     expect(out, 'nobody hit it — its ehp was never touched').toEqual([]);
   });
 
+  /**
+   * ⛔⛔ THE BEHAVIOURAL BACKSTOP FOR `destroyDefender`, AND IT WAS MISSING.
+   *
+   * The source-text guard below was the ONLY thing pinning this producer, and it was vacuous: the
+   * docblock above the producer contains the literal `amount: null`, so deleting the producer left
+   * all 19 tests green. Measured by deleting the line and re-running, not reasoned about.
+   *
+   * ⭐ A SOURCE-TEXT GUARD IS NOT A BACKSTOP FOR A REMOVAL PRODUCER, because "prints nothing" is
+   * also what a DELETED producer looks like from the outside — the only way to tell them apart is a
+   * test that would print the phantom if the producer were gone. This is that test: she carries a
+   * full 156 pool, `destroyDefender` takes her on a recipe/anchor break with NO damage, and the
+   * sweep must stay silent. Without the producer it prints 156, which is the owner-visible bug.
+   */
+  it('⭐⭐ a DESTROYED Helga prints no phantom 156 — a recipe break is not a hit', () => {
+    const w = twoSeat();
+    const d = helga(w, 156);
+
+    const out = newFloaters(w, () => {
+      destroyDefender(w, d);
+    });
+
+    expect(w.defenders.has(d.id), 'destroyDefender removes her').toBe(false);
+    expect(out, 'nothing hit her — her recipe or anchor broke').toEqual([]);
+  });
+
+  it('⛔ NOT VACUOUS — a Helga KILLED by damage still prints, so silence is not blanket', () => {
+    // The pair that makes the test above meaningful: same defender kind, same pool, damage path.
+    const w = twoSeat();
+    const d = helga(w, 5);
+
+    const out = newFloaters(w, () => {
+      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature');
+    });
+
+    expect(out).toContain(String(GOBLIN_SWING));
+  });
+
   it('⛔ NOT VACUOUS — an UNEXPIRED bag is left alone and prints nothing either', () => {
     const w = twoSeat();
     const c = bag(w, 5);
@@ -288,10 +344,17 @@ describe('S182 — the new array is wiped at all FIVE sites, and so are its thre
     // S181 shipped 8 defects green because the failure mode was UNREACHED CODE. Assert the call
     // sites, not just the behaviour: a producer deleted in a refactor would pass every test above
     // that only checks "prints nothing", because printing nothing is also what a deleted pool does.
-    expect(read('src/state/defenders/stinkCloud.ts')).toContain('amount: null');
-    expect(read('src/state/damage.ts')).toContain('amount: null');
+    // ⛔ `readCode`, NOT `read` — both files mention `amount: null` in the docblock that explains
+    // the fix, so the file-wide version of these two assertions passed with the producer DELETED.
+    expect(readCode('src/state/defenders/stinkCloud.ts')).toContain('amount: null');
+    expect(readCode('src/state/damage.ts')).toContain('amount: null');
+    // ⛔ AND THE `destroyDefender` PRODUCER BY ITS OWN STATEMENT. `key: `d:${d.id}`` alone does NOT
+    // pin it — `damageEntity`'s defender arm carries that same text, so the assertion below survives
+    // deleting this one. The removal producer is the one with the null amount.
+    expect(readCode('src/state/damage.ts'))
+      .toContain('world.structureKillHits.push({ key: `d:${d.id}`, amount: null })');
     // …and the three kill-hit pushes, one per structure pool, all inside `damageEntity`.
-    const dmg = read('src/state/damage.ts');
+    const dmg = readCode('src/state/damage.ts');
     expect(dmg).toContain('key: `p:${prim.id}`');
     expect(dmg).toContain('key: `s:${cloud.id}`');
     expect(dmg).toContain('key: `d:${d.id}`');
