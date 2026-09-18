@@ -215,10 +215,16 @@ export function seatTowerRungs(world: World, seat: PlayerId): readonly GodlyId[]
  * chord into it — which drops a pentagram's ring below degree 2 or breaks a voltkin chain, and the
  * structure is torn down on the next re-validation with NO error and NO log line. Planting the tower
  * a clear span away from where the cluster grows is the cheap half of avoiding that.
+ *
+ * ⭐ S182 — EXPORTED, for the same reason `seatTowerRungs` is: the castle keep-out added that
+ * session sits at radius 121 from the very anchor this offset is measured from, and the widest
+ * recipe (voltkin, 152 px of reach) therefore has candidate angles that are now refused. A test
+ * that re-stated these two values instead of importing them would be the copy that drifts —
+ * exactly the trap this file's own `cheapest` docblock records paying for in S166.
  */
-const TOWER_SITE_OFFSET = 210;
+export const TOWER_SITE_OFFSET = 210;
 /** Candidate directions around the anchor, tried in a fixed order. Deterministic: never rng. */
-const TOWER_SITE_ANGLES: readonly number[] = [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, 2.8, -2.8, Math.PI];
+export const TOWER_SITE_ANGLES: readonly number[] = [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, 2.8, -2.8, Math.PI];
 
 /**
  * ⭐ PURE — the tower this bot can afford AND legally place right now, or null.

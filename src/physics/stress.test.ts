@@ -25,10 +25,17 @@ import { solveBonds } from './bonds.ts';
 import { verletStepAll } from './verlet.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { CASTLE_NO_BUILD_RADIUS } from '../state/zones.ts';
 import { asPlayerId, asPrimitiveId, asSparkId } from '../types.ts';
 
 const PHYSICS_DT = 1 / PHYSICS_HZ;
 const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
+/**
+ * S182 — air between the chain and the nearest castle keep-out rim. Not tangent: a chain laid
+ * exactly on the boundary would go red on any future retune of the radius in either direction, and
+ * a stress test must fail for physics reasons only. See `buildChain`.
+ */
+const CHAIN_CASTLE_AIR = 40;
 // Vitest exposes `import.meta.env`; for the stress-full opt-in we sniff the
 // global env without depending on @types/node.
 const FULL_RUN =
@@ -128,7 +135,22 @@ describe('stress', () => {
 });
 
 function buildChain(world: ReturnType<typeof makeWorld>, playerId: ReturnType<typeof asPlayerId>, n: number): void {
-  const cy = SPAWNER_CENTER_Y;
+  /*
+   * ⭐ S182 — THE CHAIN MOVED OFF THE CASTLE LINE, and the failure it fixes is worth recording
+   * because it is not a physics failure at all.
+   *
+   * This ran at `y = SPAWNER_CENTER_Y` (540) and marches LEFT from x = 690, so on `PITCH_2P` it
+   * passed straight through the seat-0 keep at (120, 540). S182 added a castle keep-out to
+   * `zones.canBuildAt`, so ~7 of the 30 `PLACE_PRIMITIVE` dispatches became silent no-ops (the
+   * reducers are NO-OP-never-throw) — the player stayed `Carrying`, and the NEXT `PICKUP_SPARK`
+   * threw `CarryViolation`. A placement rule surfacing as a carry-FSM crash, 130 lines away.
+   *
+   * The coordinates were always incidental — this test is about the bond solver under load — so
+   * the repair is the one `zones.fixtures.ts` documents for the S149 partition change: re-site the
+   * point, leave every assertion intact. Offset DERIVED from the constant, never a literal, so the
+   * next retune of the keep-out moves this with it.
+   */
+  const cy = SPAWNER_CENTER_Y - CASTLE_NO_BUILD_RADIUS - CHAIN_CASTLE_AIR;
   // Chain anchored 20 px outside the spawner ring and extends leftward, so
   // every placement is in valid build space (§ IX.5 v0.5.1 blocks in-zone
   // placement). 30 px spacing keeps the 30-prim chain on canvas.

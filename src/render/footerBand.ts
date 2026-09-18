@@ -39,8 +39,16 @@ import { drawSparkGlyph } from './sparkGlyph.ts';
 // S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
 // computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
 // differently — the same sharing rule `structuresAtComplexity` follows for affordability.
-import { SHORTFALL_GLYPH_R, shortfallEntries, shortfallRowLayout } from './castlePanel.ts';
 import {
+  SHORTFALL_GLYPH_R,
+  glyphCountRowLayout,
+  shortfallEntries,
+  shortfallRowLayout,
+  structureRowFor,
+  type GlyphCountSlot,
+} from './castlePanel.ts';
+import {
+  STRIP_MARGIN,
   STRIP_MAX_CHIPS,
   hitStripRect,
   shapeStripLayout,
@@ -81,6 +89,44 @@ const MENU_BOTTOM_GAP = 12;
  * primitive widens the reservation instead of silently truncating the readout.
  */
 const SHORTFALL_MAX_SHAPES = ALL_SPARK_TYPES.length;
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ *   ⭐⭐ S182 ITEM 3 (owner) — WHAT THE CARRIED TOWER WILL COST
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * > *"When you click on a tower, before you place it, when you're carrying the template, it should
+ * > show you 'this will cost you this much and this much'. In a consistent manner without writing
+ * > over the shapes. It should be a very understandable place."*
+ *
+ * ⭐ IT LIVES ON THE **LEFT** OF THE TIER CHIPS, WHICH IS THE ONE EMPTY STRETCH OF THE BAND.
+ * The chips are centred, the shape strip occupies the right (S154 P1, R80), and *"without writing
+ * over the shapes"* is the owner's own constraint on where this may go. So the readout is the
+ * shape strip's mirror image: derived from THIS frame's chip row, growing away from it, never a
+ * hardcoded x — the discipline `shapeStripLayout` records for the other side, where a hardcoded
+ * origin would be quietly wrong the day a sixth recipe complexity enters the registry.
+ *
+ * ⛔⛔ AND IT REUSES THE BILL, IT DOES NOT COMPUTE ONE. `StructureRow.bill` comes from
+ * `castleStructuresModel`'s single `blueprintBill(id)` loop — the same model whose affordability is
+ * `planBlueprintPayment`, the function the reducer itself calls. A second cost calculator that
+ * drifts is this repo's named top defect, and it is the one thing this feature could most easily
+ * have become.
+ */
+/** Reserved width for the word `COST`. Four chars at the 13 px monospace ≈ 31 px; 46 leaves air. */
+const CARRY_WORD_W = 46;
+/**
+ * Air between the readout's right edge and the first tier chip. Deliberately `STRIP_MARGIN`, the
+ * same 34 px the strip leaves on the other side, so the band reads as one line with even margins.
+ */
+const CARRY_MARGIN = STRIP_MARGIN;
+/** Pooled labels the carry readout reserves: the word, plus one count per shape a bill can name. */
+const CARRY_LABELS = 1 + SHORTFALL_MAX_SHAPES;
+/**
+ * ⚠ How far the PLATE overhangs the readout's content on each side — and it is EXPORTED because the
+ * plate, not the content, is the widest thing drawn. A clearance test that measured `left`/`right`
+ * would be measuring the wrong rectangle and would pass while the plate sat on a chip.
+ */
+export const CARRY_PLATE_PAD = 10;
 /**
  * Pooled labels ONE card reserves: its name, its sub-line, and one count per shape it can be short
  * of. A FIXED stride, for the reason spelled out at the shape-strip badge block — a running index
@@ -144,6 +190,12 @@ export class FooterBand {
    * rather than reparented.
    */
   private strip: { palette: PaletteButtonGeom[]; queue: QueueChipGeom[] } = { palette: [], queue: [] };
+  /**
+   * ⭐ S182 — THIS FRAME'S CARRY READOUT, or null when no tower is in hand. Stored for the same
+   * reason `strip` is: `isOverCarryBill` must hit-test the very rectangle `sync` drew, never a
+   * second, independently-computed one.
+   */
+  private carry: CarryBillGeom | null = null;
   /** The palette shape under the pointer, or null. Set by `setHover`, off the click path's own test. */
   private hoverPalette: SparkType | null = null;
   /** The queue chip under the pointer, or null. */
@@ -189,6 +241,7 @@ export class FooterBand {
     g.clear();
     this.chips = [];
     this.strip = { palette: [], queue: [] };
+    this.carry = null;
 
     if (world.gameState !== 'PLAYING') {
       this.hideLabelsFrom(0);
@@ -306,6 +359,79 @@ export class FooterBand {
      */
     for (let i = this.strip.queue.length; i < STRIP_MAX_CHIPS; i++) {
       this.labelAt(badgeBase + i).visible = false;
+    }
+
+    /*
+     * ⭐⭐ S182 ITEM 3 (owner) — **WHAT THE CARRIED TOWER WILL COST**, drawn only while one is in
+     * hand. See the `CARRY_WORD_W` block above for where it sits and why it may not sit anywhere
+     * else.
+     *
+     * ⛔ IT PARTICIPATES IN THE LAYOUT RATHER THAN DRAWING AT AN ABSOLUTE POSITION, and S181
+     * shipped two bugs of exactly the opposite shape (a block that drew but never advanced the
+     * layout cursor, and one that drew straight over an existing row). Concretely, here that means:
+     *   · the x origin is `layoutCarryBill(this.chips, …)` — THIS frame's chip row, not a constant,
+     *     so a sixth complexity moves the readout instead of drawing it through the new chip;
+     *   · the y is the chip row's own midline, so it cannot land on a row it does not know about;
+     *   · the labels take a FIXED reservation (`CARRY_LABELS`) between the strip badges and the
+     *     card labels, and `cardLabelBase` counts from it — so the cards' labels shift with this
+     *     block by construction instead of being overwritten by it. `footerBand.test.ts` asserts
+     *     the block clears the chips, the strip and both bottom porches.
+     *
+     * ⛔⛔ AND THE PLATE **SWALLOWS THE CLICK** — it is registered in `isOverChip` via
+     * `isOverCarryBill`. The first cut of this block did NOT, on the argument that *"swallowing here
+     * would make this readout the one thing you cannot place a tower on top of"*. That argument was
+     * wrong (the chips and the strip are already exactly that) and the omission was a live bug: the
+     * plate is opaque and drawn above the ghost, so a click on it planted a tower on board the
+     * player could not see. See `isOverCarryBill` for the full account.
+     */
+    const carryBase = this.carryLabelBase();
+    const carryRow = this.armed === null ? null : structureRowFor(world, this.armed);
+    const carry = carryRow === null ? null : layoutCarryBill(this.chips, carryRow.bill.length);
+    this.carry = carry;
+    if (carry !== null && carryRow !== null) {
+      const plateX = carry.left - CARRY_PLATE_PAD;
+      const plateW = carry.right - carry.left + CARRY_PLATE_PAD * 2;
+      g.roundRect(plateX, carry.y - CHIP_H / 2, plateW, CHIP_H, 8)
+        .fill({ color: 0x0b0f16, alpha: 0.72 });
+      g.roundRect(plateX, carry.y - CHIP_H / 2, plateW, CHIP_H, 8)
+        .stroke({ width: 2, color: TINT_SELECTED, alpha: 0.75 });
+
+      const word = this.labelAt(carryBase);
+      word.text = 'COST';
+      word.style.fontSize = 13;
+      word.style.fill = TINT_SELECTED;
+      word.position.set(carry.wordX, carry.y);
+      word.visible = true;
+
+      for (let k = 0; k < carry.slots.length; k++) {
+        const slot = carry.slots[k];
+        const line = carryRow.bill[k];
+        // The same glyph and the same race tint the palette, the bank strip and the shortfall
+        // readout draw, so one shape cannot read two ways across four surfaces.
+        drawSparkGlyph(
+          g,
+          carry.pairsLeft + slot.glyphX,
+          carry.y,
+          SHORTFALL_GLYPH_R,
+          line.type,
+          raceColorForShape(line.type) ?? TINT_ENABLED,
+        );
+        const countLabel = this.labelAt(carryBase + 1 + k);
+        countLabel.text = `x${line.need}`;
+        countLabel.style.fontSize = 13;
+        // ⭐ The COUNT is the cost; the TINT is whether you can pay it. Two facts, one pair — and
+        // it is the same green/grey the cards use for affordable/short, so it needs no legend.
+        countLabel.style.fill = line.have >= line.need ? TINT_ENABLED : TINT_DISABLED;
+        countLabel.position.set(carry.pairsLeft + slot.countX, carry.y);
+        countLabel.visible = true;
+      }
+      for (let k = carry.slots.length; k < SHORTFALL_MAX_SHAPES; k++) {
+        this.labelAt(carryBase + 1 + k).visible = false;
+      }
+    } else {
+      // The fixed reservation is cleared by hand — `hideLabelsFrom` only clears the TAIL, and the
+      // card labels live after this block. Same discipline as the badge block above.
+      for (let k = 0; k < CARRY_LABELS; k++) this.labelAt(carryBase + k).visible = false;
     }
 
     // ⭐ S149 P5 — THE OPEN MENU. Drawn above the bar, so a chip press has a visible consequence.
@@ -439,6 +565,71 @@ export class FooterBand {
   }
 
   /**
+   * ⭐⭐ S182 — **DOES THE BAND COVER THIS PIXEL?** A strictly wider question than `isOverChip`,
+   * and the two must not be confused — confusing them is how the carry readout shipped broken
+   * TWICE in one session.
+   *
+   * ⛔ `isOverChip` answers *"is there a CONTROL here"*. It drives the hover cursor and
+   * `handleFooterChipClick`, and it must stay narrow: the cursor may only promise `pointer` where a
+   * click actually does something, and the empty stretches of the band must stay live board.
+   *
+   * ⛔ THIS answers *"does the band draw OPAQUE PIXELS here"* — the question every COMMIT gate is
+   * really asking. The carry readout's plate is `0x0b0f16` at alpha 0.72 with the band brought to
+   * the front, so it hides the board and the blueprint ghost; nothing may be planted underneath it.
+   * But it is a READOUT, not a control — clicking it does nothing — so a pointer cursor over it
+   * would be a lie.
+   *
+   * ⭐ THE CHARACTER CARD ALREADY ESTABLISHED THIS SPLIT, and naming it matters because the first
+   * two attempts at this fix both ignored it. `controls.ts` guards its commit gates with
+   * `isPointerOverCard()` (the WHOLE card) while the hover cursor asks only `isOverAnyAction` and
+   * `ownedRowAt` (its CONTROLS) — the card's body swallows a click without claiming to be
+   * clickable. The plate is the same kind of surface and gets the same treatment.
+   */
+  isOverBandSurface(x: number, y: number): boolean {
+    return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
+  }
+
+  /**
+   * ⭐⭐ S182 — IS THIS POINT OVER THE CARRY READOUT'S PLATE?
+   *
+   * ⛔⛔ IT EXISTS BECAUSE ITEM 3 SHIPPED THE S181 DEFECT AGAIN, IN MY OWN WORK, AND AN ADVERSARIAL
+   * REVIEW OF THIS BRANCH CAUGHT IT BEFORE THE OWNER DID.
+   *
+   * The plate is `0x0b0f16` at alpha 0.72 with a 2 px stroke, and `bringToFront()` puts the band
+   * above the board AND above `BlueprintGhost` — so you cannot see through it. It is drawn ONLY
+   * while a tower is armed, i.e. only during the exact gesture it corrupts. Item 1 then made the
+   * band's own y legal for a flat recipe (voltkin's box is ±12 px tall, so `box.maxY` clears
+   * `CANVAS_HEIGHT − EDGE_PAD`), so a click dead centre of the plate passed every guard —
+   * `chipAt`/`cardAt`/`isOverShapeStrip` all miss it, and `isPointerOverCard` is false — and
+   * `canStampAt` said YES. The tower planted under its own cost readout.
+   *
+   * ⚠ THE COMMENT THAT STOOD HERE ARGUED THE OMISSION WAS DELIBERATE — *"swallowing here would make
+   * this readout the one thing you cannot place a tower on top of"* — and it was simply WRONG: the
+   * chips and the shape strip are already exactly that, and have been since S149 and S154. A
+   * surface you cannot see through must swallow the click. Recording the bad argument next to the
+   * fix, because it is the kind that survives review.
+   *
+   * ⛔⛔ AND THE FIRST FIX FOR IT WAS ALSO WRONG, WHICH IS THE HALF WORTH RECORDING. Folding this
+   * into `isOverChip` looked right — one predicate, four call sites, nothing to thread — and it did
+   * NOT reach the gate that refuses the placement. `controls.ts` guards the footer by CONSUMPTION:
+   * `handleFooterChipClick` tests `isOverChip` and then returns true only when a chip or a strip
+   * control was actually pressed. The plate is neither, so it returned FALSE and the click fell
+   * straight through to the armed-stamp arm — the bug intact, with a green tripwire sitting on top
+   * of it. The same fold-in also made the hover cursor advertise the plate as clickable, which is
+   * the precise lie `s182UiSurfaceGuards.test.ts` exists to catch.
+   *
+   * ⭐ SO IT IS REACHED THROUGH `isOverBandSurface`, and the COMMIT gates ask that — including the
+   * armed-stamp arm, which is the gate that actually refuses this placement and which neither
+   * earlier attempt touched.
+   */
+  isOverCarryBill(x: number, y: number): boolean {
+    const c = this.carry;
+    if (c === null) return false;
+    return x >= c.left - CARRY_PLATE_PAD && x <= c.right + CARRY_PLATE_PAD
+      && y >= c.y - CHIP_H / 2 && y <= c.y + CHIP_H / 2;
+  }
+
+  /**
    * ⭐ S154 P1 — is this point over the SHAPE STRIP (a palette button or a queue chip)?
    *
    * ⛔ AND IT IS DELIBERATELY FOLDED INTO `isOverChip` ABOVE RATHER THAN GUARDED SEPARATELY.
@@ -516,6 +707,15 @@ export class FooterBand {
    * block is a fixed size rather than the live queue length.
    */
   private cardLabelBase(): number {
+    return this.carryLabelBase() + CARRY_LABELS;
+  }
+
+  /**
+   * S182 — where the CARRY readout's labels start: after the chips and the strip's badge
+   * reservation, before the cards'. A fixed block for the reason the badge block states — a
+   * reservation that grew and shrank with the bill would shift every card label sideways.
+   */
+  private carryLabelBase(): number {
     return this.chips.length + STRIP_MAX_CHIPS;
   }
 
@@ -597,6 +797,7 @@ export class FooterBand {
     this.graphics.clear();
     this.chips = [];
     this.cards = [];
+    this.carry = null;
     this.armed = null;
     this.selected = null;
     this.hideLabelsFrom(0);
@@ -663,6 +864,47 @@ export function layoutCards(
     w: CARD_W,
     h: CARD_H,
   }));
+}
+
+/** Where the carry readout's parts sit this frame. Row-relative pair positions, canvas x/y origin. */
+export interface CarryBillGeom {
+  /** Centre of the word `COST`. */
+  readonly wordX: number;
+  /** Row midline — the chip row's own, so the readout sits on the line the band already reads on. */
+  readonly y: number;
+  /** Canvas x that `slots`' row-relative positions are added to. */
+  readonly pairsLeft: number;
+  readonly slots: GlyphCountSlot[];
+  readonly left: number;
+  readonly right: number;
+}
+
+/**
+ * ⭐ S182 — PURE — lay the carry readout out LEFT of this frame's chip row. `null` when there is
+ * nothing to draw (no chips yet, or a bill of no shapes — neither is reachable in a live match, and
+ * both are cheaper to answer than to assume away).
+ *
+ * ⚠ RIGHT-ALIGNED against the chips, so the block grows LEFTWARD as a bill names more shapes. The
+ * alternative — a fixed left edge — would march the numbers toward the chips and, at three shapes,
+ * into them. `glyphCountRowLayout`'s `width` excludes the trailing gap precisely so a caller can
+ * subtract it like this.
+ */
+export function layoutCarryBill(
+  chips: readonly FooterChipGeom[],
+  shapeCount: number,
+): CarryBillGeom | null {
+  if (chips.length === 0 || shapeCount <= 0) return null;
+  const row = glyphCountRowLayout(shapeCount, { glyphR: SHORTFALL_GLYPH_R });
+  const right = Math.min(...chips.map((c) => c.x)) - CARRY_MARGIN;
+  const left = right - (CARRY_WORD_W + SHORTFALL_PREFIX_GAP + row.width);
+  return {
+    wordX: left + CARRY_WORD_W / 2,
+    y: CHIP_CY,
+    pairsLeft: left + CARRY_WORD_W + SHORTFALL_PREFIX_GAP,
+    slots: row.slots,
+    left,
+    right,
+  };
 }
 
 export function layoutChips(model: readonly FooterComplexity[]): FooterChipGeom[] {

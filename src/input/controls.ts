@@ -89,6 +89,8 @@ import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrame
  */
 export interface FooterBandLike {
   isOverChip(x: number, y: number): boolean;
+  /** S182 — `isOverChip` OR any opaque readout the band draws. See `isPointerOverFooterSurface`. */
+  isOverBandSurface(x: number, y: number): boolean;
   chipAt(x: number, y: number): number | null;
   select(complexity: number | null): number | null;
   /** S149 P5 — the tower card under a point, or null. */
@@ -571,11 +573,41 @@ export class Controls {
     return true;
   }
 
+  /**
+   * Is the pointer over a footer CONTROL — a tier chip, an open tower card, or a shape-strip
+   * button? Narrow on purpose: this is what `handleFooterChipClick` consumes and what the hover
+   * cursor promises, so it may only be true where a click actually does something.
+   */
   private isPointerOverFooterChip(): boolean {
     return (
       this.world.gameState === 'PLAYING' &&
       this.footerBand !== null &&
       this.footerBand.isOverChip(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /**
+   * ⭐⭐ S182 — **IS THE POINTER OVER ANYTHING THE BAND DRAWS OPAQUELY?** Wider than
+   * `isPointerOverFooterChip`, and the difference is load-bearing: a COMMIT gate must refuse
+   * wherever the player cannot see the board, while the CURSOR may only promise `pointer` where a
+   * click does something. Those are different questions, and the carry readout is the case that
+   * separates them — an opaque plate that swallows a click without being a control.
+   *
+   * ⛔ THE FIRST FIX FOR THAT DEFECT CONFLATED THEM, by widening `isOverChip` itself, and it failed
+   * twice over: `handleFooterChipClick` gates on `isOverChip` but only RETURNS TRUE when a chip or
+   * strip control was really pressed — so over the plate it fell through to the stamp arm with the
+   * bug intact — and the hover cursor began advertising a readout as clickable, the exact lie
+   * `s182UiSurfaceGuards.test.ts` exists to catch. Two predicates, each asked by the sites that
+   * mean it.
+   *
+   * ⭐ THE CARD IS THE PRECEDENT: `isPointerOverCard()` (the WHOLE card) guards the commit gates
+   * while the cursor asks only `isOverAnyAction` / `ownedRowAt` (its CONTROLS).
+   */
+  private isPointerOverFooterSurface(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.footerBand !== null &&
+      this.footerBand.isOverBandSurface(this.cursor.x, this.cursor.y)
     );
   }
 
@@ -953,6 +985,47 @@ export class Controls {
         return;
       }
       if (e.button === 0) {
+        /*
+         * ⛔⛔ S182 — **NEVER STAMP A TOWER ON GROUND THE CARD IS COVERING.** This is the S181
+         * defect in a FOURTH place, found by enumerating the UI-surface guards rather than by a
+         * new report.
+         *
+         * `isPointerOverCard` was added in S181 to the two PLACE commit gates in `onUp` — and this
+         * arm is neither of them. The castle panel is guarded at the top of `onDown` and a footer
+         * chip/strip press is consumed by `handleFooterChipClick` above, but the CARD's body is not
+         * consumed until `handleSheetSelect`, which sits BELOW here. So arming a tower and clicking
+         * anywhere on an open character card that is not one of its buttons stamped a structure on
+         * board the player could not see — word for word what S181's own docblock says the
+         * predicate exists to prevent.
+         *
+         * ⚠ SWALLOWED, NOT FALLEN THROUGH, and deliberately: *"A HELD TOWER OWNS THE NEXT CLICK"*
+         * is the rule three lines above, and the tower stays in hand, which is fully reversible —
+         * the same reasoning `onUp`'s potato guard states for staying carried. The card's own
+         * FIX / SCRAP / FEED buttons still work, because `handleSheetActionClick` runs ABOVE this.
+         */
+        if (this.isPointerOverCard()) return;
+        /*
+         * ⛔⛔ S182 — **AND NOT OVER ANYTHING THE FOOTER BAND DRAWS OPAQUELY.** THIS is the gate
+         * that refuses the placement, and two earlier attempts at the same defect both missed it.
+         *
+         * The band is guarded everywhere else by CONSUMPTION — `handleFooterChipClick` runs above
+         * and returns, so a chip or strip press never reaches here. But it returns TRUE only when a
+         * control was actually pressed. The carry readout's plate is not a control: it is an opaque
+         * `0x0b0f16` rectangle drawn above the board AND above the blueprint ghost, and it exists
+         * only while a tower is armed — i.e. only during the exact gesture it corrupts. So the
+         * click fell through, and `canStampAt` said YES, because item 1 had just made the band's
+         * own y legal for a flat recipe (voltkin's nodes are all `dy = 0`, so its box is ±12 px
+         * tall and clears `CANVAS_HEIGHT − EDGE_PAD` with room to spare). A voltkin planted under
+         * its own cost readout — invisible before the click and after it.
+         *
+         * ⚠ WIDENING `isOverChip` DOES NOT FIX THIS, and that was the first attempt: it makes
+         * `isPointerOverFooterChip()` true over the plate without making `handleFooterChipClick`
+         * RETURN true, so nothing changes here — while the hover cursor starts advertising a
+         * readout as clickable. The guard has to be asked AT THE GATE, and it has to be the
+         * SURFACE question. Same swallow-don't-strand contract as the card guard above: the tower
+         * stays in hand, fully reversible.
+         */
+        if (this.isPointerOverFooterSurface()) return;
         const centre = { x: this.cursor.x, y: this.cursor.y };
         // ⚠ THE LOCAL GATE DECIDES WHETHER TO *KEEP HOLDING*, NOT WHETHER THE BUILD IS LEGAL.
         //
@@ -1235,10 +1308,28 @@ export class Controls {
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
       // drawn above everything, so a release over it would drop a potato on unseen ground.
+      /*
+       * ⛔⛔ S182 — **THE FOOTER GUARD** WAS MISSING HERE, AND THE CODEBASE SAID IT
+       * WAS PRESENT. `footerBand.isOverShapeStrip`'s own docblock enumerates the four places
+       * `controls.ts` consults this predicate and names *"the potato plant"* as one of them. It was
+       * not one of them. Reachable in one gesture: carry a potato, press a tier chip or a palette
+       * button — `onDown` consumes the press, then this `onUp` PLANTS THE POTATO under the band.
+       *
+       * Found S182 by enumerating every UI-surface guard rather than by a report, which is the
+       * point: a surface registered in SOME guards and not others is this file's signature defect
+       * (S181 shipped exactly it for the character card), and the docblock claiming otherwise is
+       * what makes it survive review.
+       *
+       * ⭐ S182, SECOND PASS — it now asks `isPointerOverFooterSurface`, not the narrower control
+       * test: the band also draws an OPAQUE carry readout, and a potato dropped under that is the
+       * same defect as one dropped under a chip. See that predicate for why the two questions are
+       * deliberately separate.
+       */
       if (
         meNow !== undefined &&
         meNow.carriedPotatoId !== undefined &&
         !this.isPointerOverPanel() &&
+        !this.isPointerOverFooterSurface() &&
         !this.isPointerOverCard()
       ) {
         this.dispatchFn({
@@ -1328,7 +1419,7 @@ export class Controls {
         if (
           gates.commit &&
           !this.isPointerOverPanel() &&
-          !this.isPointerOverFooterChip() &&
+          !this.isPointerOverFooterSurface() &&
           // S181 — and not over the character card, which is drawn above every other surface.
           !this.isPointerOverCard()
         ) {

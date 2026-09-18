@@ -33,7 +33,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS, SparkType } from '../constants.ts';
+import {
+  CANVAS_HEIGHT, CANVAS_WIDTH, CASTLE_PORCH_OFFSET_Y, PLAYER_COLORS, SparkType,
+} from '../constants.ts';
 import { isLegalBuildPos } from '../bots/botBrain.ts';
 import { computePreviewBonds } from '../input/dragPreview.ts';
 import { computeReleaseGates } from '../input/controls.ts';
@@ -42,7 +44,14 @@ import { makeFreeSpark } from '../game/spark.ts';
 import { stampRefusalAt } from './blueprintLegality.ts';
 import { applyPlaceFromFree } from './placeFromFree.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
-import { canBuildAt, zoneCount, type ZoneLayout } from './zones.ts';
+import {
+  CASTLE_NO_BUILD_RADIUS,
+  canBuildAt,
+  isInsideCastleKeepOut,
+  zoneCastleAnchor,
+  zoneCount,
+  type ZoneLayout,
+} from './zones.ts';
 import { enemyZonePoint, ownZonePoint, QUARRY_POINT } from './zones.fixtures.ts';
 
 const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
@@ -370,6 +379,132 @@ describe('S149 P1 — the owner-reported defect itself', () => {
         const world = boardWorld(layout, seat, QUARRY_POINT);
         expect(placeFromFree(world, seat, QUARRY_POINT, 6)).toBe(false);
       }
+    }
+  });
+});
+
+/* ========================================================================== *
+ *   ⭐⭐ S182 ITEM 2 (owner) — THE CASTLE KEEP-OUT, IN THE **REDUCER**
+ * ========================================================================== */
+
+/**
+ * > *"You can place any tower over the castle. The castle doesn't read anything. Castle should have
+ * > an area around it where you can't place anything. At least in the immediate vicinity."*
+ *
+ * ⛔⛔ **THE ASSERTIONS THAT MATTER HERE DRIVE THE REAL REDUCERS, NOT THE PREDICATE.** Placement is
+ * a reducer: it runs on the host, in the worker sim and in replay, and its output is HASHED. A
+ * keep-out that lived only in `controls.ts` would let a host and a joiner form different worlds
+ * from the same intent. Asking `canBuildAt` directly would prove the rule EXISTS; these dispatch
+ * `PLACE_PRIMITIVE` and `PLACE_FROM_FREE` and prove it is WIRED — the distinction this whole file
+ * was written to make.
+ */
+describe('S182 — gate 1+2: the reducers refuse a placement inside the castle keep-out', () => {
+  for (const layout of LAYOUTS) {
+    for (let s = 0; s < zoneCount(layout); s++) {
+      const seat = asPlayerId(s);
+
+      it(`${layout} seat ${s} — applyPlacePrimitive refuses ON its own castle`, () => {
+        const pos = zoneCastleAnchor(s, layout);
+        const world = boardWorld(layout, seat, pos);
+        expect(placeFromCarry(world, seat, pos, 960 + s)).toBe(false);
+      });
+
+      it(`${layout} seat ${s} — applyPlaceFromFree refuses ON its own castle, atomically`, () => {
+        const pos = zoneCastleAnchor(s, layout);
+        const world = boardWorld(layout, seat, pos);
+        expect(placeFromFree(world, seat, pos, 970 + s)).toBe(false);
+        // The S52 atomicity contract survives the new refusal: nobody is stuck mid-carry.
+        expect(world.players.get(seat)?.kind).toBe('Idle');
+        expect(world.freeSparks.get(asSparkId(970 + s))?.state.kind).toBe('Free');
+      });
+
+      it(`${layout} seat ${s} — the boundary is the constant, and BOTH sides of it are pinned`, () => {
+        const a = zoneCastleAnchor(s, layout);
+        /*
+         * Probed along the anchor→board-centre ray. ⚠ NOT along +y, which was the first cut and
+         * was wrong for a reason worth recording: on `QUADRANTS_4P` the bottom anchors sit at
+         * y = 950, so +y put the "just outside" probe at y = 1073 — inside `WORLD_EDGE_MARGIN`
+         * (40), where `placeFromFree`'s remote-origin plausibility gate refuses it for reasons
+         * that have nothing to do with the keep-out. Toward the centre is in-zone, off the rim and
+         * well inside the canvas for every seat of every board, by construction.
+         */
+        const toCentre = { x: CANVAS_WIDTH / 2 - a.x, y: CANVAS_HEIGHT / 2 - a.y };
+        const len = Math.hypot(toCentre.x, toCentre.y);
+        const at = (d: number): Vec2 => ({
+          x: a.x + (toCentre.x / len) * d,
+          y: a.y + (toCentre.y / len) * d,
+        });
+        // Just inside: refused. Just outside: allowed.
+        const inside = at(CASTLE_NO_BUILD_RADIUS - 2);
+        const outside = at(CASTLE_NO_BUILD_RADIUS + 2);
+        expect(isInsideCastleKeepOut(inside, layout)).toBe(true);
+        expect(isInsideCastleKeepOut(outside, layout)).toBe(false);
+        expect(placeFromFree(boardWorld(layout, seat, inside), seat, inside, 980 + s)).toBe(false);
+        expect(placeFromFree(boardWorld(layout, seat, outside), seat, outside, 990 + s)).toBe(true);
+      });
+    }
+  }
+
+  it('⚠ ANTI-VACUITY — the porch really is inside the keep-out, on every seat of every board', () => {
+    // The keep-out must cover where gathered shapes LAND, or the one spot a player is guaranteed to
+    // click is the one spot the rule misses. If the porch offset or the radius ever moves apart,
+    // this fails rather than silently reopening the hole.
+    for (const layout of LAYOUTS) {
+      for (let s = 0; s < zoneCount(layout); s++) {
+        const a = zoneCastleAnchor(s, layout);
+        expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_PORCH_OFFSET_Y }, layout)).toBe(true);
+      }
+    }
+  });
+
+  it('⚠ AND IT DOES NOT SWALLOW THE BOARD — the canonical in-zone test point stays buildable', () => {
+    // The complement. A keep-out large enough to eat `ownZonePoint` would have quietly broken
+    // dozens of unrelated tests into green-by-refusal; this is the guard against over-correcting.
+    for (const layout of LAYOUTS) {
+      for (let s = 0; s < zoneCount(layout); s++) {
+        const seat = asPlayerId(s);
+        expect(isInsideCastleKeepOut(ownZonePoint(seat, layout), layout)).toBe(false);
+        expect(canBuildAt(ownZonePoint(seat, layout), seat, layout)).toBe(true);
+      }
+    }
+  });
+});
+
+describe('S182 — the SOURCE-TEXT tripwire: both sites carry the term', () => {
+  /*
+   * ⛔ S181's LESSON, APPLIED: eight defects shipped green because the failure mode was UNREACHED
+   * CODE. A behavioural test proves the rule fires where it is asked; only a source-text assertion
+   * proves it is ASKED at the site that matters. Both are here because neither alone is enough.
+   *
+   * ⭐ AND THE CLIENT PRE-CHECK IS NOT A SECOND COPY — that is the thing being pinned. `controls.ts`
+   * and `dragPreview.ts` reach the keep-out THROUGH `buildLegality.canBuildNow` → `zones.canBuildAt`,
+   * so there is one implementation with two entry points rather than two rules that can drift. A
+   * future lookalike distance check in the client is exactly what the last assertion forbids.
+   */
+  const read = (rel: string): string => {
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    return readFileSync(join(process.cwd(), rel), 'utf8');
+  };
+
+  it('the REDUCER predicate carries it — `canBuildAt` asks the keep-out first', () => {
+    const zones = read('src/state/zones.ts');
+    const at = zones.indexOf('export function canBuildAt(');
+    expect(at, 'canBuildAt must still exist in zones.ts').toBeGreaterThan(-1);
+    const body = zones.slice(at, at + 400);
+    expect(body).toContain('isInsideCastleKeepOut');
+  });
+
+  it('the footprint-aware STAMP arm carries it', () => {
+    expect(read('src/state/blueprintLegality.ts')).toContain('castleKeepOutHitsBox(box, world.layout)');
+  });
+
+  it('⛔ nobody has minted a SECOND castle-distance rule in the client', () => {
+    // The radius may only be read where the one implementation lives. A `CASTLE_NO_BUILD_RADIUS` in
+    // controls.ts / dragPreview.ts would mean the client had started deciding for itself.
+    for (const f of ['src/input/controls.ts', 'src/input/dragPreview.ts', 'src/bots/botBrain.ts']) {
+      expect(read(f), `${f} must reach the keep-out through canBuildNow, never re-derive it`)
+        .not.toContain('CASTLE_NO_BUILD_RADIUS');
     }
   });
 });

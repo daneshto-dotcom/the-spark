@@ -417,14 +417,90 @@ export function blueprintPositions(id: GodlyId, centre: Vec2): Vec2[] {
 }
 
 /**
+ * Air left around the outermost node, in px. A node is a POINT here but draws as a primitive of
+ * 8–10.8 px (`max(8, SPARK_VISUAL_SIZE * 0.45)`, per this file's spacing docblock), so a footprint
+ * measured node-to-node would clip the art at a canvas edge.
+ *
+ * ⭐ S182 — NAMED, AND SHARED BY BOTH FOOTPRINT FUNCTIONS. It was a bare `+ 12` inside
+ * `blueprintRadius`; `blueprintExtent` needs the identical air on all four sides, and two literal
+ * 12s are how a retune half-lands.
+ */
+export const FOOTPRINT_MARGIN = 12;
+
+/**
  * PURE — the blueprint's footprint radius: the furthest node from the centre, plus a small margin.
  * Consumed by the legality check so a stamp cannot be dropped overlapping existing geometry, and by
  * the ghost so the preview outline matches the space the build will actually occupy.
+ *
+ * ⚠ S182 — THIS IS A CIRCUMRADIUS AND IT IS NO LONGER THE EDGE/QUARRY MARGIN. It answers "how far
+ * could a node be in the WORST direction", which is the right question for an omnidirectional
+ * clearance (the ghost ring) and the wrong one for a DIRECTIONAL test. Use `blueprintExtent` there;
+ * see its docblock for the ground that question cost.
  */
 export function blueprintRadius(id: GodlyId): number {
   let max = 0;
   for (const n of BLUEPRINTS[id].nodes) max = Math.max(max, Math.hypot(n.dx, n.dy));
-  return max + 12;
+  return max + FOOTPRINT_MARGIN;
+}
+
+/** A blueprint's true footprint: node-offset bounds around the stamp centre, margin included. */
+export interface BlueprintExtent {
+  readonly minDx: number;
+  readonly maxDx: number;
+  readonly minDy: number;
+  readonly maxDy: number;
+}
+
+/**
+ * ⭐⭐ S182 (owner) — PURE — THE BLUEPRINT'S **TRUE** FOOTPRINT, because a blueprint is not a disc.
+ *
+ * > *"Where the queue is with all the shapes — in that area you can't place towers. That's weird.
+ * > You should be able to place them out there."*
+ *
+ * `blueprintRadius` is the distance to the FARTHEST node, and `blueprintLegality` was using it as
+ * the margin in every direction. VOLTKIN is the measurement that makes the defect concrete: it is a
+ * straight horizontal chain, `(VOLTKIN_HALF * 2 - 1) * CHAIN_STEP` = **280 px wide and 0 px tall**,
+ * so its circumradius is 140 — and the old edge test therefore refused it across a **152 px band
+ * along the bottom of the board**, which is the footer band plus 76 px of clear ground above it,
+ * for a shape with no vertical extent at all. Measured S182, not carried from a handoff.
+ *
+ * ⛔ AND THE SAFETY DIRECTION IS WHY THIS IS THE **TRUE** BOX AND NOT A SMALLER ONE. Too large loses
+ * the owner ground (his report); too small plants geometry where the player cannot see it — the
+ * S181 defect where a spark released over the character card landed on hidden board. This box is
+ * exactly the nodes plus `FOOTPRINT_MARGIN`, so it can never claim less space than the stamp
+ * occupies. Keeping the build out from UNDER A PANEL is a different job, done by the UI-surface
+ * guards in `controls.ts`, not by an inflated geometric margin.
+ *
+ * ⚠ ONE LOOP OVER `BLUEPRINTS[id].nodes`, THE SAME SHAPE AS `blueprintRadius`, deliberately — the
+ * two read the same table with the same margin, so a recipe retune moves both or neither.
+ * `blueprintLegality.test.ts` pins `extent ⊆ radius` for every recipe from the live table — there
+ * rather than in `blueprints.test.ts`, because it is a LEGALITY invariant (the box may never
+ * claim less space than the stamp occupies, or geometry lands off the arena) and it belongs
+ * beside the arms that rely on it. ⚠ This line said `blueprints.test.ts` until an audit checked
+ * the reference and found no such assertion there; a docblock pointing at a test that does not
+ * exist is worse than none, because it stops the next reader looking.
+ */
+export function blueprintExtent(id: GodlyId): BlueprintExtent {
+  // Seeded at 0, not at the first node: the stamp CENTRE is part of the footprint even for the ring
+  // recipes, which have no node there. (No shipped recipe is actually widened by this — every ring
+  // straddles its centre — but a future one-sided recipe must not report a box its centre sits
+  // outside of.)
+  let minDx = 0;
+  let maxDx = 0;
+  let minDy = 0;
+  let maxDy = 0;
+  for (const n of BLUEPRINTS[id].nodes) {
+    if (n.dx < minDx) minDx = n.dx;
+    if (n.dx > maxDx) maxDx = n.dx;
+    if (n.dy < minDy) minDy = n.dy;
+    if (n.dy > maxDy) maxDy = n.dy;
+  }
+  return {
+    minDx: minDx - FOOTPRINT_MARGIN,
+    maxDx: maxDx + FOOTPRINT_MARGIN,
+    minDy: minDy - FOOTPRINT_MARGIN,
+    maxDy: maxDy + FOOTPRINT_MARGIN,
+  };
 }
 
 /**

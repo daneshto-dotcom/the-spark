@@ -186,6 +186,102 @@ export function layoutForSeatCount(seatCount: number): ZoneLayout {
   return seatCount <= 2 ? 'PITCH_2P' : 'QUADRANTS_4P';
 }
 
+/* ========================================================================== *
+ *   ⭐⭐ S182 (owner) — THE CASTLE KEEP-OUT
+ * ========================================================================== */
+
+/**
+ * ⭐⭐ NOBODY BUILDS ON TOP OF A CASTLE. Owner, S182, from a live two-player match:
+ *
+ * > *"You can place any tower over the castle. The castle doesn't read anything. Castle should have
+ * > an area around it where you can't place anything. At least in the immediate vicinity."*
+ *
+ * ⚠ **THIS NUMBER IS MINE, NOT HIS** — he ruled the RULE, not the radius. Measured S182 from what
+ * the castle actually occupies, all offsets from `castleAnchor`, which is the keep box's centre:
+ *
+ *   · the SPRITE — `CASTLE_SPRITE_PX` 96, anchored `x: 0.5` / `y: 1` on the box's foot at
+ *     `KEEP_H / 2` = 29 — spans x ±48 and y −67…+29, so its farthest corner is
+ *     `√(48² + 67²)` = **82.4**;
+ *   · the PORCH — `CASTLE_PORCH_SLOTS` 4 at `CASTLE_PORCH_PITCH_X` 30 puts the outer slots at x ±45,
+ *     `CASTLE_PORCH_OFFSET_Y` 74 below the anchor, each `CASTLE_PORCH_SLOT_CLEAR_RADIUS` 17 across,
+ *     so its farthest point is `√(45² + 74²) + 17` = **103.6**. The porch, not the sprite, is the
+ *     castle's true reach — and it is where every gathered shape lands.
+ *
+ * **104** (that 103.6, rounded up) **+ 17** (one `CASTLE_PORCH_SLOT_CLEAR_RADIUS` of air, the repo's
+ * existing "room for one more shape" number) = **121**. Not a round number on purpose: a round one
+ * would have no measurement behind it to re-check when the sprite or the porch moves.
+ *
+ * ⚠ **NO EXISTING CONSTANT FITTED, and each was checked rather than assumed.** `SPAWNER_RADIUS`
+ * (125) is the shared quarry and means something else; `AUTO_BOND_RADIUS` (60) is bond reach and is
+ * under half the castle's own extent; `TERRITORY_BASE_RADIUS` (60) belongs to the retired influence
+ * bubble; `CASTLE_ATTACK_RANGE` (300) is the gun and would blank most of a `QUADRANTS_4P` quadrant.
+ *
+ * ⚠ A LITERAL, NOT A COMPUTATION. `Math.hypot` is not guaranteed identical across JS engines, and
+ * two peers may be on different browsers — see rule 2 in this file's docblock. The arithmetic above
+ * is re-derived from those constants in `zones.test.ts` instead, where a drift turns a test RED.
+ */
+export const CASTLE_NO_BUILD_RADIUS = 121;
+
+/** Squared, for the same reason `QUARRY_R2` is — see rule 2 in the file docblock. No sqrt. */
+const CASTLE_NO_BUILD_R2 = CASTLE_NO_BUILD_RADIUS * CASTLE_NO_BUILD_RADIUS;
+
+/** An axis-aligned box in world px. What a blueprint's footprint looks like to this file. */
+export interface Box {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+/**
+ * ⭐ PURE — does `box` reach inside ANY castle's keep-out disc on this board?
+ *
+ * ⛔ **THE ONE IMPLEMENTATION OF THE KEEP-OUT, AND THE POINT TEST BELOW IS A DEGENERATE CALL INTO
+ * IT.** A blueprint stamp is footprint-aware and a single-shape placement is not, so the rule is
+ * asked two ways — and two ways is exactly how this repo's warnings say a rule starts disagreeing
+ * with itself. One box-vs-disc core, two entry points.
+ *
+ * EXACT rather than conservative: the anchor is CLAMPED into the box and the squared distance to
+ * that nearest point is compared. A circumradius bound would refuse a wide, flat tower laid
+ * alongside a castle that it never actually reaches — the same defect `blueprintExtent` exists to
+ * undo one file over.
+ *
+ * ⚠ EVERY zone's anchor, not just the seat's own. On the shipped boards an enemy keep is deep in
+ * enemy ground and already refused by the partition, so this is belt-and-braces today; it is
+ * written this way so a future adjacency (R11's 2v2) cannot open a hole nobody re-derives.
+ */
+export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
+  const anchors = ANCHORS[layout];
+  for (let i = 0; i < anchors.length; i++) {
+    const a = anchors[i] as Vec2;
+    if (boxPointDistSq(box, a.x, a.y) < CASTLE_NO_BUILD_R2) return true;
+  }
+  return false;
+}
+
+/**
+ * PURE — SQUARED distance from `box` to the point `(px, py)`; 0 when the point is inside the box.
+ *
+ * The one box-vs-disc primitive on the build path: `castleKeepOutHitsBox` asks it about a castle
+ * anchor and `blueprintLegality` asks it about the quarry centre. Squared, and clamp-based rather
+ * than sqrt-based, for rule 2 in this file's docblock.
+ */
+export function boxPointDistSq(box: Box, px: number, py: number): number {
+  const nx = px < box.minX ? box.minX : px > box.maxX ? box.maxX : px;
+  const ny = py < box.minY ? box.minY : py > box.maxY ? box.maxY : py;
+  const dx = px - nx;
+  const dy = py - ny;
+  return dx * dx + dy * dy;
+}
+
+/** PURE — is this bare point inside a castle keep-out? The degenerate box; see the note above. */
+export function isInsideCastleKeepOut(pos: Vec2, layout: ZoneLayout): boolean {
+  return castleKeepOutHitsBox(
+    { minX: pos.x, maxX: pos.x, minY: pos.y, maxY: pos.y },
+    layout,
+  );
+}
+
 /**
  * ⭐ THE ONE BUILD-LEGALITY RULE (S148 P2 wires this into all SIX gates).
  *
@@ -197,8 +293,18 @@ export function layoutForSeatCount(seatCount: number): ZoneLayout {
  *
  * Fails CLOSED on every ambiguity: the shared quarry (`zoneOf` null) and a seat with no ground
  * (`zoneOwner` null) are both unbuildable.
+ *
+ * ⭐⭐ S182 — AND THE CASTLE KEEP-OUT IS THE FIRST ARM, because it is true of the point regardless
+ * of whose ground it is.
+ *
+ * ⛔⛔ IT LANDS **HERE**, IN THE PREDICATE THE **REDUCER** READS, AND NOT ONLY IN `controls.ts`.
+ * Placement is a reducer: it runs on the host, in the worker sim and in replay, and its output is
+ * HASHED. A keep-out that existed only in the client pre-check would let a host and a joiner form
+ * different worlds from the same intent — a hash divergence, which is this codebase's worst defect
+ * class and is far worse than the cosmetic bug it would have fixed.
  */
 export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean {
+  if (isInsideCastleKeepOut(pos, layout)) return false;
   const owner = zoneOwner(seat, layout);
   if (owner === null) return false;
   const zone = zoneOf(pos, layout);
