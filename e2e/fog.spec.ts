@@ -380,11 +380,21 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //      the concealable layer (an enemy's building must fog like every other), so
                     //      the roll call was wrong and the code was right. `tower-art.spec.ts` reads
                     //      indices 6 and 11, both BELOW this insert, so neither probe moves.
-      '_Container', // 15 — princessRenderer.container       (S103 P4) — HELGA. Owner, explicitly:
+      '_Container', // 15 — structureRampRenderer.layer      (S182) — the DAMAGE-RAMP buildings, i.e.
+                    //      the lightning hub's 24-frame ramp today and whatever the owner presents
+                    //      next. On the concealable layer for the same reason the Voltkin TV above it
+                    //      is: an enemy's building must fog like every other building.
+                    //      ⚠ AND THIS IS THE LINE S175 FORGOT, WRITTEN AT THE SAME TIME AS THE CODE —
+                    //      see the note on index 14. A renderer that takes `fogHiddenLayer` as its
+                    //      parent and does NOT appear here reds `e2e:gating` on every commit
+                    //      afterwards, invisibly to tsc, the 4,780 unit tests and `check:atlas`.
+                    //      ⚠ `tower-art.spec.ts` reads indices 6 and 11, both BELOW this insert, so
+                    //      neither of its probes moves.
+      '_Container', // 16 — princessRenderer.container       (S103 P4) — HELGA. Owner, explicitly:
                     //      *"Also, Helga and stuff, like, all of those need to be hidden."*
-      '_Graphics',  // 16 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
+      '_Graphics',  // 17 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
                     //      procedural because they are STATE READOUTS, not character art.
-      '_Container', // 17 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
+      '_Container', // 18 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
     ]);
 
     /*

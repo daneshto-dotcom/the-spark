@@ -70,9 +70,27 @@ import { execFileSync } from 'node:child_process';
  *
  *   --no-size          skip check 2 (rows are conditions, not seeded states)
  *   --allow-scenery N  tolerate up to N px of grey blocks (deliberate smoke, dust, ash)
+ *   --dark-bg          skip checks 3 and 5 — the sheet was matted off a DARK background
+ *
+ * ⛔ **WHY `--dark-bg` EXISTS, AND WHY IT IS NOT A THRESHOLD TUNE.** Checks 3 and 5 both ask "did
+ * near-WHITE survive the matte", because `build-sprite-atlas.mjs` keys near-white connected to the
+ * border and a survivor is background. `build-sheet-atlas.mjs` (S182, the owner's hand-drawn contact
+ * sheets) keys near-BLACK instead — measured background (0,10,17) — so a surviving background pixel
+ * there is near-black and BOTH white checks are asking a question that cannot have a true answer.
+ *
+ * MEASURED on `lightning-hub-atlas.png`: 4,407 opaque near-white px and 26 of 66,786 edge pixels
+ * (0.04 %). Zoomed, every one of them is the white-hot CORE of a lightning ring or the tip of an arc
+ * bolt — the brightest deliberate art on the sheet. Checks 1 (grey scenery) and 4 (near-black
+ * letterbox) both score a clean ZERO on it and stay ON, which is the point: this turns off the two
+ * questions that do not apply, not the guard.
+ *
+ * ⚠ A guard that fires on healthy art teaches people to ignore it — this file's own docblock says so
+ * about pointing it at structures, and nine sheets sat permanently red from S171 until S175 because
+ * of exactly that. Naming the exemption at the call site is the established answer here.
  */
 const argv = process.argv.slice(2);
 const noSize = argv.includes('--no-size');
+const darkBg = argv.includes('--dark-bg');
 const allowIdx = argv.indexOf('--allow-scenery');
 const allowScenery = allowIdx >= 0 ? Number(argv[allowIdx + 1]) : 0;
 if (allowIdx >= 0 && !Number.isFinite(allowScenery)) {
@@ -421,8 +439,10 @@ for (const [path, [, , heights]] of Object.entries(res)) {
 const WHITE_POCKET_MAX = 60;
 
 let leaky = 0;
-console.log('\n[atlas] 3/3 — opaque NEAR-WHITE that survived the matte (largest pocket, not total)\n');
-for (const [path, [, , , wtotal, wbig]] of Object.entries(res)) {
+console.log(darkBg
+  ? '\n[atlas] 3/3 — SKIPPED (--dark-bg: matted off a DARK background, so surviving near-white is art)\n'
+  : '\n[atlas] 3/3 — opaque NEAR-WHITE that survived the matte (largest pocket, not total)\n');
+for (const [path, [, , , wtotal, wbig]] of darkBg ? [] : Object.entries(res)) {
   const over = wbig > WHITE_POCKET_MAX;
   if (over) leaky++;
   console.log(`  ${(over ? 'WHITE' : 'clean').padEnd(8)} largest ${String(wbig).padStart(5)} px  (total ${String(wtotal).padStart(6)})  ${path}`);
@@ -436,8 +456,10 @@ for (const [path, [, , , wtotal, wbig]] of Object.entries(res)) {
 const LETTERBOX_MAX = 2000;
 
 let fringed = 0;
-console.log('\n[atlas] 5/5 — near-white ON THE CUT-OUT EDGE: the matte FRINGE (position, not amount)\n');
-for (const [path, r] of Object.entries(res)) {
+console.log(darkBg
+  ? '\n[atlas] 5/5 — SKIPPED (--dark-bg: a dark-keyed matte cannot leave a WHITE rim)\n'
+  : '\n[atlas] 5/5 — near-white ON THE CUT-OUT EDGE: the matte FRINGE (position, not amount)\n');
+for (const [path, r] of darkBg ? [] : Object.entries(res)) {
   const ew = r[7] ?? 0;
   const over = ew > EDGE_WHITE_MAX;
   if (over) fringed++;
@@ -488,9 +510,11 @@ if (sized > 0) {
 if (bad > 0 || sized > 0 || leaky > 0 || boxed > 0 || fringed > 0) process.exit(1);
 // ⚠ Say WHICH checks actually ran. "clean on both checks" when only one ran is exactly the kind of
 // false assurance this repo has been bitten by before (a gate that FAILED read as passing, S161).
-const ran = noSize
-  ? 'the scenery, white-leak, edge-fringe and letterbox checks'
-  : 'all five checks';
+const ran = darkBg
+  ? (noSize ? 'the scenery and letterbox checks' : 'the scenery, seed-size and letterbox checks')
+  : noSize
+    ? 'the scenery, white-leak, edge-fringe and letterbox checks'
+    : 'all five checks';
 const tol = allowScenery > 0 ? ` (scenery tolerance ${allowScenery} px)` : '';
 /*
  * ⚠ S175 — THE WAIVER COUNT GOES IN THIS LINE, and the reason is written four lines above: *"Say

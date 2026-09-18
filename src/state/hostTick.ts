@@ -132,6 +132,8 @@ import { shouldCookOffInHand } from './potatoLifecycle.ts';
 import { tickScoring } from './scoring.ts';
 import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
+// S182 (owner R182-A/B) — the hub's own star health, the ONE copy of that arithmetic.
+import { starIsBelowSelfDestruct } from './structureStarHealth.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -666,7 +668,35 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     for (const [spawnerId, sp] of [...world.creatureSpawners]) {
       if (world.tick - sp.lastValidatedTick >= REVALIDATE_INTERVAL_TICKS) {
         sp.lastValidatedTick = world.tick;
-        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp)) {
+        /*
+         * ⭐⭐⭐ S182 (owner R182-A) — **THE HUB NO LONGER WAITS FOR ITS STAR TO BREAK.**
+         *
+         * > *"From thirty two percent it will just get self destroyed, but it is a suicide drone
+         * > building, so it makes sense. We won't do it for every building."*
+         *
+         * ⛔ **HUB ONLY, AND THAT IS THE RULING, NOT AN IMPLEMENTATION SHORTCUT.** It is earned by
+         * the hub being a suicide-drone building; the damage ART generalises to every tower and this
+         * threshold does not. A future recipe must not pick it up by being added to a list.
+         *
+         * ⚠ **AND THE PERCENTAGE IS ITS OWN STAR, NOT ITS COMPONENT** (R182-B) — see
+         * `structureStarHealth.ts` for why that divergence from `damageConnector` is deliberate.
+         *
+         * ⚠ **IT IS A REAL BALANCE CHANGE, MEASURED.** The trigger moves from "banked reaches the
+         * pool" (50 fifths) to "banked passes two thirds of it" (34), so a five-armed hub falls to
+         * 3 melee-goblin swings instead of 5 and 5 chewer bites instead of 8 — about 40 % faster to
+         * exactly the swarm its own drones counter. One-shot attackers are unaffected. The
+         * counterweight is that it also DETONATES 40 % sooner.
+         *
+         * ⚠ **NOT PHASE-GATED, deliberately, and this does not reopen S157 P0.** That report was
+         * about the EMIT-COUNTED self-destruct firing 60 s after ignition regardless of damage, which
+         * S159 P9 retired. This fires only on damage the hub has actually taken, and damage only
+         * lands in FIGHT — so a hub cannot reach the threshold during BUILD. Gating it would only
+         * delay a hub that crossed the threshold in the poll window straddling the phase edge, and
+         * delaying it by a whole BUILD is worse than firing it half a second late.
+         */
+        const starSpent =
+          sp.recipeId === 'lightningHub' && starIsBelowSelfDestruct(world, sp.anchorPrimitiveId);
+        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp) || starSpent) {
           // S100 P1 (Layer 6) — destruction (NOT teardown): award the one-shot raid
           // reward split across enemies BEFORE removing the record (awardSpawnerKillReward
           // reads sp.ownerPlayerId). teardownSpawners clears the map directly and never

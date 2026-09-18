@@ -177,18 +177,122 @@ path. An **additive-optional** field costs no bump; a **required** new field, or
 value on an existing action, does.
 
 Already on the wire, so a client can read them for free: creature `ehp`, defender `ehp`, primitive
-`hp`, and `castleHp`. Each is emitted **only when damaged**; absent means full, and both peers
-recompute it identically from the type. **A live enemy health readout therefore costs nothing.**
+`hp`, `castleHp`, and **`Bond.damageFifths`**. Each is emitted **only when damaged**; absent means
+full, and both peers recompute it identically from the type. **A live enemy health readout therefore
+costs nothing.**
+
+⚠ **`Bond.damageFifths` WAS MISSING FROM THAT LIST UNTIL S182, AND IT IS THE MOST LOAD-BEARING ITEM
+ON IT.** A structure's whole durability lives on its connectors (R75/R173-B), so *every* building
+health readout — the bar, the FIX button, and the damage ramp in §9 — reads this field and nothing
+else. It is serialized additive-optionally (`save.ts:1836`, emitted only when > 0, restored `:1665`)
+and hashed at both sites (`stateHashFull.ts:278` union, `:547` projection). A session that read the
+old list would have concluded a building's health was NOT on the wire and gone looking for a
+protocol bump it did not need.
+
+## 7 · ⭐ THE LIGHTNING HUB'S DAMAGE RAMP (S182) — THE PILOT, AND IT IS A PILOT ON PURPOSE
+
+The hub is the **first and so far only** building with real damage-state art: a 24-frame ramp from
+pristine to rubble, `public/art/lightning-hub/`, built from the owner's contact sheet by
+`scripts/build-sheet-atlas.mjs`.
+
+⛔ **THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED.** *"We're gonna do this one at a time.
+We're not gonna do all of them because it's not gonna work, you're gonna get confused, you're gonna
+get things wrong. Currently you're just gonna focus on the lightning hub. I will present them one
+after another."* `RAMP_SPECS` in `render/structureRamp.ts` has exactly one entry, and `canon.test.ts`
+asserts that it does. Adding the second is the owner's call, not a tidy-up.
+
+| health | frame | |
+|---|---|---|
+| 100 % | 1 | pristine |
+| 50 % | 12 | the "damaged" plate — the same `TOWER_DAMAGED_BELOW` the health bar turns amber at |
+| 34 % | 16 | barely standing, still repairable |
+| **below 33 %** | **17 → 24** | the death run, then the self-destruct |
+
+⭐ **THE THRESHOLD AND THE FRAME COUNT ARE THE SAME BOUNDARY, NOT TWO NUMBERS KEPT IN STEP.** 8 of 24
+frames is exactly a third, so "the frame is ≥ 17" and "the health is below `STAR_SELFDESTRUCT_BELOW_FRAC`"
+are one test. `structureRamp.test.ts` asserts the equivalence at every integer fifth of the pool.
+
+- **R182-A — below a third, the hub self-destructs. HUB ONLY.** *"From thirty two percent it will just
+  get self destroyed, but it is a suicide drone building, so it makes sense. We won't do it for every
+  building."* The ramp generalises; this threshold does not.
+- **R182-B — the percentage is the hub's OWN star**, `starHealthFrac` over `hub.bonds`, not over its
+  connected component. *"A hub welded into a big lattice can reach thirty three percent on its own
+  bonds. The sim still considers the wider structure healthy, but we don't care about that … the
+  neighbouring shapes are protecting it then, and it's fine."* ⛔ **The divergence from
+  `damageConnector`'s component-wide pool is deliberate. Do not reconcile it.**
+- **R182-D — the ramp PLAYS THROUGH.** *"You don't skip them, you just run them through … if he
+  destroys a whole structure in one hit, within like one second it looks like a whole structure got
+  destroyed."* The frame cursor is **client-local presentation state**, never on the wire.
+
+⚠ **AND IT IS A REAL BALANCE CHANGE, MEASURED.** The death trigger moved from "the star breaks"
+(banked 50 of a 50 pool) to "below a third" (banked 34), so a five-armed hub now falls to **3**
+melee-goblin swings instead of 5 and **5** chewer bites instead of 8 — about 40 % faster against
+exactly the swarm its own drones counter. One-shot attackers are unchanged. The counterweight is that
+it also **detonates** 40 % sooner.
+
+⛔ **THE BLAST ITSELF IS UNCHANGED AND IS AN OPEN QUESTION.** `applyStructureSelfDestruct` still calls
+`applyRadialClear` — it **deletes** every enemy creature and shape within `STRUCTURE_SELFDESTRUCT_RADIUS`
+outright rather than dealing ladder damage, and (per S157 P0) it **spares the owner's own** shapes and
+units. R182-C would replace the raze with 120 fifths, which would not kill a tier-9 boss where today's
+blast deletes one. **Not built. See §9.**
+
+## 8 · REPAIR
+
+FIX is **BUILD-only** (R19) and prices what the structure LOST (R13). S182 added the case that lost
+nothing:
+
+- **Missing nodes** → the missing shapes themselves. Unchanged.
+- **Damaged but intact** (chipped shapes, or a hurt connector with nothing destroyed) → **ONE shape,
+  flat.** R182-E: *"If there's only an amount of HP missing but no connector destroyed … then it takes
+  one shape. So far it takes NO shape — that's not correct … whether it's one HP or fifty HP."*
+  ⚠ It used to be **free**, so a dented tower is no longer unconditionally repairable — with an empty
+  bank, FIX now reads `NEED 1 MORE`.
+- **Which shape** is `repairFeeShapeFor`: the blueprint's **most numerous node type**, ties broken by
+  first appearance. ⚠ The rule is MINE — he dismissed a per-recipe table as over-thinking — but it
+  lands on both examples he reached for himself (pentagram → Triangle, goblin tower → Circle).
+  `structureRepairFee.test.ts` asserts the derivation over every registered blueprint, so it can
+  never become a copied table.
+
+⛔ **TWO REPAIR LIMITS THE OWNER HAS NOT SEEN YET, BOTH CONFIRMED IN CODE:**
+
+1. Repair only works during BUILD, so "a repairable wreck" means *repairable between rounds*. He has
+   accepted this (R19).
+2. **One friendly hand-placed shape bonded onto one hub leaf makes that hub permanently
+   unrepairable.** `blueprintGroupOf` returns null if ANY member of the connected component has
+   `origin === null`, and `seatStructureAt` walks the whole component. S158 B2b fixed exactly this
+   lattice problem for the RECIPE (`isStarAt` walks the hub's own bonds) and never fixed it for
+   REPAIR. Not fixed here either — it is a scope decision, not an oversight.
 
 ---
 
-## 7 · ⛔ OPEN — needs the owner, do not guess
+## 9 · ⛔ OPEN — needs the owner, do not guess
 
-*(Both of S180's castle questions were answered — see §3. Nothing is currently open here. When
-something is, it goes here AND gets an assertion in `src/canon.test.ts`, so a later session cannot
-quietly tidy it away without a ruling.)*
+*(Both of S180's castle questions were answered — see §3.)*
 
-## 8 · HOW TO KEEP THIS HONEST
+### ⛔ R182-C — the lightning hub's self-destruct DAMAGE. **UNANSWERED. Nothing was built.**
+
+He ruled *"four times a drone's damage"* = 4 × `attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = **120
+fifths** — **believing the blast had no number. It has something else entirely.**
+
+`applyStructureSelfDestruct` calls `applyRadialClear`: it **deletes** every enemy creature and shape
+inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) outright. That is an instant-kill radius, not a number
+on the ladder, and the difference is not cosmetic — **120 fifths would not kill a tier-9 boss** (pools
+260–462) where today's blast deletes one where it stands.
+
+⚠ **And it already spares the owner.** S157 P0, on his own ruling (*"lightning hubs blow up own
+structures or nearby friendlies … they shouldnt be able to hit friendlies in friendly territory"*),
+made the blast exempt the owner's shapes and units. So his later *"he will also bring down some of his
+own connectors"* is **not current behaviour**, and making it so would **reverse S157**.
+
+**TWO ANSWERS NEEDED:**
+1. 120 fifths of ladder damage replacing the instant-kill raze — or keep the raze?
+2. Should the blast damage the hub owner's own connectors, reversing S157 P0?
+
+S182 built the ramp, the threshold and the repair fee and **left `applyStructureSelfDestruct`
+byte-identical**, deliberately. `canon.test.ts` asserts it is still the radial clear, so this cannot be
+quietly half-answered.
+
+## 10 · HOW TO KEEP THIS HONEST
 
 - Add a number here only with the constant it comes from, and add its assertion to `src/canon.test.ts`
   in the same commit.

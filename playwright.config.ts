@@ -17,11 +17,34 @@
  *     Trystero P2P over real signaling/STUN/ICE is the WHOLE surface being
  *     tested; mocking it defeats the harness's purpose.
  *
- * webServer launches `npm run dev` on a fixed port (5173 — Vite default).
- * E2E tests target DEV build (NOT prod) so __SPARK__ debug accessor is
- * available. Prod deploy.yml is unrelated to e2e workflow.
+ * webServer launches `npm run dev` on 5173 (the Vite default) — or on
+ * `SPARK_E2E_PORT` when set, which is what parallel worktrees must use; see
+ * the block on that constant below. E2E tests target DEV build (NOT prod) so
+ * __SPARK__ debug accessor is available. Prod deploy.yml is unrelated.
  */
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * ⭐⭐⭐ S182 — **THE DEV-SERVER PORT IS OVERRIDABLE, BECAUSE PARALLEL WORKTREES SHARE IT AND THAT
+ * SILENTLY INVALIDATES THE VERDICT.**
+ *
+ * ⛔ MEASURED, not theorised. The owner opened six worktrees at once (S182, one priority set each).
+ * `webServer` binds a FIXED 5173 and `reuseExistingServer: !CI` is TRUE locally — so the first branch
+ * to run e2e owns the port and **every other branch's run silently attaches to that branch's vite**.
+ * Your specs are read from your worktree; the PAGE they drive is someone else's code.
+ *
+ * It does not fail loudly, which is the dangerous part. Two ways it showed up in one session:
+ *   · a run of `e2e:gating` went 49-passed-then-16-failed, every failure
+ *     `net::ERR_CONNECTION_REFUSED` — the other branch's server had shut down mid-run;
+ *   · a fetch of this branch's brand-new `public/art/…` file came back `<!doctype html>`, because the
+ *     server answering it was started in a worktree where that directory does not exist.
+ *
+ * A green run under those conditions is not evidence about your branch. So: `SPARK_E2E_PORT` (the
+ * session's own port, per the project PORT PROTOCOL). ABSENT ⇒ 5173 and byte-identical behaviour, so
+ * CI and every single-session run are untouched.
+ */
+const E2E_PORT = Number(process.env.SPARK_E2E_PORT ?? 5173);
+const E2E_ORIGIN = `http://localhost:${E2E_PORT}`;
 
 // S126 — per-lane GLOBAL timeout, in MINUTES, supplied by each CI job's `env:`.
 //
@@ -96,7 +119,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: E2E_ORIGIN,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,9 +147,14 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev -- --port ${E2E_PORT} --host`,
+    url: `${E2E_ORIGIN}/?debug=1`,
+    /*
+     * ⚠ REUSE IS DISABLED THE MOMENT A PORT IS NAMED. Reusing is a convenience on the shared default
+     * (a dev server you already have open); on an explicitly-chosen session port the whole point is
+     * that the server is YOURS, so attaching to a stranger's would defeat the override.
+     */
+    reuseExistingServer: !process.env.CI && process.env.SPARK_E2E_PORT === undefined,
     timeout: 60_000,
   },
 });

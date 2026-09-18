@@ -243,13 +243,15 @@ export function structureActionModel(
     // Nothing missing, nothing damaged, no bond broken — the tower is whole. The reducer refuses
     // this case (an empty repair would arm the ignition sweep for free), so the button must too.
     const idle = lost === 0 && repair.damagedCount === 0 && repair.missingBondCount === 0;
+    // ⭐ S182 (owner R182-E) — PRICED OFF THE BILL, NOT OFF THE LOST-NODE COUNT. A structure that
+    // lost nothing but is hurt now costs ONE shape ("whether it's one HP or fifty HP"), so
+    // `repair.cost` and `lost` have stopped being the same number and only the bill can be shown.
+    // 'REPAIR FREE' is gone with the free repair it described.
     const caption = !affordable
       ? `NEED ${shortfallFor(world, seat, repair.cost)} MORE`
       : idle
         ? 'NOTHING TO FIX'
-        : lost > 0
-          ? `COSTS ${lost}`
-          : 'REPAIR FREE'; // damaged but intact — R13 prices FIX at what was LOST, and nothing was
+        : `COSTS ${repair.cost.length}`;
     buttons.push({
       kind: 'FIX',
       label: 'FIX',

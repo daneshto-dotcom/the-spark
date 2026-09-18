@@ -191,10 +191,23 @@ describe('e2e lane composition is a decision, not an accident', () => {
       ).toBe(true);
       expect(yml.includes(`npm run ${script}`), `\`${job}\` must run \`${script}\``).toBe(true);
 
-      // The gating half: slice this job's block and require no continue-on-error inside it.
+      /*
+       * The gating half: slice this job's block and require no continue-on-error inside it.
+       *
+       * ⛔ S182 — **THE BOUNDARY REGEX MUST TOLERATE CRLF, AND UNTIL NOW IT DID NOT.** On a Windows
+       * checkout git's autocrlf hands this file back as CRLF (measured: 537 of 537 lines), so
+       * `:\n` never matched, `nextJob` came back -1, the "block" ran to END OF FILE and swallowed
+       * `e2e-quarantine`'s deliberate `continue-on-error: true`. The test then failed with
+       * "`e2e-races` carries continue-on-error" about a job that does not — a FALSE RED, on every
+       * Windows worktree, while CI (LF) stayed green.
+       *
+       * ⚠ That is the exact defect this project already has a standing note about ("git checkout
+       * applies autocrlf … match \r?\n"), and it is worth more than the one-character fix: a
+       * source-text test that is green in CI and red locally trains people to ignore the local run.
+       */
       const start = yml.indexOf(`\n  ${job}:`);
       const rest = yml.slice(start + 1);
-      const nextJob = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
+      const nextJob = rest.search(/\r?\n {2}[a-z][a-z0-9-]*:\r?\n/);
       const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
       expect(
         block.includes('continue-on-error'),
