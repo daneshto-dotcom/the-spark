@@ -683,6 +683,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   //       LIVE position, then advance the cadence by `+=` (NOT `= tick + interval`)
   //       so emit timing never drifts. Snapshot the entries first (REMOVE_SPAWNER
   //       deletes from the Map mid-loop, mirroring the bomb-dissipate snapshot).
+  /*
+   * ⛔⛔⛔ S182 FIX — **THE DEATH FUSE IS PER-MATCH SCRATCH AND MUST NOT OUTLIVE THE MATCH.**
+   *
+   * The first version of the fuse had exactly ONE `delete`, inside the destruction branch — and a
+   * match does NOT end through that branch. `teardownSpawners` clears `world.creatureSpawners`
+   * directly (the same property `awardSpawnerKillReward` relies on two hundred lines below), so a
+   * fuse armed in one match survived into the next, and because spawner ids are REUSED
+   * (`applyReturnToTitle` resets the counter) it would land on a brand-new, UNDAMAGED hub and
+   * detonate it on its first poll.
+   *
+   * ⭐ DROPPED ON ANY NON-PLAYING TICK, which is `bossRoster`'s idiom in this same file and is there
+   * for the same reason — *"a reset is not a death"*. It is the one place that covers EVERY teardown
+   * path at once: the two spawner teardown sites (`gameState.ts:249` on the PLAYING→WIN edge and
+   * `world.ts:584` on RETURN_TO_TITLE / START_GAME) are REDUCERS that take `world` and never see
+   * `HostTickState`, so they cannot clear it themselves, and every one of them passes through a
+   * non-PLAYING tick before the next match's first PLAYING tick.
+   */
+  if (world.gameState !== 'PLAYING') state.hubDeathFuse.clear();
+
  if (world.gameState === 'PLAYING' && world.creatureSpawners.size > 0) {
     for (const [spawnerId, sp] of [...world.creatureSpawners]) {
       if (world.tick - sp.lastValidatedTick >= REVALIDATE_INTERVAL_TICKS) {
@@ -731,12 +750,32 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * collapse from `Bond.damageFifths`, which is synced and hashed. The ghost stops being the
          * only path and becomes what it should always have been: the tail.
          *
-         * ⚠ THE FUSE IS NOT A REPRIEVE. It cannot be cleared by repair (FIX is BUILD-only and this
-         * is FIGHT), and if the star BREAKS during it the ordinary recipe test below fires on the
-         * same poll and the hub dies at once — the fuse only ever delays, never rescues.
+         * ⚠ THE FUSE ONLY EVER DELAYS. If the star BREAKS during it, the ordinary recipe test below
+         * fires on the same poll and the hub dies at once.
+         *
+         * ⛔⛔ **AND IT IS RELEASED, NOT LATCHED — TWO WAYS, BOTH OF WHICH THE FIRST VERSION GOT
+         * WRONG BY ASSUMING THIS POLL ONLY RUNS IN FIGHT. IT DOES NOT.** The phase gate sits ~130
+         * lines BELOW this branch, deliberately (*"dormancy suspends the WEAPON, not the
+         * bookkeeping"*), so the revalidation runs in BUILD too:
+         *
+         *   1. **REPAIRED ⇒ RELEASED.** FIX is BUILD-only, and this poll runs in BUILD, so a hub
+         *      that is mended back above the threshold really can stop being doomed. With no `else`
+         *      the fuse was a latch that nothing could clear, and a fully-repaired hub would still
+         *      detonate.
+         *
+         *   2. ⛔⛔ **NOT IN FIGHT ⇒ RELEASED, AND THIS IS THE OWNER'S OWN S157 P0 REPORT.** He
+         *      reported *"lightning hubs blow up own structures … during build phase"* and that
+         *      whole block below exists to answer it. Deferring the kill by a poll re-opened exactly
+         *      that: a hub crossing the threshold near the end of FIGHT would have detonated in its
+         *      owner's base during BUILD. Arming only in FIGHT means the worst case is that a doomed
+         *      hub survives the interval and dies on the next FIGHT — its damage persists, so it is
+         *      still doomed, it just cannot detonate while the player is building.
          */
-        if (doomed && !state.hubDeathFuse.has(spawnerKey)) {
-          state.hubDeathFuse.set(spawnerKey, world.tick);
+        const inFight = world.matchPhase === 'FIGHT';
+        if (doomed && inFight) {
+          if (!state.hubDeathFuse.has(spawnerKey)) state.hubDeathFuse.set(spawnerKey, world.tick);
+        } else {
+          state.hubDeathFuse.delete(spawnerKey);
         }
         const fusedAt = state.hubDeathFuse.get(spawnerKey);
         const fuseBlown = fusedAt !== undefined && world.tick - fusedAt >= HUB_DEATH_RUN_TICKS;

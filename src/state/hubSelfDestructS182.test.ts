@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from './world.ts';
-import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState } from './hostTick.ts';
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import { makeGameStateExtras } from './gameState.ts';
@@ -109,6 +109,31 @@ function run(w: World, ticks: number): { goneAt: number | null; blasts: number }
   return { goneAt, blasts };
 }
 
+/**
+ * Like `run`, but against a HostTickState the CALLER owns.
+ *
+ * ⛔ THIS EXISTS BECAUSE `run` ABOVE CANNOT SEE THE DEFECT CLASS AT ALL. It builds a fresh
+ * `makeHostTickState` every call, so the death fuse is wiped between invocations — which is the
+ * opposite of production, where one state object lives for the whole page load and therefore across
+ * MATCHES. The cross-match leak, the repair release and the phase release are all properties of a
+ * PERSISTENT state, so they need a fixture that keeps one.
+ */
+function runWith(w: World, st: HostTickState, ticks: number): { goneAt: number | null; blasts: number } {
+  const d = deps();
+  const cursor = { lastMatcherTick: -1 };
+  let goneAt: number | null = null;
+  let had = false;
+  let blasts = 0;
+  for (let t = 0; t < ticks; t++) {
+    runGodlyMatcherCore(w, cursor);
+    runHostTick(w, d, st);
+    for (const e of w.effects) if (e.kind === 'BOMB_EXPLODE') blasts++;
+    if (w.creatureSpawners.size > 0) had = true;
+    if (had && w.creatureSpawners.size === 0 && goneAt === null) goneAt = t;
+  }
+  return { goneAt, blasts };
+}
+
 /** Bank `fifths` of damage across the hub's own bonds, WITHOUT going through a sever. */
 function bankOnStar(w: World, hub: Primitive, fifths: number): void {
   const ids = [...hub.bonds].sort((a, b) => Number(a) - Number(b));
@@ -121,6 +146,93 @@ function bankOnStar(w: World, hub: Primitive, fifths: number): void {
   }
   if (left > 0) w.bonds.get(ids[0]!)!.damageFifths += left;
 }
+
+describe('⛔⛔ S182 — THE DEATH FUSE IS RELEASED, NOT LATCHED', () => {
+  /*
+   * Three ways the first version of the fuse was wrong, each of which detonates a building that
+   * should be standing. All three need a PERSISTENT HostTickState — see `runWith`.
+   */
+
+  it('⛔⛔ HIGH — a fuse does NOT survive into the next match and kill a HEALTHY hub', () => {
+    /*
+     * The only `delete` used to be inside the destruction branch, and a match END does not go
+     * through that branch: `teardownSpawners` clears `world.creatureSpawners` directly. Spawner ids
+     * are REUSED across matches (`applyReturnToTitle` resets the counter), so the stale fuse landed
+     * on a brand-new, undamaged hub.
+     */
+    const st = makeHostTickState(makeWorld(0));
+    const first = worldWithHub();
+    runWith(first.w, st, 2);
+    bankOnStar(first.w, first.hub, 34);
+    // ⚠ 35 ticks, not 2: the revalidation poll fires every REVALIDATE_INTERVAL_TICKS (30), so a
+    // shorter run never reaches the branch that arms the fuse at all. One poll arms it; the next
+    // (at +30) is what would blow it, so 35 leaves it armed and unblown.
+    runWith(first.w, st, 35);
+    expect(st.hubDeathFuse.size, 'the fixture must actually arm a fuse').toBeGreaterThan(0);
+
+    // The match ends the way a real one does — a non-PLAYING tick, then a fresh board.
+    first.w.gameState = 'TITLE';
+    runWith(first.w, st, 1);
+    expect(st.hubDeathFuse.size, 'a non-PLAYING tick must drop the fuse').toBe(0);
+
+    // A NEW match, a BRAND-NEW hub, at full health, reusing spawner id 0.
+    const second = worldWithHub();
+    const { goneAt, blasts } = runWith(second.w, st, 200);
+    expect(starHealthFrac(second.w, second.hub.id), 'the new hub is undamaged').toBe(1);
+    expect(goneAt, 'an UNDAMAGED hub must never self-destruct').toBeNull();
+    expect(blasts, 'and it must not blast').toBe(0);
+  });
+
+  it('⛔ REPAIRED ⇒ RELEASED — the poll runs in BUILD, so a mended hub must stop being doomed', () => {
+    /*
+     * The first version had `if (doomed && !has) set` with no `else`, justified by "FIX is
+     * BUILD-only and this is FIGHT". That assumption is false: the phase gate sits ~130 lines BELOW
+     * this branch, so the revalidation runs in BUILD too. Without the `else` the fuse was a latch.
+     */
+    const st = makeHostTickState(makeWorld(0));
+    const { w, hub } = worldWithHub();
+    runWith(w, st, 2);
+    bankOnStar(w, hub, 34);
+    runWith(w, st, 35); // one poll — see the note in the cross-match case above
+    expect(st.hubDeathFuse.size).toBeGreaterThan(0);
+
+    // Mend it — exactly what `applyRepairStructure` does to the connectors.
+    for (const bid of hub.bonds) w.bonds.get(bid)!.damageFifths = 0;
+    expect(starIsBelowSelfDestruct(w, hub.id)).toBe(false);
+
+    const { goneAt } = runWith(w, st, 200);
+    expect(goneAt, 'a repaired hub must not detonate').toBeNull();
+    expect(st.hubDeathFuse.size, 'and its fuse must be released').toBe(0);
+  });
+
+  it('⛔⛔ S157 P0 — it must NOT push a detonation across the FIGHT→BUILD edge', () => {
+    /*
+     * The owner's own report: *"lightning hubs blow up own structures … during build phase"*. Before
+     * the fuse, a doomed hub died on the SAME poll that detected doom, always inside FIGHT.
+     * Deferring by a poll re-opened exactly that class — a hub crossing the threshold near the end
+     * of FIGHT would detonate in its owner's base while they were building.
+     */
+    const st = makeHostTickState(makeWorld(0));
+    const { w, hub } = worldWithHub();
+    runWith(w, st, 2);
+    bankOnStar(w, hub, 34);
+    runWith(w, st, 35); // one poll: doomed, fuse armed, still in FIGHT
+    expect(st.hubDeathFuse.size).toBeGreaterThan(0);
+
+    // The whistle blows before the fuse does.
+    w.matchPhase = 'BUILD';
+    const { goneAt, blasts } = runWith(w, st, 200);
+    expect(goneAt, 'no detonation during BUILD — S157 P0').toBeNull();
+    expect(blasts, 'and no blast in the owner\'s own base').toBe(0);
+    expect(st.hubDeathFuse.size, 'the fuse is released when the fight ends').toBe(0);
+
+    // ⭐ AND IT IS NOT A PARDON: the damage persists, so the next FIGHT still kills it.
+    expect(starIsBelowSelfDestruct(w, hub.id)).toBe(true);
+    w.matchPhase = 'FIGHT';
+    const again = runWith(w, st, 200);
+    expect(again.goneAt, 'it dies on the next fight instead').not.toBeNull();
+  });
+});
 
 describe('R182-B — the health is the hub\'s OWN star, not its component', () => {
   it('a five-armed hub\'s pool is 50 fifths, read from its live bond count', () => {

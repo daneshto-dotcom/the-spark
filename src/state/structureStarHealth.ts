@@ -67,11 +67,21 @@ export const STAR_SELFDESTRUCT_BELOW_FRAC = 1 / 3;
  * ⛔ IT LIVES HERE, NOT IN `render/structureRamp.ts`, BECAUSE THE SIM MAY NOT IMPORT FROM `render/`.
  * The dependency runs the other way: the renderer imports this module's threshold already.
  *
- * ⚠ **THE POLL IS THROTTLED, SO THE REAL DELAY IS `REVALIDATE_INTERVAL_TICKS` (30), NOT 24.** The
- * revalidation branch this gates only runs every 30 ticks, so a fuse lit at tick T is read at T+30.
- * That is deliberately left alone rather than "fixed" with a second finer-grained poll: 30 ≥ 24, so
- * the run always completes, and the extra six ticks are the wreck sitting on its last frame — which
- * is what a settled ruin should do before it is cleared.
+ * ⚠ **THE POLL IS THROTTLED, SO THE WRECK HOLDS ITS LAST FRAME FOR 6 TO 36 TICKS — NOT 6.** An
+ * earlier version of this docblock pinned "the extra six ticks", which is the best case only, and a
+ * wrong pinned number in this repo is worse than no number. The derivation:
+ *
+ *   · the COLLAPSE starts the instant health crosses the threshold, because the renderer re-reads
+ *     `starHealthFrac` every frame — call that tick T;
+ *   · the FUSE is lit at the next revalidation poll P ≥ T, and `P − T` is anywhere in `[0, 30)`;
+ *   · the RAZE lands one poll after that, at `P + 30`.
+ *
+ * So raze − T ∈ [30, 60), the run itself needs 24, and the wreck therefore sits on frame 24 for
+ * **6 to 36 ticks (0.1–0.6 s)** depending on where the crossing fell in the poll window.
+ *
+ * ⭐ THE GUARANTEE THAT MATTERS IS THE FLOOR, AND IT HOLDS: the minimum is 30 ≥ 24, so the run
+ * ALWAYS completes before the raze. That is deliberately not "fixed" with a second finer-grained
+ * poll — a settled ruin lingering a few extra frames is what a settled ruin should do.
  */
 export const HUB_DEATH_RUN_TICKS = 24;
 
