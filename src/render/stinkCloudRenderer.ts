@@ -75,6 +75,27 @@ export class StinkCloudRenderer {
   }
 
   /**
+   * ⭐⭐ S182 — **THE CARD FOR A LANDED BAG SHOWS THE BAG.**
+   *
+   * The S181 card that made a bag clickable left `portrait: { kind: 'emblem', recipeId: 'stinkTower' }`
+   * behind a note reading *"a bag has its own art in the stink-tower sheet's family; until that is
+   * wired it keeps a plate"* — so a card titled STINK BAG drew the stink TOWER's codex constellation.
+   * The art it named is the very sheet this renderer already animates on the board, one accessor away.
+   *
+   * ⚠ FRAME 0, matching `stinkTowerRenderer.portraitTexture`'s rule verbatim: a portrait is an
+   * identity, not a status read, and the health bar beside it already says how hurt the bag is. The
+   * cycling frames are a drift animation; a mid-cycle one reads as a smear at 76px.
+   *
+   * ⚠ NULL UNTIL THE LAZY FETCH LANDS, which is not a defect: `PortraitSpec.recipeId` carries
+   * `'stinkTower'` precisely so those frames fall back to the tower emblem rather than an empty
+   * plate — the same contract `towerFrame` documents.
+   */
+  portraitTexture(): Texture | null {
+    const frames = this.frames;
+    return frames === null || frames.length === 0 ? null : (frames[0] ?? null);
+  }
+
+  /**
    * One-time lazy atlas load. Failure is deliberately silent and NOT fatal: the haze below keeps
    * every cloud visible and readable on its own, so a peer that cannot fetch the png still plays the
    * same game — it just plays it with less charm.

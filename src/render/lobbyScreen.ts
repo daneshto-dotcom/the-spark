@@ -1027,12 +1027,63 @@ export class LobbyScreen {
   }
 
   /**
-   * S87 P4 — the discovery told us to JOIN an advertised host. Drive the same
-   * reducer transition the friends Connect button does (the discovered code is
-   * a real, valid room code, so JOIN_ATTEMPT transitions to 'joining').
+   * S87 P4 — the discovery told us to JOIN an advertised host.
+   *
+   * ⛔ S182 — **THIS DISPATCHED `JOIN_ATTEMPT` AND THAT IS THE "WHO THE FUCK IS PLAYER ONE" BUG.**
+   * Owner: *"I started the game and I'm player one, and then he joins in — he's player one."*
+   *
+   * The demote arrives here with `mode === 'hosting'` (we were a peerless quickmatch host), and
+   * `JOIN_ATTEMPT` is select-only guarded, so the transition was swallowed SAME-REF: the screen
+   * went on believing it hosted a room it had already torn down, kept painting its own dead room
+   * code, and kept the own-seat glow on the "P1  HOST" cell — while the peer it had just joined
+   * painted the identical thing. Two P1s, every time, for as long as the join handshake took.
+   *
+   * ⚠ AND IT IS NOT THE RARE RACE IT LOOKS LIKE. A seeker self-promotes 2000–3500 ms after its own
+   * CLICK (`qmPromoteDelayMs`; `startedMs` is stamped before `joinNostr`, so relay connect is inside
+   * that window), and the only thing that can stop it is an incumbent's beacon arriving over a
+   * discovery-room data channel that must first be negotiated through a nostr relay. When that
+   * negotiation loses the race — which it often does — BOTH peers become hosts and the pair can only
+   * resolve through the demote arm. The demote is therefore the DOMINANT path by which two
+   * quickmatch players meet, not an edge case, and this line ran on it every time.
+   *
+   * ⛔ S182 SELF-AUDIT — **AN EARLIER VERSION OF THIS NOTE SAID "ALWAYS", AND THAT WAS NOT PROVEN.**
+   * It reasoned from `HANDSHAKE_TIMEOUT_MS = 30000`, which is an ABORT DEADLINE, not a measured
+   * latency — this repo's own `joinDiagnosis.ts` models a healthy connect far below it. A fast
+   * handshake CAN land inside the promote window, in which case the seeker joins directly and none
+   * of this runs. The defect and the fix are unchanged either way; only the certainty was wrong, and
+   * it is corrected here rather than left for the next session to reason from.
+   *
+   * `QM_JOIN_START` is the same transition without the user-input guard.
    */
   applyQuickmatchJoining(code: string): void {
-    this.state = lobbyReduce(this.state, { type: 'JOIN_ATTEMPT', code });
+    /*
+     * ⛔ S182 SELF-AUDIT — **THE READY LATCH HAS TO COME DOWN WITH THE ROOM, AND THE REDUCER CANNOT
+     * DO IT.** `selfReady` is SHELL state (this class owns the button), cleared in exactly two
+     * places: `reset()` and `setQuickmatch(true)` — and neither runs on a demote, because
+     * `setQuickmatch(true)` fired once at the QUICK MATCH click, long before the promote.
+     *
+     * Meanwhile the demote's first step is `teardownHost` → `teardownNet`, which sets
+     * `session.qmSelfReady = false`. So a player who pressed READY while hosting their own
+     * quickmatch room arrived in someone else's lobby with the button still painted `READY ✓` while
+     * the host had never been told — a ready-gate that can never fire, and a player with no way to
+     * know: pressing the button again only toggles them to NOT ready.
+     *
+     * Clearing it is the honest state and matches the session it mirrors.
+     *
+     * ⛔ S182 — **BUT THE REDUCER DECIDES FIRST, AND THE SHELL FOLLOWS.** This cleared `selfReady`
+     * and repainted the button BEFORE dispatching, so on any transition the reducer declined the
+     * button would have said NOT READY while the state still said hosting-and-ready — shell and
+     * state disagreeing, which is the whole class of bug this branch is about. `QM_JOIN_START` is
+     * unconditional today, so that window was not reachable; ordering it correctly means it cannot
+     * become reachable if a refusal path is ever added back. Same `next !== this.state` idiom as
+     * `updatePeerStatus` / `updatePresence`.
+     */
+    const next = lobbyReduce(this.state, { type: 'QM_JOIN_START', code });
+    if (next !== this.state) {
+      this.selfReady = false;
+      this.paintReadyButton();
+    }
+    this.state = next;
     this.applyView();
     this.updateInputVisibility();
   }

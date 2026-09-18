@@ -640,6 +640,29 @@ export class CreatureRenderer {
     this.drawVoltkin(g, x, y, 1, 1, pose, 0, 0, LIGHTNING_DRONE_SPRITE_SCALE);
   }
 
+  /**
+   * ⭐⭐ S182 (owner) — **THE VOLTKIN CREATURE'S CARD SHOWS THE VOLTKIN.**
+   *
+   * ⛔ AND THE JUSTIFICATION FOR NOT DOING IT WAS FACTUALLY WRONG, which is the part worth recording.
+   * S182 routed this creature to a text plate and defended it with *"voltkin has no `ATLASES`
+   * entry"*. That sentence is TRUE and IRRELEVANT: `ATLASES` is `goblinRenderer`'s table, and the
+   * Voltkin is not a goblin — **this** renderer owns it, and has loaded
+   * `/godly/voltkin/anim/voltkin-atlas.png` since S110 P5. The sheet ships 20 frames each of
+   * idle / walk / attack / die. Reasoning from the absence of a key in the wrong table is how a
+   * card with real art behind it ended up printing its own name.
+   *
+   * ⚠ `idle` FRAME 0, matching `stinkTowerRenderer.portraitTexture` and `goblinRenderer`'s rule
+   * verbatim: a portrait is an identity, not a status read, and the health bar beside it already
+   * says how hurt the creature is. A frame from `attack` reads as a blur at 76px.
+   *
+   * ⚠ NULL UNTIL THE LAZY FETCH LANDS, and that is not a defect — `portraitPlateFor` falls back to
+   * the creature's NAME for those frames, and now to the real art once it arrives.
+   */
+  voltkinPortraitTexture(): Texture | null {
+    const idle = this.atlasCells?.idle;
+    return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
+  }
+
   private drawVoltkin(
     g: Graphics, x: number, y: number, face: 1 | -1, alpha: number, pose: VoltkinPose, nowSec: number, idSeed: number,
     scaleMul: number = 1, // S113 Batch C — 0.5 for a lightning-drone ("the Voltkin design, smaller")

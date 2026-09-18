@@ -100,6 +100,22 @@ export interface LobbyState {
 export type LobbyEvent =
   | { type: 'HOST_START'; code: string }
   | { type: 'JOIN_ATTEMPT'; code: string }
+  /**
+   * ⭐ S182 — THE QUICKMATCH DEMOTE, AND IT IS A SEPARATE EVENT ON PURPOSE.
+   *
+   * `JOIN_ATTEMPT` is a USER INPUT ("I typed a code and pressed Connect") and carries an S65 P2
+   * guard that makes it a no-op outside `select`, because the dimmed join button stays
+   * click-reachable while hosting. S87 P4 reused that same event for the MACHINE-DRIVEN quickmatch
+   * demote — a peerless host yielding to a smaller code — and walked straight into the guard: at
+   * demote time `mode` is `'hosting'`, so the transition was silently swallowed, same-ref, and the
+   * peer stayed in `'hosting'` mode while actually being a client in someone else's room.
+   *
+   * The guard is not wrong; the reuse was. This is the same transition with no guard, because a
+   * demote is not a user asking — it is the election TELLING us we have already left our own room
+   * (`quickmatch.ts` tick(): `teardownHost()` then `joinCode()`). Refusing it cannot protect an
+   * "active host session" that has, by that point, already been torn down.
+   */
+  | { type: 'QM_JOIN_START'; code: string }
   | { type: 'PEER_STATUS'; peerCount: number }
   | { type: 'PRESENCE'; roster: readonly SeatPresence[] | null }
   | { type: 'ERROR'; text: string }
@@ -154,6 +170,32 @@ function rostersEqual(
 }
 
 /**
+ * ⭐ S182 — the ONE body that enters `'joining'`, shared by `JOIN_ATTEMPT` (user typed a code) and
+ * `QM_JOIN_START` (the quickmatch election demoted us). Extracted rather than copied because the
+ * two differ ONLY in their guard, and a second hand-copied body is how the next session ships a
+ * demote that clears four of the five session latches.
+ *
+ * S65 (landmine #2 + CHECK-fix, mirror of HOST_START): entering a room clears all prior session
+ * state — neutral-grey, unlatched, and the Begin/peer latches reset (a joiner must never carry a
+ * host's stale Begin/hostConnected) — so no stale red bleeds onto "Connecting..." and PEER_STATUS
+ * updates normally.
+ */
+function enterJoining(state: LobbyState, code: string): LobbyState {
+  return {
+    ...state,
+    mode: 'joining',
+    code,
+    status: LOBBY_STATUS.CONNECTING,
+    statusColor: STATUS_COLOR_NORMAL,
+    beginVisible: false,
+    hostConnected: false,
+    errorLatched: false,
+    peerCount: 0,
+    presenceRoster: null,
+  };
+}
+
+/**
  * Pure reducer. Returns the SAME `state` reference when the event is a no-op
  * (see module header) so the shell can short-circuit re-render + allocation.
  */
@@ -202,17 +244,7 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
         // Begin/hostConnected) — so no stale red bleeds onto "Connecting..." and
         // PEER_STATUS updates normally. (code carries forward via ...state; it is
         // not displayed in joining mode.)
-        return {
-          ...state,
-          mode: 'joining',
-          status: LOBBY_STATUS.CONNECTING,
-          statusColor: STATUS_COLOR_NORMAL,
-          beginVisible: false,
-          hostConnected: false,
-          errorLatched: false,
-          peerCount: 0,
-          presenceRoster: null,
-        };
+        return enterJoining(state, state.code);
       }
       // S65 landmine #1 fix: an invalid code is an error, so it renders in
       // error-red. The original left fill untouched here, so the "Code must be
@@ -221,6 +253,31 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
       // feedback and PEER_STATUS is a no-op in select, so no latch is needed (and
       // leaving it lets any prior surfaced error stay latched while the user retypes).
       return { ...state, status: LOBBY_STATUS.JOIN_INVALID, statusColor: STATUS_COLOR_ERROR };
+
+    case 'QM_JOIN_START':
+      // ⭐ S182 — see the event's docblock. UNGUARDED BY MODE by design: the caller is the
+      // quickmatch election, which has ALREADY torn our host room down before telling us. `code` is
+      // the room we are actually entering, not the dead one we were advertising — `showCode` is
+      // hosting-only so nothing renders it, but leaving the stale code in state is how a later
+      // reader talks itself back into believing we still host it.
+      //
+      //
+      // ⛔⛔ S182 — **AND UNCONDITIONAL, INCLUDING ON THE CODE. THIS ARM MUST NOT HAVE A REFUSAL
+      // PATH AT ALL**, which a mid-session "fix" briefly gave it by adding `isValidRoomCode` here.
+      // That was wrong twice:
+      //
+      //   1. It did not stop what its own comment claimed. `isValidRoomCode('222222')` is TRUE, so
+      //      an attacker simply picks a well-formed code that sorts below every real one.
+      //   2. Far worse, REFUSING HERE RE-CREATES THE EXACT DESYNC THIS BRANCH EXISTS TO KILL. By the
+      //      time this event fires, `quickmatch.ts` tick() has ALREADY run `teardownHost()` and
+      //      `joinCode()` — the transport is irreversibly a client in someone else's room. Returning
+      //      `state` unchanged leaves `mode === 'hosting'`, i.e. a peer painting "P1  HOST" while
+      //      being a client. That IS the two-P1 bug, reintroduced on the malformed-code path.
+      //
+      // ⭐ THE RULE THIS ENCODES: a transition that REPORTS a completed side effect can never be
+      // conditional. Validation belongs where refusing is still free — `onBeacon`, at ingest, which
+      // is where it now lives.
+      return enterJoining(state, event.code);
 
     case 'PEER_STATUS': {
       // A surfaced error (transport failure / protocol mismatch) is sticky: the
@@ -357,6 +414,34 @@ export interface LobbyView extends LobbyState {
  * (occupied = index < peerCount + 1) for the windows before a beacon arrives
  * (host-alone, a joiner pre-first-beacon, or a peer that never received one).
  */
+/**
+ * ⛔ S182 — **THE ONLY PLACE IN THE UI WHERE LOCAL STATE, RATHER THAN THE HOST, DECIDES WHO YOU
+ * ARE.** It is exported so a test can pin that sentence, and so the next session finds one site
+ * instead of grepping for `mode === 'hosting'`.
+ *
+ * The count-based fallback runs whenever no beacon has landed — and for a host ALONE in a room that
+ * is not a transient window but the steady state: `broadcastQmPresence` is only called from
+ * `onPeerChange` / READY / a race pick, so a freshly-opened room has NO roster at all until someone
+ * joins. Killing the claim outright (the tempting "never claim a seat you were not told") therefore
+ * costs a real host its own-seat glow AND its race picker — `seatRack.update` sets
+ * `cell.eventMode = seat.isYou ? 'static' : 'none'`, so an unclaimed seat is not clickable, and the
+ * whole S161 P6 / S162 P1 picker would be dead before the second player arrives.
+ *
+ * ⭐ SO THE CLAIM STAYS, BUT IT IS NOT A GUESS: a host IS seat 0 by the same construction the
+ * authority itself uses — `buildLobbyRoster` hardcodes `rosterEntryFor(selfId, 0, …)`. Reading
+ * "I opened this room" as "I am seat 0" restates that invariant; it does not invent one.
+ *
+ * ⛔ AND THE ONE WAY IT CAN LIE IS A `mode` THAT OUTLIVES THE ROOM, which is exactly the S182 bug:
+ * the quickmatch demote drove `JOIN_ATTEMPT`, hit its select-only guard, and left a peer reading
+ * `'hosting'` while it was a client in someone else's room — so it painted its own glow on the
+ * "P1  HOST" cell at the same moment the real host did. `QM_JOIN_START` closes that, and the
+ * invariant this predicate depends on is therefore: **no path may leave `mode === 'hosting'` after
+ * the room it names has been torn down.** A joiner claims NOTHING here and waits for the roster.
+ */
+export function fallbackSelfSeat(state: LobbyState): number | null {
+  return state.mode === 'hosting' ? 0 : null;
+}
+
 export function lobbyView(state: LobbyState): LobbyView {
   const inRoom = state.mode !== 'select';
   const roster = inRoom ? state.presenceRoster : null;
@@ -389,6 +474,8 @@ export function lobbyView(state: LobbyState): LobbyView {
     // in a room — guards a transient over-count (7th peer pre-Begin → "Room 7/6")
     // and any spurious negative count from the transport.
     totalPlayers = inRoom ? Math.max(1, Math.min(state.peerCount + 1, MAX_PLAYERS)) : 0;
+    // ⭐ S182 — the one local identity claim, behind its named predicate (see its docblock).
+    const selfSeat = fallbackSelfSeat(state);
     for (let i = 0; i < MAX_PLAYERS; i++) {
       const occupied = inRoom && i < totalPlayers;
       seats.push({
@@ -396,7 +483,7 @@ export function lobbyView(state: LobbyState): LobbyView {
         color: PLAYER_COLORS[i],
         occupied,
         isHost: occupied && i === 0,
-        isYou: state.mode === 'hosting' && i === 0,
+        isYou: selfSeat === i,
         // The count-based fallback has no roster to read, so every seat shows its default race.
         raceId: occupied ? defaultRaceForSeat(i) : undefined,
       });

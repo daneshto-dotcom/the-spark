@@ -151,7 +151,23 @@ export type PortraitSpec =
    * `recipeId` rides along for the same reason `towerFrame` carries it: the atlas loads lazily, so
    * the first frames after a card opens fall back to the codex emblem rather than an empty plate.
    */
-  | { readonly kind: 'namedBuildingFrame'; readonly building: 'stinkTower' | 'voltkin'; readonly recipeId: string }
+  /**
+   * ⭐ S182 — `'stinkBag'` JOINS THE TWO, and the S181 note above predicted the moment: *"it is two
+   * entries, and a third would be one line — but the moment a THIRD appears, that is the signal to
+   * give these renderers a shared accessor interface instead of extending this."*
+   *
+   * ⚠ THE SIGNAL IS NOTED AND DELIBERATELY NOT ACTED ON YET. All three accessors are already the
+   * same one-line shape (`portraitTexture(): Texture | null`), so the "shared interface" would today
+   * be a name for a signature they already share — and `main.ts`'s switch would still have to map
+   * building → renderer instance by hand, because that is wiring, not polymorphism. The refactor
+   * earns its keep when a renderer needs an ARGUMENT (as `towerFrame` does with `atlasBase`);
+   * recorded here so the next session inherits the reasoning rather than the count.
+   */
+  | {
+      readonly kind: 'namedBuildingFrame';
+      readonly building: 'stinkTower' | 'voltkin' | 'stinkBag';
+      readonly recipeId: string;
+    }
   /**
    * ⭐⭐ S181 (owner) — **A CREATURE WITH NO SHEET, PAINTED FROM ITS OWN PUPPET.**
    *
@@ -338,6 +354,32 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
   lightningDrone: 'LIGHTNING DRONE',
   direwolf: 'DIREWOLF',
   locustCloud: 'LOCUST CLOUD',
+  /**
+   * ⛔ S182 — **OPEN GATE, LEFT GENERIC ON PURPOSE. DO NOT NAME THIS WITHOUT AN OWNER RULING.**
+   *
+   * The card prints `CASTLE UNIT` over the subtitle `CASTLE · DEMONS`, so a player reading an imp's
+   * card learns its race but never its name. The owner raised it in S182; the S182 brief pointed at
+   * R134 (`SPARK_RACES_SPEC.md:118-124`) as already supplying six candidate names — *vampire thrall,
+   * naga warrior, mummy soldier, zombie villager, orc grunt, imp*.
+   *
+   * ⛔ IT DOES NOT SUPPLY THEM AS A RULING, AND THAT IS THE WHOLE REASON THIS STAYS GENERIC. Those
+   * six words appear in exactly three places in the tree — that spec line and two PDR copies of it —
+   * all of them PROSE WRITTEN BY A SESSION describing the art. R134's actual quote approves the
+   * DESIGNS, not the names: *"I do like the designs you have just made so we will use those as the
+   * castle spawn."* The shipped assets are keyed by race alone (`assets-source/race-units/
+   * unit-demons.png`), so nothing on disk ratifies a name either.
+   *
+   * ⚠ Writing `IMP` here would be inventing an owner ruling and then quoting it back at him — the
+   * failure `CLAUDE.md`'s "Owner rulings" section exists to prevent, and one this project has already
+   * paid for once (a dead idea that survived only in a memory file and got repeated to him as live
+   * scope). One generic word is the honest state; six invented ones are worse than none.
+   *
+   * ⭐ WHAT IS ALREADY CORRECT, so the fix is a NAME and nothing more: the portrait resolves per race
+   * (`goblinRenderer.portraitTexture('raceUnit', race)` keys on `raceUnit:${race}`), the accent is the
+   * owner's race colour, and the subtitle carries the race. And there is NO emission defect behind
+   * this — `raceUnitEmit.test.ts` (18 cases, re-run green S182) drives the real host tick and shows
+   * every castle-born unit is `raceUnit` at every wave, for all six races.
+   */
   raceUnit: 'CASTLE UNIT',
   t3Hound: 'HOUND',
   t3Scarab: 'SCARAB',
@@ -370,6 +412,188 @@ export function creatureDisplayName(type: CreatureType): string {
     if (bossType === type) return T9_BOSS_NAMES[race];
   }
   return CREATURE_NAME[type];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * S182 — THE PORTRAIT PLATE. WHAT THE CARD DRAWS WHEN THE ART IS NOT THERE.
+ * ═════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⛔⛔ S182 — **THE LITERAL ELLIPSIS IS DELETED, AND IT IS DELETED STRUCTURALLY.**
+ *
+ * `characterSheet.drawPortrait` ended in
+ * `word = castleFrame ? 'KEEP' : defenderFrame ? kind : '…'` — a fall-through that drew THREE DOTS,
+ * byte-identical to the Voltkin TV defect the owner called *"an empty box with three dots"* in S181.
+ *
+ * ⛔ AND THE SET THAT REACHED IT WAS BIGGER THAN ANY COMMENT SAID. The S182 brief listed five
+ * placeholder cases. Enumerating them against the tree instead found the list was wrong in both
+ * directions, which is exactly why this is a function with a test and not a patch:
+ *
+ *   · **NOT placeholders at all** — the laser turret, the pentagram, the goblin tower and the
+ *     lightning hub were named as ellipsis cases. All four carry a codex `emblem`, so all four
+ *     already drew it. Only `voltkin` and `helga` lack one in the whole `CODEX_COPY` table.
+ *   · **Placeholders nobody had listed** — `freeform` (every hand-bonded structure a player welds
+ *     with no recipe) fell straight through. `portraitForStructure`'s own docblock claimed it *"keeps
+ *     the emblem path that already handled it"*; `codexCopyFor('freeform')` returns the unmapped
+ *     fallback, which carries no emblem, so the emblem path never handled it at all.
+ *   · **Creatures with no art drew dots — and the list of WHICH was wrong twice.** ⛔ S182
+ *     SELF-AUDIT: it said *"three — voltkin, direwolf and locustCloud have no `ATLASES` entry"*.
+ *     Both errors came from reading ONE table as though it were the whole world:
+ *       · **`direwolf`** has had an `ATLASES` entry since S173 (`goblinRenderer.ts:188`).
+ *       · **`voltkin`** ships 20 frames each of idle/walk/attack/die at
+ *         `/godly/voltkin/anim/voltkin-atlas.png`, loaded since S110 P5 — just not by
+ *         `goblinRenderer`, because **the Voltkin is not a goblin**; `creatureRenderer` owns it.
+ *         "No `ATLASES` entry" was true, irrelevant, and cost a finished character its portrait.
+ *     The set is DERIVED by the sweep now, and the Voltkin is wired to its own renderer's
+ *     accessor — read the test, not this prose.
+ *
+ * ⭐ SO THE DECISION IS A TOTAL FUNCTION OVER `PortraitSpec` WITH A `never` ARM. A new spec kind
+ * cannot compile without deciding what its plate says, and no arm can return an ellipsis because
+ * there is no arm that returns one. The worst case is now a WORD NAMING THE THING — which is what
+ * the S181 comment beside the old fall-through already argued for and then only half-applied:
+ * *"an empty box reads as broken; a labelled one reads as deliberate, and it still tells the player
+ * what they clicked."*
+ *
+ * ⚠ PURE, AND THE TWO FACTS IT CANNOT KNOW ARE PARAMETERS. Whether a texture has finished loading
+ * and whether the codex holds an emblem are both render/table lookups; passing them in is what lets
+ * `characterSheetPlate.test.ts` walk EVERY spec the game can produce in both states.
+ */
+export type PortraitPlate =
+  /** The finished art. */
+  | { readonly kind: 'texture' }
+  /** A procedural rig, painted by the renderer's painter channel. */
+  | { readonly kind: 'painter' }
+  /** The codex constellation for `recipeId`. */
+  | { readonly kind: 'emblem'; readonly recipeId: string }
+  /** No art and no emblem: a short word naming what was clicked. NEVER an ellipsis. */
+  | { readonly kind: 'word'; readonly text: string };
+
+/**
+ * ⛔⛔ S182 SELF-AUDIT — **THIS FUNCTION USED TO SLICE, WHICH MEANT THE FIX RE-SHIPPED THE DEFECT IT
+ * INDICTS.** It read `upper.length <= 9 ? upper : upper.slice(0, 9)`, so the plate printed
+ * `MELEE GOB`, `LIGHTNING`, `BAT GOBLI`, `CASTLE UN` — ten of the twelve creature names — while the
+ * docblock two screens up condemned `STINKT` as *"a truncation artefact, not a word anyone wrote"*.
+ * Replacing a 6-char slice with a 9-char slice is not eliminating truncation, it is widening it.
+ *
+ * ⚠ AND THE SWEEP TEST WAS COMPLICIT: its only length assertion was `length <= PLATE_WORD_MAX`,
+ * which truncation GUARANTEES. A gate whose pass condition is produced by the defect cannot see it.
+ *
+ * ⭐ THE PLATE NOW CARRIES THE WHOLE NAME AND THE RENDERER MAKES IT FIT — shrink first, then wrap at
+ * the space. Nothing is dropped, so the test can assert the real invariant (`lines.join(' ')` is the
+ * name, character for character) instead of a bound the bug satisfies.
+ */
+function plateWord(name: string): string {
+  return name.toUpperCase().trim();
+}
+
+/** The portrait plate's inner width in px (PORTRAIT 76 less its 4px inset each side). */
+export const PLATE_BOX_PX = 68;
+/** The plate's preferred and smallest legible type sizes. */
+export const PLATE_FONT_MAX = 13;
+export const PLATE_FONT_MIN = 8;
+
+export interface PlatePlacement {
+  readonly lines: readonly string[];
+  readonly fontSize: number;
+}
+
+/**
+ * ⭐ S182 — PURE — fit a plate word into the 76px portrait box WITHOUT LOSING A CHARACTER.
+ *
+ * Shrink toward `PLATE_FONT_MIN`; if the name still overruns, split it at its last space so a
+ * two-word name ("LIGHTNING DRONE", "MELEE GOBLIN", "CASTLE UNIT" — which is most of them) stacks
+ * instead of being cut. A single unbreakable word longer than the box renders at the minimum size
+ * and is allowed to be tight: legible-and-slightly-cramped beats silently wrong.
+ *
+ * ⚠ Width is estimated with `MONO_EM_RATIO`, the same constant `statValueColumnPx` already uses for
+ * this font — one ratio for the card, so a font change moves both together.
+ */
+export function platePlacement(
+  text: string,
+  boxPx: number = PLATE_BOX_PX,
+): PlatePlacement {
+  const widthAt = (s: string, size: number): number => s.length * size * MONO_EM_RATIO;
+  for (let size = PLATE_FONT_MAX; size >= PLATE_FONT_MIN; size--) {
+    if (widthAt(text, size) <= boxPx) return { lines: [text], fontSize: size };
+  }
+  const cut = text.lastIndexOf(' ');
+  if (cut <= 0) return { lines: [text], fontSize: PLATE_FONT_MIN };
+  const lines = [text.slice(0, cut), text.slice(cut + 1)];
+  for (let size = PLATE_FONT_MAX; size >= PLATE_FONT_MIN; size--) {
+    if (lines.every((l) => widthAt(l, size) <= boxPx)) return { lines, fontSize: size };
+  }
+  return { lines, fontSize: PLATE_FONT_MIN };
+}
+
+/**
+ * The three `DefenderKind` values, named rather than sliced.
+ *
+ * ⚠ S182 SELF-AUDIT — **ONLY `princess` IS REACHABLE TODAY, and the first version of this change
+ * claimed otherwise.** `defenderSheet` returns null on `d.ehp === null`
+ * (`characterSheetModel.ts`, the R75 tower rule) BEFORE it builds a portrait, and every kind but the
+ * princess is a TOWER with a null pool — a tower is read through its STRUCTURE card instead. So the
+ * `STINKT` plate this table was introduced to retire **never actually shipped**; it was reachable
+ * only on paper. The other two entries stay as defence-in-depth against `defenderSheet`'s gate
+ * moving, and are marked so nobody re-derives a bug report from them.
+ */
+const DEFENDER_PLATE_WORD: Record<string, string> = {
+  princess: 'HELGA',
+  // Unreachable while `defenderSheet` gates on `ehp === null` — see the note above.
+  turret: 'TURRET',
+  stinkTower: 'STINK',
+};
+
+export function portraitPlateFor(
+  spec: PortraitSpec,
+  hasTexture: boolean,
+  hasEmblem: (recipeId: string) => boolean,
+  emblemlessName: (recipeId: string) => string,
+): PortraitPlate {
+  switch (spec.kind) {
+    case 'proceduralFrame':
+      // The painter always answers for these two — that is what the kind means.
+      return { kind: 'painter' };
+
+    case 'creatureFrame':
+      // ⛔ Some creature types have no `ATLASES` entry at all (voltkin, locustCloud — NOT direwolf,
+      // which has had one since S173), and a race-keyed sheet loads lazily, so `hasTexture` is
+      // false for real reasons on both a permanent and a temporary path.
+      return hasTexture
+        ? { kind: 'texture' }
+        : { kind: 'word', text: plateWord(creatureDisplayName(spec.creatureType)) };
+
+    case 'towerFrame':
+    case 'namedBuildingFrame':
+      // Art first, the codex emblem while the atlas is in flight, the recipe's name if it has none
+      // (which today is `voltkin` alone — the TV's codex entry carries no emblem).
+      if (hasTexture) return { kind: 'texture' };
+      return hasEmblem(spec.recipeId)
+        ? { kind: 'emblem', recipeId: spec.recipeId }
+        : { kind: 'word', text: plateWord(emblemlessName(spec.recipeId)) };
+
+    case 'emblem':
+      // ⛔ `helga` (the hub building) and `freeform` (every hand-bonded structure) land here with no
+      // emblem to draw. Both used to be dots; both now say what they are.
+      return hasEmblem(spec.recipeId)
+        ? { kind: 'emblem', recipeId: spec.recipeId }
+        : { kind: 'word', text: plateWord(emblemlessName(spec.recipeId)) };
+
+    case 'castleFrame':
+      return hasTexture ? { kind: 'texture' } : { kind: 'word', text: 'KEEP' };
+
+    case 'defenderFrame':
+      // ⚠ NAMED, NOT SLICED. The old arm was `defenderKind.slice(0, 6).toUpperCase()`, which prints
+      // the stink tower as `STINKT` — a truncation artefact, not a word anyone wrote.
+      return hasTexture
+        ? { kind: 'texture' }
+        : { kind: 'word', text: DEFENDER_PLATE_WORD[spec.defenderKind] ?? plateWord(spec.defenderKind) };
+
+    default: {
+      /* A new PortraitSpec kind must decide its own plate — tsc fails here rather than drawing dots. */
+      const unreachable: never = spec;
+      return unreachable;
+    }
+  }
 }
 
 /**
@@ -1066,8 +1290,15 @@ function stinkCloudSheet(
     target,
     title: 'STINK BAG',
     subtitle: mine ? 'YOURS · AURA' : 'ENEMY · AURA',
-    // A bag has its own art in the stink-tower sheet's family; until that is wired it keeps a plate.
-    portrait: { kind: 'emblem', recipeId: 'stinkTower' },
+    /*
+     * ⭐ S182 — **THE BAG SHOWS THE BAG.** This said *"a bag has its own art in the stink-tower
+     * sheet's family; until that is wired it keeps a plate"* — and the plate it kept was the stink
+     * TOWER's codex emblem, i.e. a constellation of shapes, on a card titled STINK BAG. The art it
+     * named was real and one accessor away: `stinkCloudRenderer` already holds the landed-bag frames
+     * it draws on the board every frame. `recipeId` still rides along so a frame before the sheet
+     * resolves falls back to the tower emblem rather than an empty plate — the `towerFrame` rule.
+     */
+    portrait: { kind: 'namedBuildingFrame', building: 'stinkBag', recipeId: 'stinkTower' },
     health: {
       cur: Math.max(0, bag.ehp),
       max: unitPoolFifths(STINK_BAG_HP, STINK_BAG_DEF),

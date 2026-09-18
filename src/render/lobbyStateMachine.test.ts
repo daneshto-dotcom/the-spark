@@ -9,7 +9,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
+  fallbackSelfSeat,
   hostingConnectedStatus,
   initialLobbyState,
   LOBBY_STATUS,
@@ -625,5 +628,247 @@ describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-l
       { seat: 1, color: PLAYER_COLORS[1], isYou: true },
     ]);
     expect(friends.seats.every((s) => s.ready === undefined)).toBe(true);
+  });
+});
+
+/**
+ * ⛔⛔ S182 — "WHO THE FUCK IS PLAYER ONE".
+ *
+ * Owner: *"I started the game and I'm player one, and then he joins in — he's player one. And then
+ * I'm player two. Sometimes it gives me player one, sometimes it doesn't."* And, rejecting the
+ * first diagnosis offered to him: *"it's not when you hit quick match at the same moment. It's
+ * literally like a minute apart. I put quick match, I go into the server. My brother comes on like
+ * three minutes later … For him it shows that he's P1. For me it shows that I'm P1."*
+ *
+ * ## The mechanism, and why the elapsed gap between the two clicks is irrelevant
+ *
+ * A quickmatch seeker self-promotes to host after `qmPromoteDelayMs` (2000–3500 ms, ticked at
+ * 700 ms). The ONLY way it can instead join an incumbent is to receive that host's `{t:'host'}`
+ * beacon — a Trystero data-channel broadcast in the discovery room, which reaches only peers whose
+ * WebRTC channel is already OPEN. `send()` does not persist, and there is no announce-on-peer-join
+ * hook, only a 2000 ms interval. So the second player must complete a full nostr-relay + ICE +
+ * data-channel handshake inside ~2–4 s — against a transport whose own budget for that same
+ * handshake is `HANDSHAKE_TIMEOUT_MS = 30000`.
+ *
+ * ⭐ WHEN THAT HANDSHAKE LOSES THE RACE the second player promotes itself — and whether it arrives
+ * three minutes later or three hours changes nothing, because the clock runs from its OWN click.
+ * Two hosts meet, the larger code demotes (`decideQuickmatch` role='hosting' → 'join'), and the
+ * demote is consequently **the dominant path by which two quickmatch players pair, not an edge
+ * case**. The owner was right to reject "you both clicked at the same moment": simultaneity never
+ * had anything to do with it.
+ *
+ * ⛔ S182 SELF-AUDIT — this paragraph said "ALWAYS", inferred from `HANDSHAKE_TIMEOUT_MS` as though
+ * that were a measured latency. It is an ABORT DEADLINE. A fast handshake can land inside the
+ * promote window, in which case the seeker joins directly and none of this runs. The owner's repro
+ * and the fix are unchanged; only the certainty was wrong.
+ *
+ * ## What the demote then hit
+ *
+ * `applyQuickmatchJoining` dispatched `JOIN_ATTEMPT`, whose S65 P2 guard is select-only, so the
+ * transition was swallowed same-ref and the demoted peer stayed in `mode === 'hosting'` — the one
+ * input the count-based fallback reads to decide who you are. Both peers drew the own-seat glow on
+ * cell 0, which `seatRaceLabel(0, true, …)` labels **"P1  HOST"**. Two P1s.
+ *
+ * ⚠ These tests exercise the reducer for the owner's sequence, not for two simultaneous clicks.
+ */
+describe('S182 — the quickmatch demote leaves exactly ONE peer claiming seat 0', () => {
+  const JOINER_CODE = 'B3C4D5';
+
+  /** The owner's seat as his own screen resolves it: the fallback's claim, or the roster's. */
+  const selfSeats = (s: LobbyState): number[] =>
+    lobbyView(s)
+      .seats.filter((seat) => seat.isYou)
+      .map((seat) => seat.index);
+
+  it("THE OWNER'S REPRO: host established for minutes, joiner promotes then demotes — one P1", () => {
+    // ── Peer A (the owner) clicks Quick Match, hears nothing, promotes, waits. ──
+    let a = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    expect(a.mode).toBe('hosting');
+    expect(selfSeats(a)).toEqual([0]); // correct: he IS the host, and alone (no roster yet)
+
+    // ── Three minutes pass. Nothing arrives; a lone host gets no presence beacon. ──
+    a = lobbyReduce(a, { type: 'PEER_STATUS', peerCount: 0 });
+    expect(a.presenceRoster).toBeNull(); // the fallback is the STEADY state for a lone host
+
+    // ── Peer B (the brother) clicks Quick Match. His promote clock (2–3.5 s) expires long ──
+    // ── before any discovery channel could open, so he promotes too — his own room, his P1. ──
+    let b = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: JOINER_CODE });
+    expect(selfSeats(b)).toEqual([0]);
+
+    // ⛔ THIS IS THE MOMENT THE OWNER SAW. Two rooms, two P1s, three minutes apart.
+    expect(selfSeats(a)).toEqual([0]);
+    expect(selfSeats(b)).toEqual([0]);
+
+    // ── The beacons finally cross. B's code sorts LARGER, so B demotes and joins A. ──
+    expect(JOINER_CODE > HOST_CODE).toBe(true);
+    b = lobbyReduce(b, { type: 'QM_JOIN_START', code: HOST_CODE });
+
+    // ⭐ THE FIX: B no longer claims a seat it was never given. Exactly one P1 in the room.
+    expect(b.mode).toBe('joining');
+    expect(selfSeats(b)).toEqual([]);
+    expect(selfSeats(a)).toEqual([0]);
+
+    // ── And it stays true across the whole pre-roster handshake window (seconds, not a flash). ──
+    b = lobbyReduce(b, { type: 'PEER_STATUS', peerCount: 1 });
+    expect(selfSeats(b)).toEqual([]);
+    expect(b.code).toBe(HOST_CODE); // the dead room code is gone, not carried forward
+
+    // ── Then the host's roster lands and B learns its real seat. ──
+    b = lobbyReduce(b, {
+      type: 'PRESENCE',
+      roster: [
+        { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+        { seat: 1, color: PLAYER_COLORS[1], isYou: true },
+      ],
+    });
+    expect(selfSeats(b)).toEqual([1]); // "And then I'm player two." — told, not guessed.
+  });
+
+  it('REGRESSION GUARD: the pre-fix event (JOIN_ATTEMPT) is what produced two P1s', () => {
+    // Kept as the counterexample so the bug cannot return by re-pointing the shell at JOIN_ATTEMPT.
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: JOINER_CODE });
+    const swallowed = lobbyReduce(hosting, { type: 'JOIN_ATTEMPT', code: HOST_CODE });
+    expect(swallowed).toBe(hosting); // same-ref: the S65 P2 guard, still correct for user input
+    expect(selfSeats(swallowed)).toEqual([0]); // …and the stale P1 claim it used to leave behind
+  });
+
+  it('⛔ QM_JOIN_START IS UNCONDITIONAL — it may never refuse, even a malformed code', () => {
+    /*
+     * ⛔⛔ S182 — **THIS TEST ASSERTED THE OPPOSITE AND THE ASSERTION ITSELF WAS THE BUG.**
+     *
+     * A mid-session self-audit added `isValidRoomCode` to this arm, "restoring" a guard, and pinned
+     * it here. Both halves were wrong:
+     *
+     *   1. It did not stop the attack its own comment described — `isValidRoomCode('222222')` is
+     *      TRUE, so a hostile peer just picks a well-formed low-sorting code.
+     *   2. Worse, refusing here RE-CREATES THE TWO-P1 DESYNC THIS WHOLE BRANCH EXISTS TO KILL. By
+     *      the time this event fires, `quickmatch.ts` tick() has already run `teardownHost()` and
+     *      `joinCode()`: the transport IS a client in someone else's room. Leaving the reducer in
+     *      'hosting' paints "P1  HOST" on a client — the exact defect, on the malformed path.
+     *
+     * ⭐ THE RULE: a transition that REPORTS a completed side effect can never be conditional.
+     * Validation moved to `parseQmBeacon`, where refusing is still free.
+     */
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    for (const code of ['', 'zz', 'ABC', 'AB0DEF', '!!!!!!', VALID_CODE]) {
+      const after = lobbyReduce(hosting, { type: 'QM_JOIN_START', code });
+      expect(after.mode, `"${code}" must still leave hosting behind`).toBe('joining');
+      expect(after.code, `"${code}" is recorded verbatim`).toBe(code);
+    }
+  });
+
+  it('QM_JOIN_START is UNGUARDED BY MODE — it transitions from hosting, joining and select alike', () => {
+    for (const start of [
+      lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: JOINER_CODE }),
+      lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE }),
+      initialLobbyState(),
+    ]) {
+      const after = lobbyReduce(start, { type: 'QM_JOIN_START', code: HOST_CODE });
+      expect(after.mode).toBe('joining');
+      expect(after.code).toBe(HOST_CODE);
+      expect(after.status).toBe(LOBBY_STATUS.CONNECTING);
+    }
+  });
+
+  it('QM_JOIN_START clears every session latch, exactly as a successful JOIN_ATTEMPT does', () => {
+    // The two share one `enterJoining` body; this pins that they cannot drift apart.
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: JOINER_CODE });
+    const withLatches = lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 2 });
+    expect(withLatches.beginVisible).toBe(true); // a real host latch to clear
+    const demoted = lobbyReduce(withLatches, { type: 'QM_JOIN_START', code: HOST_CODE });
+    const joined = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: HOST_CODE });
+    expect({ ...demoted, code: '' }).toEqual({ ...joined, code: '' });
+  });
+
+  it('a purely LOCAL "hosting" belief is the ONLY thing that can claim a seat without a roster', () => {
+    // fallbackSelfSeat is the single exported carrier of that claim (see its docblock).
+    expect(fallbackSelfSeat(lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE })))
+      .toBe(0);
+    expect(fallbackSelfSeat(lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE })))
+      .toBeNull();
+    expect(fallbackSelfSeat(initialLobbyState())).toBeNull();
+  });
+});
+
+/**
+ * ⭐ S182 — SOURCE-TEXT TRIPWIRE. The brief's rule 7: *"when you add a rule, assert each call site
+ * exists"* — a behaviour test cannot see a SECOND site growing back somewhere else in the file.
+ *
+ * ⚠ ASSERTIONS ARE ON CODE, NOT ON FILE TEXT (the `ci.deployGate.test.ts` / `protocolVersionSync`
+ * lesson). The docblocks in this module quote `mode === 'hosting'` precisely to explain the bug, so
+ * a naive text match would be satisfied by the documentation of the very defect under test.
+ * Comments are stripped first.
+ */
+describe('S182 — no seat identity is derived from local mode outside fallbackSelfSeat', () => {
+  const SM_PATH = fileURLToPath(new URL('./lobbyStateMachine.ts', import.meta.url));
+  const SM_CODE = readFileSync(SM_PATH, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  /**
+   * ⚠ SCOPED TO THE SEAT PROJECTION, NOT TO THE WHOLE FILE — and the first version of this test was
+   * wrong in exactly that way. It counted `mode === 'hosting'` across the module and failed on TWO
+   * hits: the second is the `PEER_STATUS` arm choosing between "N players connected" and "Connected.
+   * Waiting for host...". That one is legitimate and must stay — a host and a joiner genuinely need
+   * different STATUS COPY. What may never be derived from local mode is WHO YOU ARE, and that lives
+   * in `lobbyView`. Widening the net past the thing under test only produces a red that gets
+   * "fixed" by relaxing the assertion, which deletes the gate.
+   */
+  const LOBBY_VIEW_BODY = SM_CODE.slice(SM_CODE.indexOf('export function lobbyView'));
+
+  it("lobbyView's seat projection contains NO `mode === 'hosting'` identity claim", () => {
+    expect(LOBBY_VIEW_BODY).not.toMatch(/mode === 'hosting'/);
+    expect(LOBBY_VIEW_BODY.length).toBeGreaterThan(200); // the slice actually found the function
+  });
+
+  it('the one local claim lives in fallbackSelfSeat, which returns a SEAT and not a boolean', () => {
+    expect(SM_CODE).toMatch(
+      /export function fallbackSelfSeat\(state: LobbyState\): number \| null \{\s*return state\.mode === 'hosting' \? 0 : null;\s*\}/,
+    );
+  });
+
+  it("the surviving `mode === 'hosting'` read is the PEER_STATUS arm's status copy, not identity", () => {
+    const hits = SM_CODE.match(/mode === 'hosting'/g) ?? [];
+    expect(hits).toHaveLength(2); // fallbackSelfSeat + the status arm below
+    expect(SM_CODE).toMatch(/if \(state\.mode === 'hosting' && event\.peerCount > 0\) \{/);
+  });
+
+  it('lobbyView derives isYou from the roster or from fallbackSelfSeat, never inline from mode', () => {
+    // The roster arm reads the digested per-seat identity; the fallback arm reads the predicate.
+    expect(SM_CODE).toMatch(/isYou: entry !== undefined && entry\.isYou/);
+    expect(SM_CODE).toMatch(/isYou: selfSeat === i/);
+    expect(SM_CODE).toMatch(/const selfSeat = fallbackSelfSeat\(state\)/);
+  });
+
+  it('the shell drives the demote with QM_JOIN_START, not with the user-input JOIN_ATTEMPT', () => {
+    const SCREEN_PATH = fileURLToPath(new URL('./lobbyScreen.ts', import.meta.url));
+    const SCREEN_CODE = readFileSync(SCREEN_PATH, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    // The event choice is the load-bearing half: a demote must never ride the user-input event.
+    expect(SCREEN_CODE).toMatch(
+      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?lobbyReduce\(this\.state, \{ type: 'QM_JOIN_START', code \}\)/,
+    );
+    /*
+     * ⛔ S182 — **THE LATCH CLEAR MUST COME AFTER THE DISPATCH, AND THE ORDER IS THE ASSERTION.**
+     *
+     * Two things are pinned at once. The clear must EXIST (a demoted peer arriving in someone else's
+     * lobby still painted READY ✓ is a ready-gate that can never fire, because `teardownNet` already
+     * cleared the session's half). And it must come AFTER `lobbyReduce` — the first version mutated
+     * shell state and repainted the button BEFORE dispatching, so any transition the reducer declined
+     * would leave the button and the state disagreeing. That is the same shell-vs-state contradiction
+     * this whole branch exists to remove, in miniature.
+     */
+    expect(SCREEN_CODE).toMatch(
+      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?QM_JOIN_START[\s\S]*?this\.selfReady = false;/,
+    );
+    expect(
+      SCREEN_CODE,
+      'the shell must not mutate before the reducer decides',
+    ).not.toMatch(
+      /applyQuickmatchJoining\(code: string\): void \{[^}]*?this\.selfReady = false;[\s\S]*?lobbyReduce/,
+    );
+    // JOIN_ATTEMPT survives for the one thing it is: the Connect button.
+    expect((SCREEN_CODE.match(/'JOIN_ATTEMPT'/g) ?? [])).toHaveLength(1);
   });
 });
