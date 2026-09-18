@@ -181,12 +181,13 @@ import { CharacterSheet } from './render/characterSheet.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
-  commitRun,
+  beginSubmit,
   cycleLetter,
   finishRun,
   moveCursor,
+  revealBoard,
   startRun,
-  syncRunToBoard,
+  submitRun,
   typeLetter,
   type ArcadeRun,
 } from './render/arcadeRun.ts';
@@ -1355,33 +1356,43 @@ async function bootstrap(): Promise<void> {
         case 'ArrowDown': arcadeRun = cycleLetter(run, -1); break;
         case 'ArrowLeft': arcadeRun = moveCursor(run, -1); break;
         case 'ArrowRight': arcadeRun = moveCursor(run, 1); break;
-        // `at` is a wall-clock stamp used only to break exact-time ties, never to measure the run.
         case 'Enter': {
-          const committed = commitRun(run, Date.now());
-          arcadeRun = committed;
           /*
-           * ⭐ S182 — THE SHARED BOARD, AND IT IS A NO-OP IN EVERY BUILD SHIPPED TODAY.
+           * ⭐⭐ R182-G STEP 3 — SUBMIT, THEN RECAP, THEN THE BOARD. Never the board directly.
            *
-           * `commitRun` above has ALREADY recorded the run locally and already set the place the
-           * player is about to see, synchronously — that half cannot fail and does not wait on
-           * anything. This publishes the same run to the shared board and swaps in the reconciled
-           * one when it answers. With no `VITE_LEADERBOARD_URL` configured, `syncRunToBoard`
-           * returns the run untouched on its first line.
+           * `submitRun` folds this run into the player's average and comes back with everything the
+           * cinematic needs. It NEVER throws and never loses the run: a network failure degrades to
+           * the offline tier and queues the run for the next successful submit, because under an
+           * average a dropped run is not a missed row — it is a permanently wrong number.
            *
-           * ⛔ THE IDENTITY RE-CHECK IS NOT DEFENSIVE PADDING. This resolves one or more frames
-           * later. `arcadeRun` is reassigned by ESC (to null), by BACK, and by ENTER on the BOARD
-           * screen starting a WHOLE NEW RUN with a fresh clock — all reachable while a request is
-           * in flight. Without `arcadeRun === committed`, a slow reply would paint the previous
-           * run's board and place over a run already in progress.
+           * ⛔ `beginSubmit` FIRST, so the screen says SAVING… rather than appearing frozen while a
+           * request crosses the network. It also latches `submitting`, which makes a second ENTER a
+           * no-op — double-submitting would fold the same run in twice and skew the mean forever.
+           *
+           * ⛔ AND THE IDENTITY RE-CHECK IS NOT DEFENSIVE PADDING. This resolves one or more frames
+           * later, and `arcadeRun` is reassigned by ESC (to null), by BACK, and by ENTER on the
+           * BOARD screen starting a WHOLE NEW RUN. Without `arcadeRun === pending`, a slow reply
+           * would paint a finished run's ranking over a run already in progress.
            */
-          void syncRunToBoard(committed).then((synced) => {
-            if (arcadeRun === committed) arcadeRun = synced;
+          if (run.submitting) break;
+          const pending = beginSubmit(run);
+          arcadeRun = pending;
+          void submitRun(pending, performance.now()).then((next) => {
+            if (arcadeRun === pending) arcadeRun = next;
           });
           break;
         }
         default: arcadeRun = typeLetter(run, e.key); return; // ignores anything off the alphabet
       }
       e.preventDefault(); // arrows scroll the page otherwise
+      return;
+    }
+
+    // RECAP — ENTER leaves the cinematic for the ranking. ⛔ This is the ONLY door to the board,
+    // which is what makes "you cannot see the names before you put your name" structural.
+    if (run.phase === 'RECAP' && e.key === 'Enter') {
+      arcadeRun = revealBoard(run);
+      e.preventDefault();
       return;
     }
 

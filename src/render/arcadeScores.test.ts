@@ -1,32 +1,45 @@
 /**
- * SPARK — S149 P6: the arcade high-score table.
+ * SPARK — S182 R182-G: the arcade RANKING store.
  *
- * Owner: *"see who can finish it as fast as possible … only like top 25 are shown and it tells him
- * place place his score is. like in a real arcade from the 80s"*
+ * Owner: *"The leaderboard will hold the AVERAGE time it takes a user to complete... So people are
+ * competing over a long span."*
  *
- * ⛔ THE ASSERTION THAT MATTERS MOST IS THE SORT DIRECTION. This is a TIME trial, so the best score
- * is the SMALLEST number — the inverse of the usual high-score board. A board sorted the wrong way
- * would still look completely correct (sorted, capped at 25, ranked 1..25) while silently
- * celebrating the slowest players. Nothing but an explicit direction test catches that.
+ * ⛔ TWO PROPERTIES MATTER MORE THAN THE REST, AND BOTH FAIL SILENTLY.
+ *
+ * **The sort direction.** This is a time trial, so the best average is the SMALLEST. Inverted, the
+ * table still looks completely correct — sorted, capped at 25, ranked 1..25 — while celebrating the
+ * slowest players. Nothing but an explicit direction test catches that.
+ *
+ * **Losslessness.** The mean is derived from a stored sum and count. Folding into a stored average
+ * instead would round at every step, and the error compounds with every game a player ever plays —
+ * so the bug would not appear in testing and would appear, unfixably, after a season of play.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  averageMsOf,
+  BOARD_NONET,
+  compareRows,
+  entryOf,
+  foldRun,
   formatTime,
-  insertScore,
-  loadScores,
+  loadPending,
+  loadRanking,
   NAME_LEN,
   normaliseName,
-  placeOf,
-  qualifies,
-  recordRun,
-  saveScores,
+  parseRankingEntries,
+  parseRankingRows,
+  PENDING_CAP,
+  placeOfName,
+  rankRows,
+  savePending,
+  saveRanking,
   TOP_N,
-  type ArcadeScore,
+  type RankingEntry,
 } from './arcadeScores.ts';
 
-const row = (name: string, ms: number, at = 0): ArcadeScore => ({ name, ms, at });
+const entry = (name: string, runs: number, totalMs: number): RankingEntry => ({ name, runs, totalMs });
 
 /** A minimal in-memory localStorage so the storage paths are exercised headlessly. */
 function installStorage(): void {
@@ -43,169 +56,184 @@ function installStorage(): void {
 
 beforeEach(installStorage);
 
-describe('S149 P6 — ⛔ FASTER IS BETTER (the inverted sort)', () => {
-  it('orders the board by ASCENDING time', () => {
-    const board = insertScore(insertScore(insertScore([], row('AAA', 9000)), row('BBB', 3000)), row('CCC', 6000));
-    expect(board.map((r) => r.name)).toEqual(['BBB', 'CCC', 'AAA']);
+describe('R182-G — folding a run into an average', () => {
+  it('a brand new name starts at one run', () => {
+    const after = foldRun([], 'DAN', 60_000);
+    expect(after).toEqual([entry('DAN', 1, 60_000)]);
+    expect(averageMsOf(after[0])).toBe(60_000);
   });
 
-  it('a FASTER run takes a BETTER place — the direction test', () => {
-    const scores = [row('AAA', 5000)];
-    expect(placeOf(scores, row('NEW', 4000))).toBe(1); // faster ⇒ first
-    expect(placeOf(scores, row('NEW', 6000))).toBe(2); // slower ⇒ second
+  it('⭐ an existing name accumulates — runs + 1, total + ms', () => {
+    // The owner's example: ten games averaging 1:20, then a new one lands and the mean moves.
+    let e: RankingEntry[] = [entry('DAN', 10, 800_000)]; // 10 runs, avg 1:20.00
+    expect(averageMsOf(e[0])).toBe(80_000);
+    e = foldRun(e, 'DAN', 63_000); // a 1:03 run
+    expect(e[0].runs).toBe(11);
+    expect(averageMsOf(e[0])).toBeCloseTo(78_454.5, 0); // it comes down
   });
 
-  it('a tie keeps the INCUMBENT ahead — you must genuinely beat a record', () => {
-    const scores = [row('OLD', 5000, 100)];
-    expect(placeOf(scores, row('NEW', 5000, 200))).toBe(2);
-  });
-});
-
-describe('S149 P6 — the board is capped, and it TELLS you where you landed', () => {
-  const full = Array.from({ length: TOP_N }, (_, i) => row('AAA', 1000 + i, i));
-
-  it(`shows at most ${TOP_N} rows`, () => {
-    expect(insertScore(full, row('NEW', 1)).length).toBe(TOP_N);
+  it('⛔ IS LOSSLESS — folding N runs equals averaging them in one go', () => {
+    // The whole reason sum+count is stored rather than a rolling mean. A stored average rounds at
+    // every step and the error compounds over a player's entire history, unfixably.
+    const times = [61_234, 92_811, 45_009, 73_500, 88_121, 59_999, 101_777];
+    let e: RankingEntry[] = [];
+    for (const t of times) e = foldRun(e, 'DAN', t);
+    const exact = times.reduce((a, b) => a + b, 0) / times.length;
+    expect(averageMsOf(e[0])).toBe(exact); // EXACT, not close
+    expect(e[0].runs).toBe(times.length);
   });
 
-  it('a qualifying run pushes the slowest row off the bottom', () => {
-    const after = insertScore(full, row('NEW', 1));
-    expect(after[0].name).toBe('NEW');
-    expect(after.length).toBe(TOP_N);
-    // The old last row (the slowest) is the one that fell off.
-    expect(after.some((r) => r.ms === 1000 + TOP_N - 1)).toBe(false);
+  it('order of folding does not change the result', () => {
+    const a = [5000, 90_000, 61_000].reduce<RankingEntry[]>((acc, t) => foldRun(acc, 'DAN', t), []);
+    const b = [61_000, 5000, 90_000].reduce<RankingEntry[]>((acc, t) => foldRun(acc, 'DAN', t), []);
+    expect(averageMsOf(a[0])).toBe(averageMsOf(b[0]));
   });
 
-  it('⭐ still reports a place for a run that MISSED the board', () => {
-    // The owner asked to be told the place, not merely shown the table. A cabinet told you
-    // "41ST" even when you did not make it, and that is the information being pinned here.
-    const missed = row('SLO', 999999);
-    expect(qualifies(full, missed)).toBe(false);
-    expect(placeOf(full, missed)).toBe(TOP_N + 1);
+  it('two players stay separate; the same name MERGES — the accepted identity trade', () => {
+    // Owner: "hold people at their same name, if not then who cares, come back to it later."
+    let e = foldRun([], 'DAN', 60_000);
+    e = foldRun(e, 'SAM', 90_000);
+    e = foldRun(e, 'DAN', 80_000);
+    expect(e).toHaveLength(2);
+    expect(entryOf(e, 'DAN')).toEqual(entry('DAN', 2, 140_000));
+    expect(entryOf(e, 'SAM')?.runs).toBe(1);
   });
 
-  it('an empty board puts any run first', () => {
-    expect(placeOf([], row('AAA', 12345))).toBe(1);
-    expect(qualifies([], row('AAA', 12345))).toBe(true);
-  });
-});
-
-describe('S149 P6 — three-letter initials, the cabinet convention', () => {
-  it('always yields exactly three characters', () => {
-    for (const raw of ['', 'A', 'AB', 'ABC', 'ABCDEF', '   ', '!!!']) {
-      expect(normaliseName(raw)).toHaveLength(NAME_LEN);
-    }
+  it('a name is normalised on the way in, so DAN and dan are one player', () => {
+    let e = foldRun([], 'dan', 60_000);
+    e = foldRun(e, 'DAN', 80_000);
+    expect(e).toHaveLength(1);
+    expect(e[0].runs).toBe(2);
   });
 
-  it('upper-cases and drops characters the picker cannot produce', () => {
-    expect(normaliseName('abc')).toBe('ABC');
-    expect(normaliseName('a!b')).toBe('ABA'); // '!' dropped, then padded
-  });
-
-  it('an unusable name becomes the arcade default rather than an empty row', () => {
-    expect(normaliseName('!!!')).toBe('AAA');
+  it('a non-finite or negative time folds as zero rather than poisoning the mean', () => {
+    // A NaN total would make the row un-sortable and pin it at the top of the table forever.
+    const e = foldRun([entry('DAN', 1, 60_000)], 'DAN', Number.NaN);
+    expect(Number.isFinite(averageMsOf(e[0]))).toBe(true);
   });
 });
 
-describe('S149 P6 — the M:SS.cc readout', () => {
-  it('formats minutes, seconds and centiseconds', () => {
-    expect(formatTime(0)).toBe('0:00.00');
-    expect(formatTime(1234)).toBe('0:01.23');
-    expect(formatTime(61_000)).toBe('1:01.00');
-    expect(formatTime(600_000)).toBe('10:00.00');
+describe('R182-G — the ranking order', () => {
+  it('⛔ LOWER AVERAGE WINS — the inverted sort this file exists to protect', () => {
+    const rows = rankRows([entry('SLO', 1, 200_000), entry('FST', 1, 40_000), entry('MID', 1, 90_000)]);
+    expect(rows.map((r) => r.name)).toEqual(['FST', 'MID', 'SLO']);
+    expect(rows[0].averageMs).toBeLessThan(rows[1].averageMs);
   });
 
-  it('never renders a negative clock', () => {
-    expect(formatTime(-5000)).toBe('0:00.00');
+  it('at an identical average, MORE RUNS ranks higher', () => {
+    const rows = rankRows([entry('NEW', 1, 60_000), entry('OLD', 40, 2_400_000)]);
+    expect(rows.map((r) => r.name)).toEqual(['OLD', 'NEW']);
+  });
+
+  it('and the final tie-break is the name, so the order is TOTAL', () => {
+    // Two clients must not disagree about who is 4th; an unstable order is a desync of the UI.
+    const rows = rankRows([entry('BBB', 2, 120_000), entry('AAA', 2, 120_000)]);
+    expect(rows.map((r) => r.name)).toEqual(['AAA', 'BBB']);
+    expect(compareRows(rows[0], rows[1])).toBeLessThan(0);
+  });
+
+  it('caps at TOP_N', () => {
+    const many = Array.from({ length: TOP_N + 12 }, (_, i) =>
+      entry(String(i).padStart(3, '0'), 1, 30_000 + i),
+    );
+    expect(rankRows(many)).toHaveLength(TOP_N);
+  });
+
+  it('placeOfName is 1-based, and reports "just past the end" for an absent name', () => {
+    const rows = rankRows([entry('AAA', 1, 40_000), entry('BBB', 1, 60_000)]);
+    expect(placeOfName(rows, 'AAA')).toBe(1);
+    expect(placeOfName(rows, 'BBB')).toBe(2);
+    expect(placeOfName(rows, 'ZZZ')).toBe(3);
+  });
+
+  it('a zero-run entry cannot produce NaN and sit at the top forever', () => {
+    const rows = rankRows([entry('BAD', 0, 0), entry('OKA', 1, 50_000)]);
+    expect(rows.every((r) => Number.isFinite(r.averageMs))).toBe(true);
   });
 });
 
-describe('S149 P6 — storage is TOTAL: a corrupt board must not break the title screen', () => {
-  it('round-trips a saved board', () => {
-    saveScores([row('AAA', 1000, 1), row('BBB', 2000, 2)]);
-    expect(loadScores().map((r) => r.name)).toEqual(['AAA', 'BBB']);
+describe('R182-G — storage is total, and the new key does not reinterpret the old one', () => {
+  it('round-trips a ranking', () => {
+    saveRanking([entry('DAN', 3, 180_000)]);
+    expect(loadRanking()).toEqual([entry('DAN', 3, 180_000)]);
   });
 
-  it('unparseable JSON degrades to an empty board', () => {
-    globalThis.localStorage.setItem('spark.arcade.nonet.scores.v1', '{not json');
-    expect(loadScores()).toEqual([]);
-  });
-
-  it('a non-array payload degrades to an empty board', () => {
-    globalThis.localStorage.setItem('spark.arcade.nonet.scores.v1', '{"a":1}');
-    expect(loadScores()).toEqual([]);
-  });
-
-  it('malformed ROWS are dropped while good ones survive', () => {
+  it('⛔ IGNORES the old per-run key rather than inventing run counts from it', () => {
+    // A local table of 25 best times is NOT a player with 25 runs — the information an average needs
+    // (how many runs, including the slow ones) was never recorded. Reading it would fabricate a
+    // history, so the new key simply does not look at it.
     globalThis.localStorage.setItem(
       'spark.arcade.nonet.scores.v1',
-      JSON.stringify([{ name: 'AAA', ms: 500, at: 1 }, { name: 'BAD' }, null, 7, { name: 'BBB', ms: -1, at: 2 }]),
+      JSON.stringify([{ name: 'OLD', ms: 12_345, at: 7 }]),
     );
-    expect(loadScores().map((r) => r.name)).toEqual(['AAA']); // negative ms rejected too
+    expect(loadRanking(BOARD_NONET)).toEqual([]);
+  });
+
+  it('a corrupted key degrades to empty rather than throwing on the title screen', () => {
+    globalThis.localStorage.setItem('spark.arcade.nonet.ranking.v1', '{not json');
+    expect(loadRanking()).toEqual([]);
+  });
+
+  it('drops malformed rows: zero runs, negative totals, wrong shapes', () => {
+    expect(
+      parseRankingEntries([
+        { name: 'OKA', runs: 2, totalMs: 100 },
+        { name: 'ZER', runs: 0, totalMs: 100 },
+        { name: 'NEG', runs: 1, totalMs: -5 },
+        { name: 'FRC', runs: 1.5, totalMs: 100 },
+        { nope: true },
+        null,
+      ]).map((e) => e.name),
+    ).toEqual(['OKA']);
+  });
+
+  it('a server row (name, runs, averageMs) reconstructs an exact total', () => {
+    const [e] = parseRankingRows([{ name: 'DAN', runs: 4, averageMs: 75_000 }]);
+    expect(e).toEqual(entry('DAN', 4, 300_000));
+  });
+
+  it('a board id other than the default gets its own key', () => {
+    saveRanking([entry('AAA', 1, 1000)], BOARD_NONET);
+    saveRanking([entry('BBB', 1, 2000)], 'nonet:s07');
+    expect(loadRanking(BOARD_NONET).map((e) => e.name)).toEqual(['AAA']);
+    expect(loadRanking('nonet:s07').map((e) => e.name)).toEqual(['BBB']);
   });
 });
 
-describe('S149 P6 — recordRun ties it together', () => {
-  it('persists a qualifying run and reports its place', () => {
-    const r1 = recordRun('AAA', 5000, 1);
-    expect(r1.place).toBe(1);
-    expect(r1.onBoard).toBe(true);
-
-    const r2 = recordRun('BBB', 3000, 2);
-    expect(r2.place).toBe(1); // faster ⇒ takes first
-    expect(loadScores().map((r) => r.name)).toEqual(['BBB', 'AAA']);
+describe('R182-G — the offline queue', () => {
+  it('round-trips pending runs', () => {
+    savePending([{ name: 'DAN', ms: 60_000 }]);
+    expect(loadPending()).toEqual([{ name: 'DAN', ms: 60_000 }]);
   });
 
-  it('does NOT persist a run that missed the board, but still reports the place', () => {
-    for (let i = 0; i < TOP_N; i++) recordRun('AAA', 1000 + i, i);
-    const before = loadScores();
-    const missed = recordRun('SLO', 999999, 999);
-    expect(missed.onBoard).toBe(false);
-    expect(missed.place).toBe(TOP_N + 1);
-    // ⚠ ANTI-VACUITY: the board must be UNCHANGED, not merely "still 25 long".
-    expect(loadScores()).toEqual(before);
+  it('⚠ is BOUNDED — an unbounded queue would eventually throw on the write that records a run', () => {
+    savePending(Array.from({ length: PENDING_CAP + 50 }, (_, i) => ({ name: 'DAN', ms: 20_000 + i })));
+    expect(loadPending()).toHaveLength(PENDING_CAP);
+  });
+
+  it('drops malformed queue entries', () => {
+    globalThis.localStorage.setItem(
+      'spark.arcade.nonet.pending.v1',
+      JSON.stringify([{ name: 'OKA', ms: 30_000 }, { name: 'BAD', ms: -1 }, { ms: 5 }]),
+    );
+    expect(loadPending().map((p) => p.name)).toEqual(['OKA']);
   });
 });
 
-describe("S150 P3 — the owner's numbers are PINNED, and the blank-name hole is shut", () => {
-  it('TOP_N is 25 and NAME_LEN is 3 — the literals, not the symbols', () => {
-    // ⛔ WHY THIS EXISTS. Every cap assertion in this file uses the imported `TOP_N`, so setting
-    // TOP_N to 10 kept all 18 of them green. The owner asked for "only like top 25" and for
-    // three-letter initials; both were therefore completely unprotected. A test that reads a
-    // constant through the same symbol the code does cannot pin that constant's VALUE.
-    expect(TOP_N).toBe(25);
-    expect(NAME_LEN).toBe(3);
+describe('name and time formatting — unchanged by the rebuild', () => {
+  it('clamps to exactly three characters', () => {
+    expect(normaliseName('danny')).toHaveLength(NAME_LEN);
+    expect(normaliseName('d')).toBe('DAA');
   });
 
-  it('an all-space name becomes AAA rather than a blank row', () => {
-    // NAME_ALPHABET ends with a space on purpose ("AB " must be reachable), so spaces pass the
-    // filter and three of them used to survive as a visually EMPTY row — the exact outcome
-    // normaliseName's docblock says is a bug. The old coverage asserted only the length, and three
-    // spaces have length three.
+  it('⛔ an all-space name becomes the arcade default, not a blank row', () => {
+    // The alphabet ends with a space so "AB " is reachable, which makes three spaces *mappable*.
     expect(normaliseName('   ')).toBe('AAA');
-    expect(normaliseName('')).toBe('AAA');
-    expect(normaliseName('!!!')).toBe('AAA');
-    // ⚠ A SINGLE space is NOT the same case, and asserting 'AAA' here was my own error before the
-    // test was run: ' ' pads to ' AA', which is a perfectly legible space-led row and NOT the blank
-    // this fix exists to prevent. The invariant is "at least one visible character", not "no spaces".
-    expect(normaliseName(' ')).toBe(' AA');
-  });
-
-  it('a space is still legal ALONGSIDE a real character', () => {
-    // The fix must not become "reject spaces" — that would break the reachability the alphabet's
-    // trailing space exists for.
     expect(normaliseName('AB ')).toBe('AB ');
-    expect(normaliseName('A')).toBe('AAA');
-    expect(normaliseName(' B')).toBe(' BA');
   });
 
-  it('every name that reaches the board renders at least one visible character', () => {
-    // The property the two tests above are instances of, asserted over the whole input space that
-    // can produce a row: whatever goes in, the row is never blank.
-    for (const raw of ['', ' ', '  ', '   ', '    ', '!!!', '!@#', 'a', 'ab', 'abc', 'abcdef', ' a ', '  c']) {
-      const name = normaliseName(raw);
-      expect(name).toHaveLength(NAME_LEN);
-      expect(name.trim().length).toBeGreaterThan(0);
-    }
+  it('formats M:SS.cc and never goes negative on screen', () => {
+    expect(formatTime(63_450)).toBe('1:03.45');
+    expect(formatTime(-10)).toBe('0:00.00');
   });
 });

@@ -1,17 +1,14 @@
 /**
- * SPARK — S182: the shared arcade leaderboard client.
+ * SPARK — S182 R182-G: the shared ranking client.
  *
- * Owner: *"I don't see anyone else's records on the arcade… Who the fuck is first place? I can't
- * even see his name… It should be saved in a database."*
+ * ⛔ THE ASSERTIONS THAT MATTER MOST ARE THE FAILURE PATHS, NOT THE HAPPY ONE. The happy path will be
+ * exercised by hand the first time anyone plays. What will not is the aeroplane, the dead wifi, the
+ * captive portal that answers 200 with an HTML login page, and the half-deployed worker that 404s.
+ * Every one must end with the run recorded and the arcade still on screen — the recap is the last
+ * thing a player sees after a good run and the worst possible place to surface a network error.
  *
- * ⛔ THE ASSERTIONS THAT MATTER MOST ARE THE FAILURE PATHS, NOT THE HAPPY ONE.
- *
- * The happy path — a worker answers, the board merges, the player sees everyone — is the easy half
- * and the half that will be exercised by hand the moment it is switched on. What will NOT be
- * exercised by hand is the aeroplane, the dead wifi, the captive portal that returns an HTML login
- * page with a 200, or the half-deployed worker that 404s. Every one of those has to end with the
- * player's run recorded and the arcade still on screen, because the board is the last thing someone
- * sees after a good run and the worst possible place to surface a network error.
+ * ⛔ AND UNDER AN AVERAGE, "the run was recorded" IS STRICTLY MORE IMPORTANT THAN IT USED TO BE. A
+ * dropped run is not a missed row; it is a permanently wrong number that no later run can repair.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,13 +20,10 @@ import {
   LocalLeaderboard,
   parseLeaderboardBase,
   RemoteLeaderboard,
+  selectLeaderboard,
   setLeaderboardForTests,
-  type LeaderboardClient,
 } from './arcadeLeaderboard.ts';
-import { loadScores, mergeBoards, TOP_N, type ArcadeScore } from './arcadeScores.ts';
-import { applyRemoteBoard, commitRun, finishRun, startRun, syncRunToBoard } from './arcadeRun.ts';
-
-const row = (name: string, ms: number, at = 0): ArcadeScore => ({ name, ms, at });
+import { loadPending, loadRanking, savePending } from './arcadeScores.ts';
 
 function installStorage(): void {
   const map = new Map<string, string>();
@@ -49,7 +43,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** A `fetch` stub that answers with `body` and `status`, and records what it was called with. */
+/** A `fetch` stub that answers with `body`/`status` and records what it was called with. */
 function stubFetch(body: unknown, status = 200): { calls: Array<[string, RequestInit]> } {
   const calls: Array<[string, RequestInit]> = [];
   vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
@@ -63,278 +57,201 @@ function stubFetch(body: unknown, status = 200): { calls: Array<[string, Request
   return { calls };
 }
 
-describe('S182 — parseLeaderboardBase: "is it USABLE", never "is it set"', () => {
+describe('R182-G — which client a build selects', () => {
   /**
-   * ⛔ THE S162 FAILURE, RE-ARMED. `turn-wiring-report.mjs` printed a green tick for a build whose
-   * ICE config threw, because it asked whether a value was non-empty. The owner lost multiplayer on
-   * every network behind that tick. Every case below is a value that IS set, IS non-empty, and
-   * silently ships no shared board.
+   * ⛔ THIS REPLACES TWO TESTS THAT WERE GREEN BY ACCIDENT. They asserted
+   * `isSharedBoardConfigured() === false` and a local `kind` — reading the BUILD-TIME constant, which
+   * is unset under vitest and SET in production. They therefore asserted the opposite of what ships,
+   * passed anyway, and could never have caught a regression in the thing they were named for.
+   *
+   * The selection RULE is what is worth pinning, so it is tested as a pure function of its input with
+   * both branches asserted. Whether the variable reaches the bundle is a source-text question and
+   * `ci.leaderboardGate.test.ts` owns it.
    */
-  it('accepts a real Cloudflare worker origin', () => {
-    expect(parseLeaderboardBase('https://spark-leaderboard.dan.workers.dev'))
-      .toBe('https://spark-leaderboard.dan.workers.dev');
+  it('⭐ a configured base selects the REMOTE client', () => {
+    expect(selectLeaderboard('https://board.example').kind).toBe('remote');
   });
 
-  it('accepts a custom domain — the rule is host-agnostic, not workers.dev-specific', () => {
-    // He may well move it behind board.spark-online.space later; a workers.dev regex would have
-    // silently rejected that and sent him back to the runbook with no idea why.
-    expect(parseLeaderboardBase('https://board.spark-online.space'))
-      .toBe('https://board.spark-online.space');
+  it('⭐ an empty base selects the LOCAL client — a supported state, not a failure', () => {
+    expect(selectLeaderboard('').kind).toBe('local');
   });
 
-  it('trims a trailing slash so URL joins stay predictable', () => {
-    expect(parseLeaderboardBase('https://x.workers.dev/')).toBe('https://x.workers.dev');
+  it('getLeaderboard agrees with selectLeaderboard for THIS environment, whatever it is', () => {
+    // Deliberately asserts a RELATIONSHIP rather than a value, so it is true in CI and in production.
+    expect(getLeaderboard().kind).toBe(isSharedBoardConfigured() ? 'remote' : 'local');
   });
 
-  it('⛔ REJECTS plain http on a public host — the browser blocks it as mixed content', () => {
-    // THE most likely real mistake: a URL typed by hand or copied from an older note loses the `s`.
-    // The site is HTTPS, so the request never leaves the page and the client reads it as "offline".
-    expect(parseLeaderboardBase('http://x.workers.dev')).toBe('');
-  });
-
-  it('but ALLOWS http on localhost — a dev server on the same machine is legitimate', () => {
-    expect(parseLeaderboardBase('http://localhost:5173')).toBe('http://localhost:5173');
-    expect(parseLeaderboardBase('http://127.0.0.1:8787')).toBe('http://127.0.0.1:8787');
-  });
-
-  it('⛔ REJECTS a missing scheme — fetch would resolve it against spark-online.space', () => {
-    expect(parseLeaderboardBase('spark-leaderboard.dan.workers.dev')).toBe('');
-  });
-
-  it('⛔ REJECTS a path or query — every request would be misrouted to /board/board/nonet', () => {
-    expect(parseLeaderboardBase('https://x.workers.dev/board')).toBe('');
-    expect(parseLeaderboardBase('https://x.workers.dev?a=1')).toBe('');
-  });
-
-  it('⭐ RECOVERS a wrapped paste — the exact S162 shape that killed multiplayer', () => {
-    expect(parseLeaderboardBase('url: "https://x.workers.dev",')).toBe('https://x.workers.dev');
-    expect(parseLeaderboardBase('VITE_LEADERBOARD_URL=https://x.workers.dev')).toBe('https://x.workers.dev');
-  });
-
-  it('⛔ and recovering a paste must NOT eat the scheme of a clean value', () => {
-    // The regression this file caught by RUNNING it: without a `(?!//)` lookahead the label-stripper
-    // reads `https:` as a `key:` prefix, so the parser accepted ONLY wrapped values and rejected
-    // every correct one — exactly inverted, and it would have looked like the feature simply
-    // did not work.
-    expect(parseLeaderboardBase('https://x.workers.dev')).not.toBe('');
-  });
-
-  it('strips surrounding whitespace and a newline from a form paste', () => {
-    expect(parseLeaderboardBase('  https://x.workers.dev\n')).toBe('https://x.workers.dev');
-  });
-
-  it('⛔ REJECTS the literal strings a mis-templated CI expression produces', () => {
-    // All three are truthy, non-empty strings that would sail past an `=== ''` check.
-    for (const s of ['undefined', 'null', 'false']) expect(parseLeaderboardBase(s)).toBe('');
-  });
-
-  it('an unset value is the supported state, not an error', () => {
-    expect(parseLeaderboardBase('')).toBe('');
-    expect(parseLeaderboardBase('   ')).toBe('');
+  it('is cached, so two call sites cannot disagree', () => {
+    expect(getLeaderboard()).toBe(getLeaderboard());
   });
 });
 
-describe('S182 — the LOCAL board still behaves exactly as it always did', () => {
-  it('is what a build with no configured backend selects', () => {
-    // ⛔ THE LOAD-BEARING ASSERTION OF THE WHOLE BRANCH. Shipping the seam must not ship the
-    // backend: with `VITE_LEADERBOARD_URL` unset the game has to behave byte-for-byte as before,
-    // because the owner has not approved an account and none exists.
-    expect(isSharedBoardConfigured()).toBe(false);
-    expect(getLeaderboard().kind).toBe('local');
-  });
-
-  it('records a run and reports the place', async () => {
-    const local = new LocalLeaderboard();
-    const r = await local.submit(BOARD_NONET, row('ABC', 90_000, 1));
+describe('R182-G — the local tier folds an average', () => {
+  it('a first run reports no previous average and a count of one', async () => {
+    const r = await new LocalLeaderboard().submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.previousAverageMs).toBeNull();
+    expect(r.runs).toBe(1);
+    expect(r.averageMs).toBe(60_000);
     expect(r.place).toBe(1);
-    expect(r.onBoard).toBe(true);
-    expect(r.shared).toBe(false); // never claims to be the shared board
-    expect(await local.top(BOARD_NONET)).toEqual([row('ABC', 90_000, 1)]);
+    expect(r.shared).toBe(false); // never claims to be the shared ranking
   });
 
-  it('a board id other than the default gets its OWN storage key', async () => {
+  it('⭐ a second run reports the OLD average and the new one — the cinematic inputs', async () => {
     const local = new LocalLeaderboard();
-    await local.submit(BOARD_NONET, row('ABC', 90_000, 1));
-    await local.submit('nonet:s07', row('XYZ', 50_000, 2));
-    // The stage board and the endless board are separate tables — this is the property that lets
-    // the 30-stage ladder land without a migration.
-    expect((await local.top(BOARD_NONET)).map((s) => s.name)).toEqual(['ABC']);
-    expect((await local.top('nonet:s07')).map((s) => s.name)).toEqual(['XYZ']);
+    await local.submit(BOARD_NONET, 'DAN', 90_000);
+    const r = await local.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.previousAverageMs).toBe(90_000);
+    expect(r.averageMs).toBe(75_000);
+    expect(r.runs).toBe(2);
   });
 
-  it("⛔ 'nonet' keeps the LEGACY storage key, so the owner's existing board is not wiped", () => {
-    // He has real runs under this exact key right now. A tidier uniform key would have deleted them
-    // silently on first load of the new build.
-    globalThis.localStorage.setItem(
-      'spark.arcade.nonet.scores.v1',
-      JSON.stringify([row('OLD', 12_345, 7)]),
-    );
-    expect(loadScores(BOARD_NONET)).toEqual([row('OLD', 12_345, 7)]);
+  it('is ranked from the very first game — the owner ruled out a minimum run count', async () => {
+    const local = new LocalLeaderboard();
+    await local.submit(BOARD_NONET, 'OLD', 70_000);
+    const r = await local.submit(BOARD_NONET, 'NEW', 40_000);
+    expect(r.place).toBe(1); // one run, straight to the top
   });
 });
 
-describe('S182 — mergeBoards folds two tables without losing or duplicating a run', () => {
-  it('de-duplicates on the FULL triple, not on the name', () => {
-    // The same player appearing three times is the normal case on an arcade board, not a bug.
-    const a = [row('ABC', 50_000, 1), row('ABC', 60_000, 2)];
-    const b = [row('ABC', 50_000, 1), row('ABC', 70_000, 3)];
-    expect(mergeBoards(a, b)).toEqual([
-      row('ABC', 50_000, 1),
-      row('ABC', 60_000, 2),
-      row('ABC', 70_000, 3),
-    ]);
-  });
-
-  it('⛔ two runs sharing a name AND a time are kept apart by `at`', () => {
-    // The likeliest collision of all: one player replaying a board they have memorised. Collapsing
-    // these would delete a real run, and would break `drawBoard`'s own-row highlight, which matches
-    // on exactly this triple.
-    const merged = mergeBoards([row('ABC', 50_000, 1)], [row('ABC', 50_000, 2)]);
-    expect(merged).toHaveLength(2);
-  });
-
-  it('re-sorts fastest-first and caps at TOP_N', () => {
-    const many = Array.from({ length: TOP_N + 10 }, (_, i) => row('AAA', 100_000 - i, i));
-    const merged = mergeBoards(many, [row('WIN', 1, 999)]);
-    expect(merged).toHaveLength(TOP_N);
-    expect(merged[0]).toEqual(row('WIN', 1, 999));
-    // lower ms is better — the inverted sort arcadeScores.ts exists to protect
-    expect(merged[1].ms).toBeLessThan(merged[2].ms);
-  });
-});
-
-describe('S182 — the REMOTE board, and every way the network can let a player down', () => {
-  it('merges the shared board with the local one and reports `shared`', async () => {
-    const remote = new RemoteLeaderboard('https://board.example');
-    stubFetch({ scores: [row('FRD', 40_000, 5)] });
-    const r = await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(r.shared).toBe(true);
-    // ⭐ THE OWNER'S ACTUAL COMPLAINT, AS AN ASSERTION: his friend's row is on his screen, and his
-    // own place is measured against it rather than against an empty table.
-    expect(r.scores.map((s) => s.name)).toEqual(['FRD', 'DAN']);
-    expect(r.place).toBe(2);
-  });
-
-  it('writes the merged board back to local storage, so a cold start is not empty again', async () => {
-    const remote = new RemoteLeaderboard('https://board.example');
-    stubFetch({ scores: [row('FRD', 40_000, 5)] });
-    await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(loadScores(BOARD_NONET).map((s) => s.name)).toEqual(['FRD', 'DAN']);
-  });
-
-  it('⛔ OFFLINE — the run is still recorded and the local board is still shown', async () => {
-    const remote = new RemoteLeaderboard('https://board.example');
-    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
-    const r = await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(r.shared).toBe(false);
-    expect(r.onBoard).toBe(true);
-    expect(loadScores(BOARD_NONET)).toEqual([row('DAN', 60_000, 9)]); // ⭐ the run was NOT lost
-  });
-
-  it('⛔ a 500 falls back rather than throwing', async () => {
-    const remote = new RemoteLeaderboard('https://board.example');
-    stubFetch({ scores: [] }, 500);
-    const r = await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(r.shared).toBe(false);
-    expect(loadScores(BOARD_NONET)).toHaveLength(1);
-  });
-
-  it('⛔ a 200 whose body has NO `scores` array is a failure, not an empty board', async () => {
-    // The captive-portal case: hotel wifi answers every request with its own login page, status 200.
-    // Treating that as "the shared board is empty" would wipe every other player out of the merge.
-    const remote = new RemoteLeaderboard('https://board.example');
-    globalThis.localStorage.setItem(
-      'spark.arcade.nonet.scores.v1',
-      JSON.stringify([row('FRD', 40_000, 5)]),
-    );
-    stubFetch({ login: 'please sign in' });
-    const r = await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(r.shared).toBe(false);
-    expect(r.scores.map((s) => s.name)).toEqual(['FRD', 'DAN']); // the cached rows survived
-  });
-
-  it('a malformed remote ROW is dropped without taking the board with it', async () => {
+describe('R182-G — the remote tier, and every way the network can let a player down', () => {
+  it('folds server-side and reports the shared ranking', async () => {
     const remote = new RemoteLeaderboard('https://board.example');
     stubFetch({
-      scores: [
-        { name: 'OK', ms: 30_000, at: 1 },         // legal, but two chars — padded, not rejected
-        { name: 'BAD', ms: -5, at: 2 },            // negative time
-        { name: 'NAN', ms: Number.NaN, at: 3 },    // NaN survives JSON as null → rejected
-        { name: 'INF', ms: 1, at: Number.NaN },    // unusable tie-breaker → rejected
-        { nope: true },                            // wrong shape entirely
-      ],
+      rows: [{ name: 'FRD', runs: 9, averageMs: 50_000 }, { name: 'DAN', runs: 2, averageMs: 75_000 }],
+      you: { name: 'DAN', runs: 2, averageMs: 75_000, previousAverageMs: 90_000 },
     });
-    const r = await remote.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(r.scores.map((s) => s.name)).toEqual(['OKA', 'DAN']);
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.shared).toBe(true);
+    // ⭐ THE OWNER'S ORIGINAL COMPLAINT AS AN ASSERTION: his friend is on his screen, and his place
+    // is measured against them rather than against an empty table.
+    expect(r.rows.map((x) => x.name)).toEqual(['FRD', 'DAN']);
+    expect(r.place).toBe(2);
+    expect(r.previousAverageMs).toBe(90_000);
+  });
+
+  it('⭐ PREFERS THE SERVER\'S previous average — local storage is empty on a new device', async () => {
+    // The normal case, not an edge one: a phone, a friend's laptop, a cleared cache. Trusting local
+    // storage would announce FIRST RUN to someone on their fortieth and count up from nonsense.
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      rows: [{ name: 'DAN', runs: 40, averageMs: 71_000 }],
+      you: { name: 'DAN', runs: 40, averageMs: 71_000, previousAverageMs: 72_000 },
+    });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.previousAverageMs).toBe(72_000);
+    expect(r.runs).toBe(40);
+  });
+
+  it('⛔ OFFLINE — the run is recorded locally AND queued for the next submit', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.shared).toBe(false);
+    expect(r.runs).toBe(1);
+    expect(loadRanking(BOARD_NONET)).toHaveLength(1); // ⭐ the run was NOT lost
+    expect(loadPending(BOARD_NONET)).toEqual([{ name: 'DAN', ms: 60_000 }]); // ⭐ and will be sent
+  });
+
+  it('⭐ FLUSHES the queue on the next successful submit, oldest first', async () => {
+    savePending([{ name: 'DAN', ms: 80_000 }, { name: 'DAN', ms: 70_000 }], BOARD_NONET);
+    const remote = new RemoteLeaderboard('https://board.example');
+    const { calls } = stubFetch({
+      rows: [{ name: 'DAN', runs: 3, averageMs: 70_000 }],
+      you: { name: 'DAN', runs: 3, averageMs: 70_000, previousAverageMs: 80_000 },
+    });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    const sent = JSON.parse(String(calls[0][1].body)) as { runs: Array<{ ms: number }> };
+    expect(sent.runs.map((x) => x.ms)).toEqual([80_000, 70_000, 60_000]); // queue first, in order
+    expect(r.flushed).toBe(2); // surfaced so a run count jumping by 3 is explained, not a bug
+    expect(loadPending(BOARD_NONET)).toEqual([]); // and the queue is cleared
+  });
+
+  it('⛔ a 500 falls back without throwing, and still queues', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({ rows: [] }, 500);
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.shared).toBe(false);
+    expect(loadPending(BOARD_NONET)).toHaveLength(1);
+  });
+
+  it('⛔ a 200 with NO `rows` array is a failure, not an empty ranking', async () => {
+    // The captive-portal case: hotel wifi answers every request with its own login page, status 200.
+    // Treating that as "nobody has played" would wipe every other player out of the cache.
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({ login: 'please sign in' });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.shared).toBe(false);
+    expect(loadPending(BOARD_NONET)).toHaveLength(1);
+  });
+
+  it('a malformed remote row is dropped without taking the ranking with it', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      rows: [
+        { name: 'OKA', runs: 3, averageMs: 50_000 },
+        { name: 'ZER', runs: 0, averageMs: 10 },
+        { name: 'NAN', runs: 2, averageMs: Number.NaN },
+        { nope: true },
+      ],
+      you: { name: 'OKA', runs: 3, averageMs: 50_000, previousAverageMs: null },
+    });
+    const r = await remote.submit(BOARD_NONET, 'OKA', 60_000);
+    expect(r.rows.map((x) => x.name)).toEqual(['OKA']);
   });
 
   it('⛔ a remote NAME is re-clamped client-side, not trusted', async () => {
-    // The endpoint is public: the worker clamps, and so does this. A row arriving with 200 characters
-    // of anything would otherwise be handed straight to a Pixi text field on every player's board.
     const remote = new RemoteLeaderboard('https://board.example');
-    stubFetch({ scores: [{ name: '<script>'.repeat(40), ms: 30_000, at: 1 }] });
-    const r = await remote.top(BOARD_NONET);
-    expect(r[0].name).toHaveLength(3);
-  });
-
-  it('submits and reads the board id in the URL, so stage boards are addressable', async () => {
-    const remote = new RemoteLeaderboard('https://board.example/');  // trailing slash trimmed
-    const { calls } = stubFetch({ scores: [] });
-    await remote.top('nonet:s07');
-    expect(calls[0][0]).toBe(`https://board.example/board/nonet%3As07?n=${TOP_N}`);
+    stubFetch({ rows: [{ name: '<script>'.repeat(40), runs: 1, averageMs: 50_000 }], you: null });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.rows[0].name).toHaveLength(3);
   });
 
   it('bounds the request so a hanging network cannot freeze the SOLVED screen', async () => {
     const remote = new RemoteLeaderboard('https://board.example');
-    const { calls } = stubFetch({ scores: [] });
-    await remote.top(BOARD_NONET);
+    const { calls } = stubFetch({ rows: [], you: null });
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
     expect(calls[0][1].signal).toBeDefined();
   });
 
-  it('⛔ recording the same run twice does not put two identical rows on the table', async () => {
-    // Reachable through a retry or a merge once the remote tier exists: `RemoteLeaderboard.submit`
-    // records locally BEFORE the network call, and the same entry can come back through the merge.
-    const local = new LocalLeaderboard();
-    await local.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    await local.submit(BOARD_NONET, row('DAN', 60_000, 9));
-    expect(await local.top(BOARD_NONET)).toHaveLength(1);
+  it('addresses the board by id, so a second board needs no code change', async () => {
+    const remote = new RemoteLeaderboard('https://board.example/'); // trailing slash trimmed
+    const { calls } = stubFetch({ rows: [], you: null });
+    await remote.submit('nonet:s07', 'DAN', 60_000);
+    expect(calls[0][0]).toBe('https://board.example/board/nonet%3As07');
   });
 });
 
-describe('S182 — reconciling a committed run against the shared board', () => {
-  const committedRun = (): ReturnType<typeof commitRun> =>
-    commitRun(finishRun(startRun(0), 60_000), 9);
-
-  it('applyRemoteBoard replaces the board, the place and the onBoard flag', () => {
-    const run = committedRun();
-    expect(run.place).toBe(1); // local board of one — always "1ST — NEW RECORD" before this lands
-    const synced = applyRemoteBoard(run, {
-      scores: [row('FRD', 40_000, 5), row('AAA', 60_000, 9)],
-      place: 2,
-      onBoard: true,
-    });
-    expect(synced.place).toBe(2);
-    expect(synced.scores).toHaveLength(2);
+describe('R182-G — parseLeaderboardBase: "is it USABLE", never "is it set"', () => {
+  it('accepts a real worker origin and a custom domain', () => {
+    expect(parseLeaderboardBase('https://spark-leaderboard.x.workers.dev'))
+      .toBe('https://spark-leaderboard.x.workers.dev');
+    // Host-agnostic on purpose: a workers.dev-specific rule would silently reject a later move to
+    // board.spark-online.space and send the owner back to the runbook with no idea why.
+    expect(parseLeaderboardBase('https://board.spark-online.space')).toBe('https://board.spark-online.space');
   });
 
-  it('⛔ a reply that lands after the player started ANOTHER run is dropped', () => {
-    // The async hazard: this resolves frames later, and ENTER on the BOARD screen starts a fresh run
-    // with a live clock. Writing a stale board and place over it would show the last run's result.
-    const running = startRun(0);
-    expect(running.phase).toBe('RUNNING');
-    const synced = applyRemoteBoard(running, { scores: [row('X', 1, 1)], place: 1, onBoard: true });
-    expect(synced).toBe(running); // untouched, same object
+  it('⛔ REJECTS plain http on a public host — the browser blocks it as mixed content', () => {
+    expect(parseLeaderboardBase('http://x.workers.dev')).toBe('');
   });
 
-  it('⭐ syncRunToBoard is a NO-OP while no backend is configured — the shipped state today', async () => {
-    const run = committedRun();
-    let called = false;
-    setLeaderboardForTests({
-      kind: 'remote',
-      top: () => { called = true; return Promise.resolve([]); },
-      submit: () => { called = true; throw new Error('must not be reached'); },
-    } as LeaderboardClient);
-    expect(await syncRunToBoard(run)).toBe(run);
-    expect(called).toBe(false); // it never even asks for the client
+  it('but ALLOWS http on localhost — a dev server on the same machine is legitimate', () => {
+    expect(parseLeaderboardBase('http://localhost:33159')).toBe('http://localhost:33159');
+  });
+
+  it('⛔ REJECTS a missing scheme, a path, and the literal CI strings', () => {
+    expect(parseLeaderboardBase('x.workers.dev')).toBe('');
+    expect(parseLeaderboardBase('https://x.workers.dev/board')).toBe('');
+    for (const s of ['undefined', 'null', 'false']) expect(parseLeaderboardBase(s)).toBe('');
+  });
+
+  it('⭐ RECOVERS a wrapped paste — the exact S162 shape that killed multiplayer', () => {
+    expect(parseLeaderboardBase('url: "https://x.workers.dev",')).toBe('https://x.workers.dev');
+  });
+
+  it('⛔ and recovering a paste must NOT eat the scheme of a clean value', () => {
+    // Caught by RUNNING the report, not by reading it: without the `(?!//)` lookahead the stripper
+    // read `https:` as a `key:` prefix, so the parser accepted ONLY wrapped values and rejected every
+    // correct one — exactly inverted, and it would have looked like the feature simply did not work.
+    expect(parseLeaderboardBase('https://x.workers.dev')).not.toBe('');
   });
 });

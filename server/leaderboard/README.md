@@ -83,7 +83,18 @@ DELETE FROM scores WHERE board = 'nonet';
 
 ---
 
-## Deploying it — APPROVED S182, and these are the only steps left
+## ⭐ DEPLOYED — S182. This is the record of what was run, and how to redo it.
+
+Live at **https://spark-leaderboard.saras-fdtta.workers.dev**, database `spark-leaderboard`
+(id `a3db764b-1982-46ef-9d29-7c5f54d3aa93`, region WEUR). The owner ran `wrangler login`; the rest was
+run for him. Re-running the sequence below is safe — every statement in `schema.sql` is
+`IF NOT EXISTS` or an upsert, so applying it twice is a no-op and it never destroys data.
+
+⚠ **R182-G changed the data model after the first deploy.** The ranking is now one row per PLAYER,
+averaged across their runs — see `schema.sql`. The original per-run `scores` table is retired but left
+in place rather than dropped, so this runbook cannot delete anything by being re-read.
+
+### The original sequence, for reference
 
 ⛔ **Steps 1 and 2 require Daniel's own Cloudflare credentials and cannot be done for him.**
 `wrangler login` is a browser OAuth flow against his account. Everything after them is mechanical.

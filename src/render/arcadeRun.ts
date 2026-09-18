@@ -1,65 +1,54 @@
 /**
- * SPARK — S150 P3: **THE ARCADE TIMED RUN — the state machine, pure.**
+ * SPARK — **THE ARCADE TIMED RUN — the state machine, pure.** S150 built it, S182 R182-G reshaped it.
  *
- * Owner, S149:
+ * Owner, S149, on the run itself:
  * > *"we will make it a trial on time. see who can finish it as fast as possible and then he can
- * > register his score and name in an arcade-like winnerboard. only like top 25 are shown and it
- * > tells him place place his score is. like in a real arcade from the 80s"*
+ * > register his score and name in an arcade-like winnerboard."*
  *
- * `arcadeScores.ts` shipped the BOARD in S149 — ranking, the inverted sort, storage, `M:SS.cc`. It
- * shipped with **zero consumers**, tree-shaken out of the bundle entirely, because the three screens
- * that would have used it were never built. This file is the missing half: the run itself — a clock,
- * an initials entry, and the transitions between them.
+ * Owner, S182, on what happens after — and the ORDER is the specification:
+ * > 1. finish → show this run's time · 2. type your name · 3. if that name exists the new time is
+ * > averaged in and the run count increments · 4. **only then** is the board revealed · 5. a small
+ * > cinematic of the calculation.
  *
- * ## Why a separate state machine rather than fields on the overlay
+ * ## ⛔ THE REVEAL GATE IS STRUCTURAL, NOT A UI DECISION
  *
- * Every rule here is a pure function of `(run, input)`, so the whole of "what happens when you
- * solve", "what happens when you cycle past Z", "what does the clock read" is testable headlessly
- * (the S130 lesson this repo keeps re-learning). The Pixi layer in `arcadeRunOverlay.ts` renders
- * this and decides nothing.
+ * > *"You can't see all the names before you put your name, and that way people won't cheat and try
+ * > to change each other's score."*
+ *
+ * Identity is the typed name, so anyone who can read the table before choosing a name can type a
+ * rival's initials and drag their average down deliberately. The gate is enforced by the TYPE here,
+ * not by the renderer remembering to hide something: `rows` lives only on the `RECAP`/`BOARD` states,
+ * and `startRun`/`finishRun` cannot produce them. A renderer has nothing to leak because no earlier
+ * phase carries any rows at all.
+ *
+ * ⚠ It is not airtight and must not be sold as if it were — the GET endpoint is public, so devtools
+ * reads the table without playing. What it removes is the path of least resistance at the cabinet.
  *
  * ## ⛔ THE CLOCK IS WALL-CLOCK, AND THAT IS ONLY SAFE BECAUSE THE ARCADE IS NOT THE SIM
  *
  * `performance.now()` would be a determinism hazard anywhere inside the hashed host tick. It is
- * legitimate HERE for exactly the reason `arcadeOverlay` exists at all: an arcade run touches no
- * simulation state, crosses no wire, and feeds nothing host-authoritative. `world.sudoku` stays
- * `null` for the entire run; the puzzle is held as render state and solved against
- * `puzzle.solution` locally. So the clock is a UI readout, not a game input — and a *sim* clock
- * would actually be WRONG here, because the sim does not advance on the title screen at all.
- *
- * The caller passes `nowMs` in rather than this module reading the clock, which keeps every function
- * below pure and lets the tests drive time by hand.
- *
- * ## The 1980s cabinet conventions that shape the input model
- *
- * A cabinet had a stick and a button, not a keyboard: you CYCLE a letter and COMMIT it. That is why
- * `cycleLetter` wraps in both directions and why the cursor is a position rather than a text caret —
- * there is no such thing as an invalid intermediate state, so there is nothing to validate on
- * submit. Typing is also accepted, because refusing a keyboard on a machine that has one is
- * cosplay rather than homage.
+ * legitimate HERE for the reason `arcadeOverlay` exists at all: an arcade run touches no simulation
+ * state, crosses no wire and feeds nothing host-authoritative. `world.sudoku` stays `null` for the
+ * entire run. A *sim* clock would actually be WRONG, because the sim does not advance on the title
+ * screen. The caller passes `nowMs` in, which keeps every function below pure.
  */
 
-import {
-  NAME_ALPHABET,
-  NAME_LEN,
-  normaliseName,
-  recordRun,
-  type ArcadeScore,
-} from './arcadeScores.ts';
+import { NAME_ALPHABET, NAME_LEN, normaliseName, type RankingRow } from './arcadeScores.ts';
 import {
   BOARD_NONET,
   getLeaderboard,
-  isSharedBoardConfigured,
+  type RankingUpdate,
 } from './arcadeLeaderboard.ts';
 
 /**
  * Which screen the run is on.
  *
  * `RUNNING` → the puzzle is up and the clock is live.
- * `ENTER_INITIALS` → solved; the clock is frozen and the player is spelling their name.
- * `BOARD` → the table, with this run's row highlighted.
+ * `ENTER_INITIALS` → solved; the clock is frozen, this run's time is shown, the player spells a name.
+ * `RECAP` → ⭐ R182-G: the calculation, as a beat. This run, the old average, the new one, the count.
+ * `BOARD` → the ranking, with this player's row highlighted.
  */
-export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'BOARD';
+export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'RECAP' | 'BOARD';
 
 export interface ArcadeRun {
   readonly phase: ArcadeRunPhase;
@@ -71,19 +60,15 @@ export interface ArcadeRun {
   readonly initials: readonly string[];
   /** Which of the three characters the stick is on, `0..NAME_LEN-1`. */
   readonly cursor: number;
-  /** Populated on commit: the board as it now stands, plus where this run landed. */
-  readonly scores: readonly ArcadeScore[];
-  readonly place: number | null;
-  readonly onBoard: boolean;
   /**
-   * The wall-clock stamp this run was committed with, retained so the board can identify THIS row.
-   *
-   * ⚠ NOT decoration. Two runs can legitimately share a time AND a set of initials — the same player
-   * repeating a memorised board is the likeliest case of all — and `(name, ms)` alone would then
-   * highlight whichever one sorted first. `at` is the tie-breaker the comparator already uses, so
-   * carrying it makes the row identifiable by exactly the triple that makes it unique.
+   * ⛔ THE RANKING, AND `null` UNTIL A SUBMISSION HAS HAPPENED. This field IS the reveal gate: it is
+   * populated only by `applyUpdate`, which only ever runs after `submitRun`.
    */
-  readonly committedAtMs: number | null;
+  readonly update: RankingUpdate | null;
+  /** Wall-clock stamp the RECAP began, so the cinematic can ease. `null` until then. */
+  readonly recapStartedMs: number | null;
+  /** True while a submission is in flight — the screen says so rather than appearing frozen. */
+  readonly submitting: boolean;
 }
 
 /** A fresh run, clock started. */
@@ -94,10 +79,9 @@ export function startRun(nowMs: number): ArcadeRun {
     finishedMs: null,
     initials: Array.from({ length: NAME_LEN }, () => 'A'),
     cursor: 0,
-    scores: [],
-    place: null,
-    onBoard: false,
-    committedAtMs: null,
+    update: null,
+    recapStartedMs: null,
+    submitting: false,
   };
 }
 
@@ -105,7 +89,7 @@ export function startRun(nowMs: number): ArcadeRun {
  * What the clock reads.
  *
  * ⚠ CLAMPED AT ZERO AND MONOTONIC ONCE FROZEN. `performance.now()` is monotonic within a document,
- * but the run survives a tab going to sleep and the frozen value must never be re-derived — so once
+ * but the run survives a tab sleeping and the frozen value must never be re-derived — so once
  * `finishedMs` is set it is returned verbatim, and the live branch cannot go negative even if a
  * caller passes a stale `nowMs`.
  */
@@ -117,9 +101,9 @@ export function elapsedMs(run: ArcadeRun, nowMs: number): number {
 /**
  * Solved — freeze the clock and go to the initials screen.
  *
- * IDEMPOTENT ON PURPOSE. The solve callback in `main.ts` is driven by the overlay's submit handler,
- * and a double-submit (or a re-render racing the transition) must not restart the clock or, worse,
- * award a second row. Anything already finished is returned untouched.
+ * IDEMPOTENT ON PURPOSE. The solve callback is driven by the overlay's submit handler, and a
+ * double-submit (or a re-render racing the transition) must not restart the clock or award a second
+ * run — which under an average would be worse than a duplicate row: it would permanently skew a mean.
  */
 export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun {
   if (run.phase !== 'RUNNING') return run;
@@ -164,91 +148,103 @@ export function typeLetter(run: ArcadeRun, raw: string): ArcadeRun {
   return { ...run, initials, cursor: Math.min(NAME_LEN - 1, run.cursor + 1) };
 }
 
-/**
- * Commit the run to the board and show it.
- *
- * ⚠ THE ONLY IMPURE FUNCTION IN THIS FILE — `recordRun` touches `localStorage`. Kept as one clearly
- * named seam rather than sprinkled through the transitions, so every other rule stays testable
- * without a storage stub.
- *
- * Refuses unless the clock is actually frozen: committing a `finishedMs` of `null` would write a
- * row with an elapsed time of zero, which would sit at the top of the board forever.
- */
-export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun {
-  if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;
-  const { scores, place, onBoard } = recordRun(run.initials.join(''), run.finishedMs, atMs);
-  return { ...run, phase: 'BOARD', scores, place, onBoard, committedAtMs: atMs };
+/** The name this run will be filed under — normalised exactly as the store will file it. */
+export function runName(run: ArcadeRun): string {
+  return normaliseName(run.initials.join(''));
+}
+
+/** PURE — mark a submission as in flight, so the screen can say so instead of looking hung. */
+export function beginSubmit(run: ArcadeRun): ArcadeRun {
+  if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null || run.submitting) return run;
+  return { ...run, submitting: true };
 }
 
 /**
- * ⭐ S182 — RECONCILE THE RUN AGAINST THE SHARED BOARD.
+ * PURE — the submission came back: enter RECAP with the calculation to show.
  *
- * PURE. `commitRun` above is synchronous and always answers from the LOCAL board, because a run must
- * be recorded and a place must be shown whether or not a network exists. When (and only when) a
- * shared board is configured AND answers, its reply arrives one or more frames later and lands here.
- *
- * ⛔ GUARDED ON `phase === 'BOARD'`, AND THAT GUARD IS THE WHOLE SAFETY ARGUMENT. A leaderboard reply
- * is an async event in a game whose screens are driven synchronously: by the time it resolves the
- * player may have pressed ESC to the menu, or ENTER into a whole new run that is already RUNNING with
- * a fresh clock. Writing a stale board and a stale PLACE into either of those would show the previous
- * run's result over the new one. A late reply for a run that has moved on is simply dropped.
- *
- * ⚠ `committedAtMs` is preserved untouched, so `drawBoard` keeps finding the player's own row on the
- * same `(name, ms, at)` triple it always matched on — the merged board carries that row through
- * unchanged, which is exactly why `mergeBoards` de-duplicates on the full triple rather than on the
- * name.
+ * ⛔ GUARDED ON `ENTER_INITIALS`, and the guard is the async-safety argument. A leaderboard reply is
+ * an async event in a game whose screens advance synchronously: by the time it resolves the player
+ * may have pressed ESC to the menu or started a whole new run with a fresh clock. Writing a stale
+ * ranking and a stale place into either would show the previous run's result over the new one. A late
+ * reply for a run that has moved on is dropped. The CALLER must additionally check it still holds the
+ * same run object — only it knows what `arcadeRun` points at now.
  */
-export function applyRemoteBoard(
-  run: ArcadeRun,
-  result: { readonly scores: readonly ArcadeScore[]; readonly place: number; readonly onBoard: boolean },
-): ArcadeRun {
-  if (run.phase !== 'BOARD') return run;
-  return { ...run, scores: result.scores, place: result.place, onBoard: result.onBoard };
+export function applyUpdate(run: ArcadeRun, update: RankingUpdate, nowMs: number): ArcadeRun {
+  if (run.phase !== 'ENTER_INITIALS') return run;
+  return { ...run, phase: 'RECAP', update, recapStartedMs: nowMs, submitting: false };
+}
+
+/** Leave the cinematic for the ranking itself. Only reachable once an update exists. */
+export function revealBoard(run: ArcadeRun): ArcadeRun {
+  if (run.phase !== 'RECAP' || run.update === null) return run;
+  return { ...run, phase: 'BOARD' };
 }
 
 /**
- * ⭐ S182 — PUBLISH A COMMITTED RUN TO THE SHARED BOARD, and hand back the reconciled run.
+ * ⭐ THE ASYNC SEAM — submit a finished run and hand back the run in RECAP.
  *
- * The ONE async entry point, so `main.ts` gains a single line rather than a leaderboard protocol.
- * Returns the run UNCHANGED in every case where there is nothing to do, which is all of them today:
- *
- * · **No shared board is configured** — the overwhelmingly common case, and the case in every build
- *   shipped before the owner approves a backend. Checked FIRST so this costs one boolean and no
- *   promise machinery at all on the default path.
- * · The run is not on the BOARD screen, or was never committed (`finishedMs` / `committedAtMs` null).
- * · The network did not answer — `getLeaderboard().submit` never throws and never loses the run; it
- *   returns the local result, and `applyRemoteBoard` writes back what is already there.
- *
- * ⚠ THE CALLER MUST RE-CHECK THAT THE RUN IT HOLDS IS STILL THE RUN IT ASKED ABOUT. This resolves
- * one or more frames later, by which time the player may have started another run. `applyRemoteBoard`
- * guards the phase, but it cannot tell two different BOARD-phase runs apart — the identity check
- * belongs at the call site, which is the only place that knows what `arcadeRun` points at NOW.
+ * ONE entry point, so `main.ts` gains a call rather than a protocol. Returns the run untouched when
+ * there is nothing to do (wrong phase, no frozen time). Never throws: the client's contract is that
+ * every network failure degrades to the offline tier, so a `RankingUpdate` always arrives.
  */
-export async function syncRunToBoard(
+export async function submitRun(
   run: ArcadeRun,
+  nowMs: number,
   boardId: string = BOARD_NONET,
 ): Promise<ArcadeRun> {
-  if (!isSharedBoardConfigured()) return run;
-  if (run.phase !== 'BOARD' || run.finishedMs === null || run.committedAtMs === null) return run;
-  const result = await getLeaderboard().submit(boardId, {
-    name: normaliseName(run.initials.join('')),
-    ms: run.finishedMs,
-    at: run.committedAtMs,
-  });
-  return applyRemoteBoard(run, result);
+  if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;
+  const update = await getLeaderboard().submit(boardId, runName(run), run.finishedMs);
+  return applyUpdate(run, update, nowMs);
+}
+
+/** How long the average eases from its old value to its new one. Mine — long enough to read. */
+export const RECAP_EASE_MS = 1400;
+
+/**
+ * PURE — the average to PRINT during the cinematic, eased from the old value toward the new.
+ *
+ * Owner: *"a cool little cinematic of the whole calculation: 'we finished this in a minute zero
+ * three, so far your best average is a minute eighteen, that brings it down to...'"* — the sentence
+ * is a movement between two numbers, so the screen moves between them rather than cutting.
+ *
+ * ⚠ A FIRST RUN HAS NOTHING TO EASE FROM and jumps straight to the value: easing from zero would
+ * animate a brand-new player's average *upward* from 0:00, which reads as losing something.
+ */
+export function recapAverageMs(run: ArcadeRun, nowMs: number): number {
+  const u = run.update;
+  if (u === null) return 0;
+  if (u.previousAverageMs === null) return u.averageMs;
+  if (run.recapStartedMs === null) return u.averageMs;
+  const t = Math.min(1, Math.max(0, (nowMs - run.recapStartedMs) / RECAP_EASE_MS));
+  // easeOutCubic — fast off the mark, settling onto the final number rather than arriving abruptly.
+  const e = 1 - Math.pow(1 - t, 3);
+  return u.previousAverageMs + (u.averageMs - u.previousAverageMs) * e;
+}
+
+/** Has the cinematic finished moving? The "ENTER to see the ranking" prompt waits for this. */
+export function recapSettled(run: ArcadeRun, nowMs: number): boolean {
+  if (run.update === null) return false;
+  if (run.update.previousAverageMs === null || run.recapStartedMs === null) return true;
+  return nowMs - run.recapStartedMs >= RECAP_EASE_MS;
 }
 
 /**
  * What the cabinet says about where you came.
  *
- * Owner: *"it tells him place place his score is"* — including when you MISSED the table, which is
- * the case a board-only screen silently drops.
+ * Owner, S149: *"it tells him place place his score is"*. Under R182-G every submission earns a row,
+ * so there is no "not on the board" case any more — a player is ranked from their very first game.
+ * The owner ruled out a minimum run count explicitly.
  */
 export function placeLine(run: ArcadeRun): string {
-  if (run.place === null) return '';
-  const n = run.place;
+  const u = run.update;
+  if (u === null) return '';
+  const n = u.place;
   const suffix =
     n % 100 >= 11 && n % 100 <= 13 ? 'TH' : n % 10 === 1 ? 'ST' : n % 10 === 2 ? 'ND' : n % 10 === 3 ? 'RD' : 'TH';
-  if (!run.onBoard) return `${n}${suffix} — NOT ON THE BOARD`;
-  return n === 1 ? '1ST — NEW RECORD' : `${n}${suffix} PLACE`;
+  return n === 1 ? '1ST — TOP OF THE RANKING' : `${n}${suffix} PLACE`;
+}
+
+/** The rows to draw, or an empty list. ⛔ The ONLY way a renderer can reach them. */
+export function visibleRows(run: ArcadeRun): readonly RankingRow[] {
+  return run.update?.rows ?? [];
 }

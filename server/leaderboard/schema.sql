@@ -1,57 +1,66 @@
--- SPARK — the shared arcade leaderboard, D1 (SQLite) schema.
+-- SPARK — the shared arcade ranking, D1 (SQLite) schema.
 --
--- ⛔ NOT DEPLOYED. No Cloudflare account exists for this project and none may be created without the
--- owner's explicit go. This file is the thing that gets applied the moment he says yes.
+-- ⭐ LIVE since S182 on the owner's Cloudflare account (database `spark-leaderboard`, region WEUR).
+-- Re-apply with:
+--   npx wrangler d1 execute spark-leaderboard --remote -y --file=./schema.sql
 --
--- Apply with:
---   npx wrangler d1 execute spark-leaderboard --remote --file=./schema.sql
+-- ⭐⭐ ONE ROW PER PLAYER, RANKED BY AVERAGE — owner R182-G:
+--   "The leaderboard will hold the AVERAGE time it takes a user to complete... So people are
+--    competing over a long span."
+--
+-- This replaced a per-RUN table of best times. The rebuild is what makes RANDOM puzzles fair: no two
+-- players ever solve the same grid, which is indefensible under a best-time board and simply washes
+-- out under a mean. The fixed-seed stage ladder that would otherwise have been needed is withdrawn.
 
--- ⭐ `board` IS THE STAGE-SCOPING COLUMN, AND IT IS HERE ON DAY ONE ON PURPOSE.
+-- ⚠ THE OLD PER-RUN `scores` TABLE IS DELIBERATELY LEFT ALONE RATHER THAN DROPPED.
 --
--- Owner, S182, on the ladder: *"We have different levels of Sudoku… so we'll have also leaderboards
--- for the first…"* — thirty stages means thirty boards. Adding this column later would mean an
--- ALTER on live data plus a backfill plus a client that has to handle both shapes; adding it now
--- costs one TEXT column that holds 'nonet' until the ladder exists and 'nonet:s07' afterwards.
--- The client already addresses boards by this exact opaque id (`arcadeScores.ts` BOARD_NONET).
-CREATE TABLE IF NOT EXISTS scores (
-  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+-- R182-G replaced it, so it is dead weight — but this file is a RUNBOOK that gets re-applied, and a
+-- runbook that destroys data when re-run is a trap. It is empty and unreferenced, it costs nothing,
+-- and removing it is a one-line decision the owner can make deliberately rather than one that fires
+-- as a side effect of somebody re-reading the setup instructions. Every statement below is
+-- `IF NOT EXISTS` or an upsert, so applying this schema twice is a no-op.
+
+-- ⛔ SUM AND COUNT ARE STORED; THE AVERAGE IS ALWAYS DERIVED.
+--
+-- Folding into a stored mean (`avg = (avg*n + ms)/(n+1)`) rounds at every step and the error
+-- compounds with every game played, so a long-standing player ends up ranked on accumulated rounding.
+-- With `runs` + `total_ms` the mean is exact at every point, recomputable from scratch, and the
+-- server and client can each derive it independently and still agree.
+--
+-- ⭐ AND THE TABLE IS BOUNDED BY CONSTRUCTION, so nothing here needs pruning. Identity is a
+-- three-character arcade name over a 37-character alphabet, so a board can hold at most 37^3 = 50,653
+-- rows ever — a couple of megabytes against a 5 GB free tier. That matters because pruning a PLAYER
+-- is destructive in a way pruning a RUN never was: deleting a row erases somebody's whole history and
+-- silently hands them a fresh average.
+CREATE TABLE IF NOT EXISTS players (
   board    TEXT    NOT NULL,
-  name     TEXT    NOT NULL,           -- exactly 3 chars; the worker re-clamps, never trusts the client
-  ms       INTEGER NOT NULL,           -- elapsed milliseconds — SMALLER IS BETTER (a time trial)
-  at       INTEGER NOT NULL,           -- client wall-clock stamp; tie-break only, never trusted for ranking
-  created  INTEGER NOT NULL,           -- SERVER clock. The only timestamp the server would defend.
-  ip_hash  TEXT                        -- salted hash, for rate limiting only; never returned to a client
+  name     TEXT    NOT NULL,           -- exactly 3 chars; the worker re-clamps, never trusts a client
+  runs     INTEGER NOT NULL,           -- how many runs have been folded in; >= 1
+  total_ms INTEGER NOT NULL,           -- sum of every run's elapsed ms
+  updated  INTEGER NOT NULL,           -- SERVER clock, last fold
+  PRIMARY KEY (board, name)
 );
 
--- The ONE query this table serves: "top N for a board, fastest first, earliest wins a tie."
--- Matches `compare()` in arcadeScores.ts exactly — ms ASC, then at ASC.
-CREATE INDEX IF NOT EXISTS idx_scores_board_rank ON scores (board, ms ASC, at ASC);
+-- The one query this table serves: "top N for a board, lowest AVERAGE first."
+-- ⚠ The ordering expression must match `compareRows` in src/render/arcadeScores.ts:
+--   average ASC, then runs DESC, then name ASC.
+CREATE INDEX IF NOT EXISTS idx_players_rank
+  ON players (board, (CAST(total_ms AS REAL) / runs) ASC, runs DESC, name ASC);
 
--- ⛔ THE RATE LIMIT GETS ITS OWN TABLE, AND THIS IS A CORRECTNESS FIX, NOT TIDINESS.
+-- ⛔ THE RATE LIMIT GETS ITS OWN TABLE, AND THAT IS A CORRECTNESS FIX RATHER THAN TIDINESS.
 --
--- The first cut counted rows in `scores` itself. The prune below deletes every row that misses the
--- top 25 — which is every row an attacker submits once the board is full — so the count that was
--- supposed to stop them was erased by the same request that created it. The limiter reset itself to
--- zero on every call and permitted unlimited unauthenticated writes from one IP, forever. Four
--- independent reviewers found this separately, which is how much it stood out once anyone looked.
---
--- `writes` is append-only and is NEVER pruned by board size. Rows age out by time instead, which is
--- the only thing a rate limit may be allowed to forget.
+-- The first cut counted rows in the score table, which the per-board prune deleted moments later — so
+-- the count that was supposed to stop an attacker was erased by the same request that created it, the
+-- limiter reset itself to zero on every call, and one IP had unlimited unauthenticated writes.
+-- `writes` is append-only and ages out by TIME, which is the only thing a rate limit may forget.
 CREATE TABLE IF NOT EXISTS writes (
   ip_hash TEXT    NOT NULL,
   created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_writes_ratelimit ON writes (ip_hash, created);
 
--- ⛔ AND THE BOARD NAMESPACE IS BOUNDED BY A REGISTRY, not by the id regex.
---
--- `BOARD_RE` accepts any `[a-z0-9]+(:[a-z0-9]+)?`, so a caller could mint unlimited DISTINCT boards —
--- each holding its own 25 rows that the per-board prune can never reach, because the prune only ever
--- trims WITHIN a board. Storage grows without bound while every individual board looks correctly
--- capped. Only a board listed here can be written to; reads of an unknown board return an empty
--- table, which is what a not-yet-played stage should look like anyway.
---
--- The ten-stage ladder adds rows here. That is the intended way to open a board.
+-- ⛔ AND THE BOARD NAMESPACE IS BOUNDED BY A REGISTRY, not by the id regex. `BOARD_RE` bounds the
+-- SHAPE of an id, not how many exist, so a caller could otherwise mint unlimited distinct boards.
 CREATE TABLE IF NOT EXISTS boards (
   board TEXT PRIMARY KEY
 );

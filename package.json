@@ -10,7 +10,7 @@
     "size": "node scripts/check-bundle-size.mjs",
     "verify-deploy": "node scripts/verify-deploy.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.server.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",

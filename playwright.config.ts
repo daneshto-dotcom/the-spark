@@ -23,6 +23,22 @@
  */
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * ⛔ THE DEV PORT IS OVERRIDABLE, AND ON THIS MACHINE THAT IS A CORRECTNESS FIX.
+ *
+ * `reuseExistingServer: !process.env.CI` means that LOCALLY, if anything is already serving this
+ * port, Playwright attaches to it instead of starting its own. S182 runs six parallel worktrees of
+ * this repo, and every one of them defaults to Vite's 5173 — so a local e2e run could silently test
+ * **another branch's build** and report a completely confident verdict about code it never loaded.
+ * The project's own port protocol assigns each session a random `$SESSION_PORT` for exactly this
+ * reason; this is what lets the e2e lane honour it.
+ *
+ * Unset — which is the case in CI, where the runner is isolated — it stays on 5173 and nothing about
+ * the existing behaviour changes.
+ */
+const e2ePort = Number(process.env.SPARK_E2E_PORT) || 5173;
+const e2eOrigin = `http://localhost:${e2ePort}`;
+
 // S126 — per-lane GLOBAL timeout, in MINUTES, supplied by each CI job's `env:`.
 //
 // Why this exists: when the runner's own `timeout-minutes` fires, GitHub SIGKILLs the
@@ -96,7 +112,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: e2eOrigin,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,8 +140,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
+    command: `npm run dev -- --port ${e2ePort} --host`,
+    url: `${e2eOrigin}/?debug=1`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

@@ -1,0 +1,34 @@
+{
+  // ⛔ THE WORKER WAS OUTSIDE TYPECHECKING ENTIRELY, AND THAT IS WHY THIS FILE EXISTS.
+  //
+  // The root `tsconfig.json` has `"include": ["src"]`, so `server/leaderboard/worker.js` — the only
+  // server-side code SPARK has, sitting on a public write endpoint — was never seen by `tsc -b`. A
+  // typo in a property name, a call with the wrong arity, a variable that does not exist: all would
+  // have shipped green and failed at runtime, where the failure mode is a CORS-less 500 that the
+  // client cannot distinguish from being offline.
+  //
+  // ⚠ `checkJs` WITHOUT `strict`, deliberately. The goal is to catch the errors a plain JS file can
+  // actually make — undefined identifiers, bad member access, wrong arity — not to force JSDoc
+  // annotations onto every parameter of a file that is read far more often than it is edited.
+  // Turning on `noImplicitAny` here would produce a wall of noise that teaches the next person to
+  // add `// @ts-nocheck`, which is worse than no checking at all because it looks like checking.
+  //
+  // Run by `npm run typecheck` alongside the main project.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // DOM supplies the web-platform globals a Worker runs against: Request, Response, URL, crypto,
+    // TextEncoder, console. The Cloudflare-specific surface (env bindings, D1) is untyped and is
+    // covered by the executable tests in src/server.worker.test.ts instead.
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["server/**/*.js"]
+}

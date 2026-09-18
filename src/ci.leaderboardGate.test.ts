@@ -24,6 +24,8 @@ const WORKER_SRC = read('../server/leaderboard/worker.js');
 const SCHEMA_SQL = read('../server/leaderboard/schema.sql');
 const SCORES_SRC = read('./render/arcadeScores.ts');
 const MAIN_SRC = read('./main.ts');
+const RUN_SRC = read('./render/arcadeRun.ts');
+const OVERLAY_SRC = read('./render/arcadeRunOverlay.ts');
 
 describe('S182 — the build stays reproducible, so verify-deploy keeps meaning something', () => {
   /**
@@ -53,27 +55,60 @@ describe('S182 — the build stays reproducible, so verify-deploy keeps meaning 
   });
 });
 
-describe('S182 — the backend is OFF, and shipping the seam did not ship the dependency', () => {
-  it('⛔ no base URL is hardcoded — the gate is an env var the owner has not set', () => {
+describe('S182 — the backend is LIVE, and the switch is a variable rather than a literal', () => {
+  /**
+   * ⚠ THIS BLOCK WAS TITLED "the backend is OFF" AND SAID THE OWNER HAD NOT APPROVED AN ACCOUNT.
+   * He approved it in S182, the worker was deployed, and the go-live fact then landed in exactly two
+   * of the seven places that asserted the old state — this file among the five that were missed. The
+   * signature failure of this codebase, on the most consequential fact in the branch.
+   */
+  it('⛔ no base URL is hardcoded — the switch is a build-time variable, not a literal', () => {
     const code = CLIENT_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-    // A literal worker URL in the source would make the account exist in practice whatever the
-    // env var said, which is precisely the decision that is not mine to make.
+    // A literal worker URL in the source would tie the game to one deployment and make a fork or a
+    // local build talk to the owner's account.
     expect(code).not.toMatch(/https?:\/\/[^\s'"]*workers\.dev/);
-    expect(code).toMatch(/REMOTE_BASE\s*===\s*''\s*\?\s*new LocalLeaderboard/);
+    expect(code).toMatch(/selectLeaderboard\(REMOTE_BASE\)/);
   });
 
-  it('the async publish is actually WIRED in main.ts, not merely exported', () => {
-    // The S181 lesson: unreached code stays green. `syncRunToBoard` being correct is worthless if
-    // nothing calls it, and no behaviour test in this suite drives main.ts's key handler.
-    expect(MAIN_SRC).toContain('syncRunToBoard');
-    // ⛔ AND THE STALE-REPLY GUARD MUST BE AT THE CALL SITE. Without it a slow reply repaints a
-    // finished run's board over a run already in progress.
-    expect(MAIN_SRC).toMatch(/if \(arcadeRun === committed\) arcadeRun = synced/);
+  it('⭐ the selection rule is a PURE function, so both branches are deterministically testable', () => {
+    // Two previous tests asserted `isSharedBoardConfigured() === false` and a local `kind`. Those
+    // read the build-time constant, which is unset under vitest and SET in production — so they
+    // asserted the opposite of what ships, passed anyway, and could never have caught a regression.
+    expect(CLIENT_SRC).toContain('export function selectLeaderboard');
   });
 
-  it('the local board remains the offline tier rather than a stub that was replaced', () => {
+  it('the submit flow is actually WIRED in main.ts, not merely exported', () => {
+    // The S181 lesson: unreached code stays green. `submitRun` being correct is worthless if nothing
+    // calls it, and no behaviour test in this suite drives main.ts's key handler.
+    expect(MAIN_SRC).toContain('submitRun');
+    expect(MAIN_SRC).toContain('revealBoard');
+    // ⛔ THE STALE-REPLY GUARD MUST BE AT THE CALL SITE, or a slow reply repaints a finished run's
+    // ranking over a run already in progress.
+    expect(MAIN_SRC).toMatch(/if \(arcadeRun === pending\) arcadeRun = next/);
+  });
+
+  it('⛔⛔ R182-G — THE BOARD CANNOT BE REACHED WITHOUT SUBMITTING', () => {
+    // Owner: "You can't see all the names before you put your name, and that way people won't cheat
+    // and try to change each other's score." Identity is the typed name, so reading the table first
+    // lets anyone type a rival's initials and drag their average down on purpose.
+    //
+    // Asserted as SOURCE TEXT because it is a structural claim: `revealBoard` is the only transition
+    // into BOARD and it refuses anything but RECAP, which only `applyUpdate` can produce.
+    expect(RUN_SRC).toMatch(/export function revealBoard[\s\S]*?if \(run\.phase !== 'RECAP'/);
+    expect(RUN_SRC).toMatch(/export function applyUpdate[\s\S]*?if \(run\.phase !== 'ENTER_INITIALS'/);
+    // And no renderer may read rows except through the accessor that is empty before RECAP.
+    expect(OVERLAY_SRC).not.toMatch(/run\.update\.rows/);
+    expect(OVERLAY_SRC).toContain('visibleRows(run)');
+  });
+
+  it('⛔ there is no `top()` — an un-gated read of the table would exist only to be misused', () => {
+    // It was dead code under the old design and is a RULE violation under the new one.
+    expect(CLIENT_SRC).not.toMatch(/top\s*\(boardId/);
+  });
+
+  it('the local tier remains the offline tier rather than a stub that was replaced', () => {
     expect(CLIENT_SRC).toContain('class LocalLeaderboard');
-    expect(CLIENT_SRC).toMatch(/private readonly local = new LocalLeaderboard\(\)/);
+    expect(CLIENT_SRC).toMatch(/savePending/);
   });
 });
 
@@ -136,7 +171,7 @@ describe('S182 — the wiring REPORT, and the S162 rule it exists to obey', () =
   });
 });
 
-describe('S182 — the worker, if and when the owner ever says yes', () => {
+describe('S182 — the worker, live on the owner account', () => {
   it('⛔ CORS is PINNED to the one origin and is never `*`', () => {
     // `*` on a public WRITE endpoint lets any page on the internet POST to this board from a
     // visitor's browser, including in a loop.
@@ -221,18 +256,50 @@ describe('S182 — the worker, if and when the owner ever says yes', () => {
     expect(WORKER_SRC).toMatch(/try \{\s*board = decodeURIComponent/);
   });
 
-  it('⭐ stage scoping is a COLUMN on day one, so the 30-stage ladder is not a migration', () => {
+  it('⭐ the board is a COLUMN, so a second board is a value rather than a migration', () => {
     expect(SCHEMA_SQL).toMatch(/board\s+TEXT\s+NOT NULL/);
-    expect(SCHEMA_SQL).toContain('idx_scores_board_rank');
+    expect(SCHEMA_SQL).toContain('idx_players_rank');
     expect(SCORES_SRC).toContain('export const BOARD_NONET');
   });
 
-  it("⛔ the prune's ordering matches the read's, or it would evict rows still on screen", () => {
-    // One ordering rule — `ms ASC, at ASC` — in the index, the SELECT and the DELETE subquery, and
-    // it is the same rule as `compare()` in arcadeScores.ts.
-    const orderings = WORKER_SRC.match(/ORDER BY ms ASC, at ASC/g) ?? [];
-    expect(orderings.length).toBeGreaterThanOrEqual(2);
-    expect(SCHEMA_SQL).toContain('ms ASC, at ASC');
+  it('⭐ R182-G — the ranking table stores SUM AND COUNT, never a rolling average', () => {
+    // Folding into a stored mean rounds at every step and the error compounds with every game a
+    // player ever plays — so the bug would not appear in testing and would appear, unfixably, after
+    // a season of play. Both sides derive the mean instead.
+    expect(SCHEMA_SQL).toMatch(/runs\s+INTEGER\s+NOT NULL/);
+    expect(SCHEMA_SQL).toMatch(/total_ms\s+INTEGER\s+NOT NULL/);
+    expect(SCHEMA_SQL).not.toMatch(/average_ms|avg_ms/);
+    expect(SCORES_SRC).toContain('export function averageMsOf');
+  });
+
+  it('⛔ NOTHING PRUNES THE RANKING TABLE — deleting a player erases a whole history', () => {
+    /*
+     * The old per-RUN table was pruned past the top 25, which was harmless: a run that missed the
+     * board was a row nobody would have seen. Carrying that forward would have been destructive in a
+     * way that is easy to miss — deleting a PLAYER row erases their entire run history and silently
+     * hands them a fresh average, which is both a data loss and a cheat (fall off the table, come
+     * back with a clean slate).
+     *
+     * It is also unnecessary, and the reason is worth pinning: identity is a THREE-CHARACTER name
+     * over a 37-character alphabet, so a board is bounded at 37^3 = 50,653 rows by construction.
+     */
+    // ⚠ SCAN THE CODE, NOT THE PROSE. The worker's own docblock quotes
+    // `DELETE FROM players WHERE board = 'nonet';` as the manual remedy if the board is ever abused,
+    // so an assertion over the raw file reads that explanation as the defect — the same trap
+    // `ci.deployGate` records against itself.
+    const code = WORKER_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code, 'comment-stripping must not have eaten the module').toContain('async function handle');
+    expect(code).not.toMatch(/DELETE FROM players/);
+    // The ONE delete that remains is the rate-limit marker sweep, which ages out by TIME only.
+    expect(code.match(/DELETE FROM (\w+)/g) ?? []).toEqual(['DELETE FROM writes']);
+  });
+
+  it('⚠ the ordering rule is stated identically on both sides of the wire', () => {
+    // average ASC, then runs DESC, then name ASC. If the server and client disagree, two players
+    // looking at the same data see a different 4th place.
+    expect(SCHEMA_SQL).toMatch(/runs DESC, name ASC/);
+    expect(WORKER_SRC).toMatch(/if \(a\.runs !== b\.runs\) return b\.runs - a\.runs;/);
+    expect(SCORES_SRC).toMatch(/if \(a\.runs !== b\.runs\) return b\.runs - a\.runs;/);
   });
 
   it('the server re-clamps a submitted name rather than trusting the client to have done it', () => {
@@ -288,5 +355,37 @@ describe('S182 — the worker, if and when the owner ever says yes', () => {
     const readme = read('../server/leaderboard/README.md');
     expect(readme).toContain('database_id');
     expect(readme).toContain('wrangler secret put IP_SALT');
+  });
+});
+
+describe('S182 — module INITIALISATION order, which nothing else can see', () => {
+  const CLIENT = read('./render/arcadeLeaderboard.ts');
+
+  /**
+   * ⛔⛔ THIS EXACT BUG BLACK-SCREENED THE GAME, AND ONLY IN PRODUCTION.
+   *
+   * `REMOTE_BASE` is a module-level `const` whose initialiser CALLS `parseLeaderboardBase`, which
+   * reads `LEADERBOARD_ORIGIN_RE`. Declared after it, that read hits the regex's temporal dead zone
+   * and throws `ReferenceError: Cannot access 'LEADERBOARD_ORIGIN_RE' before initialization` at
+   * module load — taking `main.ts` down with it. No leaderboard, no game, no menu: a black screen.
+   *
+   * ⚠ AND IT IS INVISIBLE TO EVERY BEHAVIOUR TEST. With the variable UNSET — vitest, and any build
+   * without a backend — `parseLeaderboardBase('')` returns at its empty-string guard before it ever
+   * reaches the regex, so the dead zone is never entered and everything passes. The crash existed
+   * only in a build with a real URL, which is to say only in production. It was caught by loading
+   * the real game in a browser against the live worker, and nothing cheaper would have found it.
+   */
+  it('⛔ LEADERBOARD_ORIGIN_RE is declared BEFORE the const that calls into it', () => {
+    const re = CLIENT.indexOf('const LEADERBOARD_ORIGIN_RE');
+    const fn = CLIENT.indexOf('export function parseLeaderboardBase');
+    const base = CLIENT.indexOf('const REMOTE_BASE');
+    expect(re, 'CONTROL — the regex must exist').toBeGreaterThan(-1);
+    expect(base, 'CONTROL — REMOTE_BASE must exist').toBeGreaterThan(-1);
+    expect(re, 'the regex must precede REMOTE_BASE or module load throws in production').toBeLessThan(base);
+    expect(fn, 'the parser must precede REMOTE_BASE for the same reason').toBeLessThan(base);
+  });
+
+  it('LOCAL_HOSTS too — the same dead zone, reached by the http branch', () => {
+    expect(CLIENT.indexOf('const LOCAL_HOSTS')).toBeLessThan(CLIENT.indexOf('const REMOTE_BASE'));
   });
 });

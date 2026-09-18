@@ -1,204 +1,291 @@
 /**
- * SPARK — S182: **THE SHARED ARCADE LEADERBOARD — the client seam.**
+ * SPARK — **THE SHARED ARCADE RANKING — the client seam.** LIVE since S182.
  *
- * Owner, S182:
- * > *"I don't see anyone else's records on the arcade, on NONET, on the Sudoku. My friend played it
- * > and he put his name on and he got first place. Now I did my shit and I got first place. Who the
- * > fuck is first place? I can't even see his name. It should be just like an old arcade thing. You
- * > put your name, you see any other names that hit records, and the last ten places, twenty five
- * > names. It should be saved in a database."*
+ * Owner, S182, on the original bug:
+ * > *"I don't see anyone else's records on the arcade... My friend played it and he put his name on
+ * > and he got first place. Now I did my shit and I got first place. Who the fuck is first place?"*
  *
- * ## ⛔ THIS IS THE FIRST SERVER-SIDE DEPENDENCY SPARK HAS EVER HAD, AND IT IS NOT SWITCHED ON
+ * and then, replacing the design outright (R182-G):
+ * > *"The leaderboard will hold the AVERAGE time it takes a user to complete... So people are
+ * > competing over a long span."*
  *
- * Verified empirically rather than assumed: every `fetch()` in `src/` before this file is a
- * same-origin static asset (audio and atlas manifests), the only socket is `net/relayProbe.ts`'s
- * WebRTC signalling probe, and `deploy.yml` publishes a static artifact to GitHub Pages behind
- * `public/CNAME`. **There is no server of any kind.** Creating one means creating an ACCOUNT, a
- * bill, an uptime surface and a thing that can be attacked — none of which the owner has agreed to.
+ * ## ⭐ THIS IS SPARK'S FIRST AND ONLY BACKEND, AND IT IS SWITCHED ON
  *
- * So this module is the seam, not the switch. `REMOTE_BASE` is empty in every build shipped today,
- * `getLeaderboard()` therefore hands back the LOCAL implementation, and the game behaves exactly as
- * it did before — byte for byte at the behaviour level. The day he says yes, `VITE_LEADERBOARD_URL`
- * is set at build time and the same call sites start talking to `server/leaderboard/`. Nothing else
- * changes; there is no second code path to write.
+ * Deployed S182 to the owner's own Cloudflare account and verified against the live endpoint. Every
+ * other `fetch()` in `src/` is a same-origin static asset and the only socket is a WebRTC signalling
+ * probe, so this module is the one place the game talks to a server it owns.
  *
- * ## ⭐ THE LOCAL BOARD IS NOT A STUB — IT IS THE OFFLINE TIER, PERMANENTLY
+ * `VITE_LEADERBOARD_URL` is set as a repository variable and inlined at build time. **Unset is still
+ * a fully supported state** — a local build, or a fork without the variable, falls back to the
+ * offline tier and behaves exactly as the game did before S182. That is not a leftover from the
+ * pre-approval design; it is what makes a dead network survivable.
  *
- * Even with the backend live, `RemoteLeaderboard` writes through to localStorage and MERGES the two
- * on every read. That is deliberate and it is the single most important property here: a player on a
- * dead train with no signal still gets their run recorded, still sees their own history, and loses
- * nothing. A leaderboard that silently discards a personal best because a request timed out is worse
- * than the local-only board this replaces.
+ * ## ⛔ THE LOCAL TIER IS NOT A STUB, AND UNDER AN AVERAGE IT MATTERS MORE THAN IT USED TO
  *
- * ⚠ **Consequence, stated plainly rather than discovered later:** merged boards mean a local row can
- * outrank a remote one on the player's own screen and not exist for anyone else, until the submit
- * eventually succeeds. That is the correct trade — the alternative is losing the run — but it means
- * "my screen says 3rd" is a claim about the merge, not about the server.
+ * A lost submission used to cost you one row on a best-time table. Under a mean it silently corrupts
+ * your standing **permanently**: a slow run played with no signal never enters your average, so your
+ * shared number stays better than your real one and no later run can repair it. So every run is
+ * written locally FIRST, queued if the network refuses, and flushed on the next successful submit.
+ *
+ * ## ⛔ THE BOARD IS REVEALED ONLY AFTER YOU SUBMIT — an anti-griefing rule, not a UI flourish
+ *
+ * > *"You can't see all the names before you put your name, and that way people won't cheat and try
+ * > to change each other's score."*
+ *
+ * Because identity is the typed name, seeing the table before choosing a name lets anyone type a
+ * rival's initials and drag their average down on purpose. Gating the reveal removes the casual
+ * version of that attack. **It is not airtight and must not be described as if it were** — the GET
+ * endpoint is public, so anyone who opens devtools can read the table without playing. What the gate
+ * buys is that the attack is no longer the path of least resistance for someone sitting at the
+ * cabinet. Enforced structurally in `arcadeRun.ts`: no phase before `RECAP` carries any rows.
  *
  * ## Cheating — named, bounded, NOT solved
  *
- * A public write endpoint with no accounts means anyone who opens devtools can POST a 0:01 and sit
- * at the top forever. The worker applies a floor, a ceiling and a rate limit (see
- * `server/leaderboard/worker.js`), and **none of them is airtight**: every one is a bar to climb,
- * not a lock. Airtight would need the server to own the puzzle and the clock — a different feature,
- * an order of magnitude more work, for a board played among friends. The exposure is reported, not
- * gold-plated. If it is ever abused in practice, the cheap answer is a per-board wipe, which is one
- * SQL statement.
+ * A public write endpoint with no accounts means anyone can POST a fabricated time. The worker
+ * applies a floor, a ceiling and a per-IP rate limit; **none is airtight** while the client owns the
+ * puzzle and the clock. ⚠ An average is in one way *more* robust than a best-time board — a single
+ * fake run only moves a mean by `1/n` — and in one way less, since a rival's average can be attacked
+ * by submitting slow runs under their name. Both are accepted. The remedy if it is ever abused is a
+ * per-board wipe, which is one SQL statement.
  */
 
 import {
   BOARD_NONET,
-  loadScores,
-  mergeBoards,
-  parseScoreRows,
-  placeOf,
-  recordRun,
-  saveScores,
-  TOP_N,
-  type ArcadeScore,
+  entryOf,
+  foldRun,
+  loadPending,
+  loadRanking,
+  normaliseName,
+  parseRankingRows,
+  placeOfName,
+  rankRows,
+  savePending,
+  saveRanking,
+  averageMsOf,
+  type RankingEntry,
+  type RankingRow,
 } from './arcadeScores.ts';
 
 export { BOARD_NONET };
 
-/** What a submit tells the caller: the board as it now stands, and where this run landed on it. */
-export interface LeaderboardResult {
-  readonly scores: readonly ArcadeScore[];
+/**
+ * What a submission tells the caller — the board AND everything the recap cinematic needs.
+ *
+ * Owner: *"there'll be a cool little cinematic of the whole calculation: 'we finished this in a
+ * minute zero three, so far your best average is a minute eighteen, that brings it down to...'"*
+ * Every number in that sentence is a field here, so the renderer computes nothing.
+ */
+export interface RankingUpdate {
+  readonly rows: readonly RankingRow[];
+  /** 1-based place after this submission. */
   readonly place: number;
-  readonly onBoard: boolean;
+  /** Total runs after this submission — *"this is your seventh"*. */
+  readonly runs: number;
+  /** The run just completed. */
+  readonly lastMs: number;
+  /** The average BEFORE this submission, or `null` when this is the player's first ever run. */
+  readonly previousAverageMs: number | null;
+  /** The average after. */
+  readonly averageMs: number;
   /**
-   * Did the authoritative (remote) board answer?
+   * Did the shared ranking actually answer for THIS call?
    *
-   * ⚠ REPORTED RATHER THAN INFERRED. `kind === 'remote'` says which client is configured; this says
-   * whether the network actually came back for THIS call. The overlay needs the second one to be
-   * able to tell the player "this is the shared board" versus "this is your board, we'll sync it" —
-   * and a client that is remote-configured but offline looks identical to a local one otherwise.
+   * ⚠ REPORTED, NOT INFERRED. `kind === 'remote'` says which client is configured; this says whether
+   * the network came back. A remote-configured client that is offline is otherwise indistinguishable
+   * from a local one, and the player is owed the difference between "you are 3rd in the world" and
+   * "you are 3rd on this machine".
    */
   readonly shared: boolean;
+  /**
+   * Runs flushed from the offline queue alongside this one, if any.
+   *
+   * Surfaced so the recap can explain a run count that jumped by more than one, rather than looking
+   * like a bug the first time someone plays on a train.
+   */
+  readonly flushed: number;
 }
 
 /**
- * ⭐ THE WHOLE INTERFACE. Two methods, and `boardId` on both.
+ * ⭐ THE WHOLE INTERFACE — ONE METHOD.
  *
- * The id is opaque and stage scoping rides on it (`'nonet'` today, `'nonet:s07'` when the ladder
- * lands) — see `BOARD_NONET`. Designing it in cost one parameter; retrofitting it would have cost a
- * migration on both sides.
+ * ⛔ THERE IS DELIBERATELY NO `top()`. The previous design had one and it was dead code: nothing in
+ * production ever read the board without submitting to it. Under R182-G that is no longer an
+ * oversight but a RULE — the reveal is gated on submission — so an interface method that hands back
+ * the table without a submission would exist only to be misused. The offline path reads the cached
+ * rows through `arcadeScores.loadRanking`, which is storage, not the leaderboard contract.
  */
 export interface LeaderboardClient {
   readonly kind: 'local' | 'remote';
-  /** The top `TOP_N` rows for a board, best (smallest `ms`) first. Never throws; worst case `[]`. */
-  top(boardId: string): Promise<readonly ArcadeScore[]>;
-  /** Record a run. Never throws, and never loses the run — the local tier always takes it. */
-  submit(boardId: string, entry: ArcadeScore): Promise<LeaderboardResult>;
+  /** Fold a completed run in and return the ranking. Never throws; never loses the run. */
+  submit(boardId: string, name: string, ms: number): Promise<RankingUpdate>;
 }
 
-/**
- * The board that exists today, and the offline tier once a backend is live.
- *
- * Every method is `async` over synchronous work on purpose: the interface has to be the SAME shape
- * for both implementations, or the call sites grow a branch and the local path stops being the thing
- * the remote path is tested against.
- */
+/** PURE — build the update a caller sees, from a set of entries and the focus player. */
+function updateFrom(
+  entries: readonly RankingEntry[],
+  name: string,
+  lastMs: number,
+  previousAverageMs: number | null,
+  shared: boolean,
+  flushed: number,
+  truePlace?: number | null,
+): RankingUpdate {
+  const rows = rankRows(entries);
+  const mine = entryOf(entries, name);
+  return {
+    rows,
+    /*
+     * ⛔ THE SERVER'S PLACE WINS WHEN IT GIVES ONE. The client only ever holds the top `TOP_N`
+     * rows, so `placeOfName` cannot see past the table: a player ranked 28th is absent from the
+     * list and the best it can answer is 26th. That is quietly wrong for everyone outside the top
+     * 25, in exactly the number the owner cares about — *"and then that is your ranking."*
+     */
+    place: truePlace ?? placeOfName(rows, normaliseName(name)),
+    runs: mine?.runs ?? 1,
+    lastMs,
+    previousAverageMs,
+    averageMs: mine === null ? lastMs : averageMsOf(mine),
+    shared,
+    flushed,
+  };
+}
+
+/** The offline tier — and the whole ranking when no backend is configured. */
 export class LocalLeaderboard implements LeaderboardClient {
   readonly kind = 'local' as const;
 
-  top(boardId: string): Promise<readonly ArcadeScore[]> {
-    return Promise.resolve(loadScores(boardId));
-  }
-
-  submit(boardId: string, entry: ArcadeScore): Promise<LeaderboardResult> {
-    const { scores, place, onBoard } = recordRun(entry.name, entry.ms, entry.at, boardId);
-    return Promise.resolve({ scores, place, onBoard, shared: false });
+  submit(boardId: string, name: string, ms: number): Promise<RankingUpdate> {
+    const before = loadRanking(boardId);
+    const prev = entryOf(before, name);
+    const after = foldRun(before, name, ms);
+    saveRanking(after, boardId);
+    return Promise.resolve(
+      updateFrom(after, name, ms, prev === null ? null : averageMsOf(prev), false, 0),
+    );
   }
 }
 
-/** How long a leaderboard request may hang before the local board answers instead. */
+/** How long a leaderboard request may hang before the offline tier answers instead. */
 export const REQUEST_TIMEOUT_MS = 4000;
 
+/** Most queued runs sent in one request — bounds a huge backlog into several ordinary calls. */
+const FLUSH_BATCH = 20;
+
 /**
- * The shared board — **inert until a base URL is configured.**
+ * The shared ranking.
  *
- * ⛔ EVERY FAILURE PATH FALLS BACK TO LOCAL AND NONE OF THEM THROWS. Offline, DNS failure, a 500, a
- * 404 from a half-deployed worker, a hang, HTML returned by a captive-portal wifi login page, JSON
- * that parses but is not an array — all of them are ORDINARY here, not exceptional, and every one of
- * them has to end with the player's run recorded and the arcade still on screen. The board is the
- * last thing a player sees after a good run; it is the worst possible place to surface a network
- * error.
+ * ⛔ EVERY FAILURE PATH FALLS BACK AND NONE OF THEM THROWS. Offline, DNS failure, a 500, a 404 from a
+ * half-deployed worker, a hang, HTML from a captive-portal login page, JSON that parses but is not
+ * the right shape — all ordinary, not exceptional, and every one must end with the run recorded and
+ * the arcade still on screen. The recap is the last thing a player sees after a good run; it is the
+ * worst possible place to surface a network error.
  */
 export class RemoteLeaderboard implements LeaderboardClient {
   readonly kind = 'remote' as const;
   private readonly base: string;
-  private readonly local = new LocalLeaderboard();
 
-  /** `base` is the worker origin, with any trailing slash trimmed so URL joins stay predictable. */
   constructor(base: string) {
     this.base = base.replace(/\/+$/, '');
   }
 
-  async top(boardId: string): Promise<readonly ArcadeScore[]> {
-    const local = loadScores(boardId);
-    const remote = await this.get(boardId);
-    return remote === null ? local : mergeBoards(remote, local);
+  async submit(boardId: string, rawName: string, ms: number): Promise<RankingUpdate> {
+    const name = normaliseName(rawName);
+
+    // ⭐ LOCAL FIRST, BEFORE THE AWAIT. If the tab closes the instant the recap appears — which is
+    // exactly when someone who just set a record alt-tabs to tell a friend — the run is already on
+    // disk. Ordering this after the network would make "did my run count?" depend on how long the
+    // player looked at the screen.
+    const before = loadRanking(boardId);
+    const prev = entryOf(before, name);
+    const previousAverageMs = prev === null ? null : averageMsOf(prev);
+    saveRanking(foldRun(before, name, ms), boardId);
+
+    // ⚠ OLDEST FIRST. `slice(0, FLUSH_BATCH)` takes the head of the queue, not the tail: a run that
+    // has been waiting since last week is the one most likely to be lost to a cleared cache, so it
+    // goes first. Taking the newest would starve the backlog indefinitely on a flaky connection.
+    const pendingBefore = loadPending(boardId);
+    const queued = pendingBefore.slice(0, FLUSH_BATCH);
+    const runs = [...queued.map((p) => ({ name: p.name, ms: p.ms })), { name, ms }];
+    const answer = await this.post(boardId, runs, name);
+
+    if (answer === null) {
+      // ⛔ QUEUE IT. Under an average a dropped run is not a missed row, it is a permanently wrong
+      // number — see `loadPending`.
+      savePending([...pendingBefore, { name, ms }], boardId);
+      return updateFrom(loadRanking(boardId), name, ms, previousAverageMs, false, 0);
+    }
+
+    // The server is authoritative: replace the cache with its rows rather than merging. Merging two
+    // aggregates is not defined — you cannot tell an overlapping history from a disjoint one — which
+    // is exactly why the queue holds individual RUNS and not a local aggregate to reconcile.
+    saveRanking(answer.entries, boardId);
+    // Drop exactly what was accepted, keeping anything that arrived while the request was in flight.
+    savePending(pendingBefore.slice(queued.length), boardId);
+    /*
+     * ⭐ PREFER THE SERVER'S "previous average" OVER THE LOCAL ONE.
+     *
+     * ⛔ THE LOCAL VALUE IS WRONG ON ANY DEVICE THE PLAYER HAS NOT USED BEFORE, and that is the
+     * normal case rather than an edge one — a phone, a friend's laptop, a cleared cache. Local
+     * storage would say "no previous entry", the recap would announce FIRST RUN to someone on their
+     * fortieth, and the number it counted up from would be nonsense. The server knows the real
+     * history because the name is the identity.
+     *
+     * Falls back to the local value only when the server declines to say (a `you` of null, which
+     * means the fold did not land for the focus name).
+     */
+    const serverPrev = answer.previousAverageMs;
+    return updateFrom(
+      answer.entries,
+      name,
+      ms,
+      serverPrev !== undefined ? serverPrev : previousAverageMs,
+      true,
+      queued.length,
+      answer.place,
+    );
   }
 
-  async submit(boardId: string, entry: ArcadeScore): Promise<LeaderboardResult> {
-    // ⭐ LOCAL FIRST, ALWAYS, AND BEFORE THE AWAIT. If the tab is closed the instant the board
-    // appears — which is exactly when a player who just set a record alt-tabs to tell someone — the
-    // run is already on disk. Ordering this after the network call would make "did my run count?"
-    // depend on how long the player looked at the screen.
-    const localResult = await this.local.submit(boardId, entry);
-    const remote = await this.post(boardId, entry);
-    if (remote === null) return localResult;
-
-    const scores = mergeBoards(remote, loadScores(boardId));
-    // ⚠ Write the merged view BACK to local storage. Without this the player's cache never learns
-    // about anyone else's runs, so the first screen after a cold start with no signal shows a board
-    // of one row again — the exact symptom this whole feature exists to end.
-    saveScores(scores, boardId);
-    const place = placeOf(scores, entry);
-    return { scores, place, onBoard: place <= TOP_N, shared: true };
-  }
-
-  /** GET the board. `null` means "the network did not answer" — distinct from an EMPTY board. */
-  private async get(boardId: string): Promise<readonly ArcadeScore[] | null> {
-    return this.request(`${this.base}/board/${encodeURIComponent(boardId)}?n=${TOP_N}`, {
-      method: 'GET',
-    });
-  }
-
-  private async post(boardId: string, entry: ArcadeScore): Promise<readonly ArcadeScore[] | null> {
-    return this.request(`${this.base}/board/${encodeURIComponent(boardId)}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: entry.name, ms: entry.ms, at: entry.at }),
-    });
-  }
-
-  /**
-   * One request, one place where every way it can fail is handled.
-   *
-   * ⚠ THE TIMEOUT IS THE POINT, not the try/catch. `fetch` on a dead-but-not-refused network does
-   * not reject quickly — it can hang for the OS TCP timeout, tens of seconds, while the player stares
-   * at a frozen SOLVED screen. `AbortSignal.timeout` bounds it at `REQUEST_TIMEOUT_MS` and the local
-   * board answers instead.
-   */
-  private async request(
-    url: string,
-    init: RequestInit,
-  ): Promise<readonly ArcadeScore[] | null> {
+  /** POST a batch of runs. `null` means "the network did not answer" — never "an empty board". */
+  private async post(
+    boardId: string,
+    runs: ReadonlyArray<{ name: string; ms: number }>,
+    focus: string,
+  ): Promise<{
+    entries: RankingEntry[];
+    previousAverageMs?: number | null;
+    place?: number | null;
+  } | null> {
     try {
-      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      const res = await fetch(`${this.base}/board/${encodeURIComponent(boardId)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ runs, focus }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       if (!res.ok) return null;
       const body: unknown = await res.json();
       if (typeof body !== 'object' || body === null) return null;
-      const rows = (body as { scores?: unknown }).scores;
-      // ⛔ AN ABSENT `scores` IS A FAILURE, NOT AN EMPTY BOARD. `parseScoreRows` maps anything
-      // non-array to `[]`, so returning it unconditionally here would turn a malformed 200 — a
-      // captive portal's HTML, a worker deployed without its route — into "the shared board is
-      // empty", quietly wiping every other player's rows out of the merge.
+      const rows = (body as { rows?: unknown }).rows;
+      // ⛔ AN ABSENT `rows` IS A FAILURE, NOT AN EMPTY RANKING. `parseRankingRows` maps anything
+      // non-array to `[]`, so returning it unconditionally would turn a malformed 200 — a captive
+      // portal's HTML, a worker deployed without its route — into "nobody has played", wiping every
+      // other player out of the cache.
       if (!Array.isArray(rows)) return null;
-      return parseScoreRows(rows);
+      // `you.previousAverageMs` is optional and may legitimately be null (a first ever run), so
+      // absence and null are distinguished: `undefined` means "the server did not say".
+      const you = (body as { you?: unknown }).you;
+      let previousAverageMs: number | null | undefined;
+      let place: number | null | undefined;
+      if (typeof you === 'object' && you !== null) {
+        const p = (you as { previousAverageMs?: unknown }).previousAverageMs;
+        if (p === null) previousAverageMs = null;
+        else if (typeof p === 'number' && Number.isFinite(p) && p >= 0) previousAverageMs = p;
+        const q = (you as { place?: unknown }).place;
+        if (typeof q === 'number' && Number.isInteger(q) && q >= 1) place = q;
+      }
+      return { entries: parseRankingRows(rows), previousAverageMs, place };
     } catch {
-      return null; // offline, DNS, CORS, abort, non-JSON body — all one answer: use the local board
+      return null; // offline, DNS, CORS, abort, non-JSON — one answer: use the offline tier
     }
   }
 }
@@ -206,9 +293,8 @@ export class RemoteLeaderboard implements LeaderboardClient {
 /**
  * ⚠ MUST MATCH `LEADERBOARD_ORIGIN_RE` in `scripts/leaderboard-wiring-report.mjs` BYTE FOR BYTE —
  * pinned by `ci.leaderboardGate.test.ts`, exactly as `ICE_URL_RE` is pinned between `iceConfig.ts`
- * and `turn-wiring-report.mjs`.
- *
- * A bare ORIGIN: scheme, host, optional port. No path, no query, no fragment, no userinfo.
+ * and `turn-wiring-report.mjs`. A bare ORIGIN: scheme, host, optional port. No path, query or
+ * fragment.
  */
 const LEADERBOARD_ORIGIN_RE =
   /^https?:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(?::\d{1,5})?$/i;
@@ -219,32 +305,22 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 /**
  * ⛔ IS IT *USABLE* — not "is it set". PURE. Returns a clean base, or `''` for anything unusable.
  *
- * ⚠ THIS EXISTS BECAUSE THE REPO HAS ALREADY PAID FOR THE LESSON ONCE, IN THE SAME SHAPE. S162:
+ * ⚠ THE REPO HAS PAID FOR THIS LESSON ONCE ALREADY, IN THE SAME SHAPE. S162:
  * `turn-wiring-report.mjs` printed `✅ RELAY WILL BE SHIPPED` for a build whose ICE config THREW,
  * because it validated `v.trim() !== ''` and nothing else — *"a watchdog that shares the watched
- * code's blind spot is not a watchdog."* The owner had pasted a value off a dashboard that arrived
- * wrapped as `urls: "turn:…"`, and lost multiplayer on every network behind a green deploy.
+ * code's blind spot is not a watchdog."* The owner had pasted a dashboard value that arrived wrapped
+ * as `urls: "turn:…"` and lost multiplayer on every network behind a green deploy.
  *
- * The first cut of THIS module did `REMOTE_BASE === ''` and a trailing-slash trim. That accepts
- * every one of these, and each fails silently at runtime with the board falling back to local:
- *
- * · **`http://…`** — the site is served over HTTPS, so the browser blocks a plain-http fetch as
- *   mixed content. Nothing reaches the network; the client's catch reads it as "offline". THE most
- *   likely real mistake, because a worker URL copied from an older doc or typed by hand loses the s.
- * · **a missing scheme** (`spark-leaderboard.x.workers.dev`) — `fetch` resolves it RELATIVE to
- *   spark-online.space, quietly requesting a path on the game's own origin.
- * · **a trailing path or query** (`…workers.dev/board`) — every request is then misrouted to
- *   `/board/board/nonet`, which the worker 404s.
- * · **a wrapped or quoted paste** (`url: "https://…"`, a trailing comma) — the S162 shape exactly.
- * · **stray whitespace or a newline** — trivially added by a copy-paste into a web form, and
- *   `new URL()` on it throws inside `fetch`.
- * · **the literal strings `undefined` / `null` / `false`** — what a mis-templated CI expression
- *   produces, and all three are truthy non-empty strings.
+ * Each rejected shape below fails SILENTLY at runtime with the board falling back to local:
+ * plain `http://` (blocked as mixed content from the HTTPS site — the likeliest real mistake, since
+ * a hand-typed or older URL loses the `s`); a missing scheme (`fetch` resolves it against
+ * spark-online.space); a trailing path or query (every request misrouted); a wrapped or quoted
+ * paste; stray whitespace; and the literal strings `undefined` / `null` / `false`, which a
+ * mis-templated CI expression produces and which are all truthy.
  */
 export function parseLeaderboardBase(raw: string): string {
   if (typeof raw !== 'string') return '';
   let s = raw.trim();
-  // Unwrap a dashboard/CI paste: an optional `KEY:` label, surrounding quotes, a trailing comma.
   // ⚠ THE `(?!\/\/)` IS LOAD-BEARING AND ITS ABSENCE WAS CAUGHT BY RUNNING THIS, NOT BY READING IT.
   // Without it this label-stripper reads `https:` in `https://host` as a `key:` prefix and eats the
   // scheme, so the parser rejected every VALID url and accepted only wrapped ones — precisely
@@ -256,8 +332,6 @@ export function parseLeaderboardBase(raw: string): string {
   s = s.replace(/\/+$/, '');
   if (s === '' || s === 'undefined' || s === 'null' || s === 'false') return '';
   if (!LEADERBOARD_ORIGIN_RE.test(s)) return '';
-  // ⛔ Reject plain http EXCEPT on a local dev host. A cross-origin http fetch from the deployed
-  // https site is blocked by the browser before it leaves the page.
   if (s.toLowerCase().startsWith('http://')) {
     const host = s.slice('http://'.length).split(':')[0].toLowerCase();
     if (!LOCAL_HOSTS.has(host)) return '';
@@ -265,30 +339,63 @@ export function parseLeaderboardBase(raw: string): string {
   return s;
 }
 
-/**
- * ⛔ THE GATE, IN ONE CONSTANT. Empty in every build shipped today.
+/*
+ * ⛔⛔ DECLARATION ORDER IS LOAD-BEARING HERE, AND GETTING IT WRONG BLACK-SCREENED THE WHOLE GAME.
  *
- * Read in the DOTTED form (`import.meta.env.VITE_LEADERBOARD_URL`) and declared in `vite.config.ts`,
- * both of which are load-bearing and neither of which is obvious — see the S158/S160 notes in
- * `ci.deployGate.test.ts`. Aliasing `import.meta.env` into a local first would defeat Vite's
- * `define`, and leaving the key undeclared would make CI (which always defines it, possibly as `''`)
- * emit different BYTES from a local build, which breaks `verify-deploy`'s content-hash carrier on
- * every green deploy. `ci.leaderboardGate.test.ts` pins both halves.
+ * `REMOTE_BASE` below is a module-level `const` that CALLS `parseLeaderboardBase`, which reads
+ * `LEADERBOARD_ORIGIN_RE`. A `const` is in its temporal dead zone until its own initialiser runs, so
+ * with the regex declared AFTER `REMOTE_BASE` the call threw
+ * `ReferenceError: Cannot access 'LEADERBOARD_ORIGIN_RE' before initialization` at module load —
+ * taking `main.ts` down with it. Not a leaderboard bug: a black screen, no game at all.
+ *
+ * ⚠ AND NO UNIT TEST COULD HAVE CAUGHT IT, which is the part worth recording. With the variable
+ * UNSET — vitest, and every build before the owner approved a backend — `parseLeaderboardBase('')`
+ * returns at its empty-string guard BEFORE it ever reaches the regex, so the dead zone is never
+ * entered. The crash existed ONLY in a build with a real URL configured, i.e. only in production.
+ * It was found by loading the actual game in a browser against the live worker.
+ *
+ * `ci.leaderboardGate.test.ts` now pins this ordering, because it is invisible to every other check.
+ */
+/**
+ * ⛔ THE BUILD-TIME SWITCH.
+ *
+ * Read in the DOTTED form and declared in `vite.config.ts`; both are load-bearing and neither is
+ * obvious. Aliasing `import.meta.env` first would defeat Vite's `define`, and leaving the key
+ * undeclared would make CI (which always defines it, possibly as `''`) emit different BYTES from a
+ * local build — breaking `verify-deploy`'s content-hash carrier on every green deploy.
+ * `ci.leaderboardGate.test.ts` pins both halves.
  */
 const REMOTE_BASE: string = parseLeaderboardBase(import.meta.env.VITE_LEADERBOARD_URL ?? '');
+
 
 let client: LeaderboardClient | null = null;
 
 /**
+ * ⭐ PURE — which client a given base URL selects.
+ *
+ * ⛔ EXTRACTED BECAUSE THE PREVIOUS TESTS ASSERTED AN AMBIENT FACT AND WERE GREEN BY ACCIDENT. Two of
+ * them pinned `isSharedBoardConfigured() === false` and `getLeaderboard().kind === 'local'`. Those
+ * read the build-time constant, which is unset under vitest and SET in production — so they asserted
+ * the exact opposite of what ships, passed anyway, and could never have caught a regression in the
+ * thing they were named for. A test whose verdict depends on which environment happens to run it is
+ * not a test of the code.
+ *
+ * The selection rule is the part worth pinning, so it is a pure function of its input and both
+ * branches are asserted deterministically. Whether the VARIABLE reaches the bundle is a separate
+ * question, and a source-text one — `ci.leaderboardGate.test.ts` owns it.
+ */
+export function selectLeaderboard(base: string): LeaderboardClient {
+  return base === '' ? new LocalLeaderboard() : new RemoteLeaderboard(base);
+}
+
+/**
  * The process-wide leaderboard client.
  *
- * Lazily built and cached, so the choice is made once and cannot differ between two call sites in
- * the same session — the failure mode where a run is submitted remotely and then read back locally.
+ * Built once and cached, so the choice cannot differ between two call sites in one session — the
+ * failure mode where a run is submitted remotely and read back locally.
  */
 export function getLeaderboard(): LeaderboardClient {
-  if (client === null) {
-    client = REMOTE_BASE === '' ? new LocalLeaderboard() : new RemoteLeaderboard(REMOTE_BASE);
-  }
+  if (client === null) client = selectLeaderboard(REMOTE_BASE);
   return client;
 }
 
@@ -297,7 +404,7 @@ export function setLeaderboardForTests(next: LeaderboardClient | null): void {
   client = next;
 }
 
-/** Is a shared board configured in this build? False in everything shipped before the owner's go. */
+/** Is a shared ranking configured in this build? */
 export function isSharedBoardConfigured(): boolean {
   return REMOTE_BASE !== '';
 }
