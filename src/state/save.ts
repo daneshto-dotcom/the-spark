@@ -1211,6 +1211,56 @@ export function netSnapshot(world: World): NetSnapshot {
 }
 
 /**
+ * S182 LEVER 2 — decimal places kept for a number on the wire.
+ *
+ * ⚠ CLAUDE'S NUMBER, NOT AN OWNER RULING, and here is the measurement behind it. Positions ride as
+ * full-precision doubles: a Verlet-settled primitive serialises as
+ * `{"x":812.3358154296875,"y":447.00390625}` — 44 characters for a pair the renderer draws at
+ * integer-ish pixel positions on a canvas ~2000 px wide, and it emits that twice (`pos` and
+ * `prevPos`), plus a full-precision `restLength` on every bond. Two decimals is 1/100th of a pixel,
+ * roughly 1/20th the width of the thinnest line this game draws, and the client does not integrate
+ * positions — it lerps between two snapshots and draws. The difference is not representable on screen.
+ */
+const NET_WIRE_DECIMALS = 2;
+const NET_WIRE_SCALE = 10 ** NET_WIRE_DECIMALS;
+
+/**
+ * ⭐ S182 LEVER 2 — SHRINK THE WIRE FORM BY ROUNDING **AT STRINGIFY TIME**.
+ *
+ * A `JSON.stringify` replacer, passed by `NetTransport.send` for `NETSNAPSHOT` only. `k / 100`
+ * stringifies to its own shortest decimal form, so this is a pure character-count win.
+ *
+ * ## ⛔ WHY IT IS A REPLACER AND NOT A PASS OVER `netSnapshot()`'s OUTPUT — MEASURED, NOT ARGUED
+ *
+ * The obvious placement is `netSnapshot`'s post-trim block, beside `trimMirrorCreature`. **That is
+ * wrong, and the e2e hash oracle is what proved it.** `netSnapshot` is NOT only the wire format:
+ *
+ *   • `workerSim.ts` builds the worker→main transfer with `netSnapshot(world)` and pairs it with
+ *     `hashWorldState(world)` taken from its own UNQUANTISED live world;
+ *   • `main.ts` applies that snapshot into the main-thread mirror and hashes the result, comparing
+ *     it to the worker's hash.
+ *
+ * So rounding inside `netSnapshot` rounds the MIRROR but not the hash it is checked against, and
+ * `?worker=1` goes red with `HASH MISMATCH mirror-vs-worker`. It did: `worker.spec.ts` and
+ * `worker-bots.spec.ts` both failed on `hashMismatches` while all 4747 unit tests stayed GREEN.
+ * That is this project's signature defect shape — a rule correct where it is written and reaching
+ * one site too many — and it is exactly the fifth site (`src/state/workerSim.ts`) the branch briefs
+ * warn the unit suite does not cover.
+ *
+ * Rounding at stringify time cannot reach any of that. It MUTATES NOTHING, so it cannot alias into
+ * the mirror, the disk save, `workerSim.restore()`, `save.replay`'s byte-identity gate, or
+ * `hashWorldState` — every one of which consumes objects, never this JSON string. The worker↔main
+ * transfer uses `structuredClone` via `postMessage` and never passes through here at all.
+ *
+ * Integers (`tick`, `snapshotSeq`, `epoch`, `color`, counts) round to themselves, so the replacer is
+ * an identity on everything that is not a coordinate.
+ */
+export function wireNumberReplacer(_key: string, value: unknown): unknown {
+  return typeof value === 'number' ? Math.round(value * NET_WIRE_SCALE) / NET_WIRE_SCALE : value;
+}
+
+
+/**
  * ⚠ AMENDED S133 P1 — `hp`, `chewProgress` and `targetBondId` are NO LONGER STRIPPED.
  *
  * THE BUG THIS FIXES. A client builds its world from `applyNetSnapshot`. When a client is

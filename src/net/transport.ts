@@ -45,6 +45,7 @@ import {
 import type { MessageAction, Room } from '@trystero-p2p/core';
 import { parseNetMessage, PROTOCOL_VERSION, type NetMessage } from './protocol.ts';
 import { netStats } from './netStats.ts';
+import { wireNumberReplacer } from '../state/save.ts';
 import {
   APP_ID,
   HANDSHAKE_TIMEOUT_MS,
@@ -601,7 +602,13 @@ export class NetTransport {
     if (!this.connected) {
       throw new Error('NetTransport not connected');
     }
-    const serialized = JSON.stringify(msg);
+    // S182 LEVER 2 — round coordinates to 2 dp for the high-rate snapshot only. Non-mutating by
+    // construction: the replacer sees values on their way into the string and never writes back, so
+    // it cannot reach the worker mirror, the disk save or any hash. See `wireNumberReplacer`.
+    const serialized =
+      msg.kind === 'NETSNAPSHOT'
+        ? JSON.stringify(msg, wireNumberReplacer)
+        : JSON.stringify(msg);
     // S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
     // the pre-S182 behaviour AND the shipped default (SNAPSHOT_SINGLE_STRATEGY is false pending the
     // owner's decision). Only NETSNAPSHOT is ever eligible: the rare control messages keep their
