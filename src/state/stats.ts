@@ -438,17 +438,35 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
  * an enemy build"*), so the repository has been asserting both facts at once. The call site is
  * right.
  *
- * ⚠ AND THE TURRET ENTRY IS AN OWNER RULING THE CODE HAS NOT CAUGHT UP TO — kept as `BOTH` for
- * exactly that reason. R72 says the laser turret *"does both"*, but the beam
- * (`defenderLifecycle.ts`, the `else` arm of the stink branch) calls `damageEntity` with
- * `{ kind: 'creature' }` and has no structure arm at all. Erasing the ruling to match the code
- * would delete the owner's decision to make an audit quiet; implementing it is a balance change and
- * belongs in its own priority. Logged as a carry-forward, NOT silently dropped.
+ * ⭐⭐ S182 — **THE TURRET CARRY-FORWARD IS CLOSED: THE OWNER RETIRED R72'S TURRET CLAUSE.** The
+ * paragraph here used to read *"an owner ruling the code has not caught up to"* and kept the entry
+ * as `BOTH` so that a future session would implement it. It must NOT be implemented. Reading the
+ * targeting table back to him in S180 he ruled:
+ *
+ * > *"Yeah, laser turrets, creatures only. That's fine… maybe it doesn't do both. It does only
+ * > creatures, so that's fine."*
+ *
+ * ⭐ THE HISTORY IS KEPT AND ONLY THE CONCLUSION INVERTS, which is the point of writing it down.
+ * R72 did once say the turret *"does both"*; the beam (`defenderLifecycle.ts`, the `else` arm of
+ * the stink branch) calls `damageEntity` with `{ kind: 'creature' }` and never had a structure arm.
+ * For three sessions the table asserted the ruling and the code asserted the opposite. S180 settled
+ * it in the CODE's favour, so the entry below is now a TRUTH FIX rather than an unbuilt promise.
+ *
+ * ⚠ AND IT CHANGES NO BEHAVIOUR, which is why it is safe to correct rather than schedule:
+ * repo-wide, `DEFENDER_TARGETS` and `defenderCanTarget` appear in exactly two files — this one and
+ * `stats.test.ts`. The table has NO production consumer. It is documentation with a type on it, and
+ * documentation that disagreed with the shipped beam is the whole defect.
+ *
+ * ⚠ `SPARK_CANON.md` §5 already says *"Laser turret: creatures only"*. Canon and code agreed; only
+ * this table was wrong.
  */
 export const DEFENDER_TARGETS: Readonly<Record<DefenderKind, ReadonlySet<TargetClass>>> = {
   princess: UNITS_ONLY,
-  /** ⚠ R72's ruling. NOT YET IMPLEMENTED — the beam is creature-only today. See above. */
-  turret: BOTH,
+  /**
+   * ⭐ S180 (owner) — *"Yeah, laser turrets, creatures only. That's fine… maybe it doesn't do both.
+   * It does only creatures, so that's fine."* This MATCHES the shipped beam; see the docblock above.
+   */
+  turret: UNITS_ONLY,
   /** ⭐ S165 — corrected from UNITS_ONLY. The bag splash deals STINK_BAG_DAMAGE to primitives. */
   stinkTower: BOTH,
 };

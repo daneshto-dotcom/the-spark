@@ -36,7 +36,10 @@ fix with it → clean. 4.3 minutes against a bug he hits in his first minute.
    and only its eight member shapes can be hit. Its portrait is now wired, which makes this *more*
    visible, not less.
 5. **The suicide bomber's below-50%-health fallback** is ruled and unbuilt (buildings-first is done).
-6. **`DEFENDER_TARGETS.turret` still declares BOTH** while he ruled units-only in S180. One line.
+6. ~~**`DEFENDER_TARGETS.turret` still declares BOTH**~~ — ✅ **CLOSED S182** (`s182/damage-truth`).
+   Now `UNITS_ONLY`, matching the shipped beam and `SPARK_CANON.md` §5. It had NO production
+   consumer, so this was a truth fix, not a behaviour change — and the point of it was to stop a
+   future session "implementing" R72's turret clause after he retired it.
 7. **END-OF-MATCH STAT BOARD** — still one line of text. **CONNECTOR HIDING** — specified across
    three sessions, renderer-only, still absent.
 8. **Five S161 sweep lanes still owe a verdict** (determinism, four-sites, creature lifecycle, wire,

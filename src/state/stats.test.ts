@@ -298,15 +298,25 @@ describe('S151 P2 — the targeting matrix is ONE table (owner R72)', () => {
   });
 
   /**
-   * ⚠ THIS PINS THE RULING, NOT THE CODE, and after S165 that distinction is written down rather
-   * than assumed. R72 says the laser turret *"does both"*; the shipped beam is creature-only (see
-   * the note on DEFENDER_TARGETS). This table is a spec with no production consumer, so the gap
-   * costs nothing at runtime — but the ruling stays recorded here so implementing it later is a
-   * lookup rather than an archaeology exercise.
+   * ⭐⭐ S182 — **RE-PINNED, NOT SILENCED. THE OWNER RETIRED R72'S TURRET CLAUSE IN S180.**
+   *
+   * This test used to assert `structures: true` and called itself *"the ruling, ahead of the beam"* —
+   * a deliberate placeholder for a mechanic somebody was expected to build. Reading the targeting
+   * table back to him he ruled the other way:
+   *
+   * > *"Yeah, laser turrets, creatures only. That's fine… maybe it doesn't do both. It does only
+   * > creatures, so that's fine."*
+   *
+   * ⭐ So the assertion INVERTS and the test stays. Deleting it would drop the only machine-checked
+   * record of the decision and let a future session re-read R72 and "finish" a mechanic he killed.
+   * The table now agrees with the shipped beam AND with `SPARK_CANON.md` §5.
    */
-  it('the LASER TURRET attacks BOTH (R72 — ruling, ahead of the beam)', () => {
+  it("⛔ the LASER TURRET attacks CREATURES ONLY (S180 — he retired R72's turret clause)", () => {
     expect(defenderCanTarget('turret', 'units')).toBe(true);
-    expect(defenderCanTarget('turret', 'structures')).toBe(true);
+    expect(
+      defenderCanTarget('turret', 'structures'),
+      "the beam has only ever damaged creatures; S180 settled the table in the code's favour",
+    ).toBe(false);
   });
 
   /**
