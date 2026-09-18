@@ -159,6 +159,11 @@ export class StatsOverlay {
    *   • `gap max` is the "every five seconds" number, in milliseconds.
    */
   private netSection(): string {
+    // ⛔ GUARD BEFORE THE CLOCK READ. This was the one netStats call site that did not, so with the
+    // counters disabled an open overlay still paid `performance.now()` plus two allocations every
+    // frame — and the source tripwire that enforces the guard contract only scans transport.ts and
+    // sync.ts, so it could not see the omission.
+    if (!netStats.isEnabled()) return '';
     const n = netStats.read(performance.now());
     if (!n.enabled) return '';
     const perStrategy = n.outByStrategy
@@ -173,7 +178,9 @@ export class StatsOverlay {
       `snap tx ${n.snapTxPerSec.toFixed(1).padStart(7, ' ')} /s   ${(n.snapTxBytes / 1024).toFixed(1)} KiB ea\n` +
       `snap rx ${n.snapRxPerSec.toFixed(1).padStart(7, ' ')} /s${rxStarved ? ' !' : '  '} ` +
       `dup ${n.snapDupPerSec.toFixed(1)} /s\n` +
-      `snap n  ${n.acceptedTotal} ok / ${n.dupTotal} dup\n` +
+      `snap n  ${n.acceptedTotal} ok / ${n.dupTotal} dup` +
+      (n.epochDropTotal > 0 ? ` / ${n.epochDropTotal} epoch` : '') +
+      '\n' +
       `gap     last ${n.gapLastMs.toFixed(0)} avg ${n.gapAvgMs.toFixed(0)} ` +
       `max ${n.gapMaxMs.toFixed(0)} ms${gapBad ? ' !' : ''}`
     );

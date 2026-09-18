@@ -92,12 +92,16 @@ export interface NetStatsReading {
   readonly snapTxBytes: number;
   /** NETSNAPSHOT envelopes ACCEPTED per second (joiner side). ⭐ THE STARVATION NUMBER. */
   readonly snapRxPerSec: number;
-  /** NETSNAPSHOTs dropped by the seq gate per second (joiner side). ⭐ THE DOUBLE-SEND, MEASURED. */
+  /** NETSNAPSHOTs dropped by the SEQ gate per second (joiner side). ⭐ THE DOUBLE-SEND, MEASURED. */
   readonly snapDupPerSec: number;
+  /** NETSNAPSHOTs dropped by the EPOCH gate per second — a deposed host, never a duplicate. */
+  readonly snapEpochDropPerSec: number;
   /** Cumulative accepted snapshots since the counter was enabled. */
   readonly acceptedTotal: number;
-  /** Cumulative seq-gate drops since the counter was enabled. */
+  /** Cumulative SEQ-gate drops since the counter was enabled. */
   readonly dupTotal: number;
+  /** Cumulative EPOCH-gate drops since the counter was enabled. */
+  readonly epochDropTotal: number;
   /** Gap between the two most recent ACCEPTED snapshots, ms. */
   readonly gapLastMs: number;
   /** Mean accepted-snapshot gap over the current window, ms. */
@@ -124,6 +128,7 @@ export class NetStats {
   private snapTxAcc = 0;
   private snapRxAcc = 0;
   private snapDupAcc = 0;
+  private snapEpochAcc = 0;
   private gapSumMs = 0;
   private gapCount = 0;
 
@@ -134,12 +139,15 @@ export class NetStats {
   private snapTxRate = 0;
   private snapRxRate = 0;
   private snapDupRate = 0;
+  private snapEpochRate = 0;
   private gapAvgMs = 0;
 
   // --- session-cumulative / last-value state ---
   private snapTxBytes = 0;
   private acceptedTotal = 0;
   private dupTotal = 0;
+  /** Snapshots refused by the EPOCH gate (a deposed host) — kept apart from `dupTotal`. */
+  private epochDropTotal = 0;
   private lastAcceptMs = 0;
   /**
    * Whether `lastAcceptMs` holds a real timestamp yet.
@@ -176,6 +184,7 @@ export class NetStats {
     this.snapTxAcc = 0;
     this.snapRxAcc = 0;
     this.snapDupAcc = 0;
+    this.snapEpochAcc = 0;
     this.gapSumMs = 0;
     this.gapCount = 0;
     this.outRate = 0;
@@ -184,10 +193,12 @@ export class NetStats {
     this.snapTxRate = 0;
     this.snapRxRate = 0;
     this.snapDupRate = 0;
+    this.snapEpochRate = 0;
     this.gapAvgMs = 0;
     this.snapTxBytes = 0;
     this.acceptedTotal = 0;
     this.dupTotal = 0;
+    this.epochDropTotal = 0;
     this.lastAcceptMs = 0;
     this.hasAccepted = false;
     this.gapLastMs = 0;
@@ -220,7 +231,13 @@ export class NetStats {
     this.snapTxRate = this.snapTxAcc * perSec;
     this.snapRxRate = this.snapRxAcc * perSec;
     this.snapDupRate = this.snapDupAcc * perSec;
-    this.gapAvgMs = this.gapCount > 0 ? this.gapSumMs / this.gapCount : 0;
+    this.snapEpochRate = this.snapEpochAcc * perSec;
+    // ⛔ CARRY THE LAST REAL AVERAGE FORWARD — DO NOT ZERO IT. A window with no accepted snapshot has
+    // no gaps to average, and the first cut reported 0 for it. At the brother's 0.2 Hz that is four
+    // windows in every five, so the overlay printed `gap avg 0` — the HEALTHIEST POSSIBLE READING —
+    // during the exact starvation the instrument exists to measure. Holding the last measured
+    // average is the honest answer to "no new data"; `gapLastMs` and `gapMaxMs` carry the rest.
+    if (this.gapCount > 0) this.gapAvgMs = this.gapSumMs / this.gapCount;
 
     this.windowStartMs = now;
     this.outAcc = 0;
@@ -229,23 +246,38 @@ export class NetStats {
     this.snapTxAcc = 0;
     this.snapRxAcc = 0;
     this.snapDupAcc = 0;
+    this.snapEpochAcc = 0;
     this.gapSumMs = 0;
     this.gapCount = 0;
   }
 
   /**
-   * One outbound application message, per strategy. Call ONCE PER STRATEGY the payload is handed
-   * to — that duplication is the phenomenon under measurement, so collapsing it here would hide it.
+   * One outbound application MESSAGE, counted ONCE per `send()` call regardless of how many
+   * strategies carry it. This is what makes `snap tx` the host's true cadence — see `recordSend`.
    */
-  recordSend(strategy: string, kind: string, chars: number, now: number): void {
+  recordSendEnvelope(kind: string, chars: number, now: number): void {
     if (!this.enabled) return;
     this.roll(now);
-    this.outAcc += chars;
-    this.outByStrategyAcc.set(strategy, (this.outByStrategyAcc.get(strategy) ?? 0) + chars);
     if (kind === 'NETSNAPSHOT') {
       this.snapTxAcc++;
       this.snapTxBytes = chars;
     }
+  }
+
+  /**
+   * One outbound payload handed to ONE strategy. Call once per strategy — that duplication is the
+   * phenomenon under measurement, so collapsing it here would hide it.
+   *
+   * `peerCount` multiplies the payload because `action.send()` transmits to every peer in that
+   * strategy's room: the wire cost is payload × peers. Equal in the owner's 1v1; up to 3× larger at
+   * `MAX_PLAYERS`.
+   */
+  recordSend(strategy: string, chars: number, peerCount: number, now: number): void {
+    if (!this.enabled) return;
+    this.roll(now);
+    const bytes = chars * Math.max(0, peerCount);
+    this.outAcc += bytes;
+    this.outByStrategyAcc.set(strategy, (this.outByStrategyAcc.get(strategy) ?? 0) + bytes);
   }
 
   /**
@@ -279,14 +311,33 @@ export class NetStats {
   }
 
   /**
-   * A NETSNAPSHOT dropped by `ClientSync`'s seq or epoch gate. In a healthy 1v1 with both strategies
-   * carrying the peer this tracks the accept rate one-for-one — that IS the double-send.
+   * A NETSNAPSHOT dropped by `ClientSync`'s **seq** gate — a snapshot whose seq we have already
+   * accepted. In a 1v1 with both strategies carrying the peer this tracks the accept rate
+   * one-for-one, and THAT IS THE DOUBLE-SEND, measured on the wire.
+   *
+   * ⛔ KEPT SEPARATE FROM THE EPOCH GATE ON PURPOSE. The first cut funnelled both gate arms into this
+   * one counter while both the field docs and the overlay called it "duplicates". An epoch drop is
+   * not a duplicate — it is a snapshot from a DEPOSED HOST after a migration. Folding the two
+   * together would inflate `dup` during exactly the host-migration window, and `dup` is the single
+   * number the owner's Lever 1 approval hangs on. A number that decides a decision may not be
+   * approximately right.
    */
   recordSnapshotDropped(now: number): void {
     if (!this.enabled) return;
     this.roll(now);
     this.snapDupAcc++;
     this.dupTotal++;
+  }
+
+  /**
+   * A NETSNAPSHOT dropped by `ClientSync`'s **epoch** gate — a zombie host from an older term.
+   * Reported separately so it can never be mistaken for the double-send.
+   */
+  recordSnapshotEpochDropped(now: number): void {
+    if (!this.enabled) return;
+    this.roll(now);
+    this.snapEpochAcc++;
+    this.epochDropTotal++;
   }
 
   /** Read every counter. Rolls the window so a total stall reads as zero rather than freezing. */
@@ -305,8 +356,10 @@ export class NetStats {
       snapTxBytes: this.snapTxBytes,
       snapRxPerSec: this.snapRxRate,
       snapDupPerSec: this.snapDupRate,
+      snapEpochDropPerSec: this.snapEpochRate,
       acceptedTotal: this.acceptedTotal,
       dupTotal: this.dupTotal,
+      epochDropTotal: this.epochDropTotal,
       gapLastMs: this.gapLastMs,
       gapAvgMs: this.gapAvgMs,
       gapMaxMs: this.gapMaxMs,

@@ -52,16 +52,25 @@ function harness(
   const priv = transport as unknown as {
     connected: boolean;
     strategies: Map<string, Record<string, unknown>>;
+    peerSet: Set<string>;
   };
   priv.connected = true;
   priv.strategies = new Map();
+  // ⭐ THE UNION MATTERS NOW. Routing requires a strategy to carry EVERY peer at the table, so a
+  // harness that populated per-strategy peers but left `peerSet` empty would make totalPeers 0 and
+  // silently exercise the broadcast arm for every case. Peer ids are SHARED across strategies here
+  // (`peer-0`, `peer-1`, …) because that is the real topology: one peer, two signalling paths.
+  priv.peerSet = new Set();
   const recorders: Recorder[] = [];
   for (const spec of specs) {
     const ready = spec.ready !== false;
     const sent: string[] = [];
     recorders.push({ name: spec.name, sent });
     const peers = new Set<string>();
-    for (let i = 0; i < (spec.peers ?? 1); i++) peers.add(`peer-${spec.name}-${i}`);
+    for (let i = 0; i < (spec.peers ?? 1); i++) {
+      peers.add(`peer-${i}`);
+      priv.peerSet.add(`peer-${i}`);
+    }
     priv.strategies.set(spec.name, {
       name: spec.name,
       room: null,

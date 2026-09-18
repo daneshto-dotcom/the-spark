@@ -86,47 +86,82 @@ describe('⛔ S182 LEVER 1 — the owner gate', () => {
 
 describe('S182 LEVER 1 — pickSnapshotStrategy', () => {
   it('prefers nostr when it is ready and carrying the peer', () => {
-    expect(pickSnapshotStrategy([s('nostr', true, 1), s('torrent', true, 1)])).toBe('nostr');
+    expect(pickSnapshotStrategy([s('nostr', true, 1), s('torrent', true, 1)], 1)).toBe('nostr');
   });
 
   it('honours the declared preference order regardless of argument order', () => {
-    expect(pickSnapshotStrategy([s('torrent', true, 1), s('nostr', true, 1)])).toBe('nostr');
+    expect(pickSnapshotStrategy([s('torrent', true, 1), s('nostr', true, 1)], 1)).toBe('nostr');
     expect(SNAPSHOT_STRATEGY_PREFERENCE[0]).toBe('nostr');
   });
 
   it('fails over to torrent when nostr has lost the peer', () => {
-    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 1)])).toBe('torrent');
+    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 1)], 1)).toBe('torrent');
   });
 
   it('fails over to torrent when nostr is not ready at all', () => {
-    expect(pickSnapshotStrategy([s('nostr', false, 0), s('torrent', true, 1)])).toBe('torrent');
+    expect(pickSnapshotStrategy([s('nostr', false, 0), s('torrent', true, 1)], 1)).toBe('torrent');
   });
 
   it('⭐ returns null — broadcast — when NO ready strategy has a peer', () => {
     // The conservative arm. With nobody visible there is nothing to route on, and falling back to
     // the pre-S182 broadcast is strictly safer. It also costs nothing: no peers means no traffic.
-    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 0)])).toBe(null);
-    expect(pickSnapshotStrategy([s('nostr', false, 0), s('torrent', false, 0)])).toBe(null);
-    expect(pickSnapshotStrategy([])).toBe(null);
+    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 0)], 1)).toBe(null);
+    expect(pickSnapshotStrategy([s('nostr', false, 0), s('torrent', false, 0)], 1)).toBe(null);
+    expect(pickSnapshotStrategy([], 0)).toBe(null);
   });
 
   it('a ready-but-peerless strategy is never chosen — readiness alone is not delivery', () => {
     // A strategy can join the room and bind an action while never completing a peer handshake.
     // Routing every snapshot into it would starve the joiner completely — strictly worse than the
     // doubling this lever exists to remove.
-    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 2)])).toBe('torrent');
+    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 2)], 1)).toBe('torrent');
   });
 
   it('ignores mqtt unless it is the only one carrying anyone (it is an opt-in lever)', () => {
-    expect(pickSnapshotStrategy([s('nostr', true, 1), s('mqtt', true, 1)])).toBe('nostr');
-    expect(pickSnapshotStrategy([s('nostr', true, 0), s('mqtt', true, 1)])).toBe('mqtt');
+    expect(pickSnapshotStrategy([s('nostr', true, 1), s('mqtt', true, 1)], 1)).toBe('nostr');
+    expect(pickSnapshotStrategy([s('nostr', true, 0), s('mqtt', true, 1)], 1)).toBe('mqtt');
   });
 
   it('re-picks per call, so a strategy that drops its peer is abandoned on the next snapshot', () => {
     const healthy = [s('nostr', true, 1), s('torrent', true, 1)];
-    expect(pickSnapshotStrategy(healthy)).toBe('nostr');
+    expect(pickSnapshotStrategy(healthy, 1)).toBe('nostr');
     const nostrDropped = [s('nostr', true, 0), s('torrent', true, 1)];
-    expect(pickSnapshotStrategy(nostrDropped)).toBe('torrent');
+    expect(pickSnapshotStrategy(nostrDropped, 1)).toBe('torrent');
+  });
+});
+
+describe('⛔ S182 LEVER 1 — a strategy must reach the WHOLE table, not just someone', () => {
+  /**
+   * THE BUG THIS SECTION EXISTS FOR, found by audit after the mechanism was already committed.
+   *
+   * `StrategyHandle.peers` is PER-STRATEGY and is a subset of `NetTransport.peerSet`, the union.
+   * Trystero's `action.send()` reaches only the peers attached to THAT strategy's room. The first
+   * cut asked `peerCount > 0` — "does this strategy have A peer" — so with nostr carrying {A} and
+   * torrent carrying {A, B}, it chose nostr and peer B received NOTHING for the entire match. Its
+   * board would freeze solid: the exact symptom this branch exists to remove, produced by the fix
+   * for it, and invisible in the 1v1 the brief is written around.
+   *
+   * `MAX_PLAYERS` is 4, so this was live for 3- and 4-seat matches.
+   */
+  it('⭐ does NOT route to a strategy that carries only SOME of the table', () => {
+    // nostr sees 1 of 2 peers; torrent sees both. Routing to nostr would starve the second peer.
+    expect(pickSnapshotStrategy([s('nostr', true, 1), s('torrent', true, 2)], 2)).toBe('torrent');
+  });
+
+  it('⭐ broadcasts when NO single strategy reaches everyone', () => {
+    // Split table: nostr has one peer, torrent has the other. Neither can carry the match alone, so
+    // the only correct answer is the redundant broadcast — bandwidth is worth less than a playable
+    // seat, which is the same principle that keeps the whole lever behind an owner gate.
+    expect(pickSnapshotStrategy([s('nostr', true, 1), s('torrent', true, 1)], 2)).toBe(null);
+  });
+
+  it('still routes when one strategy covers the whole table at 3 and 4 seats', () => {
+    expect(pickSnapshotStrategy([s('nostr', true, 3), s('torrent', true, 3)], 3)).toBe('nostr');
+    expect(pickSnapshotStrategy([s('nostr', true, 2), s('torrent', true, 3)], 3)).toBe('torrent');
+  });
+
+  it('a peerless table routes nowhere and broadcasts — there is no traffic to double', () => {
+    expect(pickSnapshotStrategy([s('nostr', true, 0), s('torrent', true, 0)], 0)).toBe(null);
   });
 });
 

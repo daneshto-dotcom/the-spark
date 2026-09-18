@@ -131,7 +131,10 @@ export class ClientSync {
     // on the wire rather than inferred from `transport.send`'s loop. `now` is the caller's clock —
     // no wall clock is read here. See netStats.ts.
     if ((msg.epoch ?? 0) < this.currentEpoch) {
-      if (netStats.isEnabled()) netStats.recordSnapshotDropped(now);
+      // A DEPOSED HOST, not a duplicate — counted separately so `dup` keeps meaning exactly one
+      // thing. Folding this arm in would inflate `dup` across a host migration, and `dup` is the
+      // number the owner's Lever 1 decision hangs on.
+      if (netStats.isEnabled()) netStats.recordSnapshotEpochDropped(now);
       return false;
     }
     if (msg.snapshotSeq <= this.lastSeq) {

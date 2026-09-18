@@ -1256,7 +1256,12 @@ const NET_WIRE_SCALE = 10 ** NET_WIRE_DECIMALS;
  * an identity on everything that is not a coordinate.
  */
 export function wireNumberReplacer(_key: string, value: unknown): unknown {
-  return typeof value === 'number' ? Math.round(value * NET_WIRE_SCALE) / NET_WIRE_SCALE : value;
+  if (typeof value !== 'number') return value;
+  const rounded = Math.round(value * NET_WIRE_SCALE) / NET_WIRE_SCALE;
+  // ⚠ `value * 100` overflows to Infinity above ~1.79e306, and `JSON.stringify(Infinity)` is `null`
+  // — so a finite number would have left as a value and come back as null. Unreachable with game
+  // coordinates, but a rounding helper must never turn a number into a different KIND of thing.
+  return Number.isFinite(rounded) ? rounded : value;
 }
 
 

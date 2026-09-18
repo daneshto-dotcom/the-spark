@@ -26,7 +26,7 @@ describe('S182 step 0 — NetStats gate', () => {
   it('is disabled by default and records nothing until enabled', () => {
     const s = new NetStats();
     expect(s.isEnabled()).toBe(false);
-    s.recordSend('nostr', 'NETSNAPSHOT', 50_000, 0);
+    s.recordSend('nostr', 50_000, 1, 0);
     s.recordReceive(50_000, 0);
     s.recordSnapshotAccepted(0);
     s.recordSnapshotDropped(0);
@@ -73,8 +73,9 @@ describe('S182 step 0 — outbound rates', () => {
     // One 10 Hz second of a 100 KiB snapshot sent over BOTH strategies, exactly as transport.send
     // does today: one serialize, two dispatches.
     for (let i = 0; i < 10; i++) {
-      s.recordSend('nostr', 'NETSNAPSHOT', 102_400, i * 100);
-      s.recordSend('torrent', 'NETSNAPSHOT', 102_400, i * 100);
+      s.recordSendEnvelope('NETSNAPSHOT', 102_400, i * 100);
+      s.recordSend('nostr', 102_400, 1, i * 100);
+      s.recordSend('torrent', 102_400, 1, i * 100);
     }
     const r = s.read(1_000);
     const byName = new Map(r.outByStrategy.map((x) => [x.name, x.bytesPerSec]));
@@ -82,17 +83,21 @@ describe('S182 step 0 — outbound rates', () => {
     expect(byName.get('torrent')).toBeCloseTo(1_024_000, 0);
     // The headline number is the SUM — what the host's uplink actually has to carry.
     expect(r.outBytesPerSec).toBeCloseTo(2_048_000, 0);
-    // 20 dispatches of one snapshot each in the window.
-    expect(r.snapTxPerSec).toBeCloseTo(20, 5);
+    // ⭐ 10, NOT 20. The envelope is counted once per send() call, so `snap tx` reads the host's
+    // real cadence while the two per-strategy byte rows above carry the doubling.
+    expect(r.snapTxPerSec).toBeCloseTo(10, 5);
     expect(r.snapTxBytes).toBe(102_400);
   });
 
   it('separates NETSNAPSHOT from the rare control traffic in the snapshot counter', () => {
     const s = new NetStats();
     s.enable();
-    s.recordSend('nostr', 'HELLO', 200, 0);
-    s.recordSend('nostr', 'INTENT', 120, 10);
-    s.recordSend('nostr', 'NETSNAPSHOT', 50_000, 20);
+    s.recordSendEnvelope('HELLO', 200, 0);
+    s.recordSend('nostr', 200, 1, 0);
+    s.recordSendEnvelope('INTENT', 120, 10);
+    s.recordSend('nostr', 120, 1, 10);
+    s.recordSendEnvelope('NETSNAPSHOT', 50_000, 20);
+    s.recordSend('nostr', 50_000, 1, 20);
     const r = s.read(1_000);
     expect(r.snapTxPerSec).toBeCloseTo(1, 5);
     expect(r.snapTxBytes).toBe(50_000);
@@ -147,6 +152,48 @@ describe('S182 step 0 — the starvation numbers', () => {
     expect(r.snapDupPerSec).toBeCloseTo(r.snapRxPerSec, 5);
   });
 
+  it('⭐ gap avg does NOT read 0 during starvation — it carries the last real average forward', () => {
+    // THE BUG THIS PINS, found by audit. A 1-second window with no accepted snapshot has no gaps to
+    // average, and the first cut reported 0 for it. At the brother's 0.2 Hz that is four windows in
+    // every five, so the overlay printed `gap avg 0` — the HEALTHIEST POSSIBLE READING — during the
+    // exact starvation the instrument was built to measure.
+    const s = new NetStats();
+    s.enable();
+    s.recordSnapshotAccepted(0);
+    s.recordSnapshotAccepted(5_000);
+    // The 5 s gap lands in the window that closes at 6 s (roll happens before the gap is added, so
+    // the first average becomes readable one window later — not a defect, just the ordering).
+    expect(s.read(6_000).gapAvgMs).toBe(5_000);
+    // Then four SILENT seconds, read every second as the overlay would. Each of these windows has
+    // zero gaps; before the fix every one of them reported 0.
+    for (const t of [7_000, 8_000, 9_000, 10_000]) {
+      expect(s.read(t).gapAvgMs).toBe(5_000);
+    }
+  });
+
+  it('epoch-gate drops are counted APART from dup — dup is the Lever 1 decision number', () => {
+    // A deposed host after a migration is not a duplicate. Folding the two together would inflate
+    // `dup` across the migration window, and `dup` is the single number the owner's approval rests
+    // on — so it may not be approximately right.
+    const s = new NetStats();
+    s.enable();
+    s.recordSnapshotAccepted(0);
+    s.recordSnapshotDropped(10);
+    s.recordSnapshotEpochDropped(20);
+    s.recordSnapshotEpochDropped(30);
+    const r = s.read(1_000);
+    expect(r.dupTotal).toBe(1);
+    expect(r.epochDropTotal).toBe(2);
+  });
+
+  it('outbound bytes scale with peer count — action.send() reaches every peer in the room', () => {
+    // Equal in the owner's 1v1; understated the host's upload by up to 3x at MAX_PLAYERS before.
+    const s = new NetStats();
+    s.enable();
+    s.recordSend('nostr', 1_000, 3, 0);
+    expect(s.read(1_000).outBytesPerSec).toBeCloseTo(3_000, 0);
+  });
+
   it('a read during a total stall decays to zero instead of freezing the last healthy rate', () => {
     const s = new NetStats();
     s.enable();
@@ -179,12 +226,23 @@ describe('S182 step 0 — call sites exist (source-text tripwires)', () => {
     expect(recordAt).toBeLessThan(parseAt);
   });
 
-  it('ClientSync.receive instruments BOTH gate arms plus the accept', () => {
+  it('ClientSync.receive instruments the accept and BOTH gate arms, with the arms kept distinct', () => {
     expect(SYNC_SRC).toContain('netStats.recordSnapshotAccepted(now)');
-    // Two drop arms: the epoch gate and the seq gate. The seq gate is the one that catches the
-    // redundant second-strategy copy, so losing it would silently zero the headline `dup` number.
-    const drops = SYNC_SRC.match(/netStats\.recordSnapshotDropped\(now\)/g) ?? [];
-    expect(drops.length).toBe(2);
+    // The seq arm is the one that catches the redundant second-strategy copy, so losing it would
+    // silently zero the headline `dup` number. Exactly one of each — routing the epoch arm back into
+    // recordSnapshotDropped is the regression this counts against.
+    const seqDrops = SYNC_SRC.match(/netStats\.recordSnapshotDropped\(now\)/g) ?? [];
+    const epochDrops = SYNC_SRC.match(/netStats\.recordSnapshotEpochDropped\(now\)/g) ?? [];
+    expect(seqDrops.length).toBe(1);
+    expect(epochDrops.length).toBe(1);
+  });
+
+  it('the overlay guards on isEnabled() BEFORE reading the clock', () => {
+    // The one call site the transport/sync tripwire cannot see, and it was missing the guard.
+    const at = OVERLAY_SRC.indexOf('netStats.isEnabled()');
+    const readAt = OVERLAY_SRC.indexOf('netStats.read(performance.now())');
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(readAt);
   });
 
   it('the overlay renders the net block', () => {
@@ -220,14 +278,14 @@ describe('S182 step 0 — zero-cost-when-disabled contract', () => {
         expect(window).toMatch(/netStats\.isEnabled\(\)/);
       });
     }
-    // 5 sites: send · receive · snapshot accept · 2 × snapshot drop.
-    expect(checked).toBe(5);
+    // 6 sites: send envelope · send per-strategy · receive · snapshot accept · seq drop · epoch drop.
+    expect(checked).toBe(6);
   });
 
   it('the recorders still self-guard, so an unguarded future call site is inert rather than wrong', () => {
     const s = new NetStats();
     // Never enabled: a call site that forgets the outer guard must still record nothing.
-    s.recordSend('nostr', 'NETSNAPSHOT', 999, 0);
+    s.recordSend('nostr', 999, 1, 0);
     expect(s.read(1_000).outBytesPerSec).toBe(0);
   });
 
