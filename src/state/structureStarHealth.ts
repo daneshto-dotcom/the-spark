@@ -58,6 +58,24 @@ import type { World } from './worldTypes.ts';
 export const STAR_SELFDESTRUCT_BELOW_FRAC = 1 / 3;
 
 /**
+ * ⭐⭐ S182 — **HOW LONG A DOOMED HUB STAYS IN THE WORLD SO ITS COLLAPSE CAN FINISH.**
+ *
+ * The ramp's last 8 frames (17→24) at `HUB_RAMP_TICKS_PER_FRAME` (3) = **24 ticks**, 0.4 s at 60 Hz.
+ * `structureRamp.test.ts` asserts this equals `rampDeathRunTicks(hubSpec)` so the sim's fuse and the
+ * renderer's run cannot drift apart — they are the same eight frames counted from two sides.
+ *
+ * ⛔ IT LIVES HERE, NOT IN `render/structureRamp.ts`, BECAUSE THE SIM MAY NOT IMPORT FROM `render/`.
+ * The dependency runs the other way: the renderer imports this module's threshold already.
+ *
+ * ⚠ **THE POLL IS THROTTLED, SO THE REAL DELAY IS `REVALIDATE_INTERVAL_TICKS` (30), NOT 24.** The
+ * revalidation branch this gates only runs every 30 ticks, so a fuse lit at tick T is read at T+30.
+ * That is deliberately left alone rather than "fixed" with a second finer-grained poll: 30 ≥ 24, so
+ * the run always completes, and the extra six ticks are the wreck sitting on its last frame — which
+ * is what a settled ruin should do before it is cleared.
+ */
+export const HUB_DEATH_RUN_TICKS = 24;
+
+/**
  * PURE — the damage standing on `anchorId`'s OWN bonds, in fifths. `null` when there is no such
  * primitive (a stale id, or the hub was razed between the read and the call).
  */

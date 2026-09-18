@@ -20,9 +20,11 @@ import {
   rampDeathRunTicks,
   rampFrameForHealth,
   rampSpecFor,
+  rampTargetFrame,
+  shouldStartGhost,
   type RampSpec,
 } from './structureRamp.ts';
-import { STAR_SELFDESTRUCT_BELOW_FRAC } from '../state/structureStarHealth.ts';
+import { HUB_DEATH_RUN_TICKS, STAR_SELFDESTRUCT_BELOW_FRAC } from '../state/structureStarHealth.ts';
 import { TOWER_DAMAGED_BELOW } from './towerFrames.ts';
 import { structurePoolFifths } from '../state/stats.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -121,16 +123,121 @@ describe('⭐⭐ the threshold and the frame boundary are ONE test', () => {
   });
 
   it('reuses TOWER_DAMAGED_BELOW rather than minting a second "damaged" number', () => {
-    // ⚠ `buildingTint` already switches green→amber at this same 0.5, so the health bar and the art
-    // agree for free. A second constant here is how they would drift apart.
+    // `buildingTint` switches green→amber at this same 0.5, so the two use ONE threshold. A second
+    // constant here is how they would drift apart. ⚠ See the case below for the part of this that
+    // an earlier version of this comment got WRONG.
     expect(rampFrameForHealth(TOWER_DAMAGED_BELOW, HUB.frames)).toBe(12);
     expect(rampCell(12, HUB)).toEqual({ state: 'damage', col: 11 });
+  });
+
+  it('⛔ BUT THE HEALTH BAR AND THE ART DISAGREE ON A WELDED HUB — measured, and it is not free', () => {
+    /*
+     * ⛔⛔ THE CLAIM THIS REPLACES WAS FALSE. The S182 brief, and the first version of the comment
+     * above, said the bar and the art "agree for free" because they share `TOWER_DAMAGED_BELOW`.
+     * They share the THRESHOLD; they do not share the DENOMINATOR, and that is what decides.
+     *
+     *   `healthBar.ts:421` reads `structureDefenceFifths(n)` over the whole COMPONENT.
+     *   The ramp reads `structurePoolFifths(hub.bonds.size)` over the hub's OWN STAR (R182-B).
+     *
+     * For a STANDALONE hub those are the same five connectors and the two do agree. Weld ONE
+     * friendly shape onto one leaf and the component becomes six:
+     *
+     *   banked 34  ->  bar 34/66 = 48 % remaining (green-amber, "it is fine")
+     *              ->  art 34/50 = 32 % remaining (frame 17, the death run, and it detonates)
+     *
+     * ⭐ THE OWNER RULED STAR-SCOPED, SO THE **BAR** IS THE ONE THAT SHOULD FOLLOW — but that is a
+     * change to every structure's bar, not to the hub, so it is NOT made here. It is recorded in
+     * `SPARK_CANON.md` §9 as an open question for him. This case exists so the disagreement is a
+     * measured, asserted fact rather than a sentence someone can quietly delete.
+     */
+    const banked = 34;
+    const starPool = structurePoolFifths(5); // the hub's own five arms
+    const weldedComponentPool = structurePoolFifths(6); // + one hand-placed neighbour
+    const artFrac = 1 - banked / starPool;
+    const barFrac = 1 - banked / weldedComponentPool;
+
+    expect(artFrac).toBeLessThan(STAR_SELFDESTRUCT_BELOW_FRAC); // the art says: dead
+    expect(barFrac).toBeGreaterThan(TOWER_DAMAGED_BELOW * 0.9); // the bar says: nearly half full
+    expect(rampFrameForHealth(artFrac, HUB.frames)).toBeGreaterThanOrEqual(rampDeathFirstFrame(HUB)!);
+    expect(rampFrameForHealth(barFrac, HUB.frames)).toBeLessThan(rampDeathFirstFrame(HUB)!);
   });
 
   it('a spec that does not self-destruct has no death run', () => {
     const plain: RampSpec = { ...HUB, selfDestructBelow: null };
     expect(rampDeathFirstFrame(plain)).toBeNull();
     expect(rampDeathRunTicks(plain)).toBe(0);
+  });
+});
+
+describe('⭐⭐⭐ S182 — a DOOMED structure aims at the LAST frame, not at the frame its health names', () => {
+  it('above the threshold it simply tracks health', () => {
+    expect(rampTargetFrame(1, HUB)).toBe(1);
+    expect(rampTargetFrame(0.5, HUB)).toBe(12);
+    expect(rampTargetFrame(0.34, HUB)).toBe(16);
+  });
+
+  it('⛔ BELOW the threshold it jumps its TARGET to the end, so the collapse plays for everyone', () => {
+    /*
+     * The defect this closes: `rampFrameForHealth(0.30)` is 17 — the FIRST frame of the death run —
+     * so a doomed hub parked on 17 and the other seven frames were reachable ONLY through the
+     * client-local ghost. A peer that had reloaded, or a joiner who arrived a moment earlier, had no
+     * ghost record and watched the building vanish with no destruction at all.
+     */
+    expect(rampFrameForHealth(0.3, HUB.frames)).toBe(17); // what it would have parked on
+    expect(rampTargetFrame(0.3, HUB)).toBe(HUB.frames); // what it aims at now
+    expect(rampTargetFrame(0.01, HUB)).toBe(HUB.frames);
+    expect(rampTargetFrame(0, HUB)).toBe(HUB.frames);
+  });
+
+  it('a structure with NO self-destruct is untouched by this', () => {
+    const plain: RampSpec = { ...HUB, selfDestructBelow: null };
+    expect(rampTargetFrame(0.3, plain)).toBe(rampFrameForHealth(0.3, plain.frames));
+    expect(rampTargetFrame(0, plain)).toBe(plain.frames); // 0 health is the last frame either way
+  });
+
+  it('⭐ the sim fuse and the renderer run are the SAME eight frames, counted from two sides', () => {
+    // ⛔ If these ever disagree the hub is razed mid-collapse again. `HUB_DEATH_RUN_TICKS` is what
+    // `hostTick` holds a doomed hub in the world for; `rampDeathRunTicks` is how long the art needs.
+    expect(HUB_DEATH_RUN_TICKS).toBe(rampDeathRunTicks(HUB));
+    expect(HUB_DEATH_RUN_TICKS).toBe(8 * HUB_RAMP_TICKS_PER_FRAME);
+  });
+});
+
+describe('⛔⛔ S182 — "not drawn" is NOT "destroyed" (shouldStartGhost)', () => {
+  const base = {
+    drawnThisFrame: false, stillInWorld: false, alreadyGhosting: false,
+    hasLastPosition: true, inFight: true,
+  };
+
+  it('a structure that really left the world plays its collapse', () => {
+    expect(shouldStartGhost(base)).toBe(true);
+  });
+
+  it('⛔ a FOGGED or still-loading structure does NOT — the defect this closes', () => {
+    /*
+     * The draw loop skips for three PRESENTATION reasons that are not death: behind the fog, atlas
+     * still loading, texture not cut. The first version of the sweep turned every undrawn sprite
+     * into a corpse, so an enemy hub walking out of vision played its whole collapse — and played it
+     * again on every vision drop. `stillInWorld` is what separates the two questions.
+     */
+    expect(shouldStartGhost({ ...base, stillInWorld: true })).toBe(false);
+  });
+
+  it('a structure being DRAWN never ghosts', () => {
+    expect(shouldStartGhost({ ...base, drawnThisFrame: true })).toBe(false);
+    expect(shouldStartGhost({ ...base, drawnThisFrame: true, stillInWorld: true })).toBe(false);
+  });
+
+  it('it does not start twice', () => {
+    expect(shouldStartGhost({ ...base, alreadyGhosting: true })).toBe(false);
+  });
+
+  it('a deliberate SCRAP in BUILD is not a destruction', () => {
+    expect(shouldStartGhost({ ...base, inFight: false })).toBe(false);
+  });
+
+  it('a structure that was never drawn has nowhere to play out', () => {
+    expect(shouldStartGhost({ ...base, hasLastPosition: false })).toBe(false);
   });
 });
 

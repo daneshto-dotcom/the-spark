@@ -292,6 +292,46 @@ S182 built the ramp, the threshold and the repair fee and **left `applyStructure
 byte-identical**, deliberately. `canon.test.ts` asserts it is still the radial clear, so this cannot be
 quietly half-answered.
 
+### ⛔ R182-F — the HEALTH BAR and the DAMAGE ART disagree on a WELDED hub
+
+**Measured, not suspected.** They share the threshold (`TOWER_DAMAGED_BELOW` 0.5) but not the
+denominator, and the denominator is what decides:
+
+| | reads | on a hub with one friendly shape welded to a leaf, banked 34 |
+|---|---|---|
+| health bar | `structureDefenceFifths(n)` over the whole **component** (`healthBar.ts:421`) | 34/66 → **48 % left** — green-amber, "it's fine" |
+| damage art | `structurePoolFifths(hub.bonds.size)` over its **own star** (R182-B) | 34/50 → **32 % left** — frame 17, and it detonates |
+
+For a **standalone** hub the two are the same five connectors and they agree exactly. The split only
+opens when something is welded on — which is the case R182-B was written for.
+
+⭐ **The owner ruled the STAR is what counts, so the BAR is the thing that should follow.** That was
+not done in S182 because it changes the bar for **every** structure in the game, not just the hub,
+and that is a bigger ruling than this branch was given. `structureRamp.test.ts` asserts the
+divergence so it stays a measured fact rather than a sentence someone can delete.
+
+⚠ **The S182 brief asserted these would "agree for free". That was wrong, and the wrong claim was in
+the tree as a test comment until this entry replaced it.**
+
+### ⚠ WHAT `--dark-bg` STOPS GUARDING on `public/art/lightning-hub`
+
+`check:atlas` runs five checks. The new sheet is matted off a near-BLACK background, so
+`scripts/check-atlas-scenery.mjs` is invoked with `--no-size --dark-bg` and **two of the five no
+longer run for that directory**:
+
+| check | status for `lightning-hub` | why |
+|---|---|---|
+| 1 · mid-grey scenery blocks | **ON** — scores 0 px | still meaningful |
+| 2 · cross-row seed-size drift | **OFF** (`--no-size`) | rows are conditions, not seeded states — the pre-existing structures exemption |
+| 3 · opaque near-white pockets | **OFF** (`--dark-bg`) | on a black-keyed matte a surviving background pixel is near-BLACK; the 4,407 near-white px on this sheet are the lightning's white-hot cores |
+| 4 · surviving letterbox bars | **ON** — scores 0 px | still meaningful |
+| 5 · near-white edge fringe | **OFF** (`--dark-bg`) | same reason; measured 26 of 66,786 edge px (0.04 %), all bolt tips |
+
+⛔ **So a WHITE-ish defect on a dark-background sheet would not be caught.** The two checks that
+*could* catch this sheet's real failure modes — grey scenery welded in, and a surviving background
+bar — both still run and both score a clean zero. If a future dark sheet needs a
+near-black-pocket check, that is a NEW check, not a threshold tweak to these two.
+
 ## 10 · HOW TO KEEP THIS HONEST
 
 - Add a number here only with the constant it comes from, and add its assertion to `src/canon.test.ts`

@@ -11,14 +11,56 @@
  * present them one after another."* `RAMP_SPECS` has exactly one entry and adding the second is his
  * call, not a tidy-up.
  *
- * ## ⭐ WHAT A SECOND TOWER COSTS: ONE SPEC HERE, ONE JSON, ONE WORD IN `check:atlas`
+ * ## ⭐⭐⭐ WHAT TOWER NUMBER TWO COSTS — COUNTED, FILE BY FILE
  *
- *   1. `assets-source/<tower>/atlas-specs.json` — data, built by `scripts/build-sheet-atlas.mjs`.
- *   2. ONE entry in `RAMP_SPECS` below.
- *   3. `public/art/<tower>` appended to the `check:atlas` structures group in `package.json`.
+ * The owner is bringing 24-frame ramps for **four** more (goblin tower, Helga, laser turret, and the
+ * drone hub's own unit art), on **transparent** backgrounds. This is the number that decides whether
+ * that is an afternoon or a month, so it is counted rather than estimated.
+ *
+ * ### PER TOWER — **17 lines of code + one ~20-line data file**
+ *
+ * | file | change | lines |
+ * |---|---|---|
+ * | `assets-source/<tower>/atlas-specs.json` | NEW — copy the hub's, edit 6 values | ~20 (data) |
+ * | `src/render/structureRamp.ts` | one `RAMP_SPECS` entry | **13** |
+ * | `src/render/structureRamp.ts` | its 3 size constants (`_ART_PX`, `_SUBJECT_FILL`, `_SPRITE_PX`) | **3** |
+ * | `package.json` | append `public/art/<tower>` to the `check:atlas` dark-bg group | **1** |
+ * | `src/render/structureRamp.test.ts` | the one-entry registry assertion | **1** (edit) |
+ * | `src/render/structureRampAtlas.test.ts` | — | **0**, it is `describe.each(RAMP_SPECS)` |
+ * | `src/main.ts`, the renderer, the sim | — | **0** |
+ *
+ * ⭐ The atlas contract test covering a new tower for **zero** lines is the part that matters: the
+ * manifest/row/frame-count/cadence/foot-anchor guard is generic over the table, so tower five is as
+ * guarded as tower one without anyone remembering to guard it.
+ *
+ * ### TWO ONE-TIME COSTS BEFORE THOSE FOUR LAND — and they are NOT per-tower
+ *
+ * 1. ⛔ **TRANSPARENT SOURCES NEED A MATTE MODE — ~8 lines in `build-sheet-atlas.mjs`.** Its matte
+ *    keys near-BLACK connected to the border, because the hub's sheet is `(0,10,17)`. A sheet that
+ *    arrives already transparent must SKIP the matte and use its own alpha; running the dark key
+ *    over it would eat every dark pixel of the art. One `background: 'alpha'` branch.
+ *
+ * 2. ⛔⛔ **HELGA AND THE LASER TURRET ARE `kind: 'defender'`, NOT SPAWNERS — ~15 lines in
+ *    `structureRampRenderer.sync`.** VERIFIED against the recipe registry: `goblinTower` and
+ *    `lightningHub` are `kind: 'spawner'`, `princessHelga` and `laserTurret` are `kind: 'defender'`,
+ *    so **two of his four are invisible to this renderer today** — it iterates
+ *    `world.creatureSpawners` only. ⭐ The fix is small and the sim half is already free: `Defender`
+ *    carries the exact two fields the loop reads (`recipeId` and `anchorPrimitiveId`), and
+ *    `starHealthFrac` takes an anchor, so it works on a turret's Line hub and Helga's Triangle hub
+ *    unchanged. It is the SOURCE LOOP that must widen — lift the per-structure body into a method
+ *    and call it for `world.defenders` too.
+ *    ⚠ NOT DONE HERE, deliberately: there is no defender ramp art yet, and this project's standing
+ *    lesson is that code written ahead of the art it serves ships unreachable and untested
+ *    (`t3TowerAtlasBase`, 7.4 MiB, two sessions, zero callers).
+ *
+ * ### SO: FOUR MORE TOWERS ≈ **23 one-time lines + 4 × 17**, i.e. an afternoon, not a month
+ *
+ * — provided the art arrives as one grid per tower with the frames in reading order. The expensive
+ * parts of S182 were the SHEET (uneven grid, baked frame numbers, dark matte, ground-line drift) and
+ * they are all now in the builder, paid once.
  *
  * `StructureRampRenderer` is generic over this table, is registered once in `main.ts`, and is
- * already wired to the fog gate, the atlas-load bail and `markTowerCover`. Nothing else moves.
+ * already wired to the fog gate, the atlas-load bail, `markTowerCover` and the death-run ghost.
  *
  * ## ⭐⭐⭐ R182-D (owner) — THE RAMP PLAYS THROUGH. IT NEVER SNAPS.
  *
@@ -201,6 +243,62 @@ export function rampDeathRunTicks(spec: RampSpec): number {
   const first = rampDeathFirstFrame(spec);
   if (first === null) return 0;
   return (spec.frames - first + 1) * spec.ticksPerFrame;
+}
+
+/**
+ * PURE — the frame the cursor should be WALKING TOWARD, given synced health.
+ *
+ * ⭐⭐⭐ **BELOW THE THRESHOLD A STRUCTURE IS DOOMED, SO IT AIMS AT THE LAST FRAME, NOT AT THE FRAME
+ * ITS HEALTH NAMES.** This is what makes the collapse visible to EVERYBODY rather than only to the
+ * peer that happened to be watching when it died.
+ *
+ * ⛔ THE DEFECT THIS CLOSES. `rampFrameForHealth` maps 30 % health to frame 17 — the FIRST frame of
+ * the death run — so a doomed hub would sit on 17 and the remaining seven frames of collapse could
+ * only ever be drawn by the client-local ghost that starts when the structure LEAVES the world. A
+ * peer that reloaded, or a joiner who arrived a moment earlier, has no ghost record and therefore saw
+ * the building vanish with no destruction at all.
+ *
+ * ⭐ Aiming at the last frame instead derives the whole run from `Bond.damageFifths`, which is
+ * synced and hashed — so every peer, joiner included, plays the same collapse from the same data,
+ * and the ghost degrades to what it should always have been: the TAIL, for the beats after the sim
+ * has razed the star.
+ *
+ * ⚠ A structure with no self-destruct simply tracks its health, exactly as before.
+ */
+export function rampTargetFrame(frac: number, spec: RampSpec): number {
+  if (spec.selfDestructBelow !== null && Number.isFinite(frac) && frac < spec.selfDestructBelow) {
+    return spec.frames;
+  }
+  return rampFrameForHealth(frac, spec.frames);
+}
+
+/**
+ * PURE — should a sprite whose structure was not drawn this frame start a DESTRUCTION beat?
+ *
+ * ⛔⛔ **"NOT DRAWN" AND "DESTROYED" ARE DIFFERENT QUESTIONS, AND CONFLATING THEM MADE LIVING
+ * BUILDINGS EXPLODE.** The renderer's draw loop skips a structure for three PRESENTATION reasons
+ * that are not death — it is behind the fog, its atlas has not finished loading, or its texture
+ * could not be cut. The first version of the ghost sweep treated any undrawn sprite as a corpse, so
+ * an enemy hub walking out of your vision played its whole collapse, and played it again every time
+ * your vision dropped. A player would read that as the tower dying over and over.
+ *
+ * So the sweep asks THIS instead, and `present` is filled before any presentation-level skip.
+ *
+ * ⚠ FIGHT-ONLY, so scrapping your own tower in BUILD does not detonate it on screen — a structure
+ * taken apart deliberately is not a destruction, the same distinction `destroyDefender` draws.
+ * ⚠ AND IT NEEDS A LAST-KNOWN POSITION: a structure that was never drawn has nowhere to play out.
+ */
+export function shouldStartGhost(opts: {
+  readonly drawnThisFrame: boolean;
+  readonly stillInWorld: boolean;
+  readonly alreadyGhosting: boolean;
+  readonly hasLastPosition: boolean;
+  readonly inFight: boolean;
+}): boolean {
+  if (opts.drawnThisFrame || opts.alreadyGhosting) return false;
+  if (opts.stillInWorld) return false; // ⛔ merely undrawn — fogged, or the atlas is still loading
+  if (!opts.inFight) return false;
+  return opts.hasLastPosition;
 }
 
 /** Which atlas row and column a 1-based ramp frame lives at. */

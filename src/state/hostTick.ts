@@ -133,7 +133,7 @@ import { tickScoring } from './scoring.ts';
 import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 // S182 (owner R182-A/B) — the hub's own star health, the ONE copy of that arithmetic.
-import { starIsBelowSelfDestruct } from './structureStarHealth.ts';
+import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHealth.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -193,6 +193,24 @@ export interface HostTickState {
   bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
+  /**
+   * ⭐⭐⭐ S182 — **THE TICK A DOOMED LIGHTNING HUB CROSSED ITS THRESHOLD**, so its collapse can
+   * finish playing before the sim razes the star.
+   *
+   * ⛔ WHY IT IS HOST-LOCAL RATHER THAN A FIELD ON THE SPAWNER. `trimMirrorSpawner` STRIPS every
+   * tick field from a spawner on the wire and `deserializeSpawner` re-seeds them from the client's
+   * OWN current tick — so a fuse stored there would restart ten times a second on a joiner, which is
+   * the trap `towerCover`'s docblock already records against `ignitedAtTick`. Keeping it here also
+   * avoids the four-sites tax and a protocol bump, exactly as `bossRoster` and `sapLedger` above do.
+   *
+   * ⚠ AND IT STAYS CONSISTENT WITH THE WORKER SIM because `workerSim.ts` runs this same
+   * `runHostTick` against its own `HostTickState`: identical world, identical actions, identical
+   * tick, so both fuses fire on the same tick and `hashWorldStateFull` cannot see a difference.
+   *
+   * ⚠ A HOST MIGRATION LOSES IT, and the consequence is bounded and stated rather than hidden: the
+   * new host re-fuses a hub that was already dying, so it lives ~0.4 s longer than it would have.
+   */
+  hubDeathFuse: Map<number, number>;
 }
 
 /**
@@ -313,6 +331,7 @@ export function makeHostTickState(world: World): HostTickState {
      * half knows what they are standing on.
      */
     sapLedger: new Map(),
+    hubDeathFuse: new Map(),
   };
 }
 
@@ -694,9 +713,38 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * delay a hub that crossed the threshold in the poll window straddling the phase edge, and
          * delaying it by a whole BUILD is worse than firing it half a second late.
          */
-        const starSpent =
+        const spawnerKey = Number(spawnerId);
+        const doomed =
           sp.recipeId === 'lightningHub' && starIsBelowSelfDestruct(world, sp.anchorPrimitiveId);
-        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp) || starSpent) {
+        /*
+         * ⭐⭐⭐ S182 — **THE COLLAPSE FINISHES BEFORE THE RAZE.**
+         *
+         * ⛔ THE DEFECT THIS CLOSES. Crossing the threshold used to dispatch the blast, remove the
+         * spawner and raze the star in ONE tick — so the eight frames of collapse the owner
+         * commissioned could only ever be drawn by a client-local ghost, and a peer that had
+         * reloaded (or a joiner who arrived a moment before) had no ghost record and saw the
+         * building simply vanish. The art was unreachable for exactly the players most likely to be
+         * looking at it.
+         *
+         * ⭐ So a doomed hub is FUSED instead of killed: it stays in the world for
+         * `HUB_DEATH_RUN_TICKS`, during which every peer — joiners included — derives the same
+         * collapse from `Bond.damageFifths`, which is synced and hashed. The ghost stops being the
+         * only path and becomes what it should always have been: the tail.
+         *
+         * ⚠ THE FUSE IS NOT A REPRIEVE. It cannot be cleared by repair (FIX is BUILD-only and this
+         * is FIGHT), and if the star BREAKS during it the ordinary recipe test below fires on the
+         * same poll and the hub dies at once — the fuse only ever delays, never rescues.
+         */
+        if (doomed && !state.hubDeathFuse.has(spawnerKey)) {
+          state.hubDeathFuse.set(spawnerKey, world.tick);
+        }
+        const fusedAt = state.hubDeathFuse.get(spawnerKey);
+        const fuseBlown = fusedAt !== undefined && world.tick - fusedAt >= HUB_DEATH_RUN_TICKS;
+        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp) || fuseBlown) {
+          // ⚠ The fuse is host-local scratch, so it is cleared on EVERY exit from this branch —
+          // spawner ids are reused across matches (`applyReturnToTitle` resets the counter), and a
+          // stale row would fuse-blow a brand-new hub on its first poll.
+          state.hubDeathFuse.delete(spawnerKey);
           // S100 P1 (Layer 6) — destruction (NOT teardown): award the one-shot raid
           // reward split across enemies BEFORE removing the record (awardSpawnerKillReward
           // reads sp.ownerPlayerId). teardownSpawners clears the map directly and never

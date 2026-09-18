@@ -39,7 +39,7 @@ import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import { TOWER_SPRITE_ANCHOR } from './towerFrames.ts';
 import {
-  advanceRampCursor, rampCell, rampFrameForHealth, rampSpecFor,
+  advanceRampCursor, rampCell, rampSpecFor, rampTargetFrame, shouldStartGhost,
   type RampCursor, type RampSpec,
 } from './structureRamp.ts';
 
@@ -167,13 +167,30 @@ export class StructureRampRenderer {
     if (world.creatureSpawners.size === 0 && this.sprites.size === 0) return;
 
     const live = new Set<string>();
+    /*
+     * ⛔⛔ S182 — **"STILL IN THE WORLD" AND "DREW THIS FRAME" ARE TWO DIFFERENT QUESTIONS, AND
+     * CONFLATING THEM MADE LIVING BUILDINGS EXPLODE.**
+     *
+     * The ghost sweep below turns any key that is missing from the drawn set into a destruction
+     * beat. Three of the skips in this loop are NOT destruction — the fog gate, the atlas-still-
+     * loading bail, and a texture that could not be cut — so an enemy hub simply walking out of
+     * your vision fell out of the drawn set and played its whole collapse, over and over, every
+     * time your vision dropped. A player would read that as the tower dying repeatedly.
+     *
+     * `present` answers the only question the ghost sweep actually wants to ask: does this
+     * structure still EXIST? It is filled before any presentation-level skip, so a building can be
+     * undrawable for a hundred frames without ever being mistaken for a dead one.
+     */
+    const present = new Set<string>();
     for (const sp of world.creatureSpawners.values()) {
       const spec = rampSpecFor(sp.recipeId);
       if (spec === null) continue; // the twelve towers with no ramp art — drawn by towerRenderer
-      this.ensureAtlas(spec.atlasBase);
 
       const hub = world.primitives.get(sp.anchorPrimitiveId);
-      if (hub === undefined) continue;
+      if (hub === undefined) continue; // the anchor is gone — this one really IS dead
+      present.add(`s${Number(sp.id)}`);
+
+      this.ensureAtlas(spec.atlasBase);
       // Fog: the same test, on the same field, that every other structure renderer applies.
       if (isConcealed(hub.pos.x, hub.pos.y, hub.placedBy)) continue;
       if (!this.manifests.has(spec.atlasBase)) continue; // loading, or failed — shapes stay bare
@@ -204,7 +221,9 @@ export class StructureRampRenderer {
 
       const key = `s${Number(sp.id)}`;
       const frac = starHealthFrac(world, sp.anchorPrimitiveId);
-      const target = rampFrameForHealth(frac ?? 1, spec.frames);
+      // ⭐ S182 — a DOOMED structure aims at the last frame, so its collapse plays from synced
+      // health on every peer instead of only on the one that had a ghost record. See `rampTargetFrame`.
+      const target = rampTargetFrame(frac ?? 1, spec);
       const cursor = advanceRampCursor(this.seedCursor(key, target, world.tick), target, world.tick, spec);
       this.cursors.set(key, cursor);
 
@@ -239,10 +258,16 @@ export class StructureRampRenderer {
      * structure taken apart deliberately is not a destruction.
      */
     for (const key of this.sprites.keys()) {
-      if (live.has(key) || this.ghosts.has(key)) continue;
-      if (world.matchPhase !== 'FIGHT') continue;
       const at = this.lastSeen.get(key);
-      if (at === undefined) continue;
+      // ⛔ The decision lives in `shouldStartGhost`, PURE and unit-tested — "undrawn" is not "dead".
+      if (!shouldStartGhost({
+        drawnThisFrame: live.has(key),
+        stillInWorld: present.has(key),
+        alreadyGhosting: this.ghosts.has(key),
+        hasLastPosition: at !== undefined,
+        inFight: world.matchPhase === 'FIGHT',
+      })) continue;
+      if (at === undefined) continue; // narrowing for tsc; `hasLastPosition` already decided it
       const cursor = this.cursors.get(key) ?? { frame: 1, sinceTick: world.tick };
       const toPlay = Math.max(0, at.spec.frames - cursor.frame);
       this.ghosts.set(key, {

@@ -31,6 +31,7 @@ import {
   starHealthFrac,
   starIsBelowSelfDestruct,
   starPoolFifths,
+  HUB_DEATH_RUN_TICKS,
 } from './structureStarHealth.ts';
 
 const P0 = asPlayerId(0);
@@ -211,12 +212,71 @@ describe('R182-A — through the real host tick', () => {
     for (const leaf of leaves) expect(w.primitives.has(leaf.id)).toBe(false);
   });
 
-  it('it goes within the revalidation window — half a second, not a whole fight', () => {
+  it('⭐⭐⭐ S182 — it SURVIVES the collapse run, then dies (the death run completes before the raze)', () => {
+    /*
+     * ⛔ THE DEFECT THIS CLOSES. Crossing the threshold used to blast, remove and raze in ONE tick,
+     * so the eight frames of collapse existed only on a client-local ghost — invisible to a peer
+     * that had reloaded and to a joiner who arrived a moment earlier. The hub is now FUSED: it stays
+     * in the world for `HUB_DEATH_RUN_TICKS`, which is the same eight frames the renderer needs, so
+     * every peer derives the collapse from synced `Bond.damageFifths`.
+     *
+     * ⚠ ASSERTED ON BOTH SIDES OF THE FUSE. "It eventually dies" alone would pass against the old
+     * same-tick raze; "it is alive at tick N" alone would pass against a hub that never dies at all.
+     */
+    const { w, hub } = worldWithHub();
+    run(w, 2);
+    expect(w.creatureSpawners.size).toBe(1);
+    bankOnStar(w, hub, 34);
+    expect(starIsBelowSelfDestruct(w, hub.id), 'the fixture must actually be doomed').toBe(true);
+
+    // STILL STANDING while the collapse plays — the whole point of the fuse.
+    const { goneAt: goneDuringRun } = run(w, HUB_DEATH_RUN_TICKS);
+    expect(goneDuringRun, 'the hub must outlive its own death run').toBeNull();
+    expect(w.primitives.has(hub.id)).toBe(true);
+
+    // …and then it goes, on the next revalidation poll after the fuse blows.
+    const { goneAt, blasts } = run(w, 120);
+    expect(goneAt, 'and it must still die').not.toBeNull();
+    expect(blasts).toBeGreaterThan(0);
+    expect(w.primitives.has(hub.id)).toBe(false);
+  });
+
+  it('⛔ the fuse DELAYS, it never rescues — a star that breaks mid-run dies at once', () => {
+    // A reprieve would be a balance change nobody asked for. Breaking the star during the fuse must
+    // fall straight through the ordinary recipe test.
+    const { w, hub, leaves } = worldWithHub();
+    run(w, 2);
+    bankOnStar(w, hub, 34);
+    run(w, 2); // light the fuse
+    // Eat a leaf: hub.bonds drops to 4, `isStarAt` fails, the recipe test fires.
+    const leaf = leaves[0]!;
+    for (const bid of [...leaf.bonds]) {
+      const b = w.bonds.get(bid)!;
+      w.primitives.get(b.aId)?.bonds.delete(bid);
+      w.primitives.get(b.bId)?.bonds.delete(bid);
+      w.bonds.delete(bid);
+    }
+    w.primitives.delete(leaf.id);
+    const { goneAt } = run(w, 40);
+    expect(goneAt, 'a broken star does not get to wait out the fuse').not.toBeNull();
+  });
+
+  it('it goes within TWO revalidation windows — about a second, not a whole fight', () => {
+    /*
+     * ⭐ S182 — RE-PINNED FROM 30 TO 60, and the extra poll is the death fuse, not a slowdown.
+     * Crossing the threshold now LIGHTS the fuse on one poll and BLOWS it on the next, so the
+     * collapse has its 24 ticks to play before the raze. Measured: 57 ticks.
+     *
+     * ⚠ This is the balance cost of the fix, stated rather than buried: a doomed hub lives about
+     * half a second longer than it did, which is at most one extra drone off its 300-tick cadence.
+     */
     const { w, hub } = worldWithHub();
     run(w, 2);
     bankOnStar(w, hub, 34);
-    const { goneAt } = run(w, 120);
-    expect(goneAt).toBeLessThanOrEqual(30); // REVALIDATE_INTERVAL_TICKS
+    const { goneAt } = run(w, 200);
+    expect(goneAt).not.toBeNull();
+    expect(goneAt!).toBeGreaterThanOrEqual(HUB_DEATH_RUN_TICKS); // the run really did get its time
+    expect(goneAt!).toBeLessThanOrEqual(60); // 2 x REVALIDATE_INTERVAL_TICKS
   });
 
   it('⛔ NOT for every building — a laser turret at the same damage is untouched', () => {
