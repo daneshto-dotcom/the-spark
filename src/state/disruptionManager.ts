@@ -81,6 +81,10 @@ export function canSeverBond(
   if (
     action.cause === 'physics' ||
     action.cause === 'creature' ||
+    // ⭐ S182 — 'unit' bypasses on exactly the same grounds as the 'creature' it was split from:
+    // host-authoritative, already paid for upstream by `damageConnector` reaching capacity. Omitting
+    // it would make every goblin's final blow silently REFUSE to break the connector.
+    action.cause === 'unit' ||
     action.cause === 'bomb' ||
     action.cause === 'chewer' ||
     // S113 Batch C — a lightning-drone's detonation sever is host-authoritative (the drone mint

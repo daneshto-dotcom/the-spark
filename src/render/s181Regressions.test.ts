@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { wrapToWidth, fitChars } from './characterSheet.ts';
+import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 
 const read = (f: string): string => readFileSync(f, 'utf-8');
 
@@ -336,6 +337,37 @@ describe('S182 R9 — the SEVENTH defect of the same rework: the zombie boss fir
     expect(clause).toContain("creature.type === 'voltkin'");
     expect(clause, 'the drone is the other lightning unit').toContain("creature.type === 'lightningDrone'");
     expect(clause, 'the stale negation is what made it latent').not.toContain('!config.chewsConnectors');
+  });
+
+  it("⛔ hostTick's seek arm is keyed on the TYPE — not on `sourceSpawnerId`", () => {
+    /*
+     * ⛔ S182 — THE SAME STALE NEGATION, AND I DISMISSED IT AS "a different predicate" WITHOUT
+     * CHECKING THE SET. The owner made me check, and it is the same shape: `sourceSpawnerId !== null`
+     * is a PROVENANCE PROXY standing in for IDENTITY, right only while the set reaching that arm
+     * happens to be two creatures that differ in provenance. One config edit — a castle-emitted
+     * chewer, a spawner-minted Voltkin — and it silently means the opposite while the comments
+     * beside it still say "Voltkin".
+     */
+    const host = read('src/state/hostTick.ts');
+    const i = host.indexOf('const isChewer =');
+    expect(i).toBeGreaterThan(-1);
+    expect(host.slice(i, i + 80)).toContain("creature.type === 'chewer'");
+    expect(host.slice(i, i + 80), 'provenance is not identity').not.toContain('sourceSpawnerId !== null');
+  });
+
+  it('⭐ …and it is byte-identical because ONLY voltkin+chewer reach that arm — re-derived', () => {
+    /*
+     * The measurement that makes the change above safe, re-derived from `CREATURE_CONFIGS` rather
+     * than asserted from memory. hostTick's chain is: selfExplode && !targetsStructures -> the
+     * drone; targetsStructures -> every unit, boss, direwolf and locust; ELSE -> this arm. If a
+     * future config lands a third type in the else-arm, THIS test goes red and the predicate gets
+     * re-examined on purpose.
+     */
+    const elseArm = Object.entries(CREATURE_CONFIGS)
+      .filter(([, c]) => !(c.selfExplode && !c.targetsStructures) && !c.targetsStructures)
+      .map(([t]) => t)
+      .sort();
+    expect(elseArm).toEqual(['chewer', 'voltkin']);
   });
 
   it('⚠ the CREATURE_CHARGE fix is byte-identical today — the measurement behind the pair', () => {

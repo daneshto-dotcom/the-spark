@@ -157,6 +157,11 @@ export function severActor(action: SeverBondAction): PlayerId | undefined {
     case 'chewer':
     case 'drone':
     case 'bomb':
+    // ⭐ S182 — 'unit' is a REAL ACTOR and attributes exactly like 'creature', which it was split
+    // out of: `creatureAttack` dispatches it with `creature.ownerPlayerId`, the same seat, at the
+    // same call site. Splitting the cause changed which SOUND plays, never who is responsible —
+    // so a sever toast still names the attacker.
+    case 'unit':
     // ⭐ S152 P1 (owner R78) — 'raid' IS A REAL ACTOR, and attributing it is the entire point of the
     // feature. The owner's stated purpose for the RAIDED cloud is *"they will know who attacked
     // them"*, so a raid that severed a connector must name its raider in the sever toast too —

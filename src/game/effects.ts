@@ -163,7 +163,27 @@ export type GameEffect =
        * capacity. Reusing 'player' made the sever silently refuse for want of a currency the
        * raider never needed — caught by `raid.test.ts`, not by review.
        */
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid';
+      /*
+       * ⛔⛔ S182 — `'unit'` ADDED, AND IT IS WHY PROTOCOL_VERSION WENT 46 -> 47.
+       *
+       * Owner: *"Why does my fucking zombie boss have Voltkin music and electric beams going
+       * through towers and connectors?"* The beams were a stale negation in `creatureAttack`. The
+       * MUSIC was this union: every non-chewer creature severed with `cause: 'creature'`, and
+       * `audioManager` routes that to `lightning-crackle.ogg` plus a 700 ms music duck. S181 gave
+       * all 21 unit types and all six tier-9 bosses a `targetBondId`, so all of them played the
+       * Voltkin's zap.
+       *
+       * ⭐ `'creature'` NOW MEANS THE VOLTKIN'S LIGHTNING AND NOTHING ELSE — that is the identity
+       * the audio arm has always assumed and never actually had. `'unit'` is every other creature
+       * cutting a connector with a blade, a bite or an arrow.
+       *
+       * ⚠ A NEW DISCRIMINANT VALUE ON AN EXISTING SERIALIZED ACTION EARNS A BUMP, and this one is
+       * earned rather than assumed: a stale peer passes the allowlist, falls through every switch
+       * over `cause`, and diverges silently — the more dangerous half of a mismatch. `'bomb'` was
+       * reused for the suicide blast precisely BECAUSE it cost no bump; there is no existing value
+       * that honestly means "a unit cut it", so this one is new. See protocol.ts 46 -> 47.
+       */
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
       /**
        * V6-0.3 (S131) — SEVER ATTRIBUTION. Both fields are ADDITIVE-OPTIONAL, on the
        * `ARC_FLASH.creatureId?` precedent immediately above (save.ts:357): a named-field

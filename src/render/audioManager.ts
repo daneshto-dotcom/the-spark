@@ -1607,10 +1607,28 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
         effect.cause === 'raid')
     ) {
       void playFartSFX(effect.pos);
+    } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'unit') {
+      /*
+       * ⛔⛔ S182 — DELIBERATELY SILENT, AND WRITTEN OUT RATHER THAN LEFT TO FALL THROUGH.
+       *
+       * Owner: *"Why does my fucking zombie boss have Voltkin music…"* — every non-chewer creature
+       * used to sever as `cause: 'creature'` and land in the arm below, so 21 unit types and six
+       * bosses each fired the Voltkin's crackle AND ducked the music 700 ms. Repeated over a music
+       * bed that is what reads as "Voltkin music"; there is no track swap anywhere in the repo.
+       *
+       * ⚠ SILENCE IS THE CONSERVATIVE CHOICE, NOT A FINISHED OPINION. A blade parting a connector
+       * arguably wants its own short SFX, but picking one is an OWNER TASTE CALL (he auditions
+       * .ogg files), and shipping a wrong sound is worse than shipping none — wrong audio is what
+       * he reported. An explicit empty arm keeps the decision VISIBLE and pinned by a test, where a
+       * fall-through would read as an oversight to the next session.
+       */
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'creature') {
-      // S28 P0 — Voltkin lightning zap on creature-driven sever (Council scope-Q2
-      // USER-LOCKED option-a: recorded lightning-crackle.ogg over procedural Web
-      // Audio synth — see LIGHTNING_CRACKLE_URL constant rationale).
+      // S28 P0 — Voltkin lightning zap (Council scope-Q2 USER-LOCKED option-a: recorded
+      // lightning-crackle.ogg over procedural Web Audio synth — see LIGHTNING_CRACKLE_URL).
+      //
+      // ⭐ S182 — THIS ARM IS NOW GENUINELY VOLTKIN-ONLY, which is what it always claimed. Its
+      // only producers are `creatureAttack` (gated `creature.type === 'voltkin'`) and
+      // `voltkinChain` (the Voltkin's own chain). Identity, not a catch-all.
       // S51 P2.b — positional; S51 P2.c — duck music for the ~700 ms crackle.
       void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos);
       duckMusic(700);

@@ -172,9 +172,19 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **46**. A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **47**. A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
+
+⭐ **S182 took 46 → 47 for exactly that second reason**, and it is the worked example: the owner
+reported *"Voltkin music and electric beams"* on his zombie boss. The beams were a stale negation
+and cost nothing. The MUSIC was a new discriminant — every non-chewer creature severed a connector
+with `cause: 'creature'`, which `audioManager` routes to the Voltkin's lightning crackle, so all 21
+unit types and all six bosses played it. `'unit'` was added and `'creature'` now means the Voltkin
+alone. The cheap route was tried first and taken where it fit: the suicide blast reused the existing
+`'bomb'` for free. **A new value on an existing action cannot ride as additive-optional** — a stale
+peer passes the allowlist and then falls through every switch over `cause`, which is the
+silent-divergence half of a mismatch.
 
 Already on the wire, so a client can read them for free: creature `ehp`, defender `ehp`, primitive
 `hp`, and `castleHp`. Each is emitted **only when damaged**; absent means full, and both peers

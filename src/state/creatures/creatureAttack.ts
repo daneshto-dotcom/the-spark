@@ -553,7 +553,17 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     type: 'SEVER_BOND',
     bondId: action.bondId,
     playerId: creature.ownerPlayerId,
-    cause: isChewer ? 'chewer' : 'creature',
+    /*
+     * ⛔⛔ S182 — THE SECOND HALF OF THE OWNER'S REPORT. This read `isChewer ? 'chewer' :
+     * 'creature'`, so every one of the 21 unit types and all six tier-9 bosses severed with
+     * `cause: 'creature'` — which `audioManager` routes to `lightning-crackle.ogg` with a 700 ms
+     * music duck. Fixing the ARC_FLASH killed the BEAMS and left the MUSIC playing.
+     *
+     * ⭐ KEYED ON IDENTITY, like the arc above it: `'creature'` is the VOLTKIN's lightning,
+     * `'chewer'` is the beaver gnaw, `'unit'` is everything else cutting a connector. Costs
+     * PROTOCOL_VERSION 46 -> 47 — earned, not assumed; see the union in `effects.ts`.
+     */
+    cause: creature.type === 'voltkin' ? 'creature' : isChewer ? 'chewer' : 'unit',
   });
 
   // Emit ARC_FLASH only if the bond actually severed.

@@ -260,6 +260,28 @@ export interface World {
    * time and a client would never see a damage number again.
    *
    * `'acknowledged'` in the full hash: a renderer cue, never a sim input, never on the wire.
+   *
+   * ⛔⛔ **THE RESIDUAL, STATED RATHER THAN LEFT TO BE DISCOVERED. THIS FIX IS HOST-ONLY.**
+   *
+   * This counter is never serialized and `applySnapshotCore` deliberately does not bump it, so a
+   * REMOTE PEER never receives it. What a peer still sees when the host ends a match or returns to
+   * the title: its own mirror's `primitives`/`defenders`/`stinkClouds` empty out from the incoming
+   * snapshot, its `watchedStruct` sees every key vanish at once, and it prints the full-pool
+   * phantom number for each — exactly the massacre this field removes on the host. `?worker=1` is
+   * the same story for the same reason: the renderer runs on main against a mirror the worker's
+   * reducers never touch.
+   *
+   * ⚠ THIS IS A SCOPE LIMIT, NOT AN OVERSIGHT, and it is the one the whole feature already has:
+   * `razedNotKilled` (S179) and `creatureKillHits` (S181) are host-local on identical grounds, and
+   * S179's own note says so — *"a peer watching someone else's structure come apart still diffs
+   * its own snapshot… The host — which is who is playing in every solo and vs-bots match — is
+   * fixed."* Serializing it would be a REQUIRED new field and a PROTOCOL_VERSION bump for a
+   * cosmetic frame on a screen that is about to be replaced.
+   *
+   * ⭐ THE CHEAP PEER FIX, IF IT IS EVER WANTED, NEEDS NO WIRE AT ALL: clear the watch when
+   * `world.gameState` leaves `'PLAYING'`. `gameState` is already hashed and already on the wire, so
+   * a peer can derive the same cue locally. Deliberately NOT done here — it is a second mechanism
+   * for a second audience and belongs in its own priority, not smuggled into this one.
    */
   structureWatchEpoch: number;
   /**

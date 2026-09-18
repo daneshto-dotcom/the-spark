@@ -303,21 +303,50 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
  */
 describe('S182 — the new array is wiped at all FIVE sites, and so are its three siblings', () => {
   const ARRAYS = ['razedNotKilled', 'connectorBreakHits', 'creatureKillHits', 'structureKillHits'];
-  const SITES = [
-    'src/state/gameMode.ts',
-    'src/state/gameState.ts',
-    'src/state/save.ts',
-    'src/render/damageNumbers.ts',
-    'src/state/workerSim.ts', // ⛔ the fifth, and the one that was missing for all of them
+
+  /**
+   * ⛔ S182 — **THIS GUARD WAS FILE-SCOPED AND COULD NOT SEE FUNCTIONS.** `src.includes(...)` is
+   * satisfied by a wipe ANYWHERE in the file — including a function that never runs on the path
+   * that matters. Moving `gameMode`'s wipe out of `applyReturnToTitle` into some unrelated helper
+   * would have kept it green while the reset stopped wiping. Scope each wipe to the FUNCTION that
+   * must contain it.
+   *
+   * ⚠ The slice runs to the next top-level function declaration — coarse, but sound here: it
+   * cannot swallow a later function's wipe and credit it to this one, because every expected owner
+   * is named and asserted separately.
+   */
+  const fnBody = (src: string, fnName: string): string => {
+    const i = src.indexOf(fnName);
+    if (i === -1) return '';
+    const rest = src.slice(i + fnName.length);
+    // ⚠ Built from a char code, with no regex and no escape: this repo checks out CRLF on Windows
+    // and LF in CI, and every `\n`-anchored matcher written here so far has silently matched
+    // nothing on one of the two. A bare LF is present in both endings, so `LF + 'function '` is
+    // ending-agnostic by construction rather than by a `\r?` someone has to remember.
+    const LF = String.fromCharCode(10);
+    const ends = [rest.indexOf(LF + 'export function '), rest.indexOf(LF + 'function ')]
+      .filter((n) => n !== -1);
+    const end = ends.length === 0 ? -1 : Math.min(...ends);
+    return end === -1 ? rest : rest.slice(0, end);
+  };
+
+  // file -> the function that MUST carry the wipes (the reset/consumer owning that path).
+  const OWNERS: ReadonlyArray<readonly [string, string]> = [
+    ['src/state/gameMode.ts', 'export function applyReturnToTitle'],
+    ['src/state/gameState.ts', 'export function softReset'],
+    ['src/state/save.ts', 'function applySnapshotCore'],
+    ['src/render/damageNumbers.ts', 'sync(world: World)'],
+    ['src/state/workerSim.ts', 'export function applyTickBatch'],
   ];
 
-  for (const file of SITES) {
-    it(`${file} wipes every per-frame presentational array`, () => {
-      const src = read(file);
+  for (const [file, fn] of OWNERS) {
+    it(`${file} wipes every per-frame array INSIDE ${fn}`, () => {
+      const body = fnBody(read(file), fn);
+      expect(body.length, `${fn} not found in ${file}`).toBeGreaterThan(0);
       for (const arr of ARRAYS) {
         expect(
-          src.includes(`world.${arr}.length = 0`),
-          `${file} must wipe world.${arr} — an unwiped array grows for the whole match`,
+          body.includes(`world.${arr}.length = 0`),
+          `${file} must wipe world.${arr} INSIDE ${fn} — a wipe elsewhere is not this path`,
         ).toBe(true);
       }
     });
@@ -409,17 +438,66 @@ describe('S182 — a mass clear drops the watch instead of printing a massacre',
     expect(out.length, 'the un-cued sweep invents a number per shape').toBeGreaterThan(0);
   });
 
-  it('⛔ the epoch is bumped at all FOUR mass-clear sites', () => {
+  it('⛔ the epoch is bumped at all FIVE mass-clear owners — the tenth path included', () => {
+    /*
+     * ⛔ S182 — THIS SAID *FOUR* AND THE OWNER FOUND THE FIFTH. `WIN_TRIGGER` (`world.ts`) calls
+     * `teardownDefenders` (`defenderLifecycle.ts`), a BARE `world.defenders.clear()` in a different
+     * module reached through a helper — so every defender read as killed and Helga printed a
+     * phantom full pool ON THE VICTORY SCREEN. I enumerated the files I remembered touching
+     * (gameMode/gameState/godlyActions) instead of the CONTRACT, which is this project's named
+     * failure mode and the exact thing the rest of this file exists to catch.
+     */
     for (const f of [
       'src/state/gameMode.ts', // applyStartGame AND applyReturnToTitle
       'src/state/gameState.ts', // softReset
       'src/state/godlyActions.ts', // applyGodlyAbort
+      'src/state/defenders/defenderLifecycle.ts', // ⛔ teardownDefenders — the tenth path
     ]) {
-      expect(read(f).includes('world.structureWatchEpoch += 1;'), `${f} must bump the epoch`).toBe(true);
+      expect(readCode(f).includes('world.structureWatchEpoch += 1;'), `${f} must bump the epoch`).toBe(true);
     }
-    // gameMode has TWO of the four — match start and title return are different functions.
-    const gm = read('src/state/gameMode.ts');
-    expect(gm.split('world.structureWatchEpoch += 1;').length - 1).toBe(2);
+    // ⭐ AND IT IS INSIDE `teardownDefenders`, not merely somewhere in that file.
+    const dl = readCode('src/state/defenders/defenderLifecycle.ts');
+    const i = dl.indexOf('export function teardownDefenders');
+    expect(i).toBeGreaterThan(-1);
+    expect(dl.slice(i, i + 400)).toContain('world.structureWatchEpoch += 1;');
+  });
+
+  it('⚠ the HOST-ONLY residual is DISCLOSED at the field, not left to be discovered', () => {
+    /*
+     * A scope limit that is not written down is indistinguishable from a bug someone missed. This
+     * fix does nothing for a remote peer or for `?worker=1`, for the same reason `razedNotKilled`
+     * and `creatureKillHits` do not: the record is host-local and never serialized. The field's
+     * docblock has to SAY so, including what a peer still sees.
+     */
+    const wt = read('src/state/worldTypes.ts');
+    const i = wt.indexOf('structureWatchEpoch: number;');
+    expect(i).toBeGreaterThan(-1);
+    const doc = wt.slice(Math.max(0, i - 4000), i);
+    expect(doc, 'the residual must be named').toContain('HOST-ONLY');
+    expect(doc, 'and what a peer still sees').toContain('REMOTE PEER');
+    expect(doc).toContain('worker=1');
+  });
+
+  it('⛔ FIVE bump sites in total, counted — a stale count is how the tenth path hid', () => {
+    /*
+     * ⚠ COUNTED, NOT LISTED. The version of this test that shipped asserted a LIST of four files and
+     * passed happily while a fifth clear sat in `defenderLifecycle`. A total across every file that
+     * bumps is what actually fails when someone adds a clear and forgets the cue.
+     *
+     * gameMode carries TWO (applyStartGame + applyReturnToTitle); gameState, godlyActions and
+     * defenderLifecycle carry one each.
+     */
+    const files = [
+      'src/state/gameMode.ts',
+      'src/state/gameState.ts',
+      'src/state/godlyActions.ts',
+      'src/state/defenders/defenderLifecycle.ts',
+    ];
+    const total = files.reduce(
+      (n, f) => n + (readCode(f).split('world.structureWatchEpoch += 1;').length - 1),
+      0,
+    );
+    expect(total, 'four files, five bumps — gameMode has two').toBe(5);
   });
 
   it('⛔ and it is NOT bumped in applySnapshotCore — that would blind every peer', () => {

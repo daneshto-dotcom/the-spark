@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
 import {
   asBondId,
@@ -284,11 +285,41 @@ describe('S182 — only the VOLTKIN emits ARC_FLASH on a bond strike', () => {
     expect(w.effects.find((e) => e.kind === 'ARC_FLASH')).toBeUndefined();
   });
 
-  it('⛔ and no screen shake either — main.ts derives it from the ARC_FLASH emission', () => {
-    // The third symptom, unreported: `main.ts` scans world.effects for ARC_FLASH and triggers the
-    // shake off the latest tick it finds. No emit, no shake — asserted at the source of both.
-    const w = strikeWith('t9BossZombies');
-    expect(w.effects.filter((e) => e.kind === 'ARC_FLASH')).toHaveLength(0);
+  /**
+   * ⛔ S182 — THIS TEST USED TO BE A DUPLICATE WEARING A SECOND HAT, and the owner caught it.
+   *
+   * It asserted `filter(ARC_FLASH).toHaveLength(0)` on the very same world the test above already
+   * checked with `find(ARC_FLASH).toBeUndefined()`. Two spellings of one fact: it could not fail
+   * unless its neighbour failed too, so it added coverage of nothing while LOOKING like a second
+   * guard for a second symptom. That is worse than no test — it is a false entry in the ledger.
+   *
+   * ⭐ THE SHAKE IS A CLAIM ABOUT `main.ts`, SO IT IS ASSERTED AGAINST `main.ts`. The reducer cannot
+   * observe a shake at all — the renderer derives it by scanning `world.effects` for an ARC_FLASH
+   * newer than its cursor. So the honest guard is the IMPLICATION: no ARC_FLASH emitted => no shake
+   * triggered. Pin the linkage here, and the behaviour test above (no ARC_FLASH for a boss) then
+   * genuinely carries the shake conclusion. This fails on its own the day someone gives the shake a
+   * second trigger, which is exactly when the claim above would quietly stop being true.
+   */
+  it('⛔ and no screen shake — the CREATURE shake has exactly two feeds, both ARC_FLASH', () => {
+    /*
+     * ⚠ THIS ASSERTION WAS OVER-BROAD ON ITS FIRST CUT AND FAILED HONESTLY, which is the point of
+     * writing it against the real file. It demanded that EVERY `screenShake.trigger` be fed by an
+     * ARC_FLASH scan; `main.ts` has a THIRD, the Nonet sudoku resolve jolt, which is a different
+     * mechanic entirely. The claim that survives is narrower and is the one the boss test needs:
+     * the creature-attack shake has exactly the two ARC_FLASH cursors (host + client), and NOTHING
+     * routes a shake off a BOND_SEVERED — so no-arc really does mean no-shake for a creature.
+     */
+    const main = readFileSync('src/main.ts', 'utf-8');
+    const triggers = [...main.matchAll(/screenShake\.trigger\(/g)];
+    const feeds = triggers.map((m) =>
+      main.slice(Math.max(0, (m.index ?? 0) - 600), m.index ?? 0));
+    const arcFed = feeds.filter((f) => f.includes("kind === 'ARC_FLASH'"));
+    expect(arcFed.length, 'the host cursor and the client cursor').toBe(2);
+    // ⛔ AND NO SECOND ROUTE FOR A CREATURE SEVER. If someone ever shakes off BOND_SEVERED, the
+    // boss test above would silently stop covering the shake — this is what keeps it honest.
+    for (const f of feeds) {
+      expect(f, 'a shake must never be driven by a sever cause').not.toContain("kind === 'BOND_SEVERED'");
+    }
   });
 
   it('a GOBLIN draws no lightning (21 unit types reach this arm since S181)', () => {
@@ -304,6 +335,36 @@ describe('S182 — only the VOLTKIN emits ARC_FLASH on a bond strike', () => {
       const w = strikeWith(boss);
       expect(w.effects.find((e) => e.kind === 'ARC_FLASH'), `${boss} must not zap`).toBeUndefined();
     }
+  });
+
+  /**
+   * ⛔⛔ THE OTHER HALF OF HIS REPORT — *"Voltkin MUSIC and electric beams"*. The beams were the
+   * ARC_FLASH above. The music is this: `audioManager` routes `BOND_SEVERED{cause:'creature'}` to
+   * `lightning-crackle.ogg` with a 700 ms music duck, and EVERY non-chewer creature used to sever
+   * with that cause. Fixing only the arc would have left him still hearing the Voltkin.
+   *
+   * ⚠ THE BRIEF ASKED FOR THIS PAIR EXPLICITLY (*"the same pair for the audio cause"*) and the
+   * first cut of this file shipped without it, so the suite was green while the reported symptom
+   * was live. That is the failure mode this whole file exists to prevent.
+   */
+  it('⛔ the ZOMBIE BOSS severs as `unit` — NOT the cause that plays lightning-crackle', () => {
+    const w = strikeWith('t9BossZombies');
+    const sev = w.effects.find((e) => e.kind === 'BOND_SEVERED');
+    expect(sev).toBeDefined();
+    if (sev && sev.kind === 'BOND_SEVERED') expect(sev.cause).toBe('unit');
+  });
+
+  it('a GOBLIN severs as `unit` too — 21 unit types reach this arm since S181', () => {
+    const w = strikeWith('goblinMelee');
+    const sev = w.effects.find((e) => e.kind === 'BOND_SEVERED');
+    if (sev && sev.kind === 'BOND_SEVERED') expect(sev.cause).toBe('unit');
+  });
+
+  it('⭐ and the VOLTKIN keeps `creature` — the crackle is its signature, not a catch-all', () => {
+    const w = strikeWith('voltkin');
+    const sev = w.effects.find((e) => e.kind === 'BOND_SEVERED');
+    expect(sev).toBeDefined();
+    if (sev && sev.kind === 'BOND_SEVERED') expect(sev.cause).toBe('creature');
   });
 
   it('⭐ AND THE VOLTKIN STILL DOES — the fix removes a leak, not the mechanic', () => {

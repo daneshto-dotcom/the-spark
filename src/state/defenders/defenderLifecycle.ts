@@ -529,6 +529,19 @@ export function loadRephaseDefenders(world: World): void {
  * mints ids from scratch.
  */
 export function teardownDefenders(world: World): void {
+  /*
+   * ⛔⛔ S182 — **THE TENTH MASS-CLEAR PATH, AND I MISSED IT.** WIN_TRIGGER (`world.ts`) calls this
+   * on the PLAYING->WIN edge, and it is a BARE `.clear()` — no epoch bump, so every defender on the
+   * board read to `DamageNumbers` as killed in one frame and printed a full-pool number over the
+   * win screen. The nine paths I did find were all in gameMode/gameState/godlyActions; this one
+   * lives in the defender module and is reached through a helper, which is exactly why enumerating
+   * the FILES I remembered touching missed it and enumerating the CONTRACT would not have.
+   *
+   * ⚠ Helga is the only defender with a pool (`ehp !== null`), so this was one phantom number on a
+   * seat that had built her — the smallest of the ten, and the most galling, because it lands on
+   * the victory screen.
+   */
+  world.structureWatchEpoch += 1;
   world.defenders.clear();
   world.nextDefenderId = 0;
 }

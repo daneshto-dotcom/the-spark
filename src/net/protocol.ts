@@ -611,6 +611,28 @@ export type { NetSnapshot };
  */
 
 /*
+ * ⭐⭐ S182 — **BUMPED 46 -> 47: THE VOLTKIN'S CRACKLE STOPPED BEING EVERY CREATURE'S.** One new
+ * serialized `cause` discriminant on `BOND_SEVERED`/`SEVER_BOND`: `'unit'`.
+ *
+ * Owner: *"Why does my fucking zombie boss have Voltkin music and electric beams going through
+ * towers and connectors? How does that make sense?"*
+ *
+ * ⛔ THE BEAMS WERE FREE TO FIX; THE MUSIC WAS NOT. The arc was a stale negation in
+ * `creatureAttack` and cost nothing. The sound is routed off `cause`, which is SERIALIZED — and
+ * every non-chewer creature severed as `cause: 'creature'`, which `audioManager` sends to
+ * `lightning-crackle.ogg` with a 700 ms music duck. S181 handed all 21 unit types and all six
+ * tier-9 bosses a `targetBondId`, so every one of them played the Voltkin's zap.
+ *
+ * ⚠ THE BUMP IS EARNED, NOT ASSUMED, and the cheaper routes were tried first. `'bomb'` already
+ * existed and took the suicide blast for free. No existing value honestly means "a unit cut it":
+ * `'chewer'` is a beaver gnaw, `'physics'`/`'godly'` are not creatures at all. And it cannot ride
+ * as additive-optional — a NEW DISCRIMINANT VALUE on an existing action is the dangerous half of a
+ * mismatch: a v46 peer passes the allowlist, falls through every switch over `cause`, and diverges
+ * silently. `severActor`'s `never` arm is the compile-time proof that switches exist to fall
+ * through. Same grounds as 13->14, 41->42, 44->45 and 45->46.
+ */
+
+/*
  * ⭐⭐ S171 — **BUMPED 45 -> 46: THE PHARAOH'S LOCUST CLOUD.** One new serialized `CreatureType`
  * literal, `locustCloud` (owner R142: *"he lunches a cone of locusts that fly around in locust
  * clouds targeting units and building for 15 sec. locusts attack with 10 atk and 10 pen and they
@@ -664,7 +686,7 @@ export type { NetSnapshot };
  * So the DISCRIMINANT half of this bump is the direwolf and nothing else — but the wire format also
  * gained one optional boolean under it, which is recorded here rather than left to be discovered.
  */
-export const PROTOCOL_VERSION = 46 as const;
+export const PROTOCOL_VERSION = 47 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -896,6 +918,7 @@ export interface HelloMsg {
    * — a peer that never sees the key reads `false` — so 45 still covers it, but "the direwolf and
    * nothing else" was true of the DISCRIMINANT only.)
    *
+
    * S171: 45->46 (THE PHARAOH'S LOCUST CLOUD — owner R142, *"he lunches a cone of locusts that fly
    * around in locust clouds targeting units and building for 15 sec ... 10 atk and 10 pen and they
    * cannot be targeted"*. ONE new serialized `CreatureType` literal, `locustCloud`. Same argument as
@@ -905,6 +928,17 @@ export interface HelloMsg {
    * ⭐ `raRitualUntilTick` — the Ra ritual deadline — rides FREE: additive-optional, shipped in P2A
    * under 45. The `untargetable` condition costs nothing either; it is a CONFIG flag, not a wire
    * field.)
+   *
+   * S182: 46->47 (THE VOLTKIN'S CRACKLE STOPPED BEING EVERY CREATURE'S — owner, *"Why does my
+   * fucking zombie boss have Voltkin music and electric beams going through towers and
+   * connectors?"*. ONE new serialized `cause` discriminant on BOND_SEVERED/SEVER_BOND: `'unit'`.
+   * The audio is routed off `cause`, and every non-chewer creature severed as `'creature'`, which
+   * plays `lightning-crackle.ogg` + a 700 ms duck — so S181's targeting rework gave 21 unit types
+   * and six bosses the Voltkin's zap. `'creature'` now means the Voltkin alone. A NEW DISCRIMINANT
+   * cannot ride additive-optional: a v46 peer passes the allowlist and then falls through every
+   * switch over `cause`, which is the silent-divergence half. `'bomb'` was reused for the suicide
+   * blast precisely because it cost no bump; nothing existing means "a unit cut it".)
+   *
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -943,7 +977,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 46;
+  readonly protoVersion: 47;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

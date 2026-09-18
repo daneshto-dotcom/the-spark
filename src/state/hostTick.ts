@@ -1607,7 +1607,22 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           creature.targetPos.y = spread.y;
         }
       } else if (creature !== undefined && creature.state === 'SEEKING') {
-        const isChewer = creature.sourceSpawnerId !== null;
+        /*
+         * ⛔ S182 — **THE SAME STALE NEGATION AS `creatureAttack`'s ARC_FLASH GATE, and I dismissed
+         * it as "a different predicate" without checking the set. The owner made me check.**
+         *
+         * `sourceSpawnerId !== null` is a PROVENANCE PROXY standing in for IDENTITY. It gives the
+         * right answer today only because the set reaching this arm happens to be exactly two and
+         * they happen to differ in provenance — measured, not assumed: the branch above takes every
+         * `targetsStructures` type (all 21 units, all six bosses, direwolf, locust) and the branch
+         * above that takes the self-exploding drone, so ONLY `voltkin` and `chewer` arrive here.
+         * `creatureCadence.test.ts` re-derives that set from `CREATURE_CONFIGS` so it cannot rot.
+         *
+         * ⚠ IT IS ONE CONFIG EDIT FROM BEING WRONG. A castle-emitted chewer (`sourceSpawnerId:
+         * null`) or a spawner-minted Voltkin would flip this predicate while the comments below
+         * still said "Voltkin". Naming the type costs nothing and cannot go stale that way.
+         */
+        const isChewer = creature.type === 'chewer';
         let doReselect: boolean;
         let enemyOnly: boolean;
         if (!isChewer) {

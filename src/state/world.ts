@@ -223,7 +223,14 @@ export type GameAction =
       // with a RAID POINT — a separate currency. ⚠ THIS UNION IS NOT THE SAME UNION AS
       // `GameEffect['BOND_SEVERED'].cause` (which also carries 'godly'); both had to be widened, and
       // tsc caught only this one AFTER the tests were already green. Vitest does not typecheck.
-      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid';
+      /*
+       * ⭐ S182 — 'unit' ADDED. ⚠ THIS IS A THIRD UNION, and tsc is what found it: the ACTION cause
+       * and the EFFECT cause (`effects.ts`, `save.ts`) are separate declarations that must agree.
+       * Widening only the effect side compiles everywhere except the dispatch, which is exactly the
+       * four-sites failure this repo is built around. (It carries no 'godly' — that value exists on
+       * the effect only.)
+       */
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
     }
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
