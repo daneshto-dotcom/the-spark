@@ -1038,16 +1038,40 @@ export class LobbyScreen {
    * code, and kept the own-seat glow on the "P1  HOST" cell — while the peer it had just joined
    * painted the identical thing. Two P1s, every time, for as long as the join handshake took.
    *
-   * ⚠ AND IT IS NOT THE RARE RACE IT LOOKS LIKE. A seeker self-promotes after 2000–3500 ms
-   * (`qmPromoteDelayMs`) but can only hear an incumbent over a discovery-room data channel the
-   * transport itself budgets 30 s for (`HANDSHAKE_TIMEOUT_MS`). A second player is therefore ALWAYS
-   * a host before it can have heard anything — arriving three minutes later changes nothing — so
-   * the demote is not an edge case, it is the ONLY path by which two quickmatch players ever meet.
-   * This line ran on every single pairing.
+   * ⚠ AND IT IS NOT THE RARE RACE IT LOOKS LIKE. A seeker self-promotes 2000–3500 ms after its own
+   * CLICK (`qmPromoteDelayMs`; `startedMs` is stamped before `joinNostr`, so relay connect is inside
+   * that window), and the only thing that can stop it is an incumbent's beacon arriving over a
+   * discovery-room data channel that must first be negotiated through a nostr relay. When that
+   * negotiation loses the race — which it often does — BOTH peers become hosts and the pair can only
+   * resolve through the demote arm. The demote is therefore the DOMINANT path by which two
+   * quickmatch players meet, not an edge case, and this line ran on it every time.
+   *
+   * ⛔ S182 SELF-AUDIT — **AN EARLIER VERSION OF THIS NOTE SAID "ALWAYS", AND THAT WAS NOT PROVEN.**
+   * It reasoned from `HANDSHAKE_TIMEOUT_MS = 30000`, which is an ABORT DEADLINE, not a measured
+   * latency — this repo's own `joinDiagnosis.ts` models a healthy connect far below it. A fast
+   * handshake CAN land inside the promote window, in which case the seeker joins directly and none
+   * of this runs. The defect and the fix are unchanged either way; only the certainty was wrong, and
+   * it is corrected here rather than left for the next session to reason from.
    *
    * `QM_JOIN_START` is the same transition without the user-input guard.
    */
   applyQuickmatchJoining(code: string): void {
+    /*
+     * ⛔ S182 SELF-AUDIT — **THE READY LATCH HAS TO COME DOWN WITH THE ROOM, AND THE REDUCER CANNOT
+     * DO IT.** `selfReady` is SHELL state (this class owns the button), cleared in exactly two
+     * places: `reset()` and `setQuickmatch(true)` — and neither runs on a demote, because
+     * `setQuickmatch(true)` fired once at the QUICK MATCH click, long before the promote.
+     *
+     * Meanwhile the demote's first step is `teardownHost` → `teardownNet`, which sets
+     * `session.qmSelfReady = false`. So a player who pressed READY while hosting their own
+     * quickmatch room arrived in someone else's lobby with the button still painted `READY ✓` while
+     * the host had never been told — a ready-gate that can never fire, and a player with no way to
+     * know: pressing the button again only toggles them to NOT ready.
+     *
+     * Clearing it here is the honest state and matches the session it mirrors.
+     */
+    this.selfReady = false;
+    this.paintReadyButton();
     this.state = lobbyReduce(this.state, { type: 'QM_JOIN_START', code });
     this.applyView();
     this.updateInputVisibility();

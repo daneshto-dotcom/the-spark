@@ -650,11 +650,17 @@ describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-l
  * data-channel handshake inside ~2–4 s — against a transport whose own budget for that same
  * handshake is `HANDSHAKE_TIMEOUT_MS = 30000`.
  *
- * ⭐ THE SECOND PLAYER THEREFORE PROMOTES ITSELF, ALWAYS — three minutes later, or three hours.
+ * ⭐ WHEN THAT HANDSHAKE LOSES THE RACE the second player promotes itself — and whether it arrives
+ * three minutes later or three hours changes nothing, because the clock runs from its OWN click.
  * Two hosts meet, the larger code demotes (`decideQuickmatch` role='hosting' → 'join'), and the
- * demote is consequently **not an edge case but the only path by which two quickmatch players ever
- * pair**. The owner was right to reject "you both clicked at the same moment": simultaneity never
+ * demote is consequently **the dominant path by which two quickmatch players pair, not an edge
+ * case**. The owner was right to reject "you both clicked at the same moment": simultaneity never
  * had anything to do with it.
+ *
+ * ⛔ S182 SELF-AUDIT — this paragraph said "ALWAYS", inferred from `HANDSHAKE_TIMEOUT_MS` as though
+ * that were a measured latency. It is an ABORT DEADLINE. A fast handshake can land inside the
+ * promote window, in which case the seeker joins directly and none of this runs. The owner's repro
+ * and the fix are unchanged; only the certainty was wrong.
  *
  * ## What the demote then hit
  *
@@ -726,7 +732,24 @@ describe('S182 — the quickmatch demote leaves exactly ONE peer claiming seat 0
     expect(selfSeats(swallowed)).toEqual([0]); // …and the stale P1 claim it used to leave behind
   });
 
-  it('QM_JOIN_START is UNGUARDED — it transitions from hosting, joining and select alike', () => {
+  it('⛔ QM_JOIN_START still VALIDATES the code — it is unvalidated network input', () => {
+    /*
+     * S182 SELF-AUDIT. The first version of this arm dropped `isValidRoomCode` along with the mode
+     * guard. Only the MODE guard was meant to go: the code arrives from `onBeacon`, which accepts any
+     * `{t:'host', code:<string>}` published into the PUBLIC discovery room, and `decideQuickmatch`
+     * takes the lexicographically smallest — so a stranger could advertise a code sorting below every
+     * real one and drive every seeker's lobby into 'joining' against a room that cannot exist.
+     */
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    for (const bad of ['', 'zz', 'ABC', 'ABCDEFG', 'AB0DEF', 'ABIDEF', '!!!!!!']) {
+      const after = lobbyReduce(hosting, { type: 'QM_JOIN_START', code: bad });
+      expect(after, `"${bad}" must not enter joining`).toBe(hosting);
+    }
+    // …and a real code still transitions.
+    expect(lobbyReduce(hosting, { type: 'QM_JOIN_START', code: VALID_CODE }).mode).toBe('joining');
+  });
+
+  it('QM_JOIN_START is UNGUARDED BY MODE — it transitions from hosting, joining and select alike', () => {
     for (const start of [
       lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: JOINER_CODE }),
       lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE }),
@@ -814,8 +837,15 @@ describe('S182 — no seat identity is derived from local mode outside fallbackS
     const SCREEN_CODE = readFileSync(SCREEN_PATH, 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
+    // ⚠ The body also clears the READY latch before dispatching (S182 self-audit), so this matches
+    // the DISPATCH rather than pinning the whole body — it is the event choice that is load-bearing.
     expect(SCREEN_CODE).toMatch(
-      /applyQuickmatchJoining\(code: string\): void \{\s*this\.state = lobbyReduce\(this\.state, \{ type: 'QM_JOIN_START', code \}\)/,
+      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?lobbyReduce\(this\.state, \{ type: 'QM_JOIN_START', code \}\)/,
+    );
+    // ⛔ and the latch clear must stay INSIDE that method — a demoted peer arriving in someone
+    // else's lobby still painted READY ✓ is a ready-gate that can never fire.
+    expect(SCREEN_CODE).toMatch(
+      /applyQuickmatchJoining\(code: string\): void \{[\s\S]*?this\.selfReady = false;[\s\S]*?QM_JOIN_START/,
     );
     // JOIN_ATTEMPT survives for the one thing it is: the Connect button.
     expect((SCREEN_CODE.match(/'JOIN_ATTEMPT'/g) ?? [])).toHaveLength(1);

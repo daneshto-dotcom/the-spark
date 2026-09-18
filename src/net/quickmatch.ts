@@ -124,8 +124,13 @@ export function qmPromoteDelayMs(id: string, minMs = 2000, maxMs = 3500): number
 
 /** Well-known discovery room — version-scoped so only same-protocol peers meet. */
 export const QM_DISCOVERY_ROOM = `spark-qm-v${PROTOCOL_VERSION}`;
-const ANNOUNCE_INTERVAL_MS = 2000;
-const TICK_INTERVAL_MS = 700;
+/**
+ * ⭐ S182 — EXPORTED so the election's timing contract can be pinned against the REAL values rather
+ * than against literals re-typed in a test file. `quickmatch.test.ts` compared its own local copies
+ * to each other, so the assertion held no matter what these became.
+ */
+export const ANNOUNCE_INTERVAL_MS = 2000;
+export const TICK_INTERVAL_MS = 700;
 
 export interface QuickmatchCallbacks {
   /** Become a host (standard host-start path). Returns the host room code to announce. */

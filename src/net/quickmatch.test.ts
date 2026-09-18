@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   decideQuickmatch,
   qmPromoteDelayMs,
+  TICK_INTERVAL_MS,
   type QmAnnouncement,
   type QmDecisionState,
 } from './quickmatch.ts';
@@ -17,6 +18,10 @@ import {
   rosterWithReady,
 } from './quickmatchGate.ts';
 import type { RosterEntry } from './protocol.ts';
+// ⭐ S182 — the real constants, so the timing claim below reds on drift instead of comparing
+// this file's own literals to each other.
+import { HANDSHAKE_TIMEOUT_MS } from './iceConfig.ts';
+import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 
 const heard = (...entries: Array<[string, boolean]>): Map<string, QmAnnouncement> => {
   const m = new Map<string, QmAnnouncement>();
@@ -169,8 +174,8 @@ describe('S87 P4 — rosterWithReady + qmReadyCount', () => {
 });
 
 /**
- * ⛔⛔ S182 — WHY EVERY QUICKMATCH PAIRING GOES THROUGH THE DEMOTE, AND WHY THE GAP BETWEEN THE TWO
- * CLICKS IS IRRELEVANT.
+ * ⛔⛔ S182 — WHY THE DEMOTE IS THE DOMINANT PAIRING PATH, AND WHY THE GAP BETWEEN THE TWO CLICKS
+ * IS IRRELEVANT TO IT.
  *
  * The owner rejected "you both hit Quick Match at the same moment" as the explanation for his two-P1
  * bug, and he was right: *"It's literally like a minute apart … My brother comes on like three
@@ -182,16 +187,33 @@ describe('S87 P4 — rosterWithReady + qmReadyCount', () => {
  * announce-on-peer-join hook — only a 2000 ms interval. So the second player has to complete a full
  * nostr-relay + ICE + data-channel handshake inside its own promote window of 2000–3500 ms.
  *
- * ⭐ THE TRANSPORT'S OWN BUDGET FOR THAT SAME HANDSHAKE IS `HANDSHAKE_TIMEOUT_MS = 30000` — an order
- * of magnitude more. The clock also starts at CLICK time (`QuickmatchDiscovery.start()` sets
- * `startedMs` before `joinNostr`), so the relay connect is inside the window too. A second player
- * therefore promotes itself to host essentially always, whenever it arrives, and the two hosts then
- * resolve via the demote arm — the path whose lobby transition S182 found was being swallowed.
+ * ⭐ AND THE CLOCK STARTS AT CLICK TIME — `QuickmatchDiscovery.start()` stamps `startedMs` before
+ * `joinNostr`, so the relay connect is inside the window too. When the handshake loses that race
+ * BOTH peers become hosts, and the pair can then only resolve through the demote arm — the path
+ * whose lobby transition S182 found was being swallowed.
+ *
+ * ⛔ S182 SELF-AUDIT — **THIS BLOCK USED TO SAY "essentially always", REASONING FROM
+ * `HANDSHAKE_TIMEOUT_MS = 30000` AS THOUGH IT WERE A LATENCY. It is an ABORT DEADLINE** — a ceiling,
+ * not a typical connect time, and `joinDiagnosis.ts` models a healthy join far below it. A fast
+ * handshake genuinely can land inside the promote window, in which case the seeker joins directly.
+ * The defect, the repro and the fix are all unchanged; the certainty was the error. The assertion
+ * below is now the honest relationship between the REAL constants rather than a tautology over two
+ * literals this file declared itself.
  */
-describe('S182 — the seeker promotes before any incumbent beacon can physically arrive', () => {
-  // The real loop: `tick()` every TICK_INTERVAL_MS, `elapsedMs` measured from start().
-  const TICK_INTERVAL_MS = 700;
-  const HANDSHAKE_TIMEOUT_MS = 30000; // net/iceConfig.ts — the transport's own budget
+describe('S182 — the promote clock races the discovery handshake, and often wins', () => {
+  /**
+   * ⛔ S182 SELF-AUDIT — **THESE WERE LOCAL LITERALS AND THE HEADLINE ASSERTION WAS A TAUTOLOGY.**
+   * The file declared its own `TICK_INTERVAL_MS = 700` and `HANDSHAKE_TIMEOUT_MS = 30000` eleven
+   * lines apart and then asserted `4200 < 30000/5` — two literals in this file compared to each
+   * other, which is the ONLY thing that stood behind the root-cause claim. Changing
+   * `iceConfig.ts:398` would have left it green while the docblock it pins became false: exactly the
+   * drift SPARK's canon rule forbids (*"a number goes into the canon only with its constant"*).
+   * They are imported now, so the relationship is pinned to the real values.
+   */
+  /** Worst-case promote deadline, DERIVED from the shipped jitter function, not from a literal. */
+  const worstPromoteMs = Math.max(
+    ...Array.from({ length: 512 }, (_, i) => qmPromoteDelayMs(`peer-${i}`)),
+  );
 
   /** Run the election loop until it leaves 'wait', with a beacon that lands at `beaconAtMs`. */
   const runUntilDecided = (
@@ -208,11 +230,19 @@ describe('S182 — the seeker promotes before any incumbent beacon can physicall
     throw new Error('never decided');
   };
 
-  it('the WHOLE jitter range expires inside one tick of ~4.2 s, far under the handshake budget', () => {
-    // qmPromoteDelayMs is [2000, 3500]; the tick granularity rounds that up to at most 4200 ms.
-    const worst = 3500 + TICK_INTERVAL_MS;
-    expect(worst).toBeLessThan(HANDSHAKE_TIMEOUT_MS / 5);
-    // And the jitter is deterministic per id, so this is a property of every peer, not an average.
+  it('⭐ the promote deadline expires while the repo still calls a handshake HEALTHY', () => {
+    /*
+     * THE HONEST RELATIONSHIP, across three modules and zero local literals: a seeker gives up
+     * waiting at `worstPromoteMs + TICK_INTERVAL_MS`, which is below `JOIN_STALL_WARN_MS` — the
+     * point at which THIS REPO first considers a join slow enough to warn about. So a handshake that
+     * is still entirely healthy by the project's own standard has already outlived the promote
+     * clock. That is why both-promote is common; it is NOT a proof that it always happens, and the
+     * earlier version of this test claimed that on the strength of a tautology.
+     */
+    expect(worstPromoteMs + TICK_INTERVAL_MS).toBeLessThan(JOIN_STALL_WARN_MS);
+    // …and far below the transport's ABORT deadline, which is a ceiling, never a typical latency.
+    expect(JOIN_STALL_WARN_MS).toBeLessThan(HANDSHAKE_TIMEOUT_MS);
+    // The jitter is deterministic per id, so this is a property of every peer, not an average.
     for (const id of ['alice', 'bob', 'carol', 'a', '', 'ZZZZZZZZZZ']) {
       expect(qmPromoteDelayMs(id)).toBeGreaterThanOrEqual(2000);
       expect(qmPromoteDelayMs(id)).toBeLessThanOrEqual(3500);

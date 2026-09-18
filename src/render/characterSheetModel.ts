@@ -436,8 +436,12 @@ export function creatureDisplayName(type: CreatureType): string {
  *     with no recipe) fell straight through. `portraitForStructure`'s own docblock claimed it *"keeps
  *     the emblem path that already handled it"*; `codexCopyFor('freeform')` returns the unmapped
  *     fallback, which carries no emblem, so the emblem path never handled it at all.
- *   · **Three creatures, not one** — `voltkin`, `direwolf` and `locustCloud` have no `ATLASES` entry
- *     and are not `proceduralFrame`, so every one of them drew dots. The brief named the Voltkin.
+ *   · **Creatures with no `ATLASES` entry** that are not `proceduralFrame` drew dots. ⚠ S182
+ *     SELF-AUDIT CORRECTION: the first version of this list said *"three — voltkin, direwolf and
+ *     locustCloud"*. **`direwolf` is wrong** — `goblinRenderer.ts:188` maps it to
+ *     `/godly/direwolf/anim/direwolf` and the art is on disk (landed S173). The claim is corrected
+ *     rather than deleted because a wrong enumeration in a docblock is what the next session
+ *     reasons from. The list is derived by the sweep, not by this prose — read the test.
  *
  * ⭐ SO THE DECISION IS A TOTAL FUNCTION OVER `PortraitSpec` WITH A `never` ARM. A new spec kind
  * cannot compile without deciding what its plate says, and no arm can return an ellipsis because
@@ -460,19 +464,78 @@ export type PortraitPlate =
   /** No art and no emblem: a short word naming what was clicked. NEVER an ellipsis. */
   | { readonly kind: 'word'; readonly text: string };
 
-/** Plate words are drawn at 13px in a 76px box — keep them short, and keep them A NAME. */
-export const PLATE_WORD_MAX = 9;
-
-/** Trim a display name to the plate, without inventing one. */
+/**
+ * ⛔⛔ S182 SELF-AUDIT — **THIS FUNCTION USED TO SLICE, WHICH MEANT THE FIX RE-SHIPPED THE DEFECT IT
+ * INDICTS.** It read `upper.length <= 9 ? upper : upper.slice(0, 9)`, so the plate printed
+ * `MELEE GOB`, `LIGHTNING`, `BAT GOBLI`, `CASTLE UN` — ten of the twelve creature names — while the
+ * docblock two screens up condemned `STINKT` as *"a truncation artefact, not a word anyone wrote"*.
+ * Replacing a 6-char slice with a 9-char slice is not eliminating truncation, it is widening it.
+ *
+ * ⚠ AND THE SWEEP TEST WAS COMPLICIT: its only length assertion was `length <= PLATE_WORD_MAX`,
+ * which truncation GUARANTEES. A gate whose pass condition is produced by the defect cannot see it.
+ *
+ * ⭐ THE PLATE NOW CARRIES THE WHOLE NAME AND THE RENDERER MAKES IT FIT — shrink first, then wrap at
+ * the space. Nothing is dropped, so the test can assert the real invariant (`lines.join(' ')` is the
+ * name, character for character) instead of a bound the bug satisfies.
+ */
 function plateWord(name: string): string {
-  const upper = name.toUpperCase().trim();
-  return upper.length <= PLATE_WORD_MAX ? upper : upper.slice(0, PLATE_WORD_MAX);
+  return name.toUpperCase().trim();
 }
 
-/** The defender kinds' plate words — the only three `DefenderKind` values, named not truncated. */
+/** The portrait plate's inner width in px (PORTRAIT 76 less its 4px inset each side). */
+export const PLATE_BOX_PX = 68;
+/** The plate's preferred and smallest legible type sizes. */
+export const PLATE_FONT_MAX = 13;
+export const PLATE_FONT_MIN = 8;
+
+export interface PlatePlacement {
+  readonly lines: readonly string[];
+  readonly fontSize: number;
+}
+
+/**
+ * ⭐ S182 — PURE — fit a plate word into the 76px portrait box WITHOUT LOSING A CHARACTER.
+ *
+ * Shrink toward `PLATE_FONT_MIN`; if the name still overruns, split it at its last space so a
+ * two-word name ("LIGHTNING DRONE", "MELEE GOBLIN", "CASTLE UNIT" — which is most of them) stacks
+ * instead of being cut. A single unbreakable word longer than the box renders at the minimum size
+ * and is allowed to be tight: legible-and-slightly-cramped beats silently wrong.
+ *
+ * ⚠ Width is estimated with `MONO_EM_RATIO`, the same constant `statValueColumnPx` already uses for
+ * this font — one ratio for the card, so a font change moves both together.
+ */
+export function platePlacement(
+  text: string,
+  boxPx: number = PLATE_BOX_PX,
+): PlatePlacement {
+  const widthAt = (s: string, size: number): number => s.length * size * MONO_EM_RATIO;
+  for (let size = PLATE_FONT_MAX; size >= PLATE_FONT_MIN; size--) {
+    if (widthAt(text, size) <= boxPx) return { lines: [text], fontSize: size };
+  }
+  const cut = text.lastIndexOf(' ');
+  if (cut <= 0) return { lines: [text], fontSize: PLATE_FONT_MIN };
+  const lines = [text.slice(0, cut), text.slice(cut + 1)];
+  for (let size = PLATE_FONT_MAX; size >= PLATE_FONT_MIN; size--) {
+    if (lines.every((l) => widthAt(l, size) <= boxPx)) return { lines, fontSize: size };
+  }
+  return { lines, fontSize: PLATE_FONT_MIN };
+}
+
+/**
+ * The three `DefenderKind` values, named rather than sliced.
+ *
+ * ⚠ S182 SELF-AUDIT — **ONLY `princess` IS REACHABLE TODAY, and the first version of this change
+ * claimed otherwise.** `defenderSheet` returns null on `d.ehp === null`
+ * (`characterSheetModel.ts`, the R75 tower rule) BEFORE it builds a portrait, and every kind but the
+ * princess is a TOWER with a null pool — a tower is read through its STRUCTURE card instead. So the
+ * `STINKT` plate this table was introduced to retire **never actually shipped**; it was reachable
+ * only on paper. The other two entries stay as defence-in-depth against `defenderSheet`'s gate
+ * moving, and are marked so nobody re-derives a bug report from them.
+ */
 const DEFENDER_PLATE_WORD: Record<string, string> = {
-  turret: 'TURRET',
   princess: 'HELGA',
+  // Unreachable while `defenderSheet` gates on `ehp === null` — see the note above.
+  turret: 'TURRET',
   stinkTower: 'STINK',
 };
 
@@ -488,8 +551,9 @@ export function portraitPlateFor(
       return { kind: 'painter' };
 
     case 'creatureFrame':
-      // ⛔ voltkin / direwolf / locustCloud have no `ATLASES` entry, and a race-keyed sheet is
-      // lazy, so `hasTexture` is false for real reasons on both a permanent and a temporary path.
+      // ⛔ Some creature types have no `ATLASES` entry at all (voltkin, locustCloud — NOT direwolf,
+      // which has had one since S173), and a race-keyed sheet loads lazily, so `hasTexture` is
+      // false for real reasons on both a permanent and a temporary path.
       return hasTexture
         ? { kind: 'texture' }
         : { kind: 'word', text: plateWord(creatureDisplayName(spec.creatureType)) };

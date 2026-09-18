@@ -45,7 +45,11 @@ import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { applySpawnCreature } from '../state/creatures/creatureLifecycle.ts';
 import { makeStinkCloud } from '../state/defenders/stinkCloud.ts';
-import { asPlayerId, asStinkCloudId, type CreatureId } from '../types.ts';
+import { blueprintBill } from '../state/blueprints.ts';
+import { makeDefender } from '../state/defenders/defender.ts';
+import { applyBuildBlueprint } from '../state/blueprintBuild.ts';
+import { makeCastleBank } from '../state/castleBank.ts';
+import { asDefenderId, asPlayerId, asStinkCloudId, type CreatureId } from '../types.ts';
 import { characterSheetModel, type SheetTarget } from './characterSheetModel.ts';
 
 const HOST_SEAT = asPlayerId(0);
@@ -93,6 +97,53 @@ function populatedHost(): { world: World; creatureIds: Map<CreatureType, Creatur
       radius: STINK_AURA_RADIUS,
     }),
   );
+
+  /*
+   * ⭐ S182 SELF-AUDIT — **A REAL STRUCTURE, AND THEREFORE A REAL DEFENDER.** The first version of
+   * this file crossed the wire for creature / castle / stinkCloud only, leaving two of the five
+   * `SheetTarget` families — `structure` and `defender` — completely unverified on the joiner. The
+   * structure card is the widest of them all (`componentOf`, banked bond damage, `structureActionModel`,
+   * `feedHint`, `owned`), so it was the biggest hole, not the smallest.
+   *
+   * A laser turret is built through the REAL reducer so the primitives, the bonds and the defender it
+   * mints are all genuine rather than hand-placed.
+   */
+  const bank = makeCastleBank();
+  for (const [type, count] of blueprintBill('laserTurret')) {
+    bank[type as number] = (bank[type as number] ?? 0) + count;
+  }
+  world.castleBanks.set(HOST_SEAT, bank);
+  applyBuildBlueprint(world, {
+    type: 'BUILD_BLUEPRINT',
+    playerId: HOST_SEAT,
+    blueprintId: 'laserTurret',
+    centre: { x: 700, y: 500 },
+  });
+
+  /*
+   * ⚠ HELGA, NOT THE TURRET, AND THAT IS THE POINT. `applyBuildBlueprint` lays the shapes; the
+   * defender is minted later by IGNITION, so one is placed directly here — the subject under test is
+   * the WIRE, not the lifecycle. It must be the PRINCESS because `defenderSheet` returns null on
+   * `ehp === null`, and every other `DefenderKind` is a tower with a null pool (R75). A turret would
+   * give null on both sides and the comparison would be vacuous — which is exactly the trap the
+   * S182 self-audit caught in the `defenderFrame{stinkTower}` claim.
+   */
+  const anchor = [...world.primitives.keys()][0];
+  if (anchor !== undefined) {
+    const helgaId = asDefenderId(1);
+    world.defenders.set(
+      helgaId,
+      makeDefender({
+        id: helgaId,
+        kind: 'princess',
+        ownerPlayerId: HOST_SEAT,
+        anchorPrimitiveId: anchor,
+        recipeId: 'helga',
+        pos: { x: 720, y: 520 },
+        registeredAtTick: 0,
+      }),
+    );
+  }
 
   world.tick = 1234; // a non-zero tick, so anything tick-derived cannot pass by both being 0
   return { world, creatureIds };
@@ -157,6 +208,37 @@ describe('S182 — a card renders identically on the host and on the joiner', ()
       expect(characterSheetModel(client, JOINER_SEAT, target)).toEqual(
         characterSheetModel(host, JOINER_SEAT, target),
       );
+    }
+  });
+
+  it('⛔ the STRUCTURE card — the widest of the five — survives the wire intact', () => {
+    const { world: host } = populatedHost();
+    const client = mirrorOf(host);
+    const prims = [...host.primitives.keys()];
+    expect(prims.length, 'the turret really built').toBeGreaterThan(0);
+    expect(client.primitives.size, 'and its primitives crossed').toBe(host.primitives.size);
+    expect(client.bonds.size, 'and so did its bonds').toBe(host.bonds.size);
+    for (const primitiveId of prims) {
+      const target: SheetTarget = { kind: 'structure', primitiveId };
+      // From the OWNER's seat, so `actions` / `owned` / `feedHint` are all populated rather than null.
+      expect(
+        characterSheetModel(client, HOST_SEAT, target),
+        `structure card for ${String(primitiveId)} differs across the wire`,
+      ).toEqual(characterSheetModel(host, HOST_SEAT, target));
+    }
+  });
+
+  it('⛔ the DEFENDER card survives the wire intact', () => {
+    const { world: host } = populatedHost();
+    const client = mirrorOf(host);
+    expect(host.defenders.size, 'a unit-class defender is on the board').toBeGreaterThan(0);
+    expect(client.defenders.size, 'which crossed the wire').toBe(host.defenders.size);
+    for (const id of host.defenders.keys()) {
+      const target: SheetTarget = { kind: 'defender', id };
+      expect(
+        characterSheetModel(client, HOST_SEAT, target),
+        `defender card for ${String(id)} differs across the wire`,
+      ).toEqual(characterSheetModel(host, HOST_SEAT, target));
     }
   });
 

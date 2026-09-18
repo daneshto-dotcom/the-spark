@@ -1039,13 +1039,24 @@ async function bootstrap(): Promise<void> {
          * ⭐ S182 — `'stinkBag'` joins them: the LANDED bag draws its own sheet rather than the
          * stink TOWER's codex constellation on a card titled STINK BAG.
          */
+        /*
+         * ⚠ S182 SELF-AUDIT — EXHAUSTIVE, NOT `default`. This was written with a catch-all `default`
+         * arm returning the Voltkin TV, fifteen lines above the `never` arm that this same function
+         * documents as *"A COMPILE-TIME COVERAGE CONTRACT"*. A fourth building literal would have
+         * compiled clean and silently painted its card with the TV's sprite — the exact failure the
+         * outer switch is built to prevent, reintroduced in its own body.
+         */
         switch (spec.building) {
           case 'stinkTower':
             return stinkTowerRenderer.portraitTexture();
           case 'stinkBag':
             return stinkCloudRenderer.portraitTexture();
-          default:
+          case 'voltkin':
             return voltkinTowerRenderer.portraitTexture();
+          default: {
+            const unreachableBuilding: never = spec.building;
+            return unreachableBuilding;
+          }
         }
       case 'proceduralFrame':
         // ⭐ S181 — no texture EXISTS for these; `setPortraitPainter` below draws the real puppet.
@@ -1057,16 +1068,19 @@ async function bootstrap(): Promise<void> {
         return spec.race === null ? null : gathererRenderer.castlePortraitTexture(spec.race);
       case 'defenderFrame':
         /*
-         * ⭐ S182 — **THE STINK TOWER IS A DEFENDER TOO, AND ITS ART WAS ALREADY WIRED ONE ARM UP.**
-         * `DefenderKind` is `'turret' | 'princess' | 'stinkTower'`; the comment here said Helga was
-         * *"the only unit-class defender with an atlas"*, which is true of UNIT-class defenders and
-         * missed that `stinkTower` reaches this switch as well — through `defenderSheet`, not
-         * `portraitForStructure`. So clicking the tower's emplacement drew the plate word `STINKT`
-         * (a `slice(0, 6)` artefact) while clicking its structure drew the real sheet.
+         * ⛔ S182 SELF-AUDIT — **THE STORY THAT STOOD HERE WAS FALSE AND IS CORRECTED IN PLACE.**
          *
-         * ⚠ THE TURRET GENUINELY HAS NO ART and keeps a plate — but a named one now, and its
-         * `laserTurret` codex emblem is unreachable from here by design: a defender spec carries no
-         * `recipeId`, and inventing one would be a second mapping beside `portraitForStructure`'s.
+         * It claimed the stink tower "reaches this switch as well — through `defenderSheet`", so
+         * "clicking the tower's emplacement drew the plate word `STINKT`". **That never shipped.**
+         * `defenderSheet` returns null on `d.ehp === null` BEFORE it builds a portrait, and every
+         * `DefenderKind` except `princess` is a TOWER with a null pool (R75) — a tower is read
+         * through its STRUCTURE card. So `defenderFrame` is only ever emitted for Helga, the
+         * original comment ("the only unit-class defender with an atlas") was right, and the bug it
+         * was corrected for did not exist.
+         *
+         * ⚠ THE ARMS STAY as defence-in-depth should `defenderSheet`'s gate ever move, but they are
+         * DEAD CODE TODAY and are labelled so, rather than left looking like a shipped fix. A wrong
+         * root cause in a docblock is what the next session reasons from.
          */
         switch (spec.defenderKind) {
           case 'princess':

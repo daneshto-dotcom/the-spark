@@ -21,10 +21,16 @@
  *     player hand-bonds with no recipe. `portraitForStructure`'s own docblock asserted it *"keeps the
  *     emblem path that already handled it"* — `codexCopyFor('freeform')` hits the unmapped fallback,
  *     which carries no emblem, so that path never handled it.
- *   · **Three creatures, not one.** `voltkin`, `direwolf` and `locustCloud` have no `ATLASES` entry
- *     and are not `proceduralFrame`. The brief named the Voltkin.
- *   · **`defenderFrame{stinkTower}` printed `STINKT`** — a `slice(0, 6)` truncation artefact — while
- *     its real sheet was already loaded and wired one switch-arm away.
+ *   · **More creatures than the brief named** have no `ATLASES` entry and are not
+ *     `proceduralFrame`, so each drew dots. ⚠ S182 SELF-AUDIT: the first version of this list said
+ *     *"three — voltkin, direwolf and locustCloud"* and **`direwolf` was wrong** — it has had an
+ *     atlas since S173. The set is now DERIVED from `ATLASES` below rather than typed out here.
+ *   · ⚠ **A CLAIM THIS FILE ITSELF GOT WRONG, KEPT AS THE LESSON:** the first version said
+ *     `defenderFrame{stinkTower}` printed `STINKT` in production. It never did — `defenderSheet`
+ *     returns null on `ehp === null`, and every `DefenderKind` but `princess` is a tower with a null
+ *     pool, so that spec is unreachable. The truncation was real, but it was `plateWord`'s own
+ *     9-character slice on the CREATURE names, which this sweep then failed to catch because its
+ *     only length assertion was the one truncation guarantees.
  *
  * ⭐ SO THE ASSERTION IS A SWEEP, NOT A TABLE. Every `CreatureType` in `CREATURE_CONFIGS`, every
  * `GodlyId` in `ALL_BLUEPRINT_IDS`, the `freeform` case, every `DefenderKind`, and the keep — each in
@@ -39,10 +45,13 @@ import { describe, expect, it } from 'vitest';
 import { codexCopyFor } from './codexPresentation.ts';
 import { ALL_BLUEPRINT_IDS } from '../state/blueprints.ts';
 import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
+import { ATLASES } from './goblinRenderer.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { ALL_RACES } from '../state/races.ts';
 import {
-  PLATE_WORD_MAX,
+  creatureDisplayName,
+  PLATE_FONT_MIN,
+  platePlacement,
   portraitForCreature,
   portraitForStructure,
   portraitPlateFor,
@@ -58,25 +67,45 @@ const plate = (spec: PortraitSpec, hasTexture: boolean) =>
 /** ⚠ `DefenderKind` is not exported as a value; these are its three union members, pinned below. */
 const DEFENDER_KINDS = ['turret', 'princess', 'stinkTower'] as const;
 
-/** Every portrait spec the game can put on a card, with a label for the failure message. */
-function everySpec(): Array<{ label: string; spec: PortraitSpec }> {
-  const out: Array<{ label: string; spec: PortraitSpec }> = [];
+/**
+ * Every portrait spec the game can put on a card.
+ *
+ * ⭐ S182 SELF-AUDIT — each entry now also carries `fullName`: the complete word the plate MUST show
+ * when it falls back to text. Without it the sweep could only BOUND the length, and a length bound is
+ * precisely what truncation satisfies — which is how the 9-char slice shipped past this file.
+ */
+function everySpec(): Array<{ label: string; spec: PortraitSpec; fullName?: string }> {
+  const out: Array<{ label: string; spec: PortraitSpec; fullName?: string }> = [];
   for (const type of Object.keys(CREATURE_CONFIGS) as CreatureType[]) {
     // race null and a real race: `portraitForCreature` carries it through for `raceUnit`.
-    out.push({ label: `creature:${type}`, spec: portraitForCreature(type, null) });
-    out.push({ label: `creature:${type}:vampires`, spec: portraitForCreature(type, 'vampires') });
+    const fullName = creatureDisplayName(type);
+    out.push({ label: `creature:${type}`, spec: portraitForCreature(type, null), fullName });
+    out.push({
+      label: `creature:${type}:vampires`,
+      spec: portraitForCreature(type, 'vampires'),
+      fullName,
+    });
   }
   for (const id of ALL_BLUEPRINT_IDS) {
-    out.push({ label: `structure:${id}`, spec: portraitForStructure(id) });
+    // Only the emblem-less recipes ever reach the word arm; the rest draw their constellation.
+    out.push({
+      label: `structure:${id}`,
+      spec: portraitForStructure(id),
+      fullName: hasEmblem(id) ? undefined : emblemlessName(id),
+    });
   }
   // ⛔ THE ONE NOBODY LISTED: a hand-bonded structure with no recipe at all.
-  out.push({ label: 'structure:freeform', spec: portraitForStructure(null) });
+  out.push({
+    label: 'structure:freeform',
+    spec: portraitForStructure(null),
+    fullName: emblemlessName('freeform'),
+  });
   for (const defenderKind of DEFENDER_KINDS) {
     out.push({ label: `defender:${defenderKind}`, spec: { kind: 'defenderFrame', defenderKind } });
   }
-  out.push({ label: 'castle:unaligned', spec: { kind: 'castleFrame', race: null } });
+  out.push({ label: 'castle:unaligned', spec: { kind: 'castleFrame', race: null }, fullName: 'KEEP' });
   for (const race of ALL_RACES) {
-    out.push({ label: `castle:${race}`, spec: { kind: 'castleFrame', race } });
+    out.push({ label: `castle:${race}`, spec: { kind: 'castleFrame', race }, fullName: 'KEEP' });
   }
   return out;
 }
@@ -93,21 +122,51 @@ describe('S182 — every portrait plate is art, a puppet, an emblem or a NAME', 
     );
   });
 
-  it('⛔⛔ NOTHING resolves to an ellipsis, an empty plate, or a truncation artefact', () => {
-    for (const { label, spec } of everySpec()) {
-      // BOTH texture states: art present, and art missing / still in flight.
+  /**
+   * ⛔⛔ S182 SELF-AUDIT — **THE ASSERTION THAT USED TO STAND HERE WAS SATISFIED BY THE DEFECT.**
+   *
+   * This test was titled "…or a truncation artefact" and then asserted
+   * `p.text.length <= PLATE_WORD_MAX` — a bound that TRUNCATION GUARANTEES. `plateWord` was slicing
+   * at 9 characters, so the plate shipped `MELEE GOB`, `LIGHTNING`, `CASTLE UN`, and this gate
+   * passed on every one of them while its own header named `STINKT` as the artefact being retired.
+   *
+   * ⭐ THE REAL INVARIANT IS THAT NOTHING IS LOST: the plate's text must be the subject's FULL name,
+   * and `platePlacement` must be able to lay that name out without dropping a character. A length
+   * bound can never express that; reassembling the laid-out lines can.
+   */
+  it('⛔⛔ NOTHING resolves to dots, an empty plate, or a TRUNCATED name', () => {
+    for (const { label, spec, fullName } of everySpec()) {
       for (const hasTexture of [true, false]) {
         const p = plate(spec, hasTexture);
         expect(p.kind, `${label} (tex=${hasTexture})`).not.toBeUndefined();
         if (p.kind !== 'word') continue;
-        expect(p.text, `${label} (tex=${hasTexture}) must not be dots`).not.toContain('…');
-        expect(p.text, `${label} (tex=${hasTexture}) must not be dots`).not.toContain('...');
-        expect(p.text.length, `${label} (tex=${hasTexture}) must say something`).toBeGreaterThan(0);
-        expect(p.text.length, `${label} (tex=${hasTexture}) must fit the 76px plate`).toBeLessThanOrEqual(
-          PLATE_WORD_MAX,
-        );
+        expect(p.text, `${label} must not be dots`).not.toContain('…');
+        expect(p.text, `${label} must not be dots`).not.toContain('...');
+        expect(p.text.length, `${label} must say something`).toBeGreaterThan(0);
+        // ⭐ THE ANTI-TRUNCATION GATE: the plate carries the WHOLE name…
+        if (fullName !== undefined) {
+          expect(p.text, `${label} must be the whole name, not a slice`).toBe(fullName.toUpperCase());
+        }
+        // …and laying it out into the 76px box loses nothing, at a legible size.
+        const placed = platePlacement(p.text);
+        expect(placed.lines.join(' '), `${label} lost characters in layout`).toBe(p.text);
+        expect(placed.fontSize, `${label} must stay legible`).toBeGreaterThanOrEqual(PLATE_FONT_MIN);
+        expect(placed.lines.length, `${label} must fit in at most two lines`).toBeLessThanOrEqual(2);
       }
     }
+  });
+
+  it('⭐ the layout really does shrink-then-wrap rather than cut — the long names prove it', () => {
+    // Negative control: if `platePlacement` were still slicing, these would come back shortened.
+    for (const name of ['LIGHTNING DRONE', 'MELEE GOBLIN', 'CASTLE UNIT', 'PENCIL CHEWER']) {
+      const placed = platePlacement(name);
+      expect(placed.lines.join(' '), name).toBe(name);
+      expect(placed.fontSize).toBeGreaterThanOrEqual(PLATE_FONT_MIN);
+    }
+    // A single unbreakable word too long for the box is allowed to be tight, never cut.
+    const long = platePlacement('AAAAAAAAAAAAAAAAAAAA');
+    expect(long.lines).toEqual(['AAAAAAAAAAAAAAAAAAAA']);
+    expect(long.fontSize).toBe(PLATE_FONT_MIN);
   });
 
   /**
@@ -156,16 +215,25 @@ describe('S182 — every portrait plate is art, a puppet, an emblem or a NAME', 
       expect(plate(portraitForStructure('helga'), false)).toEqual({ kind: 'word', text: 'HELGA' });
     });
 
-    it('the three atlas-less creatures name themselves rather than drawing dots', () => {
-      for (const [type, expected] of [
-        ['voltkin', 'VOLTKIN'],
-        ['direwolf', 'DIREWOLF'],
-        ['locustCloud', 'LOCUSTS'],
-      ] as Array<[CreatureType, string]>) {
+    it('⭐ an atlas-less creature names itself IN FULL rather than drawing dots', () => {
+      /*
+       * ⛔ S182 SELF-AUDIT — **THIS TEST ASSERTED NOTHING.** It carried a table of expected words
+       * and then discarded it with `void expected`, keeping only `kind === 'word'` and
+       * `length > 0` — both true of ANY non-empty string, including the truncated ones that were
+       * actually shipping. It also listed `direwolf`, which HAS had an atlas since S173
+       * (`goblinRenderer.ts:188`), so a third of the table was wrong as well as unchecked.
+       *
+       * ⭐ DERIVED, NOT TYPED: the atlas-less set comes from `ATLASES` itself, so packing art for
+       * one of them moves this test instead of rotting it.
+       */
+      const atlasless = (Object.keys(CREATURE_CONFIGS) as CreatureType[]).filter(
+        (t) => ATLASES[t] === undefined && portraitForCreature(t, null).kind === 'creatureFrame',
+      );
+      expect(atlasless.length, 'there is at least one atlas-less creature to guard').toBeGreaterThan(0);
+      expect(atlasless, 'direwolf has had an atlas since S173').not.toContain('direwolf');
+      for (const type of atlasless) {
         const p = plate(portraitForCreature(type, null), false);
-        expect(p.kind, type).toBe('word');
-        expect((p as { text: string }).text.length, type).toBeGreaterThan(0);
-        void expected; // the exact wording is `creatureDisplayName`'s to own, not this test's
+        expect(p, type).toEqual({ kind: 'word', text: creatureDisplayName(type).toUpperCase() });
       }
     });
 

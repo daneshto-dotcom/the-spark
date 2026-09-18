@@ -32,6 +32,7 @@ import {
   characterSheetModel,
   layoutSheetActions,
   MONO_EM_RATIO,
+  platePlacement,
   portraitPlateFor,
   SHEET_W,
   statValueColumnPx,
@@ -626,12 +627,24 @@ export class CharacterSheet {
      * player what they clicked. The word is the thing's NAME — a creature's display name, a
      * defender's proper name, a recipe's codex name — never a truncation artefact and never dots.
      */
-    const t = this.take();
-    t.text = plate.kind === 'word' ? plate.text : '';
-    t.style.fontSize = 13;
-    t.style.fill = DIM;
-    t.anchor.set(0.5, 0.5);
-    t.position.set(px + PORTRAIT / 2, py + PORTRAIT / 2);
+    if (plate.kind !== 'word') return;
+    /*
+     * ⭐ S182 SELF-AUDIT — **SHRINK AND WRAP, NEVER CUT.** This drew one line at a fixed 13px, which
+     * is why the model was slicing the name to fit — and slicing is the `STINKT` artefact this whole
+     * priority set out to retire. `platePlacement` is pure and tested: it hands back the WHOLE name
+     * as one or two lines with a size that fits the 76px box, so nothing is lost at any stage.
+     */
+    const placed = platePlacement(plate.text);
+    const lineH = placed.fontSize + 2;
+    const top = py + PORTRAIT / 2 - ((placed.lines.length - 1) * lineH) / 2;
+    placed.lines.forEach((line, i) => {
+      const t = this.take();
+      t.text = line;
+      t.style.fontSize = placed.fontSize;
+      t.style.fill = DIM;
+      t.anchor.set(0.5, 0.5);
+      t.position.set(px + PORTRAIT / 2, top + i * lineH);
+    });
   }
 
   private text(s: string, x: number, y: number, size: number, fill: number): void {

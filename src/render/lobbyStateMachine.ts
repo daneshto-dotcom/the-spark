@@ -255,11 +255,20 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
       return { ...state, status: LOBBY_STATUS.JOIN_INVALID, statusColor: STATUS_COLOR_ERROR };
 
     case 'QM_JOIN_START':
-      // ⭐ S182 — see the event's docblock. UNGUARDED by design: the caller is the quickmatch
-      // election, which has ALREADY torn our host room down before telling us. `code` is the room
-      // we are actually entering, not the dead one we were advertising — `showCode` is
+      // ⭐ S182 — see the event's docblock. UNGUARDED BY MODE by design: the caller is the
+      // quickmatch election, which has ALREADY torn our host room down before telling us. `code` is
+      // the room we are actually entering, not the dead one we were advertising — `showCode` is
       // hosting-only so nothing renders it, but leaving the stale code in state is how a later
       // reader talks itself back into believing we still host it.
+      //
+      // ⛔ S182 SELF-AUDIT — **BUT STILL VALIDATED, AND THE FIRST VERSION OF THIS ARM WAS NOT.**
+      // Dropping the MODE guard is the point; dropping `isValidRoomCode` was an accident, and it
+      // mattered because this code is UNVALIDATED NETWORK INPUT. `quickmatch.ts`'s `onBeacon`
+      // accepts any `{t:'host', code:<string>}` from the PUBLIC discovery room, and
+      // `decideQuickmatch` sorts lexicographically and takes the smallest — so any stranger could
+      // publish a code sorting below every real one and drive every seeker's lobby into 'joining'
+      // against a room that cannot exist. A malformed code now leaves us exactly where we were.
+      if (!isValidRoomCode(event.code)) return state;
       return enterJoining(state, event.code);
 
     case 'PEER_STATUS': {
