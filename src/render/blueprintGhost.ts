@@ -18,6 +18,16 @@
  * ghost that reads green over a spot the host then refuses teaches the player to distrust it, which is
  * worse than showing nothing.
  *
+ * ## ⛔ WHAT IT DELIBERATELY DOES **NOT** DRAW: THE BILL
+ *
+ * S182 item 3 (owner) asks a carried tower to say what it will cost — *"in a consistent manner
+ * without writing over the shapes. It should be a very understandable place."* The cursor is the
+ * least consistent place on the screen and the one guaranteed to write over whatever is under it,
+ * so the readout lives in the FOOTER BAND, left of the tier chips, on a fixed line the player can
+ * learn. This class still draws exactly three things — the footprint box, the blueprint's shape and
+ * the validity tint — and a fourth would be a second surface saying the same thing from a moving
+ * position.
+ *
  * ⚠ ON A JOINER THIS IS BEST-EFFORT, exactly as `computePreviewBonds` documents for its own case: the
  * joiner evaluates legality against a snapshot up to ~100 ms stale, so the host is the authority and
  * a refused build simply no-ops (`applyBuildBlueprint` is NO-OP-never-throw). Stated rather than

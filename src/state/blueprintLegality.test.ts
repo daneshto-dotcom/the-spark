@@ -32,6 +32,14 @@ import type { Primitive } from '../game/primitive.ts';
 const P0 = asPlayerId(0);
 /** Far from the quarry (960,540 r125) and clear of every edge even for voltkin. */
 const CLEAR: Vec2 = { x: 300, y: 300 };
+/**
+ * S182 — px per sample in the quarry-boundary sweeps below. The sweeps report the FIRST legal
+ * sample, so the true boundary lies within one step behind it; every comparison is therefore made
+ * against `first - QUARRY_SWEEP_STEP`, the last sample that was actually refused. Asserting on the
+ * first legal sample instead is off by up to one step and fails for the two recipes whose boundary
+ * lands exactly on a sample.
+ */
+const QUARRY_SWEEP_STEP = 0.5;
 
 function setup(): World {
   const w = makeWorld(0);
@@ -62,32 +70,80 @@ describe('stampRefusalAt', () => {
   });
 
   it.each(ALL_BLUEPRINT_IDS)('%s: the quarry is refused by FOOTPRINT, not just by centre', (id) => {
-    const w = setup();
     /*
-     * ⭐ S182 — RE-PINNED AGAINST `blueprintExtent`, NOT `blueprintRadius`, and that is the whole
-     * point of the change rather than a concession to it. This line used to offset by the
-     * CIRCUMRADIUS, which for every star and ring recipe is larger than the footprint's actual
-     * reach along +x — so the "footprint still overlaps" premise had quietly become false for nine
-     * of the sixteen ids and the test was asserting QUARRY for a stamp that genuinely clears it.
-     *
-     * Derived from the constant so a recipe retune cannot half-land: the box's LEFT edge lands 1 px
-     * inside the quarry rim while the CENTRE sits outside it, which is exactly the case a
-     * centre-only check would wrongly allow.
+     * ⭐ S182 — PROBED AGAINST THE **BOUNDARY THE PREDICATE ACTUALLY HAS**, not against an offset
+     * derived from its internals. This assertion has now been re-pinned twice in one session — once
+     * off `blueprintRadius`, once off `blueprintExtent().minDx` — and both times because it encoded
+     * the implementation rather than the claim. The claim is only this: there exists a band where
+     * the CENTRE is outside the quarry and the stamp is still refused. So find the boundary by
+     * sweeping, then assert the band exists and is non-empty.
      */
-    const left = blueprintExtent(id).minDx; // negative
-    const justOutside = { x: SPAWNER_CENTER_X + SPAWNER_RADIUS - left - 1, y: SPAWNER_CENTER_Y };
-    expect(justOutside.x).toBeGreaterThan(SPAWNER_CENTER_X + SPAWNER_RADIUS); // the centre IS clear
-    expect(stampRefusalAt(w, justOutside, P0, id)).toBe('QUARRY');
+    const w = setup();
+    const rim = SPAWNER_CENTER_X + SPAWNER_RADIUS;
+    let firstLegal = Infinity;
+    for (let x = SPAWNER_CENTER_X; x < SPAWNER_CENTER_X + 420; x += QUARRY_SWEEP_STEP) {
+      if (stampRefusalAt(w, { x, y: SPAWNER_CENTER_Y }, P0, id) !== 'QUARRY') { firstLegal = x; break; }
+    }
+    expect(firstLegal).toBeLessThan(Infinity); // anti-vacuity: the sweep escapes the quarry
+    // The refusal reaches PAST the rim — i.e. it is measured on the footprint, not on the centre.
+    expect(firstLegal).toBeGreaterThan(rim);
+    // And one step inside that boundary, with the centre already clear of the disc, it IS refused.
+    const inBand = firstLegal - QUARRY_SWEEP_STEP;
+    expect(inBand).toBeGreaterThan(rim); // the probe really is outside the disc
+    expect(stampRefusalAt(w, { x: inBand, y: SPAWNER_CENTER_Y }, P0, id)).toBe('QUARRY');
   });
 
   it.each(ALL_BLUEPRINT_IDS)('%s: a footprint that truly clears the quarry rim is NOT refused', (id) => {
+    // The complement, and the half that has teeth: past the boundary the stamp is legal. Under the
+    // old `SPAWNER_RADIUS + circumradius` disc this point was still QUARRY for every wide recipe.
     const w = setup();
-    // The complement, and the half that has teeth: one px further out and the stamp is legal. Under
-    // the old `SPAWNER_RADIUS + circumradius` disc this point was still QUARRY for every wide recipe.
-    const left = blueprintExtent(id).minDx;
-    const clearOfRim = { x: SPAWNER_CENTER_X + SPAWNER_RADIUS - left + 1, y: SPAWNER_CENTER_Y };
-    expect(stampRefusalAt(w, clearOfRim, P0, id)).not.toBe('QUARRY');
+    let firstLegal = Infinity;
+    for (let x = SPAWNER_CENTER_X; x < SPAWNER_CENTER_X + 420; x += QUARRY_SWEEP_STEP) {
+      if (stampRefusalAt(w, { x, y: SPAWNER_CENTER_Y }, P0, id) !== 'QUARRY') { firstLegal = x; break; }
+    }
+    expect(stampRefusalAt(w, { x: firstLegal, y: SPAWNER_CENTER_Y }, P0, id)).not.toBe('QUARRY');
+    // ⭐ AND IT IS STRICTLY BETTER THAN THE CIRCUMRADIUS IT REPLACED, on this axis too.
+    const lastRefused = firstLegal - QUARRY_SWEEP_STEP - SPAWNER_CENTER_X;
+    expect(lastRefused).toBeLessThanOrEqual(SPAWNER_RADIUS + blueprintRadius(id));
   });
+
+  it.each(ALL_BLUEPRINT_IDS)(
+    '%s: ⛔ THE DIAGONAL — the quarry arm never refuses ground the circumradius allowed',
+    (id) => {
+      /*
+       * ⛔⛔ THE REGRESSION THIS PINS WAS SHIPPED AND THEN CAUGHT BY AN ADVERSARIAL REVIEW OF THIS
+       * BRANCH. The first cut tested the footprint's BOUNDING BOX against the quarry disc. A box's
+       * CORNER lies farther from the centre than the outermost node does, so on the diagonals it
+       * refused MORE ground than the old circumradius — in a change whose entire purpose was to
+       * stop refusing ground. Measured then, along the 45° ray: pentagram 177.0 → 191.7,
+       * goblinTower 181.0 → 204.2, the six t9 towers 201.0 → 229.1.
+       *
+       * ⚠ AND THE SUITE COULD NOT SEE IT, which is the real lesson. Every other quarry assertion in
+       * this file probes the **+x axis**, the one direction in which a box and a circumradius agree
+       * exactly. A per-recipe diagonal sweep is the cheapest thing that would have caught it, so it
+       * is now the standing guard.
+       */
+      const w = setup();
+      const oldReach = SPAWNER_RADIUS + blueprintRadius(id);
+      // Walk outward along the up-left diagonal (inside seat 0's own ground on PITCH_2P) and find
+      // the first distance at which the QUARRY arm stops firing.
+      let newReach = Infinity;
+      for (let d = 80; d < 420; d += QUARRY_SWEEP_STEP) {
+        const c = {
+          x: SPAWNER_CENTER_X - d / Math.SQRT2,
+          y: SPAWNER_CENTER_Y - d / Math.SQRT2,
+        };
+        if (stampRefusalAt(w, c, P0, id) !== 'QUARRY') { newReach = d; break; }
+      }
+      expect(newReach).toBeLessThan(Infinity); // anti-vacuity: the sweep really does escape
+      const lastRefused = newReach - QUARRY_SWEEP_STEP;
+      expect(
+        lastRefused,
+        `${id}: the quarry arm still refuses at ${lastRefused.toFixed(1)}px on the diagonal, past ` +
+          `the ${oldReach.toFixed(1)}px the circumradius reached — it has TAKEN ground, not given it`,
+      ).toBeLessThanOrEqual(oldReach);
+    },
+  );
 
   it.each(ALL_BLUEPRINT_IDS)('%s: every canvas edge is refused by footprint', (id) => {
     const w = setup();

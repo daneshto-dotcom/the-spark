@@ -10,19 +10,33 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, SparkType } from '../constants.ts';
-import { ALL_BLUEPRINT_IDS, blueprintCost } from '../state/blueprints.ts';
+import {
+  ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, SparkType,
+} from '../constants.ts';
+import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 // S166 — the footer derives from the panel model, so the bucket total is asserted against it.
 // S173 — and the card's "WHICH shapes" readout is that same model's shortfall, unsummed.
-import { castleStructuresModel, shortfallEntries } from './castlePanel.ts';
+import {
+  SHORTFALL_GLYPH_R, castleStructuresModel, glyphCountRowLayout, shortfallEntries, structureRowFor,
+} from './castlePanel.ts';
+import { bankAdd } from '../state/castleBank.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { zoneCount, type ZoneLayout } from '../state/zones.ts';
 import { footerBandModel, structuresAtComplexity } from './footerBandModel.ts';
-import { layoutCards, layoutChips } from './footerBand.ts';
+import { CARRY_PLATE_PAD, layoutCarryBill, layoutCards, layoutChips } from './footerBand.ts';
+import { STRIP_MARGIN, shapeStripLayout } from './shapeStrip.ts';
+
+/**
+ * S182 — the chip box height, restated here ONLY to bound the carry readout's plate in the overlap
+ * sweep. `layoutChips` reports the live value and the assertions below read it from there where
+ * they can; this is the one place a bare number is needed and it is pinned against the real chips.
+ */
+const CHIP_H_FOR_TEST = 46;
 
 const P0 = asPlayerId(0);
 
@@ -257,6 +271,203 @@ describe('S173 — the tower card carries WHICH shapes it is short of, not just 
       expect(card.enabled).toBe(false);
       expect(card.reason).toBe('LOCKED');
     }
+  });
+});
+
+/* ========================================================================== *
+ *   ⭐⭐ S182 ITEM 3 (owner) — THE CARRIED TOWER'S BILL
+ * ========================================================================== */
+
+/**
+ * > *"When you click on a tower, before you place it, when you're carrying the template, it should
+ * > show you 'this will cost you this much and this much'. In a consistent manner without writing
+ * > over the shapes. It should be a very understandable place."*
+ *
+ * ⛔ WHAT THIS FILE HAS TO CATCH IS NOT "does it draw" — nothing here runs Pixi — BUT THE TWO
+ * DEFECTS S181 SHIPPED OF EXACTLY THIS CLASS: a new UI block that drew at an absolute position and
+ * never advanced the layout cursor, and one that drew on top of an existing row. Both are layout
+ * facts, both are pure, and both are asserted below.
+ */
+describe('S182 — the carry readout is laid out FROM the band, not beside it', () => {
+  const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
+  /** Widest real bill in the registry: PRINCESS HELGA names three distinct shapes. */
+  const WIDEST = 3;
+
+  it('⚠ the bare chip height this file bounds the plate with is the LIVE one', () => {
+    // Pins the one literal in this describe block against `layoutChips`, so a chip resize cannot
+    // leave the overlap sweep below quietly measuring the wrong rectangle.
+    expect(CHIP_H_FOR_TEST).toBe(layoutChips(footerBandModel(playingWorld()))[0].h);
+  });
+
+  it('is null when there is nothing to anchor to, or nothing to bill', () => {
+    expect(layoutCarryBill([], WIDEST)).toBeNull();
+    expect(layoutCarryBill(layoutChips(footerBandModel(playingWorld())), 0)).toBeNull();
+  });
+
+  it('⛔ sits LEFT of every chip, with the strip\'s own margin of air', () => {
+    const chips = layoutChips(footerBandModel(playingWorld()));
+    const carry = layoutCarryBill(chips, WIDEST)!;
+    expect(carry.right).toBe(Math.min(...chips.map((c) => c.x)) - STRIP_MARGIN);
+    for (const c of chips) expect(carry.right).toBeLessThanOrEqual(c.x);
+  });
+
+  it('⛔ overlaps NOTHING — not a chip, not the shape strip, not a castle porch', () => {
+    for (const layout of LAYOUTS) {
+      const w = playingWorld(zoneCount(layout));
+      expect(w.layout).toBe(layout); // anti-vacuity: the seat count really selected this board
+      const chips = layoutChips(footerBandModel(w));
+      const carry = layoutCarryBill(chips, WIDEST)!;
+      const strip = shapeStripLayout(chips, [SparkType.Dot, SparkType.Circle]);
+
+      /*
+       * ⚠ MEASURED AGAINST THE **PLATE**, NOT THE CONTENT. The drawn rectangle overhangs `left` and
+       * `right` by `CARRY_PLATE_PAD` on each side, so a sweep over `left`/`right` alone would be
+       * measuring a smaller box than the one the player sees — and would stay green while the plate
+       * sat on a chip. Caught by re-reading the draw against this test, S182.
+       */
+      const plateL = carry.left - CARRY_PLATE_PAD;
+      const plateR = carry.right + CARRY_PLATE_PAD;
+      const hits = (x: number, y: number): boolean =>
+        x >= plateL && x <= plateR && y >= carry.y - CHIP_H_FOR_TEST / 2
+        && y <= carry.y + CHIP_H_FOR_TEST / 2;
+
+      for (const c of chips) {
+        expect(plateR, `chip ${c.complexity}`).toBeLessThan(c.x);
+      }
+      for (const r of [...strip.palette, ...strip.queue]) {
+        expect(plateR, 'the shape strip is on the OTHER side — "without writing over the shapes"')
+          .toBeLessThan(r.x);
+      }
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const a = castleAnchor(seat, layout);
+        expect(
+          hits(a.x, a.y + GATHERER_DEPOSIT_OFFSET_Y),
+          `${layout} seat ${seat} porch is under the carry readout`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('⛔⛔ THE PLATE SWALLOWS THE CLICK — it is a UI surface, so it must be in the guard', () => {
+    /*
+     * The defect an adversarial review of this branch found in ITEM 3 before the owner did, and it
+     * is the S181 class one more time: the plate is `0x0b0f16` at alpha 0.72 and the band is brought
+     * to the front, so it hides the board AND the blueprint ghost — while ITEM 1 simultaneously made
+     * the band's own y LEGAL for a flat recipe. A click dead centre therefore passed every guard and
+     * planted a tower on ground the player could not see.
+     *
+     * ⚠ ASSERTED THROUGH `isOverChip`, NOT `isOverCarryBill`, deliberately: `isOverChip` is the one
+     * predicate `controls.ts` consults at all four commit sites, and a test that only exercised the
+     * narrow helper would stay green if the fold-in were ever removed.
+     */
+    const src = readFileSync(new URL('./footerBand.ts', import.meta.url), 'utf8');
+    const i = src.indexOf('isOverChip(x: number, y: number): boolean {');
+    expect(i, 'isOverChip must still exist').toBeGreaterThan(-1);
+    expect(src.slice(i, i + 400)).toContain('this.isOverCarryBill(x, y)');
+    // …and the hit-test must measure the PLATE, padding included, not the bare content box.
+    const j = src.indexOf('isOverCarryBill(x: number, y: number): boolean {');
+    expect(j, 'isOverCarryBill must exist').toBeGreaterThan(-1);
+    expect(src.slice(j, j + 400)).toContain('CARRY_PLATE_PAD');
+    // The geometry it hit-tests is THIS frame's, stored by sync — never recomputed independently.
+    expect(src).toContain('private carry: CarryBillGeom | null = null;');
+    expect(src).toContain('this.carry = carry;');
+  });
+
+  it('⛔ and it clears the open CARD MENU, which draws ABOVE the band on the same x range', () => {
+    // The cards float over the board just above the chip row. The readout is on the chip row's own
+    // midline, so the two must not meet vertically — a plate drawn over an open card would be S181's
+    // "drew on top of an existing row" defect in a new place.
+    const w = playingWorld();
+    const chips = layoutChips(footerBandModel(w));
+    const carry = layoutCarryBill(chips, WIDEST)!;
+    const cards = layoutCards(w, blueprintCost('stinkTower'), chips[0].y);
+    expect(cards.length).toBeGreaterThan(0); // anti-vacuity
+    const plateTop = carry.y - CHIP_H_FOR_TEST / 2;
+    for (const card of cards) {
+      expect(card.y + card.h, `card ${card.id} bottom`).toBeLessThanOrEqual(plateTop);
+    }
+  });
+
+  it('grows LEFTWARD as a bill names more shapes — the right edge never moves', () => {
+    const chips = layoutChips(footerBandModel(playingWorld()));
+    const one = layoutCarryBill(chips, 1)!;
+    const three = layoutCarryBill(chips, WIDEST)!;
+    expect(three.right).toBe(one.right);
+    expect(three.left).toBeLessThan(one.left);
+    // …and even a bill naming every primitive stays clear of the corner porch at x = 130.
+    expect(layoutCarryBill(chips, 6)!.left).toBeGreaterThan(200);
+  });
+
+  it('sits on the chip row\'s own midline, inside the band', () => {
+    const chips = layoutChips(footerBandModel(playingWorld()));
+    const carry = layoutCarryBill(chips, WIDEST)!;
+    const chipMid = chips[0].y + chips[0].h / 2;
+    expect(carry.y).toBe(chipMid);
+    expect(carry.y - CHIP_H_FOR_TEST / 2).toBeGreaterThanOrEqual(FOOTER_TOP_Y);
+    expect(carry.y + CHIP_H_FOR_TEST / 2).toBeLessThanOrEqual(CANVAS_HEIGHT);
+  });
+
+  it('its pairs are the SHARED row geometry, never a second copy of the arithmetic', () => {
+    const chips = layoutChips(footerBandModel(playingWorld()));
+    const carry = layoutCarryBill(chips, WIDEST)!;
+    const row = glyphCountRowLayout(WIDEST, { glyphR: SHORTFALL_GLYPH_R });
+    expect(carry.slots).toEqual(row.slots);
+    // The block is exactly the word + the prefix gap + that row — nothing measured twice.
+    expect(carry.right - carry.left).toBe(carry.pairsLeft - carry.left + row.width);
+  });
+
+  it('⛔ ADVANCES THE LAYOUT CURSOR — the card labels count from after this block', () => {
+    /*
+     * S181's defect verbatim: a block that draws but leaves the cursor where it was, so the next
+     * block lands on top of it. Here the cursor is the pooled-label index, which no pure function
+     * exposes — so this is the source-text half, and it is the half that catches a regression.
+     */
+    const src = readFileSync(new URL('./footerBand.ts', import.meta.url), 'utf8');
+    expect(src).toContain('return this.carryLabelBase() + CARRY_LABELS;');
+    expect(src).toContain('const CARRY_LABELS = 1 + SHORTFALL_MAX_SHAPES;');
+    // And the unused tail of the fixed reservation is hidden BY HAND, like the badge block's.
+    expect(src).toContain('for (let k = 0; k < CARRY_LABELS; k++) this.labelAt(carryBase + k).visible = false;');
+  });
+});
+
+describe('S182 — the bill is the model\'s, and the model has exactly one', () => {
+  it.each(ALL_BLUEPRINT_IDS.filter((id) => !id.startsWith('t3Tower') && !id.startsWith('t9Tower')))(
+    '%s: the row\'s bill IS blueprintBill, whole, in ALL_SPARK_TYPES order',
+    (id) => {
+      const w = playingWorld();
+      const row = structureRowFor(w, id)!;
+      expect(row, 'a GLOBAL tower is visible to every seat').not.toBeNull();
+      const expected = ALL_SPARK_TYPES
+        .filter((t) => blueprintBill(id).has(t))
+        .map((t) => ({ type: t, need: blueprintBill(id).get(t)!, have: 0 }));
+      expect(row.bill).toEqual(expected);
+    },
+  );
+
+  it('⛔ `missing` is a FILTER of `bill`, never a parallel walk', () => {
+    const w = playingWorld(); // the bank opens EMPTY, so everything is short
+    for (const row of castleStructuresModel(w)) {
+      expect(row.missing.length).toBeGreaterThan(0); // anti-vacuity
+      for (const m of row.missing) {
+        expect(row.bill).toContainEqual(m);
+      }
+      expect(row.bill.length).toBeGreaterThanOrEqual(row.missing.length);
+    }
+  });
+
+  it('⭐ and the bill SURVIVES becoming affordable — which is when the carry readout needs it', () => {
+    // The structural reason `missing` could not be reused: it empties exactly when you pick the
+    // tower up. Bank the stink tower's bill and watch one array empty while the other does not.
+    const w = playingWorld();
+    for (let i = 0; i < 1; i++) bankAdd(w.castleBanks, w.localPlayerId, SparkType.Square);
+    for (let i = 0; i < 3; i++) bankAdd(w.castleBanks, w.localPlayerId, SparkType.Circle);
+    const row = structureRowFor(w, 'stinkTower')!;
+    expect(row.enabled).toBe(true);
+    expect(row.missing).toEqual([]);
+    expect(row.bill).toEqual([
+      { type: SparkType.Square, need: 1, have: 1 },
+      { type: SparkType.Circle, need: 3, have: 3 },
+    ]);
   });
 });
 

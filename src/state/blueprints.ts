@@ -425,7 +425,7 @@ export function blueprintPositions(id: GodlyId, centre: Vec2): Vec2[] {
  * `blueprintRadius`; `blueprintExtent` needs the identical air on all four sides, and two literal
  * 12s are how a retune half-lands.
  */
-const FOOTPRINT_MARGIN = 12;
+export const FOOTPRINT_MARGIN = 12;
 
 /**
  * PURE — the blueprint's footprint radius: the furthest node from the centre, plus a small margin.

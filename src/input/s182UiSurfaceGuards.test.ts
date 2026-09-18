@@ -19,6 +19,12 @@
  *       2. the **armed blueprint stamp** never consulted `isPointerOverCard`. The card's body is
  *          not consumed until `handleSheetSelect`, which sits BELOW the stamp arm — so arming a
  *          tower and clicking the open card stamped a structure beneath it.
+ *   · ⛔ AND THEN **S182 SHIPPED A THIRD ONE OF ITS OWN**, caught by an adversarial review of this
+ *     same branch before the owner saw it: item 3's COST plate is an opaque rectangle drawn above
+ *     the board and above the blueprint ghost, and it was registered in no guard at all — while
+ *     item 1 had just made the band's own y legal for a flat recipe. Clicking the readout planted a
+ *     tower underneath it. It is now folded into `isOverChip` via `footerBand.isOverCarryBill`, and
+ *     `footerBand.test.ts` pins that. **Three sessions, four occurrences, one shape of defect.**
  *
  * ## ⚠ A TRIPWIRE, NOT A BEHAVIOUR TEST — and deliberately so
  *
@@ -77,6 +83,21 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
     expect(block).toContain('!this.isPointerOverPanel()');
     expect(block, 'the footer guard was MISSING here until S182').toContain('!this.isPointerOverFooterChip()');
     expect(block).toContain('!this.isPointerOverCard()');
+  });
+
+  it('⛔ the FOOTER predicate every gate shares covers the carry readout too (S182 fix #3)', () => {
+    /*
+     * The three named surfaces are not the whole story: `isPointerOverFooterChip` delegates to
+     * `footerBand.isOverChip`, so anything the BAND draws opaquely must be inside that one
+     * predicate or it is invisible to all four gates at once. This asserts the delegation chain
+     * end to end, because that is the property the gates actually rely on.
+     */
+    expect(blockFrom('private isPointerOverFooterChip(): boolean {', 400))
+      .toContain('this.footerBand.isOverChip(this.cursor.x, this.cursor.y)');
+    const band = readFileSync(new URL('../render/footerBand.ts', import.meta.url), 'utf8');
+    const i = band.indexOf('isOverChip(x: number, y: number): boolean {');
+    expect(i, 'footerBand.isOverChip must still exist').toBeGreaterThan(-1);
+    expect(band.slice(i, i + 400)).toContain('this.isOverCarryBill(x, y)');
   });
 
   it('GATE C — the PLACE_FROM_FREE commit registers all three surfaces', () => {

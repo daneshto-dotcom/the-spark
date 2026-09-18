@@ -280,6 +280,24 @@ export interface StructureRow {
    * reading order); a renderer may iterate this array straight through.
    */
   readonly missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>;
+  /**
+   * ⭐⭐ S182 (owner) — **THE WHOLE BILL, NOT ONLY THE SHORT PART OF IT.**
+   *
+   * > *"When you click on a tower, before you place it, when you're carrying the template, it
+   * > should show you 'this will cost you this much and this much'."*
+   *
+   * `missing` answers *"what am I still short of"* and is EMPTY once you can afford the build —
+   * which is exactly the moment you pick the tower up and start carrying it, so it is structurally
+   * the wrong array for a carry readout. This one lists every type in `blueprintBill(id)`,
+   * affordable or not, in the same `ALL_SPARK_TYPES` order and from the same loop.
+   *
+   * ⚠ `need` AND `have`, never a subtraction. A carry readout says what the tower COSTS; whether
+   * the count reads as comfortable or tight is the renderer's tint, not a second number. (There is
+   * deliberately no mapping sibling to `shortfallEntries` here: that function exists so one
+   * subtraction lives in one place, and this array has no subtraction to share — a `billEntries`
+   * would have been the identity function.)
+   */
+  readonly bill: ReadonlyArray<{ type: SparkType; need: number; have: number }>;
 }
 
 /* ========================================================================== *
@@ -371,19 +389,50 @@ export function shortfallRowLayout(
   entries: ReadonlyArray<ShortfallEntry>,
   opts: ShortfallRowOptions = {},
 ): { readonly slots: ShortfallSlot[]; readonly width: number } {
+  const geom = glyphCountRowLayout(entries.length, opts);
+  return {
+    slots: entries.map((e, i) => ({
+      type: e.type,
+      short: e.short,
+      glyphX: geom.slots[i]!.glyphX,
+      countX: geom.slots[i]!.countX,
+    })),
+    width: geom.width,
+  };
+}
+
+/** Where one glyph+count pair sits, relative to the row's LEFT edge. Positions only. */
+export interface GlyphCountSlot {
+  /** Centre of the shape glyph. */
+  readonly glyphX: number;
+  /** Centre of the `x3` count that follows it. */
+  readonly countX: number;
+}
+
+/**
+ * ⭐ S182 — PURE — **THE GEOMETRY OF A ROW OF `n` GLYPH+COUNT PAIRS, AND NOTHING ELSE.**
+ *
+ * Extracted from `shortfallRowLayout` when the carry readout (owner S182, item 3) needed the same
+ * row for a different fact — what a tower COSTS rather than what you are SHORT of. The positions
+ * never depended on the numbers, only on how many pairs there are, so the alternative was either a
+ * second copy of four lines of arithmetic or a `short` field carrying a "need". Both are the kind of
+ * near-duplicate this file's own docblocks keep warning about; one geometry function is neither.
+ *
+ * ⚠ `width` is the span of the PAIRS ONLY — no trailing gap — so a caller can centre or RIGHT-ALIGN
+ * the row by subtracting it. `n = 0` is width 0, not one gap wide.
+ */
+export function glyphCountRowLayout(
+  n: number,
+  opts: ShortfallRowOptions = {},
+): { readonly slots: GlyphCountSlot[]; readonly width: number } {
   const glyphR = opts.glyphR ?? SHORTFALL_GLYPH_R;
   const countW = opts.countW ?? SHORTFALL_COUNT_W;
   const gap = opts.gap ?? SHORTFALL_PAIR_GAP;
   const pairW = glyphR * 2 + countW;
-  const slots: ShortfallSlot[] = [];
+  const slots: GlyphCountSlot[] = [];
   let x = 0;
-  for (const e of entries) {
-    slots.push({
-      type: e.type,
-      short: e.short,
-      glyphX: x + glyphR,
-      countX: x + glyphR * 2 + countW / 2,
-    });
+  for (let i = 0; i < n; i++) {
+    slots.push({ glyphX: x + glyphR, countX: x + glyphR * 2 + countW / 2 });
     x += pairW + gap;
   }
   return { slots, width: slots.length === 0 ? 0 : x - gap };
@@ -465,10 +514,15 @@ export function castleStructuresModel(world: World): StructureRow[] {
      */
     const bill = blueprintBill(id);
     const missing: Array<{ type: SparkType; need: number; have: number }> = [];
+    // ⭐ S182 — the FULL bill, collected in the SAME loop, from the SAME `blueprintBill(id)` call
+    // and therefore in the same total order. A second walk (or a second calculator) is this repo's
+    // named top defect; `missing` is now literally a filter of this one, applied inline.
+    const full: Array<{ type: SparkType; need: number; have: number }> = [];
     for (const type of ALL_SPARK_TYPES) {
       const need = bill.get(type);
       if (need === undefined) continue;
       const got = have.get(type) ?? 0;
+      full.push({ type, need, have: got });
       if (got < need) missing.push({ type, need, have: got });
     }
     const affordable = planBlueprintPayment(world, world.localPlayerId, id) !== null;
@@ -490,8 +544,24 @@ export function castleStructuresModel(world: World): StructureRow[] {
       enabled: reason === '',
       reason,
       missing,
+      bill: full,
     };
   });
+}
+
+/**
+ * ⭐ S182 — PURE — the one row for `id`, or null when this seat cannot see that structure.
+ *
+ * Exists for the CARRY readout, which needs a bill for the armed blueprint whether or not its
+ * complexity menu is open — so it cannot read `FooterCardGeom`, which only exists while the menu is.
+ *
+ * ⚠ IT GOES THROUGH `castleStructuresModel`, NOT `blueprintBill`, and that is the point: the model
+ * is what applies the R95/R137 visibility filter and what asks `planBlueprintPayment` — the same
+ * function the reducer uses. A readout built straight off `blueprintBill` would be a second
+ * calculator, which is this file's standing warning.
+ */
+export function structureRowFor(world: World, id: GodlyId): StructureRow | null {
+  return castleStructuresModel(world).find((r) => r.id === id) ?? null;
 }
 
 /** Gap between the keep box and the panel edge, so the panel never covers the castle it describes. */

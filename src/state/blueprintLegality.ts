@@ -36,8 +36,8 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from '../constants.ts';
-import { blueprintExtent, blueprintPositions } from './blueprints.ts';
-import { boxPointDistSq, canBuildAt, castleKeepOutHitsBox, type Box } from './zones.ts';
+import { FOOTPRINT_MARGIN, blueprintExtent, blueprintPositions } from './blueprints.ts';
+import { canBuildAt, castleKeepOutHitsBox, type Box } from './zones.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
@@ -123,17 +123,34 @@ export function stampRefusalAt(
     return 'OFF SCREEN';
   }
 
-  // 2. Not in the shared quarry. `enforceSpawnerBounds` rim-snaps any non-escrowed spark out of this
-  //    disc every substep, so geometry stamped here would be physically ejected — and the quarry is
-  //    common ground, not buildable territory. Tested against the footprint, not just the centre.
-  //    ⭐ S182 — and against the footprint EXACTLY, `box` vs the quarry disc, where this was
-  //    `hypot(centre − quarry) <= SPAWNER_RADIUS + circumradius`: the same disc-guarding-a-non-disc
-  //    defect as arm 1, in the middle of the board instead of at its edge. The exact test can only
-  //    ever ACCEPT more ground, never less, because the box is the stamp's real occupancy.
-  if (
-    boxPointDistSq(box, SPAWNER_CENTER_X, SPAWNER_CENTER_Y) <= SPAWNER_RADIUS * SPAWNER_RADIUS
-  ) {
-    return 'QUARRY';
+  /*
+   * 2. Not in the shared quarry. `enforceSpawnerBounds` rim-snaps any non-escrowed spark out of this
+   *    disc every substep, so geometry stamped here would be physically ejected — and the quarry is
+   *    common ground, not buildable territory. Tested against the footprint, not just the centre.
+   *
+   * ⭐ S182 — PER NODE, AGAINST THE QUARRY DISC. Not the circumradius (the defect this session is
+   * fixing), and ⛔ NOT THE BOUNDING BOX EITHER — a box-vs-disc test was the first cut and it was
+   * WRONG IN THE DIRECTION THIS WHOLE SESSION EXISTS TO FIX. The box's CORNER is farther from the
+   * centre than the outermost node is, so on the diagonals it refused MORE ground than the old
+   * circumradius did. Measured on this tree before the fix, along the 45° ray, refusal reach:
+   * t3 towers 171.0 → 174.6, stinkTower 181.0 → 184.0, pentagram 177.0 → 191.7,
+   * lightningHub 181.0 → 196.7, laserTurret/helga 181.0 → 200.0, goblinTower 181.0 → 204.2,
+   * the six t9 towers 201.0 → 229.1. Eighteen of nineteen recipes LOST diagonal ground, in a change
+   * whose entire purpose was to stop refusing ground the player should be able to build on — and
+   * the comment that stood here claimed the exact opposite ("can only ever ACCEPT more ground").
+   *
+   * ⭐ THE PER-NODE FORM IS MONOTONE, WHICH IS THE PROPERTY THE BOX LACKED. A node is at most
+   * `maxNodeDist` from the centre, so refusing here implies the old test refused too:
+   *   min_n |n − quarry| ≤ R + MARGIN  ⟹  |centre − quarry| ≤ R + maxNodeDist + MARGIN = R + r_old.
+   * So the new arm is a strict subset of the old one in EVERY direction. Re-measured after the fix
+   * and pinned on the diagonal in `blueprintLegality.test.ts`, which previously probed the +x axis
+   * only — the one direction in which a box and a circumradius happen to agree.
+   */
+  const quarryR2 = (SPAWNER_RADIUS + FOOTPRINT_MARGIN) * (SPAWNER_RADIUS + FOOTPRINT_MARGIN);
+  for (const node of blueprintPositions(blueprintId, centre)) {
+    const qdx = node.x - SPAWNER_CENTER_X;
+    const qdy = node.y - SPAWNER_CENTER_Y;
+    if (qdx * qdx + qdy * qdy <= quarryR2) return 'QUARRY';
   }
 
   /*
@@ -143,11 +160,19 @@ export function stampRefusalAt(
    * > have an area around it where you can't place anything. At least in the immediate vicinity."*
    *
    * ⛔ THE RULE ITSELF LIVES IN `zones.canBuildAt`, WHICH THE **REDUCER** READS — see the long note
-   * there. This arm exists for the same reason the QUARRY arm above does and reads word for word
-   * the same way: it is FOOTPRINT-aware where `canBuildAt`'s castle arm tests the centre only, so
-   * it is the strictly stricter test AND it hands the ghost an accurate word instead of the
-   * misleading `ENEMY GROUND` (your own keep is not enemy ground). Reaching `canBuildAt`'s own
-   * castle arm from here is therefore unreachable-by-construction rather than redundant.
+   * there. This arm exists for the same reason the QUARRY arm above does: it is FOOTPRINT-aware
+   * where `canBuildAt`'s castle arm tests the centre only, so it is the stricter test AND it hands
+   * the ghost an accurate word instead of the misleading `ENEMY GROUND` (your own keep is not enemy
+   * ground). Reaching `canBuildAt`'s own castle arm from here is therefore unreachable-by-
+   * construction rather than redundant.
+   *
+   * ⚠ AND IT IS THE BOUNDING BOX, NOT THE NODES — DELIBERATELY, UNLIKE THE QUARRY ARM ABOVE, and
+   * the difference is the SAFETY DIRECTION rather than an inconsistency. A box is CONSERVATIVE: its
+   * corner reaches past the outermost node, so it refuses a little more ground than the stamp
+   * strictly occupies. Round the quarry that was a REGRESSION (it took back ground this session
+   * exists to give), which is why arm 2 is per-node. Round a castle it is the whole point — the
+   * owner asked for *"an area around it where you can't place anything"*, so erring outward is the
+   * ruling, not a defect. Stated here so the asymmetry reads as a decision, not as a miss.
    */
   if (castleKeepOutHitsBox(box, world.layout)) return 'CASTLE';
 
