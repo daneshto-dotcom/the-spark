@@ -186,6 +186,7 @@ import {
   finishRun,
   moveCursor,
   startRun,
+  syncRunToBoard,
   typeLetter,
   type ArcadeRun,
 } from './render/arcadeRun.ts';
@@ -1355,7 +1356,29 @@ async function bootstrap(): Promise<void> {
         case 'ArrowLeft': arcadeRun = moveCursor(run, -1); break;
         case 'ArrowRight': arcadeRun = moveCursor(run, 1); break;
         // `at` is a wall-clock stamp used only to break exact-time ties, never to measure the run.
-        case 'Enter': arcadeRun = commitRun(run, Date.now()); break;
+        case 'Enter': {
+          const committed = commitRun(run, Date.now());
+          arcadeRun = committed;
+          /*
+           * ⭐ S182 — THE SHARED BOARD, AND IT IS A NO-OP IN EVERY BUILD SHIPPED TODAY.
+           *
+           * `commitRun` above has ALREADY recorded the run locally and already set the place the
+           * player is about to see, synchronously — that half cannot fail and does not wait on
+           * anything. This publishes the same run to the shared board and swaps in the reconciled
+           * one when it answers. With no `VITE_LEADERBOARD_URL` configured, `syncRunToBoard`
+           * returns the run untouched on its first line.
+           *
+           * ⛔ THE IDENTITY RE-CHECK IS NOT DEFENSIVE PADDING. This resolves one or more frames
+           * later. `arcadeRun` is reassigned by ESC (to null), by BACK, and by ENTER on the BOARD
+           * screen starting a WHOLE NEW RUN with a fresh clock — all reachable while a request is
+           * in flight. Without `arcadeRun === committed`, a slow reply would paint the previous
+           * run's board and place over a run already in progress.
+           */
+          void syncRunToBoard(committed).then((synced) => {
+            if (arcadeRun === committed) arcadeRun = synced;
+          });
+          break;
+        }
         default: arcadeRun = typeLetter(run, e.key); return; // ignores anything off the alphabet
       }
       e.preventDefault(); // arrows scroll the page otherwise

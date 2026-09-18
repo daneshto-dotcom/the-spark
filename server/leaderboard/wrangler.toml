@@ -1,0 +1,20 @@
+# SPARK — shared arcade leaderboard worker.
+#
+# ⛔ NOT DEPLOYED. `database_id` is a placeholder because no Cloudflare account exists for this
+# project. `npx wrangler d1 create spark-leaderboard` prints the real id; paste it below. See
+# README.md in this directory for the whole sequence and for what it costs.
+
+name = "spark-leaderboard"
+main = "worker.js"
+compatibility_date = "2026-05-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spark-leaderboard"
+database_id = "PASTE-THE-ID-FROM-wrangler-d1-create"
+
+# IP_SALT is a SECRET, not a var — it is what keeps the stored ip_hash from being a reversible
+# encoding of a player's IP address (there are only 2^32 IPv4 addresses; an unsalted SHA-256 of one
+# is brute-forced in seconds). Set it out of band, never in this file:
+#
+#   npx wrangler secret put IP_SALT

@@ -39,7 +39,18 @@
  * cosplay rather than homage.
  */
 
-import { NAME_ALPHABET, NAME_LEN, recordRun, type ArcadeScore } from './arcadeScores.ts';
+import {
+  NAME_ALPHABET,
+  NAME_LEN,
+  normaliseName,
+  recordRun,
+  type ArcadeScore,
+} from './arcadeScores.ts';
+import {
+  BOARD_NONET,
+  getLeaderboard,
+  isSharedBoardConfigured,
+} from './arcadeLeaderboard.ts';
 
 /**
  * Which screen the run is on.
@@ -167,6 +178,64 @@ export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun {
   if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;
   const { scores, place, onBoard } = recordRun(run.initials.join(''), run.finishedMs, atMs);
   return { ...run, phase: 'BOARD', scores, place, onBoard, committedAtMs: atMs };
+}
+
+/**
+ * ⭐ S182 — RECONCILE THE RUN AGAINST THE SHARED BOARD.
+ *
+ * PURE. `commitRun` above is synchronous and always answers from the LOCAL board, because a run must
+ * be recorded and a place must be shown whether or not a network exists. When (and only when) a
+ * shared board is configured AND answers, its reply arrives one or more frames later and lands here.
+ *
+ * ⛔ GUARDED ON `phase === 'BOARD'`, AND THAT GUARD IS THE WHOLE SAFETY ARGUMENT. A leaderboard reply
+ * is an async event in a game whose screens are driven synchronously: by the time it resolves the
+ * player may have pressed ESC to the menu, or ENTER into a whole new run that is already RUNNING with
+ * a fresh clock. Writing a stale board and a stale PLACE into either of those would show the previous
+ * run's result over the new one. A late reply for a run that has moved on is simply dropped.
+ *
+ * ⚠ `committedAtMs` is preserved untouched, so `drawBoard` keeps finding the player's own row on the
+ * same `(name, ms, at)` triple it always matched on — the merged board carries that row through
+ * unchanged, which is exactly why `mergeBoards` de-duplicates on the full triple rather than on the
+ * name.
+ */
+export function applyRemoteBoard(
+  run: ArcadeRun,
+  result: { readonly scores: readonly ArcadeScore[]; readonly place: number; readonly onBoard: boolean },
+): ArcadeRun {
+  if (run.phase !== 'BOARD') return run;
+  return { ...run, scores: result.scores, place: result.place, onBoard: result.onBoard };
+}
+
+/**
+ * ⭐ S182 — PUBLISH A COMMITTED RUN TO THE SHARED BOARD, and hand back the reconciled run.
+ *
+ * The ONE async entry point, so `main.ts` gains a single line rather than a leaderboard protocol.
+ * Returns the run UNCHANGED in every case where there is nothing to do, which is all of them today:
+ *
+ * · **No shared board is configured** — the overwhelmingly common case, and the case in every build
+ *   shipped before the owner approves a backend. Checked FIRST so this costs one boolean and no
+ *   promise machinery at all on the default path.
+ * · The run is not on the BOARD screen, or was never committed (`finishedMs` / `committedAtMs` null).
+ * · The network did not answer — `getLeaderboard().submit` never throws and never loses the run; it
+ *   returns the local result, and `applyRemoteBoard` writes back what is already there.
+ *
+ * ⚠ THE CALLER MUST RE-CHECK THAT THE RUN IT HOLDS IS STILL THE RUN IT ASKED ABOUT. This resolves
+ * one or more frames later, by which time the player may have started another run. `applyRemoteBoard`
+ * guards the phase, but it cannot tell two different BOARD-phase runs apart — the identity check
+ * belongs at the call site, which is the only place that knows what `arcadeRun` points at NOW.
+ */
+export async function syncRunToBoard(
+  run: ArcadeRun,
+  boardId: string = BOARD_NONET,
+): Promise<ArcadeRun> {
+  if (!isSharedBoardConfigured()) return run;
+  if (run.phase !== 'BOARD' || run.finishedMs === null || run.committedAtMs === null) return run;
+  const result = await getLeaderboard().submit(boardId, {
+    name: normaliseName(run.initials.join('')),
+    ms: run.finishedMs,
+    at: run.committedAtMs,
+  });
+  return applyRemoteBoard(run, result);
 }
 
 /**

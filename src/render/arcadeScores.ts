@@ -31,9 +31,24 @@
  *
  * ## Storage
  *
- * `localStorage`, per browser profile — the arcade is a local high-score table, not an account
- * system. Every read is defensive: a corrupted or hand-edited entry must degrade to "no scores
- * yet" rather than throw on the title screen, so a bad key can never brick the menu.
+ * `localStorage`, per browser profile. Every read is defensive: a corrupted or hand-edited entry must
+ * degrade to "no scores yet" rather than throw on the title screen, so a bad key can never brick the
+ * menu.
+ *
+ * ⛔ **S182 — AND FOR TWO YEARS THAT SENTENCE WAS THE WHOLE FEATURE, WHICH IS THE BUG.** This
+ * docblock used to end *"the arcade is a local high-score table, not an account system"*, stated as
+ * a design choice. It was never decided: the S150 PDR that built the board never asked where the
+ * scores would live, and localStorage was assumed. What the owner actually got:
+ *
+ * > *"I don't see anyone else's records on the arcade… My friend played it and he put his name on
+ * > and he got first place. Now I did my shit and I got first place. Who the fuck is first place?"*
+ *
+ * Both of them were right, and both boards were real — **two private tables of one row each**, on
+ * two browser profiles, neither of which can ever appear on or be beaten by the other. A fresh
+ * profile seeds nothing, so the first run committed is always `1ST — NEW RECORD`.
+ *
+ * `arcadeLeaderboard.ts` is the answer: these functions stay exactly as they are and become the
+ * OFFLINE half of a two-tier board, so a dead network still costs a player nothing.
  *
  * PURE apart from the two storage functions, so the ranking rules are unit-testable headlessly.
  */
@@ -47,7 +62,32 @@ export const NAME_LEN = 3;
 /** The alphabet the initials picker cycles. Space last, so "AB " is reachable. */
 export const NAME_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
 
-const STORAGE_KEY = 'spark.arcade.nonet.scores.v1';
+/**
+ * ⭐ S182 — THE DEFAULT BOARD ID, AND WHY STAGE SCOPING IS A STRING RATHER THAN A SCHEMA CHANGE.
+ *
+ * Owner, S182, on the ten-stage ladder: *"We have different levels of Sudoku… we'll have also
+ * leaderboards for the first…"* — a ladder multiplies ONE board into thirty. Designing that in now
+ * costs a parameter; retrofitting it later costs a migration on both sides of the wire, so the board
+ * is addressed by an opaque id from the very first row. `'nonet'` is the endless single-puzzle board
+ * that exists today; a stage board would be `'nonet:s07'`, and nothing below has to change to carry
+ * it. The server's table takes the same id as a COLUMN for exactly the same reason.
+ */
+export const BOARD_NONET = 'nonet';
+
+/**
+ * localStorage key for a board.
+ *
+ * ⛔ `'nonet'` MAPS TO THE LEGACY KEY ON PURPOSE, AND IT IS NOT COSMETIC. The owner has a real board
+ * sitting under `spark.arcade.nonet.scores.v1` on his own browser right now. Deriving every key
+ * uniformly (`spark.arcade.nonet.scores.v1` → `spark.arcade.board.nonet.v1`, say) would have read as
+ * tidier and would have silently wiped his existing times the first time he loaded the new build —
+ * the one board in this whole feature that actually has his runs in it.
+ */
+function storageKeyFor(boardId: string): string {
+  return boardId === BOARD_NONET
+    ? 'spark.arcade.nonet.scores.v1'
+    : `spark.arcade.${boardId}.scores.v1`;
+}
 
 /** One row on the board. `ms` is elapsed time — SMALLER IS BETTER. */
 export interface ArcadeScore {
@@ -144,33 +184,75 @@ export function formatTime(ms: number): string {
  * rows degrades to an empty board. The title screen must never be able to throw because someone
  * edited localStorage.
  */
-export function loadScores(): ArcadeScore[] {
+export function loadScores(boardId: string = BOARD_NONET): ArcadeScore[] {
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage?.getItem(storageKeyFor(boardId));
     if (raw === null || raw === undefined) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const rows: ArcadeScore[] = [];
-    for (const item of parsed) {
-      if (typeof item !== 'object' || item === null) continue;
-      const o = item as Record<string, unknown>;
-      if (typeof o.name !== 'string' || typeof o.ms !== 'number' || typeof o.at !== 'number') continue;
-      if (!Number.isFinite(o.ms) || o.ms < 0) continue;
-      rows.push({ name: normaliseName(o.name), ms: o.ms, at: o.at });
-    }
-    return rows.sort(compare).slice(0, TOP_N);
+    return parseScoreRows(JSON.parse(raw));
   } catch {
     return [];
   }
 }
 
+/**
+ * PURE, TOTAL — coerce arbitrary parsed JSON into well-formed, sorted, capped rows.
+ *
+ * ⭐ S182 — EXTRACTED SO THE NETWORK PATH CANNOT BE LESS PARANOID THAN THE STORAGE PATH. This was
+ * inline in `loadScores`, written against a hand-edited localStorage key. A shared leaderboard makes
+ * the same bytes arrive from a PUBLIC endpoint that anyone can POST to, which needs strictly more
+ * suspicion, not less — and a second hand-rolled parser on the fetch side is how the two drift until
+ * one of them lets a `NaN`, a negative time, or a 400-character name onto the table. One function,
+ * both callers: a row that would brick the board cannot enter through either door.
+ */
+export function parseScoreRows(parsed: unknown): ArcadeScore[] {
+  if (!Array.isArray(parsed)) return [];
+  const rows: ArcadeScore[] = [];
+  for (const item of parsed) {
+    if (typeof item !== 'object' || item === null) continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o.name !== 'string' || typeof o.ms !== 'number' || typeof o.at !== 'number') continue;
+    if (!Number.isFinite(o.ms) || o.ms < 0) continue;
+    if (!Number.isFinite(o.at)) continue;
+    rows.push({ name: normaliseName(o.name), ms: o.ms, at: o.at });
+  }
+  return rows.sort(compare).slice(0, TOP_N);
+}
+
 /** Persist the board. Silent on failure — a full or blocked quota must not break the game. */
-export function saveScores(scores: readonly ArcadeScore[]): void {
+export function saveScores(scores: readonly ArcadeScore[], boardId: string = BOARD_NONET): void {
   try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(scores.slice(0, TOP_N)));
+    globalThis.localStorage?.setItem(storageKeyFor(boardId), JSON.stringify(scores.slice(0, TOP_N)));
   } catch {
     /* private mode / quota exceeded — the run simply is not recorded */
   }
+}
+
+/**
+ * PURE — fold two boards into one, de-duplicated, re-sorted and capped.
+ *
+ * ⭐ S182 — THIS IS WHAT MAKES A DEAD NETWORK COST NOTHING. The remote board is authoritative for
+ * what OTHER people did; the local board is the only record of what happened while the network was
+ * down. Replacing one with the other loses a real run either way, so the two are merged.
+ *
+ * ⛔ THE IDENTITY IS THE FULL TRIPLE `(name, ms, at)`, and the narrower keys are all wrong here:
+ * `name` alone collapses a player's whole history to one row; `(name, ms)` collapses the same player
+ * repeating a board they have memorised, which `arcadeRun.ts` already documents as the LIKELIEST
+ * case rather than a contrived one. `at` is the field the comparator already tie-breaks on, so the
+ * triple is exactly the tuple that makes a row unique — the same identity `drawBoard` highlights on.
+ */
+export function mergeBoards(
+  a: readonly ArcadeScore[],
+  b: readonly ArcadeScore[],
+): ArcadeScore[] {
+  const seen = new Set<string>();
+  const out: ArcadeScore[] = [];
+  for (const s of [...a, ...b]) {
+    const key = `${s.name} ${s.ms} ${s.at}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out.sort(compare).slice(0, TOP_N);
 }
 
 /**
@@ -179,16 +261,24 @@ export function saveScores(scores: readonly ArcadeScore[]): void {
  * Returns the new board plus the player's 1-based place and whether it made the cut, so the caller
  * can say "3rd — NEW RECORD" or "you came 41st" without re-deriving either.
  */
-export function recordRun(name: string, ms: number, at: number): {
+export function recordRun(name: string, ms: number, at: number, boardId: string = BOARD_NONET): {
   scores: ArcadeScore[];
   place: number;
   onBoard: boolean;
 } {
-  const existing = loadScores();
+  const existing = loadScores(boardId);
   const entry: ArcadeScore = { name: normaliseName(name), ms, at };
   const place = placeOf(existing, entry);
   const onBoard = place <= TOP_N;
-  const scores = insertScore(existing, entry);
-  if (onBoard) saveScores(scores);
+  // ⛔ S182 — `mergeBoards`, NOT `insertScore`, AND THE DIFFERENCE IS IDEMPOTENCE ON THE TRIPLE.
+  //
+  // `insertScore` appends unconditionally, which was harmless while `commitRun` was the only caller
+  // and the phase machine made a second commit unreachable. The shared board breaks that assumption:
+  // `RemoteLeaderboard.submit` records locally FIRST (so a closed tab cannot cost a run) and the same
+  // entry can then arrive again through a retry or a merge. Appending would put two byte-identical
+  // rows on the table — and `drawBoard` matches the player's own row on exactly that triple, so it
+  // would highlight one and leave its twin sitting beside it. Recording a run twice is now a no-op.
+  const scores = mergeBoards(existing, [entry]);
+  if (onBoard) saveScores(scores, boardId);
   return { scores, place, onBoard };
 }

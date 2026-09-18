@@ -169,7 +169,25 @@ describe('e2e lane composition is a decision, not an accident', () => {
      */
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const { join } = require('node:path') as typeof import('node:path');
-    const yml = readFileSync(join(ROOT, '.github', 'workflows', 'e2e.yml'), 'utf8');
+    /*
+     * ⛔ S182 — NORMALISED, AND WITHOUT THIS THE GUARD FIRES A FALSE RED ON WINDOWS.
+     *
+     * The job-boundary search below requires a BARE LF right after the job's colon. This repo has no
+     * `.gitattributes`, so a Windows checkout under the default `core.autocrlf=true` writes e2e.yml
+     * entirely as CRLF — measured on this machine: 537 CRLF, 0 lone LF. The trailing CR then defeats
+     * the match, `nextJob` comes back -1, and `block` silently becomes THE WHOLE REST OF THE FILE —
+     * sweeping in a later job's `continue-on-error` and reporting that `e2e-races` is non-gating when
+     * it plainly is not (e2e.yml:179-214 carries no such key).
+     *
+     * ⚠ AND IT PASSES IN CI, WHICH IS WHAT MAKES IT DANGEROUS RATHER THAN MERELY WRONG. The ubuntu
+     * runner checks out LF, so the only person who ever sees this red is whoever runs the suite
+     * locally before committing — and this project's own rule is that a gate which cries wolf trains
+     * its reader to skip the run where it is right. Normalising once at the read fixes this parse and
+     * every sibling of it, rather than patching one regex and leaving the next one to be found.
+     */
+    const yml = readFileSync(join(ROOT, '.github', 'workflows', 'e2e.yml'), 'utf8')
+      .split('\r\n')
+      .join('\n');
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;
     };

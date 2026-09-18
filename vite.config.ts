@@ -38,8 +38,19 @@ const port = Number.isFinite(sessionPort) && sessionPort > 0 ? sessionPort : 517
  * `verify-deploy` should be run with the same `.env` in place (see TURN_SETUP.md § Local development).
  */
 const TURN_ENV_KEYS = ['VITE_TURN_URLS', 'VITE_TURN_USERNAME', 'VITE_TURN_CREDENTIAL'] as const;
+/*
+ * ⭐ S182 — `VITE_LEADERBOARD_URL` JOINS THE LIST FOR EXACTLY THE REASON ABOVE, NOT AS A COPY-PASTE.
+ *
+ * `arcadeLeaderboard.ts` reads it to decide whether SPARK has a shared high-score backend at all
+ * (unset ⇒ the local-only board that ships today). It is unset in CI and unset locally, so the two
+ * builds agree — but only because it is DECLARED here. Leave it out and CI's `env:` block makes it
+ * `''` (present) while a local build has no key at all (absent), the bundles differ by those bytes,
+ * and `verify-deploy`'s content-hash carrier goes red on a perfectly good deploy. That is the S158
+ * P8 regression written out at length above; this is the same trap with a different key.
+ */
+const ENV_KEYS = [...TURN_ENV_KEYS, 'VITE_LEADERBOARD_URL'] as const;
 const turnDefines = Object.fromEntries(
-  TURN_ENV_KEYS.map((k) => [`import.meta.env.${k}`, JSON.stringify(process.env[k] ?? '')]),
+  ENV_KEYS.map((k) => [`import.meta.env.${k}`, JSON.stringify(process.env[k] ?? '')]),
 );
 
 export default defineConfig({
