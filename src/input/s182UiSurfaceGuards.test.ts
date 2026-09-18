@@ -23,8 +23,14 @@
  *     same branch before the owner saw it: item 3's COST plate is an opaque rectangle drawn above
  *     the board and above the blueprint ghost, and it was registered in no guard at all — while
  *     item 1 had just made the band's own y legal for a flat recipe. Clicking the readout planted a
- *     tower underneath it. It is now folded into `isOverChip` via `footerBand.isOverCarryBill`, and
- *     `footerBand.test.ts` pins that. **Three sessions, four occurrences, one shape of defect.**
+ *     tower underneath it.
+ *   ⛔⛔ AND THE FIRST FIX FOR **THAT** WAS ALSO WRONG, WHICH IS WHY THIS FILE NOW PINS TWO
+ *     DIFFERENT QUESTIONS. Folding the plate into `footerBand.isOverChip` did not reach the gate:
+ *     `handleFooterChipClick` gates on `isOverChip` but RETURNS TRUE only when a chip or strip
+ *     control was really pressed, so over the plate it fell through to the armed-stamp arm with
+ *     the bug intact — and it made the hover cursor advertise a readout as clickable, the exact
+ *     lie GATE D below exists to catch. Fixed at the gate, with `isPointerOverFooterSurface`.
+ *     **Three sessions, five occurrences, one shape of defect.**
  *
  * ## ⚠ A TRIPWIRE, NOT A BEHAVIOUR TEST — and deliberately so
  *
@@ -50,7 +56,7 @@ function blockFrom(anchor: string, len = 2600): string {
 describe('S182 — the three UI surfaces, and the gates that must know about all of them', () => {
   it('the three predicates still exist and are still asked by name', () => {
     // Anti-vacuity for every assertion below: if one is renamed, this fails first and says so.
-    for (const p of ['isPointerOverPanel', 'isPointerOverFooterChip', 'isPointerOverCard']) {
+    for (const p of ['isPointerOverPanel', 'isPointerOverFooterChip', 'isPointerOverFooterSurface', 'isPointerOverCard']) {
       expect(controls, `${p} is the name every gate below greps for`).toContain(`private ${p}(`);
     }
   });
@@ -71,39 +77,53 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
      * BODY is not consumed until `handleSheetSelect`, far below this arm. So every non-button pixel
      * of the card was live board for a held tower.
      */
-    const block = blockFrom('const armed = this.castlePanel?.armedBlueprint() ?? null;');
+    const block = blockFrom('const armed = this.castlePanel?.armedBlueprint() ?? null;', 4200);
     expect(block).toContain('if (this.isPointerOverCard()) return;');
     // …and it must come BEFORE the commit, not after it.
     expect(block.indexOf('if (this.isPointerOverCard()) return;'))
       .toBeLessThan(block.indexOf('this.onBuildBlueprint?.(armed, centre)'));
   });
 
+  it('⛔⛔ GATE E — …AND over anything the band draws opaquely (S182 fix #3, second pass)', () => {
+    /*
+     * THE GATE THAT ACTUALLY REFUSES THE PLACEMENT, and the one two earlier attempts missed. The
+     * band is guarded elsewhere by CONSUMPTION — `handleFooterChipClick` returns above this arm —
+     * but it returns TRUE only when a chip or strip CONTROL was pressed. The carry readout's plate
+     * is opaque and is not a control, so the click fell through to here and stamped a tower under
+     * it. Widening `isOverChip` did not change that; the guard has to be asked HERE.
+     */
+    const block = blockFrom('const armed = this.castlePanel?.armedBlueprint() ?? null;', 4200);
+    expect(block).toContain('if (this.isPointerOverFooterSurface()) return;');
+    expect(block.indexOf('if (this.isPointerOverFooterSurface()) return;'))
+      .toBeLessThan(block.indexOf('this.onBuildBlueprint?.(armed, centre)'));
+  });
+
   it('⛔ GATE B — the potato plant registers ALL THREE surfaces (S182 fix #1)', () => {
     const block = blockFrom("meNow.carriedPotatoId !== undefined", 400);
     expect(block).toContain('!this.isPointerOverPanel()');
-    expect(block, 'the footer guard was MISSING here until S182').toContain('!this.isPointerOverFooterChip()');
+    expect(block, 'the footer guard was MISSING here until S182')
+      .toContain('!this.isPointerOverFooterSurface()');
     expect(block).toContain('!this.isPointerOverCard()');
   });
 
-  it('⛔ the FOOTER predicate every gate shares covers the carry readout too (S182 fix #3)', () => {
+  it('⛔ the COMMIT predicate reaches the carry readout — end to end through the band', () => {
     /*
-     * The three named surfaces are not the whole story: `isPointerOverFooterChip` delegates to
-     * `footerBand.isOverChip`, so anything the BAND draws opaquely must be inside that one
-     * predicate or it is invisible to all four gates at once. This asserts the delegation chain
-     * end to end, because that is the property the gates actually rely on.
+     * The three named surfaces are not the whole story: anything the BAND draws opaquely must be
+     * inside the predicate the commit gates ask, or it is invisible to all of them at once. This
+     * asserts the delegation chain end to end, because that is the property the gates rely on.
      */
-    expect(blockFrom('private isPointerOverFooterChip(): boolean {', 400))
-      .toContain('this.footerBand.isOverChip(this.cursor.x, this.cursor.y)');
+    expect(blockFrom('private isPointerOverFooterSurface(): boolean {', 400))
+      .toContain('this.footerBand.isOverBandSurface(this.cursor.x, this.cursor.y)');
     const band = readFileSync(new URL('../render/footerBand.ts', import.meta.url), 'utf8');
-    const i = band.indexOf('isOverChip(x: number, y: number): boolean {');
-    expect(i, 'footerBand.isOverChip must still exist').toBeGreaterThan(-1);
-    expect(band.slice(i, i + 400)).toContain('this.isOverCarryBill(x, y)');
+    const i = band.indexOf('isOverBandSurface(x: number, y: number): boolean {');
+    expect(i, 'footerBand.isOverBandSurface must exist').toBeGreaterThan(-1);
+    expect(band.slice(i, i + 300)).toContain('this.isOverCarryBill(x, y)');
   });
 
   it('GATE C — the PLACE_FROM_FREE commit registers all three surfaces', () => {
     const block = blockFrom('gates.commit &&', 400);
     expect(block).toContain('!this.isPointerOverPanel()');
-    expect(block).toContain('!this.isPointerOverFooterChip()');
+    expect(block).toContain('!this.isPointerOverFooterSurface()');
     expect(block).toContain('!this.isPointerOverCard()');
   });
 
@@ -113,6 +133,34 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
     expect(block).toContain('isOverAnyAction(this.cursor.x, this.cursor.y)');
     expect(block).toContain('ownedRowAt(this.cursor.x, this.cursor.y)');
     expect(block).toContain('this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)');
+  });
+
+  it('⛔ GATE D — …and it must NOT promise a pointer where nothing is clickable', () => {
+    /*
+     * ⛔ THE CURSOR IS A PROMISE, AND THIS FILE EXISTS TO CATCH IT LYING. The first fix for the
+     * carry-readout defect widened `isOverChip` — the predicate the cursor asks — so the pointer
+     * began advertising an opaque READOUT as a control. Nothing consumes a click there: it is
+     * refused, not activated. That is exactly the failure the ruled-benign note below describes for
+     * the character card's body, arrived at from the other direction.
+     *
+     * So the hover path must ask the CONTROL question and the commit gates the SURFACE one, and a
+     * future "simplification" that collapses them back into one predicate fails here.
+     */
+    const block = blockFrom('private updateHoverCursor(): void {', 1800);
+    expect(
+      block,
+      'the cursor must ask the CONTROL test — `isPointerOverFooterSurface` includes opaque readouts',
+    ).not.toContain('isPointerOverFooterSurface');
+    // And the two predicates must stay genuinely different, or the split is decorative.
+    const control = blockFrom('private isPointerOverFooterChip(): boolean {', 400);
+    const surface = blockFrom('private isPointerOverFooterSurface(): boolean {', 400);
+    expect(control).toContain('isOverChip(');
+    expect(control).not.toContain('isOverBandSurface(');
+    expect(surface).toContain('isOverBandSurface(');
+    // …and on the band's side, the control test must not have quietly absorbed the readout again.
+    const band = readFileSync(new URL('../render/footerBand.ts', import.meta.url), 'utf8');
+    const i = band.indexOf('isOverChip(x: number, y: number): boolean {');
+    expect(band.slice(i, i + 300)).not.toContain('isOverCarryBill');
   });
 
   /**

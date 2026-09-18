@@ -561,10 +561,32 @@ export class FooterBand {
    * got the original footer deleted.
    */
   isOverChip(x: number, y: number): boolean {
-    return this.chipAt(x, y) !== null || this.cardAt(x, y) !== null || this.isOverShapeStrip(x, y)
-      // ⭐⭐ S182 — AND THE CARRY READOUT'S PLATE. See `isOverCarryBill` for why it is folded in
-      // here rather than guarded separately, and for the defect that made it necessary.
-      || this.isOverCarryBill(x, y);
+    return this.chipAt(x, y) !== null || this.cardAt(x, y) !== null || this.isOverShapeStrip(x, y);
+  }
+
+  /**
+   * ⭐⭐ S182 — **DOES THE BAND COVER THIS PIXEL?** A strictly wider question than `isOverChip`,
+   * and the two must not be confused — confusing them is how the carry readout shipped broken
+   * TWICE in one session.
+   *
+   * ⛔ `isOverChip` answers *"is there a CONTROL here"*. It drives the hover cursor and
+   * `handleFooterChipClick`, and it must stay narrow: the cursor may only promise `pointer` where a
+   * click actually does something, and the empty stretches of the band must stay live board.
+   *
+   * ⛔ THIS answers *"does the band draw OPAQUE PIXELS here"* — the question every COMMIT gate is
+   * really asking. The carry readout's plate is `0x0b0f16` at alpha 0.72 with the band brought to
+   * the front, so it hides the board and the blueprint ghost; nothing may be planted underneath it.
+   * But it is a READOUT, not a control — clicking it does nothing — so a pointer cursor over it
+   * would be a lie.
+   *
+   * ⭐ THE CHARACTER CARD ALREADY ESTABLISHED THIS SPLIT, and naming it matters because the first
+   * two attempts at this fix both ignored it. `controls.ts` guards its commit gates with
+   * `isPointerOverCard()` (the WHOLE card) while the hover cursor asks only `isOverAnyAction` and
+   * `ownedRowAt` (its CONTROLS) — the card's body swallows a click without claiming to be
+   * clickable. The plate is the same kind of surface and gets the same treatment.
+   */
+  isOverBandSurface(x: number, y: number): boolean {
+    return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
   }
 
   /**
@@ -587,9 +609,18 @@ export class FooterBand {
    * surface you cannot see through must swallow the click. Recording the bad argument next to the
    * fix, because it is the kind that survives review.
    *
-   * ⛔ FOLDED INTO `isOverChip` RATHER THAN NAMED SEPARATELY, for the reason `isOverShapeStrip`
-   * gives verbatim: `controls.ts` consults that ONE predicate at four independent sites, and the
-   * failure mode of threading a new guard into three of them is this exact bug one more time.
+   * ⛔⛔ AND THE FIRST FIX FOR IT WAS ALSO WRONG, WHICH IS THE HALF WORTH RECORDING. Folding this
+   * into `isOverChip` looked right — one predicate, four call sites, nothing to thread — and it did
+   * NOT reach the gate that refuses the placement. `controls.ts` guards the footer by CONSUMPTION:
+   * `handleFooterChipClick` tests `isOverChip` and then returns true only when a chip or a strip
+   * control was actually pressed. The plate is neither, so it returned FALSE and the click fell
+   * straight through to the armed-stamp arm — the bug intact, with a green tripwire sitting on top
+   * of it. The same fold-in also made the hover cursor advertise the plate as clickable, which is
+   * the precise lie `s182UiSurfaceGuards.test.ts` exists to catch.
+   *
+   * ⭐ SO IT IS REACHED THROUGH `isOverBandSurface`, and the COMMIT gates ask that — including the
+   * armed-stamp arm, which is the gate that actually refuses this placement and which neither
+   * earlier attempt touched.
    */
   isOverCarryBill(x: number, y: number): boolean {
     const c = this.carry;

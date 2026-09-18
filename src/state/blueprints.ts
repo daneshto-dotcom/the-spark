@@ -473,7 +473,12 @@ export interface BlueprintExtent {
  *
  * ⚠ ONE LOOP OVER `BLUEPRINTS[id].nodes`, THE SAME SHAPE AS `blueprintRadius`, deliberately — the
  * two read the same table with the same margin, so a recipe retune moves both or neither.
- * `blueprints.test.ts` pins `extent ⊆ radius` for every recipe from the live table.
+ * `blueprintLegality.test.ts` pins `extent ⊆ radius` for every recipe from the live table — there
+ * rather than in `blueprints.test.ts`, because it is a LEGALITY invariant (the box may never
+ * claim less space than the stamp occupies, or geometry lands off the arena) and it belongs
+ * beside the arms that rely on it. ⚠ This line said `blueprints.test.ts` until an audit checked
+ * the reference and found no such assertion there; a docblock pointing at a test that does not
+ * exist is worse than none, because it stops the next reader looking.
  */
 export function blueprintExtent(id: GodlyId): BlueprintExtent {
   // Seeded at 0, not at the first node: the stamp CENTRE is part of the footprint even for the ring

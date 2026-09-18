@@ -356,14 +356,21 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      * the band's own y LEGAL for a flat recipe. A click dead centre therefore passed every guard and
      * planted a tower on ground the player could not see.
      *
-     * ⚠ ASSERTED THROUGH `isOverChip`, NOT `isOverCarryBill`, deliberately: `isOverChip` is the one
-     * predicate `controls.ts` consults at all four commit sites, and a test that only exercised the
-     * narrow helper would stay green if the fold-in were ever removed.
+     * ⚠ ASSERTED THROUGH `isOverBandSurface`, NOT `isOverCarryBill`: the surface predicate is what
+     * the COMMIT gates consult, and a test that only exercised the narrow helper would stay green if
+     * the fold-in were removed. ⛔ AND NOT THROUGH `isOverChip` EITHER — that was the first fix, and
+     * it reached the hover cursor (advertising a readout as clickable) without reaching the gate
+     * that refuses the placement, because `handleFooterChipClick` only RETURNS true for a real
+     * control press. Two predicates, two questions; see `isOverBandSurface`.
      */
     const src = readFileSync(new URL('./footerBand.ts', import.meta.url), 'utf8');
-    const i = src.indexOf('isOverChip(x: number, y: number): boolean {');
-    expect(i, 'isOverChip must still exist').toBeGreaterThan(-1);
-    expect(src.slice(i, i + 400)).toContain('this.isOverCarryBill(x, y)');
+    const i = src.indexOf('isOverBandSurface(x: number, y: number): boolean {');
+    expect(i, 'isOverBandSurface must exist').toBeGreaterThan(-1);
+    expect(src.slice(i, i + 300)).toContain('this.isOverCarryBill(x, y)');
+    // …and the CONTROL test must stay narrow, or the hover cursor starts lying again.
+    const c = src.indexOf('isOverChip(x: number, y: number): boolean {');
+    expect(c, 'isOverChip must still exist').toBeGreaterThan(-1);
+    expect(src.slice(c, c + 300)).not.toContain('isOverCarryBill');
     // …and the hit-test must measure the PLATE, padding included, not the bare content box.
     const j = src.indexOf('isOverCarryBill(x: number, y: number): boolean {');
     expect(j, 'isOverCarryBill must exist').toBeGreaterThan(-1);
@@ -371,6 +378,55 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     // The geometry it hit-tests is THIS frame's, stored by sync — never recomputed independently.
     expect(src).toContain('private carry: CarryBillGeom | null = null;');
     expect(src).toContain('this.carry = carry;');
+  });
+
+  it('⛔⛔ EVERY OPAQUE RECTANGLE THE BAND FILLS IS HIT-TESTED BY SOMETHING', () => {
+    /*
+     * ⛔ THE ENUMERATION, MADE MECHANICAL. The carry plate was the FIFTH opaque fill in this file and
+     * the only one no predicate knew about — and it was found by an audit, not by a test, twice.
+     * The rule the project states is "enumerate a rule's SITES before claiming it is applied"; this
+     * is that rule with teeth.
+     *
+     * The five, and what hit-tests each:
+     *   1. the tier chip plate      → `chipAt`
+     *   2. the palette button       → `paletteAt`      (via `isOverShapeStrip`)
+     *   3. the queue chip           → `queueChipAt`    (via `isOverShapeStrip`)
+     *   4. the CARRY READOUT plate  → `isOverCarryBill` (via `isOverBandSurface`)  ← the miss
+     *   5. the tower card plate     → `cardAt`
+     *
+     * ⚠ IF THIS GOES RED, DO NOT BUMP THE NUMBER. A sixth opaque fill means a sixth surface the
+     * player cannot see through, and something must hit-test it before this test is updated — that
+     * is the entire point. Add it to `isOverChip` if it is a CONTROL, or to `isOverBandSurface` if
+     * it is a readout; the two questions are deliberately different (see `isOverBandSurface`).
+     */
+    const src = readFileSync(new URL('./footerBand.ts', import.meta.url), 'utf8');
+    const fills = src.match(/\.fill\(\{/g) ?? [];
+    expect(
+      fills.length,
+      `the band now fills ${fills.length} opaque rectangles, not 5 — register the new one in ` +
+        '`isOverChip` (a control) or `isOverBandSurface` (a readout) BEFORE updating this count',
+    ).toBe(5);
+    // Anti-vacuity: the four hit-tests that pair with them must all still be named in this file.
+    for (const fn of ['chipAt(', 'paletteAt(', 'queueChipAt(', 'cardAt(', 'isOverCarryBill(']) {
+      expect(src, `${fn} is what makes one of those five fills clickable-or-blocking`).toContain(fn);
+    }
+  });
+
+  it('⛔ AND IT DOES NOT TAKE BACK THE GROUND ITEM 1 GAVE — the band stays mostly live board', () => {
+    /*
+     * The over-correction guard. Item 1 exists so the owner can build on the ground beside the
+     * queue; a fix for the plate that swallowed the WHOLE band would quietly undo it, and no other
+     * assertion here would notice. The plate is a ~154 px block in a fixed place — everything else
+     * on the band's midline must still be board.
+     */
+    const chips = layoutChips(footerBandModel(playingWorld()));
+    const carry = layoutCarryBill(chips, WIDEST)!;
+    const plateL = carry.left - CARRY_PLATE_PAD;
+    const plateR = carry.right + CARRY_PLATE_PAD;
+    // The far-left stretch of the band — where a wide, flat recipe now legally lands — is untouched.
+    expect(plateL).toBeGreaterThan(300);
+    // …and the plate is a small share of a 1920-wide band, not a curtain across it.
+    expect(plateR - plateL).toBeLessThan(CANVAS_WIDTH / 6);
   });
 
   it('⛔ and it clears the open CARD MENU, which draws ABOVE the band on the same x range', () => {
