@@ -16,7 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { pickSnapshotStrategy, type StrategyRouteInfo } from './transport.ts';
+import { NetTransport, pickSnapshotStrategy, type StrategyRouteInfo } from './transport.ts';
 import { SNAPSHOT_SINGLE_STRATEGY, SNAPSHOT_STRATEGY_PREFERENCE } from './iceConfig.ts';
 
 const ICECONFIG_SRC = readFileSync(new URL('./iceConfig.ts', import.meta.url), 'utf8');
@@ -42,10 +42,45 @@ describe('⛔ S182 LEVER 1 — the owner gate', () => {
   });
 
   it('OFF means every strategy still gets the snapshot — the pre-S182 path is untouched', () => {
-    // With the flag off, send() never consults the router at all; this asserts the guard shape that
-    // makes that true, because a behavioural test of "broadcast" cannot distinguish "flag off" from
-    // "router happened to return null".
     expect(TRANSPORT_SRC).toContain("SNAPSHOT_SINGLE_STRATEGY && msg.kind === 'NETSNAPSHOT'");
+  });
+
+  it('⭐ AND THAT IS OBSERVED, NOT ONLY ASSERTED: a real send() reaches BOTH strategies', () => {
+    // The shipped default, driven through the actual send path. `snapshotFanout.test.ts` covers the
+    // ON path by module-mocking the flag; this is its unmocked counterpart, and together they are
+    // the brief's "NETSNAPSHOT on one strategy, HELLO on all" obligation in both flag states.
+    const transport = new NetTransport();
+    const priv = transport as unknown as {
+      connected: boolean;
+      strategies: Map<string, Record<string, unknown>>;
+    };
+    priv.connected = true;
+    priv.strategies = new Map();
+    const sent: Record<string, string[]> = { nostr: [], torrent: [] };
+    for (const name of ['nostr', 'torrent']) {
+      priv.strategies.set(name, {
+        name,
+        room: null,
+        action: { send: (d: string) => { sent[name].push(d); return Promise.resolve(); } },
+        state: 'ready',
+        peers: new Set([`peer-${name}`]),
+        relayUrls: [],
+        getSockets: null,
+        lastError: null,
+        icePollTimer: null,
+        icePollStartMs: 0,
+      });
+    }
+    transport.send({
+      kind: 'NETSNAPSHOT',
+      snapshotSeq: 1,
+      snapshot: { schemaVersion: 1, tick: 1 },
+    } as never);
+    // ⛔ TWO COPIES. This is the doubling the owner's brother is paying for, pinned as the CURRENT,
+    // SHIPPED behaviour — so if anyone flips the flag, this test goes red and forces the decision to
+    // be made deliberately rather than noticed in a playtest.
+    expect(sent.nostr).toHaveLength(1);
+    expect(sent.torrent).toHaveLength(1);
   });
 });
 
