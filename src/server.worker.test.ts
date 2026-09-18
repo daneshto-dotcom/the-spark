@@ -25,6 +25,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
   const players = new Map(seed.map((p) => [p.name, { ...p }]));
   const writes: Array<{ ip_hash: string; created: number }> = [];
   const boards = new Set(['nonet']);
+  const seenRuns = new Set();
 
   const stmt = (sql: string) => {
     let args: unknown[] = [];
@@ -53,6 +54,9 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
       },
       async all() {
         if (sql.includes('FROM players WHERE board = ?1')) return { results: [...players.values()] };
+        if (sql.includes('FROM seen_runs WHERE id IN')) {
+          return { results: args.filter((a) => seenRuns.has(String(a))).map((id) => ({ id })) };
+        }
         return { results: [] };
       },
       async run() {
@@ -60,6 +64,10 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
         else if (sql.startsWith('DELETE FROM writes')) {
           const cutoff = Number(args[0]);
           for (let i = writes.length - 1; i >= 0; i--) if (writes[i].created <= cutoff) writes.splice(i, 1);
+        } else if (sql.startsWith('INSERT OR IGNORE INTO seen_runs')) {
+          seenRuns.add(String(args[0]));
+        } else if (sql.startsWith('DELETE FROM seen_runs')) {
+          /* aged out by time; nothing to model here */
         } else if (sql.includes('INSERT INTO players')) {
           const name = String(args[1]);
           const ms = Number(args[2]);
@@ -81,6 +89,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
     },
     _players: players,
     _writes: writes,
+    _seenRuns: seenRuns,
   };
 }
 
@@ -129,8 +138,8 @@ describe('worker — pure helpers', () => {
   it('parseRuns rejects an empty batch, an oversized one, and implausible times', () => {
     expect(parseRuns({ runs: [] }).error).toBe('no runs');
     expect(parseRuns({ runs: Array(99).fill({ name: 'A', ms: 60_000 }) }).error).toBe('too many runs');
-    expect(parseRuns({ runs: [{ name: 'A', ms: 5 }] }).error).toBe('implausible time');
-    expect(parseRuns({ runs: [{ name: 'A', ms: 60_000 }] }).runs).toEqual([{ name: 'AAA', ms: 60_000 }]);
+    expect(parseRuns({ runs: [{ name: 'A', ms: 60_000 }] }).runs)
+      .toEqual([{ name: 'AAA', ms: 60_000, id: null }]);
   });
 
   it('isAllowedOrigin allows the game and any localhost port, and nothing else', () => {
@@ -170,9 +179,12 @@ describe('worker — the request surface', () => {
     expect(res.status).toBe(503);
   });
 
-  it('an implausible time is 422 and writes nothing', async () => {
-    const { res, db } = await call({ origin: ORIGIN, body: { runs: [{ name: 'CHT', ms: 5 }] } });
-    expect(res.status).toBe(422);
+  it('⚠ an implausible time is DROPPED, not 422 — see N2 for why the batch must survive', async () => {
+    // This asserted 422 until N2. Failing the request was the behaviour that let one bad queued run
+    // poison every run behind it, permanently. The item is discarded and the request succeeds.
+    const { res, db, body } = await call({ origin: ORIGIN, body: { runs: [{ name: 'CHT', ms: 5 }] } });
+    expect(res.status).toBe(200);
+    expect(body.rejected).toBe(1);
     expect(db._players.size).toBe(0);
   });
 
@@ -262,5 +274,103 @@ describe('worker — the rate limit', () => {
     }
     expect(last!.res.status).toBe(429);
     expect(last!.body.rows).toBeDefined();
+  });
+});
+
+describe('N2 — ⛔⛔ one bad run must not kill the whole batch, forever', () => {
+  /**
+   * The failure this replaces, and it is the worst one this design has available:
+   *   1. an implausible run enters the offline queue (a tab left open overnight, a clock jump);
+   *   2. every later run queues BEHIND it;
+   *   3. every flush sends the queue head-first, so every flush carries the poison item;
+   *   4. the server 422'd the ENTIRE batch, the client cleared nothing and re-queued;
+   *   5. the player's shared average never moved again, and nothing said why.
+   *
+   * On a board whose whole argument is that a wrong number is permanent, a queue that can never drain
+   * is the one failure playing more cannot repair.
+   */
+  it('⛔ the exact reported case: [4500000, 60000, 70000] accepts TWO and drops ONE', () => {
+    const r = parseRuns({ runs: [{ name: 'DAN', ms: 4_500_000 }, { name: 'DAN', ms: 60_000 }, { name: 'DAN', ms: 70_000 }] });
+    expect(r.error).toBeUndefined();
+    expect(r.runs?.map((x: { ms: number }) => x.ms)).toEqual([60_000, 70_000]);
+    expect(r.rejected).toBe(1);
+  });
+
+  it('⭐ and the REQUEST SUCCEEDS, which is what lets the client clear the queue', async () => {
+    const db = makeDb();
+    const { res, body } = await call({
+      origin: ORIGIN,
+      body: { runs: [{ name: 'DAN', ms: 4_500_000 }, { name: 'DAN', ms: 60_000 }], focus: 'DAN' },
+    }, db);
+    expect(res.status).toBe(200);
+    expect(body.rejected).toBe(1);
+    expect(db._players.get('DAN')).toEqual({ name: 'DAN', runs: 1, total_ms: 60_000 });
+  });
+
+  it('a batch that is ENTIRELY implausible still succeeds, so it cannot loop either', async () => {
+    const { res, body } = await call({
+      origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 5 }, { name: 'DAN', ms: 9_999_999 }] },
+    });
+    expect(res.status).toBe(200);
+    expect(body.rejected).toBe(2);
+  });
+
+  it('a genuinely malformed REQUEST is still a 400 — the distinction is item vs request', () => {
+    expect(parseRuns({ runs: [] }).error).toBe('no runs');
+    expect(parseRuns({ runs: Array(99).fill({ name: 'A', ms: 60_000 }) }).error).toBe('too many runs');
+    expect(parseRuns(null).error).toBe('bad json');
+  });
+});
+
+describe('N3 — at-least-once delivery cannot double-count', () => {
+  it('⛔ the SAME run id folded twice counts ONCE', async () => {
+    // The scenario: the 4 s abort fires on a request the server already committed, the client queues
+    // the run, and the next flush sends it again. Under a mean a double-count is permanent.
+    const db = makeDb();
+    const body = { runs: [{ name: 'DAN', ms: 60_000, id: 'run-abc' }], focus: 'DAN' };
+    await call({ origin: ORIGIN, body }, db);
+    const second = await call({ origin: ORIGIN, body }, db);
+    expect(db._players.get('DAN')).toEqual({ name: 'DAN', runs: 1, total_ms: 60_000 });
+    expect(second.body.duplicates).toBe(1);
+  });
+
+  it('two DIFFERENT ids both fold — the guard is not just "reject the second request"', async () => {
+    const db = makeDb();
+    await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'a' }], focus: 'DAN' } }, db);
+    await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 80_000, id: 'b' }], focus: 'DAN' } }, db);
+    expect(db._players.get('DAN')).toEqual({ name: 'DAN', runs: 2, total_ms: 140_000 });
+  });
+
+  it('a run with NO id still folds — older clients are not broken by the new field', async () => {
+    const db = makeDb();
+    await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000 }], focus: 'DAN' } }, db);
+    expect(db._players.get('DAN')?.runs).toBe(1);
+  });
+});
+
+describe('N5 — the rate limit must not extend itself', () => {
+  it('⛔ a REFUSED request adds no markers, so refusals cannot compound into a lockout', async () => {
+    const db = makeDb();
+    // Fill the window right up to the cap.
+    for (let i = 0; i < 40; i++) {
+      await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: `f${i}` }] } }, db);
+    }
+    const before = db._writes.length;
+    const refused = await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'over' }] } }, db);
+    expect(refused.res.status).toBe(429);
+    // The old order inserted a marker per run BEFORE counting — including for the request it then
+    // refused — so every 429 pushed the window further out and an honest player could be locked out
+    // for as long as they kept trying.
+    expect(db._writes.length).toBe(before);
+  });
+
+  it('and a refused request folds nothing', async () => {
+    const db = makeDb();
+    for (let i = 0; i < 40; i++) {
+      await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: `g${i}` }] } }, db);
+    }
+    const runsBefore = db._players.get('DAN')?.runs;
+    await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'nope' }] } }, db);
+    expect(db._players.get('DAN')?.runs).toBe(runsBefore);
   });
 });

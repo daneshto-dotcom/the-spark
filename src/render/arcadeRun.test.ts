@@ -28,11 +28,12 @@ import {
   revealBoard,
   runName,
   startRun,
+  submitRun,
   typeLetter,
   visibleRows,
   type ArcadeRun,
 } from './arcadeRun.ts';
-import type { RankingUpdate } from './arcadeLeaderboard.ts';
+import { setLeaderboardForTests, type RankingUpdate } from './arcadeLeaderboard.ts';
 
 const UPDATE: RankingUpdate = {
   rows: [
@@ -173,5 +174,56 @@ describe('R182-G — names and places', () => {
     const later = applyUpdate(solved(), { ...UPDATE, place: 12 }, 100_000);
     expect(placeLine(later)).toBe('12TH PLACE');
     expect(placeLine(applyUpdate(solved(), { ...UPDATE, place: 3 }, 100_000))).toBe('3RD PLACE');
+  });
+});
+
+describe('N4 — the cinematic must not be skipped by a slow submit', () => {
+  /**
+   * ⛔ `submitRun` used to take a `nowMs` NUMBER, which `main.ts` evaluated at the CALL — before the
+   * network round trip. `recapStartedMs` was therefore stale by however long the submit took, and the
+   * ease is measured from that stamp: a submit slower than `RECAP_EASE_MS` produced a recap that was
+   * already finished the first frame it drew. The owner's cinematic simply would not happen, and only
+   * for players on the worst connections — the hardest case to notice.
+   */
+  it('⭐ submitRun takes a THUNK, so the stamp cannot be captured before the await', async () => {
+    let calls = 0;
+    const now = (): number => { calls++; return 500_000; };
+    const run = await submitRun(finishRun(startRun(0), 63_000), now);
+    // Read exactly once, and only after the submit resolved.
+    expect(calls).toBe(1);
+    expect(run.recapStartedMs).toBe(500_000);
+  });
+
+  it('⛔ the recap is NOT already finished when the submit was slow', async () => {
+    /*
+     * Simulates a 3 s round trip on a player who already has a history, so there IS an ease to skip.
+     * With the old number-valued parameter `main.ts` captured the clock BEFORE the await, so
+     * `recapStartedMs` would be 1 000 while the first frame drew at 4 000 — already past
+     * `RECAP_EASE_MS`, and the cinematic would be over before it appeared.
+     */
+    let clock = 1_000;
+    setLeaderboardForTests({
+      kind: 'remote',
+      submit: async () => {
+        clock += 3_000; // the network round trip
+        return {
+          rows: [{ name: 'AAA', runs: 7, averageMs: 75_000 }],
+          place: 1, runs: 7, lastMs: 63_000,
+          previousAverageMs: 78_000, averageMs: 75_000, shared: true, flushed: 0,
+        };
+      },
+    } as unknown as Parameters<typeof setLeaderboardForTests>[0]);
+
+    const run = await submitRun(finishRun(startRun(0), 63_000), () => clock);
+    expect(run.recapStartedMs).toBe(4_000); // stamped AFTER the trip, not before
+    expect(recapSettled(run, clock)).toBe(false); // so the first frame still has the whole ease
+    expect(recapAverageMs(run, clock)).toBe(78_000); // and it starts from the OLD average
+    setLeaderboardForTests(null);
+  });
+
+  it('the thunk is not called at all when there is nothing to submit', async () => {
+    let calls = 0;
+    await submitRun(startRun(0), () => { calls++; return 1; });
+    expect(calls).toBe(0);
   });
 });

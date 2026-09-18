@@ -149,11 +149,11 @@ describe('R182-G — the remote tier, and every way the network can let a player
     expect(r.shared).toBe(false);
     expect(r.runs).toBe(1);
     expect(loadRanking(BOARD_NONET)).toHaveLength(1); // ⭐ the run was NOT lost
-    expect(loadPending(BOARD_NONET)).toEqual([{ name: 'DAN', ms: 60_000 }]); // ⭐ and will be sent
+    expect(loadPending(BOARD_NONET)).toMatchObject([{ name: 'DAN', ms: 60_000 }]); // ⭐ and will be sent
   });
 
   it('⭐ FLUSHES the queue on the next successful submit, oldest first', async () => {
-    savePending([{ name: 'DAN', ms: 80_000 }, { name: 'DAN', ms: 70_000 }], BOARD_NONET);
+    savePending([{ name: 'DAN', ms: 80_000, id: 'q1' }, { name: 'DAN', ms: 70_000, id: 'q2' }], BOARD_NONET);
     const remote = new RemoteLeaderboard('https://board.example');
     const { calls } = stubFetch({
       rows: [{ name: 'DAN', runs: 3, averageMs: 70_000 }],
@@ -253,5 +253,76 @@ describe('R182-G — parseLeaderboardBase: "is it USABLE", never "is it set"', (
     // read `https:` as a `key:` prefix, so the parser accepted ONLY wrapped values and rejected every
     // correct one — exactly inverted, and it would have looked like the feature simply did not work.
     expect(parseLeaderboardBase('https://x.workers.dev')).not.toBe('');
+  });
+});
+
+describe('N1 — the recap must not lie to anyone outside the top 25', () => {
+  /**
+   * ⛔ `entries` is only ever the top `TOP_N` rows the server sent. A player ranked 30th is simply
+   * ABSENT from it, so `entryOf` found nothing and the fallbacks reported `runs: 1` and
+   * `averageMs: lastMs` — telling that player "YOUR FIRST RUN" on every run they ever play, with an
+   * average that is just their last time. The server knows their real row and returns it in `you`.
+   */
+  it('⭐ a player OUTSIDE the returned rows still gets their real run count and average', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      // 'DAN' is deliberately NOT in rows — he is 30th, the client only ever sees the top 25.
+      rows: [
+        { name: 'AAA', runs: 9, averageMs: 40_000 },
+        { name: 'BBB', runs: 9, averageMs: 41_000 },
+      ],
+      you: { name: 'DAN', runs: 30, averageMs: 95_000, previousAverageMs: 96_000, place: 30 },
+    });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 90_000);
+    expect(r.runs).toBe(30); // NOT 1
+    expect(r.averageMs).toBe(95_000); // NOT lastMs
+    expect(r.previousAverageMs).toBe(96_000); // so the recap eases, rather than saying FIRST RUN
+    expect(r.place).toBe(30);
+  });
+
+  it('when the player IS in the rows, the server row and the slice agree', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      rows: [{ name: 'DAN', runs: 4, averageMs: 70_000 }],
+      you: { name: 'DAN', runs: 4, averageMs: 70_000, previousAverageMs: 73_000, place: 1 },
+    });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.runs).toBe(4);
+    expect(r.averageMs).toBe(70_000);
+  });
+
+  it('offline, one run IS the whole history we have — the fallback is still right there', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.runs).toBe(1);
+    expect(r.averageMs).toBe(60_000);
+  });
+});
+
+describe('N3 — the idempotency key is minted once and survives the queue', () => {
+  it('⭐ every submitted run carries an id', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    const { calls } = stubFetch({ rows: [], you: null });
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    const sent = JSON.parse(String(calls[0][1].body)) as { runs: Array<{ id?: string }> };
+    expect(typeof sent.runs[0].id).toBe('string');
+    expect(sent.runs[0].id!.length).toBeGreaterThan(0);
+  });
+
+  it('⛔ A RETRY SENDS THE SAME ID — a fresh one would defend nothing', async () => {
+    // The whole scenario: the abort fires on a request the server already committed, the run is
+    // queued, and the next flush sends it again. The server can only recognise the duplicate if the
+    // key is identical, so it is generated once and STORED with the queued run.
+    const remote = new RemoteLeaderboard('https://board.example');
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('timeout')));
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    const queuedId = loadPending(BOARD_NONET)[0].id;
+
+    const { calls } = stubFetch({ rows: [], you: null });
+    await remote.submit(BOARD_NONET, 'DAN', 70_000);
+    const sent = JSON.parse(String(calls[0][1].body)) as { runs: Array<{ id: string; ms: number }> };
+    const resent = sent.runs.find((x) => x.ms === 60_000);
+    expect(resent?.id).toBe(queuedId);
   });
 });

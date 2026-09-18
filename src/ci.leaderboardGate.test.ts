@@ -212,11 +212,29 @@ describe('S182 — the worker, live on the owner account', () => {
     expect(WORKER_SRC).not.toMatch(/DELETE FROM writes WHERE board/);
   });
 
-  it('⛔ the marker is inserted BEFORE the count, so a race over-counts rather than under-counts', () => {
-    const insertAt = WORKER_SRC.indexOf('INSERT INTO writes');
+  it('⛔ N5 — the COUNT comes FIRST, so enforcing the limit cannot extend it', () => {
+    /*
+     * ⚠ THIS ASSERTION IS THE EXACT INVERSE OF WHAT IT SAID BEFORE, AND THE REVERSAL IS DELIBERATE.
+     *
+     * It used to pin "marker inserted BEFORE the count", on the reasoning that a race should
+     * OVER-count rather than under-count. That reasoning was sound about floods and wrong about
+     * everything else: it meant a marker was written for the very request the worker then REFUSED, so
+     * every 429 pushed the window further out and an honest player who tripped the limit once kept
+     * tripping it. A rate limit that is extended by being enforced is a lockout.
+     *
+     * The trade is stated at the call site: counting first means two concurrent requests can both
+     * pass in a dead heat. Between "an attacker gets a few extra writes in a race" and "a real player
+     * is locked out of their own ranking", the first is plainly the better failure.
+     */
     const countAt = WORKER_SRC.indexOf('COUNT(*) AS n FROM writes');
+    const insertAt = WORKER_SRC.indexOf('INSERT INTO writes (ip_hash, created)');
+    expect(countAt).toBeGreaterThan(-1);
     expect(insertAt).toBeGreaterThan(-1);
-    expect(countAt).toBeGreaterThan(insertAt);
+    expect(insertAt, 'the marker must be written AFTER the limit check').toBeGreaterThan(countAt);
+    // And the refusal must return before reaching the insert at all.
+    const refuseAt = WORKER_SRC.indexOf("error: 'slow down'");
+    expect(refuseAt).toBeGreaterThan(countAt);
+    expect(refuseAt).toBeLessThan(insertAt);
   });
 
   it('⛔ IP_SALT fails CLOSED — a skipped setup step must not silently publish a known salt', () => {
@@ -290,8 +308,12 @@ describe('S182 — the worker, live on the owner account', () => {
     const code = WORKER_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     expect(code, 'comment-stripping must not have eaten the module').toContain('async function handle');
     expect(code).not.toMatch(/DELETE FROM players/);
-    // The ONE delete that remains is the rate-limit marker sweep, which ages out by TIME only.
-    expect(code.match(/DELETE FROM (\w+)/g) ?? []).toEqual(['DELETE FROM writes']);
+    // The only deletes that remain are TIME-based sweeps of bookkeeping tables — the rate-limit
+    // markers and the spent idempotency keys. Neither touches a player's history.
+    expect(code.match(/DELETE FROM (\w+)/g) ?? []).toEqual([
+      'DELETE FROM writes',
+      'DELETE FROM seen_runs',
+    ]);
   });
 
   it('⚠ the ordering rule is stated identically on both sides of the wire', () => {
@@ -387,5 +409,47 @@ describe('S182 — module INITIALISATION order, which nothing else can see', () 
 
   it('LOCAL_HOSTS too — the same dead zone, reached by the http branch', () => {
     expect(CLIENT.indexOf('const LOCAL_HOSTS')).toBeLessThan(CLIENT.indexOf('const REMOTE_BASE'));
+  });
+});
+
+describe('N6 — ⛔ the leaderboard must never be able to red the GAME\'s production deploy', () => {
+  const PKG = read('../package.json');
+  const DEPLOY_YML = read('../.github/workflows/deploy.yml').split('\r\n').join('\n');
+  const E2E_YML = read('../.github/workflows/e2e.yml').split('\r\n').join('\n');
+
+  /**
+   * ⭐ THIS IS THE `check:atlas` RULE, AND IT IS THE PROJECT'S, NOT MINE.
+   *
+   * S165 wired a sprite-sheet quality check into `npm run build`. The Pages deploy went red on a
+   * missing Python module, nothing was actually caught, and the live site simply sat STALE while the
+   * owner waited on new art. The standing rule from that incident: **a non-gameplay quality opinion
+   * must NEVER block a live deploy.**
+   *
+   * `typecheck` was briefly `tsc -b --noEmit && tsc -p tsconfig.server.json`, and `deploy.yml` gates
+   * the Pages deploy on `npm run typecheck` — so a type error in `server/leaderboard/worker.js`,
+   * code that is not in the bundle and cannot affect the artifact GitHub Pages serves, could stop the
+   * GAME from shipping. Same shape, same consequence.
+   */
+  it('⛔ `npm run typecheck` — which the deploy gates on — does NOT typecheck the worker', () => {
+    expect(PKG).toMatch(/"typecheck":\s*"tsc -b --noEmit"/);
+    expect(PKG, 'the worker must not be folded back into the deploy-gating script').not.toMatch(
+      /"typecheck":\s*"[^"]*tsconfig\.server\.json/,
+    );
+  });
+
+  it('the worker IS still typechecked — by its own script', () => {
+    expect(PKG).toMatch(/"typecheck:server":\s*"tsc -p tsconfig\.server\.json"/);
+  });
+
+  it('⭐ and that script runs in CI, in its own job, alongside the `atlas-guard` precedent', () => {
+    expect(E2E_YML).toContain('worker-typecheck:');
+    expect(E2E_YML).toContain('npm run typecheck:server');
+    // The precedent it follows — same shape, same reason.
+    expect(E2E_YML).toContain('atlas-guard:');
+  });
+
+  it('⛔ and it is NOWHERE in the deploy workflow', () => {
+    expect(DEPLOY_YML).not.toContain('typecheck:server');
+    expect(DEPLOY_YML).not.toContain('tsconfig.server.json');
   });
 });

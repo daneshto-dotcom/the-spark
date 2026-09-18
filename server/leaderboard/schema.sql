@@ -59,6 +59,23 @@ CREATE TABLE IF NOT EXISTS writes (
 );
 CREATE INDEX IF NOT EXISTS idx_writes_ratelimit ON writes (ip_hash, created);
 
+-- ⛔ IDEMPOTENCY KEYS, because delivery is AT-LEAST-ONCE and a double-count here is PERMANENT.
+--
+-- The client bounds its request with a 4 s abort, and the handler makes several sequential D1 round
+-- trips — so a timeout can abort a request the server has already committed. The client then queues
+-- the run and the next flush folds it a SECOND time. Under the old best-time board that was a visible
+-- duplicate row; under a mean it silently and permanently biases the player's average, and no amount
+-- of further play repairs it. A run is folded at most once, ever.
+--
+-- Rows age out after a day (`SEEN_RUN_TTL_MS`): a retry follows its original within seconds, so a day
+-- is generous by orders of magnitude, and keeping them forever would make this the one table here
+-- that grows without bound.
+CREATE TABLE IF NOT EXISTS seen_runs (
+  id      TEXT PRIMARY KEY,
+  created INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_seen_runs_created ON seen_runs (created);
+
 -- ⛔ AND THE BOARD NAMESPACE IS BOUNDED BY A REGISTRY, not by the id regex. `BOARD_RE` bounds the
 -- SHAPE of an id, not how many exist, so a caller could otherwise mint unlimited distinct boards.
 CREATE TABLE IF NOT EXISTS boards (

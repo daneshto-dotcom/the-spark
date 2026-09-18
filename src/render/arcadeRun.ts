@@ -189,12 +189,25 @@ export function revealBoard(run: ArcadeRun): ArcadeRun {
  */
 export async function submitRun(
   run: ArcadeRun,
-  nowMs: number,
+  now: () => number,
   boardId: string = BOARD_NONET,
 ): Promise<ArcadeRun> {
   if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;
   const update = await getLeaderboard().submit(boardId, runName(run), run.finishedMs);
-  return applyUpdate(run, update, nowMs);
+  /*
+   * ⛔ THE CLOCK IS READ **AFTER** THE AWAIT, AND TAKING IT BEFORE SILENTLY SKIPPED THE CINEMATIC.
+   *
+   * This used to take a `nowMs` NUMBER, which `main.ts` evaluated at the call — i.e. before the
+   * network round trip. `recapStartedMs` was therefore stale by however long the submit took, and
+   * `recapAverageMs` measures its ease from that stamp: a submit slower than `RECAP_EASE_MS`
+   * (1 400 ms — an ordinary mobile round trip) produced a recap that was ALREADY FINISHED the first
+   * frame it drew. The owner's *"cool little cinematic of the whole calculation"* would simply not
+   * happen, and only for the players on the worst connections, which is the hardest case to notice.
+   *
+   * Taking a thunk rather than a number makes the correct reading the only available one: there is
+   * no value to capture early.
+   */
+  return applyUpdate(run, update, now());
 }
 
 /** How long the average eases from its old value to its new one. Mine — long enough to read. */

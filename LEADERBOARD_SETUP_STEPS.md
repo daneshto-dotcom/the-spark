@@ -1,24 +1,35 @@
-# Turning on the shared arcade leaderboard — step by step
+# Turning on the shared arcade leaderboard — ✅ DONE, S182
 
-**What this does:** right now the NONET high-score table lives only in your own browser, which is why
-you and your friend were both "1st place" and couldn't see each other. This puts the scores in a real
-database on the internet so everybody sees the same table.
+> ⭐ **THIS IS FINISHED. Nothing below is outstanding.** It is kept as the record of what was run and
+> as the recovery procedure if the worker ever has to be rebuilt from scratch.
 
-**What it costs:** nothing. No credit card. Cloudflare's free plan covers roughly 10,000 games a day
-and SPARK will never come close.
+**Live at** `https://spark-leaderboard.saras-fdtta.workers.dev`, on your own Cloudflare account
+(`daneshto@gmail.com`). The repository variable is set. The board goes live on spark-online.space at
+the next deploy of the game.
 
-**How long:** about 10 minutes.
+⚠ **This page used to open by telling you, in the present tense, that scores live only in your own
+browser — and then walked you through creating a Cloudflare account you already had.** Both were true
+when it was written and neither was true an hour later. Corrected rather than deleted, because you
+may need the sequence again.
+
+**What it does:** the NONET table used to live only in your own browser, which is why you and your
+friend were both "1st place" and couldn't see each other. The scores now live in a real database
+everyone reads.
+
+**What it costs:** nothing, and no card. Comfortably inside Cloudflare's free plan — see
+`server/leaderboard/README.md` for the measured numbers.
 
 ---
 
-## STEP 1 — Get a Cloudflare account
+## ~~STEP 1 — Get a Cloudflare account~~ ✅ you already had one
 
-Go to **https://dash.cloudflare.com/sign-up**
+You have an account at **https://dash.cloudflare.com** under `daneshto@gmail.com`, with other
+projects already on it (`conviction.run`, `legacyoftherealm.com`). Nothing to do here.
 
-Sign up with your email. Confirm the email when it arrives. That's it — don't buy anything, don't add
-a domain, don't add a card. The free plan is all we need.
-
-*Already have a Cloudflare account? Skip to Step 2.*
+⚠ Worth keeping straight, because it caused confusion once: **spark-online.space is NOT on
+Cloudflare.** It is registered through Squarespace, its nameservers are Google's, and the live game is
+served by GitHub Pages. The leaderboard worker is a separate thing on its own `workers.dev` address
+that the game calls out to. Nothing about your domain changed, and nothing needs to.
 
 ---
 

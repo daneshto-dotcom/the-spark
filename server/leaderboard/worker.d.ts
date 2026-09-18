@@ -17,9 +17,15 @@ export function normaliseName(raw: unknown): string;
 /** True for the live game origin and for any localhost port (dev servers get a random one). */
 export function isAllowedOrigin(origin: string): boolean;
 
-/** Validate and clamp a submitted batch. Exactly one of `runs` / `error` is present. */
+/**
+ * Validate and clamp a submitted batch, PER ITEM.
+ *
+ * `error` is set only when the REQUEST is malformed. An implausible ITEM is counted in `rejected`
+ * and dropped — failing the whole batch is what let one bad queued run poison every run behind it.
+ */
 export function parseRuns(body: unknown): {
-  runs?: Array<{ name: string; ms: number }>;
+  runs?: Array<{ name: string; ms: number; id: string | null }>;
+  rejected?: number;
   error?: string;
 };
 

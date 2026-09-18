@@ -1,10 +1,17 @@
 # SPARK — the shared arcade leaderboard
 
-⛔ **NOTHING HERE IS DEPLOYED, AND NOTHING HERE MAY BE DEPLOYED WITHOUT DANIEL'S EXPLICIT GO.**
+⭐ **LIVE. Deployed S182 to Daniel's own Cloudflare account, with his approval.**
 
-This directory is a complete, unwired backend. The client already talks to the interface it
-implements; the switch is one build-time environment variable. It was written in S182 so that "yes"
-costs ten minutes instead of a session — not because the decision was made.
+**https://spark-leaderboard.saras-fdtta.workers.dev** · database `spark-leaderboard`
+(id `a3db764b-1982-46ef-9d29-7c5f54d3aa93`, region WEUR) · repo variable `VITE_LEADERBOARD_URL` set.
+
+⚠ **This banner used to say "NOTHING HERE IS DEPLOYED", while §"DEPLOYED — S182" further down said
+the opposite.** The file argued with itself, and the banner is what gets read first — so the first
+thing anyone learned about the only server SPARK has was false. Recorded rather than quietly swapped,
+because "the go-live fact landed in two of seven places" was itself a defect this branch had to fix.
+
+⚠ **The ranking model changed after the first deploy** (owner R182-G): one row per PLAYER, ranked by
+their average across every run, not a table of best times. See `schema.sql`.
 
 ---
 

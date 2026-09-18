@@ -55,6 +55,7 @@ import {
   foldRun,
   loadPending,
   loadRanking,
+  newRunId,
   normaliseName,
   parseRankingRows,
   placeOfName,
@@ -62,6 +63,7 @@ import {
   savePending,
   saveRanking,
   averageMsOf,
+  type PendingRun,
   type RankingEntry,
   type RankingRow,
 } from './arcadeScores.ts';
@@ -129,6 +131,16 @@ function updateFrom(
   shared: boolean,
   flushed: number,
   truePlace?: number | null,
+  /**
+   * ⭐ THE SERVER'S OWN ROW FOR THIS PLAYER — authoritative when present.
+   *
+   * ⛔ WITHOUT IT THE RECAP LIES TO EVERYONE OUTSIDE THE TOP 25. `entries` is only ever the top
+   * `TOP_N` rows the server sent, so `entryOf` finds NOTHING for a player ranked 30th — and the
+   * fallbacks below then report `runs: 1` and `averageMs: lastMs`. That player is told "YOUR FIRST
+   * RUN" on every single run they ever play, with an average that is just their last time. The
+   * server already knows their real row; it returns it in `you`.
+   */
+  serverMine?: { runs: number; averageMs: number } | null,
 ): RankingUpdate {
   const rows = rankRows(entries);
   const mine = entryOf(entries, name);
@@ -141,10 +153,17 @@ function updateFrom(
      * 25, in exactly the number the owner cares about — *"and then that is your ranking."*
      */
     place: truePlace ?? placeOfName(rows, normaliseName(name)),
-    runs: mine?.runs ?? 1,
+    // The server's row first, the top-25 slice second, and the single-run guess only when neither
+    // exists (which is the genuinely-offline case, where one run IS the whole history we have).
+    runs: serverMine?.runs ?? mine?.runs ?? 1,
     lastMs,
     previousAverageMs,
-    averageMs: mine === null ? lastMs : averageMsOf(mine),
+    averageMs:
+      serverMine !== null && serverMine !== undefined
+        ? serverMine.averageMs
+        : mine === null
+          ? lastMs
+          : averageMsOf(mine),
     shared,
     flushed,
   };
@@ -205,13 +224,22 @@ export class RemoteLeaderboard implements LeaderboardClient {
     // goes first. Taking the newest would starve the backlog indefinitely on a flaky connection.
     const pendingBefore = loadPending(boardId);
     const queued = pendingBefore.slice(0, FLUSH_BATCH);
-    const runs = [...queued.map((p) => ({ name: p.name, ms: p.ms })), { name, ms }];
+    /*
+     * ⭐ THE ID IS MINTED ONCE, HERE, AND IT IS WHAT MAKES A RETRY SAFE.
+     *
+     * Delivery is at-least-once — the abort below can fire on a request the server already committed
+     * — so the same run can be sent twice. Because the id is generated now and then STORED with the
+     * queued run, the retry carries the SAME key and the server folds it at most once. Minting a
+     * fresh id on the retry would look identical and defend nothing.
+     */
+    const thisRun: PendingRun = { name, ms, id: newRunId() };
+    const runs = [...queued, thisRun];
     const answer = await this.post(boardId, runs, name);
 
     if (answer === null) {
-      // ⛔ QUEUE IT. Under an average a dropped run is not a missed row, it is a permanently wrong
-      // number — see `loadPending`.
-      savePending([...pendingBefore, { name, ms }], boardId);
+      // ⛔ QUEUE IT, WITH ITS ID. Under an average a dropped run is not a missed row, it is a
+      // permanently wrong number — see `loadPending`.
+      savePending([...pendingBefore, thisRun], boardId);
       return updateFrom(loadRanking(boardId), name, ms, previousAverageMs, false, 0);
     }
 
@@ -242,24 +270,29 @@ export class RemoteLeaderboard implements LeaderboardClient {
       true,
       queued.length,
       answer.place,
+      answer.mine,
     );
   }
 
   /** POST a batch of runs. `null` means "the network did not answer" — never "an empty board". */
   private async post(
     boardId: string,
-    runs: ReadonlyArray<{ name: string; ms: number }>,
+    runs: readonly PendingRun[],
     focus: string,
   ): Promise<{
     entries: RankingEntry[];
     previousAverageMs?: number | null;
     place?: number | null;
+    mine?: { runs: number; averageMs: number } | null;
   } | null> {
     try {
       const res = await fetch(`${this.base}/board/${encodeURIComponent(boardId)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ runs, focus }),
+        body: JSON.stringify({
+          runs: runs.map((r) => ({ name: r.name, ms: r.ms, id: r.id })),
+          focus,
+        }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!res.ok) return null;
@@ -276,14 +309,21 @@ export class RemoteLeaderboard implements LeaderboardClient {
       const you = (body as { you?: unknown }).you;
       let previousAverageMs: number | null | undefined;
       let place: number | null | undefined;
+      let mine: { runs: number; averageMs: number } | null | undefined;
       if (typeof you === 'object' && you !== null) {
         const p = (you as { previousAverageMs?: unknown }).previousAverageMs;
         if (p === null) previousAverageMs = null;
         else if (typeof p === 'number' && Number.isFinite(p) && p >= 0) previousAverageMs = p;
         const q = (you as { place?: unknown }).place;
         if (typeof q === 'number' && Number.isInteger(q) && q >= 1) place = q;
+        // ⭐ N1 — the player's REAL row, which may be nowhere near the top 25 the client receives.
+        const yr = Number((you as { runs?: unknown }).runs);
+        const ya = Number((you as { averageMs?: unknown }).averageMs);
+        if (Number.isInteger(yr) && yr >= 1 && Number.isFinite(ya) && ya >= 0) {
+          mine = { runs: yr, averageMs: ya };
+        }
       }
-      return { entries: parseRankingRows(rows), previousAverageMs, place };
+      return { entries: parseRankingRows(rows), previousAverageMs, place, mine };
     } catch {
       return null; // offline, DNS, CORS, abort, non-JSON — one answer: use the offline tier
     }

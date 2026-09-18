@@ -30,6 +30,7 @@ import {
   normaliseName,
   parseRankingEntries,
   parseRankingRows,
+  newRunId,
   PENDING_CAP,
   placeOfName,
   rankRows,
@@ -201,20 +202,43 @@ describe('R182-G — storage is total, and the new key does not reinterpret the 
 });
 
 describe('R182-G — the offline queue', () => {
-  it('round-trips pending runs', () => {
-    savePending([{ name: 'DAN', ms: 60_000 }]);
-    expect(loadPending()).toEqual([{ name: 'DAN', ms: 60_000 }]);
+  it('round-trips pending runs, id included', () => {
+    savePending([{ name: 'DAN', ms: 60_000, id: 'run-1' }]);
+    expect(loadPending()).toEqual([{ name: 'DAN', ms: 60_000, id: 'run-1' }]);
+  });
+
+  it('⭐ THE ID SURVIVES THE QUEUE — minting a fresh one on retry would defend nothing', () => {
+    // The whole point of the key: a retry must carry the SAME id as the request that may already
+    // have been committed server-side, or the server cannot recognise it as a duplicate.
+    savePending([{ name: 'DAN', ms: 60_000, id: 'stable-id' }]);
+    expect(loadPending()[0].id).toBe('stable-id');
+    expect(loadPending()[0].id).toBe('stable-id'); // and again — not regenerated per read
+  });
+
+  it('a legacy queued run with no id is given one rather than dropped', () => {
+    globalThis.localStorage.setItem(
+      'spark.arcade.nonet.pending.v1',
+      JSON.stringify([{ name: 'OLD', ms: 60_000 }]),
+    );
+    const [p] = loadPending();
+    expect(p.name).toBe('OLD');
+    expect(typeof p.id).toBe('string');
+    expect(p.id.length).toBeGreaterThan(0);
+  });
+
+  it('newRunId returns distinct values', () => {
+    expect(newRunId()).not.toBe(newRunId());
   });
 
   it('⚠ is BOUNDED — an unbounded queue would eventually throw on the write that records a run', () => {
-    savePending(Array.from({ length: PENDING_CAP + 50 }, (_, i) => ({ name: 'DAN', ms: 20_000 + i })));
+    savePending(Array.from({ length: PENDING_CAP + 50 }, (_, i) => ({ name: 'DAN', ms: 20_000 + i, id: `r${i}` })));
     expect(loadPending()).toHaveLength(PENDING_CAP);
   });
 
   it('drops malformed queue entries', () => {
     globalThis.localStorage.setItem(
       'spark.arcade.nonet.pending.v1',
-      JSON.stringify([{ name: 'OKA', ms: 30_000 }, { name: 'BAD', ms: -1 }, { ms: 5 }]),
+      JSON.stringify([{ name: 'OKA', ms: 30_000, id: 'a' }, { name: 'BAD', ms: -1, id: 'b' }, { ms: 5 }]),
     );
     expect(loadPending().map((p) => p.name)).toEqual(['OKA']);
   });

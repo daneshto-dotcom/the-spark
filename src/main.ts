@@ -1377,7 +1377,9 @@ async function bootstrap(): Promise<void> {
           if (run.submitting) break;
           const pending = beginSubmit(run);
           arcadeRun = pending;
-          void submitRun(pending, performance.now()).then((next) => {
+          // ⛔ A THUNK, NOT `performance.now()` — the stamp must be taken AFTER the round trip or a
+          // slow submit starts the recap already finished. See `submitRun`.
+          void submitRun(pending, () => performance.now()).then((next) => {
             if (arcadeRun === pending) arcadeRun = next;
           });
           break;

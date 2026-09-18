@@ -97,6 +97,30 @@ export interface RankingRow {
 export interface PendingRun {
   readonly name: string;
   readonly ms: number;
+  /**
+   * ⭐ THE IDEMPOTENCY KEY, and it MUST survive being queued — that is the whole point.
+   *
+   * Delivery is at-least-once: the client bounds a submit at 4 s while the worker makes several
+   * sequential D1 round trips, so a timeout can abort a request the server has ALREADY COMMITTED. The
+   * client then queues the run and the next flush folds it a SECOND time. Under a mean that
+   * double-count is permanent and unrepairable. Minting a FRESH id on the retry would defeat the
+   * defence entirely, so the id is generated once, when the run happens, and stored with it.
+   */
+  readonly id: string;
+}
+
+/**
+ * A fresh idempotency key.
+ *
+ * ⚠ `crypto.randomUUID` needs a secure context, which https and localhost both are — but a plain-http
+ * LAN address is not, and neither is an old browser. The fallback is not cryptographic and does not
+ * need to be: a collision costs one dropped fold, and these are compared only against this player's
+ * own recent runs.
+ */
+export function newRunId(): string {
+  const c = globalThis.crypto;
+  if (c !== undefined && typeof c.randomUUID === 'function') return c.randomUUID();
+  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 /**
@@ -303,7 +327,11 @@ export function loadPending(boardId: string = BOARD_NONET): PendingRun[] {
       const o = item as Record<string, unknown>;
       const ms = Number(o.ms);
       if (typeof o.name !== 'string' || !Number.isFinite(ms) || ms <= 0) continue;
-      out.push({ name: normaliseName(o.name), ms });
+      // ⚠ A QUEUED RUN WITHOUT AN ID GETS ONE HERE, not a fresh one per read — which would be
+      // useless. Rows written before this field existed are the only case, and they simply lose the
+      // protection rather than being dropped.
+      const id = typeof o.id === 'string' && o.id.length > 0 ? o.id : newRunId();
+      out.push({ name: normaliseName(o.name), ms, id });
     }
     // ⚠ BOUNDED. An unbounded queue on a browser that is offline for a month would grow until the
     // quota throws, and the throw would land on the storage write that records the player's run.

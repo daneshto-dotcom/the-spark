@@ -74,6 +74,9 @@ const MAX_MS = 60 * 60 * 1000;
 const RATE_LIMIT_RUNS = 40;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
+/** How long an idempotency key is remembered. A retry follows its original within seconds. */
+const SEEN_RUN_TTL_MS = 24 * 60 * 60 * 1000;
+
 /** Most runs accepted in one request — bounds an offline backlog flush. */
 const MAX_RUNS_PER_REQUEST = 21;
 
@@ -101,10 +104,32 @@ export function normaliseName(raw) {
 }
 
 /**
- * PURE — validate and clamp a submitted batch.
+ * PURE — validate and clamp a submitted batch, **per item**.
  *
- * Returns `{ runs }` on success or `{ error }` with the reason. Exported so it is executably tested:
- * before S182 this worker had ZERO test coverage and was outside `tsc` entirely.
+ * Returns `{ runs, rejected }`, or `{ error }` only when the REQUEST ITSELF is malformed (not an
+ * array, empty, oversized). Exported so it is executably tested.
+ *
+ * ## ⛔⛔ ONE BAD RUN USED TO PERMANENTLY KILL A PLAYER'S SHARED BOARD
+ *
+ * This function used to `return { error: 'implausible time' }` on the FIRST offending item, failing
+ * the whole batch. That is the worst failure this design has available, and it is worth spelling out
+ * because the shape is not obvious:
+ *
+ *   1. a single implausible run enters the offline queue (a tab left open overnight, a clock jump,
+ *      a paused laptop — `ms` over the one-hour ceiling);
+ *   2. every later run is queued BEHIND it;
+ *   3. every flush sends the queue head-first, so every flush contains the poison item;
+ *   4. the server 422s the entire batch, the client clears nothing and re-queues;
+ *   5. the player's shared average never moves again, and nothing on screen says why.
+ *
+ * On a board whose whole argument is that **a wrong number is permanent** — see `schema.sql` on why
+ * sum-and-count is stored rather than a rolling mean — a queue that can never drain is the one
+ * failure that cannot be repaired by playing more.
+ *
+ * ⭐ SO A BAD ITEM IS DROPPED, NOT THE BATCH. The offending run is discarded permanently (it was
+ * never legitimate), the rest are folded, the request succeeds, and the client clears the whole sent
+ * batch — which is what breaks the retry loop. `rejected` is reported so the count is visible rather
+ * than silent.
  */
 export function parseRuns(body) {
   if (typeof body !== 'object' || body === null) return { error: 'bad json' };
@@ -112,13 +137,25 @@ export function parseRuns(body) {
   if (!Array.isArray(raw) || raw.length === 0) return { error: 'no runs' };
   if (raw.length > MAX_RUNS_PER_REQUEST) return { error: 'too many runs' };
   const runs = [];
+  let rejected = 0;
   for (const item of raw) {
-    if (typeof item !== 'object' || item === null) return { error: 'bad run' };
+    if (typeof item !== 'object' || item === null) {
+      rejected++;
+      continue;
+    }
     const ms = Number(item.ms);
-    if (!Number.isFinite(ms) || ms < MIN_MS || ms > MAX_MS) return { error: 'implausible time' };
-    runs.push({ name: normaliseName(item.name), ms: Math.round(ms) });
+    if (!Number.isFinite(ms) || ms < MIN_MS || ms > MAX_MS) {
+      rejected++;
+      continue;
+    }
+    runs.push({
+      name: normaliseName(item.name),
+      ms: Math.round(ms),
+      // ⭐ N3 — the idempotency key. See `foldable` in the handler.
+      id: typeof item.id === 'string' && item.id.length > 0 && item.id.length <= 64 ? item.id : null,
+    });
   }
-  return { runs };
+  return { runs, rejected };
 }
 
 /** PURE — rows → the ranking order. ⚠ Must match `compareRows` in `arcadeScores.ts`. */
@@ -253,11 +290,17 @@ async function handle(request, env, origin) {
   }
 
   const parsed = parseRuns(body);
-  if (parsed.error !== undefined) {
-    return json({ error: parsed.error }, parsed.error === 'implausible time' ? 422 : 400, origin);
-  }
+  // ⚠ ONLY A MALFORMED REQUEST IS AN ERROR NOW. An implausible ITEM is dropped and reported in
+  // `rejected` — see `parseRuns` for why failing the batch was the worst failure available.
+  if (parsed.error !== undefined) return json({ error: parsed.error }, 400, origin);
   const runs = parsed.runs;
-  const focus = normaliseName(typeof body.focus === 'string' ? body.focus : runs[runs.length - 1].name);
+  const rejected = parsed.rejected;
+  // ⚠ `runs` CAN NOW BE EMPTY — every item may have been rejected — so the fallback must not index
+  // into it. Dereferencing `runs[runs.length - 1]` on an empty array threw, and the wrapper turned
+  // that into a 500: an all-implausible batch would have failed exactly the way N2 exists to stop.
+  const focus = normaliseName(
+    typeof body.focus === 'string' ? body.focus : (runs[runs.length - 1]?.name ?? ''),
+  );
 
   // ⛔ ONLY A REGISTERED BOARD MAY BE WRITTEN TO. `BOARD_RE` bounds the SHAPE of an id, not how many
   // exist, so unlimited invented boards would be unlimited storage.
@@ -278,21 +321,40 @@ async function handle(request, env, origin) {
    * is refused a write it could have had) rather than UNDER-count (both see zero and both pass). A
    * rate limit that fails open under exactly the load it exists to stop is not a rate limit.
    */
-  await env.DB.batch(
-    runs.map(() =>
-      env.DB.prepare('INSERT INTO writes (ip_hash, created) VALUES (?1, ?2)').bind(ipHash, now),
-    ),
-  );
   const recent = await env.DB.prepare(
     'SELECT COUNT(*) AS n FROM writes WHERE ip_hash = ?1 AND created > ?2',
   )
     .bind(ipHash, now - RATE_LIMIT_WINDOW_MS)
     .first();
-  if (Number(recent?.n ?? 0) > RATE_LIMIT_RUNS) {
+  if (Number(recent?.n ?? 0) + runs.length > RATE_LIMIT_RUNS) {
     // ⚠ 429 AND THE BOARD ANYWAY. A rate-limited player has just finished a run and the client
     // already recorded it locally; answering with a bare error would blank the screen they came to
     // look at.
     return json({ error: 'slow down', rows: await readBoard(env, board) }, 429, origin);
+  }
+
+  /*
+   * ⛔ MARK ONLY WHAT IS ACCEPTED, AND ONLY AFTER THE COUNT. THE LIMITER USED TO EXTEND ITSELF.
+   *
+   * The first cut inserted a marker per run BEFORE counting — including for the very request it then
+   * refused. So every refusal added to the tally that causes refusals: a player who tripped the limit
+   * once kept tripping it, each 429 pushing the window further out, and a legitimate player could be
+   * locked out of their own board for as long as they kept trying. A rate limit that is extended by
+   * being enforced is a lockout, not a limit.
+   *
+   * ⚠ AND THE ORDER TRADES ONE RACE FOR ANOTHER, DELIBERATELY. Counting first means two concurrent
+   * requests can both read a tally below the cap and both pass — an UNDER-count. Marking first (the
+   * old order) made a race OVER-count instead, which is safer against a flood but is exactly what
+   * produced the self-extending lockout above. Between "a determined attacker gets a few extra writes
+   * in a dead heat" and "an honest player is locked out of their own ranking", the first is plainly
+   * the better failure. Stated rather than left as an accident of statement order.
+   */
+  if (runs.length > 0) {
+    await env.DB.batch(
+      runs.map(() =>
+        env.DB.prepare('INSERT INTO writes (ip_hash, created) VALUES (?1, ?2)').bind(ipHash, now),
+      ),
+    );
   }
 
   // Read the focus player BEFORE folding, so the recap can say what the average WAS.
@@ -308,18 +370,63 @@ async function handle(request, env, origin) {
    * never was: it erases a whole history and hands that player a fresh average. It is also
    * unnecessary — a 3-character name over a 37-character alphabet bounds a board at 37^3 rows.
    */
-  await env.DB.batch(
-    runs.map((r) =>
-      env.DB.prepare(
-        `INSERT INTO players (board, name, runs, total_ms, updated) VALUES (?1, ?2, 1, ?3, ?4)
-         ON CONFLICT(board, name) DO UPDATE SET
-           runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
-      ).bind(board, r.name, r.ms, now),
-    ),
-  );
+  /*
+   * ⛔⛔ N3 — AT-LEAST-ONCE DELIVERY NEEDS AN IDEMPOTENCY KEY, AND ON AN AVERAGE BOARD IT IS PERMANENT.
+   *
+   * The client bounds its request with a 4 000 ms `AbortSignal`, and this handler makes several
+   * sequential D1 round trips. A timeout therefore aborts requests the server has ALREADY COMMITTED —
+   * the client sees a failure, queues the run, and the next flush folds it a second time. Under the
+   * old best-time board a duplicate was a duplicate row, visible and deletable. Under a mean it
+   * silently and permanently biases the player's average, and no amount of further play repairs it.
+   *
+   * So every run carries a client-generated id and is folded AT MOST ONCE, ever. Ids already present
+   * are skipped; the ones that are new are recorded in the same request that folds them.
+   *
+   * ⚠ A RUN WITH NO ID IS STILL FOLDED. Older clients, and anything hand-rolled with curl, do not
+   * send one — refusing them would break the endpoint for callers that are not broken. They simply do
+   * not get the protection, which is exactly where they were before.
+   *
+   * ⚠ AND THIS IS NOT A TRANSACTION. Two genuinely concurrent requests carrying the same id could
+   * both read "not seen" and both fold. That race is not the one being defended against: a retry is
+   * sequential by construction — the client only retries after its own request has ended. Closing the
+   * concurrent case would need `INSERT OR IGNORE` per run and a read of `meta.changes`, i.e. a round
+   * trip per run instead of one for the batch.
+   */
+  const ids = runs.map((r) => r.id).filter((id) => id !== null);
+  const seen = new Set();
+  if (ids.length > 0) {
+    const { results } = await env.DB.prepare(
+      `SELECT id FROM seen_runs WHERE id IN (${ids.map((_, i) => `?${i + 1}`).join(', ')})`,
+    )
+      .bind(...ids)
+      .all();
+    for (const row of results ?? []) seen.add(String(row.id));
+  }
+  const foldable = runs.filter((r) => r.id === null || !seen.has(r.id));
+  const duplicates = runs.length - foldable.length;
+
+  if (foldable.length > 0) {
+    await env.DB.batch([
+      ...foldable.map((r) =>
+        env.DB.prepare(
+          `INSERT INTO players (board, name, runs, total_ms, updated) VALUES (?1, ?2, 1, ?3, ?4)
+           ON CONFLICT(board, name) DO UPDATE SET
+             runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
+        ).bind(board, r.name, r.ms, now),
+      ),
+      ...foldable
+        .filter((r) => r.id !== null)
+        .map((r) =>
+          env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)').bind(r.id, now),
+        ),
+    ]);
+  }
 
   // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
   await env.DB.prepare('DELETE FROM writes WHERE created <= ?1').bind(now - RATE_LIMIT_WINDOW_MS).run();
+  // And spent idempotency keys. A retry happens within seconds of its original; a day is generous by
+  // orders of magnitude, and keeping them forever would be the one table here that grows unbounded.
+  await env.DB.prepare('DELETE FROM seen_runs WHERE created <= ?1').bind(now - SEEN_RUN_TTL_MS).run();
 
   const after = await readPlayer(env, board, focus);
   const rows = await readBoard(env, board);
@@ -352,6 +459,10 @@ async function handle(request, env, origin) {
   return json(
     {
       rows,
+      // Reported rather than silent: a run count that did not move by as much as the player expects
+      // has a reason, and this is it.
+      rejected,
+      duplicates,
       you:
         after === null || after === undefined
           ? null
