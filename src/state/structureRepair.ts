@@ -191,11 +191,57 @@ export function blueprintGroupOf(
   return { blueprintId, byNode, missing };
 }
 
+/**
+ * ⭐⭐⭐ S182 (owner R182-E) — **A DENT COSTS ONE SHAPE. IT USED TO COST NOTHING.**
+ *
+ * > *"If there's only an amount of HP missing but no connector destroyed, so it's still intact and
+ * > producing characters, then it takes one shape. So far it takes NO shape — that's not correct.
+ * > It takes one shape. Whether it's one HP or fifty HP."*
+ *
+ * ⛔ **AND THE TYPE IS MINE, BECAUSE HE REFUSED TO PICK ONE.** Offered a per-recipe table he called
+ * it over-thinking — *"whatever shape is missing is the shape that you need to rebuild"* — which is
+ * the answer for a structure that LOST something and says nothing about one that lost nothing. So
+ * this derives the fee from the blueprint: **the most numerous node type**, i.e. what the building is
+ * mostly made of. It lands on his own two worked examples (pentagram → Triangle, goblin tower →
+ * Circle) without either being written down.
+ *
+ * ⛔ **DERIVED, NEVER HAND-LISTED.** A copied table of seven recipes is the drift defect this file's
+ * neighbours are full of; `structureRepairFee.test.ts` asserts the derivation over EVERY registered
+ * blueprint, so a recipe retune moves the fee with it and a new recipe cannot be forgotten.
+ *
+ * ⚠ **THE TIE-BREAK IS FIRST APPEARANCE IN THE NODE LIST, NOT THE HUB TYPE.** Helga is 3 Spirals and
+ * 3 Circles around ONE Triangle hub, and the Voltkin chain is 4 Squares and 4 Triangles with no hub
+ * at all. Breaking on the hub would charge Helga a Triangle — the one shape she has exactly one of —
+ * which reads as arbitrary in the only two cases where the rule is visible. First appearance always
+ * names a type the structure is actually built out of, and for every STAR recipe whose hub type wins
+ * outright (the goblin tower) the two rules agree anyway, because node 0 IS the hub.
+ */
+export function repairFeeShapeFor(blueprintId: GodlyId): SparkType | null {
+  const bp = blueprintFor(blueprintId);
+  if (bp === undefined || bp.nodes.length === 0) return null;
+  const counts = new Map<SparkType, number>();
+  for (const n of bp.nodes) counts.set(n.type, (counts.get(n.type) ?? 0) + 1);
+  let best: SparkType | null = null;
+  let bestCount = 0;
+  for (const node of bp.nodes) {
+    const c = counts.get(node.type) ?? 0;
+    if (c > bestCount) { best = node.type; bestCount = c; } // strict `>` ⇒ first appearance wins ties
+  }
+  return best;
+}
+
 /** What a FIX would do, and what it would cost. `payments === null` ⇒ the inventory cannot cover it. */
 export interface RepairPlan {
   readonly memberIds: readonly PrimitiveId[];
   readonly group: BlueprintGroup;
-  /** The shapes FIX consumes, positionally aligned with `group.missing`. */
+  /**
+   * The shapes FIX consumes.
+   *
+   * ⚠ **EITHER the lost nodes, positionally aligned with `group.missing`, OR — when nothing was lost
+   * and the structure is merely hurt — the single flat fee of R182-E.** Never both, and that is what
+   * keeps the alignment safe: the flat-fee case is exactly the case where `group.missing` is empty,
+   * so the re-mint loop that indexes `payments[i]` against it never runs.
+   */
   readonly cost: readonly SparkType[];
   /** Resolved funding for `cost`, or null when the seat is short. */
   readonly payments: readonly Payment[] | null;
@@ -233,11 +279,6 @@ export function planStructureRepair(
   if (group === null) return null;
 
   const bp = blueprintFor(group.blueprintId);
-  const cost = group.missing.map((i) => bp.nodes[i].type);
-  // ⚠ An EMPTY bill must plan as `[]`, never as null. `planPaymentForTypes([])` returns `[]`, which
-  // is the correct "you can afford nothing, and nothing is what this costs" — an intact but damaged
-  // tower repairs for free (R13 says FIX consumes what the structure LOST, and it lost nothing).
-  const payments = planPaymentForTypes(world, seat, cost);
 
   let damagedCount = 0;
   for (const id of memberIds) {
@@ -262,6 +303,28 @@ export function planStructureRepair(
     if (aId === undefined || bId === undefined) continue; // an endpoint is dead — counted as a shape
     if (!bondExistsBetween(world, aId, bId)) missingBondCount++;
   }
+
+  /*
+   * ⭐⭐ R182-E — THE BILL. Lost nodes cost themselves; a structure that lost NOTHING but is hurt
+   * costs ONE shape, flat, *"whether it's one HP or fifty HP"*.
+   *
+   * ⛔ AND A WHOLE TOWER STILL COSTS NOTHING, because there is nothing to buy. The fee is priced off
+   * `damagedCount`/`missingBondCount` — which is why they are computed ABOVE this line now — so an
+   * idle click on a pristine building still reads NOTHING TO FIX and the reducer still refuses it.
+   * Charging there would turn an accidental click into a lost shape.
+   *
+   * ⚠ `repairFeeShapeFor` returning null (a blueprint with no nodes — unreachable through
+   * `blueprintGroupOf`, which has already resolved it) falls back to the free bill rather than
+   * throwing: a broken FIX button is better than a crashed host.
+   */
+  let cost: readonly SparkType[] = group.missing.map((i) => bp.nodes[i].type);
+  if (cost.length === 0 && (damagedCount > 0 || missingBondCount > 0)) {
+    const fee = repairFeeShapeFor(group.blueprintId);
+    if (fee !== null) cost = [fee];
+  }
+  // ⚠ An EMPTY bill must plan as `[]`, never as null. `planPaymentForTypes([])` returns `[]`, which
+  // is the correct "you can afford nothing, and nothing is what this costs".
+  const payments = planPaymentForTypes(world, seat, cost);
 
   return { memberIds, group, cost, payments, damagedCount, missingBondCount };
 }
@@ -375,11 +438,15 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
   }
 
   // ── HEAL ────────────────────────────────────────────────────────────────────────────────────
-  // ⚠ FREE, AND THAT IS THE RULING RATHER THAN AN OVERSIGHT. R13 prices FIX at "the shapes the
-  // structure LOST"; chip damage loses no shapes, so it costs nothing. It also keeps FIX from being
-  // a dead control in its most common case — the tower that got shot but held — which is precisely
-  // what the owner would report as "fix does nothing". Attrition still bites where R16 puts it: on
-  // CONNECTORS, i.e. on shapes that actually died and must be bought back above.
+  // ⛔⛔ S182 (owner R182-E) — **THIS WAS FREE AND HE SAID IT SHOULD NOT BE.**
+  //
+  // The comment here used to argue the free heal was the ruling rather than an oversight: R13 prices
+  // FIX at "the shapes the structure LOST", chip damage loses no shapes, therefore nothing. He read
+  // that behaviour on the board and rejected it — *"so far it takes NO shape — that's not correct.
+  // It takes one shape. Whether it's one HP or fifty HP."* The bill is now built in
+  // `planStructureRepair` and `consumePayments` above has already taken it; the heal itself is
+  // unchanged. Attrition still bites hardest where R16 puts it — on connectors that actually died —
+  // but a dent is no longer worth nothing.
   for (const id of byNode.values()) {
     const p = world.primitives.get(id);
     if (p !== undefined) p.hp = PRIMITIVE_MAX_HP;

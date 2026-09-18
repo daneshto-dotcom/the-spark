@@ -35,6 +35,7 @@ import {
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   PRINCESS_SLAP_RANGE,
+  SparkType,
   STINK_BAG_DEF,
   STINK_BAG_HP,
   STINK_TOWER_ATTACK_RANGE,
@@ -44,6 +45,12 @@ import { PROTOCOL_VERSION } from './net/protocol.ts';
 import { structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
+// S182 — §7 the damage ramp, §8 the repair fee, §9 the open blast.
+import { RAMP_SPECS, rampDeathFirstFrame, rampFrameForHealth } from './render/structureRamp.ts';
+import { TOWER_DAMAGED_BELOW } from './render/towerFrames.ts';
+import { STAR_SELFDESTRUCT_BELOW_FRAC } from './state/structureStarHealth.ts';
+import { repairFeeShapeFor } from './state/structureRepair.ts';
+import type { GodlyId } from './state/godlyRecipes/types.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -157,5 +164,76 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const castleArm = attack.slice(attack.indexOf("kind: 'castle'"));
     expect(castleArm.slice(0, 400)).toContain('attackFifths(');
     expect(castleArm.slice(0, 400)).not.toContain('GOBLIN_DAMAGE_VS_CASTLE');
+  });
+
+  /* ══ S182 — §6 correction, §7 the ramp, §8 repair, §9 the open blast ═══════════════════════ */
+
+  /**
+   * ⭐ S182 — **THE WIRE LIST WAS MISSING THE MOST LOAD-BEARING FIELD ON IT.** §6 named creature
+   * `ehp`, defender `ehp`, primitive `hp` and `castleHp`, and omitted `Bond.damageFifths` — the field
+   * a BUILDING's entire health is made of. A session reading the old list would have concluded that
+   * building health was not synced and gone looking for a protocol bump it did not need.
+   */
+  it('§6 lists `Bond.damageFifths`, and it really is serialized AND hashed', () => {
+    expect(canonSays('`Bond.damageFifths`')).toBe(true);
+    const save = readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8');
+    const hash = readFileSync(new URL('./state/stateHashFull.ts', import.meta.url), 'utf8');
+    expect(save).toContain('damageFifths');
+    expect(hash).toContain('damageFifths'); // the union
+    expect(hash).toContain(':dmg'); // …and the hand-written projection, which the union alone misses
+  });
+
+  /**
+   * ⛔ THE PILOT STAYS A PILOT. The owner ruled one tower at a time; the canon says so and this is
+   * what stops a later session "finishing the job" by migrating the other twelve without him.
+   */
+  it('§7 records the ramp, and the registry really does hold exactly one tower', () => {
+    expect(RAMP_SPECS.map((s) => s.recipeId)).toEqual(['lightningHub']);
+    expect(canonSays('THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED')).toBe(true);
+    // The table's own boundary, derived rather than typed: 8 of 24 frames IS the threshold.
+    const spec = RAMP_SPECS[0]!;
+    const death = rampDeathFirstFrame(spec)!;
+    expect((spec.frames - death + 1) / spec.frames).toBeCloseTo(STAR_SELFDESTRUCT_BELOW_FRAC, 10);
+    expect(canonSays(`| **below 33 %** | **${death} → ${spec.frames}** |`)).toBe(true);
+    // And the two rows the owner gave by number.
+    expect(rampFrameForHealth(1, spec.frames)).toBe(1);
+    expect(rampFrameForHealth(TOWER_DAMAGED_BELOW, spec.frames)).toBe(12);
+  });
+
+  it('§7 prints the measured balance change, not an estimate of it', () => {
+    // banked 34 of a 50 pool: 3 melee-goblin swings (12 each) and 5 chewer bites (7 each).
+    const pool = structurePoolFifths(5);
+    const trigger = Math.floor(pool * (1 - STAR_SELFDESTRUCT_BELOW_FRAC)) + 1;
+    expect(trigger).toBe(34);
+    expect(Math.ceil(trigger / 12)).toBe(3);
+    expect(Math.ceil(trigger / 7)).toBe(5);
+    expect(canonSays('(banked 50 of a 50 pool) to "below a third" (banked 34)')).toBe(true);
+  });
+
+  it('§8 records that a dent costs ONE shape, and the fee is still derived', () => {
+    // ⚠ The RULING, quoted, not a paraphrase that a tidy-up could soften back to "free".
+    expect(canonSays('So far it takes NO shape — that\'s not correct')).toBe(true);
+    expect(canonSays('whether it\'s one HP or fifty HP')).toBe(true);
+    expect(repairFeeShapeFor('pentagram' as GodlyId)).toBe(SparkType.Triangle);
+    expect(repairFeeShapeFor('goblinTower' as GodlyId)).toBe(SparkType.Circle);
+    expect(canonSays('pentagram → Triangle, goblin tower → Circle')).toBe(true);
+  });
+
+  /**
+   * ⛔⛔ THE OPEN QUESTION, AND THE ASSERTION THAT KEEPS IT OPEN. §9's own rule is that an open item
+   * gets a test so a later session cannot quietly tidy it away. R182-C is the blast's DAMAGE: the
+   * owner ruled 120 fifths believing it was undefined, and it is in fact an instant-kill radial
+   * clear. Until he answers, the blast must stay exactly as S157 left it.
+   */
+  it('§9 keeps R182-C open — the blast is STILL the radial clear, not a ladder number', () => {
+    expect(canonSays('R182-C')).toBe(true);
+    expect(canonSays('UNANSWERED. Nothing was built.')).toBe(true);
+    const lifecycle = readFileSync(new URL('./state/potatoLifecycle.ts', import.meta.url), 'utf8');
+    const arm = lifecycle.slice(lifecycle.indexOf('export function applyStructureSelfDestruct'));
+    const body = arm.slice(0, 1200);
+    expect(body).toContain('applyRadialClear'); // still the raze…
+    expect(body).not.toContain('attackFifths'); // …and NOT quietly converted to ladder damage
+    // And S157 P0's owner-exemption is still the thing that spares his own base.
+    expect(body).toContain('ownerPlayerId');
   });
 });

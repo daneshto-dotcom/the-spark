@@ -1,0 +1,34 @@
+{
+  "_note": [
+    "S182 — the lightning hub's 24-frame damage ramp, built by scripts/build-sheet-atlas.mjs.",
+    "The SOURCE is the owner's 8x3 contact sheet read in reading order as one continuous ramp,",
+    "frame 1 pristine to frame 24 rubble. The OUTPUT is 2 rows of 12, which is the shape the rest",
+    "of the pipeline is built around (ART_PIPELINE.md: 'it needs 12 frames'). states[] is the only",
+    "place those two numberings meet.",
+    "",
+    "grid{} is an ASSERTION against the detected rules, never the source of the cell bounds — the",
+    "cells on this sheet are 254..184 wide and 270..285 tall, so a uniform 1908/8 stride would clip",
+    "six of the twenty-four frames.",
+    "",
+    "ticksPerFrame 3 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
+    "against this file by structureRampAtlas.test.ts. 24 frames x 3 = 72 ticks = 1.2 s, which is the",
+    "owner's R182-D: 'if he destroys a whole structure in one hit, within like one second it looks",
+    "like a whole structure got destroyed.'"
+  ],
+  "name": "lightning-hub",
+  "source": "assets-source/lightning-hub/hub-transitions-24.png",
+  "outDir": "public/art/lightning-hub",
+  "grid": { "cols": 8, "rows": 3 },
+  "cellW": 256,
+  "cellH": 256,
+  "backgroundRGB": [0, 10, 17],
+  "bgTolerance": 30,
+  "enclosedBgLimitPct": 0.002,
+  "stripCornerLabel": true,
+  "cornerLabelBoxPx": 56,
+  "edgeSoftness": 64,
+  "states": [
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+  ]
+}

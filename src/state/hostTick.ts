@@ -132,6 +132,8 @@ import { shouldCookOffInHand } from './potatoLifecycle.ts';
 import { tickScoring } from './scoring.ts';
 import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
+// S182 (owner R182-A/B) — the hub's own star health, the ONE copy of that arithmetic.
+import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHealth.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -191,6 +193,24 @@ export interface HostTickState {
   bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
+  /**
+   * ⭐⭐⭐ S182 — **THE TICK A DOOMED LIGHTNING HUB CROSSED ITS THRESHOLD**, so its collapse can
+   * finish playing before the sim razes the star.
+   *
+   * ⛔ WHY IT IS HOST-LOCAL RATHER THAN A FIELD ON THE SPAWNER. `trimMirrorSpawner` STRIPS every
+   * tick field from a spawner on the wire and `deserializeSpawner` re-seeds them from the client's
+   * OWN current tick — so a fuse stored there would restart ten times a second on a joiner, which is
+   * the trap `towerCover`'s docblock already records against `ignitedAtTick`. Keeping it here also
+   * avoids the four-sites tax and a protocol bump, exactly as `bossRoster` and `sapLedger` above do.
+   *
+   * ⚠ AND IT STAYS CONSISTENT WITH THE WORKER SIM because `workerSim.ts` runs this same
+   * `runHostTick` against its own `HostTickState`: identical world, identical actions, identical
+   * tick, so both fuses fire on the same tick and `hashWorldStateFull` cannot see a difference.
+   *
+   * ⚠ A HOST MIGRATION LOSES IT, and the consequence is bounded and stated rather than hidden: the
+   * new host re-fuses a hub that was already dying, so it lives ~0.4 s longer than it would have.
+   */
+  hubDeathFuse: Map<number, number>;
 }
 
 /**
@@ -311,6 +331,7 @@ export function makeHostTickState(world: World): HostTickState {
      * half knows what they are standing on.
      */
     sapLedger: new Map(),
+    hubDeathFuse: new Map(),
   };
 }
 
@@ -662,11 +683,107 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   //       LIVE position, then advance the cadence by `+=` (NOT `= tick + interval`)
   //       so emit timing never drifts. Snapshot the entries first (REMOVE_SPAWNER
   //       deletes from the Map mid-loop, mirroring the bomb-dissipate snapshot).
+  /*
+   * ⛔⛔⛔ S182 FIX — **THE DEATH FUSE IS PER-MATCH SCRATCH AND MUST NOT OUTLIVE THE MATCH.**
+   *
+   * The first version of the fuse had exactly ONE `delete`, inside the destruction branch — and a
+   * match does NOT end through that branch. `teardownSpawners` clears `world.creatureSpawners`
+   * directly (the same property `awardSpawnerKillReward` relies on two hundred lines below), so a
+   * fuse armed in one match survived into the next, and because spawner ids are REUSED
+   * (`applyReturnToTitle` resets the counter) it would land on a brand-new, UNDAMAGED hub and
+   * detonate it on its first poll.
+   *
+   * ⭐ DROPPED ON ANY NON-PLAYING TICK, which is `bossRoster`'s idiom in this same file and is there
+   * for the same reason — *"a reset is not a death"*. It is the one place that covers EVERY teardown
+   * path at once: the two spawner teardown sites (`gameState.ts:249` on the PLAYING→WIN edge and
+   * `world.ts:584` on RETURN_TO_TITLE / START_GAME) are REDUCERS that take `world` and never see
+   * `HostTickState`, so they cannot clear it themselves, and every one of them passes through a
+   * non-PLAYING tick before the next match's first PLAYING tick.
+   */
+  if (world.gameState !== 'PLAYING') state.hubDeathFuse.clear();
+
  if (world.gameState === 'PLAYING' && world.creatureSpawners.size > 0) {
     for (const [spawnerId, sp] of [...world.creatureSpawners]) {
       if (world.tick - sp.lastValidatedTick >= REVALIDATE_INTERVAL_TICKS) {
         sp.lastValidatedTick = world.tick;
-        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp)) {
+        /*
+         * ⭐⭐⭐ S182 (owner R182-A) — **THE HUB NO LONGER WAITS FOR ITS STAR TO BREAK.**
+         *
+         * > *"From thirty two percent it will just get self destroyed, but it is a suicide drone
+         * > building, so it makes sense. We won't do it for every building."*
+         *
+         * ⛔ **HUB ONLY, AND THAT IS THE RULING, NOT AN IMPLEMENTATION SHORTCUT.** It is earned by
+         * the hub being a suicide-drone building; the damage ART generalises to every tower and this
+         * threshold does not. A future recipe must not pick it up by being added to a list.
+         *
+         * ⚠ **AND THE PERCENTAGE IS ITS OWN STAR, NOT ITS COMPONENT** (R182-B) — see
+         * `structureStarHealth.ts` for why that divergence from `damageConnector` is deliberate.
+         *
+         * ⚠ **IT IS A REAL BALANCE CHANGE, MEASURED.** The trigger moves from "banked reaches the
+         * pool" (50 fifths) to "banked passes two thirds of it" (34), so a five-armed hub falls to
+         * 3 melee-goblin swings instead of 5 and 5 chewer bites instead of 8 — about 40 % faster to
+         * exactly the swarm its own drones counter. One-shot attackers are unaffected. The
+         * counterweight is that it also DETONATES 40 % sooner.
+         *
+         * ⚠ **NOT PHASE-GATED, deliberately, and this does not reopen S157 P0.** That report was
+         * about the EMIT-COUNTED self-destruct firing 60 s after ignition regardless of damage, which
+         * S159 P9 retired. This fires only on damage the hub has actually taken, and damage only
+         * lands in FIGHT — so a hub cannot reach the threshold during BUILD. Gating it would only
+         * delay a hub that crossed the threshold in the poll window straddling the phase edge, and
+         * delaying it by a whole BUILD is worse than firing it half a second late.
+         */
+        const spawnerKey = Number(spawnerId);
+        const doomed =
+          sp.recipeId === 'lightningHub' && starIsBelowSelfDestruct(world, sp.anchorPrimitiveId);
+        /*
+         * ⭐⭐⭐ S182 — **THE COLLAPSE FINISHES BEFORE THE RAZE.**
+         *
+         * ⛔ THE DEFECT THIS CLOSES. Crossing the threshold used to dispatch the blast, remove the
+         * spawner and raze the star in ONE tick — so the eight frames of collapse the owner
+         * commissioned could only ever be drawn by a client-local ghost, and a peer that had
+         * reloaded (or a joiner who arrived a moment before) had no ghost record and saw the
+         * building simply vanish. The art was unreachable for exactly the players most likely to be
+         * looking at it.
+         *
+         * ⭐ So a doomed hub is FUSED instead of killed: it stays in the world for
+         * `HUB_DEATH_RUN_TICKS`, during which every peer — joiners included — derives the same
+         * collapse from `Bond.damageFifths`, which is synced and hashed. The ghost stops being the
+         * only path and becomes what it should always have been: the tail.
+         *
+         * ⚠ THE FUSE ONLY EVER DELAYS. If the star BREAKS during it, the ordinary recipe test below
+         * fires on the same poll and the hub dies at once.
+         *
+         * ⛔⛔ **AND IT IS RELEASED, NOT LATCHED — TWO WAYS, BOTH OF WHICH THE FIRST VERSION GOT
+         * WRONG BY ASSUMING THIS POLL ONLY RUNS IN FIGHT. IT DOES NOT.** The phase gate sits ~130
+         * lines BELOW this branch, deliberately (*"dormancy suspends the WEAPON, not the
+         * bookkeeping"*), so the revalidation runs in BUILD too:
+         *
+         *   1. **REPAIRED ⇒ RELEASED.** FIX is BUILD-only, and this poll runs in BUILD, so a hub
+         *      that is mended back above the threshold really can stop being doomed. With no `else`
+         *      the fuse was a latch that nothing could clear, and a fully-repaired hub would still
+         *      detonate.
+         *
+         *   2. ⛔⛔ **NOT IN FIGHT ⇒ RELEASED, AND THIS IS THE OWNER'S OWN S157 P0 REPORT.** He
+         *      reported *"lightning hubs blow up own structures … during build phase"* and that
+         *      whole block below exists to answer it. Deferring the kill by a poll re-opened exactly
+         *      that: a hub crossing the threshold near the end of FIGHT would have detonated in its
+         *      owner's base during BUILD. Arming only in FIGHT means the worst case is that a doomed
+         *      hub survives the interval and dies on the next FIGHT — its damage persists, so it is
+         *      still doomed, it just cannot detonate while the player is building.
+         */
+        const inFight = world.matchPhase === 'FIGHT';
+        if (doomed && inFight) {
+          if (!state.hubDeathFuse.has(spawnerKey)) state.hubDeathFuse.set(spawnerKey, world.tick);
+        } else {
+          state.hubDeathFuse.delete(spawnerKey);
+        }
+        const fusedAt = state.hubDeathFuse.get(spawnerKey);
+        const fuseBlown = fusedAt !== undefined && world.tick - fusedAt >= HUB_DEATH_RUN_TICKS;
+        if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp) || fuseBlown) {
+          // ⚠ The fuse is host-local scratch, so it is cleared on EVERY exit from this branch —
+          // spawner ids are reused across matches (`applyReturnToTitle` resets the counter), and a
+          // stale row would fuse-blow a brand-new hub on its first poll.
+          state.hubDeathFuse.delete(spawnerKey);
           // S100 P1 (Layer 6) — destruction (NOT teardown): award the one-shot raid
           // reward split across enemies BEFORE removing the record (awardSpawnerKillReward
           // reads sp.ownerPlayerId). teardownSpawners clears the map directly and never

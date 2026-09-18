@@ -105,12 +105,29 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
     expect(fix.caption).toBe('NOTHING TO FIX');
   });
 
-  it('chip damage alone offers a FREE repair', () => {
+  /**
+   * ⭐⭐ S182 (owner R182-E) — INVERTED, NOT DELETED. This asserted `REPAIR FREE`, which was the
+   * shipped behaviour until he read it on the board: *"so far it takes NO shape — that's not
+   * correct. It takes one shape. Whether it's one HP or fifty HP."* The caption and the price move
+   * together, and the turret's fee is a Spiral (its most numerous node type).
+   */
+  it('chip damage alone COSTS ONE SHAPE (was: REPAIR FREE)', () => {
     const w = setup();
     damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature'); // ⭐ S177 P1 — chip damage on the 70-fifth scale
+    stock(w, SparkType.Spiral, 1); // the build spent the whole bill, so the fee needs funding
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);
-    expect(fix.caption).toBe('REPAIR FREE');
+    expect(fix.caption).toBe('COSTS 1');
+  });
+
+  it('…and an empty bank cannot afford that one shape, so FIX says so instead of lying', () => {
+    // ⛔ THE REAL CONSEQUENCE OF R182-E, and the owner should see it: a dented tower is no longer
+    // unconditionally repairable. `setup` spends the exact bill, so the bank is empty here.
+    const w = setup();
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature');
+    const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
+    expect(fix.enabled).toBe(false);
+    expect(fix.caption).toBe('NEED 1 MORE');
   });
 
   it('freeform rubble offers SCRAP ONLY — no greyed FIX lying about what the game can do', () => {

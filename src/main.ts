@@ -173,6 +173,8 @@ import { ChewerRenderer } from './render/chewerRenderer.ts';
 import { GoblinRenderer } from './render/goblinRenderer.ts';
 import { TurretRenderer } from './render/turretRenderer.ts';
 import { VoltkinTowerRenderer } from './render/voltkinTowerRenderer.ts';
+// S182 — the damage-ramp renderer. GENERIC over `RAMP_SPECS`; one entry today (the lightning hub).
+import { StructureRampRenderer } from './render/structureRampRenderer.ts';
 import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
@@ -796,6 +798,12 @@ async function bootstrap(): Promise<void> {
    * structures so it fogs and sorts with them.
    */
   const voltkinTowerRenderer = new VoltkinTowerRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐ S182 — the damage-ramp buildings. Same layer as the other structures so they fog and sort
+   * with them. Cheap when none is live: `sync` returns immediately on an empty spawner map, and
+   * `rampSpecFor` is `null` for every recipe but the one in the table.
+   */
+  const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);
   const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
   const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
@@ -2005,6 +2013,18 @@ Network routes: ${v.detail}`;
       get aboveFogLayer() { return aboveFogLayer; },
       // S169 (owner) — the concealable layer, so `e2e/fog.spec.ts` can roll-call BOTH sides of the fog.
       get fogHiddenLayer() { return fogHiddenLayer; },
+      /*
+       * ⭐ S182 — the damage-ramp layer, BY IDENTITY rather than by index.
+       *
+       * ⛔ `tower-art.spec.ts` reads its tower layer as `fogHiddenLayer.children[6]` and its own
+       * comment records that as the FOURTH move of that probe (S167 → S169 → S170 ground → S170
+       * mask), *"a hardcoded index into a hand-maintained display list, which is why it keeps
+       * breaking"*. It also cannot tell two adjacent `_Container`s apart, so `fog.spec.ts`'s roll
+       * call passes whichever order they are in — which is exactly how the first run of
+       * `hub-ramp-art.spec.ts` read the PRINCESS layer and reported two sprites on an empty board.
+       * A getter costs one line and cannot be off by one.
+       */
+      get structureRampLayer() { return structureRampRenderer.layer; },
       // ⭐ S170 P1 (owner) — the GROUND layer, published so `e2e/fog.spec.ts` can pin the invariant
       // that actually prevents the S166/S169 bug class: the board's ground is index 0 of the stage,
       // so nothing can ever paint over the shapes again. A roll call of the other two layers cannot
@@ -2752,6 +2772,7 @@ Network routes: ${v.detail}`;
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
         voltkinTowerRenderer.clear();
+        structureRampRenderer.clear();
         // S103 P4 — drop HELGA graphics + per-princess facing/SFX state on title-return.
         princessRenderer.clear();
         // S141 P1 — drop stink-tower graphics + per-tower FSM-edge state on title-return.
@@ -3864,6 +3885,7 @@ Network routes: ${v.detail}`;
     // world.creatureSpawners and `towerArtForRecipe` returns null for every non-race recipe.
     towerRenderer.sync(world);
     voltkinTowerRenderer.sync(world);
+    structureRampRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
     // can stack above creatures in S27). Cheap when world.creatures empty.

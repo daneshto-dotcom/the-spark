@@ -349,19 +349,49 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     expect(totalShapes(w)).toBe(before);
   });
 
-  it('heals chip damage for free — R13 prices FIX at what was LOST, and nothing was', () => {
+  /**
+   * ⭐⭐⭐ S182 (owner R182-E) — INVERTED, NOT DELETED, the S158 B2b treatment for a re-ruled
+   * behaviour. This asserted that chip damage heals for FREE and argued the case from R13 ("FIX
+   * prices what was LOST, and nothing was"). The owner played it and rejected the conclusion:
+   * *"If there's only an amount of HP missing but no connector destroyed ... then it takes one
+   * shape. So far it takes NO shape — that's not correct. ... Whether it's one HP or fifty HP."*
+   *
+   * ⚠ CONSERVATION STILL HOLDS, and it is the sharper claim: the fee LEAVES the seat's total,
+   * because a repair now consumes a shape the way a build does. Only the free-ness moved.
+   */
+  it('⭐ R182-E — chip damage costs ONE shape, flat (was: free)', () => {
     const w = setup();
     fund(w, 'laserTurret');
     build(w, 'laserTurret');
+    stock(w, SparkType.Spiral, 1); // the build spent the exact bill; the fee needs its own funding
     const victim = nodesOf(w, 'laserTurret').get(2)!;
     damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature'); // ⭐ S177 P1 — the 70-fifth scale
     expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP - 40);
+
+    const plan = planStructureRepair(w, P0, victim)!;
+    expect(plan.group.missing).toHaveLength(0); // nothing was LOST — this is the flat-fee case
+    expect(plan.cost).toEqual([SparkType.Spiral]); // the turret's most numerous node type
 
     const before = totalShapes(w);
     applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: victim });
 
     expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP);
-    expect(totalShapes(w)).toBe(before); // free, because nothing died
+    expect(totalShapes(w)).toBe(before - 1); // one shape consumed, and it did not reappear anywhere
+  });
+
+  it('⛔ …and with an empty bank the dent is simply NOT repairable', () => {
+    // The consequence the owner should see: FIX is no longer a free button you can always press.
+    const w = setup();
+    fund(w, 'laserTurret');
+    build(w, 'laserTurret');
+    const victim = nodesOf(w, 'laserTurret').get(2)!;
+    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature');
+
+    expect(planStructureRepair(w, P0, victim)!.payments).toBeNull();
+    const before = totalShapes(w);
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: victim });
+    expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP - 40); // refused outright
+    expect(totalShapes(w)).toBe(before);
   });
 
   /**
@@ -385,13 +415,16 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     expect(w.bonds.get(bondId)!.damageFifths).toBeGreaterThan(0);
     for (const p of w.primitives.values()) expect(p.hp).toBe(PRIMITIVE_MAX_HP);
 
+    stock(w, SparkType.Spiral, 1); // ⭐ S182 R182-E — a hurt connector is a dent, and a dent costs 1
     const seed = anyMember(w, 'laserTurret');
     expect(planStructureRepair(w, P0, seed)!.damagedCount).toBe(1); // the button must light up
     const before = totalShapes(w);
     applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed });
 
     expect(w.bonds.get(bondId)!.damageFifths).toBe(0); // healed
-    expect(totalShapes(w)).toBe(before); // nothing died, so nothing is charged
+    // ⭐ S182 — was `toBe(before)`: a hurt CONNECTOR is the same "damaged but intact" case as a
+    // chipped shape, so R182-E prices it the same. Nothing died; one shape was still spent.
+    expect(totalShapes(w)).toBe(before - 1);
   });
 
   it('an untouched tower refuses the repair, rather than arming the ignition sweep for free', () => {

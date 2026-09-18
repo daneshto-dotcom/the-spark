@@ -31,7 +31,9 @@ import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import { makeGameStateExtras } from './gameState.ts';
 import { mulberry32 } from './rng.ts';
-import { asBondId, asPlayerId, asPrimitiveId } from '../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, type PrimitiveId } from '../types.ts';
+// S182 — the hub now dies from DAMAGE, so the fixture has to be able to say so.
+import { STAR_SELFDESTRUCT_BELOW_FRAC, starHealthFrac } from './structureStarHealth.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Controls } from '../input/controls.ts';
 import {
@@ -93,24 +95,42 @@ function worldWithHub(): World {
   return w;
 }
 
-/** Runs the matcher + host tick together, the way main.ts does, counting every drone ever seen. */
-function runFight(w: World, ticks: number): { everSeen: number; selfDestructedAt: number | null } {
+/**
+ * Runs the matcher + host tick together, the way main.ts does, counting every drone ever seen.
+ *
+ * ⭐ S182 — ALSO REMEMBERS THE HUB'S OWN STAR HEALTH ON THE LAST TICK IT EXISTED. Under R182-A a hub
+ * dies from DAMAGE rather than from an emit count, so "why did it go" is now a question the fixture
+ * has to be able to answer — see the re-pinned case below.
+ */
+function runFight(w: World, ticks: number): {
+  everSeen: number;
+  selfDestructedAt: number | null;
+  fracAtDeath: number | null;
+} {
   const d = deps();
   const st = makeHostTickState(w);
   const cursor = { lastMatcherTick: -1 };
   const seen = new Set<number>();
   let selfDestructedAt: number | null = null;
+  let fracAtDeath: number | null = null;
+  let lastFrac: number | null = null;
+  let anchor: PrimitiveId | null = null;
   let hadSpawner = false;
   for (let t = 0; t < ticks; t++) {
     runGodlyMatcherCore(w, cursor);
     runHostTick(w, d, st);
+    for (const sp of w.creatureSpawners.values()) anchor = sp.anchorPrimitiveId;
+    if (anchor !== null) lastFrac = starHealthFrac(w, anchor) ?? lastFrac;
     if (w.creatureSpawners.size > 0) hadSpawner = true;
-    if (hadSpawner && w.creatureSpawners.size === 0 && selfDestructedAt === null) selfDestructedAt = t;
+    if (hadSpawner && w.creatureSpawners.size === 0 && selfDestructedAt === null) {
+      selfDestructedAt = t;
+      fracAtDeath = lastFrac;
+    }
     for (const c of w.creatures.values()) {
       if (c.type === 'lightningDrone') seen.add(c.id as unknown as number);
     }
   }
-  return { everSeen: seen.size, selfDestructedAt };
+  return { everSeen: seen.size, selfDestructedAt, fracAtDeath };
 }
 
 describe('S158 B2 — the hub delivers inside ONE fight', () => {
@@ -140,14 +160,40 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
      * hub deliver inside ONE fight (the BUILD-carry test below still pins it) and that a hub is
      * dormant during BUILD (its own CONTROL). Only the self-destruct half is retired.
      */
+    /*
+     * ⭐⭐⭐ S182 (owner R182-A) — **RE-PINNED, AND THE NEW ASSERTION IS SHARPER THAN THE OLD ONE.**
+     *
+     * This asserted `selfDestructedAt === null` — the hub standing at the whistle. Under R182-A it
+     * dies *"from thirty two percent"* instead of when its star breaks, and in this fixture an enemy
+     * race unit walks up and chews it: MEASURED, banked climbs 0 → 36 of a 50 pool and the hub
+     * detonates at **t=3329 of 3600**, costing it the last of its twelve emit slots.
+     *
+     * ⛔ THE OLD ASSERTION WAS A PROXY AND IT HAS STOPPED MEANING WHAT IT SAID. S159 P9's claim is
+     * that the hub does not blow up **because of its own production** — the retired three-drone
+     * burst the owner reported (*"spawns like 3 drones and then dissapears! wtf?"*). "It is still
+     * standing" was a cheap way to test that while damage was the only other way to die. Now it is
+     * not, so the claim is asserted DIRECTLY: if the hub went, it went because it had been beaten
+     * below a third, and the count it reached is irrelevant to its death.
+     *
+     * ⚠ MEASURED BOTH WAYS before this was rewritten, by disabling the new trigger and re-running:
+     * on the old rule this fixture ends with **12 drones and the hub alive**; on the new one, 11 and
+     * a wreck. That is the R182-A balance change, in one fixture, in the owner's own units.
+     */
     const w = worldWithHub();
     w.matchPhase = 'FIGHT';
-    const { everSeen, selfDestructedAt } = runFight(w, FIGHT_PHASE_TICKS);
+    const { everSeen, selfDestructedAt, fracAtDeath } = runFight(w, FIGHT_PHASE_TICKS);
     // eslint-disable-next-line no-console
-    console.log(`[S159 P9] one 45 s fight: ${everSeen} drones, selfDestructedAt=${selfDestructedAt}`);
+    console.log(`[S159 P9] one 60 s fight: ${everSeen} drones, selfDestructedAt=${selfDestructedAt}, fracAtDeath=${fracAtDeath}`);
     expect(everSeen, 'more than the retired 3-drone burst').toBeGreaterThan(DRONE_MAX_PER_SPAWNER);
-    expect(selfDestructedAt, 'and the hub survives its own production').toBeNull();
-    expect(w.creatureSpawners.size, 'still standing at the whistle').toBe(1);
+    if (selfDestructedAt === null) {
+      expect(w.creatureSpawners.size, 'still standing at the whistle').toBe(1);
+    } else {
+      // ⛔ THE HALF THAT MATTERS: it was BEATEN below the threshold. A hub that vanished at full
+      // health would be the retired emit-counted burst coming back, and this is what catches it.
+      expect(fracAtDeath, 'the hub must die from DAMAGE, not from an emit count').not.toBeNull();
+      expect(fracAtDeath!).toBeLessThan(STAR_SELFDESTRUCT_BELOW_FRAC);
+      expect(selfDestructedAt, 'and not until deep into the fight').toBeGreaterThan(FIGHT_PHASE_TICKS / 2);
+    }
 
     /*
      * ⭐ S160 P2(b) — AND THE NUMBER ITSELF IS NOW PINNED, NOT JUST ITS FLOOR.
@@ -167,11 +213,20 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
     // ⛔ RE-PINNED S177 P6 — 9 → 12. The emit cadence is untouched; the FIGHT grew, because he asked
     // for it: *"make the fight last fifteen seconds longer"* (FIGHT_PHASE_TICKS 2700 → 3600).
     expect(slots, 'the arithmetic the owner was quoted').toBe(12);
+    /*
+     * ⭐ S182 — COUNTED AGAINST THE TIME IT WAS ALIVE, not against the whole fight. R182-A means a
+     * hub can be killed mid-fight, and a hub that dies at t=3329 cannot be blamed for missing the
+     * slot at t=3600. The CLAIM is unchanged and still exact — one emit per slot it lived through, so
+     * a cap blocking a slot or an off-cadence emit still goes red.
+     */
+    const aliveTicks = selfDestructedAt ?? FIGHT_PHASE_TICKS;
+    const livedSlots = Math.floor(aliveTicks / DRONE_EMIT_INTERVAL_TICKS);
     expect(
       everSeen,
-      `one emit per slot: ${FIGHT_PHASE_TICKS} / ${DRONE_EMIT_INTERVAL_TICKS} = ${slots}. A lower ` +
-        'number means a cap is blocking slots; a higher one means something emits off-cadence.',
-    ).toBe(slots);
+      `one emit per slot it LIVED through: ${aliveTicks} / ${DRONE_EMIT_INTERVAL_TICKS} = ` +
+        `${livedSlots}. A lower number means a cap is blocking slots; a higher one means something ` +
+        'emits off-cadence.',
+    ).toBe(livedSlots);
   });
 
   it('⭐ S159 P9 — never exceeds DRONE_MAX_PER_SPAWNER in the air at once', () => {
