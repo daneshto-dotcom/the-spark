@@ -98,6 +98,63 @@ export const STRATEGY_FLAGS = {
 export type StrategyName = keyof typeof STRATEGY_FLAGS;
 
 /**
+ * ⭐ S182 LEVER 1 — ROUTE HIGH-RATE SNAPSHOT TRAFFIC OVER ONE STRATEGY. **ON. THE OWNER RULED.**
+ *
+ * Owner, S182, asked to weigh the bandwidth against the connectivity redundancy he paid for in
+ * S157/S162: *"if it halves our bandwidth, then of course we need to do it."*
+ *
+ * `true` is therefore the shipped default. The constant REMAINS as an escape hatch: if snapshot
+ * delivery ever looks worse in the field than the doubling was, flip it to `false` and the pre-S182
+ * redundant broadcast comes straight back, with no other edit and no protocol implication.
+ *
+ * ⚠ WHAT THE RULING DOES AND DOES NOT COVER. He approved trading the SNAPSHOT's redundancy for
+ * bandwidth. He did not approve narrowing anything else, and this does not: `HELLO`,
+ * `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT` and `MIGRATION_CLAIM` keep the full multi-strategy
+ * broadcast. Those are the messages that decide whether a match can START, which is the failure he
+ * actually lived through in Israel — and they are rare and small, so keeping them costs nothing.
+ *
+ * ## What it does
+ *
+ * `STRATEGY_FLAGS` has both `nostr` and `torrent` on, and `NetTransport.send` loops every ready
+ * strategy — so the host opens two independent `RTCPeerConnection`s **to the same machine** and every
+ * byte goes out twice. At the brother's wave-5 board that is a measured-class ~107 KiB snapshot at
+ * 10 Hz becoming ~17.6 Mbit/s of upload instead of ~8.8. The joiner then `JSON.parse`s both copies
+ * and discards the second on `ClientSync`'s seq gate.
+ *
+ * With this ON, only `NETSNAPSHOT` is routed to a single chosen strategy. Everything rare and
+ * small — `HELLO`, `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT`, `MIGRATION_CLAIM` — keeps the
+ * redundant broadcast, because those are exactly what multi-strategy redundancy exists to protect.
+ * −50% of all bytes, no wire-format change, no `PROTOCOL_VERSION` bump.
+ *
+ * ## ⚠ THE RESIDUAL RISK HE IS ACCEPTING, STATED PLAINLY
+ *
+ * `pickSnapshotStrategy` re-picks per send, so a strategy that DROPS a peer is abandoned on the next
+ * snapshot (≤100 ms at `NET_SNAPSHOT_HZ`). What it cannot see is a strategy that is *degrading*
+ * rather than gone — still reporting its peers while delivering nothing. In that state the joiner
+ * starves with the redundant path sitting idle beside it, where before S182 the second copy would
+ * have covered it.
+ *
+ * That is the real cost of this ruling, it is not hypothetical, and the mitigation is the Step 0
+ * instrument rather than more code: `?netstats=1` shows `snap rx`, `since` and `gap` on the joiner,
+ * so a starving peer is now VISIBLE instead of being guessed at from a video. If it happens, flip
+ * this constant back.
+ *
+ * ⛔ AND ONE THING THIS FLAG MUST NEVER BE ALLOWED TO DO IS STARVE A SEAT BY DESIGN. See
+ * `pickSnapshotStrategy`: a strategy is chosen only if it carries EVERY peer at the table. The first
+ * cut of this lever asked merely "does it have A peer", which silently starved one seat of a 3–4
+ * player match for the whole game. That bug was caught in audit before the owner was ever asked to
+ * rule, which is the only reason this ruling is safe to apply.
+ */
+export const SNAPSHOT_SINGLE_STRATEGY = true;
+
+/**
+ * S182 LEVER 1 — preference order when `SNAPSHOT_SINGLE_STRATEGY` routes snapshots to one strategy.
+ * Nostr first: `transport.ts` calls it the primary and it is the only always-on, eagerly-imported
+ * strategy. Torrent is the declared fallback; mqtt is an opt-in operator lever and comes last.
+ */
+export const SNAPSHOT_STRATEGY_PREFERENCE: readonly StrategyName[] = ['nostr', 'torrent', 'mqtt'];
+
+/**
  * ⭐ S157 N1 — **THE TURN SERVERS WERE DEAD, AND THAT IS WHY MULTIPLAYER HANGS ON "Connecting...".**
  *
  * Owner, after trying to play with his brother in Israel: *"we still could not connect to each

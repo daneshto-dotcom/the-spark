@@ -356,7 +356,20 @@ interface SerializedPrimitive {
   placedBy: PlayerId;
   createdTick: number;
   pos: Vec2;
-  prevPos: Vec2;
+  /**
+   * ⛔ S182 LEVER 2 — ADDITIVE-OPTIONAL SINCE PROTOCOL 47, AND ABSENT ON THE WIRE BY DESIGN.
+   *
+   * `serializePrimitive` still ALWAYS emits it, so the disk save, `workerSim.restore()` and
+   * `save.replay`'s byte-identity gate are untouched. `netSnapshot()` strips it, because it is dead
+   * weight for a joiner: every primitive `prevPos` reader in the tree is sim code (`game/verlet`,
+   * `game/spawner`, `game/invariants`, `input/controls`) and a joiner runs no sim. It was ~34% of a
+   * primitive's wire cost, sent 10×/second, to be ignored.
+   *
+   * `deserializePrimitive` defaults it to `pos` when absent — zero implicit velocity, the same
+   * neutral default `makePrimitiveFromSpark` uses at placement and `deserializeDefender` uses for
+   * its own optional `prevPos`.
+   */
+  prevPos?: Vec2;
   bonds: BondId[];
   ownerColor: number;
   lastOwnershipChange: number;
@@ -1211,8 +1224,147 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
+  // ⛔ S182 — `prevPos` IS **NOT** STRIPPED HERE. IT IS STRIPPED AT THE WIRE BOUNDARY.
+  // See `stripWirePrevPos` below for why this distinction is load-bearing, and what breaks when the
+  // strip lives in this function instead.
   return rest;
 }
+
+/**
+ * ⭐ S182 LEVER 2 (protocol 47) — REMOVE `prevPos` FROM EVERY PRIMITIVE **ON THE WIRE**.
+ *
+ * Returns a shallow-rebuilt copy; the input is never mutated. Applied by `NetTransport.send` for
+ * `NETSNAPSHOT` only, beside `wireNumberReplacer`.
+ *
+ * ## What it buys
+ *
+ * `prevPos` is ~34% of a primitive's wire cost and it is DEAD ON A JOINER: every primitive `prevPos`
+ * reader in the tree is sim code (`game/verlet`, `game/spawner`, `game/invariants`,
+ * `input/controls`), and a joiner runs no sim. At the brother's wave-5 board that is a quarter of a
+ * ~100 KiB payload, shipped ten times a second, to be discarded on arrival.
+ *
+ * ## ⛔ WHY IT IS HERE AND NOT IN `netSnapshot()` — THE SAME LESSON AS THE QUANTISER, TWICE
+ *
+ * The first implementation stripped it inside `netSnapshot()`. Every test stayed green and the
+ * worker hash oracle stayed green too — because `hashWorldState` projects `pos` only
+ * (`stateHash.ts:110`) and cannot see `prevPos`. It was still wrong, and audit caught it:
+ *
+ * **`netSnapshot()` IS NOT THE WIRE.** `workerSim.ts` builds the worker→main mirror transfer with
+ * it, and that transfer is a `structuredClone` over `postMessage` — stripping there saves NOTHING
+ * (no bytes cross a network) and COSTS the mirror its Verlet velocity, since velocity IS
+ * `pos − prevPos`. The damage lands at `main.ts`'s worker-failure direct-resume repair: main adopts
+ * that mirror and resumes simulating it, so every primitive would restart from a standstill.
+ *
+ * Stripping at the wire boundary instead gives both paths what they need: the worker mirror keeps
+ * true velocity, and the network still stops carrying a field nobody reads.
+ *
+ * ⭐ THE GENERAL RULE, WORTH MORE THAN THIS FIELD: **making a field "netSnapshot-stripped" has
+ * consumers beyond the wire.** `netSnapshot` feeds three things — the network, the worker→main
+ * mirror, and (through that mirror) two authority-adoption paths. A strip that is correct for the
+ * first can be silently wrong for the others, and the hash oracle will not tell you.
+ *
+ * ## ⚠ WHAT REMAINS ACCEPTED, STATED RATHER THAN SLIPPED IN
+ *
+ * A client promoted on HOST MIGRATION still inherits every primitive at ZERO VELOCITY, because its
+ * world was built from wire snapshots where `prevPos` genuinely never travelled and
+ * `deserializePrimitive` defaults it to `pos` (`main.ts`'s TAKEOVER path). A settled board — the
+ * overwhelmingly common case — is unaffected, since its primitives already have `prevPos ≈ pos`; a
+ * board caught MID-SWING loses that momentum and its structures settle rather than continuing to
+ * oscillate. No NaN, no divergence, no desync.
+ *
+ * This WIDENS AN ALREADY-ACCEPTED GAP rather than opening a new one: this file's own migration
+ * docblock records that a successor's world is already not equal to its predecessor's, with
+ * `prevPos`, `targetPos` and `spawnedAtTick` never travelling for creatures. It is now true for
+ * primitives too — and ONLY across the network, no longer across a worker handoff.
+ */
+export function stripWirePrevPos<T extends { readonly snapshot: NetSnapshot }>(msg: T): T {
+  const prims = msg.snapshot?.primitives;
+  // ⛔ TOTAL BY CONSTRUCTION. This runs inside `NetTransport.send`, which must never throw on the
+  // SHAPE of a payload — a throw there kills the snapshot send for the rest of the match, which is
+  // strictly worse than shipping a few extra bytes. Caught by a minimal test fixture whose snapshot
+  // had no `primitives` array at all; a partial or future envelope shape would do the same in
+  // production. Anything unexpected passes straight through, unstripped.
+  if (!Array.isArray(prims)) return msg;
+  // Nothing to do (and nothing to allocate) when the field is already absent.
+  let present = false;
+  for (const p of prims) {
+    if (p.prevPos !== undefined) { present = true; break; }
+  }
+  if (!present) return msg;
+  const stripped = prims.map((p) => {
+    const { prevPos: _dropped, ...rest } = p;
+    void _dropped;
+    return rest;
+  });
+  return { ...msg, snapshot: { ...msg.snapshot, primitives: stripped } };
+}
+
+/**
+ * S182 LEVER 2 — decimal places kept for a number on the wire.
+ *
+ * ⚠ CLAUDE'S NUMBER, NOT AN OWNER RULING, and here is the measurement behind it. Positions ride as
+ * full-precision doubles: a Verlet-settled primitive serialises as
+ * `{"x":812.3358154296875,"y":447.00390625}` — 44 characters for a pair the renderer draws at
+ * integer-ish pixel positions on a canvas ~2000 px wide, and it emits that twice (`pos` and
+ * `prevPos`), plus a full-precision `restLength` on every bond. Two decimals is 1/100th of a pixel,
+ * roughly 1/20th the width of the thinnest line this game draws, and the client does not integrate
+ * positions — it lerps between two snapshots and draws. The difference is not representable on screen.
+ */
+const NET_WIRE_DECIMALS = 2;
+const NET_WIRE_SCALE = 10 ** NET_WIRE_DECIMALS;
+
+/**
+ * ⭐ S182 LEVER 2 — SHRINK THE WIRE FORM BY ROUNDING **AT STRINGIFY TIME**.
+ *
+ * A `JSON.stringify` replacer, passed by `NetTransport.send` for `NETSNAPSHOT` only. `k / 100`
+ * stringifies to its own shortest decimal form, so this is a pure character-count win.
+ *
+ * ## ⛔ WHY IT IS A REPLACER AND NOT A PASS OVER `netSnapshot()`'s OUTPUT — MEASURED, NOT ARGUED
+ *
+ * The obvious placement is `netSnapshot`'s post-trim block, beside `trimMirrorCreature`. **That is
+ * wrong, and the e2e hash oracle is what proved it.** `netSnapshot` is NOT only the wire format:
+ *
+ *   • `workerSim.ts` builds the worker→main transfer with `netSnapshot(world)` and pairs it with
+ *     `hashWorldState(world)` taken from its own UNQUANTISED live world;
+ *   • `main.ts` applies that snapshot into the main-thread mirror and hashes the result, comparing
+ *     it to the worker's hash.
+ *
+ * So rounding inside `netSnapshot` rounds the MIRROR but not the hash it is checked against, and
+ * `?worker=1` goes red with `HASH MISMATCH mirror-vs-worker`. It did: `worker.spec.ts` and
+ * `worker-bots.spec.ts` both failed on `hashMismatches` while all 4747 unit tests stayed GREEN.
+ * That is this project's signature defect shape — a rule correct where it is written and reaching
+ * one site too many — and it is exactly the fifth site (`src/state/workerSim.ts`) the branch briefs
+ * warn the unit suite does not cover.
+ *
+ * Rounding at stringify time cannot reach any of that. It MUTATES NOTHING, so it cannot alias into
+ * the mirror, the disk save, `workerSim.restore()`, `save.replay`'s byte-identity gate, or
+ * `hashWorldState` — every one of which consumes objects, never this JSON string. The worker↔main
+ * transfer uses `structuredClone` via `postMessage` and never passes through here at all.
+ *
+ * ## ⚠ INTEGERS ARE RETURNED UNTOUCHED, AND THE EARLY EXIT IS LOAD-BEARING
+ *
+ * This docblock used to claim integers "round to themselves, so the replacer is an identity on
+ * everything that is not a coordinate". **That was false above ~9.0e13**: `v * 100` exceeds
+ * `Number.MAX_SAFE_INTEGER` (2^53), so the multiply loses precision and `Math.round(v*100)/100` can
+ * hand back a DIFFERENT integer than it was given. `tick`, `snapshotSeq`, `epoch` and `color` are
+ * nowhere near that today, but a counter that is exact on the host and altered on the wire is the
+ * quietest possible desync, and "it can't get that big" is the kind of assumption this codebase has
+ * been bitten by before.
+ *
+ * `Number.isInteger` makes the identity claim TRUE rather than merely reworded: integers never enter
+ * the arithmetic at all. It also skips the multiply for `tick`, ids and enum values on every
+ * snapshot, which is most of the numbers in the payload.
+ */
+export function wireNumberReplacer(_key: string, value: unknown): unknown {
+  if (typeof value !== 'number') return value;
+  if (Number.isInteger(value)) return value;
+  const rounded = Math.round(value * NET_WIRE_SCALE) / NET_WIRE_SCALE;
+  // ⚠ `value * 100` overflows to Infinity above ~1.79e306, and `JSON.stringify(Infinity)` is `null`
+  // — so a finite number would have left as a value and come back as null. Unreachable with game
+  // coordinates, but a rounding helper must never turn a number into a different KIND of thing.
+  return Number.isFinite(rounded) ? rounded : value;
+}
+
 
 /**
  * ⚠ AMENDED S133 P1 — `hp`, `chewProgress` and `targetBondId` are NO LONGER STRIPPED.
@@ -1627,7 +1779,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
         tick: p.createdTick,
       }),
       pos: { ...p.pos },
-      prevPos: { ...p.prevPos },
+      // S182 LEVER 2 — same default as `deserializePrimitive`: absent `prevPos` means zero implicit
+      // velocity, never `{}`. Both rehydrate paths need it or one of them NaNs on the first substep.
+      prevPos: p.prevPos !== undefined ? { ...p.prevPos } : { x: p.pos.x, y: p.pos.y },
       bonds: new Set(p.bonds),
       ownerColor: p.ownerColor,
       lastOwnershipChange: p.lastOwnershipChange,
@@ -1740,7 +1894,13 @@ function deserializeSpark(s: SerializedSpark): Spark {
       createdTick: s.createdTick,
     }),
     pos: { ...s.pos },
-    prevPos: { ...s.prevPos },
+    // ⛔ S182 LEVER 2 — `prevPos` is ABSENT from the wire (see the field's docblock). Defaulting to
+    // `pos` means zero implicit velocity, which is the same neutral value placement itself uses.
+    // ⚠ WITHOUT THIS LINE THE SPREAD OF `undefined` YIELDS `{}`, i.e. `prevPos.x === undefined`, and
+    // the FIRST Verlet substep on a promoted successor turns every position into NaN. That is why
+    // this field's removal earns a PROTOCOL_VERSION bump rather than riding as additive-optional:
+    // absence is only safe on a peer whose deserializer knows to default it.
+    prevPos: s.prevPos !== undefined ? { ...s.prevPos } : { x: s.pos.x, y: s.pos.y },
     state: s.state,
     poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
     escrow: s.escrow, // V6-1.2 — gatherer haul/bank escrow

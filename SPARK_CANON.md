@@ -176,15 +176,60 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
 
+⚠ **PROTOCOL 47 CARRIES TWO CHANGES FROM TWO PARALLEL BRANCHES.** Both are recorded below.
+
 ⭐ **S182 took 46 → 47 for exactly that second reason**, and it is the worked example: the owner
 reported *"Voltkin music and electric beams"* on his zombie boss. The beams were a stale negation
 and cost nothing. The MUSIC was a new discriminant — every non-chewer creature severed a connector
 with `cause: 'creature'`, which `audioManager` routes to the Voltkin's lightning crackle, so all 21
 unit types and all six bosses played it. `'unit'` was added and `'creature'` now means the Voltkin
-alone. The cheap route was tried first and taken where it fit: the suicide blast reused the existing
-`'bomb'` for free. **A new value on an existing action cannot ride as additive-optional** — a stale
+alone. ⚠ The suicide blast was FIRST given the existing `'bomb'` to avoid a
+second discriminant, and that was WRONG: `severToastRenderer` suppresses `'bomb'` unconditionally
+under the owner's S130 F3-C ruling, so a bomber's sever went silent. It uses `'unit'` too. **A new value on an existing action cannot ride as additive-optional** — a stale
 peer passes the allowlist and then falls through every switch over `cause`, which is the
 silent-divergence half of a mismatch.
+
+⭐ **AND SO DOES REMOVING A REQUIRED ONE — S182 is the first bump in this repo's history for a
+REMOVAL.** The WIRE now strips `prevPos` from every primitive (it is ~34% of a primitive's
+wire cost and a joiner runs no sim, so nothing reads it). ⚠ The strip is at the TRANSPORT
+boundary, NOT in `netSnapshot()` — `netSnapshot` is also the worker→main mirror transfer and that
+mirror runs a sim that needs `prevPos`. Stripping an already-*optional* field —
+`trimMirrorCreature`, `trimMirrorSpawner` — is free, because a stale peer's deserializer already had
+a default and simply never misses it. `prevPos` was **required**, and a v46 peer does
+`{ ...s.prevPos }`: handed `undefined` that yields `{}`, and the first Verlet substep on a promoted
+successor turns every position into NaN. **A stale peer does not ignore a missing required field, it
+dereferences it.** ⚠ Consequence, accepted: a successor promoted on host migration inherits
+primitives at zero velocity — a settled board is unaffected, a mid-swing one settles instead of
+oscillating.
+
+⭐ **Coordinates ride the wire rounded to 2 decimal places** (`wireNumberReplacer`, applied by
+`NetTransport.send` for `NETSNAPSHOT` only). Integers pass through untouched. The rounding is a
+`JSON.stringify` replacer rather than a pass over `netSnapshot()`'s output **because `netSnapshot` is
+also the worker→main mirror transfer, and that mirror is hash-compared** — rounding there turned
+`?worker=1` red on `HASH MISMATCH` while all 4747 unit tests stayed green.
+
+⭐ **MEASURED, S182 — the brother's wave-5 board (250 primitives / 260 bonds / 120 creatures):**
+
+| stage | snapshot | host uplink |
+|---|---:|---:|
+| pre-S182 (full precision, `prevPos` on, sent twice) | 107.5 KiB | 17.61 Mbit/s |
+| + coordinate rounding | 92.4 KiB | 15.14 Mbit/s |
+| + `prevPos` off the wire | 84.0 KiB | 13.77 Mbit/s |
+| + one strategy instead of two | 84.0 KiB | **6.88 Mbit/s** |
+
+**2.56× less upload**, 107.5 → 84.0 KiB per snapshot. ⚠ These are Claude's measurements, taken from
+the shipped serializers at the brief's entity counts; the baseline row reproduces the brief's
+independently-measured ~107 KiB / ~17.6 Mbit/s, which is what makes the rest comparable. It is
+application-level payload — WebRTC/DTLS/SCTP framing is on top, so treat every figure as a floor.
+⛔ **2.56× is not "fixed".** ~6.9 Mbit/s of sustained upload is still more than many home
+connections carry. Delta encoding — cost scaling with what MOVES rather than what EXISTS — is the
+structural fix and is not on this branch.
+
+⭐ **Snapshots take ONE strategy; everything else still takes all of them.**
+`SNAPSHOT_SINGLE_STRATEGY` is **true** (owner ruling, S182: *"if it halves our bandwidth, then of
+course we need to do it"*). `HELLO`, `START_GAME_SIGNAL`, `LOBBY_*`, `INTENT` and `MIGRATION_CLAIM`
+keep the full multi-strategy broadcast — those decide whether a match can *start*. The chosen
+strategy must carry **every** peer at the table, not merely one, or a 3–4 seat match starves a seat.
 
 Already on the wire, so a client can read them for free: creature `ehp`, defender `ehp`, primitive
 `hp`, and `castleHp`. Each is emitted **only when damaged**; absent means full, and both peers

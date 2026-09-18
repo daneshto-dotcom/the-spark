@@ -8,13 +8,41 @@
  */
 
 import { Application, Text, TextStyle } from 'pixi.js';
-import { FREE_SPARK_SOFT_CAP, STRAIN_BREAK_BY_TIER } from '../constants.ts';
+import {
+  FREE_SPARK_SOFT_CAP,
+  NET_RENDER_DELAY_MS,
+  NET_SNAPSHOT_HZ,
+  STRAIN_BREAK_BY_TIER,
+} from '../constants.ts';
+import { netStats } from '../net/netStats.ts';
 import type { World } from '../state/world.ts';
 
 const PHYSICS_BUDGET_MS = 5.5;
 const RENDER_BUDGET_MS = 7.0;
 const FPS_TARGET = 60;
 const EMA_ALPHA = 0.1;
+
+/**
+ * S182 STEP 0 — accepted-snapshot rate below which the joiner is STARVED rather than slow.
+ * Derived from the cadence constant, never typed as a literal: `NET_SNAPSHOT_HZ` is the CAP the host
+ * aims for, so anything meaningfully under it means snapshots are not arriving, and a joiner that
+ * runs no sim has nothing else to move the board with.
+ */
+const SNAP_RX_STARVED_HZ = NET_SNAPSHOT_HZ * 0.8;
+/**
+ * S182 STEP 0 — accepted-snapshot gap beyond which the render-delay jitter buffer underruns.
+ * `ClientSync.pickBracket` clamps to the newest buffered snapshot with `t=0` once the render clock
+ * (now − NET_RENDER_DELAY_MS) runs past it, and `interpolatePositions` then writes that snapshot's
+ * positions unchanged — the board FREEZES. Two render delays is the point past which that is
+ * certain rather than marginal. ⚠ This threshold is Claude's, not an owner ruling; it exists to
+ * colour a diagnostic line, and nothing in the sim reads it.
+ */
+const SNAP_GAP_BAD_MS = NET_RENDER_DELAY_MS * 2;
+
+/** ≈bytes/sec → a compact KiB/s field. See netStats.ts on why sizes are approximate. */
+function kibPerSec(bytesPerSec: number): string {
+  return (bytesPerSec / 1024).toFixed(1).padStart(7, ' ');
+}
 
 export class StatsOverlay {
   private readonly text: Text;
@@ -113,8 +141,55 @@ export class StatsOverlay {
       `prims    ${this.primitiveCount}\n` +
       `bonds    ${this.bondCount}\n` +
       `strain   ${this.worstStrain.toFixed(2)}${strainBad ? ' !' : ''}\n` +
-      `fx       ${this.effectsCount}`;
+      `fx       ${this.effectsCount}` +
+      this.netSection();
     this.text.style.fill =
       physBad || renderBad || fpsBad || strainBad ? 0xff6666 : 0xcccccc;
+  }
+
+  /**
+   * S182 STEP 0 — the net-bandwidth block. Empty (not even a header) unless the counters were armed
+   * at boot via `?debug=1` / `?netstats=1`, so the overlay is unchanged for everyone else.
+   *
+   * ⭐ HOW TO READ IT, because the whole point is that one screenshot settles the diagnosis:
+   *   • `out` with two near-equal strategy rows → the host is sending every snapshot TWICE.
+   *   • `snap rx` well under `NET_SNAPSHOT_HZ` while `FPS` is fine → the joiner is STARVED, not slow.
+   *     That combination is the owner's brother's video: a smooth 60 fps of a stationary board.
+   *   • `dup` tracking `rx` one-for-one → the doubling confirmed from the receiving end.
+   *   • `gap max` is the "every five seconds" number, in milliseconds.
+   */
+  private netSection(): string {
+    // ⛔ GUARD BEFORE THE CLOCK READ. This was the one netStats call site that did not, so with the
+    // counters disabled an open overlay still paid `performance.now()` plus two allocations every
+    // frame — and the source tripwire that enforces the guard contract only scans transport.ts and
+    // sync.ts, so it could not see the omission.
+    if (!netStats.isEnabled()) return '';
+    const n = netStats.read(performance.now());
+    if (!n.enabled) return '';
+    const perStrategy = n.outByStrategy
+      .map((s) => `${s.name} ${(s.bytesPerSec / 1024).toFixed(1)}`)
+      .join(' · ');
+    const rxStarved = n.acceptedTotal > 0 && n.snapRxPerSec < SNAP_RX_STARVED_HZ;
+    const gapBad = n.gapMaxMs > SNAP_GAP_BAD_MS;
+    // `since` is live, so its threshold flags a freeze IN PROGRESS rather than one already over.
+    const sinceBad = n.msSinceLastAcceptMs > SNAP_GAP_BAD_MS;
+    const sinceText = n.msSinceLastAcceptMs < 0 ? '—' : n.msSinceLastAcceptMs.toFixed(0);
+    return (
+      `\n--- net (S182 step 0) ---\n` +
+      `out     ${kibPerSec(n.outBytesPerSec)} KiB/s${perStrategy === '' ? '' : `  [${perStrategy}]`}\n` +
+      `in      ${kibPerSec(n.inBytesPerSec)} KiB/s\n` +
+      `snap tx ${n.snapTxPerSec.toFixed(1).padStart(7, ' ')} /s   ${(n.snapTxBytes / 1024).toFixed(1)} KiB ea\n` +
+      `snap rx ${n.snapRxPerSec.toFixed(1).padStart(7, ' ')} /s${rxStarved ? ' !' : '  '} ` +
+      `dup ${n.snapDupPerSec.toFixed(1)} /s\n` +
+      `snap n  ${n.acceptedTotal} ok / ${n.dupTotal} dup` +
+      (n.epochDropTotal > 0 ? ` / ${n.epochDropTotal} epoch` : '') +
+      '\n' +
+      // ⭐ THE LIVE ONE. Counts up in real time during a stall; every other gap field is frozen
+      // until the snapshot that ENDS the stall arrives. This is the line that shows a freeze
+      // WHILE it is happening.
+      `since   ${sinceText.padStart(7, ' ')} ms${sinceBad ? ' !! FROZEN' : ''}\n` +
+      `gap     last ${n.gapLastMs.toFixed(0)} avg ${n.gapAvgMs.toFixed(0)} ` +
+      `max ${n.gapMaxMs.toFixed(0)} ms${gapBad ? ' !' : ''}`
+    );
   }
 }

@@ -685,6 +685,21 @@ export type { NetSnapshot };
  *   · R150 teleport / taken-to-hell — a position write and a creature removal, both already synced.
  * So the DISCRIMINANT half of this bump is the direwolf and nothing else — but the wire format also
  * gained one optional boolean under it, which is recorded here rather than left to be discovered.
+ *
+ * ## S182 bumped 46 → 47 — `prevPos` LEAVES THE WIRE (a REQUIRED field becoming ABSENT)
+ *
+ * `netSnapshot()` now strips `prevPos` from every primitive. It is ~34% of a primitive's wire cost
+ * and dead on the client — every primitive `prevPos` reader in the tree is sim code, and a joiner
+ * runs no sim. `SerializedPrimitive.prevPos` becomes additive-OPTIONAL and `deserializePrimitive`
+ * defaults it to `pos`.
+ *
+ * ⛔ WHY THIS COSTS A BUMP WHEN `trimMirrorCreature`'s STRIPS DID NOT. Those removed fields that were
+ * ALREADY optional, whose deserializer already had a default — a stale peer reading them is fine.
+ * `prevPos` was REQUIRED, and a v46 peer's `deserializePrimitive` does `{ ...s.prevPos }`. Handed
+ * `undefined` that yields `{}`, so `prevPos.x === undefined`, and the first Verlet substep on a
+ * promoted successor turns every position into NaN. Removing a REQUIRED field is the dangerous
+ * direction: the stale peer does not ignore the absence, it dereferences it. A v46 peer is refused
+ * outright, which is exactly what this gate is for.
  */
 export const PROTOCOL_VERSION = 47 as const;
 
@@ -929,6 +944,10 @@ export interface HelloMsg {
    * under 45. The `untargetable` condition costs nothing either; it is a CONFIG flag, not a wire
    * field.)
    *
+   * ⭐⭐ S182 — **47 CARRIES TWO WIRE CHANGES, MERGED FROM TWO PARALLEL BRANCHES.** Both were
+   * developed independently against 46 and both bumped to 47; the merge keeps ONE version number
+   * and BOTH histories, because dropping either would leave a live wire change undocumented.
+   *
    * S182: 46->47 (THE VOLTKIN'S CRACKLE STOPPED BEING EVERY CREATURE'S — owner, *"Why does my
    * fucking zombie boss have Voltkin music and electric beams going through towers and
    * connectors?"*. ONE new serialized `cause` discriminant on BOND_SEVERED/SEVER_BOND: `'unit'`.
@@ -936,9 +955,24 @@ export interface HelloMsg {
    * plays `lightning-crackle.ogg` + a 700 ms duck — so S181's targeting rework gave 21 unit types
    * and six bosses the Voltkin's zap. `'creature'` now means the Voltkin alone. A NEW DISCRIMINANT
    * cannot ride additive-optional: a v46 peer passes the allowlist and then falls through every
-   * switch over `cause`, which is the silent-divergence half. `'bomb'` was reused for the suicide
-   * blast precisely because it cost no bump; nothing existing means "a unit cut it".)
+   * switch over `cause`, which is the silent-divergence half. ⚠ THE SUICIDE BLAST ALSO MOVED TO `'unit'` (b024eb9), and an
+   * earlier draft of this note claiming it kept `'bomb'` is WRONG: `severToastRenderer` suppresses
+   * `'bomb'` unconditionally per the owner's S130 F3-C ruling, so a bomber's sever went silent.
+   * Nothing existing meant "a unit cut it".)
    *
+   *
+   * S182: 46->47 (`prevPos` LEAVES THE WIRE — the peer-lag fix. `netSnapshot()` strips `prevPos`
+   * from every primitive: ~34% of a primitive's wire cost, sent 10×/sec, and DEAD on a client that
+   * runs no sim. ⛔ THE FIRST BUMP IN THIS LIST FOR A **REMOVAL** RATHER THAN AN ADDITION, and that
+   * is precisely why it costs one. Every strip before it — `trimMirrorCreature`, `trimMirrorSpawner`
+   * — removed fields that were ALREADY additive-optional with a deserializer default, so a stale
+   * peer simply never missed them. `SerializedPrimitive.prevPos` was REQUIRED, and a v46 peer's
+   * `deserializePrimitive` does `{ ...s.prevPos }`: handed `undefined` that yields `{}`, and the
+   * first Verlet substep on a promoted successor turns every position into NaN. A stale peer does
+   * not IGNORE a missing required field, it DEREFERENCES it. `prevPos` is now additive-optional and
+   * defaults to `pos`. ⚠ Consequence: a successor promoted on host migration inherits primitives at
+   * zero velocity — a settled board is unaffected, a mid-swing one settles instead of oscillating;
+   * this widens the already-accepted migration gap that `save.ts` records for creatures.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as

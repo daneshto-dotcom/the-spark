@@ -44,6 +44,8 @@ import {
 } from '@trystero-p2p/nostr';
 import type { MessageAction, Room } from '@trystero-p2p/core';
 import { parseNetMessage, PROTOCOL_VERSION, type NetMessage } from './protocol.ts';
+import { netStats } from './netStats.ts';
+import { stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
 import {
   APP_ID,
   HANDSHAKE_TIMEOUT_MS,
@@ -51,6 +53,8 @@ import {
   ICE_POLL_MAX_DURATION_MS,
   ICE_SERVERS,
   NOSTR_RELAYS,
+  SNAPSHOT_SINGLE_STRATEGY,
+  SNAPSHOT_STRATEGY_PREFERENCE,
   STRATEGY_FLAGS,
   TORRENT_TRACKERS,
   classifyJoinError,
@@ -62,6 +66,66 @@ export { classifyJoinError };
 // the broadcast roster (each client matches its own seat by peerId === selfId).
 // selfId is a stable per-page-load constant, identical across all strategies.
 export { selfId };
+
+/** S182 LEVER 1 — the per-strategy facts `pickSnapshotStrategy` routes on. */
+export interface StrategyRouteInfo {
+  readonly name: StrategyName;
+  /** Has a bound `MessageAction` — i.e. it can actually send. */
+  readonly ready: boolean;
+  /** Peers this strategy currently sees. Zero means it is carrying nobody. */
+  readonly peerCount: number;
+}
+
+/**
+ * S182 LEVER 1 — choose the ONE strategy that carries high-rate `NETSNAPSHOT` traffic, or `null`
+ * to fall back to broadcasting on all of them.
+ *
+ * Pure + exported so the routing decision is unit-testable without a live Trystero room — the same
+ * pattern as `detectProtocolMismatch` and `handleRawMessage` above, and for the same reason: this is
+ * the half of the change that can silently cost the owner a playable match.
+ *
+ * THE RULES, in order:
+ *   1. Prefer the first strategy in `SNAPSHOT_STRATEGY_PREFERENCE` that is READY **and carries EVERY
+ *      peer at the table** (`peerCount >= totalPeers`). Readiness alone is not enough — a strategy
+ *      that joined the room but never completed a handshake would swallow every snapshot into nothing.
+ *   2. ⭐ Otherwise return `null` and broadcast, the pre-S182 behaviour. This is the deliberately
+ *      conservative arm and it covers both "nobody is visible anywhere" and "no single strategy
+ *      reaches the whole table". It costs nothing when there are no peers, because then there is no
+ *      traffic to double either.
+ *
+ * ## ⛔ WHY THE TEST IS FULL COVERAGE AND NOT `peerCount > 0` — A REAL BUG, CAUGHT IN AUDIT
+ *
+ * The first cut asked only "does this strategy have A peer". `StrategyHandle.peers` is PER-STRATEGY
+ * and is a subset of `NetTransport.peerSet`, the union across strategies, and Trystero's
+ * `action.send()` reaches only the peers attached to THAT strategy's room. So with nostr carrying
+ * {A} and torrent carrying {A, B} — perfectly ordinary, since the two are independent signalling
+ * paths — the router chose nostr and **peer B received zero snapshots for the whole match**. Its
+ * board would freeze completely: exactly the symptom this branch exists to remove, caused by the fix
+ * for it, and invisible in the 1v1 the brief is written around.
+ *
+ * `MAX_PLAYERS` is 4, so 3- and 4-seat matches are in scope and this was not hypothetical. The brief
+ * says "fail over to torrent if nostr loses the peer" — singular — which is the 1v1 framing that hid
+ * it. Three independent audit lanes flagged it; one verifier waved it off as "inert, the flag is
+ * off", which is a statement about the blast radius today, not a refutation of the defect in a
+ * mechanism the owner is being asked to approve.
+ *
+ * Called per send, so a strategy that loses a peer is abandoned on the next snapshot (≤100 ms at
+ * `NET_SNAPSHOT_HZ`). ⚠ It still cannot detect a strategy that REPORTS its peers while delivering
+ * nothing; see the `SNAPSHOT_SINGLE_STRATEGY` docblock on that residual risk.
+ */
+export function pickSnapshotStrategy(
+  strategies: ReadonlyArray<StrategyRouteInfo>,
+  totalPeers: number,
+): StrategyName | null {
+  if (totalPeers <= 0) return null;
+  for (const preferred of SNAPSHOT_STRATEGY_PREFERENCE) {
+    const match = strategies.find((s) => s.name === preferred);
+    // ⛔ `>= totalPeers`, NOT `> 0`. Per-strategy `peers` is a SUBSET of the union `peerSet`, so a
+    // strategy carrying only some of the table cannot carry the snapshot for the rest.
+    if (match !== undefined && match.ready && match.peerCount >= totalPeers) return preferred;
+  }
+  return null;
+}
 
 export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void;
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
@@ -228,6 +292,10 @@ export class NetTransport {
    * subsequent messages.
    */
   handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+    // S182 STEP 0 — count inbound bytes BEFORE the parse and before any gate, so the reading
+    // includes the redundant second-strategy copy. That copy is not free on the joiner: it is a
+    // full JSON.parse of a ~100 KiB payload that is then discarded on ClientSync's seq gate.
+    if (netStats.isEnabled()) netStats.recordReceive(data.length, performance.now());
     // Parse on the receive boundary so malformed peer messages don't
     // poison handlers (Audit Pass-1 fix d3f0e22b preserved).
     let parsed: unknown;
@@ -556,11 +624,40 @@ export class NetTransport {
     if (!this.connected) {
       throw new Error('NetTransport not connected');
     }
-    const serialized = JSON.stringify(msg);
+    // S182 LEVER 2 — round coordinates to 2 dp for the high-rate snapshot only. Non-mutating by
+    // construction: the replacer sees values on their way into the string and never writes back, so
+    // it cannot reach the worker mirror, the disk save or any hash. See `wireNumberReplacer`.
+    const serialized =
+      msg.kind === 'NETSNAPSHOT'
+        ? JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)
+        : JSON.stringify(msg);
+    // S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
+    // the pre-S182 behaviour AND the shipped default (SNAPSHOT_SINGLE_STRATEGY is false pending the
+    // owner's decision). Only NETSNAPSHOT is ever eligible: the rare control messages keep their
+    // redundancy, because that is what multi-strategy is FOR.
+    const only =
+      SNAPSHOT_SINGLE_STRATEGY && msg.kind === 'NETSNAPSHOT'
+        ? pickSnapshotStrategy(
+            Array.from(this.strategies.values()).map((h) => ({
+              name: h.name,
+              ready: h.action !== null,
+              peerCount: h.peers.size,
+            })),
+            this.peerSet.size,
+          )
+        : null;
     let dispatched = 0;
     for (const handle of this.strategies.values()) {
       if (handle.action === null) continue;
+      if (only !== null && handle.name !== only) continue;
       dispatched++;
+      // S182 STEP 0 — per-strategy upload. `action.send()` transmits to EVERY peer in that
+      // strategy's room, so the wire cost is payload × peers, not payload. In the owner's 1v1 the
+      // two are equal; at 3–4 seats counting it once understated the host's upload by up to 3×,
+      // which is the number that decides whether his uplink is the bottleneck.
+      if (netStats.isEnabled()) {
+        netStats.recordSend(handle.name, serialized.length, handle.peers.size, performance.now());
+      }
       handle.action.send(serialized).catch((err: unknown) => {
         // Per-strategy send failure: warn, do not escalate UI unless all
         // strategies have failed.
@@ -570,6 +667,19 @@ export class NetTransport {
           this.emitError(errMsg);
         }
       });
+    }
+    // ⛔ S182 STEP 0 — THE ENVELOPE IS COUNTED **AFTER** THE LOOP, AND ONLY IF IT ACTUALLY WENT OUT.
+    // Counted once per send() call, so `snap tx` reads the host's real cadence (10 Hz) rather than
+    // 10 × the strategy count; the per-strategy BYTES are counted inside the loop, because that
+    // duplication is the phenomenon under measurement.
+    //
+    // ⚠ The `dispatched > 0` guard is not decoration. Recording before the loop counted a snapshot
+    // as SENT even when no strategy was ready and Trystero dropped it on the floor — see the warn
+    // immediately below, which exists precisely because that happens during the startup window. An
+    // instrument that reports a healthy 10 Hz tx while nothing is leaving the machine would send the
+    // next session hunting on the joiner for a fault that is on the host.
+    if (netStats.isEnabled() && dispatched > 0) {
+      netStats.recordSendEnvelope(msg.kind, serialized.length, performance.now());
     }
     if (dispatched === 0) {
       // No strategy ready yet; messages sent during startup window are lost
