@@ -84,9 +84,35 @@ if (retriesRaw !== undefined && retriesRaw !== '' && !/^\d+$/.test(retriesRaw)) 
 const retriesOverride =
   retriesRaw !== undefined && retriesRaw !== '' ? Number(retriesRaw) : undefined;
 
+/**
+ * ⭐⭐ S182 — **THE DEV-SERVER PORT IS OVERRIDABLE, BECAUSE PARALLEL WORKTREES ARE NOW THE PATTERN.**
+ *
+ * ⛔ THE FAILURE THIS FIXES, MEASURED THIS SESSION AND NOT HYPOTHETICAL. Two S182 worktree sessions
+ * ran `npm run e2e:gating` at the same time. Both took the hardcoded 5173:
+ *
+ *   · the visible half — 13 of 65 tests died mid-run on `net::ERR_CONNECTION_REFUSED` when the
+ *     other session's Playwright tore its server down. Read as a product failure; it was not one;
+ *   · ⛔ THE DANGEROUS HALF — `reuseExistingServer` is TRUE outside CI, so the surviving session
+ *     ADOPTS whatever is already on 5173. That is a gating lane reporting green against **another
+ *     branch's bundle**, which is worse than any red, and nothing in the output says so.
+ *
+ * Unset (CI, and any ordinary single-session day) this is exactly the old 5173, so no lane moves.
+ * A worktree session exports `SPARK_E2E_PORT=$SESSION_PORT` — the port the project's own PORT
+ * PROTOCOL already hands it — and gets a private server.
+ */
+const E2E_PORT = process.env.SPARK_E2E_PORT?.trim() || '5173';
+if (!/^\d+$/.test(E2E_PORT)) {
+  throw new Error(
+    `SPARK_E2E_PORT is set but not a port number: ${JSON.stringify(process.env.SPARK_E2E_PORT)}.`,
+  );
+}
+const E2E_URL = `http://localhost:${E2E_PORT}`;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  // S182 — see `E2E_PORT` above. Every spec navigates RELATIVE (`page.goto('/')`), so `baseURL`
+  // below is the single place the port reaches the tests.
   globalTimeout,
   expect: { timeout: 10_000 },
   fullyParallel: false, // 2-peer tests must run sequentially; each spec opens 2 contexts
@@ -96,7 +122,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: E2E_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -124,8 +150,13 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 5173 --host',
-    url: 'http://localhost:5173/?debug=1',
+    command: `npm run dev -- --port ${E2E_PORT} --host --strictPort`,
+    url: `${E2E_URL}/?debug=1`,
+    /*
+     * ⛔ S182 — `--strictPort`, SO A BUSY PORT FAILS LOUDLY INSTEAD OF SLIDING SIDEWAYS. Vite's
+     * default is to hop to the next free port, which would leave the server on 5174 while
+     * Playwright waited on `url` forever — a 60 s timeout with no explanation.
+     */
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

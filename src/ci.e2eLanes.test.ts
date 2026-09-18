@@ -194,7 +194,20 @@ describe('e2e lane composition is a decision, not an accident', () => {
       // The gating half: slice this job's block and require no continue-on-error inside it.
       const start = yml.indexOf(`\n  ${job}:`);
       const rest = yml.slice(start + 1);
-      const nextJob = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
+      /*
+       * ⛔ S182 — `\r?\n`, AND THE MISSING `\r?` MADE THIS TEST FAIL FOR EVERYONE ON WINDOWS.
+       *
+       * `core.autocrlf=true` checks `e2e.yml` out with CRLF, so `:\n` never matched, `search`
+       * returned −1, the "block" became the whole REST OF THE FILE — and the `continue-on-error`
+       * belonging to `e2e-soak` four jobs later was read as `e2e-races`'s. The lane is and always
+       * was gating; the parser was reading the wrong bytes. Green on the Linux runner, red on every
+       * local Windows suite, which is the worst possible place for a false positive to live.
+       *
+       * ⚠ FIXED HERE RATHER THAN BY NORMALISING THE FILE: this project has been bitten repeatedly
+       * by source-text tests that assume LF (it is a standing memory rule — match `\r?\n`), and
+       * every future one gets the same treatment rather than a `.gitattributes` argument.
+       */
+      const nextJob = rest.search(/\r?\n  [a-z][a-z0-9-]*:\r?\n/);
       const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
       expect(
         block.includes('continue-on-error'),
