@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 2878,
+  "tool_calls_session_total": 2886,
   "session_id": "S182",
   "session_kind": "batch",
   "session_start": "2026-09-14T10:00:00+02:00",
@@ -162,7 +162,34 @@
       ],
       "check_completed": true,
       "checkpoint_commit": "f70af23ec360",
-      "check_method": "CLAUDE.md workflow section rewritten to adopt parallel worktrees per the owner's S182 reversal, with three facts VERIFIED rather than assumed: git auto-ignores nested worktrees (probed by creating one and checking the parent's status), deploy.yml:25 fires on push-to-master only (read), and the bundle charter is 1000 KiB with 147.8 KiB headroom (MEASURED by running npm run build, correcting a doc that had said 900/65.9 since S178). Committed 6713dec."
+      "check_method": "CLAUDE.md workflow section rewritten to adopt parallel worktrees per the owner's S182 reversal, with three facts VERIFIED rather than assumed: git auto-ignores nested worktrees (probed by creating one and checking the parent's status), deploy.yml:25 fires on push-to-master only (read), and the bundle charter is 1000 KiB with 147.8 KiB headroom (MEASURED by running npm run build, correcting a doc that had said 900/65.9 since S178). Committed 6713dec.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "PARALLEL WORKTREES ARE NOW THE PATTERN"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "A worktree session commits to ITS OWN branch, never to `master`"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "git auto-ignores nested worktrees"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "**1000 KiB**"
+        },
+        {
+          "type": "file_lacks",
+          "path": "CLAUDE.md",
+          "needle": "(900 KiB; 834.1 KiB"
+        }
+      ]
     },
     {
       "id": 2,
@@ -179,7 +206,99 @@
       ],
       "check_completed": true,
       "checkpoint_commit": "f70af23ec360",
-      "check_method": "ORCHESTRATOR ROLE, executed end to end and implementing NO game code itself. Authored 6 self-contained branch briefs from ~40 research agents (recon + adversarial refute per lane) across 6 workflows; every brief carried verified file:line findings, fix shape, determinism hazards, tests owed, gates, branch name and a file boundary. Then audited all six branches pre-merge, sent three triaged fix rounds, re-verified each, and merged all six in an order derived by PERFORMING the merge in a throwaway worktree rather than predicting it. GATES ON THE MERGED TREE, every exit code captured from $? and never through a pipe: vitest EXIT=0 (5238 tests / 319 files), typecheck EXIT=0, typecheck:server EXIT=0, build EXIT=0 (875.0 KiB of the 1000 KiB charter), e2e:gating GATING_EXIT=0 (68 passed, 4.7m, run on a private SPARK_E2E_PORT). FOUR DEFECTS FIXED THAT BELONGED TO NO BRANCH: the netWireSize fixture regression that existed ONLY on the merged tree, the mixed-cause sever-toast collapse, an exhaustiveness contract that always compiled and had replaced a working fallback, and two stale doc claims their own later commits invalidated. R182-G and R182-H landed in SPARK_CANON.md with four canon.test.ts assertions - both had existed only in commit messages on an unmerged branch. The parallel-split lessons landed in CLAUDE.md. MCV --strict exit 0, hard_fail=0 warn=0."
+      "check_method": "ORCHESTRATOR ROLE, executed end to end and implementing NO game code itself. Authored 6 self-contained branch briefs from ~40 research agents (recon + adversarial refute per lane) across 6 workflows; every brief carried verified file:line findings, fix shape, determinism hazards, tests owed, gates, branch name and a file boundary. Then audited all six branches pre-merge, sent three triaged fix rounds, re-verified each, and merged all six in an order derived by PERFORMING the merge in a throwaway worktree rather than predicting it. GATES ON THE MERGED TREE, every exit code captured from $? and never through a pipe: vitest EXIT=0 (5238 tests / 319 files), typecheck EXIT=0, typecheck:server EXIT=0, build EXIT=0 (875.0 KiB of the 1000 KiB charter), e2e:gating GATING_EXIT=0 (68 passed, 4.7m, run on a private SPARK_E2E_PORT). FOUR DEFECTS FIXED THAT BELONGED TO NO BRANCH: the netWireSize fixture regression that existed ONLY on the merged tree, the mixed-cause sever-toast collapse, an exhaustiveness contract that always compiled and had replaced a working fallback, and two stale doc claims their own later commits invalidated. R182-G and R182-H landed in SPARK_CANON.md with four canon.test.ts assertions - both had existed only in commit messages on an unmerged branch. The parallel-split lessons landed in CLAUDE.md. MCV --strict exit 0, hard_fail=0 warn=0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/README.md",
+          "needle": "s182/net-bandwidth"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/01-net-bandwidth.md",
+          "needle": "**The peer is not slow. It is STARVED.**"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/05-lightning-hub.md",
+          "needle": "BUILD THE PATH, NOT THE ONE-OFF"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 47 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "47 CARRIES TWO WIRE CHANGES"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/netWireSize.test.ts",
+          "needle": "const gx = 281 + (group % 4) * 130;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/severToastRenderer.ts",
+          "needle": "function severCopyClass(c: SeverCause): SeverCause {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const defenderKind = spec.defenderKind as DefenderKind;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "= spec.defenderKind as never"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "RANKING IS AN AVERAGE, NOT A BEST TIME"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "do not delete it as dead code, and do not wire it"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "keeps the difficulty dial unwired, and records why"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "THE PARALLEL SPLIT — WHAT S182 LEARNED"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "A SOURCE-TEXT TRIPWIRE CAN BE GREEN OVER A LIVE BUG"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/02-mp-identity-and-sheet.md",
+          "needle": "# BRANCH 2 — `s182/"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/03-placement.md",
+          "needle": "# BRANCH 3 — `s182/"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/04-damage-truth.md",
+          "needle": "# BRANCH 4 — `s182/"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/branch-briefs/06-arcade.md",
+          "needle": "# BRANCH 6 — `s182/"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
