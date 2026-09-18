@@ -228,6 +228,96 @@ The recurring ones here: `grep -c` returning 1 on zero matches and short-circuit
 (exit 143) on a polling loop; `pgrep` not existing in git-bash. Each is a one-line verdict, and
 writing the line is what proves the check happened.
 
+## ⭐⭐ THE PARALLEL SPLIT — WHAT S182 LEARNED, AND IT WORKED
+
+S182 ran **six worktree sessions in parallel** against one repo, each with a self-contained brief,
+and merged them here. It shipped more than any prior session. **Do it again — but do it with the
+parts below, because most of them are what stopped it going wrong.**
+
+### ⛔ 1. NOTHING IS TRUSTED. THE VERIFICATION LAYER IS THE WHOLE REASON IT WORKED.
+
+**Every single fix round fixed what was asked AND introduced two to four new defects.** Not one
+session was exempt. A branch that reported "done, gates green" was, every time, a branch with
+undiscovered defects in it.
+
+Found only because each branch was audited against its brief *before* merging:
+the suicide goblin severing silently · every goblin and boss toast losing its verb · a healthy
+lightning hub exploding from a fuse that leaked across matches · a leaderboard where one bad run
+permanently poisons a player's board · a worker typecheck that could block the whole game's deploy ·
+an exhaustiveness contract that always compiled and had replaced a working fallback.
+
+**All of those were green.** Typecheck, unit suite, build — green. The parallel split does not work
+because the sessions are good. It works because **a branch is audited by something that did not write
+it**, and the auditor runs the gates itself rather than reading a claim about them.
+
+### ⛔ 2. A SOURCE-TEXT TRIPWIRE CAN BE GREEN OVER A LIVE BUG.
+
+This project leans hard on source-text guards, and S182 found their hole. The placement branch wrote
+a tripwire asserting the cost plate was wired into a predicate. It was. **The failing path never
+consulted that predicate for its verdict**, so the guard was green while the bug shipped — twice.
+
+> **A source-text guard proves a line EXISTS. It cannot prove the line is REACHED.**
+
+⭐ The fix that branch found is the pattern to copy: make the enumeration **mechanical**. It now counts
+the footer's opaque `.fill({` calls and pins the total at five, naming the hit-test that pairs with
+each. A sixth fill fails the test until someone hit-tests it. That is "enumerate the sites" with
+teeth instead of prose.
+
+### ⛔ 3. A DEFECT BETWEEN TWO BRANCHES HAS NO OWNER — SO MERGE ONE AT A TIME.
+
+`netWireSize.test.ts` built its board at x=200. Another branch added a castle keep-out that refuses
+placement there. Each branch was **correct against master**; only their merge was wrong, and the
+symptom (five wire-budget failures) named neither cause.
+
+**Merge one branch at a time and run the suite between every step.** Merging six and running the
+gates once tells you something is broken, not which pair did it. And the merge owner fixes these —
+sending it to either branch is asking a session to fix a bug it cannot reproduce.
+
+### ⛔ 4. SHARED INFRASTRUCTURE GETS INDEPENDENTLY REINVENTED. HAND IT OUT FIRST.
+
+`playwright.config.ts` was rewritten by **five of six branches**, in five incompatible ways, and
+`src/ci.e2eLanes.test.ts` by four. All were fixing the same real bug: a hardcoded port 5173 with
+`reuseExistingServer`, so a second worktree **adopted the first one's dev server and reported green
+against another branch's bundle.**
+
+Two rules:
+- **Fix shared infrastructure BEFORE the split and hand it to every brief**, or pay for it N times
+  and resolve N conflicts.
+- ⛔ **The merge owner re-runs e2e on the merged tree and trusts no branch's e2e number**, because
+  any of them may have measured a sibling's code.
+
+### ⛔ 5. SCOPE OF CHANGE DRIVES THE DEFECT RATE. SAY "FIX ONLY THIS".
+
+The defect-per-round count tracked how much each session changed, not how hard the task was. Fix
+prompts that said *"do ONLY these, do not refactor, do not tidy"* came back materially cleaner.
+
+⭐ And **triage instead of sending everything back**: behavioural regressions go to the branch that
+made them; stale comments, doc corrections and one-line contract fixes are faster and safer done once
+by the merge owner. Four round-trips to fix four comments is four more chances to break something.
+
+### ⚠ 6. TWO BRANCHES CAN EARN THE SAME PROTOCOL BUMP FOR DIFFERENT REASONS.
+
+S182 went 46→47 twice: a new `BOND_SEVERED` cause discriminant, and `prevPos` leaving the wire. Both
+bumps were correct. **The merged 47 carries both, and the merge must keep BOTH docblocks** — dropping
+either leaves a live wire change undocumented, which is the exact rot the canon rule exists to stop.
+
+### ⚠ 7. ADDING A VALUE TO A UNION MEANS VISITING EVERY CONSUMER — NOT ONLY THE ONES `tsc` FORCES.
+
+A new `cause` value was propagated through every consumer with an exhaustive switch, because those
+fail the build. The one consumer with a **tolerant `default`** stayed silent and lost its wording for
+every goblin and boss. **A tolerant default is where the next one will hide too.**
+
+### ⭐ 8. WHAT TO KEEP DOING
+
+- **One self-contained brief per branch** — verified findings, `file:line`, the fix shape, the
+  determinism hazards, tests owed, gates, branch name, file boundary. A session that needs the
+  handoff and the backlog to start is a session that will re-derive what you already know.
+- **Open gates written INTO the brief.** "If the owner has not answered X, do everything else and
+  report" produced exactly the right behaviour: the bandwidth branch built the lever, shipped it
+  OFF, and wrote a test that turns red when someone flips it without deciding.
+- **Ask for the number the owner actually needs.** "What does tower two cost, file by file" got
+  *~17 lines plus a data file — an afternoon, not a month*. "Is it reusable?" would have got a yes.
+
 ## Protocol version
 
 `PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**46**, unchanged S172–S173; it was 44 at S167,
