@@ -1,0 +1,154 @@
+{
+  "lane": "ADVERSARIAL VERIFY — A1 \"the shape queue does not fall through in order\"",
+  "verdicts": [
+    {
+      "claim": "reproduced: CONFIRMED_IN_CODE — the defect is real and live at HEAD (7d1514b)",
+      "verdict": "CONFIRMED",
+      "note": "Traced the whole path by hand. gathererLifecycle.ts:325 `return rank < q.length ? q[rank] : null;` pins each gatherer to ONE slot; :389-390 takes that single type on faith; the scan at :400-416 finds no `preferred` candidate and returns the nearest of any type. `world.freeSparks` is never consulted by `orderForGatherer`. The owner's report is a real bug, not already fixed."
+    },
+    {
+      "claim": "gathererLifecycle.ts:325 — `  return rank < q.length ? q[rank] : null;`",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at line 325. Both fall-back paths named by the researcher are real: (i) head type absent, (ii) rank >= q.length."
+    },
+    {
+      "claim": "gathererLifecycle.ts:319-324 — the stable `rank` loop over ALL the owner's gatherers",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim, including the determinism comment at :322. The Council rationale is at :304-314 and says the rejected design thrashed because the set it ranked over 'changes every time ANY of the player's gatherers claims a spark or deposits'. Remember that sentence — it is what refutes the fix's oscillation bound below."
+    },
+    {
+      "claim": "gathererLifecycle.ts:389-390 — `const ordered = orderForGatherer(world, g); const wanted = ordered ?? g.preferredType;`",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim. Nothing downstream retries with another queue entry."
+    },
+    {
+      "claim": "gathererLifecycle.ts:399 — `  // nearest-of-any otherwise.`",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at 399. Pedantic correction for the brief: 399 is the tail of a COMMENT; the executable fall-back is the loop at :400-416. The researcher's meaning is right."
+    },
+    {
+      "claim": "gathererLifecycle.ts:405-409 — the scan is a TOTAL ORDER, no RNG, no Map-order dependence",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at 405-409, and I re-derived the truth table: preferred beats non-preferred at any distance; equal-preference ties break on squared distance then explicit lower spark id. Every candidate is compared, so `freeSparks` insertion order genuinely cannot decide the winner. Item 3 (the owner's 'is there a random in it?') is correctly answered NO."
+    },
+    {
+      "claim": "game/spawner.ts:346 — `    const type = rngPick(this.rng, this.cfg.types);`",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim. Supports the 'deterministic in the sim, unpredictable to the player' explanation of what the owner is actually seeing."
+    },
+    {
+      "claim": "state/worldTypes.ts:462 — `  gathererOrders: Map<PlayerId, SparkType[]>;` — the queue is of SHAPES, not towers",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim, and the docblock at :455-460 independently states the priority-override semantics. His question 1 is correctly resolved."
+    },
+    {
+      "claim": "render/castlePanel.ts:1098 — the owner's S153 'those shape that make the goblin tower came up to queue' quote",
+      "verdict": "CONFIRMED",
+      "note": "The quote spans 1097-1099 (the cited 1098 is its middle line). Content is exactly as reported."
+    },
+    {
+      "claim": "main.ts:1005 — one tower-tile click appends that tower's whole shortfall to the flat queue",
+      "verdict": "PARTIAL",
+      "note": "⛔ THE `quote` FIELD IS FABRICATED CODE. `dispatch(dispatchFn === undefined ? undefined as never : undefined as never, undefined as never);` appears NOWHERE in this repo. The researcher self-flagged it and their PARAPHRASE is accurate — the real lines 1005-1009 are `for (const m of missing) { for (let n = 0; n < m.need - m.have; n++) { dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: seat, sparkType: m.type }); } }` inside `castlePanel.setRequestShapesHandler` at :1000. The claim survives; the quote must be replaced before this becomes a brief, or a downstream session copies a line that does not exist (the S120 failure mode in miniature)."
+    },
+    {
+      "claim": "hostTick.ts:2105 + main.ts:2726-2731 — GATHERER_TICK is host-only, so a fix cannot desync a peer",
+      "verdict": "CONFIRMED",
+      "note": "hostTick.ts:2105 verbatim. main.ts:2725 is `} else if (!isClient) {` with `runHostTick(...)` at :2731. protocol.ts:1391 says in as many words 'GATHERER_TICK is host-internal'. workerSim.ts:509 calls the same `runHostTick`. Host/worker/replay run one code path; the joiner computes nothing."
+    },
+    {
+      "claim": "PROTOCOL_VERSION 47 at protocol.ts:704 — NO BUMP OWED",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim `export const PROTOCOL_VERSION = 47 as const;`. The fix adds no action, no discriminant value, no serialized field — PROVIDED the no-latch variant is built. See the oscillation verdict: a stability latch WOULD be a new Gatherer field and that changes this answer."
+    },
+    {
+      "claim": "FOUR SITES: no obligation — gathererOrders already has type + factory + serialize + hash + worker",
+      "verdict": "CONFIRMED",
+      "note": "All five verified by grep: worldTypes.ts:462, world.ts:434, save.ts:1070 serialize / :1758 restore (+ serializer at :1939-1948), stateHashFull.ts:98 coverage + :632-636 projection, and workerSim.ts:509 runs the same runHostTick. Nothing missing."
+    },
+    {
+      "claim": "gathererOrders.test.ts:193 'a queued type with NONE available still fetches the nearest of any type' must STAY GREEN",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at 193. I traced it under the proposed fix: queue [Square], only a Dot -> satisfiable = [] -> null -> wanted = preferredType (null) -> nearest = the Dot. Stays green. Owner ruling B4 survives."
+    },
+    {
+      "claim": "gathererOrders.test.ts:154 'extra units are never idled by a short queue' is the contract the fix must not break",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at 154, and the rank-into-filtered-list form does preserve it."
+    },
+    {
+      "claim": "zoneEconomy.test.ts:139-143 `expect(total).toBeGreaterThanOrEqual(7)` must be RE-MEASURED, not relaxed",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim. And :102-104 really does assert exactly ONE un-upgraded gatherer, so RULING 2 genuinely cannot affect this fixture. Note its queue is WANTED = [Square, Circle, Circle, Circle] (line 59) — four entries, so the fix WILL change this fixture's steering."
+    },
+    {
+      "claim": "gathererLifecycle.ts:559-563 — the S161 OPEN-3 preempt calls the same function and is 'the only oscillation surface the fix opens — the `cand.type === wanted` guard is what bounds it'",
+      "verdict": "REFUTED",
+      "note": "⛔ THE SINGLE BIGGEST MISS. The lines are verbatim, but the bound is wrong. `cand.type === wanted` bounds oscillation only while `wanted` is STABLE — which it is today, because q[rank] changes only when the queue changes. The fix makes `wanted` a function of quarry MEMBERSHIP, which changes whenever any spark is claimed, expires (FREE_SPARK_TTL_TICKS 600) or spawns. That is verbatim the trigger the Council rejected in S141: gathererLifecycle.ts:305-307 — 'that set changes every time ANY of the player's gatherers claims a spark or deposits, so a unit that was rank 0 becomes rank 1 next tick, retargets, and can thrash indefinitely without ever completing a haul.' The fix keeps `rank` stable and makes the ENTRY IT MAPS TO unstable instead — functionally the same thrash. Worked case: 3 gatherers, queue [Square, Triangle, Circle], Squares present -> g0 Square / g1 Triangle / g2 Circle. Squares run out -> satisfiable = [Triangle, Circle] -> g1's wanted flips Triangle->Circle, `current.type !== wanted`, the preempt at :560 fires and it abandons a live Triangle mid-walk. A Square respawns -> it flips back. And this is not theoretical: constants.ts:747-748 records the MEASURED standing pool as 'solo mean 8.92 median 10' but 'bots mean 4.48 median 2 (4 gatherers consuming)' — in a bot match the satisfiable list churns on most ticks. The fix needs either a stability rule (do not re-derive `wanted` for a gatherer already committed to a live target) or a latched type on the Gatherer — and a latch is a new serialized+hashed Gatherer field (save.ts:2584/2598, stateHashFull.ts:367/609), i.e. a four-sites obligation and a size escalation the report does not carry."
+    },
+    {
+      "claim": "Four shipped tests 'WILL GO RED BY DESIGN' — gathererOrders.test.ts:119, :132, :150-155, :157",
+      "verdict": "PARTIAL",
+      "note": "Three of four confirmed RED by hand-tracing: :119 (expects Square/Square/Triangle, gets null×3), :148-155 (line 153 expects Square, gets null), :157-164 (line 163 expects Spiral, gets null). ⛔ BUT :132 'rank is STABLE while peers change FSM state' does NOT go red — it computes `before = [null,null,null]` and compares it to `[null,null,null]` after the state change, so it passes VACUOUSLY. That is worse than red: the fix would silently gut the one test the file's own header (lines 4-9) calls 'the test that would have gone red on the rejected design'. It must be re-seeded for an anti-vacuity reason the report never states, and the brief must say so or a session will see it green and move on. Also correct-by-omission: :166 'no queue means no order' stays green."
+    },
+    {
+      "claim": "root_cause: the gatherer 'abandons the queue entirely and fetches whatever happens to be nearest'",
+      "verdict": "PARTIAL",
+      "note": "True of TARGETING, overstated for the queue as a whole. `consumeGathererOrder` (:339-347) pops the FIRST entry matching the DELIVERED TYPE, so an opportunistic nearest-of-any haul that happens to be a queued type still serves and pops the queue. The queue is not abandoned — it is served in arrival order instead of in the player's order. Minor, but the brief should say it precisely or the fix's success criterion gets mis-stated."
+    },
+    {
+      "claim": "Determinism: the availability probe must be per-TYPE set membership, never 'the first/nearest harvestable spark I encounter'",
+      "verdict": "CONFIRMED",
+      "note": "Correct and well-reasoned. SparkType is a dense 0..5 enum (constants.ts:8-15) so a 6-slot boolean array is available and is the safer form. `Array.prototype.filter` preserves order deterministically; `Set.has` is order-independent. No new tie-break is needed and none may be invented."
+    },
+    {
+      "claim": "blocked_on: NOTHING — both owner questions ship with a default",
+      "verdict": "PARTIAL",
+      "note": "The two questions the researcher raised are indeed defaultable and the recommendations (a)/(a) are right. But there is a THIRD fork they did not surface and it is not defaultable by a branch: whether `wanted` may be re-derived for a gatherer already walking to a live target. Answering it wrong either reintroduces the S141 thrash or silently disables the S161 OPEN-3 preempt the owner personally asked for. That belongs in the brief as an explicit design decision with a test, not discovered mid-branch."
+    },
+    {
+      "claim": "owner_ruling_needed RULING 2's note that the multi-gatherer case 'NEVER APPEARS IN THE OPENING'",
+      "verdict": "CONFIRMED",
+      "note": "zoneEconomy.test.ts:102-104 asserts exactly one gatherer with speedLevel 0. The claim is sound."
+    },
+    {
+      "claim": "No documented owner ruling in SPARK_CANON.md is broken by this fix",
+      "verdict": "CONFIRMED",
+      "note": "I grepped SPARK_CANON.md and src/canon.test.ts for gatherer/queue/B4 content: the canon has ZERO gatherer-queue material (its only 'gatherer' hits are the untargetable-units table at :75 and :149) and canon.test.ts has none at all. No canon ruling is at risk. ⚠ Which also means SPARK_CANON.md and src/canon.test.ts do not belong in file_set — see corrections."
+    },
+    {
+      "claim": "Perf note: 'adds one O(freeSparks) pass per gatherer per tick … the preempt branch at :559 can call it twice'",
+      "verdict": "PARTIAL",
+      "note": "Undercounts. On the preempt path the fix costs THREE full freeSparks passes per gatherer per tick: the availability pass at :559, a SECOND availability pass inside `pickGathererTarget` at :389 (called from :561), plus the existing pick scan. Baseline on that path is one. Trivial at FREE_SPARK_SOFT_CAP 24 / measured mean 4-9, so the conclusion holds — but the hoist-to-a-3rd-parameter escape hatch the researcher offers is worth doing up front, not deferring."
+    }
+  ],
+  "missed": [
+    "⛔ TOLERANT-DEFAULT CONSUMER (the S182 lesson-7 shape, and the report does not mention bots at all). src/bots/botBrain.ts:711 — `      const queued = world.gathererOrders.get(me.id) ?? [];` followed at :712 by `      if (!queued.includes(wanted)) return { kind: 'ORDER', sparkType: wanted };`. Bots DO emit the intent (src/bots/botController.ts:279, `send({ type: 'ENQUEUE_GATHERER_ORDER', playerId: this.seat, sparkType: goal.sparkType });`). Because the bot never enqueues a duplicate type, its queue accumulates SEVERAL DISTINCT types over time — exactly the shape where the fix changes behaviour. And a type that is permanently unsatisfiable is never popped by `consumeGathererOrder` and never re-ordered by this guard, so after the fix the bot works its deeper entries and is left with a stuck head. This consumer is silent: no exhaustive switch forces anyone to visit it.",
+    "⛔ A FULL-LOOP TEST THAT IS NOT IN file_set AND IS THE MOST LIKELY RED. src/bots/botTowers.test.ts:362 `  it('a HARD bot with income and an empty bank eventually raises a tower', () => {` — it drives the REAL `runHostTick` with a real BotManager, a real gatherer and real spawner income from an EMPTY bank. Its docblock at :335-342 names exactly three changes that made it green, item 2 being `the ORDER goal steering the hauler at the shape the bill wants — gathererLifecycle reads world.gathererOrders, which was the load-bearing unknown`, and then says `Any one of the three alone left it red. Kept un-weakened as the regression guard for all three.` The fix changes precisely that steering. It is also guarded at :357 by `⚠ DO NOT \"FIX\" THIS BY LOOSENING THE ASSERTION.`",
+    "⛔ A SECOND FULL-LOOP BOT TIMING GATE, also absent. src/bots/firstTowerSpeed.test.ts — imports `runHostTick` at :30, drives it at :100, and asserts at :112 `it('⭐ HARD raises its first tower inside the OPENING BUILD phase'` and :133 the same for IMBA. A first-tower TIMING assertion sits directly downstream of gatherer steering; this can move for the same reason zoneEconomy's total can.",
+    "⛔ A SHIPPED UI-TRUTH CONTRACT THE FIX BREAKS, AND ITS GUARD IS GREEN OVER IT (S182 §2, verbatim). src/render/shapeStrip.ts:170-173 — `Owner ruling B4: \"Coalesce into one chip with an ×N badge (RTS convention)…\" First-appearance order is what keeps \"leftmost is next\" true after coalescing — sorting by count or by type would put a chip the player is not waiting for at the front and make the display lie about what happens next.` After the fix, 'leftmost is next' is FALSE whenever the head type is off the board — which, at the measured bot-match pool (median 2 sparks), is most of the time. The test that pins it, gathererOrders.test.ts:333 `it('preserves \"leftmost is next\" — the first chip is the type at the head of the queue')`, tests `coalesceOrders` IN ISOLATION and will stay GREEN while the screen lies. That is the exact hole this lane exists to find: the guard proves the ordering function is correct, not that the head is what the gatherer is fetching. Either the branch corrects the display or it hands the merge owner an explicit, written acceptance that the chip now means 'queued' rather than 'next'.",
+    "A SECOND PRODUCTION ENQUEUE SITE the call-site enumeration missed. src/main.ts:976 — `      dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });` inside `footerBand.setOrderHandlers(...)` at :974. That is the footer shape-strip palette click (one type per click), distinct from the castle-tile whole-bill loop at :1007. The owner's 'a few towers on the queue' could have been built either way. Third path in: src/input/controls.ts:552 `        this.castlePanel?.requestShapesFor(this.world, card);`.",
+    "A SECOND TOLERANT DEFAULT, in the renderer. src/render/footerBand.ts:294 — `    const orders = world.gathererOrders.get(world.localPlayerId) ?? [];` then `:295 this.strip = shapeStripLayout(this.chips, orders);`. This is the live queue display and the surface on which the 'leftmost is next' lie is actually drawn.",
+    "A DOC CLAIM THAT GOES HALF-STALE. src/constants.ts:645-646 — `The ordered types always land regardless of speed, because pickGathererTarget treats a queue entry as a priority override at any distance — that, not the speed, is what guarantees the bill.` It sits on GATHERER_BASE_SPEED and is part of that constant's derivation record. After the fix 'the ordered types always land' needs the caveat that an unsatisfiable entry is now SKIPPED rather than waited on.",
+    "THE NUMBER THAT SIZES THE WHOLE PROBLEM, and nobody measured how often `satisfiable` is even non-empty. src/constants.ts:747-748 — `     solo   mean 8.92   median 10   p95 15   PEAK 18     (1 gatherer consuming)` / `     bots   mean 4.48   median  2   p95 13   PEAK 14     (4 gatherers consuming)`. Six spark types against a median of 2 sparks in a bot match means the availability set is usually 1-2 types wide. That is what makes the fix fire often AND what makes the oscillation above frequent rather than theoretical. It belongs in the brief as the sizing fact.",
+    "A FULL-LOOP DIFFERENTIAL FIXTURE that exercises the changed function and is not on any list. src/state/workerSim.differential.test.ts:434-440 seeds `ENQUEUE_GATHERER_ORDER` every 40 frames (alternating Square/Circle) across 300 frames of a host-vs-worker `hashWorldStateFull` comparison, with :422-433 explaining it exists because the projection was previously dead code — `That is the worst kind of green: the oracle exists, is wired, and is looking at an empty set.` Both rigs run the same code so it should stay green, but it is the one fixture that would catch a host/worker split in the new availability probe. Put it on the must-stay-green list.",
+    "NO DETERMINISM DEFECT IS INTRODUCED BY THE RESEARCHER'S STATED SHAPE, and I checked all five hazard classes rather than taking the claim: no Math.random (spawner's `rngPick` is upstream and untouched), no wall clock, no float accumulator (only integer `rank` and existing squared distances), no Map-iteration decision (set membership + `filter` preserves array order), and `pickGathererTarget`'s scan remains a total order. The hazard is BEHAVIOURAL (thrash), not divergent.",
+    "file_set contains two CANON files that have no gatherer content whatsoever and are, by the report's own admission, the highest-collision files in the split. Grepped both: SPARK_CANON.md has zero queue/gatherer-order material and src/canon.test.ts has zero 'gather' or 'queue' hits. Listing them is pure collision risk for a parallel worktree with no upside."
+  ],
+  "file_set_corrections": [
+    "ADD — src/bots/botTowers.test.ts : the full-loop 'a HARD bot … eventually raises a tower' fixture (:362) whose own docblock (:335-342) names gatherer steering as one of three load-bearing causes of its greenness, explicitly un-weakened as a regression guard. Highest-probability RED in the whole change and it is not in the report.",
+    "ADD — src/bots/firstTowerSpeed.test.ts : real-runHostTick first-tower TIMING assertions for HARD (:112) and IMBA (:133). Second-highest-probability RED.",
+    "ADD — src/bots/botBrain.ts : the tolerant-default consumer at :711 (`?? []`) with the no-duplicate guard at :712. At minimum read and comment; likely a docblock correction once the fix lands.",
+    "ADD — src/render/shapeStrip.ts : holds the 'leftmost is next' / B4 coalescing contract at :167-187 that the fix falsifies. Either corrected here or explicitly accepted in writing.",
+    "ADD — src/render/footerBand.ts : :294-295, where that contract is actually rendered. Only if the branch corrects the display.",
+    "ADD — src/constants.ts : the GATHERER_BASE_SPEED derivation comment at :645-646 goes half-stale. One-line doc fix; also the source of the pool measurement (:747-748) the brief should quote.",
+    "ADD — src/state/workerSim.differential.test.ts : must-stay-green, the only host-vs-worker fixture that exercises a non-empty queue through 300 frames (:422-446).",
+    "ADD — src/state/gatherers/gatherer.ts, src/state/save.ts, src/state/stateHashFull.ts : ONLY IF the oscillation fork is resolved with a latched type on the Gatherer. That variant is a new serialized+hashed field — factory at gatherer.ts:97, serialize at save.ts:2584/:2598, hash union at stateHashFull.ts:367 and projection at :609 — i.e. a real four-sites obligation. Naming it now is what stops a mid-branch surprise.",
+    "REMOVE — SPARK_CANON.md : zero gatherer/queue content (grepped). The report itself recommends not touching it; leaving it in file_set poisons the split for every other branch that legitimately needs it.",
+    "REMOVE — src/canon.test.ts : zero 'gather' or 'queue' hits. Same reason.",
+    "REMOVE — src/state/gatherers/gathererHaul.test.ts : it never enqueues an order (absent from every ENQUEUE_GATHERER_ORDER grep) and does not import orderForGatherer; its pickGathererTarget calls at :200-235 are all preferredType-only. The fix cannot touch it. Keep it on the 'verify green' list, off the file_set.",
+    "KEEP AS-IS — src/state/gatherers/gathererLifecycle.ts (the one production file), src/state/gatherers/gathererOrders.test.ts, src/state/gatherers/gathererPreempt.test.ts, src/state/gatherers/zoneEconomy.test.ts. I traced all five preempt tests (:66, :83, :102, :113, :127) under the fix and all five stay green; the researcher is right that a sixth is owed."
+  ],
+  "size_grade": "DISAGREE — \"Standard (10-30K)\" is optimistic and, on the latch branch, wrong by a tier. The production diff really is ~15 lines in one function, but the report sized the CODE and not the WORK. Counted against the tree: four shipped assertions to re-pin plus one VACUITY repair the report did not know about (gathererOrders.test.ts:132 goes green-and-empty, not red); five new behavioural tests plus the sixth preempt test; and now FOUR full-loop economy/timing fixtures that must each be re-measured through the real host tick rather than reasoned about — zoneEconomy.test.ts across two layouts (a 5400-tick BUILD each), botTowers.test.ts (three sim-minutes), firstTowerSpeed.test.ts (two difficulties). Each is minutes of wall clock per run and each can legitimately move, which means iteration, not one pass. Add the UI-truth decision on \"leftmost is next\" and the oscillation design fork. Call it FULL (>30K) as written. It is only Standard if the branch is scoped to the no-latch variant AND the oscillation question is answered in the brief before the branch opens; if the answer turns out to need a latched type on the Gatherer, it becomes a four-sites wide-field change (gatherer.ts:97 factory, save.ts:2584/:2598, stateHashFull.ts:367/:609, worker) and is unambiguously Full.",
+  "net_assessment": "THE DIAGNOSIS IS SOUND AND THE FIX SHAPE IS MOSTLY RIGHT. I opened every cited line. Every production-code quote is verbatim and means what the report says, the four-sites analysis is complete and correct, the no-PROTOCOL-bump conclusion holds for the no-latch variant, the host-only claim is real (main.ts:2725 `} else if (!isClient) {`, protocol.ts:1391 \"GATHERER_TICK is host-internal\"), and the \"is there a random in it? NO\" answer to the owner is correct — I re-derived the `better` truth table at :405-409 myself rather than accept it. `reproduced: CONFIRMED_IN_CODE` stands. This is not a \"already fixed\" or \"owner was wrong\" result.\n\nTHREE THINGS WOULD HAVE COST THE BRANCH, AND TWO OF THEM ARE THE EXACT S182 FAILURE SHAPES THIS LANE WAS SPAWNED FOR.\n\n1. THE OSCILLATION BOUND IS REFUTED, AND IT IS THE S141 COUNCIL REJECTION WEARING A NEW HAT. The report says the `cand.type === wanted` guard at :563 bounds the preempt. It bounds it only while `wanted` is stable. The fix makes `wanted` a function of quarry membership, and gathererLifecycle.ts:305-307 records that BOTH external Council seats rejected the original design for depending on a set that \"changes every time ANY of the player's gatherers claims a spark or deposits\". Claiming a spark sets escrow and removes it from `isHarvestable` — the identical trigger. The rank stays stable and the entry it maps to starts churning instead. With constants.ts:748 measuring a bot-match pool of \"mean 4.48 median 2 (4 gatherers consuming)\" against six types, this fires constantly. A branch that ships the report as written re-introduces, from the other end, the precise defect the S141 Council fix exists to prevent — and its own new tests would not catch it, because they are all single-snapshot assertions with no multi-tick churn.\n\n2. A GREEN GUARD OVER A LIVE LIE. shapeStrip.ts:170-173 quotes owner ruling B4 and states that first-appearance order is what keeps \"leftmost is next\" true and stops the display \"lying about what happens next\". The fix falsifies that sentence for most of a bot match. The test that pins it (gathererOrders.test.ts:333) exercises `coalesceOrders` in isolation and stays green throughout. Source-text/unit guard proves the function is correct; it cannot prove the head is what the gatherer fetches. Verbatim S182 §2.\n\n3. A TOLERANT DEFAULT AND THE TWO FULL-LOOP FIXTURES BEHIND IT. The report contains the word \"bot\" zero times. botBrain.ts:711 reads the queue through `?? []`, bots really do emit the intent (botController.ts:279), and botTowers.test.ts:362 — whose docblock says gatherer steering is one of three causes of its greenness and that it is \"kept un-weakened as the regression guard for all three\" — plus firstTowerSpeed.test.ts's first-tower timing gates are both absent from file_set. In a parallel split, a branch that does not know those files exist will either break them or, worse, have them broken for it by whoever merges next.\n\nSMALLER, STILL WORTH FIXING BEFORE THIS IS HANDED OUT: the `main.ts:1005` evidence `quote` is fabricated code that exists nowhere in the repo (self-flagged, paraphrase accurate — but replace it, that is the S120 failure in miniature); the claim that gathererOrders.test.ts:132 goes RED is wrong — it goes VACUOUSLY GREEN and silently stops testing the Council fix, which a session will read as \"no action needed\"; \"abandons the queue entirely\" overstates it, because `consumeGathererOrder` still pops on a lucky type match; the perf note undercounts (three freeSparks passes on the preempt path, not two); and SPARK_CANON.md + src/canon.test.ts must come out of file_set — I grepped both and neither contains a single gatherer or queue assertion, so they are pure collision surface.\n\nNO CANON RULING IS BROKEN. Owner ruling B4 (priority override, never an on/off switch) survives the fix intact, which I verified by tracing gathererOrders.test.ts:193 through the proposed logic. §1's four archived subsystems and §9b's retaliation-kiting DO-NOT-FIX are untouched. The stat ladder is not involved — this change subtracts no damage and creates no pool.\n\nVERDICT: send it, but not as written. Answer the \"may `wanted` be re-derived for a gatherer already walking to a live target?\" fork IN the brief, add the four bot/render files to file_set, drop the two canon files, and re-grade to Full unless the no-latch variant is confirmed first."
+}

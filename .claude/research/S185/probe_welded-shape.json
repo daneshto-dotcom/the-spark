@@ -1,0 +1,135 @@
+{
+  "lane": "THE WELDED SHAPE SHOWING THROUGH A TOWER — case construction for an owner ruling (read-only probe)",
+  "summary": "The owner's observation is REAL, LIVE and already documented as an open call — `SPARK_CANON.md:388-390` records it verbatim as \"the owner's call whether a weld should be swallowed by the building\". A \"welded shape\" is not its own entity type: it is an ordinary `Primitive` that a player free-placed within `AUTO_BOND_RADIUS` (60 px, `constants.ts:824`) of a node the tower stands on, so the auto-bond picked that node and joined them. It is same-colour only (`controls.ts` `pickPrimitiveInRange` rejects `p.placerColor !== myColor`), so a weld on your tower is always your own shape. It IS on the canon ladder — but at `PRIMITIVE_MAX_HP` 70 fifths, NOT the lone-shape 5: `damage.ts:224` clamps to 5 only when `prim.bonds.size === 0`, and a weld has a bond. It is also not an acquisition target at all (`creatureAI.ts:267` skips any prim with bonds), so only area damage reaches it — while its BOND is a perfectly ordinary chewable connector (`findNearestBondTarget` filters on ownership and nothing else). It shows through for ONE reason and it is not render order: render order is correct (shapes at `main.ts:618`, tower sprites at :774/:804/:832, so sprites are on top). The shape is at full alpha because `coverAlphaForPrim` returns 1 for anything the renderers never published (`towerCover.ts:228`), and every publish site excludes the weld DELIBERATELY — `ringBondsOf` at `towerRenderer.ts:79` says in as many words \"BOTH ENDPOINTS MUST BE RING MEMBERS … hiding it would erase a connector the tower does not stand on\". Crucially, only TWO of the five topologies can even reach this: the 12 race towers + tier-9 (where R136 deliberately permits the weld) and a weld onto a LEAF of a star ramp tower. A weld onto a star's HUB kills the tower (`starShape.ts:108`), and ANY weld kills the pentagram (`pentagram.ts` component-size-5/degree-2), so the structure most people would picture cannot produce this at all. There is NO prior owner ruling on it: the archive, the canon and every handoff carry it as owed, never answered.",
+  "findings": [
+    {
+      "claim": "The gap is already recorded in the canon as an OPEN OWNER CALL, not as a bug to be fixed unilaterally. Any session that 'discovers' it is rediscovering a documented, deliberate deferral.",
+      "file": "SPARK_CANON.md",
+      "line": 388,
+      "evidence": "⛔ **KNOWN GAP, MEASURED AND UNFIXED:** the cover set is the recipe's own members. A hand-placed shape\n**welded** onto a tower is not a member and stays fully visible under the sprite forever. Reported,\nnot fixed — it is the owner's call whether a weld should be swallowed by the building.",
+      "still_live": true
+    },
+    {
+      "claim": "A 'welded shape' has no special type. It is an ordinary Primitive joined by the normal free-place auto-bond, which picks the nearest SAME-COLOUR primitive within AUTO_BOND_RADIUS. So a weld onto your tower is always your own shape, never an enemy's.",
+      "file": "src/input/controls.ts",
+      "line": 1483,
+      "evidence": "const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS, targetRefPos);\n...\n// S46 P3 — same-color filter. myColor undefined = test edge case (no player); accept all.\nif (myColor !== undefined && p.placerColor !== myColor) continue;",
+      "still_live": true
+    },
+    {
+      "claim": "A welded shape is ON the canon ladder, but at PRIMITIVE_MAX_HP = 70 fifths (14 HP / 0 DEF), NOT the lone-shape 5. The 5-fifth clamp is gated on having ZERO connectors, and a weld has one.",
+      "file": "src/state/damage.ts",
+      "line": 224,
+      "evidence": "      if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);\n(and the comment above it: \"Gated on the LIVE connector count, so a shape inside any structure never reaches it and `PRIMITIVE_MAX_HP` still governs those.\")  PRIMITIVE_MAX_HP = 70 at constants.ts:3080; LONE_PRIMITIVE_POOL_FIFTHS = 5 at constants.ts:3110",
+      "still_live": true
+    },
+    {
+      "claim": "The welded shape is NOT a target a creature can acquire — only area damage reaches it. But its weld BOND is an ordinary chewable connector, because the bond scan filters on ownership alone. So the weld adds a real, attackable connector to the board that contributes nothing to the tower's health.",
+      "file": "src/state/creatures/creatureAI.ts",
+      "line": 267,
+      "evidence": "    if (prim.bonds.size > 0) continue;\n(preceded by the S179 owner ruling: \"A creature stops targeting shapes that have connectors... He targets the connectors.\")",
+      "still_live": true
+    },
+    {
+      "claim": "It is NOT a render-order defect. Pixi z-order is addChild order and the shapes are added first, so the tower sprite is correctly on top. The shape shows through because it is drawn at alpha 1, not because it is drawn late.",
+      "file": "src/main.ts",
+      "line": 618,
+      "evidence": "618:  const structureRenderer = new StructureRenderer(app, fogHiddenLayer);\n774:  const towerRenderer = new TowerRenderer(app, fogHiddenLayer);\n804:  const voltkinTowerRenderer = new VoltkinTowerRenderer(app, fogHiddenLayer);\n832:  const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);",
+      "still_live": true
+    },
+    {
+      "claim": "The mechanism: cover is a PUBLISHED set, and anything not published reads alpha 1. structureRenderer applies that alpha to every shape it draws, so an unpublished weld draws fully opaque under the sprite.",
+      "file": "src/render/towerCover.ts",
+      "line": 228,
+      "evidence": "function alphaOf(p: Phase | undefined): number {\n  if (p === undefined) return 1;\n...\nexport function coverAlphaForPrim(id: PrimitiveId): number {\n  if (!active) return 1;\n  return alphaOf(primPhase.get(id));\n}\n(consumed at structureRenderer.ts:167 — `sprite.alpha = coverAlphaForPrim(prim.id);`)",
+      "still_live": true
+    },
+    {
+      "claim": "THE CRUX — the exclusion is deliberate and has a stated reason. `ringBondsOf` refuses any bond with an endpoint outside the ring, on the grounds that hiding it would erase a connector the tower is not standing on. This is the sentence the owner is being asked to overrule.",
+      "file": "src/render/towerRenderer.ts",
+      "line": 79,
+      "evidence": " * ⚠ BOTH ENDPOINTS MUST BE RING MEMBERS. A bond running from a ring node out to some unrelated\n * shape the player attached is not part of the building; hiding it would erase a connector the\n * tower does not stand on.",
+      "still_live": true
+    },
+    {
+      "claim": "The race-tower cover set is only the n same-type ring nodes. A foreign shape bonded to a ring node is invisible to this walk by construction, so it can never be published as cover.",
+      "file": "src/state/godlyRecipes/ringShape.ts",
+      "line": 104,
+      "evidence": "export function ringMembersAt(\n  world: World, anchorId: PrimitiveId, type: SparkType, n: number,\n): PrimitiveId[] | null {\n... returns `order` — exactly the n same-type nodes the walk visited.",
+      "still_live": true
+    },
+    {
+      "claim": "The race towers are the PRIMARY live case, and the weld is there BY OWNER RULING R136 — he was shown the measurement and chose to let a foreign shape touch a ring node without killing the tower. So 'refuse the weld' on race towers would reverse R136.",
+      "file": "src/state/godlyRecipes/ringShape.ts",
+      "line": 22,
+      "evidence": "The owner chose the relaxed rule: *\"degree >= 2 plus exactly 2 of my neighbours are my own type\n and they are bonded to each other\"*. So:\n   TOTAL degree is UNCONSTRAINED — a foreign shape may touch any node and the tower lives;\n   SAME-TYPE degree is EXACTLY 2 at every node\n(pinned by ringShape.test.ts:106 '⭐ R136 — a FOREIGN shape bonded to a node does NOT kill the ring')",
+      "still_live": true
+    },
+    {
+      "claim": "The SECOND live case is a star ramp tower (lightning hub, goblin tower, laser turret, HELGA) with a weld on a LEAF: the walk is the anchor's own bonds, so a shape two hops out is never covered.",
+      "file": "src/render/structureRamp.ts",
+      "line": 509,
+      "evidence": "  if (spec.shape === 'star') {\n    addPrim(anchorId);\n    for (const bondId of anchor.bonds) {\n      const bond = world.bonds.get(bondId);\n      if (bond === undefined) continue;\n      addBond(bondId);\n      addPrim(bond.aId === anchorId ? bond.bId : bond.aId);\n    }",
+      "still_live": true
+    },
+    {
+      "claim": "A weld onto a star's HUB is NOT a cover bug — it kills the tower outright, because isStarAt demands an exact hub degree. Do not report it as a visibility case.",
+      "file": "src/state/godlyRecipes/starShape.ts",
+      "line": 108,
+      "evidence": "  if (hub.bonds.size !== degree) return false;",
+      "still_live": true
+    },
+    {
+      "claim": "The PENTAGRAM cannot reach this bug at all — any weld pushes the component past 5 and the 0.5 s re-validation poll tears the spawner down. Do not put the pentagram in the ruling table.",
+      "file": "src/state/godlyRecipes/pentagram.ts",
+      "line": 19,
+      "evidence": "*   - component size MUST be exactly 5 (an extra attached shape ⇒ NO match —\n*     componentOf follows EVERY bond, so an attached square lands in the component\n*     and pushes size past 5 ...\n(restated at structureRamp.ts:449: \"a pentagram with anything welded on is not a pentagram and has no spawner to draw.\")",
+      "still_live": true
+    },
+    {
+      "claim": "⚠ THE TWO RAMP BRANCHES ALREADY DISAGREE ABOUT WELDS, and it is invisible today only by luck. The 'ring' branch walks the whole COMPONENT — so if a ring-shaped ramp tower ever tolerated a weld, that weld WOULD be covered, and would also be priced into its health. Today only the pentagram uses 'ring', and it refuses welds. A future tolerant ring recipe silently changes behaviour.",
+      "file": "src/render/structureRamp.ts",
+      "line": 518,
+      "evidence": "    const comp = componentOf(anchor, world.primitives, world.bonds);\n    for (const pid of comp.primitiveIds) addPrim(pid);\n    for (const bid of comp.bondIds) addBond(bid);",
+      "still_live": true
+    },
+    {
+      "claim": "CONSEQUENCE HE MAY NOT KNOW #1 — a weld already breaks the health bar. R182-F is measured: on a hub with one friendly shape welded to a leaf, the bar reads 48% (healthy) while the damage art reads 32% and the hub DETONATES. The divergence exists ONLY when something is welded on.",
+      "file": "SPARK_CANON.md",
+      "line": 576,
+      "evidence": "### ⛔ R182-F — the HEALTH BAR and the DAMAGE ART disagree on a WELDED hub\n| health bar | `structureDefenceFifths(n)` over the whole **component** | 34/66 → **48 % left** — green-amber, \"it's fine\" |\n| damage art | `structurePoolFifths(hub.bonds.size)` over its **own star** | 34/50 → **32 % left** — frame 17, and it detonates |",
+      "still_live": true
+    },
+    {
+      "claim": "CONSEQUENCE HE MAY NOT KNOW #2 — one welded shape makes the whole structure PERMANENTLY UNREPAIRABLE, because the repair walk rejects any component member with origin === null.",
+      "file": "src/state/structureRepair.ts",
+      "line": 151,
+      "evidence": " *   • **any member with `origin === null`** — a hand-placed shape is welded on. The component is no\n(and SPARK_CANON.md §8: \"One friendly hand-placed shape bonded onto one hub leaf makes that hub permanently unrepairable.\")",
+      "still_live": true
+    },
+    {
+      "claim": "NO PRIOR RULING EXISTS. Searched .claude/plans-archive/, SPARK_CANON.md and every HANDOFF_*.md. The only archive hits for 'weld' are the art-matte guard and an S167 trademark note — unrelated. Every handoff carries this as owed, never answered.",
+      "file": "HANDOFF_S184_2026-09-19.md",
+      "line": 129,
+      "evidence": "  whether a welded shape should be swallowed by the building · the destructive token for the one\n(listed under '## BLOCKED ON — **Him:**'; identical wording at HANDOFF_S183_2026-09-19.md:88 and boot-snapshot.md:49. `grep -ril weld .claude/plans-archive/` returns only the two S174 art plans and the S167 PDR, none about this.)",
+      "still_live": true
+    },
+    {
+      "claim": "The gap is documented in PROSE ONLY — nothing pins it. A test exists for the health-bar divergence on a welded hub, and for R136 leaf slack, but no test asserts that a weld is or is not in the cover set. Whichever way he rules, the ruling currently has no tripwire.",
+      "file": "src/render/structureRamp.test.ts",
+      "line": 206,
+      "evidence": "  it('⛔ BUT THE HEALTH BAR AND THE ART DISAGREE ON A WELDED HUB — measured, and it is not free', () => {\n(and towerCover.test.ts:267 'S183 — the cover PUBLISH sites, counted and named' counts publish sites but asserts nothing about weld membership)",
+      "still_live": true
+    }
+  ],
+  "fix_shape": "NO FIX SHOULD BE WRITTEN BEFORE THE RULING. What the ruling costs, per option:\n\n⛔ THE ONE HARD CONSTRAINT, whichever he picks: the COVER SET must be widened separately from the MEMBER WALK. `rampMembersAt` (structureRamp.ts:484) is shared by four consumers — sprite placement (`cx`/`cy`), the click box (`rampAnchorAtPoint`), the laser muzzle (`rampMuzzleAt`) and the health fraction (`bonds.length` + `bankedFifths` → `rampHealthFrac`). Adding the weld to `members`/`bonds` would move the building, move its muzzle, move its hit box and re-price its health in one edit. Same for `ring` in towerRenderer.ts (it feeds the centroid and `towerHpFrac`). So the shape of any fix is a NEW, cover-only helper — e.g. `coverExtrasOf(world, members)` returning one-hop neighbours + their bonds — passed as extra arguments to `markTowerCover`, with the member walks left byte-identical.\n\nOPTION A — LEAVE IT (status quo). Cost: 0 files. On screen: your own stray shape and its connector stay bright under the building, exactly what he reported. Breaks nothing.\n\nOPTION B — SWALLOW ONE HOP. Cover any prim bonded directly to a covered member, plus that bond. ~15 lines in a new helper + 3 call sites (towerRenderer.ts:312, structureRampRenderer.ts:223, voltkinTowerRenderer.ts:576) + tests. On screen: the tower reads clean. Cost in play: a chewable connector goes invisible — consistent with R183-F, which he already ruled (\"it doesn't matter if you know what connectors to cut\"), and raids still work because the raid pick never consults cover alpha. ⚠ THE REAL RISK: shared leaves are legal (starShape.ts documents two stars sharing a Circle), so one hop out from tower A can hide a shape that is tower B's leaf. If B has no art, B becomes a blank patch of board — the exact defect towerCover.ts:17-26 exists to prevent.\n\nOPTION C — SWALLOW WHAT IS UNDER THE ART. Cover a neighbour only if its position falls inside the sprite's drawn box (T3 art is 84 px square, towerFrames.ts:131; AUTO_BOND_RADIUS is 60). ~20 lines, same call sites. On screen: nothing pokes out from under the building; anything standing clear of it stays visible and readable. This is the option that matches the literal complaint (\"shows THROUGH\") without hiding shapes the building is not covering, and it cannot blank a distant structure.\n\nOPTION D — REFUSE THE WELD. A keep-out disc around a built tower's members at placement, like the S182 castle keep-out. This is NOT a render change — it touches placement legality, i.e. the sim. Cost in play: he loses build space around every tower. ⛔ On race towers it would REVERSE R136, which he ruled after being shown the measurement. Note the asymmetry that already exists: `stampRefusalAt` already refuses a blueprint STAMP within 60 px of any primitive; only hand-placed single shapes can weld.\n\nOPTION E — FADE, DON'T HIDE. Give a non-member neighbour a partial alpha (e.g. 0.3) instead of 0. Smallest visual change, keeps the connector legible, keeps the weld's \"this is not part of the tower\" reading. ~5 lines on top of B or C.\n\n⭐ WORTH PUTTING TO HIM WITH THE RULING: the weld already costs him two things he has probably not connected to this. A welded hub's health bar reads 48% while the art reads 32% and it detonates (R182-F, canon:576), and ONE welded shape makes the whole structure permanently unrepairable (canon §8, structureRepair.ts:151). If he dislikes welds generally, Option D answers all three at once; if he only dislikes the look, C or E is the cheap answer and the other two stay open.",
+  "four_sites_risk": "NONE for the render options (A/B/C/E). `towerCover` is renderer-only by construction — its own docblock states \"Nothing here is simulated, and nothing COULD have been … this costs no sim state, no snapshot bytes and no PROTOCOL_VERSION bump\" (towerCover.ts:10-15). No factory, no serialize, no hash, no worker, no PROTOCOL_VERSION (47) impact. Determinism is unaffected: alpha never feeds the sim, and creature targeting/raid picking never consult cover alpha.\n\n⚠ TWO NON-OBVIOUS HAZARDS IF SOMEONE TAKES A SHORTCUT:\n1. Widening `rampMembersAt` or `ring` instead of adding a cover-only helper WOULD reach the sim-adjacent surface — `rampHealthFrac` drives the damage-ramp frame and the self-destruct threshold, which is synced-health-derived presentation two peers must agree on. Keep the member walks byte-identical.\n2. If a cover helper iterates `world.bonds` / `Primitive.bonds` (a Set, insertion order) and lets that order decide ANYTHING beyond set membership, it re-enters the S155 N1 class. Membership-only is safe; any ordering must be an explicit id sort.\n\n⛔ OPTION D IS THE ONE THAT IS NOT RENDERER-ONLY. A placement keep-out is a legality predicate — host-authoritative, replay-visible, and it reverses owner ruling R136 on the race towers. That is a sim change and needs its own scope.",
+  "tests_owed": "Whichever way he rules, the ruling needs a tripwire — today there is none, and this project's own rule is that a number or behaviour lands with its assertion in the same commit.\n\n1. ⛔ A BEHAVIOURAL TEST, NOT A SOURCE-TEXT GUARD. S182's lesson (CLAUDE.md §2) is that a source-text tripwire proves a line EXISTS, not that it is REACHED. The test must build a world with a live tier-3 race tower, weld a foreign-type shape onto a ring node, run the publish, and assert `coverAlphaForPrim(weldId)` / `coverAlphaForBond(weldBondId)` — 1 if he rules LEAVE IT, ramping to 0 if he rules SWALLOW.\n2. A companion assertion that the member walks did NOT move: `rampMembersAt(...).members.length`, `.bonds.length` and `cx`/`cy` unchanged by the presence of a weld, so a future edit cannot widen the cover set through the shared walk.\n3. If Option B or C ships: a SHARED-LEAF case — two stars sharing a Circle, one with art and one without — asserting the art-less structure's shapes stay visible. This is the failure mode towerCover.ts:17-26 was written against and it is the one that would ship green otherwise.\n4. Extend the existing publish-site census (towerCover.test.ts:267) to count the cover-extras call sites the same way, so a fifth publish site cannot land without one.\n5. If Option D ships: a legality test that a hand-placed shape is refused inside the keep-out AND that R136's ringShape.test.ts:106/117 cases are explicitly re-decided rather than silently broken.\n6. ⚠ NOTE THE STRUCTURAL LIMIT, stated in the canon at §7b: no renderer runs under vitest, so z-order and actual pixels are invisible to the unit suite. Alpha is testable; \"does it look swallowed\" is a browser-pane or owner-eye check, and the browser pane never advances world.tick, so it proves static truths only.",
+  "owner_questions": [
+    "A welded shape is ALWAYS your own shape, dropped within 60 px of a tower node so it auto-bonded on. When it sits under the building: should it (a) stay visible as it does now, (b) be swallowed completely along with its connector, or (c) be swallowed only where it is actually under the building's art, and stay visible where it sticks out?",
+    "If it is swallowed, its connector goes invisible too — and that connector IS attackable, it just does not count toward the tower's health. You already ruled that hidden connectors are fine because you cannot aim your spawn anyway (R183-F). Does that ruling cover this connector as well, or does a connector that is NOT part of the tower deserve to stay visible so you can see it being eaten?",
+    "Two things a weld already does that you may not have connected to this: on a welded hub the health bar reads 48% while the building art reads 32% and it blows up (R182-F), and ONE welded shape makes the whole structure permanently unrepairable — FIX refuses it forever. Would you rather we stop shapes from welding onto a built tower at all? That answers all three at once, but it costs you build space around every tower and it reverses R136, where you deliberately allowed a stray shape to touch a race tower's ring without killing it.",
+    "Scope check before anything is built: this can only happen on the 12 race towers, the tier-9 towers, and on a LEAF of the lightning hub / goblin tower / laser turret / HELGA's hall. A weld onto a hub kills that tower outright, and ANY weld kills a pentagram. Is the ruling for all of those at once, or do you want the race towers treated differently since R136 is what lets them survive a weld in the first place?"
+  ],
+  "size_estimate": "Micro for this probe (read-only, no edit owed — the lane's deliverable is the ruling case, and it is complete). The FOLLOW-UP depends entirely on his answer: Option A is zero; Options B/C/E are Micro-to-Standard (~15-25 lines in one new cover-only helper, 3 existing `markTowerCover` call sites, plus 3-4 tests — 10-20K, 4-6 files); Option D is Standard-to-Full because it is a placement-legality change that reverses R136 and needs its own deliberation."
+}

@@ -1,0 +1,143 @@
+{
+  "lane": "A2 ADVERSARIAL VERIFY — \"stuck-carried-shape across the BUILD→FIGHT transition\"",
+  "verdicts": [
+    {
+      "claim": "controls.ts:1063 — `if (player?.kind === 'Idle' && player.carriedPotatoId === undefined) {` is the match-long gate; every world pick incl. pickSpark→PICKUP_SPARK is nested inside it, and the character card was hoisted OUT",
+      "verdict": "CONFIRMED",
+      "note": "Exact text at 1063. Block opens 1063, closes at 1152. `this.pickSpark()` at 1107, `PICKUP_SPARK` dispatch 1119-1124. `if (this.handleSheetSelect()) return;` is at 1180, OUTSIDE the block, with the S182 docblock at 1165-1178 saying so verbatim. Fully confirmed."
+    },
+    {
+      "claim": "controlsCore.ts:119-127 — `if (player.kind === 'Carrying' && state.kind !== 'AttractDrag')` pins the carried spark to the cursor forever instead of recovering",
+      "verdict": "CONFIRMED",
+      "note": "Byte-exact at 119-127. Its own header calls it 'S58 (#2) — Carrying-without-gesture defensive hard-snap to the cursor' (line 81). Runs on host (physicsLoop.ts:229), worker mirror (main.ts:2722) and joiner mirror (main.ts:2749) as claimed."
+    },
+    {
+      "claim": "controlsCore.ts:109-111 — `if (!mine) { return { kind: 'Idle' }; }` ends the gesture and dispatches nothing (entry path #1)",
+      "verdict": "PARTIAL",
+      "note": "Text exact. But as an ENTRY PATH it is near-unreachable: `mine` is false only when the spark is gone or Carried by someone else, and all four `freeSparks.delete` sites (blueprintBuild.ts:213 via the Free-only `eligiblePorchSparks` filter at :100, gathererLifecycle.ts:176 escrow-guarded, placePrimitive.ts:230 on the place path, sparkLifecycle.ts:90 which no-ops on non-Free at :89) cannot delete a spark a player is Carrying. And an opponent cannot claim it: applyPickupSpark refuses non-Free at sparkLifecycle.ts:134. So #1 is a theoretical hole, not a live one. #2 and #3 are the real paths and both are JOINER-ONLY."
+    },
+    {
+      "claim": "sparkLifecycle.ts:218 — `if (spark === undefined) throw new Error(`carried spark missing`);` is fallible and precedes fsmDrop; making it total is the highest-value line",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 218; fsmDrop at 229. Two citation slips: the host dispatch is main.ts:612 not :613, and the joiner/worker paths DO try/catch (main.ts:591-596 and 603-608), so the throw is swallowed silently there rather than crashing. The CarryViolation at :216 is pinned by sparkLifecycle.test.ts:236 and player.test.ts:27 — both survive (b1) unchanged."
+    },
+    {
+      "claim": "hostTick.ts:401-503 is the ENTIRE phase-edge block and has exactly one arm, `if (world.matchPhase === 'BUILD')`. Nothing fires on entry to FIGHT",
+      "verdict": "CONFIRMED",
+      "note": "`if (flipped) {` at 401, `if (world.matchPhase === 'BUILD') {` at 402, closes 502/503 after `recallArmies(world)` at 501. `tickGathererShelter(world)` at 508 is deliberately outside and is BUILD-gated at gathererLifecycle.ts:634. There is no FIGHT arm anywhere. Answer (c) to Q2 is correct."
+    },
+    {
+      "claim": "spawner.ts:461-480 — enforceSpawnerBounds rim-snaps any un-escrowed Free spark back into the quarry every substep; this is the owner's 'goes back to the center'",
+      "verdict": "PARTIAL",
+      "note": "Lines exact (`if (s.state.kind !== 'Free') continue;` 463, escrow skip 467, snap 479-480). TWO omissions that matter: (1) line 468 `if (exemptSparkId !== null && s.id === exemptSparkId) continue;` — physicsLoop.ts:165 sets `attractedId` from `controls.state.kind === 'AttractDrag'` and passes it at :276, so a spark under a LIVE gesture is EXEMPT; (2) line 473 short-circuits sparks already inside the disc. Both are load-bearing against fix (a) — see `missed`."
+    },
+    {
+      "claim": "buildLegality.ts:47 — `if (world.matchPhase !== 'BUILD') return false;` — 'I couldn't place it' during FIGHT is correct by S149 ruling, do not touch",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 47. phaseSplit.test.ts records it at line 21 (not 20): `2. **Nothing is buildable** outside BUILD, at every gate.` Test titles at :270/:278/:302/:310 pin four separate gates including 'the phase test is !== BUILD, so a future third phase fails CLOSED'. The 'do not relax this' instruction is exactly right and is the single most important line in the report."
+    },
+    {
+      "claim": "placePrimitive.ts:130 — PLACE_PRIMITIVE preserves the carry on a phase/zone refusal",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 130-133; the spawner-zone twin at 116-118 does the same. Citation slip: the comment 'Carry is preserved on rejection.' is at :111, not :117 (:117 is the `return world;`). Also unstated: placePrimitive.ts:569 `world.players.set(player.id, fsmDrop(player));` is a THIRD clearer of Carrying on the SUCCESS path."
+    },
+    {
+      "claim": "main.ts:588 — `if (migrationPauseActive) return;` swallows a DROP_SPARK entirely (entry path #2)",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 588, inside the `isNetworked && !world.isHost && clientSync !== null && netTransport !== null` arm opened at 577-582. No optimistic apply, no send, no retry. Joiner-only, which the report should have said out loud."
+    },
+    {
+      "claim": "hostHandlers.ts:312-316 — the per-peer token bucket returns on any INTENT incl. DROP_SPARK; the joiner has already predicted Idle (entry path #3)",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 312-316, and it does run BEFORE `isClientIntentAllowed` at 322. `world.diagnostics.intentThrottled` is real (313). Citation slip: 'DROP_SPARK' sits in PREDICTABLE_ACTIONS at main.ts:528, not :527."
+    },
+    {
+      "claim": "controls.ts:1438-1443 is the only human release and is triply conditional",
+      "verdict": "CONFIRMED",
+      "note": "Exact. Outer gate `if (e.button === 0 && this.state.kind === 'AttractDrag') {` at 1374; `mine` at 1380-1383; `if (spark !== undefined && mine) {` at 1384; carrier identity at 1438. Three nested conditions confirmed. Note an EARLIER early-return exists at 1370-1371 (the potato plant) — unreachable for a spark carry by carry-1, so benign."
+    },
+    {
+      "claim": "controls.ts:1557 — the only Escape handling releases an armed BLUEPRINT, not a carry; there is no escape hatch of any kind",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 1557-1560, and its own comment at 1555-1556 claims 'there is always a keyboard way out of a picked-up state' — true only for a held tower. `grep -n \"Escape\"` finds no other handler. RMB-down is SEVER_BOND/raid only. Corroborated independently by elimination.ts:104-106: 'Blocking a drop could STRAND a `Carrying` player — the carry-1 FSM has no other exit'."
+    },
+    {
+      "claim": "stateHashFull.ts:174 — the carry union is in NEITHER hash",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 174. And `NARROW_HASHED_FAMILIES = ['primitives', 'bonds', 'freeSparks', 'scoreByPlayer']` at stateHash.ts:89, no players entry. The freeSparks write a release performs IS hashed. Correct on both halves."
+    },
+    {
+      "claim": "save.ts:2018 — the carry is already on the wire; no new field, no protocol bump",
+      "verdict": "CONFIRMED",
+      "note": "Exact at 2018 (`serializePlayer`), rehydrated at 1874-1876 (`p.kind === 'Carrying' && p.carriedSparkId !== null`). PROTOCOL_VERSION is 47 at net/protocol.ts:704, so the report is right and the stale `46` in SPARK/CLAUDE.md is the bug. DROP_SPARK allowlisted at protocol.ts:1417 and :1542, 'allow' at benchGate.ts:52 and elimination.ts:112. No bump owed — confirmed."
+    },
+    {
+      "claim": "placeFromFree.ts:173 — ALREADY SAFE, the S52 stuck-Carrying defect is closed there; do not 'fix' it",
+      "verdict": "CONFIRMED",
+      "note": "canBuildNow at 173-176, fsmPickup at 222, with the explicit 'ATOMIC COMMIT' ordering docblock at 206-221. The pre-validation that player.kind === 'Idle' is at :98-146. Correct, and the 'do not touch' instruction is correct."
+    },
+    {
+      "claim": "controls.test.ts:3 — no Controls instance can be built under vitest, so onUp/onDown are not unit-testable",
+      "verdict": "PARTIAL",
+      "note": "Substance exactly right, line number wrong: the quoted sentence spans lines 4-6, line 3 is ' * SPARK — controls input-decision coverage (S55 P3 foundation suite).' The file's exports under test are decideKeyShrink, computeReleaseGates, distToSegment, computeStiffnessTier, stepAttractLerp (lines 17-23) — `applyControlsPerSubstep` is re-exported at controls.ts:70 but is NOT currently imported by this test, so test #4 in tests_owed adds a new import, not an extension of existing coverage."
+    },
+    {
+      "claim": "ROOT CAUSE: 'Nothing ever clears Carrying except a local pointer edge' / the complete set of DROP_SPARK producers on the human path is controls.ts:1439, :1537, controlsCore.ts:98",
+      "verdict": "REFUTED",
+      "note": "`grep -rn \"DROP_SPARK\" src --include=*.ts | grep -v test` returns two more PRODUCERS the report never names: hunterLifecycle.ts:197-201 (the hunter catch force-drops, reachable by a human — the hunter chases the LEADER's avatar) and botController.ts:596-600. Plus placePrimitive.ts:569 clears Carrying via fsmDrop on the success path. The lock therefore HAS one exit — being eaten by the hunter — which is rare, uncontrollable and leader-only, but 'no exit at all' is false as written."
+    },
+    {
+      "claim": "HAZARD in (b2): applyControlsPerSubstep may be called with a non-local seat (a bot legitimately holds Carrying with no AttractDrag), so verify before letting it dispatch; fallback = put it in Controls.applyPerSubstep",
+      "verdict": "REFUTED",
+      "note": "`grep -rn \"new WorkerControls\\|new Controls(\" src` returns exactly three sites: main.ts:616 `new Controls(app, world, P1, dispatchFn)`, workerSim.ts:242 `new WorkerControls(world, asPlayerId(init.localPlayerId))`, and workerSim.differential.test.ts:291 (a test). It is ALWAYS the local seat. Bots never route through it — botController.ts:172-183 is real (bots do hold Carrying idle) but irrelevant here. The offered fallback is unnecessary; the hazard is discharged by three greps."
+    },
+    {
+      "claim": "tests_owed #5: if a NEW e2e spec file is created, src/ci.e2eLanes.test.ts pins the spec→lane mapping and goes red until updated",
+      "verdict": "REFUTED",
+      "note": "It pins TAG→lane, not spec→lane. `LANE` (ci.e2eLanes.test.ts:50-74) maps six `@tag` literals; `tagsUsedInE2e()` at :95-105 regexes `/@[a-z][a-z-]+/g` over every .ts in e2e/. A new UNTAGGED spec is silently GATING and the suite stays green. The real (unnamed) tripwire is the opposite: a stray `@word` in a new spec's JSDoc that is not in `NOT_A_LANE_TAG` (:82) reddens 'every tag used in e2e/ has a declared lane'."
+    },
+    {
+      "claim": "determinism risk #1: the FIGHT-edge sweep over world.players is a real, hashed Map-order divergence; sort by seat id",
+      "verdict": "PARTIAL",
+      "note": "The citation is right (stateHashFull.ts:509-511 says exactly that about world.players; gathererLifecycle.ts:638-640 is the sort precedent, at :638 not :637). But the claimed divergence is not demonstrated: each seat's drop writes only ITS OWN player and ITS OWN distinct spark, so the operations COMMUTE and any order yields the same hash. Sorting is correct hygiene and should still be done — but it is not load-bearing here, and stating it as 'a real, hashed divergence' overstates the case. It WOULD become load-bearing the moment option (ii) lands, because `bankAdd` writes a shared per-seat bank."
+    },
+    {
+      "claim": "owner_ruling: ship option (i) — the shape returns to the quarry centre, costs zero code; the only consequence is an opponent's gatherer could take it",
+      "verdict": "REFUTED",
+      "note": "This is the report's most dangerous claim. applyDropSpark re-stamps `spark.createdTick = world.tick` (sparkLifecycle.ts:228); reapExpiredFreeSparks (physicsLoop.ts:294-311) DELETES any Free, un-escrowed spark at `world.tick - s.createdTick >= FREE_SPARK_TTL_TICKS`, which is 600 ticks = 10 s (constants.ts:770). FIGHT is 45 s. And no gatherer can rescue it: tickGathererShelter returns unless matchPhase === 'BUILD' (gathererLifecycle.ts:634) and releaseShelteredGatherers only runs on the BUILD edge (hostTick.ts:499) — every gatherer is SHELTERED for the whole fight. So option (i) does not return his shape to the quarry, it DESTROYS it ~10 s into the fight. See `missed` for why his exact case is the worst one."
+    }
+  ],
+  "missed": [
+    "⛔ THE BIGGEST ONE — FIX (a) DOES NOT DO WHAT THE REPORT SAYS IT DOES, AND ON THE HOST SEAT IT CHANGES ALMOST NOTHING VISIBLE. hostTick cannot reach `Controls.state`. After a FIGHT-edge DROP_SPARK the local ControlState is STILL `AttractDrag`, so on the very next substep controlsCore.ts:105-108 computes `mine = spark.state.kind === 'Free'` → TRUE, and line 116 `stepAttractLerp(spark.pos, spark.prevPos, state.cursor, followRate)` keeps dragging the now-Free spark to the cursor. Worse, physicsLoop.ts:165 `const attractedId = controls.state.kind === 'AttractDrag' ? controls.state.sparkId : null;` is still set, and spawner.ts:468 EXEMPTS it from the rim-snap. So the shape stays glued to his cursor through the whistle exactly as before; it only returns to the quarry when he releases the button. (a) fixes the LOCK half (player is Idle, so controls.ts:1063 lets him pick up again) and does NOT fix the 'it's stuck on my cursor' half. The brief must say so, and (a) needs a companion local-gesture clear — which is a SECOND file and a host→input contract the report did not price.",
+    "⛔ A SECOND PRODUCTION CALL SITE OF THE MECHANIC, AND IT IS THE TOLERANT DEFAULT: hunterLifecycle.ts:195-205 dispatches DROP_SPARK for the hunter catch and wraps it in `try { applyDropSpark(...) } catch (e) { console.error('[hunter] DROP_SPARK failed on catch (carry-1 invariant?):', e); }`. That catch swallows the EXACT `carried spark missing` throw (b1) is aimed at. It is both (i) the one real exit from the soft-lock the report says does not exist, and (ii) the S182-lesson-7 tolerant default where the next defect hides. It must be in file_set and its docblock at :190-194 must be re-stated once the drop becomes total.",
+    "⛔ THE OWNER'S EXACT SCENARIO IS THE WORST CASE FOR OPTION (i), AND THE REPORT INVERTS IT. He was carrying 'a shape pulled out of his castle'. A pulled shape KEEPS `escrow = 'banked'` (gathererLifecycle.ts:242, whose docblock at :237-238 says the escrow is what exempts it from 'the free-spark soft cap and the 10 s TTL reap'). The instant he picked it up, applyPickupSpark CLEARED it — `spark.escrow = undefined` at sparkLifecycle.ts:166. So the shape he paid a pull for is, after a FIGHT-edge drop, un-escrowed, rim-snapped to the shared quarry and reaped in 10 s with every gatherer locked indoors. Option (ii) (bankAdd + delete, mirroring gathererLifecycle.ts:172-177) is not a 'one-word improvement' — it is the option that does not destroy his shape, and it is what tickGathererShelter already does with the GATHERER's cargo one second earlier at the same clock (gathererLifecycle.ts:646-651). This should be put to him as a real question, not shipped as (i).",
+    "A THIRD DROP_SPARK PRODUCER AND AN UNNAMED PRECEDENT FOR THE FIX: botController.ts:594-601 `abandon()` already implements exactly the stuck-carry self-heal being proposed for humans, fired by the STUCK_TICKS timeout at :190. And botController.ts:174-187 is a second one ('Self-heal: idle while still Carrying … → route the held spark to a fresh build point'). Bots have had both for sessions; the human seat has neither. That is the shape of the argument to the owner, and the report never makes it.",
+    "(b2) ON THE JOINER IS AN INTENT LOOP INTO THE RATE LIMITER THAT IS ENTRY PATH #3. main.ts:2749 runs applyControlsPerSubstep on the joiner mirror with the joiner's dispatchFn (main.ts:576). A self-heal there optimistically applies Idle and sends an INTENT; the host — which is the one that lost the drop — restores Carrying on the next snapshot at ~10 Hz; the mirror dispatches again, forever. That feeds hostHandlers.ts:312's bucket with a permanent 10 Hz DROP_SPARK stream and can throttle the seat's OTHER intents. (b2) needs a latch or must live host-side.",
+    "SOURCE-TEXT GUARDS OVER controls.ts THAT CAN GO RED AND ARE IN NO ONE'S file_set — five files: src/input/s182UiSurfaceGuards.test.ts (its `blockFrom(anchor, len)` at :50-54 slices a FIXED 3200 chars from `private onDown = (e: PointerEvent): void => {` and 4200 from the armed-blueprint anchor, so inserting lines inside onDown can push an assertion out of the window — a green-to-red with a misleading message), src/render/characterSheet.wired.test.ts:97-110 (asserts `controls.indexOf('if (this.handleSheetSelect()) return;') > controls.indexOf('pickSpark')` — this goes RED for the obvious alternative fix of hoisting the pickup out of the Idle gate), src/render/sheetActions.test.ts:118, src/render/auraStats.test.ts:111, src/state/raidHitsAnything.test.ts:197 and :206. And for hostTick.ts: src/state/hostTick.emitChain.test.ts:44-67 reads the file and slices by anchor.",
+    "THE DIFFERENTIAL SUITES ARE THE ONES THAT WOULD CATCH A (b2)/(a) PARITY BREAK AND ARE ABSENT FROM file_set: src/state/workerSim.differential.test.ts (constructs `new WorkerControls(world, P0)` at :291 and hash-compares host vs worker — (b2) makes the MIRROR originate an action, which is exactly what this suite exists to police) and src/state/hostTick.differential.test.ts. Note also workerSim.ts:152-160 dispatches UN-try/caught (`(action) => { dispatch(this.world, action); }`), so a throw from applyDropSpark inside the worker kills the authoritative tick — another reason (b1) must land before (b2).",
+    "TWO DOCBLOCKS BECOME FALSE THE MOMENT (b1)/(b2) LAND, AND THIS PROJECT TREATS THAT AS ROT: elimination.ts:104-106 ('Blocking a drop could STRAND a `Carrying` player — the carry-1 FSM has no other exit') and the bench-gate reasoning it cites (benchGate.ts:52). Also controlsCore.ts:81 still describes line 119 as the 'Carrying-without-gesture defensive hard-snap', which (b2) inverts. Fix them in the same commit or the next session re-derives the old model.",
+    "A REPRODUCTION GAP THE REPORT SHOULD OWN MORE LOUDLY: none of the three candidate entry paths is triggered by the whistle. Migration pause (main.ts:588) and the rate limiter (hostHandlers.ts:312) are both JOINER-ONLY and phase-independent, and `!mine` is near-unreachable (see verdict 3). I greped `matchPhase` across src/input and src/render and found nothing in the input layer that reads the phase at all — no pointer-eating surface appears at the edge. So on a SOLO/host seat there is currently NO demonstrated mechanism by which the BUILD→FIGHT edge loses his drop. Either he was the joiner, or the cause is still unfound. 'PARTIALLY_CONFIRMED' is the right verdict but the brief must state that the transition is CORRELATION, not the cause — otherwise the branch ships (a), the owner hits it again on the next lost intent, and the session is spent.",
+    "MINOR BUT REAL FOR A PARALLEL SPLIT: netWireSize.test.ts:72-90 builds its board with PLACE_PRIMITIVE in a loop and its own comment (:77-78) records that a silent reject 'fails SILENTLY with the player still Carrying — which is how the first cut of this file produced a CarryViolation at i=14'. CLAUDE.md names this exact file as the S182 cross-branch casualty. Any branch that changes carry semantics or build legality should re-run it."
+  ],
+  "file_set_corrections": [
+    "ADD src/state/hunters/hunterLifecycle.ts — the second production DROP_SPARK producer (:197-201) and the tolerant catch (:202-204) that swallows the exact throw (b1) removes. A fix that does not visit it leaves the S182-lesson-7 hole open.",
+    "ADD src/state/hunters/hunterLifecycle.test.ts — it pins the catch behaviour that (b1) changes.",
+    "ADD src/physics/physicsLoop.ts — holds `attractedId` (:165) and passes it to enforceSpawnerBounds (:276); holds reapExpiredFreeSparks (:294-311), the 10 s TTL that decides whether option (i) returns or destroys the shape. Any FIGHT-edge fix has to be reasoned about here, and if (a) must also end the local gesture the wiring lands here or in main.ts.",
+    "ADD src/input/s182UiSurfaceGuards.test.ts — fixed-length source-text windows anchored on `private onDown` over controls.ts; can red on an insertion.",
+    "ADD src/render/characterSheet.wired.test.ts — asserts the index ordering of `handleSheetSelect` vs `pickSpark` inside controls.ts; reds on the obvious alternative fix.",
+    "ADD src/render/sheetActions.test.ts — reads controls.ts as source text (:118).",
+    "ADD src/render/auraStats.test.ts — reads controls.ts as source text (:111).",
+    "ADD src/state/raidHitsAnything.test.ts — reads and SLICES controls.ts by method anchor (:197, :206).",
+    "ADD src/state/hostTick.emitChain.test.ts — source-text guard over hostTick.ts (:44-67), the file (a) edits.",
+    "ADD src/state/workerSim.differential.test.ts — constructs WorkerControls(world, P0) at :291 and hash-compares; (b2) makes a mirror originate an action, which is this suite's entire subject.",
+    "ADD src/state/hostTick.differential.test.ts — host/worker parity over runHostTick, which (a) modifies.",
+    "ADD src/state/elimination.ts and src/state/benchGate.ts — docblock-only, but elimination.ts:104-106 states 'the carry-1 FSM has no other exit', which the fix falsifies. One-line corrections by the merge owner, not a round-trip.",
+    "ADD src/game/player.test.ts — :21-29 pin the fsm pickup/drop throws that (b1) must leave intact.",
+    "ADD src/state/netWireSize.test.ts — the named S182 cross-branch casualty; any carry/legality change must re-run it.",
+    "KEEP src/ci.e2eLanes.test.ts but for the RIGHT reason — it pins tag→lane, not spec→lane; a new spec reds it only via a stray `@word` in a comment (:95-105, :82).",
+    "DROP src/state/workerSim.ts from file_set unless (b2) actually lands there — WorkerControls just delegates to the shared controlsCore (:152-160) and needs no edit of its own; listing it invites a second branch to open the file for nothing. Keep it only as a READ-ONLY hazard note.",
+    "NOTE src/bots/botController.ts — do NOT edit it (bots already self-heal at :174-187 and :594-601), but it must be named in the brief as the precedent, or a session will 'generalise' the self-heal into the bot path and regress it."
+  ],
+  "size_grade": "DISAGREE — Standard (10-30K) is an underestimate; scope it Full (>30K) or cut it to (b) only. The four production edits are genuinely small, but the report prices none of the following: (1) fix (a) as written does not return the shape while the button is down, so it needs a companion local-gesture clear that hostTick structurally cannot reach — that is a fifth production edit and a new host→input contract, not a 12-line `else` arm; (2) the 10 s TTL reap turns the owner ruling from 'one word' into a real design decision with a ~3-line bank path and its own test; (3) SIX source-text guards read controls.ts or hostTick.ts and two of them slice by fixed-length window or by symbol index, which is exactly the class this project keeps discovering late; (4) two differential suites (host/worker parity) sit directly on the changed code; (5) the e2e case needs a real drag across a phase edge inside the 720 s gating cap. If the session must fit Standard, ship (b1)+(b2)+(b3) alone — they are self-contained, they recover from all three entry paths within a frame, and they need no owner ruling. (a) is the half that should carry its own brief.",
+  "net_assessment": "SOUND SPINE, THREE LOAD-BEARING ERRORS, AND ONE OF THEM WOULD DESTROY THE OWNER'S SHAPE. Every one of the sixteen evidence lines exists and says what the report claims — I opened all sixteen. Fourteen are CONFIRMED verbatim (three carry off-by-one citation slips: placePrimitive :111 not :117, main.ts :528 not :527, controls.test.ts :4-6 not :3). The soft-lock mechanism is real and well argued: controls.ts:1063 is the gate, controlsCore.ts:119 renders the broken state forever, the carry is on the wire already so no protocol bump is owed, and the instruction NOT to relax buildLegality.ts:47 is exactly right and is corroborated by phaseSplit.test.ts:21. No proposed change breaks a SPARK_CANON.md ruling — §9b retaliation is untouched, §1's archived subsystems are named only as code paths and never as live mechanics, and no second stat scale is invented. What the report gets wrong: (1) 'nothing ever clears Carrying except a local pointer edge' is REFUTED — hunterLifecycle.ts:197 and botController.ts:596 are two more DROP_SPARK producers, placePrimitive.ts:569 is a third clearer, and the hunter's `catch (e) { console.error(...) }` at :202-204 is a textbook S182-lesson-7 tolerant default swallowing the precise throw (b1) targets; (2) fix (a) does NOT return the shape mid-gesture — ControlState stays AttractDrag, `mine` passes on a Free spark, `attractedId` exempts it from the rim-snap, so on the host seat the owner would see no change until he releases, and hostTick cannot reach the input layer to fix that; (3) the owner ruling is inverted — option (i) does not return his shape to the shared quarry, it DELETES it, because applyDropSpark re-stamps createdTick, reapExpiredFreeSparks kills un-escrowed Free sparks at 600 ticks, the pull that put it in his hand had its escrow cleared at pickup, and every gatherer is sheltered for the whole 45 s fight. Two smaller refutations: the (b2) 'local seat?' hazard is already discharged (three construction sites, all local seat), and ci.e2eLanes.test.ts pins tags not specs. Finally, the report should own more loudly that NONE of its three entry paths is triggered by the whistle and two are joiner-only — the BUILD→FIGHT edge is correlation, not the demonstrated cause, and a branch that ships (a) as the headline fix may well see this recur. RECOMMENDATION: split it. Land (b1)+(b2)+(b3) as the fix, with the hunter's catch and the two false docblocks in the same commit; take (a) and the return-destination question to the owner as its own brief with the 10-second TTL on the table."
+}

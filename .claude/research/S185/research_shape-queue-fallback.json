@@ -1,0 +1,116 @@
+{
+  "lane": "A1 — the shape queue does not fall through in order",
+  "owner_item": "When the shape at the head of his order queue is not on the ground, the gatherer does not move down the queue to the next shape — it abandons the queue entirely and fetches whatever happens to be nearest, which reads as \"a random shape\".",
+  "reproduced": "CONFIRMED_IN_CODE",
+  "root_cause": "WHAT THE QUEUE IS (his question 1, resolved from code): it is a queue of SHAPES, not of towers — `world.gathererOrders: Map<PlayerId, SparkType[]>` (`src/state/worldTypes.ts:462`). His word \"towers\" is right about the GESTURE: clicking a tower tile enqueues that tower's shape shortfall one intent at a time (`src/main.ts:1005-1010`, `castlePanel.requestShapesFor`), which is why he described it as \"putting towers on the queue\". His own S153 quote is embedded at `src/render/castlePanel.ts:1098` — *\"those shape that make the goblin tower came up to queue\"*. So \"a few towers on the queue\" = one flat, ordered SparkType list holding several towers' bills back to back.\n\nTHE DEFECT, one line: `src/state/gatherers/gathererLifecycle.ts:325` — `return rank < q.length ? q[rank] : null;`. Each gatherer is assigned a STABLE integer `rank` (its position among its owner's gatherers by id, lines 319-324) and is PINNED to the single queue entry `q[rank]`. It never looks at `q[rank+1]`, or at any other entry, for any reason. Availability is never consulted at all — the function does not read `world.freeSparks`.\n\nThe consequence is at `:389-390` — `const ordered = orderForGatherer(world, g); const wanted = ordered ?? g.preferredType;`. When `wanted` is a type with no harvestable spark in the quarry, the scan at `:400-414` finds no `preferred` candidate and falls all the way through to its own stated default at `:399`, `// nearest-of-any otherwise`. The rest of the queue is skipped. TWO separate paths reach that same fall-back: (i) the head type is absent, and (ii) `rank >= q.length` returns null at `:325` (a 4th gatherer against a 3-entry queue).\n\nHIS QUESTION 3 — IS THERE A RANDOM IN IT? NO. There is no `Math.random`, no seeded draw and no wall clock anywhere in the selection path; `gathererOrders.test.ts:224-230` already pins that (\"selection draws NO randomness\"). The fall-back is a total order — squared distance, then explicit lowest-id tie-break (`:405-409`). And it is NOT Map-iteration order either: the loop iterates `world.freeSparks.values()` but every candidate is compared, so insertion order cannot decide the winner. What he is seeing is the fall-back's TYPE being arbitrary: it is whatever type the nearest quarry spark happens to be, and the quarry's type mix is a uniform draw from a seeded, once-per-match-reseeded stream (`src/game/spawner.ts:346`, `const type = rngPick(this.rng, this.cfg.types);`). Deterministic in the sim, unpredictable to the player — which is exactly what \"it just does a random shape\" describes. So this is a pure UX/logic defect, NOT a determinism defect.",
+  "evidence": [
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 325,
+      "quote": "  return rank < q.length ? q[rank] : null;",
+      "why_it_matters": "THE defect. One gatherer = one pinned slot. If q[rank]'s type is not on the ground, the function still returns it (or null on rank overflow) and never scans q[rank+1..]. Availability is never read."
+    },
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 319,
+      "quote": "  let rank = 0;\n  for (const other of world.gatherers.values()) {\n    if (other.ownerPlayerId !== g.ownerPlayerId) continue;\n    // Deterministic: ids are unique and totally ordered, so this is the same on host, worker and replay.\n    if ((other.id as unknown as number) < (g.id as unknown as number)) rank++;\n  }",
+      "why_it_matters": "The rank is a STABLE slot over ALL the owner's gatherers (a Council fix against mid-walk thrash). Any fix must preserve this stability — it is the reason three gatherers work a queue in parallel instead of all chasing entry 0."
+    },
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 389,
+      "quote": "  const ordered = orderForGatherer(world, g);\n  const wanted = ordered ?? g.preferredType;",
+      "why_it_matters": "`wanted` is a single type, taken on faith. Nothing downstream asks 'does one of these exist?' and nothing retries with the next queue entry."
+    },
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 399,
+      "quote": "  // nearest-of-any otherwise.",
+      "why_it_matters": "The code names the behaviour the owner is reporting. The fall-back is correct as a LAST resort (owner ruling B4) but is currently reached on the FIRST miss instead of after the whole queue has been tried."
+    },
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 405,
+      "quote": "    const better =\n      best === null ||\n      (preferred && !bestPreferred) ||\n      (preferred === bestPreferred &&\n        (d < bestD || (d === bestD && (s.id as unknown as number) < (best as unknown as number))));",
+      "why_it_matters": "Proves item 3 negative: the scan is a total order (squared distance, then explicit lower-id). No RNG, no Map-order dependence. The 'random' the owner sees is the TYPE of the nearest spark, not a random draw."
+    },
+    {
+      "file": "src/game/spawner.ts",
+      "line": 346,
+      "quote": "    const type = rngPick(this.rng, this.cfg.types);",
+      "why_it_matters": "The quarry's type mix is a uniform draw from a seeded stream (reseeded once per match at main.ts:495, host-only). That is why the fall-back's result looks random to the player while being fully deterministic in the sim."
+    },
+    {
+      "file": "src/state/worldTypes.ts",
+      "line": 462,
+      "quote": "  gathererOrders: Map<PlayerId, SparkType[]>;",
+      "why_it_matters": "Answers 'queue of towers or of shapes?' — it is an ordered list of SparkType. Towers only FEED it."
+    },
+    {
+      "file": "src/render/castlePanel.ts",
+      "line": 1098,
+      "quote": "   * Owner: *\"i clicked on tier 5 buld and then goblin tower twice - and then when i clicked on the\n   * castle it didnt show anything in queue. only when the castle page was up and then i clicked on\n   * them again, those shape that make the goblin tower came up to queue.\"*",
+      "why_it_matters": "The owner's own earlier words confirm his mental model: clicking a tower puts that tower's SHAPES in the queue. His S184 'a few towers on the queue' is the same gesture, several towers deep."
+    },
+    {
+      "file": "src/main.ts",
+      "line": 1005,
+      "quote": "    for (const m of missing) {\n      for (let n = 0; n < m.need - m.have; n++) {\n        dispatch(dispatchFn === undefined ? undefined as never : undefined as never, undefined as never);",
+      "why_it_matters": "PARAPHRASE FLAG — the literal loop at main.ts:1005-1009 is `for (const m of missing) { for (let n = 0; n < m.need - m.have; n++) { dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: seat, sparkType: m.type }); } }`. It shows one tower tile click appends its whole shortfall, in blueprint order, to the SAME flat queue — so several tower clicks stack several bills in sequence, which is the shape of his complaint."
+    },
+    {
+      "file": "src/state/hostTick.ts",
+      "line": 2105,
+      "quote": "        dispatch(world, { type: 'GATHERER_TICK', gathererId: gid });",
+      "why_it_matters": "The consumption runs only inside runHostTick, which main.ts:2726-2731 gates on `!isClient` (or the worker). A joiner never computes it — so this is HOST-ONLY and a fix here cannot desync a peer."
+    },
+    {
+      "file": "src/state/gatherers/gathererOrders.test.ts",
+      "line": 193,
+      "quote": "  it('a queued type with NONE available still fetches the nearest of any type', () => {",
+      "why_it_matters": "This test pins owner ruling B4's fall-back and must STAY GREEN after the fix — its queue holds only one type, so 'no queued entry is satisfiable' is genuinely true there. The fix must narrow when the fall-back fires, not delete it."
+    },
+    {
+      "file": "src/state/gatherers/gathererOrders.test.ts",
+      "line": 154,
+      "quote": "    expect(orderForGatherer(w, g2)).toBeNull(); // extra units are never idled by a short queue",
+      "why_it_matters": "The contract the fix must not break: a gatherer whose rank exceeds the (now filtered) list still returns null and earns opportunistically. This is also one of four tests that will go RED because it seeds no sparks."
+    },
+    {
+      "file": "src/state/gatherers/zoneEconomy.test.ts",
+      "line": 139,
+      "quote": "      expect(\n        total,\n        `${layout}: only ${total} banked — the un-upgraded opening should carry roughly double a ` +\n          `tower's ${STINK_TOWER_SIZE} shapes. At GATHERER_BASE_SPEED 1.9 this measured 6.`,\n      ).toBeGreaterThanOrEqual(7);",
+      "why_it_matters": "A full-BUILD measured fixture through the real host loop. The fix makes a hauler walk further for a queued type instead of grabbing the nearest — total banked can MOVE. Re-measure; do not relax."
+    },
+    {
+      "file": "src/state/gatherers/gathererLifecycle.ts",
+      "line": 559,
+      "quote": "    const wanted = orderForGatherer(world, g) ?? g.preferredType;\n    if (wanted !== null && current.type !== wanted) {\n      const upgrade = pickGathererTarget(world, g);\n      const cand = upgrade !== null ? world.freeSparks.get(upgrade) : undefined;\n      if (cand !== undefined && cand.type === wanted) g.targetSparkId = upgrade;\n    }",
+      "why_it_matters": "The S161 OPEN-3 mid-walk preempt calls the SAME function. Fixing orderForGatherer changes this path for free and correctly: a gatherer walking to the queue's 2nd entry will upgrade to the 1st the tick it spawns. It is also the only oscillation surface the fix opens — the `cand.type === wanted` guard is what bounds it."
+    },
+    {
+      "file": "src/net/protocol.ts",
+      "line": 704,
+      "quote": "export const PROTOCOL_VERSION = 47 as const;",
+      "why_it_matters": "No bump is owed: the fix adds no action, no discriminant value and no serialized field. It changes only how the host CONSUMES gathererOrders, which is already fully wired."
+    }
+  ],
+  "fix_shape": "ONE production function changes: `orderForGatherer` in `src/state/gatherers/gathererLifecycle.ts:316-326`. Roughly 12-18 lines plus docblock.\n\nNEW LOGIC — \"the rank-th SATISFIABLE entry\":\n1. Read `q = world.gathererOrders.get(g.ownerPlayerId)`; empty/undefined → null (unchanged).\n2. Compute `rank` exactly as today (lines 319-324) — do NOT touch this, it is the Council fix that makes the slot stable.\n3. Build an availability MEMBERSHIP set over the quarry: one pass over `world.freeSparks.values()`, reusing the existing `isHarvestable(s)` predicate verbatim, adding `s.type` to a `Set<SparkType>` (or a 6-slot boolean array). Membership only — never \"the first spark I found\".\n4. `const satisfiable = q.filter((t) => avail.has(t));`\n5. `return rank < satisfiable.length ? satisfiable[rank] : null;`\n\nWHY THIS EXACT SHAPE:\n- When everything queued is on the ground, `satisfiable === q` element-for-element, so behaviour is IDENTICAL to today. That is the property that keeps the blast radius honest.\n- One gatherer, queue [Square, Triangle, Circle], no Squares → satisfiable = [Triangle, Circle], rank 0 → Triangle. Exactly his \"it should go to the second shape in line.\"\n- No Squares and no Triangles → satisfiable = [Circle] → Circle. Exactly his \"if there's no second, then you go to the third.\"\n- Nothing in the queue is on the ground → satisfiable = [] → null → the existing nearest-of-any fall-back at `:400-414`. Owner ruling B4 survives untouched.\n- Three gatherers, [Square, Triangle, Circle], no Squares → g0 Triangle, g1 Circle, g2 null (opportunistic). The rank-into-filtered-list form is what preserves parallelism AND the \"extra units are never idled\" contract at once.\n\nTIE-BREAK / TOTAL ORDER: the selection itself needs no new ordering — the ORDER IS THE QUEUE, which is already the authoritative ordered list and is hashed as a list (`stateHashFull.ts:632-636`, \"ORDER IS THE WHOLE POINT\"). Within a chosen type, `pickGathererTarget:405-409` already resolves nearest-then-lowest-id. The availability probe is set membership, which is order-independent by construction — so no new tie-break is required and none may be invented.\n\nPERF NOTE, name it in the docblock: this adds one O(freeSparks) pass per gatherer per tick on top of `pickGathererTarget`'s existing one (and the preempt branch at :559 can call it twice). At the shipped `FREE_SPARK_SOFT_CAP` and a handful of gatherers this is trivial; if a future profile disagrees, hoist the availability set into `applyGathererTick` and pass it as an optional 3rd parameter rather than changing the call sites.\n\nDO NOT: do not add a new world field, do not cache the availability set across ticks, do not touch `consumeGathererOrder` (popping the first matching delivered type is already correct and orthogonal), do not touch `rank`, do not refactor anything else in the file. FIX ONLY THIS.",
+  "file_set": [
+    "src/state/gatherers/gathererLifecycle.ts",
+    "src/state/gatherers/gathererOrders.test.ts",
+    "src/state/gatherers/gathererPreempt.test.ts",
+    "src/state/gatherers/zoneEconomy.test.ts",
+    "src/state/gatherers/gathererHaul.test.ts",
+    "SPARK_CANON.md",
+    "src/canon.test.ts"
+  ],
+  "determinism_risk": "YES — IT TOUCHES THE SIM. `orderForGatherer` is consumed by `applyGathererTick`, fanned out from `runHostTick` (`hostTick.ts:2105`), which runs on the host, in the sim worker (`workerSim.ts:509`) and in replay. It is hash-compared host-vs-worker by `hashWorldStateFull`.\n\nHAZARDS, each answered:\n- `Math.random` / seeded draw: NONE introduced, NONE present. The perceived randomness is the nearest-of-any fall-back over a seeded uniform spawner (`spawner.ts:346`), not a draw in the selection. Do not add one.\n- Wall clock: none. The function reads no clock and must not start.\n- Float accumulator: none. The only arithmetic is the existing integer `rank` compare and `pickGathererTarget`'s squared distances.\n- ⛔ MAP-ITERATION-ORDER — THE ONE REAL HAZARD THIS FIX OPENS. `world.freeSparks` is a `Map` and a worker/replay world can legitimately rebuild it in a different insertion order. The availability probe MUST be a per-TYPE membership set (or a fixed-length boolean array indexed by SparkType), which is order-independent. It must NEVER be \"the first harvestable spark I encounter while iterating\" and never \"the type of the nearest spark\" — either would let insertion order decide the answer and is precisely the S155 N1 defect class. If a future variant wants \"the NEAREST satisfiable queued type\" instead of \"the earliest\", that variant needs an explicit total order (squared distance, then lower id) and is a different design — not this one.\n- FOUR SITES: NO obligation. No new wide field is added. `gathererOrders` already has all four — `worldTypes.ts:462` (type), `world.ts:434` (factory), `save.ts:1070` serialize / `:1758` restore, `stateHashFull.ts:98` union + `:632` projection — and the worker runs the same `runHostTick`, so there is no fifth site to miss.\n- PROTOCOL_VERSION 47: **NO BUMP.** No new action type, no new discriminant value on an existing action, no new or removed serialized field. A stale peer cannot fall through a switch here because a peer never computes this at all — `GATHERER_TICK` is host-internal (`protocol.ts:1393`) and `runHostTick` is gated on `!isClient` at `main.ts:2726-2731`. Peers apply snapshots.\n- HOST vs PEER divergence: impossible by construction. Host and worker run one code path; the joiner mirrors `gatherers` and `freeSparks` from NetSnapshot and computes nothing.",
+  "tests_owed": "NO RENDERER IS INVOLVED — this is pure sim, fully observable under vitest, so everything below is a real behavioural gate, not a source-text tripwire. Do NOT reach for a source-text guard here (S182 §2: a source-text guard proves a line exists, not that it is reached).\n\nMUST GO RED BEFORE THE FIX AND GREEN AFTER — new, in `src/state/gatherers/gathererOrders.test.ts`:\n1. \"the queue FALLS THROUGH in order\" — one gatherer, queue [Square, Triangle], only a Triangle in the quarry: `orderForGatherer` returns Triangle (today: Square) AND `pickGathererTarget` returns that Triangle even with a nearer Dot present (today: the Dot). This single test is the owner's report.\n2. \"and it keeps going\" — queue [Square, Triangle, Circle], only Circles in the quarry → Circle. His \"if there's no second shape, then you go to the third.\"\n3. \"parallelism survives the filter\" — three gatherers, queue [Square, Triangle, Circle], no Squares → g0 Triangle, g1 Circle, g2 null.\n4. NEGATIVE CONTROL, the one that stops the fix over-reaching — queue [Square, Square, Square], no Squares anywhere → `orderForGatherer` is null for every gatherer and `pickGathererTarget` still returns the nearest Dot. B4's \"an unattended player keeps earning\" is untouched.\n5. INVARIANCE CONTROL — with every queued type available, `orderForGatherer` returns exactly what it returns today for ranks 0..n. Proves the fix is a no-op on the healthy path.\n\nWILL GO RED BY DESIGN — RE-PIN, NEVER SILENCE (these call `orderForGatherer` on worlds that seed ZERO sparks, so the availability filter empties the list):\n- `gathererOrders.test.ts:119` \"each gatherer gets the entry at its OWN rank\"\n- `gathererOrders.test.ts:132` \"rank is STABLE while peers change FSM state\"\n- `gathererOrders.test.ts:150-155` \"a gatherer whose rank exceeds the queue gets null\"\n- `gathererOrders.test.ts:157` \"rank counts only the OWNER's units\"\nFix each by seeding one harvestable spark of each queued type via the file's existing `addSpark` helper — do NOT weaken the assertions, and do NOT add a \"no sparks known → assume everything available\" escape hatch to the production function to keep them green. That escape hatch would reintroduce the bug on an empty quarry.\n\nMUST STAY GREEN, CHECK EXPLICITLY:\n- `gathererOrders.test.ts:193` \"a queued type with NONE available still fetches the nearest of any type\" — its queue is single-type, so the fall-back is genuinely correct there.\n- `gathererOrders.test.ts:224` \"selection draws NO randomness\".\n- all five of `src/state/gatherers/gathererPreempt.test.ts` (S161 OPEN-3). Add a sixth: queue [Square, Triangle], gatherer walking to a Triangle because no Square existed, a Square then spawns → it preempts to the Square on the next tick.\n- `src/state/gatherers/gathererHaul.test.ts:201-209` (preferredType path, queue-free).\n\nRE-MEASURE, DO NOT RELAX: `src/state/gatherers/zoneEconomy.test.ts:139-143` `expect(total).toBeGreaterThanOrEqual(7)`. A hauler that now walks further for a queued type may bank a different TOTAL across a 5400-tick BUILD. Run it, record the new number in the message string the way the file already does, and if it drops below 7 report the measurement to the merge owner rather than lowering the bar — that threshold is what pins `GATHERER_BASE_SPEED`. (The opening BUILD has exactly ONE gatherer, asserted at `:102-104`, so the multi-gatherer ruling below cannot affect this fixture.)\n\nGATES: `npm run typecheck`, `npx vitest run`, `npm run build`. Read every exit code from a captured `$?` written to a file — never through a pipe, and never trust the wrapper's trailing `[exited with code 0]`.",
+  "owner_ruling_needed": [
+    "⚠ SHIP-IT DEFAULT WRITTEN INTO THE BRIEF — build option (a) for both questions below, ship it, and write the test that turns red if someone flips it without an answer. Do NOT block on either. — RULING 1: WHEN NOTHING IN THE WHOLE QUEUE IS ON THE GROUND, DOES THE GATHERER STILL GRAB THE NEAREST ANYTHING? His S184 words are 'it should search out all the shapes that you have in queue in order', which says nothing about the case where the search comes up empty. His earlier ruling B4 does: a want is *'a PRIORITY OVERRIDE, never an on/off switch, so an unattended player keeps earning'* (quoted at gathererLifecycle.ts:397-398). (a) KEEP the nearest-of-any fall-back, reached only after every queued entry has been tried — B4 stands, income never stops, and the S184 fix is purely an insertion before it. (b) IDLE when the queue is unsatisfiable — the queue becomes a hard filter, the board reads as 'my gatherer is standing still', and the opening-BUILD economy fixture (zoneEconomy.test.ts, one un-upgraded gatherer over a full 90 s BUILD) would collapse. RECOMMEND (a): it is already his ruling and the S184 complaint is fully answered without touching it. Ask him only to confirm he is not overriding B4.",
+    "RULING 2: WITH SEVERAL GATHERERS AND ONE UNSATISFIABLE ENTRY, DOES THE CREW GO DEEP OR SPREAD OUT? Queue [Square, Square, Triangle], three gatherers, no Squares in the quarry. (a) RANK INTO THE FILTERED LIST — the satisfiable list is [Triangle], so gatherer 0 takes the Triangle and gatherers 1 and 2 get nothing from the queue and haul opportunistically. Preserves the shipped contract 'extra units are never idled by a short queue' (gathererOrders.test.ts:154) and keeps two units earning. (b) CLAMP OR WRAP — all three go for Triangles. The whole crew works on what he asked for, but three units compete for the same sparks and the opportunistic income stops; it also overturns that shipped contract. NOTE THIS NEVER APPEARS IN THE OPENING: the first BUILD is hard-locked to ONE gatherer (STARTING_VICTORY_POINTS 100 < GATHERER_PRICE 105, asserted at zoneEconomy.test.ts:102-104), so the two options are indistinguishable until he buys a second hauler. RECOMMEND (a) — it is the smaller change and the only one that keeps an existing contract intact."
+  ],
+  "size_estimate": "Standard (10-30K). One production function of ~15 lines in a single file, but four shipped tests must be re-pinned, five new behavioural tests written, and one full-BUILD economy fixture re-measured through the real host loop.",
+  "blocked_on": "NOTHING. Both owner questions have a recommended default written into the brief and can ship without an answer. ⚠ ONE MERGE-OWNER NOTE, not a blocker: `SPARK_CANON.md` and `src/canon.test.ts` are in the file_set because canon §11 says an owner ruling lands there — but they are the two highest-collision files in a parallel split (every branch wants to add its own ruling). RECOMMENDATION: this branch touches NEITHER; it writes the ruling verbatim at the constant/function in `gathererLifecycle.ts` and hands the merge owner one paragraph for the canon. That keeps the branch's file set to a single production file nobody else should be in."
+}

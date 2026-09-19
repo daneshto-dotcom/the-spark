@@ -1,0 +1,105 @@
+{
+  "lane": "CONNECTOR / SHAPE HIDING FOR THE STINK TOWER AND THE 12 RACE + TIER-9 TOWERS (read-only probe, commit 7d1514b)",
+  "summary": "The handoff's one-line diagnosis is HALF WRONG and half right, and the wrong half is the bigger one. Hiding is NOT gated on RAMP_SPECS. `towerCover.ts` publishes cover from whoever COMMITS A SPRITE — there are exactly three publish sites (`towerRenderer.ts:313`, `structureRampRenderer.ts:223`, `voltkinTowerRenderer.ts:576`), pinned by `towerCover.test.ts:268-280`. `towerRenderer` has covered all 12 race + tier-9 towers since S175 (`b10e772`), their atlases are on disk under `public/art/race-tier3-towers/` and `public/art/race-tier9-towers/`, and the two things that actually defeated them on screen — `spawnerZoneRenderer` redrawing charged copies of every bond with no cover reference, and the `DAMAGED_BOND_MIN_ALPHA` pin — were both fixed GENERICALLY in S183 (`db5c5d6`, canon §7b rows 1 and 2). So at code level the race/tier-9 half is already done; I could not find a remaining gap. The stink tower half IS real and is the ONLY one: it is the single godly recipe in the tree with a drawn building sprite and no `markTowerCover` call, and `structureRampRenderer.ts:268` says so verbatim. Hiding it does NOT need ramp art — its own veo atlas (12-frame idle + 12-frame attack) already commits a sprite — but it does need a click target, because `controls.ts:823` hit-tests only `towerAnchorAtPoint ?? rampAnchorAtPoint` and the stink tower is in neither. Hiding is purely a RENDER concern: `towerCover.ts` is imported by `main.ts` and four render modules and by nothing in `state/`, `net/` or the worker.",
+  "findings": [
+    {
+      "claim": "RAMP_SPECS is a flat readonly list keyed by `recipeId: GodlyId`, with exactly FIVE entries today: lightningHub, goblinTower, laserTurret, pentagram, helga. An entry carries shape ('star'|'ring'), connectors, atlasBase, frames, rows, ticksPerFrame, spritePx, artPx, selfDestructBelow, muzzle.",
+      "file": "src/render/structureRamp.ts",
+      "line": 353,
+      "evidence": "export const RAMP_SPECS: readonly RampSpec[] = [ { recipeId: 'lightningHub' as GodlyId, shape: 'star', connectors: 5, ... }, { recipeId: 'goblinTower' ... }, { recipeId: 'laserTurret' ... }, { recipeId: 'pentagram', shape: 'ring' ... }, { recipeId: 'helga' ... } ];   — and the set is pinned at src/canon.test.ts:210: expect(RAMP_SPECS.map((s) => s.recipeId)).toEqual(['lightningHub', 'goblinTower', 'laserTurret', 'pentagram', 'helga']);",
+      "still_live": true
+    },
+    {
+      "claim": "NOTHING READS RAMP_SPECS TO DECIDE TO HIDE. The hiding mechanism is `towerCover.ts`: `markTowerCover(primIds, bondIds, anchorTick)` is published every frame by whoever commits a sprite, and `coverAlphaForPrim` / `coverAlphaForBond` are the alpha multipliers consumers apply. RAMP_SPECS only decides whether StructureRampRenderer DRAWS.",
+      "file": "src/render/towerCover.ts",
+      "line": 203,
+      "evidence": "export function markTowerCover(\n  primIds: Iterable<PrimitiveId>, bondIds: Iterable<BondId>, anchorTick: number,\n): void {  — and at :17 the file docblock: \"⛔ **THE COVER SET IS PUBLISHED BY WHOEVER ACTUALLY DREW A SPRITE, NEVER RE-DERIVED HERE.** That is the single most important decision in this file.\"",
+      "still_live": true
+    },
+    {
+      "claim": "There are exactly THREE publish sites, and the census that pins them names what each serves. towerRenderer serves the race + tier-9 towers; structureRampRenderer serves the five RAMP_SPECS towers across BOTH world collections; voltkinTowerRenderer serves the Voltkin TV.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 268,
+      "evidence": "const PUBLISHERS: readonly (readonly [string, string])[] = [\n    ['towerRenderer.ts', 'the twelve race towers + the six tier-9 boss towers'],\n    ['structureRampRenderer.ts', 'the five RAMP_SPECS towers, spawners AND defenders'],\n    ['voltkinTowerRenderer.ts', 'the Voltkin TV'],\n  ];",
+      "still_live": true
+    },
+    {
+      "claim": "THE HANDOFF IS WRONG ABOUT THE 12 RACE / TIER-9 TOWERS. They do not need a RAMP_SPECS entry — `towerRenderer` publishes cover for them at its own sprite commit, gated on `towerArtForRecipe` (which answers for exactly the 6 race towers and the 6 tier-9 boss towers) and on the ring walk. This has been in the tree since S175 commit b10e772.",
+      "file": "src/render/towerRenderer.ts",
+      "line": 313,
+      "evidence": "      const ringBonds = ringBondsOf(world, ring);\n      markTowerCover(ring, ringBonds.ids, ringBonds.newestTick);   — reached from sync() at :218-219 `for (const sp of world.creatureSpawners.values()) { const art = towerArtForRecipe(sp.recipeId); if (art === null) continue;` and towerFrames.ts:269-291 `towerArtForRecipe` returns art for raceForTowerId() then raceForT9TowerId(), null otherwise.",
+      "still_live": false
+    },
+    {
+      "claim": "What actually defeated the race/tier-9 hiding on screen was `spawnerZoneRenderer` redrawing a bright charged stroke and a spark bead over every bond with no reference to towerCover — it draws for EVERY creatureSpawner, i.e. all 12 of them. That was fixed generically in S183 (db5c5d6): the disc, rings and core now ride `coverAlphaForPrim(anchor.id)` and the per-bond strokes/beads ride `coverAlphaForBond(bid)`.",
+      "file": "src/render/spawnerZoneRenderer.ts",
+      "line": 148,
+      "evidence": "      const zoneAlpha = coverAlphaForPrim(anchor.id);  ... :181 `const bondCover = coverAlphaForBond(bid); if (bondCover <= TOWER_COVER_DRAW_EPSILON) continue;` — and the docblock at :116: \"⛔ **AND THIS IS THE MAIN REASON HE COULD STILL SEE THE SHAPES AFTER S175 SHIPPED THE HIDING.**\" The loop head at :78 is `for (const sp of world.creatureSpawners.values())` with no recipe filter, so it covered the race towers too. `git log -S coverAlphaForBond -- src/render/spawnerZoneRenderer.ts` => db5c5d6 (S183).",
+      "still_live": false
+    },
+    {
+      "claim": "THE STINK TOWER IS THE ONLY STRUCTURE IN THE TREE WITH NO PUBLISH SITE. Full roster of godly recipes with a building: 6 raceTower + 6 t9BossTower (spawners, covered by towerRenderer), lightningHub/goblinTower/pentagram (spawners) + laserTurret/helga (defenders) (covered by structureRampRenderer), voltkin (cinematic, covered by voltkinTowerRenderer), and stinkTower (defender) — covered by nothing.",
+      "file": "src/render/structureRampRenderer.ts",
+      "line": 268,
+      "evidence": "    for (const def of world.defenders.values()) {\n      const spec = rampSpecFor(def.recipeId);\n      if (spec === null) continue; // the stink tower, which has no ramp art",
+      "still_live": true
+    },
+    {
+      "claim": "\"No publish site\" for the stink tower is concrete and asserted: `stinkTowerRenderer.ts` is named in the test that requires ZERO markTowerCover calls outside the three publishers, so the omission is currently a pinned contract, not an oversight the suite would catch.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 283,
+      "evidence": "    for (const file of ['structureRenderer.ts', 'spawnerZoneRenderer.ts', 'turretRenderer.ts',\n      'princessRenderer.ts', 'stinkTowerRenderer.ts', 'chewerRenderer.ts', 'creatureRenderer.ts']) {\n      expect(named.has(file)).toBe(false);\n      expect(countOf(renderSource(file), 'markTowerCover('), `${file}`).toBe(0);",
+      "still_live": true
+    },
+    {
+      "claim": "The stink tower is a DEFENDER recipe (kind:'defender', id 'stinkTower') whose topology is a STAR — a Square hub of bond-degree exactly 3 with three Circle leaves. That is the same walk `rampMembersAt` performs for spec.shape === 'star' (anchor + anchor.bonds + the far endpoint of each), so the member/bond walk needed to hide it already exists in pure, tested form.",
+      "file": "src/state/godlyRecipes/stinkTower.ts",
+      "line": 144,
+      "evidence": "export function isStinkTowerComponent(world: World, squareId: PrimitiveId): boolean {\n  return isStarAt(world, squareId, STINK_HUB_TYPE, STINK_LEAF_TYPE, STINK_TOWER_HUB_DEGREE);\n}  — with STINK_HUB_TYPE = SparkType.Square (:99), STINK_LEAF_TYPE = SparkType.Circle (:100), STINK_TOWER_HUB_DEGREE = 3 (constants.ts:3313). The reusable walk is structureRamp.ts:509 `if (spec.shape === 'star') { addPrim(anchorId); for (const bondId of anchor.bonds) { ... addBond(bondId); addPrim(bond.aId === anchorId ? bond.bId : bond.aId); } }` — it reads only `spec.shape` off the spec.",
+      "still_live": true
+    },
+    {
+      "claim": "HIDING DOES NOT STRUCTURALLY REQUIRE RAMP ART. The stink tower already commits a real Sprite from its own shipped veo atlas — 12-frame idle + 12-frame attack, no damage rows — so the design's own rule (\"cover is published by whoever commits a sprite\") is satisfiable today with no new art and no RAMP_SPECS entry.",
+      "file": "src/render/stinkTowerRenderer.ts",
+      "line": 186,
+      "evidence": "          sp.texture = row[i]!;\n          sp.position.set(d.pos.x, d.pos.y);\n          sp.scale.set(STINK_TOWER_SPRITE_BASE_SCALE);   — inside `if (this.atlas !== null) {` at :167, atlas base at :39 `const STINK_ATLAS_BASE = '/godly/stink-tower/anim/stink-tower';`. public/godly/stink-tower/anim/stink-tower-anim.json states: {\"idle\":{\"row\":0,\"frames\":12,...},\"attack\":{\"row\":1,\"frames\":12,...}} — no ramp/damage rows.",
+      "still_live": true
+    },
+    {
+      "claim": "BUT HIDING THE STINK TOWER WITHOUT A HIT TEST MAKES IT UNREPAIRABLE — the exact failure §7b and controls.ts already name. The click path tries `towerAnchorAtPoint` (keyed on towerArtForRecipe → race/t9 only, walks creatureSpawners) then `rampAnchorAtPoint` (over RAMP_SPECS). The stink tower is in neither, so it would fall through to the per-primitive radius scan on shapes the player can no longer see.",
+      "file": "src/input/controls.ts",
+      "line": 823,
+      "evidence": "    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)\n      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);   — and the docblock at :815-822: \"with art comes `towerCover`, which fades those member shapes to nothing. The fallback would then be \\\"click an invisible 10 px dot to repair your tower\\\". `towerAnchorAtPoint` cannot cover them: it is keyed on `towerArtForRecipe` (the race towers only) and iterates `world.creatureSpawners` (so no defender can ever be in it).\" The fallback scan is at :831 `for (const prim of this.world.primitives.values())` with `const r = prim.radius + 6;` and no cover-alpha consultation.",
+      "still_live": true
+    },
+    {
+      "claim": "HIDING IS PURELY A RENDER CONCERN — no sim, no serialize, no hash, no worker. `towerCover.ts` is imported by exactly five production modules, all of them render (plus main.ts for the frame boundary). `hostTick.ts` and `controls.ts` mention it only inside comments.",
+      "file": "src/render/towerCover.ts",
+      "line": 10,
+      "evidence": "Imports (grep \"towerCover.ts'\" src --include=*.ts, excluding tests): main.ts:142 `import { beginTowerCoverFrame }`, spawnerZoneRenderer.ts:41, structureRampRenderer.ts:40, structureRenderer.ts:36, towerRenderer.ts:43, voltkinTowerRenderer.ts:43. The docblock states it: \"⭐ **RENDERER-ONLY, AND STRONGER THAN THAT PHRASE USUALLY MEANS.** Nothing here is simulated, and nothing COULD have been ... Every peer computes the identical answer, so this costs no sim state, no snapshot bytes and no PROTOCOL_VERSION bump.\"",
+      "still_live": true
+    },
+    {
+      "claim": "ADJACENT LIVE DEFECT, NOT IN THE HANDOFF: the health bar for all FIVE RAMP_SPECS towers is positioned as though they had no building art, so it does not clear the building's top edge. `spriteBoxFor` consults only `towerArtForRecipe`, which returns null for lightningHub/goblinTower/laserTurret/pentagram/helga — so `rise` falls back to the distance from the centroid to the top-most SHAPE, and those shapes are now invisible under the sprite. Its own comment is stale about which towers \"have no building art\".",
+      "file": "src/render/healthBar.ts",
+      "line": 410,
+      "evidence": "    const rise = sb === null ? y - comp.topY : sb.h;   — with :346-352 `const spriteBoxFor = (recipeId: GodlyId | null): { w: number; h: number } | null => { const art = recipeId === null ? null : towerArtForRecipe(recipeId); // `null` is the pentagram, the goblin tower and the lightning hub — they have no building art, ... if (art === null) return null;` and :563 `const by = y - spriteRise - BAR_LIFT * scale;`. Arithmetic for the hub: HUB_ART_PX = 84 / HUB_SPRITE_PX = Math.round(84 / 0.7987) = 105 (structureRamp.ts:243-244) against a hub star radius STAR_R 44 quoted at structureRamp.ts:236 — so `y - comp.topY` ≈ 44-50 px puts the bar roughly halfway up an 84 px building. `grep -n rampSpecFor src/render/healthBar.ts` returns nothing: healthBar has no knowledge of RAMP_SPECS.",
+      "still_live": true
+    },
+    {
+      "claim": "KNOWN GAP the owner may be re-reporting as \"still shows shapes\": a hand-placed shape WELDED onto a tower is not a recipe member, so it and its bond stay fully visible under the sprite forever. Recorded in the canon as measured-and-unfixed, awaiting his ruling. The cover set is the ring/star members only (towerRenderer walks the RING, not the component).",
+      "file": "SPARK_CANON.md",
+      "line": 388,
+      "evidence": "⛔ **KNOWN GAP, MEASURED AND UNFIXED:** the cover set is the recipe's own members. A hand-placed shape **welded** onto a tower is not a member and stays fully visible under the sprite forever. Reported, not fixed — it is the owner's call whether a weld should be swallowed by the building.   — mechanised at towerRenderer.ts:87-96 `function ringBondsOf(...)  if (!members.has(bond.aId) || !members.has(bond.bId)) continue;`",
+      "still_live": true
+    }
+  ],
+  "fix_shape": "TWO SEPARABLE PIECES; only the first is the owner's reported bug.\n\nA — HIDE THE STINK TOWER (no new art needed). ~10-15 lines across 2 files, plus tests.\n  1. `src/render/stinkTowerRenderer.ts` — at the sprite commit (inside `if (this.atlas !== null)`, after `sp.texture = row[i]!` at :186, NEVER above the fog `continue` at :148 or the atlas-null fallback), walk the star from `d.anchorPrimitiveId` (anchor + `anchor.bonds` + far endpoints, newest `Bond.createdTick` as the anchorTick) and call `markTowerCover(members, bonds, newestTick)`. Reuse `rampMembersAt` only if a spec-free overload is added — it currently takes a `RampSpec` but reads just `spec.shape` (structureRamp.ts:509), so the cheapest honest move is to widen its signature to take a `RampShape` (or a `{shape}` structural param) rather than to copy the walk. ⛔ Do NOT publish from the procedural `drawTower` fallback arm at :194 — that is the atlas-failed path and the file docblock's own contract is that the shapes stay visible when the art does not load.\n  2. `src/input/controls.ts` — the tower hit test must reach it, or the tower becomes \"an invisible 10 px dot\". Either add a third arm at :823 (`?? stinkAnchorAtPoint(...)`) or generalise `rampAnchorAtPoint` (structureRamp.ts:527) to take a shape+box rather than a `RampSpec`. ⚠ The hit box must be drawn where the SPRITE is, i.e. around `Defender.pos` with `footAnchor.y 0.9958` and `STINK_TOWER_SPRITE_BASE_SCALE` × cellH 240 — NOT around the member centroid, because unlike the ramp towers this renderer draws at `d.pos` (:187), not at the centroid.\n  3. `src/render/towerCover.test.ts` — the two censuses at :268 and :283 both have to move: `stinkTowerRenderer.ts` graduates from the \"must be 0\" list into `PUBLISHERS` with the class it serves.\n\nB — THE 12 RACE / TIER-9 TOWERS: no edit. The mechanism is present and generic. If he still sees shapes there, the live suspects are the WELDED-SHAPE gap (canon §7b, owner's call) and the health-bar position defect above, not a missing publish site. Do not \"fix\" this by adding a RAMP_SPECS entry — that would draw a ramp sheet that does not exist.\n\nC — OPTIONAL, ONE-LINE-ISH, same neighbourhood: teach `healthBar.spriteBoxFor` about `rampSpecFor` so the five ramp towers (and the stink tower once hidden) hang their bar off the building's box instead of off invisible shapes, and correct the stale comment at healthBar.ts:347.",
+  "four_sites_risk": "NONE. `towerCover.ts` is imported only by `main.ts:142` and four `src/render/` modules; it holds module-level maps and no world state, publishes nothing to the wire, and its own docblock records \"this costs no sim state, no snapshot bytes and no PROTOCOL_VERSION bump\". `markTowerCover` writes only local Sets. No factory, no serialize, no hash, no worker, no `worldTypes`. PROTOCOL_VERSION stays 47. The one determinism-adjacent rule to honour is already established in this module: the ramp is driven off `world.tick`, never `performance.now()` (towerCover.ts:82-84) — the new publish must pass `Bond.createdTick` as its anchorTick, never `ignitedAtTick` (stripped by `trimMirrorSpawner`) and never a wall clock. Piece C touches `healthBar.ts`, also render-only.",
+  "tests_owed": "1. `src/render/towerCover.test.ts` — move `stinkTowerRenderer.ts` from the \"zero publishers\" list (:283) into `PUBLISHERS` (:268) with its class named; the \"exactly one markTowerCover call\" assertion then covers it.\n2. A behavioural test in the `towerCover.test.ts` style (it already drives the module headlessly via `markTowerCover`/`beginTowerCoverFrame`/`coverAlphaForBond`) asserting that a stink-tower star's four prims and three bonds ramp to ~0 over TOWER_COVER_FADE_TICKS and back over TOWER_COVER_REVEAL_TICKS.\n3. ⛔ THE ONE WITH TEETH, per S182 lesson 2 and this project's own rule that a source-text guard proves a line EXISTS and not that it is REACHED: a test that the publish happens only on the ATLAS arm — i.e. that no cover is published when the atlas is null (the procedural fallback) or when the tower is fogged. A grep for the symbol would pass in both broken cases.\n4. A hit-test unit test: a click at the sprite box's bottom third and at its top must both resolve to the stink tower's anchor, and a click 50 px of sky above it must NOT — the exact defect `ca1d301` (\"the click box was on the wrong half of the tower\") fixed for the ramp towers.\n5. If piece C lands: a healthBar assertion that a RAMP_SPECS tower's bar rise equals its `spritePx`-derived box, not `y - comp.topY`.\n⚠ No renderer runs under vitest (canon §7b R183-G), so z-order and actual pixels are out of reach — everything above tests the pure modules. The visual verdict is a playtest.",
+  "owner_questions": [
+    "THE STINK TOWER HAS NO DAMAGE ART. R183-E keeps the connectors hidden all the way through damage precisely BECAUSE the ramp art carries the damage signal on the building ('you can see the tower is damaged. You can just click the tower and repair it'). The stink tower's atlas is 12-frame idle + 12-frame attack only — its sprite changes appearance only when its bags run out. Hiding its shapes therefore removes the ONLY visual damage cue it has, apart from the health bar. Hide it anyway, or wait until it has a ramp sheet like the other five?",
+    "Is the race / tier-9 half actually still visible on your screen? Every code-level gate says it was fixed in S183 and I found no remaining gap. If you still see shapes around a bat/hound/Vlad tower, the two live suspects are (a) a shape you WELDED onto the tower — those are not recipe members and stay fully visible by design, which is the ruling still open in canon §7b — or (b) the health bar, which currently hangs where the invisible shapes are rather than above the building."
+  ],
+  "size_estimate": "Micro-to-Standard, ~12-18K. Piece A alone is Micro by the letter of the rule (2 production files + 1 test file, well under 10K) but the mandatory hit-test half pushes it over a strict 1-2 file reading, so budget Standard and scope the brief as \"do ONLY the stink tower publish + its hit test + the two census edits; do not refactor rampMembersAt beyond widening its shape parameter; do not touch the race/tier-9 path\". Piece C is a genuine Micro that the merge owner should just do rather than round-trip."
+}

@@ -1,0 +1,143 @@
+{
+  "lane": "A4 — ADVERSARIAL VERIFY of \"helga-walk-idle\" (Helga plays the IDLE beer row while translating)",
+  "verdicts": [
+    {
+      "claim": "helgaFrame.ts:48-52 — the row selector is a bare `switch (state)` with no movement input; `case 'IDLE'` returns the idle strip, `case 'WALK'` the walk strip.",
+      "verdict": "CONFIRMED",
+      "note": "Opened src/render/helgaFrame.ts. Lines 48-52 read exactly: `switch (state) {` / `case 'IDLE':` / `return { state: 'idle', frame: loopIndex(worldTick + phase, cfg.idleTicksPerFrame, cfg.idleFrames) };` / `case 'WALK':` / `return { state: 'walk', frame: loopIndex(worldTick + phase, cfg.walkTicksPerFrame, cfg.walkFrames) };`. Signature at :40-46 is `(state, ticksInState, worldTick, id, cfg)` — no movement input. The switch is exhaustive over DefenderState with a return in every arm and NO tolerant default."
+    },
+    {
+      "claim": "defenderLifecycle.ts:348 — the S183 patrol is gated on `d.kind === 'princess' && d.state === 'IDLE'` and lives inside `case 'IDLE'`, so she can never be in WALK while patrolling.",
+      "verdict": "CONFIRMED",
+      "note": "Line 348 reads `if (d.kind === 'princess' && d.state === 'IDLE') {`, inside `case 'IDLE': {` which opens at :281 and `break`s at :370. :349-350 are the `leg`/`mix32` lines quoted. The guard re-reads `d.state`, so a same-tick acquire (:298 sets 'WALK') correctly skips the patrol block."
+    },
+    {
+      "claim": "defenderLifecycle.ts:360-367 — `walkTargetPos` is non-null on exactly the ticks she integrates and null on exactly the ticks she is snapped and frozen; it is the movement predicate, already written, synced and hashed.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 360-368 match the quote character for character. I stress-tested the predicate against defenderMotion.ts: the if-arm calls `freezeDefender` (prevPos := pos, zero implicit velocity) and applies no accel, the else-arm calls `stepDefenderWalk` which always applies `defenderArrive` (non-zero unless dist < 1e-6). PRINCESS_HOME_EPSILON=6 (constants.ts:3445), PRINCESS_ARRIVE_RADIUS=50 (:3444) — inside the 6..50 ramp band she is still accelerating, so there is no window where walkTargetPos is non-null and she is genuinely static. The predicate is sound."
+    },
+    {
+      "claim": "defenderLifecycle.ts:501-506 — RECOVER→IDLE sets state='IDLE', nulls walkTargetPos and pushes nextFireTick a full fire interval out.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 501-506 match verbatim, including the `// S110 P4 — stop pursuing; IDLE walks her home if she's away` comment on :504. PRINCESS_SLAP_INTERVAL_TICKS = 90 (constants.ts:3419) as claimed."
+    },
+    {
+      "claim": "root_cause leg 1 — `nextFireTick` being pushed ~90 ticks out is what makes the IDLE branch 'fall straight through to the patrol walk'.",
+      "verdict": "PARTIAL",
+      "note": "Directionally right, causally over-specified. The patrol block at :348 is NOT gated on `nextFireTick`. Only the ACQUIRE block is (`if (world.tick >= d.nextFireTick) {` at :282, closing at :326). The patrol runs on EVERY IDLE tick whenever no target was acquired. So the symptom is strictly broader than 'the ~90-tick post-slap cooldown' — she draws the beer row while translating on every ambient leg too, for as long as nothing is in her leash. The fire interval is not load-bearing to the defect. This does not change the fix, but a brief that leans on the 90-tick story will under-reproduce it."
+    },
+    {
+      "claim": "defenderLifecycle.ts:381-386 — the leash-rejection path drops her WALK → IDLE and she walks home the same way.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 380-387: `if (!leashOk) { d.state = 'IDLE'; d.ticksInState = 0; d.targetCreatureId = null; d.walkTargetPos = null; d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS; break; }`. A third producer the report did not list also exists and behaves identically: the WINDUP abort at :426-432 (`if (!blindLob && !targetValid(...))`) sets state='IDLE' and nulls walkTargetPos the same way."
+    },
+    {
+      "claim": "princessRenderer.ts:204-209 — two call sites with the same defect (atlas `syncSprite` and procedural `helgaPose`), neither receiving anything about whether pos is changing; the row is render state, never written back to the world.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 204-210 match verbatim. :205 `this.syncSprite(d.id, d.state, d.ticksInState, world.tick, d.pos.x, d.pos.y, face);` and :208 `const pose = helgaPose(d.state, d.ticksInState, world.tick, d.id as unknown as number);`. helgaCell is reached only from :244 inside `syncSprite`. Exhaustive grep of src + e2e + scripts for `helgaCell` and `helgaPose` returns ONLY princessRenderer.ts and the two test files — there is no third consumer (no codex/character-sheet/roster preview animates her, despite characterSheet.ts and codexOverlay.ts naming her)."
+    },
+    {
+      "claim": "defenderLifecycle.test.ts:244 — an existing green test documenting the precondition ('IDLE now walks her to a patrol point rather than to the anchor' / `expect(d.state).toBe('IDLE')`).",
+      "verdict": "CONFIRMED",
+      "note": "Lines 244-245 verbatim, inside the test opening at :233. The sibling determinism test at :269-282 and the anti-kite leash test at :284 are also where the report says they are."
+    },
+    {
+      "claim": "creatureRenderer.ts:189 — `voltkinAtlasRow(state, isMoving)` is the robust in-repo precedent for the derived-row shape.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 189-193 verbatim, including `if (state === 'SEEKING') return isMoving ? 'walk' : 'idle';` and the tolerant `return 'idle';` tail."
+    },
+    {
+      "claim": "save.ts:2238-2241 — both candidate derived inputs (prevPos, walkTargetPos) already ride the wire for a defender, additive-optional.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 2238-2241 verbatim. SerializedDefender declares them at save.ts:871-872 with the S110 P4 docblock at :868-870. Rehydrate at :2279-2280 verbatim as quoted."
+    },
+    {
+      "claim": "save.ts:1227 + 1280-1281 — `netSnapshot`'s trim re-maps only creatures and creatureSpawners, and `stripWirePrevPos` touches only primitives, so a defender's prevPos/walkTargetPos survive to every peer.",
+      "verdict": "CONFIRMED",
+      "note": "save.ts:1214-1216 re-maps `rest.creatures`, :1224-1226 re-maps `rest.creatureSpawners`, :1227-1229 is the ⛔ S182 comment verbatim, :1230 `return rest;`. `stripWirePrevPos` at :1280-1287 reads `msg.snapshot?.primitives` and returns unchanged when that is not an array. No `trimMirrorDefender` exists anywhere in src (grep returns nothing). Host/peer agreement on the predicate is real."
+    },
+    {
+      "claim": "stateHashFull.ts:339-346 — walkTargetPos and prevPos are in DefenderHashed, so the derived predicate reads fields the wide oracle already guards; nothing new enters the hash.",
+      "verdict": "CONFIRMED",
+      "note": "Union at :339-346 verbatim, `'walkTargetPos' | 'state' | ...` on :345. Stronger than the report claims: the HAND-WRITTEN PROJECTION also carries it — stateHashFull.ts:597 reads `` `:${d.pos.x},${d.pos.y}:${v2(d.prevPos)}:${v2(d.walkTargetPos)}` ``. That closes the exact gap the :334-338 warning describes (a name in the union that the template never projects). Four-sites genuinely not owed."
+    },
+    {
+      "claim": "defender.ts:84-87 — a new DefenderState literal is serialized and costs a PROTOCOL_VERSION bump; the precedent (12→13) is recorded at that file.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 84-87 verbatim. SerializedDefender.state is `readonly state: DefenderState` at save.ts:848, and protocol.ts:95 independently records the 12→13 bump for exactly this reason. PROTOCOL_VERSION is 47 (protocol.ts:704) — the report's number is right and CLAUDE.md's '46' is the stale one."
+    },
+    {
+      "claim": "creatureRenderer.ts:524-527 — the frame-delta `isMoving` estimate is correct for CREATURES and must NOT be copied for Helga, because a creature's wire prevPos is rehydrated to pos while a defender's travels.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 524-529 verbatim, and the contrast holds: creature prevPos IS stripped by trimMirrorCreature's family while a defender's is emitted whenever ≠ pos (save.ts:2239-2240) and never re-mapped. FACING_VELOCITY_THRESHOLD = 1.5 at creatureRenderer.ts:73, used at :514 and :529 as described."
+    },
+    {
+      "claim": "workerSim.ts:383-414 — defenders are absent from the positions buffer, and the docblock says any entity that starts moving must be added there.",
+      "verdict": "CONFIRMED",
+      "note": "buildPositions at :383-415; the nine sections are players + primitives, freeSparks, creatures, hunters, seagulls, poops, potatoes, gatherers. No defenders. The docblock at :376-379 reads verbatim as quoted. Correctly fenced OUT of scope by the report."
+    },
+    {
+      "claim": "net/sync.ts:417-449 — `ClientSync.interpolateInto` interpolates primitives and SEEKING creatures only, so a joining peer sees Helga step at NET_SNAPSHOT_HZ.",
+      "verdict": "PARTIAL",
+      "note": "The BEHAVIOUR is confirmed: net/sync.ts:417-424 primitives, :425-434 freeSparks, :438-439 hunters+seagulls, :443-453 creatures gated on `cc.state !== 'SEEKING'` — no defender arm. The NAME is wrong: the function at those lines is `interpolatePositions` (declared net/sync.ts:410). `ClientSync.interpolateInto` is a different method (called from main.ts:3243) that delegates into it. A brief sending a session to grep `interpolateInto` at sync.ts:417 gets a miss."
+    },
+    {
+      "claim": "SPARK_CANON.md:385 — 'No renderer runs under vitest, so z-order is invisible to every behavioural test in the repo — Helga drew on top of her own hall with the whole suite green.'",
+      "verdict": "CONFIRMED",
+      "note": "Lines 384-386 verbatim. The conclusion drawn from it is right: nothing in the unit suite can observe which texture the sprite holds."
+    },
+    {
+      "claim": "goblinRenderer.ts:713-715 — the goblin/boss family is a state-keyed row with no idle-while-moving leg; not the same defect; do not touch.",
+      "verdict": "CONFIRMED",
+      "note": "Lines 713-715 verbatim, and physicsLoop.ts:258-259 reads `Steering force returns ZERO_ACCEL during SPAWNING / DESPAWNING (Δ4), so creatures appear stationary` as quoted. Verdict of 'not the same defect' stands."
+    },
+    {
+      "claim": "fix_shape — make `isMoving` a REQUIRED parameter on BOTH `helgaCell` and `helgaPose`, so `tsc` mechanically enumerates every call site.",
+      "verdict": "REFUTED",
+      "note": "Uncompilable as written for helgaPose. Its signature is `export function helgaPose(state: DefenderState, ticksInState: number, phaseTick: number, offset = 0): HelgaPose` (helgaPose.ts:62) — `offset` is OPTIONAL. Appending a required `isMoving` after it is TS1016, 'A required parameter cannot follow an optional parameter'. The branch must either (a) insert `isMoving` BEFORE `offset` and make `offset` required, which forces touching all 15 helgaPose call sites in helgaPose.test.ts (:15,16,22,32,33,42,43,48,54,55,60,63) plus princessRenderer.ts:208, or (b) give `isMoving` a default — which SURRENDERS the tsc-enumerates-call-sites property the report names as its entire structural guard, and is the S182 'green over a live bug' shape. Option (a) is right; the report must say so or the branch discovers it mid-flight."
+    },
+    {
+      "claim": "fix_shape — the derived fix is ~20 production lines across three files, ~5 lines for helgaPose.",
+      "verdict": "PARTIAL",
+      "note": "Production delta ~20 lines is fair. The '~5 lines' for helgaPose is not, once TS1016 forces the signature reshuffle: 16 call-site edits ride along with it. And the fix is incomplete — see the facing defect in `missed`."
+    },
+    {
+      "claim": "fix_shape — reusing FACING_VELOCITY_THRESHOLD (1.5) against a per-substep prevPos delta of ≈0.33 px yields a permanently-false predicate that ships green.",
+      "verdict": "CONFIRMED",
+      "note": "The mechanism is real and verified: defenderVerletStep (defenderMotion.ts:33-44) rewrites prevPos on each of the PHYSICS_SUBSTEPS iterations of stepDefenderWalk's loop (:69-72), so `pos − prevPos` is one substep's displacement. PHYSICS_HZ=60, PHYSICS_SUBSTEPS=8, VELOCITY_DAMPING=0.998 (constants.ts:254-256), PRINCESS_MOVE_ACCEL=150 (:3443). The ≈0.33 px figure is the report's own derivation, correctly flagged as MINE-not-measured. Good catch, keep it in the brief."
+    },
+    {
+      "claim": "determinism_risk — NONE / render-only; no four-sites obligation; PROTOCOL_VERSION stays 47.",
+      "verdict": "CONFIRMED",
+      "note": "Verified end to end. The change reads only `state` and `walkTargetPos`, both already in DefenderHashed (:345) AND in the hand-written projection (:597). No Math.random, no wall clock, no float accumulator, no Map-iteration-order decision (`for (const d of world.defenders.values())` at princessRenderer.ts:178 only draws each one). `mix32(Number(d.id), leg)` in the sim is pre-existing and already covered by defenderLifecycle.test.ts:269-282."
+    },
+    {
+      "claim": "tests_owed — no e2e spec observes Helga's atlas row; e2e/fog.spec.ts:393 only counts her container.",
+      "verdict": "CONFIRMED",
+      "note": "fog.spec.ts:393 is `'_Container', // 16 — princessRenderer.container (S103 P4) — HELGA`, a display-list index entry. The only other e2e files naming her (click-to-build.spec.ts:218, hub-ramp-art.spec.ts:37, zones-visual.spec.ts:293) are comments about recipe-bar index and layer index. None observes a texture."
+    },
+    {
+      "claim": "fix_shape — 'deliberately NOT in this change: SPARK_CANON.md and src/canon.test.ts'.",
+      "verdict": "CONFIRMED",
+      "note": "canon.test.ts touches Helga only at :136 (`| Helga | units only | ${PRINCESS_SLAP_RANGE} |`) and :211 (recipe id list). No load-bearing number moves. Correct call."
+    }
+  ],
+  "missed": [
+    "⛔ THE FACING IS STALE DURING THE PATROL WALK, AND FIXING ONLY THE ROW SHIPS A MOONWALK. princessRenderer.ts:191-196 reads: `const aimAt = firing ? d.lastStrikePos : d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId)?.pos ?? null : null;` / `let face = this.facing.get(d.id) ?? 1;` / `if (aimAt) face = aimAt.x >= d.pos.x ? 1 : -1;`. During the IDLE patrol `targetCreatureId` is null on every path that reaches it (nulled at :323, :383, :430, :503 of defenderLifecycle.ts) and `firing` is false — so `aimAt` is null and `face` HOLDS THE VALUE LEFT BY HER LAST KILL. Today that is invisible, because the idle/beer strip is roughly symmetric standing art. The moment the fix routes the patrol into the WALK strip, half her patrol legs play a 12-frame directional gait pointing the wrong way. The owner's next bug report writes itself. Same predicate fixes it in the same file: when `aimAt` is null and `d.walkTargetPos !== null`, face off `d.walkTargetPos.x >= d.pos.x`. This belongs IN the brief, not discovered by the branch.",
+    "⛔ THE 'MAKE IT REQUIRED' STRUCTURAL GUARD DOES NOT COMPILE ON helgaPose. `export function helgaPose(state, ticksInState, phaseTick, offset = 0)` (helgaPose.ts:62) — appending a required `isMoving` is TS1016. The branch must insert it before `offset` and promote `offset` to required, which drags in all 15 helgaPose.test.ts call sites plus princessRenderer.ts:208. The alternative (a defaulted flag) throws away the only enumeration mechanism the report proposes, which is precisely the S182 lesson-2 shape. Say which, in the brief.",
+    "⛔ THE CHEAP WRONG FIX BREAKS AN OWNER RULING, AND THE REPORT PRICED IT ONLY AS A PROTOCOL BUMP. The tempting one-liner is not 'add a PATROL literal' — it is `d.state = 'WALK'` in the patrol branch, which costs no bump at all and therefore looks free. It is not: `retaliation.ts:483` reads `if (d.state !== 'WALK') return;`, and SPARK_CANON.md:498 records **R183-C — HELGA RETALIATES, INSIDE HER CONSTRAINT** / *'Only while she is in WALK, only at a creature, and only at an aggressor inside her hub leash.'* Putting her in WALK while patrolling silently grants her retaliation with no committed target — a behaviour change to a quoted owner ruling, shipping green. The brief must forbid this by name, not only the PATROL-state variant.",
+    "⚠ A TOLERANT DEFAULT IN THE VERY LINE THE FIX RE-ROUTES TRAFFIC THROUGH. princessRenderer.ts:245-246: `const tex = atlas.cells[cell.state][cell.frame];` / `if (tex !== undefined && sp.texture !== tex) sp.texture = tex;`. A missing or short row silently KEEPS the previous texture — no throw, no fallback, no log. Compare goblinRenderer.ts:716, which is explicit: `atlas.cells[name] ?? atlas.cells.idle`. Mitigating and VERIFIED rather than assumed: public/godly/helga/anim/helga-anim.json declares `\"walk\": { \"row\": 1, \"frames\": 12, \"ticksPerFrame\": 4 }` and princessRenderer.ts:140-149 builds all three strips, so the walk row IS reachable today. But the fix now sends IDLE traffic down a path whose absence would be silent, which is worth one line in the brief.",
+    "⚠ THE EXISTING NaN SWEEP NEVER EXERCISES THE GAIT ARM. helgaPose.test.ts:20 iterates `['IDLE', 'WINDUP', 'FIRE', 'RECOVER'] as const` — 'WALK' is absent, so the arm at helgaPose.ts:88-103 that the fix is about to reuse for IDLE has never been swept for finiteness. Add the flag to that sweep, not just to the new assertions.",
+    "⚠ A THIRD PRODUCER OF THE SYMPTOM THE REPORT DID NOT LIST. defenderLifecycle.ts:426-432 — the WINDUP abort (`if (!blindLob && !targetValid(world, d, config))`) sets `d.state = 'IDLE'` and nulls `walkTargetPos` exactly like the leash break. Behaviourally identical, so it does not change the fix, but the brief's reproduction list is incomplete at three legs when it is four.",
+    "⚠ NAMING ERROR THAT COSTS A GREP. The report calls the interpolation site `ClientSync.interpolateInto (net/sync.ts:417-449)`. The function at those lines is `interpolatePositions`, declared at net/sync.ts:410; `ClientSync.interpolateInto` is a separate method invoked from main.ts:3243. The behavioural claim is right; the symbol is not.",
+    "⭐ TWO SOURCE-TEXT GUARDS READ THE FILES THIS BRANCH TOUCHES AND ARE BENIGN — STATED, NOT ASSUMED, because 'no test goes red' is a verdict. towerCover.test.ts:286 and :313 read princessRenderer.ts and assert `countOf(src, 'markTowerCover(') === 0` and `countOf(src, 'coverAlphaFor') === 0`; the fix adds neither. structureRamp.test.ts:735-739 greps main.ts for `new PrincessRenderer(` and pins it BEFORE `new StructureRampRenderer(`; the fix changes no construction site. ci.sourceHygiene.test.ts only scans for NUL bytes. None of the four goes red."
+  ],
+  "file_set_corrections": [
+    "NO FILE IS MISSING FROM file_set — all six are correct and each is genuinely touched. Verified: src/render/helgaFrame.ts (predicate + signature), src/render/helgaPose.ts (signature + IDLE→gait), src/render/princessRenderer.ts (both call sites AND the facing fix), src/render/helgaFrame.test.ts (14 helgaCell call sites at :17,18,20,24,25,26,31,33,35,43,52,53,58,59 across 6 `it()` blocks — the report's line ranges :17-20/:24-26/:31-37/:40-49/:52-53/:58-60 are exactly right), src/render/helgaPose.test.ts (15 call sites), src/state/defenders/defenderLifecycle.test.ts (new contract pin beside :233-282).",
+    "⚠ MERGE-OWNER HAZARD, NOT AN OMISSION: src/render/princessRenderer.ts is the shared-collision file. It is the single file any fog / z-order / cover / tower-art branch also reaches for (it sits on fogHiddenLayer per its :18-20 docblock, is pinned by structureRamp.test.ts:735-739 and enumerated by fog.spec.ts:393). If another lane in this split touches Helga's layer, drawing, or the display-list order, the two branches collide here. Scope the sibling briefs away from it or serialise the merges.",
+    "⚠ CONDITIONALLY IN SCOPE, decide before the split: if the branch takes the report's own 'belt and braces' option (`|| d.prevPos.x !== d.pos.x || ...`) it touches no extra file. If anyone acts on the adjacent finding (defenders absent from workerSim.ts buildPositions :383-414 and from net/sync.ts interpolatePositions :410-455), that is TWO more files and a different lane — the report correctly fences it out, and the brief must repeat the fence or a session will helpfully 'finish the job' and hand the merge owner a cross-branch defect with no owner.",
+    "⚠ NOT in file_set and correctly so, confirmed by reading them: SPARK_CANON.md and src/canon.test.ts (no load-bearing number moves; canon.test.ts touches Helga only at :136 and :211), src/state/defenders/defender.ts (no new state literal), src/state/save.ts and src/state/stateHashFull.ts (no new field), src/net/protocol.ts (no bump — stays 47)."
+  ],
+  "size_grade": "AGREE with Standard (10-30K), and it is at the upper half of that band rather than the lower — but it is not an underestimate, and it must not be downgraded to Micro. The production delta really is ~20 lines across three render files. What fills the budget is mechanical breadth the report already anticipated (re-passing the flag through 14 helgaCell call sites in helgaFrame.test.ts and 15 helgaPose call sites in helgaPose.test.ts) plus two things it did not price: the TS1016 parameter-order reshuffle on helgaPose, which turns those 15 test call sites from optional re-verification into MANDATORY edits, and the facing fix in princessRenderer.ts (~4 lines, same file, no new file). Both land inside Standard. Micro is out of reach on the 1-2 file bound alone — six files, three of them production.",
+  "net_assessment": "**The bug is REAL, the diagnosis is CORRECT, and the architectural verdict is RIGHT. The fix as written does not compile, and it is half a fix.**\n\nI opened every one of the 15 evidence entries at the cited line. Fourteen quote the tree verbatim and mean what the claim says; one (net/sync.ts) has the right behaviour under the wrong symbol name. This is a well-built report — it verified rather than assumed on the three places where assuming was the tempting move (the netSnapshot trim, the hash projection, and whether the Voltkin's frame-delta pattern transfers), and its central judgment survives adversarial pressure: `walkTargetPos !== null` IS the correct predicate, the row IS render state with no four-sites obligation, and PROTOCOL_VERSION correctly stays 47.\n\nThree things must reach the branch or it repeats S182's pattern of shipping green with new defects.\n\n1. **The fix as specified is uncompilable.** `helgaPose`'s fourth parameter is `offset = 0` (helgaPose.ts:62). A required `isMoving` appended after it is TS1016. The report's ⭐ structural guard — 'make it required on BOTH, tsc then enumerates the call sites' — is the load-bearing safety argument of the whole change, and on one of the two functions it does not build. The branch must insert the flag before `offset` and promote `offset` to required, accepting 16 call-site edits. A defaulted flag is the wrong answer and is exactly the green-over-a-live-bug shape S182 named.\n\n2. **Fixing the row alone makes her moonwalk.** princessRenderer.ts:194-196 only updates facing when there is an aim target, and the patrol has none by construction. The stale-facing artifact is invisible today because the beer strip is standing art; it becomes a 12-frame directional gait pointing the wrong way the instant the fix lands. The same synced field answers both questions. This is the single most important thing this review adds.\n\n3. **The cheapest wrong fix is not the one the report priced.** It priced `'PATROL'` as a protocol bump — correct, and a good deterrent. But the actually tempting line is `d.state = 'WALK'` in the patrol branch, which costs no bump and therefore looks free. It is not free: `retaliation.ts:483` gates on `d.state !== 'WALK'` and SPARK_CANON.md:498 is owner ruling **R183-C**, *'Only while she is in WALK.'* That variant silently rewrites a quoted ruling and every gate stays green. Forbid it by name.\n\nOne calibration note on the reproduction: the patrol block is not gated on `nextFireTick` — only the acquire block is. She draws the beer row while translating on every ambient leg, not just for ~90 ticks after a slap. Broader symptom, same fix.\n\nEverything else holds. The determinism analysis is sound and I could not find a hazard it missed: no Math.random, no wall clock, no float accumulator, no Map-iteration-order decision, no scan needing a total order, no test that turns red (I checked all four source-text guards that read these files — towerCover.test.ts:286/:313, structureRamp.test.ts:735-739, ci.sourceHygiene, and the fog display-list contract — each is benign for a named reason). The walk strip is verifiably reachable: helga-anim.json declares row 1 with 12 frames, so this is not a fix into a missing texture. And the adjacent worker/interpolation finding is real, correctly diagnosed, and correctly fenced out of this branch — keep the fence in the brief, because a session that 'helpfully' fixes it hands the merge owner a two-branch defect with no owner.\n\n**Verdict: ship this brief, with the three corrections folded in. Do not ship it as written.**"
+}

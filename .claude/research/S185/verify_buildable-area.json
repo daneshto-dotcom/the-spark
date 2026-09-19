@@ -1,0 +1,172 @@
+{
+  "lane": "A3 — ADVERSARIAL VERIFY of the \"buildable area is too small and too lumpy\" research (owner points 5 + 6)",
+  "verdicts": [
+    {
+      "claim": "blueprintLegality.ts:194-200 — arm 5 loops every blueprint node × every world primitive and returns 'BLOCKED' inside AUTO_BOND_RADIUS via Math.hypot",
+      "verdict": "CONFIRMED",
+      "note": "Exact. Lines 194-200 read verbatim as quoted, including `if (Math.hypot(pdx, pdy) < AUTO_BOND_RADIUS) return 'BLOCKED';` at :198. The arm is numbered 5 in the source comments. The import list is lines 31-43 and really is constants/blueprints/zones/types only — no render import, so the 'no predicate reads the art' claim holds."
+    },
+    {
+      "claim": "constants.ts:824 `export const AUTO_BOND_RADIUS = 60;` and constants.ts:815 records a prior bug from exactly this doubling",
+      "verdict": "PARTIAL",
+      "note": "The constant is CONFIRMED at :824, and :819-823 documents it as 'primary target pick radius for auto-bond on placement'. But :814-816 records a DIFFERENT doubling — pick-radius vs MERGE-sweep radius, split into MERGE_REACH_RADIUS at :817 — not reach-vs-stamp-clearance. The analogy is fair; 'records a prior bug from exactly that doubling' overstates it."
+    },
+    {
+      "claim": "blueprintLegality.ts:113 `if (world.matchPhase !== 'BUILD') return 'FIGHT';` removes the whole board for the FIGHT phase",
+      "verdict": "CONFIRMED",
+      "note": "Exact at :113. Correctly named for completeness and not proposed for change (R19)."
+    },
+    {
+      "claim": "blueprintLegality.ts:119-124 — EDGE_PAD 8 against the true footprint box; for a 6-star (extent ±56) cy is capped at 1016, so the bottom 64 px holds no legal tower centre",
+      "verdict": "PARTIAL",
+      "note": "EDGE_PAD = 8 CONFIRMED at :46; the box test is verbatim at :119-124. The VERTICAL arithmetic is right: star() puts its first leaf at -90° (blueprints.ts:202, :215), so for a 6-leaf star maxDy = STAR_R 44 + FOOTPRINT_MARGIN 12 = 56 → cy ≤ 1016 → 64 px dead band. But the extent is NOT ±56 all round: dx values are 44·cos(-90,-30,30,90,150,210) → maxDx = 38.1, so the horizontal half-extent is 50.1 and the left/right dead band is 58.1 px, not the '~64 px of every side' the report asserts in RULING 3."
+    },
+    {
+      "claim": "blueprintLegality.ts:149-154 — quarry arm, SPAWNER_RADIUS 125 + FOOTPRINT_MARGIN 12 = 137, tested per node",
+      "verdict": "CONFIRMED",
+      "note": "Exact. SPAWNER_RADIUS = 125 (constants.ts:137), FOOTPRINT_MARGIN = 12 (blueprints.ts:428). The 'cannot simply be shrunk / enforceSpawnerBounds rim-snaps' justification is the source's own, at :127-129."
+    },
+    {
+      "claim": "zones.ts:223 CASTLE_NO_BUILD_RADIUS = 121, derived at :199-222, re-derived and anti-bloat-asserted in zones.test.ts:343-365",
+      "verdict": "CONFIRMED",
+      "note": "All three verified. zones.test.ts:347-366 re-derives from CASTLE_SPRITE_PX / CASTLE_PORCH_* and asserts `CASTLE_NO_BUILD_RADIUS - reach <= CASTLE_PORCH_SLOT_CLEAR_RADIUS + 1`. castleKeepOutHitsBox is at :253, isInsideCastleKeepOut at :278."
+    },
+    {
+      "claim": "zones.ts:306-313 canBuildAt is THE one implementation the reducer, ghost, release gate and bot planner read",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim. But the report does not say that blueprintLegality arm 4 calls it on the CENTRE only (:189), so a stamped footprint may legally straddle the zone border — relevant to any 'how much ground do I get' measurement."
+    },
+    {
+      "claim": "controls.ts:1042 `if (this.isPointerOverFooterSurface()) return;` is THE bottom-menu refusal, paired with :1020 and the single-shape gate at :1450-1455",
+      "verdict": "CONFIRMED",
+      "note": "All three verified verbatim (:1020, :1042, and :1452/:1454 inside the 1449-1455 gate). isPointerOverFooterSurface is defined at :607 and delegates to footerBand.isOverBandSurface."
+    },
+    {
+      "claim": "footerBand.ts:563 isOverChip is rectangles only; the always-on swallow is ≈37,600 px² = 1.8 % of the board, peaking at ≈6.0 %",
+      "verdict": "PARTIAL",
+      "note": "The predicate is CONFIRMED verbatim at :563-565, isOverBandSurface at :588-590, and the docblock contract at :23-24. The geometry checks out: CHIP_W 62 / CHIP_H 46 / CHIP_GAP 14 (:60-63), CHIP_CY = 1038 (:65), 7×62+6×14 = 518 centred → x[701,1219] y[1015,1061]; CARD_W 226 / CARD_H 62 (:80-81). BUT the '1.8 % always-on' number EXCLUDES the carry plate, and footerBand.ts:388-397 draws that plate only while `this.armed !== null` — i.e. during exactly the armed-stamp gesture the owner is complaining about. Quoting 1.8 % for that gesture understates it."
+    },
+    {
+      "claim": "controls.ts:1613 updateCursor — SPARK has no camera and the world does not scroll, so screen space IS world space",
+      "verdict": "PARTIAL",
+      "note": "The substance is CONFIRMED: the only stage transform in the tree is screenShake (screenShake.ts:4 'decaying ±2px offset to app.stage.position', applied at :109 and zeroed at :103-105); nothing else writes stage.scale/position/pivot. The CITATION is off by one — the quoted block begins at :1614, and :1613 is the tail of the preceding comment."
+    },
+    {
+      "claim": "blueprintBuild.ts:264 — the host reducer and the client share one predicate; no divergence exists",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at :264. The advisory-client note is really at controls.ts:1044-1051 as cited. The worker path is also as claimed: workerSim.ts:481 `dispatch(world, action)` inside the intent loop, and BUILD_BLUEPRINT is an allowlisted client intent (protocol.ts:1402, :1582)."
+    },
+    {
+      "claim": "placePrimitive.ts:130 — the hand-placement path has NO clearance arm; its only gates are the spawner disc and canBuildNow",
+      "verdict": "CONFIRMED",
+      "note": "Verbatim at :130-133; quarry disc at :116. canBuildNow (buildLegality.ts:46-49) = matchPhase BUILD + canBuildAt, so the full hand-place gate set is quarry + phase + castle keep-out + zone. No clearance. placeFromFree mirrors it at :166 and :173 (report said :165/173 — one line off on the quarry arm)."
+    },
+    {
+      "claim": "blueprints.ts:41 — primitives are 8-10.8 px radius so ~22 px is the soft-collision floor; 60 is ~2.5× too large for the physics job",
+      "verdict": "PARTIAL",
+      "note": "The text is real but at lines 41-45, NOT 41 — the quoted sentence ('soft-collision would shove neighbours apart…Every distance here is ≥ 40 px') is line 43. Content CONFIRMED. The inference is the report's own, not the file's: :44 says the ≤60 ceiling exists so a stamped structure 'is spaced like a hand-built one', which is an AESTHETIC reason the report never engages with."
+    },
+    {
+      "claim": "botBrain.ts:209 — the code's own strongest argument against shrinking the clearance (the chord hazard)",
+      "verdict": "PARTIAL",
+      "note": "The docblock is real but begins at :211, not :209 (:208 opens the comment, :225 is TOWER_SITE_OFFSET = 210, :227 is TOWER_SITE_ANGLES — both as described). GROWTH_STEP = AUTO_BOND_RADIUS * 0.8 = 48 CONFIRMED at :66."
+    },
+    {
+      "claim": "structureRamp.ts:580 — the only place artPx decides anything is a render hit-test; all five ramp towers' art is SMALLER than the connector hull",
+      "verdict": "PARTIAL",
+      "note": "The hit-test is at :578-580, not :580. artPx values CONFIRMED: HUB 84 (:243), GOBLIN 99 (:282), LASER 94 (:286), PENTAGRAM 90 (:312), HELGA 99 (:316). 'Smaller than the hull' is true of the HALF-WIDTH only — the hit-test is a SQUARE (|x-cx|≤half AND |y-cy|≤half), so a 94 px box reaches 47·√2 = 66.5 px at its corners, comfortably PAST the 54.8 px hull. The claim that 'connectors + art' reduces to 'connectors' is therefore not established at the corners."
+    },
+    {
+      "claim": "netWireSize.test.ts:84 is the named precedent, and a clearance change alters how many PLACE_PRIMITIVEs land in its grid",
+      "verdict": "REFUTED",
+      "note": "The COMMENT is CONFIRMED verbatim at :84-88 and the size guard at :110-112. But the causal claim is refuted by the report's own evidence: buildBoard drives PLACE_PRIMITIVE (:102), and PLACE_PRIMITIVE never consults stampRefusalAt (placePrimitive.ts has no clearance arm — the report's evidence 12). Lever A cannot move this fixture. It remains a good precedent for the CLASS of breakage; the stated mechanism is wrong."
+    },
+    {
+      "claim": "70.65 % of PITCH_2P / 67.2 % of QUADRANTS_4P is a legal laser-turret centre on an empty board, so his 'about a third' target is already exceeded",
+      "verdict": "PARTIAL",
+      "note": "Independently re-derived by hand and it lands close: seat 0's box-on-canvas rect ∩ x<960 is 901.9 × 952 = 858,609 px²; the quarry union (Minkowski hexagon R44 ⊕ disc 137 = 100,162, half in seat 0) removes ~50,081; the castle arm removes the rest. ~35.6 % of the board per seat vs the report's 35.3 %. Credible. BUT the report never shows that the castle arm's refusal region for a STAMP is the 121 disc dilated by the footprint BOX (≈108,570 px² unclipped, vs the 45,996 px² bare disc it cites in evidence) — the largest single term after the quarry is left underived, and I cannot re-run it here (read-only lane)."
+    },
+    {
+      "claim": "one built laser turret removes 62,356 px² (7.06× its art box); one lone shape removes 31,784 px²; min spacing falls 148 → 112",
+      "verdict": "CONFIRMED",
+      "note": "Independently derived. The blocking set is the union of discs of radius 60 over the star's difference set — 19 triangular-lattice points at 44 px pitch, hull = hexagon circumradius 88. Dilated-hull area = 20,118 + 528·60 + π·3600 = 63,108 px², a strict upper bound (the uncovered slivers at edge midpoints, 63.9 px from both endpoints, account for the shortfall) → 62,356 is right. Lone shape: 5,028.6 + 264·60 + 11,310 = 32,179 upper bound → 31,784 right. Spacing: 88+60 = 148 and 88+24 = 112. 62,356/94² = 7.058."
+    },
+    {
+      "claim": "packing: ~50 → ~95 turrets per half, art coverage 42.6 % → ~81 %",
+      "verdict": "PARTIAL",
+      "note": "Internally consistent only against the FULL 960×1080 half (1,036,800 px²): 50·8836/1,036,800 = 42.6 %, 95·8836/1,036,800 = 81.0 %. But the report's own arms exclude the edge band, the quarry and the castle — the actually-packable area is ~858,600 px² after the edge arm alone. Hexagonal packing at 112 px pitch needs 112²·(√3/2) = 10,862 px² per turret, i.e. ~79 turrets, not 95. The headline '57 % of a packed field is dead ground' rests on the same double-count."
+    },
+    {
+      "claim": "determinism — Math.hypot at :198 must be converted to a squared compare (zones.ts:219 states the engine-portability rule)",
+      "verdict": "PARTIAL",
+      "note": "zones.ts:219-221 CONFIRMED verbatim, and :225-226 / :269-275 show the squared-and-clamped idiom the fix should copy. But the fix as scoped is cosmetic against a strictly larger hazard the report never names: the blueprint NODE TABLE itself is built from Math.cos/Math.sin at module scope (blueprints.ts:218-219, :323, :528, :556) and blueprintRadius uses Math.hypot (:442). Those feed every stamped primitive position, which is hashed. Removing one hypot from the predicate while the table that predicate measures is trig-derived does not close the class."
+    },
+    {
+      "claim": "Map iteration in arm 5 is an any-hit boolean, so insertion order cannot change the verdict — safe as-is",
+      "verdict": "PARTIAL",
+      "note": "True of arm 5 itself. REFUTED as a lane verdict: see `missed` — findVoltkinChain (voltkin.ts:147-156) returns the FIRST chain in world.primitives.values() order whose member is within AUTO_BOND_RADIUS of the event position, and halving tower spacing makes two chains routinely co-resident in that 60 px window."
+    },
+    {
+      "claim": "four sites NOT owed; PROTOCOL_VERSION (47) needs no bump",
+      "verdict": "CONFIRMED",
+      "note": "PROTOCOL_VERSION = 47 at protocol.ts:704, matching SPARK_CANON.md §6. A constants-and-predicate change adds no entity field, no World field, no action, no discriminant, so factory/serialize/hash/worker is genuinely not owed. The worker inherits through the shared module (workerSim.ts:481)."
+    },
+    {
+      "claim": "blueprints.test.ts asserts the spacing invariant bound to AUTO_BOND_RADIUS and must stay bound to it",
+      "verdict": "REFUTED",
+      "note": "blueprints.test.ts:172 is `expect(dist).toBeLessThanOrEqual(60); // AUTO_BOND_RADIUS — natural hand-built spacing`. A LITERAL 60 with a comment, not a binding to the constant. It will not go red either way, and the instruction 'it stays bound to AUTO_BOND_RADIUS' describes a binding that does not exist — a session following it will think it has protection it does not have."
+    },
+    {
+      "claim": "re-pin the existing diagonal refusal-reach assertions in blueprintLegality.test.ts",
+      "verdict": "PARTIAL",
+      "note": "The diagonal sweep exists (blueprintLegality.test.ts:128-145, walking SPAWNER_CENTER ± d/Math.SQRT2). But it probes the QUARRY arm, which Lever A does not touch at all. Re-pinning it is unnecessary work; the report reads the S182 docblock (blueprintLegality.ts:146) as if it applied to clearance."
+    },
+    {
+      "claim": "EDGE_PAD 8 → 0 is free and SAFE against the melee-immunity rule placeFromFree.ts:264-277 guards",
+      "verdict": "PARTIAL",
+      "note": "The melee arithmetic CONFIRMS: WORLD_EDGE_MARGIN = 40 (constants.ts:131), GOBLIN_ATTACK_RANGE = 35 (constants.ts:3163) → a clamped attacker reaches 1915, and at EDGE_PAD 0 the outermost node reaches 1920 − FOOTPRINT_MARGIN 12 = 1908. But it is NOT free: it turns blueprintLegality.test.ts:148-161 RED (see `missed`), and it falsifies placeFromFree.ts:275-277, which states in its own words that 'THE BLUEPRINT PATH WAS ALREADY SAFE … blueprintLegality's EDGE_PAD of 8 bounds a stamp's whole FOOTPRINT'. That docblock is a live safety argument and must be re-derived in the same commit."
+    },
+    {
+      "claim": "the fix breaks no owner ruling in SPARK_CANON.md",
+      "verdict": "CONFIRMED",
+      "note": "Checked §1 (archived subsystems), §2 (the stat ladder), §8 (repair), §9b (R184-A retaliation DO-NOT-FIX). Nothing proposed touches any of them, and no second scale is invented. Mitigation option (ii) — refusing auto-bond onto `origin !== null` — comes closest, because SPARK_CANON.md:388-390 and :413-417 both reserve the weld question explicitly ('it is the owner's call', 'a scope decision, not an oversight'); the report correctly gates it on the owner rather than shipping it."
+    }
+  ],
+  "missed": [
+    "⛔ A TEST THAT GOES RED AND IS NOT NAMED — blueprintLegality.test.ts:163-168, 'existing geometry within bond reach is BLOCKED'. It places a primitive at `CLEAR.x + AUTO_BOND_RADIUS - 6` (54 px from the stinkTower hub node; nearest leaf at (38.1, 22) is 27.1 px away) and expects 'BLOCKED'. At STAMP_CLEARANCE 24 the nearest node is 27.1 > 24, so it returns null and the test FAILS. It is bound to AUTO_BOND_RADIUS, so it does NOT follow the new constant. This is the single most predictable RED in the whole lane and the report's tests_owed does not contain it.",
+    "⛔ A SECOND TEST THAT GOES RED FOR THE EDGE_PAD ITEM — blueprintLegality.test.ts:148-161, `it.each(ALL_BLUEPRINT_IDS)('%s: every canvas edge is refused by footprint')`, case `{ x: r - 4, y: 300 }` with `r = blueprintRadius(id)`. For every star recipe the circumradius exceeds the widest node dx (laserTurret r = 56 but minDx = −50.1), so at EDGE_PAD 0 box.minX = +1.9 ≥ 0 and the expected 'OFF SCREEN' never fires. Fails for laserTurret, stinkTower, goblinTower, helga and lightningHub; voltkin still passes. The report calls EDGE_PAD 8→0 'free and safe' and 'a no-ruling item the branch can ship' — it is neither.",
+    "⛔ THREE MORE REDS FOR LEVER C, IN A FILE THE REPORT ALREADY LISTS BUT FOR THE WRONG REASON — blueprintLegality.test.ts:266-273 pins FOOTPRINT_MARGIN literally: `expect(e.maxDx - e.minDx).toBe(280 + 24)`, `expect(e.maxDy - e.minDy).toBe(24)`, `expect(blueprintRadius('voltkin')).toBe(152)`. FOOTPRINT_MARGIN 12 → 11 fails all three. The report's tests_owed says this file needs a NEW test and says zones.test.ts is the one that moves 'if FOOTPRINT_MARGIN moves' — zones.test.ts does not read FOOTPRINT_MARGIN at all.",
+    "⛔ A DETERMINISM HAZARD THE CHANGE MAKES REACHABLE — voltkin.ts:134-156. `findVoltkinChain` iterates `world.primitives.values()` (Map insertion order) and returns the FIRST chain whose member is within AUTO_BOND_RADIUS (60) of the triggering position; `touchesNearPos` is an any-hit over the path. voltkin.ts:246-250 argues 'THE RADIUS IS NOT A TUNING CHOICE. At exactly AUTO_BOND_RADIUS the two sets coincide' — that argument assumes a stamp cannot land inside 60 px of standing geometry, which is exactly what Lever A deletes. Drop stamp clearance to 24 and two voltkin chains stand 112 px apart with nodes ~24 apart; both are then inside the 60 px window of one build event, and Map order — host history — decides which chain fires and where the Voltkin spawns. That is Map iteration deciding a target, the named defect class, and the report's determinism_risk explicitly clears it ('safe as-is').",
+    "⛔ THE ACTUAL WELD REACH IS 100, NOT 60 — MERGE_REACH_RADIUS (constants.ts:817), consumed by controls.ts:1491 and collectHostMergeCandidates (placePrimitive.ts:650), gives ONE merge bond per distinct same-colour component within 100 px of a hand placement (placePrimitive.ts:375-400). Arm 5's stated justification — '60 px is the distance at which a future placement could weld a chord' (blueprintLegality.ts:191-193) — is therefore already false by 40 px. The report never names MERGE_REACH_RADIUS. It cuts both ways and the report should have said so: it further guts arm 5's justification, AND at 112 px tower pitch a single shape dropped between two towers is inside 100 px of BOTH and merges them into one component.",
+    "⛔ THE REPAIR CONSEQUENCE IS INVERTED — structureRepair.ts:198-211 / :213-225. `blueprintGroupOf` returns null if ANY component member has `origin === null`, and its docblock says in as many words that all four refusal cases 'are reachable only by welding structures together by hand, which `stampRefusalAt` already makes hard'. SPARK_CANON.md:413-417 records the consequence as a standing limit. So the 60 px clearance is a load-bearing precondition of the REPAIR system, not merely of recipe ignition. The report cites the canon line but uses it to argue the hazard is already live and therefore free — the amplification is the point: at 24 px clearance, one hand shape between two towers merges both components and makes BOTH permanently unrepairable (SCRAP only).",
+    "A THIRD UI SWALLOW SURFACE, EARLIER AND LARGER THAN THE TWO NAMED — controls.ts:961 `if (this.isPointerOverPanel()) return;` sits at the TOP of onDown, above the armed-stamp arm at :1001, and is defined at :879-885 against castlePanel.isOverPanel (panelRect, PANEL_W 268, castlePanel.ts:768-773, :1233). The report says 'Two client-only guards return before any dispatch'. There are three, and the castle panel IS the tower menu the owner's point 5 is about. Any answer to RULING 2 that only shrinks the band leaves the panel swallow untouched.",
+    "A SEVENTH LEGALITY PREDICATE, NEVER ENUMERATED — `canReclaimNow` (structureRepair.ts:139-146), the FIX/SCRAP gate, which deliberately omits the castle keep-out (:172-174). A branch changing build legality needs to know repair legality is intentionally different, or it will 'unify' them.",
+    "AND AN EIGHTH — `isLegalBuildPos` (botBrain.ts:884-893), listed as gate 5 in buildLegalityGates.test.ts:25, with its OWN edge margin `EDGE_MARGIN = 50` (botBrain.ts:61) and its own quarry pad (SPAWNER_RADIUS + 10). It is centre-only. The report's six-predicate enumeration omits it, and the EDGE_PAD item cannot help bots at all because 50 ≫ 8.",
+    "A TOLERANT DEFAULT, AND IT IS BENIGN — blueprintGhost.ts:119 `this.reasonText.text = refusal ?? ''`. Nothing in the tree switches exhaustively over StampRefusal, so a new refusal word would render but be constrained by blueprintLegality.test.ts:187-199, which caps every reason at 14 chars and `/^[A-Z ]+$/`. Naming it as a verdict rather than leaving it unchecked: safe, but any new word must fit that shape.",
+    "A SOURCE-TEXT GUARD OVER THE LEVER-B FILE — s181Regressions.test.ts:157-174 parses controls.ts and asserts the two commit-gate blocks contain `!this.isPointerOverCard()` and that `this.isPointerOverCard()` appears at least twice. It is not in file_set, not in tests_owed, and it is exactly the 'green over a live bug' class CLAUDE.md §2 warns about — it proves the call EXISTS, never that the armed-stamp path reaches it.",
+    "THE OWNER ALREADY RULED POINT 5 ONCE — blueprintLegality.ts:87-89 quotes him in S182: *\"Where the queue is with all the shapes — in that area you can't place towers. That's weird. You should be able to place them out there.\"* That was answered by widening the geometry (blueprintExtent) while DELIBERATELY keeping the opaque-surface swallow, and blueprintLegality.ts:96-100 records the reasoning. RULING 2 as drafted re-asks a question with a shipped answer; the project rule is to grep the archive before asking. It must be put to him as 'we changed the geometry in S182, the remainder is the opaque plates' or it reads as the same question a third time."
+  ],
+  "file_set_corrections": [
+    "OMITTED — src/state/buildLegality.ts: defines canBuildNow (:46-49), the composed WHEN+WHERE predicate every hand-place gate reads. The report cites canBuildNow four times and never names the file it lives in.",
+    "OMITTED — src/state/blueprintBuild.test.ts: imports stampRefusalAt (:38) and asserts null at a fixed SITE (:111).",
+    "OMITTED — src/state/phaseSplit.test.ts: imports stampRefusalAt (:44), asserts 'FIGHT' (:307), and also imports canBuildNow.",
+    "OMITTED — src/render/s181Regressions.test.ts: source-text guard over controls.ts (:155-174). Lever B edits controls.ts.",
+    "OMITTED — src/state/structureRepair.ts: :210-211 asserts that welds are 'reachable only by welding … which stampRefusalAt already makes hard'. Lever A falsifies that sentence, and :198-211 is the unrepairability rule it guards.",
+    "OMITTED — src/state/godlyRecipes/voltkin.ts: the ONE production file besides blueprintLegality that uses AUTO_BOND_RADIUS as a world proximity test (:134), with a docblock at :239-250 arguing the radius is not tunable, plus the Map-order chain selection at :147-156.",
+    "OMITTED — src/render/structureRamp.ts: the report quotes it as evidence (artPx hit-test at :578-580, the five ART_PX constants) and the whole 'connectors + art' half of the owner's point 6 lives there. Even read-only it belongs in the split.",
+    "OMITTED — src/render/structureRamp.test.ts: imports FOOTPRINT_MARGIN (:37) and computes `2 * (blueprintRadius(spec.recipeId) - FOOTPRINT_MARGIN)` (:102). Lever C moves it.",
+    "OMITTED — src/state/placeFromFree.ts (the SOURCE, not just its test): :275-277 states the blueprint path is safe BECAUSE EDGE_PAD is 8. The EDGE_PAD item must rewrite that argument. The report lists placeFromFree.test.ts but not the file carrying the claim.",
+    "OMITTED — src/bots/botController.ts: :268 names stampRefusalAt as a shared predicate and :475 passes AUTO_BOND_RADIUS as a bond radius. Also its test, src/bots/botController.test.ts.",
+    "OMITTED — src/state/zones.fixtures.ts: :64 builds boards on the premise of 'more placements within AUTO_BOND_RADIUS of each other'; it is shared fixture code several suites import.",
+    "OMITTED — src/render/footerBandModel.ts: structuresAtComplexity feeds the tower cards Lever B proposes to relocate; footerBand.ts imports it at :31.",
+    "OMITTED — src/render/castlePanel.ts: owns arming/disarm (armedBlueprint, disarm — controls.ts:995, :1056) and the panel swallow at controls.ts:961/:879-885. 'Auto-close the cards on arm' cannot be written without it.",
+    "OMITTED — src/render/shapeStrip.test.ts: shapeStrip.ts is listed, its test is not.",
+    "OMITTED — src/state/workerSim.differential.test.ts and src/state/world.test.ts: both read AUTO_BOND_RADIUS; the differential suite is the host-vs-worker oracle for a predicate the reducer runs.",
+    "OMITTED — src/game/session7|9|13|14|15.test.ts: five integration suites that read AUTO_BOND_RADIUS. Any mitigation touching auto-bond (option ii) lands squarely on them.",
+    "LOW VALUE / DROP — src/state/zones.ts and src/state/zones.test.ts: the report's own text says the castle radius is not moving and zones.test.ts is 'untouched by Lever A'. Keeping them in file_set needlessly collides with any branch that does touch the partition.",
+    "LOW VALUE / DROP — CLAUDE.md: nothing in the three levers requires a project-doc edit, and it is a guaranteed merge conflict across parallel branches for the same reason constants.ts is. If a doc lands, SPARK_CANON.md + canon.test.ts is the pair the project rule actually demands.",
+    "MERGE-OWNER WARNING, and the report half-states it: src/constants.ts is named as the one expected conflict. src/input/controls.ts is the second and is worse — Lever B edits it while s182UiSurfaceGuards.test.ts, s181Regressions.test.ts and footerBand.test.ts all PARSE it as text, so a conflicting resolution goes green locally and red in CI."
+  ],
+  "size_grade": "DISAGREE — understated. 'Standard (10-30K)' is right for Lever A alone if the owner has already answered RULING 1. As scoped (three levers, one branch, 'any subset ships') it is Full (>30K), and the report's own reasoning gives the tier away when it says the four-option measured ruling package 'is most of the work'. Concretely, what pushes it over: (a) at least five test assertions go red that the report does not name — blueprintLegality.test.ts:163 for Lever A, :148-161 for the EDGE_PAD item, :266-273 ×3 for Lever C — and each needs re-deriving from the constant rather than re-pinning to a literal; (b) Lever B's target, footerBand.test.ts:383-413, pins the opaque-fill count at exactly 5 with 'IF THIS GOES RED, DO NOT BUMP THE NUMBER', and moving the cards off the band takes it to 4, so that guard must be honestly re-derived in a direction its own instruction does not anticipate; (c) the chord/merge/unrepairability mitigation is a real design decision touching dragPreview + placePrimitive + auto-bond, not a footnote; (d) the file set is ~14 files larger than stated. Per the project's own tier table this is a Full PDR — 3-way Council, 2 rounds, quality gate — not a 1-round Standard. And per CLAUDE.md's parallel-split lesson 5, the honest move is to split it: Lever A as its own branch with 'fix ONLY this, do not refactor', Lever B separately (it is render/input-only and carries zero hash risk), Lever C not at all until someone wants it.",
+  "net_assessment": "A strong report with a soft middle. Its spine is sound and I could not break it: arm 5 at blueprintLegality.ts:194-200 really is the dead-space generator, the geometry is right to within 1 % on every number I could re-derive by hand (62,356 px² removed per turret against my 63,108 upper bound; 31,784 against 32,179; 148 → 112 spacing; the 64 px bottom band), and the two most load-bearing structural claims — that no legality predicate reads the art, and that the bottom menu is UI-layer click swallowing rather than geometry — are both CONFIRMED against the source. The measurement discipline is real, not prose. Where it fails is the S182 pattern exactly: it fixed what was asked and left defects behind it. Three classes. (1) TESTS IT DID NOT RUN THE NUMBERS ON. At least five assertions go red that tests_owed does not contain, including the one test in the whole repo written to pin the very behaviour Lever A changes (blueprintLegality.test.ts:163). It also asserts a protective binding that does not exist (blueprints.test.ts:172 is a literal 60), and it calls the EDGE_PAD change 'free and safe … the branch can still ship it with no ruling' when that change alone reds a five-recipe `it.each` and falsifies a live safety docblock at placeFromFree.ts:275-277. A branch handed this brief would ship believing it had cover it does not have. (2) IT CLEARED A DETERMINISM HAZARD IT DID NOT LOOK FOR. The Map-order verdict is correct about arm 5 and wrong about the lane: findVoltkinChain (voltkin.ts:147-156) resolves WHICH chain fires by `world.primitives.values()` order inside a 60 px window, and halving tower spacing is precisely what makes two chains co-resident there. That is a host-history-dependent spawn — the defect class this codebase spends most of its comments on — introduced by the fix, not found by it. The report meanwhile proposes a hypot→squared edit as the determinism deliverable while the node table that predicate measures is built from Math.cos/Math.sin at module scope. (3) IT ARGUED ONE DIRECTION FROM A TWO-DIRECTION FACT. Hand placement having no clearance (placePrimitive.ts:130 — correctly found, genuinely important) is used to conclude the chord hazard is 'live today regardless' and therefore not a reason to say no. But the real weld reach is MERGE_REACH_RADIUS 100, not 60 (never mentioned), and structureRepair.ts:198-211 shows a weld costs the tower its repairability permanently. At 112 px pitch one shape between two towers merges both and bricks both. That belongs in the owner's options table under 'CONSEQUENCE IN PLAY', where the report currently lists only splash damage. On the owner-facing side: RULING 1 is the right question, well measured, and genuinely his to answer. RULING 2 should not be asked in its current form — he ruled this ground in S182 and the ruling is quoted at blueprintLegality.ts:87-89; the honest framing is 'we widened the geometry for you last session, what is left is the opaque plates'. The closing NOTE (70.65 % already legal, so the board only gets lumpy once you build on it) is the most valuable sentence in the report and should lead, not trail. Verdict: the diagnosis holds, the fix shape is buildable, the brief is not yet safe to hand to a worktree session without the corrections above."
+}

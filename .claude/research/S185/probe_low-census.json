@@ -1,0 +1,132 @@
+{
+  "lane": "LOW audit findings 3 & 4 — the spawner-aura `alpha:` census (towerCover.test.ts) and the pentagram's `--dark-bg` description (check-atlas-scenery.mjs / package.json)",
+  "summary": "Both findings are REAL and both are still live in the tree at 7d1514b. Neither is a gameplay bug; both are contract/doc defects of exactly the class this project counts as real. FINDING 3: the \"aura census\" is `src/render/towerCover.test.ts:324-332` — an enumeration test that regex-extracts every `alpha:` property out of `src/render/spawnerZoneRenderer.ts`, pins the count at 6, and requires each expression to END in `* zoneAlpha` or `* bondCover`. Pixi does NOT require `alpha:` (`FillStyle.alpha?: number` with `@default 1`, and `StrokeStyle extends FillStyle`), and this repo is full of `.fill({ color: X })` and `.fill(0xffffff)` written without it — so a seventh draw added in the dominant house idiom keeps the census at 6 and ships a fully-opaque, cover-ignoring layer over a hidden connector, which is the precise eight-session defect the test was written for. It is simultaneously OVER-strict: the capture class `[^,}\\n]+` truncates at a comma, so a legitimate `alpha: Math.min(1, x * zoneAlpha)` or a hoisted `const a = 0.3 * zoneAlpha` turns it red. Its own docblock at :242 and :321 claims coverage it does not have, and the two claims disagree with each other by one. FINDING 4: `--dark-bg` is a CLI flag of `scripts/check-atlas-scenery.mjs` (parsed :93) that skips checks 3 and 5, documented at :73 as \"the sheet was matted off a DARK background\". The pentagram was never matted off anything — `assets-source/pentagram/atlas-specs.json:3` names `build-alpha-sheet-atlas.mjs`, whose header states the sheets arrive RGBA with the cut-out already in the alpha and that \"There is no background colour here; keying one would eat the art's own dark ink\". The three sibling sheets from that identical intake run in the same `package.json` line WITHOUT the flag, which is the control arm proving the intake does not need it. The two runtime skip lines (:443, :460) therefore print a factually false sentence to the console, the canon documents the exemption only for `lightning-hub` (SPARK_CANON.md:597), and two runbooks — one of them a production source file — tell the next tower author to put every new tower in the \"dark-bg group\".",
+  "findings": [
+    {
+      "claim": "The 'aura census' from the handoff is the spawner-zone alpha enumeration in towerCover.test.ts. It regex-extracts every `alpha:` property from spawnerZoneRenderer.ts, pins the total at 6, and requires each captured expression to end in a cover multiplier.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 326,
+      "evidence": "const alphas = [...src.matchAll(/\\balpha:\\s*([^,}\\n]+)/g)].map((m) => m[1]!.trim());\n    // disc · ring stroke · bond stroke · spark bead · core glow · core dot\n    expect(alphas, `found:\\n${alphas.join('\\n')}`).toHaveLength(6);\n    for (const a of alphas) {\n      expect(a, `un-covered alpha: ${a}`).toMatch(/\\*\\s*(zoneAlpha|bondCover)$/);",
+      "still_live": true
+    },
+    {
+      "claim": "Pixi does NOT require an `alpha:` property on a fill or a stroke. It is optional and defaults to 1 (fully opaque), and StrokeStyle inherits the same optional field — so a draw call written without it is valid TypeScript, valid Pixi, and fully opaque.",
+      "file": "node_modules/pixi.js/lib/scene/graphics/shared/FillTypes.d.ts",
+      "line": 100,
+      "evidence": "     * const fillStyle = { alpha: 0.5 }; // 50% opacity\n     * ```\n     * @default 1\n...\n    alpha?: number;\n\n(and at :393) export interface StrokeStyle extends FillStyle, StrokeAttributes {",
+      "still_live": true
+    },
+    {
+      "claim": "Omitting `alpha:` is the DOMINANT idiom in this very repo's renderers, so the omission is the likely form of a future addition, not an exotic edge case. Both the object form without alpha and the bare-colour shorthand are in production files.",
+      "file": "src/render/characterSheet.ts",
+      "line": 339,
+      "evidence": ".fill({ color: 0x101a26 })\n\n(and src/render/codexOverlay.ts:547) this.viewportMask.rect(0, SCROLL_VIEW_TOP, CANVAS_WIDTH, SCROLL_VIEW_H).fill(0xffffff);",
+      "still_live": true
+    },
+    {
+      "claim": "CONSEQUENCE — the census is UNDER-strict: a seventh draw added to spawnerZoneRenderer as `.fill({ color: tint })` (no alpha key) leaves the count at 6 and the loop with nothing new to check, so the test stays GREEN while a fully-opaque copy of a connector is redrawn over a tower that structureRenderer has faded to nothing. That is the identical failure mode the file's own docblock says it exists to prevent.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 321,
+      "evidence": "   * each to end in a cover multiplier. A seventh draw added without one turns this red before it\n   * can ship over an invisible connector.",
+      "still_live": true
+    },
+    {
+      "claim": "The guard's docblock makes a claim it cannot keep, and the two statements of it disagree by one. :242 says a SIXTH un-scaled fill fails — but six alphas already exist and pass. :321 says a SEVENTH draw added without one turns it red — but only if that draw happens to carry an `alpha:` key.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 242,
+      "evidence": " *    cover alpha. **A sixth un-scaled fill fails this test.** That is the S182 footer pattern\n *    (\"count the opaque `.fill({` calls and pin the total at five\") applied to the file that\n *    proved why it is needed.",
+      "still_live": true
+    },
+    {
+      "claim": "The census is ALSO over-strict, so it fails correct changes. The capture class `[^,}\\n]+` stops at the first comma, so a legitimate clamp `alpha: Math.min(1, 0.4 * zoneAlpha)` is captured as `Math.min(1` and fails the `/\\*\\s*(zoneAlpha|bondCover)$/` match; hoisting the product into a local (`const a = 0.3 * zoneAlpha; ... alpha: a`) fails for the same reason, as does the equally-correct `alpha: zoneAlpha * 0.5`.",
+      "file": "src/render/towerCover.test.ts",
+      "line": 330,
+      "evidence": "      expect(a, `un-covered alpha: ${a}`).toMatch(/\\*\\s*(zoneAlpha|bondCover)$/);",
+      "still_live": true
+    },
+    {
+      "claim": "A third hole in the same guard: it pins the TEXT of the multiplier but not that it is the RIGHT cover for that geometry. A per-bond stroke scaled by `zoneAlpha` instead of `bondCover` passes the regex, and would fade with the anchor rather than with the connector it draws.",
+      "file": "src/render/spawnerZoneRenderer.ts",
+      "line": 186,
+      "evidence": "          .stroke({ width: 1.5 + shimmer * 1.5, color: tint, alpha: bondAlpha * bondCover });",
+      "still_live": true
+    },
+    {
+      "claim": "All six current alphas are genuinely cover-scaled, so the production code is CORRECT today — the defect is in the guard's reach, not in the renderer. Nothing else in the file carries opacity (no `.alpha =`, no tint-based fade, no filters), so today the census does enumerate every layer.",
+      "file": "src/render/spawnerZoneRenderer.ts",
+      "line": 153,
+      "evidence": "          alpha: (0.06 + pulse * 0.05) * zoneAlpha,\n(163) alpha: ringAlpha * zoneAlpha\n(186) alpha: bondAlpha * bondCover\n(191) alpha: (0.5 + shimmer * 0.4) * bondCover\n(200) alpha: (0.35 + pulse * 0.3) * zoneAlpha\n(202) alpha: 0.85 * zoneAlpha",
+      "still_live": true
+    },
+    {
+      "claim": "FINDING 4 — `--dark-bg` is a CLI flag of the atlas guard, not a CSS variable or a build arg. It is a pure `argv.includes` boolean that skips checks 3 (opaque near-white pockets) and 5 (near-white edge fringe), and its documented meaning is a factual claim about how the sheet was produced.",
+      "file": "scripts/check-atlas-scenery.mjs",
+      "line": 73,
+      "evidence": " *   --dark-bg          skip checks 3 and 5 — the sheet was matted off a DARK background\n\n(and at :93) const darkBg = argv.includes('--dark-bg');",
+      "still_live": true
+    },
+    {
+      "claim": "package.json applies `--dark-bg` (plus `--allow-scenery 1500`) to public/art/pentagram — and, in the SAME command, runs the three sibling sheets from the identical intake with neither flag. That is the control arm: the alpha intake does not require the exemption.",
+      "file": "package.json",
+      "line": 28,
+      "evidence": "&& node scripts/check-atlas-scenery.mjs --no-size public/art/goblin-tower public/art/laser-turret public/art/helga-tower && node scripts/check-atlas-scenery.mjs --no-size --dark-bg --allow-scenery 1500 public/art/pentagram",
+      "still_live": true
+    },
+    {
+      "claim": "The description is factually false for the pentagram: it was never matted off any background. It is built by the ALPHA intake, whose header states in as many words that there is no background colour to key.",
+      "file": "assets-source/pentagram/atlas-specs.json",
+      "line": 3,
+      "evidence": "\"S183 — the pentagram's 24-frame damage ramp, built by scripts/build-alpha-sheet-atlas.mjs.\"\n\n(scripts/build-alpha-sheet-atlas.mjs:7-8) \"they are **RGBA with the cut-out already in the alpha channel, no rules at all** …\"\n(scripts/build-alpha-sheet-atlas.mjs:19-21) \"2. **The matte.** It KEYS a background colour. There is no background colour here; keying one would eat the art's own dark ink.\"",
+      "still_live": true
+    },
+    {
+      "claim": "The falsehood is not only in a comment — the guard PRINTS it at runtime, twice, every time check:atlas runs on the pentagram. The console output tells the reader the sheet was dark-keyed and that a dark-keyed matte cannot leave a white rim; for this sheet neither sentence is true, because no key was ever applied.",
+      "file": "scripts/check-atlas-scenery.mjs",
+      "line": 443,
+      "evidence": "  ? '\\n[atlas] 3/3 — SKIPPED (--dark-bg: matted off a DARK background, so surviving near-white is art)\\n'\n\n(and at :460) ? '\\n[atlas] 5/5 — SKIPPED (--dark-bg: a dark-keyed matte cannot leave a WHITE rim)\\n'",
+      "still_live": true
+    },
+    {
+      "claim": "The script's own docblock forbids exactly the use it is being put to here: it insists `--dark-bg` is a statement about the matte, NOT a threshold escape. With no matte on this sheet, the flag on the pentagram can only be functioning as a threshold escape — and nothing in the tree records what it is escaping.",
+      "file": "scripts/check-atlas-scenery.mjs",
+      "line": 75,
+      "evidence": " * ⛔ **WHY `--dark-bg` EXISTS, AND WHY IT IS NOT A THRESHOLD TUNE.** Checks 3 and 5 both ask \"did\n * near-WHITE survive the matte\", because `build-sprite-atlas.mjs` keys near-white connected to the\n * border and a survivor is background.",
+      "still_live": true
+    },
+    {
+      "claim": "No derivation exists anywhere in the tree for the pentagram's `--allow-scenery 1500` (nor for the castle group's 8000). The commit that introduced the invocation never mentions either flag. The handoff's '591 measured' number appears ONLY in the handoff — I could not find it in any file, so 909 px of the tolerance is unaccounted for in the repo itself.",
+      "file": "package.json",
+      "line": 28,
+      "evidence": "grep for `1500` and `591` across all .md/.mjs/.json (excluding node_modules and worktrees) returns the flag itself and the two handoff copies only. `git show db5c5d6` (feat(s183-A)) documents the intake, the ramp table and the cover fixes at length and never names --dark-bg or --allow-scenery.",
+      "still_live": true
+    },
+    {
+      "claim": "CANON GAP — SPARK_CANON.md documents the `--dark-bg` exemption for ONE directory and states which checks it disables and why, with measurements. It never mentions that a second directory (pentagram) also runs with `--dark-bg`, nor that that one also carries an undocumented scenery tolerance. Per the canon's own §11 rule, the code wins and the canon is the bug.",
+      "file": "SPARK_CANON.md",
+      "line": 597,
+      "evidence": "### ⚠ WHAT `--dark-bg` STOPS GUARDING on `public/art/lightning-hub`\n\n`check:atlas` runs five checks. The new sheet is matted off a near-BLACK background, so\n`scripts/check-atlas-scenery.mjs` is invoked with `--no-size --dark-bg` and **two of the five no\nlonger run for that directory**:",
+      "still_live": true
+    },
+    {
+      "claim": "THE PROPAGATION VECTOR, and the reason this is worth more than one line: the instruction to put every new tower in the dark-bg group is written into a PRODUCTION SOURCE FILE's docblock as well as the runbook. S183 itself did not follow it for three of the four towers, so the doc and the shipped command already disagree — and the next tower author reads the doc.",
+      "file": "src/render/structureRamp.ts",
+      "line": 29,
+      "evidence": " * | `package.json` | append `public/art/<tower>` to the `check:atlas` dark-bg group | **1** |\n\n(identical row at DAMAGE_RAMP_ADDING_A_TOWER.md:20)",
+      "still_live": true
+    },
+    {
+      "claim": "Nothing pins the check:atlas flags. No test in src/ or e2e/ reads the invocation, so neither a wrong flag nor a silently-widened tolerance can turn anything red — which is why both defects survived their own session's gates.",
+      "file": "package.json",
+      "line": 28,
+      "evidence": "grep -rn \"allow-scenery|dark-bg|no-size\" src/ e2e/  →  one hit only: src/render/structureRamp.ts:29 (the stale docblock row). No test file matches.",
+      "still_live": true
+    }
+  ],
+  "fix_shape": "Two independent, test-and-doc-only edits. Neither touches the sim, the wire, or any renderer's behaviour.\n\nFINDING 3 — `src/render/towerCover.test.ts`, the one `it()` at :324-332 plus its two docblocks (:241-244, :318-323). Replace the `alpha:`-property census with a DRAW-CALL census, which is the S182 footer pattern the docblock already cites but does not implement: enumerate `.fill(` + `.stroke(` occurrences in `codeOf('spawnerZoneRenderer.ts')`, pin the total at 6, and require each call's options object to carry a cover-scaled alpha — so a draw added WITHOUT an `alpha:` fails on the count instead of passing invisibly. Two cheap hardenings in the same edit: (a) loosen the value assertion from \"must END with `* zoneAlpha|bondCover`\" to \"must CONTAIN `zoneAlpha` or `bondCover`\", and widen the capture past commas (balanced to the closing brace, or capture the whole options object), so a clamp or a hoisted local is not a false red; (b) add a CONTROL arm asserting the bare-colour shorthand `.fill(0x` does not appear in the file, since that form can never carry an alpha key at all. ~25-35 lines in ONE test file, zero production files.\n\nFINDING 4 — a rename + a doc correction. There is no behaviour to change unless the owner wants one. (1) Rename the flag to what it does — `--no-white-checks` (or add it as the true name and keep `--dark-bg` as a deprecated alias for the lightning-hub call) in `scripts/check-atlas-scenery.mjs:73, 93` and rewrite the two printed skip lines at :443 and :460 so they stop asserting a matte that does not exist. (2) Correct `package.json:28`'s pentagram segment to the new flag, and record the pentagram's real justification and its measured numbers at the call site — the project's established answer for exactly this (\"naming the exemption at the call site\", :89). (3) Fix the two runbook rows that will otherwise repeat it: `src/render/structureRamp.ts:29` and `DAMAGE_RAMP_ADDING_A_TOWER.md:20` — the three sibling towers prove the default for an alpha-matted sheet is NO exemption. (4) Add the pentagram row to `SPARK_CANON.md:597`'s table, or retitle that section so it covers both call sites. ~6 files, ~30 lines, almost all prose.\n\n⚠ One thing I could NOT determine read-only and did not assume: whether the pentagram actually FAILS checks 3/5 without the flag. Running it (`node scripts/check-atlas-scenery.mjs --no-size public/art/pentagram`, needs numpy/scipy/Pillow) is the five-minute measurement that decides whether step (2) records a clean pass — in which case the flag and the 1500 both simply come off — or a real near-white score that then needs the owner. The atlas-specs note describes a \"pink glow ring\" as the nearest artwork, which is the plausible source of a near-white/scenery score.",
+  "four_sites_risk": "NONE. Neither fix touches factory/serialize/hash/worker, `PROTOCOL_VERSION` (47), or anything the sim reads. Finding 3 is confined to one `.test.ts`; Finding 4 to a Node script's argv parsing and console strings, `package.json`'s `check:atlas` script, two docblocks and the canon. No `world` field, no wire field, no cadence, no `Math.random`, no wall clock. The only CI-visible surface is the `atlas-guard` job in `e2e.yml:238-241`, which invokes `npm run check:atlas` — so a flag rename must land in `package.json` and the script in the SAME commit or that job goes red (and per the project's own standing rule it reddens CI without blocking the Pages deploy, which is the intended behaviour).",
+  "tests_owed": "FINDING 3 — the replacement census IS the test; it owes a captured RED before it is believed, which is this project's own S184 lesson. Mutation-check it both ways: (a) temporarily add `g.circle(cx, cy, 4).fill({ color: 0xffffff });` to `spawnerZoneRenderer.ts` and require the new test to FAIL (the current one passes — that is the whole finding); (b) temporarily rewrite one existing alpha as `alpha: Math.min(1, 0.85 * zoneAlpha)` and require the new test to PASS (the current one fails — the over-strict arm). Restore both byte-identical. No other suite is affected; `spawnerZoneRenderer.ts` is untouched.\n\nFINDING 4 — a source-text assertion is owed precisely because nothing pins these flags today: add to an existing `ci.*.test.ts` a check that every directory in the `check:atlas` script whose atlas-specs names `build-alpha-sheet-atlas.mjs` either runs WITHOUT the white-check exemption or is named in an explicit, commented waiver list. That turns the next silent exemption red. ⚠ CRLF-normalise on read (`.replace(/\\r\\n/g,'\\n')`) — the repo has been bitten by Windows-only false reds in exactly this kind of test. Beyond that, the gate to re-run is `npm run check:atlas` with a CAPTURED `$?`, never through a pipe and never trusting the wrapper's `[exited with code 0]`.",
+  "owner_questions": [
+    "Only if the measurement comes back dirty: if `public/art/pentagram` genuinely scores near-white pockets or scenery once the exemption is removed, do you want the sheet re-rolled (your art budget), or a NAMED, DATED waiver recorded with its measured numbers the way the five size-mismatched sheets already are?"
+  ],
+  "size_estimate": "Micro for each, Micro-to-Standard combined (~8-12K tokens, 7 files, ~60 lines, of which roughly two thirds is prose). Reason: both are fully localised — one test file for Finding 3; a Node script's flag string, one `package.json` line, two runbook rows and one canon table for Finding 4 — with no production behaviour, no wire and no sim in either. The only thing that could push it past Micro is if the pentagram measurement comes back dirty, which turns Finding 4 from a rename into an art decision that is the owner's, not a session's.\n\nVERDICT ON \"worth a session's time\": NEITHER deserves a session of its own, and BOTH deserve to be ridden along. Finding 3 is the one with real teeth — the guard is the single thing standing between a future renderer edit and a repeat of the defect that survived eight sessions and that the owner personally kept reporting, and it currently cannot see the most idiomatic form of that edit. Ride it into the next session that opens `src/render/` at all (the connector-hiding work for the stink tower and the 12 race/tier-9 towers, item 2 on his list, touches exactly this area). Finding 4 is smaller but is the merge-owner-fix class named in CLAUDE.md §5: a doc/contract correction that is faster and safer done once, in place, than round-tripped — and it has a propagation vector (a production docblock telling the next tower author to repeat it), so leaving it listed costs more than fixing it. Do it as a rider on any session that touches the atlas pipeline or adds tower six; do NOT open a session for it alone."
+}

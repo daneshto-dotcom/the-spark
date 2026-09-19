@@ -1,0 +1,149 @@
+{
+  "lane": "A3 — the buildable area is too small and too lumpy (owner points 5 + 6)",
+  "owner_item": "\"You can't build under the bottom tower/tier menu — I should be able to build all around; and there's a lot of dead space between towers — a tower should only take the space its connectors and its art occupy, and roughly a third of the map should be buildable.\"",
+  "reproduced": "PARTIALLY_CONFIRMED",
+  "root_cause": "THREE separate mechanisms, and only one of them is what he thinks it is.\n\n(1) THE DEAD SPACE IS REAL AND IS ONE LINE — `blueprintLegality.ts:194-200`, arm 5 of `stampRefusalAt`:\n`for (const node of blueprintPositions(blueprintId, centre)) { for (const prim of world.primitives.values()) { ... if (Math.hypot(pdx, pdy) < AUTO_BOND_RADIUS) return 'BLOCKED'; } }`\nEvery node of the new blueprint must be ≥ `AUTO_BOND_RADIUS` (**60**, `constants.ts:824`) from EVERY primitive already on the board. A tower's reserved area is therefore its node set dilated by 60 px in all directions — nothing to do with its art. MEASURED on this tree: one built laser turret (1 hub + 6 leaves at `STAR_R` 44) removes **62,356 px²** of legal placement centres for the next laser turret — **7.06×** its own 94×94 art box (`LASER_TURRET_ART_PX` 94) and **6.6×** its connector hull (disc r≈55 = STAR_R 44 + the 10.8 px max primitive draw radius). One lone hand-placed shape removes **31,784 px²** — ~72× its own ~21 px footprint. Greedy-packed, only **50** laser turrets fit seat 0's half of `PITCH_2P`; their art covers **42.6 %** of that half, so **~57 % of a maximally packed tower field is legally dead ground**. That is exactly his \"a lot of dead space between towers\".\n\n(2) NO PREDICATE ANYWHERE READS THE ART. `blueprintLegality.ts` imports only `blueprints.ts`, `zones.ts`, `constants.ts` and types (lines 31-43). `artPx` lives in `render/structureRamp.ts` and is render-only. So \"towers should take the space their connectors AND their art take\" is currently answered by connectors alone — and for all five ramp towers **the art is SMALLER than the connector hull** (laser 94/2=47 vs hull 55; goblin/Helga 99/2=49.5 vs 55; hub 84/2=42; pentagram 90/2=45 vs RING_R 40+11=51). The connector hull is the true occupied area; 60 px of pure padding sits on top of it.\n\n(3) THE BOTTOM MENU IS **NOT** GEOMETRIC — it is UI-layer click swallowing, and it is far smaller than he thinks. There is no screen-space build rectangle anywhere. Two client-only guards return before any dispatch: `controls.ts:1020` `if (this.isPointerOverCard()) return;` and `controls.ts:1042` `if (this.isPointerOverFooterSurface()) return;` (mirrored on the single-shape path at `controls.ts:1450-1455`). `isPointerOverFooterSurface` → `footerBand.isOverBandSurface` (`footerBand.ts:588`) = `isOverChip || isOverCarryBill`, and `isOverChip` (`:563`) = `chipAt || cardAt || isOverShapeStrip` — **rectangles only**. `footerBand.ts:23` states the contract in as many words: *\"`isOverChip` hit-tests the chip rectangles only — the empty stretches of the band stay fully clickable board.\"* Computed from the live layout (7 complexity chips {3,4,5,6,7,8,9} × `CHIP_W` 62 + `CHIP_GAP` 14 → 518 px wide at x∈[701,1219], y∈[1015,1061]; palette 6×30+5×5=205 px; queue ≤253 px, both at x≥1253): the ALWAYS-ON swallow is **≈37,600 px² = 1.8 % of the board**; with a tier chip open it peaks at **≈6.0 %** (complexity 3 opens six race-tower cards, 1406×62 at y∈[941,1003]). What actually makes the bottom feel walled is a DIFFERENT arm — arm 1, `EDGE_PAD` 8 against the true footprint box (`blueprintLegality.ts:119-124`): for a 6-star the centre must satisfy `cy ≤ 1016`, so the bottom **64 px (5.9 % of the board)** holds no legal tower centre at all.\n\n(4) AND HIS \"A THIRD OF THE MAP\" TARGET IS ALREADY EXCEEDED ON AN EMPTY BOARD. Computed from the shipped constants at 1 px resolution: on `PITCH_2P` **70.65 %** of the whole board is a legal laser-turret centre (each seat gets 35.3 % of the board = 70.65 % of its own half); on `QUADRANTS_4P` **67.2 %**. Worst recipe (t9 9-ring, `NINE_RING_R` 64): 63.3 % / 60.7 %. A single hand-placed shape: 93.2 % / 88.8 %. So the static geometry is not the problem — **the board only gets lumpy once you start building on it**, which is arm 5.",
+  "evidence": [
+    {
+      "file": "src/state/blueprintLegality.ts",
+      "line": 194,
+      "quote": "  for (const node of blueprintPositions(blueprintId, centre)) {\n    for (const prim of world.primitives.values()) {\n      const pdx = prim.pos.x - node.x;\n      const pdy = prim.pos.y - node.y;\n      if (Math.hypot(pdx, pdy) < AUTO_BOND_RADIUS) return 'BLOCKED';\n    }\n  }",
+      "why_it_matters": "THE dead-space generator. Every new node must clear 60 px of EVERY existing primitive, so a tower's reserved ground is its node set dilated by 60 — 7.06x its art box, measured. Also note `Math.hypot` here: this function is read by the REDUCER (blueprintBuild.ts:264) and zones.ts:219 states in this repo's own words that hypot is not guaranteed identical across JS engines."
+    },
+    {
+      "file": "src/constants.ts",
+      "line": 824,
+      "quote": "export const AUTO_BOND_RADIUS = 60;",
+      "why_it_matters": "The single constant behind the lumpiness. It is doing double duty: bond REACH (what welds) and stamp CLEARANCE (what refuses). constants.ts:815 already records a prior bug from exactly that doubling."
+    },
+    {
+      "file": "src/state/blueprintLegality.ts",
+      "line": 113,
+      "quote": "  if (world.matchPhase !== 'BUILD') return 'FIGHT';",
+      "why_it_matters": "Predicate #1 and the widest of all: it removes the WHOLE board for 60 s of every 150 s cycle (PHASE_DURATION_TICKS 5400 BUILD / FIGHT_PHASE_TICKS 3600, constants.ts:463-465). Ruled in as R19 — named for completeness, not proposed for change."
+    },
+    {
+      "file": "src/state/blueprintLegality.ts",
+      "line": 119,
+      "quote": "  if (\n    box.minX < EDGE_PAD || box.maxX > CANVAS_WIDTH - EDGE_PAD\n    || box.minY < EDGE_PAD || box.maxY > CANVAS_HEIGHT - EDGE_PAD\n  ) {\n    return 'OFF SCREEN';\n  }",
+      "why_it_matters": "Predicate #2, EDGE_PAD = 8 (line 46) applied to the TRUE footprint box. For a 6-star (extent +/-56) this caps cy at 1016, so the bottom 64 px of the board (5.9%) has no legal tower centre — this, not the menu, is what makes the bottom read as walled."
+    },
+    {
+      "file": "src/state/blueprintLegality.ts",
+      "line": 149,
+      "quote": "  const quarryR2 = (SPAWNER_RADIUS + FOOTPRINT_MARGIN) * (SPAWNER_RADIUS + FOOTPRINT_MARGIN);\n  for (const node of blueprintPositions(blueprintId, centre)) {\n    ...\n    if (qdx * qdx + qdy * qdy <= quarryR2) return 'QUARRY';\n  }",
+      "why_it_matters": "Predicate #3: the shared quarry, SPAWNER_RADIUS 125 + FOOTPRINT_MARGIN 12 = 137, tested PER NODE. Removes a disc of effective radius ~181 at board centre for a 6-star. Load-bearing: enforceSpawnerBounds rim-snaps anything inside it out every substep, so this one cannot simply be shrunk."
+    },
+    {
+      "file": "src/state/zones.ts",
+      "line": 223,
+      "quote": "export const CASTLE_NO_BUILD_RADIUS = 121;",
+      "why_it_matters": "Predicate #4 — the castle keep-out S182 found refusing netWireSize.test.ts's x=200 board. Derived (docblock :199-222): 104 (porch reach = sqrt(45^2+74^2)+17) rounded up + 17 (one CASTLE_PORCH_SLOT_CLEAR_RADIUS of air). zones.test.ts:343-365 re-derives it from CASTLE_PORCH_* and asserts it is not bloated, so it cannot be changed silently. Tested FOOTPRINT-aware for stamps (castleKeepOutHitsBox, :253) and point-wise inside canBuildAt (:307)."
+    },
+    {
+      "file": "src/state/zones.ts",
+      "line": 306,
+      "quote": "export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean {\n  if (isInsideCastleKeepOut(pos, layout)) return false;\n  const owner = zoneOwner(seat, layout);\n  if (owner === null) return false;\n  const zone = zoneOf(pos, layout);\n  if (zone === null) return false;\n  return zone === owner;\n}",
+      "why_it_matters": "Predicates #5 and #6: enemy ground (zone !== owner — removes exactly (n-1)/n of the board per seat) and a seat with no ground. THE ONE IMPLEMENTATION the reducer, the drag ghost, the release gate and the bot planner all read, which is why host and client cannot diverge."
+    },
+    {
+      "file": "src/input/controls.ts",
+      "line": 1042,
+      "quote": "        if (this.isPointerOverFooterSurface()) return;",
+      "why_it_matters": "THE BOTTOM-MENU REFUSAL, and it is the answer to his point 5: the click is swallowed by the UI layer BEFORE any world predicate runs — there is no screen-space rectangle in any legality function. Paired with `if (this.isPointerOverCard()) return;` at :1020 and with the single-shape commit gate at :1450-1455."
+    },
+    {
+      "file": "src/render/footerBand.ts",
+      "line": 563,
+      "quote": "  isOverChip(x: number, y: number): boolean {\n    return this.chipAt(x, y) !== null || this.cardAt(x, y) !== null || this.isOverShapeStrip(x, y);\n  }",
+      "why_it_matters": "The swallow is RECTANGLES ONLY — chips, open tower cards, palette buttons, queue chips (+ the carry plate via isOverBandSurface :588). File docblock :23: 'the empty stretches of the band stay fully clickable board.' Total always-on area ~37,600 px2 = 1.8% of the board; peak ~6.0% with a tier open. His point 5 is real but an order of magnitude smaller than it feels."
+    },
+    {
+      "file": "src/input/controls.ts",
+      "line": 1613,
+      "quote": "  private updateCursor(e: PointerEvent): void {\n    const rect = this.app.canvas.getBoundingClientRect();\n    const { x, y } = cssToCanvasCoords(\n      rect,\n      CANVAS_WIDTH,\n      CANVAS_HEIGHT,\n      e.clientX,\n      e.clientY,\n    );",
+      "why_it_matters": "⭐ THE BRIEF'S WARNING DOES NOT APPLY: SPARK HAS NO CAMERA AND THE WORLD DOES NOT SCROLL. The whole 1920x1080 board is letterbox-scaled into the viewport 1:1; the only stage transform in the tree is screenShake's decaying +/-2 px (screenShake.ts:109), which moves board and UI together. Screen space IS world space, so a fix that moves or shrinks the band's rectangles creates a FIXED hole, never a moving one."
+    },
+    {
+      "file": "src/state/blueprintBuild.ts",
+      "line": 264,
+      "quote": "  if (stampRefusalAt(world, action.centre, action.playerId, action.blueprintId) !== null) return world;",
+      "why_it_matters": "POINT 5 OF THE BRIEF ANSWERED: the HOST REDUCER and the CLIENT share one predicate. Client gate controls.ts:1052 `canStampAt(...)`, ghost blueprintGhost.ts:90, bots botBrain.ts:337 — all call the same stampRefusalAt. No divergence exists. buildLegalityGates.test.ts pins all six gates and its docblock names the agreement sweep as the assertion that matters most."
+    },
+    {
+      "file": "src/state/placePrimitive.ts",
+      "line": 130,
+      "quote": "  if (!canBuildNow(world, spark.pos, action.playerId)) {\n    world.diagnostics.territoryBlockRejects++;\n    return world;\n  }",
+      "why_it_matters": "⭐ THE HAND-PLACEMENT PATH HAS NO CLEARANCE ARM AT ALL — its only gates are the spawner disc (:116) and canBuildNow. Same for placeFromFree.ts:165/173. So the 60 px stamp clearance does NOT actually protect a tower from a later chord: a player can already hand-place a shape 5 px from a tower leaf and auto-bond it (canon 8 records the consequence: 'One friendly hand-placed shape bonded onto one hub leaf makes that hub permanently unrepairable'). That guts half of arm 5's stated justification."
+    },
+    {
+      "file": "src/state/blueprints.ts",
+      "line": 41,
+      "quote": " * soft-collision would shove neighbours apart and strain the bonds. Every distance here is >= 40 px,",
+      "why_it_matters": "The PHYSICAL floor, from the file that owns the spacing rule: primitives are 8-10.8 px radius (game/primitive.ts:127 `Math.max(8, SPARK_VISUAL_SIZE[...] * 0.45)`), so ~22 px sum-of-radii is where soft-collision starts straining bonds. The other stated reason for arm 5's 60 is physics — and physics only needs ~22-24. 60 is bond reach borrowed for a job it is ~2.5x too large for."
+    },
+    {
+      "file": "src/bots/botBrain.ts",
+      "line": 209,
+      "quote": " * `stampRefusalAt` already refuses a site whose footprint comes within 60 px of ANY existing\n * primitive, so a stamp can never auto-bond at the moment it lands. The reverse is the danger: a bot\n * hand-builds loose shapes outward from its cluster at `GROWTH_STEP` (48 px, inside\n * `AUTO_BOND_RADIUS` 60), and a later loose shape landing within 60 px of a tower node auto-bonds a\n * chord into it",
+      "why_it_matters": "The strongest argument AGAINST shrinking the clearance, stated by the code itself — a chord welded into a pentagram ring or a voltkin chain tears the tower down on the next revalidation with no error and no log line. It must be answered in the fix, not waved away. (It is already only half-true: see placePrimitive.ts:130 above.)"
+    },
+    {
+      "file": "src/render/structureRamp.ts",
+      "line": 580,
+      "quote": "    const half = spec.artPx * 0.5;\n    if (Math.abs(x - at.cx) > half) return;\n    if (Math.abs(y - at.cy) > half) return;",
+      "why_it_matters": "The ONLY place a tower's art size decides anything — and it is a click hit-test in a RENDER module, never consulted by legality. artPx: hub 84, laser 94, pentagram 90, goblin 99, Helga 99 — all SMALLER than the connector hull (STAR_R 44 + 10.8 = 55). So 'connectors + art' is just 'connectors'."
+    },
+    {
+      "file": "src/state/netWireSize.test.ts",
+      "line": 84,
+      "quote": "    // ⛔ S182 MERGE — 281, NOT 200. Branch 3's castle keep-out (CASTLE_NO_BUILD_RADIUS, zones.ts)\n    // landed after this fixture was written and refuses a placement near a castle anchor. At 200\n    // the first column fell inside it, PLACE_PRIMITIVE was refused SILENTLY, and the board came\n    // out undersized",
+      "why_it_matters": "The named precedent and the shape of the test breakage to expect: a legality change fails a test in ANOTHER subsystem, silently and with a misleading symptom. Any change to the keep-out or the clearance re-opens exactly this class."
+    }
+  ],
+  "fix_shape": "Three INDEPENDENT levers. Do them as separate commits inside one branch; any subset ships.\n\nLEVER A — THE DEAD SPACE (his point 6, the big one). `src/state/blueprintLegality.ts` arm 5, ~10 lines.\nSplit the one 60 px constant into the two jobs it is doing:\n  · add `export const STAMP_CLEARANCE = 24;` to `constants.ts` beside `AUTO_BOND_RADIUS`, with the derivation in its docblock (2 x max primitive radius 10.8 = 21.6, rounded to the blueprints.ts \">= 40 px side\" family; it is the soft-collision floor, which is the only reason arm 5 can claim on physics grounds);\n  · arm 5 becomes `const c2 = STAMP_CLEARANCE * STAMP_CLEARANCE; ... if (pdx*pdx + pdy*pdy < c2) return 'BLOCKED';`\n  · ⛔ KILL `Math.hypot` IN THE SAME EDIT. It is in a reducer-read predicate and `zones.ts:219` already states hypot is not engine-portable. Squared compare, same as every other distance test in `zones.ts`.\n  · optional, cheap, and it fixes the \"why is it red?\" half: in `render/blueprintGhost.ts:104-108`, when `refusal === 'BLOCKED'` also stroke the clearance halo so the player can SEE the rule.\nEffect, computed: min centre-to-centre spacing for two laser turrets falls 148 -> 112 px; ~50 -> ~95 turrets fit a half; art coverage of the packable half rises 42.6 % -> ~81 %.\nMITIGATION FOR THE CHORD HAZARD the code warns about (botBrain.ts:209) — pick one and state it: (i) accept it, because hand placement already has zero clearance so the hazard is live today regardless; (ii) make `pickHostTargetPrimitive` refuse to auto-bond onto a primitive whose `origin !== null` (a stamped structure member) — that kills the chord class outright for both paths and is ~3 lines in `dragPreview.ts` + `placePrimitive.ts`, but it is a rule change the owner should hear; (iii) keep 60 against `origin !== null` primitives and 24 against loose ones — least behaviour change, but it leaves tower-vs-tower spacing untouched, i.e. it does NOT fix his complaint.\n\nLEVER B — THE BOTTOM MENU (his point 5). `src/input/controls.ts` + `src/render/footerBand.ts` / `shapeStrip.ts`, render/input only, no reducer, no hash.\nThe swallow is the S182 safety rule \"a surface you cannot see through must swallow the click\" and it was shipped after the bug appeared TWICE — do not simply delete `isPointerOverFooterSurface`. Shrink the surface instead:\n  · the tower CARDS are the big offender (up to 1406 x 62 at y 941-1003 while a tier is open, 4.2 % of the board). Move them to a right-hand rail or make them auto-close on arm, and that area returns to board with no guard removed.\n  · the chips + strip (~1.8 %) are small; leaving them is defensible.\n  · ⚠ NOT part of this lever, but it is the arm that actually walls the bottom: `EDGE_PAD` (`blueprintLegality.ts:46`). Dropping 8 -> 0 gives back 8 px per side and is SAFE against the melee-immunity rule `placeFromFree.ts:264-277` guards (outermost node then reaches x = 1908, still inside a WORLD_EDGE_MARGIN-clamped attacker's 1880 + GOBLIN_ATTACK_RANGE 35 = 1915). It does not give back the 56 px that comes from the footprint half-extent; only a smaller `FOOTPRINT_MARGIN` or an \"edge-straddling allowed\" ruling does.\n\nLEVER C — THE FOOTPRINT ITSELF. `src/state/blueprints.ts:428` `FOOTPRINT_MARGIN = 12`.\nThis is the \"air around the outermost node\" that inflates the box on all four sides and feeds both the edge arm and the castle arm. Lowering it to the actual primitive draw radius (11) is nearly free; it is listed because it is the only other knob, not because it is worth much on its own.",
+  "file_set": [
+    "src/state/blueprintLegality.ts",
+    "src/constants.ts",
+    "src/state/blueprints.ts",
+    "src/state/zones.ts",
+    "src/render/blueprintGhost.ts",
+    "src/input/controls.ts",
+    "src/render/footerBand.ts",
+    "src/render/shapeStrip.ts",
+    "src/bots/botBrain.ts",
+    "src/input/dragPreview.ts",
+    "src/state/placePrimitive.ts",
+    "src/state/blueprintLegality.test.ts",
+    "src/state/blueprints.test.ts",
+    "src/state/zones.test.ts",
+    "src/state/buildLegalityGates.test.ts",
+    "src/state/netWireSize.test.ts",
+    "src/input/s182UiSurfaceGuards.test.ts",
+    "src/render/footerBand.test.ts",
+    "src/bots/botBrain.test.ts",
+    "src/bots/botTowers.test.ts",
+    "src/state/placeFromFree.test.ts",
+    "src/state/placePrimitive.test.ts",
+    "src/state/spawners/pentagramBuildability.test.ts",
+    "src/state/godlyRecipes/raceTower.test.ts",
+    "src/state/godlyRecipes/t9BossTower.test.ts",
+    "src/state/godlyRecipes/voltkin.test.ts",
+    "src/state/structureRepairKeepOut.test.ts",
+    "src/canon.test.ts",
+    "e2e/click-to-build.spec.ts",
+    "e2e/feed-tower.spec.ts",
+    "SPARK_CANON.md",
+    "CLAUDE.md"
+  ],
+  "determinism_risk": "TOUCHES THE SIM — `stampRefusalAt` is read by the reducer (`blueprintBuild.ts:264`), which runs on the host, in the worker (`simWorker.ts` -> `workerSim.ts:481` `dispatch(world, action)`) and in replay, and its output is hashed.\n\n· NO `Math.random`, NO wall clock, NO float accumulator is introduced — every arm is a pure function of constants and `world.primitives`.\n· ⛔ AN EXISTING HAZARD THAT MUST BE FIXED IN THE SAME EDIT: `blueprintLegality.ts:198` uses `Math.hypot`, and `zones.ts:219` states this repo's own rule — *\"`Math.hypot` is not guaranteed identical across JS engines, and two peers may be on different browsers.\"* Changing the constant moves which points sit exactly on the boundary, so leaving hypot there converts a latent divergence into a reachable one. Convert to a squared compare.\n· `Map` ITERATION ORDER: arm 5's `for (const prim of world.primitives.values())` is an any-hit boolean, so insertion order cannot change the VERDICT today and it is safe as-is. ⚠ If the fix is changed to report WHICH primitive blocked (for the ghost halo), that becomes order-dependent and needs the project's total order — squared distance, then explicit `primitiveId` compare.\n· FOUR SITES (factory + serialize + hash + worker): **NOT OWED** as long as the fix is constants-and-predicate only. No new entity field, no new World field, no new action, no new discriminant. The worker inherits the change through the shared module.\n  ⛔ It IS owed the moment anyone implements the footprint as stored state (e.g. `Primitive.reservedRadius`, or a `world.footprints` map) — that is four sites plus a bump.\n· `PROTOCOL_VERSION` (47, `src/net/protocol.ts`): **NO BUMP** for the constants-only fix. A v47 peer and a v48-behaviour host would disagree only if BOTH ran the predicate independently — they do not; the host reducer is the sole authority and the client gate is advisory (`controls.ts:1044-1051` says so explicitly). ⚠ But a MIXED-BUILD lobby is a real divergence: two peers on different bundles of the same protocol number would stamp different worlds from the same intent and hash-split. That is the normal deploy story for any sim change here, not a new class.\n· LEVER B (the menu) is **NONE-RENDER-ONLY** — `isPointerOverFooterSurface` / `isPointerOverCard` are client-side early returns in `controls.ts`; the reducer already accepts those placements. Zero hash risk, and it can ship independently of Lever A.",
+  "tests_owed": "RED BEFORE, GREEN AFTER:\n· `src/state/blueprintLegality.test.ts` — a NEW mechanical test: place one laser turret, then assert the number of legal centres for a second one. Pin the MEASURED constant, not a prose claim: at clearance 60 the removed area is 62,356 px², at 24 it should fall to ~24,000. Also re-pin the existing diagonal refusal-reach assertions (the file already probes the 45° ray precisely because the +x axis is the one direction a box and a circumradius agree on).\n· `src/state/blueprints.test.ts` — it asserts the spacing invariant *\"every distance ≥ 40 px and ≤ AUTO_BOND_RADIUS (60)\"*. Splitting the constant must not silence it: it stays bound to `AUTO_BOND_RADIUS` (hand-buildability), never to the new `STAMP_CLEARANCE`.\n· `src/state/buildLegalityGates.test.ts` — the six-gate agreement sweep. Its own docblock calls it *\"the one that matters most\"*. It must still prove ghost == host after the change.\n· `src/state/netWireSize.test.ts` — the x=281 fixture (`:84`). A clearance change alters how many PLACE_PRIMITIVEs land in its grid; if the board comes out undersized the failure reads as a wire-budget failure, exactly as S182 recorded. Assert `world.primitives.size === primCount` still fires (it already does, `:108`).\n· `src/bots/botTowers.test.ts` / `src/bots/botBrain.test.ts` — `TOWER_SITE_OFFSET` 210 and the ten fixed `TOWER_SITE_ANGLES`. More ground legal means MORE angles succeed, so these should not go red — if one does, it was asserting a refusal that has now become legal and the assertion, not the fix, is wrong.\n· `src/state/zones.test.ts` — untouched by Lever A; it goes red only if `CASTLE_NO_BUILD_RADIUS` or `FOOTPRINT_MARGIN` move (`:343-365` re-derives 121 from `CASTLE_PORCH_*` and asserts it is not bloated).\n· `src/input/s182UiSurfaceGuards.test.ts` + `src/render/footerBand.test.ts` — Lever B only. ⛔ `footerBand.test.ts:385-406` counts the band's opaque `.fill({` calls and pins the total at **5**, with the instruction *\"IF THIS GOES RED, DO NOT BUMP THE NUMBER.\"* Moving the cards off the band changes that count and the guard must be re-derived honestly, not incremented.\n· `src/state/spawners/pentagramBuildability.test.ts`, `raceTower.test.ts`, `t9BossTower.test.ts`, `voltkin.test.ts` — they assert each recipe's chord/spacing clearances against `AUTO_BOND_RADIUS`. They must keep reading `AUTO_BOND_RADIUS`, not the new constant.\n\n⛔ NO RENDERER RUNS UNDER VITEST (canon 7b states this for z-order). So the GHOST half of Lever A — the clearance halo, and the ghost's tint agreeing with the reducer — is invisible to the unit suite. What pins it instead: (a) `buildLegalityGates.test.ts`'s agreement sweep proves the PREDICATE agrees; (b) `e2e/click-to-build.spec.ts` drives a real armed ghost -> world click -> dispatch -> host stamp and is the only thing that proves the three layers meet; add one case there that stamps a SECOND tower at the new minimum spacing. Lever B's swallow is likewise only provable end-to-end — `s182UiSurfaceGuards.test.ts` is a SOURCE-TEXT guard and CLAUDE.md §2 records that such a guard shipped green over a live bug twice in S182 because it proves a line EXISTS, not that it is REACHED. Any new guard must be mechanical (count the surfaces, name the gate each pairs with) rather than a grep for a call.\n\nREGRESSION WATCH, not a test: `e2e/feed-tower.spec.ts:27` `const SITE = { x: 420, y: 400 }` and `e2e/click-to-build.spec.ts:190` `return { x: 420, y: 400 }` are fixed sites; both become MORE legal, not less.",
+  "owner_ruling_needed": [
+    "⭐⭐ RULING 1 — HOW CLOSE MAY TWO TOWERS STAND? This is his point 6 and it is one number. Today a stamp is refused within AUTO_BOND_RADIUS (60 px) of any existing shape, so two laser turrets cannot stand closer than 148 px centre-to-centre while their art is only 94 px wide — 7.06x the ground the art covers, and ~57% of a packed field is dead. OPTIONS, all measured: (a) 60 px, today — ~50 turrets per half, art covers 42.6%; (b) 40 px — ~73 turrets, 62%; (c) 30 px — ~86 turrets, 73%; (d) 24 px, the physical floor where two shapes stop shoving each other — ~95 turrets, 81%. CONSEQUENCE ON SCREEN: at (d) towers stand almost shoulder-to-shoulder with a ~24 px gap between their outermost shapes — that is close, and it will look dense. CONSEQUENCE IN PLAY: tighter packing means a splash or a boss blow reaches two towers at once, and a raid on one connector sits next to the neighbour's. THE ONE THING THAT IS NOT A REASON TO SAY NO: the code's own warning that a later loose shape could weld a chord into a tower and silently tear it down — that hazard is LIVE TODAY at any spacing, because hand placement has no clearance check at all (placePrimitive.ts:130 has only the quarry and the zone). It needs its own fix either way.",
+    "⭐ RULING 2 — WHAT MAY BE BUILT UNDER THE BOTTOM MENU? His point 5 is real but ~10x smaller than it feels: the menu swallows 1.8% of the board normally (the tier chips and the shape strip), peaking at 6.0% while a tier is open because six race-tower cards form a 1406 px wall above the band. Nothing in the world geometry refuses the band — the click is eaten by the UI layer. OPTIONS: (a) leave it — the chips and strip are small and a tower planted under an opaque plate is invisible, which is the exact defect that shipped twice in S182 and is why the guard exists; (b) move the open tower CARDS off the band (a side rail, or auto-close on arm) and give back the 4.2% — no guard is removed, so nothing regresses; (c) lift the swallow entirely — he gets the whole band, and he also gets towers he cannot see under his own menu. RECOMMENDED SHAPE OF THE QUESTION: he should be told that (c) is what he literally asked for and that it re-opens a bug he already reported once.",
+    "⚠ RULING 3 — MAY A TOWER STRADDLE THE ARENA EDGE? The bottom 64 px and the outer ~64 px of every side hold no legal tower CENTRE, because EDGE_PAD (8) is applied to the whole footprint box (half-extent 56 for a 6-star). That, not the menu, is what makes the rim feel walled. Dropping EDGE_PAD 8 -> 0 is free and safe (the outermost node then reaches x=1908, still inside a clamped melee attacker's 1915 reach). Going further — letting a tower's outer shapes sit PARTLY off-canvas — buys another ~56 px of rim but means a tower the player cannot fully see or click, and the repo already has a standing rule that a tower you cannot click is a tower you cannot repair. Ask him whether the rim matters enough to accept a clipped tower, or whether the free 8 px is enough.",
+    "⚠ NOTE, NOT A RULING, BUT HE SHOULD HEAR IT ONCE: his stated target is already met on paper. On an empty 1v1 board 70.65% of the map is a legal tower site, and each seat gets 70.65% of its own half — more than double the 'about a third' he asked for. The board does not start too small; it becomes lumpy the moment anything is built on it. If the answer to Ruling 1 is 'leave it at 60', then the honest report back is that nothing else in the geometry will meaningfully change what he is seeing."
+  ],
+  "size_estimate": "Standard (10-30K). Lever A is ~10 production lines in one file plus a constant, but it moves a predicate that six gates and ~14 test files read, and the owner-ruling package (four measured option tables) is most of the work. Lever B alone would be Micro; Levers A+B+C together with the test re-pins and the canon entry land squarely in Standard.",
+  "blocked_on": "HIS RULING on Ruling 1 (the tower-to-tower clearance number) — that is the whole of his point 6 and it cannot be picked for him; the options table above is ready to put to him. Ruling 2 (what may be built under the menu) and Ruling 3 (the arena rim) are independent and each unblocks its own commit. NOT blocked on any other lane: the file set is disjoint from the sim/combat files, with ONE overlap to watch — `src/constants.ts` is touched by almost every lane, so the merge owner should expect a conflict there and nowhere else. If no ruling arrives, the branch can still ship the two no-ruling items — the `Math.hypot` -> squared-compare determinism fix at `blueprintLegality.ts:198`, and `EDGE_PAD` 8 -> 0 — and report the option tables."
+}

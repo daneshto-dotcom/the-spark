@@ -1,0 +1,140 @@
+{
+  "lane": "SEVER_BOND cheat vector — construct the case for an owner ruling (READ-ONLY probe, no files touched)",
+  "summary": "The vector is REAL and still live at commit 7d1514b. `SEVER_BOND` is a CLIENT INTENT (`protocol.ts:1545`), and the host's intent pipeline re-derives exactly ONE field — `playerId`, via `stampOrReject` (`intentStamp.ts:37-39`). `bondId` and `cause` cross the wire and are trusted verbatim. `canSeverBond` (`disruptionManager.ts:81-101`) returns `true` unconditionally for seven of the eight `cause` values, so a modified peer sending `{type:'SEVER_BOND', bondId:<any bond on the snapshot>, cause:'physics'}` gets an unconditional, currency-free deletion of any connector in the world — no disruption charge, no raid point, no accumulated damage, no enemy check, and `severActor` returns `undefined` for `'physics'` (`severBond.ts:149-150`) so the victim's sever toast names nobody. The handoff's one-line description is accurate in every particular. TWO things collapse the severity, and both must be in the brief: (1) the bench/elimination gate in `dispatch()` (`world.ts:500`, `world.ts:524`) blocks EVERY `SEVER_BOND` from a benched or eliminated seat regardless of cause, so this is a live-seat cheat, not a dead-seat kingmaker; (2) the honest client no longer sends `SEVER_BOND` AT ALL — `grep -n \"type: 'SEVER_BOND'\" src` returns zero non-test hits outside the sim's own reducers, because S152/S168 rewired the RMB arm to `RAID_TARGET` (`controls.ts:1201-1204`). That second fact is what makes the fix nearly free: the host can hard-override `cause` at one choke point and no honest player can tell.",
+  "findings": [
+    {
+      "claim": "The bypass arm is literally unconditional and currency-free for seven of the eight cause values — the handoff's description is verified, not refuted.",
+      "file": "src/state/disruptionManager.ts",
+      "line": 81,
+      "evidence": "if (\n    action.cause === 'physics' ||\n    action.cause === 'creature' ||\n    action.cause === 'unit' ||\n    action.cause === 'bomb' ||\n    action.cause === 'chewer' ||\n    action.cause === 'drone' ||\n    action.cause === 'raid'\n  ) return true;   // <- line 101; the player-existence + charge gate below is never reached",
+      "still_live": true
+    },
+    {
+      "claim": "SEVER_BOND is on the CLIENT-INTENT allowlist, so a peer's INTENT reaches dispatch(). Nothing here or anywhere upstream inspects `cause`.",
+      "file": "src/net/protocol.ts",
+      "line": 1545,
+      "evidence": "const CLIENT_INTENT_TYPES_RECORD = {\n  PICKUP_SPARK: true,\n  DROP_SPARK: true,\n  PLACE_PRIMITIVE: true,\n  PLACE_FROM_FREE: true,\n  SEVER_BOND: true,",
+      "still_live": true
+    },
+    {
+      "claim": "The wire validator checks only that `action.type` is a known discriminant. No payload field of any action is shape-checked — `cause` and `bondId` are passed through as whatever the peer sent.",
+      "file": "src/net/protocol.ts",
+      "line": 1713,
+      "evidence": "case 'INTENT': {\n      if (typeof obj.intentSeq !== 'number') return null;\n      if (obj.action === null || typeof obj.action !== 'object') return null;\n      const actionType = (obj.action as Record<string, unknown>).type;\n      if (typeof actionType !== 'string') return null;\n      if (!KNOWN_GAME_ACTION_TYPES.has(actionType)) return null;\n      return obj as unknown as IntentMsg;\n    }",
+      "still_live": true
+    },
+    {
+      "claim": "The host's only re-derivation is playerId. `stampSenderSeat` spreads the action and replaces exactly one key — `cause` survives untouched. This is the single choke point both host paths use, which is also why it is the right place to fix it.",
+      "file": "src/net/intentStamp.ts",
+      "line": 23,
+      "evidence": "export function stampSenderSeat(action: GameAction, seat: PlayerId): GameAction {\n  return 'playerId' in action ? ({ ...action, playerId: seat } as GameAction) : action;\n}",
+      "still_live": true
+    },
+    {
+      "claim": "Host INTENT apply path: rate-limit -> type allowlist -> seat stamp -> dispatch. There is no fourth gate. (The migration successor at main.ts:3473-3489 is byte-for-byte the same three gates, and also routes through stampOrReject.)",
+      "file": "src/net/hostHandlers.ts",
+      "line": 322,
+      "evidence": "if (!isClientIntentAllowed(msg.action.type)) {\n          deps.world.diagnostics.raceRejects++;\n          console.warn(`[net] dropped non-player INTENT '${msg.action.type}' from ${peerId}`);\n          return;\n        }\n        ...\n        const action = stampOrReject(msg.action, deps.session.hostSeats.get(peerId));",
+      "still_live": true
+    },
+    {
+      "claim": "The reducer applies it with no ownership or enemy check of any kind — unlike the RAID_TARGET arm, which does have one. Any bondId that resolves is severed.",
+      "file": "src/state/severBond.ts",
+      "line": 53,
+      "evidence": "const bond = world.bonds.get(action.bondId);\n  if (bond === undefined) return world;\n  ...\n  if (!canSeverBond(world, action, primA, primB)) return world;",
+      "still_live": true
+    },
+    {
+      "claim": "REACHABILITY CONFIRMED, not blocked: bond ids ride the NetSnapshot, so a joiner already knows every bond id in the host's world, including the host's own towers.",
+      "file": "src/state/save.ts",
+      "line": 1039,
+      "evidence": "bonds: [...world.bonds.values()].map(serializeBond),",
+      "still_live": true
+    },
+    {
+      "claim": "SEVERITY COLLAPSE #1 (must be in the brief): the dispatch()-level bench and elimination gates block SEVER_BOND for a benched or eliminated seat REGARDLESS of cause, because they key on action.type + playerId. The exploit therefore requires a live, un-benched seat. It is not a dead-seat kingmaker.",
+      "file": "src/state/world.ts",
+      "line": 500,
+      "evidence": "if (isBenchDeniedIntent(action.type) && 'playerId' in action) {\n    const actor = world.players.get(action.playerId);\n    if (actor !== undefined && isBenched(actor.benchedUntilTick, world.tick)) {\n      world.diagnostics.raceRejects++;\n      world.diagnostics.rejectReasons.actorBenched++;\n      return world;\n    }\n  }",
+      "still_live": true
+    },
+    {
+      "claim": "SEVERITY COLLAPSE #2, and the key to a free fix: NO production client path dispatches SEVER_BOND. The RMB bond arm was rewired to RAID_TARGET in S152/S168, so the honest client never puts SEVER_BOND on the wire at all. Every remaining dispatcher is host-side sim code (physicsLoop, creatureAttack, suicideBlast, droneLifecycle, voltkinChain, bombLifecycle, the RAID_TARGET reducer).",
+      "file": "src/input/controls.ts",
+      "line": 1201,
+      "evidence": "// ⚠ WHAT CHANGED: the bond arm used to dispatch SEVER_BOND directly — a guaranteed cut\n      // for 2 disruption charges. Under R78 a right-click IS a 2-ATK hit, so the bond arm raids too\n      // and the sever becomes a CONSEQUENCE of damage reaching the connector's capacity (the\n      // reducer re-dispatches SEVER_BOND itself).",
+      "still_live": true
+    },
+    {
+      "claim": "THEFT, on the one stat ladder: a spoofed sever skips the entire structure-wide pool. structurePoolFifths(n) = n×(5+n) — 50/36/24/14/6 — and damageConnector only returns true once banked damage reaches it. The cheat pays zero fifths.",
+      "file": "src/state/damage.ts",
+      "line": 396,
+      "evidence": "const pool = structurePoolFifths(comp.bondIds.size);\n  ...\n  let banked = 0;\n  for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;\n  if (banked < pool) return false;",
+      "still_live": true
+    },
+    {
+      "claim": "THEFT, priced against the honest raid: one raid point buys 3 fifths (capped), MAX_RAID_POINTS is 3, and a raid point costs 10 raid progress (5 per tower built / 2 per connection). So the first connector of a 5-connector tower = 50 fifths = 17 raid points = 170 raid progress. The whole tower (130 fifths) = 44 raid points = 440 progress. The cheat does it in 1 and 5 intents respectively.",
+      "file": "src/state/world.ts",
+      "line": 772,
+      "evidence": "const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);\n      const shouldSever = damageConnector(world, action.target.id, connectorDamage);",
+      "still_live": true
+    },
+    {
+      "claim": "THEFT, amplified: one severed connector fails a tower's recipe predicate and the 0.5 s re-validation poll dispatches REMOVE_SPAWNER — and a lightningHub additionally STRUCTURE_SELFDESTRUCTs and razes its own component. ONE spoofed intent can delete a whole tower, not just a connector.",
+      "file": "src/state/hostTick.ts",
+      "line": 826,
+      "evidence": "dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });\n          continue;",
+      "still_live": true
+    },
+    {
+      "claim": "RATE: the only bound on the exploit is the per-peer token bucket — 90 severs in one burst, then 40/s sustained. That is every bond in a match within seconds.",
+      "file": "src/constants.ts",
+      "line": 935,
+      "evidence": "export const INTENT_BUCKET_CAPACITY = 90;\nexport const INTENT_BUCKET_REFILL_PER_SEC = 40;",
+      "still_live": true
+    },
+    {
+      "claim": "INVISIBILITY: choosing cause='physics' makes the sever unattributable — severActor deliberately excludes it, so the victim's toast names nobody and it reads as a constraint-solver overstretch.",
+      "file": "src/state/severBond.ts",
+      "line": 149,
+      "evidence": "case 'physics':\n      return undefined;",
+      "still_live": true
+    },
+    {
+      "claim": "TESTS (item 6): the bypass arm IS pinned as correct — but only at the PURE HELPER, never at the network boundary. Every assertion hand-builds the action and calls canSeverBond/applySeverBond directly. A host-side cause-normalisation fix therefore turns NONE of them red.",
+      "file": "src/state/disruptionManager.test.ts",
+      "line": 114,
+      "evidence": "it('physics cause is always allowed (overstretch bypasses all gates)', () => {\n    const { world, primA, primB } = setupWorld({ gameMode: '1v1' });\n    const action: GameAction = { type: 'SEVER_BOND', bondId: asBondId(1), playerId: P1, cause: 'physics' };\n    // 0 charges, but physics bypasses.\n    expect(canSeverBond(world, action, primA, primB)).toBe(true);\n  });",
+      "still_live": true
+    },
+    {
+      "claim": "TESTS: fix shape (b) — 'make the bypass arm pay' — would turn at least six assertions red AND re-break a shipped bug the code explicitly records. The bypass is the sim's own re-dispatch contract, not a player convenience.",
+      "file": "src/state/disruptionManager.ts",
+      "line": 97,
+      "evidence": "// ⛔ REUSING 'player' HERE WAS A REAL BUG, CAUGHT BY raid.test.ts AND NOT BY REVIEW: the\n    // player branch below gates on `disruptionCharges`, so a fully-damaged connector silently\n    // REFUSED to break because the raider had none — a currency a raid does not and must not use.",
+      "still_live": true
+    },
+    {
+      "claim": "TESTS: fix shape (c) — removing SEVER_BOND from the allowlist — is NOT a one-line change. Two set-equality tests force the bench and elimination policy rows to be deleted with it, and deleting those rows RE-ARMS a benched or eliminated seat's already-spawned creatures to sever connectors (see the world.ts:500/524 gates above). That is a live gameplay change needing its own ruling.",
+      "file": "src/state/benchGate.test.ts",
+      "line": 54,
+      "evidence": "const policyKeys = new Set(Object.keys(BENCH_INTENT_POLICY));\n    expect(policyKeys).toEqual(new Set(CLIENT_INTENT_TYPES));",
+      "still_live": true
+    },
+    {
+      "claim": "TESTS: fix (c) also directly contradicts two explicit assertions that SEVER_BOND is a genuine player intent.",
+      "file": "src/net/netHardening.test.ts",
+      "line": 165,
+      "evidence": "'PICKUP_SPARK', 'DROP_SPARK', 'PLACE_PRIMITIVE', 'PLACE_FROM_FREE', 'SEVER_BOND',\n      'UPDATE_AVATAR_POS', 'SHRINK_TERRITORY', 'TRIGGER_BOMB', 'TRIGGER_RAINBOW',\n      ...\n      expect(isClientIntentAllowed(t), t).toBe(true);",
+      "still_live": true
+    }
+  ],
+  "fix_shape": "RECOMMENDED — fix (a), host re-derives `cause` and ignores the client's, at the ONE choke point.\n\n`src/net/intentStamp.ts` — extend `stampOrReject` (line 37) / `stampSenderSeat` (line 23) so a `SEVER_BOND` arriving from the wire has its `cause` forced to `'player'` as well as its `playerId` forced to the sender's seat. ~6 lines of code + a docblock in the house style. This covers BOTH host apply paths — `hostHandlers.ts:337` and the migration successor at `main.ts:3477` — because `grep -rn \"stampOrReject\" src` returns exactly those two call sites and nothing else. Nothing else in the repo calls `stampSenderSeat` except `stampOrReject` itself and `nplayerSeating.test.ts`.\n\nWhy `'player'` and not \"drop the intent\": `'player'` is the only cause a peer could ever legitimately claim, and it routes straight into the existing hostile-auth + disruption-charge gate at `disruptionManager.ts:103-112`. The cheat becomes the honest, priced action.\n\nCost: 1 production file, 1 test file. No behaviour any honest player can observe, because no production client path dispatches `SEVER_BOND` at all (verified: `grep -n \"type: 'SEVER_BOND'\" src --include=*.ts` has zero non-test hits outside host-side sim reducers; `controls.ts`'s RMB bond arm emits `RAID_TARGET`).\n\nREFUTED — fix (b), \"make the bypass arm require the same currency\". Do NOT do this. The bypass is not a loophole, it is the contract every in-sim severer depends on: `creatureAttack.ts:571`, `suicideBlast.ts:182`, `droneLifecycle.ts:218`, `voltkinChain.ts:262`, `bombLifecycle.ts:146`, `physicsLoop.ts:244`, and the `RAID_TARGET` reducer at `world.ts:776`. Charging them re-creates the exact bug recorded at `disruptionManager.ts:97-99` — a fully-damaged connector silently refusing to break — and turns red at minimum `disruptionManager.test.ts:114, 147, 205-211, 239-243` and `severBond.test.ts:103`.\n\nOPTIONAL, NOT FREE — fix (c), remove `SEVER_BOND: true` from `CLIENT_INTENT_TYPES_RECORD` (`protocol.ts:1545`). Correct in principle (no honest client sends it) and it closes the vector at the outermost boundary, but it drags in `benchGate.ts:55` and `elimination.ts:81` via the two set-equality tests, and deleting those rows re-arms a benched/eliminated seat's creatures to cut connectors. Only take this if the owner wants that second question opened. It composes cleanly on top of (a) later; it is not a prerequisite.",
+  "four_sites_risk": "NONE. `cause` lives on the ACTION union (`world.ts:233`), not on a hashed entity — there is no factory, no serialize, no hash contribution and no worker projection for it. `PROTOCOL_VERSION` stays 47 (`protocol.ts:704`): nothing is added to or removed from the wire, the host simply stops trusting a field it already receives, and a stale peer's HELLO is refused at handshake regardless. Determinism is untouched — the normalisation runs on the host BEFORE `dispatch`, so the direct path (`dispatch(deps.world, action)`) and the worker path (`deps.dispatchAction(action)`) at `hostHandlers.ts:344-345` both receive the identical already-stamped action, and the migration successor gets it through the same helper. The one thing to keep in view: the fix must live in `intentStamp.ts`, NOT be open-coded at either call site — `main.ts:3477` is the successor path that S143 already had to repair once for exactly this \"two apply paths, one of them forgotten\" reason.",
+  "tests_owed": "Nothing existing goes red under fix (a) — verified: there is no `src/net/intentStamp.test.ts`; the stamp helper's tests live in `src/state/nplayerSeating.test.ts:271-288` and none of them mention `SEVER_BOND`.\n\nOwed, and following the S182 lesson that a source-text guard proves a line EXISTS but not that it is REACHED:\n1. In the `stampSenderSeat` describe block (`nplayerSeating.test.ts:271`): a wire action `{type:'SEVER_BOND', bondId, playerId: <other seat>, cause:'physics'}` stamped for seat 2 must come back with `playerId === 2` AND `cause === 'player'`.\n2. A MECHANICAL enumeration rather than prose: assert that the set of `cause` values the host will accept from the wire is exactly `{'player'}` — drive `stampOrReject` over a literal array of all eight union members pinned by a `satisfies SeverBondAction['cause'][]` so adding a ninth cause fails `tsc` until someone decides it. That is the \"count the fills and pin the total\" pattern from the S182 placement branch, with teeth.\n3. One end-to-end assertion at the reducer, not the helper: build a real 5-connector component, dispatch the normalised action for a 0-charge attacker, and assert the bond HOLDS — the current suite only ever asserts the bypass works, never that a wire-shaped physics claim is refused.\n4. Optional but cheap: assert `world.diagnostics` counts the normalisation (or leave it silent by design and say so) — a silent rewrite is indistinguishable from a bug in a bug report.",
+  "owner_questions": [
+    "Take the Micro fix (host forces `cause:'player'` on any wire SEVER_BOND), or leave the vector open under the repo's own stated friends-only threat model? The case for taking it: one file, ~6 lines, no PROTOCOL bump, no test goes red, and zero honest players notice because no production client sends SEVER_BOND at all any more. The case for leaving it: `protocol.ts:1445/1452/1478` repeatedly rationalise wire-allowing host-internal actions as 'inert under the friends-only model', and this is the same argument — though `protocol.ts:1487` already records a session deciding to 'rely on that gate rather than the inert-under-friends-only rationalization'.",
+    "Separate and genuinely yours: should a BENCHED or ELIMINATED seat's already-spawned creatures still be able to cut connectors? Today they CANNOT — `world.ts:500/524` blocks every SEVER_BOND whose playerId is a benched/dead seat, whatever the cause, purely as a side effect of SEVER_BOND sitting on the client-intent allowlist. Closing the allowlist (fix c) would re-arm them. The recommended fix (a) leaves this exactly as it is and does not need an answer; this only needs a ruling if you also want fix (c)."
+  ],
+  "size_estimate": "Micro (<10K tokens, 2 files) — `src/net/intentStamp.ts` plus assertions in `src/state/nplayerSeating.test.ts`. The whole change is one field normalisation at a single choke point with no wire, hash or worker consequence; the deliberation weight is in the owner's yes/no, not in the edit. If he also wants fix (c), it becomes Standard (5 files, two policy tables, four test edits, and a gameplay ruling attached)."
+}
