@@ -10,12 +10,12 @@
     "damage": {
       "row": 0,
       "frames": 12,
-      "ticksPerFrame": 3
+      "ticksPerFrame": 2
     },
     "collapse": {
       "row": 1,
       "frames": 12,
-      "ticksPerFrame": 3
+      "ticksPerFrame": 2
     }
   }
 }

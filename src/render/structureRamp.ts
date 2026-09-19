@@ -203,14 +203,35 @@ export interface RampSpec {
  * ⚠ DERIVED FROM THE ONE MEASURABLE THING THE OWNER SAID, not chosen: *"if he destroys a whole
  * structure in one hit, within like one second it looks like a whole structure got destroyed."* A
  * one-shot kill is the longest possible run — all 24 frames — so the whole sheet has to fit in about
- * a second. 24 × 3 = 72 ticks = **1.2 s** at 60 Hz. At 2 it would be 0.8 s and each frame would be
- * on screen for 33 ms, which is below what reads as a sequence rather than a flicker.
+ * a second.
+ *
+ * ⭐⭐ **S185 — HE PLAYED IT AND CALLED IT CHOPPY, SO THIS WENT 3 → 2.** *"When a tower is destroyed
+ * within like a shot, or really quickly, you need to run through those frames quicker… it needs to
+ * be a lot quicker because it looks too choppy. Sure, you can take like a millisecond of delay, but
+ * then run through those frames really quick, like a movie."*
+ *
+ * 24 × 2 = 48 ticks = **0.8 s** at 60 Hz, each frame on screen for 33 ms = **30 fps**.
+ *
+ * ⛔ **AND THE SENTENCE THAT USED TO SIT HERE ARGUING AGAINST 2 WAS SIMPLY WRONG, WHICH IS WHY IT IS
+ * GONE RATHER THAN SOFTENED.** It claimed 33 ms per frame is *"below what reads as a sequence rather
+ * than a flicker"*. Film runs at 24 fps — **42 ms** per frame. 33 ms is FASTER than cinema, not
+ * below the threshold of motion, and "like a movie" is the exact phrase he reached for. The old
+ * reasoning had the physiology backwards and it cost two sessions of him looking at a choppy ramp.
+ *
+ * ⚠ **2 IS MINE, NOT HIS** — he gave a direction and a feel, never a number. The dial is one
+ * character wide and every consumer derives from it, so if 0.8 s still reads slow, 1 gives 0.4 s at
+ * 60 fps. What he ruled is the DIRECTION; this is my reading of "like a movie".
  *
  * ⭐ AND ONE RATE, NOT TWO. A separate, slower rate for the death run would make a big hit and a
  * lethal hit play at visibly different speeds through the SAME frames, which is the opposite of
  * *"it makes it look like a video"*.
+ *
+ * ⚠ TEN DATA FILES CARRY THIS NUMBER TOO — five shipped manifests under `public/art/<tower>/` and
+ * five `assets-source/<tower>/atlas-specs.json`. `structureRampAtlas.test.ts:64-66` asserts the
+ * shipped manifest against this constant for every `RAMP_SPECS` row, so changing the constant alone
+ * turns that test red rather than shipping a mismatch. Change all eleven together.
  */
-export const HUB_RAMP_TICKS_PER_FRAME = 3;
+export const HUB_RAMP_TICKS_PER_FRAME = 2;
 
 /**
  * ⚠ MEASURED, NOT ESTIMATED — and measured by the BUILDER rather than by hand. `subjectFill` in

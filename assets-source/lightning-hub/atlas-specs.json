@@ -10,7 +10,7 @@
     "cells on this sheet are 254..184 wide and 270..285 tall, so a uniform 1908/8 stride would clip",
     "six of the twenty-four frames.",
     "",
-    "ticksPerFrame 3 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
+    "ticksPerFrame 2 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
     "against this file by structureRampAtlas.test.ts. 24 frames x 3 = 72 ticks = 1.2 s, which is the",
     "owner's R182-D: 'if he destroys a whole structure in one hit, within like one second it looks",
     "like a whole structure got destroyed.'"
@@ -28,7 +28,7 @@
   "cornerLabelBoxPx": 56,
   "edgeSoftness": 64,
   "states": [
-    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
-    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 2 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 2 }
   ]
 }

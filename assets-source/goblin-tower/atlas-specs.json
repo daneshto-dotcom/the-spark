@@ -14,7 +14,7 @@
     "bounds. MEASURED row heights on this sheet: 285 / 263 / 216 — a uniform 793/3 = 264 stride",
     "visibly cuts the top off row 1.",
     "",
-    "ticksPerFrame 3 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
+    "ticksPerFrame 2 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
     "against this file by structureRampAtlas.test.ts. 24 frames x 3 = 72 ticks = 1.2 s (R182-D)."
   ],
   "name": "goblin-tower",
@@ -28,7 +28,7 @@
   "alphaCeil": 244,
   "stripCornerLabel": false,
   "states": [
-    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
-    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 2 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 2 }
   ]
 }

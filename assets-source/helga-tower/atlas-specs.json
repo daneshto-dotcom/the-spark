@@ -25,7 +25,7 @@
   "alphaCeil": 244,
   "stripCornerLabel": false,
   "states": [
-    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
-    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 2 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 2 }
   ]
 }

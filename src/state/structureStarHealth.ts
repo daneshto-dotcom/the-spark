@@ -60,7 +60,7 @@ export const STAR_SELFDESTRUCT_BELOW_FRAC = 1 / 3;
 /**
  * ⭐⭐ S182 — **HOW LONG A DOOMED HUB STAYS IN THE WORLD SO ITS COLLAPSE CAN FINISH.**
  *
- * The ramp's last 8 frames (17→24) at `HUB_RAMP_TICKS_PER_FRAME` (3) = **24 ticks**, 0.4 s at 60 Hz.
+ * The ramp's last 8 frames (17→24) at `HUB_RAMP_TICKS_PER_FRAME` (**2** since S185) = **16 ticks**, 0.27 s at 60 Hz.
  * `structureRamp.test.ts` asserts this equals `rampDeathRunTicks(hubSpec)` so the sim's fuse and the
  * renderer's run cannot drift apart — they are the same eight frames counted from two sides.
  *
@@ -76,14 +76,14 @@ export const STAR_SELFDESTRUCT_BELOW_FRAC = 1 / 3;
  *   · the FUSE is lit at the next revalidation poll P ≥ T, and `P − T` is anywhere in `[0, 30)`;
  *   · the RAZE lands one poll after that, at `P + 30`.
  *
- * So raze − T ∈ [30, 60), the run itself needs 24, and the wreck therefore sits on frame 24 for
- * **6 to 36 ticks (0.1–0.6 s)** depending on where the crossing fell in the poll window.
+ * So raze − T ∈ [30, 60), the run itself needs 16, and the wreck therefore sits on frame 24 for
+ * **14 to 44 ticks (0.23–0.73 s)** depending on where the crossing fell in the poll window.
  *
- * ⭐ THE GUARANTEE THAT MATTERS IS THE FLOOR, AND IT HOLDS: the minimum is 30 ≥ 24, so the run
+ * ⭐ THE GUARANTEE THAT MATTERS IS THE FLOOR, AND IT HOLDS: the minimum is 30 ≥ 16 — S185 made this floor SAFER, not riskier — so the run
  * ALWAYS completes before the raze. That is deliberately not "fixed" with a second finer-grained
  * poll — a settled ruin lingering a few extra frames is what a settled ruin should do.
  */
-export const HUB_DEATH_RUN_TICKS = 24;
+export const HUB_DEATH_RUN_TICKS = 16;
 
 /**
  * PURE — the damage standing on `anchorId`'s OWN bonds, in fifths. `null` when there is no such
