@@ -187,9 +187,33 @@ export class PrincessRenderer {
       live.add(d.id);
       const firing = d.state === 'FIRE';
 
-      // Face the target (synced strike/target pos), holding the last facing when idle.
+      /**
+       * ⭐⭐ S185 — IS SHE ACTUALLY MOVING? Derived, never stored.
+       *
+       * S183's patrol walks her while `d.state === 'IDLE'`, and it nulls `walkTargetPos` the
+       * moment she arrives (then calls `freezeDefender`). So `walkTargetPos !== null` IS the
+       * locomotion predicate, exactly, with no tolerance to tune and no position delta to measure.
+       *
+       * ⛔ A POSITION DELTA WOULD HAVE BEEN THE WRONG SOURCE, and it is the obvious one to reach
+       * for. On a CLIENT, positions are interpolated between snapshots (`sync.ts` — "Positions
+       * only"), so a delta reads non-zero on frames where the sim did not step her and zero on
+       * frames where it did. `walkTargetPos` is synced state and is identical on both peers.
+       */
+      const isMoving = d.walkTargetPos !== null;
+
+      /**
+       * ⛔⛔ AND THE FACING HAD TO BE FIXED IN THE SAME EDIT OR THIS SHIPS A MOONWALK.
+       *
+       * `aimAt` is non-null only while firing or while holding a creature target. On the patrol leg
+       * she has neither, so `face` held its LAST value — she would now play the walk row while
+       * sliding backwards, which is a worse artefact than the beer-sip the owner reported.
+       *
+       * Walking toward a destination faces that destination. The strike/target arms still win when
+       * they apply, because where she is hitting outranks where she is heading.
+       */
       const aimAt = firing ? d.lastStrikePos
         : d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId)?.pos ?? null
+        : isMoving ? d.walkTargetPos
         : null;
       let face = this.facing.get(d.id) ?? 1;
       if (aimAt) face = aimAt.x >= d.pos.x ? 1 : -1;
@@ -202,10 +226,10 @@ export class PrincessRenderer {
       this.lastState.set(d.id, d.state);
 
       if (this.atlas !== null) {
-        this.syncSprite(d.id, d.state, d.ticksInState, world.tick, d.pos.x, d.pos.y, face);
+        this.syncSprite(d.id, d.state, d.ticksInState, world.tick, d.pos.x, d.pos.y, face, isMoving);
       } else {
         // Procedural fallback until the atlas resolves (or if it failed).
-        const pose = helgaPose(d.state, d.ticksInState, world.tick, d.id as unknown as number);
+        const pose = helgaPose(d.state, d.ticksInState, world.tick, isMoving, d.id as unknown as number);
         this.drawHelga(g, d.pos.x, d.pos.y, face, pose);
       }
 
@@ -231,6 +255,7 @@ export class PrincessRenderer {
   private syncSprite(
     id: DefenderId, state: DefenderState,
     ticksInState: number, worldTick: number, x: number, y: number, face: 1 | -1,
+    isMoving: boolean,
   ): void {
     const atlas = this.atlas;
     if (atlas === null) return;
@@ -241,7 +266,7 @@ export class PrincessRenderer {
       this.spriteLayer.addChild(sp);
       this.sprites.set(id, sp);
     }
-    const cell = helgaCell(state, ticksInState, worldTick, id as unknown as number, atlas.cfg);
+    const cell = helgaCell(state, ticksInState, worldTick, id as unknown as number, atlas.cfg, isMoving);
     const tex = atlas.cells[cell.state][cell.frame];
     if (tex !== undefined && sp.texture !== tex) sp.texture = tex;
     sp.scale.set(face * PRINCESS_SPRITE_BASE_SCALE, PRINCESS_SPRITE_BASE_SCALE);

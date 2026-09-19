@@ -59,7 +59,13 @@ function smooth(t: number): number {
  * HELGAs don't breathe/sip in robotic unison (the owner "real character, not a robot/gif" bar).
  * Deterministic: pose = f(state, ticksInState, phaseTick, offset).
  */
-export function helgaPose(state: DefenderState, ticksInState: number, phaseTick: number, offset = 0): HelgaPose {
+export function helgaPose(
+  state: DefenderState,
+  ticksInState: number,
+  phaseTick: number,
+  isMoving = false,
+  offset = 0,
+): HelgaPose {
   // Per-instance phase so each HELGA's idle ambient runs on its own clock (replay-safe — offset is
   // the synced, integer defenderId).
   const ph = phaseTick + offset * 37;
@@ -81,7 +87,22 @@ export function helgaPose(state: DefenderState, ticksInState: number, phaseTick:
     skirtSway,
   };
 
-  switch (state) {
+  /**
+   * ⭐ S185 — the same correction `helgaCell` carries, applied to the PROCEDURAL FALLBACK so the two
+   * render paths cannot disagree. S183's patrol translates her while the FSM state is still `IDLE`,
+   * so an `IDLE` that is MOVING must march, not sip.
+   *
+   * ⚠ Resolved to an EFFECTIVE state rather than by falling through from `case 'IDLE'` into
+   * `case 'WALK'`: `tsc` rejects that outright (TS7029), and it also reads as a mistake to anyone
+   * skimming. One gait exists in this file and both callers reach the same arm.
+   *
+   * ⚠ THIS PATH IS EASY TO FORGET AND THAT IS WHY IT IS FIXED IN THE SAME COMMIT — it is only
+   * reached before the atlas resolves (or if it failed), so a bug living only here shows up as "it
+   * looked wrong for the first second" and gets written off as a loading artefact.
+   */
+  const effective: DefenderState = state === 'IDLE' && isMoving ? 'WALK' : state;
+
+  switch (effective) {
     case 'IDLE':
       return base;
 

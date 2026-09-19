@@ -43,10 +43,35 @@ export function helgaCell(
   worldTick: number,
   id: number,
   cfg: HelgaAnimConfig,
+  isMoving: boolean,
 ): { state: HelgaAnimState; frame: number } {
   const phase = (id % 8) * 5; // small per-instance offset; deterministic (integer id)
   switch (state) {
+    /**
+     * ⛔⛔ **S185 — `IDLE` IS NOT "STANDING STILL", AND THAT IS WHY `isMoving` IS A REQUIRED
+     * PARAMETER RATHER THAN AN OPTIONAL ONE.** Owner, S185: *"she walks to attack, she attacks, and
+     * then instead of walking back, she's like idle drinking a beer but still moving back. That
+     * looks stupid."* He was describing this exact line.
+     *
+     * S183 gave HELGA a patrol, and it translates her INSIDE `case 'IDLE'`
+     * (`defenderLifecycle.ts` — `if (d.kind === 'princess' && d.state === 'IDLE')`), because a
+     * separate PATROL literal would have been a new serialized `DefenderState` value and therefore
+     * a PROTOCOL_VERSION bump for a cosmetic. That was the right call and it stays — but it made
+     * the FSM state a liar about locomotion, and this selector believed it for two sessions.
+     *
+     * ⛔ **THE TEMPTING ONE-LINE FIX IS `d.state = 'WALK'` IN THE PATROL BRANCH. DO NOT.** It costs
+     * no bump, which is what makes it tempting, and it breaks the owner's S183 patrol ruling: WALK
+     * is the leash-bound approach leg with its own arrival and re-target semantics, not an ambient
+     * stroll. The state is right; the ROW was wrong.
+     *
+     * ⭐ `isMoving` is DERIVED, never stored — the caller reads `walkTargetPos !== null`, which the
+     * patrol itself nulls on arrival. It is already synced and already hashed, so this costs no new
+     * field, no four-sites obligation and no bump. PROTOCOL_VERSION stays 47.
+     */
     case 'IDLE':
+      if (isMoving) {
+        return { state: 'walk', frame: loopIndex(worldTick + phase, cfg.walkTicksPerFrame, cfg.walkFrames) };
+      }
       return { state: 'idle', frame: loopIndex(worldTick + phase, cfg.idleTicksPerFrame, cfg.idleFrames) };
     case 'WALK':
       return { state: 'walk', frame: loopIndex(worldTick + phase, cfg.walkTicksPerFrame, cfg.walkFrames) };

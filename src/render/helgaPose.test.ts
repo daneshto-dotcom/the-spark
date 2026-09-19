@@ -29,8 +29,8 @@ describe('helgaPose — pure + deterministic', () => {
     // Two HELGAs at the same world.tick but different ids must NOT share an idle phase.
     let anyDiff = false;
     for (let t = 0; t < 120; t++) {
-      const a = helgaPose('IDLE', 0, t, 0);
-      const b = helgaPose('IDLE', 0, t, 5);
+      const a = helgaPose('IDLE', 0, t, false, 0);
+      const b = helgaPose('IDLE', 0, t, false, 5);
       if (a.bodyBobY !== b.bodyBobY || a.sip !== b.sip) anyDiff = true;
     }
     expect(anyDiff).toBe(true);
@@ -62,5 +62,23 @@ describe('helgaPose — the slap is a real arc (distinct authored poses)', () =>
     let maxSip = 0;
     for (let t = 0; t < 90; t++) maxSip = Math.max(maxSip, helgaPose('IDLE', 0, t).sip);
     expect(maxSip).toBeGreaterThan(0);
+  });
+  /**
+   * ⭐ S185 — the procedural fallback must agree with the atlas path, or Helga marches correctly
+   * once her sprite sheet lands and sips her beer while sliding for the second before it does.
+   * `leanAngle` is the discriminator: the WALK arm leans into the march, the idle base does not.
+   */
+  it('⭐ IDLE while MOVING returns the WALK pose, not the idle base', () => {
+    const movingIdle = helgaPose('IDLE', 0, 100, true);
+    const standing = helgaPose('IDLE', 0, 100, false);
+    const walking = helgaPose('WALK', 0, 100, false);
+    expect(movingIdle).toEqual(walking);
+    expect(movingIdle).not.toEqual(standing);
+    expect(standing.leanAngle).toBe(0);
+    expect(movingIdle.leanAngle).toBeGreaterThan(0);
+  });
+
+  it('isMoving defaults to false, so a caller that omits it still gets the idle base', () => {
+    expect(helgaPose('IDLE', 0, 100)).toEqual(helgaPose('IDLE', 0, 100, false));
   });
 });
