@@ -436,11 +436,16 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
             // ladder, not a per-kind constant that happened to be a function of a goblin's hit
             // points. Same 6 / 3 / 1 the roster has always dealt (creature pools are five times the
             // old hit counts, so every kill count is unchanged) — but derived from nothing.
+            // ⭐ S183 — the defender IS named. `retaliation.ts` cannot act on it today (a
+            // `Creature` has no `targetDefenderId` — see that file's "what is not built" note), but
+            // the identity is threaded rather than nulled so the day that field exists this site is
+            // already correct and nobody has to re-find it.
             damageEntity(
               world,
               { kind: 'creature', id: victim.id },
               attackFifths(config.atk, config.pen),
               'defender',
+              { kind: 'defender', id: d.id },
             );
           }
         }

@@ -115,16 +115,16 @@ describe('S158 P7 — damage', () => {
   it('⭐ subtracts from HELGA and reports the kill only on the blow that lands it', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL - 1, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL - 1, 'creature', null)).toBe(false);
     expect(w.defenders.get(h.id)!.ehp).toBe(1);
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, 1, 'creature')).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, 1, 'creature', null)).toBe(true);
     expect(w.defenders.has(h.id), 'and this arm REMOVES her — it honours the contract in full').toBe(false);
   });
 
   it('⛔ a TOWER takes NOTHING and reports no kill, however hard it is hit', () => {
     const w = make1v1();
     const t = plant(w, 'turret', 1, 500, 500);
-    expect(damageEntity(w, { kind: 'defender', id: t.id }, 999_999, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'defender', id: t.id }, 999_999, 'creature', null)).toBe(false);
     expect(w.defenders.has(t.id), 'towers still die by recipe-break, and by nothing else').toBe(true);
     expect(w.defenders.get(t.id)!.ehp).toBeNull();
   });
@@ -133,7 +133,7 @@ describe('S158 P7 — damage', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
     w.effects.length = 0;
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature');
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
     expect(w.effects.filter((e) => e.kind === 'SEVER_ERASE')).toHaveLength(1);
   });
 
@@ -141,15 +141,15 @@ describe('S158 P7 — damage', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
     const anchorId = h.anchorPrimitiveId;
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature');
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
     expect(w.primitives.has(anchorId), 'killing her must not punish the player\'s shapes too').toBe(true);
   });
 
   it('is idempotent on a defender already gone', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature');
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature')).toBe(false);
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null)).toBe(false);
   });
 });
 
@@ -403,7 +403,7 @@ describe('S158 P7 — end to end, through the real host tick', () => {
     expect(perHit).toBeGreaterThan(0);
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    damageEntity(w, { kind: 'defender', id: h.id }, perHit, 'creature');
+    damageEntity(w, { kind: 'defender', id: h.id }, perHit, 'creature', null);
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL - perHit);
   });
 

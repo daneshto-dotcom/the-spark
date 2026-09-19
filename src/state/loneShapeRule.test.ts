@@ -99,7 +99,7 @@ describe('S179 HALF ONE — a shape with no connectors is worth five', () => {
     const lone = addShape(w, P1, 400, 400);
     expect(lone.bonds.size, 'fixture: genuinely lone').toBe(0);
 
-    const died = damageEntity(w, { kind: 'primitive', id: lone.id }, FEEBLEST_HIT, 'creature');
+    const died = damageEntity(w, { kind: 'primitive', id: lone.id }, FEEBLEST_HIT, 'creature', null);
 
     expect(died, 'one hit from the weakest thing on the board').toBe(true);
     expect(w.primitives.has(lone.id)).toBe(false);
@@ -132,7 +132,7 @@ describe('S179 HALF ONE — a shape with no connectors is worth five', () => {
     const w = twoSeat();
     const lone = addShape(w, P1, 400, 400);
     expect(lone.hp, 'placed at the full pool').toBe(PRIMITIVE_MAX_HP);
-    damageEntity(w, { kind: 'primitive', id: lone.id }, FEEBLEST_HIT, 'creature');
+    damageEntity(w, { kind: 'primitive', id: lone.id }, FEEBLEST_HIT, 'creature', null);
     expect(w.primitives.has(lone.id)).toBe(false);
   });
 
@@ -150,7 +150,7 @@ describe('S179 HALF ONE — a shape with no connectors is worth five', () => {
     b.bonds.delete(bond);
 
     expect(a.hp, 'it kept the pool it had as a member').toBe(PRIMITIVE_MAX_HP);
-    damageEntity(w, { kind: 'primitive', id: a.id }, FEEBLEST_HIT, 'creature');
+    damageEntity(w, { kind: 'primitive', id: a.id }, FEEBLEST_HIT, 'creature', null);
     expect(w.primitives.has(a.id), 'a survivor with no connectors is a lone shape').toBe(false);
   });
 
@@ -162,7 +162,7 @@ describe('S179 HALF ONE — a shape with no connectors is worth five', () => {
     const w = twoSeat();
     const lone = addShape(w, P1, 400, 400);
     lone.hp = 2; // already chipped below the lone pool
-    const died = damageEntity(w, { kind: 'primitive', id: lone.id }, 1, 'hazard');
+    const died = damageEntity(w, { kind: 'primitive', id: lone.id }, 1, 'hazard', null);
     expect(died, '2 - 1 = 1, still standing: it was NOT healed up to 5').toBe(false);
     expect(w.primitives.get(lone.id)!.hp).toBe(1);
   });
@@ -224,7 +224,7 @@ describe('⛔ S179 COUNTER-GUARDS — what must NOT have moved', () => {
     const b = addShape(w, P1, 432, 400);
     connect(w, a, b);
 
-    const died = damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature');
+    const died = damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
 
     expect(died, 'a structure member is NOT a lone shape').toBe(false);
     expect(w.primitives.has(a.id)).toBe(true);
@@ -241,7 +241,7 @@ describe('⛔ S179 COUNTER-GUARDS — what must NOT have moved', () => {
     expect(w.primitives.size).toBe(3);
     expect(w.bonds.size).toBe(3);
 
-    damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature');
+    damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
 
     expect(w.primitives.size, 'still three shapes (was 2 under attempt 1)').toBe(3);
     expect(w.bonds.size, 'still three connectors (was 1 under attempt 1)').toBe(3);

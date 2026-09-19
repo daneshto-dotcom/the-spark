@@ -232,7 +232,20 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
       creatureId: attacker.id,
     });
     if (link.kind === 'creature') {
-      const died = damageEntity(world, { kind: 'creature', id: link.id }, hit, 'creature');
+      /*
+       * ⭐ S183 — THE VOLTKIN IS NAMED ON EVERY LINK, and `retaliation.ts` accepts the claim only
+       * on the SEED (the one creature it is actually committed to). A bolt that made all six hops
+       * turn round would be retaliation-by-splash, which the owner's *"whoever's targeting her"*
+       * does not describe — and, because a hop is not in the victim's own target field, it would
+       * be decided by `world.creatures` insertion order. The gate lives there, once.
+       */
+      const died = damageEntity(
+        world,
+        { kind: 'creature', id: link.id },
+        hit,
+        'creature',
+        { kind: 'creature', id: attacker.id },
+      );
       if (died) attacker.killCount += 1;
     } else if (damageConnector(world, link.id, hit)) {
       toSever.push(link.id);

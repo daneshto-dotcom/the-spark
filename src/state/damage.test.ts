@@ -122,23 +122,23 @@ function chainWorld(): { w: World; a: Primitive; b: Primitive; c: Primitive } {
 describe('S138 P1 — the integer damage contract', () => {
   it('REJECTS a fractional amount, naming the authoring mistake', () => {
     const { w, a } = chainWorld();
-    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, 2.5, 'aura')).toThrow(
+    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, 2.5, 'aura', null)).toThrow(
       /non-negative INTEGER/,
     );
     // The message must point at the real cause — a per-engine-tick value instead of a total.
-    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, 0.5, 'aura')).toThrow(/total/);
+    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, 0.5, 'aura', null)).toThrow(/total/);
     expect(a.hp).toBe(PRIMITIVE_MAX_HP); // and it did NOT partially apply
   });
 
   it('REJECTS a negative amount (healing is not damage)', () => {
     const { w, a } = chainWorld();
-    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, -10, 'player')).toThrow();
+    expect(() => damageEntity(w, { kind: 'primitive', id: a.id }, -10, 'player', null)).toThrow();
     expect(a.hp).toBe(PRIMITIVE_MAX_HP);
   });
 
   it('treats 0 as a no-op that reports "not dead"', () => {
     const { w, a } = chainWorld();
-    expect(damageEntity(w, { kind: 'primitive', id: a.id }, 0, 'aura')).toBe(false);
+    expect(damageEntity(w, { kind: 'primitive', id: a.id }, 0, 'aura', null)).toBe(false);
     expect(a.hp).toBe(PRIMITIVE_MAX_HP);
     expect(w.effects.length).toBe(0); // no cosmetic noise for a zero hit
   });
@@ -180,20 +180,20 @@ describe('S138 P1 — creature damage still delegates to damageCreature', () => 
     );
     // S151 P2 — amounts are FIFTHS now. A chewer's pool is 1 hp x (5+0) = 5 fifths, and one
     // 1-ATK strike is exactly 5 fifths — the same one-hit kill, on the shared ladder.
-    expect(damageEntity(w, { kind: 'creature', id: cid }, attackFifths(1, 0), 'defender')).toBe(true);
+    expect(damageEntity(w, { kind: 'creature', id: cid }, attackFifths(1, 0), 'defender', null)).toBe(true);
     expect(w.creatures.size).toBe(0);
   });
 
   it('is a safe no-op for an id that is already gone', () => {
     const w = baseWorld();
-    expect(damageEntity(w, { kind: 'creature', id: asCreatureId(99) }, 5, 'defender')).toBe(false);
+    expect(damageEntity(w, { kind: 'creature', id: asCreatureId(99) }, 5, 'defender', null)).toBe(false);
   });
 });
 
 describe('S138 P1 — primitive damage and the raze contract', () => {
   it('a non-lethal hit reduces hp, keeps the primitive, and emits nothing', () => {
     const { w, a } = chainWorld();
-    expect(damageEntity(w, { kind: 'primitive', id: a.id }, 10, 'aura')).toBe(false);
+    expect(damageEntity(w, { kind: 'primitive', id: a.id }, 10, 'aura', null)).toBe(false);
     expect(a.hp).toBe(PRIMITIVE_MAX_HP - 10);
     expect(w.primitives.has(a.id)).toBe(true);
     expect(w.effects.length).toBe(0);
@@ -202,13 +202,13 @@ describe('S138 P1 — primitive damage and the raze contract', () => {
   it('EXACTLY zero is lethal (boundary), and overkill does not leave a survivor', () => {
     const one = chainWorld();
     expect(
-      damageEntity(one.w, { kind: 'primitive', id: one.a.id }, PRIMITIVE_MAX_HP, 'player'),
+      damageEntity(one.w, { kind: 'primitive', id: one.a.id }, PRIMITIVE_MAX_HP, 'player', null),
     ).toBe(true);
     expect(one.w.primitives.has(one.a.id)).toBe(false);
 
     const two = chainWorld();
     expect(
-      damageEntity(two.w, { kind: 'primitive', id: two.a.id }, PRIMITIVE_MAX_HP * 10, 'player'),
+      damageEntity(two.w, { kind: 'primitive', id: two.a.id }, PRIMITIVE_MAX_HP * 10, 'player', null),
     ).toBe(true);
     expect(two.w.primitives.has(two.a.id)).toBe(false);
   });
@@ -218,7 +218,7 @@ describe('S138 P1 — primitive damage and the raze contract', () => {
     expect(w.bonds.size).toBe(2);
 
     // Kill the MIDDLE primitive: both bonds are incident to it.
-    expect(damageEntity(w, { kind: 'primitive', id: b.id }, PRIMITIVE_MAX_HP, 'creature')).toBe(
+    expect(damageEntity(w, { kind: 'primitive', id: b.id }, PRIMITIVE_MAX_HP, 'creature', null)).toBe(
       true,
     );
 
@@ -232,7 +232,7 @@ describe('S138 P1 — primitive damage and the raze contract', () => {
 
   it('emits SEVER_ERASE at the dead primitive so the death is visible', () => {
     const { w, a } = chainWorld();
-    damageEntity(w, { kind: 'primitive', id: a.id }, PRIMITIVE_MAX_HP, 'player');
+    damageEntity(w, { kind: 'primitive', id: a.id }, PRIMITIVE_MAX_HP, 'player', null);
     const erase = w.effects.filter((e) => e.kind === 'SEVER_ERASE');
     expect(erase.length).toBe(1);
     expect(erase[0]).toMatchObject({ pos: { x: 500, y: 400 } });
@@ -241,7 +241,7 @@ describe('S138 P1 — primitive damage and the raze contract', () => {
   it('leaves an unrelated structure completely untouched', () => {
     const { w, a, c } = chainWorld();
     const far = addPrim(w, 20, 900, 200);
-    damageEntity(w, { kind: 'primitive', id: a.id }, PRIMITIVE_MAX_HP, 'player');
+    damageEntity(w, { kind: 'primitive', id: a.id }, PRIMITIVE_MAX_HP, 'player', null);
     expect(w.primitives.has(far.id)).toBe(true);
     expect(far.hp).toBe(PRIMITIVE_MAX_HP);
     expect(c.hp).toBe(PRIMITIVE_MAX_HP);
@@ -369,7 +369,7 @@ describe('S138 P1 — the wire stays additive-optional', () => {
 
   it('a DAMAGED primitive emits hp and restores it exactly', () => {
     const { w, a } = chainWorld();
-    damageEntity(w, { kind: 'primitive', id: a.id }, 25, 'aura'); // ⭐ S177 P1 — non-lethal on the 70-fifth scale (was 250 of 1000)
+    damageEntity(w, { kind: 'primitive', id: a.id }, 25, 'aura', null); // ⭐ S177 P1 — non-lethal on the 70-fifth scale (was 250 of 1000)
     const snap = JSON.parse(JSON.stringify(snapshot(w))) as {
       primitives: { id: number; hp?: number }[];
     };
@@ -383,7 +383,7 @@ describe('S138 P1 — the wire stays additive-optional', () => {
 
   it('a pre-S138 snapshot (no hp anywhere) restores every primitive at FULL health', () => {
     const { w } = chainWorld();
-    damageEntity(w, { kind: 'primitive', id: w.primitives.keys().next().value! }, 25, 'aura');
+    damageEntity(w, { kind: 'primitive', id: w.primitives.keys().next().value! }, 25, 'aura', null);
     const snap = snapshot(w);
     // Strip hp everywhere, exactly as a pre-S138 save would have it.
     for (const p of (snap as unknown as { primitives: { hp?: number }[] }).primitives) delete p.hp;
@@ -398,8 +398,8 @@ describe('S138 P1 — the differential oracle CAN see non-lethal damage', () => 
   it('identical damage on identical worlds produces the identical wide hash', () => {
     const one = chainWorld();
     const two = chainWorld();
-    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 250, 'aura');
-    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 250, 'aura');
+    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 250, 'aura', null);
+    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 250, 'aura', null);
     expect(hashWorldStateFull(one.w)).toBe(hashWorldStateFull(two.w));
   });
 
@@ -410,8 +410,8 @@ describe('S138 P1 — the differential oracle CAN see non-lethal damage', () => 
 
     // ⭐ S177 P1 — rescaled to the 70-fifth shape. Still NON-LETHAL on both sides, which is the
     // whole point of the test: nothing dies, so every collection size stays identical.
-    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 25, 'aura');
-    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 35, 'aura');
+    damageEntity(one.w, { kind: 'primitive', id: one.a.id }, 25, 'aura', null);
+    damageEntity(two.w, { kind: 'primitive', id: two.a.id }, 35, 'aura', null);
 
     // Nothing died, so every collection SIZE is identical — the size-only structuralSignature
     // could not tell these apart. The WIDE hash, which the differential rig actually compares,
@@ -428,7 +428,7 @@ describe('S138 P1 — REAL physics after a raze (S136: state assertions are not 
     const { w, a, b, c } = chainWorld();
 
     // Kill the middle. Both bonds are incident to it, so the survivors are now isolated.
-    damageEntity(w, { kind: 'primitive', id: b.id }, PRIMITIVE_MAX_HP, 'creature');
+    damageEntity(w, { kind: 'primitive', id: b.id }, PRIMITIVE_MAX_HP, 'creature', null);
 
     const before = { a: { ...a.pos }, c: { ...c.pos } };
 
@@ -462,7 +462,7 @@ describe('S138 P1 — REAL physics after a raze (S136: state assertions are not 
   it('a bonded pair still solves normally after an unrelated raze', () => {
     const { w, a, b, c } = chainWorld();
     // Raze only the far end: the a-b bond must survive and keep working.
-    damageEntity(w, { kind: 'primitive', id: c.id }, PRIMITIVE_MAX_HP, 'player');
+    damageEntity(w, { kind: 'primitive', id: c.id }, PRIMITIVE_MAX_HP, 'player', null);
     expect(w.bonds.size).toBe(1);
 
     // Stretch the pair MODESTLY and let the real solver pull them back toward restLength.

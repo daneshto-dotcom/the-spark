@@ -200,6 +200,15 @@ export function runZombieRotAura(world: World): void {
     }
     // Total order before mutating: damage can DELETE a creature, so the scan must finish first.
     victims.sort((a, b) => (a as number) - (b as number));
-    for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura');
+    /*
+     * ⭐ S183 — THE AURA NAMES THE BOSS, and `retaliation.ts` REFUSES the claim for everyone he is
+     * not committed to. That is the design and not a near-miss: an aura that ticks every tick and
+     * yanked every victim's target would freeze an army solid in his radius, and "whoever's
+     * targeting you" is the owner's own wording for what retaliation answers. Passing the real id
+     * rather than `null` keeps the attribution honest and leaves the decision in one place.
+     */
+    for (const id of victims) {
+      damageEntity(world, { kind: 'creature', id }, 1, 'aura', { kind: 'creature', id: bossId });
+    }
   }
 }

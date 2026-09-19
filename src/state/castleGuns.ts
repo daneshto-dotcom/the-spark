@@ -117,6 +117,10 @@ export function castleGunsTick(world: World): void {
     // `'defender'` rather than a new source literal: the castle IS a defensive emplacement, and
     // `DamageSource` is attribution-only (`damageEntity` does `void source`), so a new arm would be
     // a wire-adjacent type change for no behaviour.
-    damageEntity(world, { kind: 'creature', id: targetId }, amount, 'defender');
+    // ⭐ S183 — `null`: a CASTLE is not a `DamageAttacker`. It is keyed by seat, it is in neither
+    // `world.creatures` nor `world.defenders`, and `Creature` has no field that could hold it — a
+    // unit already marches on the keep by position (`enemyCastleInReach`), which is the closest
+    // thing to retaliating against one that exists.
+    damageEntity(world, { kind: 'creature', id: targetId }, amount, 'defender', null);
   }
 }

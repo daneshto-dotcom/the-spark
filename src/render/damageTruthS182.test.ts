@@ -155,7 +155,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     a.hp = 5; // chewed down; one goblin swing is 12 and will overkill it
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature');
+      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
     });
 
     expect(w.primitives.has(a.id), 'the swing must actually kill it').toBe(false);
@@ -168,7 +168,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const c = bag(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature');
+      damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null);
     });
 
     expect(w.stinkClouds.has(c.id)).toBe(false);
@@ -181,7 +181,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const d = helga(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature');
+      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null);
     });
 
     expect(w.defenders.has(d.id)).toBe(false);
@@ -196,7 +196,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     connect(w, a, b);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature');
+      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
     });
 
     expect(w.primitives.has(a.id), 'it survives — this is the diff path, not the sweep').toBe(true);
@@ -216,7 +216,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const dn = new DamageNumbers();
     dn.sync(w);
     const before = printed(dn).length;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature');
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null);
     w.structureKillHits.length = 0; // the peer never had one
     dn.sync(w);
 
@@ -269,7 +269,7 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
     const d = helga(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature');
+      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null);
     });
 
     expect(out).toContain(String(GOBLIN_SWING));
