@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3504,
+  "tool_calls_session_total": 3741,
   "session_id": "S183",
   "session_kind": "batch",
   "session_start": "2026-09-19T08:18:00+02:00",
@@ -189,13 +189,41 @@
     {
       "id": 2,
       "title": "S183 P2 - BRANCH A: you only see the tower (4 tower ramps + connector hiding)",
-      "status": "pending",
+      "status": "completed",
       "tier": "Full",
       "scope": "Transparent-sheet intake (alpha-matted, detect a<=48, floor <=24->0, ceil >=244->255); 4 atlases + RAMP_SPECS entries for goblinTower/laser turret/pentagram/Helga; NO self-destruct (R182-A hub-only); spawnerZoneRenderer fades with cover (owner: FADE ON EVERYTHING); defender cover publish site (turret + princess); reveal on CRUMBLE not first sever.",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": [],
+      "check_completed": true,
+      "checkpoint_commit": "0a99180",
+      "check_method": "Branch A built in an isolated worktree, then AUDITED BY AN AGENT THAT DID NOT WRITE IT, which found a HIGH defect the branch had not: rampAnchorAtPoint hit-tested a band the art does not occupy. place() is sprite.y = cy + artPx*0.5 + (1-footY)*spritePx against a BOTTOM anchor, so the art STRADDLES the centroid; the box accepted [cy-artPx, cy+0.175*artPx], missing the bottom 0.325*artPx of every tower (goblin/Helga 32px, laser 31, pentagram 29, hub 27) and accepting 0.5*artPx of empty sky above. A click on a tower base fell through to a member scan that cannot hit, because this branch HID the members - the function defeating its own stated purpose. Verified BY HAND against place() before fixing. Its own suite was green over it, asserting a hit at -0.6*artPx (ten px ABOVE the drawing) and misses only far outside: a mechanical test can still pin the wrong geometry when the geometry came from prose. Fixed symmetric and re-pinned with cases that walk the FOOT and both drawn extremes. Also fixed as merge owner: Helga drew ON TOP of her own hall (Pixi z-order is addChild order and princessRenderer was constructed after structureRampRenderer) - no renderer runs under vitest, so z-order was invisible to all 5288 tests. THE BRANCH ALSO CORRECTED MY BRIEF IN THREE PLACES, the most valuable output of the whole split: a FOURTH cause of visible shapes (DAMAGED_BOND_MIN_ALPHA re-pinning damaged connectors to 0.85 alpha, which is the owner own S175 P9 ruling and precisely what he reversed this session); the FIX/SCRAP click path did NOT already cover these towers (towerAnchorAtPoint is race-towers-only and walks creatureSpawners, so no defender can be in it); and a post-snap drain that flicked a tower back to frame 1 for up to 30 ticks. Gates on the MERGED tree, each from a captured exit code: typecheck 0, vitest 5290/319, build 877.2 KiB. Then the owner playtested and two further fixes landed (laser muzzle measured off the atlas, Helga patrol), with the full suite at 5349/322 and e2e:gating 68 passed on the merged tree. Deployed twice, verify-deploy 4/4 both times.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRamp.ts",
+          "needle": "Math.abs(y - at.cy) > half"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/structureRamp.ts",
+          "needle": "y > at.cy + half * 0.35"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/structureRamp.ts",
+          "pattern": "recipeId: 'lightningHub'|recipeId: 'goblinTower'|recipeId: 'laserTurret'|recipeId: 'pentagram'|recipeId: 'helga'",
+          "op": "==",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/turretRenderer.ts",
+          "needle": "rampMuzzleAt"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/defenderLifecycle.ts",
+          "needle": "PRINCESS_PATROL_LEG_TICKS"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -204,12 +232,12 @@
     {
       "id": 3,
       "title": "S183 P3 - BRANCH B: retaliation targeting (R183-A/B/C/D)",
-      "status": "pending",
+      "status": "carry_forward",
       "tier": "Full",
       "scope": "A unit under attack re-picks its attacker; on attacker loss it re-picks nearest by its own preferences, never returning to the prior target. Pencil chewer NEVER retaliates. Helga retaliates within creatures-only. Suicide bomber DOES retaliate. Attacker id threaded through damageEntity (17 production call sites), mechanical enumeration, no optional param.",
       "check_completed": false,
       "checkpoint_commit": null,
-      "check_method": null,
+      "check_method": "NOT DONE - AND NOT MERGED. Branch B (retaliation) was BUILT and its worktree branch holds commit 0f0d68d, but its independent audit found THREE behavioural defects it had not reported, including that its CENTRAL determinism claim is false as written: the aggressor scan reads targetCreatureId while recordCreatureRetaliation also WRITES it, so the guarantee goes circular the moment two victims are struck in one tick (measured by probe: U.targetCreatureId is 10 when V is hit first and 30 when U is hit first). Not a desync - host, worker and replay share the iteration order - but it is spawn-order-sensitive GAMEPLAY and it changes WHICH target, not merely when. Second: committed-to-this-victim reads a NAVIGATION lock (hostTick writes targetCreatureId for every structure-attacker merely walking within 220px), so a victim punched at 20px breaks off and walks 250px to a lower-id unit that never hit it, contradicting the owner ruling outright. Third: the Voltkin gate suppresses the forced state drop but not the WRITE, so the S103 #8 re-validation nulls the target and bounces the creature out anyway. The fixes were sent back to the branch and THE AGENT DIED ON THE ORG MONTHLY SPEND LIMIT mid-run. Per this project S161 rule a dead agent run is not a completed lane, so this is recorded as NOT DONE rather than quietly closed. NOTHING from branch B is on master.",
       "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -219,13 +247,41 @@
     {
       "id": 4,
       "title": "S183 P4 - BRANCH C: the caption + the audit fixes",
-      "status": "pending",
+      "status": "completed",
       "tier": "Full",
       "scope": "Feed caption (12px rise into an 8px gap, lands 4px inside FIX/SCRAP; x-anchored to card centre); WIN-screen destruction; leaderboard 24h double-count (HIGH); keep-out silently gating FIX/SCRAP; arcade recap bugs; the false comments (transport.ts:635 x3 lanes, netStats:34, save.ts:1897, canon s9).",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": [],
+      "check_completed": true,
+      "checkpoint_commit": "d750132",
+      "check_method": "Branch C built in an isolated worktree, then AUDITED BY AN AGENT THAT DID NOT WRITE IT. Verdict MERGEABLE with 5 items. The audit also caught that its own first cold vitest run was RED (exit 1) from a stale vite cache entry referencing a throwaway probe I had created and deleted in that worktree - my fault, worktree-local, cannot travel with the merge, recorded rather than shrugged off. One real hole found IN THE FIX ITSELF: prunePending read now - r.at < MAX_AGE, which for a FUTURE-stamped run is NEGATIVE and so trivially true, meaning a device with a clock set forward queued a run kept FOREVER that then folded a second time after the server 24h key expired - reopening the exact permanent double-count the priority existed to close. Math.abs, plus a test for the future stamp AND one proving a small forward skew is still tolerated. Its 12h justification was also arithmetically wrong (a constant clock OFFSET cancels; what the margin buys is room for a JUMP, flight time, and the server pruning on another client POST) - number kept, false sentence replaced. OWNER OVERRULED THE CAPTION FIX: the branch cut A SHAPE from his wording to fit one line, and three variants of that compromise were put to him. He rejected all three - you can make it divided to two lines, and just make it fit the box - so it now WRAPS, balanced at the word boundary nearest the middle, so every race gets two lines of similar length rather than a greedy wrap giving BATS one line and SOULEATERS two. Widest line 114px against a 174px budget. The regression witness was RE-POINTED rather than deleted: it used to assert his wording overflowed (the justification for cutting it) and now pins that ONE line does not fit, which is WHY it wraps. Audit verified clean: file boundary held, no forbidden file touched, structureRampRenderer untouched, damage.ts comment-only, canReclaimNow a faithful subtraction that still enforces R19 and own-ground, determinism clean, four-sites not applicable. Gates on the MERGED tree: typecheck 0, typecheck:server 0, vitest 5343/322, build 878.3 KiB, e2e:gating 68 passed with GATING_EXIT=0. Deployed, verify-deploy 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "FEED A SHAPE TO BUILD MORE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetModel.ts",
+          "needle": "feedCaptionLines"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeScores.ts",
+          "needle": "Math.abs(now - r.at)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/structureRepair.ts",
+          "needle": "canReclaimNow"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/transport.ts",
+          "pattern": "SNAPSHOT_SINGLE_STRATEGY is false",
+          "op": "==",
+          "value": 0
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -242,6 +298,36 @@
       "session": "S183",
       "tag": "#the-feature-was-built-something-else-drew-over-it",
       "entry": "S183 - The owner said connector hiding 'literally is not here' and I had just read the commit that shipped it and concluded it worked. He was right. The feature runs correctly - structureRenderer fades every shape and bond to invisible - and then spawnerZoneRenderer redraws the connectors, beads, rings and core straight back on top, with no reference to towerCover anywhere in the file, its own comment admitting it draws 'on top of the normal bond visual structureRenderer already drew'. I had enumerated who PUBLISHES cover and never asked who DRAWS without consuming it. When a feature is provably built and provably absent on screen, enumerate the consumers, not the producers."
+    },
+    {
+      "session": "S183",
+      "tag": "#the-branch-that-contradicts-its-brief-is-the-one-earning-its-keep",
+      "entry": "S183 - Branch A came back having found MY brief wrong in three places, and the most valuable was one I had written confidently: the FIX/SCRAP click path already exists, just owe a test. It does not - towerAnchorAtPoint serves race towers only and walks creatureSpawners, so no defender can ever be in it. With the shapes hidden, all five ramp towers would have been repairable only by clicking an invisible 10px dot. A brief is a hypothesis and the branch is the experiment. Write briefs that say WHY, so a session can tell when the why has stopped holding."
+    },
+    {
+      "session": "S183",
+      "tag": "#a-mechanical-test-can-still-pin-the-wrong-geometry",
+      "entry": "S183 - This project answer to source-text guards is make the enumeration mechanical. Branch A did exactly that for its new click box and was STILL green over a HIGH defect, because the geometry it pinned came from its own docblock sentence rather than from place(). It asserted a hit ten pixels ABOVE the top of the drawing and never touched the band that was broken. Mechanical beats prose only if the mechanism reads the SOURCE OF TRUTH - here, the line that positions the sprite. Derive test geometry from the placement function, never from the comment describing it."
+    },
+    {
+      "session": "S183",
+      "tag": "#wrap-before-you-edit-the-owners-words",
+      "entry": "S183 - His caption did not fit beside the chip, so the branch cut two words out of his sentence and I put three variants of that compromise to him. He rejected all three: you can make it divided to two lines, and just make it fit the box, it is really simple, I do not know why you are having difficulties with that. The measurement was right and the conclusion was wrong. When the owner copy does not fit a layout, change the LAYOUT first - rewriting his words is the last resort, and offering three versions of the wrong move is worse than offering none."
+    },
+    {
+      "session": "S183",
+      "tag": "#enumerate-the-consumers-not-the-producers",
+      "entry": "S183 - He said connector hiding was literally not here, and I had just read the S175 commit and told him it worked. He was right. The feature ran correctly and a SECOND renderer redrew the connectors on top of the faded ones, with no reference to towerCover anywhere in its file and its own comment admitting it draws over what structureRenderer already drew. I had enumerated who PUBLISHES cover and never asked who DRAWS without consuming it. When something is provably built and provably absent on screen, enumerate the CONSUMERS."
+    },
+    {
+      "session": "S183",
+      "tag": "#measure-the-verifier-not-only-the-code",
+      "entry": "S183 - The audit ran as two identical pipelines. Round A verify and refute stages killed NOTHING across 8 stages; round B killed 7 from the same prompt template. Same instructions, opposite behaviour - so the KILL COUNT is a free health check on the auditor itself. I re-verified round A by hand and all three consequential findings held, but the check cost minutes and would have caught a rubber-stamp for nothing. A verification stage that never rejects anything has not been shown to work."
+    },
+    {
+      "session": "S183",
+      "tag": "#a-dead-agent-run-is-still-not-a-completed-lane",
+      "entry": "S183 - Branch B fixes were dispatched back to their branch and the agent died on the org monthly spend limit mid-run. The S161 rule held: it is recorded as NOT DONE in the handoff summary line, not as a carry-forward buried where the next session may not reach it, and nothing from that branch is on master. The rule earns its keep precisely when the session is otherwise going well and closing the lane would feel like tidying up."
     }
   ],
   "real_context_tokens_at_close": null,
