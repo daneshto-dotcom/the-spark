@@ -120,7 +120,7 @@ describe('S179 — removed is not killed', () => {
     dn.sync(w);
     const before = printed(dn).length;
 
-    damageEntity(w, { kind: 'primitive', id: a.id }, swing, 'creature');
+    damageEntity(w, { kind: 'primitive', id: a.id }, swing, 'creature', null);
     dn.sync(w);
 
     expect(printed(dn).slice(before), 'the killing blow is still shown').toContain(String(swing));
@@ -143,7 +143,7 @@ describe('S179 — removed is not killed', () => {
     dn.sync(w);
     const before = printed(dn).length;
 
-    damageEntity(w, { kind: 'primitive', id: a.id }, swing, 'creature');
+    damageEntity(w, { kind: 'primitive', id: a.id }, swing, 'creature', null);
     dn.sync(w);
 
     const nums = printed(dn).slice(before);

@@ -186,11 +186,18 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     // CREATURE_HIT_DAMAGE every creature used to deal. Every shipped unit is atk 1 / pen 0, so this
     // is 5 fifths against pools that are five times the old hit counts — identical kill counts, and
     // now a per-unit lever exists where there was one global constant.
+    /*
+     * ⭐⭐ S183 (owner R183-A…D) — **THE ATTACKER NAMES ITSELF, AND THIS IS THE ARM THE RULING IS
+     * ABOUT.** *"When a unit is attacked … it switches target to the attacker."* The switch itself
+     * happens inside `damageEntity` → `creatures/retaliation.ts`, so every strike path gets the
+     * same rule and no arm can implement a second one.
+     */
     const died = damageEntity(
       world,
       { kind: 'creature', id: action.targetCreatureId },
       attackFifths(getCreatureConfig(creature.type).atk, getCreatureConfig(creature.type).pen),
       'creature',
+      { kind: 'creature', id: creature.id },
     );
     if (died) creature.killCount += 1;
     /*
@@ -298,11 +305,13 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
    */
   const defenderId = killableDefenderInReach(world, creature, attackerConfig.attackRange);
   if (defenderId !== null) {
+    // ⭐ S183 (owner R183-C) — the one arm that can make HELGA retaliate. See `retaliation.ts`.
     const killed = damageEntity(
       world,
       { kind: 'defender', id: defenderId },
       attackFifths(attackerConfig.atk, attackerConfig.pen),
       'creature',
+      { kind: 'creature', id: creature.id },
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -375,11 +384,15 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * Now it is not, and a goblin prints the same 12 on a shape that it prints on a goblin. His
        * six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
        */
+      // ⭐ S183 — named, though a SHAPE has no AI to turn round: `damageEntity`'s primitive arm
+      // ignores the attacker entirely. Threading the truth costs nothing and keeps every creature
+      // strike in this file reading the same way.
       const died = damageEntity(
         world,
         { kind: 'primitive', id: prim.id },
         attackFifths(attackerConfig.atk, attackerConfig.pen),
         'creature',
+        { kind: 'creature', id: creature.id },
       );
       if (died) {
         creature.killCount += 1;
@@ -420,11 +433,13 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
    */
   const cloudId = enemyStinkCloudInReach(world, creature, attackerConfig.attackRange);
   if (cloudId !== null) {
+    // ⭐ S183 — named; a landed bag has no AI either. Same reasoning as the shape arm above.
     const killed = damageEntity(
       world,
       { kind: 'stinkCloud', id: cloudId },
       attackFifths(attackerConfig.atk, attackerConfig.pen),
       'creature',
+      { kind: 'creature', id: creature.id },
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -480,11 +495,14 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * castle-gun cadence (`CASTLE_FIRE_INTERVAL_TICKS`, 240) was measured against the flat 6, so
        * the whole siege relationship is retuned by this line. He ruled it knowing that.
        */
+      // ⭐ S183 — named; a KEEP has no AI. The castle GUN's own shot passes `null` the other way
+      // (`castleGuns.ts`) because a castle is not an entity anything can turn on.
       damageEntity(
         world,
         { kind: 'castle', seat: castleSeat },
         attackFifths(attackerConfig.atk, attackerConfig.pen),
         'creature',
+        { kind: 'creature', id: creature.id },
       );
     }
     return world;

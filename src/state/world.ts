@@ -702,7 +702,9 @@ export function dispatch(world: World, action: GameAction): World {
         // cloud's whole job is marking WHERE THE UNIT STOOD.
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
-        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player');
+        // ⭐ S183 — `null`: a RAID is dealt by the player's AVATAR, and the avatar is untargetable
+        // by ruling (canon §4). There is nothing for the victim to turn on.
+        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player', null);
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }
@@ -727,7 +729,8 @@ export function dispatch(world: World, action: GameAction): World {
         if (target.ehp === null) return world; // a tower — refuse rather than take the point
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
-        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player');
+        // ⭐ S183 — `null`, same reason as the creature arm above: the raider is an avatar.
+        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player', null);
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }

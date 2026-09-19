@@ -106,7 +106,7 @@ const exploded = (w: World): boolean =>
 /** Kill outright, with the deferred batch CLOSED — the turret / Helga / stink-bag path. */
 function killImmediately(w: World, id: CreatureId): void {
   w.pendingCreatureDeaths = null;
-  damageEntity(w, { kind: 'creature', id }, 100_000, 'player');
+  damageEntity(w, { kind: 'creature', id }, 100_000, 'player', null);
 }
 
 describe('S168 P7 — the zombie boss death explosion (R138)', () => {
@@ -134,7 +134,7 @@ describe('S168 P7 — the zombie boss death explosion (R138)', () => {
     world.effects.length = 0;
     const batch = new Set<CreatureId>();
     world.pendingCreatureDeaths = batch;
-    damageEntity(world, { kind: 'creature', id: bossId }, 100_000, 'player');
+    damageEntity(world, { kind: 'creature', id: bossId }, 100_000, 'player', null);
     expect(world.creatures.has(bossId), 'deferred: still present, still swinging').toBe(true);
     sweepDeferredDeaths(world, batch);
     world.pendingCreatureDeaths = null;

@@ -74,15 +74,15 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
   it("SCRAP's caption is the SURVIVOR count — R21 stated to the player, not the bill", () => {
     const w = setup();
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 7');
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature');
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature', null);
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 5');
   });
 
   it('FIX prices the shortfall when it can be paid, and NAMES it when it cannot', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature');
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature', null);
 
     // Empty bank: visible, disabled, and it SAYS why — the standing contract for a refused control.
     const broke = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
@@ -113,7 +113,7 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
    */
   it('chip damage alone COSTS ONE SHAPE (was: REPAIR FREE)', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature'); // ⭐ S177 P1 — chip damage on the 70-fifth scale
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null); // ⭐ S177 P1 — chip damage on the 70-fifth scale
     stock(w, SparkType.Spiral, 1); // the build spent the whole bill, so the fee needs funding
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);
@@ -124,7 +124,7 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
     // ⛔ THE REAL CONSEQUENCE OF R182-E, and the owner should see it: a dented tower is no longer
     // unconditionally repairable. `setup` spends the exact bill, so the bank is empty here.
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null);
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(false);
     expect(fix.caption).toBe('NEED 1 MORE');

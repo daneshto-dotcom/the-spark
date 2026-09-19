@@ -404,9 +404,9 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const w = make1v1();
     const c = landCloud(w);
     const pool = c.ehp;
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, pool - 1, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, pool - 1, 'creature', null)).toBe(false);
     expect(w.stinkClouds.get(c.id)!.ehp).toBe(1);
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 1, 'creature')).toBe(true);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 1, 'creature', null)).toBe(true);
     expect(w.stinkClouds.has(c.id), 'and the arm REMOVES it — the contract in full').toBe(false);
   });
 
@@ -415,7 +415,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const victim = plantVoltkinAt(w, 520, 500); // inside the 90 px bag radius
     const c = landCloud(w); // owned by P0; the Voltkin is P1's
     const before = victim.ehp;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
     expect(
       w.creatures.get(victim.id)!.ehp,
       'the unit standing in it eats the burst',
@@ -432,7 +432,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const mine = [...w.creatures.values()].at(-1)!;
     const before = mine.ehp;
     const c = landCloud(w, P0);
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
     expect(w.creatures.get(mine.id)!.ehp).toBe(before);
   });
 
@@ -440,7 +440,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const w = make1v1();
     const c = landCloud(w);
     w.effects.length = 0;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
     const bursts = w.effects.filter((e) => e.kind === 'BOMB_EXPLODE');
     expect(bursts).toHaveLength(1);
     expect((bursts[0] as { radius: number }).radius).toBe(STINK_BAG_RADIUS);
@@ -449,8 +449,8 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
   it('is idempotent on a bag already gone', () => {
     const w = make1v1();
     const c = landCloud(w);
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature');
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 999, 'creature')).toBe(false);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 999, 'creature', null)).toBe(false);
   });
 
   it('⭐ a UNIT finds an enemy bag in reach — and never its own side’s', () => {
@@ -572,6 +572,7 @@ describe('S160 P3 — the landed bag dies to EVERYTHING, and the floor has zero 
       { kind: 'stinkCloud', id: c.id },
       attackFifths(GOBLIN_SHIELD_ATK, GOBLIN_SHIELD_PEN),
       'creature',
+    null,
     );
     expect(killed, 'the killing blow reports true').toBe(true);
     expect(w.stinkClouds.has(c.id), 'and the cloud is gone').toBe(false);

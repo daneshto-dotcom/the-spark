@@ -71,13 +71,13 @@ describe('S154 AMENDMENT C / S181 — the castle starts at CASTLE_MAX_HP and tak
   it('damageEntity has a castle arm that subtracts, clamps at zero and is idempotent', () => {
     const w = fightWorld();
     const seat = asPlayerId(1);
-    expect(damageEntity(w, { kind: 'castle', seat }, 500, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'castle', seat }, 500, 'creature', null)).toBe(false);
     expect(w.players.get(seat)!.castleHp).toBe(CASTLE_MAX_HP - 500);
     // the killing blow returns true exactly once…
-    expect(damageEntity(w, { kind: 'castle', seat }, 5000, 'creature')).toBe(true);
+    expect(damageEntity(w, { kind: 'castle', seat }, 5000, 'creature', null)).toBe(true);
     expect(w.players.get(seat)!.castleHp).toBe(0); // clamped, never negative
     // …and never again, so the win gate cannot double-fire.
-    expect(damageEntity(w, { kind: 'castle', seat }, 10, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'castle', seat }, 10, 'creature', null)).toBe(false);
     expect(w.players.get(seat)!.castleHp).toBe(0);
   });
 
@@ -90,7 +90,7 @@ describe('S154 AMENDMENT C / S181 — the castle starts at CASTLE_MAX_HP and tak
      */
     const w = fightWorld();
     const seat = asPlayerId(0);
-    damageEntity(w, { kind: 'castle', seat }, 700, 'creature');
+    damageEntity(w, { kind: 'castle', seat }, 700, 'creature', null);
     const wounded = w.players.get(seat)!.castleHp;
     expect(wounded).toBe(CASTLE_MAX_HP - 700);
     const carrying = pickup(w.players.get(seat)!, asSparkId(1));
@@ -189,7 +189,7 @@ describe('S154 AMENDMENT C — the second victory condition', () => {
   it('⭐ a razed castle ends the match, and the SURVIVOR wins', () => {
     const w = fightWorld();
     expect(w.gameState).toBe('PLAYING');
-    damageEntity(w, { kind: 'castle', seat: asPlayerId(1) }, CASTLE_MAX_HP, 'creature');
+    damageEntity(w, { kind: 'castle', seat: asPlayerId(1) }, CASTLE_MAX_HP, 'creature', null);
     expect(w.players.get(asPlayerId(1))!.castleHp).toBe(0);
     const d = deps();
     const st = makeHostTickState(w);
@@ -224,7 +224,7 @@ describe('S164 P3 — damageEntity is damage-only, castle included', () => {
     const w = fightWorld();
     const seat = asPlayerId(1);
     const before = w.players.get(seat)!.castleHp;
-    expect(() => damageEntity(w, { kind: 'castle', seat }, -300, 'creature')).toThrow(
+    expect(() => damageEntity(w, { kind: 'castle', seat }, -300, 'creature', null)).toThrow(
       /non-negative INTEGER/,
     );
     expect(w.players.get(seat)!.castleHp, 'and nothing was healed on the way out').toBe(before);
@@ -233,7 +233,7 @@ describe('S164 P3 — damageEntity is damage-only, castle included', () => {
   it('⛔ a FRACTIONAL amount throws for a castle too — the guard now covers every target', () => {
     const w = fightWorld();
     const seat = asPlayerId(1);
-    expect(() => damageEntity(w, { kind: 'castle', seat }, 2.5, 'creature')).toThrow(
+    expect(() => damageEntity(w, { kind: 'castle', seat }, 2.5, 'creature', null)).toThrow(
       /non-negative INTEGER/,
     );
   });
@@ -242,7 +242,7 @@ describe('S164 P3 — damageEntity is damage-only, castle included', () => {
     const w = fightWorld();
     const seat = asPlayerId(1);
     const before = w.players.get(seat)!.castleHp;
-    expect(damageEntity(w, { kind: 'castle', seat }, 10, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'castle', seat }, 10, 'creature', null)).toBe(false);
     expect(w.players.get(seat)!.castleHp).toBe(before - 10);
   });
 
@@ -250,7 +250,7 @@ describe('S164 P3 — damageEntity is damage-only, castle included', () => {
     const w = fightWorld();
     const seat = asPlayerId(1);
     const before = w.players.get(seat)!.castleHp;
-    expect(damageEntity(w, { kind: 'castle', seat }, 0, 'creature')).toBe(false);
+    expect(damageEntity(w, { kind: 'castle', seat }, 0, 'creature', null)).toBe(false);
     expect(w.players.get(seat)!.castleHp).toBe(before);
   });
 });

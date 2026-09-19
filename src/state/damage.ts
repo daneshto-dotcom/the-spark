@@ -43,6 +43,7 @@ import { attackFifths, structurePoolFifths } from './stats.ts';
 import { LONE_PRIMITIVE_POOL_FIFTHS } from '../constants.ts';
 import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
+import { recordCreatureRetaliation, recordDefenderRetaliation } from './creatures/retaliation.ts';
 import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
@@ -101,14 +102,40 @@ export type DamageTarget =
 /**
  * Who dealt it. Carried for attribution + future reward/threat rules; it deliberately does NOT
  * change the arithmetic today, so adding a source can never alter existing balance.
+ *
+ * ⛔ S183 — **THIS IS A CATEGORY, NOT AN IDENTITY, AND THAT IS WHY `DamageAttacker` EXISTS.** It
+ * says a creature hit you. It has never said WHICH creature, and a reading of this file that
+ * assumes otherwise is the specific mistake retaliation was nearly built on top of.
  */
 export type DamageSource = 'creature' | 'defender' | 'player' | 'hazard' | 'aura';
+
+/**
+ * ⭐⭐ S183 (owner R183-A…D) — **WHICH ENTITY DEALT IT.** The identity `DamageSource` deliberately
+ * does not carry, threaded so a victim can turn on its attacker (`creatures/retaliation.ts`).
+ *
+ * ⛔⛔ **REQUIRED, NEVER OPTIONAL, AND THE REQUIREMENT IS THE WHOLE POINT.** An optional parameter
+ * would leave every existing call compiling and every path that forgot it silently un-retaliating:
+ * a tolerant default, green tests, dead feature — verbatim the S182 defect the project doc records
+ * (*"a new value propagated through every consumer with an exhaustive switch … the one consumer
+ * with a tolerant `default` stayed silent"*). Making it required means `tsc` ENUMERATES the call
+ * sites and a future damage path cannot be added without someone deciding what it means.
+ *
+ * `null` is a real, deliberate answer and the honest one for area damage, a hazard, the castle gun
+ * and a player raid: there is no single entity to turn on. `src/state/damage.callSites.test.ts`
+ * counts both populations mechanically, so a new site shifts a pinned number rather than slipping
+ * in as one more `null`.
+ */
+export type DamageAttacker =
+  | { readonly kind: 'creature'; readonly id: CreatureId }
+  | { readonly kind: 'defender'; readonly id: DefenderId }
+  | null;
 
 export function damageEntity(
   world: World,
   target: DamageTarget,
   amount: number,
   source: DamageSource,
+  attacker: DamageAttacker,
 ): boolean {
   void source; // attribution only for now — see DamageSource
   /*
@@ -162,12 +189,29 @@ export function damageEntity(
   if (amount === 0) return false;
 
   switch (target.kind) {
-    case 'creature':
+    case 'creature': {
       // Delegate — `damageCreature` stays THE creature-death path (S102 unified hp model).
       // ⭐ S155 N1 — pass the host tick's one-tick deferral set THROUGH, so a mutual melee exchange
       // resolves simultaneously instead of being decided by `creatures` iteration order. `null`
       // outside that batch ⇒ immediate deletion, exactly as before, for every other damage source.
-      return damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
+      const died = damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
+      /*
+       * ⭐⭐ S183 (owner R183-A…D) — **THE VICTIM TURNS ON ITS ATTACKER.** One call, at the one
+       * funnel every creature hit passes through, so no strike path can implement the ruling
+       * differently or forget it. The rule itself — the pencil-chewer exception, the splash gate
+       * and the lowest-id total order — lives in `creatures/retaliation.ts`.
+       *
+       * ⚠ AFTER THE BLOW AND ONLY WHEN IT SURVIVED, WHICH IS THE S155 N1 DEFERRAL SPEAKING. Under
+       * `pendingCreatureDeaths` a lethally-struck creature stays in the map until the end-of-tick
+       * sweep precisely so *"its committed blow still lands"*. Retargeting a corpse-in-waiting
+       * would redirect that last blow onto somebody it was never aiming at, which is the guarantee
+       * the deferral exists to give.
+       */
+      if (!died && attacker !== null && attacker.kind === 'creature') {
+        recordCreatureRetaliation(world, target.id, attacker.id);
+      }
+      return died;
+    }
 
     case 'primitive': {
       const prim = world.primitives.get(target.id);
@@ -249,7 +293,18 @@ export function damageEntity(
       const d = world.defenders.get(target.id);
       if (d === undefined || d.ehp === null) return false;
       d.ehp -= amount;
-      if (d.ehp > 0) return false;
+      if (d.ehp > 0) {
+        /*
+         * ⭐ S183 (owner R183-C) — **HELGA RETARGETS WHOEVER IS TARGETING HER**, and only while she
+         * is still standing. `ehp === null` above already means a TOWER took nothing, so this arm
+         * is reached by the one defender kind with a pool. She cannot be aimed at a tower by this:
+         * the only field it writes is `Defender.targetCreatureId`, a `CreatureId`.
+         */
+        if (attacker !== null && attacker.kind === 'creature') {
+          recordDefenderRetaliation(world, target.id, attacker.id);
+        }
+        return false;
+      }
       // ⭐ S182 — the killing blow on Helga (the one defender kind with a pool), same reason again.
       world.structureKillHits.push({ key: `d:${d.id}`, amount });
       // She is gone. Same visible death the erased primitive gets, so a client with no idea WHY
@@ -608,8 +663,16 @@ export function applyRadialDamage(
   //
   // `defenderVictims` is still COLLECTED, because `defendersHit` is part of this function's reported
   // result and callers (the stink death blast) count it. It is simply no longer damaged here.
+  /*
+   * ⭐ S183 — **AREA DAMAGE NAMES NO ATTACKER, AND THAT IS A DECISION RATHER THAN AN OMISSION.**
+   * `damageEntity`'s attacker parameter is REQUIRED so every site has to answer; the honest answer
+   * for a blast is `null`. A splash is not somebody targeting you — there is no single entity to
+   * turn on — and routing the blast owner through here would have a suicide bomber's detonation,
+   * a stink burst and a hub self-destruct all yank every survivor's target at once. Deliberate,
+   * counted by `damage.callSites.test.ts`, and the same answer for all three arms below.
+   */
   for (const cid of creatureVictims) {
-    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source);
+    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, null);
   }
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
@@ -624,10 +687,10 @@ export function applyRadialDamage(
    * function and swapping them typechecks, which is why the signature documents them at length.
    */
   for (const did of defenderVictims) {
-    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source);
+    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, null);
   }
   for (const pid of primVictims) {
-    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source);
+    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, null);
   }
 
   return {
