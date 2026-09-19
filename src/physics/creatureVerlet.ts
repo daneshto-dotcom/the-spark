@@ -227,7 +227,7 @@ export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
    * locomotion is a replay-equivalence guard (Voltkin especially) is byte-identical.
    */
   /*
-   * ⭐⭐ S169 (owner R152) — **STUN GATE 2 OF 4: NO STEERING.**
+   * ⭐⭐ S169 (owner R152) — **STUN GATE 2 OF 5: NO STEERING.**
    *
    * Owner: *"stuck on idle and cant do anything."* The FSM gate in `creatureLifecycle` freezes the
    * state machine, which means a creature stunned mid-SEEKING STAYS in SEEKING — so without this

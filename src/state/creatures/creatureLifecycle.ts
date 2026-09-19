@@ -744,7 +744,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   }
 
   /*
-   * ⭐⭐ S169 (owner R152) — **STUN GATE 1 OF 4: THE FSM IS FROZEN.**
+   * ⭐⭐ S169 (owner R152) — **STUN GATE 1 OF 5: THE FSM IS FROZEN.**
    *
    * Owner: *"STUN where the player is stuck on idle and cant do anything."*
    *

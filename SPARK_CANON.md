@@ -480,6 +480,64 @@ while every player draws from the SAME distribution. If strong players start dra
 they post slower times and drift DOWN a table comparing raw averages — **improving would make you
 rank worse.** Whoever builds H has to normalise for difficulty or the board stops meaning anything.
 
+## 9b · ⭐⭐ RETALIATION — A UNIT THAT IS ATTACKED TURNS ON ITS ATTACKER (S183/S184)
+
+> *"When a unit is attacked — let's say it's targeting a building, and then it is attacked, and it
+> switches target to the targeted attack system. It makes sense. Most units, that is, unless it's
+> like a pencil chewer, which only attacks buildings."* — owner, S183
+
+`creatures/retaliation.ts`, called from `damageEntity` and nowhere else, so no strike path can
+implement it differently or forget it. **No new field and no protocol bump**: it writes the
+existing `Creature.targetCreatureId` / `Defender.targetCreatureId`, which is why `PROTOCOL_VERSION`
+stays 47.
+
+| ruling | what the code does |
+|---|---|
+| **R183-A — IT DOES NOT GO BACK.** *"It won't go back to what it was attacking before. It goes back to the next target."* | Nothing is stored and nothing is restored. When the attacker dies `pickNavUnit`'s hold branch fails and the unit re-acquires normally — R183-A for free, with no memory. |
+| **R183-B — THE PENCIL CHEWER NEVER RETALIATES.** | `NEVER_RETALIATES` is a **one-member set of NAMES** — `chewer` — not a predicate over `targetsStructures`. |
+| **R183-C — HELGA RETALIATES, INSIDE HER CONSTRAINT.** | Only while she is in **WALK**, only at a creature, and only at an aggressor inside her **hub** leash. |
+| **R183-D — THE SUICIDE BOMBER DOES RETALIATE.** *"It's like one or two shots … but whatever, yeah, he retaliates."* | It detonates on its attacker, through Step 1.5's `atUnit` arm. |
+
+⛔ **THE RULE IS NOT "BUILDINGS-ONLY ATTACKERS DO NOT RETALIATE."** That generalisation was put to
+him and he OVERRULED it: `goblinSuicide` is also buildings-first and retaliates anyway. The pencil
+chewer is a NAMED EXCEPTION, not an instance of a category — a predicate would silently recruit the
+next buildings-first unit into an exception he refused to grant.
+
+⚠ **ONE UNIT IS EXCLUDED THAT HE DID NOT NAME, AND IT IS A CAPABILITY STATEMENT:** the **lightning
+drone** (`selfExplode && !targetsStructures`). A drone holding a creature target enters ATTACKING,
+where the fan-out skips both bond re-selection and the Step 1.5 detonation — it would stop homing
+and stop being able to explode, against its own config's *"the drone explodes, it never ATTACKS"*.
+
+⭐ **AN AGGRESSOR IS A STRIKE COMMITMENT, NEVER A NAVIGATION LOCK.** `targetCreatureId` is two
+things wearing one name: the strike arm's dispatch field AND the structure-attacker's nav lock,
+written for anything in SEEKING inside 220 px. So the answer requires all three of ATTACKING, the
+field, and the attacker's own `attackRange` — and it is resolved **nearest, then lower id**, because
+retaliation drives NAVIGATION and walking to the lowest-id attacker when a nearer one is at your
+feet would look broken.
+
+### ⛔ WHAT IS OPEN, MEASURED IN S184, AND NEEDS HIM
+
+**A melee unit that turns on a ranged attacker it can never catch stops hitting anything at all.**
+Measured through the real host tick over 600 ticks — one vampire boss, a decoy at its feet, and a
+three-arm control:
+
+| arm | damage the boss DEALT | max `ticksInState` |
+|---|---:|---:|
+| no archer | 980 | 59 — fires freely |
+| archer present, retaliation DISABLED | 980 | 59 |
+| archer present, retaliation LIVE | **230** | **29** — never reaches its fire tick of 30 |
+
+The middle arm is what makes it attributable: with retaliation off, the archer changes **nothing**.
+`goblinArcher` has `holdsRange: true`, so *"walk to your attacker"* never terminates — the boss
+deals 76 % less, never lands a blow on the archer it turned to face, and drifts ~500 px away.
+
+⚠ **THIS IS NOT A CODING ERROR. It is R183-A doing exactly what it says.** The consequence is that
+one archer can neutralise any melee unit indefinitely. Every alternative changes HIS rule, so none
+of them is ours to pick. `retaliation.test.ts` pins the measurement so it cannot drift or be
+claimed away in prose.
+
+---
+
 ## 10 · ⛔ OPEN — needs the owner, do not guess
 
 *(Both of S180's castle questions were answered — see §3.)*

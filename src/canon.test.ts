@@ -50,6 +50,11 @@ import { RAMP_SPECS, rampDeathFirstFrame, rampFrameForHealth } from './render/st
 import { TOWER_DAMAGED_BELOW } from './render/towerFrames.ts';
 import { STAR_SELFDESTRUCT_BELOW_FRAC } from './state/structureStarHealth.ts';
 import { repairFeeShapeFor } from './state/structureRepair.ts';
+// S184 — §9b retaliation. The canon names these sets; these imports are what hold it to them.
+import { NEVER_RETALIATES, creatureRetaliates } from './state/creatures/retaliation.ts';
+import { CREATURE_TARGETS } from './state/stats.ts';
+import { getCreatureConfig } from './state/creatures/voltkin-config.ts';
+import type { CreatureType } from './state/creatures/creature.ts';
 import type { GodlyId } from './state/godlyRecipes/types.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
@@ -283,5 +288,43 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('improving would make you')).toBe(true);
     // And that H and the Steam login are ONE dependency, not two.
     expect(canonSays('ONE dependency, not two')).toBe(true);
+  });
+
+  /**
+   * §9b — RETALIATION. The canon states four owner rulings and two exclusions; these bind the two
+   * that are SETS, because a set is the thing a future session widens by accident.
+   */
+  it('§9b pins the ONE named exception, and that it is a name rather than a category', () => {
+    expect([...NEVER_RETALIATES]).toEqual(['chewer']);
+    expect(canonSays('`NEVER_RETALIATES` is a **one-member set of NAMES**')).toBe(true);
+    // R183-D is the reason it cannot become a predicate: the bomber shares the chewer's flag.
+    expect(getCreatureConfig('goblinSuicide').targetsStructures).toBe(true);
+    expect(creatureRetaliates('goblinSuicide')).toBe(true);
+    expect(creatureRetaliates('chewer')).toBe(false);
+  });
+
+  it('§9b pins the lightning drone as the ONE unit excluded that the owner did not name', () => {
+    const missiles = (Object.keys(CREATURE_TARGETS) as CreatureType[]).filter((type) => {
+      const cfg = getCreatureConfig(type);
+      return cfg.selfExplode && !cfg.targetsStructures;
+    });
+    expect(missiles).toEqual(['lightningDrone']);
+    expect(canonSays('(`selfExplode && !targetsStructures`)')).toBe(true);
+  });
+
+  /**
+   * §9b's OPEN block. The measured kiting collapse is the one thing in this feature that needs the
+   * owner, and the numbers are his evidence — so the canon must still be carrying them, and must
+   * still say it is not a coding error rather than quietly reading as a bug report someone fixed.
+   */
+  it('§9b keeps the kiting measurement OPEN, with its three-arm control intact', () => {
+    expect(canonSays('archer present, retaliation DISABLED')).toBe(true);
+    expect(canonSays('THIS IS NOT A CODING ERROR')).toBe(true);
+    expect(canonSays('is ours to pick')).toBe(true);
+  });
+
+  it('§9b records that retaliation cost no protocol bump, and that is still true', () => {
+    expect(canonSays('stays 47')).toBe(true);
+    expect(PROTOCOL_VERSION).toBe(47);
   });
 });

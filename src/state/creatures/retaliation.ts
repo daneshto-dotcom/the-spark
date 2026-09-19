@@ -101,11 +101,13 @@
  * the ruling asked for. Recorded here rather than left to be rediscovered.
  */
 
-import type { CreatureId, DefenderId } from '../../types.ts';
+import type { CreatureId, DefenderId, Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 import type { Creature, CreatureType } from './creature.ts';
-import { isUntargetable } from './creature.ts';
+import { isStunned, isUntargetable } from './creature.ts';
 import { distSq, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
+import type { Defender } from '../defenders/defender.ts';
+import { getDefenderConfig } from '../defenders/defender.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
@@ -130,9 +132,14 @@ export function creatureRetaliates(type: CreatureType): boolean {
  * ⛔⛔ **A HOMING MISSILE CANNOT HOLD A UNIT TARGET, AND THIS IS A CAPABILITY STATEMENT RATHER
  * THAN A SECOND EXCEPTION TO THE RULING.** R183-B named ONE unit; this is not another.
  *
- * `selfExplode && !targetsStructures` is the LIGHTNING DRONE and only the lightning drone — it is
- * `hostTick`'s own drone-branch predicate, read rather than re-derived, and `retaliation.test.ts`
- * pins that it selects exactly that one type. That branch is the only arm of the target fan-out
+ * `selfExplode && !targetsStructures` is the LIGHTNING DRONE and only the lightning drone.
+ *
+ * ⚠ S184 — IT IS A COPY OF `hostTick`'s DRONE-BRANCH PREDICATE, NOT A READ OF IT. This docblock
+ * said *"read rather than re-derived"*; `hostTick` writes the identical expression inline and
+ * exports nothing, so the two are the same words in two files with nothing binding them. The
+ * roster test below pins WHICH TYPES the expression selects, which is what actually matters — but
+ * it would not notice `hostTick` changing its own copy. Said plainly rather than left as a claim
+ * the next session would trust. That branch is the only arm of the target fan-out
  * that never writes `targetCreatureId`, so nothing in the shipped game has ever put a creature
  * target on a drone.
  *
@@ -170,8 +177,13 @@ function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature
    * took a lethal blow earlier in this same batch is still in `world.creatures` until the
    * end-of-tick sweep, so without these two lines a victim could commit to something that is
    * already dead, drop out of its wind-up with `ticksInState = 0`, and re-pick next tick having
-   * lost a cadence to a ghost. `ehp <= 0` covers the immediate arm, `pendingCreatureDeaths` the
-   * deferred one; both are needed because only one of them is live at a time.
+   * lost a cadence to a ghost.
+   *
+   * ⚠ S184 corrects what these two lines are: `pendingCreatureDeaths` is the ONLY reachable
+   * corpse-in-waiting state, because the immediate arm of `damageCreature` DELETES the creature
+   * rather than leaving it at zero — so `world.creatures.get` already misses it. `ehp <= 0` is
+   * therefore defence in depth against a future caller that leaves a zero-pool creature in the
+   * map, not the other half of a pair. It was previously described as "the immediate arm".
    */
   if (c.ehp <= 0) return false;
   if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
@@ -223,6 +235,39 @@ export function nearestCreatureAggressorOf(world: World, victim: Creature): Crea
 }
 
 /**
+ * ⛔ **HELGA'S LEASH, READ FROM THE PLACE HER OWN FSM READS IT — S184, and it was a measured
+ * defect rather than a precaution.**
+ *
+ * Her WALK arm re-validates its target against HOME, not against her:
+ * `distSq(victim.pos, homePos) <= config.attackRange ** 2`, with `homePos` the ANCHOR PRIMITIVE's
+ * position (`defenderLifecycle.ts`). The retaliation scan qualified an aggressor by the
+ * ATTACKER's reach to her CURRENT position instead — two different tests, so the scan could
+ * legally hand her a target the very next defender tick REJECTS. And the rejection is not a
+ * no-op: it sets `state = 'IDLE'`, nulls the target, clears `walkTargetPos` and pushes
+ * `nextFireTick` out by `DEFENDER_REACQUIRE_TICKS`.
+ *
+ * ⛔ SO THE WRITE COST HER THE TARGET SHE ALREADY HAD. She can be up to 380 from home while
+ * walking, and an archer's 220 arm reaches her from 380 + 220 = ~600 — far outside the 380 leash.
+ * An archer parked there fires about every 61 ticks against her 90-tick slap interval, so one of
+ * them could cancel her pursuit more often than she could finish a slap and she would land none:
+ * the exact walk-chase denial the hub-anchored leash was written to PREVENT, turned into its
+ * delivery mechanism.
+ *
+ * ⚠ The docblock claimed *"her anti-kite home leash still applies unmodified"*. True of the leash
+ * code and false as a safety claim, which is the distinction the branch missed.
+ */
+function princessHomePos(world: World, d: Defender): Vec2 {
+  const anchor = world.primitives.get(d.anchorPrimitiveId);
+  return anchor !== undefined ? { x: anchor.pos.x, y: anchor.pos.y } : { x: d.pos.x, y: d.pos.y };
+}
+
+/** Is `c` somewhere she is ALLOWED to go? The WALK arm's own admission test, not a copy of it. */
+function insideHomeLeash(c: Creature, d: Defender, homePos: Vec2): boolean {
+  const leash = getDefenderConfig(d.kind).attackRange;
+  return distSq(c.pos, homePos) <= leash * leash;
+}
+
+/**
  * ⭐ THE SAME TOTAL ORDER FOR HELGA. "Striking this defender" is read off the SAME three conditions
  * `applyCreatureAttack` uses to reach its defender arm — ATTACKING, a null creature target (the
  * creature arm short-circuits above it) and `killableDefenderInReach` naming her, which carries the
@@ -233,18 +278,19 @@ export function nearestCreatureAggressorOf(world: World, victim: Creature): Crea
  */
 export function nearestDefenderAggressorOf(
   world: World,
-  defenderId: DefenderId,
-  defenderOwner: Creature['ownerPlayerId'],
-  defenderPos: Creature['pos'],
+  d: Defender,
+  homePos: Vec2,
 ): CreatureId | null {
   let best: CreatureId | null = null;
   let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
-    if (!canBeRetaliatedAgainst(world, c, defenderOwner)) continue;
+    if (!canBeRetaliatedAgainst(world, c, d.ownerPlayerId)) continue;
     if (c.state !== 'ATTACKING') continue;
     if (c.targetCreatureId !== null) continue; // the creature arm wins first — it is not hitting her
-    if (killableDefenderInReach(world, c, getCreatureConfig(c.type).attackRange) !== defenderId) continue;
-    const dSq = distSq(c.pos, defenderPos);
+    if (killableDefenderInReach(world, c, getCreatureConfig(c.type).attackRange) !== d.id) continue;
+    // ⛔ S184 — and it has to be somewhere she is allowed to follow it to. See `insideHomeLeash`.
+    if (!insideHomeLeash(c, d, homePos)) continue;
+    const dSq = distSq(c.pos, d.pos);
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -276,6 +322,34 @@ export function recordCreatureRetaliation(
   // A creature already playing out its death animation has no AI left to redirect — the FSM cleared
   // both target fields on the way in and re-setting one would resurrect a commitment it cannot act on.
   if (victim.state === 'DESPAWNING') return;
+  /*
+   * ⛔⛔ **S184 — `!died` IS NOT THE SAME CLAIM AS "THE VICTIM SURVIVED", AND THE PHARAOH IS WHERE
+   * THEY COME APART.** `damageCreature` returns `false` on his LETHAL blow: the Ra latch
+   * (R171-A) restores him to 1 ehp, stamps `raRitualUntilTick` and reports non-fatal, because a
+   * kill count and a death VFX would both be wrong. `damageEntity` reads that `false` as "it
+   * lived" and calls retaliation — so the boss turned on his killer at the exact instant he left
+   * the world. He is *"between realities … not really in the game"*; a creature out of the world
+   * does not pick a new quarry.
+   *
+   * ⭐ ONE TEST CLOSES BOTH HALVES, WHICH IS WHY IT IS `isUntargetable` AND NOT A RA-SPECIFIC
+   * CHECK. The second half is the tick AFTER: damage passes straight through a channelling
+   * Pharaoh (`damageCreature` returns `false` before touching `ehp`), so every subsequent blow
+   * also read as "survived" and re-decided his target while he was a ghost.
+   */
+  if (isUntargetable(victim, world.tick)) return;
+  /*
+   * ⛔ **S184 — STUN GATE 5 OF 5.** The stun is four enumerated gates on the four paths that could
+   * move a creature (FSM, steering, host fan-out, boss skills) and its stated contract is that a
+   * stunned unit *"resumes exactly where it was interrupted"*. `damageEntity` is a FIFTH path into
+   * creature state and had no gate, so a Kraken-stunned goblin could be rewritten to SEEKING with
+   * `ticksInState = 0` and both structure commitments cleared — it would come out of the stun
+   * having lost the whole wind-up, which is the opposite of the contract. It also jumps the frame
+   * index, since `ticksInState` IS the renderer's pose, breaking *"a stunned sprite holds its
+   * pose"* in the same stroke.
+   *
+   * ⚠ Nothing about being stunned makes a creature untargetable, so this is ordinary play.
+   */
+  if (isStunned(victim, world.tick)) return;
 
   const attacker = world.creatures.get(attackerId);
   if (attacker === undefined) return;
@@ -325,11 +399,24 @@ export function recordCreatureRetaliation(
    * attacker is reachable) and walks the unit to it. When the quarry dies the same hold branch
    * fails and re-acquires from scratch: R183-A, for free, with no stored history.
    *
-   * ⚠ ONLY WHEN THE TARGET ACTUALLY CHANGED (guarded above) AND ONLY WHEN IT IS OUT OF REACH. A
-   * victim whose attacker is already inside its own arm keeps its wind-up and simply hits back on
-   * its next fire tick — resetting `ticksInState` on every blow would let a swarm hold a unit in a
-   * wind-up it can never finish, which is S177 P9's *"pretending to attack and not hitting
-   * anything"* rebuilt from the other side.
+   * ⚠ ONLY WHEN IT IS OUT OF REACH. A victim whose attacker is already inside its own arm keeps
+   * its wind-up and simply hits back on its next fire tick.
+   *
+   * ⛔⛔ **S184 — THE "GUARDED ABOVE" HALF OF THIS PARAGRAPH WAS FALSE AND IS RETRACTED.** It said
+   * the `chosen === victim.targetCreatureId` return stops `ticksInState` being reset on every
+   * blow, *"which is S177 P9's 'pretending to attack and not hitting anything' rebuilt from the
+   * other side"*. That guard is INERT in exactly this case: the S103 #8 re-validation
+   * (`creatureLifecycle.ts`) NULLS an out-of-range `targetCreatureId` on every ATTACKING tick
+   * after the entry tick, and only the SEEKING branch of `hostTick` ever writes it back — so the
+   * field is `null` for almost the whole wind-up, `chosen` is never `null`, and the comparison
+   * cannot match. It is live for about one tick in sixty.
+   *
+   * ⚠ **AND THE FAILURE IT CLAIMED TO PREVENT IS REAL, MEASURED, AND LEFT IN PLACE DELIBERATELY**
+   * — see the OPEN case in `retaliation.test.ts`. A three-arm control through `runHostTick` shows
+   * a vampire boss dealing 980 with no archer, 980 with an archer and retaliation DISABLED, and
+   * **230** with an archer and retaliation live, never again reaching its fire tick. It is not a
+   * coding error: it is R183-A doing what it says against a `holdsRange` attacker that cannot be
+   * caught. Changing it would change the owner's rule, so it is HIS call and not ours.
    */
   /*
    * ⚠ **AND ONLY FOR A STRUCTURE-ATTACKER, WHICH IS THE ONE FAMILY WHOSE SELECTOR CAN HOLD THE
@@ -365,10 +452,14 @@ export function recordCreatureRetaliation(
  * IDLE → WALK → WINDUP → FIRE → RECOVER, and each of the other four states refuses the swap for a
  * reason that is hers, not mine:
  *
- *  · **IDLE** re-acquires on her own `nextFireTick` through `findNearestEnemyCreatureFrom`. Writing
- *    a target here would be overwritten a tick later anyway, and forcing her out of IDLE early
- *    would let a unit that punches her slap FASTER than her cadence allows — a balance change
- *    nobody asked for.
+ *  · **IDLE** re-acquires on her own `nextFireTick` through `findNearestEnemyCreatureFrom`.
+ *    ⚠ S184 corrects the timing this once claimed: the overwrite is NOT *"a tick later"* — the
+ *    IDLE arm only re-acquires once `world.tick >= d.nextFireTick`, and RECOVER pushes that out by
+ *    `PRINCESS_SLAP_INTERVAL_TICKS` (90). The CONCLUSION still holds and that is why no code
+ *    changed: nothing in the IDLE arm READS `targetCreatureId`, so a write there changes no
+ *    behaviour whether it survives one tick or ninety. Forcing her out of IDLE early would instead
+ *    let a unit that punches her slap FASTER than her cadence allows — a balance change nobody
+ *    asked for.
  *  · **WINDUP** is a committed slap. `PRINCESS_MELEE_RANGE` is small while her `attackRange` is
  *    380, so swapping the victim mid-wind-up would let her land a slap on something she has not
  *    walked to — the exact *"hitting what it has not reached"* half of S177 P9.
@@ -404,7 +495,12 @@ export function recordDefenderRetaliation(
     return;
   }
 
-  const chosen = nearestDefenderAggressorOf(world, defenderId, d.ownerPlayerId, d.pos);
+  const homePos = princessHomePos(world, d);
+  // ⛔ S184 — the TRIGGER takes the leash test too, so trigger and answer cannot disagree. An
+  // attacker she is forbidden to chase does not get to start the decision either.
+  if (!insideHomeLeash(attacker, d, homePos)) return;
+
+  const chosen = nearestDefenderAggressorOf(world, d, homePos);
   if (chosen === null) return;
   if (chosen === d.targetCreatureId) return;
   d.targetCreatureId = chosen;

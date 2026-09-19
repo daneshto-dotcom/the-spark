@@ -1444,7 +1444,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       //    spawner (R8) + runs the FFA target-spread.
       const creature = world.creatures.get(id);
       /*
-       * ⭐⭐ S169 (owner R152) — **STUN GATE 3 OF 4: NO RE-TARGETING, NO NAVIGATION, NO ATTACK
+       * ⭐⭐ S169 (owner R152) — **STUN GATE 3 OF 5: NO RE-TARGETING, NO NAVIGATION, NO ATTACK
        * DISPATCH.**
        *
        * Owner: *"cant do anything ... it has to be consistent and coherent obviously."*
@@ -2024,7 +2024,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    */
   if (world.matchPhase === 'FIGHT') {
     /*
-     * ⭐⭐ S169 (owner R152) — **STUN GATE 4 OF 4: A STUNNED BOSS USES NO SKILLS.**
+     * ⭐⭐ S169 (owner R152) — **STUN GATE 4 OF 5: A STUNNED BOSS USES NO SKILLS.**
      *
      * Owner: *"cant do anything"* — and a boss whose aura keeps ticking, whose pack keeps spawning
      * and who keeps teleporting while visibly stunned is the loudest possible version of the

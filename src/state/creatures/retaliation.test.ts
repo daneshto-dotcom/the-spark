@@ -24,8 +24,11 @@ import {
   PRIMITIVE_MAX_HP,
   PRINCESS_DEF,
   PRINCESS_HP,
+  PRINCESS_SLAP_RANGE,
   SparkType,
 } from '../../constants.ts';
+import { T9_BOSS_TYPE } from '../t9BossIds.ts';
+import { applyStun } from './creature.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { asCreatureId, asDefenderId, asPlayerId, asPrimitiveId } from '../../types.ts';
@@ -34,7 +37,7 @@ import { makeDefender } from '../defenders/defender.ts';
 import { CREATURE_TARGETS, DEFENDER_TARGETS, attackFifths, unitPoolFifths } from '../stats.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { makeCreature, type Creature, type CreatureType } from './creature.ts';
-import { pickNavUnit } from './creatureAI.ts';
+import { distSq, pickNavUnit } from './creatureAI.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
 import type { Controls } from '../../input/controls.ts';
 import { makeGameStateExtras } from '../gameState.ts';
@@ -101,6 +104,49 @@ function commit(attacker: Creature, victim: Creature): void {
 
 function hit(world: World, victim: Creature, attacker: Creature): void {
   damageEntity(world, { kind: 'creature', id: victim.id }, SWING, 'creature', {
+    kind: 'creature',
+    id: attacker.id,
+  });
+}
+
+/**
+ * Helga on the board: an anchor primitive plus a `princess` defender registered on it. Module
+ * scope because TWO describes need her — hoisted rather than copied, since two fixtures that
+ * drift apart is the same defect as two predicates that disagree.
+ */
+function plantPrincess(w: World, x: number, y: number) {
+  const id = asPrimitiveId(w.nextPrimitiveId++);
+  const anchor: Primitive = {
+    id,
+    type: SparkType.Square,
+    placerColor: PLAYER_COLORS[0],
+    placedBy: P0,
+    createdTick: 0,
+    pos: { x, y },
+    prevPos: { x, y },
+    bonds: new Set(),
+    ownerColor: PLAYER_COLORS[0],
+    lastOwnershipChange: 0,
+    radius: 9,
+    hp: PRIMITIVE_MAX_HP,
+    origin: null,
+  };
+  w.primitives.set(id, anchor);
+  const d = makeDefender({
+    id: asDefenderId(w.nextDefenderId++),
+    kind: 'princess',
+    ownerPlayerId: P0,
+    anchorPrimitiveId: id,
+    recipeId: 'helga',
+    pos: { x, y },
+    registeredAtTick: 0,
+  });
+  w.defenders.set(d.id, d);
+  return d;
+}
+
+function hitReturning(world: World, victim: Creature, attacker: Creature): boolean {
+  return damageEntity(world, { kind: 'creature', id: victim.id }, SWING, 'creature', {
     kind: 'creature',
     id: attacker.id,
   });
@@ -461,6 +507,146 @@ describe('S183 — a corpse-in-waiting cannot be retaliated against', () => {
   });
 });
 
+/**
+ * ⛔⛔ **THE GUARDS NOTHING WAS HOLDING.** Every case below was written because a mutation sweep
+ * deleted the guard it describes and the whole suite stayed GREEN. A guard with no test is a
+ * claim, not a behaviour — and this file's own header says a one-sided assertion is not evidence.
+ *
+ * The sweep (revert one guard, require a RED from a captured exit code, restore byte-identical)
+ * found eight survivors. Six are below. The two that are not:
+ *   · `recordDefenderRetaliation`'s `d.ehp === null` tower guard is genuinely UNREACHABLE —
+ *     `damageEntity`'s defender arm returns before calling it, so it is defence in depth and a
+ *     test for it would assert nothing about the game;
+ *   · the forced SEEKING drop is covered by the owner-example case above.
+ */
+describe('S183 — the guards that had no test', () => {
+  it('a DESPAWNING victim has no AI left to redirect', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    victim.state = 'DESPAWNING'; // the FSM cleared both target fields on the way in
+    const attacker = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(attacker, victim);
+
+    hit(w, victim, attacker);
+
+    // Re-setting the field would resurrect a commitment the creature cannot act on.
+    expect(victim.targetCreatureId).toBeNull();
+    expect(victim.state).toBe('DESPAWNING');
+  });
+
+  it('a FRIENDLY unit is never an aggressor, as trigger or as answer', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    // Same owner, nearer, and holding the victim in its own target field.
+    const friendly = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P0, 10, 0);
+    commit(friendly, victim);
+    const enemy = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 30, 0);
+    commit(enemy, victim);
+
+    hit(w, victim, friendly);
+    expect(victim.targetCreatureId).toBeNull(); // refused as a TRIGGER
+
+    hit(w, victim, enemy);
+    expect(victim.targetCreatureId).toBe(enemy.id); // and skipped as an ANSWER, though nearer
+  });
+
+  it('an UNTARGETABLE attacker is skipped — a Pharaoh between realities freezes nobody', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    const ghost = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(ghost, victim);
+    ghost.raRitualUntilTick = w.tick + 10; // `isChannellingRa` — out of the world, R171-A
+    const solid = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 30, 0);
+    commit(solid, victim);
+
+    hit(w, victim, ghost);
+    expect(victim.targetCreatureId).toBeNull(); // refused as a TRIGGER
+
+    hit(w, victim, solid);
+    // ⚠ S179's reason at `pickNavUnit`'s hold branch: a Pharaoh every victim turned to face would
+    // freeze an army solid. The nearer ghost must lose to the farther solid unit.
+    expect(victim.targetCreatureId).toBe(solid.id);
+  });
+
+  /**
+   * ⚠ **THIS PINS A ONE-TICK WINDOW, NOT THE GENERAL CASE, AND SAYING SO IS THE POINT.** The
+   * S184 audit measured that the guard below is inert for almost the whole wind-up — the
+   * ATTACKING re-validation nulls `targetCreatureId` on every tick after the entry tick, so the
+   * comparison usually has `null` on one side. The case is kept because the window is real and
+   * the guard should not be deleted; what it must NOT be read as is "the swarm lockout cannot
+   * happen". It can, it does, and the OPEN case at the end of this file measures it.
+   */
+  it('re-picking the SAME aggressor does not churn the wind-up (the one tick it is live)', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 2, P1, 200, 0);
+    commit(archer, victim);
+    // The tick after a first retaliation landed and the unit closed back into ATTACKING, before
+    // the FSM re-validation has cleared an out-of-reach creature target. Transient, but it is the
+    // window the no-churn return exists for.
+    victim.state = 'ATTACKING';
+    victim.ticksInState = 25;
+    victim.targetCreatureId = archer.id;
+
+    hit(w, victim, archer);
+
+    // Without the early return the write lands again and the out-of-reach drop fires again on
+    // this tick. ⚠ On every OTHER tick of the wind-up the field is already null and the drop fires
+    // regardless — which is why this assertion is evidence about the guard, and not evidence that
+    // a swarm cannot starve the unit.
+    expect(victim.targetCreatureId).toBe(archer.id);
+    expect(victim.state).toBe('ATTACKING');
+    expect(victim.ticksInState).toBe(25);
+  });
+
+  it('a victim killed by the blow is NOT retargeted — its last committed swing still lands', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    const quarry = addUnit(w, GOBLIN_MELEE_CONFIG, 7, P1, 250, 0);
+    victim.state = 'ATTACKING';
+    victim.targetCreatureId = quarry.id; // the blow it had already committed to
+    victim.ehp = SWING; // this hit is exactly lethal
+    const killer = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(killer, victim);
+    w.pendingCreatureDeaths = new Set(); // the S155 N1 batch: removal waits for the sweep
+
+    const died = hitReturning(w, victim, killer);
+
+    expect(died).toBe(true);
+    expect(w.pendingCreatureDeaths.has(victim.id)).toBe(true); // still in `creatures`, not swept
+    // ⛔ THE DEFERRAL EXISTS SO THAT COMMITTED BLOW STILL LANDS. Retargeting a corpse-in-waiting
+    // would redirect it onto somebody it was never aiming at — the exact guarantee the deferral
+    // was added to give.
+    expect(victim.targetCreatureId).toBe(quarry.id);
+  });
+
+  it('HELGA: a unit busy hitting a CREATURE is not counted as hitting her, though it is nearer', () => {
+    const w = setupWorld();
+    const helga = plantPrincess(w, 0, 0);
+    helga.state = 'WALK';
+    const faraway = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 300, 0);
+    helga.targetCreatureId = faraway.id;
+
+    // NEARER, in reach of her, ATTACKING — but committed to a creature, so the creature arm of
+    // `applyCreatureAttack` short-circuits above her and it never reaches the defender arm.
+    const bystander = addUnit(w, GOBLIN_MELEE_CONFIG, 8, P0, 5, 0);
+    const busy = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(busy, bystander);
+
+    // FARTHER, and the one actually slapping her: ATTACKING with a null creature target.
+    const puncher = addUnit(w, GOBLIN_MELEE_CONFIG, 4, P1, 30, 0);
+    puncher.state = 'ATTACKING';
+    puncher.targetCreatureId = null;
+
+    damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
+      kind: 'creature',
+      id: puncher.id,
+    });
+
+    expect(helga.targetCreatureId).toBe(puncher.id);
+  });
+});
+
 describe('S183 — the CHAINED case (two victims in one tick) is order-SENSITIVE', () => {
   /** V ← U ← X, all melee and all 20 px apart, so every pair is inside the 35 px arm. */
   function chain(): { w: World; V: Creature; U: Creature; X: Creature } {
@@ -496,6 +682,121 @@ describe('S183 — the CHAINED case (two victims in one tick) is order-SENSITIVE
   });
 });
 
+/**
+ * ⭐⭐ **THE THREE DEFECTS THE S184 AUDIT FOUND, EACH PINNED BY THE CASE THAT WOULD HAVE CAUGHT
+ * IT.** All three are the same SHAPE, which is why they are one describe: retaliation decided
+ * something on a predicate that disagreed with the predicate the consumer uses. Helga's reach vs
+ * her LEASH; `!died` vs "the victim is still in the world"; "not dead" vs "able to act".
+ */
+describe('S184 — the audit fixes', () => {
+  it('HELGA keeps her quarry when the aggressor is outside her HOME leash', () => {
+    const w = setupWorld();
+    const helga = plantPrincess(w, 0, 0); // hub at the origin, so homePos is (0, 0)
+    helga.state = 'WALK';
+    // She has walked out to meet a goblin that IS inside her leash.
+    helga.pos = { x: PRINCESS_SLAP_RANGE - 40, y: 0 };
+    const quarry = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, PRINCESS_SLAP_RANGE - 10, 0);
+    helga.targetCreatureId = quarry.id;
+
+    // ⭐ GEOMETRY DERIVED FROM THE LEASH CONSTANT, NOT HAND-PICKED. The archer stands just BEYOND
+    // `PRINCESS_SLAP_RANGE` from her HUB while comfortably within its own 220 arm of HER — the
+    // exact gap between "can hit her" and "she may follow it", which is the whole defect.
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 4, P1, PRINCESS_SLAP_RANGE + 60, 0);
+    archer.state = 'ATTACKING';
+    archer.targetCreatureId = null;
+    expect(distSq(archer.pos, { x: 0, y: 0 })).toBeGreaterThan(PRINCESS_SLAP_RANGE ** 2);
+    expect(distSq(archer.pos, helga.pos)).toBeLessThan(GOBLIN_ARCHER_CONFIG.attackRange ** 2);
+
+    damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
+      kind: 'creature',
+      id: archer.id,
+    });
+
+    // ⛔ Taking the archer would make her WALK arm reject it NEXT tick and stand her down —
+    // `state = 'IDLE'`, target nulled, `nextFireTick` pushed out. The write would cost her the
+    // quarry she already had and give her nothing, so it must not happen.
+    expect(helga.targetCreatureId).toBe(quarry.id);
+  });
+
+  it('HELGA still switches when the aggressor IS inside the leash — the gate is the leash, not the feature', () => {
+    const w = setupWorld();
+    const helga = plantPrincess(w, 0, 0);
+    helga.state = 'WALK';
+    helga.pos = { x: 100, y: 0 };
+    const quarry = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 300, 0);
+    helga.targetCreatureId = quarry.id;
+
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 4, P1, PRINCESS_SLAP_RANGE - 60, 0);
+    archer.state = 'ATTACKING';
+    archer.targetCreatureId = null;
+    expect(distSq(archer.pos, { x: 0, y: 0 })).toBeLessThan(PRINCESS_SLAP_RANGE ** 2);
+
+    damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
+      kind: 'creature',
+      id: archer.id,
+    });
+
+    expect(helga.targetCreatureId).toBe(archer.id);
+  });
+
+  it('the PHARAOH does not retaliate on the blow that starts his death ritual', () => {
+    const w = setupWorld();
+    const pharaoh = addUnit(w, getCreatureConfig(T9_BOSS_TYPE.mummies), 1, P0, 0, 0);
+    const quarry = addUnit(w, GOBLIN_MELEE_CONFIG, 7, P1, 250, 0);
+    pharaoh.state = 'ATTACKING';
+    pharaoh.targetCreatureId = quarry.id;
+    pharaoh.ehp = SWING; // the next blow is lethal, which is what arms the Ra latch
+    const killer = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(killer, pharaoh);
+
+    const died = hitReturning(w, pharaoh, killer);
+
+    // ⛔ `damageCreature` reports the LETHAL blow as `false` — the latch restores him to 1 ehp and
+    // stamps the ritual, because a kill count and a death VFX would both be wrong. `damageEntity`
+    // reads that as "it lived". He is *"between realities"*, so he picks nobody.
+    expect(died).toBe(false);
+    expect(pharaoh.raRitualUntilTick).toBeGreaterThan(w.tick);
+    expect(pharaoh.targetCreatureId).toBe(quarry.id);
+  });
+
+  it('and not on the blows that pass straight THROUGH him while he channels', () => {
+    const w = setupWorld();
+    const pharaoh = addUnit(w, getCreatureConfig(T9_BOSS_TYPE.mummies), 1, P0, 0, 0);
+    const quarry = addUnit(w, GOBLIN_MELEE_CONFIG, 7, P1, 250, 0);
+    pharaoh.state = 'ATTACKING';
+    pharaoh.targetCreatureId = quarry.id;
+    pharaoh.raRitualUntilTick = w.tick + 100; // already out of the world
+    const killer = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(killer, pharaoh);
+
+    hitReturning(w, pharaoh, killer);
+
+    expect(pharaoh.targetCreatureId).toBe(quarry.id);
+  });
+
+  it('STUN GATE 5: a stunned victim resumes where it was interrupted, commitments intact', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    victim.state = 'ATTACKING';
+    victim.ticksInState = 25; // five ticks from its fire tick of 30
+    victim.targetPrimitiveId = asPrimitiveId(77);
+    applyStun(victim, w.tick + 40);
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 2, P1, 200, 0); // out of the victim's 35
+    commit(archer, victim);
+
+    hit(w, victim, archer);
+
+    // ⛔ The stun's contract is that the unit *"resumes exactly where it was interrupted"*, and
+    // `ticksInState` is also the renderer's frame index, so a reset breaks the held pose too.
+    // `damageEntity` was the fifth path into creature state and the only one with no gate.
+    expect(victim.state).toBe('ATTACKING');
+    expect(victim.ticksInState).toBe(25);
+    expect(victim.targetPrimitiveId).toBe(asPrimitiveId(77));
+    expect(victim.targetCreatureId).toBeNull();
+    expect(victim.ehp).toBeLessThan(10_000); // a stun is not immunity — the blow still landed
+  });
+});
+
 describe('S183 — a SPLASH cannot make you turn round', () => {
   it('an attacker that is not committed to this victim is refused (chain hop / rot aura)', () => {
     const w = setupWorld();
@@ -522,37 +823,6 @@ describe('S183 — a SPLASH cannot make you turn round', () => {
 });
 
 describe('S183 R183-C — HELGA retaliates, and can never be aimed at a tower', () => {
-  function plantPrincess(w: World, x: number, y: number) {
-    const id = asPrimitiveId(w.nextPrimitiveId++);
-    const anchor: Primitive = {
-      id,
-      type: SparkType.Square,
-      placerColor: PLAYER_COLORS[0],
-      placedBy: P0,
-      createdTick: 0,
-      pos: { x, y },
-      prevPos: { x, y },
-      bonds: new Set(),
-      ownerColor: PLAYER_COLORS[0],
-      lastOwnershipChange: 0,
-      radius: 9,
-      hp: PRIMITIVE_MAX_HP,
-      origin: null,
-    };
-    w.primitives.set(id, anchor);
-    const d = makeDefender({
-      id: asDefenderId(w.nextDefenderId++),
-      kind: 'princess',
-      ownerPlayerId: P0,
-      anchorPrimitiveId: id,
-      recipeId: 'helga',
-      pos: { x, y },
-      registeredAtTick: 0,
-    });
-    w.defenders.set(d.id, d);
-    return d;
-  }
-
   it('while WALKING to one goblin she switches to the one actually hitting her', () => {
     const w = setupWorld();
     const helga = plantPrincess(w, 0, 0);
@@ -762,6 +1032,78 @@ describe('S183 — retaliation through the real host tick', () => {
    * Recorded here because "retaliation rarely fires in a goblin brawl" is a fact about the
    * shipped balance, not a defect, and the next session should not go looking for a bug.
    */
+  /**
+   * ⛔⛔ **THE MEASURED CONSEQUENCE OF R183-A, AND IT IS AN OPEN QUESTION FOR THE OWNER RATHER
+   * THAN A BUG WITH A FIX.** This test asserts what the game DOES today so nobody can change it
+   * by accident or claim it away in prose; it is the R182-F pattern, not an endorsement.
+   *
+   * A melee unit that turns on a RANGED attacker it can never catch stops hitting anything at
+   * all. Measured through `runHostTick` over 600 ticks, one vampire boss against a decoy at its
+   * feet, with a THREE-ARM control:
+   *
+   * | arm                                   | damage the boss DEALT | max `ticksInState` |
+   * |---------------------------------------|----------------------:|-------------------:|
+   * | no archer                              |                  980 |   59 (fires freely) |
+   * | archer present, retaliation DISABLED   |                  980 |                  59 |
+   * | archer present, retaliation LIVE       |              **230** |    **29** — never 30 |
+   *
+   * The middle arm is what makes this attributable: with retaliation off, the archer changes
+   * NOTHING. With it on, the boss deals 76% less, never completes a wind-up after the archer
+   * engages (its fire tick is 30), never lands a single blow on the archer it turned to face, and
+   * ends ~500 px from everything. `goblinArcher` has `holdsRange: true` — it keeps its distance —
+   * so "walk to your attacker" never terminates.
+   *
+   * ⚠ IT IS NOT A CODING ERROR. It is R183-A working exactly as ruled: *"when a unit is attacked …
+   * it switches target to the targeted attack system"*. The consequence is that one archer can
+   * neutralise any melee unit indefinitely. Only the owner can say whether that is the game he
+   * wants; the alternatives all change HIS rule, so none of them is ours to pick.
+   */
+  it('⚠ OPEN: one out-of-reach kiting archer collapses a melee boss’s output to nothing', () => {
+    function measure(withArcher: boolean): { dealt: number; dmgArcher: number; maxTis: number } {
+      const w = makeWorld(0x5184);
+      dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+      w.gameState = 'PLAYING';
+      w.matchPhase = 'FIGHT';
+      w.creatures.clear();
+
+      const boss = spawn(w, 't9BossVampires', P0, 500, 500);
+      // A chewer is STRUCTURES_ONLY, so it is at his feet and can never be his attacker: nav says
+      // "the decoy", retaliation says "the archer", and the two rules disagree.
+      const decoy = spawn(w, 'chewer', P1, 525, 500);
+      decoy.ehp = 1_000_000; // bottomless, so the fixture cannot end early and measures output
+      const archer = withArcher ? spawn(w, 'goblinArcher', P1, 500, 690) : null;
+      if (archer !== null) archer.ehp = 1_000_000;
+
+      const d = deps();
+      const st = makeHostTickState(w);
+      let maxTis = 0;
+      for (let t = 0; t < 600; t++) {
+        runHostTick(w, d, st);
+        const b = w.creatures.get(boss.id);
+        if (b !== undefined && b.state === 'ATTACKING' && b.ticksInState > maxTis) {
+          maxTis = b.ticksInState;
+        }
+      }
+      const dmgDecoy = 1_000_000 - (w.creatures.get(decoy.id)?.ehp ?? 1_000_000);
+      const dmgArcher = archer === null ? 0 : 1_000_000 - (w.creatures.get(archer.id)?.ehp ?? 1_000_000);
+      return { dealt: dmgDecoy + dmgArcher, dmgArcher, maxTis };
+    }
+
+    const control = measure(false);
+    const underFire = measure(true);
+
+    // The control proves the fixture works at all — without it the assertions below would also
+    // pass on a boss that simply never attacks.
+    expect(control.dealt).toBeGreaterThan(0);
+    expect(control.maxTis).toBeGreaterThanOrEqual(30); // it reaches its fire tick freely
+
+    // ⛔ AND UNDER FIRE IT COLLAPSES. Ratios rather than the raw 980/230, so a balance retune
+    // moves the numbers without falsely reporting the behaviour as fixed.
+    expect(underFire.dealt * 2).toBeLessThan(control.dealt);
+    expect(underFire.dmgArcher).toBe(0); // it never reaches the unit it turned to face
+    expect(underFire.maxTis).toBeLessThan(30); // and never completes another wind-up
+  });
+
   it('⭐ a BOSS drops the nearer decoy and turns on the archer that actually shot it', () => {
     const w = makeWorld(0x5183);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
