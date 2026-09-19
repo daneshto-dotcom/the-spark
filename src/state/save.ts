@@ -1894,12 +1894,20 @@ function deserializeSpark(s: SerializedSpark): Spark {
       createdTick: s.createdTick,
     }),
     pos: { ...s.pos },
-    // ⛔ S182 LEVER 2 — `prevPos` is ABSENT from the wire (see the field's docblock). Defaulting to
-    // `pos` means zero implicit velocity, which is the same neutral value placement itself uses.
-    // ⚠ WITHOUT THIS LINE THE SPREAD OF `undefined` YIELDS `{}`, i.e. `prevPos.x === undefined`, and
-    // the FIRST Verlet substep on a promoted successor turns every position into NaN. That is why
-    // this field's removal earns a PROTOCOL_VERSION bump rather than riding as additive-optional:
-    // absence is only safe on a peer whose deserializer knows to default it.
+    /*
+     * ⛔⛔ S183 — THIS COMMENT CLAIMED `prevPos` IS ABSENT FROM THE WIRE. IT IS NOT, FOR A SPARK.
+     *
+     * S182 LEVER 2's strip is `stripWirePrevPos`, and it rebuilds `snapshot.primitives` and
+     * nothing else. `SerializedSpark.prevPos` is a BARE, REQUIRED field one screen up, so every
+     * free spark still ships its `prevPos` on every snapshot. The saving described here belongs to
+     * primitives alone; reading it as a spark fact would make the next bandwidth measurement wrong
+     * in the direction of "already done".
+     *
+     * ⭐ THE DEFAULT BELOW STAYS ANYWAY, AND IS NOT DEAD. It is the load-bearing guard for an older
+     * or hand-written payload: spreading an `undefined` yields `{}`, i.e. `prevPos.x === undefined`,
+     * and the FIRST Verlet substep then turns every position into NaN. Defaulting to `pos` means
+     * zero implicit velocity, the same neutral value placement itself uses.
+     */
     prevPos: s.prevPos !== undefined ? { ...s.prevPos } : { x: s.pos.x, y: s.pos.y },
     state: s.state,
     poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)

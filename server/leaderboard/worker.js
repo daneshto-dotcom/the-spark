@@ -74,8 +74,25 @@ const MAX_MS = 60 * 60 * 1000;
 const RATE_LIMIT_RUNS = 40;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
-/** How long an idempotency key is remembered. A retry follows its original within seconds. */
-const SEEN_RUN_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long an idempotency key is remembered.
+ *
+ * ⛔⛔ S183 — **IT IS NOT TRUE THAT "A RETRY FOLLOWS ITS ORIGINAL WITHIN SECONDS", AND THAT SENTENCE
+ * STOOD HERE WHILE THE CLIENT COULD RETRY A WEEK LATER.** A retry follows its original within
+ * seconds only when the player keeps playing. The client's offline queue was bounded by COUNT, not
+ * time, so a run that committed here but timed out on the wire could sit on a closed laptop for
+ * days and then be flushed — after any other player's POST had pruned this key. The dedupe SELECT
+ * then misses and the same game is folded twice, permanently, because the board stores
+ * sum-and-count.
+ *
+ * ⭐ THE CLIENT IS NOW THE SIDE THAT GIVES WAY: `PENDING_MAX_AGE_MS` (`src/render/arcadeScores.ts`)
+ * stops retrying at 12 h, safely inside this window even with a skewed device clock.
+ * `src/render/pendingRunExpiry.test.ts` pins the inequality, which is why this constant is
+ * EXPORTED — a test that re-typed `24 * 60 * 60 * 1000` would pin nothing.
+ *
+ * ⚠ RAISING THIS IS ALWAYS SAFE; LOWERING IT BELOW `PENDING_MAX_AGE_MS` RE-OPENS THE DOUBLE-COUNT.
+ */
+export const SEEN_RUN_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Most runs accepted in one request — bounds an offline backlog flush. */
 const MAX_RUNS_PER_REQUEST = 21;
@@ -424,8 +441,12 @@ async function handle(request, env, origin) {
 
   // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
   await env.DB.prepare('DELETE FROM writes WHERE created <= ?1').bind(now - RATE_LIMIT_WINDOW_MS).run();
-  // And spent idempotency keys. A retry happens within seconds of its original; a day is generous by
-  // orders of magnitude, and keeping them forever would be the one table here that grows unbounded.
+  // And spent idempotency keys, so this is not the one table here that grows without bound.
+  //
+  // ⛔ S183 — THIS PRUNE IS UNSCOPED: any player's POST ages out EVERY player's keys, so the window
+  // a given run's key survives is wall-clock and not "until that player next plays". That is what
+  // makes the client's `PENDING_MAX_AGE_MS` the load-bearing half of the pair — see
+  // `SEEN_RUN_TTL_MS` above for the double-count this used to allow.
   await env.DB.prepare('DELETE FROM seen_runs WHERE created <= ?1').bind(now - SEEN_RUN_TTL_MS).run();
 
   const after = await readPlayer(env, board, focus);

@@ -631,10 +631,23 @@ export class NetTransport {
       msg.kind === 'NETSNAPSHOT'
         ? JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)
         : JSON.stringify(msg);
-    // S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
-    // the pre-S182 behaviour AND the shipped default (SNAPSHOT_SINGLE_STRATEGY is false pending the
-    // owner's decision). Only NETSNAPSHOT is ever eligible: the rare control messages keep their
-    // redundancy, because that is what multi-strategy is FOR.
+    /*
+     * S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
+     * the pre-S182 behaviour.
+     *
+     * ⛔ S183 — THIS COMMENT SAID THE SHIPPED DEFAULT WAS BROADCAST, *"SNAPSHOT_SINGLE_STRATEGY is
+     * false pending the owner's decision"*. BOTH HALVES WERE FALSE. `iceConfig.ts` reads
+     * `export const SNAPSHOT_SINGLE_STRATEGY = true;`, and the owner RULED it in S182 —
+     * *"if it halves our bandwidth, then of course we need to do it"* (`SPARK_CANON.md` §6). Three
+     * independent audit lanes flagged this line, because a comment that states a false VALUE and
+     * re-opens a SETTLED question is the exact rot `SPARK_CANON.md` exists to stop.
+     *
+     * So the shipped default is SINGLE-STRATEGY, and `null` is the fallback taken when
+     * `pickSnapshotStrategy` finds no one strategy carrying every peer.
+     *
+     * Only NETSNAPSHOT is ever eligible: the rare control messages keep their redundancy, because
+     * that is what multi-strategy is FOR.
+     */
     const only =
       SNAPSHOT_SINGLE_STRATEGY && msg.kind === 'NETSNAPSHOT'
         ? pickSnapshotStrategy(

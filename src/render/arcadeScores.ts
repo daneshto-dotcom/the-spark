@@ -107,6 +107,28 @@ export interface PendingRun {
    * defence entirely, so the id is generated once, when the run happens, and stored with it.
    */
   readonly id: string;
+  /**
+   * ⭐⭐ S183 — WHEN THE RUN WAS MINTED (`Date.now()`), AND IT IS WHAT MAKES THE ID ABOVE WORTH
+   * ANYTHING.
+   *
+   * ⛔ **THE ID PROTECTS A RETRY ONLY FOR AS LONG AS THE SERVER REMEMBERS IT, AND THE TWO SIDES DID
+   * NOT AGREE.** `seen_runs` is pruned after `SEEN_RUN_TTL_MS` (24 h) on every POST from ANY client,
+   * while this queue was bounded by COUNT alone (`PENDING_CAP`) and carried no time at all. So:
+   *
+   *   1. a run commits server-side but the 4 s abort fires before the reply lands, and it queues;
+   *   2. the player does not play for two days; some other player's POST prunes the key;
+   *   3. the next flush re-sends it, the dedupe SELECT misses, and `runs + 1, total_ms + ms` fires
+   *      a SECOND time for one game.
+   *
+   * Sum-and-count is cumulative, so **no later play repairs it** — the same argument the worker and
+   * `schema.sql` make for storing the pair rather than a rolling mean, turned against us.
+   *
+   * ⚠ THE COST IS REAL AND IS THE LESSER ONE. Past `PENDING_MAX_AGE_MS` the run is dropped instead
+   * of re-sent, so a player who is offline for longer than that loses the run from the shared board.
+   * That is one absent run against a permanently-wrong average, on a board whose entire claim is
+   * that the average is LOSSLESS (`SPARK_CANON.md` §9).
+   */
+  readonly at: number;
 }
 
 /**
@@ -331,7 +353,15 @@ export function loadPending(boardId: string = BOARD_NONET): PendingRun[] {
       // useless. Rows written before this field existed are the only case, and they simply lose the
       // protection rather than being dropped.
       const id = typeof o.id === 'string' && o.id.length > 0 ? o.id : newRunId();
-      out.push({ name: normaliseName(o.name), ms, id });
+      /*
+       * ⚠ A ROW WRITTEN BEFORE `at` EXISTED GETS A FRESH STAMP, NOT A DROP — the same call the `id`
+       * backfill above makes, for the same reason. Stamping it "now" hands it one more full retry
+       * window, so the upgrade itself cannot silently bin a real backlog; the trade is that those
+       * rows keep the old exposure for one window. The stamp becomes permanent on the next
+       * `savePending`, which every submit performs.
+       */
+      const at = Number.isFinite(Number(o.at)) && Number(o.at) > 0 ? Number(o.at) : Date.now();
+      out.push({ name: normaliseName(o.name), ms, id, at });
     }
     // ⚠ BOUNDED. An unbounded queue on a browser that is offline for a month would grow until the
     // quota throws, and the throw would land on the storage write that records the player's run.
@@ -343,6 +373,39 @@ export function loadPending(boardId: string = BOARD_NONET): PendingRun[] {
 
 /** How many unsynced runs are kept. Mine, not the owner's: 200 runs is far past any real backlog. */
 export const PENDING_CAP = 200;
+
+/**
+ * ⭐⭐ S183 — HOW LONG A QUEUED RUN MAY STILL BE RETRIED. Past this it is dropped, never re-sent.
+ *
+ * ⛔ **THIS NUMBER'S ONLY JOB IS TO STAY UNDER THE SERVER'S `SEEN_RUN_TTL_MS` (24 h).** Beyond that
+ * TTL the server has forgotten the run's idempotency key, so a retry is no longer deduplicated and
+ * folds the same game a second time — permanently, because the board stores sum-and-count. A queue
+ * bounded only by COUNT could sit for a week and then do exactly that.
+ *
+ * ⚠ MINE, NOT THE OWNER'S, and the 12 h rather than 23 h is deliberate slack for CLOCK SKEW: `at`
+ * is the player's wall clock and `seen_runs.created` is the server's. Twelve hours of margin means
+ * a badly-set device clock cannot walk a retry past the TTL. Twelve hours is also far longer than
+ * any real retry — the failure this defends against resolves in seconds — so the slack costs
+ * nothing that matters.
+ *
+ * `src/render/pendingRunExpiry.test.ts` pins this against the worker's own exported constant, so
+ * raising one without the other turns a test red instead of quietly re-opening the double-count.
+ */
+export const PENDING_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * PURE — the queued runs still worth sending at `now`.
+ *
+ * ⛔ APPLIED TO THE LIST THE CALLER THEN SAVES BACK, so an expired run leaves storage as well as the
+ * request. Filtering only the outgoing batch would leave it in the queue to be reconsidered, and
+ * re-dropped, on every submit for the rest of the install's life.
+ */
+export function prunePending(
+  pending: readonly PendingRun[],
+  now: number = Date.now(),
+): PendingRun[] {
+  return pending.filter((r) => now - r.at < PENDING_MAX_AGE_MS);
+}
 
 export function savePending(
   pending: readonly PendingRun[],

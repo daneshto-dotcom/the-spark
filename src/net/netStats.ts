@@ -28,12 +28,23 @@
  *   2. **`snap rx` + `snap gap` (joiner)** — is the peer STARVED or merely slow? Starved means a low
  *      accept rate with long gaps while FPS stays high. This is the number that matches the video.
  *   3. **`dup` (joiner)** — ⭐ THE DOUBLE-SEND, MEASURED DIRECTLY. `iceConfig.ts` has BOTH `nostr`
- *      and `torrent` on, and `transport.send` loops every ready strategy, so every snapshot goes out
- *      twice over two independent RTCPeerConnections to the same machine. The joiner `JSON.parse`s
- *      both and drops the second on the seq gate (`ClientSync.receive`). **If `dup ≈ accepted`, the
- *      doubling is confirmed empirically and Lever 1 is worth ~50% of all bytes.** If `dup ≈ 0`, one
- *      strategy never carried a peer and Lever 1 buys nothing — which would be worth knowing BEFORE
- *      trading away connectivity redundancy the owner deliberately paid for in S157/S162.
+ *      and `torrent` on. When snapshots are broadcast, every one goes out twice over two
+ *      independent RTCPeerConnections to the same machine; the joiner `JSON.parse`s both and drops
+ *      the second on the seq gate (`ClientSync.receive`).
+ *
+ *      ⛔⛔ S183 — **THE READING KEY BELOW THIS LINE WAS INVERTED IN BOTH DIRECTIONS, AND STILL
+ *      DESCRIBED LEVER 1 AS A DECISION TO BE TAKEN.** It said *"if `dup ≈ accepted`, the doubling
+ *      is confirmed and Lever 1 is worth ~50% of all bytes; if `dup ≈ 0`, one strategy never
+ *      carried a peer and Lever 1 buys nothing."* That was the key for measuring a lever that was
+ *      OFF. The owner ruled in S182 — *"if it halves our bandwidth, then of course we need to do
+ *      it"* — and `SNAPSHOT_SINGLE_STRATEGY` ships `true`, so both readings now mean the opposite:
+ *
+ *      · **`dup ≈ 0`** is the EXPECTED, HEALTHY reading. Lever 1 is routing snapshots to one
+ *        strategy and the second copy is not being sent at all.
+ *      · **`dup ≈ accepted`** now means the lever is NOT taking effect — `pickSnapshotStrategy`
+ *        found no single strategy carrying every peer and fell back to broadcast. That is a
+ *        deliberate fallback (it refuses to starve a seat), but if it is the steady state the
+ *        halving is not being realised and the reason is worth finding.
  *
  * ## ⛔ WHY THIS SHIPS IN THE PRODUCTION BUNDLE, RATHER THAN BEHIND `import.meta.env.DEV`
  *
@@ -326,8 +337,13 @@ export class NetStats {
 
   /**
    * A NETSNAPSHOT dropped by `ClientSync`'s **seq** gate — a snapshot whose seq we have already
-   * accepted. In a 1v1 with both strategies carrying the peer this tracks the accept rate
-   * one-for-one, and THAT IS THE DOUBLE-SEND, measured on the wire.
+   * accepted. That is the DOUBLE-SEND, measured on the wire.
+   *
+   * ⛔ S183 — this used to add *"in a 1v1 with both strategies carrying the peer this tracks the
+   * accept rate one-for-one"*, which described the shipped behaviour only while
+   * `SNAPSHOT_SINGLE_STRATEGY` was false. It is `true` since S182 (the owner ruled it), so the
+   * one-for-one reading is now the SYMPTOM of the lever falling back to broadcast, not the norm.
+   * See the reading key in this file's docblock.
    *
    * ⛔ KEPT SEPARATE FROM THE EPOCH GATE ON PURPOSE. The first cut funnelled both gate arms into this
    * one counter while both the field docs and the overlay called it "duplicates". An epoch drop is

@@ -59,6 +59,7 @@ import {
   normaliseName,
   parseRankingRows,
   placeOfName,
+  prunePending,
   rankRows,
   savePending,
   saveRanking,
@@ -169,6 +170,53 @@ function updateFrom(
   };
 }
 
+/**
+ * ⭐⭐ S183 — PURE — the server's top-25 **plus the player's own row**, which the top 25 may not hold.
+ *
+ * ## ⛔ THE SAME LIE `serverMine` FIXED ONLINE WAS STILL LIVE OFFLINE
+ *
+ * `updateFrom`'s `serverMine` repaired the ONLINE recap for a player ranked outside the top 25. The
+ * OFFLINE branch kept the defect, and offline is the branch where the server cannot correct it:
+ *
+ *   1. a successful submit replaced the local cache with the server's **top `TOP_N` rows only**;
+ *   2. a player ranked 30th is not among them, so their row was DELETED from local storage;
+ *   3. their next submit fails (a train, a hotel portal). `loadRanking` has no row for them, the
+ *      local fold creates one at `runs: 1`, and `updateFrom` has no `serverMine` to prefer;
+ *   4. the recap prints `YOU HAVE PLAYED 1 GAME — THIS IS YOUR 1ST` with an average equal to that
+ *      single run, and `recapAverageMs` short-circuits so the owner's count-up cinematic is skipped.
+ *
+ * Every offline run, forever, to a player on their fortieth. **The stored data was never wrong —
+ * only the payoff screen was**, and `arcadeLeaderboard.ts`'s own comment at `entryOf` asserted this
+ * could not happen.
+ *
+ * ## The three cases
+ *
+ * - **in the top 25** — nothing to do; the server's row IS their row.
+ * - **outside it, and the server sent `you`** — reconstruct the entry from the authoritative
+ *   `runs`/`averageMs`. ⚠ `totalMs` is rounded because `averageMs` is `total_ms / runs` as a float;
+ *   the product recovers the integer the server holds, to the ULP.
+ * - **outside it, and the server said nothing** (an older worker, or a fold that did not land for
+ *   the focus name) — keep whatever row the LOCAL cache already had. It is the only history
+ *   available, and dropping it is strictly worse than keeping a stale one.
+ *
+ * ⚠ THIS IS NOT THE "merging two aggregates" THE CALLER REFUSES. Nothing is added to anything: one
+ * row that the transport omitted is re-attached, from the server's own numbers where it gave them.
+ */
+export function withOwnRow(
+  entries: readonly RankingEntry[],
+  rawName: string,
+  serverMine: { runs: number; averageMs: number } | null | undefined,
+  localCache: readonly RankingEntry[],
+): RankingEntry[] {
+  const name = normaliseName(rawName);
+  if (entryOf(entries, name) !== null) return [...entries];
+  if (serverMine !== null && serverMine !== undefined && serverMine.runs >= 1) {
+    return [...entries, { name, runs: serverMine.runs, totalMs: Math.round(serverMine.runs * serverMine.averageMs) }];
+  }
+  const local = entryOf(localCache, name);
+  return local === null ? [...entries] : [...entries, local];
+}
+
 /** The offline tier — and the whole ranking when no backend is configured. */
 export class LocalLeaderboard implements LeaderboardClient {
   readonly kind = 'local' as const;
@@ -222,7 +270,18 @@ export class RemoteLeaderboard implements LeaderboardClient {
     // ⚠ OLDEST FIRST. `slice(0, FLUSH_BATCH)` takes the head of the queue, not the tail: a run that
     // has been waiting since last week is the one most likely to be lost to a cleared cache, so it
     // goes first. Taking the newest would starve the backlog indefinitely on a flaky connection.
-    const pendingBefore = loadPending(boardId);
+    /*
+     * ⛔⛔ S183 — **AND ANYTHING PAST `PENDING_MAX_AGE_MS` IS DROPPED RATHER THAN RE-SENT.**
+     *
+     * "Waiting since last week" is exactly the run that must NOT go: the server forgets a run's
+     * idempotency key after `SEEN_RUN_TTL_MS` (24 h, pruned by any client's POST), so a week-old
+     * retry of a run the server DID commit is folded a second time — and sum-and-count makes that
+     * permanent. See `PendingRun.at`.
+     *
+     * ⚠ THE PRUNED LIST IS WHAT GETS SAVED BACK on both exits below, so an expired run leaves
+     * storage too instead of being re-evaluated forever.
+     */
+    const pendingBefore = prunePending(loadPending(boardId));
     const queued = pendingBefore.slice(0, FLUSH_BATCH);
     /*
      * ⭐ THE ID IS MINTED ONCE, HERE, AND IT IS WHAT MAKES A RETRY SAFE.
@@ -232,7 +291,9 @@ export class RemoteLeaderboard implements LeaderboardClient {
      * queued run, the retry carries the SAME key and the server folds it at most once. Minting a
      * fresh id on the retry would look identical and defend nothing.
      */
-    const thisRun: PendingRun = { name, ms, id: newRunId() };
+    // ⚠ `at` IS STAMPED HERE, WITH THE ID AND FOR THE SAME REASON — see `PendingRun.at`. Stamping
+    // it at QUEUE time instead would refresh on every failed flush and the run would never expire.
+    const thisRun: PendingRun = { name, ms, id: newRunId(), at: Date.now() };
     const runs = [...queued, thisRun];
     const answer = await this.post(boardId, runs, name);
 
@@ -246,7 +307,7 @@ export class RemoteLeaderboard implements LeaderboardClient {
     // The server is authoritative: replace the cache with its rows rather than merging. Merging two
     // aggregates is not defined — you cannot tell an overlapping history from a disjoint one — which
     // is exactly why the queue holds individual RUNS and not a local aggregate to reconcile.
-    saveRanking(answer.entries, boardId);
+    saveRanking(withOwnRow(answer.entries, name, answer.mine, loadRanking(boardId)), boardId);
     // Drop exactly what was accepted, keeping anything that arrived while the request was in flight.
     savePending(pendingBefore.slice(queued.length), boardId);
     /*

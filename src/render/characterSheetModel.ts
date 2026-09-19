@@ -660,17 +660,29 @@ export function statValueColumnPx(
  * constant so the four branches cannot drift into three different shapes of "no info".
  */
 /**
- * PURE — the caption over a feedable tower's shape strip, or null.
+ * PURE — the caption BESIDE a feedable tower's shape chip, or null.
  *
  * ⚠ THE GOBLIN TOWER GETS NONE, DELIBERATELY. Its six shapes each produce a DIFFERENT goblin
  * (`fedCreatureType`), so a single "to build more X" line would be false for five of the six. The
  * shapes teaching their own outputs is that tower's mechanic; a summary would flatten it.
+ *
+ * ⭐⭐ S183 (owner) — **THE WORDING SHRANK BECAUSE THE PLACEMENT MOVED.** He found the S181 caption
+ * while playing: *"it is not in a good place. It needs to be to the left of the circle. Instead now
+ * it's like in the middle of the frame, so that's not good."* Above the strip it had the whole card
+ * width to spread across; beside the chip it has `feedCaptionMaxWidthPx()` and no more.
+ *
+ * ⛔ **AND A PURE NUDGE WOULD HAVE OVERFLOWED FIVE OF THE SIX RACES**, his own hound among them.
+ * At the old wording the demon line is 37 chars = 200px against a 174px budget. Dropping the two
+ * words `A SHAPE` — which the chip's own glyph already says — brings the worst case to 29 chars.
+ * `feedCaption.test.ts` re-derives the budget from `SHEET_W`/`PAD`/`FEED_BTN`/`MONO_EM_RATIO` for
+ * every race in `ALL_RACES`, so a longer unit name turns a test red instead of silently re-breaking
+ * the card.
  */
 export function feedHintFor(recipeId: string | null): string | null {
   if (recipeId === null) return null;
   const race = raceForTowerId(recipeId as GodlyId);
   if (race === null) return null;
-  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[RACE_TOWER_UNIT[race]]}S`;
+  return `FEED TO BUILD MORE ${CREATURE_NAME[RACE_TOWER_UNIT[race]]}S`;
 }
 
 const NO_BUILD_INFO = { description: null, buildEmblem: null, buildBill: null } as const;
@@ -834,8 +846,39 @@ function accentFor(world: World, owner: PlayerId | null | undefined): number | n
 const ACT_BTN_H = 34;
 const ACT_GAP = 10;
 const ACT_ROW_GAP = 8;
-const FEED_BTN = 32;
+export const FEED_BTN = 32;
 const FEED_GAP = 4;
+
+/** The font the feed caption prints at. Exported so the fit budget and the renderer share ONE size. */
+export const FEED_CAPTION_FONT = 9;
+/** Breathing room between the caption's right edge and the chip's left edge. */
+export const FEED_CAPTION_GAP = 6;
+
+/**
+ * PURE — how wide `hint` prints at the caption's own font.
+ *
+ * Monospace is what makes this exact rather than a guess — the same argument `statValueColumnPx`
+ * makes one screen up, and the same `MONO_EM_RATIO` measured off the shipped face.
+ */
+export function feedCaptionWidthPx(hint: string): number {
+  return Math.ceil(hint.length * FEED_CAPTION_FONT * MONO_EM_RATIO);
+}
+
+/**
+ * PURE — the widest a feed caption may print, given that it now sits BESIDE its chip on one row.
+ *
+ * ⛔ **DERIVED, NEVER A LITERAL.** The row is `caption + FEED_CAPTION_GAP + FEED_BTN` and it has the
+ * card's inner width to live in. Change `SHEET_W`, the padding, the chip size or the font and this
+ * budget follows — which is the whole point, because S181's caption was sized for the FULL card
+ * width and the move beside the chip is what broke it.
+ *
+ * ⚠ `SHEET_W` and not `rect.w`: the castle card is the one card that is wider (`PANEL_W`) and it
+ * carries `feedHint: null`, so the narrow card is the only one a caption can ever appear on. Sizing
+ * the budget off the narrow card keeps the assertion honest if that ever changes.
+ */
+export function feedCaptionMaxWidthPx(): number {
+  return SHEET_W - PAD * 2 - FEED_CAPTION_GAP - FEED_BTN;
+}
 
 /** One laid-out button: the popover's descriptor, re-placed in CARD-LOCAL space. */
 export interface SheetActionSlot {
@@ -882,6 +925,7 @@ export function actionBlockHeight(buttons: readonly { kind: string }[]): number 
 export function layoutSheetActions(
   buttons: readonly SheetActionSlot[],
   rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
+  captionPx = 0,
 ): SheetActionSlot[] {
   if (buttons.length === 0) return [];
   const inner = rect.w - PAD * 2;
@@ -902,7 +946,29 @@ export function layoutSheetActions(
   if (feed.length > 0) {
     // Centred on its own occupancy, so a five-shape strip does not sit left-aligned with a dead gap.
     const stripW = feed.length * FEED_BTN + (feed.length - 1) * FEED_GAP;
-    const left = rect.x + (rect.w - stripW) / 2;
+    /*
+     * ⭐⭐ S183 (owner) — **THE CAPTION SHARES THIS ROW, SO IT IS PART OF WHAT GETS CENTRED.**
+     * *"It needs to be to the left of the circle. Instead now it's like in the middle of the
+     * frame."* The caption used to float one row ABOVE the strip; now it butts up against the chip,
+     * and the caption+gap+strip assembly is what the card centres. The strip therefore shifts RIGHT
+     * by exactly the caption's occupancy.
+     *
+     * ⛔ **IT HAPPENS HERE AND NOT IN THE RENDERER BECAUSE THE HIT TEST READS THESE SLOTS.** Nudging
+     * the glyph at draw time would leave `actionAt` testing the old rectangle — a chip you can see
+     * but not click, which is the S182 "the guard proved the line exists, not that it is reached"
+     * failure in its click-target form.
+     *
+     * `captionPx` is 0 for every caller that has no caption (the goblin tower's six-chip row among
+     * them), and the arithmetic then collapses to exactly the centred strip it was before.
+     */
+    const assemblyW = captionPx > 0 ? captionPx + FEED_CAPTION_GAP + stripW : stripW;
+    /*
+     * ⚠ ROUNDED, and it is a NO-OP for every pre-S183 case: an uncaptioned strip of 1, 3 or 6 chips
+     * already centres on a whole pixel in a 236 px card. It matters only for the captioned row,
+     * where an odd caption width would otherwise put the chip's 1.5 px stroke on a half pixel and
+     * soften the one control the owner was looking at.
+     */
+    const left = Math.round(rect.x + (rect.w - assemblyW) / 2 + (assemblyW - stripW));
     feed.forEach((b, i) => {
       out.push({ ...b, x: left + i * (FEED_BTN + FEED_GAP), y, w: FEED_BTN, h: FEED_BTN });
     });

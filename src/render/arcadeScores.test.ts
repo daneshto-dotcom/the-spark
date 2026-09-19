@@ -203,14 +203,16 @@ describe('R182-G — storage is total, and the new key does not reinterpret the 
 
 describe('R182-G — the offline queue', () => {
   it('round-trips pending runs, id included', () => {
-    savePending([{ name: 'DAN', ms: 60_000, id: 'run-1' }]);
-    expect(loadPending()).toEqual([{ name: 'DAN', ms: 60_000, id: 'run-1' }]);
+    savePending([{ name: 'DAN', ms: 60_000, id: 'run-1', at: 1_700_000 }]);
+    // ⚠ S183 — `at` joined the row (the retry-window stamp). It round-trips verbatim; a re-stamp
+    // on read would make a queued run immortal. `pendingRunExpiry.test.ts` owns that assertion.
+    expect(loadPending()).toEqual([{ name: 'DAN', ms: 60_000, id: 'run-1', at: 1_700_000 }]);
   });
 
   it('⭐ THE ID SURVIVES THE QUEUE — minting a fresh one on retry would defend nothing', () => {
     // The whole point of the key: a retry must carry the SAME id as the request that may already
     // have been committed server-side, or the server cannot recognise it as a duplicate.
-    savePending([{ name: 'DAN', ms: 60_000, id: 'stable-id' }]);
+    savePending([{ name: 'DAN', ms: 60_000, id: 'stable-id', at: 1_700_000 }]);
     expect(loadPending()[0].id).toBe('stable-id');
     expect(loadPending()[0].id).toBe('stable-id'); // and again — not regenerated per read
   });
@@ -231,7 +233,14 @@ describe('R182-G — the offline queue', () => {
   });
 
   it('⚠ is BOUNDED — an unbounded queue would eventually throw on the write that records a run', () => {
-    savePending(Array.from({ length: PENDING_CAP + 50 }, (_, i) => ({ name: 'DAN', ms: 20_000 + i, id: `r${i}` })));
+    savePending(
+      Array.from({ length: PENDING_CAP + 50 }, (_, i) => ({
+        name: 'DAN',
+        ms: 20_000 + i,
+        id: `r${i}`,
+        at: 1_700_000 + i,
+      })),
+    );
     expect(loadPending()).toHaveLength(PENDING_CAP);
   });
 
