@@ -238,23 +238,46 @@ costs nothing.**
 
 ⚠ **`Bond.damageFifths` WAS MISSING FROM THAT LIST UNTIL S182, AND IT IS THE MOST LOAD-BEARING ITEM
 ON IT.** A structure's whole durability lives on its connectors (R75/R173-B), so *every* building
-health readout — the bar, the FIX button, and the damage ramp in §9 — reads this field and nothing
+health readout — the bar, the FIX button, and the damage ramp in §7 — reads this field and nothing
 else. It is serialized additive-optionally (`save.ts:1836`, emitted only when > 0, restored `:1665`)
 and hashed at both sites (`stateHashFull.ts:278` union, `:547` projection). A session that read the
 old list would have concluded a building's health was NOT on the wire and gone looking for a
 protocol bump it did not need.
 
-## 7 · ⭐ THE LIGHTNING HUB'S DAMAGE RAMP (S182) — THE PILOT, AND IT IS A PILOT ON PURPOSE
+## 7 · ⭐ THE DAMAGE RAMP — FIVE BUILDINGS (S183). THE PILOT WORKED AND HE SCALED IT.
 
-The hub is the **first and so far only** building with real damage-state art: a 24-frame ramp from
-pristine to rubble, `public/art/lightning-hub/`, built from the owner's contact sheet by
-`scripts/build-sheet-atlas.mjs`.
+Five buildings now carry a 24-frame ramp from pristine to rubble: the **lightning hub** (the S182
+pilot, `scripts/build-sheet-atlas.mjs`) and, added in S183, the **goblin tower**, the **laser
+turret**, the **pentagram** and **Helga**, built by the sibling intake
+`scripts/build-alpha-sheet-atlas.mjs`. `RAMP_SPECS` in `render/structureRamp.ts` has five entries
+and `canon.test.ts` asserts the set.
 
-⛔ **THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED.** *"We're gonna do this one at a time.
-We're not gonna do all of them because it's not gonna work, you're gonna get confused, you're gonna
-get things wrong. Currently you're just gonna focus on the lightning hub. I will present them one
-after another."* `RAMP_SPECS` in `render/structureRamp.ts` has exactly one entry, and `canon.test.ts`
-asserts that it does. Adding the second is the owner's call, not a tidy-up.
+⭐ **HE OPENED THE GATE HIMSELF, HAVING PLAYED THE PILOT.** In S182 he said *"we're gonna do this one
+at a time … currently you're just gonna focus on the lightning hub. I will present them one after
+another"*, and that is exactly what happened — he played the hub in S183, said *"a low creature
+attacks, you can see the tower actively get more and more destroyed until it gets completely
+destroyed. So very well done with the lightning hub. Keep it like that for now,"* and then presented
+the other four. **The one-at-a-time rule was satisfied, not overridden.**
+
+⛔ **THE SELF-DESTRUCT DID NOT COME WITH THE RAMP.** R182-A is hub-only — *"it is a suicide drone
+building, so it makes sense. We won't do it for every building."* The four new towers carry
+`selfDestructBelow: null` and a test asserts exactly one entry opts in. `hostTick` additionally hard-
+gates the fuse on `recipeId === 'lightningHub'`, so a future spec cannot leak it by accident.
+
+⛔ **TWO INTAKES, ONE DOWNSTREAM CONTRACT.** The hub's sheet is matted off near-BLACK with drawn
+rules and a baked frame number per cell; the four S183 sheets are **alpha-matted** with neither.
+Three behaviours therefore invert (gutter detection instead of drawn rules, an alpha clean-up
+instead of a colour key, an optional numeral strip instead of a mandatory one) and **everything
+after that is the same code** — one union bbox, height-fit, bottom-centre foot anchor,
+`<name>-atlas.png` + `<name>-anim.json`, 2 rows of 12. `structureRampAtlas.test.ts` asserts one
+manifest contract across both intakes, which is the mechanical proof they did not fork.
+
+⚠ **AND THE ALPHA NEEDED CLEANING, WHICH IS NOT OBVIOUS FROM LOOKING AT THE SHEETS.** On all four,
+essentially ZERO pixels were fully opaque (α=255 at 0.0–0.1%) and 19–53% of the canvas sat at α 1–31
+— a ghost wash that ships as a translucent box around the tower, the defect he rejected on the
+Voltkin. Floor α ≤ 24 → 0, ceil α ≥ 244 → 255. Cells are uneven on every sheet (goblin rows
+285/263/216, laser 258/250/211, pentagram 260/240/206, Helga 272/240/234), so bounds are DETECTED at
+α ≤ 48; a uniform stride clips frames.
 
 | health | frame | |
 |---|---|---|
@@ -289,7 +312,82 @@ it also **detonates** 40 % sooner.
 `applyRadialClear` — it **deletes** every enemy creature and shape within `STRUCTURE_SELFDESTRUCT_RADIUS`
 outright rather than dealing ladder damage, and (per S157 P0) it **spares the owner's own** shapes and
 units. R182-C would replace the raze with 120 fifths, which would not kill a tier-9 boss where today's
-blast deletes one. **Not built. See §9.**
+blast deletes one. **Not built. See §10.**
+
+---
+
+## 7b · ⭐⭐ ONLY THE TOWER IS VISIBLE (S183) — AND EVERY CONNECTOR MECHANIC MOVED ONTO IT
+
+> *"Once the building is built, I don't wanna see the shapes and connectors behind it. I just wanna
+> see the building because it looks messy."* — owner, S183
+>
+> *"Basically, every mechanic from the built connectors is transferred now to the towers. Very
+> simple."*
+
+That second sentence is the rule. The shapes stay simulated, raidable and chewable; only their alpha
+moves, and everything the player used to do to a connector they now do to the building.
+
+⛔ **THE FEATURE WAS BUILT IN S175 AND FOUR SEPARATE THINGS DEFEATED IT.** He reported it as *"literally
+not here"* and a session that had just read the S175 commit told him it worked. He was right. It is
+recorded here because "the feature exists" and "the feature reaches the screen" are different claims,
+and only the second one is worth anything.
+
+| # | what defeated it | fixed by |
+|---|---|---|
+| 1 | `spawnerZoneRenderer` **redraws** the connectors, beads, rings and core on top of the faded ones, with no reference to `towerCover` anywhere in the file — its own comment says it draws *"on top of the normal bond visual `structureRenderer` already drew"* | the aura now fades on the same ramp as the cover |
+| 2 | `DAMAGED_BOND_MIN_ALPHA` pinned a connector back to 0.85 the instant it took damage | retired in place (see below) |
+| 3 | the goblin tower and pentagram are spawners with no art, so no renderer drew them and none published cover | they are in `RAMP_SPECS` now |
+| 4 | the laser turret and Helga are **defenders** — `world.defenders`, not `world.creatureSpawners` — so **no publish site in the tree could ever reach them** (R175-B parked exactly this: *"includes defenders, but they have no art yet"*) | a defender publish path |
+
+⭐ **R183-E — THE REVEAL IS ON THE CRUMBLE, NOT ON THE FIRST SEVER.** He corrected this mid-session,
+against the S175 behaviour AND against his own earlier S175 P9 ruling:
+
+> *"It does not come back when the building starts dying so you can still repair it. No — because you
+> can see the tower is damaged. You can just click the tower and repair it. You don't have to see the
+> connectors. The connectors come back when the tower is being destroyed, like when it hits zero
+> health and you can see it crumble and fall. That's when they phase back in within like a second."*
+
+So the shapes are hidden for the building's **whole life**, damaged or not, and return only as it
+falls. ⚠ This is why `DAMAGED_BOND_MIN_ALPHA` had to go: S175 P9 added it so *"the floating number
+appears over a connector the player can actually see"*, which is precisely the behaviour he reversed.
+It only ever did anything UNDER a tower — `Math.max(1, 0.85)` is 1 — so every other bond in the game
+draws identically.
+
+⛔ **AND THAT IS WHY THE CLICK TARGET IS LOAD-BEARING, NOT A NICETY.** *"Instead of clicking the shape,
+it's transferred to the tower. You click on the tower, ANYWHERE on the tower, and you still have the
+tower sheet with those options."* `towerAnchorAtPoint` serves race towers only and walks
+`creatureSpawners`, so none of the five ramp towers and neither defender was in it —
+`rampAnchorAtPoint` is. ⚠ Its first version hit-tested a band the art does not occupy (the art
+**straddles** the centroid; the box assumed it stood on it), so the bottom third of every tower was
+dead and 50 px of sky above it was live. **A tower you cannot click is a tower you cannot repair**,
+which would have been strictly worse than the mess he asked us to remove.
+
+⭐ **R183-F — THE AURA FADES ON EVERYTHING, FRIEND AND ENEMY.** Asked whether to keep the charged
+connectors on enemy towers as a cue for where to cut, he chose to fade them everywhere:
+
+> *"It doesn't matter if you know what connectors to cut. You can't control your spawn. They're just
+> attacking based on their mechanics … you can't control your characters anyways."*
+
+⚠ **ONE EXCEPTION TO HIS PREMISE, ACCEPTED KNOWINGLY:** a **raid** IS player-directed —
+`world.ts` lets a player right-click a specific bond and pay a raid point for it. Verified safe: the
+raid pick never consults `coverAlphaForBond`, so an invisible connector stays clickable and raidable.
+The mechanic works; you aim blind. One line reverses it.
+
+⭐ **R183-G — THE UNIT SPRITES GO BEHIND THE BUILDING, NOT AWAY.** Both alternatives were put to him
+(suppress the sprite, or add an idle/active state machine) and he rejected both:
+
+> *"They're just fade out and one layer below. They're not over the tower, but behind and kind of
+> phased out. So you can kind of count how many sprites you have there. But the tower is the main
+> thing that is visible."*
+
+Pixi z-order is `addChild` order, so this is decided purely by the sequence of `new XRenderer(...)`
+calls in `main.ts`. ⚠ **No renderer runs under vitest**, so z-order is invisible to every behavioural
+test in the repo — Helga drew on top of her own hall with the whole suite green. A source-text guard
+pins the three construction sites in order, and states that limit on itself.
+
+⛔ **KNOWN GAP, MEASURED AND UNFIXED:** the cover set is the recipe's own members. A hand-placed shape
+**welded** onto a tower is not a member and stays fully visible under the sprite forever. Reported,
+not fixed — it is the owner's call whether a weld should be swallowed by the building.
 
 ## 8 · REPAIR
 
@@ -339,11 +437,33 @@ boards possible, and per-puzzle boards are no longer needed.
 |---|---|
 | Ranked from | **run 1.** No minimum run count — ruled explicitly. |
 | Identity | **the typed name.** Two players choosing the same name MERGE, and he accepted that: *"hold people at their same name, if not then who cares, come back to it later."* |
-| Stored | `runs` + `total_ms` per player — never a mean, so the average is LOSSLESS |
+| Stored | `runs` + `total_ms` per player — never a mean, so the average is LOSSLESS **in arithmetic** (see the caveat below) |
 | Board visibility | ⛔ **gated on submission.** You cannot see the names until you enter yours. That is an anti-griefing measure, not a UI flourish. |
 
 ⭐ **AND IT IS HARDER TO CHEAT THAN A BEST-TIME BOARD.** One faked 0:01 owns a best-time board
 forever; against an average over twenty runs it barely registers.
+
+### ⚠ THE CAVEAT ON "LOSSLESS" — S183, and it is a deliberate trade
+
+Sum-and-count means nothing is lost to rounding. It also means **nothing can ever be repaired**: a
+run folded twice biases that player's average permanently, and no amount of further play corrects
+it. S183 found a live path to exactly that. The server forgets an idempotency key after 24 h
+(`SEEN_RUN_TTL_MS`, pruned on any client's POST), while the client's offline queue was bounded by
+COUNT and carried no timestamp — so a run that committed server-side but lost its acknowledgement,
+and then sat queued past the TTL, folded a second time.
+
+⛔ **THE FIX TRADES ONE LOSS FOR THE OTHER, ON PURPOSE.** Queued runs now carry `at` and expire at
+`PENDING_MAX_AGE_MS` (12 h, under the server's 24 h and pinned against the worker's own exported
+constant). So a run queued offline for longer than that is **DROPPED** rather than risked. The board
+is therefore lossless in arithmetic and **not** guaranteed lossless in delivery — one dropped run
+skews an average by a fraction, where one double-counted run skews it forever.
+
+⚠ **12 h is MINE, not the owner's**, and the reason first written for it was wrong: a constant clock
+OFFSET cancels, because both sides measure the same elapsed duration. What the margin actually buys
+is room for a clock JUMP, the request's flight time, and the server's prune firing on another
+client's POST. ⭐ **A better fix exists and is cheap: raise `SEEN_RUN_TTL_MS`** — the inequality test
+then lets the client window grow and nothing is ever dropped. It was not taken because the S183
+brief scoped the client side only.
 
 ### ⚠ R182-H — adaptive difficulty is RULED and DEFERRED, and it COLLIDES with R182-G
 
