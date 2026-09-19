@@ -35,13 +35,32 @@ import { drawBondVisual } from './bondVisualRenderer.ts';
 import { isConcealed } from './concealment.ts';
 import { TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, pruneTowerCover } from './towerCover.ts';
 
-/**
- * How visible a DAMAGED connector stays even when a tower is standing on it.
+/*
+ * ⛔⛔ S183 (owner) — **`DAMAGED_BOND_MIN_ALPHA` IS RETIRED IN PLACE. A COVERED CONNECTOR STAYS
+ * HIDDEN THROUGH EVERY DAMAGE STATE.**
  *
- * ⚠ MINE, not the owner's. 0.85 rather than 1.0 so the connector still reads as *underneath* the
- * building rather than punching through it — he asked to see the damage, not to undo the phase-out.
+ * It was 0.85: the instant `damageFifths` went non-zero, a connector under a standing tower was
+ * pinned back to legible. That was S175 P9, and it was HIS ruling too — *"I wanna see damage on
+ * connectors … you gotta see damage everywhere"* — because in S175 a hidden connector being chewed
+ * had nothing on screen to show for it at all.
+ *
+ * He corrected it in S183, having played it:
+ *
+ * > *"It does not come back when the building starts dying so you can still repair it. No —
+ * > because you can see the tower is damaged. You can just click the tower and repair it. You
+ * > don't have to see the connectors. The connectors come back when the tower is being destroyed,
+ * > like when it hits zero health and you can see it crumble and fall."*
+ *
+ * ⭐ **THE TWO RULINGS ONLY LOOK OPPOSED, AND WHAT RESOLVED THEM IS THE DAMAGE RAMP.** S182 gave
+ * the lightning hub 24 frames of real damage art and S183 gave four more towers theirs, so the
+ * signal S175 P9 was standing in for now lives on the BUILDING. Damage is still visible
+ * everywhere; it is just visible on the thing that is taking it.
+ *
+ * ⚠ **AND THE PIN ONLY EVER DID ANYTHING UNDER A TOWER**, which is why retiring it is narrow
+ * rather than sweeping: `coverAlphaForBond` returns 1 for any connector no sprite is standing on,
+ * and `Math.max(1, 0.85)` is 1. A loose lattice, a half-built structure and every non-tower bond
+ * in the game drew identically before and after this line was deleted.
  */
-const DAMAGED_BOND_MIN_ALPHA = 0.85;
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
@@ -198,23 +217,12 @@ export class StructureRenderer {
        * shared Graphics and an alpha-0 stroke still costs the geometry.
        */
       /*
-       * ⛔⛔ S175 P9 — **A CHEWED CONNECTOR IS NEVER HIDDEN, AND P6 WOULD OTHERWISE HAVE MADE THIS
-       * WORSE THAN IT WAS.**
-       *
-       * Owner: *"I wanna see damage on connectors … you gotta see damage everywhere."* Earlier this
-       * same session P6 started phasing the connectors OUT under a standing tower — which is what he
-       * asked for, and which on its own would mean a raider eats a hidden connector with nothing on
-       * screen at all until the tower suddenly breaks. His two rulings only look opposed: he wants
-       * the clean tower AND he wants to see it being hurt.
-       *
-       * So cover yields to damage. The instant `damageFifths` is non-zero the connector is pinned
-       * back to legible, and it stays legible while it is under attack — the floating number now
-       * appears over a connector the player can actually see. An untouched connector still phases
-       * away exactly as P6 shipped it.
+       * ⛔⛔ S183 — **DAMAGE NO LONGER UN-HIDES A CONNECTOR.** This read
+       * `bond.damageFifths > 0 ? Math.max(coverAlphaForBond(bond.id), DAMAGED_BOND_MIN_ALPHA) : …`
+       * from S175 P9 until S183. See the retirement note at the top of this file for both of the
+       * owner's rulings and why the damage ramp is what let the later one replace the earlier.
        */
-      const coverAlpha = bond.damageFifths > 0
-        ? Math.max(coverAlphaForBond(bond.id), DAMAGED_BOND_MIN_ALPHA)
-        : coverAlphaForBond(bond.id);
+      const coverAlpha = coverAlphaForBond(bond.id);
       if (coverAlpha <= TOWER_COVER_DRAW_EPSILON) continue;
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;

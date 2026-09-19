@@ -184,12 +184,30 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   /**
-   * ⛔ THE PILOT STAYS A PILOT. The owner ruled one tower at a time; the canon says so and this is
-   * what stops a later session "finishing the job" by migrating the other twelve without him.
+   * ⭐⭐ S183 — **THE REGISTRY IS FIVE, AND THE SELF-DESTRUCT IS STILL ONE.**
+   *
+   * This asserted `['lightningHub']` from S182, and that single entry was the owner's ruling
+   * (*"one at a time … I will present them one after another"*). In S183 he played the pilot,
+   * approved it, and presented the next four, so the list moved — as it was always going to.
+   *
+   * ⛔ **WHAT MUST NEVER MOVE WITH IT IS R182-A**, and that is now the assertion doing the real
+   * work here. *"We won't do it for every building."* The ramp generalises; the suicide threshold
+   * is earned by the hub being a suicide-drone building. A future session adding tower six gets
+   * the ramp for free and turns this test RED the moment it copies `selfDestructBelow` along
+   * with it.
+   *
+   * ⚠ **AND ONE CANON SENTENCE IS NOW STALE, DELIBERATELY LEFT FOR THE MERGE OWNER.** §7 still
+   * reads *"THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED"*; four of them now are. The
+   * assertion that bound this test to that sentence is replaced by one bound to R182-A, which is
+   * the part of §7 that stays true. Branch A does not edit `SPARK_CANON.md` — see its brief §7.
    */
-  it('§7 records the ramp, and the registry really does hold exactly one tower', () => {
-    expect(RAMP_SPECS.map((s) => s.recipeId)).toEqual(['lightningHub']);
-    expect(canonSays('THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED')).toBe(true);
+  it('§7 records the ramp, and the self-destruct is still the hub alone', () => {
+    expect(RAMP_SPECS.map((s) => s.recipeId))
+      .toEqual(['lightningHub', 'goblinTower', 'laserTurret', 'pentagram', 'helga']);
+    expect(RAMP_SPECS.filter((s) => s.selfDestructBelow !== null).map((s) => s.recipeId))
+      .toEqual(['lightningHub']);
+    expect(canonSays('the hub self-destructs. HUB ONLY')).toBe(true);
+    expect(canonSays('We won\'t do it for every')).toBe(true);
     // The table's own boundary, derived rather than typed: 8 of 24 frames IS the threshold.
     const spec = RAMP_SPECS[0]!;
     const death = rampDeathFirstFrame(spec)!;

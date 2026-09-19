@@ -1,0 +1,32 @@
+{
+  "_note": [
+    "S183 — the laser turret's 24-frame damage ramp, built by scripts/build-alpha-sheet-atlas.mjs.",
+    "See assets-source/goblin-tower/atlas-specs.json for the shared contract; only this sheet's own",
+    "measurements are recorded here.",
+    "",
+    "MEASURED row heights: 258 / 250 / 211. MEASURED alpha before the clean: 3.0% at exactly 0 and",
+    "53.3% in the 1-31 haze — the dirtiest of the four, and the reason alphaFloor exists.",
+    "",
+    "⭐ AND THIS IS THE SHEET THAT DECIDED hAlign. The drift between a cell-centred and a",
+    "footprint-centred placement is 24.5 px here (about 10 px on screen at the shipped size) —",
+    "the smoke plume pulls the detected cell sideways as the turret burns. hAlign defaults to",
+    "'foot' for exactly this. The builder PRINTS the drift on every build.",
+    "",
+    "⚠ The turret is kind:'defender', not a spawner. StructureRampRenderer walks world.defenders",
+    "as well as world.creatureSpawners — see its sync()."
+  ],
+  "name": "laser-turret",
+  "source": "assets-source/laser-turret/laser-turret-transitions-24.png",
+  "outDir": "public/art/laser-turret",
+  "grid": { "cols": 8, "rows": 3 },
+  "cellW": 256,
+  "cellH": 256,
+  "gutterAlpha": 48,
+  "alphaFloor": 24,
+  "alphaCeil": 244,
+  "stripCornerLabel": false,
+  "states": [
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "_note": [
+    "S183 — the pentagram's 24-frame damage ramp, built by scripts/build-alpha-sheet-atlas.mjs.",
+    "See assets-source/goblin-tower/atlas-specs.json for the shared contract.",
+    "",
+    "MEASURED row heights: 260 / 240 / 206.",
+    "",
+    "⛔ THIS IS THE ONLY ONE OF THE FOUR WITH BAKED FRAME NUMBERS, so it is the only one with",
+    "stripCornerLabel true. Running the erase on the other three would delete real artwork from",
+    "their top-left corners. MEASURED across all 24 cells of THIS sheet: every label pixel lies",
+    "within 20 rows and 23 columns of the corner and is dark ink (max channel 51), while the",
+    "nearest artwork — the pink glow ring — starts at column 35. The 26x30 box therefore clears",
+    "every numeral with >= 6 px of margin and never touches the drawing. The guard is not 'exactly",
+    "one blob' (the hub's numerals happened to satisfy that; a two-digit '24' does not) but 'every",
+    "blob in the box is dark AND clears the box edge', which is what actually distinguishes a",
+    "numeral from art.",
+    "",
+    "⚠ The pentagram is a closed 5-CYCLE, not a star: every node has degree 2 and there is no hub.",
+    "Its RampSpec therefore declares shape:'ring' — see src/render/structureRamp.ts."
+  ],
+  "name": "pentagram",
+  "source": "assets-source/pentagram/pentagram-transitions-24.png",
+  "outDir": "public/art/pentagram",
+  "grid": { "cols": 8, "rows": 3 },
+  "cellW": 256,
+  "cellH": 256,
+  "gutterAlpha": 48,
+  "alphaFloor": 24,
+  "alphaCeil": 244,
+  "stripCornerLabel": true,
+  "labelBoxH": 26,
+  "labelBoxW": 30,
+  "labelMarginPx": 4,
+  "labelMaxChannel": 90,
+  "states": [
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+  ]
+}

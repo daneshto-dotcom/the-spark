@@ -807,8 +807,29 @@ async function bootstrap(): Promise<void> {
    * with them. Cheap when none is live: `sync` returns immediately on an empty spawner map, and
    * `rampSpecFor` is `null` for every recipe but the one in the table.
    */
-  const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐⭐ S183 (owner) — **HELGA IS CONSTRUCTED BEFORE THE RAMP BUILDINGS, AND THE ORDER IS THE
+   * FEATURE.** Pixi z-order is `addChild` order, so a renderer built earlier draws UNDERNEATH one
+   * built later. She used to be built after `structureRampRenderer` and therefore drew ON TOP of
+   * her own hall the moment that hall got art.
+   *
+   * > *"The old unit sprites that the towers generate need to be, like, besides the tower because
+   * > they're generated, like, above or underneath or behind. It doesn't matter. And when they're
+   * > not in fighting mode, they're kind of phased out — you can see that already, so just keep it
+   * > as it is. They're just fade out and one layer below. They're not over the tower, but behind
+   * > and kind of phased out. So you can kind of count how many sprites you have there. But the
+   * > tower is the main thing that is visible."*
+   *
+   * ⛔ SO THE SPRITES ARE NOT HIDDEN, AND THEIR EXISTING FADE IS NOT TOUCHED. He ruled against both
+   * of the alternatives put to him (suppress the sprite, or add an idle/active state machine): the
+   * fade he already has is the right amount of visible, and being able to COUNT the garrison is
+   * information he wants to keep. Only the layer moved.
+   *
+   * ⚠ `turretRenderer` (built above, ~line 799) was ALREADY below the ramp layer, so the laser
+   * turret's rig needed nothing. This line is what brings Helga into the same relationship.
+   */
   const princessRenderer = new PrincessRenderer(app, fogHiddenLayer);
+  const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
   const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.

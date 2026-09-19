@@ -4,10 +4,11 @@
  * The Pixi half of `structureRamp.ts`. Every decision it makes is in that module and runs in vitest;
  * this file is the part that cannot be, and it is deliberately thin.
  *
- * ⭐ **IT IS GENERIC ON PURPOSE, AND THE OWNER IS THE REASON.** He has art waiting for the goblins,
- * the pencil chewer, the pentagram and the laser turret, and he is holding it back until he has seen
- * one work. So the second tower must cost a table row, not a file. It does: this renderer never
- * names the lightning hub.
+ * ⭐ **IT IS GENERIC ON PURPOSE, AND THE OWNER IS THE REASON.** He held art back until he had seen
+ * one work, so the second tower had to cost a table row rather than a file. ✅ **S183 CASHED THAT
+ * IN**: the goblin tower, the laser turret, the pentagram and HELGA's hall each cost one
+ * `RAMP_SPECS` row, and this renderer still never names a tower. What they DID cost, once,
+ * between them, is the two seams below — the pentagram's ring walk and the defender source loop.
  *
  * ## THE TWO GATES A NEW RENDERER IN THIS PROJECT OWES, both copied from `voltkinTowerRenderer`
  *
@@ -27,20 +28,20 @@
  * was already hurt when you arrived is drawn at its correct frame immediately rather than animating
  * its whole history at you. That is `seedCursor` below.
  *
- * ⚠ **THE HEALTH ITSELF IS NOT CLIENT-LOCAL AND MUST NOT BE.** It comes from `starHealthFrac`, which
- * both peers and the sim compute identically from `Bond.damageFifths` — already serialized, already
- * hashed. The cursor animates toward a synced target; it never invents one.
+ * ⚠ **THE HEALTH ITSELF IS NOT CLIENT-LOCAL AND MUST NOT BE.** It comes from `rampHealthFrac` over
+ * `Bond.damageFifths` — already serialized, already hashed — which for a star is `starHealthFrac`'s
+ * arithmetic exactly (asserted, not claimed: `structureRamp.test.ts`). The cursor animates toward a
+ * synced target; it never invents one.
  */
 import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
-import type { BondId, PrimitiveId } from '../types.ts';
-import { starHealthFrac } from '../state/structureStarHealth.ts';
+import type { PrimitiveId } from '../types.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import { TOWER_SPRITE_ANCHOR } from './towerFrames.ts';
 import {
-  advanceRampCursor, rampCell, rampSpecFor, rampTargetFrame, shouldStartGhost,
-  type RampCursor, type RampSpec,
+  advanceRampCursor, rampCell, rampHealthFrac, rampMembersAt, rampSpecFor, rampTargetFrame,
+  shouldStartGhost, type RampCursor, type RampSpec,
 } from './structureRamp.ts';
 
 interface RowMeta { readonly row: number; readonly frames: number; readonly ticksPerFrame: number }
@@ -163,8 +164,71 @@ export class StructureRampRenderer {
     return seeded;
   }
 
+  /**
+   * ⭐⭐ S183 — **ONE STRUCTURE, DRAWN. LIFTED OUT OF `sync` SO A DEFENDER CAN REACH IT.**
+   *
+   * `DAMAGE_RAMP_ADDING_A_TOWER.md` §3 counted this at ~15 lines and deferred it for a stated
+   * reason — *"there is no defender ramp art yet, and code written ahead of the art it serves
+   * ships unreachable and untested"*. The art arrived in S183 (the laser turret and HELGA's hall),
+   * so the loop widens: `world.creatureSpawners` and `world.defenders` both feed this.
+   *
+   * ⛔ **AND THE TWO COLLECTIONS ARE WHY NOTHING WAS HIDING THE SHAPES UNDER A DEFENDER.** Cover is
+   * published by whoever COMMITS A SPRITE, and every one of the three publish sites that existed
+   * before this session iterated `world.creatureSpawners` — `towerRenderer` (the race towers),
+   * this renderer (the ramp table) and `voltkinTowerRenderer` (its own chain). R175-B parked the
+   * gap explicitly: *"connector hiding includes defenders — but they have no art yet, so focus on
+   * the race ones we have."* This method is the fourth publish site and the first one a defender
+   * can reach.
+   *
+   * @returns true iff a sprite was actually committed (and therefore cover was published).
+   */
+  private drawStructure(
+    world: World, key: string, anchorId: PrimitiveId, spec: RampSpec,
+  ): boolean {
+    const anchor = world.primitives.get(anchorId);
+    if (anchor === undefined) return false;
+
+    this.ensureAtlas(spec.atlasBase);
+    // Fog: the same test, on the same field, that every other structure renderer applies.
+    if (isConcealed(anchor.pos.x, anchor.pos.y, anchor.placedBy)) return false;
+    if (!this.manifests.has(spec.atlasBase)) return false; // loading, or failed — shapes stay bare
+
+    /*
+     * ⛔ THE MEMBER WALK IS SHARED WITH THE HIT TEST, not re-derived here. `rampAnchorAtPoint` uses
+     * the same `rampMembersAt` to decide where this building can be CLICKED, and with the shapes
+     * underneath now invisible a hit box that disagrees with the art is a tower nobody can repair.
+     */
+    const at = rampMembersAt(world, anchorId, spec);
+    if (at === null) return false;
+    const { members, bonds, cx, cy, newestTick } = at;
+    const frac = rampHealthFrac(bonds.length, at.bankedFifths, spec);
+    // ⭐ S182 — a DOOMED structure aims at the last frame, so its collapse plays from synced
+    // health on every peer instead of only on the one that had a ghost record. See `rampTargetFrame`.
+    const target = rampTargetFrame(frac, spec);
+    const cursor = advanceRampCursor(this.seedCursor(key, target, world.tick), target, world.tick, spec);
+    this.cursors.set(key, cursor);
+
+    const tex = this.frameTexture(spec, cursor.frame);
+    if (tex === null) return false;
+    let sprite = this.sprites.get(key);
+    if (sprite === undefined) {
+      sprite = new Sprite();
+      sprite.anchor.set(TOWER_SPRITE_ANCHOR.x, TOWER_SPRITE_ANCHOR.y);
+      this.layer.addChild(sprite);
+      this.sprites.set(key, sprite);
+    }
+    this.place(sprite, spec, tex, cx, cy);
+
+    // Declared HERE, after the sprite is committed — never above the fog skip or the atlas bail.
+    markTowerCover(members, bonds, newestTick);
+    this.lastSeen.set(key, { x: cx, y: cy, spec });
+    return true;
+  }
+
   sync(world: World): void {
-    if (world.creatureSpawners.size === 0 && this.sprites.size === 0) return;
+    if (world.creatureSpawners.size === 0 && world.defenders.size === 0 && this.sprites.size === 0) {
+      return;
+    }
 
     const live = new Set<string>();
     /*
@@ -184,64 +248,28 @@ export class StructureRampRenderer {
     const present = new Set<string>();
     for (const sp of world.creatureSpawners.values()) {
       const spec = rampSpecFor(sp.recipeId);
-      if (spec === null) continue; // the twelve towers with no ramp art — drawn by towerRenderer
-
-      const hub = world.primitives.get(sp.anchorPrimitiveId);
-      if (hub === undefined) continue; // the anchor is gone — this one really IS dead
-      present.add(`s${Number(sp.id)}`);
-
-      this.ensureAtlas(spec.atlasBase);
-      // Fog: the same test, on the same field, that every other structure renderer applies.
-      if (isConcealed(hub.pos.x, hub.pos.y, hub.placedBy)) continue;
-      if (!this.manifests.has(spec.atlasBase)) continue; // loading, or failed — shapes stay bare
-
-      // The star's centroid: the hub and the leaves its OWN bonds reach. Same walk `isStarAt` does,
-      // so the sprite stands on exactly the shape the recipe recognised.
-      const members: PrimitiveId[] = [sp.anchorPrimitiveId];
-      const bonds: BondId[] = [];
-      let cx = hub.pos.x;
-      let cy = hub.pos.y;
-      let n = 1;
-      let newestTick = 0;
-      for (const bondId of hub.bonds) {
-        const bond = world.bonds.get(bondId);
-        if (bond === undefined) continue;
-        const leafId = bond.aId === sp.anchorPrimitiveId ? bond.bId : bond.aId;
-        const leaf = world.primitives.get(leafId);
-        if (leaf === undefined) continue;
-        members.push(leafId);
-        bonds.push(bondId);
-        cx += leaf.pos.x;
-        cy += leaf.pos.y;
-        n++;
-        if (bond.createdTick > newestTick) newestTick = bond.createdTick;
-      }
-      cx /= n;
-      cy /= n;
-
+      if (spec === null) continue; // the towers with no ramp art — drawn by towerRenderer
+      if (!world.primitives.has(sp.anchorPrimitiveId)) continue; // the anchor is gone — really dead
       const key = `s${Number(sp.id)}`;
-      const frac = starHealthFrac(world, sp.anchorPrimitiveId);
-      // ⭐ S182 — a DOOMED structure aims at the last frame, so its collapse plays from synced
-      // health on every peer instead of only on the one that had a ghost record. See `rampTargetFrame`.
-      const target = rampTargetFrame(frac ?? 1, spec);
-      const cursor = advanceRampCursor(this.seedCursor(key, target, world.tick), target, world.tick, spec);
-      this.cursors.set(key, cursor);
-
-      const tex = this.frameTexture(spec, cursor.frame);
-      if (tex === null) continue;
-      let sprite = this.sprites.get(key);
-      if (sprite === undefined) {
-        sprite = new Sprite();
-        sprite.anchor.set(TOWER_SPRITE_ANCHOR.x, TOWER_SPRITE_ANCHOR.y);
-        this.layer.addChild(sprite);
-        this.sprites.set(key, sprite);
-      }
-      this.place(sprite, spec, tex, cx, cy);
-
-      // Declared HERE, after the sprite is committed — never above the fog skip or the atlas bail.
-      markTowerCover(members, bonds, newestTick);
-      this.lastSeen.set(key, { x: cx, y: cy, spec });
-      live.add(key);
+      present.add(key);
+      if (this.drawStructure(world, key, sp.anchorPrimitiveId, spec)) live.add(key);
+    }
+    /*
+     * ⭐⭐ S183 — **DEFENDERS ARE A DIFFERENT COLLECTION AND THEY ALWAYS WERE.** The laser turret
+     * and HELGA live in `world.defenders`, never in `world.creatureSpawners`, so a `RAMP_SPECS`
+     * row alone would never have drawn them — and no publish site in the tree could reach them,
+     * which is why their shapes stayed fully visible under a building that was never drawn.
+     *
+     * ⚠ THE KEY PREFIX IS LOAD-BEARING. `DefenderId` and `SpawnerId` are independent counters, so
+     * `d`/`s` is what stops turret 3 and hub 3 sharing a sprite, a cursor and a ghost.
+     */
+    for (const def of world.defenders.values()) {
+      const spec = rampSpecFor(def.recipeId);
+      if (spec === null) continue; // the stink tower, which has no ramp art
+      if (!world.primitives.has(def.anchorPrimitiveId)) continue;
+      const key = `d${Number(def.id)}`;
+      present.add(key);
+      if (this.drawStructure(world, key, def.anchorPrimitiveId, spec)) live.add(key);
     }
 
     /*

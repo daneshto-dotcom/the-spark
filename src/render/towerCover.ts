@@ -37,7 +37,29 @@
  * during frame N are read during frame N+1. At 60 Hz that is 16 ms against a 2-second ramp, and it
  * is self-correcting. Reordering would have been the fragile choice, not the clean one.
  *
- * ⭐ **SCOPE TODAY: THE TWELVE RACE TOWERS, AND THAT IS THE OWNER'S CALL, NOT A LIMITATION.** Asked
+ * ## ⛔⛔ S183 — THE OWNER CORRECTED THE REVEAL TRIGGER. THE S175 RULE ABOVE IS SUPERSEDED.
+ *
+ * He said in S175 *"once the first connector gets destroyed … that's when you see the connectors
+ * again"*, and in S183, having played it:
+ *
+ * > *"It does not come back when the building starts dying so you can still repair it. No —
+ * > because you can see the tower is damaged. You can just click the tower and repair it. You
+ * > don't have to see the connectors. The connectors come back when the tower is being destroyed,
+ * > like when it hits zero health and you can see it crumble and fall."*
+ *
+ * ⭐ **WHAT MADE THE CORRECTION POSSIBLE IS THE DAMAGE RAMP.** In S175 a hidden connector being
+ * chewed had nothing on screen to show for it, so `structureRenderer` pinned a damaged connector
+ * back to legible (`DAMAGED_BOND_MIN_ALPHA`) — his *"you gotta see damage everywhere"*. The ramp
+ * art now carries that signal on the BUILDING itself, so the pin has been retired: a damaged tower
+ * looks damaged and its shapes stay hidden. Both of his rulings are honoured; the second one moved
+ * where the first one is answered.
+ *
+ * ⚠ **AND THE MECHANIC IN THIS MODULE DID NOT CHANGE — ONLY WHEN THE MARK STOPS ARRIVING.** Cover
+ * is still published per frame by whoever commits a sprite. What S183 changed is that the ramp
+ * renderer keeps drawing (and therefore keeps covering) all the way through the damage states and
+ * across the connector snap, so the reveal now fires at the crumble instead of at the first hit.
+ *
+ * ⭐ **SCOPE: THE RACE TOWERS, THE FIVE RAMP TOWERS AND — SINCE S183 — THE DEFENDERS.** Asked
  * whether "a tower on top" includes the defenders, he said yes — turret, Helga, stink tower,
  * pentagram — and then, in the same breath, that none of them HAS building art yet: *"we haven't
  * even generated an image yet. I'll do it, and then we'll do the damage state and the destroyed
@@ -48,6 +70,14 @@
  * the ring — so they never mark, and their shapes keep drawing exactly as they do today. When their
  * art lands, each one is a single `markTowerCover` call at its own sprite commit. Nothing here
  * changes.
+ *
+ * ✅ **AND IT LANDED EXACTLY THAT WAY IN S183.** The laser turret and HELGA got building art, so
+ * `StructureRampRenderer.drawStructure` — which now walks `world.defenders` as well as
+ * `world.creatureSpawners` — is the FOURTH publish site and the first one a defender can reach.
+ * Nothing in this module changed to allow it. ⛔ `towerCover.test.ts` counts the publish sites and
+ * the sites that CONSUME cover alpha, and pins both totals, because an un-consuming draw site is
+ * how the shapes stayed visible for eight sessions: `spawnerZoneRenderer` faithfully redrew every
+ * bond this module had just faded to nothing.
  *
  * ⚠ **NO WALL CLOCK.** The ramp is driven off `world.tick`. `performance.now()` is the established
  * idiom for purely local shimmer elsewhere in the renderer, but this fade is something two players
@@ -66,6 +96,24 @@ import type { BondId, PrimitiveId } from '../types.ts';
  * against the live board.
  */
 export const TOWER_COVER_FADE_TICKS = 120;
+
+/**
+ * ⭐⭐ S183 (owner) — **THE REVEAL IS FASTER THAN THE FADE, AND HE GAVE BOTH NUMBERS.**
+ *
+ * > *"It should disappear within, like, two seconds after this tower is built, like, phase out."*
+ * > *"The connectors come back when the tower is being destroyed, like when it hits zero health and
+ * > you can see it crumble and fall. **That's when they phase back in within like a second.**"*
+ *
+ * Two seconds out, one second back: 60 ticks at 60 Hz. ⚠ The asymmetry is HIS, not a tuning choice
+ * — the fade-out is ambience and can take its time, while the phase-in is the player being told
+ * *this building is coming down, the shapes are yours again*, and that has to land inside the beat
+ * the collapse plays in (`RAMP_RUINS_HOLD_TICKS` 42 + the death run).
+ *
+ * ⛔ AND THE RAMP STILL REVERSES FROM WHERE IT IS, NOT FROM THE END — see `reconcile`. Two
+ * durations make that arithmetic asymmetric too: the position is carried across the flip as an
+ * ALPHA and re-projected onto the new duration, never as a tick count.
+ */
+export const TOWER_COVER_REVEAL_TICKS = 60;
 
 /** Alpha below which a bond's decorative overlays are skipped rather than drawn invisibly. */
 export const TOWER_COVER_DRAW_EPSILON = 0.02;
@@ -133,8 +181,13 @@ function reconcile<K>(map: Map<K, Phase>, covered: ReadonlySet<K>): void {
      */
     const a = alphaOf(p);
     p.covered = now;
-    p.sinceTick = tick - Math.round((now ? 1 - a : a) * TOWER_COVER_FADE_TICKS);
+    p.sinceTick = tick - Math.round((now ? 1 - a : a) * rampTicks(now));
   }
+}
+
+/** How many ticks this direction of the ramp takes. Out is the owner's ~2 s, back is his ~1 s. */
+function rampTicks(covered: boolean): number {
+  return covered ? TOWER_COVER_FADE_TICKS : TOWER_COVER_REVEAL_TICKS;
 }
 /**
  * Declare that a building is standing on these shapes and connectors THIS FRAME.
@@ -173,8 +226,9 @@ function seed<K>(map: Map<K, Phase>, id: K, anchorTick: number): void {
 /** 0 = fully hidden, 1 = fully drawn. Pure given (phase, tick). */
 function alphaOf(p: Phase | undefined): number {
   if (p === undefined) return 1;
+  const span = rampTicks(p.covered);
   const elapsed = tick - p.sinceTick;
-  const t = elapsed <= 0 ? 0 : elapsed >= TOWER_COVER_FADE_TICKS ? 1 : elapsed / TOWER_COVER_FADE_TICKS;
+  const t = elapsed <= 0 ? 0 : elapsed >= span ? 1 : elapsed / span;
   return p.covered ? 1 - t : t;
 }
 
