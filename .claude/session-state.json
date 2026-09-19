@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3795,
+  "tool_calls_session_total": 3797,
   "session_id": "S184",
   "session_kind": "batch",
   "session_start": "2026-09-19T08:18:00+02:00",
@@ -236,7 +236,7 @@
       "tier": "Full",
       "scope": "A unit under attack re-picks its attacker; on attacker loss it re-picks nearest by its own preferences, never returning to the prior target. Pencil chewer NEVER retaliates. Helga retaliates within creatures-only. Suicide bomber DOES retaliate. Attacker id threaded through damageEntity (17 production call sites), mechanical enumeration, no optional param.",
       "check_completed": true,
-      "checkpoint_commit": "382814d073f52ab816dd122417c3413ab32127ad",
+      "checkpoint_commit": "590a0d313aeff324f97710e37e393bdc937f0ae5",
       "check_method": "CHECK ran in four independent layers, each with a captured exit code. (1) GATES on the MERGED tree: typecheck 0, typecheck:server 0, vitest 0 (5398 tests / 324 files, up from 5349/322 on master), build 0 (881.1 KiB of the 1000 KiB charter), check:atlas 0, e2e:gating 0 (68 passed), e2e:races 0 (5 passed). (2) MUTATION SWEEP over every guard in the feature: revert one guard, require the suite to go RED, restore byte-identical. It found EIGHT guards deletable with the file green (DESPAWNING, same-owner, isUntargetable, the no-churn return, the SEEKING drop, Helga's creature-arm-wins-first, and both arms of the S155 deferral); all were closed. 13 of 14 now CAUGHT, the survivor (d.ehp === null in recordDefenderRetaliation) verified UNREACHABLE by reading damage.ts's defender arm. (3) SIX-LANE ADVERSARIAL AUDIT dispatched as two independent runs (determinism, owner-rulings, call-sites | fsm, test-quality, canon-truth), each find -> refute. 9 findings survived, 5 killed. (4) HAND-RUN LANES, not delegated: all 14 production damageEntity call sites enumerated and judged (census pins 14 = 8 named + 6 null, matching my count); damageCreature has ONE caller so no path bypasses the seam; every attackRange resolved to confirm the 220 < 300 leash claim; and a THREE-ARM controlled experiment through runHostTick (no archer / archer+retaliation-off / archer+retaliation-on) which is what proved the kiting collapse is attributable to this feature and not to the archer.",
       "verification": [
         {
@@ -790,11 +790,7 @@
     "END-OF-MATCH STAT BOARD — researched and costed in S180, still ONE LINE OF TEXT.",
     "CONNECTOR HIDING — phase the shapes out while a tower stands, back when it breaks. Specified across three sessions (S170 P11 / R169), renderer-only, still absent.",
     "HIS OPEN QUESTION, ANSWERED BUT NOT DECIDED: should SPARK go on Steam now? My recommendation was NO to Steam yet (a permanent review score against a game where four systems were visibly lying last night) but YES to shipping publicly at spark-online.space for feedback with no score attached. The signal to wait for: an evening of play that produces only balance complaints and wishes, not broken systems. His call.",
-    {
-      "id": "S184-CF-1",
-      "title": "OWNER DECISION BLOCKS THE PUSH: the kiting collapse",
-      "detail": "4 commits sit unpushed on master. Everything is merged, audited and green. The one open item is a MEASURED consequence of R183-A, not a defect: a melee unit that turns on a holdsRange attacker it can never catch stops hitting anything. Three-arm control over 600 host ticks: no archer 980 damage / archer with retaliation OFF 980 / archer with retaliation ON 230, and it never reaches its fire tick again. Pinned as an OPEN case in retaliation.test.ts and in SPARK_CANON.md §9b. Pushing master is shipping to production, so it waits on his one-line answer."
-    }
+    "S184 - THE RETALIATION BRANCH AND ITS WORKTREE ARE NOW FULLY MERGED AND CAN BE RETIRED. P3 landed on master (28b5114) and deployed, so `s183/retaliation` and .claude/worktrees/agent-aef0c46b9341d23ab hold nothing unmerged. Left in place deliberately: removing a worktree directory is a destructive command and needs his ALLOW-DESTRUCTIVE-CONFIRMED token, which the seven S183 orphan dirs under .claude/worktrees/ also still need. Clean all of them in ONE pass rather than asking twice."
   ],
   "real_context_note": "TRUSTWORTHY READING despite statusline_dead. real-context-tokens.py resolved via discovery_source=cli_session_id with discovery_trusted=true, so no user paste was needed and none was requested. 776,075 / 1,000,000 = 77.61% ORANGE, well under the 900K stop threshold — this session closed because the owner asked for a handoff, NOT because of budget. 932 messages, all Opus (ALWAYS-STRONGEST). Output tokens 896,169.",
   "p2_targeting_never_approved": {
@@ -2379,5 +2375,12 @@
       "peer_lag": "2.56x less host uplink - 107.5 -> 84.0 KiB per snapshot, 17.61 -> 6.88 Mbit/s, independently re-measured through the shipped serializers.",
       "hub_seam_cost": "~17 code lines + one ~20-line data file per additional tower. Four towers ~= 91 lines. An afternoon, not a month."
     }
+  },
+  "deploy_s184": {
+    "commit": "590a0d313aeff324f97710e37e393bdc937f0ae5",
+    "deploy_run": "35446308371 concluded success",
+    "verify_deploy": "PASS 4/4 from a captured exit code",
+    "owner_ruling_R184_A": "The kiting collapse was put to him with the three-arm control (no archer 980 / archer + retaliation OFF 980 / archer + retaliation ON 230). He chose SHIP AS RULED and declined both narrowings. Recorded in SPARK_CANON.md 9b, pinned by canon.test.ts, and the canon now says DO NOT FIX IT.",
+    "e2e_ci_run": "35446308362 - watched in the background; its CONCLUSION must be read, never assumed (a timeout dies as 'cancelled', not 'failure')"
   }
 }
