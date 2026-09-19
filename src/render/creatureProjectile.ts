@@ -50,7 +50,7 @@ import { ARROW_FLIGHT_TICKS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 import type { Creature, CreatureType } from '../state/creatures/creature.ts';
 import { liftOf } from './creatureLift.ts';
-import { distSq } from '../state/creatures/creatureAI.ts';
+import { bondMidpoint, distSq } from '../state/creatures/creatureAI.ts';
 import { isUntargetable } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { Vec2 } from '../types.ts';
@@ -137,6 +137,43 @@ export function resolveProjectileShot(world: World, c: Creature): ProjectileShot
       flaming = true; // R84 — buildings and connectors take the burning arrow.
     }
   }
+
+  /**
+   * ⛔⛔ **S185 — THE ARM THAT WAS MISSING, AND ITS ABSENCE IS WHY NO ARROW WAS DRAWN AT A BUILDING
+   * AT ALL.** Owner, S185: *"Archers don't really show to be firing arrows now — or sometimes they
+   * do, but they don't fly."* Both halves of that sentence are this one gap.
+   *
+   * ⚠ **IT IS A SILENT S181 REGRESSION, NOT AN OVERSIGHT AT BIRTH.** When this file was written
+   * (S153/S154) a unit attacking a structure committed to a PRIMITIVE, so the arm above was the
+   * whole story. S181 reworked targeting: `structureTargets` now returns EXACTLY ONE of
+   * `{primitiveId, bondId}` (its own comment says so), and `findNearestEnemyPrimitiveFrom` skips
+   * any shape that has a connector — S179's *"a building is killed through its connectors, not by
+   * eating its bricks"*. So against a standing tower the host writes `targetBondId` and leaves
+   * `targetPrimitiveId` **null**, this function fell through to `return null`, and nothing drew.
+   *
+   * ⭐ *"Sometimes they do"* is the one arm that still worked — an enemy CREATURE inside range,
+   * which is the plain arrow. The flaming branch above still fires too, but only at a genuinely
+   * loose brick or a landed bag: the one class of target that is NOT a building.
+   *
+   * ⭐ **FREE ON THE WIRE, WHICH IS WHY IT NEEDS NO BUMP.** `targetBondId` is already serialized
+   * (`save.ts`, additive-optional) and already rehydrated on the client, and `trimMirrorCreature`
+   * strips only `targetCreatureId` — so a joiner can resolve the same midpoint locally. The derived
+   * design holds: nothing new crosses the wire and `PROTOCOL_VERSION` stays 47.
+   *
+   * ⚠ THE AIM POINT MAY ITSELF BE INVISIBLE, AND THAT IS CORRECT. Under R183-E a connector beneath
+   * a built tower is hidden for the building's whole life. The arrow therefore lands on a point the
+   * player cannot see — but that point sits ON the building, so it reads as a hit on the building,
+   * which is what he is asking to see. Do not "fix" this by aiming at the tower centroid: the sim
+   * strikes the bond, and an arrow that lands somewhere the damage did not is a worse lie.
+   */
+  if (to === null && c.targetBondId !== null) {
+    const bond = world.bonds.get(c.targetBondId);
+    if (bond !== undefined) {
+      to = bondMidpoint(bond);
+      flaming = true; // R84 — a connector is part of a building, so it takes the burning shot.
+    }
+  }
+
   if (to === null) return null;
 
   const span = ARROW_FLIGHT_TICKS <= 0 ? 1 : ARROW_FLIGHT_TICKS;

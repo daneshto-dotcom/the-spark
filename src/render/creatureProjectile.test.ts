@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graphics } from 'pixi.js';
 import { ARROW_FLIGHT_TICKS, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
-import { asPlayerId, asPrimitiveId } from '../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId } from '../types.ts';
 import { liftOf } from './creatureLift.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
@@ -346,5 +346,93 @@ describe('S154 P2 (R92) — the bat rider throws a HARPOON, and it leaves his pi
     expect(ga.bounds.width).toBeGreaterThan(0);
     // The harpoon is longer than the arrow and trails a line, so its footprint must be bigger.
     expect(gh.bounds.width * gh.bounds.height).toBeGreaterThan(ga.bounds.width * ga.bounds.height);
+  });
+});
+
+/**
+ * ⭐⭐ S185 — THE REGRESSION THAT MADE THE WHOLE FEATURE INVISIBLE AGAINST BUILDINGS.
+ *
+ * Owner: *"Archers don't really show to be firing arrows now — or sometimes they do, but they don't
+ * fly."* When this file was written a unit attacking a structure committed to a PRIMITIVE. S181
+ * changed that: `structureTargets` returns EXACTLY ONE of `{primitiveId, bondId}`, and a shape that
+ * has a connector is skipped, so against a standing tower the host sets `targetBondId` and leaves
+ * `targetPrimitiveId` null. The resolver only read `targetPrimitiveId` and returned null.
+ *
+ * ⛔ THE CONTROL ARM IS THE POINT OF THIS BLOCK, not the happy path. A test that only asserts "a
+ * bond target draws an arrow" would pass against a resolver that draws an arrow at ANYTHING, and
+ * this project has shipped exactly that kind of green guard before. So the same world is asserted
+ * twice: with the bond commitment, and with it cleared.
+ */
+describe('⭐ S185 — an archer committed to a CONNECTOR draws a flaming arrow at its midpoint', () => {
+  function towerBond(w: World): { bondId: ReturnType<typeof asBondId>; mid: { x: number; y: number } } {
+    const a = addPrim(w, 90, 100, 40);
+    const b = addPrim(w, 91, 140, 80);
+    const bondId = asBondId(900);
+    w.bonds.set(bondId, {
+      id: bondId, aId: a.id, bId: b.id, a, b,
+      restLength: 32, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    return { bondId, mid: { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 } };
+  }
+
+  it('aims at the bond MIDPOINT, and burns because a connector is part of a building', () => {
+    const w = setupWorld();
+    const archer = add(w, GOBLIN_ARCHER_CONFIG, 1, P0, 100, 100);
+    const { bondId, mid } = towerBond(w);
+    archer.targetBondId = bondId;
+    archer.targetPrimitiveId = null; // S181: exactly one of the two is ever set
+    shooting(archer);
+
+    const shot = resolveProjectileShot(w, archer);
+    expect(shot).not.toBeNull();
+    expect(shot!.to).toEqual(mid);
+    expect(shot!.flaming).toBe(true);
+  });
+
+  /**
+   * ⛔ THE CONTROL. Same world, same archer, same tick — only the commitment removed. If this ever
+   * starts returning a shot, the resolver has begun inventing targets and the assertion above has
+   * stopped meaning anything.
+   */
+  it('CONTROL — with the bond commitment cleared, the same archer draws nothing', () => {
+    const w = setupWorld();
+    const archer = add(w, GOBLIN_ARCHER_CONFIG, 1, P0, 100, 100);
+    towerBond(w);
+    archer.targetBondId = null;
+    archer.targetPrimitiveId = null;
+    shooting(archer);
+
+    expect(resolveProjectileShot(w, archer)).toBeNull();
+  });
+
+  it('an enemy unit in range still wins the arm race, and that shot is PLAIN', () => {
+    const w = setupWorld();
+    const archer = add(w, GOBLIN_ARCHER_CONFIG, 1, P0, 100, 100);
+    add(w, GOBLIN_MELEE_CONFIG, 2, P1, 100 + RANGE / 2, 100);
+    const { bondId } = towerBond(w);
+    archer.targetBondId = bondId;
+    shooting(archer);
+
+    const shot = resolveProjectileShot(w, archer);
+    expect(shot).not.toBeNull();
+    expect(shot!.flaming).toBe(false);
+  });
+
+  it('the bat rider gets the same arm — it is the resolver, not the silhouette', () => {
+    const w = setupWorld();
+    const bat = add(w, GOBLIN_BAT_CONFIG, 1, P0, 100, 100);
+    const { bondId, mid } = towerBond(w);
+    bat.targetBondId = bondId;
+    bat.state = 'ATTACKING';
+    bat.ticksInState = GOBLIN_BAT_CONFIG.attackFireTick - Math.floor(ARROW_FLIGHT_TICKS / 2);
+
+    const shot = resolveProjectileShot(w, bat);
+    expect(shot).not.toBeNull();
+    expect(shot!.kind).toBe('harpoon');
+    expect(shot!.to).toEqual(mid);
+    expect(shot!.flaming).toBe(true);
+    // the launch point is lifted for the mount; the victim is not
+    expect(shot!.from.y).toBe(100 - liftOf('goblinBat'));
   });
 });
