@@ -315,12 +315,40 @@ switched to small increments done directly, each committed and pushed on its own
 | 1 | `e0e35b7` | **The research salvage** — 34 agent reports + this plan. Pushed before any code. |
 | 2 | `f5d8fe2` | **R185-A/B/C/D into the canon**, with 4 pinning assertions. `canon.test.ts` 22 → 26. |
 | 3 | `a1bca53` | **Item D — Helga marches when she moves** (row + facing). 5398 → 5409 tests. |
+| 4 | `d1b3d67` | this execution log |
+| 5 | `cb1f836` | **Item E — the death ramp at 30fps** (3 → 2 ticks/frame, 11 files). |
+| 6 | `6cc716a` | **Item G — arrows/harpoons draw at buildings again** (the S181 regression). 5413 tests. |
 
-**Still open, in the recommended order for the next session:** K (stink tower cover — he approved
-it explicitly and it is Small) · H (stink bag portrait, Micro, but re-derive the root cause first,
-the verifier refuted it) · G (projectiles — high owner intent, the S181 regression) · E (ramp
-pacing — one constant, but 17 files and a gating e2e spec the research missed) · I (radar, ship
-five axes) · J (lobby) · A (shape queue — mind the oscillation bound) · then B, C, F, L per §4.
+⭐ **BOTH CODE FIXES WERE MUTATION-TESTED** — guard reverted, RED captured, restored byte-identical
+and `cmp`-verified. Helga: `MUTATED_EXIT=1`, 3 failed. Projectiles: `MUTATED_EXIT=1`, 2 failed.
+
+### ⚠ ITEM H (stink bag portrait) — INVESTIGATED, NOT A CONFIRMED BUG. Do not "fix" it blind.
+
+The research lane called this Micro and its own verifier refuted the root cause. I then chased it
+down myself and **could not reproduce a persistent failure**, so nothing was shipped. What was
+verified, each by hand:
+
+- the portrait ROUTING is correct — `main.ts`'s `switch (spec.building)` maps `'stinkBag'` →
+  `stinkCloudRenderer.portraitTexture()`;
+- the ASSETS exist and are served live — `/godly/stink-bag/anim/stink-bag-atlas.png` and its
+  manifest both return **HTTP 200** from spark-online.space;
+- the MANIFEST matches the parser exactly (12 idle frames at row 0, 128×128 cells).
+
+The only defect I can prove is a LOAD-ORDER WINDOW: `ensureAtlas()` sits *after* `sync()`'s
+`stinkClouds.size === 0` early return, so the 222 KB fetch only starts once the first bag exists —
+and the card re-derives its portrait every frame, so it self-heals within a few hundred ms. The
+likely symptom is the stink TOWER's codex emblem showing briefly on a card titled STINK BAG.
+⛔ **That is not obviously what he reported**, so the next session should ask him one question
+before writing code: *does the bag portrait stay wrong, or fix itself after a moment?* Moving
+`ensureAtlas()` above the early return is the fix IF it is persistent — but it costs a 222 KB fetch
+on the title screen for every player, including matches with no stink tower in them.
+
+**Still open, in the recommended order:** K (stink tower cover — he approved it explicitly, Small;
+⛔ its research hit box is WRONG, the verifier's full 12-cell decode gives union x 22–206, W=185,
+off-centre at x=114 vs cell centre 127.5 — re-measure before using it) · I (radar, ship five axes,
+the sixth is degenerate) · J (lobby; ⛔ `getDebugState()` has an e2e consumer in the GATING lane) ·
+A (shape queue — mind the S161 oscillation bound and the two bot timing gates) · H (ask him first,
+above) · then B, C, F, L per §4.
 
 ## 5 · WHAT THIS SESSION ACTUALLY DID
 
