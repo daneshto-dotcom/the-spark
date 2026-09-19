@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 3797,
+  "tool_calls_session_total": 3814,
   "session_id": "S184",
   "session_kind": "batch",
   "session_start": "2026-09-19T08:18:00+02:00",
@@ -370,8 +370,23 @@
     }
   ],
   "real_context_tokens_at_close": null,
-  "analyze": null,
-  "analyze_completed": false,
+  "analyze": {
+    "session": "S184",
+    "what_worked": [
+      "MUTATION TESTING AS THE PRIMARY CHECK. Reverting each guard and requiring a captured RED found 8 unpinned guards that reading the code did not. It is cheap, mechanical, and it graded MY OWN new tests as well as the branch's - two of the six tests I wrote first were caught by it before any agent saw them.",
+      "SIX AUDIT LANES AS TWO INDEPENDENT RUNS (S161/S183 rule). Both rounds completed, 0 agent errors. The verifiers KILLED 5 of 14 findings, which is the health signal S183 said to watch: a verify stage that never rejects anything has not been shown to work.",
+      "THE THREE-ARM CONTROL. Two lanes independently reported a HIGH regression. The control arm (archer present, retaliation disabled) read IDENTICAL to the baseline, which turned 'retaliation broke this' into 'retaliation causes this and it is the ruling'. Without it I would have invented a fix for a rule the owner chose.",
+      "PUTTING THE CONSTRAINT TO HIM, NOT THE OPTIONS. He answered a measured table in one word and the answer flipped the canon entry from OPEN to a do-not-fix ruling."
+    ],
+    "what_did_not": [
+      "I RAN THE MUTATION SWEEP WHILE SIX READ-ONLY AUDITORS WERE LIVE. One agent sampled a mutated file; only its adversarial verifier caught it and re-checked against clean master. The lanes must be sequenced against any harness that edits the tree.",
+      "I WROTE A TEST FROM A DOCBLOCK INSTEAD OF FROM THE SIM - the exact S183 lesson, repeated by me one session later. 'The no-churn guard prevents churn' was green over a live bug because the guard is inert for almost the whole wind-up.",
+      "I USED `file` INSTEAD OF `path` IN THE VERIFICATION BINDINGS, which my own memory file states correctly. Nine hard-fails for a key I had written down and not read.",
+      "I READ A VERIFIER'S EXIT CODE THROUGH `| tail` ONCE (VERIFY_EXIT=0 while the script said exit 1) - the project's most-repeated trap, caught only because the printed text disagreed with the code."
+    ],
+    "calibration": "Predicted the branch needed tests and a merge. It needed those plus three undiscovered defects, and the audit's two HIGHs were both real. Estimating 'the dead agent finished the fixes' was right about the SOURCE and wrong about the EVIDENCE - the source edits were complete and nothing pinned them."
+  },
+  "analyze_completed": true,
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
@@ -2381,6 +2396,6 @@
     "deploy_run": "35446308371 concluded success",
     "verify_deploy": "PASS 4/4 from a captured exit code",
     "owner_ruling_R184_A": "The kiting collapse was put to him with the three-arm control (no archer 980 / archer + retaliation OFF 980 / archer + retaliation ON 230). He chose SHIP AS RULED and declined both narrowings. Recorded in SPARK_CANON.md 9b, pinned by canon.test.ts, and the canon now says DO NOT FIX IT.",
-    "e2e_ci_run": "35446308362 - watched in the background; its CONCLUSION must be read, never assumed (a timeout dies as 'cancelled', not 'failure')"
+    "e2e_ci_run": "run 35446308362 RUN CONCLUSION = success. Job level: 7 of 8 success; e2e-quarantine = FAILURE. VERDICT: BENIGN, investigated not shrugged. (1) It is NON-GATING BY DESIGN - e2e.yml:45-48 states it runs ONLY @quarantine-flaky (the real-WebRTC data-channel tests) and carries continue-on-error: true, which is why the run still concludes success. (2) It is PRE-EXISTING, not introduced here - it failed identically on the two previous S183 runs (35439848407, 35437606429) that shipped before any S184 change. A green RUN can hide a red JOB; this one was read at job level rather than trusted at run level."
   }
 }
