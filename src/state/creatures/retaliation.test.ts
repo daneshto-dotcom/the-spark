@@ -225,43 +225,274 @@ describe('S183 R183-A — it does NOT go back; it re-picks by its own preference
 });
 
 describe('S183 — determinism: two attackers on one tick', () => {
-  /** Build the same fixture with the two attackers inserted in the given order. */
-  function twoAttackers(lowFirst: boolean): { w: World; victim: Creature } {
+  /**
+   * The same fixture, built with the two attackers inserted in either order and placed at either
+   * pair of distances. `xOfLow` is where id 3 stands, `xOfHigh` where id 7 stands — both inside the
+   * melee arm, so both are genuinely striking and the ONLY thing that separates them is the order.
+   */
+  function twoAttackers(
+    lowFirst: boolean,
+    xOfLow: number,
+    xOfHigh: number,
+  ): { w: World; victim: Creature } {
     const w = setupWorld();
     const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
-    const ids = lowFirst ? [3, 7] : [7, 3];
-    const made = new Map<number, Creature>();
-    for (const id of ids) made.set(id, addUnit(w, GOBLIN_MELEE_CONFIG, id, P1, 10 + id, 0));
-    for (const c of made.values()) commit(c, victim);
+    const xs: Record<number, number> = { 3: xOfLow, 7: xOfHigh };
+    for (const id of lowFirst ? [3, 7] : [7, 3]) {
+      commit(addUnit(w, GOBLIN_MELEE_CONFIG, id, P1, xs[id], 0), victim);
+    }
     return { w, victim };
   }
 
-  it('the SAME attacker is retaliated against regardless of insertion order or strike order', () => {
+  /**
+   * Every permutation of INSERTION order × STRIKE order — four runs — and the field each one leaves
+   * behind. A rule that is a function of world state rather than of arrival returns the same id
+   * four times; anything decided by `Map` order or by "whoever struck last" returns two.
+   */
+  function everyPermutation(xOfLow: number, xOfHigh: number): number[] {
     const outcomes: number[] = [];
     for (const lowFirst of [true, false]) {
       for (const strikeLowFirst of [true, false]) {
-        const { w, victim } = twoAttackers(lowFirst);
+        const { w, victim } = twoAttackers(lowFirst, xOfLow, xOfHigh);
         const a = w.creatures.get(asCreatureId(3))!;
         const b = w.creatures.get(asCreatureId(7))!;
-        const order = strikeLowFirst ? [a, b] : [b, a];
-        for (const attacker of order) hit(w, victim, attacker);
+        for (const attacker of strikeLowFirst ? [a, b] : [b, a]) hit(w, victim, attacker);
         outcomes.push(victim.targetCreatureId as unknown as number);
       }
     }
+    return outcomes;
+  }
+
+  it('the SAME attacker is retaliated against regardless of insertion order or strike order', () => {
     // ⛔ S155 N1: `Map` iteration is insertion order, and letting it decide this is the defect that
-    // *"handed one seat every melee exchange for a whole match"*. All four permutations agree...
+    // *"handed one seat every melee exchange for a whole match"*. All four permutations agree.
+    expect(new Set(everyPermutation(13, 17)).size).toBe(1);
+  });
+
+  /**
+   * ⛔⛔ **THE ORDER IS NEAREST-THEN-ID, AND THIS IS THE ONLY CASE THAT CAN TELL THE DIFFERENCE.**
+   *
+   * The first cut of `retaliation.ts` resolved by LOWEST ID OUTRIGHT and was replaced, because
+   * retaliation drives NAVIGATION and `enemyStinkCloudInReach`'s own docblock says exactly what
+   * that costs: *"walking to the lowest-id bag when a nearer one is at your feet would look
+   * broken."* ⚠ Every other fixture in this file puts the lower id nearer as well, so all of them
+   * pass under EITHER rule and none of them is evidence for the one that shipped. This one
+   * separates them: id 7 stands at 10 px and id 3 at 30 px, so lowest-id answers 3 and
+   * nearest-then-id answers 7.
+   */
+  it('the NEARER attacker wins even when it holds the HIGHER id', () => {
+    const outcomes = everyPermutation(30, 10);
     expect(new Set(outcomes).size).toBe(1);
-    // ...and they agree on the LOWEST id, which is the stated total order rather than "whoever
-    // struck last". A pass on the line above alone would also accept "whoever struck first".
+    expect(outcomes[0]).toBe(7);
+  });
+
+  it('an exact distance tie falls to the LOWER id, which is what keeps it a TOTAL order', () => {
+    // Mirrored about the victim: distSq is 100 for both, so distance cannot decide and the explicit
+    // id compare is the whole answer. Without it this pair would be settled by `Map` order.
+    const outcomes = everyPermutation(-10, 10);
+    expect(new Set(outcomes).size).toBe(1);
     expect(outcomes[0]).toBe(3);
   });
 
-  it('a SINGLE strike already answers with the lowest committed attacker, not the striker', () => {
-    // The scan is the answer and the incoming blow is only the trigger — so even one blow from the
-    // HIGHER id resolves to the lower one, because both are committed.
-    const { w, victim } = twoAttackers(false);
+  it('a SINGLE strike already answers with the SCAN’s winner, not with the striker', () => {
+    // The scan is the answer and the incoming blow is only the trigger — so one blow from the
+    // FARTHER attacker still resolves to the nearer one, because both are striking.
+    const { w, victim } = twoAttackers(false, 13, 17);
     hit(w, victim, w.creatures.get(asCreatureId(7))!);
     expect(victim.targetCreatureId).toBe(asCreatureId(3));
+  });
+});
+
+/**
+ * ⛔⛔ **AN AGGRESSOR IS A STRIKE COMMITMENT, NEVER A NAVIGATION LOCK — AND THE FIRST CUT OF THIS
+ * FEATURE GOT THAT WRONG.** Found by auditing the branch, not by a red test.
+ *
+ * `targetCreatureId` is TWO things: the field `applyCreatureAttack`'s creature arm dispatches from,
+ * and the structure-attacker's NAVIGATION lock, which `hostTick.ts` writes for anything in SEEKING
+ * with an enemy inside `GOBLIN_UNIT_ACQUIRE_RADIUS` (220 px). A scan that reads only the field
+ * cannot tell "hitting you" from "walking toward you", so a victim punched at 20 px by a high id
+ * broke its wind-up and set off on a 250 px walk to a low id that had never touched it — the
+ * owner's ruling inverted. `isStrikingCreature` demands all three: ATTACKING, the field, and the
+ * attacker's own `attackRange`.
+ */
+describe('S183 — an aggressor is a STRIKE COMMITMENT, never a NAVIGATION LOCK', () => {
+  /** The exact defect fixture: a nav-locked LOW id far away, a real striker with a HIGH id at 20 px. */
+  function navLockVsStriker(): { w: World; victim: Creature; walker: Creature; striker: Creature } {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    victim.state = 'ATTACKING';
+    victim.ticksInState = 12;
+    victim.targetPrimitiveId = asPrimitiveId(77);
+    // SEEKING, not ATTACKING: it holds the field as a nav lock and is 200 px away — inside the
+    // 220 px acquire radius that writes it, and nowhere near its own 35 px arm.
+    const walker = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 200, 0);
+    walker.targetCreatureId = victim.id;
+    const striker = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 20, 0);
+    commit(striker, victim);
+    return { w, victim, walker, striker };
+  }
+
+  it('the unit that is actually hitting wins over a lower-id unit that is only walking', () => {
+    const { w, victim, striker } = navLockVsStriker();
+    hit(w, victim, striker);
+    expect(victim.targetCreatureId).toBe(striker.id);
+    // ⭐ AND THE WIND-UP SURVIVES. The defect's second half was the state drop: the victim left
+    // ATTACKING to walk 250 px to a unit that had never touched it, while the real attacker kept
+    // hitting it. An in-reach aggressor never drops the commitment.
+    expect(victim.state).toBe('ATTACKING');
+    expect(victim.ticksInState).toBe(12);
+  });
+
+  it('a walker cannot even TRIGGER a retaliation — the gate and the scan are one predicate', () => {
+    const { w, victim, walker } = navLockVsStriker();
+    hit(w, victim, walker);
+    expect(victim.targetCreatureId).toBeNull();
+    expect(victim.state).toBe('ATTACKING');
+    expect(victim.ticksInState).toBe(12);
+    expect(victim.ehp).toBeLessThan(10_000); // the damage still landed; only the retarget is refused
+  });
+
+  /**
+   * ⚠ THE OTHER HALF, AND IT NEEDED ITS OWN FIXTURE. A mutation run found that deleting the
+   * ATTACKING test from `isStrikingCreature` left every case above GREEN, because the walker in
+   * them stands 200 px out and the reach test already excludes it. The two conditions only come
+   * apart when the nav lock is held CLOSE — which is the common case, not an exotic one:
+   * `hostTick` writes the lock for anything inside 220 px, including a unit one tick before it
+   * enters ATTACKING.
+   */
+  it('in reach and committed is still not enough — it has to be ATTACKING', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    // SEEKING at 20 px: inside the arm, holding the nav lock, not yet swinging.
+    const closeWalker = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 20, 0);
+    closeWalker.targetCreatureId = victim.id;
+    const striker = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 25, 0);
+    commit(striker, victim);
+
+    hit(w, victim, striker);
+
+    // The walker is NEARER, so under nearest-then-id it would win if it counted at all.
+    expect(victim.targetCreatureId).toBe(striker.id);
+  });
+
+  /**
+   * ⚠ THE OUT-OF-REACH CANDIDATE HAS TO BE THE NEARER ONE, OR THE FIXTURE PROVES NOTHING. A
+   * mutation run caught the first cut of this test: it put the out-of-reach unit FARTHER away, so
+   * deleting the reach check left it green — nearest-then-id preferred the real striker for the
+   * wrong reason. Reach is per-ATTACKER, so a MELEE goblin at 100 px is out of its own 35 px arm
+   * while an ARCHER at 200 px is comfortably inside its 220. The nearer unit is the one that must
+   * lose.
+   */
+  it('ATTACKING and committed is still not enough — it has to be within its OWN arm', () => {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    const outOfReach = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 100, 0); // 100 px on a 35 px arm
+    commit(outOfReach, victim);
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 9, P1, 200, 0); // 200 px on a 220 px arm
+    commit(archer, victim);
+
+    hit(w, victim, archer);
+
+    expect(victim.targetCreatureId).toBe(archer.id);
+  });
+});
+
+/**
+ * ⚠ **THE CHAINED CASE IS ORDER-SENSITIVE, AND THIS PINS IT RATHER THAN CLAIMING IT AWAY.**
+ *
+ * `recordCreatureRetaliation` WRITES `targetCreatureId` and the scan READS it, so a victim that
+ * retaliates becomes an aggressor of its own new target inside the same tick. With TWO victims
+ * struck in one tick the second scan can see the first one's fresh commitment, and the answers
+ * differ by strike order. The branch's first docblock claimed *"applying the same set of claims in
+ * any order yields the same field"*; that is false in general, and these are the measured numbers.
+ *
+ * ⛔ IT IS NOT A DESYNC. Host, worker and replay drive the batch from one `world.creatures`
+ * iteration order, so all three compute the SAME answer — this is spawn-order-sensitive GAMEPLAY,
+ * not a divergence. Closing it needs a per-tick claim buffer, i.e. a new transient `World` field on
+ * the `pendingCreatureDeaths` pattern (`worldTypes` + the `world` factory + the `stateHashFull`
+ * acknowledgement + `hostTick`'s init and clear — four sites, no wire and no protocol bump).
+ * Not built: it is a scope decision for the owner, not an oversight. This test is here so the
+ * limitation cannot be quietly widened, and it turns red the day somebody closes it.
+ */
+/**
+ * ⛔ **A CORPSE-IN-WAITING IS NOT AN AGGRESSOR, AND BOTH ARMS OF THAT NEED THEIR OWN CASE.**
+ *
+ * S155 N1 defers creature deaths to an end-of-tick sweep so a mutual melee exchange resolves
+ * simultaneously, which means a creature that took a lethal blow EARLIER IN THIS SAME BATCH is
+ * still sitting in `world.creatures`. Without the guard a victim commits to something already
+ * dead, drops out of its wind-up with `ticksInState = 0`, and re-picks next tick having lost a
+ * cadence to a ghost. `ehp <= 0` is the immediate arm and `pendingCreatureDeaths` the deferred
+ * one — only ONE of them is live at a time, which is why neither covers the other.
+ *
+ * ⚠ Added after a mutation run: deleting both lines left the whole file green.
+ */
+describe('S183 — a corpse-in-waiting cannot be retaliated against', () => {
+  /** A nearer, lower-id attacker that is already dead, and a live one further out. */
+  function ghostAndLive() {
+    const w = setupWorld();
+    const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
+    const ghost = addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
+    commit(ghost, victim);
+    const live = addUnit(w, GOBLIN_MELEE_CONFIG, 9, P1, 30, 0);
+    commit(live, victim);
+    return { w, victim, ghost, live };
+  }
+
+  it('the IMMEDIATE arm: an attacker already on zero is skipped for a live one further away', () => {
+    const { w, victim, ghost, live } = ghostAndLive();
+    ghost.ehp = 0;
+    hit(w, victim, live);
+    expect(victim.targetCreatureId).toBe(live.id);
+  });
+
+  it('the DEFERRED arm: an attacker in `pendingCreatureDeaths` is skipped the same way', () => {
+    const { w, victim, ghost, live } = ghostAndLive();
+    w.pendingCreatureDeaths = new Set([ghost.id]); // still in `creatures` until the sweep
+    hit(w, victim, live);
+    expect(victim.targetCreatureId).toBe(live.id);
+  });
+
+  it('and a dead attacker cannot TRIGGER one either — its last committed blow redirects nobody', () => {
+    const { w, victim, ghost } = ghostAndLive();
+    w.pendingCreatureDeaths = new Set([ghost.id]);
+    hit(w, victim, ghost);
+    expect(victim.targetCreatureId).toBeNull();
+    expect(victim.ehp).toBeLessThan(10_000); // the deferral exists so that blow still LANDS
+  });
+});
+
+describe('S183 — the CHAINED case (two victims in one tick) is order-SENSITIVE', () => {
+  /** V ← U ← X, all melee and all 20 px apart, so every pair is inside the 35 px arm. */
+  function chain(): { w: World; V: Creature; U: Creature; X: Creature } {
+    const w = setupWorld();
+    const V = addUnit(w, GOBLIN_MELEE_CONFIG, 10, P0, 0, 0);
+    const U = addUnit(w, GOBLIN_MELEE_CONFIG, 20, P1, 20, 0);
+    const X = addUnit(w, GOBLIN_MELEE_CONFIG, 30, P0, 40, 0);
+    V.state = 'ATTACKING';
+    V.targetPrimitiveId = asPrimitiveId(77);
+    commit(U, V);
+    commit(X, U);
+    return { w, V, U, X };
+  }
+
+  it('strike V first: V turns on U, and U then sees V as a tie-breaking aggressor of its own', () => {
+    const { w, V, U, X } = chain();
+    hit(w, V, U);
+    hit(w, U, X);
+    expect(V.targetCreatureId).toBe(asCreatureId(20));
+    // Both V (now striking U at 20 px) and X (striking U at 20 px) qualify; the distances tie and
+    // the LOWER id takes it — the rule applied correctly to the state it was handed.
+    expect(U.targetCreatureId).toBe(asCreatureId(10));
+  });
+
+  it('strike U first: U turns on X, which retires U as V’s aggressor and V retaliates at NOBODY', () => {
+    const { w, V, U, X } = chain();
+    hit(w, U, X);
+    hit(w, V, U);
+    expect(U.targetCreatureId).toBe(asCreatureId(30));
+    // U is no longer committed to V, so the splash gate refuses the trigger. Same two blows, same
+    // tick, different answer — which is the whole point of pinning it.
+    expect(V.targetCreatureId).toBeNull();
   });
 });
 
@@ -403,24 +634,65 @@ describe('S183 R183-C — HELGA retaliates, and can never be aimed at a tower', 
  * behind, which is the only thing the game reads.
  */
 describe('S183 — a VOLTKIN is not dropped out of its wind-up', () => {
-  it('takes the write but keeps ATTACKING when the attacker is out of its reach', () => {
+  /**
+   * The measured scenario, verbatim from the guard in `retaliation.ts`: *"a Voltkin mid-zap on a
+   * chewer at 100 px, shot by an archer at 210 px"*. ⚠ The Voltkin is given the CHEWER rather than
+   * left in ATTACKING with an empty target — an ATTACKING creature with nothing to attack is
+   * bounced to SEEKING by the FSM's own re-validation whatever retaliation does, so a fixture
+   * without the chewer measures the fixture instead of the feature. It is also what the defect
+   * actually costs: the chewer it was killing.
+   */
+  function midZap(archerX: number) {
     const w = setupWorld();
     const voltkin = addUnit(w, VOLTKIN_CONFIG, 1, P0, 0, 0);
+    const chewer = addUnit(w, CHEWER_CONFIG, 5, P1, 100, 0); // inside the Voltkin's 180
     voltkin.state = 'ATTACKING';
     voltkin.ticksInState = 20;
-    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 2, P1, 210, 0); // beyond the Voltkin's 180
+    voltkin.targetCreatureId = chewer.id;
+    const archer = addUnit(w, GOBLIN_ARCHER_CONFIG, 2, P1, archerX, 0);
     commit(archer, voltkin);
+    return { w, voltkin, chewer, archer };
+  }
+
+  it('the write itself is REFUSED when the attacker is beyond the Voltkin’s own reach', () => {
+    const { w, voltkin, chewer, archer } = midZap(210); // beyond the Voltkin's 180
 
     hit(w, voltkin, archer);
 
-    // ⛔ The Voltkin's arm of the fan-out overwrites `targetCreatureId` every SEEKING tick, so a
-    // forced drop here would be wiped, re-forced by the next blow, and reset its cadence forever.
+    // ⛔⛔ GATING ONLY THE STATE DROP AND LETTING THE WRITE LAND IS WORSE THAN DOING NOTHING, and
+    // it was measured: `creatureLifecycle`'s S103 #8 ATTACKING re-validation finds the new target
+    // outside the 180 px, NULLS it and bounces the creature out of ATTACKING anyway. One archer
+    // would halve the Voltkin's output and two would starve it.
+    expect(voltkin.targetCreatureId).toBe(chewer.id);
     expect(voltkin.state).toBe('ATTACKING');
     expect(voltkin.ticksInState).toBe(20);
-    // A structure-attacker in the same situation IS dropped — the case above proves it, and these
-    // two together are what say the distinction is deliberate rather than an accident of ordering.
+    expect(voltkin.ehp).toBeLessThan(10_000); // and it still TOOK the hit
+
+    // ⭐ REACHED, not merely refused: the shipped re-validation is the consumer that would have
+    // done the damage, so drive it. The Voltkin is still on the chewer a tick later.
+    applyCreatureTick(w, { type: 'CREATURE_TICK', creatureId: voltkin.id });
+    expect(voltkin.targetCreatureId).toBe(chewer.id);
+    expect(voltkin.state).toBe('ATTACKING');
+
+    // A structure-attacker in the same situation IS given the target and dropped to SEEKING — the
+    // owner-example case above proves it, and these two together are what say the distinction is
+    // deliberate rather than an accident of ordering.
     expect(VOLTKIN_CONFIG.targetsStructures).toBe(false);
     expect(GOBLIN_MELEE_CONFIG.targetsStructures).toBe(true);
+  });
+
+  it('inside its reach the Voltkin DOES retaliate — the gate is about reach, not about the unit', () => {
+    const { w, voltkin, archer } = midZap(150); // inside the Voltkin's 180
+
+    hit(w, voltkin, archer);
+
+    // It drops the chewer for the archer, keeps its wind-up, and the re-validation keeps the swap:
+    // the Voltkin's own every-tick nearest-in-range opportunism is exactly what this looks like.
+    expect(voltkin.targetCreatureId).toBe(archer.id);
+    expect(voltkin.state).toBe('ATTACKING');
+    expect(voltkin.ticksInState).toBe(20);
+    applyCreatureTick(w, { type: 'CREATURE_TICK', creatureId: voltkin.id });
+    expect(voltkin.targetCreatureId).toBe(archer.id);
   });
 });
 

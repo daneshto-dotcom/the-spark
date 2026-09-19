@@ -48,25 +48,48 @@
  * verbatim S155 N1, the defect that *"handed one seat every melee exchange for a whole match"*.
  *
  * So the incoming attacker is the TRIGGER and never the ANSWER. The answer is
- * `lowestCreatureAggressorOf` / `lowestDefenderAggressorOf`: a pure scan of every enemy creature
- * that is currently committed to striking this victim, resolved by **lowest id outright**. Applying
- * the same set of claims in any order therefore yields the same field, because the field is a
- * function of world state rather than of arrival.
+ * `nearestCreatureAggressorOf` / `nearestDefenderAggressorOf`: a scan of every enemy creature that
+ * is ACTUALLY STRIKING this victim, resolved nearest-first with an explicit id compare on a tie.
  *
- * ⚠ **LOWEST ID OUTRIGHT, NOT NEAREST-THEN-ID, AND THAT IS THE ESTABLISHED IDIOM HERE.** Every
- * candidate in the set is by definition already hitting the victim, so — exactly as
- * `enemyStinkCloudInReach` and `killableDefenderInReach` record — *"which one it swings at is a
- * free choice and the cheapest deterministic answer is the right one."* A distance compare between
- * two attackers standing on the same unit would be settled by float noise, and float noise is how a
- * host and its mirror stop agreeing.
+ * ⛔⛔ **AN AGGRESSOR IS A STRIKE COMMITMENT, NEVER A NAVIGATION LOCK — AND THE FIRST CUT OF THIS
+ * FILE GOT THAT WRONG.** `isStrikingCreature` demands ATTACKING **and** `targetCreatureId` **and**
+ * the attacker's own `attackRange`. The first version demanded only the field, and
+ * `hostTick.ts:1594-1602` writes that field for EVERY structure-attacker in SEEKING with an enemy
+ * inside `GOBLIN_UNIT_ACQUIRE_RADIUS` (220 px). So a unit merely WALKING toward you counted as your
+ * aggressor: punched at 20 px by a high id, the victim broke its wind-up and set off on a 250 px
+ * walk to a low id that had never touched it, while the real attacker kept hitting it. That is the
+ * owner's ruling inverted, and the three predicates above are what make the set mean what its name
+ * says. `nearestDefenderAggressorOf` had them from the start — the creature half now matches it.
+ *
+ * ⚠ **NEAREST-THEN-ID, NOT LOWEST ID OUTRIGHT, AND THE EARLIER JUSTIFICATION HERE WAS BACKWARDS.**
+ * It cited `enemyStinkCloudInReach`, whose own docblock says the OPPOSITE about this use:
+ * *"that is exactly why NAVIGATION cannot reuse this function — walking to the lowest-id bag when a
+ * nearer one is at your feet would look broken."* Retaliation DOES drive navigation. Squared
+ * distance then an explicit id compare is equally a total order (the idiom of
+ * `findNearestEnemyCreatureFrom` and every other scan in `creatureAI`), and it costs nothing.
+ *
+ * ⚠ **WHAT ORDER-INDEPENDENCE THIS DOES AND DOES NOT BUY — STATED HONESTLY, BECAUSE THE FIRST
+ * VERSION OVERCLAIMED IT.** It said *"applying the same set of claims in any order yields the same
+ * field"*. That is FALSE in general and an audit measured it: this function writes
+ * `targetCreatureId`, which the scan also reads, so with TWO victims struck in one tick the second
+ * scan can see the first victim's fresh commitment. What is now true:
+ *   · for ONE victim struck by any number of attackers in a tick — the case the ruling is about —
+ *     the answer is order-independent, because no claim mutates any claimant;
+ *   · the chained case is narrowed but not closed. A nav lock could flip mid-tick from anywhere
+ *     inside 220 px; an ATTACKING, in-reach strike commitment is a far smaller and far more local
+ *     surface, and a victim that retaliates out of reach is dropped to SEEKING and leaves the set
+ *     entirely.
+ * ⛔ It is NOT a desync in either case — host, worker and replay share one iteration order. It is
+ * spawn-order-sensitive GAMEPLAY, and closing it completely needs a per-tick claim buffer, which
+ * means a new `World` field (`worldTypes` + `world` + the three sweeps + the hash) and is a bigger
+ * change than this branch was given.
  *
  * ⚠ **AND A SPLASH CANNOT MAKE YOU TURN ROUND.** A claim is only accepted from an attacker that is
- * itself committed to this victim (`targetCreatureId === victimId`, or for Helga the same
- * `killableDefenderInReach` the strike arm uses). That is the owner's own wording — *"she will
- * retarget whoever's TARGETING her"* — and it is also what keeps the zombie rot aura from resetting
- * every creature in its radius every tick, and a Voltkin chain-lightning hop from retargeting five
- * bystanders. Those paths pass a real attacker id and are refused here, deliberately and by one
- * rule rather than by a list of exemptions.
+ * itself striking this victim — for Helga, through the same `killableDefenderInReach` the strike
+ * arm uses. That is the owner's own wording — *"she will retarget whoever's TARGETING her"* — and
+ * it is also what keeps the zombie rot aura from resetting every creature in its radius every tick,
+ * and a Voltkin chain-lightning hop from retargeting five bystanders. Those paths pass a real
+ * attacker id and are refused here, by one rule rather than by a list of exemptions.
  *
  * ## ⚠ WHAT IS NOT BUILT, SAID PLAINLY
  *
@@ -82,7 +105,7 @@ import type { CreatureId, DefenderId } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 import type { Creature, CreatureType } from './creature.ts';
 import { isUntargetable } from './creature.ts';
-import { isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
+import { distSq, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
@@ -142,44 +165,94 @@ function isHomingMissile(type: CreatureType): boolean {
 function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature['ownerPlayerId']): boolean {
   if (c.ownerPlayerId === victimOwner) return false;
   if (isUntargetable(c, world.tick)) return false;
+  /*
+   * ⛔ AND IT MUST NOT BE A CORPSE-IN-WAITING — the S155 N1 deferral's other edge. A creature that
+   * took a lethal blow earlier in this same batch is still in `world.creatures` until the
+   * end-of-tick sweep, so without these two lines a victim could commit to something that is
+   * already dead, drop out of its wind-up with `ticksInState = 0`, and re-pick next tick having
+   * lost a cadence to a ghost. `ehp <= 0` covers the immediate arm, `pendingCreatureDeaths` the
+   * deferred one; both are needed because only one of them is live at a time.
+   */
+  if (c.ehp <= 0) return false;
+  if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
   return true;
 }
 
 /**
- * ⭐ THE TOTAL ORDER FOR A CREATURE VICTIM — every enemy creature committed to striking `victim`,
- * lowest id wins. Pure: reads world, mutates nothing, no `Math.random`, no wall clock.
+ * ⛔ **IS `c` ACTUALLY STRIKING `victimId` RIGHT NOW?** All three conditions, because any two of
+ * them admit a unit that is not hitting anybody:
+ *
+ *  1. `ATTACKING` — `applyCreatureAttack` refuses on any other state;
+ *  2. the commitment field the creature arm is dispatched from;
+ *  3. **its own `attackRange`** — the missing one. `targetCreatureId` is ALSO the structure
+ *     attacker's NAVIGATION lock, written by `pickNavUnit` for anything inside 220 px, so without
+ *     the reach test a unit walking toward you is indistinguishable from one hitting you.
+ *
+ * `isWithinAttackRangeOfCreature` is the SAME predicate the strike arm and the FSM's wind-up gate
+ * use — not a re-implementation, which is the rule S177 P9 exists to enforce.
  */
-export function lowestCreatureAggressorOf(world: World, victim: Creature): CreatureId | null {
+function isStrikingCreature(world: World, c: Creature, victimId: CreatureId): boolean {
+  if (c.state !== 'ATTACKING') return false;
+  if (c.targetCreatureId !== victimId) return false;
+  return isWithinAttackRangeOfCreature(world, c, victimId);
+}
+
+/**
+ * ⭐ THE TOTAL ORDER FOR A CREATURE VICTIM — of every enemy creature ACTUALLY STRIKING `victim`,
+ * the NEAREST, ties broken by the lower id. Pure: reads world, mutates nothing, no `Math.random`,
+ * no wall clock. Squared distances, never a sqrt, and never `Map` order.
+ */
+export function nearestCreatureAggressorOf(world: World, victim: Creature): CreatureId | null {
   let best: CreatureId | null = null;
+  let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
     if (id === victim.id) continue;
     if (!canBeRetaliatedAgainst(world, c, victim.ownerPlayerId)) continue;
-    // "Committed to striking THIS victim" — the same field `applyCreatureAttack`'s creature arm is
-    // dispatched from, so the set is exactly the set of units whose next blow lands on `victim`.
-    if (c.targetCreatureId !== victim.id) continue;
-    if (best === null || (id as unknown as number) < (best as unknown as number)) best = id;
+    if (!isStrikingCreature(world, c, victim.id)) continue;
+    const dSq = distSq(c.pos, victim.pos);
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (best === null || (id as unknown as number) < (best as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      best = id;
+    }
   }
   return best;
 }
 
 /**
- * ⭐ THE SAME TOTAL ORDER FOR HELGA. "Committed to striking this defender" is read off the SAME two
- * conditions `applyCreatureAttack` uses to reach its defender arm — a null creature target (the
- * creature arm short-circuits above it) and `killableDefenderInReach` naming her. Re-implementing
- * either would be the "two predicates that disagree" defect `creatureAI` was written to end.
+ * ⭐ THE SAME TOTAL ORDER FOR HELGA. "Striking this defender" is read off the SAME three conditions
+ * `applyCreatureAttack` uses to reach its defender arm — ATTACKING, a null creature target (the
+ * creature arm short-circuits above it) and `killableDefenderInReach` naming her, which carries the
+ * reach test. Re-implementing any of them would be the "two predicates that disagree" defect
+ * `creatureAI` was written to end.
+ *
+ * ⚠ NEAREST-THEN-ID here too, for the reason in the header: this drives where she WALKS.
  */
-export function lowestDefenderAggressorOf(
+export function nearestDefenderAggressorOf(
   world: World,
   defenderId: DefenderId,
   defenderOwner: Creature['ownerPlayerId'],
+  defenderPos: Creature['pos'],
 ): CreatureId | null {
   let best: CreatureId | null = null;
+  let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
     if (!canBeRetaliatedAgainst(world, c, defenderOwner)) continue;
     if (c.state !== 'ATTACKING') continue;
     if (c.targetCreatureId !== null) continue; // the creature arm wins first — it is not hitting her
     if (killableDefenderInReach(world, c, getCreatureConfig(c.type).attackRange) !== defenderId) continue;
-    if (best === null || (id as unknown as number) < (best as unknown as number)) best = id;
+    const dSq = distSq(c.pos, defenderPos);
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (best === null || (id as unknown as number) < (best as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      best = id;
+    }
   }
   return best;
 }
@@ -207,13 +280,35 @@ export function recordCreatureRetaliation(
   const attacker = world.creatures.get(attackerId);
   if (attacker === undefined) return;
   if (!canBeRetaliatedAgainst(world, attacker, victim.ownerPlayerId)) return;
-  // ⛔ THE SPLASH GATE. Chain-lightning hops and the rot aura reach here with a real attacker id and
-  // are refused, which is both the owner's wording and what keeps the scan below order-free.
-  if (attacker.targetCreatureId !== victimId) return;
+  // ⛔ THE SPLASH GATE, and it is the same predicate the scan uses. Chain-lightning hops and the
+  // rot aura reach here with a real attacker id and are refused.
+  if (!isStrikingCreature(world, attacker, victimId)) return;
 
-  const chosen = lowestCreatureAggressorOf(world, victim);
+  const chosen = nearestCreatureAggressorOf(world, victim);
   if (chosen === null) return; // unreachable while `attacker` qualifies — defence in depth
   if (chosen === victim.targetCreatureId) return; // already fighting it; no state churn
+
+  /*
+   * ⛔⛔ **A UNIT THAT CANNOT HOLD AN OUT-OF-REACH TARGET MUST NOT BE GIVEN ONE. THE WRITE ITSELF
+   * IS GATED, NOT MERELY THE STATE DROP BELOW — AND GETTING THAT WRONG WAS A MEASURED DEFECT.**
+   *
+   * The first cut gated only the `state = 'SEEKING'` drop on `targetsStructures`, and let the write
+   * land unconditionally. For a VOLTKIN that is worse than doing nothing: the write lands, then
+   * `creatureLifecycle.ts`'s S103 #8 ATTACKING re-validation finds the new target outside its
+   * 180 px, NULLS it and bounces the creature out of ATTACKING. Measured: a Voltkin mid-zap on a
+   * chewer at 100 px, shot by an archer at 210 px, ends the tick with `targetCreatureId = null`,
+   * `state = SEEKING`, `ticksInState = 0` — it loses the chewer it was killing, loses its wind-up,
+   * and retaliates against nobody. One archer halves its output; two starve it. That is exactly the
+   * *"pretending to attack and not hitting anything"* failure the paragraph below claims to avoid.
+   *
+   * A structure-attacker is the exception because `pickNavUnit` can HOLD an out-of-reach quarry
+   * inside the 300 px leash and walk to it. Nothing else in the roster can, so for everything else
+   * an out-of-reach aggressor is simply not a target — and its own every-tick nearest-in-range
+   * opportunism already covers the attackers it CAN answer.
+   */
+  const victimCfg = getCreatureConfig(victim.type);
+  const chosenInReach = isWithinAttackRangeOfCreature(world, victim, chosen);
+  if (!victimCfg.targetsStructures && !chosenInReach) return;
 
   victim.targetCreatureId = chosen;
 
@@ -255,11 +350,7 @@ export function recordCreatureRetaliation(
    * the strike arm zaps the attacker instead of severing. Out of reach the FSM drops it on the
    * next tick, which is exactly what its every-tick nearest-in-range opportunism already meant.
    */
-  if (
-    victim.state === 'ATTACKING' &&
-    getCreatureConfig(victim.type).targetsStructures &&
-    !isWithinAttackRangeOfCreature(world, victim, chosen)
-  ) {
+  if (victim.state === 'ATTACKING' && victimCfg.targetsStructures && !chosenInReach) {
     victim.state = 'SEEKING';
     victim.ticksInState = 0;
     victim.targetBondId = null;
@@ -313,7 +404,7 @@ export function recordDefenderRetaliation(
     return;
   }
 
-  const chosen = lowestDefenderAggressorOf(world, defenderId, d.ownerPlayerId);
+  const chosen = nearestDefenderAggressorOf(world, defenderId, d.ownerPlayerId, d.pos);
   if (chosen === null) return;
   if (chosen === d.targetCreatureId) return;
   d.targetCreatureId = chosen;
