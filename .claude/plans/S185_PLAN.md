@@ -302,6 +302,26 @@ full gates between **every** merge. Two branches that are each green can be red 
 
 ---
 
+## 4b · ⭐ EXECUTION LOG — what has actually SHIPPED, and what is still open
+
+⚠ **THE PLAN CHANGED MID-SESSION AND THIS IS WHY.** The owner reported the weekly usage limit at
+**94%** and asked for frequent saving points: *"you'll probably get stuck in the middle, so make
+sure to just save every part of the way… so we can at least get some of that work done."* Eight
+agent-driven worktrees is the highest-burn, highest-loss option, so it was **not started**. Work
+switched to small increments done directly, each committed and pushed on its own.
+
+| # | commit | what landed |
+|---|---|---|
+| 1 | `e0e35b7` | **The research salvage** — 34 agent reports + this plan. Pushed before any code. |
+| 2 | `f5d8fe2` | **R185-A/B/C/D into the canon**, with 4 pinning assertions. `canon.test.ts` 22 → 26. |
+| 3 | `a1bca53` | **Item D — Helga marches when she moves** (row + facing). 5398 → 5409 tests. |
+
+**Still open, in the recommended order for the next session:** K (stink tower cover — he approved
+it explicitly and it is Small) · H (stink bag portrait, Micro, but re-derive the root cause first,
+the verifier refuted it) · G (projectiles — high owner intent, the S181 regression) · E (ramp
+pacing — one constant, but 17 files and a gating e2e spec the research missed) · I (radar, ship
+five axes) · J (lobby) · A (shape queue — mind the oscillation bound) · then B, C, F, L per §4.
+
 ## 5 · WHAT THIS SESSION ACTUALLY DID
 
 1. Full boot pre-flight, every item verified rather than assumed.
