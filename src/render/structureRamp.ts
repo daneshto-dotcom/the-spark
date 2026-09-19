@@ -5,11 +5,13 @@
  * for pencil chewers and pentagram and for laser tower, for everything else, but I first want to see
  * you implement this before I give you all the rest."* So the deliverable is the SEAM, not the hub.
  *
- * ⛔ **AND THE OTHER TWELVE TOWERS ARE DELIBERATELY NOT MIGRATED.** *"We're gonna do this one at a
- * time. We're not gonna do all of them because it's not gonna work, you're gonna get confused,
- * you're gonna get things wrong. Currently you're just gonna focus on the lightning hub. I will
- * present them one after another."* `RAMP_SPECS` has exactly one entry and adding the second is his
- * call, not a tidy-up.
+ * ⭐⭐ **S183 — HE PRESENTED THE NEXT FOUR AND THEY ARE IN.** The S182 rule was *"We're gonna do
+ * this one at a time … Currently you're just gonna focus on the lightning hub. I will present them
+ * one after another."* He then played the pilot — *"you can see the tower actively get more and
+ * more destroyed until it gets completely destroyed. So very well done with the lightning hub"* —
+ * and sent sheets for the goblin tower, the laser turret, the pentagram and HELGA's hall.
+ * `RAMP_SPECS` therefore holds FIVE, and the eight remaining towers are still his call, not a
+ * tidy-up. ⛔ The self-destruct did NOT come with them; see the registry.
  *
  * ## ⭐⭐⭐ WHAT TOWER NUMBER TWO COSTS — COUNTED, FILE BY FILE
  *
@@ -49,9 +51,10 @@
  *    `starHealthFrac` takes an anchor, so it works on a turret's Line hub and Helga's Triangle hub
  *    unchanged. It is the SOURCE LOOP that must widen — lift the per-structure body into a method
  *    and call it for `world.defenders` too.
- *    ⚠ NOT DONE HERE, deliberately: there is no defender ramp art yet, and this project's standing
- *    lesson is that code written ahead of the art it serves ships unreachable and untested
- *    (`t3TowerAtlasBase`, 7.4 MiB, two sessions, zero callers).
+ *    ✅ **DONE S183**, the session the art arrived, and it cost the ~15 lines this said it would:
+ *    `StructureRampRenderer.drawStructure` plus a second loop. That it waited for the art rather
+ *    than being written in S182 is the `t3TowerAtlasBase` lesson honoured (7.4 MiB of guarded art,
+ *    two sessions, zero production callers, every gate green the whole time).
  *
  * ### SO: FOUR MORE TOWERS ≈ **23 one-time lines + 4 × 17**, i.e. an afternoon, not a month
  *
@@ -82,6 +85,10 @@
  * `castleFrames.ts` already use, and for the same reason.
  */
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import type { World } from '../state/world.ts';
+import type { BondId, PrimitiveId } from '../types.ts';
+import { componentOf } from '../game/structure.ts';
+import { structurePoolFifths } from '../state/stats.ts';
 import { STAR_SELFDESTRUCT_BELOW_FRAC } from '../state/structureStarHealth.ts';
 
 /** One row of a ramp sheet: a manifest state name and how many frames it holds. */
@@ -90,9 +97,47 @@ export interface RampRow {
   readonly count: number;
 }
 
+/**
+ * ⭐ S183 — **HOW THE RENDERER FINDS THE SHAPES THE BUILDING STANDS ON.** Two answers, because the
+ * five towers with ramp art are not all one topology.
+ *
+ * · `'star'` — a hub and the leaves ITS OWN bonds reach. The lightning hub, the goblin tower, the
+ *   laser turret and HELGA's hall. The walk is `anchor.bonds`, which is exactly what `isStarAt`
+ *   asserted to build the thing, and exactly what `starHealthFrac` sums (R182-B).
+ * · `'ring'` — a closed cycle with NO hub. **The pentagram, and it is the reason this field
+ *   exists.** Every node of a pentagram has degree 2 (`pentagram.ts`: *"a connected graph in which
+ *   every vertex has degree exactly 2 is necessarily a single cycle"*), so its anchor is an
+ *   arbitrary ring node holding TWO of the five connectors. Walking `anchor.bonds` would have
+ *   covered two shapes of five, priced its health against a 2-connector pool of 14 instead of the
+ *   real 50, and ignored every point of damage landing on the other three arms. The walk is the
+ *   anchor's connected COMPONENT — which for a live pentagram is the ring and nothing else, because
+ *   the predicate rejects the shape outright the moment anything is welded to it.
+ */
+export type RampShape = 'star' | 'ring';
+
 /** Everything the generic renderer needs to draw one tower's damage ramp. */
 export interface RampSpec {
   readonly recipeId: GodlyId;
+  /** How the renderer walks from the anchor to the shapes the building stands on. */
+  readonly shape: RampShape;
+  /**
+   * ⭐ S183 — **HOW MANY CONNECTORS THIS STRUCTURE HAS WHEN IT IS WHOLE**, which is both its
+   * health denominator and its crumble test.
+   *
+   * ⛔ **AND THE CRUMBLE TEST IS WHY IT IS ON THE SPEC RATHER THAN READ LIVE.** `starHealthFrac`
+   * reads `hub.bonds.size` live, which is right for the hub because a hub self-destructs before it
+   * can ever lose an arm. None of the four towers added in S183 self-destructs, so all four DO
+   * reach the moment a connector snaps — and at that moment `damageConnector` SPENDS the pool it
+   * just filled, draining every survivor. Priced against the live count, a 4-connector goblin tower
+   * would go 36/36 banked (frame 24, rubble) and then, in the same tick, 0 banked over a
+   * 3-connector pool — **frame 1, pristine** — and sit there looking brand new for the 0-30 ticks
+   * before the re-validation poll removes it. Reading the INTACT count instead makes "fewer
+   * connectors than the recipe has" mean what it plainly means: this structure is coming down.
+   *
+   * ⚠ Asserted against `blueprintFor(recipeId).bonds.length` in `structureRamp.test.ts` rather than
+   * imported, so a recipe retune turns a test red instead of silently re-pricing the art.
+   */
+  readonly connectors: number;
   /** `<base>-atlas.png` + `<base>-anim.json`, as every other atlas in this project is named. */
   readonly atlasBase: string;
   /** Total frames in the ramp, frame 1 pristine to frame `frames` destroyed. */
@@ -168,7 +213,83 @@ export const HUB_ART_PX = 84;
 export const HUB_SPRITE_PX = Math.round(HUB_ART_PX / HUB_SUBJECT_FILL);
 
 /**
- * ⭐ THE REGISTRY. **ONE ENTRY, BY OWNER RULING.** See the file docblock.
+ * ⭐⭐ S183 — **THE OWNER'S FOUR NEW RAMPS.** Same three constants per tower as the hub, derived the
+ * same way, and every one of them MEASURED rather than guessed.
+ *
+ * ### The fills are the BUILDER'S own measurements
+ *
+ * `subjectFill` is written into each `<name>-anim.json` at pack time by
+ * `scripts/build-alpha-sheet-atlas.mjs`, and `structureRampAtlas.test.ts` asserts each constant
+ * below against the shipped file. That loop — measure at pack time, pin at test time — is what the
+ * Voltkin TV never had when it shipped drawing at 61 px.
+ *
+ * ### The sizes ride the SAME footprint ladder the hub does
+ *
+ * Every size here is `footprint × 1.2 × subjectFill`, which is the relationship `T3_TOWER_SPRITE_PX`
+ * (84 on a 68 px ring) and `T9_TOWER_SPRITE_PX` (150 on a 128 px ring) already encode — *"these
+ * track the ring diameters they sit on."* The footprints come out of `blueprints.ts` and are not
+ * all equal:
+ *
+ * | tower | blueprint | footprint | box | drawn art |
+ * |---|---|---|---|---|
+ * | goblin tower | star, `STAR_R` 44 | 88 px | 106 | **99** |
+ * | laser turret | star, `STAR_R` 44 | 88 px | 106 | **94** |
+ * | HELGA's hall | star, `STAR_R` 44 | 88 px | 106 | **99** |
+ * | pentagram | ring, `RING_R` 40 | **80 px** | 96 | **90** |
+ *
+ * ⛔ **THE PENTAGRAM IS SMALLER AND THAT IS NOT A ROUNDING WOBBLE.** Its ring circumradius is 40,
+ * not the stars' 44, so its footprint is genuinely 8 px narrower and its building should be too —
+ * the same `TRI_RING_R` / `RING_R` / `NINE_RING_R` lesson `blueprints.ts` spends three docblocks on
+ * (*"the S166 B12 defect is one radius reused at a different n"*). `structureRamp.test.ts`
+ * re-derives all four from `blueprintRadius` so a recipe retune cannot leave them behind.
+ *
+ * ⚠ **MINE, NOT THE OWNER'S**, exactly as `HUB_ART_PX` is. The S147 lesson is that a sprite size
+ * can only really be judged from a captured frame; these are derived to match the footprint ladder
+ * and are the first thing to change once he has looked at them on the board.
+ */
+export const GOBLIN_TOWER_SUBJECT_FILL = 0.9367;
+export const GOBLIN_TOWER_ART_PX = 99;
+export const GOBLIN_TOWER_SPRITE_PX = Math.round(GOBLIN_TOWER_ART_PX / GOBLIN_TOWER_SUBJECT_FILL);
+
+export const LASER_TURRET_SUBJECT_FILL = 0.8896;
+export const LASER_TURRET_ART_PX = 94;
+export const LASER_TURRET_SPRITE_PX = Math.round(LASER_TURRET_ART_PX / LASER_TURRET_SUBJECT_FILL);
+
+export const PENTAGRAM_SUBJECT_FILL = 0.9328;
+export const PENTAGRAM_ART_PX = 90;
+export const PENTAGRAM_SPRITE_PX = Math.round(PENTAGRAM_ART_PX / PENTAGRAM_SUBJECT_FILL);
+
+export const HELGA_TOWER_SUBJECT_FILL = 0.9331;
+export const HELGA_TOWER_ART_PX = 99;
+export const HELGA_TOWER_SPRITE_PX = Math.round(HELGA_TOWER_ART_PX / HELGA_TOWER_SUBJECT_FILL);
+
+/**
+ * Every ramp sheet the owner has sent is 8×3 read in reading order and ships as the 12-per-row
+ * shape the rest of the pipeline is built around. Each tower's `assets-source/…/atlas-specs.json`
+ * is where those two numberings meet, and `structureRampAtlas.test.ts` pins this against the
+ * manifest on disk.
+ */
+const RAMP_ROWS_24: readonly RampRow[] = [
+  { state: 'damage', count: 12 },
+  { state: 'collapse', count: 12 },
+];
+
+/**
+ * ⭐⭐ THE REGISTRY. **FIVE ENTRIES AS OF S183 — THE OWNER SENT THE OTHER FOUR AND RULED THEM IN.**
+ *
+ * It held ONE from S182 to S183, and that single entry was an owner ruling, not an accident:
+ * *"We're gonna do this one at a time … Currently you're just gonna focus on the lightning hub. I
+ * will present them one after another."* He then played the pilot and presented them:
+ *
+ * > *"A low creature attacks, you can see the tower actively get more and more destroyed until it
+ * > gets completely destroyed. So very well done with the lightning hub. Keep it like that for now."*
+ *
+ * ⛔ **AND THE SELF-DESTRUCT DID NOT COME WITH THEM.** R182-A is the hub's alone — *"From thirty
+ * two percent it will just get self destroyed, but it is a suicide drone building, so it makes
+ * sense. **We won't do it for every building.**"* The other four carry `selfDestructBelow: null`,
+ * so frames 17–24 are simply their death run: they die when their recipe breaks, like any
+ * structure. `structureRamp.test.ts` asserts that exactly one entry opts in, because a generalised
+ * ramp quietly generalising a BALANCE threshold is precisely how that ruling would leak.
  *
  * ⚠ A `readonly RampSpec[]` rather than a `Partial<Record<GodlyId, …>>`, deliberately: this project
  * has already lost a session to a partial art map returning `undefined` for an unlisted type and
@@ -179,21 +300,221 @@ export const HUB_SPRITE_PX = Math.round(HUB_ART_PX / HUB_SUBJECT_FILL);
 export const RAMP_SPECS: readonly RampSpec[] = [
   {
     recipeId: 'lightningHub' as GodlyId,
+    shape: 'star',
+    connectors: 5, // LIGHTNING_HUB_DEGREE — the Dot hub's exact bond-degree
     atlasBase: '/art/lightning-hub/lightning-hub',
     frames: 24,
-    // The owner's sheet is 8×3 read in reading order; the atlas ships it as the 12-per-row shape the
-    // rest of the pipeline is built around. `assets-source/lightning-hub/atlas-specs.json` is where
-    // those two numberings meet, and `structureRampAtlas.test.ts` pins this against the manifest.
-    rows: [
-      { state: 'damage', count: 12 },
-      { state: 'collapse', count: 12 },
-    ],
+    rows: RAMP_ROWS_24,
     ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
     spritePx: HUB_SPRITE_PX,
     artPx: HUB_ART_PX,
     selfDestructBelow: STAR_SELFDESTRUCT_BELOW_FRAC,
   },
+  {
+    recipeId: 'goblinTower' as GodlyId,
+    shape: 'star',
+    connectors: 4, // GOBLIN_TOWER_HUB_DEGREE — the Circle hub at degree 4
+    atlasBase: '/art/goblin-tower/goblin-tower',
+    frames: 24,
+    rows: RAMP_ROWS_24,
+    ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
+    spritePx: GOBLIN_TOWER_SPRITE_PX,
+    artPx: GOBLIN_TOWER_ART_PX,
+    selfDestructBelow: null,
+  },
+  {
+    recipeId: 'laserTurret' as GodlyId,
+    shape: 'star',
+    connectors: 6, // TURRET_HUB_DEGREE — the Line hub at degree 6
+    atlasBase: '/art/laser-turret/laser-turret',
+    frames: 24,
+    rows: RAMP_ROWS_24,
+    ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
+    spritePx: LASER_TURRET_SPRITE_PX,
+    artPx: LASER_TURRET_ART_PX,
+    selfDestructBelow: null,
+  },
+  {
+    recipeId: 'pentagram' as GodlyId,
+    // ⛔ THE ONLY RING IN THE TABLE. See `RampShape` — its anchor holds 2 of its 5 connectors, so
+    // the star walk would have covered two shapes of five and priced it against a pool of 14.
+    shape: 'ring',
+    connectors: 5, // PENTAGRAM_SIZE — a closed 5-cycle, so nodes and connectors are both 5
+    atlasBase: '/art/pentagram/pentagram',
+    frames: 24,
+    rows: RAMP_ROWS_24,
+    ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
+    spritePx: PENTAGRAM_SPRITE_PX,
+    artPx: PENTAGRAM_ART_PX,
+    selfDestructBelow: null,
+  },
+  {
+    recipeId: 'helga' as GodlyId,
+    shape: 'star',
+    connectors: 6, // HELGA_SIZE − 1 — the Triangle hub at degree 6 (3 Spiral + 3 Circle leaves)
+    // ⚠ `helga-tower`, not `helga`: `public/godly/helga/` is her CHARACTER atlas and
+    // `princessRenderer` still draws it. This sheet is the hall she stands on.
+    atlasBase: '/art/helga-tower/helga-tower',
+    frames: 24,
+    rows: RAMP_ROWS_24,
+    ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
+    spritePx: HELGA_TOWER_SPRITE_PX,
+    artPx: HELGA_TOWER_ART_PX,
+    selfDestructBelow: null,
+  },
 ];
+
+/** What a ramp building actually stands on, resolved from the world. */
+export interface RampMembers {
+  readonly members: readonly PrimitiveId[];
+  readonly bonds: readonly BondId[];
+  /** Centroid of the members — where the sprite's foot goes, and the centre of its hit box. */
+  readonly cx: number;
+  readonly cy: number;
+  /** Newest `Bond.createdTick` among them — the cover ramp's joiner anchor. */
+  readonly newestTick: number;
+  /** Total `damageFifths` standing on those bonds. */
+  readonly bankedFifths: number;
+}
+
+/**
+ * PURE — the shapes and connectors a ramp building stands on, or `null` if its anchor is gone.
+ *
+ * ⛔ **ONE WALK, TWO CALLERS, AND THAT IS THE POINT.** `StructureRampRenderer` uses it to place the
+ * sprite and publish the cover; `rampAnchorAtPoint` uses it to hit-test the same sprite. A second
+ * copy of this arithmetic would let the building be drawn in one place and clicked in another —
+ * and with the shapes underneath now invisible, a hit box that disagrees with the art is a tower
+ * the player cannot repair.
+ *
+ * ⚠ `'ring'` uses the anchor's connected COMPONENT, which for a LIVE pentagram is exactly its five
+ * nodes: its predicate demands every component node be degree 2 and the component be size 5, so a
+ * pentagram with anything welded on is not a pentagram and has no spawner to draw.
+ */
+export function rampMembersAt(world: World, anchorId: PrimitiveId, spec: RampSpec): RampMembers | null {
+  const anchor = world.primitives.get(anchorId);
+  if (anchor === undefined) return null;
+  const members: PrimitiveId[] = [];
+  const bonds: BondId[] = [];
+  let cx = 0;
+  let cy = 0;
+  let n = 0;
+  let newestTick = 0;
+  let bankedFifths = 0;
+  const addPrim = (id: PrimitiveId): void => {
+    const p = world.primitives.get(id);
+    if (p === undefined) return;
+    members.push(id);
+    cx += p.pos.x;
+    cy += p.pos.y;
+    n++;
+  };
+  const addBond = (id: BondId): void => {
+    const bond = world.bonds.get(id);
+    if (bond === undefined) return;
+    bonds.push(id);
+    bankedFifths += bond.damageFifths;
+    if (bond.createdTick > newestTick) newestTick = bond.createdTick;
+  };
+  if (spec.shape === 'star') {
+    addPrim(anchorId);
+    for (const bondId of anchor.bonds) {
+      const bond = world.bonds.get(bondId);
+      if (bond === undefined) continue;
+      addBond(bondId);
+      addPrim(bond.aId === anchorId ? bond.bId : bond.aId);
+    }
+  } else {
+    const comp = componentOf(anchor, world.primitives, world.bonds);
+    for (const pid of comp.primitiveIds) addPrim(pid);
+    for (const bid of comp.bondIds) addBond(bid);
+  }
+  if (n === 0) return null;
+  return { members, bonds, cx: cx / n, cy: cy / n, newestTick, bankedFifths };
+}
+
+/**
+ * PURE — the anchor of the ramp building whose SPRITE BOX contains `(x, y)`, or `null`.
+ *
+ * ⛔⛔ **S183 — WITHOUT THIS, EVERY TOWER THIS BRANCH HID BECOMES UNREPAIRABLE.**
+ *
+ * FIX and SCRAP are reached by clicking a structure (`controls.ts`, S152/S181). That click tries
+ * `towerAnchorAtPoint` first — the art box — and falls back to a scan of each member shape's own
+ * ~10 px radius. `towerAnchorAtPoint` covers the TWELVE RACE TOWERS only; its own line reads
+ * *"pentagram / goblin tower / lightning hub draw no building"*, and it iterates
+ * `world.creatureSpawners`, so it can never see a defender either. That was fine while those five
+ * had no art: the shape scan worked because the shapes were VISIBLE.
+ *
+ * They are not visible any more. So the fallback became "click an invisible 10 px dot to repair
+ * your tower", which is not a fallback. This is the box for the sprite that is actually on screen.
+ *
+ * ⚠ **SMALLEST BOX WINS, THEN LOWEST ANCHOR ID** — a total order, copied from
+ * `towerAnchorAtPoint` for the same reason it has one: two overlapping buildings must resolve the
+ * same way on every machine, and `Map` iteration order is not that.
+ */
+export function rampAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {
+  let bestAnchor: PrimitiveId | null = null;
+  let bestSize = Infinity;
+  let bestId = Infinity;
+  const consider = (anchorId: PrimitiveId, recipeId: GodlyId): void => {
+    const spec = rampSpecFor(recipeId);
+    if (spec === null) return;
+    const at = rampMembersAt(world, anchorId, spec);
+    if (at === null) return;
+    /*
+     * ⚠ THE BOX IS THE ART, NOT THE SPRITE BOX, AND IT SITS ON THE FOOT. `spritePx` is the Pixi
+     * box; the drawing inside it is `artPx` tall and stands ON the centroid, so the building
+     * occupies roughly `artPx` above `cy`. Hit-testing the whole `spritePx` square centred on the
+     * centroid would claim empty ground below the tower — and on these sheets that is where the
+     * NEXT structure's shapes are.
+     */
+    const half = spec.artPx * 0.5;
+    if (Math.abs(x - at.cx) > half) return;
+    if (y > at.cy + half * 0.35 || y < at.cy - spec.artPx) return;
+    const id = anchorId as unknown as number;
+    if (spec.artPx > bestSize || (spec.artPx === bestSize && id >= bestId)) return;
+    bestSize = spec.artPx;
+    bestId = id;
+    bestAnchor = anchorId;
+  };
+  for (const sp of world.creatureSpawners.values()) consider(sp.anchorPrimitiveId, sp.recipeId);
+  for (const def of world.defenders.values()) consider(def.anchorPrimitiveId, def.recipeId);
+  return bestAnchor;
+}
+
+/**
+ * PURE — the health fraction the ramp draws from, 0..1, given the connectors the renderer actually
+ * walked and the damage standing on them.
+ *
+ * ⭐⭐ **ONE FUNCTION FOR BOTH SHAPES, AND FOR A STAR IT IS `starHealthFrac` EXACTLY.** The hub's
+ * sim-side fuse and this both read `structurePoolFifths` over the same bonds, and
+ * `structureRamp.test.ts` asserts the two agree at every integer fifth of a real hub's pool rather
+ * than trusting this sentence. R182-B still governs what "its own bonds" means: the star's arms,
+ * never its connected component, so a hub welded into a lattice is still judged on what the player
+ * built.
+ *
+ * ⛔⛔ **AND A STRUCTURE MISSING A CONNECTOR READS ZERO — THIS IS THE CRUMBLE RULE.**
+ *
+ * Owner, S183, correcting the S175 behaviour: *"It does not come back when the building starts
+ * dying so you can still repair it. No — because you can see the tower is damaged. You can just
+ * click the tower and repair it. You don't have to see the connectors. The connectors come back
+ * when the tower is being destroyed, like when it hits zero health and you can see it crumble and
+ * fall."*
+ *
+ * Zero health and the first snapped connector are the SAME EVENT — `damageConnector` breaks an arm
+ * at the exact moment banked damage reaches the pool — so "hits zero health" and "starts to
+ * crumble" are one boundary, and the ramp must hold frame 24 across it rather than flicking back to
+ * pristine on the drain. See `RampSpec.connectors` for the arithmetic that makes that flick real.
+ *
+ * ⚠ NaN IS NOT SILENTLY HEALTHY. A non-finite banked total resolves to 0 (rubble), the same
+ * loud-side choice `rampFrameForHealth` and `towerStateForHp` make.
+ */
+export function rampHealthFrac(liveConnectors: number, bankedFifths: number, spec: RampSpec): number {
+  if (liveConnectors < spec.connectors) return 0;
+  if (!Number.isFinite(bankedFifths)) return 0;
+  const pool = structurePoolFifths(spec.connectors);
+  if (pool <= 0) return 1;
+  return Math.max(0, Math.min(1, 1 - bankedFifths / pool));
+}
 
 /** PURE — the ramp spec for a recipe, or `null` for the twelve towers that do not have one. */
 export function rampSpecFor(recipeId: GodlyId): RampSpec | null {

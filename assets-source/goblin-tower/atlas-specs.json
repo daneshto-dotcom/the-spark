@@ -1,0 +1,34 @@
+{
+  "_note": [
+    "S183 — the goblin tower's 24-frame damage ramp, built by scripts/build-alpha-sheet-atlas.mjs.",
+    "The SOURCE is the owner's 8x3 contact sheet read in reading order as one continuous ramp,",
+    "frame 1 pristine to frame 24 rubble. The OUTPUT is 2 rows of 12, the shape the rest of the",
+    "pipeline is built around (ART_PIPELINE.md: 'it needs 12 frames'). states[] is the only place",
+    "those two numberings meet.",
+    "",
+    "This is the ALPHA intake, not the hub's: the sheet arrives RGBA with the cut-out already in",
+    "the alpha channel, with no drawn rules and no baked frame numbers. stripCornerLabel is",
+    "therefore FALSE — measured, the top-left corner of this sheet holds artwork, not numerals.",
+    "",
+    "grid{} is an ASSERTION against the detected transparent gutters, never the source of the cell",
+    "bounds. MEASURED row heights on this sheet: 285 / 263 / 216 — a uniform 793/3 = 264 stride",
+    "visibly cuts the top off row 1.",
+    "",
+    "ticksPerFrame 3 is HUB_RAMP_TICKS_PER_FRAME in src/render/structureRamp.ts and is pinned",
+    "against this file by structureRampAtlas.test.ts. 24 frames x 3 = 72 ticks = 1.2 s (R182-D)."
+  ],
+  "name": "goblin-tower",
+  "source": "assets-source/goblin-tower/goblin-tower-transitions-24.png",
+  "outDir": "public/art/goblin-tower",
+  "grid": { "cols": 8, "rows": 3 },
+  "cellW": 256,
+  "cellH": 256,
+  "gutterAlpha": 48,
+  "alphaFloor": 24,
+  "alphaCeil": 244,
+  "stripCornerLabel": false,
+  "states": [
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+  ]
+}

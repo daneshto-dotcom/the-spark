@@ -24,11 +24,21 @@
  * ~5-prim pentagrams) this is negligible.
  *
  * Owner colour tints the aura so each player's spawn zone reads as theirs.
+ *
+ * ⛔⛔ **S183 — EVERY LAYER IN HERE NOW FADES WITH `towerCover`, AND UNTIL THIS SESSION NONE OF
+ * THEM DID.** This file contained no reference to `towerCover` at all, so while `structureRenderer`
+ * faded a built tower's shapes and connectors to nothing, this redrew charged copies of the same
+ * connectors on top, every frame. That is why the owner still saw *"the old triangles and
+ * connectors between them and that little graphic that have it, like, radiate"* under a finished
+ * building. See the block at the disc for his ruling and the one consequence he accepted.
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
 import { componentOf } from '../game/structure.ts';
 import { isConcealed } from './concealment.ts';
+import {
+  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim,
+} from './towerCover.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 
@@ -100,20 +110,58 @@ export class SpawnerZoneRenderer {
 
       const tint = anchorTint(world, anchor);
 
-      // ── breathing tint disc under the structure (the "alive" glow floor) ──
-      g.circle(cx, cy, radius * (0.85 + pulse * 0.1)).fill({
-        color: tint,
-        alpha: 0.06 + pulse * 0.05,
-      });
+      /*
+       * ⭐⭐⭐ S183 (owner) — **THE AURA FADES WITH THE BUILDING, ON EVERY TOWER, FRIENDLY AND
+       * ENEMY ALIKE.**
+       *
+       * ⛔ **AND THIS IS THE MAIN REASON HE COULD STILL SEE THE SHAPES AFTER S175 SHIPPED THE
+       * HIDING.** This renderer drew, every frame, with no reference to `towerCover` anywhere in
+       * the file: a breathing disc under the structure, three radiating rings, **a bright stroke
+       * over every bond**, a white spark bead at each bond midpoint, and a glowing core at the
+       * anchor. Its own comment said so — *"traced over each spawner bond (on top of the normal
+       * bond visual structureRenderer already drew)"*. `structureRenderer` faded the real
+       * connectors to nothing and this drew charged copies of them straight back. Eight sessions,
+       * every gate green, because a source-text guard can prove a line EXISTS and never that it is
+       * REACHED — and this was a draw site that existed and had never consumed.
+       *
+       * > *"When you place it, you can see the tower art, but you also see, like, the old triangles
+       * > and connectors between them and that little graphic that have it, like, radiate or
+       * > whatever. That's what I'm having issue with."*
+       *
+       * ⭐ **THE ZONE'S OWN LAYERS RIDE THE ANCHOR'S ALPHA; THE BOND LAYERS RIDE THEIR OWN BOND'S.**
+       * The disc, the rings and the core are one object centred on the structure, so one alpha is
+       * the honest answer for them and the anchor is the shape that is always covered. The strokes
+       * and beads are per-connector and each one has its own phase — a mid-ramp structure would
+       * otherwise show a fully-lit bead over a half-faded connector.
+       *
+       * ⚠ **A CONSEQUENCE HE WAS TOLD ABOUT AND ACCEPTED: THE RAID AIMS BLIND.** `world.ts:769`
+       * lets a player right-click a SPECIFIC bond and pay a raid point for it, which is the one
+       * player-directed act his reasoning does not cover — *"You can't control your spawn … you
+       * can't control your characters anyways."* Verified safe rather than assumed: the raid pick
+       * in `controls.ts` never consults `coverAlphaForBond`, so an invisible connector is still
+       * clickable and still raidable. The mechanic works; the player simply cannot see which arm
+       * he is cutting on an enemy tower. Reverting is this one alpha.
+       *
+       * ⚠ AND AN UNCOVERED SPAWNER IS UNAFFECTED: `coverAlphaFor*` returns 1 for anything no
+       * sprite is standing on, so a zone with no building art glows exactly as it did in S100.
+       */
+      const zoneAlpha = coverAlphaForPrim(anchor.id);
+      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+        // ── breathing tint disc under the structure (the "alive" glow floor) ──
+        g.circle(cx, cy, radius * (0.85 + pulse * 0.1)).fill({
+          color: tint,
+          alpha: (0.06 + pulse * 0.05) * zoneAlpha,
+        });
 
-      // ── radiating concentric rings expanding outward, staggered in phase ──
-      for (let i = 0; i < RING_COUNT; i++) {
-        // Each ring rides its own offset slice of the pulse so they appear to
-        // emanate outward (inner→outer) rather than breathe in unison.
-        const ringPhase = (pulse + i / RING_COUNT) % 1;
-        const ringR = radius * (0.6 + ringPhase * (RING_REACH - 0.6));
-        const ringAlpha = (1 - ringPhase) * 0.45;
-        g.circle(cx, cy, ringR).stroke({ width: 2, color: tint, alpha: ringAlpha });
+        // ── radiating concentric rings expanding outward, staggered in phase ──
+        for (let i = 0; i < RING_COUNT; i++) {
+          // Each ring rides its own offset slice of the pulse so they appear to
+          // emanate outward (inner→outer) rather than breathe in unison.
+          const ringPhase = (pulse + i / RING_COUNT) % 1;
+          const ringR = radius * (0.6 + ringPhase * (RING_REACH - 0.6));
+          const ringAlpha = (1 - ringPhase) * 0.45;
+          g.circle(cx, cy, ringR).stroke({ width: 2, color: tint, alpha: ringAlpha * zoneAlpha });
+        }
       }
 
       // ── distinct 'alive' styling on the component's own bonds ──
@@ -125,22 +173,34 @@ export class SpawnerZoneRenderer {
       for (const bid of comp.bondIds) {
         const bond = world.bonds.get(bid);
         if (bond === undefined) continue;
+        /*
+         * ⛔ S183 — the per-connector half of the fade above. SKIPPED rather than drawn at alpha
+         * zero, the same call `structureRenderer` makes for the same reason: these strokes go into
+         * a shared Graphics and an invisible one still costs its geometry.
+         */
+        const bondCover = coverAlphaForBond(bid);
+        if (bondCover <= TOWER_COVER_DRAW_EPSILON) continue;
         const a = bond.a as Primitive;
         const b = bond.b as Primitive;
         g.moveTo(a.pos.x, a.pos.y).lineTo(b.pos.x, b.pos.y)
-          .stroke({ width: 1.5 + shimmer * 1.5, color: tint, alpha: bondAlpha });
+          .stroke({ width: 1.5 + shimmer * 1.5, color: tint, alpha: bondAlpha * bondCover });
         // A travelling spark bead at the shimmering midpoint sells "energy flow".
         const mx = a.pos.x + (b.pos.x - a.pos.x) * (0.3 + shimmer * 0.4);
         const my = a.pos.y + (b.pos.y - a.pos.y) * (0.3 + shimmer * 0.4);
-        g.circle(mx, my, 2 + pulse * 1.5).fill({ color: 0xffffff, alpha: 0.5 + shimmer * 0.4 });
+        g.circle(mx, my, 2 + pulse * 1.5)
+          .fill({ color: 0xffffff, alpha: (0.5 + shimmer * 0.4) * bondCover });
       }
 
       // ── a steady core glow at the anchor itself (the spawn point) ──
-      g.circle(anchor.pos.x, anchor.pos.y, 5 + pulse * 3).fill({
-        color: tint,
-        alpha: 0.35 + pulse * 0.3,
-      });
-      g.circle(anchor.pos.x, anchor.pos.y, 2.5).fill({ color: 0xffffff, alpha: 0.85 });
+      // ⛔ S183 — *"that little graphic that have it, like, radiate"*. The core is the brightest
+      // thing in this file and sits dead centre under the building, so it fades with the rest.
+      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+        g.circle(anchor.pos.x, anchor.pos.y, 5 + pulse * 3).fill({
+          color: tint,
+          alpha: (0.35 + pulse * 0.3) * zoneAlpha,
+        });
+        g.circle(anchor.pos.x, anchor.pos.y, 2.5).fill({ color: 0xffffff, alpha: 0.85 * zoneAlpha });
+      }
     }
   }
 

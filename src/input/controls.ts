@@ -73,6 +73,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
+import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -803,11 +804,24 @@ export class Controls {
      * gesture; the card simply never asked it.
      *
      * ⭐ IT IS TRIED FIRST, and the shape scan stays as the fallback. That ordering is what keeps a
-     * hand-bonded freeform structure (which draws no sprite, so the art box cannot match) and the
-     * three art-less recipes — the pentagram, the goblin tower, the lightning hub — clickable
-     * exactly as they are today.
+     * hand-bonded freeform structure (which draws no sprite, so the art box cannot match)
+     * clickable exactly as it is today.
+     *
+     * ⛔⛔ **S183 — AND THE SECOND BOX IS NOT OPTIONAL, IT IS WHAT KEEPS THOSE TOWERS REPAIRABLE.**
+     * The line above used to end *"and the three art-less recipes — the pentagram, the goblin
+     * tower, the lightning hub — clickable exactly as they are today"*, because the shape scan
+     * below worked for them: their member shapes were VISIBLE. S182 gave the hub damage art and
+     * S183 gave the goblin tower, the pentagram, the laser turret and HELGA's hall theirs — and
+     * with art comes `towerCover`, which fades those member shapes to nothing. The fallback would
+     * then be "click an invisible 10 px dot to repair your tower".
+     *
+     * `towerAnchorAtPoint` cannot cover them: it is keyed on `towerArtForRecipe` (the race towers
+     * only) and iterates `world.creatureSpawners` (so no defender can ever be in it).
+     * `rampAnchorAtPoint` is the same box test over `RAMP_SPECS`, across both collections, sharing
+     * the member walk with the renderer that draws them.
      */
-    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
+    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
     if (towerHit !== null) {
       this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
       return true;

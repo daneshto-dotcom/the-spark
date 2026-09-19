@@ -25,7 +25,7 @@
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "probe-relays": "node scripts/probe-relays.mjs",
-    "check:atlas": "node scripts/check-atlas-scenery.mjs public/art/race-units public/art/race-tier3-units public/art/race-tier9-bosses && node scripts/check-atlas-scenery.mjs --no-size --allow-scenery 8000 public/art/castles public/art/race-tier3-towers public/art/race-tier9-towers public/art/voltkin-tv && node scripts/check-atlas-scenery.mjs --no-size --dark-bg public/art/lightning-hub"
+    "check:atlas": "node scripts/check-atlas-scenery.mjs public/art/race-units public/art/race-tier3-units public/art/race-tier9-bosses && node scripts/check-atlas-scenery.mjs --no-size --allow-scenery 8000 public/art/castles public/art/race-tier3-towers public/art/race-tier9-towers public/art/voltkin-tv && node scripts/check-atlas-scenery.mjs --no-size --dark-bg public/art/lightning-hub && node scripts/check-atlas-scenery.mjs --no-size public/art/goblin-tower public/art/laser-turret public/art/helga-tower && node scripts/check-atlas-scenery.mjs --no-size --dark-bg --allow-scenery 1500 public/art/pentagram"
   },
   "dependencies": {
     "@trystero-p2p/core": "0.25.2",

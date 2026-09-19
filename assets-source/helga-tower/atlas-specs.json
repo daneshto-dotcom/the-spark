@@ -1,0 +1,31 @@
+{
+  "_note": [
+    "S183 — HELGA's beer-hall's 24-frame damage ramp, built by scripts/build-alpha-sheet-atlas.mjs.",
+    "See assets-source/goblin-tower/atlas-specs.json for the shared contract.",
+    "",
+    "MEASURED row heights: 272 / 240 / 234. MEASURED sheet: 1995x788, the odd one out — the other",
+    "three are 1983x793 — which is exactly why grid{} is an assertion and the bounds are detected.",
+    "",
+    "⚠ THIS IS THE BUILDING, NOT THE CHARACTER. public/godly/helga/ holds her veo idle/walk/slap",
+    "atlas and princessRenderer keeps drawing it; this sheet is the hall she stands on, and it is",
+    "what the damage ramp shows. The output name is helga-tower so it cannot be confused with, or",
+    "overwrite, her character art.",
+    "",
+    "⚠ HELGA is kind:'defender'. StructureRampRenderer walks world.defenders as well as",
+    "world.creatureSpawners — see its sync()."
+  ],
+  "name": "helga-tower",
+  "source": "assets-source/helga-tower/helga-tower-transitions-24.png",
+  "outDir": "public/art/helga-tower",
+  "grid": { "cols": 8, "rows": 3 },
+  "cellW": 256,
+  "cellH": 256,
+  "gutterAlpha": 48,
+  "alphaFloor": 24,
+  "alphaCeil": 244,
+  "stripCornerLabel": false,
+  "states": [
+    { "name": "damage", "from": 1, "count": 12, "ticksPerFrame": 3 },
+    { "name": "collapse", "from": 13, "count": 12, "ticksPerFrame": 3 }
+  ]
+}
