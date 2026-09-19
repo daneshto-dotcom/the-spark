@@ -7,6 +7,7 @@
  * the four he happened to name. If they ever stop agreeing, the hub detonates on a frame that still
  * shows it standing, or stands on a frame that shows it in pieces.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   HUB_ART_PX,
@@ -608,12 +609,40 @@ describe('S183 — rampAnchorAtPoint: the FIX / SCRAP click box for a hidden tow
   it('⭐ a click on the BODY of a goblin tower resolves to its anchor', () => {
     const world = goblinStar();
     expect(rampAnchorAtPoint(world, 0, 0)).toBe(asPrimitiveId(1));
-    expect(rampAnchorAtPoint(world, 0, -GOBLIN.artPx * 0.6)).toBe(asPrimitiveId(1));
+    expect(rampAnchorAtPoint(world, 0, -GOBLIN.artPx * 0.4)).toBe(asPrimitiveId(1));
     expect(rampAnchorAtPoint(world, GOBLIN.artPx * 0.4, -10)).toBe(asPrimitiveId(1));
   });
 
-  it('⛔ and NOT on empty ground below the foot, where the next structure stands', () => {
+  /*
+   * ⛔⛔ S183 MERGE OWNER — **THE BAND THIS SUITE NEVER TESTED IS THE BAND THAT WAS BROKEN.**
+   *
+   * `place()` is `sprite.y = cy + artPx*0.5 + (1 - footY)*spritePx` against a BOTTOM anchor, so the
+   * art straddles the centroid: top at `cy - 0.5*artPx`, ground line at `cy + 0.5*artPx`. The first
+   * version of `rampAnchorAtPoint` accepted `[cy - artPx, cy + 0.175*artPx]` — derived from a
+   * docblock sentence rather than from `place()` — which missed the bottom 32 px of every goblin
+   * tower and accepted 50 px of empty sky above it.
+   *
+   * This suite was GREEN over that, because it asserted a hit at `-0.6*artPx` (ten pixels above the
+   * top of the drawing) and misses only far outside. A mechanical test can still test the wrong
+   * geometry if the geometry came from prose. These cases walk the FOOT, which is the widest and
+   * most natural part of a tower to click and the part a player actually aims at.
+   */
+  it('⛔ the FOOT of the tower is clickable — the half of the art BELOW the centroid', () => {
     const world = goblinStar();
+    const half = GOBLIN.artPx * 0.5;
+    for (const frac of [0.2, 0.35, 0.49]) {
+      expect(rampAnchorAtPoint(world, 0, half * frac * 2)).toBe(asPrimitiveId(1));
+    }
+    // and the drawn extremes, just inside each edge of the art
+    expect(rampAnchorAtPoint(world, 0, half - 1)).toBe(asPrimitiveId(1));
+    expect(rampAnchorAtPoint(world, 0, -half + 1)).toBe(asPrimitiveId(1));
+  });
+
+  it('⛔ and NOT outside the drawn art — empty sky above, empty ground below', () => {
+    const world = goblinStar();
+    const half = GOBLIN.artPx * 0.5;
+    expect(rampAnchorAtPoint(world, 0, half + 1)).toBeNull();
+    expect(rampAnchorAtPoint(world, 0, -half - 1)).toBeNull();
     expect(rampAnchorAtPoint(world, 0, GOBLIN.artPx)).toBeNull();
     expect(rampAnchorAtPoint(world, 0, -GOBLIN.artPx * 1.5)).toBeNull();
     expect(rampAnchorAtPoint(world, GOBLIN.artPx, 0)).toBeNull();
@@ -675,5 +704,37 @@ describe('S183 — rampAnchorAtPoint: the FIX / SCRAP click box for a hidden tow
       bonds: [[1, 1, 2], [2, 1, 3], [3, 1, 4]],
     });
     expect(rampAnchorAtPoint(stink, 0, 0)).toBeNull();
+  });
+});
+
+/*
+ * ⭐⭐ S183 (owner) — **THE DEFENDER SPRITES DRAW BEHIND THEIR OWN BUILDING, AND NOTHING ELSE CAN
+ * SEE THAT.** Pixi z-order is `addChild` order, so it is decided purely by the sequence of `new
+ * XRenderer(...)` calls in `main.ts`. No renderer runs under vitest (they need a live Pixi app), so
+ * every behavioural test in this repo is blind to it: Helga drew ON TOP of her own hall with the
+ * whole suite green.
+ *
+ * > *"They're just fade out and one layer below. They're not over the tower, but behind and kind of
+ * > phased out. So you can kind of count how many sprites you have there. But the tower is the main
+ * > thing that is visible."*
+ *
+ * ⚠ THIS IS A SOURCE-TEXT GUARD AND IT PROVES ONLY THAT THE ORDER EXISTS, not that the layers
+ * render that way — the honest limit this project keeps re-learning. It is still worth having,
+ * because the ONLY way to break the ruling is to move one of these three lines, and that is exactly
+ * what this catches. A renderer added to `fogHiddenLayer` between them is the case it cannot see.
+ */
+describe('S183 — the unit sprites are constructed BEFORE the ramp buildings, so they draw behind', () => {
+  it('⛔ turret and princess both precede structureRampRenderer in main.ts', () => {
+    const src = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
+    const at = (needle: string): number => {
+      const i = src.indexOf(needle);
+      expect(i, `${needle} not found in main.ts`).toBeGreaterThan(-1);
+      return i;
+    };
+    const turret = at('new TurretRenderer(');
+    const princess = at('new PrincessRenderer(');
+    const ramp = at('new StructureRampRenderer(');
+    expect(turret, 'the laser turret rig must draw behind its building').toBeLessThan(ramp);
+    expect(princess, 'Helga must draw behind her hall').toBeLessThan(ramp);
   });
 });

@@ -461,15 +461,32 @@ export function rampAnchorAtPoint(world: World, x: number, y: number): Primitive
     const at = rampMembersAt(world, anchorId, spec);
     if (at === null) return;
     /*
-     * ⚠ THE BOX IS THE ART, NOT THE SPRITE BOX, AND IT SITS ON THE FOOT. `spritePx` is the Pixi
-     * box; the drawing inside it is `artPx` tall and stands ON the centroid, so the building
-     * occupies roughly `artPx` above `cy`. Hit-testing the whole `spritePx` square centred on the
-     * centroid would claim empty ground below the tower — and on these sheets that is where the
-     * NEXT structure's shapes are.
+     * ⚠ THE BOX IS THE ART, NOT THE SPRITE BOX. `spritePx` is the Pixi box; the drawing inside it
+     * is `artPx` tall. Hit-testing the whole `spritePx` square would claim empty ground around the
+     * tower — and on these sheets that is where the NEXT structure's shapes are.
+     *
+     * ⛔⛔ S183 MERGE OWNER — **THE ART STRADDLES THE CENTROID. IT DOES NOT STAND ON IT.** This read
+     * `y > cy + half*0.35 || y < cy - artPx`, derived from a sentence ("the building occupies
+     * roughly `artPx` above `cy`") rather than from `place()`. `place()` is
+     * `sprite.y = cy + artPx*0.5 + (1 - footY)*spritePx` against `TOWER_SPRITE_ANCHOR.y = 1`, so the
+     * art's GROUND LINE lands at `cy + 0.5*artPx` and its top at `cy - 0.5*artPx` — half above the
+     * centroid, half below, exactly as `voltkinTowerRenderer` documents.
+     *
+     * The old window accepted `[cy - artPx, cy + 0.175*artPx]`: it MISSED the bottom `0.325*artPx`
+     * of every tower (goblin/Helga 32 px, laser 31, pentagram 29, hub 27) — the widest, most
+     * natural part to click — and accepted `0.5*artPx` of empty sky above it. Clicking a tower's
+     * base fell through to the member scan, which cannot hit either because the shapes are HIDDEN,
+     * and the card closed. That is precisely the "invisible tower is an unrepairable tower" outcome
+     * this function exists to prevent, so the function defeated its own purpose.
+     *
+     * ⚠ AND THE BRANCH'S OWN TESTS WERE GREEN OVER IT, because they asserted a hit at
+     * `-0.6*artPx` — 10 px ABOVE the top of the drawn art — and a miss far below, never touching
+     * the `+0.2…+0.5` band that was broken. A mechanical test aimed at geometry taken from prose.
+     * The symmetric box is what `towerAnchorAtPoint` already does for the race towers.
      */
     const half = spec.artPx * 0.5;
     if (Math.abs(x - at.cx) > half) return;
-    if (y > at.cy + half * 0.35 || y < at.cy - spec.artPx) return;
+    if (Math.abs(y - at.cy) > half) return;
     const id = anchorId as unknown as number;
     if (spec.artPx > bestSize || (spec.artPx === bestSize && id >= bestId)) return;
     bestSize = spec.artPx;
