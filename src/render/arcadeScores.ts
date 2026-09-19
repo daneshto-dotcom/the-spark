@@ -382,11 +382,18 @@ export const PENDING_CAP = 200;
  * folds the same game a second time — permanently, because the board stores sum-and-count. A queue
  * bounded only by COUNT could sit for a week and then do exactly that.
  *
- * ⚠ MINE, NOT THE OWNER'S, and the 12 h rather than 23 h is deliberate slack for CLOCK SKEW: `at`
- * is the player's wall clock and `seen_runs.created` is the server's. Twelve hours of margin means
- * a badly-set device clock cannot walk a retry past the TTL. Twelve hours is also far longer than
- * any real retry — the failure this defends against resolves in seconds — so the slack costs
- * nothing that matters.
+ * ⚠ MINE, NOT THE OWNER'S.
+ *
+ * ⛔ **AND THE REASON FIRST WRITTEN HERE FOR THE 12 h WAS ARITHMETICALLY WRONG — S183 audit.** It
+ * said the margin was slack for CLOCK SKEW, *"`at` is the player's wall clock and `seen_runs.created`
+ * is the server's"*. A constant OFFSET between the two clocks CANCELS: `now - at` and
+ * `server_now - created` measure the same elapsed real duration, so skew alone would need zero
+ * slack. What the margin actually buys is room for a clock JUMP, for the request's own flight time,
+ * and for the server's prune firing on another client's POST a moment before the retry lands.
+ *
+ * ⚠ A false premise in a comment is what hid the bug this priority exists to close. Stating the
+ * wrong reason for a right number is the same failure one level down, so the number stayed and the
+ * sentence was replaced.
  *
  * `src/render/pendingRunExpiry.test.ts` pins this against the worker's own exported constant, so
  * raising one without the other turns a test red instead of quietly re-opening the double-count.
@@ -399,12 +406,24 @@ export const PENDING_MAX_AGE_MS = 12 * 60 * 60 * 1000;
  * ⛔ APPLIED TO THE LIST THE CALLER THEN SAVES BACK, so an expired run leaves storage as well as the
  * request. Filtering only the outgoing batch would leave it in the queue to be reconsidered, and
  * re-dropped, on every submit for the rest of the install's life.
+ *
+ * ⛔⛔ **`Math.abs`, AND WITHOUT IT A RUN STAMPED IN THE FUTURE IS IMMORTAL — S183 audit.** This read
+ * `now - r.at < PENDING_MAX_AGE_MS`. For `at > now` that difference is NEGATIVE, so the comparison
+ * is trivially true and the run is kept FOREVER — and `loadPending` accepts any finite positive
+ * number, so a far-future stamp round-trips through storage verbatim.
+ *
+ * The scenario is ordinary, not contrived: a device whose clock is set a year ahead (a dual-boot
+ * machine, a phone that lost its RTC) plays offline, the run queues at a 2027 stamp, the clock is
+ * then corrected. Every later prune keeps it. Weeks on it flushes, `seen_runs` forgot the key 24 h
+ * after the original POST, and the fold runs a SECOND time — the exact permanent double-count this
+ * whole priority exists to close, reintroduced in the code written to close it, in precisely the
+ * population the 12 h margin was meant to protect.
  */
 export function prunePending(
   pending: readonly PendingRun[],
   now: number = Date.now(),
 ): PendingRun[] {
-  return pending.filter((r) => now - r.at < PENDING_MAX_AGE_MS);
+  return pending.filter((r) => Math.abs(now - r.at) < PENDING_MAX_AGE_MS);
 }
 
 export function savePending(

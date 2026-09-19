@@ -32,6 +32,8 @@ import {
   characterSheetModel,
   FEED_CAPTION_FONT,
   FEED_CAPTION_GAP,
+  FEED_CAPTION_LEADING,
+  feedCaptionLines,
   feedCaptionWidthPx,
   layoutSheetActions,
   MONO_EM_RATIO,
@@ -525,13 +527,20 @@ export class CharacterSheet {
     const feed = this.slots.filter((b) => b.kind === 'FEED');
     if (feed.length > 0 && hint !== null) {
       const chip = feed.reduce((a, b) => (b.x < a.x ? b : a));
-      this.textRightMiddle(
-        hint,
-        chip.x - FEED_CAPTION_GAP,
-        chip.y + chip.h / 2,
-        FEED_CAPTION_FONT,
-        DIM,
-      );
+      /*
+       * ⭐⭐ S183 (owner) — **TWO LINES, BLOCK-CENTRED ON THE CHIP.** *"You can make it divided to
+       * two lines … and just make it fit the box."* Both lines are right-aligned to the same edge,
+       * so the block reads as one label pointing at the chip rather than as two stray sentences.
+       *
+       * The pair is centred vertically on the chip: with two lines of `FEED_CAPTION_LEADING`, the
+       * first sits half a leading above the chip's middle and the second half below. Chip height is
+       * 32 and the block is 11, so it cannot reach either neighbouring row.
+       */
+      const [top, bottom] = feedCaptionLines(hint);
+      const right = chip.x - FEED_CAPTION_GAP;
+      const mid = chip.y + chip.h / 2;
+      this.textRightMiddle(top, right, mid - FEED_CAPTION_LEADING / 2, FEED_CAPTION_FONT, DIM);
+      this.textRightMiddle(bottom, right, mid + FEED_CAPTION_LEADING / 2, FEED_CAPTION_FONT, DIM);
     }
   }
 

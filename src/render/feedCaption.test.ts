@@ -39,6 +39,7 @@ import {
   FEED_BTN,
   FEED_CAPTION_FONT,
   FEED_CAPTION_GAP,
+  feedCaptionLines,
   feedCaptionMaxWidthPx,
   feedCaptionWidthPx,
   feedHintFor,
@@ -132,21 +133,50 @@ describe('S183 — the feed caption fits BESIDE the chip, for every race', () =>
     }
   });
 
-  it('⚠ the OLD wording would fail this gate for five of the six — the defect was real', () => {
+  /*
+   * ⚠ S183 — THIS WITNESS WAS RE-POINTED, AND THE REASON MATTERS MORE THAN THE TEST.
+   *
+   * It used to assert that the owner's FULL wording overflowed for five of six races, which was the
+   * justification for cutting `A SHAPE` out of it. The measurement was right and the conclusion was
+   * wrong: he ruled *"you can make it divided to two lines … and just make it fit the box"*, and a
+   * wrapped caption clears the budget with 60px to spare. So the witness now pins the thing that is
+   * actually load-bearing — that the caption needs the WRAP, i.e. that ONE line genuinely does not
+   * fit — rather than the compromise that was reached for by mistake.
+   */
+  it('⛔ ONE line genuinely does not fit for five of six — this is why it wraps', () => {
     const budget = feedCaptionMaxWidthPx();
-    const overflowing = ALL_RACES.filter((race) => {
-      const hint = feedHintFor(RACE_TOWER_IDS[race]) as string;
-      // The S181 string, reconstructed from the shipped one rather than retyped.
-      const old = hint.replace('FEED TO BUILD', 'FEED A SHAPE TO BUILD');
-      return feedCaptionWidthPx(old) > budget;
-    });
+    const oneLine = (hint: string): number =>
+      Math.ceil(hint.length * FEED_CAPTION_FONT * MONO_EM_RATIO);
+    const overflowing = ALL_RACES.filter(
+      (race) => oneLine(feedHintFor(RACE_TOWER_IDS[race]) as string) > budget,
+    );
     expect(overflowing.length).toBe(5);
-    expect(overflowing).toContain('zombies'); // his hound — over by 4px
+    expect(overflowing).toContain('zombies'); // his hound — over by 4px, the one he reported
   });
 
-  it('the width formula is the monospace one, not a guess', () => {
+  it('⭐ and WRAPPED, every race clears it — the owner keeps his whole sentence', () => {
+    const budget = feedCaptionMaxWidthPx();
+    for (const race of ALL_RACES) {
+      const hint = feedHintFor(RACE_TOWER_IDS[race]) as string;
+      expect(hint, `${race} must keep the owner's wording`).toContain('FEED A SHAPE TO BUILD MORE');
+      const [a, b] = feedCaptionLines(hint);
+      expect(`${a} ${b}`, `${race}: wrapping must not lose a word`).toBe(hint);
+      expect(feedCaptionWidthPx(hint), `${race}: "${a}" / "${b}"`).toBeLessThanOrEqual(budget);
+    }
+  });
+
+  it('⛔ every race gets EXACTLY two lines, so the block is the same shape on all six', () => {
+    for (const race of ALL_RACES) {
+      const [a, b] = feedCaptionLines(feedHintFor(RACE_TOWER_IDS[race]) as string);
+      expect(a.length, `${race} line 1`).toBeGreaterThan(0);
+      expect(b.length, `${race} line 2`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the width formula is the monospace one over the WIDEST line, not the whole string', () => {
     expect(feedCaptionWidthPx('AAAAA')).toBe(Math.ceil(5 * FEED_CAPTION_FONT * MONO_EM_RATIO));
-    expect(feedCaptionWidthPx('')).toBe(0);
+    // Two words, balanced: the block is as wide as one of them, not both plus the space.
+    expect(feedCaptionWidthPx('AAAAA BBBBB')).toBe(Math.ceil(5 * FEED_CAPTION_FONT * MONO_EM_RATIO));
   });
 });
 

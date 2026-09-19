@@ -136,4 +136,25 @@ describe('S183 — the timestamp survives storage, which is the point of storing
     const [only] = loadPending(BOARD_NONET);
     expect(only?.at).toBeGreaterThan(0);
   });
+
+  /*
+   * ⛔⛔ S183 AUDIT — **A RUN STAMPED IN THE FUTURE WAS IMMORTAL, AND IT REOPENED THE VERY BUG THIS
+   * FILE GUARDS.** `prunePending` read `now - r.at < PENDING_MAX_AGE_MS`; for `at > now` that is
+   * negative, so the test passes trivially and the run is never dropped. `loadPending` accepts any
+   * finite positive number, so a far-future stamp survives a round trip through storage.
+   *
+   * These two cases are the asymmetry: a run from the future must expire on the same rule as a run
+   * from the past, because the failure they lead to is the same permanent double-count.
+   */
+  it('⛔ a run stamped in the FUTURE expires like any other — it is not immortal', () => {
+    const now = Date.now();
+    const future = { name: 'DAN', ms: 60_000, id: 'f', at: now + PENDING_MAX_AGE_MS * 2 };
+    expect(prunePending([future as PendingRun], now)).toHaveLength(0);
+  });
+
+  it('⭐ and a small forward skew is still tolerated, so an ordinary fast clock keeps its run', () => {
+    const now = Date.now();
+    const slightlyAhead = { name: 'DAN', ms: 60_000, id: 'f', at: now + 60_000 };
+    expect(prunePending([slightlyAhead as PendingRun], now)).toHaveLength(1);
+  });
 });
