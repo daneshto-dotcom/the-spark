@@ -14,6 +14,15 @@
 /** Exactly three upper-case characters, drawn from the arcade alphabet. */
 export function normaliseName(raw: unknown): string;
 
+/**
+ * How long an idempotency key survives in `seen_runs`.
+ *
+ * ⭐ S183 — EXPORTED SO THE CLIENT'S RETRY WINDOW CAN BE PINNED AGAINST THE REAL VALUE.
+ * `src/render/pendingRunExpiry.test.ts` asserts `PENDING_MAX_AGE_MS <= SEEN_RUN_TTL_MS`; re-typing
+ * the number in the test would have pinned the test to itself.
+ */
+export const SEEN_RUN_TTL_MS: number;
+
 /** True for the live game origin and for any localhost port (dev servers get a random one). */
 export function isAllowedOrigin(origin: string): boolean;
 

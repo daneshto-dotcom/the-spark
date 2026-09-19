@@ -30,6 +30,11 @@ import { SparkType } from '../constants.ts';
 import type { PrimitiveId, SpawnerId } from '../types.ts';
 import {
   characterSheetModel,
+  FEED_CAPTION_FONT,
+  FEED_CAPTION_GAP,
+  FEED_CAPTION_LEADING,
+  feedCaptionLines,
+  feedCaptionWidthPx,
   layoutSheetActions,
   MONO_EM_RATIO,
   platePlacement,
@@ -481,7 +486,14 @@ export class CharacterSheet {
     }
 
     // ── FIX / SCRAP / FEED — his *"towers lost their scrap and fix. That's wrong."* ────────────
-    this.slots = v.actions === null ? [] : layoutSheetActions(v.actions.buttons, v.rect);
+    /*
+     * ⭐ S183 — the caption's width is an INPUT to the layout, because the caption and the chip
+     * share a row and the pair is what gets centred (`layoutSheetActions`). Zero when there is no
+     * caption, which restores the pre-S183 centred strip exactly.
+     */
+    const hint = v.feedHint;
+    const captionPx = hint === null ? 0 : feedCaptionWidthPx(hint);
+    this.slots = v.actions === null ? [] : layoutSheetActions(v.actions.buttons, v.rect, captionPx);
     for (const b of this.slots) this.drawActionButton(b, accent);
 
     /*
@@ -491,19 +503,44 @@ export class CharacterSheet {
      * > what it does. So just be like 'to build more bats' or something. Click this."*
      *
      * A feed chip is a shape glyph and nothing else — unlabelled by necessity, since no word fits
-     * 32px. So the caption goes ABOVE the strip, once, naming what feeding produces. It reads off
-     * `v.feedHint`, which the model derives from the tower's own unit table, so a bat tower says bat
-     * and a piranha tower says piranha without a second table here.
+     * 32px. So the caption names what feeding produces. It reads off `v.feedHint`, which the model
+     * derives from the tower's own unit table, so a bat tower says bat and a piranha tower says
+     * piranha without a second table here.
      *
-     * ⚠ ABOVE THE STRIP, NOT BELOW, because the strip is the last thing on the card — a caption
-     * under it would be the closest text to the card's bottom edge and read as a footer for the
-     * whole panel rather than a label for the row.
+     * ⭐⭐ S183 (owner) — **BESIDE THE CHIP, NOT ABOVE IT**, and that fixed TWO defects in the one
+     * line it replaced:
+     *
+     * > *"it is not in a good place. It needs to be to the left of the circle. Instead now it's
+     * > like in the middle of the frame, so that's not good."*
+     *
+     * 1. ⛔ It rose **12px into an 8px gap**. `layoutSheetActions` leaves only `ACT_ROW_GAP` between
+     *    the wide FIX/SCRAP row and the feed strip, so in BUILD phase the caption landed 4px INSIDE
+     *    the FIX button. Sitting on the chip's own row, there is no gap left to overshoot.
+     * 2. ⛔ It was x-anchored to the CARD CENTRE (`x + w / 2`), which is his actual complaint. It is
+     *    now right-aligned to the chip's left edge, so it butts up against the chip whatever the
+     *    unit's name length — and `feedCaptionMaxWidthPx()` is the budget the wording was cut to.
+     *
+     * ⛔ **THE GEOMETRY IS READ BACK OFF THE LAID-OUT SLOT, NEVER RE-DERIVED.** `layoutSheetActions`
+     * already made room for `captionPx`; recomputing the chip's x here would be a second formula
+     * free to disagree with the one the hit test uses.
      */
     const feed = this.slots.filter((b) => b.kind === 'FEED');
-    const hint = v.feedHint;
     if (feed.length > 0 && hint !== null) {
-      const top = Math.min(...feed.map((b) => b.y));
-      this.textCentred(hint, x + w / 2, top - 12, 9, DIM);
+      const chip = feed.reduce((a, b) => (b.x < a.x ? b : a));
+      /*
+       * ⭐⭐ S183 (owner) — **TWO LINES, BLOCK-CENTRED ON THE CHIP.** *"You can make it divided to
+       * two lines … and just make it fit the box."* Both lines are right-aligned to the same edge,
+       * so the block reads as one label pointing at the chip rather than as two stray sentences.
+       *
+       * The pair is centred vertically on the chip: with two lines of `FEED_CAPTION_LEADING`, the
+       * first sits half a leading above the chip's middle and the second half below. Chip height is
+       * 32 and the block is 11, so it cannot reach either neighbouring row.
+       */
+      const [top, bottom] = feedCaptionLines(hint);
+      const right = chip.x - FEED_CAPTION_GAP;
+      const mid = chip.y + chip.h / 2;
+      this.textRightMiddle(top, right, mid - FEED_CAPTION_LEADING / 2, FEED_CAPTION_FONT, DIM);
+      this.textRightMiddle(bottom, right, mid + FEED_CAPTION_LEADING / 2, FEED_CAPTION_FONT, DIM);
     }
   }
 
@@ -671,6 +708,20 @@ export class CharacterSheet {
     t.style.fontSize = size;
     t.style.fill = fill;
     t.anchor.set(1, 0);
+    t.position.set(x, y);
+  }
+
+  /**
+   * ⭐ S183 — right-aligned AND vertically centred on `y`, for the feed caption that now sits on the
+   * chip's own row. An anchor of (1, 0.5) is what makes "centred on a 32px chip" exact rather than a
+   * hand-tuned offset that a font-size change would silently break.
+   */
+  private textRightMiddle(s: string, x: number, y: number, size: number, fill: number): void {
+    const t = this.take();
+    t.text = s;
+    t.style.fontSize = size;
+    t.style.fill = fill;
+    t.anchor.set(1, 0.5);
     t.position.set(x, y);
   }
 

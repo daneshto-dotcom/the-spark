@@ -67,9 +67,18 @@ CREATE INDEX IF NOT EXISTS idx_writes_ratelimit ON writes (ip_hash, created);
 -- duplicate row; under a mean it silently and permanently biases the player's average, and no amount
 -- of further play repairs it. A run is folded at most once, ever.
 --
--- Rows age out after a day (`SEEN_RUN_TTL_MS`): a retry follows its original within seconds, so a day
--- is generous by orders of magnitude, and keeping them forever would make this the one table here
--- that grows without bound.
+-- Rows age out after a day (`SEEN_RUN_TTL_MS`), because keeping them forever would make this the one
+-- table here that grows without bound.
+--
+-- ⛔ S183 — THIS COMMENT USED TO SAY "a retry follows its original within seconds, so a day is
+-- generous by orders of magnitude". IT WAS NOT TRUE, and it was the premise that hid a real
+-- double-count. The client's offline queue was bounded by COUNT, not time, so a run that committed
+-- here but timed out on the wire could be flushed DAYS later — after some other player's POST had
+-- pruned this row, since the prune is unscoped. The dedupe SELECT then misses and the game is folded
+-- twice, permanently, because this schema stores sum-and-count rather than a mean.
+--
+-- The client now stops retrying at `PENDING_MAX_AGE_MS` (12 h, `src/render/arcadeScores.ts`), inside
+-- this window with room for clock skew. Lowering the TTL below that constant re-opens the defect.
 CREATE TABLE IF NOT EXISTS seen_runs (
   id      TEXT PRIMARY KEY,
   created INTEGER NOT NULL

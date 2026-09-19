@@ -22,8 +22,16 @@ import {
   RemoteLeaderboard,
   selectLeaderboard,
   setLeaderboardForTests,
+  withOwnRow,
 } from './arcadeLeaderboard.ts';
-import { loadPending, loadRanking, savePending } from './arcadeScores.ts';
+import {
+  entryOf,
+  loadPending,
+  loadRanking,
+  PENDING_MAX_AGE_MS,
+  savePending,
+  saveRanking,
+} from './arcadeScores.ts';
 
 function installStorage(): void {
   const map = new Map<string, string>();
@@ -153,7 +161,17 @@ describe('R182-G — the remote tier, and every way the network can let a player
   });
 
   it('⭐ FLUSHES the queue on the next successful submit, oldest first', async () => {
-    savePending([{ name: 'DAN', ms: 80_000, id: 'q1' }, { name: 'DAN', ms: 70_000, id: 'q2' }], BOARD_NONET);
+    // ⚠ S183 — `at: Date.now()` because the flush now DROPS anything past `PENDING_MAX_AGE_MS`.
+    // A literal epoch here would make this test start failing in 1970 + 12 h, which it silently did
+    // not before the stamp existed. The expiry itself is asserted below.
+    const fresh = Date.now();
+    savePending(
+      [
+        { name: 'DAN', ms: 80_000, id: 'q1', at: fresh },
+        { name: 'DAN', ms: 70_000, id: 'q2', at: fresh },
+      ],
+      BOARD_NONET,
+    );
     const remote = new RemoteLeaderboard('https://board.example');
     const { calls } = stubFetch({
       rows: [{ name: 'DAN', runs: 3, averageMs: 70_000 }],
@@ -324,5 +342,140 @@ describe('N3 — the idempotency key is minted once and survives the queue', () 
     const sent = JSON.parse(String(calls[0][1].body)) as { runs: Array<{ id: string; ms: number }> };
     const resent = sent.runs.find((x) => x.ms === 60_000);
     expect(resent?.id).toBe(queuedId);
+  });
+
+  /*
+   * ⛔⛔ S183 — AND THE ID ALONE WAS NOT ENOUGH, WHICH IS WHAT THESE TWO ADD.
+   *
+   * `seen_runs` is pruned after `SEEN_RUN_TTL_MS` (24 h) by ANY client's POST. A queue bounded only
+   * by COUNT could therefore re-send a run whose key the server had already forgotten — and
+   * sum-and-count makes that second fold permanent. The submit path now prunes by age.
+   *
+   * ⭐ THESE DRIVE `RemoteLeaderboard.submit`, NOT `prunePending`. A unit test of the pure helper
+   * proves the rule exists; only this proves the submit path REACHES it — the S182 lesson that a
+   * guard can be green over a live bug.
+   */
+  it('⛔ a STALE queued run is not re-sent — the double-count this closes', async () => {
+    const stale = Date.now() - PENDING_MAX_AGE_MS - 1;
+    savePending([{ name: 'DAN', ms: 80_000, id: 'ancient', at: stale }], BOARD_NONET);
+    const remote = new RemoteLeaderboard('https://board.example');
+    const { calls } = stubFetch({ rows: [], you: null });
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    const sent = JSON.parse(String(calls[0][1].body)) as { runs: Array<{ id: string }> };
+    expect(sent.runs.map((x) => x.id)).not.toContain('ancient');
+    expect(sent.runs).toHaveLength(1); // this run only
+    expect(r.flushed).toBe(0);
+  });
+
+  it('⛔ and it LEAVES STORAGE, rather than being re-dropped on every submit forever', async () => {
+    const stale = Date.now() - PENDING_MAX_AGE_MS - 1;
+    savePending([{ name: 'DAN', ms: 80_000, id: 'ancient', at: stale }], BOARD_NONET);
+    const remote = new RemoteLeaderboard('https://board.example');
+    // The OFFLINE exit, because that is the path that writes the queue back with a run appended —
+    // the one where a stale entry would otherwise be preserved indefinitely.
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(loadPending(BOARD_NONET).map((x) => x.id)).not.toContain('ancient');
+    expect(loadPending(BOARD_NONET)).toHaveLength(1); // just the run that failed
+  });
+});
+
+describe('S183 — a veteran outside the top 25 is no longer told it is their first run', () => {
+  /*
+   * ⛔⛔ THE DEFECT. A successful submit replaced the local cache with the server's TOP 25 ONLY, so a
+   * player ranked 30th had their own row DELETED. Their next FAILED submit then found no local row,
+   * folded a fresh one at `runs: 1`, and the recap printed `THIS IS YOUR 1ST` with an average equal
+   * to that single time — on every offline run, forever.
+   *
+   * ⭐ This is the same lie `serverMine` fixed on the ONLINE branch, still live on the OFFLINE one —
+   * where the server is not there to correct it.
+   */
+  const TOP25_WITHOUT_ME = [{ name: 'AAA', runs: 50, averageMs: 30_000 }];
+
+  it('⛔ a successful submit PRESERVES the player row the top 25 omits', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      rows: TOP25_WITHOUT_ME,
+      you: { name: 'DAN', runs: 39, averageMs: 90_000, previousAverageMs: 90_500, place: 30 },
+    });
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    const cached = loadRanking(BOARD_NONET);
+    expect(cached.map((e) => e.name)).toContain('DAN');
+    expect(entryOf(cached, 'DAN')?.runs).toBe(39);
+    expect(entryOf(cached, 'DAN')?.totalMs).toBe(39 * 90_000);
+    // ⚠ and the other players are still there — this preserves a row, it does not replace the board.
+    expect(cached.map((e) => e.name)).toContain('AAA');
+  });
+
+  it('⛔⛔ so the NEXT, OFFLINE submit reports their real history, not run 1', async () => {
+    const remote = new RemoteLeaderboard('https://board.example');
+    stubFetch({
+      rows: TOP25_WITHOUT_ME,
+      you: { name: 'DAN', runs: 39, averageMs: 90_000, previousAverageMs: 90_500, place: 30 },
+    });
+    await remote.submit(BOARD_NONET, 'DAN', 60_000);
+
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.shared).toBe(false);
+    expect(r.runs).toBe(40);              // 39 the server knew about, plus this one
+    expect(r.runs).not.toBe(1);           // ⛔ the bug report, stated as an assertion
+    expect(r.averageMs).not.toBe(60_000); // …and the average is not just the last run
+    expect(r.previousAverageMs).toBe(90_000);
+  });
+
+  it('⚠ the regression witness — a cache WITHOUT the row is what produced `runs: 1`', async () => {
+    // Exactly the old behaviour, forced: save only the server's top 25 and go offline.
+    saveRanking(
+      TOP25_WITHOUT_ME.map((x) => ({ name: x.name, runs: x.runs, totalMs: x.runs * x.averageMs })),
+      BOARD_NONET,
+    );
+    const remote = new RemoteLeaderboard('https://board.example');
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const r = await remote.submit(BOARD_NONET, 'DAN', 60_000);
+    expect(r.runs).toBe(1);
+    expect(r.averageMs).toBe(60_000);
+  });
+});
+
+describe('S183 — withOwnRow, the three cases', () => {
+  const TOP = [{ name: 'AAA', runs: 10, totalMs: 300_000 }];
+
+  it('a player IN the table is left exactly as the server sent them', () => {
+    const inTable = [...TOP, { name: 'DAN', runs: 4, totalMs: 200_000 }];
+    expect(withOwnRow(inTable, 'DAN', { runs: 99, averageMs: 1 }, [])).toEqual(inTable);
+  });
+
+  it('a player OUTSIDE it is re-attached from the SERVER row when there is one', () => {
+    const out = withOwnRow(TOP, 'DAN', { runs: 7, averageMs: 50_000 }, []);
+    expect(entryOf(out, 'DAN')).toEqual({ name: 'DAN', runs: 7, totalMs: 350_000 });
+  });
+
+  it('⚠ the reconstructed totalMs is ROUNDED — averageMs is a float division', () => {
+    // 3 runs summing 100_000 gives an average that is not representable; runs × average must still
+    // come back to the integer the server holds.
+    const out = withOwnRow(TOP, 'DAN', { runs: 3, averageMs: 100_000 / 3 }, []);
+    expect(entryOf(out, 'DAN')?.totalMs).toBe(100_000);
+  });
+
+  it('falls back to the LOCAL row when the server declines to say — an older worker', () => {
+    const local = [{ name: 'DAN', runs: 12, totalMs: 600_000 }];
+    expect(entryOf(withOwnRow(TOP, 'DAN', undefined, local), 'DAN')?.runs).toBe(12);
+    expect(entryOf(withOwnRow(TOP, 'DAN', null, local), 'DAN')?.runs).toBe(12);
+  });
+
+  it('adds NOTHING when there is neither a server row nor a local one', () => {
+    expect(withOwnRow(TOP, 'DAN', null, [])).toEqual(TOP);
+  });
+
+  it('matches on the NORMALISED name, like every other lookup here', () => {
+    const out = withOwnRow(TOP, 'dan', { runs: 2, averageMs: 10_000 }, []);
+    expect(entryOf(out, 'DAN')?.runs).toBe(2);
+  });
+
+  it('is PURE — the server rows it was handed are not mutated', () => {
+    const src = [...TOP];
+    withOwnRow(src, 'DAN', { runs: 2, averageMs: 10_000 }, []);
+    expect(src).toEqual(TOP);
   });
 });

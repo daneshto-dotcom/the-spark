@@ -64,11 +64,11 @@ import {
   planPaymentForTypes,
   type Payment,
 } from './blueprintBuild.ts';
-import { canBuildNow } from './buildLegality.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 import { destroyDefender } from './damage.ts';
 import { makeBond } from './placePrimitive.ts';
 import { razePrimitives } from './razePrimitives.ts';
+import { zoneOf, zoneOwner } from './zones.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { BondId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
@@ -99,13 +99,59 @@ export interface ScrapStructureAction {
 /* ══ READ MODEL ═══════════════════════════════════════════════════════════════════════════════ */
 
 /**
+ * ⭐⭐ S183 — PURE — may `seat` RECLAIM (fix or scrap) what stands at `pos` right now?
+ *
+ * ## ⛔⛔ WHY THIS IS NOT `canBuildNow`, WHICH IS WHAT IT USED TO BE
+ *
+ * `seatStructureAt` borrowed `canBuildNow` and its comment named exactly TWO clauses it meant to
+ * borrow: *"R19 (WHEN) + own ground (WHERE)"*. S182's placement branch then made the **castle
+ * keep-out** the FIRST arm of `canBuildAt` (`zones.ts`) — correctly, for PLACEMENT — and it
+ * silently became a third clause on a gate whose author never asked for it.
+ *
+ * The consequence is the exact S182 lesson recurring: *two branches each correct alone, wrong
+ * together*, and their tripwire could not see it because it proved `canBuildAt` CONTAINS the
+ * keep-out, not who else READS it.
+ *
+ * ⛔ **WHAT IT COSTS A PLAYER.** `makeBond`'s 20 px rest-length floor pushes bonded shapes apart
+ * and nothing pushes them back out, so a member can drift inside the disc of its own castle. That
+ * member then loses its FIX/SCRAP row — and its FEED row too, because `structureActionModel`
+ * returns null outright when the scrap plan is null. Sever its bond and the lone shape can never
+ * be scrapped or reclaimed for the rest of the match, with nothing on screen saying why.
+ *
+ * ## The rule, stated rather than inherited
+ *
+ * **WHEN** — BUILD only (R19), the half that WAS deliberately shared.
+ * **WHERE** — the seat's own ground, failing closed on the shared quarry (`zoneOf` null) and on a
+ * seat with no ground (`zoneOwner` null), exactly as `canBuildAt` does.
+ * **AND NOT the keep-out**, because that rule answers *"may something NEW be put here"*. Taking a
+ * shape back is the opposite motion: refusing it keeps the obstruction there forever.
+ *
+ * ⚠ THE PHASE TEST IS `!== 'BUILD'`, NOT `=== 'FIGHT'`, for `buildLegality.ts`'s own reason — a
+ * third `MatchPhase` must default to refusing, not to permitting.
+ *
+ * ⚠ AND THIS IS A DELIBERATE SECOND PREDICATE, NOT A COPY THAT DRIFTED. S149 P2's warning is about
+ * one RULE written six times; this is a DIFFERENT rule that happened to share two of three clauses.
+ * `structureRepairKeepOut.test.ts` pins both halves of the divergence — that the two agree outside
+ * the disc, and that they disagree inside it — so neither can move without the other being seen.
+ * It arguably belongs beside `canBuildNow` in `buildLegality.ts`; that file is outside this
+ * branch's boundary, so the move is left to the merge owner.
+ */
+export function canReclaimNow(world: World, pos: Vec2, seat: PlayerId): boolean {
+  if (world.matchPhase !== 'BUILD') return false;
+  const owner = zoneOwner(seat, world.layout);
+  if (owner === null) return false;
+  const zone = zoneOf(pos, world.layout);
+  if (zone === null) return false;
+  return zone === owner;
+}
+
+/**
  * PURE — the structure `seat` may act on at `primitiveId`, as ASCENDING member ids, or null.
  *
- * ⭐ THE PHASE HALF OF R19 IS NOT WRITTEN HERE — IT IS BORROWED. `canBuildNow` already composes
- * WHERE (`zones.canBuildAt`, the seat's own ground) with WHEN (`matchPhase === 'BUILD'`), and it
- * exists precisely because S149 P2 found that six copies of a phase check is how a drag ghost ends
- * up promising what the host refuses. FIX and SCRAP are the seventh and eighth gates to ask it, and
- * they must never grow their own `matchPhase !== 'BUILD'` line.
+ * ⭐ THE PHASE HALF OF R19 IS NOT WRITTEN HERE TWICE — IT IS `canReclaimNow`, directly above, which
+ * composes WHEN (`matchPhase === 'BUILD'`) with WHERE (the seat's own ground). FIX and SCRAP must
+ * never grow their own `matchPhase !== 'BUILD'` line; S149 P2 found that six copies of a phase
+ * check is how a drag ghost ends up promising what the host refuses.
  *
  * Ownership is checked on EVERY member, not just the clicked one. A structure straddling a zone
  * border could otherwise be scrapped for shapes another seat paid for — and since the refund lands
@@ -123,7 +169,9 @@ export function seatStructureAt(
 ): PrimitiveId[] | null {
   const seed = world.primitives.get(primitiveId);
   if (seed === undefined) return null; // stale client id → no-op
-  if (!canBuildNow(world, seed.pos, seat)) return null; // R19 (WHEN) + own ground (WHERE)
+  // ⛔ S183 — `canReclaimNow`, NOT `canBuildNow`. R19 (WHEN) + own ground (WHERE), and deliberately
+  // NOT the castle keep-out that S182 added to the PLACEMENT predicate — see the docblock above.
+  if (!canReclaimNow(world, seed.pos, seat)) return null;
 
   const comp = componentOf(seed, world.primitives, world.bonds);
   const ids = [...comp.primitiveIds].sort((a, b) => Number(a) - Number(b));

@@ -137,6 +137,21 @@ export function damageEntity(
   if (target.kind === 'castle') {
     // ⭐ S154 AMENDMENT C — the castle arm. Clamped at zero: HP is read by the win gate and by the
     // HUD, and a negative value would make both lie about how close the match is.
+    /*
+     * ⚠⚠ S183 — **THIS ARM IS THE ONE DOWNWARD ARM THAT DOES NOT RECORD ITS KILLING SWING**, and
+     * that is a KNOWN GAP, not an oversight to be read past. The other three push to
+     * `world.structureKillHits` before the overkill is discarded — shapes below, landed bags, and
+     * Helga — so a fatal hit prints the swing. A fatal KEEP hit prints the REMAINDER: the clamp
+     * two lines down throws the overkill away, and `damageNumbers`' castle watch diffs
+     * `castleHp` frame to frame, so 300 into 40 left prints "40".
+     *
+     * ⛔ CLOSING IT NEEDS `damageNumbers.ts` AS WELL AS THIS LINE, which is why it is documented
+     * here rather than half-landed. The castle is tracked with `deathOnVanish: false` — a castle is
+     * never removed — so it never reaches the vanish sweep that is the only consumer of
+     * `structureKillHits`. A `c:${seat}` record pushed from here would be written and never read.
+     * The renderer's DIFF path has to consult `killBlow` too, and that file is owned by another
+     * branch this session. Recorded for the merge owner.
+     */
     const seat = world.players.get(target.seat);
     if (seat === undefined) return false;
     if (seat.castleHp <= 0) return false; // already fallen — idempotent, never double-fires the win

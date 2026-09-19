@@ -660,11 +660,33 @@ export function statValueColumnPx(
  * constant so the four branches cannot drift into three different shapes of "no info".
  */
 /**
- * PURE — the caption over a feedable tower's shape strip, or null.
+ * PURE — the caption BESIDE a feedable tower's shape chip, or null.
  *
  * ⚠ THE GOBLIN TOWER GETS NONE, DELIBERATELY. Its six shapes each produce a DIFFERENT goblin
  * (`fedCreatureType`), so a single "to build more X" line would be false for five of the six. The
  * shapes teaching their own outputs is that tower's mechanic; a summary would flatten it.
+ *
+ * ⭐⭐ S183 (owner) — **BESIDE THE CHIP, AND ON TWO LINES.** He found the S181 caption while
+ * playing: *"it is not in a good place. It needs to be to the left of the circle. Instead now it's
+ * like in the middle of the frame, so that's not good."* Above the strip it had the whole card
+ * width to spread across; beside the chip it has `feedCaptionMaxWidthPx()` and no more.
+ *
+ * ⛔ **THE WORDING IS HIS AND IT STAYS WHOLE.** A first pass cut `A SHAPE` to make the line fit on
+ * one row and put three variants of that compromise to him. He rejected all of them and gave the
+ * obvious answer instead:
+ *
+ * > *"You don't have to write 'feed a shape to build more hounds' on the same line. You can make it
+ * > divided to two lines. And just make it fit the box. It's really simple, I don't know why you're
+ * > having difficulties with that."*
+ *
+ * He was right, and the lesson is the cheaper one: when a string does not fit, WRAP IT before you
+ * edit the owner's copy. Rewriting his words to satisfy a layout is the last resort, not the first.
+ *
+ * ⚠ A pure one-line nudge really would have overflowed five of the six races (the demon line is 37
+ * chars = 200px against a 174px budget) — the measurement was right, the conclusion drawn from it
+ * was not. `feedCaption.test.ts` re-derives the budget from `SHEET_W`/`PAD`/`FEED_BTN`/
+ * `MONO_EM_RATIO` for every race in `ALL_RACES`, so a longer unit name turns a test red instead of
+ * silently re-breaking the card.
  */
 export function feedHintFor(recipeId: string | null): string | null {
   if (recipeId === null) return null;
@@ -834,8 +856,80 @@ function accentFor(world: World, owner: PlayerId | null | undefined): number | n
 const ACT_BTN_H = 34;
 const ACT_GAP = 10;
 const ACT_ROW_GAP = 8;
-const FEED_BTN = 32;
+export const FEED_BTN = 32;
 const FEED_GAP = 4;
+
+/** The font the feed caption prints at. Exported so the fit budget and the renderer share ONE size. */
+export const FEED_CAPTION_FONT = 9;
+/** Breathing room between the caption's right edge and the chip's left edge. */
+export const FEED_CAPTION_GAP = 6;
+
+/** Leading between the caption's two lines. Exported so the fit budget and the renderer share it. */
+export const FEED_CAPTION_LEADING = 11;
+
+/**
+ * PURE — the caption split into its TWO lines, balanced on a word boundary.
+ *
+ * ⭐⭐ S183 (owner) — *"you can make it divided to two lines … and just make it fit the box."*
+ *
+ * ⛔ **BALANCED, NOT GREEDY, AND THAT IS THE WHOLE REASON THIS IS NOT `wrapToWidth`.** A greedy wrap
+ * fills line 1 to the budget and spills the remainder, so `…MORE BATS` (31 chars) fits on ONE line
+ * and `…MORE SOULEATERS` (37) takes two — the caption would be one line on a vampire tower and two
+ * on a demon one, and the card would change height between two towers that are otherwise identical.
+ * Splitting at the word boundary nearest the MIDDLE gives every race exactly two lines of similar
+ * length, so the block is the same shape on all six.
+ *
+ * Widest line by race, measured: BATS 81px · HOUNDS 92 · SCARABS 98 · PIRANHAS/WARBANDS 103 ·
+ * SOULEATERS 114 — against a `feedCaptionMaxWidthPx()` of 174. The whole point of wrapping rather
+ * than cutting his wording is that the worst case now clears the budget by 60px.
+ */
+export function feedCaptionLines(hint: string): readonly [string, string] {
+  const words = hint.split(' ');
+  const mid = hint.length / 2;
+  let best = 1;
+  let bestDelta = Infinity;
+  let run = 0;
+  for (let i = 0; i < words.length - 1; i++) {
+    run += words[i]!.length + (i > 0 ? 1 : 0);
+    const delta = Math.abs(run - mid);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = i + 1;
+    }
+  }
+  return [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+}
+
+/**
+ * PURE — how wide the caption BLOCK prints at the caption's own font: its WIDEST line.
+ *
+ * Monospace is what makes this exact rather than a guess — the same argument `statValueColumnPx`
+ * makes one screen up, and the same `MONO_EM_RATIO` measured off the shipped face.
+ *
+ * ⚠ THE WIDEST LINE, NOT THE WHOLE STRING. This is the number `layoutSheetActions` reserves room
+ * for, so measuring the unwrapped hint would reserve roughly twice what the block occupies and push
+ * the chip off to the right for no reason.
+ */
+export function feedCaptionWidthPx(hint: string): number {
+  const [a, b] = feedCaptionLines(hint);
+  return Math.ceil(Math.max(a.length, b.length) * FEED_CAPTION_FONT * MONO_EM_RATIO);
+}
+
+/**
+ * PURE — the widest a feed caption may print, given that it now sits BESIDE its chip on one row.
+ *
+ * ⛔ **DERIVED, NEVER A LITERAL.** The row is `caption + FEED_CAPTION_GAP + FEED_BTN` and it has the
+ * card's inner width to live in. Change `SHEET_W`, the padding, the chip size or the font and this
+ * budget follows — which is the whole point, because S181's caption was sized for the FULL card
+ * width and the move beside the chip is what broke it.
+ *
+ * ⚠ `SHEET_W` and not `rect.w`: the castle card is the one card that is wider (`PANEL_W`) and it
+ * carries `feedHint: null`, so the narrow card is the only one a caption can ever appear on. Sizing
+ * the budget off the narrow card keeps the assertion honest if that ever changes.
+ */
+export function feedCaptionMaxWidthPx(): number {
+  return SHEET_W - PAD * 2 - FEED_CAPTION_GAP - FEED_BTN;
+}
 
 /** One laid-out button: the popover's descriptor, re-placed in CARD-LOCAL space. */
 export interface SheetActionSlot {
@@ -882,6 +976,7 @@ export function actionBlockHeight(buttons: readonly { kind: string }[]): number 
 export function layoutSheetActions(
   buttons: readonly SheetActionSlot[],
   rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
+  captionPx = 0,
 ): SheetActionSlot[] {
   if (buttons.length === 0) return [];
   const inner = rect.w - PAD * 2;
@@ -902,7 +997,29 @@ export function layoutSheetActions(
   if (feed.length > 0) {
     // Centred on its own occupancy, so a five-shape strip does not sit left-aligned with a dead gap.
     const stripW = feed.length * FEED_BTN + (feed.length - 1) * FEED_GAP;
-    const left = rect.x + (rect.w - stripW) / 2;
+    /*
+     * ⭐⭐ S183 (owner) — **THE CAPTION SHARES THIS ROW, SO IT IS PART OF WHAT GETS CENTRED.**
+     * *"It needs to be to the left of the circle. Instead now it's like in the middle of the
+     * frame."* The caption used to float one row ABOVE the strip; now it butts up against the chip,
+     * and the caption+gap+strip assembly is what the card centres. The strip therefore shifts RIGHT
+     * by exactly the caption's occupancy.
+     *
+     * ⛔ **IT HAPPENS HERE AND NOT IN THE RENDERER BECAUSE THE HIT TEST READS THESE SLOTS.** Nudging
+     * the glyph at draw time would leave `actionAt` testing the old rectangle — a chip you can see
+     * but not click, which is the S182 "the guard proved the line exists, not that it is reached"
+     * failure in its click-target form.
+     *
+     * `captionPx` is 0 for every caller that has no caption (the goblin tower's six-chip row among
+     * them), and the arithmetic then collapses to exactly the centred strip it was before.
+     */
+    const assemblyW = captionPx > 0 ? captionPx + FEED_CAPTION_GAP + stripW : stripW;
+    /*
+     * ⚠ ROUNDED, and it is a NO-OP for every pre-S183 case: an uncaptioned strip of 1, 3 or 6 chips
+     * already centres on a whole pixel in a 236 px card. It matters only for the captioned row,
+     * where an odd caption width would otherwise put the chip's 1.5 px stroke on a half pixel and
+     * soften the one control the owner was looking at.
+     */
+    const left = Math.round(rect.x + (rect.w - assemblyW) / 2 + (assemblyW - stripW));
     feed.forEach((b, i) => {
       out.push({ ...b, x: left + i * (FEED_BTN + FEED_GAP), y, w: FEED_BTN, h: FEED_BTN });
     });

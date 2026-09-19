@@ -119,7 +119,17 @@ describe('S181 — ⛔ THE CALL SITES EXIST (the S180 green-gates tripwire)', ()
   const main = readFileSync('src/main.ts', 'utf-8');
 
   it('the card actually CALLS layoutSheetActions and draws each slot', () => {
-    expect(sheet).toContain('layoutSheetActions(v.actions.buttons, v.rect)');
+    /*
+     * ⚠ RE-PINNED IN S183 FROM THE EXACT CALL STRING TO THE RELATIONSHIP, for the same reason the
+     * `heightFor` assertion below was re-pinned in S181: this read
+     * `'layoutSheetActions(v.actions.buttons, v.rect)'` verbatim and went red when S183 added a
+     * third argument (the feed caption's width, so the chip and its caption are centred as one
+     * row). An assertion that breaks on a new argument is measuring the SPELLING of a call.
+     *
+     * What must stay true is that the card's OWN buttons and the card's OWN rect reach the layout —
+     * a trailing argument is free to arrive.
+     */
+    expect(sheet).toMatch(/layoutSheetActions\(v\.actions\.buttons,\s*v\.rect[,)]/);
     expect(sheet).toContain('this.drawActionButton(b, accent)');
   });
 
