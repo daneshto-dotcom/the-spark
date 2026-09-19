@@ -32,6 +32,11 @@ import {
   applyDefenderTick, applyRegisterDefender, recipeStillSatisfied, teardownDefenders, loadRephaseDefenders,
 } from './defenderLifecycle.ts';
 import { getDefenderConfig, type Defender } from './defender.ts';
+import {
+  PRINCESS_HOME_EPSILON,
+  PRINCESS_PATROL_LEG_TICKS,
+  PRINCESS_PATROL_RADIUS_FRAC,
+} from '../../constants.ts';
 import { snapshot, restore } from '../save.ts';
 
 const P0 = asPlayerId(0); // defender owner
@@ -211,7 +216,21 @@ describe('S110 P4 (Batch B) — HELGA walk-to-target locomotion', () => {
     expect(d.lastStrikePos).toBeNull(); // back to IDLE after the kill (strike VFX window closed)
   });
 
-  it('returns HOME after the target is gone (walks back to her hub anchor)', () => {
+  /*
+   * ⭐⭐ S183 (owner) — **THIS TEST WAS RE-POINTED, NOT SILENCED, BECAUSE THE RULING CHANGED.**
+   *
+   * It pinned "returns HOME and snaps to her hub anchor", which was right until her hall got art in
+   * S183 and parked her squarely behind her own building:
+   *
+   * > *"Helga needs to patrol around her tower. She doesn't need to stay behind it, it looks weird
+   * > … to random places within the radius that she's in, just moving from area to another until she
+   * > acquires a target."*
+   *
+   * So the invariant is no longer "she ends at home". It is "she comes back INTO HER ZONE and stays
+   * there" — which is what actually protects the anti-kite design, and which a hard home-snap was
+   * only ever one special case of.
+   */
+  it('patrols her ZONE after the target is gone — back inside the leash, not pinned to her hub', () => {
     const w = setup();
     const anchor = addAnchor(w, 1, 100, 100);
     addEnemyChewer(w, 50, 320, 100); // she'll end up ~280px out after the kill
@@ -222,10 +241,44 @@ describe('S110 P4 (Batch B) — HELGA walk-to-target locomotion', () => {
     expect(w.creatures.has(asCreatureId(50))).toBe(false);
     expect(d.pos.x).toBeGreaterThan(150); // she's out near the old kill spot, away from home
 
-    tickN(w, 400); // IDLE walks her home; within HOME_EPSILON she snaps to the anchor
+    tickN(w, 400); // IDLE now walks her to a patrol point rather than to the anchor
     expect(d.state).toBe('IDLE');
-    expect(Math.abs(d.pos.x - 100)).toBeLessThan(7); // home (snapped within PRINCESS_HOME_EPSILON)
-    expect(Math.abs(d.pos.y - 100)).toBeLessThan(7);
+
+    // ⛔ SHE IS BACK INSIDE HER PATROL DISC. The radius is derived from her own attackRange, so a
+    // retune of her reach moves this bound with it instead of stranding a literal here.
+    const patrolR = getDefenderConfig('princess').attackRange * PRINCESS_PATROL_RADIUS_FRAC;
+    const fromHome = Math.hypot(d.pos.x - 100, d.pos.y - 100);
+    expect(fromHome).toBeLessThanOrEqual(patrolR + PRINCESS_HOME_EPSILON);
+
+    // ⛔ AND SHE DID NOT COME HOME TO STAND ON HER HUB — that is the behaviour he rejected. Walk her
+    // through several legs and assert she visits more than one distinct place.
+    const seen = new Set<string>();
+    for (let i = 0; i < 6; i++) {
+      tickN(w, PRINCESS_PATROL_LEG_TICKS);
+      seen.add(`${Math.round(d.pos.x)},${Math.round(d.pos.y)}`);
+    }
+    expect(seen.size, 'she must move between areas, not sit on one spot').toBeGreaterThan(1);
+  });
+
+  /*
+   * ⛔ THE PATROL IS DERIVED, SO IT MUST BE IDENTICAL ON EVERY PEER. No `Math.random`, no wall clock,
+   * no stored destination — `mix32(defenderId, floor(tick / leg))`. Two worlds stepped the same
+   * number of ticks must put her in exactly the same place, or this is a divergence rather than a
+   * wander.
+   */
+  it('⛔ the patrol is DETERMINISTIC — two identical worlds walk her to the same spot', () => {
+    const run = (): { x: number; y: number } => {
+      const w = setup();
+      const anchor = addAnchor(w, 1, 100, 100);
+      const d = registerHelga(w, anchor);
+      d.nextFireTick = w.tick;
+      tickN(w, 500);
+      return { x: d.pos.x, y: d.pos.y };
+    };
+    const a = run();
+    const b = run();
+    expect(a.x).toBe(b.x);
+    expect(a.y).toBe(b.y);
   });
 
   it('anti-kite leash: a target that flees beyond the leash-from-HOME breaks off the chase', () => {

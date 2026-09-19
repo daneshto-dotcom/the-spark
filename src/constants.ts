@@ -3444,6 +3444,34 @@ export const PRINCESS_MOVE_ACCEL = 150; // walk accel (chewer 120 < 150 < Voltki
 export const PRINCESS_ARRIVE_RADIUS = 50; // arrive ramp-down radius (smooth stop, no overshoot oscillation)
 export const PRINCESS_HOME_EPSILON = 6; // within this of her hub anchor she is "home" (snap + idle)
 
+/**
+ * ⭐⭐ S183 (owner) — **HELGA PATROLS HER ZONE; SHE DOES NOT STAND BEHIND HER HALL.**
+ *
+ * > *"Helga needs to patrol around her tower. She doesn't need to stay behind it, it looks weird.
+ * > She should literally walk into certain comforts of her zone where she can attack — or to random
+ * > places within the radius she's in, just moving from area to another until she acquires a
+ * > target."*
+ *
+ * Until S183 an idle Helga drifted to her hub anchor and snap-pinned there, which put her squarely
+ * behind her own building the moment that building got art.
+ *
+ * ⚠ **BOTH NUMBERS ARE MINE, NOT HIS, AND HERE IS THE REASONING.** The radius is a fraction of her
+ * own `attackRange` (380) rather than a new absolute, so a retune of her reach moves her patrol with
+ * it. 0.35 × 380 ≈ 133 px reads as a patrol around a ~99 px hall without walking her so far that an
+ * enemy arriving on the far side outranges her before she can turn — her anti-kite leash already
+ * measures the target from HOME, not from her, so wandering costs travel time and nothing else.
+ * The leg length is ~2.5 s at 60 Hz: long enough to arrive and pause, short enough not to read as
+ * her being stuck.
+ *
+ * ⛔ **DETERMINISTIC BY CONSTRUCTION — NO `Math.random`, NO STORED STATE, NO NEW HASHED FIELD.** The
+ * leg is `floor(world.tick / PRINCESS_PATROL_LEG_TICKS)` and the point is `mix32(defenderId, leg)`,
+ * so every peer computes the same walk from synced state alone. Storing "where she is headed" would
+ * have been a new field on a hashed entity and the four-sites tax with it, for a purely cosmetic
+ * wander.
+ */
+export const PRINCESS_PATROL_RADIUS_FRAC = 0.35;
+export const PRINCESS_PATROL_LEG_TICKS = 150;
+
 // S112 — in-world render scale for HELGA's veo-atlas sprite (256px-tall cell → ~85px in-world, ~the
 // procedural puppet's height). Playtest DIAL (like VOLTKIN_SPRITE_BASE_SCALE 0.17) — left un-pinned.
 export const PRINCESS_SPRITE_BASE_SCALE = 0.34;

@@ -24,6 +24,8 @@ import {
   POOP_SLOW_MULTIPLIER,
   PRINCESS_ARRIVE_RADIUS,
   PRINCESS_HOME_EPSILON,
+  PRINCESS_PATROL_LEG_TICKS,
+  PRINCESS_PATROL_RADIUS_FRAC,
 } from '../../constants.ts';
 import {
   asDefenderId,
@@ -42,6 +44,7 @@ import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkLobTarget, stinkThrowBag } from './stinkTower.ts';
 import type { World } from '../worldTypes.ts';
+import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
 
@@ -321,17 +324,47 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
           d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
         }
       }
-      // PRINCESS only: if still IDLE (didn't engage this tick), drift HOME and snap-pin when there so
-      // she follows her hub's drift while waiting. Turret was pinned + frozen at the top already.
+      /*
+       * ⭐⭐ S183 (owner) — **SHE PATROLS HER ZONE INSTEAD OF STANDING BEHIND HER HALL.**
+       *
+       * > *"Helga needs to patrol around her tower. She doesn't need to stay behind it, it looks
+       * > weird … to random places within the radius that she's in, just moving from area to another
+       * > until she acquires a target."*
+       *
+       * This used to drift her to `homePos` and snap-pin her there. That was invisible while her
+       * hub was a bare shape; the moment her hall got art in S183 it parked her squarely behind it.
+       *
+       * ⛔ **THE PATROL POINT IS DERIVED, NEVER STORED.** `leg` buckets `world.tick`, and `mix32`
+       * turns (her id, leg) into an angle and a radius — so every peer computes the same wander from
+       * synced state alone, with no `Math.random`, no wall clock, and no new field on a hashed
+       * entity. Storing a destination would have cost the four sites (factory + serialize + hash +
+       * worker) for a purely cosmetic walk.
+       *
+       * ⚠ SHE STILL SNAPS AND FREEZES ON ARRIVAL, which is what gives the "moving from area to
+       * another" rhythm rather than a continuous glide — she reaches a spot, waits out the rest of
+       * the leg, then heads somewhere new. `freezeDefender` also keeps her physically still so her
+       * own drift cannot carry her out of her zone between legs.
+       */
       if (d.kind === 'princess' && d.state === 'IDLE') {
-        if (distSq(d.pos, homePos) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
-          d.pos.x = homePos.x;
-          d.pos.y = homePos.y;
+        const leg = Math.floor(world.tick / PRINCESS_PATROL_LEG_TICKS);
+        const h = mix32(Number(d.id), leg);
+        const ang = ((h >>> 8) / 0x01000000) * Math.PI * 2;
+        // ⚠ sqrt, so points are spread EVENLY over the disc rather than clustering at the centre —
+        // a raw linear radius would leave her hovering near the hall most of the time, which is the
+        // behaviour he asked to remove.
+        const rad = config.attackRange * PRINCESS_PATROL_RADIUS_FRAC * Math.sqrt((h & 0xff) / 255);
+        const patrol: Vec2 = {
+          x: homePos.x + Math.cos(ang) * rad,
+          y: homePos.y + Math.sin(ang) * rad,
+        };
+        if (distSq(d.pos, patrol) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
+          d.pos.x = patrol.x;
+          d.pos.y = patrol.y;
           d.walkTargetPos = null;
           freezeDefender(d);
         } else {
-          d.walkTargetPos = { x: homePos.x, y: homePos.y };
-          stepDefenderWalk(d, homePos, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
+          d.walkTargetPos = { x: patrol.x, y: patrol.y };
+          stepDefenderWalk(d, patrol, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
         }
       }
       break;

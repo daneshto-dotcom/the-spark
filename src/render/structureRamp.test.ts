@@ -22,6 +22,7 @@ import {
   rampAnchorAtPoint,
   rampFrameForHealth,
   rampMembersAt,
+  rampMuzzleAt,
   rampHealthFrac,
   rampSpecFor,
   rampTargetFrame,
@@ -736,5 +737,57 @@ describe('S183 — the unit sprites are constructed BEFORE the ramp buildings, s
     const ramp = at('new StructureRampRenderer(');
     expect(turret, 'the laser turret rig must draw behind its building').toBeLessThan(ramp);
     expect(princess, 'Helga must draw behind her hall').toBeLessThan(ramp);
+  });
+});
+
+/*
+ * ⭐⭐ S183 (owner) — *"it needs to look like it's shooting from its head."* The laser turret's charge
+ * bloomed at the structure centroid, which is behind the base of the building art.
+ */
+describe('S183 — rampMuzzleAt: the charge fires from the barrel, not from the centroid', () => {
+  const LASER = rampSpecFor('laserTurret' as GodlyId)!;
+
+  it('⭐ the laser turret has a muzzle, and it is UP and to the RIGHT of the centroid', () => {
+    expect(LASER.muzzle).not.toBeNull();
+    // His arrow pointed up-right at the barrel end. Sign errors are the whole risk here.
+    expect(LASER.muzzle!.dx).toBeGreaterThan(0);
+    expect(LASER.muzzle!.dy).toBeLessThan(0);
+  });
+
+  it('⛔ and it lands INSIDE the drawn art — a muzzle outside the sprite is a measurement error', () => {
+    // The art straddles the centroid vertically (±0.5·artPx) and is centred horizontally on it.
+    // Its aspect is under 1, so |dx| can never legitimately reach 0.5 either.
+    expect(Math.abs(LASER.muzzle!.dx)).toBeLessThan(0.5);
+    expect(Math.abs(LASER.muzzle!.dy)).toBeLessThanOrEqual(0.5);
+  });
+
+  it('⭐ the world position is the ramp CENTROID plus the offset, in artPx units', () => {
+    const world = structureWorld({
+      defenders: [{ id: 3, recipeId: 'laserTurret', anchor: 1 }],
+      prims: [[1, 300, 300], [2, 300, 256], [3, 344, 300], [4, 300, 344],
+              [5, 256, 300], [6, 344, 256], [7, 256, 344]],
+      bonds: [[1, 1, 2], [2, 1, 3], [3, 1, 4], [4, 1, 5], [5, 1, 6], [6, 1, 7]],
+    });
+    const at = rampMembersAt(world, asPrimitiveId(1), LASER)!;
+    const muzzle = rampMuzzleAt(world, asPrimitiveId(1), LASER)!;
+    expect(muzzle.x).toBeCloseTo(at.cx + LASER.muzzle!.dx * LASER.artPx, 6);
+    expect(muzzle.y).toBeCloseTo(at.cy + LASER.muzzle!.dy * LASER.artPx, 6);
+    // ⛔ And it is NOT the centroid — that was the whole bug.
+    expect(Math.hypot(muzzle.x - at.cx, muzzle.y - at.cy)).toBeGreaterThan(20);
+  });
+
+  it('⛔ a tower with no muzzle returns null, so its renderer keeps its old origin', () => {
+    const world = structureWorld({
+      spawners: [{ id: 7, recipeId: 'goblinTower', anchor: 1 }],
+      prims: [[1, 0, 0], [2, 0, -44], [3, 44, 0], [4, 0, 44], [5, -44, 0]],
+      bonds: [[1, 1, 2], [2, 1, 3], [3, 1, 4], [4, 1, 5]],
+    });
+    expect(rampSpecFor('goblinTower' as GodlyId)!.muzzle).toBeNull();
+    expect(rampMuzzleAt(world, asPrimitiveId(1), rampSpecFor('goblinTower' as GodlyId)!)).toBeNull();
+  });
+
+  it('⛔ exactly ONE tower declares a muzzle today — a new one is a measurement, not a default', () => {
+    const withMuzzle = RAMP_SPECS.filter((s) => s.muzzle !== null).map((s) => s.recipeId);
+    expect(withMuzzle).toEqual(['laserTurret']);
   });
 });

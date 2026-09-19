@@ -29,6 +29,7 @@ import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { TURRET_WINDUP_RINGS } from '../constants.ts';
 import { playLaserSFX } from './audioManager.ts';
+import { rampMuzzleAt, rampSpecFor } from './structureRamp.ts';
 
 // ── pencil palette ──
 const GRAPHITE = 0x2e2f36;
@@ -88,16 +89,39 @@ export class TurretRenderer {
       if (firing && prev !== 'FIRE') void playLaserSFX({ x: d.pos.x, y: d.pos.y });
       this.lastState.set(d.id, d.state);
 
+      /*
+       * ⭐⭐ S183 (owner) — **THE CHARGE FIRES FROM THE BARREL, NOT FROM THE TOWER'S BELLY.**
+       *
+       * > *"The laser tower doesn't look like he's shooting from the gun itself. It looks like it's
+       * > shooting from the middle of the tower … if we can move it to the right to show it's
+       * > shooting from the head of the laser beam gun, that'd be perfect — then I might not even
+       * > need to generate cutouts of him actually loading."*
+       *
+       * `d.pos` is the structure's centroid and was the right origin while this procedural rig WAS
+       * the turret. Since the building art landed, the barrel points up and to the right and the
+       * centroid is behind the base. `rampMuzzleAt` returns the measured barrel end, read off the
+       * SAME member walk the sprite is drawn with — see its docblock for why `d.pos` would drift.
+       *
+       * ⚠ FALLS BACK TO `d.pos` when the tower has no ramp art, no muzzle, or an unresolved walk,
+       * so nothing changes for a turret drawn the pre-S183 way. He also noted the consequence and
+       * accepted it in advance: *"then it won't look like it's in the middle of the old connectors,
+       * but who cares, because now the connectors are gone."*
+       */
+      const spec = rampSpecFor(d.recipeId);
+      const muzzle = spec === null ? null : rampMuzzleAt(world, d.anchorPrimitiveId, spec);
+      const ox = muzzle?.x ?? d.pos.x;
+      const oy = muzzle?.y ?? d.pos.y;
+
       // Aim angle: toward the strike/target if we have one, else point up.
       let aim = -Math.PI / 2;
       const aimAt = firing ? d.lastStrikePos
         : d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId)?.pos ?? null
         : null;
-      if (aimAt) aim = Math.atan2(aimAt.y - d.pos.y, aimAt.x - d.pos.x);
+      if (aimAt) aim = Math.atan2(aimAt.y - oy, aimAt.x - ox);
 
-      this.drawTurret(g, d.pos.x, d.pos.y, charge, firing, aim, nowSec);
+      this.drawTurret(g, ox, oy, charge, firing, aim, nowSec);
       if (firing && d.lastStrikePos !== null) {
-        this.drawBeam(g, d.pos.x, d.pos.y, d.lastStrikePos.x, d.lastStrikePos.y, nowSec);
+        this.drawBeam(g, ox, oy, d.lastStrikePos.x, d.lastStrikePos.y, nowSec);
       }
     }
 

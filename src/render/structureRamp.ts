@@ -164,6 +164,37 @@ export interface RampSpec {
    * at its last frame. ⛔ Opting in is a per-tower OWNER ruling, never an inherited default.
    */
   readonly selfDestructBelow: number | null;
+  /**
+   * ⭐⭐ S183 (owner) — **WHERE THIS BUILDING'S WEAPON ACTUALLY FIRES FROM**, as multiples of
+   * `artPx` from the structure's centroid (`+dx` right, `+dy` down). `null` for a building with no
+   * weapon of its own.
+   *
+   * He found this in the first minute of play, with a screenshot and an arrow drawn on it:
+   *
+   * > *"The laser tower doesn't look like he's shooting from the gun itself. It looks like it's
+   * > shooting from the middle of the tower, because it still has the old loading red colour … if
+   * > we can move it to the right to show it's shooting from the head of the laser beam gun, that'd
+   * > be perfect — then I might not even need to generate cutouts of him actually loading."*
+   *
+   * ⛔ **THE PROCEDURAL RIG AND THE BUILDING ART DISAGREED ABOUT WHERE THE GUN IS, AND THE ART WON.**
+   * `turretRenderer` has always drawn its charge lens and wind-up rings at `d.pos` — the structure's
+   * centroid — which was right when the turret WAS that rig and the shapes were visible around it.
+   * Now the art is the turret, its barrel points up and to the right, and a charge blooming at the
+   * centroid reads as the building glowing from its own belly.
+   *
+   * ⚠ **MEASURED OFF THE SHIPPED ATLAS, NOT EYEBALLED.** Frame 1 of `laser-turret-atlas.png`: the
+   * lens cluster (opaque, blue-minus-green > 60) spans x 134–230, y 56–115 inside a subject bbox of
+   * x 33–234, y 29–253. The muzzle sits at 98 % across and 25 % down that subject, and the art
+   * straddles the centroid vertically, so `dx = 0.897 × (0.980 − 0.5) = 0.431` and
+   * `dy = 0.250 − 0.5 = −0.250`. At `LASER_TURRET_ART_PX` that is +40 px right, −24 px up.
+   *
+   * ⛔ **AND IT MUST BE OFFSET FROM THE RAMP'S CENTROID, NOT FROM `Defender.pos`.** Those are two
+   * different points: `pos` is frozen at placement (`applyPlaceDefender`), while the sprite is drawn
+   * at the live member centroid. Offsetting from the wrong one puts the charge near the muzzle and
+   * moving relative to it — which is worse than the bug it replaces, because it looks intermittent
+   * rather than simply wrong. `rampMuzzleAt` reads the same walk the renderer draws with.
+   */
+  readonly muzzle: { readonly dx: number; readonly dy: number } | null;
 }
 
 /**
@@ -255,6 +286,28 @@ export const LASER_TURRET_SUBJECT_FILL = 0.8896;
 export const LASER_TURRET_ART_PX = 94;
 export const LASER_TURRET_SPRITE_PX = Math.round(LASER_TURRET_ART_PX / LASER_TURRET_SUBJECT_FILL);
 
+/**
+ * ⭐⭐ S183 (owner) — **WHERE THE LASER TURRET'S BARREL ENDS**, in multiples of `LASER_TURRET_ART_PX`
+ * from the structure's centroid. See `RampSpec.muzzle` for his words and for why the offset is from
+ * the ramp centroid rather than from `Defender.pos`.
+ *
+ * ⚠ **MEASURED OFF THE SHIPPED ATLAS.** Frame 1 of `laser-turret-atlas.png`, selecting opaque pixels
+ * whose blue exceeds green by 60 (the lens rings are the only violet thing on the sheet): the
+ * cluster spans x 134–230, y 56–115 within a subject bbox of x 33–234, y 29–253. So the barrel's
+ * outer end sits at 0.980 across and 0.250 down the subject.
+ *
+ * The art is centred horizontally on the centroid and STRADDLES it vertically, and its aspect is
+ * `201/224 = 0.897` of its height, so:
+ *   dx = 0.897 × (0.980 − 0.500) = **+0.431**   → +40 px at 94 px of art
+ *   dy =         (0.250 − 0.500) = **−0.250**   → −24 px
+ *
+ * ⛔ **RE-MEASURE THIS IF THE SHEET IS EVER RE-PACKED.** It is a fact about the drawing, not a taste
+ * call, and nothing in the build can notice it going stale — `structureRamp.test.ts` pins the value
+ * but no test can know the artist moved the barrel. That is the one weakness of this constant and it
+ * is stated rather than hidden.
+ */
+export const LASER_TURRET_MUZZLE = { dx: 0.431, dy: -0.25 } as const;
+
 export const PENTAGRAM_SUBJECT_FILL = 0.9328;
 export const PENTAGRAM_ART_PX = 90;
 export const PENTAGRAM_SPRITE_PX = Math.round(PENTAGRAM_ART_PX / PENTAGRAM_SUBJECT_FILL);
@@ -309,6 +362,7 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: HUB_SPRITE_PX,
     artPx: HUB_ART_PX,
     selfDestructBelow: STAR_SELFDESTRUCT_BELOW_FRAC,
+    muzzle: null,
   },
   {
     recipeId: 'goblinTower' as GodlyId,
@@ -321,6 +375,7 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: GOBLIN_TOWER_SPRITE_PX,
     artPx: GOBLIN_TOWER_ART_PX,
     selfDestructBelow: null,
+    muzzle: null,
   },
   {
     recipeId: 'laserTurret' as GodlyId,
@@ -333,6 +388,7 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: LASER_TURRET_SPRITE_PX,
     artPx: LASER_TURRET_ART_PX,
     selfDestructBelow: null,
+    muzzle: LASER_TURRET_MUZZLE,
   },
   {
     recipeId: 'pentagram' as GodlyId,
@@ -347,6 +403,7 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: PENTAGRAM_SPRITE_PX,
     artPx: PENTAGRAM_ART_PX,
     selfDestructBelow: null,
+    muzzle: null,
   },
   {
     recipeId: 'helga' as GodlyId,
@@ -361,6 +418,7 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: HELGA_TOWER_SPRITE_PX,
     artPx: HELGA_TOWER_ART_PX,
     selfDestructBelow: null,
+    muzzle: null,
   },
 ];
 
@@ -390,6 +448,39 @@ export interface RampMembers {
  * nodes: its predicate demands every component node be degree 2 and the component be size 5, so a
  * pentagram with anything welded on is not a pentagram and has no spawner to draw.
  */
+/**
+ * PURE — where this building's weapon fires from, in world coordinates, or `null`.
+ *
+ * ⭐⭐ S183 (owner) — *"it needs to look like it's shooting from its head."* `turretRenderer` drew its
+ * charge lens, its wind-up rings and its beam origin at `Defender.pos` — the structure's centroid —
+ * which was correct while the procedural rig WAS the turret and the shapes were visible around it.
+ * With the building art in place, a charge blooming at the centroid reads as the tower glowing from
+ * its own belly, and he spotted it in the first minute of play.
+ *
+ * ⛔ **IT READS `rampMembersAt`, THE SAME WALK THE SPRITE IS DRAWN WITH, AND THAT IS THE POINT.**
+ * `Defender.pos` is frozen at placement while the sprite follows the live member centroid, so the
+ * two drift apart as the structure settles. Offsetting from `pos` would put the charge NEAR the
+ * muzzle and moving relative to it — a worse failure than the one it replaces, because intermittent
+ * misalignment reads as a bug in the effect rather than as a fixed offset someone can correct.
+ *
+ * ⚠ Returns `null` for a building with no `muzzle` (every tower but the laser turret today) and for
+ * one whose walk does not resolve, so the caller keeps its old behaviour rather than drawing at an
+ * invented point.
+ */
+export function rampMuzzleAt(
+  world: World,
+  anchorId: PrimitiveId,
+  spec: RampSpec,
+): { readonly x: number; readonly y: number } | null {
+  if (spec.muzzle === null) return null;
+  const at = rampMembersAt(world, anchorId, spec);
+  if (at === null) return null;
+  return {
+    x: at.cx + spec.muzzle.dx * spec.artPx,
+    y: at.cy + spec.muzzle.dy * spec.artPx,
+  };
+}
+
 export function rampMembersAt(world: World, anchorId: PrimitiveId, spec: RampSpec): RampMembers | null {
   const anchor = world.primitives.get(anchorId);
   if (anchor === undefined) return null;
