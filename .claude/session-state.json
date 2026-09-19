@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 2886,
-  "session_id": "S182",
+  "tool_calls_session_total": 3497,
+  "session_id": "S183",
   "session_kind": "batch",
-  "session_start": "2026-09-14T10:00:00+02:00",
-  "prior_session_note": "S180 closed: character sheet v1 + canon doc + keep on the ladder. S181 opened on his playtest verdict: six character-sheet defects, whole batch approved in one go.",
+  "session_start": "2026-09-19T08:18:00+02:00",
+  "prior_session_note": "S182 closed: six-way parallel split merged, deployed, verify-deploy 4/4.",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "ANALYZE",
-  "tier": "Micro",
-  "plan_file": ".claude/plans/2026-09-17_PDR_S181_CHARSHEET_POLISH.md",
-  "session_status": "S182 CLOSED",
+  "phase": "DO",
+  "tier": "Full",
+  "plan_file": ".claude/plans/2026-09-19_PDR_S183_BATCH.md",
+  "session_status": "S183 IN PROGRESS",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "yes, confirmed on worktrees — update CLAUDE.md and give me the list",
+  "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -150,194 +150,69 @@
   "priorities": [
     {
       "id": 1,
-      "title": "S182 P1 — CLAUDE.md workflow section: adopt parallel worktrees + branches (owner reversed the solo/no-worktree rule this session), and correct the stale bundle charter (900 KiB -> 1000 KiB, raised S180).",
-      "status": "completed",
-      "tier": "Micro",
+      "title": "S183 P1 - THE MERGED-TREE AUDIT (three-agent live audit, deferred from S182)",
+      "status": "pending",
+      "tier": "Full",
+      "scope": "8 lanes x find/verify/refute over d76074a..HEAD. COMPLETE: 24 agents, 0 errors, 16 confirmed findings (1 HIGH / 4 MEDIUM / 11 LOW), 0 lane failures.",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "owner_approval_verbatim": "yes, confirmed on worktrees — update CLAUDE.md and give me the list",
-      "scope": [
-        "CLAUDE.md"
-      ],
-      "check_completed": true,
-      "checkpoint_commit": "f70af23ec360",
-      "check_method": "CLAUDE.md workflow section rewritten to adopt parallel worktrees per the owner's S182 reversal, with three facts VERIFIED rather than assumed: git auto-ignores nested worktrees (probed by creating one and checking the parent's status), deploy.yml:25 fires on push-to-master only (read), and the bundle charter is 1000 KiB with 147.8 KiB headroom (MEASURED by running npm run build, correcting a doc that had said 900/65.9 since S178). Committed 6713dec.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "PARALLEL WORKTREES ARE NOW THE PATTERN"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "A worktree session commits to ITS OWN branch, never to `master`"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "git auto-ignores nested worktrees"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "**1000 KiB**"
-        },
-        {
-          "type": "file_lacks",
-          "path": "CLAUDE.md",
-          "needle": "(900 KiB; 834.1 KiB"
-        }
-      ]
+      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
     },
     {
       "id": 2,
-      "title": "S182 P2 (ORCHESTRATOR) — author one self-contained brief file per parallel branch, with the verified findings, file:line sites, fix shape, determinism hazards, tests owed, gates, branch name and file boundaries; plus a starter prompt per session. This session implements NO game code.",
-      "status": "completed",
-      "tier": "Standard",
+      "title": "S183 P2 - BRANCH A: you only see the tower (4 tower ramps + connector hiding)",
+      "status": "pending",
+      "tier": "Full",
+      "scope": "Transparent-sheet intake (alpha-matted, detect a<=48, floor <=24->0, ceil >=244->255); 4 atlases + RAMP_SPECS entries for goblinTower/laser turret/pentagram/Helga; NO self-destruct (R182-A hub-only); spawnerZoneRenderer fades with cover (owner: FADE ON EVERYTHING); defender cover publish site (turret + princess); reveal on CRUMBLE not first sever.",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "owner_approval_verbatim": "Once everything has landed, give me the spread with all the priorities in different files ... you premake their MD files ... where you give them the priorities with all your findings",
-      "scope": [
-        ".claude/branch-briefs/*.md",
-        "S182_BACKLOG.md"
-      ],
-      "check_completed": true,
-      "checkpoint_commit": "f70af23ec360",
-      "check_method": "ORCHESTRATOR ROLE, executed end to end and implementing NO game code itself. Authored 6 self-contained branch briefs from ~40 research agents (recon + adversarial refute per lane) across 6 workflows; every brief carried verified file:line findings, fix shape, determinism hazards, tests owed, gates, branch name and a file boundary. Then audited all six branches pre-merge, sent three triaged fix rounds, re-verified each, and merged all six in an order derived by PERFORMING the merge in a throwaway worktree rather than predicting it. GATES ON THE MERGED TREE, every exit code captured from $? and never through a pipe: vitest EXIT=0 (5238 tests / 319 files), typecheck EXIT=0, typecheck:server EXIT=0, build EXIT=0 (875.0 KiB of the 1000 KiB charter), e2e:gating GATING_EXIT=0 (68 passed, 4.7m, run on a private SPARK_E2E_PORT). FOUR DEFECTS FIXED THAT BELONGED TO NO BRANCH: the netWireSize fixture regression that existed ONLY on the merged tree, the mixed-cause sever-toast collapse, an exhaustiveness contract that always compiled and had replaced a working fallback, and two stale doc claims their own later commits invalidated. R182-G and R182-H landed in SPARK_CANON.md with four canon.test.ts assertions - both had existed only in commit messages on an unmerged branch. The parallel-split lessons landed in CLAUDE.md. MCV --strict exit 0, hard_fail=0 warn=0.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/README.md",
-          "needle": "s182/net-bandwidth"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/01-net-bandwidth.md",
-          "needle": "**The peer is not slow. It is STARVED.**"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/05-lightning-hub.md",
-          "needle": "BUILD THE PATH, NOT THE ONE-OFF"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 47 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "47 CARRIES TWO WIRE CHANGES"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/netWireSize.test.ts",
-          "needle": "const gx = 281 + (group % 4) * 130;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/severToastRenderer.ts",
-          "needle": "function severCopyClass(c: SeverCause): SeverCause {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "const defenderKind = spec.defenderKind as DefenderKind;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "= spec.defenderKind as never"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "RANKING IS AN AVERAGE, NOT A BEST TIME"
-        },
-        {
-          "type": "file_contains",
-          "path": "SPARK_CANON.md",
-          "needle": "do not delete it as dead code, and do not wire it"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/canon.test.ts",
-          "needle": "keeps the difficulty dial unwired, and records why"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "THE PARALLEL SPLIT — WHAT S182 LEARNED"
-        },
-        {
-          "type": "file_contains",
-          "path": "CLAUDE.md",
-          "needle": "A SOURCE-TEXT TRIPWIRE CAN BE GREEN OVER A LIVE BUG"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/02-mp-identity-and-sheet.md",
-          "needle": "# BRANCH 2 — `s182/"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/03-placement.md",
-          "needle": "# BRANCH 3 — `s182/"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/04-damage-truth.md",
-          "needle": "# BRANCH 4 — `s182/"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/06-arcade.md",
-          "needle": "# BRANCH 6 — `s182/"
-        }
-      ]
+      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+    },
+    {
+      "id": 3,
+      "title": "S183 P3 - BRANCH B: retaliation targeting (R183-A/B/C/D)",
+      "status": "pending",
+      "tier": "Full",
+      "scope": "A unit under attack re-picks its attacker; on attacker loss it re-picks nearest by its own preferences, never returning to the prior target. Pencil chewer NEVER retaliates. Helga retaliates within creatures-only. Suicide bomber DOES retaliate. Attacker id threaded through damageEntity (17 production call sites), mechanical enumeration, no optional param.",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+    },
+    {
+      "id": 4,
+      "title": "S183 P4 - BRANCH C: the caption + the audit fixes",
+      "status": "pending",
+      "tier": "Full",
+      "scope": "Feed caption (12px rise into an 8px gap, lands 4px inside FIX/SCRAP; x-anchored to card centre); WIN-screen destruction; leaderboard 24h double-count (HIGH); keep-out silently gating FIX/SCRAP; arcade recap bugs; the false comments (transport.ts:635 x3 lanes, netStats:34, save.ts:1897, canon s9).",
+      "check_completed": false,
+      "checkpoint_commit": null,
+      "check_method": null,
+      "verification": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "session": "S182",
-      "tag": "#verification-layer-is-the-product",
-      "entry": "Six parallel worktree sessions shipped more than any prior session - and EVERY ONE of their fix rounds fixed what was asked AND introduced 2-4 new defects, while reporting typecheck, vitest and build GREEN. A healthy building that explodes, a leaderboard one bad run poisons forever, a suicide goblin that severs silently, a worker typecheck that could block the game's deploy: all green, all caught only because a branch was audited by something that did not write it and that ran the gates itself. LESSON: the parallel split does not work because the sessions are good. It works because nothing is trusted. Budget the verification, not just the work."
-    },
-    {
-      "session": "S182",
-      "tag": "#source-text-tripwire-can-be-green-over-a-live-bug",
-      "entry": "This repo leans on source-text guards and S182 found their hole: the placement branch's tripwire asserted the cost plate was wired into a predicate - true - but the FAILING PATH NEVER CONSULTED THAT PREDICATE for its verdict. Green over a live bug, twice. A source-text guard proves a line EXISTS, never that it is REACHED. The branch's own answer is the pattern to copy: make the enumeration MECHANICAL (it now counts the footer's opaque fills and pins the total at five, so a sixth fails until someone hit-tests it)."
-    },
-    {
-      "session": "S182",
-      "tag": "#a-defect-between-two-branches-has-no-owner",
-      "entry": "netWireSize.test.ts built its board at x=200; another branch added a castle keep-out that refuses placement there. Each branch was CORRECT against master - only the merge was wrong, and the symptom (five wire-budget failures) named neither cause. Merge ONE AT A TIME with the suite between every step; merging six and gating once tells you something broke, not which pair. And the merge owner fixes these: sending it to either branch asks a session to fix a bug it cannot reproduce."
-    },
-    {
-      "session": "S182",
-      "tag": "#hand-out-shared-infrastructure-before-the-split",
-      "entry": "playwright.config.ts was rewritten by FIVE of six branches in five incompatible ways, and ci.e2eLanes.test.ts by three - all fixing the same real bug (a hardcoded port 5173 with reuseExistingServer, so a second worktree ADOPTED the first's dev server and reported green against another branch's bundle). Pay for it once before the split, or N times plus N conflicts after. And the merge owner must re-run e2e on the merged tree and trust NO branch's e2e number."
-    },
-    {
-      "session": "S182",
-      "tag": "#ask-for-the-number-not-the-verdict",
-      "entry": "'What does adding tower two cost, file by file, line count' returned '~17 lines plus a ~20-line data file - an afternoon, not a month' and let the owner commit to four more towers. 'Is the seam reusable?' would have returned yes and decided nothing. Same shape on the lag: 'what is the measured before/after' returned 2.56x (17.61 -> 6.88 Mbit/s) where 'did it help' would have returned yes."
-    }
-  ],
-  "real_context_tokens_at_close": 776075,
-  "analyze": {
-    "session": "S181",
-    "shipped": 16,
-    "carried": 10,
-    "headline": "He playtested the S180 character sheet and reported nine defects across five messages; all nine shipped, plus his castle amendment and the targeting rework he had ruled in S180 and never authorised until now. Then he asked for adversarial verification BEFORE he tested — and it found eight more defects, every one mine, every one already green and deployed.",
-    "the_one_lesson": "EVERY DEFECT THIS SESSION HAD ONE SHAPE: a rule applied at some of its sites and not the rest. Three of four wipe sites. Two of three arrival arms. One of three UI-surface guards. A transform set then reset. A block that draws but does not advance the cursor. That is the four-sites law in CLAUDE.md, and it bit five more times in a single session. What caught them was source-text tripwires on the CALL SITES; the behaviour tests stayed green through all of it.",
-    "what_i_would_do_differently": "Run the gating e2e lane BEFORE pushing anything that moves UI geometry or touches the sim. I pushed the castle merge without it and CI caught a regression that made the panel impossible to close; I pushed the targeting fix WITH it and it was clean. 4.3 minutes against a live defect he would have hit in his first minute of play."
-  },
-  "analyze_completed": true,
+  "reflexion_entries_to_archive": [],
+  "real_context_tokens_at_close": null,
+  "analyze": null,
+  "analyze_completed": false,
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
