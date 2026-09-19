@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 3766,
-  "session_id": "S183",
+  "tool_calls_session_total": 3782,
+  "session_id": "S184",
   "session_kind": "batch",
   "session_start": "2026-09-19T08:18:00+02:00",
-  "prior_session_note": "S182 closed: six-way parallel split merged, deployed, verify-deploy 4/4.",
+  "prior_session_note": "S184 continues S183 P3 (retaliation). PDR approved in S183 and still valid; work unfinished, not unapproved.",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-19_PDR_S183_BATCH.md",
-  "session_status": "S183 IN PROGRESS",
+  "session_status": "in_progress",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -231,14 +231,61 @@
     },
     {
       "id": 3,
-      "title": "S183 P3 - BRANCH B: retaliation targeting (R183-A/B/C/D)",
-      "status": "carry_forward",
+      "title": "S184 P1 (carry-forward of S183 P3) - retaliation: finish the three audit defects, pin them, merge",
+      "status": "completed",
       "tier": "Full",
       "scope": "A unit under attack re-picks its attacker; on attacker loss it re-picks nearest by its own preferences, never returning to the prior target. Pencil chewer NEVER retaliates. Helga retaliates within creatures-only. Suicide bomber DOES retaliate. Attacker id threaded through damageEntity (17 production call sites), mechanical enumeration, no optional param.",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": "NOT DONE - AND NOT MERGED. Branch B (retaliation) was BUILT and its worktree branch holds commit 0f0d68d, but its independent audit found THREE behavioural defects it had not reported, including that its CENTRAL determinism claim is false as written: the aggressor scan reads targetCreatureId while recordCreatureRetaliation also WRITES it, so the guarantee goes circular the moment two victims are struck in one tick (measured by probe: U.targetCreatureId is 10 when V is hit first and 30 when U is hit first). Not a desync - host, worker and replay share the iteration order - but it is spawn-order-sensitive GAMEPLAY and it changes WHICH target, not merely when. Second: committed-to-this-victim reads a NAVIGATION lock (hostTick writes targetCreatureId for every structure-attacker merely walking within 220px), so a victim punched at 20px breaks off and walks 250px to a lower-id unit that never hit it, contradicting the owner ruling outright. Third: the Voltkin gate suppresses the forced state drop but not the WRITE, so the S103 #8 re-validation nulls the target and bounces the creature out anyway. The fixes were sent back to the branch and THE AGENT DIED ON THE ORG MONTHLY SPEND LIMIT mid-run. Per this project S161 rule a dead agent run is not a completed lane, so this is recorded as NOT DONE rather than quietly closed. NOTHING from branch B is on master.",
-      "verification": [],
+      "check_completed": true,
+      "checkpoint_commit": "382814d073f52ab816dd122417c3413ab32127ad",
+      "check_method": "CHECK ran in four independent layers, each with a captured exit code. (1) GATES on the MERGED tree: typecheck 0, typecheck:server 0, vitest 0 (5398 tests / 324 files, up from 5349/322 on master), build 0 (881.1 KiB of the 1000 KiB charter), check:atlas 0, e2e:gating 0 (68 passed), e2e:races 0 (5 passed). (2) MUTATION SWEEP over every guard in the feature: revert one guard, require the suite to go RED, restore byte-identical. It found EIGHT guards deletable with the file green (DESPAWNING, same-owner, isUntargetable, the no-churn return, the SEEKING drop, Helga's creature-arm-wins-first, and both arms of the S155 deferral); all were closed. 13 of 14 now CAUGHT, the survivor (d.ehp === null in recordDefenderRetaliation) verified UNREACHABLE by reading damage.ts's defender arm. (3) SIX-LANE ADVERSARIAL AUDIT dispatched as two independent runs (determinism, owner-rulings, call-sites | fsm, test-quality, canon-truth), each find -> refute. 9 findings survived, 5 killed. (4) HAND-RUN LANES, not delegated: all 14 production damageEntity call sites enumerated and judged (census pins 14 = 8 named + 6 null, matching my count); damageCreature has ONE caller so no path bypasses the seam; every attackRange resolved to confirm the 220 < 300 leash claim; and a THREE-ARM controlled experiment through runHostTick (no archer / archer+retaliation-off / archer+retaliation-on) which is what proved the kiting collapse is attributable to this feature and not to the archer.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "needle": "insideHomeLeash",
+          "path": "src/state/creatures/retaliation.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isStunned(victim, world.tick)",
+          "path": "src/state/creatures/retaliation.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "isUntargetable(victim, world.tick)",
+          "path": "src/state/creatures/retaliation.ts"
+        },
+        {
+          "type": "grep_count",
+          "pattern": "STUN GATE 5 OF 5",
+          "op": "==",
+          "value": 1,
+          "path": "src/state/creatures/retaliation.ts"
+        },
+        {
+          "type": "grep_count",
+          "pattern": "OF 4",
+          "op": "==",
+          "value": 0,
+          "path": "src/state/hostTick.ts"
+        },
+        {
+          "type": "file_contains",
+          "needle": "RETALIATION",
+          "path": "SPARK_CANON.md"
+        },
+        {
+          "type": "file_contains",
+          "needle": "THIS IS NOT A CODING ERROR",
+          "path": "SPARK_CANON.md"
+        },
+        {
+          "type": "grep_count",
+          "pattern": "§9b",
+          "op": ">=",
+          "value": 4,
+          "path": "src/canon.test.ts"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -290,44 +337,36 @@
   ],
   "reflexion_entries_to_archive": [
     {
-      "session": "S183",
-      "tag": "#a-verification-stage-that-never-rejects-is-not-a-verification-stage",
-      "entry": "S183 - I ran the S182 merged-tree audit as 8 lanes x find/verify/refute and it returned 16 confirmed findings. The signal that mattered was not in the findings: round A's verify and refute stages killed NOTHING across 8 stages while round B's killed 7 from the same prompt template. Identical instructions, opposite behaviour - so the kill COUNT is a cheap health check on the auditor itself, and I re-verified round A by hand rather than trusting it. All three held, but the check cost minutes and would have caught a rubber-stamp for free. Measure your verifier, not just the code."
+      "session": "S184",
+      "tags": [
+        "mutation-testing",
+        "verification"
+      ],
+      "entry": "A GREEN SUITE IS NOT A PINNED FEATURE, AND THE CHEAPEST WAY TO KNOW IS TO BREAK THE CODE ON PURPOSE. A sweep that reverts one guard at a time and requires a captured RED found EIGHT guards in retaliation.ts that could be deleted with the whole file green — including both arms of the S155 deferral and the same-owner check. 18 tests became 42, and every one of the new ones exists because a mutation survived, not because someone thought of it."
     },
     {
-      "session": "S183",
-      "tag": "#the-feature-was-built-something-else-drew-over-it",
-      "entry": "S183 - The owner said connector hiding 'literally is not here' and I had just read the commit that shipped it and concluded it worked. He was right. The feature runs correctly - structureRenderer fades every shape and bond to invisible - and then spawnerZoneRenderer redraws the connectors, beads, rings and core straight back on top, with no reference to towerCover anywhere in the file, its own comment admitting it draws 'on top of the normal bond visual structureRenderer already drew'. I had enumerated who PUBLISHES cover and never asked who DRAWS without consuming it. When a feature is provably built and provably absent on screen, enumerate the consumers, not the producers."
+      "session": "S184",
+      "tags": [
+        "controlled-experiment",
+        "attribution"
+      ],
+      "entry": "AN AUDIT FINDING NEEDS A CONTROL ARM BEFORE IT IS A REGRESSION. Two lanes independently reported a HIGH: retaliation starves a melee unit under archer fire. Measured through the real host tick it was true — 980 damage becomes 230. But the THIRD arm (archer present, retaliation disabled) also read 980, which is what turned 'retaliation broke it' into 'retaliation causes it, and it is the owner's ruling doing what it says'. Without the middle arm I would have filed a bug and invented a fix for a rule he chose."
     },
     {
-      "session": "S183",
-      "tag": "#the-branch-that-contradicts-its-brief-is-the-one-earning-its-keep",
-      "entry": "S183 - Branch A came back having found MY brief wrong in three places, and the most valuable was one I had written confidently: the FIX/SCRAP click path already exists, just owe a test. It does not - towerAnchorAtPoint serves race towers only and walks creatureSpawners, so no defender can ever be in it. With the shapes hidden, all five ramp towers would have been repairable only by clicking an invisible 10px dot. A brief is a hypothesis and the branch is the experiment. Write briefs that say WHY, so a session can tell when the why has stopped holding."
+      "session": "S184",
+      "tags": [
+        "fixture-quality",
+        "self-correction"
+      ],
+      "entry": "MY OWN NEW TEST WAS GREEN OVER THE LIVE BUG, THE SAME WAY S183's WAS. I wrote 'the no-churn guard prevents wind-up churn' from the docblock's claim; the audit then showed the guard is inert for almost the whole wind-up because the FSM nulls the field it compares. The fixture came from the comment, not from the sim. The fix was not to delete the test but to retitle it as the one-tick window it actually pins, and to retract the docblock at the docblock."
     },
     {
-      "session": "S183",
-      "tag": "#a-mechanical-test-can-still-pin-the-wrong-geometry",
-      "entry": "S183 - This project answer to source-text guards is make the enumeration mechanical. Branch A did exactly that for its new click box and was STILL green over a HIGH defect, because the geometry it pinned came from its own docblock sentence rather than from place(). It asserted a hit ten pixels ABOVE the top of the drawing and never touched the band that was broken. Mechanical beats prose only if the mechanism reads the SOURCE OF TRUTH - here, the line that positions the sprite. Derive test geometry from the placement function, never from the comment describing it."
-    },
-    {
-      "session": "S183",
-      "tag": "#wrap-before-you-edit-the-owners-words",
-      "entry": "S183 - His caption did not fit beside the chip, so the branch cut two words out of his sentence and I put three variants of that compromise to him. He rejected all three: you can make it divided to two lines, and just make it fit the box, it is really simple, I do not know why you are having difficulties with that. The measurement was right and the conclusion was wrong. When the owner copy does not fit a layout, change the LAYOUT first - rewriting his words is the last resort, and offering three versions of the wrong move is worse than offering none."
-    },
-    {
-      "session": "S183",
-      "tag": "#enumerate-the-consumers-not-the-producers",
-      "entry": "S183 - He said connector hiding was literally not here, and I had just read the S175 commit and told him it worked. He was right. The feature ran correctly and a SECOND renderer redrew the connectors on top of the faded ones, with no reference to towerCover anywhere in its file and its own comment admitting it draws over what structureRenderer already drew. I had enumerated who PUBLISHES cover and never asked who DRAWS without consuming it. When something is provably built and provably absent on screen, enumerate the CONSUMERS."
-    },
-    {
-      "session": "S183",
-      "tag": "#measure-the-verifier-not-only-the-code",
-      "entry": "S183 - The audit ran as two identical pipelines. Round A verify and refute stages killed NOTHING across 8 stages; round B killed 7 from the same prompt template. Same instructions, opposite behaviour - so the KILL COUNT is a free health check on the auditor itself. I re-verified round A by hand and all three consequential findings held, but the check cost minutes and would have caught a rubber-stamp for nothing. A verification stage that never rejects anything has not been shown to work."
-    },
-    {
-      "session": "S183",
-      "tag": "#a-dead-agent-run-is-still-not-a-completed-lane",
-      "entry": "S183 - Branch B fixes were dispatched back to their branch and the agent died on the org monthly spend limit mid-run. The S161 rule held: it is recorded as NOT DONE in the handoff summary line, not as a carry-forward buried where the next session may not reach it, and nothing from that branch is on master. The rule earns its keep precisely when the session is otherwise going well and closing the lane would feel like tidying up."
+      "session": "S184",
+      "tags": [
+        "method",
+        "audit-hygiene"
+      ],
+      "entry": "NEVER MUTATE THE TREE WHILE READ-ONLY AUDITORS ARE LIVE. A mutation sweep ran concurrently with six audit agents and one of them sampled a file mid-mutation; only its adversarial verifier caught it and re-checked against clean master. Parallel agents assume a stable tree, and a harness that edits files is not a read-only neighbour."
     }
   ],
   "real_context_tokens_at_close": null,
@@ -750,7 +789,12 @@
     "FIVE SWEEP LANES FROM S161 STILL OWE A VERDICT — determinism, four-sites, creature lifecycle, wire/protocol, host-migration. Killed by a spend limit and never hand-run. This session is the third time the class they cover (a rule applied at some of its sites) produced a live defect.",
     "END-OF-MATCH STAT BOARD — researched and costed in S180, still ONE LINE OF TEXT.",
     "CONNECTOR HIDING — phase the shapes out while a tower stands, back when it breaks. Specified across three sessions (S170 P11 / R169), renderer-only, still absent.",
-    "HIS OPEN QUESTION, ANSWERED BUT NOT DECIDED: should SPARK go on Steam now? My recommendation was NO to Steam yet (a permanent review score against a game where four systems were visibly lying last night) but YES to shipping publicly at spark-online.space for feedback with no score attached. The signal to wait for: an evening of play that produces only balance complaints and wishes, not broken systems. His call."
+    "HIS OPEN QUESTION, ANSWERED BUT NOT DECIDED: should SPARK go on Steam now? My recommendation was NO to Steam yet (a permanent review score against a game where four systems were visibly lying last night) but YES to shipping publicly at spark-online.space for feedback with no score attached. The signal to wait for: an evening of play that produces only balance complaints and wishes, not broken systems. His call.",
+    {
+      "id": "S184-CF-1",
+      "title": "OWNER DECISION BLOCKS THE PUSH: the kiting collapse",
+      "detail": "4 commits sit unpushed on master. Everything is merged, audited and green. The one open item is a MEASURED consequence of R183-A, not a defect: a melee unit that turns on a holdsRange attacker it can never catch stops hitting anything. Three-arm control over 600 host ticks: no archer 980 damage / archer with retaliation OFF 980 / archer with retaliation ON 230, and it never reaches its fire tick again. Pinned as an OPEN case in retaliation.test.ts and in SPARK_CANON.md §9b. Pushing master is shipping to production, so it waits on his one-line answer."
+    }
   ],
   "real_context_note": "TRUSTWORTHY READING despite statusline_dead. real-context-tokens.py resolved via discovery_source=cli_session_id with discovery_trusted=true, so no user paste was needed and none was requested. 776,075 / 1,000,000 = 77.61% ORANGE, well under the 900K stop threshold — this session closed because the owner asked for a handoff, NOT because of budget. 932 messages, all Opus (ALWAYS-STRONGEST). Output tokens 896,169.",
   "p2_targeting_never_approved": {
