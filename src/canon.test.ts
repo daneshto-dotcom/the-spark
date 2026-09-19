@@ -313,14 +313,17 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   /**
-   * §9b's OPEN block. The measured kiting collapse is the one thing in this feature that needs the
-   * owner, and the numbers are his evidence — so the canon must still be carrying them, and must
-   * still say it is not a coding error rather than quietly reading as a bug report someone fixed.
+   * §9b — R184-A. The kiting collapse was PUT to the owner with the three-arm control and he chose
+   * to ship it as ruled, declining both narrowings. That makes it intended behaviour, and the risk
+   * flips: the danger is no longer that someone forgets to ask him, it is that a future session
+   * rediscovers 980 → 230, reads it as a bug and "fixes" a ruling. The control table and the
+   * do-not-fix sentence both have to survive.
    */
-  it('§9b keeps the kiting measurement OPEN, with its three-arm control intact', () => {
+  it('§9b records R184-A: the kiting collapse is RULED, and the control table survives', () => {
     expect(canonSays('archer present, retaliation DISABLED')).toBe(true);
     expect(canonSays('THIS IS NOT A CODING ERROR')).toBe(true);
-    expect(canonSays('is ours to pick')).toBe(true);
+    expect(canonSays('HE CHOSE TO SHIP IT AS RULED')).toBe(true);
+    expect(canonSays('DO NOT "FIX" IT')).toBe(true);
   });
 
   it('§9b records that retaliation cost no protocol bump, and that is still true', () => {

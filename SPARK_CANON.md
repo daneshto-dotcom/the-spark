@@ -515,7 +515,7 @@ field, and the attacker's own `attackRange` — and it is resolved **nearest, th
 retaliation drives NAVIGATION and walking to the lowest-id attacker when a nearer one is at your
 feet would look broken.
 
-### ⛔ WHAT IS OPEN, MEASURED IN S184, AND NEEDS HIM
+### ⭐⭐ R184-A — HE RULED IT, HAVING SEEN THE NUMBERS: SHIP IT AS IS
 
 **A melee unit that turns on a ranged attacker it can never catch stops hitting anything at all.**
 Measured through the real host tick over 600 ticks — one vampire boss, a decoy at its feet, and a
@@ -532,9 +532,17 @@ The middle arm is what makes it attributable: with retaliation off, the archer c
 deals 76 % less, never lands a blow on the archer it turned to face, and drifts ~500 px away.
 
 ⚠ **THIS IS NOT A CODING ERROR. It is R183-A doing exactly what it says.** The consequence is that
-one archer can neutralise any melee unit indefinitely. Every alternative changes HIS rule, so none
-of them is ours to pick. `retaliation.test.ts` pins the measurement so it cannot drift or be
-claimed away in prose.
+one archer can neutralise any melee unit indefinitely.
+
+⭐ **R184-A — PUT TO HIM WITH THE THREE-ARM TABLE ABOVE, AND HE CHOSE TO SHIP IT AS RULED.** He was
+offered the two narrowings (retaliate only against an attacker inside your own arm; or chase only a
+non-`holdsRange` attacker) and took neither. So this is **current, intended behaviour** — not a known
+bug and not a carry-forward.
+
+⛔ **DO NOT "FIX" IT.** A session that rediscovers the 980 → 230 collapse is rediscovering a ruling,
+not a defect. `retaliation.test.ts` pins the measurement as a MEASURED FACT so it cannot drift
+silently, and `canon.test.ts` holds this paragraph — if the behaviour is ever changed, it is changed
+because he asked for it, and both land in the same commit.
 
 ---
 
