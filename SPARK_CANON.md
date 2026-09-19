@@ -385,9 +385,35 @@ calls in `main.ts`. ⚠ **No renderer runs under vitest**, so z-order is invisib
 test in the repo — Helga drew on top of her own hall with the whole suite green. A source-text guard
 pins the three construction sites in order, and states that limit on itself.
 
-⛔ **KNOWN GAP, MEASURED AND UNFIXED:** the cover set is the recipe's own members. A hand-placed shape
-**welded** onto a tower is not a member and stays fully visible under the sprite forever. Reported,
-not fixed — it is the owner's call whether a weld should be swallowed by the building.
+⭐⭐ **R185-A — THE WELD STAYS AT FULL OPACITY. RULED S185, AND THIS CLOSES THE ONLY OPEN CALL THIS
+SECTION EVER HAD.** The cover set is the recipe's own members, so a hand-placed shape **welded** onto
+a tower is not a member and draws at alpha 1 under the sprite. That was reported as a KNOWN GAP for
+two sessions. It is not a gap:
+
+> *"But remember we said we should be able to connect towers together. So in a welded shape, a shape
+> that's not from your tower, should be at full opacity."* — owner, S185
+
+⛔ **SO DO NOT HIDE IT AND DO NOT "SWALLOW" IT.** The exclusions that produce this — `ringBondsOf`
+refusing any bond with an endpoint outside the ring (`towerRenderer.ts:79`) and the star walk
+(`structureRamp.ts:509`) — are **correct as written** and need no change. A session that proposes
+hiding a welded shape is reversing a ruling, not fixing a bug.
+
+⭐⭐ **R185-B — AND THE UNREPAIRABLE CONSEQUENCE IS A DELIBERATE TRADE HE ENDORSED, NOT A BUG.**
+`structureRepair.ts` refuses any component member with `origin === null`, so **one** welded shape
+makes a whole structure permanently unrepairable. Put to him as a defect; he reframed it as a
+mechanic and kept it:
+
+> *"So if you have a tower that's producing tier three monsters, let's say a bat tower, and you're
+> welding it through many connectors to another bat tower — those two bat towers are a lot harder to
+> destroy because now they're welded, so they have a lot higher HP. But they cannot be repaired
+> either, because it's like a full shape now. So you can just keep adding connectors to it and make
+> it higher HP. And then once the enemy does manage to destroy it, it destroys the connectors that
+> he's attacking. So I guess that's just a way of looking at it. That makes sense."* — owner, S185
+
+So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
+TREATED AS SHIPPED:** R182-F measured that a welded hub reads **48%** on the health bar while its
+art reads **32%**. His trade depends on a welded stack reading as *tougher*; if the bar lies about
+it, the mechanic does not communicate itself. Verify the pool arithmetic before calling R185-B done.
 
 ## 8 · REPAIR
 
@@ -545,6 +571,37 @@ silently, and `canon.test.ts` holds this paragraph — if the behaviour is ever 
 because he asked for it, and both land in the same commit.
 
 ---
+
+## 9c · ⛔⛔ TWO S184 "LOW FINDINGS" THAT HE RULED ARE NOT DEFECTS (S185)
+
+Both were audit findings carried into S185 as candidate work. He was walked through them and
+**overruled both**. They are recorded here so no future audit re-reports them as bugs — which is
+exactly what this document exists to stop.
+
+⭐ **R185-C — CLICKING AN ENEMY BUILDING THROUGH FOG IS INTENDED. IT IS A SKILL EXPRESSION.**
+`rampAnchorAtPoint` (`structureRamp.ts`) applies a pure geometry test and never consults
+`isConcealed`; the whole input layer is fog-blind (`grep -rn "isConcealed" src/input/` returns
+nothing). The card it opens carries a **live** health value under a "LAST SEEN" label. Reported as
+an information leak. It is not:
+
+> *"You should be able to click enemy buildings through fog, because your spark itself, the cruiser,
+> highlights everything around it. So you should be able to go and research what your enemy is
+> building. It's just taking time off of what you're doing and actually going to do that. So it
+> makes sense. It's like a thing that more knowledgeable players would be doing."* — owner, S185
+
+⛔ **DO NOT GATE IT ON `isConcealed`.** Scouting costs tempo; that is the design, and the live
+health value is part of the reward. This overrules the S184 LOW finding and my own recommendation.
+
+⭐ **R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE.** A floater for a hidden connector
+is anchored at the raw bond midpoint (`damageNumbers.ts`), which on a star's upper arms rises clear
+of the building art. Reported as "damage numbers print over blank ground". He likes it:
+
+> *"Damage numbers float over nothing — I don't think that's correct. The damage numbers actually
+> finally look good. They, like, go over each other, and it looks like… it just looks epic."*
+
+⛔ **DO NOT SUPPRESS AND DO NOT RE-ANCHOR.** ⚠ Note this also settles the conflict the finding
+raised between his S175 *"you gotta see damage everywhere"* and R183-E *"you don't have to see the
+connectors"* — S175 wins for the floating number, R183-E still governs the connector's own alpha.
 
 ## 10 · ⛔ OPEN — needs the owner, do not guess
 

@@ -330,4 +330,51 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('stays 47')).toBe(true);
     expect(PROTOCOL_VERSION).toBe(47);
   });
+
+  /**
+   * §7 — R185-A/B. The weld was an OPEN CALL for two sessions and is now ruled, which flips the
+   * risk exactly as §9b's docblock describes: the danger is no longer that nobody asked him, it is
+   * that a future session reads "a shape shows through a tower" or "one weld makes a structure
+   * unrepairable" as an obvious defect and helpfully reverses him. Both do-not-touch sentences and
+   * both quotes have to survive, or the next audit re-opens what he closed.
+   *
+   * ⚠ The 48/32 line is pinned deliberately: R185-B is endorsed but NOT verified, and the sentence
+   * recording that is the only thing standing between "he ruled it" and "it actually works".
+   */
+  it('§7 records R185-A: a welded shape stays at FULL OPACITY, and the gap is closed', () => {
+    expect(canonSays('R185-A — THE WELD STAYS AT FULL OPACITY')).toBe(true);
+    expect(canonSays("that's not from your tower, should be at full opacity")).toBe(true);
+    expect(canonSays('SO DO NOT HIDE IT AND DO NOT "SWALLOW" IT')).toBe(true);
+    // The superseded wording must NOT come back — it is what would re-open the question.
+    expect(canonSays("the owner's call whether a weld should be swallowed")).toBe(false);
+  });
+
+  it('§7 records R185-B: welding buys pool and costs repair, on purpose', () => {
+    expect(canonSays('R185-B — AND THE UNREPAIRABLE CONSEQUENCE IS A DELIBERATE TRADE')).toBe(true);
+    expect(canonSays('they have a lot higher HP. But they cannot be repaired')).toBe(true);
+    // The unverified half is load-bearing: it must not be quietly upgraded to "shipped".
+    // Single-line needle on purpose — the prose wraps, and a needle that spans the wrap would
+    // pass or fail on reflow rather than on meaning.
+    expect(canonSays('ONE THING REMAINS UNVERIFIED AND MUST NOT BE')).toBe(true);
+    expect(canonSays('**48%**')).toBe(true);
+    expect(canonSays('**32%**')).toBe(true);
+  });
+
+  /**
+   * §9c — R185-C/D. Two S184 audit findings the owner overruled. These are the cheapest possible
+   * tests to write and among the most valuable in this file: both findings were produced by an
+   * audit, so an audit will produce them again. Without these lines the next session "fixes" a
+   * skill expression and a visual he likes.
+   */
+  it('§9c records R185-C: clicking an enemy building through fog is INTENDED', () => {
+    expect(canonSays('R185-C — CLICKING AN ENEMY BUILDING THROUGH FOG IS INTENDED')).toBe(true);
+    expect(canonSays('more knowledgeable players would be doing')).toBe(true);
+    expect(canonSays('DO NOT GATE IT ON `isConcealed`')).toBe(true);
+  });
+
+  it('§9c records R185-D: the connector damage numbers stay exactly as they are', () => {
+    expect(canonSays('R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE')).toBe(true);
+    expect(canonSays('it just looks epic')).toBe(true);
+    expect(canonSays('DO NOT SUPPRESS AND DO NOT RE-ANCHOR')).toBe(true);
+  });
 });
