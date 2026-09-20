@@ -66,6 +66,7 @@
  * S174 (b) it reads no localStorage at all, and it still never touches the sim.
  */
 
+import { attachButtonFeedback } from './buttonFeedback.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
@@ -504,10 +505,23 @@ export class CodexOverlay {
       label.anchor.set(0.5);
       label.position.set(tabW / 2, 24);
       btn.addChild(label);
-      btn.position.set(tx, tabY);
-      btn.eventMode = 'static';
-      btn.cursor = 'pointer';
-      btn.on('pointertap', () => this.switchTab(tab.key));
+      /*
+       * ⭐ S185 — THE CODEX TABS POP LIKE EVERY OTHER BUTTON IN THE GAME. Owner, auditing the whole
+       * UI in one pass: *"on the main screen they all kind of pop out when you mouse over them,
+       * which is great. But then if you go to codex, the combos don't. Towers and structures
+       * doesn't."*
+       *
+       * ⚠ THE PIVOT MOVES TO THE CENTRE FIRST, and that is the difference between a pop and a
+       * lurch. These were laid out from their top-left corner, so scaling about the default origin
+       * would grow them right-and-down instead of outward. The title screen's buttons already work
+       * this way (their hit rect is centred on the origin) — matching it is what makes one grammar
+       * rather than two.
+       */
+      btn.pivot.set(tabW / 2, 24);
+      btn.position.set(tx + tabW / 2, tabY + 24);
+      attachButtonFeedback(btn, box, () => this.switchTab(tab.key), {
+        hit: { x: 0, y: 0, w: tabW, h: 48 },
+      });
       this.container.addChild(btn);
       this.tabButtons.set(tab.key, { box, label });
       tx += tabW + tabGap;
@@ -527,10 +541,9 @@ export class CodexOverlay {
     closeText.anchor.set(0.5);
     closeText.position.set(50, 18);
     closeBtn.addChild(closeText);
-    closeBtn.position.set(CANVAS_WIDTH - 130, 30);
-    closeBtn.eventMode = 'static';
-    closeBtn.cursor = 'pointer';
-    closeBtn.on('pointertap', onClose);
+    closeBtn.pivot.set(50, 18);
+    closeBtn.position.set(CANVAS_WIDTH - 130 + 50, 30 + 18);
+    attachButtonFeedback(closeBtn, closeBg, onClose, { hit: { x: 0, y: 0, w: 100, h: 36 } });
     this.container.addChild(closeBtn);
 
     this.content = new Container();

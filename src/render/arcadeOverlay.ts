@@ -27,6 +27,7 @@
  * the game does, not a lookalike.
  */
 
+import { attachButtonFeedback } from './buttonFeedback.ts';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { generateSudoku, type SudokuEvent } from '../state/sudoku.ts';
@@ -116,6 +117,8 @@ export function makeArcadeNonet(seed: number): SudokuEvent {
 
 export class ArcadeOverlay {
   private readonly container: Container;
+  private readonly buttons: Container[] = [];
+  private onSelect: (id: string) => void = () => {};
   private readonly graphics: Graphics;
   private readonly texts: Text[] = [];
   private open = false;
@@ -134,6 +137,7 @@ export class ArcadeOverlay {
     this.container.visible = false;
     this.container.eventMode = 'static';
     this.container.hitArea = { contains: (x: number, y: number) => x >= 0 && x <= CANVAS_WIDTH && y >= 0 && y <= CANVAS_HEIGHT };
+    this.onSelect = onSelect;
     this.container.on('pointertap', (e: { global: { x: number; y: number } }) => {
       if (!this.open) return;
       const local = this.container.toLocal(e.global);
@@ -202,20 +206,63 @@ export class ArcadeOverlay {
       0x9aa6b8,
     );
 
+    /*
+     * ⭐⭐ S185 — THE ARCADE ROWS POP, LIKE EVERY OTHER BUTTON. Owner, auditing the whole UI in one
+     * pass: *"on the main screen they all pop out when you mouse over them, which is great. But then
+     * if you go to arcade, the next stage doesn't pop out. So the NONET doesn't, the back one
+     * doesn't."*
+     *
+     * ⚠ THEY USED TO BE PAINTED STRAIGHT ONTO THE SHARED BACKDROP GRAPHICS and hit-tested by
+     * rectangle from a container-level tap. That cannot pop: there is no node to scale. Each row and
+     * BACK now own a Container with their own plate and labels, centred on their pivot, which is
+     * what lets `attachButtonFeedback` give them the same hover/press/click grammar — and the same
+     * click SOUND — as the title screen, rather than a second look-alike written here.
+     *
+     * ⭐ `hitTest` IS DELIBERATELY UNTOUCHED AND STILL CORRECT. It reads the same pure geometry
+     * helpers, so the keyboard/geometry path and the pointer path cannot drift apart, and the
+     * container-level tap below stays as the fallback for anything not inside a row.
+     */
     const rows = arcadeRowGeoms();
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       const game = ARCADE_GAMES[i];
-      g.roundRect(r.x, r.y, r.w, r.h, 12).fill({ color: 0x0b1018, alpha: 0.95 });
-      g.roundRect(r.x, r.y, r.w, r.h, 12).stroke({ width: 2, color: game.tint, alpha: 0.9 });
-      this.addText(game.name, r.x + r.w / 2, r.y + 26, 28, game.tint);
-      this.addText(game.blurb, r.x + r.w / 2, r.y + 55, 16, 0x8f9bb0);
+      this.addButton(r, 12, game.tint, () => this.onSelect(r.id), [
+        { text: game.name, dy: 26, size: 28, fill: game.tint },
+        { text: game.blurb, dy: 55, size: 16, fill: 0x8f9bb0 },
+      ]);
     }
 
     const back = arcadeBackGeom();
-    g.roundRect(back.x, back.y, back.w, back.h, 10).fill({ color: 0x0b1018, alpha: 0.95 });
-    g.roundRect(back.x, back.y, back.w, back.h, 10).stroke({ width: 2, color: 0x6f7b8f, alpha: 0.9 });
-    this.addText('BACK', back.x + back.w / 2, back.y + back.h / 2, 24, 0xc8d2e0);
+    this.addButton(back, 10, 0x6f7b8f, () => this.onSelect('back'), [
+      { text: 'BACK', dy: back.h / 2, size: 24, fill: 0xc8d2e0 },
+    ]);
+  }
+
+  /** One pop-out button: its own plate, its own labels, centred so it scales from the middle. */
+  private addButton(
+    r: { x: number; y: number; w: number; h: number },
+    radius: number,
+    stroke: number,
+    onClick: () => void,
+    labels: readonly { text: string; dy: number; size: number; fill: number }[],
+  ): void {
+    const btn = new Container();
+    const plate = new Graphics();
+    plate.roundRect(0, 0, r.w, r.h, radius).fill({ color: 0x0b1018, alpha: 0.95 });
+    plate.roundRect(0, 0, r.w, r.h, radius).stroke({ width: 2, color: stroke, alpha: 0.9 });
+    btn.addChild(plate);
+    for (const l of labels) {
+      const t = new Text({ text: l.text, style: { fontFamily: 'monospace', fontSize: l.size, fill: l.fill } });
+      t.anchor.set(0.5);
+      t.position.set(r.w / 2, l.dy);
+      btn.addChild(t);
+      this.texts.push(t);
+    }
+    btn.pivot.set(r.w / 2, r.h / 2);
+    btn.position.set(r.x + r.w / 2, r.y + r.h / 2);
+    attachButtonFeedback(btn, plate, onClick, { hit: { x: 0, y: 0, w: r.w, h: r.h } });
+    this.container.addChild(btn);
+    this.buttons.push(btn);
   }
 
   private addText(text: string, x: number, y: number, size: number, fill: number): void {

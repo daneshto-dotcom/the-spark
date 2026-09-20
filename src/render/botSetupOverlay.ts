@@ -13,6 +13,7 @@
  * START MATCH · ✕ close (also ESC). All Pixi vector, zero assets.
  */
 
+import { attachButtonFeedback } from './buttonFeedback.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
@@ -421,11 +422,18 @@ export class BotSetupOverlay {
     });
     t.anchor.set(0.5);
     c.addChild(t);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.on('pointertap', onClick);
-    c.on('pointerover', () => { bg.tint = 0xddddee; });
-    c.on('pointerout', () => { bg.tint = 0xffffff; });
+    /*
+     * ⭐ S185 — START MATCH pops like the title screen's buttons. Owner, auditing every screen:
+     * *"if you get into versus bots, the start match doesn't [pop out]"* — while explicitly asking
+     * to LEAVE the bot-count, race and difficulty chips alone: *"they do kind of change shade, so
+     * that's good … it shouldn't pop out for now."* `makeSmallButton` is therefore untouched.
+     *
+     * ⚠ The hand-rolled tint pair here is REPLACED rather than extended: it was a look-alike of the
+     * shared grammar that had drifted from it — no scale, no press state, and no click SOUND, which
+     * `attachButtonFeedback` registers precisely so it cannot be forgotten at one call site. The
+     * plate is already drawn about its own centre, so it scales from the middle with no pivot work.
+     */
+    attachButtonFeedback(c, bg, onClick, { hit: { x: -180, y: -36, w: 360, h: 72 } });
     return c;
   }
 }
