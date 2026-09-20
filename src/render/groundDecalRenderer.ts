@@ -54,19 +54,19 @@ const GROUND_DECAL_ALPHA = 0.34;
 const ZONE_SPREAD = 2.1;
 
 /**
- * ⭐ HOW FAR BELOW THE SPRITE'S BOTTOM EDGE THE ZONE'S CENTRE SITS, as a fraction of the building's
- * height. Owner, iterating on it live: *"it's better, but we're not quite there. We need to bring it
- * a little lower — so the really red circle is towards the base of the tower."*
+ * ⭐⭐ **THE BUILDING'S BASE SITS AT THE CENTRE OF THE ZONE.** Owner, after three rounds of me
+ * nudging this: *"think about this. The base of the building needs to sit at the CENTER of the
+ * zone. Right? But just one layer above, so the zone doesn't change the building."*
  *
- * ⚠ THE SPRITE'S BOTTOM EDGE IS NOT WHERE A BUILDING LOOKS LIKE IT MEETS THE GROUND, which is the
- * whole reason this exists. Centring the zone exactly on the feet puts its bright core halfway up
- * the facade, because half the ellipse then sits above the contact line. Sinking it drops that core
- * onto the rubble at the base and leaves the upper half reading as ground behind the building.
+ * ⛔ THAT IS A SPEC, NOT A NUDGE, AND IT IS WHY THIS CONSTANT IS ZERO RATHER THAN TUNED. I shipped
+ * 0.3 and then 0.42 trying to chase it by eye from screenshots, which was the wrong method: his
+ * sentence defines the geometry exactly. With the centroid anchor from the previous commit, the
+ * sprite's bottom edge IS the base, so centring the ellipse there is the whole requirement.
  *
- * ⚠ A FRACTION, NOT A PIXEL COUNT, so a tier-9 tower at 150 px sinks proportionally further than a
- * tier-3 at 84 and both read the same way.
+ * ⚠ KEPT AS A NAMED CONSTANT RATHER THAN DELETED, so the rule is legible and reversible — and so
+ * the next session can see that 0 is a DECISION, not an omission.
  */
-const ZONE_SINK = 0.42;
+const ZONE_SINK = 0;
 
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
