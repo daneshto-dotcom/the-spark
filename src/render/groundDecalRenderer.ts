@@ -63,10 +63,20 @@ const ZONE_SPREAD = 2.1;
  * sentence defines the geometry exactly. With the centroid anchor from the previous commit, the
  * sprite's bottom edge IS the base, so centring the ellipse there is the whole requirement.
  *
+ * ⭐⭐ **SETTLED AT 0.21 — HALFWAY, RULED BY HIM.** Zero turned out to read too high on the pad and
+ * 0.42 too low: *"now it's way lowered in, so put it halfway between where it's now and where it
+ * was last time."* So the geometric reading of his spec (base exactly on the centre) was the right
+ * FRAME but not the final number — the ellipse's own vertical radius means a small sink is what
+ * actually puts the bright core on the rubble.
+ *
+ * ⚠ AND HIS FEEDBACK WAS RUNNING ONE DEPLOY BEHIND THROUGHOUT, which is what made three of these
+ * rounds read as contradictory. Worth knowing before tuning anything visual with him again: give
+ * the deploy time, or change two values at once and let him pick.
+ *
  * ⚠ KEPT AS A NAMED CONSTANT RATHER THAN DELETED, so the rule is legible and reversible — and so
  * the next session can see that 0 is a DECISION, not an omission.
  */
-const ZONE_SINK = 0;
+const ZONE_SINK = 0.21;
 
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
