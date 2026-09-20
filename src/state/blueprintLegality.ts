@@ -19,8 +19,21 @@
  *   2. **Later placements.** A structure born inside `AUTO_BOND_RADIUS` of the player's other shapes
  *      is one ordinary placement away from having a chord auto-bonded onto it, which kills the
  *      exact-degree recipes (pentagram's deg-2 ring, voltkin's chain isolation).
- * So clearance from existing geometry is measured node-by-node against `AUTO_BOND_RADIUS`, not
- * merely against literal overlap.
+ * ⛔⛔ **S185 — REASON 2 IS NOT ACTUALLY PREVENTED BY THIS RULE, AND REASON 1 NEVER NEEDED 60 px.**
+ * Clearance is now measured against `STAMP_CLEARANCE` (24), not `AUTO_BOND_RADIUS` (60), because:
+ *
+ *   · reason 1 is an OVERLAP argument, and it is satisfied by an overlap-sized margin. A primitive's
+ *     soft-collision radius tops out at 10.8 px, so two of the largest shapes just touch at 21.6 —
+ *     24 clears them and the solver never shoves anything. The fresh bonds are not strained.
+ *   · reason 2 was never enforced by this arm at all. A LATER hand placement can land anywhere and
+ *     welds within `MERGE_REACH_RADIUS` (100), which no stamp-time margin can pre-empt. And the
+ *     owner has since RULED that welding structures together is a legitimate mechanic rather than a
+ *     hazard (canon §7, R185-B: it buys pool and costs repair, on purpose).
+ *
+ * The cost of the old margin was measured before it was changed: one built laser turret removed
+ * 62,356 px² of legal centres, 7.06× its own art box, and two of them could not stand closer than
+ * 148 px while their art is 94 px wide. Owner: *"half of the space on the whole map is unbuildable
+ * just because you need to be so far. That doesn't make sense."*
  *
  * ⚠ S182 — AND THE **GEOMETRIC** ARMS (edge, quarry, castle) ARE MEASURED AGAINST THE TRUE
  * FOOTPRINT BOX, NOT A CIRCUMRADIUS. This sentence used to say clearance was measured against
@@ -29,7 +42,7 @@
  */
 
 import {
-  AUTO_BOND_RADIUS,
+  STAMP_CLEARANCE,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   SPAWNER_CENTER_X,
@@ -188,14 +201,21 @@ export function stampRefusalAt(
   // ⭐ S149 P2 — the WHEN half is answered by step 0 above, so this is the WHERE half alone.
   if (!canBuildAt(centre, playerId, world.layout)) return 'ENEMY GROUND';
 
-  // 5. Clear of existing geometry, by bond reach rather than by overlap — see the file docblock.
-  //    AUTO_BOND_RADIUS is the margin because that is the distance at which a future placement could
-  //    weld a chord onto the new structure.
+  // 5. Clear of existing geometry, by OVERLAP rather than by bond reach — S185, owner-ruled.
+  //    ⛔ THIS USED TO READ AUTO_BOND_RADIUS (60), "because that is the distance at which a future
+  //    placement could weld a chord onto the new structure". That rationale did not survive being
+  //    checked: a blueprint stamp never auto-bonds (collectHostMergeCandidates is reached only from
+  //    placeFromFree and dragPreview), so two stamped structures could not weld to each other at any
+  //    distance. Meanwhile it removed ~7x each tower's own art box from the buildable map, which the
+  //    owner measured on the pad: "half of the space on the whole map is unbuildable just because you
+  //    need to be so far. That doesn't make sense." STAMP_CLEARANCE (24) is derived from what the
+  //    rule actually has to guarantee — that shapes do not visually overlap — and puts two laser
+  //    turrets at the 112 px he ruled for. See the constant for the full derivation.
   for (const node of blueprintPositions(blueprintId, centre)) {
     for (const prim of world.primitives.values()) {
       const pdx = prim.pos.x - node.x;
       const pdy = prim.pos.y - node.y;
-      if (Math.hypot(pdx, pdy) < AUTO_BOND_RADIUS) return 'BLOCKED';
+      if (Math.hypot(pdx, pdy) < STAMP_CLEARANCE) return 'BLOCKED';
     }
   }
 

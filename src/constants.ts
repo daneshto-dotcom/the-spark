@@ -823,6 +823,54 @@ export const MERGE_REACH_RADIUS = 100;
 // lag) uses the same radius as the client's optimistic pick.
 export const AUTO_BOND_RADIUS = 60;
 
+/**
+ * ⭐⭐ S185 — **HOW CLOSE A STAMPED STRUCTURE MAY STAND TO EXISTING GEOMETRY.** Ruled by the owner
+ * after he measured it on the pad and sent screenshots of a laser turret refusing to place.
+ *
+ * > *"Look how far I need to go to actually be able to place the next laser tower. Maybe not a whole
+ * > laser tower in between, but, yeah, like, seventy percent could fit. Eventually a lot of the space
+ * > you can build on is blank — like half of the space on the whole map is unbuildable just because
+ * > you need to be so far. That doesn't make sense … this is where I should be able to put it, right
+ * > behind it."*
+ *
+ * ⛔ **THE OLD MARGIN WAS `AUTO_BOND_RADIUS` (60), AND IT WAS A BORROWED CONSTANT.** That number is
+ * defined two lines up as *"primary target pick radius for auto-bond on placement"* — it answers a
+ * question about HAND placement, not about how far apart two buildings should stand. The stamp arm
+ * borrowed it with the rationale that a future placement could weld a chord onto the new structure;
+ * but a blueprint stamp does not auto-bond at all (`collectHostMergeCandidates` is reached only from
+ * `placeFromFree` and `dragPreview`), so two stamped towers could never weld to each other whatever
+ * this margin said. The stated reason did not hold, and the cost was enormous.
+ *
+ * ## THE COST, MEASURED BEFORE IT WAS CHANGED
+ *
+ * At 60, one built laser turret removed **62,356 px²** of legal placement centres for the next one —
+ * **7.06×** its own 94×94 art box — and a single loose hand-placed shape removed **31,784 px²**,
+ * about **72×** its own footprint. Two laser turrets could not stand closer than **148 px**
+ * centre-to-centre while their art is only ~94 px wide. That gap is the "seventy percent of a tower"
+ * he is looking at in the screenshots.
+ *
+ * ## THE DERIVATION, AND IT LANDS EXACTLY ON HIS NUMBER
+ *
+ * The real requirement is only that the new structure's shapes do not visually OVERLAP existing
+ * ones. A primitive's radius is `max(8, SPARK_VISUAL_SIZE * 0.45)`, and the largest spark is the
+ * Line at 24 → **10.8 px**. Two of the biggest shapes therefore just touch at **21.6 px**, so 24
+ * clears them with a ~2 px margin and is a whole number.
+ *
+ * And it reproduces the spacing he asked for, rather than approximating it: a laser turret is a star
+ * of `STAR_R` 44, so two of them now stand at **2 × 44 + 24 = 112 px** centre-to-centre — the
+ * "~112" he chose when the three options were put to him, against 148 before.
+ *
+ * ⚠ **`AUTO_BOND_RADIUS` ITSELF IS DELIBERATELY UNTOUCHED.** Lowering *that* would change auto-bond
+ * picking, the merge sweep and `findVoltkinChain`'s reach — none of which he asked about, and the
+ * last of which walks `world.primitives` in Map order. Splitting the two is what keeps this change
+ * to the one question he actually ruled on.
+ *
+ * ⚠ SIM CONSTANT: `stampRefusalAt` runs on the host, in the worker and in replay, and its verdict is
+ * hashed. Host-authoritative and identical across one build, so there is no divergence and no
+ * PROTOCOL bump — the same reasoning that governs every other tuning constant in this file.
+ */
+export const STAMP_CLEARANCE = 24;
+
 
 // Tier-gated corner pulse boundary. scoreProgress crossing each multiple
 // of SCORE_TIER_STEP fires one SCORE_TIER effect. At 50 + threshold 150:

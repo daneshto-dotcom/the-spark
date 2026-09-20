@@ -19,12 +19,13 @@ import { describe, expect, it } from 'vitest';
 import { makeWorld, type World } from './world.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import {
-  AUTO_BOND_RADIUS, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, PRIMITIVE_MAX_HP,
+  AUTO_BOND_RADIUS,
+  STAMP_CLEARANCE, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, PRIMITIVE_MAX_HP,
   SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, SparkType,
 } from '../constants.ts';
 import { asPlayerId, asPrimitiveId, type Vec2 } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
-import { ALL_BLUEPRINT_IDS, blueprintExtent, blueprintRadius } from './blueprints.ts';
+import { ALL_BLUEPRINT_IDS, blueprintExtent, blueprintPositions, blueprintRadius } from './blueprints.ts';
 import { canStampAt, stampRefusalAt } from './blueprintLegality.ts';
 import { CASTLE_NO_BUILD_RADIUS, zoneCastleAnchor, zoneCount, type ZoneLayout } from './zones.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -160,11 +161,35 @@ describe('stampRefusalAt', () => {
     }
   });
 
-  it('existing geometry within bond reach is BLOCKED', () => {
+  /**
+   * ⭐ S185 — re-pinned from AUTO_BOND_RADIUS (60) to STAMP_CLEARANCE (24), the owner-ruled margin.
+   * The literal is DERIVED from the constant rather than written out, so the next retune cannot
+   * half-land: move the constant and this test moves with it.
+   *
+   * ⚠ The probe is placed relative to the NEAREST NODE, not to the centre. The old version put a
+   * primitive `AUTO_BOND_RADIUS - 6` from the CENTRE and relied on that also being inside some
+   * node's reach — true at 60, coincidence at 24. Measuring from the node is what the arm actually
+   * does.
+   */
+  it('existing geometry within STAMP_CLEARANCE of a node is BLOCKED', () => {
     const w = setup();
-    // Sitting just inside AUTO_BOND_RADIUS of the stamp centre.
-    addPrimitive(w, 1, { x: CLEAR.x + AUTO_BOND_RADIUS - 6, y: CLEAR.y });
+    const node = blueprintPositions('stinkTower', CLEAR)[0]!;
+    addPrimitive(w, 1, { x: node.x + STAMP_CLEARANCE - 2, y: node.y });
     expect(stampRefusalAt(w, CLEAR, P0, 'stinkTower')).toBe('BLOCKED');
+  });
+
+  /**
+   * ⛔ THE CONTROL THAT MAKES THE CHANGE MEAN SOMETHING, and the one he actually asked for. A shape
+   * just OUTSIDE the new clearance must be allowed — under the old 60 px margin this exact position
+   * was refused, and that refusal is what he photographed: *"this is where I should be able to put
+   * it, right behind it."* If someone restores the old margin, this goes red.
+   */
+  it('⭐ S185 — and just OUTSIDE it is ALLOWED, which was refused before the ruling', () => {
+    const w = setup();
+    const node = blueprintPositions('stinkTower', CLEAR)[0]!;
+    addPrimitive(w, 1, { x: node.x + STAMP_CLEARANCE + 2, y: node.y });
+    expect(stampRefusalAt(w, CLEAR, P0, 'stinkTower')).toBeNull();
+    expect(STAMP_CLEARANCE).toBeLessThan(AUTO_BOND_RADIUS);
   });
 
   it('geometry beyond bond reach of EVERY node is allowed', () => {
