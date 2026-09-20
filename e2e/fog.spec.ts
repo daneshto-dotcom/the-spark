@@ -443,7 +443,11 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       .toEqual([
         '_Container', // 0 — zoneBackgroundRenderer.layer (S165 / R137) — the per-race zone art. It
                       //     forces addChildAt(..., 0), so within the ground it is under the walls.
-        '_Graphics',  // 1 — wallRenderer (S149 P3) — the zone border walls. Owner R162: *"The border
+        '_Container', // 1 — wallRenderer (S149 P3) — the zone border walls. S185: a Container
+                      //     rather than a Graphics since the walls gained race ART, which needs
+                      //     sprites beside the fallback strokes. It is still ONE entry because it
+                      //     is still one concept — that is the property this roll call defends.
+                      //     Owner R162: *"The border
                       //     walls should be visible to everyone. They're like a backdrop, basically."*
                       //     ⛔ They were the UNNOTICED half of the S169 regression: `wallsAreUp()` is
                       //     BUILD-only and `fogActive` is BUILD-only, the identical window, so under

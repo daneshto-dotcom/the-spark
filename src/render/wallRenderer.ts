@@ -92,16 +92,34 @@ export function sideSignFor(
 export class WallRenderer {
   private readonly graphics: Graphics;
   private readonly spriteLayer: Container;
+  private readonly root: Container;
   /** One tiling sprite per (segment, side), rebuilt lazily and reused across frames. */
   private readonly strips: Map<string, TilingSprite> = new Map();
   private readonly art: Map<string, Texture> = new Map();
   private artLoadStarted = false;
 
   constructor(app: Application, parent: Container = app.stage) {
+    /*
+     * ⛔⛔ S185 — **ONE ROOT ON THE PARENT, AND THIS IS A BUG I SHIPPED AND HAD TO COME BACK FOR.**
+     *
+     * The first cut added the Graphics and the sprite layer to `parent` SEPARATELY. That made
+     * `groundLayer` three children deep, and `e2e/fog.spec.ts` asserts its roll call exactly —
+     * *"GROUND MEANS GROUND: the per-race backdrop, then the border walls"*. The unit suite stayed
+     * green (no renderer runs under vitest) and the gating `e2e` job went RED on the deploy. Exactly
+     * the failure this repo keeps paying for.
+     *
+     * ⭐ FIXED BY OWNING ONE NODE RATHER THAN BY WIDENING THE ASSERTION. The wall is ONE thing on the
+     * ground; how many pieces it needs internally is this class's business, not the ground layer's.
+     * The roll call keeps its meaning — two entries, one per concept — and it goes on catching the
+     * next renderer that quietly adds itself there.
+     */
+    const root = new Container();
+    parent.addChild(root);
     this.graphics = new Graphics();
-    parent.addChild(this.graphics);
+    root.addChild(this.graphics);
     this.spriteLayer = new Container();
-    parent.addChild(this.spriteLayer);
+    root.addChild(this.spriteLayer);
+    this.root = root;
   }
 
   /**
@@ -256,7 +274,7 @@ export class WallRenderer {
 
   destroy(): void {
     this.graphics.destroy();
-    this.spriteLayer.destroy({ children: true });
+    this.root.destroy({ children: true });
     this.strips.clear();
   }
 }
