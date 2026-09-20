@@ -31,9 +31,10 @@
  * idiom), and a cheap no-op during FIGHT.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, TilingSprite, type Texture } from 'pixi.js';
 import { wallSegments, wallsAreUp } from '../state/walls.ts';
-import { zoneOwner } from '../state/zones.ts';
+import { zoneOf, zoneOwner } from '../state/zones.ts';
+import { ALL_RACES } from '../state/races.ts';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 
@@ -44,12 +45,82 @@ const PULSE_HZ = 0.35;
 /** Colour for a border whose adjacent zone has no seated owner (3-player board). */
 const UNOWNED_TINT = 0x5a6472;
 
+/**
+ * ⭐⭐ S185 — **THE RACE WALLS.** Owner: *"Instead of having just your colour wall in between you and
+ * your enemy, it has to be race specific with art … orcish wooden palisades, a coral reef wall for
+ * nagas, cracks in the ground with fire for demons."* He generated all six himself.
+ *
+ * ⚠ STILLS, NOT A LOOP — his call, made after the art landed: *"Don't worry about the loop cinematic
+ * of them being taken up and down. Just do it the way it is now, so it fades in and fades out."* So
+ * the existing tick-driven breath stays and nothing new animates.
+ *
+ * The sheets are cropped to their content at an alpha threshold and scaled to 128 px tall on import
+ * (993 KiB for all six, against 6.8 MB raw) — they live in `public/`, so none of this is in the JS
+ * bundle.
+ */
+const WALL_ART_BASE = '/art/race-walls';
+/** How tall a wall reads on the board. The art is authored 128 px tall and scales to this. */
+const WALL_H = 34;
+
+/**
+ * ⛔⛔ **WHICH SIDE OF THE BORDER IS THIS ZONE ON? DERIVED, BECAUSE THE HAND-PICKED SIGNS WERE HALF
+ * WRONG AND NOBODY COULD SEE IT.** Owner, S185: *"the racial wall is on the other side, which is
+ * wrong … your own wall needs to be at the border of your own zone. It just makes sense."*
+ *
+ * The old code offset `zoneA` by `-1` and `zoneB` by `+1` along the segment normal. That is not a
+ * property of a zone, it is a property of the SEGMENT'S WINDING, and the two disagree across the
+ * board: on the NORTH arm (`zoneA: 0` left, running downward) the normal points left, so zone 0 was
+ * pushed RIGHT onto its neighbour — his bug. On the EAST arm (`zoneA: 1` top, running rightward) the
+ * normal points down, so zone 1 was correctly pushed UP.
+ *
+ * ⛔ **SO A GLOBAL SIGN FLIP WOULD HAVE FIXED THE ARM HE LOOKED AT AND SILENTLY BROKEN THE ONE HE
+ * DID NOT.** Asking the board which zone actually lies off the segment's normal is correct for
+ * every arm, for both layouts, and for any future board with a diagonal border.
+ */
+export function sideSignFor(
+  layout: Parameters<typeof zoneOf>[1],
+  seg: { a: { x: number; y: number }; b: { x: number; y: number }; zoneA: number },
+  nx: number, ny: number,
+): 1 | -1 {
+  const mx = (seg.a.x + seg.b.x) / 2;
+  const my = (seg.a.y + seg.b.y) / 2;
+  // far enough off the line to be unambiguously inside a zone rather than on the seam
+  const probe = 24;
+  const hit = zoneOf({ x: mx + nx * probe, y: my + ny * probe }, layout);
+  return hit === seg.zoneA ? 1 : -1;
+}
 export class WallRenderer {
   private readonly graphics: Graphics;
+  private readonly spriteLayer: Container;
+  /** One tiling sprite per (segment, side), rebuilt lazily and reused across frames. */
+  private readonly strips: Map<string, TilingSprite> = new Map();
+  private readonly art: Map<string, Texture> = new Map();
+  private artLoadStarted = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
     parent.addChild(this.graphics);
+    this.spriteLayer = new Container();
+    parent.addChild(this.spriteLayer);
+  }
+
+  /**
+   * One-time lazy load of the six race sheets. Failure is silent and NOT fatal: the coloured strip
+   * below keeps every border visible and readable, so a peer that cannot fetch the art still sees
+   * exactly where the walls are — it just sees them plain.
+   */
+  private ensureArt(): void {
+    if (this.artLoadStarted) return;
+    this.artLoadStarted = true;
+    for (const race of ALL_RACES) {
+      void (async (): Promise<void> => {
+        try {
+          this.art.set(race, (await Assets.load(`${WALL_ART_BASE}/${race}.png`)) as Texture);
+        } catch {
+          /* plain strip carries it */
+        }
+      })();
+    }
   }
 
   /** Clear + redraw every border wall. No-op the moment the walls drop. */
@@ -60,15 +131,19 @@ export class WallRenderer {
     // started a match still reads `matchPhase === 'BUILD'` (the birth default), so the walls were
     // being drawn straight across the TITLE SCREEN and the lobby. Caught by looking at an arcade
     // screenshot, not by any test — no unit test asserts what the title screen looks like.
-    if (world.gameState !== 'PLAYING') return;
-    if (!wallsAreUp(world)) return; // FIGHT — the walls are down, and drawing nothing IS the state
+    if (world.gameState !== 'PLAYING') { this.hideStrips(); return; }
+    if (!wallsAreUp(world)) { this.hideStrips(); return; } // FIGHT — the walls drop, and that IS the state
 
     // A slow breath so a raised wall reads as active rather than as scenery. Tick-driven, so it
     // freezes with the sim exactly like the other pulses in this folder.
+    this.ensureArt();
+    const live = new Set<string>();
     const pulse = (Math.sin((world.tick / 60) * PULSE_HZ * Math.PI * 2) + 1) * 0.5; // 0..1
     const alpha = 0.55 + pulse * 0.25;
 
+    let segIndex = -1;
     for (const seg of wallSegments(world.layout)) {
+      segIndex++;
       // Unit vector along the segment, and its normal — the offset that separates the two owners'
       // strips. Segments are axis-aligned today, but deriving the normal rather than assuming it
       // keeps this correct if a future board ever has a diagonal border.
@@ -79,7 +154,32 @@ export class WallRenderer {
       const nx = -dy / len;
       const ny = dx / len;
 
-      for (const [zone, sign] of [[seg.zoneA, -1], [seg.zoneB, 1]] as const) {
+      /*
+       * ⭐⭐ S185 — EACH ZONE'S WALL STANDS ON ITS OWN SIDE, and the side is DERIVED.
+       * Owner: *"your own wall needs to be at the border of your own zone. It just makes sense."*
+       * The old `[-1, +1]` pair encoded the segment's winding rather than the zone's position, so it
+       * was right on the east arm and wrong on the north one. `sideSignFor` asks the board instead.
+       */
+      const signA = sideSignFor(world.layout, seg, nx, ny);
+      for (const [zone, sign] of [[seg.zoneA, signA], [seg.zoneB, -signA]] as const) {
+        const tex = this.artFor(world, zone);
+        if (tex !== null) {
+          const key = `${segIndex}:${zone}`;
+          live.add(key);
+          const sp = this.stripFor(key, tex);
+          // the art sits OUTSIDE the seam, its inner edge on the border, standing in its own zone
+          const off = WALL_H / 2;
+          sp.width = len;
+          sp.height = WALL_H;
+          sp.tileScale.set(WALL_H / tex.height);
+          sp.position.set(seg.a.x + nx * off * sign, seg.a.y + ny * off * sign);
+          sp.rotation = Math.atan2(dy, dx);
+          sp.pivot.set(0, WALL_H / 2);
+          sp.alpha = alpha;
+          sp.visible = true;
+          continue;
+        }
+        // fallback: the plain coloured strip, which is still the whole feature if the art is missing
         const ox = nx * STRIP_HALF_W * 0.5 * sign;
         const oy = ny * STRIP_HALF_W * 0.5 * sign;
         g.moveTo(seg.a.x + ox, seg.a.y + oy)
@@ -92,15 +192,45 @@ export class WallRenderer {
         .lineTo(seg.b.x, seg.b.y)
         .stroke({ width: 1, color: 0xffffff, alpha: 0.18 + pulse * 0.12 });
     }
+
+    for (const [key, sp] of this.strips) if (!live.has(key)) sp.visible = false;
+  }
+
+  /** The race sheet for whoever holds `zone`, or null (unowned seat, or art not resolved yet). */
+  private artFor(world: World, zone: number): Texture | null {
+    const seat = zoneOwner(zone, world.layout);
+    if (seat === null) return null;
+    const race = world.players.get(asPlayerId(seat))?.raceId ?? null;
+    if (race === null) return null;
+    return this.art.get(race) ?? null;
+  }
+
+  private stripFor(key: string, tex: Texture): TilingSprite {
+    let sp = this.strips.get(key);
+    if (sp === undefined) {
+      sp = new TilingSprite({ texture: tex, width: 1, height: WALL_H });
+      this.spriteLayer.addChild(sp);
+      this.strips.set(key, sp);
+    } else if (sp.texture !== tex) {
+      sp.texture = tex;
+    }
+    return sp;
+  }
+
+  private hideStrips(): void {
+    for (const sp of this.strips.values()) sp.visible = false;
   }
 
   /** Drop the graphic (title-return; closes the one-frame orphan window). */
   clear(): void {
     this.graphics.clear();
+    this.hideStrips();
   }
 
   destroy(): void {
     this.graphics.destroy();
+    this.spriteLayer.destroy({ children: true });
+    this.strips.clear();
   }
 }
 
