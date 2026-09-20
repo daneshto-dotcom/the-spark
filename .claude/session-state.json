@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4291,
+  "tool_calls_session_total": 4301,
   "session_id": "S185",
   "session_kind": "owner-driven playtest batch (direct owner requests, not PDR-registered)",
   "session_start": "2026-09-19T08:18:00+02:00",
@@ -158,7 +158,36 @@
       "check_method": "mutation-tested: reverted both guards, captured MUTATED_EXIT=1 (3 failed), restored byte-identical via cmp. TYPECHECK 0, VITEST 0 (5398->5409), BUILD 0.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/helgaFrame.ts",
+          "needle": "isMoving: boolean"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/helgaFrame.ts",
+          "needle": "case 'IDLE':"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/princessRenderer.ts",
+          "needle": "const isMoving = d.walkTargetPos !== null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/helgaPose.ts",
+          "needle": "const effective: DefenderState"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/helgaFrame.test.ts",
+          "pattern": "IDLE while MOVING",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 2,
@@ -170,7 +199,33 @@
       "check_method": "the coupling test caught a half-landed retune (expected 24 to be 16); HUB_DEATH_RUN_TICKS 24->16 and the floor guarantee STRENGTHENED (30>=16). 11 files across two artefact trees.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/structureRamp.ts",
+          "needle": "export const HUB_RAMP_TICKS_PER_FRAME = 2;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/structureStarHealth.ts",
+          "needle": "export const HUB_DEATH_RUN_TICKS = 16;"
+        },
+        {
+          "type": "grep_count",
+          "path": "public/art/lightning-hub/lightning-hub-anim.json",
+          "pattern": "\"ticksPerFrame\":\\s*2",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "assets-source/pentagram/atlas-specs.json",
+          "pattern": "\"ticksPerFrame\":\\s*2",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 3,
@@ -182,7 +237,26 @@
       "check_method": "mutation-tested: disabled the new bond arm, MUTATED_EXIT=1 (2 failed), restored byte-identical. Control-arm test added. No PROTOCOL bump: targetBondId was already serialized.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureProjectile.ts",
+          "needle": "c.targetBondId !== null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureProjectile.ts",
+          "needle": "bondMidpoint(bond)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/creatureProjectile.test.ts",
+          "pattern": "CONTROL",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 4,
@@ -194,7 +268,26 @@
       "check_method": "ONE mutation run INVALIDATED (patch assert failed, 0 matches) and re-run with a single-line anchor: MUTATED_EXIT=1. Two CONTROL tests guard against an unconditional fetch on the title screen.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkCloudRenderer.ts",
+          "needle": "d.kind !== 'stinkTower'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkCloudRenderer.ts",
+          "needle": "this.ensureAtlas();"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/stinkBagPortrait.test.ts",
+          "pattern": "CONTROL",
+          "op": ">=",
+          "value": 2
+        }
+      ]
     },
     {
       "id": 5,
@@ -206,7 +299,34 @@
       "check_method": "hit box RE-MEASURED from all 12 idle cells: the research figure was frame 0 alone (W=185 not 152, subject 13.5px off-centre). Mutation-tested the asymmetry: MUTATED_EXIT=1. Publish census 3->4.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkTowerCover.ts",
+          "needle": "export const STINK_TOWER_HIT_DX_MIN = -45;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkTowerCover.ts",
+          "needle": "export const STINK_TOWER_HIT_DX_MAX = 33;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/stinkTowerRenderer.ts",
+          "needle": "markTowerCover("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/towerCover.test.ts",
+          "needle": "['stinkTowerRenderer.ts', 'the stink tower"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "stinkTowerAt(this.world"
+        }
+      ]
     },
     {
       "id": 6,
@@ -218,7 +338,24 @@
       "check_method": "AUTO_BOND_RADIUS deliberately untouched so only ONE assertion moved instead of five. Measured: sterilised area per tower 33,979->14,527 px2 (-57%). Re-pinned test derives its literal from the constant, plus a CONTROL for the case he photographed.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const STAMP_CLEARANCE = 24;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "STAMP_CLEARANCE) return"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const AUTO_BOND_RADIUS = 60;"
+        }
+      ]
     },
     {
       "id": 7,
@@ -230,7 +367,36 @@
       "check_method": "every ceiling DERIVED from the live rosters (never typed in) with a test that recomputes them. Owner overruled my castle objection and the test carries why I was wrong. Two inverted axes (RELOAD, ATK SPD) or a fast reload would read as a weakness.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetRadar.ts",
+          "needle": "export const AXIS_SPECS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetRadar.ts",
+          "needle": "'ATK SPD': { max: RADAR_MAX_CADENCE, invert: true }"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheetRadar.ts",
+          "needle": "export function radarAxesFromRows"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/characterSheet.ts",
+          "needle": "radarAxesFromRows(v.stats)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/characterSheetRadar.test.ts",
+          "pattern": "CASTLE gets one too",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 8,
@@ -242,7 +408,34 @@
       "check_method": "sideSignFor derives the side via zoneOf; a test asserts the signs are NOT all equal on the 4P board, which proves a constant pair cannot work. Art cropped at alpha>24 and scaled to 128px: 993 KiB against 6.8 MB raw.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "export function sideSignFor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "const WALL_ART_BASE"
+        },
+        {
+          "type": "file_exists",
+          "path": "public/art/race-walls/demons.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "public/art/race-walls/vampires.png"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/wallSide.test.ts",
+          "pattern": "derived sign is not the same on every arm",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 9,
@@ -254,7 +447,24 @@
       "check_method": "MY OWN DEFECT: the wall commit added two nodes to groundLayer and broke fog.spec.ts. The e2e job was RED on three runs while the unit suite stayed green. Fixed by owning ONE node rather than widening the assertion; verified locally (6 passed) then CI success.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "const root = new Container();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "this.root = root;"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/fog.spec.ts",
+          "needle": "wallRenderer (S149 P3)"
+        }
+      ]
     },
     {
       "id": 10,
@@ -266,7 +476,41 @@
       "check_method": "ZERO art. Non-accumulating overlap (opaque draws + one layer alpha). Ring centroid not component, per towerRenderer own comment. Position took seven rounds because my pixel measurements were biased low by occlusion; his two-spark method made it measurable.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/raceGround.ts",
+          "needle": "export function drawRaceGround"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceGround.ts",
+          "needle": "export const ANIMATED_RACES"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/groundDecalRenderer.ts",
+          "needle": "const ZONE_SINK = -0.52;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/groundDecalRenderer.ts",
+          "needle": "ringMembersAt(world, anchor.id"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "new GroundDecalRenderer(app, groundLayer)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/raceGround.test.ts",
+          "pattern": "near-black",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 11,
@@ -278,7 +522,29 @@
       "check_method": "reused attachButtonFeedback rather than a look-alike, so the click SOUND comes with it. A first patch matched BOTH bot-setup factories and was caught by asserting the match count, which is the only reason his minus/plus chips were not silently changed.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.ts",
+          "needle": "private addButton("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/codexOverlay.ts",
+          "needle": "attachButtonFeedback(btn, box"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "attachButtonFeedback(c, bg, onClick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "private makeSmallButton("
+        }
+      ]
     },
     {
       "id": 12,
@@ -290,7 +556,26 @@
       "check_method": "a SECOND function rather than an edit: the S161 preempt thrash bound needs a STABLE wanted, so only the picker falls through. Stable rank preserved by ranking the satisfiable sublist. B4 nearest-of-any kept with a regression hold.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "export function satisfiableOrderForGatherer"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "const ordered = satisfiableOrderForGatherer(world, g);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/gatherers/gathererOrders.test.ts",
+          "pattern": "STRICT slot is unchanged",
+          "op": ">=",
+          "value": 1
+        }
+      ]
     },
     {
       "id": 13,
@@ -302,7 +587,24 @@
       "check_method": "hidden not deleted: it is the only in-game readout of relay health. BOTH strips, not only the host one he screenshotted. lobby-construction.spec.ts verified locally, LOBBY_E2E_EXIT=0, 8 passed.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const lobbyDiagnostics = netStatsRequested(window.location.search);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "if (lobbyDiagnostics && !world.isHost"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "if (lobbyDiagnostics && world.isHost"
+        }
+      ]
     },
     {
       "id": 14,
@@ -314,7 +616,36 @@
       "check_method": "four assertions including toBe(false) on the SUPERSEDED weld wording, so re-opening a closed question fails. canon.test.ts 22->26.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "R185-A — THE WELD STAYS AT FULL OPACITY"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "R185-C — CLICKING AN ENEMY BUILDING THROUGH FOG IS INTENDED"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE"
+        },
+        {
+          "type": "file_lacks",
+          "path": "SPARK_CANON.md",
+          "needle": "the owner's call whether a weld should be swallowed"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/canon.test.ts",
+          "pattern": "R185-[ABCD]",
+          "op": ">=",
+          "value": 4
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
