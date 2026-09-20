@@ -172,8 +172,35 @@ export class WallRenderer {
           sp.width = len;
           sp.height = WALL_H;
           sp.tileScale.set(WALL_H / tex.height);
-          sp.position.set(seg.a.x + nx * off * sign, seg.a.y + ny * off * sign);
-          sp.rotation = Math.atan2(dy, dx);
+
+          /*
+           * ⛔⛔ S185 — **WHICH WAY THE WALL FACES, DERIVED — AND ROTATING BY THE SEGMENT ANGLE ALONE
+           * WAS WRONG.** Owner, looking at the first build: *"the pikes are pointing up, away from
+           * the enemy's zone, and then on the east side it is pointing towards the wall of the
+           * enemy. They should all point either towards the castle or away. The vertical wall should
+           * point to the west."*
+           *
+           * `atan2(dy, dx)` aligns the strip's LENGTH with the border, which is necessary — but it
+           * leaves the art's up-vector wherever the winding happens to put it. On a horizontal arm
+           * that landed INTO the owner's zone; on a vertical one it landed into the ENEMY's. Two
+           * arms, two answers, from one line that looked symmetric.
+           *
+           * ⭐ A strip can only be laid along its border two ways, so the choice is θ or θ+π. Pick
+           * whichever points the art INTO its own zone — the same `inward` vector that already
+           * decides which side it stands on, so the wall's side and its facing can never disagree.
+           *
+           * ⚠ FLIPPING BY π REVERSES THE SPRITE'S OWN +x, so the run must start from the segment's
+           * FAR end or the wall extends off the board in the opposite direction. That is the half of
+           * this fix that is invisible until you look at the board.
+           */
+          const inx = nx * sign;
+          const iny = ny * sign;
+          const theta = Math.atan2(dy, dx);
+          // the art is authored standing up, so its up-vector after rotation θ is (sin θ, −cos θ)
+          const facesInward = Math.sin(theta) * inx + -Math.cos(theta) * iny > 0;
+          const start = facesInward ? seg.a : seg.b;
+          sp.position.set(start.x + inx * off, start.y + iny * off);
+          sp.rotation = facesInward ? theta : theta + Math.PI;
           sp.pivot.set(0, WALL_H / 2);
           sp.alpha = alpha;
           sp.visible = true;

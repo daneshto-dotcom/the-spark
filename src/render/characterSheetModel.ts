@@ -1301,6 +1301,19 @@ function structureSheet(
       derived: 'a second',
     });
   }
+  /*
+   * ⭐ S185 — a SPAWNER's emit cadence, as a row rather than only as prose. Owner wanted a chart on
+   * every tower; a race tower prints no combat stats, so without this it had nothing to plot.
+   * The sentence below it already said "spawns a bat every 15s" — this is the same fact, countable.
+   */
+  const spawnRace = recipeId === null ? null : raceForTowerId(recipeId as GodlyId);
+  if (spawnRace !== null) {
+    stats.push({
+      label: 'SPAWN',
+      points: Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ),
+      derived: 'seconds',
+    });
+  }
   const emplacement = towerStatsIn(world, comp.primitiveIds);
   if (emplacement !== null) {
     stats.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });

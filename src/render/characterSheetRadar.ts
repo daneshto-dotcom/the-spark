@@ -158,6 +158,18 @@ export const AXIS_SPECS: Readonly<Record<string, AxisSpec>> = {
   RELOAD: { max: RADAR_MAX_RELOAD_S, invert: true },
   SPEED: { max: RADAR_MAX_MOVE },
   'ATK SPD': { max: RADAR_MAX_CADENCE, invert: true },
+  /*
+   * ⭐ S185 — THE SPAWNER'S OWN TWO STATS, so a tower that fields units gets a chart at all.
+   * Owner: *"the graph didn't land on all the towers, it should be everywhere … what about the
+   * laser turret? What about everything else?"* A bat tower is a SPAWNER, not an emplacement: it
+   * prints no ATK/PEN/RANGE, so before these it had two axes and fell under the minimum.
+   *
+   * ⚠ SHAPES is a BUILD-COST stat sitting beside combat ones, and that is deliberate rather than
+   * sloppy — for a spawner it is one of only two numbers the building actually has, and "what did
+   * this cost me" is a fair thing to read off the same glance.
+   */
+  SHAPES: { max: 9 },
+  SPAWN: { max: 30, invert: true },
   // ⛔ REGEN is deliberately ABSENT. Owner, S185: *"the castle also has regeneration, but that you
   // can upgrade … that's like a scale for now. We won't include that for now."* Adding it back is a
   // decision, not a tidy-up.
@@ -264,5 +276,26 @@ export function radarAxesFromRows(
     if (spec === undefined) continue;
     axes.push({ label: r.label, value: r.points, max: spec.max, invert: spec.invert });
   }
+
+  /*
+   * ⭐⭐ S185 — A TOWER'S HP AND DEF **ARE** ITS CONNECTOR COUNT, so a tower card that prints
+   * CONNECTORS is printing both of them under one name. Owner, looking at a tower's chart: *"why
+   * isn't it a triangle? They have more than three stats. They have range, they have HP, defense —
+   * pretty much the same stats as units do, except movement speed."*
+   *
+   * ⛔ THIS IS THE CANON, NOT AN INVENTION. SPARK_CANON §2: *"A STRUCTURE IS ON THE SAME LADDER, and
+   * its HP and DEF are both its connector count — pool(n) = n × (5 + n)."* Without this a tower drew
+   * ATK/PEN/RANGE and nothing else: a triangle for something that has five real stats.
+   *
+   * ⚠ ONLY WHEN HP AND DEF ARE ABSENT. A card that prints them itself is authoritative and is never
+   * second-guessed — this fills a gap, it does not override anyone.
+   */
+  const conn = rows.find((r) => r.label === 'CONNECTORS');
+  const hasPool = axes.some((a) => a.label === 'HP' || a.label === 'DEF');
+  if (conn !== undefined && !hasPool) {
+    axes.push({ label: 'HP', value: conn.points, max: AXIS_SPECS.HP!.max });
+    axes.push({ label: 'DEF', value: conn.points, max: AXIS_SPECS.DEF!.max });
+  }
+
   return axes.length >= RADAR_MIN_AXES ? axes : null;
 }

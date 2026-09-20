@@ -161,8 +161,45 @@ describe('S185 — which cards get a radar, and on which axes', () => {
 
   it('fewer than three known axes gets no chart — two is a line, one is a dot', () => {
     expect(radarAxesFromRows([{ label: 'ATK', points: 4 }, { label: 'PEN', points: 2 }])).toBeNull();
-    expect(radarAxesFromRows([
-      { label: 'CONNECTORS', points: 5 }, { label: 'SHAPES', points: 6 },
-    ])).toBeNull();
+    expect(radarAxesFromRows([{ label: 'AURA', points: 3 }])).toBeNull();
+  });
+
+  /**
+   * ⭐⭐ S185 — A TOWER'S HP AND DEF ARE ITS CONNECTOR COUNT (canon §2), so a card that prints
+   * CONNECTORS is printing both under one name. Owner, on an emplacement's chart: *"why isn't it a
+   * triangle? They have more than three stats … pretty much the same stats as units do, except
+   * movement speed."*
+   */
+  it('⭐ an EMPLACEMENT gets five: ATK, PEN, RANGE and HP/DEF from its connectors', () => {
+    const axes = radarAxesFromRows([
+      { label: 'CONNECTORS', points: 5 }, { label: 'SHAPES', points: 5 },
+      { label: 'ATK', points: 6 }, { label: 'PEN', points: 0 }, { label: 'RANGE', points: 420 },
+    ])!;
+    expect(axes.map((a) => a.label).sort())
+      .toEqual(['ATK', 'DEF', 'HP', 'PEN', 'RANGE', 'SHAPES'].sort());
+  });
+
+  /**
+   * ⛔ A SPAWNER IS THE CASE THAT HAD NOTHING TO PLOT. Owner: *"the graph didn't land on all the
+   * towers, it should be everywhere."* A bat tower prints no combat stats at all — it had two axes
+   * and fell under the minimum, which is exactly the blank he screenshotted.
+   */
+  it('⭐ a SPAWNER tower gets a chart too, from its own numbers', () => {
+    const axes = radarAxesFromRows([
+      { label: 'CONNECTORS', points: 3 }, { label: 'SHAPES', points: 3 },
+      { label: 'SPAWN', points: 15 },
+    ]);
+    expect(axes).not.toBeNull();
+    expect(axes!.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('a card that prints HP/DEF itself is authoritative — connectors never override it', () => {
+    const axes = radarAxesFromRows([
+      { label: 'ATK', points: 4 }, { label: 'PEN', points: 2 },
+      { label: 'HP', points: 8 }, { label: 'DEF', points: 3 },
+      { label: 'CONNECTORS', points: 99 },
+    ])!;
+    expect(axes.find((a) => a.label === 'HP')!.value).toBe(8);
+    expect(axes.filter((a) => a.label === 'HP')).toHaveLength(1);
   });
 });
