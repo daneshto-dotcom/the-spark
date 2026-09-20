@@ -46,6 +46,8 @@ interface StinkAtlasManifest {
 import type { World } from '../state/world.ts';
 import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
+import { markTowerCover } from './towerCover.ts';
+import { stinkTowerMembers } from './stinkTowerCover.ts';
 import {
   STINK_AURA_RADIUS,
   STINK_TOWER_BAGS,
@@ -189,6 +191,25 @@ export class StinkTowerRenderer {
           // A depleted tower visibly dims — the magazine state must stay readable at a glance now
           // that the art no longer draws the bag count itself.
           sp.alpha = depleted ? 0.72 : 1;
+
+          /*
+           * S185 — the shapes underneath go quiet, now that a sprite is actually standing on them.
+           * Owner: "it was [the] stink tower shapes in the background, it looks stupid."
+           *
+           * Published from HERE, at the sprite commit, because that is this file's contract with
+           * the cover module: the set is owned by whoever drew, never re-derived centrally. Note
+           * the publish deliberately sits INSIDE the atlas branch — the procedural fallback below
+           * draws a schematic plinth rather than a building, and hiding the real shapes behind a
+           * placeholder would leave the player with nothing to look at.
+           *
+           * The tick argument is the newest BOND creation tick, matching every other publisher:
+           * cover ramps in from when the structure was completed, not from when this frame ran.
+           * There is a wall clock in scope three lines up (nowSec, for cosmetic sway) and it must
+           * NOT be used here — it would make the ramp wall-clock-driven on one peer and tick-driven
+           * on another.
+           */
+          const cover = stinkTowerMembers(world, d.anchorPrimitiveId);
+          if (cover !== null) markTowerCover(cover.prims, cover.bonds, cover.newestTick);
         }
       } else {
         this.drawTower(g, d.pos.x, d.pos.y, d.bagsRemaining, depleted, charge, nowSec);

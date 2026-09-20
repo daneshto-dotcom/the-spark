@@ -74,6 +74,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { rampAnchorAtPoint } from '../render/structureRamp.ts';
+import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -820,8 +821,16 @@ export class Controls {
      * `rampAnchorAtPoint` is the same box test over `RAMP_SPECS`, across both collections, sharing
      * the member walk with the renderer that draws them.
      */
+    /*
+     * S185 — the stink tower joins the chain, and it HAD to: this session gave it cover, so its
+     * shapes are now faded to nothing and the 10px-dot fallback the comment above warns about is
+     * exactly what a player would have been left clicking. A tower you cannot click is a tower you
+     * cannot repair. Its box is measured from all twelve idle cells and is ASYMMETRIC, because the
+     * art straddles its anchor rather than standing on it.
+     */
     const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
-      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y);
+      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? stinkTowerAt(this.world, this.cursor.x, this.cursor.y);
     if (towerHit !== null) {
       this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
       return true;

@@ -270,20 +270,23 @@ describe('S183 — the cover PUBLISH sites, counted and named', () => {
     ['towerRenderer.ts', 'the twelve race towers + the six tier-9 boss towers'],
     ['structureRampRenderer.ts', 'the five RAMP_SPECS towers, spawners AND defenders'],
     ['voltkinTowerRenderer.ts', 'the Voltkin TV'],
+    // S185 — the last structure in the tree with a drawn sprite and no publish site. The owner
+    // reported it twice: "it was [the] stink tower shapes in the background, it looks stupid."
+    ['stinkTowerRenderer.ts', 'the stink tower — a defender with its own veo sheet, no ramp art'],
   ];
 
-  it('⛔ EXACTLY three renderers publish cover, and each commits it exactly once', () => {
+  it('⛔ EXACTLY four renderers publish cover, and each commits it exactly once', () => {
     for (const [file, serves] of PUBLISHERS) {
       expect(countOf(renderSource(file), 'markTowerCover('), `${file} serves ${serves}`).toBe(1);
     }
   });
 
-  it('⛔ and no OTHER renderer publishes — a fourth publisher must be a deliberate act', () => {
+  it('⛔ and no OTHER renderer publishes — a fifth publisher must be a deliberate act', () => {
     // A new publisher is not forbidden; it is required to come here and say which class it serves.
     // (`towerCover.ts` itself declares the function, and the test files reference it.)
     const named = new Set(PUBLISHERS.map(([f]) => f));
     for (const file of ['structureRenderer.ts', 'spawnerZoneRenderer.ts', 'turretRenderer.ts',
-      'princessRenderer.ts', 'stinkTowerRenderer.ts', 'chewerRenderer.ts', 'creatureRenderer.ts']) {
+      'princessRenderer.ts', 'chewerRenderer.ts', 'creatureRenderer.ts']) {
       expect(named.has(file)).toBe(false);
       expect(countOf(renderSource(file), 'markTowerCover('), `${file}`).toBe(0);
     }
