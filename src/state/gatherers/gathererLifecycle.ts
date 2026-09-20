@@ -326,6 +326,59 @@ export function orderForGatherer(world: World, g: Gatherer): SparkType | null {
 }
 
 /**
+ * ⭐⭐ S185 — **THE QUEUE FALLS THROUGH IN ORDER.** Owner: *"if there's none of the first shape in
+ * the queue, it doesn't go to the next shape in line, instead it just does a random shape. It should
+ * go to the second shape in line. If there's none of the second, then you go to the third. It should
+ * search out all the shapes that you have in queue in order."*
+ *
+ * ⭐ WHAT LOOKED RANDOM TO HIM IS NOT RANDOM, AND THAT MATTERS FOR THE FIX. There is no
+ * `Math.random` anywhere in this path and the scan is a total order. `orderForGatherer` pins each
+ * unit to ONE queue slot; when that slot's type is not on the ground the picker falls all the way
+ * through to its own *"nearest-of-any"* default, and the quarry's type mix is a seeded draw — so
+ * the RESULT is deterministic and unpredictable, which is exactly what "random" describes.
+ *
+ * ⛔⛔ **AND THIS IS DELIBERATELY A SECOND FUNCTION RATHER THAN A CHANGE TO THE FIRST, BECAUSE THE
+ * OBVIOUS ONE-LINE EDIT CREATES AN OSCILLATION.** `wanted` is read at TWO call sites that ask
+ * different questions:
+ *
+ *  · `pickGathererTarget` asks *"what should I go and get?"* — a COMMIT point, reached only when the
+ *    current target has become invalid. Falling through here is the feature.
+ *  · the S161 preempt asks *"is there something strictly better than what I am already walking to?"*
+ *    and its thrash bound rests on `wanted` being STABLE. Make it depend on what is on the ground
+ *    and it breaks: a unit walking to a Triangle because no Squares existed would be yanked onto a
+ *    Square the moment one spawned, then yanked back when another gatherer claimed it — retargeting
+ *    forever and delivering nothing, which is the precise failure that comment was written against.
+ *
+ * So the preempt keeps reading the STRICT slot and stays inert when that type is absent (no spark of
+ * it exists, so its `cand.type === wanted` check simply never passes), while the picker reads this.
+ *
+ * ⭐ THE STABLE RANK IS PRESERVED, and it is what makes three gatherers fetch three different
+ * shapes at once instead of all chasing entry 0 — the Council fix this file already documents.
+ * Ranking now indexes the SATISFIABLE sublist: queue [Square, Square, Triangle] with no Squares on
+ * the ground collapses to [Triangle], so gatherer 0 takes it and the rest fall through to
+ * nearest-of-any rather than idling.
+ */
+export function satisfiableOrderForGatherer(world: World, g: Gatherer): SparkType | null {
+  const q = world.gathererOrders.get(g.ownerPlayerId);
+  if (q === undefined || q.length === 0) return null;
+
+  const onGround = new Set<SparkType>();
+  for (const s of world.freeSparks.values()) {
+    if (isHarvestable(s)) onGround.add(s.type);
+  }
+  // queue order preserved — this IS "search out all the shapes you have in queue, in order"
+  const satisfiable = q.filter((t) => onGround.has(t));
+  if (satisfiable.length === 0) return null; // nothing queued is fetchable: B4's nearest-of-any
+
+  let rank = 0;
+  for (const other of world.gatherers.values()) {
+    if (other.ownerPlayerId !== g.ownerPlayerId) continue;
+    if ((other.id as unknown as number) < (g.id as unknown as number)) rank++;
+  }
+  return rank < satisfiable.length ? satisfiable[rank] : null;
+}
+
+/**
  * S141 P2 — CONSUME one order on DELIVERY. Owner ruling: "each delivery POPS one".
  *
  * Pops the FIRST entry matching the delivered type. A delivery that matches nothing pops nothing —
@@ -386,7 +439,7 @@ export function pickGathererTarget(world: World, g: Gatherer): SparkId | null {
   let best: SparkId | null = null;
   let bestD = Infinity;
   let bestPreferred = false;
-  const ordered = orderForGatherer(world, g);
+  const ordered = satisfiableOrderForGatherer(world, g);
   const wanted = ordered ?? g.preferredType;
   // ⭐ S146 P2 — THE S145 SCARCITY SUSPENSION IS GONE WITH THE CAP.
   //

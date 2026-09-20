@@ -96,7 +96,10 @@ export function drawRaceGround(
   const body = shade(base, 0.32);
   const accent = shade(base, 1.0);
   const rx = hw;
-  const ry = hh * 0.55; // the ground reads as a flattened disc, not a sphere
+  // ⚠ S185 — FLATTER THAN HALF, deliberately. At 0.55 the mark read as a ball hanging behind the
+  // building rather than as ground it stands on; the owner called it "clouds". Ground seen at
+  // this camera angle is a shallow ellipse, and the tower's feet sit in the middle of it.
+  const ry = hh * 0.34;
 
   switch (race) {
     case 'zombies': {

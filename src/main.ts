@@ -2392,6 +2392,22 @@ Network routes: ${v.detail}`;
   // gate without paying for the debug overlay's lazy chunk. Disabled is the default and every call
   // site tests `isEnabled()` before evaluating its arguments, so a normal build pays one boolean
   // read per send/receive (~20/sec) and never reads a clock. See netStats.ts.
+  /*
+   * ⭐⭐ S185 — **THE LOBBY DIAGNOSTICS STRIPS ARE OFF UNLESS ASKED FOR.** Owner, with a screenshot:
+   * *"What the shit is that 'host pc=0 mode=hosting'? Just take that off. You leave the Room 1/4,
+   * ready 0/1, share the code, and then READY. That's it."*
+   *
+   * ⭐ HIDDEN BEHIND `?debug=1` RATHER THAN DELETED, which gives him exactly the screen he asked for
+   * while keeping the only in-game readout of RELAY HEALTH for a WebRTC game whose relays are
+   * operated by other people. This project has a whole `RELAY_HEALTH.md` and a `probe-relays` script
+   * because those outages are real; deleting the strip would mean the next one is diagnosed from the
+   * command line instead of from the screen he is already looking at.
+   *
+   * ⚠ BOTH STRIPS, NOT ONLY THE ONE HE SCREENSHOTTED. He was hosting, so he saw the orange host
+   * line; the joiner gets a grey `sync 0/0 seq=… [nostr:7/7]` one row up. Same class, same screen,
+   * and fixing only the half in the screenshot is how the other half survives to be reported again.
+   */
+  const lobbyDiagnostics = netStatsRequested(window.location.search);
   if (netStatsRequested(window.location.search)) {
     netStats.enable();
     // A console accessor alongside the overlay, so a reading can be COPIED as JSON rather than
@@ -3739,7 +3755,7 @@ Network routes: ${v.detail}`;
       // applyNetSnapshot throw, snapshot never arriving) without requiring
       // `?debug=1` console + live retest. Host pane doesn't show this strip
       // (only the joiner is the one stuck waiting; host knows they pressed Begin).
-      if (!world.isHost && session.netTransport.peerCount() > 0) {
+      if (lobbyDiagnostics && !world.isHost && session.netTransport.peerCount() > 0) {
         const td = session.netTransport.getDiagnostics();
         const errs = session.clientSync !== null ? session.clientSync.applyErrors() : 0;
         // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
@@ -3803,7 +3819,7 @@ Network routes: ${v.detail}`;
       //   H2 — Silent throw in ticker upstream: mode/hc/bv values inconsistent
       //   H3 — Latch drift: hc=true but bv=false (or vice versa)
       // User screenshots this strip during 2-peer smoke → empirical root cause.
-      if (world.isHost) {
+      if (lobbyDiagnostics && world.isHost) {
         const td = session.netTransport.getDiagnostics();
         const ds = lobbyScreen.getDebugState();
         const strategySummary = formatStrategySummary(td.strategies);

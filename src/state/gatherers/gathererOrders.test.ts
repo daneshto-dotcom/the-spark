@@ -21,7 +21,7 @@ import { makeFreeSpark } from '../../game/spark.ts';
 import { makeGatherer, type Gatherer } from './gatherer.ts';
 import {
   applyCancelGathererOrder, applyEnqueueGathererOrder, applyGathererTick,
-  consumeGathererOrder, orderForGatherer, pickGathererTarget,
+  consumeGathererOrder, orderForGatherer, pickGathererTarget, satisfiableOrderForGatherer,
 } from './gathererLifecycle.ts';
 import { coalesceOrders } from '../../render/castlePanel.ts';
 import { snapshot, restore } from '../save.ts';
@@ -339,5 +339,90 @@ describe('S141 P2 — the panel coalesces the queue for display (owner ruling B4
 
   it('an empty queue yields no chips', () => {
     expect(coalesceOrders([])).toEqual([]);
+  });
+});
+
+/**
+ * ⭐⭐ S185 — THE QUEUE FALLS THROUGH IN ORDER. Owner: *"if there's none of the first shape in the
+ * queue, it doesn't go to the next shape in line, instead it just does a random shape. It should go
+ * to the second shape in line. If there's none of the second, then you go to the third."*
+ */
+describe('S185 — an unsatisfiable queue entry is SKIPPED, in order', () => {
+  it('⭐ head absent → takes the SECOND entry, not a random shape', () => {
+    const w = setup();
+    const g = addGatherer(w);
+    enqueue(w, SparkType.Square);   // none on the ground
+    enqueue(w, SparkType.Triangle); // this is what he expects it to take
+    addSpark(w, SparkType.Triangle, 40);
+    addSpark(w, SparkType.Circle, 5); // NEARER, and not queued — the shape he kept getting
+    expect(satisfiableOrderForGatherer(w, g)).toBe(SparkType.Triangle);
+  });
+
+  it('first two absent → takes the THIRD, which is the rule stated in full', () => {
+    const w = setup();
+    const g = addGatherer(w);
+    enqueue(w, SparkType.Square);
+    enqueue(w, SparkType.Line);
+    enqueue(w, SparkType.Spiral);
+    addSpark(w, SparkType.Spiral, 30);
+    expect(satisfiableOrderForGatherer(w, g)).toBe(SparkType.Spiral);
+  });
+
+  /**
+   * ⛔ THE REGRESSION HOLD FOR OWNER RULING B4. When NOTHING queued is on the ground the fall-through
+   * must end, not loop — the picker's *"nearest-of-any"* default is the ruling, and deleting it here
+   * would idle a gatherer whose whole queue is unavailable.
+   */
+  it('nothing queued on the ground → null, so nearest-of-any still applies', () => {
+    const w = setup();
+    const g = addGatherer(w);
+    enqueue(w, SparkType.Square);
+    addSpark(w, SparkType.Circle, 10);
+    expect(satisfiableOrderForGatherer(w, g)).toBeNull();
+  });
+
+  /**
+   * ⭐ PARALLELISM SURVIVES, which is the property the stable rank exists for. Ranking indexes the
+   * SATISFIABLE sublist, so two gatherers take two different fetchable entries rather than both
+   * chasing the head.
+   */
+  it('two gatherers split the satisfiable entries instead of both taking the head', () => {
+    const w = setup();
+    const g0 = addGatherer(w);
+    const g1 = addGatherer(w);
+    enqueue(w, SparkType.Square);   // absent — skipped by both
+    enqueue(w, SparkType.Triangle);
+    enqueue(w, SparkType.Spiral);
+    addSpark(w, SparkType.Triangle, 20);
+    addSpark(w, SparkType.Spiral, 25);
+    expect(satisfiableOrderForGatherer(w, g0)).toBe(SparkType.Triangle);
+    expect(satisfiableOrderForGatherer(w, g1)).toBe(SparkType.Spiral);
+  });
+
+  /**
+   * ⛔⛔ THE REASON THIS IS A SECOND FUNCTION AND NOT AN EDIT TO THE FIRST. The S161 preempt's thrash
+   * bound rests on `orderForGatherer` being STABLE — independent of what is on the ground. If it
+   * started falling through, a unit walking to a Triangle would be yanked onto a Square the instant
+   * one spawned and yanked back when another gatherer claimed it, forever.
+   */
+  it('⛔ the STRICT slot is unchanged, so the preempt keeps its stability', () => {
+    const w = setup();
+    const g = addGatherer(w);
+    enqueue(w, SparkType.Square);
+    enqueue(w, SparkType.Triangle);
+    addSpark(w, SparkType.Triangle, 40);
+    expect(orderForGatherer(w, g)).toBe(SparkType.Square);          // strict: the head, absent or not
+    expect(satisfiableOrderForGatherer(w, g)).toBe(SparkType.Triangle); // picker: falls through
+  });
+
+  it('selection stays deterministic — no randomness was introduced', () => {
+    const w = setup();
+    const g = addGatherer(w);
+    enqueue(w, SparkType.Square);
+    enqueue(w, SparkType.Triangle);
+    addSpark(w, SparkType.Triangle, 40);
+    for (let i = 0; i < 20; i++) {
+      expect(satisfiableOrderForGatherer(w, g)).toBe(SparkType.Triangle);
+    }
   });
 });

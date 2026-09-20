@@ -30,6 +30,7 @@ import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import { blueprintExtent } from '../state/blueprints.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
 
@@ -93,9 +94,29 @@ export class GroundDecalRenderer {
       /* a recipe with no blueprint box keeps the fallback */
     }
 
+    /*
+     * ⛔⛔ S185 — **THE MARK GOES AT THE TOWER'S FEET, NOT AT ITS SHAPE RING.** Owner, on the first
+     * build: *"why is it above the tower? It should be around the base of the tower. This looks
+     * stupid, it looks like clouds … if you look at the zombies, it needs to be at the base of the
+     * zombie tower, around the whole tower, because it's sitting on that goo."*
+     *
+     * He was right and the cause is one offset. The anchor primitive is the centre of the structure's
+     * SHAPE RING, but `towerRenderer` draws the building with a BOTTOM anchor at
+     * `cy + art.sizePx * 0.5` — its own comment says *"the sprite's FOOT sits at the ring centroid,
+     * so the building stands ON the shapes"*. Drawing on the raw anchor therefore put the stain half
+     * an art-height ABOVE the feet, which is exactly the cloud he screenshotted.
+     *
+     * ⚠ The art height is the right offset, not the blueprint's — the footprint box describes where
+     * the SHAPES are, and the building is taller than them. Where there is no tower art (a spawner
+     * with none, the ramp towers) the footprint's own half-height is the honest fallback.
+     */
+    let baseY = anchor.pos.y + hh * 0.5;
+    const art = towerArtForRecipe(recipeId as GodlyId);
+    if (art !== null) baseY = anchor.pos.y + art.sizePx * 0.5;
+
     drawRaceGround(
       this.graphics as unknown as GroundTarget,
-      race, id, anchor.pos.x, anchor.pos.y, hw, hh, world.tick,
+      race, id, anchor.pos.x, baseY, hw, hh, world.tick,
     );
   }
 
