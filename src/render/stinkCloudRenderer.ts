@@ -86,11 +86,23 @@ export class StinkCloudRenderer {
    * identity, not a status read, and the health bar beside it already says how hurt the bag is. The
    * cycling frames are a drift animation; a mid-cycle one reads as a smear at 76px.
    *
-   * ⚠ NULL UNTIL THE LAZY FETCH LANDS, which is not a defect: `PortraitSpec.recipeId` carries
-   * `'stinkTower'` precisely so those frames fall back to the tower emblem rather than an empty
-   * plate — the same contract `towerFrame` documents.
+   * ⛔⛔ **S185 — THE SENTENCE THAT USED TO SIT HERE SAID THIS WAS "NOT A DEFECT". HE DISAGREED, AND
+   * HE IS THE ONE LOOKING AT IT.** It read: *"NULL UNTIL THE LAZY FETCH LANDS, which is not a
+   * defect: `PortraitSpec.recipeId` carries `'stinkTower'` precisely so those frames fall back to
+   * the tower emblem."* Owner, S185: *"Stink bags — they're clickable now, but you don't have their
+   * image. Should be able to see their image on the character sheet."*
+   *
+   * ⭐ **THE FALLBACK IS EXACTLY THE BUG HE REPORTED.** A card titled STINK BAG that draws the stink
+   * TOWER's codex constellation does not read as "still loading" — it reads as the wrong picture,
+   * which is what S182 set out to fix and what this window quietly reintroduced. A graceful
+   * degradation nobody can distinguish from a defect is a defect.
+   *
+   * ⭐ FIXED BY PRE-WARMING RATHER THAN BY WIDENING THE FALLBACK — see `sync`. This accessor also
+   * kicks the load itself, so the first thing to ASK for the portrait starts fetching it even if
+   * the board path somehow has not run. Idempotent: `ensureAtlas` latches on `loadStarted`.
    */
   portraitTexture(): Texture | null {
+    this.ensureAtlas();
     const frames = this.frames;
     return frames === null || frames.length === 0 ? null : (frames[0] ?? null);
   }
@@ -130,6 +142,27 @@ export class StinkCloudRenderer {
   sync(world: World): void {
     this.haze.clear();
     if (world.stinkClouds.size === 0) {
+      /**
+       * ⭐⭐ **S185 — PRE-WARM ON THE TOWER, NOT ON THE BAG.** The atlas used to be fetched only
+       * once a bag already existed, which is the latest possible moment: the player then clicks the
+       * thing he just watched land, and the card resolves its portrait before a 222 KB fetch can
+       * finish. He saw the stink TOWER's emblem on a card titled STINK BAG and reported it.
+       *
+       * ⭐ A BAG CANNOT EXIST WITHOUT A TOWER TO THROW IT, and the tower has to stand, acquire and
+       * fire first — seconds, not frames. So keying the fetch on the TOWER's presence guarantees
+       * the frames are resident before the first bag ever lands, with no timer and no guess.
+       *
+       * ⛔ **AND IT COSTS NOTHING WHERE THE OBVIOUS FIX WOULD.** Simply hoisting `ensureAtlas()`
+       * above this early return also works, and it downloads 222 KB on the TITLE SCREEN for every
+       * player in every match — including the majority that never build a stink tower. `sync` runs
+       * from the ticker with no game-state gate above it, so that cost is unconditional. This
+       * version is paid only by the players who are about to need it.
+       */
+      for (const d of world.defenders.values()) {
+        if (d.kind !== 'stinkTower') continue;
+        this.ensureAtlas();
+        break;
+      }
       // ⚠ Sprites are reaped HERE as well as in the loop below, or a cloud that expired on a frame
       // when the map emptied would leave its bag on the ground forever.
       this.reapAllSprites();
