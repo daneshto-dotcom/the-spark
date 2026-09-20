@@ -600,13 +600,41 @@ export function portraitPlateFor(
  * The four stat rows, in ONE fixed order for everything on the board: offence before defence.
  * `derived` lands on the row it is derived FROM — the owner's correction (see `SheetStatRow`).
  */
-export function statRowsFor(hp: number, def: number, atk: number, pen: number): SheetStatRow[] {
-  return [
+export function statRowsFor(
+  hp: number, def: number, atk: number, pen: number,
+  kinetics?: { readonly range: number; readonly cadenceTicks: number; readonly maxAccel: number },
+): SheetStatRow[] {
+  const rows: SheetStatRow[] = [
     { label: 'ATK', points: atk, derived: `${attackFifths(atk, pen)} a swing` },
     { label: 'PEN', points: pen, derived: null },
     { label: 'HP', points: hp, derived: `${unitPoolFifths(hp, def)} pool` },
     { label: 'DEF', points: def, derived: null },
   ];
+  /*
+   * ⭐⭐ S185 — THREE STATS THE CARD HELD BUT NEVER PRINTED. Owner: *"creatures and towers also have
+   * some stats that aren't showing on the character sheets. Maybe we should add them in the little
+   * table there on the side … HP, defense, attack, penetration, attack speed, movement speed,
+   * range."*
+   *
+   * They are added HERE rather than only to the radar so the picture and the numbers stay the same
+   * four-to-seven facts. A chart with an axis the card does not print is a chart the player cannot
+   * check.
+   *
+   * ⚠ OPTIONAL, so every existing caller and fixture keeps working unchanged — the structure and
+   * castle cards build their rows elsewhere and are untouched.
+   *
+   * ⚠ RANGE reads 35 for every melee unit, and that is CORRECT rather than degenerate: it is what
+   * separates an archer (220) or a bat (150) from a goblin at arm's length on the chart.
+   */
+  if (kinetics !== undefined) {
+    rows.push({ label: 'RANGE', points: kinetics.range, derived: 'px' });
+    rows.push({
+      label: 'ATK SPD', points: kinetics.cadenceTicks,
+      derived: `${(PHYSICS_HZ / Math.max(1, kinetics.cadenceTicks)).toFixed(1)} a second`,
+    });
+    rows.push({ label: 'SPEED', points: kinetics.maxAccel, derived: null });
+  }
+  return rows;
 }
 
 /**
@@ -1141,7 +1169,9 @@ function creatureSheet(
   const max = unitPoolFifths(cfg.hp, cfg.def);
   const race = world.players.get(c.ownerPlayerId)?.raceId ?? null;
   const frozen = isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId);
-  const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen);
+  const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen, {
+    range: cfg.attackRange, cadenceTicks: cfg.attackCadenceTicks, maxAccel: cfg.maxAccel,
+  });
   /*
    * ⭐⭐ S181 (owner) — **THE ZOMBIE BOSS SHOWS ITS ROT.** *"Anything that has an aura, damage per
    * second, should show how much damage per second. So the zombie boss, the stink tower."*
@@ -1185,7 +1215,16 @@ function defenderSheet(
   if (cfg === null) return null;
   const max = unitPoolFifths(cfg.hp, cfg.def);
   const frozen = isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId);
-  const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen);
+  /*
+   * ⚠ `defenderStatsOf` answers only the four ladder stats, so the kinetics come from the
+   * defender's own config. The field names differ from a creature's by design — a defender has a
+   * `fireIntervalTicks` and a `moveAccel` where a creature has `attackCadenceTicks` and
+   * `maxAccel` — and they are the same two quantities, so they share the radar's axes.
+   */
+  const dcfg = getDefenderConfig(d.kind);
+  const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen, {
+    range: dcfg.attackRange, cadenceTicks: dcfg.fireIntervalTicks, maxAccel: dcfg.moveAccel,
+  });
   const h = heightFor(stats.length, false);
   return {
     target,

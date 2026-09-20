@@ -49,8 +49,21 @@ import {
 
 const PAD = 12;
 const PORTRAIT = 76;
+import {
+  flatten, radarAxesFromRows, radarPolygon, radarWeb,
+} from './characterSheetRadar.ts';
+
 const BAR_H = 12;
 const ROW_H = 20;
+/**
+ * ⭐ S185 — the radar's breathing room inside the stat block. LEFT clears the value column's own
+ * digits, RIGHT clears the widest `derived` caption on any card (`not bought`). Both are gaps, not
+ * positions, so the chart follows the columns rather than being pinned to a magic x.
+ */
+const RADAR_GAP_L = 34;
+const RADAR_GAP_R = 76;
+/** Below this the web is a smudge rather than a reading, so it is simply not drawn. */
+const RADAR_MIN_R = 18;
 /**
  * How much bigger than board size a procedurally-painted portrait draws.
  *
@@ -416,6 +429,46 @@ export class CharacterSheet {
       this.text(String(row.points), x + PAD + valueCol, sy, 13, INK);
       if (row.derived !== null) this.textRight(row.derived, x + w - PAD, sy, 11, DIM);
       sy += ROW_H;
+    }
+
+    /*
+     * ⭐⭐ S185 — THE STAT RADAR, in the dead space he pointed at.
+     *
+     * Owner: *"with one glance, without even reading it out, you can see the strength and the
+     * balance of the stats of that character … it should probably be in that empty area just to the
+     * right of the stats."* He sent a screenshot with the shape drawn in by hand.
+     *
+     * ⚠ DRAWN AFTER the rows so the web sits over the plate and under nothing — and bounded by the
+     * SAME `valueCol` the numbers use, so a longer label pushes the chart right instead of letting
+     * the two collide. That is the bug `statValueColumnPx` exists to prevent, one column over.
+     *
+     * ⛔ NO CHART WHEN THE CARD IS NOT A UNIT. `radarAxesFromRows` returns null unless all four of
+     * ATK/PEN/HP/DEF are present, so the castle and the structure cards are untouched — see that
+     * function for why the castle deliberately does not get one.
+     */
+    const radarAxes = radarAxesFromRows(v.stats);
+    if (radarAxes !== null) {
+      const rowsTop = top + PORTRAIT + 10;
+      const rowsH = v.stats.length * ROW_H;
+      const left = x + PAD + valueCol + RADAR_GAP_L;
+      const right = x + w - PAD - RADAR_GAP_R;
+      const r = Math.min((right - left) / 2, rowsH / 2 - 2);
+      if (r >= RADAR_MIN_R) {
+        const cx = (left + right) / 2;
+        const cy = rowsTop + rowsH / 2 - 4;
+        // the outer web + its spokes, faint, so the polygon reads against a frame of reference
+        const web = radarWeb(radarAxes.length, cx, cy, r);
+        this.g.poly(flatten(web)).stroke({ color: accent, width: 1, alpha: 0.22 });
+        this.g.poly(flatten(radarWeb(radarAxes.length, cx, cy, r * 0.5)))
+          .stroke({ color: accent, width: 1, alpha: 0.12 });
+        for (const p of web) {
+          this.g.moveTo(cx, cy).lineTo(p.x, p.y).stroke({ color: accent, width: 1, alpha: 0.12 });
+        }
+        // the unit itself
+        const poly = flatten(radarPolygon(radarAxes, cx, cy, r));
+        this.g.poly(poly).fill({ color: accent, alpha: 0.22 });
+        this.g.poly(poly).stroke({ color: accent, width: 2, alpha: 0.95 });
+      }
     }
 
     // ── the unit this building fields, if it fields one ───────────────────────────────────────
