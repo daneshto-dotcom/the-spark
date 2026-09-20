@@ -393,6 +393,50 @@ above) · then B, C, F, L per §4.
 5. 34 research agents, 0 errors, ~6.6M tokens. Saved to `.claude/research/S185/`.
 6. The leaderboard question answered against production, not from code reading.
 
+## 5b · ⭐⭐ NEW PRIORITIES HE ADDED IN S185 — recorded, not yet built
+
+### N1 — RACIAL WALLS. The border wall becomes race-specific animated art.
+
+> *"Instead of having just your colour wall in between you and your enemy, it has to be race
+> specific with art … the orange line of the orcs should look like orcish wooden palisades. For
+> nagas it should be like a coral reef wall … for demons maybe like openings in the ground with fire
+> going through them … they should be actively looping. They come up during build phase, then they
+> just do their thing, and on fight they disappear."* — owner, S185
+
+⭐ **THE PROMPTS ARE WRITTEN AND SHIPPED: `RACE_WALLS_ART_PROMPTS.md`.** Six prompts, one per race,
+each carrying the technical clauses (transparent background, seamless left↔right tiling, fixed
+silhouette height, 12-frame loop, original-art rule). He generates; we pack and wire.
+
+⚠ **TWO CORRECTIONS TO HIS BRIEF ARE IN THAT FILE AND MATTER MORE THAN THE PROSE:**
+· he said 24 cutouts — the packer takes **12 per row**, so a 24-frame sheet is two STATES, not a
+  longer loop;
+· the demon wall is written **violet-magenta**, not orange, because `RACE_COLORS.demons` is
+  `0xd73bff` and the demon backdrop already glows violet in its fissures. Flagged for him, not
+  silently changed.
+
+⭐ **THE PHASE HALF IS ALREADY DONE AND NOBODY NEEDS TO BUILD IT.** `wallsAreUp(world)` raises the
+wall in BUILD and drops it in FIGHT — exactly the behaviour he described. The work is art + a tiled
+sprite row in `wallRenderer.ts` (today: two flat colour strips, `STRIP_HALF_W` 5), frame index
+derived from `world.tick`, never a wall clock.
+⚠ Pack through the **alpha** intake, not the dark-matte one — the sources arrive transparent and the
+dark key would eat every dark pixel of the art.
+
+### N2 — PER-RACE GROUND INTEGRATION (item L) — he asked whether it was done. IT IS NOT.
+
+Answer for the record: **not started, and deliberately so.** It collides with five other lanes, and
+its verifier found three blockers — an insert at display-list index 0 REDS `e2e:gating` via
+`e2e/fog.spec.ts`'s exact 19-entry roll call, the proposed palette would ship INVISIBLE against the
+black background (a measurement this repo already made once in `creatureLift.ts`), and `raceId` is
+not in scope at any of the three publish sites.
+
+⭐ **BUT THE DESIGN QUESTION HE ASKED — "did we define how to integrate them per race?" — IS
+ANSWERED.** `research_race-ground-integration.json` carries a per-race procedural decal design
+(demons cracks + ember, zombies goo, vampires blood, mummies sand drift, nagas, orcs) drawn from
+`assets-source/race-zones/design-spec.json`, at **zero art cost**, with four shipped procedural
+ground marks already in the tree as precedent. It needs his ruling on accent colour, whether the
+decal IS the footprint, and whether it animates.
+
+
 ## 6 · CARRY-FORWARD
 
 - ⛔ **Re-explain `SEVER_BOND` in terms of an invisible field**, then re-ask. He asked to go over it.
