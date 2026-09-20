@@ -63,20 +63,32 @@ const ZONE_SPREAD = 2.1;
  * sentence defines the geometry exactly. With the centroid anchor from the previous commit, the
  * sprite's bottom edge IS the base, so centring the ellipse there is the whole requirement.
  *
- * ⭐⭐ **SETTLED AT 0.21 — HALFWAY, RULED BY HIM.** Zero turned out to read too high on the pad and
- * 0.42 too low: *"now it's way lowered in, so put it halfway between where it's now and where it
- * was last time."* So the geometric reading of his spec (base exactly on the centre) was the right
- * FRAME but not the final number — the ellipse's own vertical radius means a small sink is what
- * actually puts the bright core on the rubble.
+ * ⭐⭐ **ZERO, AND IT WAS MEASURED RATHER THAN GUESSED — after four rounds of guessing.**
  *
- * ⚠ AND HIS FEEDBACK WAS RUNNING ONE DEPLOY BEHIND THROUGHOUT, which is what made three of these
- * rounds read as contradictory. Worth knowing before tuning anything visual with him again: give
- * the deploy time, or change two values at once and let him pick.
+ * Owner: *"the base of the arc needs to sit ON the inner elliptical. That way it looks to be in the
+ * middle of it, like it's actually changing its surroundings. I don't understand why it's so hard."*
+ * Fair. It was hard because I kept nudging the constant by eye off screenshots instead of measuring
+ * one.
  *
- * ⚠ KEPT AS A NAMED CONSTANT RATHER THAN DELETED, so the rule is legible and reversible — and so
+ * THE MEASUREMENT, from his own capture (`9.png`), decoding the tower's masonry and the zone's red
+ * separately:
+ * ```
+ *   tower rows  67-161  (height 95)
+ *   zone  rows 129-236  (centre 182)
+ *   centre sits 21 px BELOW the base = 0.221 of tower height
+ *   current sink 0.21  ->  corrected 0.21 - 0.221 = -0.011  ~= 0
+ * ```
+ * So the arithmetic lands exactly on the sentence he had already written twice: the base of the
+ * building sits at the CENTRE of the zone. A centred ellipse reads as ground the building stands in
+ * the middle of, which is the "changing its surroundings" he is after.
+ *
+ * ⛔ AND HE NEVER SAW THIS VALUE UNTIL NOW. It shipped as `f005e2e` and I overwrote it with 0.21 in
+ * `281a3b1` about four minutes later — before that deploy could land. Every round after that was me
+ * reacting to a build he had not yet seen. **Change ONE value, let the deploy land, then look.**
+ * * ⚠ KEPT AS A NAMED CONSTANT RATHER THAN DELETED, so the rule is legible and reversible — and so
  * the next session can see that 0 is a DECISION, not an omission.
  */
-const ZONE_SINK = 0.21;
+const ZONE_SINK = 0;
 
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
