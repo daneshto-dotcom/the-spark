@@ -28,15 +28,11 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { blueprintExtent } from '../state/blueprints.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { componentOf } from '../game/structure.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
-
-/** Fallback half-extents for a structure whose recipe has no blueprint box. */
-const FALLBACK_HW = 46;
-const FALLBACK_HH = 46;
 
 /**
  * ⭐⭐ S185 — **ONE ALPHA, APPLIED TO THE WHOLE LAYER.** Owner: *"if they're overlapping each other
@@ -105,39 +101,62 @@ export class GroundDecalRenderer {
     const race = world.players.get(asPlayerId(owner as never))?.raceId ?? null;
     if (race === null) return;
 
-    let hw = FALLBACK_HW;
-    let hh = FALLBACK_HH;
-    try {
-      const e = blueprintExtent(recipeId as GodlyId);
-      hw = Math.max(18, (e.maxDx - e.minDx) / 2) * ZONE_SPREAD;
-      hh = Math.max(18, (e.maxDy - e.minDy) / 2) * ZONE_SPREAD;
-    } catch {
-      /* a recipe with no blueprint box keeps the fallback */
+    /*
+     * ⛔⛔ S185 — **THE CENTROID OF THE WHOLE STRUCTURE, NOT THE ANCHOR PRIMITIVE.** This is the bug
+     * the owner reported three times, and my first two fixes both missed it.
+     *
+     * `towerRenderer` plants its sprite on the CENTROID of the tower's ring — `cx`/`cy` averaged over
+     * every member — and then drops it half an art-height to stand on the shapes. I was reading
+     * `anchor.pos` instead, and for a RING tower the anchor is a node ON the ring, roughly one radius
+     * ABOVE the centre. So the zone landed at the tower's waist and read as a slab behind it, which
+     * is exactly what he screenshotted on the demon Soul Eater, the zombie hound tower and the mummy
+     * pyramid alike.
+     *
+     * ⚠ AND MY FIRST DIAGNOSIS OF IT WAS WRONG. I read the wide flat bar as `blueprintExtent`'s
+     * known-degenerate Voltkin box (280 x 24); he corrected me — it was the tier-3 demon tower. The
+     * degenerate-extent hazard is real but it is a DIFFERENT bug, and it is now moot here because
+     * this reads the primitives on the board rather than any blueprint at all.
+     *
+     * ⭐ SO THE HULL IS MEASURED, NOT LOOKED UP. Walking the component gives the true centre and the
+     * true width of what is actually standing there, which cannot be degenerate, needs no per-recipe
+     * table, and stays correct if a recipe is retuned.
+     */
+    const comp = componentOf(anchor, world.primitives, world.bonds);
+    let sx = 0, sy = 0, n = 0;
+    let maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+    for (const pid of comp.primitiveIds) {
+      const pr = world.primitives.get(pid);
+      if (pr === undefined) continue;
+      sx += pr.pos.x; sy += pr.pos.y; n++;
+      if (pr.pos.y > maxY) maxY = pr.pos.y;
+      if (pr.pos.x < minX) minX = pr.pos.x;
+      if (pr.pos.x > maxX) maxX = pr.pos.x;
     }
+    if (n === 0) return;
+    const cx = sx / n;
+    const cy = sy / n;
 
     /*
-     * ⛔⛔ S185 — **THE MARK GOES AT THE TOWER'S FEET, NOT AT ITS SHAPE RING.** Owner, on the first
-     * build: *"why is it above the tower? It should be around the base of the tower. This looks
-     * stupid, it looks like clouds … if you look at the zombies, it needs to be at the base of the
-     * zombie tower, around the whole tower, because it's sitting on that goo."*
+     * ⭐ THE ZONE SITS AT THE BUILDING'S FEET. Owner: *"cut the art vertically in half so you can see
+     * where it starts — it starts from the bottom half, and then it goes a few millimetres underneath
+     * the last art particle."* The tier-3 sheets were decoded to check: the subject's base is FLUSH
+     * with the bottom of its cell (bottomGap 0 on every HP state), so the sprite's own bottom edge IS
+     * the visible base, and that is `cy + sizePx / 2`.
      *
-     * He was right and the cause is one offset. The anchor primitive is the centre of the structure's
-     * SHAPE RING, but `towerRenderer` draws the building with a BOTTOM anchor at
-     * `cy + art.sizePx * 0.5` — its own comment says *"the sprite's FOOT sits at the ring centroid,
-     * so the building stands ON the shapes"*. Drawing on the raw anchor therefore put the stain half
-     * an art-height ABOVE the feet, which is exactly the cloud he screenshotted.
-     *
-     * ⚠ The art height is the right offset, not the blueprint's — the footprint box describes where
-     * the SHAPES are, and the building is taller than them. Where there is no tower art (a spawner
-     * with none, the ramp towers) the footprint's own half-height is the honest fallback.
+     * Where a structure has no tower art, the lowest member primitive is the honest stand-in for
+     * where it meets the ground.
      */
-    let baseY = anchor.pos.y + hh * 0.5;
     const art = towerArtForRecipe(recipeId as GodlyId);
-    if (art !== null) baseY = anchor.pos.y + art.sizePx * 0.5;
+    const feetY = art !== null ? cy + art.sizePx * 0.5 : maxY;
+
+    // the zone spreads well past the building, so neighbours read as one settled area
+    const hullHW = Math.max(28, (maxX - minX) / 2, art !== null ? art.sizePx * 0.5 : 0);
+    const hw = hullHW * ZONE_SPREAD;
+    const hh = hw * 0.62;
 
     drawRaceGround(
       this.graphics as unknown as GroundTarget,
-      race, id, anchor.pos.x, baseY, hw, hh, world.tick,
+      race, id, cx, feetY, hw, hh, world.tick,
     );
   }
 
