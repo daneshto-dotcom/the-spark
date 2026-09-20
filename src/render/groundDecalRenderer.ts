@@ -38,6 +38,25 @@ import { isConcealed } from './concealment.ts';
 const FALLBACK_HW = 46;
 const FALLBACK_HH = 46;
 
+/**
+ * ⭐⭐ S185 — **ONE ALPHA, APPLIED TO THE WHOLE LAYER.** Owner: *"if they're overlapping each other
+ * … they're not increasing in opacity, they're just kind of integrating very equally. It's not like
+ * the more zones, the more colour it has."*
+ *
+ * ⛔ Lowering the per-shape alpha CANNOT deliver that: two semi-transparent fills composited always
+ * sum toward opaque. Every shape in `raceGround.ts` therefore draws at alpha 1 and OVERWRITES, and
+ * the fade happens exactly once, here. Two overlapping zones then read identically to one.
+ */
+const GROUND_DECAL_ALPHA = 0.34;
+
+/**
+ * ⭐ HOW FAR THE ZONE REACHES PAST THE BUILDING. Owner: *"it should look like a whole zone around
+ * the tower … you can make the whole radius of that bigger … and when you build many towers next to
+ * each other they all look like they're integrated together."* The blueprint footprint alone stops
+ * at the shapes, which reads as a shadow rather than as ground a settlement sits on.
+ */
+const ZONE_SPREAD = 2.1;
+
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
 
@@ -49,6 +68,8 @@ export class GroundDecalRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // the single fade that makes overlapping zones blend instead of darken
+    g.alpha = GROUND_DECAL_ALPHA;
     if (world.gameState !== 'PLAYING') return;
 
     for (const sp of world.creatureSpawners.values()) {
@@ -88,8 +109,8 @@ export class GroundDecalRenderer {
     let hh = FALLBACK_HH;
     try {
       const e = blueprintExtent(recipeId as GodlyId);
-      hw = Math.max(18, (e.maxDx - e.minDx) / 2);
-      hh = Math.max(18, (e.maxDy - e.minDy) / 2);
+      hw = Math.max(18, (e.maxDx - e.minDx) / 2) * ZONE_SPREAD;
+      hh = Math.max(18, (e.maxDy - e.minDy) / 2) * ZONE_SPREAD;
     } catch {
       /* a recipe with no blueprint box keeps the fallback */
     }

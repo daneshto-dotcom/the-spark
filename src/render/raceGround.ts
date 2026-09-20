@@ -23,6 +23,21 @@
  * body and brightened for the accent, so it reads against the board AND against that race's own
  * backdrop, which was generated from the same identity.
  *
+ * ## EVERY DRAW IS FULLY OPAQUE, AND THE LAYER IS FADED ONCE
+ *
+ * Owner: *"if they're overlapping each other - you're building two pyramids and that integration
+ * zone is overlapping with another one - then they're not increasing in opacity. They're just kind
+ * of integrating very equally. It's not like the more zones, the more colour it has."*
+ *
+ * THAT IS NOT ACHIEVABLE BY LOWERING THE ALPHA HERE, which is the obvious answer and the wrong one.
+ * Two semi-transparent fills composited on top of each other ALWAYS sum toward opaque - that is
+ * what alpha blending is. Halving the alpha halves the darkening; it does not remove it.
+ *
+ * SO EVERY SHAPE IN THIS FILE DRAWS AT ALPHA 1 AND OVERWRITES, and GroundDecalRenderer fades the
+ * WHOLE Graphics once with a single layer alpha. Two overlapping zones then read exactly like one -
+ * the "integrating very equally" he asked for - and internal contrast comes from shade(), i.e. from
+ * COLOUR rather than from transparency.
+ *
  * ## ⛔ NO RANDOMNESS, NO WALL CLOCK
  *
  * Variation is derived from the structure's id via `mix32`, and animation is a function of
@@ -104,76 +119,83 @@ export function drawRaceGround(
   switch (race) {
     case 'zombies': {
       // a goo pool with a slow bubble — the one he named first
-      g.ellipse(cx, cy, rx, ry).fill({ color: body, alpha: 0.5 });
-      g.ellipse(cx, cy, rx * 0.72, ry * 0.72).fill({ color: shade(base, 0.5), alpha: 0.42 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: body, alpha: 1 });
+      g.ellipse(cx, cy, rx * 0.72, ry * 0.72).fill({ color: shade(base, 0.5), alpha: 1 });
       for (let i = 0; i < 4; i++) {
         const ph = (tick / 60 + jitter(id, i)) % 1; // one slow cycle per second, per bubble
         const r = ry * 0.16 * Math.sin(ph * Math.PI); // swells then pops
         if (r <= 0.4) continue;
         const bx = cx + (jitter(id, i + 10) - 0.5) * rx * 1.2;
         const by = cy + (jitter(id, i + 20) - 0.5) * ry * 1.1;
-        g.ellipse(bx, by, r, r * 0.8).fill({ color: accent, alpha: 0.5 });
+        g.ellipse(bx, by, r, r * 0.8).fill({ color: accent, alpha: 1 });
       }
       break;
     }
     case 'demons': {
       // ⭐ HIS RULING: the crack burns VIOLET, not orange. Cracks radiate from under the building.
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.22), alpha: 0.55 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.22), alpha: 1 });
+      /*
+       * ⚠ THE EMBER BREATHES THROUGH GEOMETRY AND COLOUR, NOT THROUGH ALPHA — and the test caught me
+       * when it did not. The first cut animated `alpha`, which stopped working the moment every draw
+       * went opaque for the overlap rule, and `raceGround.test.ts`'s "the two animated races change
+       * with the tick" turned red rather than letting a dead animation ship.
+       */
       const pulse = 0.55 + 0.35 * Math.sin((tick / 60) * Math.PI); // a slow ember breath
       for (let i = 0; i < 5; i++) {
         const a = jitter(id, i) * Math.PI * 2;
-        const len = rx * (0.55 + jitter(id, i + 30) * 0.45);
+        const len = rx * (0.55 + jitter(id, i + 30) * 0.45) * (0.88 + pulse * 0.2);
         const kx = cx + Math.cos(a) * len;
         const ky = cy + Math.sin(a) * len * 0.55;
         g.moveTo(cx, cy).lineTo(kx, ky)
-          .stroke({ color: accent, alpha: 0.35 + pulse * 0.4, width: 2.5 });
+          .stroke({ color: shade(base, 0.7 + pulse * 0.6), alpha: 1, width: 2 + pulse * 1.6 });
       }
-      g.ellipse(cx, cy, rx * 0.34, ry * 0.34).fill({ color: accent, alpha: 0.25 + pulse * 0.25 });
+      g.ellipse(cx, cy, rx * (0.26 + pulse * 0.12), ry * (0.26 + pulse * 0.12))
+        .fill({ color: shade(base, 0.8 + pulse * 0.5), alpha: 1 });
       break;
     }
     case 'vampires': {
       // blood, pooled and gone tacky at the rim
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 0.55 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
       g.ellipse(cx + rx * 0.1, cy + ry * 0.08, rx * 0.6, ry * 0.58)
-        .fill({ color: shade(base, 0.45), alpha: 0.5 });
+        .fill({ color: shade(base, 0.45), alpha: 1 });
       for (let i = 0; i < 3; i++) {
         const a = jitter(id, i + 40) * Math.PI * 2;
         const d = rx * (0.85 + jitter(id, i + 50) * 0.3);
         g.ellipse(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.55, rx * 0.1, ry * 0.1)
-          .fill({ color: shade(base, 0.4), alpha: 0.5 });
+          .fill({ color: shade(base, 0.4), alpha: 1 });
       }
       break;
     }
     case 'mummies': {
       // drifted sand, banked on one side the way wind actually leaves it
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.3), alpha: 0.42 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.3), alpha: 1 });
       for (let i = 0; i < 3; i++) {
         const off = (i - 1) * ry * 0.34;
         g.ellipse(cx + rx * 0.16, cy + off, rx * (0.85 - i * 0.16), ry * 0.3)
-          .fill({ color: shade(base, 0.42 + i * 0.07), alpha: 0.34 });
+          .fill({ color: shade(base, 0.42 + i * 0.07), alpha: 1 });
       }
       break;
     }
     case 'nagas': {
       // wet silt with pale rings, the drowned-citadel floor its backdrop is built on
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.24), alpha: 0.5 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.24), alpha: 1 });
       for (let i = 1; i <= 3; i++) {
         const f = i / 3;
         g.ellipse(cx, cy, rx * f, ry * f)
-          .stroke({ color: accent, alpha: 0.18 + (1 - f) * 0.16, width: 1.5 });
+          .stroke({ color: accent, alpha: 1 + (1 - f) * 0.16, width: 1.5 });
       }
       break;
     }
     case 'orcs': {
       // hardpan: scuffed, trampled, irregular — the one race that may eventually want real art
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 0.45 });
+      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
       for (let i = 0; i < 5; i++) {
         const a = jitter(id, i + 60) * Math.PI * 2;
         const d = rx * (0.3 + jitter(id, i + 70) * 0.6);
         const sx = cx + Math.cos(a) * d;
         const sy = cy + Math.sin(a) * d * 0.55;
         g.moveTo(sx, sy).lineTo(sx + rx * 0.18, sy + ry * 0.05)
-          .stroke({ color: shade(base, 0.55), alpha: 0.4, width: 2 });
+          .stroke({ color: shade(base, 0.55), alpha: 1, width: 2 });
       }
       break;
     }
