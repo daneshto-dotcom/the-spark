@@ -53,6 +53,21 @@ const GROUND_DECAL_ALPHA = 0.34;
  */
 const ZONE_SPREAD = 2.1;
 
+/**
+ * ⭐ HOW FAR BELOW THE SPRITE'S BOTTOM EDGE THE ZONE'S CENTRE SITS, as a fraction of the building's
+ * height. Owner, iterating on it live: *"it's better, but we're not quite there. We need to bring it
+ * a little lower — so the really red circle is towards the base of the tower."*
+ *
+ * ⚠ THE SPRITE'S BOTTOM EDGE IS NOT WHERE A BUILDING LOOKS LIKE IT MEETS THE GROUND, which is the
+ * whole reason this exists. Centring the zone exactly on the feet puts its bright core halfway up
+ * the facade, because half the ellipse then sits above the contact line. Sinking it drops that core
+ * onto the rubble at the base and leaves the upper half reading as ground behind the building.
+ *
+ * ⚠ A FRACTION, NOT A PIXEL COUNT, so a tier-9 tower at 150 px sinks proportionally further than a
+ * tier-3 at 84 and both read the same way.
+ */
+const ZONE_SINK = 0.42;
+
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
 
@@ -147,7 +162,9 @@ export class GroundDecalRenderer {
      * where it meets the ground.
      */
     const art = towerArtForRecipe(recipeId as GodlyId);
-    const feetY = art !== null ? cy + art.sizePx * 0.5 : maxY;
+    const feetY = art !== null
+      ? cy + art.sizePx * (0.5 + ZONE_SINK)
+      : maxY + (maxX - minX) * 0.5 * ZONE_SINK;
 
     // the zone spreads well past the building, so neighbours read as one settled area
     const hullHW = Math.max(28, (maxX - minX) / 2, art !== null ? art.sizePx * 0.5 : 0);
