@@ -318,6 +318,34 @@ switched to small increments done directly, each committed and pushed on its own
 | 4 | `d1b3d67` | this execution log |
 | 5 | `cb1f836` | **Item E — the death ramp at 30fps** (3 → 2 ticks/frame, 11 files). |
 | 6 | `6cc716a` | **Item G — arrows/harpoons draw at buildings again** (the S181 regression). 5413 tests. |
+| 7 | `de45fea` | **Item H — the stink bag portrait** is resident before you can click it. |
+| 8 | `07a56b6` | **Item K — the stink tower hides its shapes AND stays clickable.** 5426 tests. |
+| 9 | `190aee3` | **Item C — towers stand 112 px apart, not 148.** The dead space he photographed. |
+
+⭐ **SIX OF HIS TWELVE PLAYTEST ITEMS ARE LIVE** (#2 Helga · #3 ramp pacing · #4 stink tower shapes ·
+#6 tower spacing · #7 projectiles · #8 stink bag portrait), plus #12 answered against production and
+four rulings pinned in the canon.
+
+### ⭐ WHAT THE HIT-RATE ACTUALLY CAME FROM — worth copying, not just reading
+
+**Every single one of these fixes was smaller than its research said, and two were a DIFFERENT bug
+entirely.** The ramp was not skipping frames (a cursor already walked them — it just ran at 20 fps);
+the arrows were an S181 targeting regression, not a missing projectile system; the stink tower needed
+no art at all. In each case the saving came from *checking the brief's central assumption before
+building anything*.
+
+⛔ **AND THE RESEARCH'S OWN NUMBERS WERE WRONG TWICE, BOTH TIMES ON A LOAD-BEARING MEASUREMENT.** The
+stink tower hit box was quoted from frame 0 alone (152 px, centred); decoding all twelve idle cells
+gives W=185 and a subject 13.5 px LEFT of its anchor. A symmetric box would have left the tower's
+left edge dead — the exact defect `rampAnchorAtPoint` shipped in S183. **Re-measure anything a fix
+is going to be built on.**
+
+⚠ **THE CRLF TRAP FIRED THREE TIMES IN ONE SESSION.** `towerCover.test.ts`, `blueprintLegality.ts`
+and `constants.ts` are CRLF; a multi-line patch anchor written with `
+` matches ZERO times and a
+naive script reports success having changed nothing. Every patch here asserts its match count first.
+⛔ One mutation run was invalidated by exactly this and had to be re-run — its `MUTATED_EXIT=0` meant
+*the mutation never applied*, not *the guard is unpinned*.
 
 ⭐ **BOTH CODE FIXES WERE MUTATION-TESTED** — guard reverted, RED captured, restored byte-identical
 and `cmp`-verified. Helga: `MUTATED_EXIT=1`, 3 failed. Projectiles: `MUTATED_EXIT=1`, 2 failed.
