@@ -30,6 +30,10 @@ import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { componentOf } from '../game/structure.ts';
+import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+import { RACE_FEED_SHAPE } from '../state/races.ts';
+import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
+import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
@@ -82,7 +86,7 @@ const ZONE_SPREAD = 2.1;
  * * ⚠ KEPT AS A NAMED CONSTANT RATHER THAN DELETED, so the rule is legible and reversible — and so
  * the next session can see that 0 is a DECISION, not an omission.
  */
-const ZONE_SINK = -0.21;
+const ZONE_SINK = -0.52;
 
 export class GroundDecalRenderer {
   private readonly graphics: Graphics;
@@ -152,7 +156,26 @@ export class GroundDecalRenderer {
      * true width of what is actually standing there, which cannot be degenerate, needs no per-recipe
      * table, and stays correct if a recipe is retuned.
      */
-    const comp = componentOf(anchor, world.primitives, world.bonds);
+    /*
+     * ⛔⛔ S185 — **THE RING, NOT THE COMPONENT — and `towerRenderer` says so in as many words.**
+     *
+     * Its own comment at the centroid reads *"Centroid of the RING, not of the component"*, and its
+     * file docblock explains why: `ringMembersAt` returns exactly the nodes the recipe validated, so
+     * the centre is the ring's own. I walked the whole COMPONENT instead, which sweeps in anything
+     * else bonded to the structure and drags the centre off the building — the owner measured it as
+     * *"too much to the right"*, 10.5 game px on his capture.
+     *
+     * ⭐ Using the same walk the sprite uses makes the two incapable of disagreeing, which is the
+     * only reason the horizontal offset is gone rather than cancelled by a magic number.
+     */
+    const art = towerArtForRecipe(recipeId as GodlyId);
+    const ring = art !== null
+      ? ringMembersAt(world, anchor.id, RACE_FEED_SHAPE[art.race],
+          art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE)
+      : null;
+    const comp = {
+      primitiveIds: (ring ?? componentOf(anchor, world.primitives, world.bonds).primitiveIds),
+    };
     let sx = 0, sy = 0, n = 0;
     let maxY = -Infinity, minX = Infinity, maxX = -Infinity;
     for (const pid of comp.primitiveIds) {
@@ -177,7 +200,6 @@ export class GroundDecalRenderer {
      * Where a structure has no tower art, the lowest member primitive is the honest stand-in for
      * where it meets the ground.
      */
-    const art = towerArtForRecipe(recipeId as GodlyId);
     const feetY = art !== null
       ? cy + art.sizePx * (0.5 + ZONE_SINK)
       : maxY + (maxX - minX) * 0.5 * ZONE_SINK;
