@@ -1,19 +1,19 @@
 {
-  "tool_calls_session_total": 3837,
-  "session_id": "S184",
-  "session_kind": "batch",
+  "tool_calls_session_total": 4287,
+  "session_id": "S185",
+  "session_kind": "owner-driven playtest batch (direct owner requests, not PDR-registered)",
   "session_start": "2026-09-19T08:18:00+02:00",
   "prior_session_note": "S184 continues S183 P3 (retaliation). PDR approved in S183 and still valid; work unfinished, not unapproved.",
   "prior_session_archive": ".claude/plans-archive/2026-09-14_S175_BATCH_PDR.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-19_PDR_S183_BATCH.md",
-  "session_status": "in_progress",
+  "session_status": "S185 CLOSED",
   "protocol_version": 46,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'",
+  "owner_approval_verbatim": "I approve them. / let us work all of those very coherently and effectively / I approve all waves of all parallel work trees",
   "scope_amendments": [
     {
       "id": "SA-S176-1",
@@ -150,242 +150,184 @@
   "priorities": [
     {
       "id": 1,
-      "title": "S183 P1 - THE MERGED-TREE AUDIT (three-agent live audit, deferred from S182)",
+      "priority_id": "s185-helga",
+      "title": "Helga plays WALK while patrolling, and faces where she goes",
       "status": "completed",
-      "tier": "Full",
-      "scope": "8 lanes x find/verify/refute over d76074a..HEAD. COMPLETE: 24 agents, 0 errors, 16 confirmed findings (1 HIGH / 4 MEDIUM / 11 LOW), 0 lane failures.",
       "check_completed": true,
-      "checkpoint_commit": "0c5ae7e",
-      "check_method": "8 lanes over d76074a..HEAD, each pipelined find -> verify -> adversarial-refute, dispatched as TWO independent Workflow runs so a spend limit could cost one round rather than the audit (S161 rule). 24 agents, 0 errors, 0 skipped, 0 empty results, 0 lane failures, ~4.5M subagent tokens, ~80 min. 16 findings survived refutation: 1 HIGH (leaderboard 24h double-count), 4 MEDIUM (unsanitised SEVER_BOND cause, WIN-screen destruction, the owner's feed caption, offline recap losing a veteran's row), 11 LOW. PRIME-AUDIT ON MY OWN AUDIT: round A's verify+refute killed NOTHING across 8 stages while round B killed 7 - a verification stage that never rejects is the rubber-stamp failure mode - so I re-verified round A's three consequential findings BY HAND and all three hold: (1) transport.ts:634 claims SNAPSHOT_SINGLE_STRATEGY ships false 'pending the owner decision' while iceConfig.ts:148 reads = true and he ruled it in S182; (2) main.ts:3993 syncs structureRampRenderer with no game-state guard, so teardownSpawners on the WIN screen makes the ghost sweep read every standing tower as newly dead; (3) structureRepair.ts:126 borrows canBuildNow whose FIRST arm became the castle keep-out in S182, while its own comment names only two intended clauses (WHEN + own ground). Also verified by hand, independent of the agents: all three cover publish sites iterate world.creatureSpawners so defenders can never be covered; spawnerZoneRenderer contains no reference to towerCover and redraws the connectors structureRenderer fades; and the four contact sheets were prototyped end-to-end into correct atlases (detect alpha<=48, floor <=24->0, ceil >=244->255), proving the intake before it is built rather than after.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/S183-A-only-the-tower.md",
-          "needle": "FADE ON EVERYTHING"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/S183-B-retaliation.md",
-          "needle": "R183-D"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/branch-briefs/S183-C-bugs-and-caption.md",
-          "needle": "structureRepair.ts:126"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/iceConfig.ts",
-          "pattern": "SNAPSHOT_SINGLE_STRATEGY = true",
-          "op": "==",
-          "value": 1
-        }
-      ],
+      "checkpoint_commit": "a1bca53",
+      "check_method": "mutation-tested: reverted both guards, captured MUTATED_EXIT=1 (3 failed), restored byte-identical via cmp. TYPECHECK 0, VITEST 0 (5398->5409), BUILD 0.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+      "unlock_source": "user"
     },
     {
       "id": 2,
-      "title": "S183 P2 - BRANCH A: you only see the tower (4 tower ramps + connector hiding)",
+      "priority_id": "s185-ramp-pacing",
+      "title": "Death ramp at 30fps (3->2 ticks/frame) + sim fuse re-derived",
       "status": "completed",
-      "tier": "Full",
-      "scope": "Transparent-sheet intake (alpha-matted, detect a<=48, floor <=24->0, ceil >=244->255); 4 atlases + RAMP_SPECS entries for goblinTower/laser turret/pentagram/Helga; NO self-destruct (R182-A hub-only); spawnerZoneRenderer fades with cover (owner: FADE ON EVERYTHING); defender cover publish site (turret + princess); reveal on CRUMBLE not first sever.",
       "check_completed": true,
-      "checkpoint_commit": "0a99180",
-      "check_method": "Branch A built in an isolated worktree, then AUDITED BY AN AGENT THAT DID NOT WRITE IT, which found a HIGH defect the branch had not: rampAnchorAtPoint hit-tested a band the art does not occupy. place() is sprite.y = cy + artPx*0.5 + (1-footY)*spritePx against a BOTTOM anchor, so the art STRADDLES the centroid; the box accepted [cy-artPx, cy+0.175*artPx], missing the bottom 0.325*artPx of every tower (goblin/Helga 32px, laser 31, pentagram 29, hub 27) and accepting 0.5*artPx of empty sky above. A click on a tower base fell through to a member scan that cannot hit, because this branch HID the members - the function defeating its own stated purpose. Verified BY HAND against place() before fixing. Its own suite was green over it, asserting a hit at -0.6*artPx (ten px ABOVE the drawing) and misses only far outside: a mechanical test can still pin the wrong geometry when the geometry came from prose. Fixed symmetric and re-pinned with cases that walk the FOOT and both drawn extremes. Also fixed as merge owner: Helga drew ON TOP of her own hall (Pixi z-order is addChild order and princessRenderer was constructed after structureRampRenderer) - no renderer runs under vitest, so z-order was invisible to all 5288 tests. THE BRANCH ALSO CORRECTED MY BRIEF IN THREE PLACES, the most valuable output of the whole split: a FOURTH cause of visible shapes (DAMAGED_BOND_MIN_ALPHA re-pinning damaged connectors to 0.85 alpha, which is the owner own S175 P9 ruling and precisely what he reversed this session); the FIX/SCRAP click path did NOT already cover these towers (towerAnchorAtPoint is race-towers-only and walks creatureSpawners, so no defender can be in it); and a post-snap drain that flicked a tower back to frame 1 for up to 30 ticks. Gates on the MERGED tree, each from a captured exit code: typecheck 0, vitest 5290/319, build 877.2 KiB. Then the owner playtested and two further fixes landed (laser muzzle measured off the atlas, Helga patrol), with the full suite at 5349/322 and e2e:gating 68 passed on the merged tree. Deployed twice, verify-deploy 4/4 both times.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/structureRamp.ts",
-          "needle": "Math.abs(y - at.cy) > half"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/structureRamp.ts",
-          "needle": "y > at.cy + half * 0.35"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/render/structureRamp.ts",
-          "pattern": "recipeId: 'lightningHub'|recipeId: 'goblinTower'|recipeId: 'laserTurret'|recipeId: 'pentagram'|recipeId: 'helga'",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/turretRenderer.ts",
-          "needle": "rampMuzzleAt"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/defenders/defenderLifecycle.ts",
-          "needle": "PRINCESS_PATROL_LEG_TICKS"
-        }
-      ],
+      "checkpoint_commit": "cb1f836",
+      "check_method": "the coupling test caught a half-landed retune (expected 24 to be 16); HUB_DEATH_RUN_TICKS 24->16 and the floor guarantee STRENGTHENED (30>=16). 11 files across two artefact trees.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+      "unlock_source": "user"
     },
     {
       "id": 3,
-      "title": "S184 P1 (carry-forward of S183 P3) - retaliation: finish the three audit defects, pin them, merge",
+      "priority_id": "s185-projectiles",
+      "title": "Arrows/harpoons draw at buildings again (silent S181 regression)",
       "status": "completed",
-      "tier": "Full",
-      "scope": "A unit under attack re-picks its attacker; on attacker loss it re-picks nearest by its own preferences, never returning to the prior target. Pencil chewer NEVER retaliates. Helga retaliates within creatures-only. Suicide bomber DOES retaliate. Attacker id threaded through damageEntity (17 production call sites), mechanical enumeration, no optional param.",
       "check_completed": true,
-      "checkpoint_commit": "590a0d313aeff324f97710e37e393bdc937f0ae5",
-      "check_method": "CHECK ran in four independent layers, each with a captured exit code. (1) GATES on the MERGED tree: typecheck 0, typecheck:server 0, vitest 0 (5398 tests / 324 files, up from 5349/322 on master), build 0 (881.1 KiB of the 1000 KiB charter), check:atlas 0, e2e:gating 0 (68 passed), e2e:races 0 (5 passed). (2) MUTATION SWEEP over every guard in the feature: revert one guard, require the suite to go RED, restore byte-identical. It found EIGHT guards deletable with the file green (DESPAWNING, same-owner, isUntargetable, the no-churn return, the SEEKING drop, Helga's creature-arm-wins-first, and both arms of the S155 deferral); all were closed. 13 of 14 now CAUGHT, the survivor (d.ehp === null in recordDefenderRetaliation) verified UNREACHABLE by reading damage.ts's defender arm. (3) SIX-LANE ADVERSARIAL AUDIT dispatched as two independent runs (determinism, owner-rulings, call-sites | fsm, test-quality, canon-truth), each find -> refute. 9 findings survived, 5 killed. (4) HAND-RUN LANES, not delegated: all 14 production damageEntity call sites enumerated and judged (census pins 14 = 8 named + 6 null, matching my count); damageCreature has ONE caller so no path bypasses the seam; every attackRange resolved to confirm the 220 < 300 leash claim; and a THREE-ARM controlled experiment through runHostTick (no archer / archer+retaliation-off / archer+retaliation-on) which is what proved the kiting collapse is attributable to this feature and not to the archer.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "needle": "insideHomeLeash",
-          "path": "src/state/creatures/retaliation.ts"
-        },
-        {
-          "type": "file_contains",
-          "needle": "isStunned(victim, world.tick)",
-          "path": "src/state/creatures/retaliation.ts"
-        },
-        {
-          "type": "file_contains",
-          "needle": "isUntargetable(victim, world.tick)",
-          "path": "src/state/creatures/retaliation.ts"
-        },
-        {
-          "type": "grep_count",
-          "pattern": "STUN GATE 5 OF 5",
-          "op": "==",
-          "value": 1,
-          "path": "src/state/creatures/retaliation.ts"
-        },
-        {
-          "type": "grep_count",
-          "pattern": "OF 4",
-          "op": "==",
-          "value": 0,
-          "path": "src/state/hostTick.ts"
-        },
-        {
-          "type": "file_contains",
-          "needle": "RETALIATION",
-          "path": "SPARK_CANON.md"
-        },
-        {
-          "type": "file_contains",
-          "needle": "THIS IS NOT A CODING ERROR",
-          "path": "SPARK_CANON.md"
-        },
-        {
-          "type": "grep_count",
-          "pattern": "§9b",
-          "op": ">=",
-          "value": 4,
-          "path": "src/canon.test.ts"
-        }
-      ],
+      "checkpoint_commit": "6cc716a",
+      "check_method": "mutation-tested: disabled the new bond arm, MUTATED_EXIT=1 (2 failed), restored byte-identical. Control-arm test added. No PROTOCOL bump: targetBondId was already serialized.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+      "unlock_source": "user"
     },
     {
       "id": 4,
-      "title": "S183 P4 - BRANCH C: the caption + the audit fixes",
+      "priority_id": "s185-stink-bag",
+      "title": "Stink bag portrait resident before you can click it",
       "status": "completed",
-      "tier": "Full",
-      "scope": "Feed caption (12px rise into an 8px gap, lands 4px inside FIX/SCRAP; x-anchored to card centre); WIN-screen destruction; leaderboard 24h double-count (HIGH); keep-out silently gating FIX/SCRAP; arcade recap bugs; the false comments (transport.ts:635 x3 lanes, netStats:34, save.ts:1897, canon s9).",
       "check_completed": true,
-      "checkpoint_commit": "d750132",
-      "check_method": "Branch C built in an isolated worktree, then AUDITED BY AN AGENT THAT DID NOT WRITE IT. Verdict MERGEABLE with 5 items. The audit also caught that its own first cold vitest run was RED (exit 1) from a stale vite cache entry referencing a throwaway probe I had created and deleted in that worktree - my fault, worktree-local, cannot travel with the merge, recorded rather than shrugged off. One real hole found IN THE FIX ITSELF: prunePending read now - r.at < MAX_AGE, which for a FUTURE-stamped run is NEGATIVE and so trivially true, meaning a device with a clock set forward queued a run kept FOREVER that then folded a second time after the server 24h key expired - reopening the exact permanent double-count the priority existed to close. Math.abs, plus a test for the future stamp AND one proving a small forward skew is still tolerated. Its 12h justification was also arithmetically wrong (a constant clock OFFSET cancels; what the margin buys is room for a JUMP, flight time, and the server pruning on another client POST) - number kept, false sentence replaced. OWNER OVERRULED THE CAPTION FIX: the branch cut A SHAPE from his wording to fit one line, and three variants of that compromise were put to him. He rejected all three - you can make it divided to two lines, and just make it fit the box - so it now WRAPS, balanced at the word boundary nearest the middle, so every race gets two lines of similar length rather than a greedy wrap giving BATS one line and SOULEATERS two. Widest line 114px against a 174px budget. The regression witness was RE-POINTED rather than deleted: it used to assert his wording overflowed (the justification for cutting it) and now pins that ONE line does not fit, which is WHY it wraps. Audit verified clean: file boundary held, no forbidden file touched, structureRampRenderer untouched, damage.ts comment-only, canReclaimNow a faithful subtraction that still enforces R19 and own-ground, determinism clean, four-sites not applicable. Gates on the MERGED tree: typecheck 0, typecheck:server 0, vitest 5343/322, build 878.3 KiB, e2e:gating 68 passed with GATING_EXIT=0. Deployed, verify-deploy 4/4.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "FEED A SHAPE TO BUILD MORE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/characterSheetModel.ts",
-          "needle": "feedCaptionLines"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/arcadeScores.ts",
-          "needle": "Math.abs(now - r.at)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/structureRepair.ts",
-          "needle": "canReclaimNow"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/net/transport.ts",
-          "pattern": "SNAPSHOT_SINGLE_STRATEGY is false",
-          "op": "==",
-          "value": 0
-        }
-      ],
+      "checkpoint_commit": "de45fea",
+      "check_method": "ONE mutation run INVALIDATED (patch assert failed, 0 matches) and re-run with a single-line anchor: MUTATED_EXIT=1. Two CONTROL tests guard against an unconditional fetch on the title screen.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "owner_approval_verbatim": "Go - all three branches (AskUserQuestion, S183). Aura: 'Fade on everything' + his reasoning: 'it doesnt matter if you know what connectors to cut. You cant control your spawn... you cant control your characters anyways.'"
+      "unlock_source": "user"
+    },
+    {
+      "id": 5,
+      "priority_id": "s185-stink-tower-cover",
+      "title": "Stink tower hides its shapes AND stays clickable",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "07a56b6",
+      "check_method": "hit box RE-MEASURED from all 12 idle cells: the research figure was frame 0 alone (W=185 not 152, subject 13.5px off-centre). Mutation-tested the asymmetry: MUTATED_EXIT=1. Publish census 3->4.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 6,
+      "priority_id": "s185-tower-spacing",
+      "title": "Tower spacing 148->112px via STAMP_CLEARANCE 24",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "190aee3",
+      "check_method": "AUTO_BOND_RADIUS deliberately untouched so only ONE assertion moved instead of five. Measured: sterilised area per tower 33,979->14,527 px2 (-57%). Re-pinned test derives its literal from the constant, plus a CONTROL for the case he photographed.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 7,
+      "priority_id": "s185-radar",
+      "title": "Stat radar: 7 axes, units + towers + spawners + castle",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "3b624ff",
+      "check_method": "every ceiling DERIVED from the live rosters (never typed in) with a test that recomputes them. Owner overruled my castle objection and the test carries why I was wrong. Two inverted axes (RELOAD, ATK SPD) or a fast reload would read as a weakness.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 8,
+      "priority_id": "s185-race-walls",
+      "title": "Six race walls, facing derived from the inward normal",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "d7628ec,5fddfb6",
+      "check_method": "sideSignFor derives the side via zoneOf; a test asserts the signs are NOT all equal on the 4P board, which proves a constant pair cannot work. Art cropped at alpha>24 and scaled to 128px: 993 KiB against 6.8 MB raw.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 9,
+      "priority_id": "s185-e2e-recovery",
+      "title": "Gating e2e lane restored after my own layer bug",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "6618b71",
+      "check_method": "MY OWN DEFECT: the wall commit added two nodes to groundLayer and broke fog.spec.ts. The e2e job was RED on three runs while the unit suite stayed green. Fixed by owning ONE node rather than widening the assertion; verified locally (6 passed) then CI success.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 10,
+      "priority_id": "s185-ground-zones",
+      "title": "Per-race ground integration zones",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "11268f0,974b952,bab7cb3,acf25aa,f005e2e,281a3b1,7700704,f98d4a6,408ee37",
+      "check_method": "ZERO art. Non-accumulating overlap (opaque draws + one layer alpha). Ring centroid not component, per towerRenderer own comment. Position took seven rounds because my pixel measurements were biased low by occlusion; his two-spark method made it measurable.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 11,
+      "priority_id": "s185-buttons",
+      "title": "Hover pop-out on arcade, codex and START MATCH",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "e7f35db",
+      "check_method": "reused attachButtonFeedback rather than a look-alike, so the click SOUND comes with it. A first patch matched BOTH bot-setup factories and was caught by asserting the match count, which is the only reason his minus/plus chips were not silently changed.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 12,
+      "priority_id": "s185-shape-queue",
+      "title": "Shape queue falls through in order",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "90cd002",
+      "check_method": "a SECOND function rather than an edit: the S161 preempt thrash bound needs a STABLE wanted, so only the picker falls through. Stable rank preserved by ranking the satisfiable sublist. B4 nearest-of-any kept with a regression hold.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 13,
+      "priority_id": "s185-lobby",
+      "title": "Lobby diagnostics hidden behind ?debug=1 (both strips)",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "90cd002",
+      "check_method": "hidden not deleted: it is the only in-game readout of relay health. BOTH strips, not only the host one he screenshotted. lobby-construction.spec.ts verified locally, LOBBY_E2E_EXIT=0, 8 passed.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 14,
+      "priority_id": "s185-canon",
+      "title": "R185-A/B/C/D pinned in SPARK_CANON + canon.test.ts",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "f5d8fe2",
+      "check_method": "four assertions including toBe(false) on the SUPERSEDED weld wording, so re-opening a closed question fails. canon.test.ts 22->26.",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
-    {
-      "session": "S184",
-      "tags": [
-        "mutation-testing",
-        "verification"
-      ],
-      "entry": "A GREEN SUITE IS NOT A PINNED FEATURE, AND THE CHEAPEST WAY TO KNOW IS TO BREAK THE CODE ON PURPOSE. A sweep that reverts one guard at a time and requires a captured RED found EIGHT guards in retaliation.ts that could be deleted with the whole file green — including both arms of the S155 deferral and the same-owner check. 18 tests became 42, and every one of the new ones exists because a mutation survived, not because someone thought of it."
-    },
-    {
-      "session": "S184",
-      "tags": [
-        "controlled-experiment",
-        "attribution"
-      ],
-      "entry": "AN AUDIT FINDING NEEDS A CONTROL ARM BEFORE IT IS A REGRESSION. Two lanes independently reported a HIGH: retaliation starves a melee unit under archer fire. Measured through the real host tick it was true — 980 damage becomes 230. But the THIRD arm (archer present, retaliation disabled) also read 980, which is what turned 'retaliation broke it' into 'retaliation causes it, and it is the owner's ruling doing what it says'. Without the middle arm I would have filed a bug and invented a fix for a rule he chose."
-    },
-    {
-      "session": "S184",
-      "tags": [
-        "fixture-quality",
-        "self-correction"
-      ],
-      "entry": "MY OWN NEW TEST WAS GREEN OVER THE LIVE BUG, THE SAME WAY S183's WAS. I wrote 'the no-churn guard prevents wind-up churn' from the docblock's claim; the audit then showed the guard is inert for almost the whole wind-up because the FSM nulls the field it compares. The fixture came from the comment, not from the sim. The fix was not to delete the test but to retitle it as the one-tick window it actually pins, and to retract the docblock at the docblock."
-    },
-    {
-      "session": "S184",
-      "tags": [
-        "method",
-        "audit-hygiene"
-      ],
-      "entry": "NEVER MUTATE THE TREE WHILE READ-ONLY AUDITORS ARE LIVE. A mutation sweep ran concurrently with six audit agents and one of them sampled a file mid-mutation; only its adversarial verifier caught it and re-checked against clean master. Parallel agents assume a stable tree, and a harness that edits files is not a read-only neighbour."
-    }
+    "P0 #s185-verify-before-ship #own-defect: I shipped a RED gating e2e lane and did not notice. The wall commit added two nodes to groundLayer and broke fog.spec.ts exact roll call, while typecheck, 5448 unit tests and the build were all green. No renderer runs under vitest, so the unit suite structurally cannot see a display-list change. Found only because a LATER feature made me read that spec. If a change touches a Pixi layer, run the e2e spec that censuses it BEFORE pushing.",
+    "P1 #s185-measure-dont-eyeball #occlusion-bias: the ground-zone position took SEVEN rounds because I kept decoding his screenshots for the decal visible extent and halving it to find a centre. The BUILDING OCCLUDES THE TOP of the ellipse, so visible pixels always skew the apparent centre downward. Every correction I derived was short, by up to 2.5x. His two-spark method (mark the current centre, mark the wanted centre, measure both against a fixed reference) removed the ambiguity instantly.",
+    "P2 #s185-read-the-sibling-renderer: three separate position bugs all came from re-deriving geometry a sibling renderer already computes. towerRenderer says in its own comment Centroid of the RING not of the component, and I used the component; it plants sprites at cy + sizePx*0.5 and I used the raw anchor. When drawing something that must LINE UP with an existing sprite, read that sprite placement code first.",
+    "P3 #s185-owner-overruled-me-correctly: I argued the castle should get no radar because three of its four stats are flat constants. He pointed out that NO unit is upgradeable either, so that argument kills the whole feature. The value is comparison BETWEEN things at a glance, not change over time. When an objection would generalise to killing the feature, the objection is wrong.",
+    "P4 #s185-assert-the-match-count: CRLF ate three multi-line patch anchors this session, each reporting success while changing nothing. One INVALIDATED a mutation run whose MUTATED_EXIT=0 I nearly read as guard-unpinned. Every patch now asserts its match count first: a patch that silently matches zero is indistinguishable from one that worked.",
+    "P5 #s185-research-numbers-need-remeasuring: two load-bearing figures from the research were wrong. The stink tower hit box was quoted from frame 0 of twelve (152px centred; actually 185px and 13.5px off-centre), and RANGE was called degenerate when it spreads 35-220 and cleanly separates ranged from melee. Re-measure anything a fix will be built on.",
+    "SESSION #meta: 21 commits, 5398 -> 5465 tests, every gate read from a captured exit code. Owner-driven rather than PDR-driven. The parallel-worktree split was planned and then deliberately NOT used: at 94% weekly he asked for saving points, and sequential commit-and-push per item delivered 14 items where eight agent worktrees would have risked losing everything in flight."
   ],
   "real_context_tokens_at_close": null,
-  "analyze": {
-    "session": "S184",
-    "what_worked": [
-      "MUTATION TESTING AS THE PRIMARY CHECK. Reverting each guard and requiring a captured RED found 8 unpinned guards that reading the code did not. It is cheap, mechanical, and it graded MY OWN new tests as well as the branch's - two of the six tests I wrote first were caught by it before any agent saw them.",
-      "SIX AUDIT LANES AS TWO INDEPENDENT RUNS (S161/S183 rule). Both rounds completed, 0 agent errors. The verifiers KILLED 5 of 14 findings, which is the health signal S183 said to watch: a verify stage that never rejects anything has not been shown to work.",
-      "THE THREE-ARM CONTROL. Two lanes independently reported a HIGH regression. The control arm (archer present, retaliation disabled) read IDENTICAL to the baseline, which turned 'retaliation broke this' into 'retaliation causes this and it is the ruling'. Without it I would have invented a fix for a rule the owner chose.",
-      "PUTTING THE CONSTRAINT TO HIM, NOT THE OPTIONS. He answered a measured table in one word and the answer flipped the canon entry from OPEN to a do-not-fix ruling."
-    ],
-    "what_did_not": [
-      "I RAN THE MUTATION SWEEP WHILE SIX READ-ONLY AUDITORS WERE LIVE. One agent sampled a mutated file; only its adversarial verifier caught it and re-checked against clean master. The lanes must be sequenced against any harness that edits the tree.",
-      "I WROTE A TEST FROM A DOCBLOCK INSTEAD OF FROM THE SIM - the exact S183 lesson, repeated by me one session later. 'The no-churn guard prevents churn' was green over a live bug because the guard is inert for almost the whole wind-up.",
-      "I USED `file` INSTEAD OF `path` IN THE VERIFICATION BINDINGS, which my own memory file states correctly. Nine hard-fails for a key I had written down and not read.",
-      "I READ A VERIFIER'S EXIT CODE THROUGH `| tail` ONCE (VERIFY_EXIT=0 while the script said exit 1) - the project's most-repeated trap, caught only because the printed text disagreed with the code."
-    ],
-    "calibration": "Predicted the branch needed tests and a merge. It needed those plus three undiscovered defects, and the audit's two HIGHs were both real. Estimating 'the dead agent finished the fixes' was right about the SOURCE and wrong about the EVIDENCE - the source edits were complete and nothing pinned them."
-  },
+  "analyze": "see reflexion_entries_to_archive",
   "analyze_completed": true,
   "budget_total": 1000000,
   "totals": {
@@ -401,7 +343,7 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "f70af23ec360",
+  "checkpoint_commit": "408ee37",
   "check_completed": true,
   "s179": {
     "session_id": "S179",
@@ -807,7 +749,7 @@
     "HIS OPEN QUESTION, ANSWERED BUT NOT DECIDED: should SPARK go on Steam now? My recommendation was NO to Steam yet (a permanent review score against a game where four systems were visibly lying last night) but YES to shipping publicly at spark-online.space for feedback with no score attached. The signal to wait for: an evening of play that produces only balance complaints and wishes, not broken systems. His call.",
     "S184 - THE RETALIATION BRANCH AND ITS WORKTREE ARE NOW FULLY MERGED AND CAN BE RETIRED. P3 landed on master (28b5114) and deployed, so `s183/retaliation` and .claude/worktrees/agent-aef0c46b9341d23ab hold nothing unmerged. Left in place deliberately: removing a worktree directory is a destructive command and needs his ALLOW-DESTRUCTIVE-CONFIRMED token, which the seven S183 orphan dirs under .claude/worktrees/ also still need. Clean all of them in ONE pass rather than asking twice."
   ],
-  "real_context_note": "TRUSTWORTHY READING despite statusline_dead. real-context-tokens.py resolved via discovery_source=cli_session_id with discovery_trusted=true, so no user paste was needed and none was requested. 776,075 / 1,000,000 = 77.61% ORANGE, well under the 900K stop threshold — this session closed because the owner asked for a handoff, NOT because of budget. 932 messages, all Opus (ALWAYS-STRONGEST). Output tokens 896,169.",
+  "real_context_note": "statusline dead all session (pid stale ~10,094,000s) so token readings were unavailable; STEP 2.5.A paste fallback offered at close",
   "p2_targeting_never_approved": {
     "id": 2,
     "name": "Targeting fix — restore a connector target for the 21 broken types",

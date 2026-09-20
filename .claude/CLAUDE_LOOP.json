@@ -5,5 +5,5 @@
   "budget": null,
   "on_budget_exceeded": "fail_closed_stop",
   "status": "closed",
-  "last_result": "S184 closed: S183's P3 carry-forward finished, audited, ruled (R184-A) and shipped. verify-deploy 4/4."
+  "last_result": "S185 closed: 14 owner-driven items shipped and deployed (verify-deploy 4/4). Three Workflow research runs completed, 34 agents, 0 errors. No loop left open."
 }

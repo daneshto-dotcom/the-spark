@@ -1,3 +1,19 @@
+## S185 (2026-09-20) - an owner-driven playtest batch: twelve findings from a game with his brother, then racial walls, a stat radar, button polish and per-race ground zones added live. Fourteen items shipped in sequence rather than in the eight parallel worktrees we had planned, because at 94% weekly he asked for saving points. I also broke the gating e2e lane and did not notice for three commits.
+
+- S185 - P0 #s185-verify-before-ship #own-defect: I shipped a RED gating e2e lane and did not notice. The wall commit added two nodes to groundLayer and broke fog.spec.ts exact roll call, while typecheck, 5448 unit tests and the build were all green. No renderer runs under vitest, so the unit suite structurally cannot see a display-list change. Found only because a LATER feature made me read that spec. If a change touches a Pixi layer, run the e2e spec that censuses it BEFORE pushing.
+
+- S185 - P1 #s185-measure-dont-eyeball #occlusion-bias: the ground-zone position took SEVEN rounds because I kept decoding his screenshots for the decal visible extent and halving it to find a centre. The BUILDING OCCLUDES THE TOP of the ellipse, so visible pixels always skew the apparent centre downward. Every correction I derived was short, by up to 2.5x. His two-spark method (mark the current centre, mark the wanted centre, measure both against a fixed reference) removed the ambiguity instantly.
+
+- S185 - P2 #s185-read-the-sibling-renderer: three separate position bugs all came from re-deriving geometry a sibling renderer already computes. towerRenderer says in its own comment Centroid of the RING not of the component, and I used the component; it plants sprites at cy + sizePx*0.5 and I used the raw anchor. When drawing something that must LINE UP with an existing sprite, read that sprite placement code first.
+
+- S185 - P3 #s185-owner-overruled-me-correctly: I argued the castle should get no radar because three of its four stats are flat constants. He pointed out that NO unit is upgradeable either, so that argument kills the whole feature. The value is comparison BETWEEN things at a glance, not change over time. When an objection would generalise to killing the feature, the objection is wrong.
+
+- S185 - P4 #s185-assert-the-match-count: CRLF ate three multi-line patch anchors this session, each reporting success while changing nothing. One INVALIDATED a mutation run whose MUTATED_EXIT=0 I nearly read as guard-unpinned. Every patch now asserts its match count first: a patch that silently matches zero is indistinguishable from one that worked.
+
+- S185 - P5 #s185-research-numbers-need-remeasuring: two load-bearing figures from the research were wrong. The stink tower hit box was quoted from frame 0 of twelve (152px centred; actually 185px and 13.5px off-centre), and RANGE was called degenerate when it spreads 35-220 and cleanly separates ranged from melee. Re-measure anything a fix will be built on.
+
+- S185 - SESSION #meta: 21 commits, 5398 -> 5465 tests, every gate read from a captured exit code. Owner-driven rather than PDR-driven. The parallel-worktree split was planned and then deliberately NOT used: at 94% weekly he asked for saving points, and sequential commit-and-push per item delivered 14 items where eight agent worktrees would have risked losing everything in flight.
+
 ## S184 (2026-09-19) - S183's dead-agent carry-forward finished, audited in six lanes, and shipped. Two HIGHs and a MEDIUM found and fixed, one measured consequence put to the owner and ruled on (R184-A), and the canon finally carries the mechanic. 18 tests became 42, every one of them earned by a mutation the suite did not catch.
 
 - S184 - The S183 fix agent died leaving its three source edits in the worktree, typecheck-clean and green. I nearly treated that as 'the fixes are done'. Nothing pinned them: every existing fixture put the lower id nearer as well, so all of them passed under BOTH the old lowest-id rule and the new nearest-then-id one and none was evidence for the one that shipped. A mutation sweep - revert one guard, require a captured RED, restore byte-identical - then found EIGHT more guards that could be deleted with the whole file green, including both arms of the S155 deferral and the same-owner check. Source complete is not feature pinned, and the cheapest way to know the difference is to break the code on purpose. #a-green-suite-is-not-a-pinned-feature
@@ -81,27 +97,3 @@
 - S181 - I pushed the castle merge WITHOUT the gating e2e lane and CI caught a regression that made the panel impossible to close; I pushed the targeting fix WITH it and it was clean. 4.3 minutes against a defect he would hit in his first minute. Typecheck, 4,700 unit tests, the build and a screenshot all passed on a broken GESTURE. #s181-gates #run-the-click-lane-before-pushing-geometry
 
 - S181 - THREE TIMES this session a heredoc or a python-injected string literal broke - a TS regex escape, an apostrophe in prose, a literal newline inside a JS string. Write source and long prose with the file tool; keep shell heredocs for short mechanical commands. It cost four retries that produced nothing. #s181-shell #write-the-file-dont-quote-it
-
-## S180 (2026-09-16/17) - he approved a character sheet, played it within the minute, and found it dead: a patch had silently not applied while every gate stayed green. Also: the keep went onto the one stat ladder, and a canonical doc now exists BECAUSE he had to repeat archived facts for the third time.
-
-- S180 — HALF A RULE IS WORSE THAN NONE, AND S179 DID IT AGAIN. The lone-shape ruling had two halves: stop targeting connected shapes, AND target the connectors instead. Only the first half shipped, so 21 of 24 unit types lost the ability to damage a building at all and marched on the castle instead. The owner found it by playing. #half-a-rule #ship-both-halves
-
-- S180 — A DEAD AGENT RUN IS NOT A COMPLETED LANE (S161 rule, applied). The org spend limit killed 5 targeting verifiers and the character-sheet design synthesis mid-run. Both were redone BY HAND rather than recorded as unavailable. The hand pass is what found that damageConnector already cascades overkill, which changed the recommendation. #empirical-refutes-plausible-criticals
-
-- S180 — THE STALE DOC IS MORE DANGEROUS THAN NO DOC. UNIT_STAT_TABLE.md lists Vlad at 90 pool; constants.ts:1666 says 260. A character sheet built from the repo own stat document would have printed a wrong number for every boss. Read numbers from the code at runtime, never from a generated table. #raw-code-not-abbreviations
-
-- S180 — FOUR BACKLOG ITEMS WERE ALREADY DONE: the atlas debt (guard green, 31 clean, CI green), the Orc Warlord, the four boss numbers, the per-connector pool. Presenting a stale backlog as live scope is how the owner time gets wasted; verify every line before it reaches him. #policy-not-instance
-
-- S180 — AN EXTERNAL REVIEWER CONFIDENT EXECUTION CLAIM STILL NEEDS THE TREE. GROK asserted live enemy health demands per-frame polling and a protocol bump; the mirrored ehp the health bars already draw refutes it outright. GEMINI overkill-is-wasted concern was likewise refuted by damageConnector own spend-not-zero comment. #check-reviewer-fabricated-execution-claims
-
-- S180 — THE BEST DESIGN CAME FROM THE SEAT TOLD TO DISAGREE. Gemini was prompted to stress-test Grok rather than agree, and produced a third option (aim at the building, land damage on the connectors) neither I nor Grok had. Adversarial framing beat consensus framing. #adversarial-beats-consensus
-
-- S180 - GREEN GATES ARE NOT PROOF A FEATURE IS WIRED. A patch adding the sheet to the own-building click silently failed to apply. typecheck, 4588 tests, the build, the bundle charter and the deploy were ALL green, because nothing covers the pointer path. The owner found it in the first minute of play. The fix is a source-text tripwire asserting each call site exists - the grep I should have run by hand. #verify-the-wire-not-just-the-gates
-
-- S180 - A PATCH THAT DOES NOT APPLY IS THE SAME BUG TWICE. The identical line-ending mismatch dropped a setter earlier in the same session, and I caught THAT one only because typecheck failed. When the dropped line sits in an untested path, nothing tells you. Every patch now ends with a grep for the line it claims to have added. #verify-the-wire-not-just-the-gates
-
-- S180 - I SHIPPED A HALF-FEATURE AND CALLED IT DONE. The card had no stats on buildings, no castle at all and no tower stats, and I told him to go play it. Read your own code for what it OMITS before announcing completion: an empty stats array was sitting there in plain sight. #read-what-it-omits
-
-- S180 - THE OWNER WAS RIGHT THAT SOMETHING WAS NEW AND WRONG ABOUT WHICH. He believed I had added the SOUL feed chip. git settled it in one command: structurePanel.ts last modified 2026-09-07. PROVE PROVENANCE WITH GIT, never with memory - it protects him from a wrong fix and me from a wrong denial. #prove-it-with-git
-
-- S180 - THE THIRD AGENT RUN THIS SESSION DIED TO THE SAME SPEND LIMIT, and the S161 rule paid for the third time: the audit lanes were hand-run and all three passed. The hand pass also found what no agent had - that damageConnector already cascades overkill, which made the targeting recommendation far cheaper than either option I was about to put to him. #a-dead-agent-run-is-not-a-verdict
