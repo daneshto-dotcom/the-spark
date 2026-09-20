@@ -443,7 +443,12 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       .toEqual([
         '_Container', // 0 — zoneBackgroundRenderer.layer (S165 / R137) — the per-race zone art. It
                       //     forces addChildAt(..., 0), so within the ground it is under the walls.
-        '_Container', // 1 — wallRenderer (S149 P3) — the zone border walls. S185: a Container
+        '_Graphics',  // 1 — groundDecalRenderer (S185) — the per-race ground stain under every
+                      //     built structure. Owner: *"it kinda looks like it's sticking out like
+                      //     a sore thumb."* ⭐ A DELIBERATE THIRD ENTRY: ground marks ARE ground
+                      //     by any reading of this test's own sentence, and it sits UNDER the
+                      //     walls so a border still reads over a tower's stain.
+        '_Container', // 2 — wallRenderer (S149 P3) — the zone border walls. S185: a Container
                       //     rather than a Graphics since the walls gained race ART, which needs
                       //     sprites beside the fallback strokes. It is still ONE entry because it
                       //     is still one concept — that is the property this roll call defends.

@@ -179,6 +179,7 @@ import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { TowerRenderer } from './render/towerRenderer.ts';
+import { GroundDecalRenderer } from './render/groundDecalRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
 import { CharacterSheet } from './render/characterSheet.ts';
@@ -708,6 +709,13 @@ async function bootstrap(): Promise<void> {
    * The S169 handoff called the backdrop "the ONLY defect" and never noticed the walls went with it.
    */
   const zoneBackgroundRenderer = new ZoneBackgroundRenderer(app, groundLayer);
+  /*
+   * ⭐ S185 — the per-race ground stain under every built structure, BETWEEN the backdrop and the
+   * walls. Owner: *"it kinda looks like it's sticking out like a sore thumb."* Construction order
+   * is what places it: the zone backdrop forces itself to index 0, so building this immediately
+   * before the walls puts ground stains under borders, which is the right reading order.
+   */
+  const groundDecalRenderer = new GroundDecalRenderer(app, groundLayer);
   const wallRenderer = new WallRenderer(app, groundLayer);
   // ⭐ S149 P4 (R36) — THE FOOTER BAND. On `app.stage`, NOT `aboveFogLayer`: it is UI chrome
   // rather than a board object, so it must draw over everything including the fog. Contrast the
@@ -3994,6 +4002,7 @@ Network routes: ${v.detail}`;
     // creatures (so chewers/Voltkin draw on top of the aura). Cheap no-op when
     // world.creatureSpawners is empty.
     // S149 P3 — border walls first, so everything else draws on top of them.
+    groundDecalRenderer.sync(world);
     wallRenderer.sync(world);
     // ⭐ S149 P5 — mirror the held tower into the band each frame so the open card shows as
     // armed. Polled rather than pushed at the arm/disarm sites: there are FOUR ways to let a
