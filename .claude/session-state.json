@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 4307,
+  "tool_calls_session_total": 4313,
   "session_id": "S186",
   "session_kind": "owner-driven: new dynamic-scoring spec + two carried playtest items, pre-approved for autonomous execution",
   "session_start": "2026-09-22",
   "prior_session_note": "S185 closed COMPLETED, 14/14 shipped. #5 and #11 carried forward and now approved.",
   "prior_session_archive": ".claude/plans-archive/2026-09-20_S185_PLAN.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "plan_file": ".claude/plans/S186_PLAN.md",
-  "session_status": "S186 IN-PROGRESS",
+  "session_status": "S186 IN-PROGRESS - 4/4 priorities complete, handoff pending",
   "protocol_version": 47,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -151,12 +151,97 @@
       "unlock_source": "user",
       "id": 1,
       "priority_id": "S186-P1",
-      "status": "in_progress",
+      "status": "completed",
       "title": "Dynamic win score: wave-banded 2500/5000/10000/20000/50000, derived from world.waveNumber",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": []
+      "check_completed": true,
+      "checkpoint_commit": "fbe559b",
+      "check_method": "Win bar is now a pure function of the already-hashed world.waveNumber, so NO new wire field, NO four-sites work and NO protocol bump (stays 47). Bands stored as MULTIPLIERS of PHASE_1_WIN_SCORE so the E2E readTestWinScore seam still scales the whole ladder. Census of all 6 production consumers done MECHANICALLY by grep then classified: win gate (gameState) + 3 HUD strings + hunter MUST FOLLOW; leader-decay is dead code (LEADER_DECAY_ENABLED false); CASTLE_MAX_HP stays pinned. dynamicWinScore.test.ts (17 tests) drives the REAL gate at wave 5 and wave 6 with the SAME 3000 banked and asserts WIN then NOT-WIN, which is the owner anti-coast property. MUTATION TESTED: pinning the gate back to winScoreForWave(1) turned exactly those 2 tests RED, then restored byte-identical. FOUR VERIFIER-FOUND DEFECTS FIXED IN THE SAME COMMIT: (1) hunterTriggerScoreForWave read window PER TICK via the E2E seam; the ?worker=1 Web Worker has no window, so host and worker would compute different triggers and diverge on a hashed value, invisible to vitest which shares one jsdom window; hoisted to module init. (2) hostTick.differential.test.ts carries a hand-written oracle whose hunter gate still read the static constant; the two agreed only at wave 1, so any differential run crossing wave 5 had an oracle disagreeing with the code it polices, green the whole time. (3) hudLayout WIDEST_ROW/WIDEST_TIER no longer bounded (tier reaches 100 at the top band); now DERIVED from the bands, and the HUD verified to clear at 50000 with the wider bound. (4) three prose comments claiming waveNumber has exactly ONE consumer went false; corrected in place. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (5487/330), BUILD_EXIT=0, GATING_EXIT=0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const WIN_SCORE_BANDS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export function winScoreForWave"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "const HUNTER_TRIGGER_OVERRIDE = readTestHunterTriggerScore();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameState.ts",
+          "needle": ">= winScoreForWave(world.waveNumber)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/gameState.ts",
+          "needle": ">= PHASE_1_WIN_SCORE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "hunterTriggerScoreForWave(world.waveNumber)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "hunterTriggerScoreForWave(world.waveNumber)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "HUNTER_TRIGGER_SCORE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "winScoreForWave(world.waveNumber)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/ui.ts",
+          "needle": "/${PHASE_1_WIN_SCORE}"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/ui.ts",
+          "pattern": "winScoreForWave\\(",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/dynamicWinScore.test.ts",
+          "needle": "does NOT win at wave 6"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/dynamicWinScore.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 14
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "THE WIN BAR RISES WITH THE WAVE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "prints the win-score ladder the owner dictated"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 47"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -164,12 +249,68 @@
       "unlock_source": "user",
       "id": 2,
       "priority_id": "S186-P2",
-      "status": "pending",
-      "title": "Primitive spawn ramp: significant step-ups after waves 5/10/15/20, layered on the S157 linear ramp",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": []
+      "status": "completed",
+      "title": "Primitive spawn ramp: band step-ups after waves 5/10/15/20, layered on the S157 linear ramp",
+      "check_completed": true,
+      "checkpoint_commit": "31b01ce",
+      "check_method": "MEASURED THROUGH stepPhysics, NOT DERIVED. spawnEconomy.measure.test.ts drives the real spawn path including the BUILD-only dispatch gate, the TTL reap and the cap. Shapes per BUILD: wave 5 = 184 (was 184, band 1 factor is 1 so S157 is byte-unchanged), wave 6 = 323 (was 202), wave 10 = 463 (was 284), wave 15 = 874 (was 385), wave 20 = 1399 (was 486), wave 25 = 2009 (was 587). TWO ANALYSES DISAGREED ON THE CAUSE AND THE LOOP SETTLED IT: peak standing pool at wave 6-7 was 18-19 against a cap of 24, so FREE_SPARK_SOFT_CAP was NOT binding in his regime and the owner hypothesis (the faucet) was correct. The cap still had to move with the rate or it would become the throttle its own docblock says it must not be; freeSparkSoftCapForWave returns the Little-Law idle steady state, floored at 24 (wave 1 unchanged) and ceilinged at 96, a PERF bound on the display list and the vortex O(sparks x anchors) scan, deliberately 4x rather than the order of magnitude that note says needs a revisit. It bounds the POOL, never the arrival RATE, so S157 dont-cap is untouched and waves.test.ts now asserts unboundedness as a PROPERTY out to wave 500. DETERMINISM HAZARD FIXED: enforceFreeSparkCap sorted eviction candidates by createdTick alone; spawner.tick mints in a while loop so same-tick births exist and the tie fell through to Array.sort stability, i.e. Map INSERTION ORDER. Latent before, routine at the band-5 faucet where the mean interval is under two ticks. Now tie-broken by id. SECOND CAUSE FOUND AND REPORTED NOT TAKEN: every BUILD from wave 2 opens onto a COMPLETELY EMPTY quarry (dispatch is BUILD-gated but reapExpiredFreeSparks is unconditional, FIGHT 3600 ticks against a 600-tick TTL); measured pool at FIGHT-end is 0 at every wave tested. MUTATION TESTED: neutralising the band factor to 1, the exact no-op an earlier proposal would have shipped green, turns FOUR guards red including the measured one. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (5495/331), BUILD_EXIT=0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const WAVE_SPAWN_BANDS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export function waveSpawnBandFactor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "* waveSpawnBandFactor(waveNumber);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export function freeSparkSoftCapForWave"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const FREE_SPARK_POOL_CEILING = 96;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "const cap = freeSparkSoftCapForWave(world.waveNumber);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "(a.id as number) - (b.id as number)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/spawnEconomy.measure.test.ts",
+          "needle": "THE QUARRY IS EMPTY AT EVERY BUILD WHISTLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/waves.test.ts",
+          "needle": "the step-up lands on HIS four boundaries"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "ONE SHARED FAUCET"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "the quarry bands land on the owner"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -177,12 +318,57 @@
       "unlock_source": "user",
       "id": 3,
       "priority_id": "S186-P3",
-      "status": "pending",
-      "title": "#11 the stuck carried shape - match-long soft-lock; ruled: returns to BANK",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": []
+      "status": "completed",
+      "title": "#11 the stuck carried shape: match-long soft-lock; owner ruling is that it returns to the BANK",
+      "check_completed": true,
+      "checkpoint_commit": "baa19db",
+      "check_method": "bankCarriedSparksAtPhaseEdge is called from hostTick INSIDE the flipped guard but OUTSIDE the matchPhase===BUILD arm, so BOTH crossings are covered. The arm that existed was FIGHT-to-BUILD while the whistle he reported is BUILD-to-FIGHT, which had no arm at all, which is exactly why nothing caught it. The owner ruling is the BANK, not the ground: a loose Free spark is reaped by FREE_SPARK_TTL_TICKS ten seconds later. AND BANKING IS WHY THIS NEEDS NO CLIENT-SIDE COMPANION FIX: an adversarial verifier caught that a host-side DROP would leave the spark Free, mine would recompute TRUE, and the client would go on lerping it to the cursor (and enforceSpawnerBounds would rim-snap it away). Banking DELETES the spark from world.freeSparks, the very map mine is computed from, so the stale gesture falls through the existing not-mine branch and returns to Idle; stuckCarriedShape.test.ts pins that self-heal explicitly. applyDropSpark is now TOTAL: it used to throw BEFORE fsmDrop, so the one path that could rescue a stuck player failed by leaving them stuck, and on the solo/host path main.ts dispatches un-try/caught so it killed the authoritative tick, while the joiner and worker paths swallowed it in empty catch blocks. CarryViolation is unchanged and still throws. NO PROTOCOL BUMP: no new action and no new field; castleBanks, freeSparks and Player.kind are already synced and hashed. MUTATION TESTED: removing the edge call turns both real-host-tick tests RED, restored byte-identical. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (5503/332), BUILD_EXIT=0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/sparkLifecycle.ts",
+          "needle": "export function bankCarriedSparksAtPhaseEdge"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/sparkLifecycle.ts",
+          "needle": "bankAdd(world.castleBanks, seat, spark.type);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/sparkLifecycle.ts",
+          "pattern": "^\\s*if \\(spark === undefined\\) throw new Error\\(.carried",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/sparkLifecycle.ts",
+          "needle": "if (spark === undefined) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "bankCarriedSparksAtPhaseEdge(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stuckCarriedShape.test.ts",
+          "needle": "banking DELETES the spark"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/stuckCarriedShape.test.ts",
+          "pattern": "^\\s*it\\(",
+          "op": ">=",
+          "value": 8
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 47"
+        }
+      ]
     },
     {
       "pdr_approved": true,
@@ -190,12 +376,48 @@
       "unlock_source": "user",
       "id": 4,
       "priority_id": "S186-P4",
-      "status": "pending",
-      "title": "#5 the dead bottom band of the build area - off-screen rule, not the menu",
-      "check_completed": false,
-      "checkpoint_commit": null,
-      "check_method": null,
-      "verification": []
+      "status": "completed",
+      "title": "#5 the dead bottom band: EDGE_PAD freed, and the footer named as the real blocker",
+      "check_completed": true,
+      "checkpoint_commit": "38ba9e0",
+      "check_method": "EDGE_PAD 8 to 0 gives 8px back on ALL FOUR sides for all 19 recipes. The old 8 was an aesthetic borrowed from a panel by its own comment, not a safety margin; FOOTPRINT_MARGIN (12) is untouched so a node at the boundary is still drawn in full. THE BOTTOM IS NOT SPECIAL: the rule is symmetrical and leaves the same band at the TOP and on both SIDES; it only reads as a bottom problem because FOOTER_TOP_Y is 996. SAFETY VERIFIED AGAINST SHIPPED CONSTANTS RATHER THAN ASSUMED: a creature clamps at CANVAS_HEIGHT minus WORLD_EDGE_MARGIN = 1040 and goblinMelee has a 35px arm, so 1075 is the lowest strikeable y; at pad 0 a laser turret lowest NODE is 1068, inside the arm with 7px to spare. A building dies only through its connectors, so a tower below that line would be invulnerable. buildableEdges.test.ts asserts it for EVERY recipe, derived from the constants. LATENT TEST BUG EXPOSED AND FIXED: the blueprintLegality fifth edge probe used blueprintRadius (the circumradius) while the rule uses blueprintExtent().minDx; at pad 8 it landed outside the legal area anyway so the mismatch never showed, and at pad 0 it stopped refusing for NINE of nineteen recipes. WHAT I DID NOT DO AND WHY: the footer occupies the bottom 84px and its opaque surfaces swallow clicks on purpose (s182UiSurfaceGuards records that planting under an invisible plate was reported THREE separate times), so geometry alone cannot give him that band and the open question is the FOOTER, not EDGE_PAD. Gates from captured $?: TYPECHECK_EXIT=0, VITEST_EXIT=0 (5508/333), BUILD_EXIT=0, RACES_EXIT=0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "const EDGE_PAD = 0;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "const EDGE_PAD = 8;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.test.ts",
+          "needle": "const minDx = blueprintExtent(id).minDx;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildableEdges.test.ts",
+          "needle": "inside a ground attacker"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/placeFromFree.ts",
+          "needle": "landing its centre at x"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "THE OPEN QUESTION IS THE FOOTER"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "the edge rule: symmetrical"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [],

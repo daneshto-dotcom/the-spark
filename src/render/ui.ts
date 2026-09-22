@@ -782,8 +782,11 @@ export class HUD {
   /**
    * V6-0.2 (S129) — make the score-tier crossing FELT, not merely drawn.
    *
-   * `SCORE_TIER_STEP = 500` against `PHASE_1_WIN_SCORE = 1500` gives the match an exact
-   * three-act structure with pulses at 500 and 1000. The v0.6 diagnosis is that nobody can
+   * ⚠ S186 — THIS PARAGRAPH SAID "`PHASE_1_WIN_SCORE = 1500` … an exact three-act structure with
+   * pulses at 500 and 1000", and BOTH halves were stale: the target went 1500→2500 in S177 (five
+   * acts, not three), and in S186 it stopped being a constant at all — `winScoreForWave` bands it
+   * 2500→50,000, so the top band is 100 tier pulses. The tier ladder is still exact at every band
+   * because each one is a whole multiple of `SCORE_TIER_STEP`; `dynamicWinScore.test.ts` pins that. The v0.6 diagnosis is that nobody can
    * feel it. The pulse itself is not missing — `drawScoreTier` renders a ring + bloom for 48
    * ticks (0.8 s) — but it draws in WORLD space at the placement position, on an open and
    * partly fogged canvas, so it reads as "some effect happened" rather than "I crossed a
@@ -1148,7 +1151,10 @@ function drawPlayerCharges(
     // S50 P3 (Sym E occlusion polish) — moved from x=210 to x=260 to fully
     // clear the "RED  50 / 50" score text. Council Battle Ledger C4 over
     // dynamic getBounds (rejected: async Pixi text-layout pitfall + no
-    // benefit at PHASE_1_WIN_SCORE=50 max 2-digit). Static numeric chosen
+    // benefit at the then-2-digit score). ⚠ S186 — the figure here used to read
+    // "PHASE_1_WIN_SCORE=50", which has been wrong for many retunes and is now not even a single
+    // number: the bar bands up to 50,000, so the row is 5 digits. `hudLayout.test.ts` bounds the
+    // real width from the shipped bands and confirms 42 px of clearance remains. Static numeric chosen
     // for traceability in git blame. Pre-S46: x=140 (collided past 2-digit).
     // S46: x=210 (still tight per user feedback across S46/S47/S48/S49).
     // S50: x=260 (50px additional headroom — score text max ends x≈132 at
