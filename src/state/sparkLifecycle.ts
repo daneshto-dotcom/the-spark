@@ -23,6 +23,7 @@ import {
   POOP_PICKUP_ARRIVAL_RADIUS,
   REASONABLE_PICKUP_REACH,
 } from '../constants.ts';
+import { bankAdd } from './castleBank.ts';
 import { isCruiserDebuffed } from './gameMode.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
@@ -207,6 +208,54 @@ function isPosShape(pos: unknown): pos is Vec2 {
     && typeof p.y === 'number' && Number.isFinite(p.y);
 }
 
+/**
+ * ⭐⭐ S186 (owner playtest #11) — **A SHAPE STILL IN HAND AT A PHASE EDGE GOES TO THE BANK.**
+ *
+ * He was mid-drag with a shape pulled out of his castle when the FIGHT whistle blew. The shape stayed
+ * glued to his cursor **for the rest of the match**, and every further free-form pickup was refused
+ * as though he were still holding something — while towers, upgrades and the castle panel all kept
+ * working. Nothing in the tree could ever clear it: the complete set of `DROP_SPARK` producers on the
+ * human path is gated behind a LOCAL pointer gesture, so one lost, skipped or refused release was
+ * permanent, and `applyControlsPerSubstep` then *pinned the spark to the cursor every substep* —
+ * rendering the anomaly forever instead of recovering from it.
+ *
+ * ⭐ **HIS RULING: THE BANK, NOT THE GROUND.** Dropping it "back at the centre" loses it — a loose
+ * Free spark is reaped by `FREE_SPARK_TTL_TICKS` ten seconds later unless a gatherer happens to take
+ * it. The bank is where a shape pulled out of the castle came from, so returning it there is the
+ * outcome that costs him nothing.
+ *
+ * ⭐⭐ **AND BANKING IS WHY THIS NEEDS NO CLIENT-SIDE COMPANION FIX, WHICH DROPPING WOULD HAVE.**
+ * The local `ControlState` is NOT world state, so the host cannot clear it. But banking DELETES the
+ * spark from `world.freeSparks`, and `applyControlsPerSubstep` recomputes `mine` from exactly that
+ * map — a gesture whose spark has vanished fails `mine` and returns `{ kind: 'Idle' }` through the
+ * branch that is already there. A host-side *drop* would have left the spark Free and `mine` TRUE,
+ * so the client would have kept lerping it to the cursor. The recovery closes itself.
+ *
+ * ⛔ NO PROTOCOL BUMP: no new action, no new field. `castleBanks`, `freeSparks` and `Player.kind`
+ * are all already synced and hashed, so the rescue rides the ordinary snapshot.
+ *
+ * ⚠ Iterated in seat order rather than `Map` order. Nothing here reads another seat, so the result
+ * is order-independent either way — but this file is in the sim, and the project rule is that a sweep
+ * states its order rather than inheriting insertion order by accident.
+ */
+export function bankCarriedSparksAtPhaseEdge(world: World): void {
+  const seats = [...world.players.keys()].sort(
+    (a, b) => (a as unknown as number) - (b as unknown as number),
+  );
+  for (const seat of seats) {
+    const player = world.players.get(seat);
+    if (player === undefined || player.kind !== 'Carrying') continue;
+    const spark = world.freeSparks.get(player.carriedSparkId);
+    if (spark !== undefined) {
+      // Deliberately NOT `consumeGathererOrder` — this is a rescue, not a delivery, and popping an
+      // order the player never filled would silently spend their queue.
+      bankAdd(world.castleBanks, seat, spark.type);
+      world.freeSparks.delete(spark.id);
+    }
+    world.players.set(seat, fsmDrop(player));
+  }
+}
+
 /** Player drops the carried spark at a position. Throws CarryViolation if
  *  player isn't Carrying (player owns their own carry slot — not a race).
  *  Pre-pos snap to drop position kills any inherited carry-frame velocity.
@@ -215,7 +264,27 @@ export function applyDropSpark(world: World, action: DropSparkAction): World {
   const player = requirePlayer(world, action.playerId);
   if (player.kind !== 'Carrying') throw new CarryViolation('not carrying');
   const spark = world.freeSparks.get(player.carriedSparkId);
-  if (spark === undefined) throw new Error(`carried spark missing`);
+  /*
+   * ⛔ S186 — A MISSING SPARK CLEARS THE CARRY INSTEAD OF THROWING, AND THAT IS A ROBUSTNESS FIX,
+   * NOT A STYLE ONE.
+   *
+   * This used to `throw new Error('carried spark missing')` BEFORE `fsmDrop`, so the one path that
+   * could rescue a player from a stuck carry was also the path most likely to fail — and it failed
+   * by leaving them Carrying. Worse, on the solo/host path `main.ts` dispatches UN-try/caught, so the
+   * throw killed the authoritative tick outright; on the joiner and worker paths it landed in empty
+   * `catch {}` blocks and vanished silently, and `hunterLifecycle` catches it too. Four consumers,
+   * three of which swallow it.
+   *
+   * Clearing `Carrying` is strictly the safer outcome: the player's carry slot is their own (this is
+   * not a race), and a world that says you hold a spark which does not exist is already the defect.
+   * ⚠ The `CarryViolation` above is UNCHANGED and still throws — it is pinned by
+   * `sparkLifecycle.test.ts` and `player.test.ts`, and "drop while not carrying" is a caller bug,
+   * where "the spark is gone" is a world-state anomaly to recover from.
+   */
+  if (spark === undefined) {
+    world.players.set(player.id, fsmDrop(player));
+    return world;
+  }
   spark.state = { kind: 'Free' };
   spark.pos.x = action.pos.x;
   spark.pos.y = action.pos.y;

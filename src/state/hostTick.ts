@@ -83,6 +83,7 @@ import { underChewerCaps, sweepDeferredDeaths } from './creatures/creatureLifecy
 // S158 P6 — the landed stink bag's damage beat + expiry sweep (CF-S157-b).
 import { stinkCloudTick, sweepExpiredStinkClouds } from './defenders/stinkCloud.ts';
 import { applyRadialDamage } from './damage.ts';
+import { bankCarriedSparksAtPhaseEdge } from './sparkLifecycle.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
 import { componentOf } from '../game/structure.ts';
 import { razePrimitives } from './razePrimitives.ts';
@@ -399,6 +400,18 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // entirely, even though a full FIGHT elapsed. Both actions are idempotent, so firing them once
     // per boundary-crossing tick is correct and re-firing is harmless.
     if (flipped) {
+      /*
+       * ⭐⭐ S186 (owner playtest #11) — NOBODY CROSSES A WHISTLE STILL HOLDING A SHAPE.
+       *
+       * He was mid-drag when the FIGHT whistle blew and the shape stayed glued to his cursor for the
+       * REST OF THE MATCH, refusing every further pickup. See `bankCarriedSparksAtPhaseEdge` for why
+       * the bank (his ruling) is also the only outcome that heals the client without a second fix.
+       *
+       * ⛔ OUTSIDE the `matchPhase === 'BUILD'` arm below, deliberately. That arm is the FIGHT→BUILD
+       * crossing; the whistle he actually reported is BUILD→FIGHT, which had no arm at all — which
+       * is exactly why nothing caught it. Both crossings are covered here.
+       */
+      bankCarriedSparksAtPhaseEdge(world);
       if (world.matchPhase === 'BUILD') {
         /*
          * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
