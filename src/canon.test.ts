@@ -32,6 +32,10 @@ import {
   CASTLE_MAX_HP,
   CASTLE_PEN,
   HAZARD_SPAWN_ENABLED,
+  PHASE_1_WIN_SCORE,
+  WIN_SCORE_BANDS,
+  hunterTriggerScoreForWave,
+  winScoreForWave,
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   PRINCESS_SLAP_RANGE,
@@ -72,6 +76,52 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const archived of ['Seagulls and poop', 'Potato blast', 'Bombs', 'Rainbow flyover']) {
       expect(canonSays(archived), `canon must list ${archived} as archived`).toBe(true);
     }
+  });
+
+  /**
+   * ⭐⭐ S186 — §3b, THE DYNAMIC WIN BAR. The canon carries his spoken table, so the table has to be
+   * the one the code computes. Every row is DERIVED from `winScoreForWave` rather than written as a
+   * literal here, so a retune of the bands turns this red instead of leaving the doc quietly wrong.
+   */
+  it('⭐ prints the win-score ladder the owner dictated, derived from the shipped bands', () => {
+    for (const band of WIN_SCORE_BANDS) {
+      const bar = winScoreForWave(band.lastWave).toLocaleString('en-US');
+      expect(canonSays(`**${bar}**`), `canon must print the ${bar} band`).toBe(true);
+      expect(canonSays(`×${band.multiplier}`), `canon must print the x${band.multiplier} multiplier`).toBe(true);
+    }
+    // His boundary, in his words. If someone widens a band, this goes red before a match does.
+    expect(winScoreForWave(5)).toBe(PHASE_1_WIN_SCORE);
+    expect(winScoreForWave(6)).toBe(PHASE_1_WIN_SCORE * 2);
+    expect(canonSays('Each band is INCLUSIVE of its top wave')).toBe(true);
+  });
+
+  it('⛔ records that the bar OVERTAKES a banked score, because that is the whole mechanic', () => {
+    // The anti-coast property is the feature. A session that reads only the table might "fix" the
+    // bar into never passing a banked score; the canon has to say out loud that it may.
+    expect(canonSays('THE BANKED SCORE IS NEVER RESET')).toBe(true);
+    expect(canonSays('is reversing this ruling')).toBe(true);
+  });
+
+  it('⚠ keeps MY two calls flagged as mine, so he can overrule either', () => {
+    // Past wave 25 clamps, and the hunter follows the bar. Neither is his ruling.
+    expect(winScoreForWave(26)).toBe(winScoreForWave(25));
+    expect(hunterTriggerScoreForWave(6)).toBe(Math.floor(winScoreForWave(6) * 0.75));
+    expect(canonSays('TWO THINGS HERE ARE MINE, NOT HIS')).toBe(true);
+  });
+
+  it('⛔ surfaces that the castle pool no longer matches the points race', () => {
+    // CASTLE_MAX_HP's own docblock claims equality with PHASE_1_WIN_SCORE. That is now only true
+    // for waves 1-5, and the canon must say so rather than let him find it mid-match.
+    expect(CASTLE_MAX_HP).toBe(PHASE_1_WIN_SCORE);
+    expect(winScoreForWave(6)).toBeGreaterThan(CASTLE_MAX_HP);
+    expect(canonSays('castle-rush becomes the correct')).toBe(true);
+  });
+
+  it('records that the dynamic bar cost NO protocol bump, and the reason', () => {
+    // It derives from a field that was already hashed for the spawn rate. If a future session adds
+    // a wire field for it, this red flag says the cheaper path already existed.
+    expect(canonSays('No new field, no four-sites work')).toBe(true);
+    expect(canonSays('already hashed')).toBe(true);
   });
 
   it('prints the castle numbers that are actually shipped', () => {

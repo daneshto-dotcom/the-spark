@@ -13,7 +13,7 @@
  * by elapsed-tick dwell (so a "WIN" banner shows briefly before save).
  */
 
-import { PHASE_1_WIN_SCORE, PHYSICS_HZ } from '../constants.ts';
+import { PHYSICS_HZ, winScoreForWave } from '../constants.ts';
 import { computeComplexity } from './scoring.ts';
 import { teardownBombs } from './bombLifecycle.ts';
 import { teardownHunters } from './hunters/hunterLifecycle.ts';
@@ -171,7 +171,10 @@ export function tickGameState(
         return world.gameState;
       }
 
-      if (Math.floor(world.scoreProgress) >= PHASE_1_WIN_SCORE) {
+      // ⭐ S186 (owner) — THE BAR IS A FUNCTION OF THE WAVE, NOT A CONSTANT. See
+      // `WIN_SCORE_BANDS`. `world.waveNumber` is synced and hashed, so every peer derives the same
+      // bar on the same tick and this gate stays replay-byte-equivalent.
+      if (Math.floor(world.scoreProgress) >= winScoreForWave(world.waveNumber)) {
         let winnerId: PlayerId = primaryPlayerId;
         if (isNetworked(world)) {
           // ⛔ S161 CLOSE-OUT — SKIP ELIMINATED SEATS. `scoreByPlayer` retains a fallen seat's

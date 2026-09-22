@@ -31,7 +31,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  PLAYER_COLORS,
+  SCORE_TIER_STEP,
+  WIN_SCORE_BANDS,
+  winScoreForWave,
+} from '../constants.ts';
 import { EXIT_BTN_H, EXIT_BTN_W, EXIT_BTN_X, EXIT_BTN_Y } from './exitButton.ts';
 import {
   BETA_BADGE_Y,
@@ -53,14 +60,31 @@ const ADVANCE = 0.6;
 const mono = (chars: number, size: number): number => Math.ceil(chars * size * ADVANCE);
 
 /**
+ * ⭐ S186 — **RE-PINNED, AND NOW DERIVED, BECAUSE THE BAR IS NO LONGER A CONSTANT.**
+ *
+ * `WIN_SCORE_BANDS` made the win bar a function of the wave, so the widest label the HUD can emit is
+ * set by the TOP band (50,000), not by `PHASE_1_WIN_SCORE`. Both bounds below are now computed from
+ * the shipped bands rather than written as literals — the S177 rule, so a future retune of the
+ * ladder moves these bounds with it instead of leaving a bound that no longer bounds.
+ *
  * The widest leaderboard row the game can produce:
- * `>` + `*` + `B7` + ` ` + `1500/1500` + ` <YOU` = 19 chars of 16 px.
- * (`drawMultiplayerHUD` builds exactly that string; the score cannot exceed PHASE_1_WIN_SCORE.)
+ * `>` + `*` + `B7` + ` ` + `50000/50000` + ` <YOU` = 21 chars of 16 px.
+ * (`drawMultiplayerHUD` builds exactly that string; the score cannot exceed the top band.)
  */
-const WIDEST_ROW = mono(19, 16);
+const TOP_BAR = winScoreForWave(WIN_SCORE_BANDS[WIN_SCORE_BANDS.length - 1]!.lastWave);
+const BAR_DIGITS = String(TOP_BAR).length;
+const WIDEST_ROW = mono(4 + (BAR_DIGITS * 2 + 1) + 5, 16);
 
-/** `TIER 2  —  1000/1500` at 26 px — the longest milestone label `formatTierBanner` can emit. */
-const WIDEST_TIER = mono(20, 26);
+/**
+ * `TIER 100  —  50000/50000` at 26 px — the longest milestone label `formatTierBanner` can emit.
+ * The tier COUNT also scales with the band: top band / `SCORE_TIER_STEP` = 100 pulses, so the tier
+ * number itself is three digits where it used to be one.
+ */
+const TOP_TIER = TOP_BAR / SCORE_TIER_STEP;
+const WIDEST_TIER = mono(
+  'TIER '.length + String(TOP_TIER).length + '  —  '.length + (BAR_DIGITS * 2 + 1),
+  26,
+);
 
 function metrics(rows: number, opts?: { pulsed?: boolean; tier?: boolean }): HudMetrics {
   // The clock SWELLS to PHASE_EDGE_PULSE_SCALE (1.6) on every BUILD↔FIGHT transition, and Pixi's

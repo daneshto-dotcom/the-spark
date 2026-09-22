@@ -1,6 +1,6 @@
 # S185 — THE PLAYTEST BATCH. Researched, ruled, and ready to execute.
 
-STATUS: **IN-PROGRESS**
+STATUS: **COMPLETED** — 14 of 14 shipped; #5 and #11 carried to S186. Authoritative copy: .claude/plans-archive/2026-09-20_S185_PLAN.md
 Created: 2026-09-19 · Base commit: `7d1514b` · PROTOCOL_VERSION 47
 
 > ⚠ **WHY THIS FILE EXISTS AND WHY IT IS LONG.** The owner played with his brother and reported

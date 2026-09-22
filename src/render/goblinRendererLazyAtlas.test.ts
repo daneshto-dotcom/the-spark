@@ -113,9 +113,10 @@ describe('S169 — lazy race-keyed atlases stay reachable', () => {
  *
  * ⛔ THE SIM IS NOT THE CULPRIT AND THAT IS PROVEN, NOT ASSUMED — `raceUnitEmit.test.ts`'s S173 B5
  * block drives the REAL `runHostTick` wave loop as orcs through wave 5 and every castle-born unit is
- * `raceUnit`, at every wave. `waveNumber` has exactly ONE consumer in the whole tree
- * (`waveSpawnMultiplier`, the shape-arrival rate), so there is no wave-indexed creature ladder to
- * fall off. Enumerating every production `SPAWN_CREATURE` site leaves ONE type an orc seat can field
+ * `raceUnit`, at every wave. ⚠ S186 — CORRECTED: `waveNumber` no longer has exactly ONE consumer
+ * (the dynamic win bar added `winScoreForWave` and `hunterTriggerScoreForWave`). The load-bearing
+ * half is unchanged — every consumer scales a RATE or a SCORE, none indexes a creature TYPE by
+ * wave — so there is still no wave-indexed creature ladder to fall off. Enumerating every production `SPAWN_CREATURE` site leaves ONE type an orc seat can field
  * that draws as the green procedural goblin: the Warlord's **direwolf**, which had no `ATLASES`
  * entry.
  *

@@ -431,6 +431,79 @@ function readTestWinScore(): number | null {
  */
 export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 2500;
 
+/**
+ * ⭐⭐ S186 (owner) — **THE WIN BAR RISES WITH THE WAVE. "NIKUD DINAMI".**
+ *
+ * Owner, S186: *"It takes 2,500 points to win in the first five waves. After the fifth wave and
+ * until the 10th fight wave, it's 5,000. After that, if nobody won with 5,000 points, or by
+ * destroying each other's castle until then, then it climbs to 10,000 until level 15 from level 10.
+ * Then, if nobody won till then, it climbs to 20,000 from level 15 to level 20. If nobody won then,
+ * from level 20 to level 25, it takes 50,000."*
+ *
+ * And he closed the boundary question himself in the same breath, so it is NOT open:
+ * *"If someone is at level four, then it's up to 2,500 points. Still. Level five. Still 2,500
+ * points. If nobody won then, then level six, it's already 5,000 points. And so on and so on."*
+ * **Each band is INCLUSIVE of its top wave.**
+ *
+ * His reason: *"in the beginning you really need to build as many gatherers and speed to get as many
+ * shapes. But then you can't cheat by building a lot of them and then just letting the points run at
+ * level five and then everyone can win at level five."*
+ *
+ * ⛔ **THE BAR MOVES; THE BANKED SCORE IS NEVER RESET.** A seat holding 3,000 at wave 5 has won. The
+ * same seat that reaches wave 6 without winning now owes 5,000. That IS the anti-coast mechanic —
+ * it is the entire point of the spec, not a rough edge to soften. A future session that "fixes" the
+ * bar so it cannot overtake a banked score is reversing this ruling.
+ *
+ * ⭐ **BANDS ARE MULTIPLIERS OF `PHASE_1_WIN_SCORE`, NOT ABSOLUTE LITERALS, AND THAT IS
+ * LOAD-BEARING.** `readTestWinScore()` is the E2E seam that forces the bar low so a Playwright run
+ * can finish a match in seconds. Absolute literals here would defeat it from wave 6 on — the seam
+ * would set 50 and the sim would still demand 5,000. As multipliers the whole ladder scales with the
+ * seam, so a test match keeps the SHAPE of the ruling at a testable magnitude. At the shipped base
+ * of 2500 they produce his table exactly: 2500 / 5000 / 10000 / 20000 / 50000.
+ */
+export const WIN_SCORE_BANDS: ReadonlyArray<{ readonly lastWave: number; readonly multiplier: number }> = [
+  { lastWave: 5, multiplier: 1 },
+  { lastWave: 10, multiplier: 2 },
+  { lastWave: 15, multiplier: 4 },
+  { lastWave: 20, multiplier: 8 },
+  { lastWave: 25, multiplier: 20 },
+];
+
+/**
+ * ⚠ **PAST WAVE 25 IS MINE, NOT HIS — HE DID NOT SPEAK TO IT, AND THIS SAYS SO AT THE CONSTANT.**
+ *
+ * The bar CLAMPS at the top band (50,000) for wave 26 and beyond. The two alternatives are both
+ * worse: continuing the climb makes a long match unwinnable on points and quietly converts it into a
+ * castle-only match, and falling back to a default would make the bar *drop* — handing the win to
+ * whoever coasted longest, which is precisely the behaviour this whole spec exists to kill. Clamping
+ * keeps "points stay winnable, but only just".
+ *
+ * TOTAL BY CONSTRUCTION: a non-finite or below-1 wave returns the opening band rather than falling
+ * through to the clamp. `waveNumber` is 1-based from `makeWorld` and only ever incremented, so that
+ * arm is unreachable in production — it exists so the function cannot return `undefined` for any
+ * input, which is what makes it safe to call from the win gate on every tick.
+ */
+export function winScoreMultiplierForWave(waveNumber: number): number {
+  const first = WIN_SCORE_BANDS[0]!;
+  if (!Number.isFinite(waveNumber) || waveNumber <= first.lastWave) return first.multiplier;
+  for (const band of WIN_SCORE_BANDS) if (waveNumber <= band.lastWave) return band.multiplier;
+  return WIN_SCORE_BANDS[WIN_SCORE_BANDS.length - 1]!.multiplier;
+}
+
+/**
+ * The win bar for a given wave. **Pure function of `world.waveNumber`, which is already synced and
+ * hashed** (`stateHashFull.ts` — *"drives the spawn rate, so a divergence is a real desync"*) and
+ * serialized additive-optionally (`save.ts`).
+ *
+ * ⭐ **SO THIS SPEC COST NO NEW FIELD, NO FOUR-SITES WORK AND NO PROTOCOL BUMP.** Both peers already
+ * agree on the wave, so both derive the same bar. That is the project's own "prefer deriving over
+ * sending" rule paying out — see the protocol docblock in `net/protocol.ts`.
+ */
+export function winScoreForWave(waveNumber: number): number {
+  return PHASE_1_WIN_SCORE * winScoreMultiplierForWave(waveNumber);
+}
+
+
 /* ========================================================================== *
  *          S147 — THE MATCH CLOCK (the tower-defence BUILD/FIGHT cycle)      *
  * ========================================================================== */
@@ -1115,6 +1188,45 @@ function readTestHunterTriggerScore(): number | null {
 const HUNTER_TRIGGER_FRACTION = 0.75;
 export const HUNTER_TRIGGER_SCORE =
   readTestHunterTriggerScore() ?? Math.floor(PHASE_1_WIN_SCORE * HUNTER_TRIGGER_FRACTION);
+
+/**
+ * ⭐ S186 — **THE HUNTER'S TRIGGER FOLLOWS THE DYNAMIC WIN BAR.** `WIN_SCORE_BANDS` made the bar a
+ * function of the wave; this is the one derived threshold that had to move with it.
+ *
+ * ⚠ **THIS IS MY CALL, NOT THE OWNER'S — HE DID NOT SPEAK TO THE HUNTER, AND THE CASE IS HERE SO HE
+ * CAN OVERRULE IT IN ONE LINE.** The hunter is *defined* as "75 % of the win threshold" (see the
+ * S72 P2 block above), so pinning it to the wave-1 bar would have it fire at **37.5 %** of a wave-6
+ * bar and **3.75 %** of a wave-21 bar — spending the game's only anti-runaway measure long before
+ * the race it exists to police has begun. Following the bar keeps the mechanic meaning what its own
+ * comment says it means.
+ *
+ * ⭐ **THE LATCH IS WHAT MAKES THIS SAFE IN BOTH DIRECTIONS.** `hostTick` gates on
+ * `!world.hunterSpawned`, a serialized boolean, so a hunter that has already fired stays fired when
+ * the bar jumps (it cannot fire twice), and a leader who had not yet tripped the old number simply
+ * keeps chasing the new one. No latch state needs to be rewound at a band boundary.
+ *
+ * `HUNTER_TRIGGER_SCORE` above is retained as the wave-1 value: it is what the E2E seam overrides
+ * and what every existing fixture reads.
+ */
+/**
+ * ⛔ THE SEAM IS CAPTURED ONCE AT MODULE INIT, NOT READ PER TICK, AND THAT IS A DETERMINISM
+ * REQUIREMENT RATHER THAN A MICRO-OPTIMISATION.
+ *
+ * `readTestHunterTriggerScore()` touches `window`. The host page has one; the `?worker=1` Web Worker
+ * that runs `runHostTick` in `workerSim.ts` does NOT. Calling it from inside the per-tick gate would
+ * make the two sims compute different triggers under the E2E seam and diverge on a value
+ * `stateHashFull` covers — and it would be invisible to vitest, because jsdom gives every suite one
+ * shared `window`. Hoisting the read matches exactly what `HUNTER_TRIGGER_SCORE` and
+ * `PHASE_1_WIN_SCORE` already do one line above and below.
+ */
+const HUNTER_TRIGGER_OVERRIDE = readTestHunterTriggerScore();
+
+export function hunterTriggerScoreForWave(waveNumber: number): number {
+  return (
+    HUNTER_TRIGGER_OVERRIDE ??
+    Math.floor(winScoreForWave(waveNumber) * HUNTER_TRIGGER_FRACTION)
+  );
+}
 
 // S107 P1 — ANTI-COAST LEADER SCORE-DECAY (gentle proportional rubber-band).
 // Once the LEADER's banked score passes LEADER_DECAY_THRESHOLD_FRACTION × PHASE_1_WIN_SCORE,
@@ -1925,6 +2037,14 @@ export const ARMY_RETREAT_LEAD_TICKS = 180;
  * that now."* Taken literally, and the number is deliberately the SAME as `PHASE_1_WIN_SCORE` — the
  * two victory conditions are meant to feel like equal-length races (*"castle OR 1500 points wins"*),
  * so one shared magnitude says that better than two tuned ones.
+ *
+ * â ï¸ **S186 â THAT EQUALITY NOW HOLDS ONLY FOR WAVES 1â5, AND IT IS LEFT THAT WAY ON PURPOSE.**
+ * `WIN_SCORE_BANDS` made the points race climb 2,500 â 50,000 while this pool stayed 2,500, so the
+ * longer a match runs the more decisively **castle-rush becomes the correct strategy**. Not changed:
+ * he did not ask, R88 pins ONE castle constant for every seat, and moving it would retune every
+ * castle relationship measured in S181. Recorded in `SPARK_CANON.md` Â§3b as a consequence of his own
+ * spec rather than absorbed silently â so a future session reading the sentence above does not
+ * "restore" a coupling by raising this number.
  *
  * ⛔ ONE CONSTANT FOR EVERY SEAT, AND IT MUST STAY THAT WAY FOR NOW. Owner ruling R88, restated in
  * the S154 castle-races addendum: *"all castles and their spawn will have the same strengh and hp to

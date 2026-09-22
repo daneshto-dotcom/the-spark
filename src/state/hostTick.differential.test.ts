@@ -50,10 +50,10 @@ import { describe, expect, it } from 'vitest';
 const FROZEN_SELFDESTRUCT_DRONE_COUNT = 3;
 import {
   DRONE_EMIT_INTERVAL_TICKS,
-  HUNTER_TRIGGER_SCORE,
+  hunterTriggerScoreForWave,
   PEER_DROP_BENCH_TICKS,
   PEER_DROP_GRACE_TICKS,
-  PHASE_1_WIN_SCORE,
+  winScoreForWave,
   PLAYER_COLORS,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
@@ -351,7 +351,14 @@ function referenceHostTick(world: World, ref: RefCtx): void {
   }
 
   if (world.gameState === 'PLAYING' && !isClient) {
-    if (!world.hunterSpawned && Math.floor(world.scoreProgress) >= HUNTER_TRIGGER_SCORE) {
+    // ⚠ S186 — MIRRORS `hostTick.ts`, WHICH NOW READS THE WAVE-DYNAMIC TRIGGER. The two agreed
+    // at wave 1 and nowhere else, so leaving the static constant here would have left the oracle
+    // silently disagreeing with production for every run that crosses wave 5 — reporting a spurious
+    // divergence, or masking a real one, with the whole suite green.
+    if (
+      !world.hunterSpawned &&
+      Math.floor(world.scoreProgress) >= hunterTriggerScoreForWave(world.waveNumber)
+    ) {
       dispatch(world, { type: 'SPAWN_HUNTER' });
     }
     if (world.hunters.size > 0) {
@@ -801,7 +808,7 @@ describe('S119 P1 — runHostTick vs frozen pre-refactor reference (DIFFERENTIAL
         // Via scoreByPlayer — tickScoring recomputes scoreProgress from the
         // banked per-player scores each tick, so forcing scoreProgress alone
         // would be overwritten before the hunter check reads it.
-        if (t === 50) w.scoreByPlayer.set(P1, HUNTER_TRIGGER_SCORE);
+        if (t === 50) w.scoreByPlayer.set(P1, hunterTriggerScoreForWave(w.waveNumber));
       },
       expectAtEnd: (w) => expect(w.hunterSpawned).toBe(true),
     });
@@ -814,7 +821,7 @@ describe('S119 P1 — runHostTick vs frozen pre-refactor reference (DIFFERENTIAL
       botCount: 0,
       beforeTick: (w, t) => {
         // scoreByPlayer, not scoreProgress — same reason as D6.
-        if (t === 100) w.scoreByPlayer.set(P1, PHASE_1_WIN_SCORE);
+        if (t === 100) w.scoreByPlayer.set(P1, winScoreForWave(w.waveNumber));
       },
       expectAtEnd: (w) => expect(w.gameState).toBe('POSTGAME'),
     });

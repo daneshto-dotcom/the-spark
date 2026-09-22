@@ -352,9 +352,12 @@ describe('S165 - underRaceUnitCaps: the race unit has its OWN cap family', () =>
  * the little tiny green. That's not correct. It should only generate the orcs."*
  *
  * ⛔ THE SUSPECTED CAUSE WAS A WAVE-INDEXED LADDER FALLING THROUGH TO A DEFAULT CREATURE TYPE, AND
- * THERE IS NO SUCH LADDER ANYWHERE IN THE TREE. `waveNumber` has exactly ONE consumer —
- * `waveSpawnMultiplier`, the shape-ARRIVAL RATE, read once in `physics/physicsLoop.ts` — so no table
- * in this game is indexed by the wave at all, let alone a creature-type one. The castle emitter
+ * THERE IS NO SUCH LADDER ANYWHERE IN THE TREE. ⚠ S186 — THE SENTENCE THAT USED TO SIT HERE SAID
+ * `waveNumber` HAS EXACTLY ONE CONSUMER (`waveSpawnMultiplier`). The S186 dynamic win bar made that
+ * false: `winScoreForWave` and `hunterTriggerScoreForWave` read it too. It is corrected rather than
+ * deleted because the CONCLUSION survives intact and is what this block is for — every consumer
+ * scales a RATE or a SCORE THRESHOLD, and none indexes a creature TYPE, so no table in this game is
+ * indexed by the wave in the way the bug report assumed. The castle emitter
  * hard-codes the literal `'raceUnit'` and the tier-3 arm reads `RACE_TOWER_UNIT[race]`; the only
  * production path to a `goblinMelee` is a player feeding a goblin tower a Triangle
  * (`GOBLIN_FEED_MAP`), which no castle can reach.

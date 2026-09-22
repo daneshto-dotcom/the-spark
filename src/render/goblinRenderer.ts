@@ -148,9 +148,12 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    *
    * ⛔ IT IS NOT A SPAWN BUG AND THAT IS PROVEN, NOT ASSUMED. `raceUnitEmit.test.ts`'s S173 B5 block
    * drives the REAL `runHostTick` wave loop as orcs through wave 5: every castle-born unit is
-   * `raceUnit`, at every wave, and the emitter's output is wave-INVARIANT. `waveNumber` has exactly
-   * one consumer in the tree (`waveSpawnMultiplier` — the shape-arrival rate), so there is no
-   * wave-indexed creature ladder to fall off. Enumerating every production `SPAWN_CREATURE` dispatch
+   * `raceUnit`, at every wave, and the emitter's output is wave-INVARIANT. ⚠ S186 — THIS USED TO SAY
+   * `waveNumber` HAS EXACTLY ONE CONSUMER, AND THAT IS NO LONGER TRUE: the S186 dynamic win bar added
+   * `winScoreForWave` (the win gate + the HUD) and `hunterTriggerScoreForWave`. What still holds, and
+   * is the only part this argument ever needed, is that NO CONSUMER INDEXES A CREATURE TYPE BY WAVE —
+   * they scale a rate and a score threshold. So there is still no wave-indexed creature ladder to
+   * fall off. Enumerating every production `SPAWN_CREATURE` dispatch
    * leaves exactly one type an orc seat can field that had no art: the Warlord's direwolf — summoned
    * three at a time every 15 s, AT THE BOSS, i.e. in the player's own base beside his keep, which is
    * why he read it as the castle producing them. "Wave three" is when a nine-ring boss tower becomes

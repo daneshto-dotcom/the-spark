@@ -13,7 +13,7 @@ import {
   CANVAS_WIDTH,
   MAX_DISRUPTION_CHARGES,
   MAX_RAID_POINTS,
-  PHASE_1_WIN_SCORE,
+  winScoreForWave,
   PHYSICS_HZ,
   PLAYER_COLORS,
   SCORE_TIER_STEP,
@@ -46,13 +46,13 @@ export const PHASE_EDGE_PULSE_SCALE = 1.6;
  * the Browser pane cannot be driven headlessly (a hidden pane pauses requestAnimationFrame, so
  * the Pixi ticker never advances) — so the arithmetic is verified here rather than by eye.
  */
-export function formatTierBanner(tier: number): string {
-  return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`;
+export function formatTierBanner(tier: number, waveNumber: number): string {
+  return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${winScoreForWave(waveNumber)}`;
 }
 
 /** V6-0.2 — solo score readout. Floors, matching the leaderboard's own formatting. */
-export function formatSoloScore(score: number): string {
-  return `SCORE ${Math.floor(score)}/${PHASE_1_WIN_SCORE}`;
+export function formatSoloScore(score: number, waveNumber: number): string {
+  return `SCORE ${Math.floor(score)}/${winScoreForWave(waveNumber)}`;
 }
 
 /**
@@ -305,6 +305,7 @@ export function captureTierBanner(
   effects: readonly World['effects'][number][],
   worldTick: number,
   lastTierTick: number,
+  waveNumber: number,
 ): TierBannerCapture {
   let watermark = resetWatermarkIfRegressed(worldTick, lastTierTick);
   let text: string | null = null;
@@ -314,7 +315,7 @@ export function captureTierBanner(
     if (e.kind !== 'SCORE_TIER') continue;
     if (e.tick <= watermark) continue;
     watermark = e.tick;
-    text = formatTierBanner(e.tier);
+    text = formatTierBanner(e.tier, waveNumber);
     color = e.color;
     tier = e.tier;
   }
@@ -846,7 +847,7 @@ export class HUD {
     // `world.tick = snap.tick` (save.ts:830) for both restore() and applyNetSnapshot(): play solo
     // for ten minutes, then join a freshly-started host, and the adopted tick lands far BELOW the
     // watermark. Right conclusion, wrong cause — so guard the cause that actually exists.
-    const cap = captureTierBanner(world.effects, world.tick, this.lastTierTick);
+    const cap = captureTierBanner(world.effects, world.tick, this.lastTierTick, world.waveNumber);
     this.lastTierTick = cap.watermark;
     // `text === null` means no crossing this frame. Do NOT touch the banner state — it may be
     // mid-animation from an earlier crossing, and clobbering it here would truncate the beat.
@@ -1057,7 +1058,7 @@ export class HUD {
       if (t0 !== undefined) {
         const score = world.scoreByPlayer.get(world.localPlayerId) ?? 0;
         const me = world.players.get(world.localPlayerId);
-        t0.text = formatSoloScore(score);
+        t0.text = formatSoloScore(score, world.waveNumber);
         t0.style.fill = me?.color ?? 0xffffff;
         t0.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y);
         t0.visible = true;
@@ -1081,7 +1082,7 @@ export class HUD {
       const crown = i === 0 ? '*' : ' ';
       // S87 — bot rows read B{n} (matches the avatar nameplates).
       const tag = world.botSeats.has(p.id) ? 'B' : 'P';
-      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
+      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${winScoreForWave(world.waveNumber)}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP);
       t.visible = true;

@@ -134,6 +134,68 @@ reading, not a law.
 rather than `hp × (1 + 0.2 × def) × 5`. Its DAMAGE TAKEN and its DAMAGE DEALT are both fully on the
 ladder; its pool is not, and the owner has never asked for it to be.
 
+## 3b · ⭐⭐ THE WIN BAR RISES WITH THE WAVE — "NIKUD DINAMI" (S186)
+
+> *"It takes 2,500 points to win in the first five waves. After the fifth wave and until the 10th
+> fight wave, it's 5,000. After that, if nobody won with 5,000 points, or by destroying each other's
+> castle until then, then it climbs to 10,000 until level 15 from level 10. Then, if nobody won till
+> then, it climbs to 20,000 from level 15 to level 20. If nobody won then, from level 20 to level 25,
+> it takes 50,000."* — owner, S186
+
+| wave (inclusive) | win score | multiplier of `PHASE_1_WIN_SCORE` |
+|---|---:|---:|
+| 1 – 5 | **2,500** | ×1 |
+| 6 – 10 | **5,000** | ×2 |
+| 11 – 15 | **10,000** | ×4 |
+| 16 – 20 | **20,000** | ×8 |
+| 21 – 25 | **50,000** | ×20 |
+
+`WIN_SCORE_BANDS` + `winScoreForWave(waveNumber)` in `constants.ts`. The win gate is ONE site,
+`gameState.ts`.
+
+⭐ **HE CLOSED THE BOUNDARY QUESTION HIMSELF, SO IT IS NOT OPEN.** *"If someone is at level four,
+then it's up to 2,500 points. Still. Level five. Still 2,500 points. If nobody won then, then level
+six, it's already 5,000 points."* **Each band is INCLUSIVE of its top wave.**
+
+⛔ **THE BAR MOVES; THE BANKED SCORE IS NEVER RESET, AND THAT IS THE ENTIRE FEATURE.** A seat holding
+3,000 at wave 5 has won. The same seat that reaches wave 6 without winning now owes 5,000. His
+reason: *"in the beginning you really need to build as many gatherers and speed to get as many
+shapes. But then you can't cheat by building a lot of them and then just letting the points run at
+level five and then everyone can win at level five."* **A session that "fixes" the bar so it cannot
+overtake a banked score is reversing this ruling** — `dynamicWinScore.test.ts` drives the real gate
+at waves 5 and 6 with the same 3,000 banked and asserts WIN then NOT-WIN.
+
+⭐ **IT COST NO WIRE CHANGE AT ALL, AND THAT IS WHY IT IS BUILT THIS WAY.** `world.waveNumber` was
+already hashed and already rode the wire additive-optionally (it drives the spawn rate), so both
+peers DERIVE the same bar from state they already agree on. No new field, no four-sites work, **no
+`PROTOCOL_VERSION` bump.** The bands are stored as MULTIPLIERS rather than absolute literals so the
+E2E `readTestWinScore()` seam still scales the whole ladder — absolutes would have set the seam to 50
+and left the sim demanding 5,000 from wave 6 on.
+
+⭐ **THE TICK ORDER MAKES HIS BOUNDARY EXACT FOR FREE.** The wave increments on the BUILD edge in
+`hostTick`, which runs BEFORE `tickScoring` (FIGHT-only, so it is skipped on the flip tick) and
+before `tickGameState`. No score earned under bar N is ever judged against bar N+1.
+
+⚠ **TWO THINGS HERE ARE MINE, NOT HIS, AND BOTH SAY SO AT THEIR CONSTANT:**
+
+1. **Past wave 25 the bar CLAMPS at 50,000.** He did not speak to it. Climbing would quietly convert
+   a long match into a castle-only match; falling back would make the bar *drop* and reward the
+   coaster. One line reverses it.
+2. **The hunter's trigger FOLLOWS the bar** (it is defined as 75 % of it). Pinned to the wave-1 value
+   it would fire at 37.5 % of a wave-6 bar and 3.75 % of a wave-21 bar — spending the game's only
+   anti-runaway measure before the race it polices has begun. The `hunterSpawned` latch makes this
+   safe in both directions: an already-fired hunter cannot fire twice at a band jump.
+
+⛔ **AND THE CASTLE NO LONGER MATCHES THE POINTS RACE — A REAL CONSEQUENCE, REPORTED NOT ABSORBED.**
+`CASTLE_MAX_HP` is 2500 and its docblock says the number is *"deliberately the SAME as
+`PHASE_1_WIN_SCORE` … the two victory conditions are meant to feel like equal-length races"*. From
+wave 6 on that equality is gone: the castle stays a 2,500 race while the points race climbs to
+50,000, so **the longer a match runs, the more decisively castle-rush becomes the correct
+strategy.** Left unchanged deliberately — he did not ask, R88 pins one castle constant for every
+seat, and raising it would retune every castle relationship measured in S181.
+
+---
+
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
 | | attackable? |
@@ -151,7 +213,8 @@ ladder; its pool is not, and the owner has never asked for it to be.
 | **The border wall** | **no.** It cannot be damaged, and it comes down during FIGHT. |
 | Spawners | not as an object — the pentagram dies when its shape recipe breaks, like any structure |
 
-**The hunter** spawns **once per match**, when the leader first reaches **75%** of the win score, and
+**The hunter** spawns **once per match**, when the leader first reaches **75%** of the win score
+(⭐ S186 — of the bar for the CURRENT WAVE, see §3b; `hunterTriggerScoreForWave`), and
 goes after that leader's avatar.
 
 ---

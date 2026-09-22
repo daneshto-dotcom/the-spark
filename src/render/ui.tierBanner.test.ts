@@ -59,8 +59,8 @@ describe('V6-0.2 — tier milestone banner', () => {
   it('names the tier and anchors it to progress', () => {
     // The whole point of the banner: the world-space pulse says "something happened HERE",
     // the banner says "you crossed a threshold and here is where that puts you".
-    expect(formatTierBanner(1)).toBe(`TIER 1  —  ${SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
-    expect(formatTierBanner(2)).toBe(`TIER 2  —  ${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
+    expect(formatTierBanner(1, 1)).toBe(`TIER 1  —  ${SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
+    expect(formatTierBanner(2, 1)).toBe(`TIER 2  —  ${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
   });
 
   it('the shipped constants really do give an exact tier structure', () => {
@@ -73,8 +73,8 @@ describe('V6-0.2 — tier milestone banner', () => {
     // Every literal below is now DERIVED, so the guard cannot be defeated by editing one number.
     expect(PHASE_1_WIN_SCORE % SCORE_TIER_STEP).toBe(0);
     expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(5);
-    expect(formatTierBanner(1)).toContain(`${SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
-    expect(formatTierBanner(2)).toContain(`${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
+    expect(formatTierBanner(1, 1)).toContain(`${SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
+    expect(formatTierBanner(2, 1)).toContain(`${2 * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`);
   });
 
   it('holds at full alpha, then fades over the final third', () => {
@@ -138,15 +138,15 @@ describe('V6-0.2 — solo score readout', () => {
   it('floors, matching the leaderboard formatting it stands in for', () => {
     // Score accrues fractionally (0.05 x complexity per second), so an unfloored readout would
     // jitter through decimals every frame.
-    expect(formatSoloScore(0)).toBe(`SCORE 0/${PHASE_1_WIN_SCORE}`);
-    expect(formatSoloScore(123.987)).toBe(`SCORE 123/${PHASE_1_WIN_SCORE}`);
-    expect(formatSoloScore(PHASE_1_WIN_SCORE)).toBe(`SCORE ${PHASE_1_WIN_SCORE}/${PHASE_1_WIN_SCORE}`);
+    expect(formatSoloScore(0, 1)).toBe(`SCORE 0/${PHASE_1_WIN_SCORE}`);
+    expect(formatSoloScore(123.987, 1)).toBe(`SCORE 123/${PHASE_1_WIN_SCORE}`);
+    expect(formatSoloScore(PHASE_1_WIN_SCORE, 1)).toBe(`SCORE ${PHASE_1_WIN_SCORE}/${PHASE_1_WIN_SCORE}`);
   });
 
   it('carries no rank, crown or YOU marker', () => {
     // Solo has exactly one player, so ranking it is noise — this readout deliberately does NOT
     // un-gate the leaderboard, it replaces it with the one thing solo actually lacked: a number.
-    const s = formatSoloScore(400);
+    const s = formatSoloScore(400, 1);
     for (const marker of ['>', '*', '<YOU', 'P1', 'B1']) expect(s).not.toContain(marker);
   });
 });

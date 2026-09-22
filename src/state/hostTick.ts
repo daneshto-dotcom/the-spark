@@ -37,7 +37,7 @@
 import {
   CHEW_INTERVAL_TICKS,
   DRONE_EMIT_INTERVAL_TICKS,
-  HUNTER_TRIGGER_SCORE,
+  hunterTriggerScoreForWave,
   PEER_DROP_BENCH_TICKS,
   PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
@@ -2083,7 +2083,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // passes it (tidiness; isInputLocked + avatarRenderer already self-heal on the
   // tick compare — Council R5).
   if (world.gameState === 'PLAYING') {
-    if (!world.hunterSpawned && Math.floor(world.scoreProgress) >= HUNTER_TRIGGER_SCORE) {
+    if (
+      !world.hunterSpawned &&
+      Math.floor(world.scoreProgress) >= hunterTriggerScoreForWave(world.waveNumber)
+    ) {
       dispatch(world, { type: 'SPAWN_HUNTER' });
     }
     if (world.hunters.size > 0) {

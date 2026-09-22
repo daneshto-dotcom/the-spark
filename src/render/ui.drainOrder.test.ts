@@ -127,7 +127,7 @@ describe('V6-0.3 — the capture is order-SENSITIVE (proves the bug was real)', 
     // back below main.ts's wipe, this is the mechanism that makes it fail rather than go quiet.
     const effects: GameEffect[] = [scoreTier(600, 1, 0x00ffff)];
 
-    const before = captureTierBanner(effects, 600, -1);
+    const before = captureTierBanner(effects, 600, -1, 1);
     expect(before.text).not.toBeNull();
     expect(before.text).toContain('TIER 1');
     expect(before.color).toBe(0x00ffff);
@@ -136,7 +136,7 @@ describe('V6-0.3 — the capture is order-SENSITIVE (proves the bug was real)', 
     // effectsRenderer.sync does exactly this (effectsRenderer.ts:73).
     effects.length = 0;
 
-    const after = captureTierBanner(effects, 600, -1);
+    const after = captureTierBanner(effects, 600, -1, 1);
     expect(after.text).toBeNull();          // ← the shipped V6-0.2 behaviour, every single frame
     expect(after.watermark).toBe(-1);
   });
@@ -146,7 +146,7 @@ describe('V6-0.3 — the capture is order-SENSITIVE (proves the bug was real)', 
     // TIER_BANNER_FRAMES frames and only ~1 frame in that window has the effect present, so
     // "no crossing" is the overwhelmingly common case and must be inert.
     expect(TIER_BANNER_FRAMES).toBeGreaterThan(1);
-    const cap = captureTierBanner([], 900, 600);
+    const cap = captureTierBanner([], 900, 600, 1);
     expect(cap.text).toBeNull();
     expect(cap.watermark).toBe(600);        // watermark preserved, not reset
   });
@@ -157,15 +157,15 @@ describe('V6-0.3 — captureTierBanner dedupe and batch semantics', () => {
     // Dedupe is by the effect's own tick rather than object identity, because world.effects is
     // rebuilt every frame and identity is never stable.
     const e = [scoreTier(600, 1)];
-    expect(captureTierBanner(e, 600, 600).text).toBeNull();
-    expect(captureTierBanner(e, 600, 599).text).not.toBeNull();
+    expect(captureTierBanner(e, 600, 600, 1).text).toBeNull();
+    expect(captureTierBanner(e, 600, 599, 1).text).not.toBeNull();
   });
 
   it('takes the NEWEST tier when several cross in one drained batch', () => {
     // main.ts steps up to 3 sim ticks per rendered frame, and scoring.ts:299 emits one effect per
     // crossed boundary in a loop — so a single drain can legitimately see tier 1 and tier 2. Only
     // the newest is worth naming, and the watermark must end up at the newest tick.
-    const cap = captureTierBanner([scoreTier(600, 1), scoreTier(601, 2)], 601, -1);
+    const cap = captureTierBanner([scoreTier(600, 1), scoreTier(601, 2)], 601, -1, 1);
     expect(cap.text).toContain('TIER 2');
     expect(cap.watermark).toBe(601);
   });
@@ -179,6 +179,7 @@ describe('V6-0.3 — captureTierBanner dedupe and batch semantics', () => {
       ],
       600,
       -1,
+      1,
     );
     expect(cap.text).toContain('TIER 1');
   });
@@ -186,7 +187,7 @@ describe('V6-0.3 — captureTierBanner dedupe and batch semantics', () => {
   it('still resets a regressed watermark even when no crossing is present', () => {
     // The backward-tick guard (a client adopting a lower host tick via applySnapshotCore) must
     // apply on EVERY drain, not only on frames that happen to carry a SCORE_TIER.
-    const cap = captureTierBanner([], 500, 30_000);
+    const cap = captureTierBanner([], 500, 30_000, 1);
     expect(cap.watermark).toBe(-1);
     expect(cap.text).toBeNull();
   });
