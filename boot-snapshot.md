@@ -74,7 +74,9 @@ reaches him — S180 found four already-done items presented as live scope.
 
 ## Recent Reflexion (last 2 sessions)
 
-`.claude/reflexion_log.md` — **S186 at the top (8 entries)**, S185 beneath it.
+`.claude/reflexion_log.md` — **S186 at the top (9 entries)**, then S185/S184/S183/S182.
+⚠ The 50-entry cap fired at handoff: S181's 20-entry block was pruned (54 → 34). It is not lost —
+pruned blocks live on in `.handoff-archive/`.
 
 ## Muscle memory (auto) [Vigil]
 

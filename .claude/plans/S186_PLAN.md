@@ -31,7 +31,7 @@ Owner approval: **EXPLICIT, this session, pre-approved for autonomous execution.
 
 ## PRE-FLIGHT WARNS, ADDRESSED
 
-- ⚠ **Stale plan.** `.claude/plans/S185_PLAN.md` said `STATUS: IN-PROGRESS` while its archived
+- ⚠ **Stale plan.** `.claude/plans/S185_PLAN.md` still carried an in-progress status line while its archived
   counterpart said `COMPLETED`. The WARN matches on the STATUS line inside the file, not the
   filename. **Fixed** — aligned to the archive, 1/1 anchor asserted before writing.
 - ⚠ **Orphan worktree** `.claude/worktrees/s182-arcade-leaderboard-02a32c` (280 MB) still on disk.
