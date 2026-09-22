@@ -49,7 +49,7 @@
 import {
   BOMB_MAX_ACTIVE,
   HAZARD_SPAWN_ENABLED,
-  FREE_SPARK_SOFT_CAP,
+  freeSparkSoftCapForWave,
   FREE_SPARK_TTL_TICKS,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
@@ -317,15 +317,32 @@ function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
   for (const s of world.freeSparks.values()) {
     if (s.state.kind === 'Free' && s.escrow === undefined) freeCount++;
   }
-  if (freeCount <= FREE_SPARK_SOFT_CAP) return;
+  // ⭐ S186 — THE CEILING IS NOW A FUNCTION OF THE WAVE. `freeSparkSoftCapForWave` keeps this a
+  // SAFETY VALVE (its own docblock's word) instead of letting the fixed 24 become the throttle the
+  // S186 spawn step-up would otherwise run straight into. `world.waveNumber` is hashed and synced,
+  // so the host and the ?worker=1 mirror evict identically.
+  const cap = freeSparkSoftCapForWave(world.waveNumber);
+  if (freeCount <= cap) return;
 
   const candidates: Spark[] = [];
   for (const s of world.freeSparks.values()) {
     if (s.state.kind === 'Free' && s.escrow === undefined) candidates.push(s);
   }
-  candidates.sort((a, b) => a.createdTick - b.createdTick);
+  /*
+   * ⛔ TOTAL ORDER, AND S186 IS WHAT MADE IT LOAD-BEARING. This was `a.createdTick - b.createdTick`
+   * alone, which returns 0 for two sparks minted on the SAME tick — and `spawner.tick` mints in a
+   * `while` loop, so a single tick can emit several. The tie then fell through to `Array.prototype.sort`'s
+   * stability, i.e. to `world.freeSparks` Map INSERTION ORDER, which is exactly the class of bug the
+   * project rule names (*"letting Map iteration decide anything is how S155 handed one seat every melee
+   * exchange for a whole match"*).
+   *
+   * ⚠ It was latent before and is REACHABLE NOW: at the band-5 faucet the mean inter-arrival is under
+   * two ticks, so same-tick births go from vanishing to routine. The explicit id compare makes the
+   * eviction set identical on every sim regardless of insertion history.
+   */
+  candidates.sort((a, b) => a.createdTick - b.createdTick || (a.id as number) - (b.id as number));
 
-  const excess = freeCount - FREE_SPARK_SOFT_CAP;
+  const excess = freeCount - cap;
   for (let i = 0; i < excess; i++) {
     dispatch(world, { type: 'DESPAWN_SPARK', sparkId: candidates[i].id });
   }

@@ -833,6 +833,38 @@ export const SPARK_INITIAL_VELOCITY_MAX = 12;
  */
 export const FREE_SPARK_SOFT_CAP = 24;
 
+/**
+ * ââ S186 â **THE CAP HAD TO MOVE WITH THE RATE, OR THE STEP-UP WOULD HAVE BEEN PARTLY IMAGINARY.**
+ *
+ * Its docblock above calls 24 a **safety valve rather than a throttle**, sized so *"ordinary play
+ * never touches it"* against a measured p95 of 15 and a peak of 18 at the wave-1 faucet. The S186
+ * band step-up raises the faucet, so a fixed 24 would have silently become the throttle the constant
+ * explicitly says it must not be.
+ *
+ * â­ **AND IT IS EXACTLY THE MOMENT HE COMPLAINED ABOUT.** The pool only approaches its idle
+ * steady state when nothing is consuming â which is precisely the BUILD whistle, when the whole
+ * fleet is released on one tick and spends ~5 s walking ~870 px to the quarry. A cap of 24 truncates
+ * the buffer that would have been waiting for them. Raising it with the rate is what puts shapes on
+ * the ground when they arrive.
+ *
+ * SIZED, NOT GUESSED: the idle steady state is Little's Law, `Î»(wave) Ã TTL`. This returns exactly
+ * that, floored at today's 24 so **wave 1 is byte-unchanged**.
+ *
+ * â  **THE CEILING IS A PERFORMANCE BOUND AND IS MINE.** `render/renderer.ts` syncs one display
+ * object per free spark and `state/vortex.ts` runs an O(freeSparks Ã anchors) pull scan, whose note
+ * says to *"revisit only if the free-spark cap is ever raised by an order of magnitude"*. 96 is 4Ã,
+ * deliberately inside that tolerance. â It caps the standing POOL, never the arrival RATE â the
+ * owner's S157 *"dont cap"* ruling is about the rate and is untouched.
+ */
+export const FREE_SPARK_POOL_CEILING = 96;
+
+export function freeSparkSoftCapForWave(waveNumber: number): number {
+  const idleSteadyState = Math.ceil(
+    SPAWN_RATE_PER_SECOND * waveSpawnMultiplier(waveNumber) * (FREE_SPARK_TTL_TICKS / PHYSICS_HZ),
+  );
+  return Math.min(FREE_SPARK_POOL_CEILING, Math.max(FREE_SPARK_SOFT_CAP, idleSteadyState));
+}
+
 // S109 P1 — un-claimed shapes self-despawn after 10s so the spawn zone never
 // piles into chaos (owner playtest #6). This is a TTL reap that runs BEFORE the
 // count-cap each tick (physicsLoop.reapExpiredFreeSparks). Only Free sparks are
@@ -1589,8 +1621,56 @@ export const CHEWER_MAX_PER_VICTIM = 10_000; // was dead code (never passed a vi
  * reporting; it is a balance ruling, not a wire-budget one.
  */
 export const WAVE_SPAWN_RATE_STEP = 0.2;
+
+/**
+ * â­â­ S186 (owner) â **THE RAMP GETS A STEP-UP AT EACH OF HIS FOUR BOUNDARIES.**
+ *
+ * Owner, S186: *"we already kind of did that, we implemented that a while ago. But every wave the
+ * primitives need to be spawned quicker and quicker. So far it does that but not fast enough â
+ * because at wave like six or seven all your gatherers are waiting in line and not moving until the
+ * shapes come up. So we need that too, like significantly faster: after wave 5, then after wave 10
+ * even more, even faster after 15, even faster after 20."*
+ *
+ * â **THIS LAYERS ON THE S157 LINEAR RAMP, IT DOES NOT REPLACE IT.** His S157 ruling (*"wave 1 is
+ * normal. wave 2 is 1.2. wave 3 is 1.4x faster"*) is still exactly what waves 1â5 do, and his
+ * *"dont cap"* still holds â the linear term keeps climbing past wave 25, so the product is
+ * unbounded. A session that replaces the linear base, or clamps the RATE, is reversing a live ruling.
+ *
+ * â  **THE FACTORS ARE MINE, NOT HIS. HE GAVE THE SHAPE, NOT THE NUMBERS.** They are sized off a
+ * measurement rather than taste, and `spawnEconomy.measure.test.ts` re-runs it:
+ *
+ * Â· One shared quarry serves the whole table (`main.ts` builds exactly one `Spawner`), so
+ *   `SPAWN_RATE_PER_SECOND` 1.125 is a BOARD-WIDE faucet, not a per-seat one.
+ * Â· One fully-upgraded gatherer delivers ~0.227 shapes/s; un-upgraded, ~0.09.
+ * Â· So at wave 6 the old 2.25/s fed about **ten** upgraded gatherers for the entire table â two or
+ *   three per seat. That is the crossover, and it lands exactly on his *"wave like six or seven"*.
+ *
+ * Ã1.6 at wave 6 takes the faucet to 3.6/s, which feeds ~16 upgraded haulers â the fleet he and his
+ * brother actually had. Each later band adds another 0.6 to the factor, so every boundary is a
+ * bigger jump in absolute shapes/s than the one before it: *"even faster, even faster."*
+ */
+export const WAVE_SPAWN_BANDS: ReadonlyArray<{ readonly lastWave: number; readonly factor: number }> = [
+  { lastWave: 5, factor: 1 },
+  { lastWave: 10, factor: 1.6 },
+  { lastWave: 15, factor: 2.2 },
+  { lastWave: 20, factor: 2.8 },
+  { lastWave: 25, factor: 3.4 },
+];
+
+/**
+ * The band step-up for a wave. Past the last band the FACTOR plateaus â but the linear term above
+ * does not, so the RATE still rises every wave forever, which is what his *"dont cap"* ruling
+ * requires. Total by construction, for the same reason `winScoreMultiplierForWave` is.
+ */
+export function waveSpawnBandFactor(waveNumber: number): number {
+  const first = WAVE_SPAWN_BANDS[0]!;
+  if (!Number.isFinite(waveNumber) || waveNumber <= first.lastWave) return first.factor;
+  for (const band of WAVE_SPAWN_BANDS) if (waveNumber <= band.lastWave) return band.factor;
+  return WAVE_SPAWN_BANDS[WAVE_SPAWN_BANDS.length - 1]!.factor;
+}
+
 export function waveSpawnMultiplier(waveNumber: number): number {
-  return 1 + WAVE_SPAWN_RATE_STEP * Math.max(0, waveNumber - 1);
+  return (1 + WAVE_SPAWN_RATE_STEP * Math.max(0, waveNumber - 1)) * waveSpawnBandFactor(waveNumber);
 }
 
 export const GOBLIN_MAX_GLOBAL = 200;

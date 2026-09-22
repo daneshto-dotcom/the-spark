@@ -32,8 +32,14 @@ import {
   CASTLE_MAX_HP,
   CASTLE_PEN,
   HAZARD_SPAWN_ENABLED,
+  FREE_SPARK_POOL_CEILING,
+  FREE_SPARK_SOFT_CAP,
   PHASE_1_WIN_SCORE,
   WIN_SCORE_BANDS,
+  WAVE_SPAWN_BANDS,
+  freeSparkSoftCapForWave,
+  waveSpawnBandFactor,
+  waveSpawnMultiplier,
   hunterTriggerScoreForWave,
   winScoreForWave,
   LONE_PRIMITIVE_POOL_FIFTHS,
@@ -122,6 +128,38 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // a wire field for it, this red flag says the cheaper path already existed.
     expect(canonSays('No new field, no four-sites work')).toBe(true);
     expect(canonSays('already hashed')).toBe(true);
+  });
+
+  it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
+    // ⛔ The S157 ruling (wave 1 normal, +0.2 a wave) must survive the S186 step-up. Band 1's factor
+    // being exactly 1 is what proves waves 1-5 are byte-identical to what he dictated then.
+    expect(waveSpawnBandFactor(5)).toBe(1);
+    expect(waveSpawnMultiplier(5)).toBeCloseTo(1.8);
+    expect(WAVE_SPAWN_BANDS.map((band) => band.lastWave)).toEqual([5, 10, 15, 20, 25]);
+    expect(canonSays('after wave 5, then')).toBe(true);
+    // The RATE stays uncapped forever, which is the other half of his S157 ruling.
+    expect(waveSpawnMultiplier(500)).toBeGreaterThan(waveSpawnMultiplier(100));
+    expect(canonSays('the RATE is')).toBe(true);
+  });
+
+  it('⚠ §3c — records that the POOL ceiling is a perf bound, NOT the rate cap he refused', () => {
+    // Conflating the two would read as a reversal of "dont cap". The canon has to keep them apart.
+    expect(freeSparkSoftCapForWave(1)).toBe(FREE_SPARK_SOFT_CAP);
+    expect(FREE_SPARK_POOL_CEILING).toBe(FREE_SPARK_SOFT_CAP * 4);
+    expect(canonSays('never a bound on the arrival rate')).toBe(true);
+  });
+
+  it('⛔ §3c — keeps the EMPTY-QUARRY finding visible, since it is unfixed by design', () => {
+    // It is the half of his complaint that a faster faucet cannot fix. If this paragraph is ever
+    // tidied away, the next session re-diagnoses "waiting in line" from scratch.
+    expect(canonSays('opens onto a COMPLETELY EMPTY quarry')).toBe(true);
+    expect(canonSays('NOT FIXED, ON PURPOSE')).toBe(true);
+  });
+
+  it('⛔ §3c — states that ONE quarry serves the whole table', () => {
+    // Reasoning about the faucet per-seat is wrong by the seat count, and is the easiest mistake to
+    // make from inside gathererLifecycle.
+    expect(canonSays('THERE IS EXACTLY ONE QUARRY FOR THE WHOLE TABLE')).toBe(true);
   });
 
   it('prints the castle numbers that are actually shipped', () => {

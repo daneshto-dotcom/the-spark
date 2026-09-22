@@ -196,6 +196,69 @@ seat, and raising it would retune every castle relationship measured in S181.
 
 ---
 
+## 3c · ⭐⭐ THE QUARRY — ONE SHARED FAUCET, AND IT STEPS UP AT THE SAME FOUR WAVES (S186)
+
+> *"Every wave the primitives need to be spawned quicker and quicker. So far it does that but not
+> fast enough — because at wave like six or seven all your gatherers are waiting in line and not
+> moving until the shapes come up. So we need that too, like significantly faster: after wave 5, then
+> after wave 10 even more, even faster after 15, even faster after 20."* — owner, S186
+
+```
+shapes/s = SPAWN_RATE_PER_SECOND × (1 + 0.2 × (wave − 1)) × waveSpawnBandFactor(wave)
+```
+
+⛔ **THERE IS EXACTLY ONE QUARRY FOR THE WHOLE TABLE.** `main.ts` constructs a single `Spawner` at one
+`SPAWNER_CENTER`, so 1.125/s is a **board-wide** faucet that every seat's gatherers share. A session
+reasoning about it "per player" will be wrong by the seat count.
+
+| wave | multiplier | shapes/s | shapes per BUILD | pool cap |
+|---|---:|---:|---:|---:|
+| 1 | 1.00 | 1.13 | **97** | 24 |
+| 5 | 1.80 | 2.02 | **184** | 24 |
+| 6 | 3.20 | 3.60 | **323** | 36 |
+| 10 | 4.48 | 5.04 | **463** | 51 |
+| 15 | 8.36 | 9.41 | **874** | 95 |
+| 20 | 13.44 | 15.12 | **1399** | 96 |
+| 25 | 19.72 | 22.19 | **2009** | 96 |
+
+⭐ **EVERY FIGURE IN THAT TABLE IS MEASURED THROUGH `stepPhysics`, NOT DERIVED** —
+`spawnEconomy.measure.test.ts` re-runs it, the way `castleGuns.test.ts` re-runs the siege. It exists
+because two independent analyses disagreed about the cause and only the loop settled it.
+
+⛔ **THE S157 RULING SURVIVES INTACT AND MUST KEEP SURVIVING.** Band 1's factor is **1**, so waves 1–5
+are byte-identical to his *"wave 1 is normal. wave 2 is 1.2. wave 3 is 1.4x faster"*. And the RATE is
+still uncapped — the band factor plateaus past wave 25 but the linear term never does, so
+`waveSpawnMultiplier` rises forever, which is what *"dont cap because people build more and more
+gatherers"* requires. ⚠ **The band factors themselves are MINE, not his** — he gave the shape, not the
+numbers. They are sized off the measured crossover: at the old wave-6 rate the faucet fed about **ten**
+fully-upgraded gatherers **for the entire table**, which is two or three per seat, and that is exactly
+his *"wave like six or seven"*.
+
+⚠ **THE POOL CAP HAD TO MOVE WITH THE FAUCET, OR HALF THE STEP-UP WOULD HAVE BEEN IMAGINARY.**
+`FREE_SPARK_SOFT_CAP`'s own docblock calls 24 a *"safety valve rather than a throttle"*, sized against
+a measured wave-1 peak of 18. Left fixed it would have become the throttle it says it must not be.
+`freeSparkSoftCapForWave` returns the Little's-Law idle steady state, floored at 24 (so wave 1 is
+unchanged) and ceilinged at **96** — ⛔ a PERFORMANCE bound on the per-spark display list and the
+`vortex.ts` O(sparks × anchors) scan, **never a bound on the arrival rate**, so it does not touch his
+"dont cap" ruling.
+
+### ⛔ AND THE MEASUREMENT FOUND A SECOND CAUSE NOBODY HAD NAMED — HE SHOULD SEE THIS ONE
+
+**Every BUILD from wave 2 on opens onto a COMPLETELY EMPTY quarry.** The spawn *dispatch* is
+BUILD-gated, but `reapExpiredFreeSparks` runs **unconditionally**, and FIGHT is 3600 ticks against a
+600-tick TTL. So every unclaimed shape ages out in the first ~10 s of the fight and nothing replaces
+it for the remaining ~50 s. Measured: `pool@FIGHT-end` is **0 at every wave tested**.
+
+At the next whistle the whole fleet is released on one tick onto nothing and walks ~870 px as one
+synchronised pack. **That is "waiting in line and not moving", verbatim — and no faucet number removes
+it**, it only shortens the window.
+
+⚠ **NOT FIXED, ON PURPOSE.** The one-line change (stop reaping during FIGHT, so the last BUILD's
+surplus greets them) is a balance decision he has not been asked for, and the TTL is also what clears
+flung debris. Measured, pinned and reported rather than taken.
+
+---
+
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
 | | attackable? |
